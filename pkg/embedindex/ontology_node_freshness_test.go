@@ -285,3 +285,42 @@ func TestOntologyNodeSyncerCachesSucceededSlicesWhenPassIsCancelled(t *testing.T
 	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: retry, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}))
 	require.Equal(t, int64(1), retry.texts.Load(), "vectors returned before cancellation are cached")
 }
+
+// Every slice succeeds, but another lane cancels the pass before publication;
+// the returned vectors must still reach the cache.
+func TestOntologyNodeSyncerCachesVectorsWhenPublicationIsCancelled(t *testing.T) {
+	_, schema, projection := setupOntologyNodeChunkFixture(t)
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+	require.NoError(t, err)
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(context.Background(), model))
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	provider := &cancelAfterProvider{lazyDimsProvider: newLazyDimsProvider(), cancel: cancel, after: 3}
+	err = OntologyNodeSyncer{Store: store, Schema: schema, Provider: provider, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}.SyncProjections(ctx, projection)
+	require.Error(t, err, "publication runs on the cancelled context")
+
+	retry := newLazyDimsProvider()
+	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: retry, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}))
+	require.Zero(t, retry.texts.Load(), "vectors returned before a cancelled publication are cached")
+}
+
+// cancelAfterProvider cancels its context once `after` texts have embedded,
+// as a failing code lane cancels the shared semantic context.
+type cancelAfterProvider struct {
+	*lazyDimsProvider
+	cancel context.CancelFunc
+	after  int64
+}
+
+func (p *cancelAfterProvider) EmbedTexts(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	vectors, err := p.lazyDimsProvider.EmbedTexts(ctx, texts)
+	if err == nil && p.succeeded.Load() >= p.after {
+		p.cancel()
+	}
+	return vectors, err
+}

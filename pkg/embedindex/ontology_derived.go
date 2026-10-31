@@ -183,11 +183,19 @@ func (s OntologyNodeSyncer) SyncSourceSnapshots(ctx context.Context, sources []n
 	if err != nil {
 		return err
 	}
+	return s.embedAndPublish(ctx, plan)
+}
+
+// embedAndPublish computes and publishes plan. When either step fails, the
+// vectors the provider already returned are cached on a context detached from
+// cancellation, so another lane failing or a stop does not make a retry send
+// that text again.
+func (s OntologyNodeSyncer) embedAndPublish(ctx context.Context, plan OntologyDerivedPlan) error {
 	result, err := s.ComputeDerived(ctx, plan)
-	if err != nil {
-		// Detached from cancellation: another lane failing or a stop must not
-		// drop vectors the provider already returned.
-		return errors.Join(err, s.CacheDerived(context.WithoutCancel(ctx), result))
+	if err == nil {
+		if err = s.PublishDerived(ctx, result); err == nil {
+			return nil
+		}
 	}
-	return s.PublishDerived(ctx, result)
+	return errors.Join(err, s.CacheDerived(context.WithoutCancel(ctx), result))
 }

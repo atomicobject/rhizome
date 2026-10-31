@@ -59,13 +59,7 @@ func (s OntologyNodeSyncer) SyncProjections(ctx context.Context, projections ...
 		}
 		plan.chunksChanged = false
 	}
-	result, err := s.ComputeDerived(ctx, plan)
-	if err != nil {
-		// Detached from cancellation: another lane failing or a stop must not
-		// drop vectors the provider already returned.
-		return errors.Join(err, s.CacheDerived(context.WithoutCancel(ctx), result))
-	}
-	return s.PublishDerived(ctx, result)
+	return s.embedAndPublish(ctx, plan)
 }
 
 func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections ...*ontology.NodeProjection) (OntologyDerivedPlan, error) {
