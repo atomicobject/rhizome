@@ -21,23 +21,23 @@ type fakeDerivedResult int
 
 func (fakeDerivedResult) RetainedBytes() int { return 1 }
 
-type countingLane struct {
+type publicationLane struct {
 	lane.Lane
 	submits atomic.Int64
 }
 
-func (l *countingLane) Submit(ctx context.Context, req lane.Request) (lane.Handle, bool, error) {
+func (l *publicationLane) Submit(ctx context.Context, req lane.Request) (lane.Handle, bool, error) {
 	l.submits.Add(1)
 	return l.Lane.Submit(ctx, req)
 }
 
-func derivedPublicationFixture(t *testing.T) (*derivedScheduler, *countingLane, codeanchor.DerivedWork) {
+func derivedPublicationFixture(t *testing.T) (*derivedScheduler, *publicationLane, codeanchor.DerivedWork) {
 	t.Helper()
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("# note\n"), 0o600))
 	w, c, store := newLiveOwnershipTestWatcher(t, root, obsidian.VaultDefinition{Path: root})
 	t.Cleanup(func() { c.Close(); store.Close() })
-	counted := &countingLane{Lane: w.lane}
+	counted := &publicationLane{Lane: w.lane}
 	w.lane = counted
 	tickets, err := store.MarkDerivedDirty(t.Context(), []codeanchor.DerivedScope{{Kind: codeanchor.DerivedCode}})
 	require.NoError(t, err)

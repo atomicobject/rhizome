@@ -1078,3 +1078,24 @@ func TestRecrawlCompletionIsVisibleToEveryReader(t *testing.T) {
 	require.True(t, svc.HasPendingWork(0))
 	require.False(t, svc.HasPendingWork(result.Recrawls))
 }
+
+// A recrawl another reader starts and finishes after the mark still covers it.
+func TestResyncCoveredByRecrawlAnotherReaderCompleted(t *testing.T) {
+	root := t.TempDir()
+	writeCacheFile(t, root, "note.md", "# Note")
+	svc, err := NewService(root, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	attempt := svc.MarkStaleForResync()
+	require.False(t, svc.ResyncCovered(attempt))
+	waitResynced(t, svc) // another reader starts and completes the recrawl
+	require.True(t, svc.ResyncCovered(attempt))
+
+	// A second mark needs a later recrawl than the one already completed.
+	next := svc.MarkStaleForResync()
+	require.False(t, svc.ResyncCovered(next))
+	waitResynced(t, svc)
+	require.True(t, svc.ResyncCovered(next))
+}
