@@ -134,8 +134,14 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 		Addr:              cfg.Listen,
 		Handler:           idle.wrap(mux),
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      180 * time.Second,
-		IdleTimeout:       360 * time.Second,
+		// A backstop for requests rejected before their handler reads the
+		// body (for example an unauthenticated logout): Go drains the body
+		// after the handler returns, and this bounds that read. Routes that
+		// read bodies set their own shorter deadline; once a body is read
+		// the deadline is cleared, so long provider calls are unaffected.
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 180 * time.Second,
+		IdleTimeout:  360 * time.Second,
 	}
 	go func() {
 		if idleExit > 0 {

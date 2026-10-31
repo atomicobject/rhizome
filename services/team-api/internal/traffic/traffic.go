@@ -398,6 +398,11 @@ func (t *Traffic) models(w http.ResponseWriter, r *http.Request) {
 			return &gwError{wire.CodeUpstreamDown, "the provider response could not be read", time.Second}
 		}
 		ev.bytesOut = res.bytesOut
+		if res.status >= 200 && res.status <= 299 && !res.complete {
+			// Reset the connection, as the paid routes do, so a cut-off list
+			// cannot look whole.
+			panic(http.ErrAbortHandler)
+		}
 		return nil
 	}()
 	if e != nil {
