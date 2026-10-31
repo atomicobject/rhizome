@@ -195,7 +195,7 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 		// Agents and scripts see the same findings, with the workflow chosen
 		// for them.
 		printFindings(out, s.cfg, r.layout, r.harnessesFor(s.cfg), s.skips, provider, ready, workflowLabel(s.workflows, nil))
-		return outcome, nil
+		return outcome, chooseAddons(s, r.opts.Addons)
 	}
 
 	printFindings(out, s.cfg, r.layout, r.harnessesFor(s.cfg), s.skips, provider, ready, "")
@@ -213,6 +213,10 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 	if !workflowChosen {
 		s.workflows = promptWorkflow(r.reader, out, nil)
 	}
+	// --addons applies once the workflow is known, so settings start from it.
+	if err := chooseAddons(s, r.opts.Addons); err != nil {
+		return outcome, err
+	}
 	if provider != searchOff && !ready {
 		outcome.provider, outcome.ready, outcome.savedKey, err = promptSearchKey(r.reader, out, provider, r.session)
 		if err != nil {
@@ -223,6 +227,9 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 
 	for {
 		fmt.Fprintln(out)
+		if names := offAddonNames(s.cfg); len(names) > 0 {
+			fmt.Fprintln(out, styleDim(out, "Optional add-ons: "+joinHumanPaths(names)+". Press e, then Add-ons, to turn one on."))
+		}
 		switch askChoice(r.reader, out, "Set up Rhizome? [Y/n/e to edit]: ", "y", "y", "n", "e") {
 		case "n":
 			return outcome, errSetupCancelled
@@ -233,10 +240,29 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 			outcome.provider = searchProviderOf(s.cfg)
 			outcome.ready = s.cfg.NoteEmbeddings != nil && s.cfg.NoteEmbeddings.Enabled
 			printFindings(out, s.cfg, r.layout, r.harnessesFor(s.cfg), s.skips, outcome.provider, outcome.ready, workflowLabel(s.workflows, nil))
+			printFinding(out, "Add-ons", r.addonsLabel(*s))
 			continue
 		}
 		return outcome, nil
 	}
+}
+
+// offAddonNames names the optional add-ons cfg leaves off, so a first run
+// can point to the settings that turn them on.
+//
+// Docs: [[init-starter-workflow#^SPEC-0038-US12-AC1]]
+func offAddonNames(cfg repoconfig.LocalConfig) []string {
+	registry, err := loadStarterTemplateMetadataRegistry()
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, id := range addonIDs(registry) {
+		if registry[id].OptionalAddon && !contains(normalizeMetadataIDs(cfg.WorkflowTemplateAddons.Enabled), id) {
+			names = append(names, firstNonEmpty(registry[id].Name, id))
+		}
+	}
+	return names
 }
 
 // searchHint says how to turn on semantic search when the chosen provider

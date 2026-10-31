@@ -172,7 +172,7 @@ test("progress notes are redacted before they are shortened", async () => {
 const { mergeProfile, resolve } = await import(new URL("models.mjs", lib));
 const shipped = JSON.parse(await (await import("node:fs/promises")).readFile(new URL("../../models.json", lib), "utf8"));
 const claudeStatus = { kind: "claude", installed: true, loggedIn: true, version: "2.1.280", models: [{ id: "sonnet", efforts: ["low", "medium", "high", "xhigh", "max"] }, { id: "haiku" }] };
-const codexStatus = { kind: "codex", installed: true, loggedIn: true, version: "0.163.0", models: [{ id: "gpt-6.1-sol", efforts: ["low", "medium"] }, { id: "gpt-6.2-sol", efforts: ["low", "medium"] }, { id: "gpt-6-luna", efforts: ["xhigh"] }] };
+const codexStatus = { kind: "codex", installed: true, loggedIn: true, version: "0.163.0", models: [{ id: "gpt-6.1-terra", efforts: ["low", "medium", "high", "xhigh", "max"] }, { id: "gpt-6.1-sol", efforts: ["low", "medium"] }, { id: "gpt-6.2-sol", efforts: ["low", "medium"] }, { id: "gpt-6-luna", efforts: ["xhigh"] }] };
 
 test("the shipped profile names a measured or provisional candidate per provider for every role", () => {
   for (const [role, list] of Object.entries(shipped.roles)) {
@@ -207,11 +207,33 @@ test("an unavailable family falls back within the provider, never across", async
   assert.match(bindings.extract.skipped[0].reason, /model not found/);
 });
 
-test("a Codex harness picks the newest catalog version, and a missing role stops the run", async () => {
+test("a Codex harness resolves the measured Terra roles and newest Sol family, and a missing role stops the run", async () => {
   const { bindings } = await resolve(mergeProfile(shipped), { providers: ["codex"], statuses: [codexStatus], probe: async (r) => r.model });
-  assert.deepEqual([bindings.extract.model, bindings.extract.effort, bindings.extract.choice], ["gpt-6.2-sol", "low", "newer-version"]);
+  assert.deepEqual([bindings.extract.model, bindings.extract.effort, bindings.extract.choice], ["gpt-6.1-terra", "xhigh", "default"]);
+  assert.deepEqual([bindings.verify.model, bindings.verify.effort], ["gpt-6.1-terra", "low"]);
+  assert.deepEqual([bindings.synthesize.model, bindings.synthesize.effort, bindings.synthesize.choice], ["gpt-6.2-sol", "medium", "newer-version"]);
+  assert.deepEqual([bindings.match.model, bindings.match.effort], ["gpt-6.2-sol", "low"]);
   const flagged = mergeProfile(shipped, null, ["verify=claude:claude-opus-5-5:medium"]);
   await assert.rejects(resolve(flagged, { providers: ["codex"], statuses: [codexStatus], probe: async (r) => r.model }), /no model for verify/);
+});
+
+test("unavailable Terra falls back to Sol within Codex", async () => {
+  const { bindings } = await resolve(mergeProfile(shipped), { providers: ["codex"], statuses: [codexStatus], probe: async (r) => {
+    if (r.candidate.family === "terra") throw new Error("model not found");
+    assert.equal(r.provider, "codex");
+    return r.model;
+  } });
+  for (const role of ["extract", "verify"]) {
+    assert.deepEqual([bindings[role].model, bindings[role].effort, bindings[role].choice], ["gpt-6.2-sol", "low", "fallback"]);
+    assert.match(bindings[role].skipped[0].reason, /model not found/);
+  }
+});
+
+test("a repository extraction override retains precedence over the updated shipped defaults", async () => {
+  const local = { roles: { extract: [{ provider: "codex", model: "gpt-6-luna", effort: "xhigh" }] } };
+  const { bindings } = await resolve(mergeProfile(shipped, local), { providers: ["codex"], statuses: [codexStatus], probe: async (r) => r.model });
+  assert.deepEqual([bindings.extract.model, bindings.extract.choice], ["gpt-6-luna", "local"]);
+  assert.deepEqual([bindings.verify.model, bindings.verify.effort], ["gpt-6.1-terra", "low"]);
 });
 
 test("redaction stays fast on long text that repeats sensitive names", () => {

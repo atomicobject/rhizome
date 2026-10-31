@@ -60,7 +60,7 @@ flowchart TD
 - `detect_notes.go` — scored markdown-dir detection for knowledge roots
 - `first_run.go` — first-run findings, the workflow and search-key questions, and the setup summary
 - `rerun.go` — `resolve`/`apply`, the rerun summary and change list (settings, detection drift, generated files), suggestions, and `--check`
-- `settings.go` — the four-section settings menu (what gets indexed, semantic search, agents, workflow)
+- `settings.go` — the five-section settings menu (what gets indexed, semantic search, agents, workflow, add-ons)
 - `skips.go` — skip suggestions for bulky checked-in content and the `# rhizome: suggested skips` section of `.rhizome/ignore`
 - `template.go` — `normalizeTemplateNames`, `resolveTemplateSet`, `planTemplateScaffold`; unknown-name and target-path collision rejection
 - `helper_templates.go` — `embed.FS` loader for skills, starter docs/ontology/query-recipes/views, managed-doc/embed expansion, skill-collision detection

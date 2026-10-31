@@ -2,7 +2,9 @@ package init
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -60,6 +62,79 @@ func TestOptionalAddonIsNotADefaultAndTheSetupSheetDoesNotListIt(t *testing.T) {
 	_, err = Apply(RunOptions{Dir: root, Workflow: "agentic-engineering", Search: "off"})
 	require.NoError(t, err)
 	require.NoFileExists(t, compoundingSkill(root))
+}
+
+// addonMenuNumber is an add-on's number in the settings Add-ons section.
+func addonMenuNumber(t *testing.T, id string) string {
+	t.Helper()
+	registry, err := loadStarterTemplateMetadataRegistry()
+	require.NoError(t, err)
+	return fmt.Sprint(slices.Index(addonIDs(registry), id) + 1)
+}
+
+func TestFirstRunSettingsTurnOnAnOptionalAddonAndItsHooks(t *testing.T) {
+	root := firstRunRepo(t)
+	n := addonMenuNumber(t, templateCompounding)
+
+	// Default workflow, no key, e for settings, 5 for add-ons, n picks
+	// Compounding, Enter turns hooks on, Enter twice leaves, Enter sets up.
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\ne\n5\n"+n+"\n\n\n\n\n")
+
+	require.Contains(t, out, "Optional add-ons: Compounding. Press e, then Add-ons, to turn one on.")
+	require.Contains(t, out, "[ ] Compounding")
+	require.Contains(t, out, "Compounding uses agent hooks, which are off.")
+	require.Contains(t, out, "Add-ons   Action items and Compounding")
+	cfg := loadConfigForTest(t, root)
+	require.Equal(t, []string{templateActionItems, templateCompounding}, cfg.WorkflowTemplateAddons.Enabled)
+	require.True(t, hooksOn(*cfg))
+	require.FileExists(t, compoundingSkill(root))
+}
+
+func TestFirstRunSettingsCanTurnOffAnAddonListedInAddons(t *testing.T) {
+	root := firstRunRepo(t)
+	n := addonMenuNumber(t, templateCompounding)
+
+	// Default workflow, no key, e, 5, n turns Compounding off, Enter twice
+	// leaves, Enter sets up.
+	var out bytes.Buffer
+	require.NoError(t, Run(RunOptions{Env: initTestEnv(t), Dir: root, Interactive: true, Addons: "action-items,compounding",
+		Stdin: bytes.NewBufferString("\n\ne\n5\n" + n + "\n\n\n\n"), Stdout: &out, Stderr: &out}))
+
+	require.Equal(t, []string{templateActionItems}, loadConfigForTest(t, root).WorkflowTemplateAddons.Enabled)
+	require.NoFileExists(t, compoundingSkill(root))
+}
+
+func TestFirstRunSettingsWorkflowChangeKeepsAddonsNone(t *testing.T) {
+	root := firstRunRepo(t)
+
+	// No key, e, 4 for the workflow, 1 picks Agentic Engineering, Enter
+	// leaves settings, Enter sets up.
+	var out bytes.Buffer
+	require.NoError(t, Run(RunOptions{Env: initTestEnv(t), Dir: root, Interactive: true, Workflow: "none", Addons: "none",
+		Stdin: bytes.NewBufferString("\ne\n4\n1\n\n\n"), Stdout: &out, Stderr: &out}))
+
+	cfg := loadConfigForTest(t, root)
+	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplates)
+	require.Equal(t, []string{templateActionItems}, cfg.WorkflowTemplateAddons.Disabled)
+	require.NoFileExists(t, actionItemsOntology(root))
+}
+
+func TestRerunSettingsAddAnAddonAndKeepHooksOff(t *testing.T) {
+	root := rerunRepo(t)
+	n := addonMenuNumber(t, templateCompounding)
+
+	// s for settings, 5 for add-ons, n picks Compounding, n keeps hooks off,
+	// Enter twice leaves, y applies.
+	out, err := runInit(t, RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString("s\n5\n" + n + "\nn\n\n\ny\n")})
+	require.NoError(t, err)
+
+	require.Contains(t, out, "[x] Compounding")
+	require.Contains(t, out, "Hooks stay off")
+	cfg := loadConfigForTest(t, root)
+	require.Equal(t, []string{templateActionItems, templateCompounding}, cfg.WorkflowTemplateAddons.Enabled)
+	require.False(t, hooksOn(*cfg))
+	require.FileExists(t, compoundingSkill(root))
+	requireUpToDate(t, root)
 }
 
 func TestAddAndRemoveAddonsChangeOnlyTheNamedAddon(t *testing.T) {
