@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
@@ -20,10 +19,6 @@ import (
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
-
-// ontologyEmbeddingCacheRetention keeps vectors for text no current chunk has,
-// so reverted edits and renamed notes reuse them instead of calling the provider.
-const ontologyEmbeddingCacheRetention = 30 * 24 * time.Hour
 
 type unifiedPostIndexOptions struct {
 	ForceGraph       bool
@@ -112,11 +107,6 @@ func runUnifiedPostIndex(
 			} else if autoVac {
 				_ = recordAutoVacuum(codeCfg.IndexPath)
 			}
-		}
-		// ponytail: a fixed 30-day idle window bounds cache growth by edit churn;
-		// add a size cap if heavily edited vaults show cache bloat.
-		if _, err := intelStore.PruneOntologyEmbeddingCache(ctx, time.Now().Add(-ontologyEmbeddingCacheRetention)); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: ontology embedding cache prune failed: %v\n", err)
 		}
 		progress.AdvanceTo("Optimizing index", graphEnd)
 		if err := runPhase(ctx, "analyze_optimize_checkpoint", func(phaseCtx context.Context) error {

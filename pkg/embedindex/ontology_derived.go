@@ -67,19 +67,29 @@ func (s OntologyNodeSyncer) PublishDerived(ctx context.Context, result OntologyD
 			if err := s.Store.UpsertEmbeddings(ctx, rows); err != nil {
 				return err
 			}
-			entries := make([]store.OntologyEmbeddingCacheEntry, 0, len(rows))
-			for id, vector := range rows {
-				entries = append(entries, store.OntologyEmbeddingCacheEntry{Provider: s.ProviderInfo.Provider, Model: s.ProviderInfo.Model, TextHash: plan.textHashes[id], Vector: vector})
-			}
-			if err := s.Store.UpsertOntologyEmbeddingCache(ctx, entries); err != nil {
-				return err
-			}
+		}
+		if err := s.CacheDerived(ctx, result); err != nil {
+			return err
 		}
 		if len(plan.states) > 0 {
 			return s.Store.UpsertOntologyNodeEmbeddingStates(ctx, plan.states)
 		}
 		return nil
 	})
+}
+
+// CacheDerived records the provider's vectors in the content-addressed cache.
+// It is correct even when the result's ticket was superseded, so a skipped
+// publication does not send the same text to the provider again.
+func (s OntologyNodeSyncer) CacheDerived(ctx context.Context, result OntologyDerivedResult) error {
+	if len(result.vectors) == 0 {
+		return nil
+	}
+	entries := make([]store.OntologyEmbeddingCacheEntry, 0, len(result.vectors))
+	for i, vector := range result.vectors {
+		entries = append(entries, store.OntologyEmbeddingCacheEntry{Provider: s.ProviderInfo.Provider, Model: s.ProviderInfo.Model, TextHash: result.plan.textHashes[result.plan.ids[i]], Vector: vector})
+	}
+	return s.Store.UpsertOntologyEmbeddingCache(ctx, entries)
 }
 
 // PrepareSourceSnapshots projects the same provider-current authored sources

@@ -96,3 +96,52 @@ func TestOntologyNodeSyncerRestoresRevertedContentAfterProviderFailure(t *testin
 	require.NoError(t, syncer.SyncProjections(ctx, original))
 	require.Zero(t, provider.calls.Load())
 }
+
+// The vector cache serves only vectors of the provider's effective size, even
+// when the configuration leaves dimensions unset.
+func TestOntologyNodeSyncerCacheRequiresEffectiveDimensions(t *testing.T) {
+	ctx := context.Background()
+	_, schema, projection := setupOntologyNodeChunkFixture(t)
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+	require.NoError(t, err)
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, model))
+	owners := make([]string, 0, len(model.Nodes))
+	for _, node := range model.Nodes {
+		owners = append(owners, node.NodeID)
+	}
+	// Dropping chunks (and their embedding state) forces the cache lookup.
+	syncFresh := func(provider *countingProvider, dims int) {
+		t.Helper()
+		require.NoError(t, store.ReplaceIntelChunks(ctx, owners, nil))
+		info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: dims}
+		require.NoError(t, OntologyNodeSyncer{Store: store, Provider: provider, ProviderInfo: info, Schema: schema}.SyncProjections(ctx, projection))
+	}
+	small := &countingProvider{inner: embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 4})}
+	syncFresh(small, 4)
+	require.Positive(t, small.calls.Load())
+
+	// Configured dimensions are unset; the provider reports 8, so the cached
+	// 4-value vectors must not be served.
+	large := &countingProvider{inner: embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8})}
+	syncFresh(large, 0)
+	require.Positive(t, large.calls.Load(), "a cached vector of another size must not be served")
+	set, err := BuildOntologyNodeChunks(schema, projection, embeddings.ProviderConfig{Provider: "test", Model: "deterministic"}, 0)
+	require.NoError(t, err)
+	ids := make([]string, 0, len(set.Chunks))
+	for _, chunk := range set.Chunks {
+		ids = append(ids, chunk.ChunkID)
+	}
+	vectors, err := store.EmbeddingsByChunkIDs(ctx, ids)
+	require.NoError(t, err)
+	require.NotEmpty(t, vectors)
+	for _, vector := range vectors {
+		require.Len(t, vector, 8)
+	}
+
+	large.Reset()
+	syncFresh(large, 0)
+	require.Zero(t, large.calls.Load(), "vectors of the effective size are reused")
+}

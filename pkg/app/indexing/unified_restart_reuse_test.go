@@ -59,10 +59,28 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	restart, byPhase := providerTexts()
 	require.Zero(t, restart, "same-build catch-up must not re-embed unchanged content; provider texts by phase: %v", byPhase)
 
+	// A database upgraded from before the vector cache has embeddings but no
+	// cache rows. The v79 backfill runs at the next open, before catch-up's
+	// ownership transition, so a projection-version bump in the same upgrade
+	// still sends nothing to the provider.
+	store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	for _, stmt := range []string{
+		`DELETE FROM ontology_embedding_cache`,
+		`UPDATE rzm_migration_state SET version = 78 WHERE domain = 'intel'`,
+		`UPDATE note_projection_state SET projection_version = 'markdown-projection-v4'`,
+	} {
+		_, err = store.DB().ExecContext(context.Background(), stmt)
+		require.NoError(t, err)
+	}
+	closeStore()
+	upgraded, byPhase := providerTexts()
+	require.Zero(t, upgraded, "an upgrade must backfill the vector cache before reprojecting unchanged content; provider texts by phase: %v", byPhase)
+
 	// A build that bumps OntologyMaterializationVersion makes catch-up rebuild
 	// the ontology and re-plan every body, so this run exercises the stored
 	// embedding-state comparison rather than the unchanged-source skip.
-	store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	_, err = store.DB().ExecContext(context.Background(), `UPDATE ontology_schema_state SET materialization_version = materialization_version - 1`)
 	closeStore()

@@ -147,7 +147,12 @@ func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections 
 	}
 	// Text embedded once with this provider, model and size is never sent
 	// again, even after ownership transitions or rebuilds deleted its state.
-	vectorsByHash, err := s.Store.OntologyEmbeddingCacheVectors(ctx, s.ProviderInfo.Provider, s.ProviderInfo.Model, s.ProviderInfo.Dimensions, hashes)
+	// An unknown size skips the cache rather than guessing one.
+	dims := s.Provider.Dimensions()
+	if dims <= 0 {
+		dims = s.ProviderInfo.Dimensions
+	}
+	vectorsByHash, err := s.Store.OntologyEmbeddingCacheVectors(ctx, s.ProviderInfo.Provider, s.ProviderInfo.Model, dims, hashes)
 	if err != nil {
 		return OntologyDerivedPlan{}, fmt.Errorf("load ontology embedding cache: %w", err)
 	}

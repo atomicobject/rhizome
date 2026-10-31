@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -64,18 +65,20 @@ func createOntologyEmbeddingCacheSchema(ctx context.Context, db execer) error {
 	return nil
 }
 
-// OntologyEmbeddingCacheVectors returns cached vectors keyed by text hash.
-// dims <= 0 means the provider's default size and accepts any stored size.
+// OntologyEmbeddingCacheVectors returns cached vectors of exactly dims values
+// keyed by text hash. An unknown size (dims <= 0) matches nothing.
 func (s *Store) OntologyEmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, hashes []string) (map[string]embeddings.Embedding, error) {
 	hashes = normalizeNonEmptyStrings(hashes)
 	out := make(map[string]embeddings.Embedding, len(hashes))
+	if dims <= 0 {
+		return out, nil
+	}
 	for batch := range slices.Chunk(hashes, 400) {
 		holders, args := placeholders(batch)
-		args = append([]any{provider, model, dims, dims}, args...)
+		args = append([]any{provider, model, dims}, args...)
 		rows, err := s.db.QueryContext(ctx, `
 			SELECT text_hash, vector FROM ontology_embedding_cache
-			WHERE provider = ? AND model = ? AND (? <= 0 OR dimensions = ?) AND text_hash IN (`+holders+`)
-			ORDER BY last_used_at`, args...)
+			WHERE provider = ? AND model = ? AND dimensions = ? AND text_hash IN (`+holders+`)`, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +89,7 @@ func (s *Store) OntologyEmbeddingCacheVectors(ctx context.Context, provider, mod
 				rows.Close()
 				return nil, err
 			}
-			out[hash] = bytesToEmbed(blob) // most recently used size wins
+			out[hash] = bytesToEmbed(blob)
 		}
 		err = rows.Err()
 		rows.Close()
@@ -97,8 +100,8 @@ func (s *Store) OntologyEmbeddingCacheVectors(ctx context.Context, provider, mod
 	return out, nil
 }
 
-// UpsertOntologyEmbeddingCache records vectors and refreshes last_used_at for
-// reused ones.
+// UpsertOntologyEmbeddingCache records provider vectors. Rows are never pruned:
+// text embedded once is not sent to the provider again.
 func (s *Store) UpsertOntologyEmbeddingCache(ctx context.Context, entries []OntologyEmbeddingCacheEntry) error {
 	if len(entries) == 0 {
 		return nil
@@ -128,21 +131,52 @@ func (s *Store) UpsertOntologyEmbeddingCache(ctx context.Context, entries []Onto
 	})
 }
 
-// PruneOntologyEmbeddingCache deletes vectors unused since cutoff whose text no
-// current ontology chunk still has.
-func (s *Store) PruneOntologyEmbeddingCache(ctx context.Context, cutoff time.Time) (int64, error) {
-	ctx = indexingperf.WithOp(ctx, "intel.prune_ontology_embedding_cache")
-	var deleted int64
-	err := s.withWriteTx(ctx, func(tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, `
-			DELETE FROM ontology_embedding_cache
-			WHERE last_used_at < ?
-				AND text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`, cutoff.Unix())
+// backfillOntologyEmbeddingCacheSchema copies ontology vectors embedded before
+// the cache existed (v78 created it empty), so the first ownership transition
+// or projection-version bump after an upgrade reuses them instead of calling
+// the provider. A vector table that cannot be read is skipped; its text is
+// embedded once later.
+func backfillOntologyEmbeddingCacheSchema(ctx context.Context, tx *sql.Tx) error { // v78 -> v79
+	if err := createOntologyEmbeddingCacheSchema(ctx, tx); err != nil {
+		return err
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT dimensions FROM intel_embeddings WHERE dimensions > 0`)
+	if err != nil {
+		return err
+	}
+	var dimensions []int
+	for rows.Next() {
+		var dims int
+		if err := rows.Scan(&dims); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		dimensions = append(dimensions, dims)
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, dims := range dimensions {
+		exists, err := tableExistsQuery(ctx, tx, intelVecTableName(dims))
 		if err != nil {
 			return err
 		}
-		deleted, err = result.RowsAffected()
-		return err
-	})
-	return deleted, err
+		if !exists {
+			continue
+		}
+		_, err = tx.ExecContext(ctx, fmt.Sprintf(`
+			INSERT OR IGNORE INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector, last_used_at)
+			SELECT s.provider, s.model, length(v.embedding) / 4, s.chunk_text_hash, v.embedding, ?
+			FROM ontology_node_embedding_state s
+			JOIN intel_embeddings e ON e.chunk_id = s.chunk_id AND e.dimensions = ?
+			JOIN %s v ON v.chunk_id = e.chunk_row_id
+			WHERE COALESCE(s.provider, '') != '' AND COALESCE(s.model, '') != '' AND s.chunk_text_hash != ''
+				AND length(v.embedding) = ? * 4`, intelVecTableName(dims)), time.Now().Unix(), dims, dims)
+		if err != nil && ctx.Err() != nil {
+			return err
+		}
+	}
+	return nil
 }

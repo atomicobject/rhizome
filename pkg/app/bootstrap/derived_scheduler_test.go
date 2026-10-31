@@ -307,3 +307,59 @@ func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider
 	}
 	require.Positive(t, provider.canceled.Load(), "owned shared-node shutdown must cancel dispatched provider work")
 }
+
+// supersedingProvider records texts and runs onEmbed before the first call.
+type supersedingProvider struct {
+	recordingEmbeddingProvider
+	onEmbed func()
+}
+
+func (p *supersedingProvider) EmbedTexts(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	if p.onEmbed != nil {
+		p.onEmbed()
+		p.onEmbed = nil
+	}
+	return p.recordingEmbeddingProvider.EmbedTexts(ctx, texts)
+}
+
+func TestDerivedOntologySupersededWhileEmbeddingStillCachesVectors(t *testing.T) {
+	root := t.TempDir()
+	writeWatcherSchema(t, root, "type Project @node(paths: [\"notes/*.md\"]) {\n  name: String!\n}\n")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "Roadmap.md"), []byte("---\ntype: Project\nname: Roadmap\n---\nShip the watcher fix.\n"), 0o644))
+	w, c, store := newLiveOwnershipTestWatcher(t, root, obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.md"}})
+	defer store.Close()
+	defer c.Close()
+	provider := &supersedingProvider{}
+	w.nodeSyncer = &embedindex.OntologyNodeSyncer{Store: store, Provider: provider, ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "recording"}}
+	c.MarkDirty("notes/Roadmap.md", cache.DirtyModified)
+	runOwnershipBatch(t, w)
+	work, err := store.PendingDerivedWork(t.Context(), time.Now().Add(time.Hour), 100)
+	require.NoError(t, err)
+	var ticket codeanchor.DerivedWork
+	for _, candidate := range work {
+		if candidate.Kind == codeanchor.DerivedOntology {
+			ticket = candidate
+		}
+	}
+	require.Equal(t, codeanchor.DerivedOntology, ticket.Kind)
+
+	// An unrelated change supersedes the ticket while the provider embeds.
+	var replacements []codeanchor.DerivedWork
+	var markErr error
+	provider.onEmbed = func() {
+		replacements, markErr = store.MarkDerivedDirty(context.Background(), []codeanchor.DerivedScope{ticket.DerivedScope})
+	}
+	d := &derivedScheduler{watcher: w, ctx: t.Context()}
+	require.ErrorIs(t, d.execute(ticket), errDerivedSuperseded)
+	require.NoError(t, markErr)
+	embedded := len(provider.texts)
+	require.Positive(t, embedded)
+
+	require.NoError(t, store.ActivateDerivedWork(t.Context(), replacements))
+	require.NoError(t, d.execute(replacements[0]))
+	require.Len(t, provider.texts, embedded, "the replacement ticket reuses the superseded run's vectors")
+	pending, err := store.HasDerivedWork(t.Context(), codeanchor.DerivedOntology)
+	require.NoError(t, err)
+	require.False(t, pending)
+}

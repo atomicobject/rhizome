@@ -94,16 +94,7 @@ func (s *derivedScheduler) run() {
 
 func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.DerivedWork, ack bool, phase string, run func(context.Context) error) error {
 	w := s.watcher
-	handle, _, err := w.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) (jobErr error) {
-		ctx, finish := watchPhase(ctx, phase)
-		defer func() {
-			if panicked := recover(); panicked != nil {
-				finish(errors.New("diagnostic boundary panicked"))
-				panic(panicked)
-			}
-			finish(jobErr)
-		}()
-		defer watchDuration(parent, phase)()
+	return s.inLane(parent, phase, func(ctx context.Context) error {
 		current, err := w.intelStore.CurrentDerivedWork(ctx, ticket)
 		if err != nil {
 			return err
@@ -138,6 +129,22 @@ func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.D
 			}
 		}
 		return nil
+	})
+}
+
+// inLane runs one writer-lease lane job without ticket checks.
+func (s *derivedScheduler) inLane(parent context.Context, phase string, run func(context.Context) error) error {
+	handle, _, err := s.watcher.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) (jobErr error) {
+		ctx, finish := watchPhase(ctx, phase)
+		defer func() {
+			if panicked := recover(); panicked != nil {
+				finish(errors.New("diagnostic boundary panicked"))
+				panic(panicked)
+			}
+			finish(jobErr)
+		}()
+		defer watchDuration(parent, phase)()
+		return run(ctx)
 	}})
 	if err != nil {
 		return err
@@ -433,7 +440,15 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
+		err = s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
+		if errors.Is(err, errDerivedSuperseded) {
+			// The cache is content-addressed, so the replacement ticket reuses
+			// these vectors instead of sending the same text again.
+			if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return syncer.CacheDerived(ctx, result) }); cacheErr != nil && ctx.Err() == nil {
+				watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
+			}
+		}
+		return err
 	case codeanchor.DerivedGraph:
 		var scores semdb.DerivedGraphScores
 		err := s.compute(ctx, "graph_scores", func(ctx context.Context) error {
