@@ -93,6 +93,9 @@ pub struct Report {
         skip_serializing_if = "Option::is_none"
     )]
     sidebar_toggles: Option<u32>,
+    /// The repository's task items that need the person (crate::inbox).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tasks: Option<crate::inbox::Tasks>,
 }
 
 /// Reads a page title as a report, only from a page on the verified runtime
@@ -102,7 +105,13 @@ pub fn decode(title: &str, page: &Url, runtime: Option<&Url>) -> Option<Report> 
         return None;
     }
     let report: Report = serde_json::from_str(title.strip_prefix(PREFIX)?).ok()?;
-    (report.v == 1 && report.search.chars().count() <= SEARCH_LIMIT).then_some(report)
+    (report.v == 1
+        && report.search.chars().count() <= SEARCH_LIMIT
+        && report
+            .tasks
+            .as_ref()
+            .map_or(true, crate::inbox::Tasks::valid))
+    .then_some(report)
 }
 
 /// A new document is loading in the content view; it has reported nothing yet.
@@ -114,6 +123,8 @@ pub fn loading(pane: &mut Pane, url: &Url) {
     pane.sidebar = None;
     pane.sidebar_toggles = None;
     pane.graphql = false;
+    pane.tasks = None;
+    pane.tasks_reported = false;
     pane.send(json!({"type": "page", "state": null}));
 }
 
@@ -136,6 +147,7 @@ pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
     pane.graphql = report
         .as_ref()
         .is_some_and(|r| r.section == Section::Graphql);
+    pane.tasks = report.as_ref().and_then(|r| r.tasks.clone());
     let toggled = match (previous_toggles, pane.sidebar_toggles) {
         (Some(before), Some(now)) if now > before => pane.sidebar,
         _ => None,
@@ -244,6 +256,12 @@ pub enum Command {
     /// store the state and send it to every window's page.
     Sidebar {
         collapsed: bool,
+    },
+    /// Opens a task's page, after a click on its notification. Only the app
+    /// sends it.
+    #[serde(skip_deserializing)]
+    Task {
+        task: String,
     },
 }
 
@@ -439,6 +457,25 @@ mod tests {
     }
 
     #[test]
+    fn keeps_the_documents_task_items_and_relays_only_their_count() {
+        let (mut pane, received) = shown_pane();
+        let title = r#"rhizome-desktop:{"v":1,"section":"notes","search":"","tasks":{"needs":2,"items":[{"id":"8","task":"flaky","state":"ready","text":"x"}]}}"#;
+        loading(&mut pane, &page("/notes"));
+        titled(&mut pane, title);
+        assert_eq!(pane.tasks.as_ref().map(|t| t.needs), Some(2));
+        assert_eq!(
+            received.try_iter().last().unwrap()["state"],
+            json!({"section": "notes", "search": "", "tasks": {"needs": 2}})
+        );
+        pane.tasks_reported = true;
+        loading(&mut pane, &page("/notes"));
+        assert_eq!(pane.tasks, None, "a new document has reported nothing");
+        assert!(!pane.tasks_reported);
+        let unbounded = r#"rhizome-desktop:{"v":1,"section":"notes","search":"","tasks":{"needs":0,"items":[{"id":"8","task":"flaky","state":"ready"}]}}"#;
+        assert!(decode(unbounded, &page("/notes"), Some(&runtime())).is_none());
+    }
+
+    #[test]
     fn only_a_change_the_page_made_counts_as_a_sidebar_toggle() {
         let (mut pane, _received) = shown_pane();
         let report = |section: &str, sidebar: Option<(bool, u32)>| {
@@ -537,12 +574,22 @@ mod tests {
             sidebar.script().unwrap(),
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"sidebar","collapsed":true} }))"#
         );
+        assert_eq!(
+            Command::Task {
+                task: "docs-drift".into()
+            }
+            .script()
+            .unwrap(),
+            r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"task","task":"docs-drift"} }))"#
+        );
         for invalid in [
             json!({"command": "sidebar"}),
             json!({"command": "sidebar", "collapsed": "yes"}),
             json!({"command": "sidebar", "collapsed": true, "width": 300}),
             // The shell cannot send the theme command; the app sends it from settings.
             json!({"command": "theme", "theme": "indigo"}),
+            // Nor can it open a task; the app does after a notification click.
+            json!({"command": "task", "task": "docs-drift"}),
             json!({"command": "section", "section": "settings"}),
             json!({"command": "navigate", "url": "https://example.com"}),
             json!({"command": "search"}),

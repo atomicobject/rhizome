@@ -16,15 +16,18 @@ type Props = { state: PageState; onCommand: (command: PageCommand) => void };
 // show the state the page last reported and send it commands.
 
 export function PageSections({ state, onCommand }: Props) {
+  const needs = state.tasks?.needs ?? 0;
   return (
     <nav className="page-sections" aria-label="Sections">
       {SECTIONS.map(([section, label]) => (
         <button
           key={section}
           aria-current={state.section === section ? "page" : undefined}
+          aria-label={section === "tasks" && needs ? `Tasks, ${needs} need you` : undefined}
           onClick={() => onCommand({ command: "section", section })}
         >
           {label}
+          {section === "tasks" && needs ? <span className="section-count">{needs}</span> : null}
         </button>
       ))}
     </nav>

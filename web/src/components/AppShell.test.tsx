@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
@@ -92,6 +92,8 @@ describe("AppShell", () => {
     await waitFor(() => {
       expect(document.title).toBe("Rhizome · testvault");
     });
+    // Only Rhizome Desktop reads task items outside the Tasks section.
+    expect(http.count("GET", "/api/tasks/state")).toBe(0);
 
     // Explorer's sidebar names the vault too, and its root row shows the name AppShell handed it.
     fireEvent.click(screen.getByRole("button", { name: "Explorer" }));
@@ -348,6 +350,8 @@ describe("AppShell", () => {
     beforeEach(() => {
       window.__RHIZOME_DESKTOP__ = true;
       statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
+      // A runtime without scheduled tasks reports no task items.
+      http.json("GET", "/api/tasks", {}, 404).json("GET", "/api/tasks/state", {}, 404);
     });
 
     afterEach(() => {
@@ -478,8 +482,70 @@ describe("AppShell", () => {
 
       await send({ command: "section", section: "tasks" });
       expect(window.location.pathname).toBe("/tasks");
-      await waitFor(() => expect(report()).toEqual({ v: 1, section: "tasks", search: "" }));
+      await waitFor(() => expect(report()).toMatchObject({ v: 1, section: "tasks", search: "" }));
       expect(await screen.findByRole("table")).toHaveTextContent("Docs drift check");
+    });
+
+    it("reports the task items that need the person from any section", async () => {
+      http
+        .json("GET", "/api/tasks", reportFixture())
+        .json("GET", "/api/tasks/state", stateFixture());
+      render(<AppShell />);
+
+      await waitFor(() =>
+        expect(report().tasks).toEqual({
+          needs: 3,
+          items: [
+            {
+              id: "7",
+              task: "docs-drift",
+              name: "Docs drift check",
+              state: "ready",
+              text: "Three notes still reference the removed --legacy-index flag",
+            },
+            {
+              id: "9",
+              task: "dependency-updates",
+              name: "Dependency updates",
+              state: "due",
+              text: "Four Go modules have minor updates",
+            },
+            {
+              id: "8",
+              task: "flaky-tests",
+              name: "Flaky test triage",
+              state: "needs-attention",
+              text: "TestWatchHubDebounce failed 3 of the last 20 CI runs",
+            },
+          ],
+        }),
+      );
+      expect(report().section).toBe("notes");
+
+      // The app opens a task's page after a click on its notification.
+      http.json("GET", "/api/tasks/runs", { runs: [] });
+      await send({ command: "task", task: "docs-drift" });
+      expect(window.location.pathname).toBe("/tasks/docs-drift");
+    });
+
+    it("reads the task state again every minute, even while hidden", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const hidden = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      const state = stateFixture();
+      http.json("GET", "/api/tasks", reportFixture()).json("GET", "/api/tasks/state", state);
+
+      try {
+        render(<AppShell />);
+        await waitFor(() => expect(report().tasks?.needs).toBe(3));
+
+        http.json("GET", "/api/tasks/state", { ...state, items: state.items.slice(1) });
+        await act(() => vi.advanceTimersByTimeAsync(60_000));
+        await waitFor(() => expect(report().tasks?.needs).toBe(2));
+        expect(http.count("GET", "/api/tasks/state")).toBe(2);
+      } finally {
+        hidden.mockRestore();
+        vi.useRealTimers();
+      }
     });
 
     it("leaves ⌘K to the app", () => {

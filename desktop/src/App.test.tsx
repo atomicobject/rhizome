@@ -427,6 +427,19 @@ describe("desktop shell", () => {
     expect(screen.queryByRole("button", { name: /validation/ })).toBeNull();
     expect(search.value).toBe("");
 
+    // The Tasks tab counts the items that need the person, from any section.
+    expect(screen.getByRole("button", { name: "Tasks" })).toHaveTextContent(/^Tasks$/);
+    act(() =>
+      emit({ type: "page", state: { section: "ontology", search: "", tasks: { needs: 3 } } }),
+    );
+    expect(screen.getByRole("button", { name: "Tasks, 3 need you" })).toHaveTextContent("Tasks3");
+    fireEvent.click(screen.getByRole("button", { name: "Tasks, 3 need you" }));
+    expect(call).toHaveBeenCalledWith("page", { command: "section", section: "tasks" });
+    act(() =>
+      emit({ type: "page", state: { section: "ontology", search: "", tasks: { needs: 0 } } }),
+    );
+    expect(screen.getByRole("button", { name: "Tasks" })).toHaveTextContent(/^Tasks$/);
+
     act(() => emit({ type: "page", state: null }));
     expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
   });

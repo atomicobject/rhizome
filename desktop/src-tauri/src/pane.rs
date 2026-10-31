@@ -64,6 +64,10 @@ pub struct Pane {
     pub sidebar: Option<bool>,
     pub sidebar_toggles: Option<u32>,
     pub graphql: bool,
+    /// The current document's last reported task items, and whether it has
+    /// reported any, so its first report notifies nothing (crate::inbox).
+    pub tasks: Option<crate::inbox::Tasks>,
+    pub tasks_reported: bool,
     pub expected: Arc<RwLock<Option<Url>>>,
     pub channel: Option<Channel<Value>>,
     /// A message for a shell that has not attached yet.
@@ -534,6 +538,17 @@ impl Panes {
 
     pub fn remove(&self, window: &str) {
         self.0.lock().unwrap().remove(window);
+    }
+
+    /// Each window's repository and its reported count of task items that
+    /// need the person.
+    pub fn task_needs(&self) -> Vec<(String, u32)> {
+        self.0
+            .lock()
+            .unwrap()
+            .values()
+            .filter_map(|pane| Some((pane.target().0, pane.tasks.as_ref()?.needs)))
+            .collect()
     }
 
     pub fn broadcast(&self, message: &Value) {
