@@ -23,6 +23,10 @@ UPSTREAMS="${TEAM_API_E2E_UPSTREAMS:-fake}"
 ORIGIN="http://127.0.0.1:$PORT"
 WORK="$(mktemp -d)"
 SERVER_PID=""
+# Signing in makes the e2e origin the person's current gateway; keep their
+# previous selection and put it back afterwards.
+SELECTOR="$HOME/.config/rhizome/team-session.json"
+[ -f "$SELECTOR" ] && cp "$SELECTOR" "$WORK/selector.backup"
 
 say() { printf '\n==> %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
@@ -30,6 +34,9 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 cleanup() {
 	[ -d "$WORK/repo" ] && (cd "$WORK/repo" && RZM_SKIP_REPO_DELEGATE=1 "$RZM" stop >/dev/null 2>&1) || true
 	"$RZM" auth logout --server "$ORIGIN" --json >/dev/null 2>&1 || true
+	# Logout clears a selector naming the e2e origin; restore the previous one
+	# unless something else was selected meanwhile.
+	if [ -f "$WORK/selector.backup" ] && [ ! -f "$SELECTOR" ]; then cp "$WORK/selector.backup" "$SELECTOR"; fi
 	[ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null && wait "$SERVER_PID" 2>/dev/null || true
 	if [ -n "${TEAM_API_E2E_KEEP:-}" ]; then echo "kept $WORK"; return; fi
 	if command -v trash >/dev/null; then trash "$WORK"; else rm -rf "$WORK"; fi
@@ -126,5 +133,6 @@ if grep -rqE 'rzt_[ar]_|dev-member@' "$WORK/gateway/.rhizome/diagnostics"; then 
 
 say "Signing out"
 "$RZM" auth logout --server "$ORIGIN" --json
+if [ -f "$WORK/selector.backup" ] && [ ! -f "$SELECTOR" ]; then cp "$WORK/selector.backup" "$SELECTOR"; fi
 echo
 echo "PASS: team API end-to-end"
