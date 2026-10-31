@@ -4,6 +4,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -223,6 +224,18 @@ func TestOversized2xxResponseIsUnknownOutcome(t *testing.T) {
 	h := newHarness(t, opts{voyage: v.Config.Handler})
 	r := h.voyage("alice", key(1), voyageBody("x"))
 	require.True(t, r.status == -1 || len(r.body) <= wire.MaxResponseBytes, "the caller never sees more than the cap")
+	require.Equal(t, wire.CodeOutcomeUnknown, h.voyage("alice", key(1), voyageBody("x")).code())
+}
+
+// A body cut off exactly at the response cap ends with a read error, not a
+// clean EOF, so it is an unknown outcome rather than a complete response.
+func TestResponseCutOffAtTheCapIsUnknownOutcome(t *testing.T) {
+	v, _ := upstream(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(wire.MaxResponseBytes+10))
+		_, _ = io.WriteString(w, strings.Repeat("0", wire.MaxResponseBytes))
+	})
+	h := newHarness(t, opts{voyage: v.Config.Handler})
+	h.voyage("alice", key(1), voyageBody("x"))
 	require.Equal(t, wire.CodeOutcomeUnknown, h.voyage("alice", key(1), voyageBody("x")).code())
 }
 

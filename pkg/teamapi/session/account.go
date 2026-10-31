@@ -159,6 +159,11 @@ func (a *Account) Publish(ctx context.Context, grant wire.SessionGrant, expected
 	if err != nil {
 		return Status{}, err
 	}
+	// A sign-in cancelled after the gateway answered, or while the lock or
+	// the keychain was being read, must not publish its session.
+	if err := ctx.Err(); err != nil {
+		return Status{}, err
+	}
 	if err := a.save(rec); err != nil {
 		return Status{}, err
 	}

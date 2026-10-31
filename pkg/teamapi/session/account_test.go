@@ -458,3 +458,21 @@ func TestLogoutAgainstUnresponsiveGatewayStillSignsOut(t *testing.T) {
 	_, ok := loadRecord(t, store, srv.URL)
 	require.False(t, ok)
 }
+
+func TestCancelledSignInDoesNotPublish(t *testing.T) {
+	store := &MemoryStore{}
+	selector := filepath.Join(t.TempDir(), "team-session.json")
+	a, err := Open(Options{Origin: "https://team.example.test", Store: store, LockPath: filepath.Join(t.TempDir(), "lock"), SelectorPath: selector})
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = a.Publish(ctx, wire.SessionGrant{SessionID: "s1", Email: "person@example.test",
+		AccessToken: wire.AccessTokenPrefix + "s1.synthetic", AccessExpiresAt: time.Now().Add(time.Minute), RefreshToken: wire.RefreshTokenPrefix + "s1.synthetic",
+		SessionExpiresAt: time.Now().Add(time.Hour)}, 0)
+	require.ErrorIs(t, err, context.Canceled)
+	_, ok := loadRecord(t, store, "https://team.example.test")
+	require.False(t, ok, "a cancelled sign-in published its session")
+	_, found, err := ReadSelector(selector)
+	require.NoError(t, err)
+	require.False(t, found)
+}

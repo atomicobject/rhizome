@@ -3,6 +3,7 @@ package traffic
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -95,8 +96,11 @@ func relay(w http.ResponseWriter, resp *http.Response, key string) (*relayResult
 	if err != nil {
 		return res, nil
 	}
-	if extra, _ := io.ReadFull(resp.Body, make([]byte, 1)); extra > 0 {
-		return res, nil // oversized: the caller aborts the response
+	// The body is complete only at a clean end: one more byte means it was
+	// oversized, and a read error (a reset or timeout right at the limit)
+	// means it was cut off. Either way the caller aborts the response.
+	if extra, err := io.ReadFull(resp.Body, make([]byte, 1)); extra > 0 || !errors.Is(err, io.EOF) {
+		return res, nil
 	}
 	res.complete = true
 	res.usage = scan.result()

@@ -1,7 +1,14 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { request, type TeamStatus } from "./api";
 import { TeamAccount, teamProgress } from "./TeamAccount";
+
+/** The sign-in button once the status request has settled and enabled it. */
+async function signInButton() {
+  const button = await screen.findByRole("button", { name: "Sign in with Atomic Object" });
+  await waitFor(() => expect(button).toBeEnabled());
+  return button;
+}
 
 vi.mock("./api", async (original) => ({
   ...(await original<typeof import("./api")>()),
@@ -57,7 +64,7 @@ it("cancels a sign-in without showing an error", async () => {
     },
   });
   render(<TeamAccount />);
-  fireEvent.click(await screen.findByRole("button", { name: "Sign in with Atomic Object" }));
+  fireEvent.click(await signInButton());
   fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
   expect(await screen.findByText("Sign-in canceled.")).toBeVisible();
   expect(screen.queryByRole("alert")).toBeNull();
@@ -72,7 +79,7 @@ it("shows sign-in errors inline and allows retry", async () => {
     },
   });
   render(<TeamAccount />);
-  fireEvent.click(await screen.findByRole("button", { name: "Sign in with Atomic Object" }));
+  fireEvent.click(await signInButton());
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Your account is not eligible for team access.",
   );
@@ -97,7 +104,7 @@ it("cancels a running sign-in when it unmounts", async () => {
     "team-cancel": () => null,
   });
   const { unmount } = render(<TeamAccount />);
-  fireEvent.click(await screen.findByRole("button", { name: "Sign in with Atomic Object" }));
+  fireEvent.click(await signInButton());
   await screen.findByText("Waiting for the browser…");
   unmount();
   expect(call).toHaveBeenCalledWith("team-cancel", {});
