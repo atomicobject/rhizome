@@ -17,6 +17,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 
 	"github.com/atomicobject/rhizome/pkg/app/finder"
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/app/userstate"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
@@ -346,7 +347,7 @@ func initRuntime(ctx context.Context, cfg Config) (*Runtime, StatusResponse, err
 	embCfg := resolved.NoteEmbeddings
 
 	if embCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), embCfg, "")
+		provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), embCfg, "")
 		if err == nil {
 			metadata := embeddings.MetadataForProvider(provider, providerCfg)
 			store, err := codeembsqlite.OpenNotes(ctx, codeembsqlite.File(embCfg.IndexPath), codeembsqlite.Options{Access: codeembsqlite.ReadExisting, Dimensions: provider.Dimensions(), Metadata: &metadata})
@@ -364,7 +365,7 @@ func initRuntime(ctx context.Context, cfg Config) (*Runtime, StatusResponse, err
 	codeEmbCfg := resolved.CodeEmbeddings
 
 	if codeEmbCfg.Enabled {
-		codeProvider, codeProviderCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), codeEmbCfg, "")
+		codeProvider, codeProviderCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), codeEmbCfg, "")
 		if err == nil {
 			metadata := embeddings.MetadataForProvider(codeProvider, codeProviderCfg)
 			if store, err := codeembsqlite.OpenCode(ctx, codeembsqlite.File(codeEmbCfg.IndexPath), codeembsqlite.Options{Access: codeembsqlite.ReadExisting, Dimensions: codeProvider.Dimensions(), Metadata: &metadata}); err == nil {

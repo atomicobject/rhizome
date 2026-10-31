@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
-	"github.com/atomicobject/rhizome/pkg/teamkeys"
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
+	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/pkg/typesafe"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -25,14 +25,7 @@ func EvaluateTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 }
 
 func newEvaluationClient(ctx context.Context) (*typesafe.Client, error) {
-	key := vaultconfig.ResolveValue(vaultconfig.FromContext(ctx), "TYPESAFE_API_KEY")
-	if key == "" {
-		key = teamkeys.TypeSafeKey(vaultconfig.FromContext(ctx))
-	}
-	if key == "" {
-		return nil, fmt.Errorf("TypeSafe credential unavailable: configure TYPESAFE_API_KEY or unlock the Atomic key bundle with ATOMIC_RHIZOME_KEY")
-	}
-	return typesafe.NewClient(key)
+	return provideraccess.Default().NewTypeSafe(vaultconfig.FromContext(ctx))
 }
 
 func evaluateTool(newClient func(context.Context) (*typesafe.Client, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -54,6 +47,11 @@ func evaluateTool(newClient func(context.Context) (*typesafe.Client, error)) fun
 			var apiError *typesafe.APIError
 			if errors.As(err, &apiError) {
 				payload, _ := json.Marshal(map[string]any{"code": "typesafe_api_error", "message": apiError.Error(), "statusCode": apiError.StatusCode, "requestId": apiError.RequestID, "retryAfterMs": apiError.RetryAfter.Milliseconds()})
+				return mcp.NewToolResultError(string(payload)), nil
+			}
+			var gatewayError *wire.GatewayError
+			if errors.As(err, &gatewayError) {
+				payload, _ := json.Marshal(map[string]any{"code": string(gatewayError.Code), "message": gatewayError.Error(), "statusCode": gatewayError.Status, "retryable": gatewayError.Retryable(), "retryAfterMs": gatewayError.RetryAfter.Milliseconds()})
 				return mcp.NewToolResultError(string(payload)), nil
 			}
 			return mcp.NewToolResultError(err.Error()), nil

@@ -1,6 +1,6 @@
 # TypeSafe Go client
 
-`pkg/typesafe` owns the HTTP contract for TypeSafe's System One API, including Jev. It uses only the Go standard library. It does not discover notes, resolve Rhizome credentials, choose automation thresholds, or change the agent catalog. Keeping those decisions with callers lets experiments use this client without committing Rhizome to a particular workflow.
+`pkg/typesafe` owns the HTTP contract for TypeSafe's System One API, including Jev. It uses only the Go standard library and the standard-library-only gateway contract in `pkg/teamapi/wire`. It does not discover notes, resolve Rhizome credentials, choose automation thresholds, or change the agent catalog. Keeping those decisions with callers lets experiments use this client without committing Rhizome to a particular workflow.
 
 ## Native Go API
 
@@ -19,7 +19,13 @@ Every single-question result preserves its typed answer, model, token usage, and
 
 Instructions and criterion descriptions accept native JSON-compatible values: strings, objects (including Go structs), arrays, or nil. `Choice.Criteria` is a map of option names to descriptions. `Score.Criteria` is an ordered slice, with levels numbered from zero. `Noul.Criteria` optionally describes true and false. The flexible description values do not replace the typed question and answer contracts.
 
-See [compiled examples](example_test.go) for single-question and mixed-batch calls. For a Rhizome caller, resolve `TYPESAFE_API_KEY` through `vaultconfig.ResolveValue` from the environment or private user configuration, and pass that value to `NewClient`. The client itself never reads environment or configuration files. Shared keys can be imported at setup with `rzm credentials import`; no release embeds provider credentials.
+See [compiled examples](example_test.go) for single-question and mixed-batch calls. Rhizome callers build clients through `provideraccess.Factory.NewTypeSafe` (`pkg/app/provideraccess`), which resolves `TYPESAFE_API_KEY`, then the team API session, then the legacy bundle. The client itself never reads environment, configuration files, or the session store. Shared keys can be imported at setup with `rzm credentials import`.
+
+## Managed (team gateway) mode
+
+- `NewClient("", WithManaged(Managed{Origin, Transport, MaxConcurrency}))` sends calls to `Origin + /v1/providers/typesafe` through the injected transport, which adds the session bearer and returns gateway-originated errors as `*wire.GatewayError`. The client sends no `Authorization` of its own. An API key, `WithBaseURL`, or `WithHTTPClient` alongside `WithManaged` is rejected, so the mode is never ambiguous. `MaxConcurrency` caps `EvaluateBatch` workers.
+- Each paid (POST) call carries an `Idempotency-Key`, allocated before the retry loop. It is reused after an ambiguous outcome (an upstream 5xx passed through, or `request_in_progress`) and replaced after a definitive rejection (an upstream 408/429, or a gateway `rate_limited` or `upstream_unavailable`), because the gateway dispatches and settles each key once. Direct mode sends no idempotency key.
+- A `*wire.GatewayError` is retried only when `Retryable()`, after its `RetryAfter`; otherwise it is returned wrapped, so `errors.As` still finds it. Batch items rejected by the gateway before admission are `failed`; `upstream_outcome_unknown`, `result_unavailable`, and an exhausted `request_in_progress` stay `uncertain`.
 
 ## Transport and validation
 
