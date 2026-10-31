@@ -192,3 +192,11 @@ Active. Everything in scope is built and verified except the live agent run thro
 - 2026-10-31: Live check against a throwaway repository: routes and page work. `rzm trust` refuses a scripted confirmation, so the agent run waits for Drew.
 - 2026-10-31: Sol loop, 3 rounds with GPT-6.1 Sol: 4 should fixes plus 1 nit fixed, 1 nit declined. Round 3 approved.
 - 2026-10-31: Opened PR #61 (https://github.com/atomicobject/rhizome/pull/61).
+- 2026-10-31: Greptile went 3 → 4 → 4 → 5/5. Fixes:
+  - an attempt that ends without saving its result is recorded as failed instead of dropped;
+  - the run view keeps reading an unfinished detail;
+  - a failed later read keeps the transcript and offers Retry;
+  - a phase 1 running item left by a crash before the upgrade is recorded;
+  - the selected run's own open item keeps its actions.
+
+  Declined: a length bound on agent message and thinking text. That text is limited by the model's output size, and the contract bounds tool and command output.
