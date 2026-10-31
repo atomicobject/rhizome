@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
@@ -47,6 +48,10 @@ func (w diagnosticFlusher) Flush() {
 }
 func (w *diagnosticResponse) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+// quietHealthLimit is how long a healthy liveness probe may take and still
+// go unrecorded; desktop and runtime clients poll HealthPath every few seconds.
+const quietHealthLimit = time.Second
+
 func (s *Server) observeRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.diagnostics == nil {
@@ -76,7 +81,15 @@ func (s *Server) observeRequest(handler http.Handler) http.Handler {
 		// EventSource and the runtime's event client ask for a stream; such a
 		// request finishes only when its connection closes.
 		stream := strings.Contains(r.Header.Get("Accept"), "text/event-stream")
-		s.diagnostics.Event(ctx, slog.LevelInfo, "http", "request.started", "", slog.String("route", route), slog.String("method", method), slog.Bool("stream", stream))
+		started := func() {
+			s.diagnostics.Event(ctx, slog.LevelInfo, "http", "request.started", "", slog.String("route", route), slog.String("method", method), slog.Bool("stream", stream))
+		}
+		// A healthy, fast liveness probe records nothing. Any other probe
+		// records its start together with its terminal event.
+		quiet := route == appruntime.HealthPath && r.Method == http.MethodGet
+		if !quiet {
+			started()
+		}
 		observed := &diagnosticResponse{ResponseWriter: w}
 		defer func() {
 			panicked := recover()
@@ -105,6 +118,12 @@ func (s *Server) observeRequest(handler http.Handler) http.Handler {
 				if observed.status == 0 {
 					code = http.StatusInternalServerError
 				}
+			}
+			if quiet {
+				if status == "success" && time.Since(op.StartedAt) < quietHealthLimit {
+					return
+				}
+				started()
 			}
 			logging.CompleteEventQuietAtLevel(context.WithoutCancel(ctx), op, level, status, reason, map[string]any{"route": route, "method": method, "http_status": code, "response_bytes": observed.bytes})
 			if panicked != nil {
