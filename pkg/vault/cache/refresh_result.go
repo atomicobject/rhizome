@@ -59,3 +59,24 @@ func (s *Service) requeueDirty(dirty map[string]DirtyKind) {
 		s.MarkDirty(path, kind)
 	}
 }
+
+// MarkStaleForResync marks the cache stale like MarkStale and returns the
+// recrawl attempt that will cover the mark: the in-flight recrawl started
+// before it, so only a later attempt counts.
+func (s *Service) MarkStaleForResync() uint64 {
+	s.mu.Lock()
+	s.stale = true
+	attempt := s.attempts + 1
+	s.mu.Unlock()
+	s.metrics.staleFlips.Add(1)
+	return attempt
+}
+
+// ResyncCovered reports whether recrawl attempt (from MarkStaleForResync) or a
+// later one has completed successfully. A failed recrawl re-arms stale, so
+// the next attempt still covers the mark.
+func (s *Service) ResyncCovered(attempt uint64) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.attempts >= attempt && !s.recrawling && !s.stale
+}

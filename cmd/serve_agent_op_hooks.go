@@ -175,17 +175,13 @@ func (h *agentOpHost) cacheForPlan(ctx context.Context, plan *oneshotruntime.Pla
 // resyncCache forces one full reconcile with disk and returns when it has
 // completed, or when ctx ends.
 func resyncCache(ctx context.Context, cacheSvc *cache.Service) error {
-	cacheSvc.MarkStale()
-	var before uint64
-	for first := true; ; first = false {
+	attempt := cacheSvc.MarkStaleForResync()
+	for {
 		result, err := cacheSvc.RefreshWithResult(ctx)
 		if err != nil {
 			return err
 		}
-		if first {
-			before = result.Recrawls
-		}
-		if result.Resynced || result.Recrawls > before {
+		if result.Resynced || cacheSvc.ResyncCovered(attempt) {
 			return nil
 		}
 		select {

@@ -14,25 +14,36 @@
       crossorigin
     />
     <!-- Apply the stored appearance and theme before first paint (src/lib/appearance.ts).
-         Rhizome Desktop owns both, so its pages skip storage. -->
+         Rhizome Desktop owns both: it sets the appearance natively and bakes the
+         window's theme into the page, so its pages skip that storage. A reload
+         prefers a newer theme the page took from the app (desktopHost.ts). -->
     <script>
       (function () {
         try {
-          if (window.__RHIZOME_DESKTOP__) return;
           var root = document.documentElement;
+          var themes = /^(graphite|slate|spruce|oxblood|indigo)$/;
+          if (window.__RHIZOME_DESKTOP__) {
+            var desktopTheme = window.__RHIZOME_DESKTOP_THEME__;
+            var later = JSON.parse(localStorage.getItem("rhizome:desktop-theme") || "null");
+            if (later && later.at > (window.__RHIZOME_DESKTOP_THEME_AT__ || 0)) {
+              desktopTheme = later.theme;
+            }
+            if (themes.test(desktopTheme)) root.dataset.theme = desktopTheme;
+            return;
+          }
           var theme = localStorage.getItem("rhizome:theme");
           var appearance = localStorage.getItem("rhizome:appearance");
-          if (/^(graphite|slate|spruce|oxblood|indigo)$/.test(theme)) root.dataset.theme = theme;
+          if (themes.test(theme)) root.dataset.theme = theme;
           if (appearance === "light" || appearance === "dark") root.dataset.appearance = appearance;
         } catch (error) {}
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-CpHSs4ha.js"></script>
+    <script type="module" crossorigin src="/assets/index-C5GH6X5m.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-DAXXjFlN.js">
     <link rel="modulepreload" crossorigin href="/assets/jsx-runtime-CBD9r_Rc.js">
     <link rel="modulepreload" crossorigin href="/assets/lib-BTILwdMm.js">
     <link rel="modulepreload" crossorigin href="/assets/preload-helper-Czpn1I53.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-BwkuWI--.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-BrtKz1WT.css">
   </head>
   <body>
     <div id="root"></div>
