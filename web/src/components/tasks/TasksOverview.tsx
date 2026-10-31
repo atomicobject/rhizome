@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { TasksReport, TaskStatus } from "../../api/tasks";
+import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
 import { StatusMark } from "../StatusMark";
 import { PauseIcon, PlayIcon } from "./TaskIcons";
 import {
@@ -147,6 +147,8 @@ export function TasksOverview({
   onTogglePause,
   onResume,
   error,
+  announcements = [],
+  onDismiss,
 }: {
   report: TasksReport;
   onOpen: (task: string) => void;
@@ -154,6 +156,9 @@ export function TasksOverview({
   onTogglePause: () => void;
   onResume: () => void;
   error?: ReactNode;
+  /** New-task notices; they count toward the desktop badge until dismissed. */
+  announcements?: TaskItem[];
+  onDismiss?: (item: TaskItem) => void;
 }) {
   return (
     <div className="tasks-overview">
@@ -177,6 +182,17 @@ export function TasksOverview({
       <div className="tasks-overview__body">
         {error}
         <TasksNotices report={report} pausePending={pausePending} onResume={onResume} />
+        {announcements.map((item) => (
+          <div key={item.id} className="task-notice" role="status">
+            <StatusMark tone="info" label="New task" />
+            <p>{item.summary}</p>
+            {onDismiss ? (
+              <button type="button" className="task-button" onClick={() => onDismiss(item)}>
+                Dismiss
+              </button>
+            ) : null}
+          </div>
+        ))}
         {report.problems?.length ? (
           <div className="task-notice task-notice--risk" role="alert">
             <StatusMark tone="risk" label={`${report.problems.length} task files did not load`} />

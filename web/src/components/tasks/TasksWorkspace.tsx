@@ -244,6 +244,13 @@ export function TasksWorkspace({
         pausePending={pending === "pause"}
         onTogglePause={togglePause}
         onResume={resume}
+        announcements={(state?.items ?? []).filter(
+          (item) =>
+            item.kind === "announcement" &&
+            item.state === "due" &&
+            !(item.snoozedUntil && Date.parse(item.snoozedUntil) > Date.now()),
+        )}
+        onDismiss={(item) => runCommand(item, { kind: "done" })}
       />
     );
   } else if (!task) {

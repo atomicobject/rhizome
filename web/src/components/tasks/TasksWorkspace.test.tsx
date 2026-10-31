@@ -82,6 +82,29 @@ describe("TasksWorkspace", () => {
     expect(window.location.pathname).toBe("/tasks/flaky-tests");
   });
 
+  it("shows a new-task announcement and dismisses it", async () => {
+    const state = stateFixture(NOW);
+
+    const announcement = {
+      ...state.items[0]!,
+      id: "12",
+      task: "changelog",
+      kind: "announcement",
+      state: "due",
+      summary: 'New task "Changelog draft" runs every 1d in auto mode.',
+    };
+
+    http.json("GET", "/api/tasks/state", { ...state, items: [...state.items, announcement] });
+    http.json("POST", "/api/tasks/items/12/done", {});
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    expect(await screen.findByText(/New task "Changelog draft" runs every 1d/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    await waitFor(() => expect(http.count("POST", "/api/tasks/items/12/done")).toBe(1));
+  });
+
   it("pauses and resumes all background work", async () => {
     http.json("GET", "/api/tasks", { ...reportFixture(NOW), paused: true });
     http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), paused: true });
