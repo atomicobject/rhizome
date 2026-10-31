@@ -323,6 +323,21 @@ func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, e
 	if err != nil {
 		return coverage, err
 	}
+	// Files arrive newest-modified first, so a process's newer segments are
+	// read before its older ones. first holds the earliest record read from
+	// each process's newer segments: where a gap at the end of an older one ends.
+	first := make(map[string]time.Time)
+	gap := func(process string, until time.Time) {
+		if until.IsZero() {
+			until = time.Unix(1<<62, 0)
+		}
+		if coverage.Contiguous == nil {
+			coverage.Contiguous = make(map[string]time.Time)
+		}
+		if until.After(coverage.Contiguous[process]) {
+			coverage.Contiguous[process] = until
+		}
+	}
 	for i, path := range files {
 		remaining := filter.MaxBytes - coverage.Bytes
 		if remaining <= 0 {
@@ -330,14 +345,17 @@ func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, e
 			coverage.warn("event read byte limit reached")
 			break
 		}
+		process := eventFilename.FindStringSubmatch(filepath.Base(path))[2]
 		file, err := fileio.OpenRead(path)
 		if err != nil {
 			coverage.warn(filepath.Base(path) + ": cannot open event file")
+			gap(process, first[process])
 			continue
 		}
 		info, err := file.Stat()
 		if err != nil || !info.Mode().IsRegular() {
 			coverage.warn(filepath.Base(path) + ": event metadata unavailable")
+			gap(process, first[process])
 			_ = file.Close()
 			continue
 		}
@@ -349,6 +367,10 @@ func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, e
 		readBytes := min(info.Size(), allowance)
 		limited := &io.LimitedReader{R: io.NewSectionReader(file, start, readBytes), N: readBytes}
 		reader := bufio.NewReaderSize(limited, DefaultMaxEventBytes)
+		// pending marks records this scan could not read since the last
+		// readable one; the next readable record ends the gap.
+		pending := start > 0
+		var gapEnd, fileFirst time.Time
 		if start > 0 {
 			coverage.Truncated = true
 			coverage.warn("event read byte limit reached")
@@ -366,6 +388,7 @@ func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, e
 			line, lineErr := reader.ReadSlice('\n')
 			if lineErr == bufio.ErrBufferFull {
 				coverage.warn(filepath.Base(path) + ": oversized event record omitted")
+				pending = true
 				for lineErr == bufio.ErrBufferFull {
 					_, lineErr = reader.ReadSlice('\n')
 				}
@@ -378,16 +401,26 @@ func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, e
 				var event Event
 				if json.Unmarshal(line, &event) != nil {
 					coverage.warn(filepath.Base(path) + ": malformed event record")
+					pending = true
 				} else if event.SchemaVersion != SchemaVersion {
 					coverage.warn(filepath.Base(path) + ": unsupported event schema")
+					pending = true
 				} else if event.Time.IsZero() || event.ProcessID == "" {
 					coverage.warn(filepath.Base(path) + ": incomplete event record")
+					pending = true
 				} else {
 					coverage.observe(event.Time)
+					if fileFirst.IsZero() {
+						fileFirst = event.Time
+					}
 					var level slog.Level
 					if level.UnmarshalText([]byte(event.Level)) != nil {
 						coverage.warn(filepath.Base(path) + ": invalid event level")
-					} else if level >= filter.Level && within(event.Time, filter) &&
+						pending = true
+					} else if pending {
+						gapEnd, pending = event.Time, false
+					}
+					if !pending && level >= filter.Level && within(event.Time, filter) &&
 						(filter.OperationID == "" || event.OperationID == filter.OperationID) &&
 						(filter.TraceID == "" || event.TraceID == filter.TraceID) &&
 						(filter.Subsystem == "" || event.Subsystem == filter.Subsystem) {
@@ -401,9 +434,19 @@ func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, e
 			if lineErr != nil {
 				if lineErr != io.EOF {
 					coverage.warn(filepath.Base(path) + ": event read failed")
+					pending = true
 				}
 				break
 			}
+		}
+		if pending {
+			gapEnd = first[process]
+		}
+		if pending || !gapEnd.IsZero() {
+			gap(process, gapEnd)
+		}
+		if !fileFirst.IsZero() && (first[process].IsZero() || fileFirst.Before(first[process])) {
+			first[process] = fileFirst
 		}
 		coverage.Bytes += readBytes - limited.N
 		_ = file.Close()

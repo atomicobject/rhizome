@@ -199,3 +199,23 @@ func TestReadEventsDenseHistoryKeepsLargeNewestErrorRecord(t *testing.T) {
 	require.False(t, result.Coverage.Truncated)
 	require.Empty(t, result.Coverage.Warnings)
 }
+
+func TestScanEventsReportsContiguousCoveragePerProcess(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	var dense []byte
+	for i := range 600 {
+		dense = append(dense, readerEventLine(t, Event{SchemaVersion: SchemaVersion, Time: now.Add(time.Duration(i) * time.Second), ProcessID: "dense", Level: "INFO", Message: strings.Repeat("d", 1000)})...)
+	}
+	writeReaderEventFile(t, root, "dense", dense, now.Add(time.Hour))
+	writeReaderEventFile(t, root, "whole", readerEventLine(t, Event{SchemaVersion: SchemaVersion, Time: now, ProcessID: "whole", Level: "INFO"}), now)
+	var first time.Time
+	coverage, err := ScanEvents(root, Filter{MaxBytes: 300 << 10}, func(event Event) {
+		if event.ProcessID == "dense" && first.IsZero() {
+			first = event.Time
+		}
+	})
+	require.NoError(t, err)
+	require.True(t, first.After(now), "the dense segment's head was not read")
+	require.Equal(t, map[string]time.Time{"dense": first}, coverage.Contiguous, "a fully read process has no gap")
+}

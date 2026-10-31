@@ -152,6 +152,93 @@ func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.D
 	}
 }
 
+// Publication batch bounds keep each lane job short enough for explicit
+// indexing and watcher batches to interleave with a large derived pass.
+const (
+	derivedPublishBatchResults = 128
+	derivedPublishBatchBytes   = 16 << 20
+	derivedPublishBatchWait    = 250 * time.Millisecond
+)
+
+type derivedResult interface{ RetainedBytes() int }
+
+// computeAndPublish gives compute a sink that hands results to one publisher.
+// The publisher publishes bounded batches, each inside one lease, so a pass
+// admits one lane job and one witness check per batch rather than per result.
+// A sink call blocks while the buffer is full and returns the publisher's
+// error once a batch fails; a failed batch also cancels compute's context so
+// the pass stops calling the provider. It returns after the publisher has
+// drained, so a nil result means every computed result was published.
+func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error) error {
+	computeCtx, stopCompute := context.WithCancel(ctx)
+	defer stopCompute()
+	// ponytail: the byte cap bounds a batch, not this buffer; buffered results
+	// are capped by count only. Weigh the buffer too if owners grow huge.
+	results := make(chan R, derivedPublishBatchResults)
+	failed := make(chan struct{})
+	done := make(chan struct{})
+	var publishErr error
+	go func() {
+		defer close(done)
+		for open := true; open; {
+			first, ok := <-results
+			if !ok {
+				return
+			}
+			batch, bytes := []R{first}, first.RetainedBytes()
+			timer := time.NewTimer(derivedPublishBatchWait)
+		fill:
+			for len(batch) < derivedPublishBatchResults && bytes < derivedPublishBatchBytes {
+				select {
+				case next, ok := <-results:
+					if !ok {
+						open = false
+						break fill
+					}
+					batch, bytes = append(batch, next), bytes+next.RetainedBytes()
+				case <-timer.C:
+					break fill
+				}
+			}
+			timer.Stop()
+			if err := s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error {
+				for _, result := range batch {
+					if err := publish(ctx, result); err != nil {
+						return err
+					}
+				}
+				return nil
+			}); err != nil {
+				publishErr = err
+				stopCompute()
+				close(failed)
+				return
+			}
+		}
+	}()
+	err := compute(computeCtx, func(sinkCtx context.Context, result R) error {
+		select {
+		case <-failed:
+			return publishErr
+		default:
+		}
+		select {
+		case results <- result:
+			return nil
+		case <-failed:
+			return publishErr
+		case <-sinkCtx.Done():
+			return sinkCtx.Err()
+		}
+	})
+	close(results)
+	<-done
+	if publishErr != nil {
+		return publishErr
+	}
+	return err
+}
+
 func (s *derivedScheduler) computeContext(parent context.Context) (context.Context, func()) {
 	ctx, cancel := context.WithCancelCause(parent)
 	done := make(chan struct{})
@@ -222,11 +309,11 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		err = s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
-			return w.noteSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result embedindex.NoteDerivedResult) error {
-				return s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error { return w.noteSyncer.PublishDerived(ctx, result) })
+		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.NoteDerivedResult) error) error {
+			return s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
+				return w.noteSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		})
+		}, w.noteSyncer.PublishDerived)
 		if err != nil {
 			return err
 		}
@@ -268,11 +355,11 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		err = s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
-			return w.codeSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result embedindex.CodeDerivedResult) error {
-				return s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error { return w.codeSyncer.PublishDerived(ctx, result) })
+		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.CodeDerivedResult) error) error {
+			return s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
+				return w.codeSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		})
+		}, w.codeSyncer.PublishDerived)
 		if err != nil {
 			return err
 		}

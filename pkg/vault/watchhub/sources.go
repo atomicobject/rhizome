@@ -145,8 +145,15 @@ func (h *Hub) handleBackendEvent(ev BackendEvent) {
 		h.logger.Printf("watchhub: backend event: %s op=%v", ev.Path, ev.Op)
 	}
 
-	// Handle MustRescan (FSEvents coalescing) - trigger full stale
+	// Handle MustRescan (FSEvents coalescing) - trigger full stale unless the
+	// rescanned tree holds nothing the hub would deliver.
 	if ev.MustRescan {
+		if !h.rescanMayCoverWatchedPaths(ev.Path) {
+			if h.debug {
+				h.logger.Printf("watchhub: dropping rescan of ignored tree: %s", ev.Path)
+			}
+			return
+		}
 		h.markStale(StaleEvent{
 			Reason: StaleOverflow,
 			Source: SourceFSNotify,
@@ -242,4 +249,38 @@ func (h *Hub) handleBackendEvent(ev BackendEvent) {
 		h.logger.Printf("watchhub: file event: %s op=%v", relPath, wev.Op)
 	}
 	h.enqueue(wev)
+}
+
+// rescanMayCoverWatchedPaths reports whether a MustScanSubDirs rescan of dir
+// could have lost events the hub would deliver. It answers false only when
+// every path under dir is dropped or ignored; the vault root, paths outside
+// the vault, and ancestors of watched roots stay conservative.
+func (h *Hub) rescanMayCoverWatchedPaths(dir string) bool {
+	abs := filepath.Clean(dir)
+	if shouldDropBackendPath(abs) {
+		return false
+	}
+	rel, err := h.vault.RelStrict(abs)
+	if err != nil || rel.String() == "" || rel.String() == "." {
+		return true
+	}
+	cmp := paths.NormalizeAbsPathForCompare(abs)
+	for _, root := range h.roots.List() {
+		if root.Path == cmp || strings.HasPrefix(root.Path, cmp+"/") {
+			return true
+		}
+	}
+	relPath := paths.NormalizeRelPathAuto(rel.String())
+	// .rhizome is dropped except for config, ignore rules, and ontology
+	// schemas, so only the directories that can hold those stay watched.
+	lower := strings.ToLower(relPath)
+	if lower == rhizomeDirName || lower == rhizomeDirName+"/ontology" || strings.HasPrefix(lower, rhizomeDirName+"/ontology/") {
+		return true
+	}
+	if shouldDropVaultRelPath(relPath) {
+		return false
+	}
+	// An ignored directory hides every descendant, because the matcher
+	// checks ancestors.
+	return !h.shouldFilter(WatchEvent{RelPath: relPath, IsDir: true}, true)
 }

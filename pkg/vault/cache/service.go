@@ -99,7 +99,8 @@ type Service struct {
 	crawlErr   error                          // last crawl error (if any)
 	stale      bool                           // set when consistency is uncertain; the next Refresh starts a recrawl
 	recrawling bool                           // a stale-triggered background recrawl is in flight
-	resynced   bool                           // a recrawl completed since the last Refresh reported it
+	attempts   uint64                         // stale-triggered recrawls started; the in-flight one is number attempts
+	recrawls   uint64                         // stale-triggered recrawls completed successfully
 	fileIndex  map[string]*Entry              // path → cached entry
 	tagIndex   map[string]map[string]struct{} // tag → set of paths
 	dirty      map[string]DirtyKind           // paths needing revalidation
@@ -495,9 +496,8 @@ func (s *Service) Refresh(ctx context.Context) error {
 }
 
 // RefreshAndDrainDirty refreshes the cache and returns the set of dirty paths
-// that were consumed in this pass. The boolean indicates whether a full resync
-// completed since the previous pass (e.g., ignore rule change), allowing
-// callers to react appropriately.
+// that were consumed in this pass. The boolean reports that this pass ran the
+// initial crawl.
 func (s *Service) RefreshAndDrainDirty(ctx context.Context) (map[string]DirtyKind, bool, error) {
 	result, err := s.RefreshWithResult(ctx)
 	return result.Changed, result.Resynced, err
@@ -519,16 +519,16 @@ func (s *Service) refresh(ctx context.Context) (result RefreshResult, err error)
 	// Snapshot mutable state so we can release the lock while touching disk.
 	// A stale cache starts one background recrawl (single-flight); this caller
 	// keeps serving the current index and handles its dirty batch as usual.
-	// Resynced reports the completion of an earlier recrawl, not its start, so
-	// watchers force a full reconcile only once the index actually caught up.
+	// Recrawls counts completions, not starts, so watchers force a full
+	// reconcile only once the index caught up; no caller consumes it.
 	startRecrawl := s.stale && !s.recrawling && s.lifetime.Err() == nil
 	if startRecrawl {
 		s.stale = false
 		s.recrawling = true
+		s.attempts++
 		s.recrawlWG.Add(1)
 	}
-	result.Resynced = s.resynced
-	s.resynced = false
+	s.recrawlStateLocked(&result)
 	dirty := s.dirty
 	s.dirty = make(map[string]DirtyKind)
 	s.mu.Unlock()
@@ -696,8 +696,8 @@ func (s *Service) completeRefresh(ctx context.Context, result RefreshResult, cha
 }
 
 // recrawl runs one stale-triggered crawl against the live index. A failure
-// re-arms stale so the next Refresh starts another; success is reported to the
-// next Refresh through RefreshResult.Resynced. MarkStale during a recrawl also
+// re-arms stale so the next Refresh starts another; success advances
+// RefreshResult.Recrawls. MarkStale during a recrawl also
 // re-arms stale, so a follow-up crawl covers whatever this one may have missed.
 func (s *Service) recrawl() {
 	defer s.recrawlWG.Done()
@@ -711,7 +711,7 @@ func (s *Service) recrawl() {
 		s.stale = true
 		s.version++ // a partial crawl may already have changed entries
 	} else {
-		s.resynced = true
+		s.recrawls++
 	}
 	s.mu.Unlock()
 }

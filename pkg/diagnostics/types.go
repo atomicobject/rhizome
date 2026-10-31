@@ -90,6 +90,12 @@ type Coverage struct {
 	Bytes     int64     `json:"bytes"`
 	Truncated bool      `json:"truncated"`
 	Warnings  []string  `json:"warnings,omitempty"`
+	// Contiguous maps a process ID to the time from which its examined events
+	// have no gap: no skipped segment head, unreadable segment, or unreadable
+	// record. Records before it may be missing; a process without an entry was
+	// read without gaps. A gap after a process's newest readable record maps to
+	// the far future. Only event scans set it.
+	Contiguous map[string]time.Time `json:"-"`
 }
 
 type EventResult struct {
