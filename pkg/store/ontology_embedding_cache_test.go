@@ -54,15 +54,15 @@ func TestOntologyEmbeddingCacheSurvivesRetirementAndMatchesExactKey(t *testing.T
 	require.ElementsMatch(t, []string{"chunk-hash", "gone-hash"}, slices.Collect(maps.Keys(cached())))
 }
 
-// A database upgraded from v78 or earlier has vectors but no cache rows; the
-// v79 step copies them so the first ownership transition reuses them.
+// A database upgraded from v77 or earlier has vectors but no cache rows; the
+// v78 step copies them so the first ownership transition reuses them.
 func TestOntologyEmbeddingCacheBackfillsExistingVectorsOnUpgrade(t *testing.T) {
 	ctx := context.Background()
 	path := currentSchemaTestDBPath(t, "ontology-embedding-cache-backfill.db")
 	store, err := Open(path)
 	require.NoError(t, err)
 	seedOntologyNodeSemanticRows(t, store) // state: test/deterministic, "chunk-hash", vector {1, 0, 0}
-	_, err = store.db.ExecContext(ctx, `UPDATE rzm_migration_state SET version = 78 WHERE domain = ?`, string(migration.DomainIntel))
+	_, err = store.db.ExecContext(ctx, `UPDATE rzm_migration_state SET version = 77 WHERE domain = ?`, string(migration.DomainIntel))
 	require.NoError(t, err)
 	require.NoError(t, store.Close())
 

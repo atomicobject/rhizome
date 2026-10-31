@@ -180,7 +180,6 @@ func (s *Store) validateIntelSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		"idx_ontology_node_field_value_dependencies_source",
 		"idx_ontology_node_field_value_dependencies_target_input",
 		"idx_ontology_node_field_value_dependencies_resolved_target",
-		"idx_ontology_embedding_cache_last_used",
 		"idx_ontology_node_embedding_state_node",
 		"idx_ontology_node_embedding_state_note",
 		"idx_ontology_node_embedding_state_type",

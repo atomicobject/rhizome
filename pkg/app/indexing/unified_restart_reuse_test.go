@@ -60,14 +60,14 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	require.Zero(t, restart, "same-build catch-up must not re-embed unchanged content; provider texts by phase: %v", byPhase)
 
 	// A database upgraded from before the vector cache has embeddings but no
-	// cache rows. The v79 backfill runs at the next open, before catch-up's
+	// cache rows. The v78 backfill runs at the next open, before catch-up's
 	// ownership transition, so a projection-version bump in the same upgrade
 	// still sends nothing to the provider.
 	store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	for _, stmt := range []string{
 		`DELETE FROM ontology_embedding_cache`,
-		`UPDATE rzm_migration_state SET version = 78 WHERE domain = 'intel'`,
+		`UPDATE rzm_migration_state SET version = 77 WHERE domain = 'intel'`,
 		`UPDATE note_projection_state SET projection_version = 'markdown-projection-v4'`,
 	} {
 		_, err = store.DB().ExecContext(context.Background(), stmt)
