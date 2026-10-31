@@ -184,11 +184,16 @@ PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-t
 - **Live run and desktop click-through:**
   - Trust `/tmp/th-live/repo`, let its `finalize` task run, and read the transcript in the page.
   - After merge, run `make desktop-install-dev` from the primary checkout and open the Tasks section in Rhizome Desktop.
+- **Desktop follow-ups from phase 3:**
+  - On a live screen, check that a notification appears under the release bundle identifier and that clicking it opens the task.
+  - Check that polling keeps running while the window is occluded. The content web view is in a window, so WebKit should throttle rather than suspend it; if it doesn't, set `inactiveSchedulingPolicy` to `.none` or poll from the desktop bridge.
+  - Check whether a hardened-runtime release needs the `com.apple.security.automation.apple-events` entitlement for Start.
+  - Sol D3: Open worktree validates the path, then reopens it, leaving a time-of-check/time-of-use window. Exploiting it needs local write access to task state.
 - **Impeccable:** `.impeccable/design.json` is older than DESIGN.md, and a newer Impeccable is available. Bumping it needs the license pin in `scripts/licenses/generate.py`.
 
 ## Status
 
-Active. Everything in scope is built and verified except the live agent run through the page, which waits on Drew trusting the throwaway repository.
+Active. Everything in scope is built and verified except the live checks that need Drew: an agent run through the page after he trusts the throwaway repository, and a desktop click-through of the notifications and Start.
 
 ## Execution Notes
 
@@ -200,6 +205,15 @@ Active. Everything in scope is built and verified except the live agent run thro
 - 2026-10-31: Live check against a throwaway repository: routes and page work. `rzm trust` refuses a scripted confirmation, so the agent run waits for Drew.
 - 2026-10-31: Sol loop, 3 rounds with GPT-6.1 Sol: 4 should fixes plus 1 nit fixed, 1 nit declined. Round 3 approved.
 - 2026-10-31: Fixed sol-loop S5 after all: `RunDue` in a repository with no tasks left records a leftover interrupted run (`TestInterruptedRunIsRecordedAfterTheLastTaskIsRemoved`). The "back-to-back Claude thinking blocks merge" follow-up was dropped: the writer already splits them at Claude's `content_block_stop` (`TestTranscriptClaudeThinkingBlocksSplitByDiagnostic`).
+- 2026-10-31: Phase 3, built by workers E1 (badge and notifications) and E2 (Open worktree and Start) in their own worktrees, then merged:
+  - E1 added `tauri-plugin-notification`, which is MIT or Apache licensed.
+  - E1 saw a real Dock badge reading 3 in a built app. It couldn't observe a notification, because its session was not on the console.
+  - E2's AppleScript and shell quoting was checked against hostile directory names.
+- 2026-10-31: Sol loop on phase 3, 2 rounds with GPT-6.1 Sol, approved:
+  - D2 fixed (a symlinked worktrees folder can't move the allowed root);
+  - D4 fixed (titles over 64 KiB are rejected before parsing);
+  - D1 resolved after evidence that the actions add nothing beyond the runtime origin's existing Run API;
+  - D3 accepted as a follow-up.
 - 2026-10-31: Opened PR #61 (https://github.com/atomicobject/rhizome/pull/61).
 - 2026-10-31: Greptile went 3 → 4 → 4 → 5/5. Fixes:
   - an attempt that ends without saving its result is recorded as failed instead of dropped;

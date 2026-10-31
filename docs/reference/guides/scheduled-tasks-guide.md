@@ -107,7 +107,12 @@ An item closes by itself when a commit carrying its task's tag reaches the prima
 
 Open **Tasks** in the workbench, or the Tasks section in Rhizome Desktop, to see every registered task with its mode, cadence, last outcome, next due time, and inbox state. Pick a task to change its mode, act on its inbox item (Run, Snooze, Skip, Discard, Done), and read its run history, newest first. Checks that found nothing to do appear as quiet single lines.
 
-A run opens on its result: the agent's final message, the changed files, tokens, branch, and the worktree path with a copy button. Below that is the run's timeline. The check's stderr, the agent's thinking, each command with its exit code, duration, and output, tool calls, and file changes start collapsed. While a run is in progress, finished blocks appear as they arrive. Run starts the work in a separate process; if it cannot start, the item says why. Start and Open worktree remain CLI and later-desktop actions.
+A run opens on its result: the agent's final message, the changed files, tokens, branch, and the worktree path with a copy button. Below that is the run's timeline. The check's stderr, the agent's thinking, each command with its exit code, duration, and output, tool calls, and file changes start collapsed. While a run is in progress, finished blocks appear as they arrive. Run starts the work in a separate process; if it cannot start, the item says why.
+
+In Rhizome Desktop, the Dock icon's badge counts the task items that need you (due, ready, or needs attention, not snoozed) across your open repositories, and a system notification arrives when an item newly needs you; clicking it opens the task. Two more actions appear there:
+
+- **Open worktree** opens a ready or needs-attention item's worktree in a new window.
+- **Start** opens Terminal in the main checkout running `rzm tasks start <item>`. The first time, macOS asks to let Rhizome control Terminal.
 
 ## Where state lives
 
