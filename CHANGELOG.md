@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Idle runtimes do less background work and keep more diagnostic history. A watcher tick with nothing to do no longer queues an indexing job, healthy runtime health checks are no longer logged, and Rhizome Desktop checks runtime status every 20 seconds instead of every 3 while nothing is starting or changing. A kernel rescan inside `.git`, `node_modules`, or an ignored folder no longer triggers a full vault resync.
+- Idle runtimes do less background work and keep more diagnostic history. A watcher tick with nothing to do no longer queues an indexing job, healthy runtime health checks are no longer logged, and Rhizome Desktop checks runtime status every 20 seconds instead of every 3 while nothing is starting or changing. A kernel rescan inside `.git`, `node_modules`, or an ignored folder no longer triggers a full vault resync. An idle runtime's own CPU use dropped about sevenfold, to roughly 0.2 CPU-seconds per minute, because it now checks its startup record less often once it is running.
 - A cold code or note embedding pass publishes its results in batches instead of queuing one indexing job per result. On a fresh worktree this had admitted about 46,000 jobs in a minute, with queue waits up to 15 minutes.
 - `rzm diagnostics perf` no longer flags operations as unfinished when their finish was in diagnostics it skipped to stay within its read limit.
 - Compounding's Codex defaults use GPT-6.1 Terra: xhigh for extraction and low for verification. Sol stays for grouping and calibration matching and is the fallback when Terra is unavailable. Claude defaults, Jev screening, and repository overrides in `.rhizome/compounding/models.json` are unchanged. The measurements are in `docs/performance/compounding-models-2026-10-30.md`.

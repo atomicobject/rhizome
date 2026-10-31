@@ -69,6 +69,18 @@ The seven scope items above, in one pull request.
 
 ## Actual Delivered
 
+All seven scope items, plus a start-intent poll backoff found during verification (see Deviations):
+
+- **WP-A:** periodic watcher ticks with nothing pending admit no lane job. Cache recrawl completion is a monotonic count each reader compares with its own last value. A watcher resync waits for the recrawl it coincides with, then runs one discovery. Agent resyncs wait for a recrawl that started after their own stale mark (`MarkStaleForResync`, `ResyncCovered`).
+- **WP-B:** FSEvents `MustScanSubDirs` rescans inside dropped or ignored trees no longer mark the vault stale.
+- **WP-C:** healthy runtime health probes that finish in under one second record no events.
+- **WP-D:** `rzm diagnostics perf` flags unfinished operations only within each process's contiguously read range.
+- **WP-E:** embedding finalizers are bounded by provider concurrency. Code and note results publish in batches of up to 128 results, 16 MiB, or 250 ms, each under one lane job and one witness check. A failed batch cancels the compute pass.
+- **WP-F:** the desktop presence loop polls every 20 s while idle and every 3 s while a runtime is starting, a pane is settling, or a rebuild is pending.
+- **WP-G:** a same-build restart makes zero provider calls (`pkg/app/indexing/unified_restart_reuse_test.go`). The 10-29 full re-embed came from the `markdown-projection-v5` bump in `530703fd`, which deletes each note's ontology embeddings even when its bytes are unchanged.
+
+Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran side by side on copies of `testdata/integration/python-app/vault`, with the `test` embedding provider and a health probe every 3 s, for 10 idle minutes after boot. The old build wrote 804,173 event bytes and admitted 201 jobs. The new build wrote 0 event bytes and admitted 0 jobs. Idle CPU over 5 minutes: 1.29 CPU-s/min before the start-intent backoff, 0.18 CPU-s/min after.
+
 ## Execution Notes
 
 - 2026-10-31T19:39:10Z: Drew asked to "run a council and plan out how to fix all of the issues you found. Then fix them using a team of Opus High sub-agents", with the instruction "full stop" (no merge). That instruction approves this plan. No current user is configured, so `plan-approved-by` is absent.
@@ -81,6 +93,14 @@ The seven scope items above, in one pull request.
 
 ## Deviations
 
+- 2026-10-31T21:00:00Z: the plan excluded idle-CPU work unless it remained after the other fixes. It did: about 1.1 CPU-s/min on the fixture with both builds. `sample` attributed it to `watchStartIntent`, which took a file lock and read the start intent every 50 ms for the runtime's lifetime. The poll now backs off from 50 ms to a 1 s cap, still within `StopGrace` (10 s). Added under the original authority because it is the root cause of finding F4, which was in the plan's measure-then-decide scope.
+- WP-F accepts a slower relaunch: a runtime that crashes behind an open pane while the desktop is idle can take about 23 s to relaunch instead of about 6. No page-to-presence wake hook exists; recorded as a follow-up.
+- SPEC-0116 was amended in this change set (idle-tick admission, the health-probe exception, and the contiguous-read rule for unfinished flags). The freeze above refers to the pre-amendment revision.
+
+## Status
+
+Implementation complete on branch `t3/investigate-performance-bottlenecks`; awaiting pull request review.
+
 ## Closure Checklist
 
 - [ ] Required quality gates pass.
@@ -89,3 +109,11 @@ The seven scope items above, in one pull request.
 - [ ] Follow-ups are triaged.
 
 ## Compounding Follow-ups
+
+- **Needs Drew's decision:** treat a projection or provider version bump for a note whose bytes are unchanged as a projection refresh, not an ownership transition, so embeddings are reused (WP-G report). Until then, each `ProjectionVersion` bump re-embeds every typed note body once (about 14k Voyage texts on drews-vault).
+- **Needs Drew's decision:** narrow full-scope derived work after a resync that found no changes.
+- Wake desktop presence when a page loses its runtime connection, to restore about 6 s crash recovery while idle.
+- `~/.config/rhizome/instances` holds 7,907 leaked `*.intent.lock.guard.lock` files and 361 stale `*.pending.json` files. Find the leaking path, and prune guards for instances that no longer exist.
+- Measure Voyage `encoding_format: base64`: responses were 7.5–10× the request bytes.
+- Move diagnostics out of worktrees into per-worktree folders under one user-level root, with a cross-worktree reader.
+- Skip the redundant `sync_ontology_body_final` re-plan when the final catalog sync wrote nothing.
