@@ -332,6 +332,12 @@ impl Pane {
         self.opening || self.pending.is_some()
     }
 
+    /// Opening, loading, or recovering a supervised runtime, so status polls
+    /// stay frequent until it settles.
+    pub fn settling(&self) -> bool {
+        self.busy() || (self.supervised.is_some() && (!self.ready || self.stopped > 0))
+    }
+
     /// Decides how to keep a displayed worktree available after a status poll.
     /// `elsewhere` means another window is opening the same worktree.
     pub fn observe(&mut self, status: Option<&Runtime>, elsewhere: bool) -> Option<Supervise> {
@@ -580,6 +586,10 @@ impl Panes {
             .filter(|p| !p.worktree.is_empty())
             .map(|p| p.worktree.clone())
             .collect()
+    }
+
+    pub fn settling(&self) -> bool {
+        self.0.lock().unwrap().values().any(Pane::settling)
     }
 
     pub fn supervise(&self, runtimes: &BTreeMap<String, Runtime>) -> Vec<(String, Supervise)> {
@@ -838,6 +848,31 @@ mod tests {
         let generation = pane.resume(generation, 2, Some("stopped")).unwrap();
         assert_eq!(pane.observe(Some(stopped), false), None, "busy");
         pane.settle(generation, true);
+    }
+
+    #[test]
+    fn a_pane_settles_once_its_page_loads_and_its_runtime_runs() {
+        let mut pane = Pane::default();
+        assert!(!pane.settling());
+        let generation = open(&mut pane, 1, "/w");
+        assert!(pane.settling(), "opening");
+        pane.expect(generation, &url(A), 1, true);
+        pane.settle(generation, true);
+        assert!(pane.settling(), "loading");
+        finish(&mut pane, &url(A));
+        assert!(!pane.settling());
+
+        let stopped = runtime(State::Stopped, A, 0);
+        assert_eq!(pane.observe(Some(&stopped), false), None);
+        assert!(pane.settling(), "a stopped runtime awaits relaunch");
+        assert_eq!(
+            pane.observe(Some(&runtime(State::Running, A, 2)), false),
+            None
+        );
+        assert!(!pane.settling(), "the runtime came back");
+
+        pane.sleep("/w");
+        assert!(!pane.settling(), "the user stopped it");
     }
 
     #[test]
