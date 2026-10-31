@@ -196,8 +196,11 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 - MUST admit paid calls in this order: authenticate, person status, kill switch, route and size validation, per-person slot, global slot (5-second wait), budget reservation, forward, settle, release.
 - MUST start with 4 concurrent paid calls per person and 8 globally, revised only from measurements and provider limits.
-- MUST enforce daily per-person and global limits on request count and input bytes, and reserve a conservative charge for each allowed model before dispatch, atomically with the receipt (one DynamoDB transaction). A model without a defensible charge bound stays disabled for live use.
-- MUST settle each receipt once, and keep the full reservation when the outcome or actual usage is unknown.
+- MUST enforce daily per-person and global limits on request count and input bytes, and reserve a conservative charge for each allowed model before dispatch, atomically with the receipt (one store transaction). A model without a defensible charge bound stays disabled for live use.
+- MUST settle each receipt once, against the UTC day it was admitted on, and keep the full reservation when the outcome or actual usage is unknown.
+- MUST keep receipts for as long as their idempotency keys can be presented; this build never deletes them. On restart, a receipt left in progress becomes an unknown outcome with its reservation kept.
+- MUST bound how many request bodies are buffered at once, separately from paid admission, so uploads waiting to be validated cannot exhaust memory.
+- MUST recheck the kill switch and provider switches immediately before reservation.
 - MUST run one serving task, replaced by stop-and-replace deployment so two tasks never admit at once. Multiple tasks require distributed admission first.
 
 ### Admin API
@@ -219,7 +222,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 ### Code placement
 
 - MUST keep `pkg/teamapi/wire` standard-library only and keep `pkg/teamapi` free of `pkg/app`, `pkg/vault`, SQLite, and CGO; it builds with `CGO_ENABLED=0`.
-- MUST put the server in this repository as a nested Go module, `services/team-api`, with its own `go.mod` and vendored dependencies, so OIDC, SQLite-server, and later AWS dependencies never enter `rzm`'s module. It imports this module's `pkg/teamapi/wire` and `pkg/diagnostics` through a local `replace`. Account-specific deployment configuration stays out of the repository.
+- MUST put the server in this repository as a nested Go module, `services/team-api`, with its own `go.mod` and `go.sum` and no vendor directory, so OIDC, SQLite-server, and later AWS dependencies never enter `rzm`'s module. It imports this module's `pkg/teamapi/wire` and `pkg/diagnostics` through a local `replace`. Account-specific deployment configuration stays out of the repository.
 - MUST keep all server state behind one narrow store interface with a shared contract test suite. Local runs use a SQLite file in a gitignored data directory, deleted by `make team-api-dev-reset`. The deployed store is chosen in Batch 5 and must pass the same suite.
 
 ### Local development

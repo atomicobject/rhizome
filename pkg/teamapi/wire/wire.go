@@ -121,7 +121,10 @@ type Meta struct {
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 	Scopes                string `json:"scopes"`
 	HostedDomainHint      string `json:"hd_hint,omitempty"`
-	MinClientVersion      string `json:"min_client_version"`
+	// Upstreams is "fake" only for a development stack with fake providers.
+	// Development auto-start refuses to use such a gateway for real work.
+	Upstreams        string `json:"upstreams,omitempty"`
+	MinClientVersion string `json:"min_client_version"`
 }
 
 // GoogleAuthRequest exchanges an authorization code obtained through the
@@ -297,8 +300,11 @@ func (e *GatewayError) Error() string {
 	return fmt.Sprintf("team API %s (HTTP %d): %s", e.Code, e.Status, e.Message)
 }
 
-// Retryable reports whether the same logical request may be sent again after
-// RetryAfter: only when the gateway guarantees nothing reached the provider.
+// Retryable reports whether the same logical request may be sent again with
+// the same idempotency key after RetryAfter. For rate_limited and
+// upstream_unavailable nothing reached the provider; for request_in_progress
+// the work may already be running, and the retry only observes it, because a
+// key never dispatches twice. Retryability never permits a new key.
 func (e *GatewayError) Retryable() bool {
 	return e.Code == CodeRateLimited || e.Code == CodeUpstreamDown || e.Code == CodeInProgress
 }
