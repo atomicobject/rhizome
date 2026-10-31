@@ -249,11 +249,15 @@ export function TasksWorkspace({
         onResume={resume}
         announcements={(state?.items ?? []).filter(
           (item) =>
-            item.kind === "announcement" &&
-            item.state === "due" &&
-            !(item.snoozedUntil && Date.parse(item.snoozedUntil) > Date.now()),
+            (item.kind === "announcement" && item.state === "due") ||
+            // Open work of a task no longer on the primary ref stays reachable.
+            (item.kind === "task" &&
+              item.state !== "done" &&
+              item.state !== "dismissed" &&
+              !report.tasks.some((registered) => registered.id === item.task)),
         )}
         onDismiss={(item) => runCommand(item, { kind: "done" })}
+        onDiscard={(item) => runCommand(item, { kind: "discard" })}
       />
     );
   } else if (!task) {

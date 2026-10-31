@@ -117,6 +117,30 @@ describe("TasksWorkspace", () => {
     await waitFor(() => expect(http.count("GET", "/api/tasks/runs")).toBeGreaterThan(before));
   });
 
+  it("keeps open work of a removed task reachable", async () => {
+    const state = stateFixture(NOW);
+
+    const orphan = {
+      ...state.items[0]!,
+      id: "13",
+      task: "retired-task",
+      kind: "task",
+      state: "ready",
+      summary: "Retired task left a branch",
+      worktree: "/repo/.rhizome/task-state/worktrees/retired-task-2026-10-30",
+    };
+
+    http.json("GET", "/api/tasks/state", { ...state, items: [...state.items, orphan] });
+    http.json("POST", "/api/tasks/items/13/discard", {});
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    expect(await screen.findByText("Retired task left a branch")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+    await waitFor(() => expect(http.count("POST", "/api/tasks/items/13/discard")).toBe(1));
+  });
+
   it("pauses and resumes all background work", async () => {
     http.json("GET", "/api/tasks", { ...reportFixture(NOW), paused: true });
     http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), paused: true });

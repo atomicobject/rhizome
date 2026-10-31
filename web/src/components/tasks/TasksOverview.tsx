@@ -149,6 +149,7 @@ export function TasksOverview({
   error,
   announcements = [],
   onDismiss,
+  onDiscard,
 }: {
   report: TasksReport;
   onOpen: (task: string) => void;
@@ -156,9 +157,13 @@ export function TasksOverview({
   onTogglePause: () => void;
   onResume: () => void;
   error?: ReactNode;
-  /** New-task notices; they count toward the desktop badge until dismissed. */
+  /**
+   * New-task notices and open items of tasks no longer registered; both count
+   * toward the desktop badge until closed.
+   */
   announcements?: TaskItem[];
   onDismiss?: (item: TaskItem) => void;
+  onDiscard?: (item: TaskItem) => void;
 }) {
   return (
     <div className="tasks-overview">
@@ -184,11 +189,20 @@ export function TasksOverview({
         <TasksNotices report={report} pausePending={pausePending} onResume={onResume} />
         {announcements.map((item) => (
           <div key={item.id} className="task-notice" role="status">
-            <StatusMark tone="info" label="New task" />
-            <p>{item.summary}</p>
+            {item.kind === "announcement" ? (
+              <StatusMark tone="info" label="New task" />
+            ) : (
+              <StatusMark tone="warning" label={`Removed task ${item.task}`} />
+            )}
+            <p>{item.summary || item.reason || item.message}</p>
+            {item.kind === "task" && item.worktree && onDiscard ? (
+              <button type="button" className="task-button" onClick={() => onDiscard(item)}>
+                Discard
+              </button>
+            ) : null}
             {onDismiss ? (
               <button type="button" className="task-button" onClick={() => onDismiss(item)}>
-                Dismiss
+                {item.kind === "announcement" ? "Dismiss" : "Done"}
               </button>
             ) : null}
           </div>
