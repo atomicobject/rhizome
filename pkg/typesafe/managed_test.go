@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -252,4 +253,26 @@ func TestManagedKeepsKeyAfterRequestInProgress(t *testing.T) {
 	require.Len(t, got, 3)
 	require.Equal(t, got[0].key, got[1].key)
 	require.Equal(t, got[0].key, got[2].key)
+}
+
+// request_in_progress followed only by rate_limited retries leaves the item
+// uncertain: the first attempt may still run and be billed.
+func TestManagedBatchKeepsInProgressItemsUncertain(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			writeGatewayError(w, wire.CodeInProgress, "0")
+			return
+		}
+		writeGatewayError(w, wire.CodeRateLimited, "0")
+	}))
+	t.Cleanup(server.Close)
+	client, err := typesafe.NewClient("", typesafe.WithManaged(typesafe.Managed{Origin: server.URL, Transport: sessionTransport{}}))
+	require.NoError(t, err)
+	question := map[string]typesafe.Question{"q": typesafe.Noul{Instructions: "?"}}
+	results, err := client.EvaluateBatch(context.Background(), []typesafe.BatchItem{{ID: "a", Request: typesafe.Request{State: "x", Questions: question}}}, 1)
+	require.NoError(t, err)
+	require.Greater(t, calls.Load(), int32(1), "the retries ran")
+	require.Equal(t, "uncertain", results[0].Status)
+	require.False(t, results[0].Retryable)
 }

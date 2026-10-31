@@ -86,6 +86,9 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 			// nothing; request_in_progress means an earlier one may have.
 			if gatewayErr.Code == wire.CodeInProgress {
 				mayHaveDispatched = true
+				if batchAttemptState != nil {
+					batchAttemptState.mayHaveDispatched = true
+				}
 			} else {
 				freshKey()
 			}

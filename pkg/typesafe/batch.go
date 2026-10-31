@@ -79,6 +79,10 @@ func (c *Client) EvaluateBatch(ctx context.Context, items []BatchItem, concurren
 					var apiErr *APIError
 					var gatewayErr *wire.GatewayError
 					switch {
+					case attempt.mayHaveDispatched:
+						// An earlier attempt may still run and be billed, whatever
+						// the last retry was told.
+						result.Status = "uncertain"
 					case errors.As(err, &apiErr) && c.managed != nil && apiErr.StatusCode >= 500:
 						// The gateway passed through a provider 5xx after dispatch and
 						// keeps that receipt as an unknown outcome: the work may have
@@ -132,6 +136,9 @@ type batchAttemptKey struct{}
 type batchAttempt struct {
 	gate  *batchGate
 	count int
+	// mayHaveDispatched is set when an attempt may have reached TypeSafe
+	// (request_in_progress). A later rejection of a retry does not settle it.
+	mayHaveDispatched bool
 }
 type batchGate struct {
 	mu    sync.Mutex
