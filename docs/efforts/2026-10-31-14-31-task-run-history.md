@@ -145,7 +145,7 @@ As in Plan.
 
 ## Actual Delivered
 
-Everything in Plan, built in four parallel worktrees (`t3/task-history-transcript`, `-lifecycle`, `-routes`, `-web`) and integrated on `t3/scheduled-task-history-ui`. The real routes and page were checked against a throwaway repository served by this build: the report, live state, task list, task detail, and the untrusted notice all work. A live agent run through the page is still owed (see Status).
+PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-transcript`, `-lifecycle`, `-routes`, `-web`) and integrated on `t3/scheduled-task-history-ui`. The real routes and page were checked against a throwaway repository served by this build: the report, live state, task list, task detail, and the untrusted notice all work. A live agent run through the page is still owed (see Status).
 
 ## Deviations
 
@@ -191,3 +191,4 @@ Active. Everything in scope is built and verified except the live agent run thro
   - fixed the page so a repeated transcript id replaces the line it holds.
 - 2026-10-31: Live check against a throwaway repository: routes and page work. `rzm trust` refuses a scripted confirmation, so the agent run waits for Drew.
 - 2026-10-31: Sol loop, 3 rounds with GPT-6.1 Sol: 4 should fixes plus 1 nit fixed, 1 nit declined. Round 3 approved.
+- 2026-10-31: Opened PR #61 (https://github.com/atomicobject/rhizome/pull/61).
