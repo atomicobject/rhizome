@@ -138,7 +138,7 @@ test("Atlas rendered cards match layout dimensions and relation handles meet the
   await expectAtlasGeometry(page);
 });
 
-test("Atlas ignores ordinary scrolling but supports pinch zoom, drag pan, and zoom controls", async ({
+test("Atlas pans on scroll and supports pinch zoom, drag pan, and zoom controls", async ({
   page,
 }) => {
   await page.goto("/ontology");
@@ -156,8 +156,9 @@ test("Atlas ignores ordinary scrolling but supports pinch zoom, drag pan, and zo
     return event.defaultPrevented;
   });
 
-  expect(consumed).toBe(false);
-  expect(await transform()).toBe(before);
+  expect(consumed).toBe(true);
+  await expect.poll(transform).not.toBe(before);
+  const scrolled = await transform();
   await pane.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     element.dispatchEvent(
@@ -171,7 +172,7 @@ test("Atlas ignores ordinary scrolling but supports pinch zoom, drag pan, and zo
       }),
     );
   });
-  await expect.poll(transform).not.toBe(before);
+  await expect.poll(transform).not.toBe(scrolled);
   const pinched = await transform();
   const rect = await pane.boundingBox();
 
