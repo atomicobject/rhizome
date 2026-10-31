@@ -17,6 +17,8 @@ const maxMessage = 8 << 10
 type AgentRequest struct {
 	Dir    string
 	Prompt string
+	// Transcript is the run's events.jsonl path; empty means no capture.
+	Transcript string
 }
 
 // AgentResult is what a prompt run reports.
