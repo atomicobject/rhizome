@@ -103,6 +103,13 @@ pub fn task_worktree(main: &Path, path: &str) -> Result<PathBuf, String> {
     }
     let root =
         std::fs::canonicalize(main.join(".rhizome/task-state/worktrees")).map_err(|_| refused())?;
+    // A symlinked worktrees folder must not move the allowed root elsewhere.
+    let expected = std::fs::canonicalize(main)
+        .map_err(|_| refused())?
+        .join(".rhizome/task-state/worktrees");
+    if root != expected {
+        return Err(refused());
+    }
     let found = std::fs::canonicalize(path).map_err(|_| refused())?;
     if found.parent() != Some(root.as_path()) || !found.is_dir() {
         return Err(refused());
@@ -232,6 +239,16 @@ mod tests {
         let linked = dir.path().join("linked");
         symlink(&main, &linked).unwrap();
         assert!(task_worktree(&linked, worktrees.join("a").to_str().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn a_symlinked_worktrees_folder_cannot_move_the_root() {
+        let (dir, main, worktrees) = checkout();
+        let elsewhere = dir.path().join("elsewhere");
+        fs::create_dir_all(elsewhere.join("b")).unwrap();
+        fs::remove_dir_all(&worktrees).unwrap();
+        symlink(&elsewhere, &worktrees).unwrap();
+        assert!(task_worktree(&main, worktrees.join("b").to_str().unwrap()).is_err());
     }
 
     #[test]

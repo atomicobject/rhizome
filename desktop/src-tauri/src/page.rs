@@ -43,6 +43,8 @@ pub fn profiling_for(app: &AppHandle) -> Profiling {
 
 const PREFIX: &str = "rhizome-desktop:";
 const SEARCH_LIMIT: usize = 500;
+/// Bounds a title before it is parsed; real reports stay far below it.
+const TITLE_LIMIT: usize = 64 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -122,7 +124,7 @@ pub enum Ask {
 /// Reads a page title as a report, only from a page on the verified runtime
 /// origin. Any other title, such as an HTML viewer page's, yields `None`.
 pub fn decode(title: &str, page: &Url, runtime: Option<&Url>) -> Option<Report> {
-    if !security::same_origin(runtime?, page) {
+    if !security::same_origin(runtime?, page) || title.len() > TITLE_LIMIT {
         return None;
     }
     let report: Report = serde_json::from_str(title.strip_prefix(PREFIX)?).ok()?;
@@ -387,6 +389,11 @@ mod tests {
             .unwrap();
         assert!(decode(valid, &viewer, Some(&runtime())).is_none());
         assert!(decode(valid, &page("/notes"), None).is_none());
+        let huge = format!(
+            r#"rhizome-desktop:{{"v":1,"section":"tasks","search":"","request":{{"n":2,"action":"openTaskWorktree","path":"/{}"}}}}"#,
+            "a".repeat(TITLE_LIMIT)
+        );
+        assert!(decode(&huge, &page("/tasks"), Some(&runtime())).is_none());
         let long = format!(
             r#"rhizome-desktop:{{"v":1,"section":"notes","search":"{}"}}"#,
             "a".repeat(501)
