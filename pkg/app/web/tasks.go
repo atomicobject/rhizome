@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
@@ -21,9 +20,9 @@ import (
 // (SPEC-0127 US8). *tasks.Service implements it.
 type TasksAPI interface {
 	Status(ctx context.Context) (tasks.Report, error)
-	LiveState(ctx context.Context) (tasksLiveState, error)
-	Runs(task string) ([]tasksRunView, error)
-	RunDetail(id string, after int64) (tasksRunDetail, error)
+	LiveState(ctx context.Context) (tasks.LiveState, error)
+	Runs(task string) ([]tasks.RunView, error)
+	RunDetail(id string, after int64) (tasks.RunDetail, error)
 	PrecheckRun(ctx context.Context, itemID string) error
 	Snooze(ctx context.Context, itemID string, until time.Time) error
 	Skip(ctx context.Context, itemID string) error
@@ -31,44 +30,14 @@ type TasksAPI interface {
 	Done(ctx context.Context, itemID string) error
 	SetMode(ctx context.Context, task, mode string) error
 	SetPaused(ctx context.Context, paused bool) error
+	RecordLaunchError(ctx context.Context, itemID, reason string) error
 }
-
-// ErrTaskRunNotFound is the error a TasksAPI returns for a missing run;
-// RunDetail's os.ErrNotExist maps to 404 the same way.
-var ErrTaskRunNotFound = errors.New("task run not found")
-
-// mergeWarningTTL bounds how often the page sees a fresh merge warning,
-// which Status reads from GitHub.
-const mergeWarningTTL = 10 * time.Minute
 
 var (
 	taskRunIDPattern  = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
 	taskIDPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`) // taskdef's ID rule
 	taskItemIDPattern = regexp.MustCompile(`^[0-9]{1,18}$`)
 )
-
-// mergeWarningCache keeps the server's one vault's merge warning.
-type mergeWarningCache struct {
-	mu    sync.Mutex
-	value string
-	at    time.Time
-	now   func() time.Time
-}
-
-// apply replaces report's merge warning with the cached one while it is
-// fresh, and otherwise caches report's.
-func (c *mergeWarningCache) apply(report *tasks.Report) {
-	now := time.Now
-	if c.now != nil {
-		now = c.now
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if t := now(); c.at.IsZero() || t.Sub(c.at) >= mergeWarningTTL {
-		c.value, c.at = report.MergeWarning, t
-	}
-	report.MergeWarning = c.value
-}
 
 // launchTaskRun starts `rzm tasks run <item>` detached in the vault, the
 // way the runtime starts `rzm tasks run-due`.
@@ -108,7 +77,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		serve = func(api TasksAPI) {
 			runs, err := api.Runs(task)
 			if runs == nil {
-				runs = []tasksRunView{}
+				runs = []tasks.RunView{}
 			}
 			writeTasksResult(w, map[string]any{"runs": runs}, err)
 		}
@@ -125,7 +94,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		serve = func(api TasksAPI) {
 			detail, err := api.RunDetail(id, after)
-			if errors.Is(err, ErrTaskRunNotFound) || errors.Is(err, os.ErrNotExist) {
+			if errors.Is(err, tasks.ErrRunNotFound) || errors.Is(err, os.ErrNotExist) {
 				writeError(w, http.StatusNotFound, fmt.Errorf("run %s not found", id))
 				return
 			}
@@ -179,7 +148,6 @@ func (s *Server) serveTasksStatus(w http.ResponseWriter, r *http.Request, api Ta
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.tasksMergeWarning.apply(&report)
 	writeJSON(w, http.StatusOK, report)
 }
 
@@ -200,6 +168,7 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 				launch = launchTaskRun
 			}
 			if err := launch(s.cfg.VaultPath, itemID); err != nil {
+				_ = api.RecordLaunchError(ctx, itemID, err.Error())
 				writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", err))
 				return
 			}

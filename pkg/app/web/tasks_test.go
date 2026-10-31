@@ -21,8 +21,8 @@ const taskRunID = "20261031T183117Z-0123abcd"
 type fakeTasks struct {
 	report     tasks.Report
 	statusErr  error
-	runs       []tasksRunView
-	detail     tasksRunDetail
+	runs       []tasks.RunView
+	detail     tasks.RunDetail
 	detailErr  error
 	precheck   error
 	actionErr  error
@@ -39,16 +39,16 @@ func (f *fakeTasks) Status(context.Context) (tasks.Report, error) {
 	return f.report, f.statusErr
 }
 
-func (f *fakeTasks) LiveState(context.Context) (tasksLiveState, error) {
-	return tasksLiveState{Paused: true, Items: []tasks.Item{{ID: "4", Task: "docs-drift"}}, Recent: []tasks.RunRecord{}}, nil
+func (f *fakeTasks) LiveState(context.Context) (tasks.LiveState, error) {
+	return tasks.LiveState{Paused: true, Items: []tasks.Item{{ID: "4", Task: "docs-drift"}}, Recent: []tasks.RunRecord{}}, nil
 }
 
-func (f *fakeTasks) Runs(task string) ([]tasksRunView, error) {
+func (f *fakeTasks) Runs(task string) ([]tasks.RunView, error) {
 	f.record("runs %s", task)
 	return f.runs, nil
 }
 
-func (f *fakeTasks) RunDetail(id string, after int64) (tasksRunDetail, error) {
+func (f *fakeTasks) RunDetail(id string, after int64) (tasks.RunDetail, error) {
 	f.record("detail %s %d", id, after)
 	return f.detail, f.detailErr
 }
@@ -89,6 +89,11 @@ func (f *fakeTasks) SetPaused(_ context.Context, paused bool) error {
 	return f.actionErr
 }
 
+func (f *fakeTasks) RecordLaunchError(_ context.Context, itemID, reason string) error {
+	f.record("launch error %s %s", itemID, reason)
+	return nil
+}
+
 type launch struct{ vault, item string }
 
 func newTasksTestServer(api *fakeTasks) (*Server, *[]launch) {
@@ -125,8 +130,8 @@ func TestTasksRoutesAnswer503WhenUnconfigured(t *testing.T) {
 func TestTasksReadRoutes(t *testing.T) {
 	api := &fakeTasks{
 		report: tasks.Report{Paused: true, StateDir: "/state", Tasks: []tasks.TaskStatus{}},
-		runs:   []tasksRunView{{RunRecord: tasks.RunRecord{Task: "docs-drift", Outcome: "ready"}, HasTranscript: true}},
-		detail: tasksRunDetail{Events: []json.RawMessage{json.RawMessage(`{"id":1}`)}, Next: 42},
+		runs:   []tasks.RunView{{RunRecord: tasks.RunRecord{Task: "docs-drift", Outcome: "ready"}, HasTranscript: true}},
+		detail: tasks.RunDetail{Events: []json.RawMessage{json.RawMessage(`{"id":1}`)}, Next: 42},
 	}
 	s, _ := newTasksTestServer(api)
 
@@ -193,7 +198,7 @@ func TestTasksRouteValidation(t *testing.T) {
 }
 
 func TestTasksRunDetailMissingRunIs404(t *testing.T) {
-	for _, err := range []error{ErrTaskRunNotFound, fmt.Errorf("open run: %w", os.ErrNotExist)} {
+	for _, err := range []error{tasks.ErrRunNotFound, fmt.Errorf("open run: %w", os.ErrNotExist)} {
 		s, _ := newTasksTestServer(&fakeTasks{detailErr: err})
 		code, payload := serveTasks(t, s, http.MethodGet, "/api/tasks/runs/"+taskRunID, "")
 		require.Equal(t, http.StatusNotFound, code)
@@ -219,6 +224,13 @@ func TestTasksRunLaunchesDetachedAfterPrecheck(t *testing.T) {
 	require.Equal(t, http.StatusConflict, code)
 	require.Equal(t, "item 4 is done", payload["error"])
 	require.Len(t, *launches, 1, "a failed precheck must not spawn")
+
+	api.precheck = nil
+	api.calls = nil
+	s.tasksLaunch = func(string, string) error { return errors.New("no rzm") }
+	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/run", "")
+	require.Equal(t, http.StatusInternalServerError, code)
+	require.Equal(t, []string{"precheck 4", "launch error 4 no rzm"}, api.calls, "a failed spawn is recorded on the item")
 }
 
 func TestTasksActions(t *testing.T) {
@@ -247,23 +259,4 @@ func TestTasksActions(t *testing.T) {
 	api.actionErr = errors.New("item 4 is done; only a due item can be skipped")
 	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/skip", "")
 	require.Equal(t, http.StatusBadRequest, code)
-}
-
-func TestTasksStatusCachesMergeWarning(t *testing.T) {
-	api := &fakeTasks{report: tasks.Report{MergeWarning: "first", Tasks: []tasks.TaskStatus{}}}
-	s, _ := newTasksTestServer(api)
-	now := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-	s.tasksMergeWarning.now = func() time.Time { return now }
-
-	_, payload := serveTasks(t, s, http.MethodGet, "/api/tasks", "")
-	require.Equal(t, "first", payload["mergeWarning"])
-
-	api.report.MergeWarning = ""
-	now = now.Add(mergeWarningTTL - time.Second)
-	_, payload = serveTasks(t, s, http.MethodGet, "/api/tasks", "")
-	require.Equal(t, "first", payload["mergeWarning"], "a fresh cached warning wins")
-
-	now = now.Add(time.Second)
-	_, payload = serveTasks(t, s, http.MethodGet, "/api/tasks", "")
-	require.NotContains(t, payload, "mergeWarning", "an expired warning is refreshed")
 }

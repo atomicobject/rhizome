@@ -85,11 +85,27 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	}
 	for _, def := range defs {
 		if def.Scope == ScopeTeam {
-			report.MergeWarning = mergeWarning(ctx, s.opts.Repo.MainCheckout)
+			report.MergeWarning = s.cachedMergeWarning(ctx, now)
 			break
 		}
 	}
 	return report, nil
+}
+
+// mergeWarningTTL bounds how often one Service asks GitHub for the squash
+// setting; the Tasks page polls Status, and gh can take seconds.
+const mergeWarningTTL = 10 * time.Minute
+
+// readMergeWarning is mergeWarning; tests replace it.
+var readMergeWarning = mergeWarning
+
+func (s *Service) cachedMergeWarning(ctx context.Context, now time.Time) string {
+	s.merge.mu.Lock()
+	defer s.merge.mu.Unlock()
+	if s.merge.at.IsZero() || now.Sub(s.merge.at) >= mergeWarningTTL {
+		s.merge.value, s.merge.at = readMergeWarning(ctx, s.opts.Repo.MainCheckout), now
+	}
+	return s.merge.value
 }
 
 // mergeWarning reads the GitHub repository's squash setting with gh, when

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -32,6 +33,11 @@ type Service struct {
 	opts     Options
 	stateDir string
 	store    Store
+	merge    struct {
+		mu    sync.Mutex
+		value string
+		at    time.Time
+	}
 }
 
 // New prepares a Service for the repository.

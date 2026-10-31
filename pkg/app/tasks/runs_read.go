@@ -1,11 +1,9 @@
 package tasks
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -134,7 +132,7 @@ func (s *Service) RunDetail(id string, after int64) (RunDetail, error) {
 	}
 	detail := RunDetail{Run: s.view(*found), Events: []json.RawMessage{}}
 	if detail.Run.HasTranscript {
-		events, next, err := readTranscriptLines(s.runFile(id, transcriptFile), after)
+		events, next, err := ReadTranscript(s.runFile(id, transcriptFile), after)
 		if err != nil {
 			return RunDetail{}, err
 		}
@@ -148,33 +146,4 @@ func (s *Service) RunDetail(id string, after int64) (RunDetail, error) {
 		detail.CheckLog = string(data)
 	}
 	return detail, nil
-}
-
-// readTranscriptLines reads whole JSON lines from byte offset after,
-// clamped to [0, size], dropping a trailing partial line, and returns the
-// offset after the last whole line.
-// replaced by transcript.go ReadTranscript at integration
-func readTranscriptLines(path string, after int64) ([]json.RawMessage, int64, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
-	if err != nil {
-		return nil, 0, err
-	}
-	after = min(max(after, 0), info.Size())
-	data, err := io.ReadAll(io.NewSectionReader(f, after, info.Size()-after))
-	if err != nil {
-		return nil, 0, err
-	}
-	end := bytes.LastIndexByte(data, '\n') + 1
-	var lines []json.RawMessage
-	for _, line := range bytes.Split(data[:end], []byte("\n")) {
-		if len(line) > 0 && json.Valid(line) {
-			lines = append(lines, json.RawMessage(line))
-		}
-	}
-	return lines, after + int64(end), nil
 }

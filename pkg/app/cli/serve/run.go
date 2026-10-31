@@ -305,7 +305,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		HTMLContentOriginTemplate: opts.HTMLContentOrigin,
 		ApplicationOrigin:         opts.ApplicationOrigin,
 		RuntimeControl:            control,
-		// TODO(EFF-2026-10-31-14-31): set TasksOpener to call tasks.Open for /api/tasks.
+		TasksOpener:               opts.OpenTasks,
 	}, web.Assets())
 	if err != nil {
 		return err
