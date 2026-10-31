@@ -45,6 +45,8 @@ func (rt *LiveRuntime) SyncWatcher(ctx context.Context) error {
 		return err
 	}
 	w.prepareSync(changed)
+	w.syncWaiters.Add(1)
+	defer w.syncWaiters.Add(-1)
 	handle := w.processOwnershipBatch()
 	if handle == nil {
 		return ErrWatcherPending

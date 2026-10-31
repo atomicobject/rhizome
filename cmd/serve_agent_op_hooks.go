@@ -176,12 +176,16 @@ func (h *agentOpHost) cacheForPlan(ctx context.Context, plan *oneshotruntime.Pla
 // completed, or when ctx ends.
 func resyncCache(ctx context.Context, cacheSvc *cache.Service) error {
 	cacheSvc.MarkStale()
-	for {
+	var before uint64
+	for first := true; ; first = false {
 		result, err := cacheSvc.RefreshWithResult(ctx)
 		if err != nil {
 			return err
 		}
-		if result.Resynced {
+		if first {
+			before = result.Recrawls
+		}
+		if result.Resynced || result.Recrawls > before {
 			return nil
 		}
 		select {

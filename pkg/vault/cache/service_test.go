@@ -841,15 +841,18 @@ func TestCollectionCacheContextDocInitialAndIncrementalParity(t *testing.T) {
 	require.True(t, ok)
 }
 
-// waitResynced drains refreshes until the background recrawl reports
-// completion through RefreshResult.Resynced.
+// waitResynced drains refreshes until a background recrawl reports
+// completion through RefreshResult.Recrawls.
 func waitResynced(t *testing.T, svc *Service) {
 	t.Helper()
+	svc.mu.RLock()
+	before := svc.recrawls
+	svc.mu.RUnlock()
 	sawResynced := false
 	require.Eventually(t, func() bool {
 		result, err := svc.RefreshWithResult(context.Background())
 		require.NoError(t, err)
-		sawResynced = sawResynced || result.Resynced
+		sawResynced = sawResynced || result.Recrawls > before
 		if !sawResynced {
 			return false
 		}
@@ -1052,4 +1055,26 @@ func (p gatedProjectionProvider) Project(source noteformat.AuthoredSource) (note
 		descriptor.Capabilities,
 		noteformat.ProjectionFacts{},
 	)
+}
+
+func TestRecrawlCompletionIsVisibleToEveryReader(t *testing.T) {
+	root := t.TempDir()
+	writeCacheFile(t, root, "note.md", "# Note")
+	svc, err := NewService(root, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+	require.False(t, svc.HasPendingWork(0))
+
+	svc.MarkStale()
+	require.True(t, svc.HasPendingWork(0))
+	waitResynced(t, svc)
+
+	// A reader that refreshed afterward still sees the completion it has not acted on.
+	result, err := svc.RefreshWithResult(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), result.Recrawls)
+	require.Zero(t, result.RecrawlInFlight)
+	require.True(t, svc.HasPendingWork(0))
+	require.False(t, svc.HasPendingWork(result.Recrawls))
 }

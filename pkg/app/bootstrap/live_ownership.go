@@ -35,6 +35,9 @@ func (w *unifiedSemanticWatcher) run() {
 		case <-w.runCtx.Done():
 			return
 		case <-tick:
+			if !w.hasPendingWork() {
+				continue
+			}
 		case <-w.ownershipWake:
 		}
 		if handle := w.processOwnershipBatch(); handle != nil {
@@ -45,6 +48,27 @@ func (w *unifiedSemanticWatcher) run() {
 			}
 		}
 	}
+}
+
+// hasPendingWork reports whether a periodic tick has work for a batch. An idle
+// tick admits no lane job, so routine no-ops leave no diagnostics history
+// (SPEC-0116); a read error submits.
+func (w *unifiedSemanticWatcher) hasPendingWork() bool {
+	if w.cacheService == nil || w.intelStore == nil {
+		return true
+	}
+	w.pendingMu.Lock()
+	inputs := len(w.pendingByRel) > 0 || w.pendingResync
+	seen := w.seenRecrawls
+	w.pendingMu.Unlock()
+	if inputs || w.cacheService.HasPendingWork(seen) {
+		return true
+	}
+	if _, pending, err := w.intelStore.PendingOwnershipReconciliation(w.runCtx); err != nil || pending {
+		return true
+	}
+	unready, err := w.intelStore.HasUnreadyDerivedWork(w.runCtx)
+	return err != nil || unready
 }
 
 // processOwnershipBatch queues one reconciliation on the indexing lane and
@@ -102,16 +126,14 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context, l
 		return err
 	}
 	pendingDirty, pendingResync, reasons := w.takePendingWatchInputs()
-	if result.Resynced {
+	recrawled := w.observeRecrawls(result.Recrawls)
+	if recrawled {
 		reasons = addWatchReason(reasons, "cache_recrawl_completed")
 	}
 	indexingperf.AddCount(ctx, indexingperf.WatcherPendingPaths, int64(len(pendingDirty)))
 	indexingperf.AddCount(ctx, indexingperf.WatcherCacheDrainedPaths, int64(len(result.Drained)))
 	indexingperf.AddCount(ctx, indexingperf.WatcherCacheChangedPaths, int64(len(result.Changed)))
-	for reason, count := range reasons {
-		indexingperf.AddCount(ctx, indexingperf.WatcherTrigger.Select(reason), count)
-	}
-	result.Resynced = result.Resynced || pendingResync
+	result.Resynced = result.Resynced || recrawled
 	dirty := cloneDirtyKinds(result.Drained)
 	for rel, kind := range pendingDirty {
 		dirty[rel] = kind
@@ -124,12 +146,17 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context, l
 	now := w.opts.Now()
 	// Any failure after the refresh can precede the durable transition. Retain
 	// drained events alongside reconciliation debt for the lane's next batch.
-	completed := false
+	// A resync deferred to an in-flight recrawl stays pending outside the lease.
+	completed, deferred := false, false
 	defer func() {
+		if completed && deferred {
+			w.restoreWatchInputs(nil, true, reasons)
+		}
 		if !completed {
-			w.restoreWatchInputs(dirty, result.Resynced, reasons)
+			resync := result.Resynced || pendingResync
+			w.restoreWatchInputs(dirty, resync, reasons)
 			indexingperf.AddCount(ctx, indexingperf.WatcherRestoredPaths, int64(len(dirty)))
-			watcherEvent(ctx, slog.LevelWarn, "batch.restored", watcherReasonAttrs(reasons, slog.Int("paths", len(dirty)), slog.Bool("resync", result.Resynced))...)
+			watcherEvent(ctx, slog.LevelWarn, "batch.restored", watcherReasonAttrs(reasons, slog.Int("paths", len(dirty)), slog.Bool("resync", resync))...)
 			for rel, kind := range dirty {
 				w.cacheService.MarkDirty(rel, kind)
 			}
@@ -146,6 +173,15 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context, l
 	unready, err := w.intelStore.HasUnreadyDerivedWork(ctx)
 	if err != nil {
 		return err
+	}
+	// A stale cache's recrawl will trigger a full discovery when it completes;
+	// running one now for the same staleness would discover twice.
+	deferred = w.deferResync(pendingResync && !result.Resynced && !pending && !unready, result.RecrawlInFlight)
+	if !deferred {
+		for reason, count := range reasons {
+			indexingperf.AddCount(ctx, indexingperf.WatcherTrigger.Select(reason), count)
+		}
+		result.Resynced = result.Resynced || pendingResync
 	}
 	result.Resynced = result.Resynced || unready
 	if unready {
