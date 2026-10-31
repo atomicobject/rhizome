@@ -174,9 +174,13 @@ func (p *lazyDimsProvider) EmbedTexts(ctx context.Context, texts []string) ([]em
 			return nil, errors.New("boom")
 		}
 	}
+	vectors, err := p.inner.EmbedTexts(ctx, texts)
+	if err != nil {
+		return nil, err
+	}
 	p.known.Store(true)
 	p.succeeded.Add(int64(len(texts)))
-	return p.inner.EmbedTexts(ctx, texts)
+	return vectors, nil
 }
 
 func newLazyDimsProvider() *lazyDimsProvider {
