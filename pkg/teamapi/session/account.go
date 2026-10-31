@@ -108,14 +108,24 @@ func (a *Account) Origin() string { return a.origin }
 
 // Status reports the stored session. An expired or missing session is
 // SignedIn false with a nil error.
+// Status reads the stored record. When another process has signed in again
+// or out since this Account cached a record, the cache is dropped, so later
+// requests use the stored session. A cached record of the same session is
+// kept: it may hold a rotation this process could not save yet.
 func (a *Account) Status() (Status, error) {
 	rec, err := a.load()
 	if errors.Is(err, ErrNotFound) || errors.Is(err, errMalformed) {
+		a.setCache(nil)
 		return Status{Origin: a.origin}, nil
 	}
 	if err != nil {
 		return Status{Origin: a.origin}, err
 	}
+	a.mu.Lock()
+	if a.cached != nil && a.cached.SessionID != rec.SessionID {
+		a.cached = nil
+	}
+	a.mu.Unlock()
 	return a.statusOf(rec), nil
 }
 

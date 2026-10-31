@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -475,4 +476,69 @@ func TestCancelledSignInDoesNotPublish(t *testing.T) {
 	_, found, err := ReadSelector(selector)
 	require.NoError(t, err)
 	require.False(t, found)
+}
+
+// net/http replays a POST that carries Idempotency-Key when a reused
+// connection fails before a response. The session transport must not let it:
+// the caller has to see the ambiguous failure, or it could renew the key and
+// pay twice.
+func TestTransportDisablesImplicitReplayOfPaidCalls(t *testing.T) {
+	var posts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			return // opens the keep-alive connection the POST reuses
+		}
+		posts.Add(1)
+		_, _ = io.Copy(io.Discard, r.Body)
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err == nil {
+			_ = conn.Close() // read the request, then lose the response
+		}
+	}))
+	t.Cleanup(srv.Close)
+	store := &MemoryStore{}
+	rec := newFakeGateway(t).record(time.Now().Add(5 * time.Minute))
+	rec.Origin = srv.URL
+	saveRecord(t, store, rec)
+	client := openAccount(t, srv.URL, store, filepath.Join(t.TempDir(), "lock")).HTTPClient()
+
+	resp, err := client.Get(srv.URL + wire.RouteSession)
+	require.NoError(t, err)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	req, err := http.NewRequest(http.MethodPost, srv.URL+wire.RouteVoyageEmbed, strings.NewReader(`{"input":"x"}`))
+	require.NoError(t, err)
+	req.Header.Set(wire.HeaderIdempotencyKey, "replay-test-key")
+	_, err = client.Do(req)
+	require.Error(t, err, "the lost response surfaces as an error")
+	require.Equal(t, int32(1), posts.Load(), "net/http replayed the paid call behind the caller's back")
+}
+
+// A long-lived Account reused across lookups must follow a new sign-in made
+// by another process, not keep sending the old session's cached token.
+func TestStatusFollowsANewSignInAtTheSameOrigin(t *testing.T) {
+	var seen atomic.Value
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen.Store(r.Header.Get("Authorization"))
+	}))
+	t.Cleanup(srv.Close)
+	store := &MemoryStore{}
+	old := newFakeGateway(t).record(time.Now().Add(5 * time.Minute))
+	old.Origin = srv.URL
+	saveRecord(t, store, old)
+	a := openAccount(t, srv.URL, store, filepath.Join(t.TempDir(), "lock"))
+	get := func() string {
+		resp, err := a.HTTPClient().Get(srv.URL + wire.RouteSession)
+		require.NoError(t, err)
+		resp.Body.Close()
+		return seen.Load().(string)
+	}
+	require.Equal(t, "Bearer "+old.AccessToken, get())
+
+	newer := old
+	newer.SessionID, newer.AccessToken = "s-new", wire.AccessTokenPrefix+"s-new.synthetic"
+	saveRecord(t, store, newer)
+	_, err := a.Status()
+	require.NoError(t, err)
+	require.Equal(t, "Bearer "+newer.AccessToken, get())
 }

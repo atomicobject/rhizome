@@ -73,6 +73,12 @@ func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 func (a *Account) send(req *http.Request, body io.ReadCloser, token string) (*http.Response, error) {
 	out := req.Clone(req.Context())
 	out.Body = body
+	// net/http silently replays a request that carries Idempotency-Key and a
+	// GetBody when a reused connection fails. The caller would never learn
+	// that an attempt may have been dispatched, and could renew the key after
+	// a later rejection and pay twice. Without GetBody the failure surfaces
+	// as an ambiguous error; this transport's own replay uses req.GetBody.
+	out.GetBody = nil
 	out.Header.Set("Authorization", "Bearer "+token)
 	if a.userAgent != "" {
 		out.Header.Set("User-Agent", a.userAgent)
