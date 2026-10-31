@@ -62,3 +62,37 @@ func TestOntologyEmbeddingCacheSurvivesRetirementAndPrunesOnlyIdleUnreferencedRo
 	require.Equal(t, int64(1), pruned)
 	require.ElementsMatch(t, []string{"recent-hash"}, slices.Collect(maps.Keys(cached())), "an idle row loses protection once no chunk references it")
 }
+
+// A schema-recovery domain reset keeps an intact cache, like the note and code
+// embedding caches, and recreates a malformed one empty.
+func TestOntologyEmbeddingCacheSurvivesIntactDomainReset(t *testing.T) {
+	ctx := context.Background()
+	path := currentSchemaTestDBPath(t, "ontology-embedding-cache-reset.db")
+	store, err := Open(path)
+	require.NoError(t, err)
+	require.NoError(t, store.UpsertOntologyEmbeddingCache(ctx, []OntologyEmbeddingCacheEntry{
+		{Provider: "test", Model: "deterministic", TextHash: "kept", Vector: embeddings.Embedding{1, 0}},
+	}))
+	require.NoError(t, store.ResetDomain(ctx))
+	require.NoError(t, store.Close())
+
+	store, err = Open(path)
+	require.NoError(t, err)
+	got, err := store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 2, []string{"kept"})
+	require.NoError(t, err)
+	require.Equal(t, embeddings.Embedding{1, 0}, got["kept"], "an intact cache survives the reset")
+
+	_, err = store.db.ExecContext(ctx, `DROP TABLE ontology_embedding_cache`)
+	require.NoError(t, err)
+	_, err = store.db.ExecContext(ctx, `CREATE TABLE ontology_embedding_cache (text_hash TEXT)`)
+	require.NoError(t, err)
+	require.NoError(t, store.ResetDomain(ctx))
+	require.NoError(t, store.Close())
+
+	store, err = Open(path)
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+	got, err = store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 2, []string{"kept"})
+	require.NoError(t, err)
+	require.Empty(t, got, "a malformed cache is dropped and recreated")
+}

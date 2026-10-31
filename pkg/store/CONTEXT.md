@@ -6,6 +6,7 @@ The unified SQLite store for `.rhizome/db.sqlite`. The stores subsystem owns thi
 - Domain files separate schema assembly/validation, note metadata, ontology identity/fields, code references and anchors, chunks/vectors, graph reads, sessions, validation publication, and analytics. Cross-domain publications retain their original transaction.
 - Consumers own narrow interfaces. Ontology node/field/query-plan DTOs live in `pkg/ontology/readmodel`; code-anchor and code-index contracts remain in `pkg/anchors`.
 - Normal opens validate schema authority without scanning database pages. Read-only opens do not migrate, repair, or mutate. `CheckIntegrity` is explicit maintenance.
+- `ontology_embedding_cache` (Intel v78) is the content-addressed ontology vector cache. Retirement, rebuild, and intact-table `ResetDomain` paths must not delete it; only `PruneOntologyEmbeddingCache` removes rows.
 - `ReadCodeStats` reads existing current or legacy index tables without migration. CLI code owns catalog parsing and output formatting.
 
 See `docs/reference/subsystems/stores.md` for the writer, migration, path, and initialization rules.

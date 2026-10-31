@@ -20,6 +20,27 @@ type OntologyEmbeddingCacheEntry struct {
 	Vector   embeddings.Embedding
 }
 
+// ontologyEmbeddingCacheColumns is the cache table's validated shape.
+var ontologyEmbeddingCacheColumns = []string{"provider", "model", "dimensions", "text_hash", "vector", "last_used_at"}
+
+// ontologyEmbeddingCacheIntact reports whether a domain reset may keep the
+// cache: it is a real table with every expected column. Paid vectors survive
+// resets the same way the note and code embedding caches do; a malformed
+// table is dropped and recreated empty.
+func ontologyEmbeddingCacheIntact(ctx context.Context, q queryRower) (bool, error) {
+	exists, err := tableExistsQuery(ctx, q, "ontology_embedding_cache")
+	if err != nil || !exists {
+		return false, err
+	}
+	for _, column := range ontologyEmbeddingCacheColumns {
+		ok, err := tableHasColumnQuery(ctx, q, "ontology_embedding_cache", column)
+		if err != nil || !ok {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
 // The cache is content-addressed: ownership transitions, node deletion and
 // ontology rebuilds delete chunk and state rows but never cache rows, so text
 // that was embedded once is not sent to the provider again.

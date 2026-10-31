@@ -69,7 +69,7 @@ The seven scope items above, in one pull request.
 
 ## Actual Delivered
 
-All seven scope items, plus a start-intent poll backoff found during verification (see Deviations):
+All seven scope items, plus a start-intent poll backoff found during verification and WP-H from Drew's decision (see Deviations):
 
 - **WP-A:** periodic watcher ticks with nothing pending admit no lane job. Cache recrawl completion is a monotonic count each reader compares with its own last value. A watcher resync waits for the recrawl it coincides with, then runs one discovery. Agent resyncs wait for a recrawl that started after their own stale mark (`MarkStaleForResync`, `ResyncCovered`).
 - **WP-B:** FSEvents `MustScanSubDirs` rescans inside dropped or ignored trees no longer mark the vault stale.
@@ -77,6 +77,7 @@ All seven scope items, plus a start-intent poll backoff found during verificatio
 - **WP-D:** `rzm diagnostics perf` flags unfinished operations only within each process's contiguously read range.
 - **WP-E:** embedding finalizers are bounded by provider concurrency. Code and note results publish in batches of up to 128 results, 16 MiB, or 250 ms, each under one lane job and one witness check. A failed batch cancels the compute pass.
 - **WP-F:** the desktop presence loop polls every 20 s while idle and every 3 s while a runtime is starting, a pane is settling, or a rebuild is pending.
+- **WP-H (Drew's decision):** ontology body vectors have a content-addressed cache in the intel store (Intel v78 `ontology_embedding_cache`). Ownership transitions, rebuilds, and an intact-table `ResetDomain` do not delete it, and rows idle 30 days that no current chunk uses are pruned. In the fixture, a projection-version bump now sends 0 provider texts instead of 4, a one-body edit sends 1, and reverting that edit sends 0.
 - **WP-G:** a same-build restart makes zero provider calls (`pkg/app/indexing/unified_restart_reuse_test.go`). The 10-29 full re-embed came from the `markdown-projection-v5` bump in `530703fd`, which deletes each note's ontology embeddings even when its bytes are unchanged.
 
 Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran side by side on copies of `testdata/integration/python-app/vault`, with the `test` embedding provider and a health probe every 3 s, for 10 idle minutes after boot. The old build wrote 804,173 event bytes and admitted 201 jobs. The new build wrote 0 event bytes and admitted 0 jobs. Idle CPU over 5 minutes: 1.29 CPU-s/min before the start-intent backoff, 0.18 CPU-s/min after.
@@ -118,7 +119,6 @@ Complete. Delivered by [#62](https://github.com/atomicobject/rhizome/pull/62) on
 
 ## Compounding Follow-ups
 
-- **Needs Drew's decision:** treat a projection or provider version bump for a note whose bytes are unchanged as a projection refresh, not an ownership transition, so embeddings are reused (WP-G report). Until then, each `ProjectionVersion` bump re-embeds every typed note body once (about 14k Voyage texts on drews-vault).
 - **Needs Drew's decision:** narrow full-scope derived work after a resync that found no changes.
 - Wake desktop presence when a page loses its runtime connection, to restore about 6 s crash recovery while idle.
 - `~/.config/rhizome/instances` holds 7,907 leaked `*.intent.lock.guard.lock` files and 361 stale `*.pending.json` files. Find the leaking path, and prune guards for instances that no longer exist.

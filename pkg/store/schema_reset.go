@@ -10,10 +10,15 @@ import (
 )
 
 // ResetDomain drops and recreates the code-index domain tables (code anchors + intel + doc_links).
-// It does NOT touch semantic embeddings tables (`emb_*`) nor code embeddings tables (`code_*`).
+// It does NOT touch semantic embeddings tables (`emb_*`) nor code embeddings tables (`code_*`),
+// and it keeps an intact ontology_embedding_cache so paid vectors are not re-requested.
 func (s *Store) ResetDomain(ctx context.Context) error {
 	ctx = indexingperf.WithOp(ctx, "intel.reset_domain")
 	return s.withWrite(ctx, func(ctx context.Context, db *sql.DB) error {
+		keepCache, err := ontologyEmbeddingCacheIntact(ctx, db)
+		if err != nil {
+			return err
+		}
 		if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
 			return err
 		}
@@ -86,6 +91,9 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"mcp_session_maintenance",
 		}
 		for _, name := range dropViews {
+			if keepCache && name == "ontology_embedding_cache" {
+				continue
+			}
 			if err := dropViewIfExists(ctx, db, name); err != nil {
 				return err
 			}
@@ -271,6 +279,9 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"schema_version",
 		}
 		for _, name := range dropTables {
+			if keepCache && name == "ontology_embedding_cache" {
+				continue
+			}
 			if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS `+name); err != nil {
 				return err
 			}
