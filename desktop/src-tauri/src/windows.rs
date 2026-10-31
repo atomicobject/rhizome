@@ -420,6 +420,8 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         WindowEvent::Destroyed => {
             app.state::<Panes>().remove(events.label());
             app.state::<Focus>().closed(events.label());
+            app.state::<crate::team::Team>()
+                .cancel(Some(events.label()));
         }
         _ => {}
     });
