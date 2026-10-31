@@ -419,14 +419,17 @@ describe("TasksWorkspace", () => {
   it("keeps awaiting a retried launch while the item shows an earlier launch error", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
     const state = stateFixture(NOW);
-    const earlier = new Date(NOW - 60_000).toISOString();
+    // Same second as the retry: only sub-second precision tells them apart.
+    const earlier = new Date(NOW + 100).toISOString();
     http.json("GET", "/api/tasks/state", {
       ...state,
       items: state.items.map((item) =>
         item.id === "9" ? { ...item, launchError: "busy", updated: earlier } : item,
       ),
     });
-    http.json("POST", "/api/tasks/items/9/run", { launchedAt: new Date(NOW).toISOString() });
+    http.json("POST", "/api/tasks/items/9/run", {
+      launchedAt: new Date(NOW + 700).toISOString(),
+    });
     open("/tasks/dependency-updates");
     render(<TasksWorkspace />);
 

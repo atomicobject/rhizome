@@ -209,7 +209,7 @@ func TestTasksRunDetailMissingRunIs404(t *testing.T) {
 func TestTasksRunLaunchesDetachedAfterPrecheck(t *testing.T) {
 	api := &fakeTasks{}
 	s, launches := newTasksTestServer(api)
-	before := time.Now().UTC().Truncate(time.Second)
+	before := time.Now().UTC()
 
 	code, payload := serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/run", "")
 	require.Equal(t, http.StatusOK, code)

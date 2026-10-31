@@ -162,7 +162,7 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 				writeError(w, http.StatusConflict, err)
 				return
 			}
-			launchedAt := time.Now().UTC().Truncate(time.Second)
+			launchedAt := time.Now().UTC()
 			launch := s.tasksLaunch
 			if launch == nil {
 				launch = launchTaskRun
@@ -172,7 +172,7 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 				writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", err))
 				return
 			}
-			writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339)})
+			writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339Nano)})
 		}
 	case "snooze":
 		var req struct {
