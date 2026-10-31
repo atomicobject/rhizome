@@ -83,6 +83,19 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return err
 	}
+	// One gateway owns a data directory. Startup recovery marks unfinished
+	// receipts as unknown outcomes, so a second gateway must stop before it
+	// opens the store, and the port is bound before recovery runs.
+	unlock, err := lockDataDir(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	ln, err := net.Listen("tcp", cfg.Listen)
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
 	db, err := store.Open(filepath.Join(cfg.DataDir, "team-api.db"))
 	if err != nil {
 		return err
@@ -123,10 +136,6 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      180 * time.Second,
 		IdleTimeout:       360 * time.Second,
-	}
-	ln, err := net.Listen("tcp", cfg.Listen)
-	if err != nil {
-		return err
 	}
 	go func() {
 		if idleExit > 0 {

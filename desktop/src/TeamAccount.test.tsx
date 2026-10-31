@@ -71,6 +71,28 @@ it("cancels a sign-in without showing an error", async () => {
   expect(screen.getByRole("button", { name: "Sign in with Atomic Object" })).toBeEnabled();
 });
 
+it("shows the saved account when cancel arrives after sign-in finished", async () => {
+  let reject: (cause: unknown) => void = () => {};
+  let signedIn = false;
+  serve({
+    "team-status": () =>
+      signedIn
+        ? { signed_in: true, email: "dev-member@atomicobject.com", origin }
+        : { signed_in: false, origin },
+    "team-sign-in": () => new Promise((_resolve, fail) => (reject = fail)),
+    "team-cancel": () => {
+      signedIn = true; // the CLI saved the session just before it was stopped
+      reject({ code: "canceled", message: "Sign-in canceled." });
+      return null;
+    },
+  });
+  render(<TeamAccount />);
+  fireEvent.click(await signInButton());
+  fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+  expect(await screen.findByText("dev-member@atomicobject.com")).toBeVisible();
+  expect(screen.queryByText("Sign-in canceled.")).toBeNull();
+});
+
 it("shows sign-in errors inline and allows retry", async () => {
   serve({
     "team-status": () => ({ signed_in: false, origin }),

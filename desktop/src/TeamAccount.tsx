@@ -66,8 +66,17 @@ export function TeamAccount({
       onChange?.();
     } catch (cause) {
       if (!alive.current) return;
-      if (canceled.current) setMessage("Sign-in canceled.");
-      else setError(failure(cause).message);
+      if (!canceled.current) setError(failure(cause).message);
+      else {
+        // Cancel can arrive after the CLI already saved the session, so the
+        // stored account, not the cancel, decides what to show.
+        const fresh = await request("team-status", {}).catch(() => null);
+        if (!alive.current) return;
+        if (fresh?.signed_in) {
+          setStatus(fresh);
+          onChange?.();
+        } else setMessage("Sign-in canceled.");
+      }
     } finally {
       signingIn.current = false;
       if (alive.current) setBusy(null);

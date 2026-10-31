@@ -244,3 +244,21 @@ func gatewayCode(err error, code wire.ErrorCode) bool {
 	var ge *wire.GatewayError
 	return errors.As(err, &ge) && ge.Code == code
 }
+
+// A second gateway on the same data directory stops before it opens the
+// store, so its startup recovery can never mark the first gateway's
+// in-flight receipts as unknown outcomes.
+func TestSecondGatewayOnTheSameDataDirRefusesToStart(t *testing.T) {
+	dir := t.TempDir()
+	startStack(t, dir)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+	err = devWithReady(context.Background(), []string{"--listen", addr, "--data-dir", filepath.Join(dir, "data"), "--upstreams", "fake"}, nil)
+	if err == nil || !strings.Contains(err.Error(), "already using") {
+		t.Fatalf("second gateway: %v, want refusal", err)
+	}
+}
