@@ -231,8 +231,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 ## Delivery Phases
 
 - **Phase 1, core and CLI:** US1–US5, US7, and the CLI part of US6, triggered by `rzm tasks run-due` and the runtime interval, plus the harness process-group change. A synthetic task with a check and a prompt proves the whole path: the check stores context, background work uses it and produces a ready branch, and `start --print` carries the same locations.
-- **Phase 2, task history:** US8, plus the inbox actions on the Tasks page (Run, Snooze, Skip, Discard, Done, mode, pause), in the workbench and as a Rhizome Desktop section.
-- **Phase 3, desktop:** the rest of US6 in Rhizome Desktop: the badge, notifications, Open worktree, and Start.
+- **Phase 2, task history and desktop:** US8, the inbox actions on the Tasks page (Run, Snooze, Skip, Discard, Done, mode, pause), and the Rhizome Desktop part of US6: the Tasks section, the badge, notifications, Open worktree, and Start (Terminal running `rzm tasks start <item>`).
 - **Later:** a launchd or systemd job for runs while Rhizome is closed; Windows; a branch-versus-primary diff view in Rhizome Desktop; starter-provided outcome views; adopting tasks in session memory.
 
 ## Decisions

@@ -16,7 +16,9 @@ governing-specs: ["[[scheduled-tasks]]"]
 
 Implement [[scheduled-tasks#^SPEC-0127-US8|US8]] of [[scheduled-tasks|SPEC-0127]] and the Tasks page's inbox actions (Delivery Phases, phase 2).
 
-Excluded (phase 3 or later): the Rhizome Desktop badge, system notifications, Open worktree (needs a native bridge; this effort shows the path with a copy action), and Start from the desktop; a task-level "Run now" that ignores cadence; Agent page changes; diff reconstruction for harnesses that send none; streaming a block before it completes; listing draft runs.
+Phase 3 joined this effort on 2026-10-31 (see Deviations): the Rhizome Desktop badge, system notifications, Open worktree, and Start from the desktop.
+
+Excluded: a task-level "Run now" that ignores cadence; Agent page changes; diff reconstruction for harnesses that send none; streaming a block before it completes; listing draft runs.
 
 ## Spec Set (Frozen)
 
@@ -25,9 +27,11 @@ Excluded (phase 3 or later): the Rhizome Desktop badge, system notifications, Op
 ## Stories In Scope (Frozen)
 
 - [[scheduled-tasks#^SPEC-0127-US8|US8]] See registered tasks and what each run did.
-- [[scheduled-tasks#^SPEC-0127-US6|US6]], only the item actions offered on the Tasks page; the badge, notifications, Open worktree, and Start stay in phase 3.
+- [[scheduled-tasks#^SPEC-0127-US6|US6]]: the item actions on the Tasks page, and (added 2026-10-31) its Rhizome Desktop criterion: the badge, notifications, and Open worktree, plus Start from the desktop.
 
 ## Plan Approval
+
+- 2026-10-31T20:22:42Z: Drew Colthorp widened the scope with "Implement the entire thing" (full stop): phase 3 joins this effort and PR #61.
 
 - 2026-10-31T18:31:17Z: Drew Colthorp approved the council-refined plan (five rounds with Claude Fable 5.1 and GPT-6.1 Sol, final scores 8.5 with the two corrections applied, and 9) with "Execute". Approved revision: the Plan and Contracts sections below as first committed.
 
@@ -148,6 +152,13 @@ As in Plan.
 PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-transcript`, `-lifecycle`, `-routes`, `-web`) and integrated on `t3/scheduled-task-history-ui`. The real routes and page were checked against a throwaway repository served by this build: the report, live state, task list, task detail, and the untrusted notice all work. A live agent run through the page is still owed (see Status).
 
 ## Deviations
+
+- **Scope widened to phase 3** at Drew's request. Desktop contract:
+  - **Badge:** the Dock icon's badge counts the open items that need the person (due, ready, or needs attention, and not snoozed), summed across every window's repository. It is cleared when the count is 0.
+  - **Notifications:** one system notification per item that newly enters due, ready, or needs attention, at most once per item and state, while the app runs. Items already in those states when a window opens do not notify.
+  - **Open worktree:** a ready or needs-attention item with a worktree offers Open worktree in Rhizome Desktop, which opens that worktree in a new window through the existing open-folder path.
+  - **Start:** Rhizome Desktop offers Start on a due or needs-attention item. It opens Terminal in the main checkout running `rzm tasks start <item>` (the repository's pinned or bundled rzm), which hands the person to their harness.
+  - **Browsers:** in a plain browser, Open worktree and Start are not shown; the worktree path and its copy action remain.
 
 - **Merge-warning cache moved into `tasks.Service`** (`cachedMergeWarning`, 10 minutes). A cache in the web handler could not stop `Status` from calling `gh`.
 - **The runtime opens the tasks service once, with no harness drivers.** The page never runs prompts in process, because Run spawns `rzm tasks run`. A change to `.rhizome/config.yml` needs a runtime restart to reach the page.
