@@ -92,7 +92,7 @@ func devWithReady(ctx context.Context, args []string, ready chan<- string) error
 	if err != nil {
 		return err
 	}
-	mux.Handle(devIdPPath+"/", http.StripPrefix(devIdPPath, idp.Handler()))
+	mux.Handle(devIdPPath+"/", idp.Handler())
 	if *upstreams == "fake" {
 		mux.Handle(devVoyagePath+"/", http.StripPrefix(devVoyagePath, fakeupstream.NewVoyage(fakeupstream.Options{Key: keys.Voyage})))
 		mux.Handle(devTSPath+"/", http.StripPrefix(devTSPath, fakeupstream.NewTypeSafe(fakeupstream.Options{Key: keys.TypeSafe})))
