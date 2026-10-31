@@ -185,8 +185,13 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 		it := &st.Items[i]
 		// This pass holds the run lock, so nothing is running: an item left
 		// running was interrupted by a crash or reboot. finalizeInterrupted
-		// already recorded the run, so the task waits for its cadence.
+		// already recorded the run, so the task waits for its cadence. An item
+		// from before run IDs (no Run) had no Running record, so record it
+		// here, as phase 1 did.
 		if it.State == StateRunning {
+			if it.Kind == KindTask && it.Run == "" {
+				st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeInterrupted, Item: it.ID, Message: "the run was interrupted before it finished"})
+			}
 			it.interrupt(now)
 		}
 		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && s.newlyMerged(ctx, *t, *it) {

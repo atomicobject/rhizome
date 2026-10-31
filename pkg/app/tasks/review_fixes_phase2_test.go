@@ -66,3 +66,29 @@ func TestEndRecordsAnAttemptThatSavedNoResult(t *testing.T) {
 		t.Fatalf("running=%v last=%+v, want the attempt recorded as failed", st.Running, last)
 	}
 }
+
+// State saved before run IDs can hold a running item with no Running
+// record; the next pass records it so the task waits for its cadence.
+func TestPhaseOneRunningItemIsRecordedOnUpgrade(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": lookTask})
+	agent := &fakeAgent{}
+	svc := newService(t, dir, agent, "auto")
+	if err := svc.Store().Update(context.Background(), func(st *State) error {
+		st.Seen = map[string]time.Time{"look": time.Now()}
+		st.AddItem(Item{Task: "look", Kind: KindTask, State: StateRunning}, time.Now())
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RunDue(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	st := mustState(t, svc)
+	last, ok := st.LastRun("look")
+	if !ok || last.Outcome != OutcomeInterrupted {
+		t.Fatalf("last run = %+v, want the old running item recorded as interrupted", last)
+	}
+	if agent.calls() != 0 {
+		t.Fatalf("the task ran again %d times before its cadence", agent.calls())
+	}
+}
