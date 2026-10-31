@@ -214,6 +214,16 @@ Active. Everything in scope is built and verified except the live checks that ne
   - D4 fixed (titles over 64 KiB are rejected before parsing);
   - D1 resolved after evidence that the actions add nothing beyond the runtime origin's existing Run API;
   - D3 accepted as a follow-up.
+- 2026-10-31: Greptile on the phase 3 diff went 4 → 4 → 5/5, and stayed 5/5 on the final head. Fixes:
+  - new-task announcements and open items of removed tasks are reachable from the overview (they count toward the badge);
+  - a fallback-recorded run moves its item to needs attention;
+  - history reloads after item actions;
+  - the pinned final answer isn't repeated in the timeline;
+  - overview action errors are shown;
+  - task names are shortened in the desktop report.
+
+  Sol round 3 approved these.
+- 2026-10-31: CI on Windows exposed a phase 1 bug. `taskdef.ParseDefinition` took a draft's id with `path.Base`, which keeps a Windows path's backslashes; it now uses `filepath.Base`. The owner-only file-mode test now skips Windows, because the spec requires that mode only on macOS and Linux. All 21 checks passed afterwards.
 - 2026-10-31: Opened PR #61 (https://github.com/atomicobject/rhizome/pull/61).
 - 2026-10-31: Greptile went 3 → 4 → 4 → 5/5. Fixes:
   - an attempt that ends without saving its result is recorded as failed instead of dropped;
