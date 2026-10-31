@@ -9,7 +9,29 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
+
+func TestKeychainTimesOutWhenSecurityBlocks(t *testing.T) {
+	fake := filepath.Join(t.TempDir(), "security")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\nexec sleep 5\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tool, timeout := securityTool, securityTimeout
+	securityTool, securityTimeout = fake, 100*time.Millisecond
+	t.Cleanup(func() { securityTool, securityTimeout = tool, timeout })
+
+	start := time.Now()
+	if _, err := (Keychain{}).Load("https://team-api.invalid"); !errors.Is(err, ErrStoreUnavailable) {
+		t.Fatalf("Load = %v, want ErrStoreUnavailable", err)
+	}
+	if err := (Keychain{}).Save("https://team-api.invalid", []byte("x")); !errors.Is(err, ErrStoreUnavailable) {
+		t.Fatalf("Save = %v, want ErrStoreUnavailable", err)
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("calls took %s; the timeout did not apply", elapsed)
+	}
+}
 
 // Creates and deletes a throwaway keychain file, so it runs only when asked:
 // TEAMAPI_KEYCHAIN_TEST=1 go test ./pkg/teamapi/session -run Keychain

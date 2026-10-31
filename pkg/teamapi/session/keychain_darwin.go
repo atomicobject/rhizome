@@ -4,17 +4,27 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
+)
+
+// securityTool and securityTimeout are variables so tests can substitute a
+// slow fake.
+var (
+	securityTool = "/usr/bin/security"
+	// A locked keychain in a GUI session shows an unlock dialog and blocks
+	// security until someone answers it.
+	securityTimeout = 10 * time.Second
 )
 
 const (
 	keychainService = "rhizome-team-session"
-	securityTool    = "/usr/bin/security"
 	// security exits with the low byte of the OSStatus; errSecItemNotFound
 	// (-25300) becomes 44.
 	exitItemNotFound = 44
@@ -47,11 +57,16 @@ func (k Keychain) Save(origin string, record []byte) error {
 	if k.Path != "" {
 		command += " " + quote(k.Path)
 	}
-	cmd := exec.Command(securityTool, "-i")
+	ctx, cancel := context.WithTimeout(context.Background(), securityTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, securityTool, "-i")
 	cmd.Stdin = strings.NewReader(command + "\n")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil || stderr.Len() > 0 {
+		if ctx.Err() != nil {
+			return fmt.Errorf("%w: keychain did not answer within %s (is it locked?)", ErrStoreUnavailable, securityTimeout)
+		}
 		return fmt.Errorf("%w: save failed: %s", ErrStoreUnavailable, firstLine(stderr.String(), err))
 	}
 	saved, err := k.Load(origin)
@@ -95,10 +110,15 @@ func (k Keychain) run(origin, verb string, flags ...string) ([]byte, error) {
 	if k.Path != "" {
 		args = append(args, k.Path)
 	}
-	cmd := exec.Command(securityTool, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), securityTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, securityTool, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("%w: keychain did not answer within %s (is it locked?)", ErrStoreUnavailable, securityTimeout)
+		}
 		var exit *exec.ExitError
 		if errors.As(err, &exit) && exit.ExitCode() == exitItemNotFound {
 			return nil, ErrNotFound
