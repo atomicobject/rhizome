@@ -5,6 +5,7 @@
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { campaignBudget } from "./budget.mjs";
 
 const SCRIPTS = new URL("../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
 const load = (path) => import(new URL(path, SCRIPTS));
@@ -20,6 +21,12 @@ const { openStore } = await load("lib/store.mjs");
 process.env.RZM_SKIP_REPO_DELEGATE ??= "1";
 export const RZM = resolve(process.env.RZM ?? "./bin/darwin/rzm");
 export const CLIENTS = calls.rzmClients(RZM);
+const campaign = campaignBudget({ file: process.env.SM_BENCH_SPEND_FILE, limit: Number(process.env.SM_BENCH_BUDGET_USD), prices: calls.PRICES, costOf: calls.costOf, Stop: calls.Stop });
+if (campaign) {
+  const generate = CLIENTS.generate;
+  CLIENTS.generate = (request) => campaign(request, request.prompt, () => generate(request));
+  CLIENTS.evaluateBatch = async () => { throw new calls.Stop("binding", "campaign uses frozen Jev outputs; new Jev calls are outside this matrix"); };
+}
 export const JEV = { provider: "typesafe", model: "jev-1.13.0", effort: "" };
 
 // Bench models are full ids, so the reported model matches the binding.
@@ -43,7 +50,7 @@ export function searchIn(checkout) {
 // The older call shape bench-only commands use: {ok, data, usage, cost, ms, error}.
 // Cached in the shared eval state, since matcher and proposer calls repeat.
 export async function generate({ prompt, schema, model, effort, stage = "bench" }) {
-  const caller = benchCaller(".rhizome/session-memory/eval", { match: bindingOf(model, effort) });
+  const caller = benchCaller(process.env.SM_BENCH_MATCH_DIR ?? ".rhizome/session-memory/eval", { match: bindingOf(model, effort) });
   const tally = calls.newTally();
   try {
     const data = await caller.generate({ role: "match", stage, prompt, schema, tally });

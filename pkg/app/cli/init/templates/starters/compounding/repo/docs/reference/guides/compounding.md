@@ -28,9 +28,17 @@ rzm init --add-addon compounding
 rzm agent current-user set "<your Person note title>"
 ```
 
+Compounding is an optional starter installed through `rzm init`. In a terminal, turn it on in the settings menu's Add-ons section (`e` on a first run, `s` on a rerun), which also offers to turn hooks on. In an existing repository, `--add-addon compounding` adds it and preserves the other add-on choices. For a new Agentic Engineering repository, use `rzm init --workflow agentic-engineering --addons action-items,compounding`; `--addons` replaces the first-run default add-on list.
+
 The skill needs Node 20 or later. Approval records the reviewer, so `rzm agent current-user validate` must resolve to a `Person` note.
 
 Ask your agent to use the compounding skill. It runs the scripts below and explains what they return.
+
+## Which sessions it reads
+
+Discovery selects local Claude Code and Codex sessions associated with this repository by their recorded working directory. It includes current Git worktrees. Codex sessions with the same Git origin also qualify, including sessions from another clone or a deleted worktree. Unrelated repositories are excluded unless you explicitly extend the scope with `extraPaths` in `.rhizome/compounding/config.json`.
+
+This selects repository-associated threads rather than classifying each thread's topic. Off-topic discussion inside a matching thread can enter screening. The extraction prompt tells the model to exclude personal style preferences without a repository-specific reason, outside-world facts, and generic advice. It does not read general ChatGPT history.
 
 ## What leaves your machine
 

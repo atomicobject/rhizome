@@ -77,7 +77,7 @@ Use Agentic Engineering alone when the work does not need a durable source-to-re
 rzm init --add-addon compounding
 ```
 
-An optional add-on that no workflow turns on. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
+An optional add-on that no workflow turns on; add it with the flag above or in the `rzm init` settings menu's Add-ons section. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
 
 ## Valid combinations
 

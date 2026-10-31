@@ -1,9 +1,9 @@
 ---
 type: ProductSpec
-summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a four-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, starter ejection, and adding or removing add-ons."
+summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a five-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, starter ejection, and adding or removing add-ons."
 id: SPEC-0038
 spec-status: active
-last-updated: 2026-10-19
+last-updated: 2026-10-30
 aliases:
   - SPEC-0038
   - init-starter-workflow
@@ -168,18 +168,19 @@ Reruns are a maintenance workflow, not a reset button. Rhizome-owned files that 
 
 ### US4 - Navigate a settings menu that only contains decisions I actually need to make
 - id:: ^SPEC-0038-US4
-- summary:: A maintainer changing setup sees four plainly named product decisions instead of configuration sections and maintenance actions.
+- summary:: A maintainer changing setup sees five plainly named product decisions instead of configuration sections and maintenance actions.
 - status:: ready
 
 The menu is the curated surface; `.rhizome/config.yml` is the complete one. Anything a maintainer would only change while debugging retrieval quality belongs in documented config, not in the interactive flow.
 
 #### Acceptance Criteria
 
-- The settings menu contains exactly four sections: what gets indexed, semantic search, agents, and workflow. ^SPEC-0038-US4-AC1
+- The settings menu contains exactly five sections: what gets indexed, semantic search, agents, workflow, and add-ons. ^SPEC-0038-US4-AC1
   - What gets indexed offers: skip a folder or file, stop skipping one, and include a folder Git ignores; when config has folder limits, it also offers to remove them. Folder limits are otherwise a config field documented with the expert settings.
   - Semantic search offers Voyage AI (recommended), OpenAI, Ollama, or off, and asks for a key only when the chosen provider has none. Notes and code share one provider; code embeddings follow code indexing.
   - Agents is a checklist of Claude Code and Cursor, plus an option to stop managing agent files. Codex has no row: it reads `AGENTS.md` and `.agents/skills`, which are written for every agent; `--agents codex` still selects the shared files alone.
   - Workflow offers the three first-run choices.
+  - Add-ons is a checklist of every add-on, default and optional, that turns one on or off exactly as `--add-addon` and `--remove-addon` do ([[#^SPEC-0038-US12]]). Turning on an add-on that declares hooks while hooks are off names what its hooks deliver and asks once whether to turn hooks on, Yes by default.
 - Expert fields are not prompted anywhere in the interactive flow. ^SPEC-0038-US4-AC2
   - Link style, note include/exclude globs, per-language code roots, coderef scan/ignore globs, separate note and code embedding switches, models, endpoints, index path, compression, file-context packing, graph tuning, starter family update policy, and starter ejection remain config fields or flags covered by a reference guide. The menu prints one pointer to that guide.
 - Each menu item shows a one-line plain-language summary without config keys, globs, or `auto|on|off` modes. ^SPEC-0038-US4-AC3
@@ -308,14 +309,14 @@ Git-ignored files and the built-in dependency and build folders are already skip
 
 ### US12 - Add or remove an add-on in a configured repository
 - id:: ^SPEC-0038-US12
-- summary:: A maintainer turns one add-on on or off with a flag, and every other workflow and add-on choice stays as it was.
+- summary:: A maintainer turns one add-on on or off with a flag or the settings menu, and every other workflow and add-on choice stays as it was.
 - status:: ready
 
 Add-ons are starters installed alongside the workflow. A default add-on, such as `action-items`, is one a workflow turns on unless someone disables it. An optional add-on, such as `compounding`, is one no workflow turns on; a repository gets it only by choosing it. A starter marks itself optional with `optionalAddon: true` in its `template.yaml`.
 
 #### Acceptance Criteria
 
-- A first run installs the add-ons listed in `--addons`, optional ones included, and the desktop setup API passes its add-on list through the same option. The interactive first run and the desktop setup sheet do not list optional add-ons yet. ^SPEC-0038-US12-AC1
+- A first run installs the add-ons listed in `--addons`, optional ones included, and the desktop setup API passes its add-on list through the same option. An interactive first run names the optional add-ons it leaves off above its confirmation and points to the settings menu's Add-ons section, which turns them on without adding a question; the desktop setup sheet does not list optional add-ons yet. ^SPEC-0038-US12-AC1
 - A configured repository changes add-ons with `--add-addon <id>` and `--remove-addon <id>` (comma-separated ids are accepted), next to `--eject` and `--restore`. On a first run these flags fail and point to `--addons`; on a configured repository `--addons` fails and points to them. ^SPEC-0038-US12-AC2
   - Adding moves the id into `addons.enabled` and out of `addons.disabled` in `.rhizome/workflows.yml`.
   - Removing a default add-on of the chosen workflow moves it out of `addons.enabled` and into `addons.disabled`. Removing any other add-on, such as an optional one, drops it from `addons.enabled`.
@@ -334,7 +335,7 @@ Add-ons are starters installed alongside the workflow. A default add-on, such as
 - `rzm init` MUST run at most one consolidated credential pass per run, MUST persist provided keys immediately, and MUST NOT re-prompt for a key that is present in the environment, the global CLI config, or the current run's collected answers.
 - Credential skips MUST persist and MUST suppress interactive re-prompts in non-init commands, which instead print a one-line actionable hint.
 - A rerun MUST open with a status summary and change list, MUST apply the change list with one confirmation in a terminal and without confirmation otherwise, and `--check` MUST report the same list without writing.
-- The interactive settings menu MUST be limited to: what gets indexed, semantic search, agents, and workflow.
+- The interactive settings menu MUST be limited to: what gets indexed, semantic search, agents, workflow, and add-ons.
 - Expert tuning fields MUST NOT be interactive prompts and MUST be documented in a reference guide the menu points to.
 - Interactive output MUST use project-relative paths and plain language; it MUST NOT print config keys, glob patterns, or `auto|on|off` modes in summaries.
 - Non-interactive runs MUST be able to express first-run acceptance, workflow, agents, search provider, credential provision (via environment), and ignored-subtree inclusion through flags or environment rather than prompts.
