@@ -98,6 +98,9 @@ const (
 	CodeUpgradeRequired  ErrorCode = "client_upgrade_required"
 	CodeNotAdmin         ErrorCode = "not_admin"
 	CodeNotFound         ErrorCode = "not_found"
+	// CodeInternal is a gateway fault before admission, such as an
+	// unavailable state store. Nothing reached the upstream.
+	CodeInternal ErrorCode = "internal_error"
 )
 
 // ErrorBody is the JSON body of every gateway-originated error.
@@ -332,6 +335,8 @@ func (c ErrorCode) Status() int {
 		return http.StatusUpgradeRequired
 	case CodeNotFound:
 		return http.StatusNotFound
+	case CodeInternal:
+		return http.StatusInternalServerError
 	default: // CodeModelNotAllowed, CodeBadRequest
 		return http.StatusBadRequest
 	}
