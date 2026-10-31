@@ -53,6 +53,7 @@ func newRootCommand(env commandEnv) *commandInvocation {
 	registerCodexFamily(rootCmd)
 	registerConfigFamily(rootCmd)
 	registerCredentialsFamily(rootCmd)
+	registerAuthFamily(rootCmd)
 	registerDesktopFamily(rootCmd)
 	registerChangelogFamily(rootCmd)
 	registerHarnessFamily(rootCmd)

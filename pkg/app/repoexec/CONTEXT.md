@@ -14,6 +14,6 @@ owns its explicit trust interaction and uses `Select` directly. Informational
 probes are bounded and disable both re-delegation guards; callers supply their
 working directory so an external manager's shim resolves the selected folder.
 
-`credentials`, `desktop`, and `desktop-bridge` remain on the invoking executable and bypass
+`credentials`, `auth`, `desktop`, and `desktop-bridge` remain on the invoking executable and bypass
 repository trust prompting and delegation. The bridge owns explicit trust
 checks before any repository-selected probe, bootstrap, or runtime launch.

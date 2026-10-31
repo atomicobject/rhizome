@@ -30,11 +30,12 @@ func TrustRequirement(args []string, cwd, exe string) (string, bool, error) {
 }
 
 // isRepositoryTrustControlInvocation covers commands that stay on the invoking
-// executable: trust control, user credentials, and desktop entrypoints. The desktop bridge
-// applies explicit trust before running any repository-selected code.
+// executable: trust control, user credentials, team sign-in, and desktop
+// entrypoints. The desktop bridge applies explicit trust before running any
+// repository-selected code.
 func isRepositoryTrustControlInvocation(args []string) bool {
 	switch FirstCommandArg(args) {
-	case "trust", "untrust", "credentials", "desktop", "desktop-bridge":
+	case "trust", "untrust", "credentials", "auth", "desktop", "desktop-bridge":
 		return true
 	default:
 		return false

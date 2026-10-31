@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli."
 reference-kind: guide
-last-verified: 2026-10-25
+last-verified: 2026-10-31
 code-paths:
   - cmd
   - pkg/app/operations
@@ -26,7 +26,7 @@ code-anchors:
 
 ## Scope
 
-- `main.go`: handles the private allowlisted `credentials-capture` child route before dotenv or command dispatch, then loads `.env` upward (`config.LoadDotEnvUpwards`) and calls `cmd.Execute()` for ordinary commands. The capture route only emits requested supported variables to its parent pipe.
+- `main.go`: handles the private allowlisted `credentials-capture` child route before dotenv or command dispatch, then loads `.env` upward (`config.LoadDotEnvUpwards`) and calls `cmd.Execute()` for ordinary commands. Offline `diagnostics`, `hook`, and `auth` skip dotenv loading. The capture route only emits requested supported variables to its parent pipe.
 - `cmd/`: one file per Cobra command or cohesive product surface (`create.go`, `validation_product.go`, `validation_product_runner.go`, `index.go`). `newRootCommand(commandEnv)` assembles fresh descendants through command and family constructors; `command_constructors.go` owns family registration.
 - `pkg/app/operations/`: transport-independent application capabilities for CLI, MCP, and web callers (`ListFiles`, `RenameNote`, `BuildFileContextText`, ...). Accepts `VaultDefinition` + `NoteReader`; testable without Cobra. Validation keeps its neutral run/result contract in `pkg/app/validationrun`, with source-stable aliases and renderers here.
 - `pkg/app/cli/init/`: owns `rzm init` — config detection/migration, managed `AGENTS.md`/`CLAUDE.md` fences, starter scaffolds, and skill templates under `templates/`; RHIZOME.md templates are embedded directly from `docs/rhizome-md-templates/`.
@@ -43,6 +43,7 @@ code-anchors:
 
 - **Repository executable trust precedes execution.** Global dispatch requires user-local trust for the canonical checkout before a repo-selected executable, version probe, or bootstrap can run. Update commands in a pinned checkout also require trust, while staying on the global executable, because their downloaded binaries run a version probe. Delegation bypass variables are captured before repository dotenv loading. Noninteractive callers receive an actionable refusal; `trust` and `untrust` bypass delegation. Direct executable invocation and external binary managers retain their own authority. Trust accepts future changes in that checkout; it is not a sandbox.
 - **Provider credentials are user-local.** `credentials import` stays on the invoking executable without repository trust, pin delegation, or bootstrap. It reads explicit stable 1Password item references or an explicit account, Environment ID, and provider allowlist through stable `op run --environment`. The early capture child emits only requested present keys; the parent names missing keys and saves once only after every read succeeds and cancellation is rechecked. Preserve unrelated global settings and environment precedence; never print values. Builds and releases never embed shared provider credentials.
+- **Team sign-in is user-local.** `rzm auth` stays on the invoking executable without dotenv loading, repository trust, pin delegation, bootstrap, or vault diagnostics. Its origin comes only from `--server`, the user-global selector, a development-build override that can only pick an origin with a stored session, or the build default (`pkg/teamapi/session.ResolveOrigin`); store and lock paths come from the real OS account. `--json` output is a contract for the desktop bridge: `login` emits `authorize_url`, then `signed_in` or `error` JSON lines; `status`, `logout`, and `admin` emit one JSON value, or `{"error":{"code","message"}}` with exit status 1. No output contains a token ([pkg/teamapi](../../../pkg/teamapi/CONTEXT.md)).
 - **Project KB is retired.** Init does not offer or embed the project KB starter. Existing installed files remain in user repositories; an existing selection receives an actionable error until its workflow template choice is changed.
 
 - **Effort starter upgrades preserve concrete allocation ownership.** The shared `Effort` interface exposes identity without allocating it. Init may carry an adopted allocation contract to a new concrete sibling only when the shared interface and upstream contracts establish the same pool; contradictory or unrelated reuse fails closed. Agentic Engineering installation adds explicit effort HTML includes while preserving configured Markdown selection and unrelated includes.
