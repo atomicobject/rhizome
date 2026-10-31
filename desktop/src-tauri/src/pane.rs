@@ -64,6 +64,10 @@ pub struct Pane {
     pub sidebar: Option<bool>,
     pub sidebar_toggles: Option<u32>,
     pub graphql: bool,
+    /// The current document's last Tasks request number, from its first
+    /// report on, and a newer request the title handler has yet to take.
+    pub requests: Option<u32>,
+    pub asked: Option<crate::page::Ask>,
     pub expected: Arc<RwLock<Option<Url>>>,
     pub channel: Option<Channel<Value>>,
     /// A message for a shell that has not attached yet.

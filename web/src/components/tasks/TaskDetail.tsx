@@ -7,6 +7,7 @@ import type {
   TaskRunView,
   TaskStatus,
 } from "../../api/tasks";
+import { inDesktop, requestDesktop } from "../desktopHost";
 import { StatusMark } from "../StatusMark";
 import { BackIcon } from "./TaskIcons";
 import {
@@ -78,6 +79,15 @@ function ItemActions({
   const canRun = task && (item.state === "due" || item.state === "needs-attention");
   const active = item.state !== "done" && item.state !== "dismissed";
 
+  // Rhizome Desktop only; a browser shows the worktree path to copy instead.
+  const desktop = inDesktop();
+  const canStart = desktop && canRun;
+
+  const worktree =
+    desktop && (item.state === "ready" || item.state === "needs-attention")
+      ? item.worktree
+      : undefined;
+
   if (snoozing) {
     return (
       <div className="task-actions" role="group" aria-label="Snooze for">
@@ -112,6 +122,28 @@ function ItemActions({
           onClick={() => onCommand({ kind: "run" })}
         >
           Run
+        </button>
+      ) : null}
+      {canStart ? (
+        <button
+          type="button"
+          className="task-button"
+          disabled={busy}
+          title="Open Terminal running rzm tasks start, which hands you to your agent harness"
+          onClick={() => requestDesktop({ action: "startTask", item: item.id })}
+        >
+          Start
+        </button>
+      ) : null}
+      {worktree ? (
+        <button
+          type="button"
+          className="task-button"
+          disabled={busy}
+          title="Open the worktree in a new Rhizome Desktop window"
+          onClick={() => requestDesktop({ action: "openTaskWorktree", path: worktree })}
+        >
+          Open worktree
         </button>
       ) : null}
       {active ? (

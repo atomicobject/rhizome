@@ -7,7 +7,13 @@ import { queryKeys } from "../api/queryKeys";
 import type { StatusResponse } from "../api/types";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { BareHTMLNote } from "./BareHTMLNote";
-import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
+import {
+  desktopTitle,
+  inDesktop,
+  type Section,
+  useDesktopCommands,
+  useDesktopRequest,
+} from "./desktopHost";
 import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
 import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -222,6 +228,7 @@ function DesktopReporter({ route }: { route: Route }) {
   // Until the app sends its stored choice, the page's default is not a choice.
   const sidebarCollapsed = sidebar.synced ? sidebar.collapsed : undefined;
   const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
+  const request = useDesktopRequest();
 
   useEffect(() => {
     document.title = desktopTitle({
@@ -231,8 +238,9 @@ function DesktopReporter({ route }: { route: Route }) {
       health,
       sidebarCollapsed,
       sidebarToggles,
+      request,
     });
-  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles]);
+  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles, request]);
 
   return null;
 }

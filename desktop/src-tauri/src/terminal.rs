@@ -135,7 +135,32 @@ async fn open(app: &AppHandle, path: &Path) {
         );
         return;
     };
-    bring_forward(app, &window);
+    open_in(app, &window, path).await;
+}
+
+/// Opens the worktree containing `path` in a new window, as Open worktree on
+/// the Tasks page does.
+pub async fn open_in_new_window(app: &AppHandle, path: &Path) {
+    match windows::create(app, fresh_session(app)) {
+        Ok(window) => open_in(app, &window, path).await,
+        Err(error) => eprintln!(
+            "Rhizome Desktop could not open a window for {}: {error}",
+            path.display()
+        ),
+    }
+}
+
+/// A new window keeps the last layout but not its selection, which the
+/// opened folder replaces.
+fn fresh_session(app: &AppHandle) -> crate::state::WindowSession {
+    let mut session = app.state::<Sessions>().last_closed();
+    session.repository = None;
+    session.worktree = None;
+    session
+}
+
+async fn open_in(app: &AppHandle, window: &Window, path: &Path) {
+    bring_forward(app, window);
     let message = match resolve(app, path).await {
         Ok((library, repository, worktree)) => json!({
             "type": "select",
@@ -165,12 +190,7 @@ fn target_window(app: &AppHandle) -> Option<Window> {
     if let Some(label) = app.state::<Focus>().target(&open) {
         return windows.get(&label).cloned();
     }
-    // A new window keeps the last layout but not its selection, which the
-    // terminal's choice replaces.
-    let mut session = app.state::<Sessions>().last_closed();
-    session.repository = None;
-    session.worktree = None;
-    windows::create(app, session).ok()
+    windows::create(app, fresh_session(app)).ok()
 }
 
 fn bring_forward(app: &AppHandle, window: &Window) {
