@@ -184,10 +184,7 @@ PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-t
 - **Live run and desktop click-through:**
   - Trust `/tmp/th-live/repo`, let its `finalize` task run, and read the transcript in the page.
   - After merge, run `make desktop-install-dev` from the primary checkout and open the Tasks section in Rhizome Desktop.
-- **Leftover interrupted run (sol-loop S5, declined as a nit).** If a repository's last task is removed while a run was interrupted, `RunDue` returns before finalizing `Running`. The page still shows the run as interrupted.
-- **Back-to-back Claude thinking blocks.** Two consecutive Claude thinking blocks with nothing between them merge into one in the transcript writer, a known limit of flushing only at block boundaries.
 - **Impeccable:** `.impeccable/design.json` is older than DESIGN.md, and a newer Impeccable is available. Bumping it needs the license pin in `scripts/licenses/generate.py`.
-- **Phase 3:** the desktop badge, notifications, Open worktree, and Start.
 
 ## Status
 
@@ -202,6 +199,7 @@ Active. Everything in scope is built and verified except the live agent run thro
   - fixed the page so a repeated transcript id replaces the line it holds.
 - 2026-10-31: Live check against a throwaway repository: routes and page work. `rzm trust` refuses a scripted confirmation, so the agent run waits for Drew.
 - 2026-10-31: Sol loop, 3 rounds with GPT-6.1 Sol: 4 should fixes plus 1 nit fixed, 1 nit declined. Round 3 approved.
+- 2026-10-31: Fixed sol-loop S5 after all: `RunDue` in a repository with no tasks left records a leftover interrupted run (`TestInterruptedRunIsRecordedAfterTheLastTaskIsRemoved`). The "back-to-back Claude thinking blocks merge" follow-up was dropped: the writer already splits them at Claude's `content_block_stop` (`TestTranscriptClaudeThinkingBlocksSplitByDiagnostic`).
 - 2026-10-31: Opened PR #61 (https://github.com/atomicobject/rhizome/pull/61).
 - 2026-10-31: Greptile went 3 → 4 → 4 → 5/5. Fixes:
   - an attempt that ends without saving its result is recorded as failed instead of dropped;

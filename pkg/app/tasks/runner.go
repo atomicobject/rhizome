@@ -83,6 +83,14 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	}
 	if _, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef); err == nil {
 		if files, err := s.opts.Repo.TaskFiles(ctx, commit); err == nil && len(files) == 0 {
+			// A run interrupted before the last task was removed is still
+			// recorded once; otherwise state is left alone.
+			if st, err := s.store.Load(); err == nil && st.Running != nil {
+				if release, err := s.lockRun(ctx, 0); err == nil {
+					_ = s.finalizeInterrupted(ctx)
+					_ = release()
+				}
+			}
 			return RunSummary{Skipped: "no tasks are declared on the primary ref"}, nil
 		}
 	} else if _, statErr := os.Stat(s.stateDir); statErr != nil {

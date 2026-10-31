@@ -92,3 +92,21 @@ func TestPhaseOneRunningItemIsRecordedOnUpgrade(t *testing.T) {
 		t.Fatalf("the task ran again %d times before its cadence", agent.calls())
 	}
 }
+
+// A repository whose last task was removed after a crash still records the
+// interrupted run once, instead of leaving it running forever.
+func TestInterruptedRunIsRecordedAfterTheLastTaskIsRemoved(t *testing.T) {
+	dir := newRepo(t, nil)
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	runID, _ := crashedRun(t, svc, "gone")
+
+	summary, err := svc.RunDue(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := mustState(t, svc)
+	last, ok := st.LastRun("gone")
+	if summary.Skipped == "" || st.Running != nil || !ok || last.ID != runID || last.Outcome != OutcomeInterrupted {
+		t.Fatalf("skipped=%q running=%v last=%+v, want the run recorded as interrupted", summary.Skipped, st.Running, last)
+	}
+}
