@@ -178,3 +178,19 @@ func TestAuthInvocationBypassesDotEnv(t *testing.T) {
 	require.True(t, IsAuthInvocation([]string{"--vault", "x", "auth"}))
 	require.False(t, IsAuthInvocation([]string{"search", "auth"}))
 }
+
+// Argument and flag errors happen before RunE, yet --json still promises one
+// JSON error value.
+func TestAuthArgumentAndFlagErrorsAreJSON(t *testing.T) {
+	for _, args := range [][]string{
+		{"status", "extra", "--json"},
+		{"status", "--json", "--bogus"},
+		{"admin", "revoke", "--json"},
+	} {
+		out, err := runAuth(t, testAuthDeps(t), args...)
+		require.Error(t, err, args)
+		lines := jsonLines(t, out)
+		require.Len(t, lines, 1, args)
+		require.Contains(t, lines[0], "error", args)
+	}
+}

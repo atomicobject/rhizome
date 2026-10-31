@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/teamdev"
@@ -56,10 +57,20 @@ func newAuthCommand(deps authDeps) *cobra.Command {
 	command.PersistentFlags().String("server", "", "gateway origin, such as https://team.example.com (default: the origin you last signed in to)")
 	command.PersistentFlags().Bool("json", false, "write JSON")
 	command.AddCommand(newAuthLoginCommand(deps), newAuthStatusCommand(deps), newAuthLogoutCommand(deps), newAuthAdminCommand(deps))
-	// Errors are reported once, as JSON with --json or by Execute otherwise.
+	// Errors are reported once, as JSON with --json or by Execute otherwise,
+	// including argument and flag errors that Cobra raises before RunE.
 	var silence func(*cobra.Command)
 	silence = func(c *cobra.Command) {
 		c.SilenceUsage, c.SilenceErrors = true, true
+		if args := c.Args; args != nil {
+			c.Args = func(cmd *cobra.Command, a []string) error {
+				if err := args(cmd, a); err != nil {
+					return authFail(cmd, err)
+				}
+				return nil
+			}
+		}
+		c.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return authFail(cmd, err) })
 		for _, child := range c.Commands() {
 			silence(child)
 		}
@@ -253,7 +264,10 @@ func newAuthLogoutCommand(deps authDeps) *cobra.Command {
 // authFail reports an error as {"error":{"code","message"}} on stdout with
 // --json, or as an ordinary command error.
 func authFail(cmd *cobra.Command, err error) error {
-	if asJSON, _ := cmd.Flags().GetBool("json"); asJSON {
+	// A flag error can stop parsing before --json is read, so the raw
+	// arguments are checked too.
+	asJSON, _ := cmd.Flags().GetBool("json")
+	if asJSON || slices.Contains(os.Args[1:], "--json") || slices.Contains(os.Args[1:], "--json=true") {
 		writeJSONLine(cmd, map[string]any{"error": map[string]string{"code": authErrorCode(err), "message": err.Error()}})
 		return silentExitError{code: 1}
 	}
