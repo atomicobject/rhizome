@@ -69,6 +69,9 @@ type Config struct {
 	// RuntimeControl enables the loopback control API (SPEC-0104). Nil
 	// leaves every control route answering 503 except health.
 	RuntimeControl *RuntimeControl
+	// TasksOpener opens the vault's scheduled-tasks service for one
+	// /api/tasks request. Nil answers every tasks route with 503.
+	TasksOpener func(ctx context.Context, vaultPath string) (TasksAPI, error)
 }
 
 // Server serves the API and bundled UI.
@@ -115,6 +118,8 @@ type Server struct {
 	htmlViewers         *htmlViewerRegistry
 	viewModules         viewModuleCache
 	viewWatch           viewFolderWatch
+	tasksMergeWarning   mergeWarningCache
+	tasksLaunch         func(vaultPath, itemID string) error // nil starts `rzm tasks run`
 }
 
 var agentHarnessOverride func() map[harness.Kind]harness.Harness
