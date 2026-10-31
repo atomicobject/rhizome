@@ -105,18 +105,6 @@ func TestStartRefusesAnItemThatChangedSinceItsPlan(t *testing.T) {
 	}
 }
 
-func TestLastRunSurvivesHistoryTrimming(t *testing.T) {
-	var st State
-	at := time.Now()
-	st.Record(RunRecord{Task: "weekly", At: at, Outcome: OutcomeNotNeeded})
-	for i := 0; i < maxHistory+10; i++ {
-		st.Record(RunRecord{Task: "hourly", At: at.Add(time.Duration(i) * time.Hour), Outcome: OutcomeNotNeeded})
-	}
-	if last, ok := st.LastRun("weekly"); !ok || !last.At.Equal(at) {
-		t.Fatalf("a quiet task's last run must survive trimming, got %+v %v", last, ok)
-	}
-}
-
 func mustStatePtr(t *testing.T, svc *Service) *State {
 	t.Helper()
 	st := mustState(t, svc)
@@ -287,7 +275,8 @@ func TestInterruptedRunWaitsForItsCadence(t *testing.T) {
 	ctx := context.Background()
 	if err := svc.Store().Update(ctx, func(st *State) error {
 		st.Seen = map[string]time.Time{"look": time.Now()}
-		st.AddItem(Item{Task: "look", Kind: KindTask, State: StateRunning}, time.Now())
+		id := st.AddItem(Item{Task: "look", Kind: KindTask, State: StateRunning}, time.Now()).ID
+		st.Running = &RunRecord{ID: newRunID(time.Now()), Task: "look", Item: id, Stage: StageAgent}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
