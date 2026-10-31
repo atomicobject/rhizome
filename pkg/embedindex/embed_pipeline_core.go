@@ -335,10 +335,24 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 			}
 		}
 	}
+	// Finalizers share the provider concurrency bound. A full set blocks the
+	// loop, so a slow sink backpressures dispatch instead of piling up owners.
+	finalizeSlots := make(chan struct{}, p.maxConcurrent)
 	sendComplete := func(owner Owner) {
+		select {
+		case finalizeSlots <- struct{}{}:
+		case <-p.ctx.Done():
+			finalizeMu.Lock()
+			if finalizeErr == nil {
+				finalizeErr = p.ctx.Err()
+			}
+			finalizeMu.Unlock()
+			return
+		}
 		finalizeWG.Add(1)
 		go func(owner Owner) {
 			defer finalizeWG.Done()
+			defer func() { <-finalizeSlots }()
 			indexingperf.ObserveLatency(p.ctx, p.completeStat, time.Since(owner.pipelineReadyAt()))
 			if err := p.finalize(owner); err != nil {
 				finalizeMu.Lock()
