@@ -92,6 +92,10 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
   - Every completed owner gets an unbounded goroutine, and `DerivedSourceFingerprint` runs per job.
   - The desktop app backs off instead of porting the probe to Rust.
 
+- 2026-10-31T23:30:00Z: WP-H council review.
+  - Round 4: Opus 7, Sol 6. Fixed the upgrade backfill, exact dimensions, permanent retention, and superseded results.
+  - Round 5: Opus 5, Sol 8. Fixed default-config sizes, partial provider failures, and interim-table repair.
+  - Round 6: Opus 8, Sol 7. Fixed cancellation dropping partial cache writes. The shared-node and stop or preemption limits are accepted and recorded. Sol's repair-history finding is dismissed because it affects only unreleased branch databases.
 - 2026-10-31T21:40:00Z: council code review, with Claude Opus 5.5 (high) and GPT-6.1 Sol (high).
   - Round 1: Opus 8.5, Sol 5. Fixed a duplicate test type and the agent resync baseline race.
   - Round 2: Opus 8.5, Sol 9. Fixed compute continuing after a failed publish, the spec threshold, and a stray generated file.
@@ -123,6 +127,7 @@ Complete. Delivered by [#62](https://github.com/atomicobject/rhizome/pull/62) on
 - Wake desktop presence when a page loses its runtime connection, to restore about 6 s crash recovery while idle.
 - `~/.config/rhizome/instances` holds 7,907 leaked `*.intent.lock.guard.lock` files and 361 stale `*.pending.json` files. Find the leaking path, and prune guards for instances that no longer exist.
 - The note, code, and ontology content caches grow without bound, at about 4.2 KB per row at 1024 dimensions, because edits and renames add rows. Add a size cap or an explicit maintenance command if this becomes a problem.
+- Known limits of partial-failure caching: a 256-text slice that spans several shared-node physical batches loses its other vectors when one batch fails, and vectors returned during `rzm stop`, Ctrl-C, or a preemption may not be cached. A retry can re-send those texts. Closing this needs partial results from `SharedEmbeddingNode.Submit` and per-slice cache writes.
 - Known limit of the ontology cache: if a vault switches from an explicit embedding dimension to the provider default and the two sizes differ, a fresh process can serve cached vectors of the old size until the provider reports its real size. A per-model default-size table would close this.
 - Measure Voyage `encoding_format: base64`: responses were 7.5–10× the request bytes.
 - Move diagnostics out of worktrees into per-worktree folders under one user-level root, with a cross-worktree reader.

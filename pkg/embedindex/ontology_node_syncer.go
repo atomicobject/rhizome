@@ -61,7 +61,9 @@ func (s OntologyNodeSyncer) SyncProjections(ctx context.Context, projections ...
 	}
 	result, err := s.ComputeDerived(ctx, plan)
 	if err != nil {
-		return errors.Join(err, s.CacheDerived(ctx, result))
+		// Detached from cancellation: another lane failing or a stop must not
+		// drop vectors the provider already returned.
+		return errors.Join(err, s.CacheDerived(context.WithoutCancel(ctx), result))
 	}
 	return s.PublishDerived(ctx, result)
 }

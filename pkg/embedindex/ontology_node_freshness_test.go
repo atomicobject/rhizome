@@ -250,3 +250,34 @@ func TestOntologyNodeSyncerCachesSucceededSlicesWhenOneFails(t *testing.T) {
 	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: retry, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}))
 	require.Equal(t, int64(1), retry.texts.Load(), "the retry sends only the text whose slice failed")
 }
+
+// Another lane failing cancels the pass's context; vectors the provider already
+// returned must still reach the cache.
+func TestOntologyNodeSyncerCachesSucceededSlicesWhenPassIsCancelled(t *testing.T) {
+	_, schema, projection := setupOntologyNodeChunkFixture(t)
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+	require.NoError(t, err)
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(context.Background(), model))
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	failing := newLazyDimsProvider()
+	failing.fail = func(text string) bool {
+		if !strings.Contains(text, "Type: UserStory\n") {
+			return false
+		}
+		require.Eventually(t, func() bool { return failing.succeeded.Load() == 2 }, 5*time.Second, time.Millisecond)
+		cancel() // a failing code lane cancels the shared semantic context
+		return true
+	}
+	err = OntologyNodeSyncer{Store: store, Schema: schema, Provider: failing, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}.SyncProjections(ctx, projection)
+	require.Error(t, err)
+
+	retry := newLazyDimsProvider()
+	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: retry, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}))
+	require.Equal(t, int64(1), retry.texts.Load(), "vectors returned before cancellation are cached")
+}
