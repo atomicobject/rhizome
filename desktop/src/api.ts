@@ -227,6 +227,8 @@ export interface PageState {
   sidebarCollapsed?: boolean;
   /** How many times the page itself toggled it; the app reads it, not the shell. */
   sidebarToggles?: number;
+  /** The repository's open task items that need the person; the app keeps the items. */
+  tasks?: { needs: number };
 }
 export type PageCommand =
   | { command: "section"; section: PageSection }

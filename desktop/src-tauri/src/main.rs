@@ -4,6 +4,7 @@ mod bridge;
 mod commands;
 mod credentials;
 mod finder;
+mod inbox;
 mod menu;
 mod page;
 mod pane;
@@ -26,6 +27,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -43,6 +45,8 @@ fn main() {
             app.manage(terminal::Focus::default());
             app.manage(updater::Updates::default());
             app.manage(credentials::Imports::default());
+            app.manage(inbox::Inbox::default());
+            inbox::listen(app.handle());
             menu::install_menu(app.handle())?;
             let settings = appearance::current(&app.state::<commands::Desktop>().directory);
             app.handle().set_theme(settings.appearance.native());

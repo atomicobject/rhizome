@@ -28,7 +28,21 @@ export type DesktopCommand =
   | { command: "issues" }
   | { command: "shortcuts" }
   | { command: "find" }
-  | { command: "sidebar"; collapsed: boolean };
+  | { command: "sidebar"; collapsed: boolean }
+  /** Opens a task's page, after a click on its notification. */
+  | { command: "task"; task: string };
+
+/** A task item that needs the person, for the Dock badge and notifications. */
+export type DesktopTaskItem = {
+  id: string;
+  task: string;
+  name?: string;
+  state: "due" | "ready" | "needs-attention";
+  /** The item's summary or reason, shortened. */
+  text: string;
+};
+
+export type DesktopTasks = { needs: number; items: DesktopTaskItem[] };
 
 export type DesktopReport = {
   section: Section;
@@ -41,6 +55,8 @@ export type DesktopReport = {
   sidebarToggles?: number;
   /** The page's latest Tasks request; the app acts on each new `n` once. */
   request?: NumberedRequest;
+  /** The repository's open task items that need the person, unsnoozed. */
+  tasks?: DesktopTasks;
 };
 
 /** What the Tasks page may ask the app to do. The app validates both. */
@@ -97,6 +113,8 @@ function readCommand(event: Event): DesktopCommand | null {
   if (command === "search") return isString(detail.query) ? { command, query: detail.query } : null;
 
   if (command === "issues" || command === "shortcuts" || command === "find") return { command };
+
+  if (command === "task") return isString(detail.task) ? { command, task: detail.task } : null;
 
   if (command === "sidebar")
     return isBoolean(detail.collapsed) ? { command, collapsed: detail.collapsed } : null;

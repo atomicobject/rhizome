@@ -14,6 +14,7 @@ import {
   useDesktopCommands,
   useDesktopRequest,
 } from "./desktopHost";
+import { useDesktopTasks } from "./desktopTasks";
 import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
 import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -29,7 +30,7 @@ import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
-import { isTasksPath, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
+import { isTasksPath, navigateTasks, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
 import { TasksWorkspace } from "./tasks/TasksWorkspace";
 import { summaryCountsKnown, useOntologySummaryQuery, useValidationQuery } from "./useNotesQueries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
@@ -229,6 +230,7 @@ function DesktopReporter({ route }: { route: Route }) {
   const sidebarCollapsed = sidebar.synced ? sidebar.collapsed : undefined;
   const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
   const request = useDesktopRequest();
+  const tasks = useDesktopTasks();
 
   useEffect(() => {
     document.title = desktopTitle({
@@ -239,8 +241,9 @@ function DesktopReporter({ route }: { route: Route }) {
       sidebarCollapsed,
       sidebarToggles,
       request,
+      tasks,
     });
-  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles, request]);
+  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles, request, tasks]);
 
   return null;
 }
@@ -268,6 +271,8 @@ export function AppShell() {
       openIssues();
     } else if (command.command === "sidebar") {
       applyDesktopSidebar(command.collapsed);
+    } else if (command.command === "task") {
+      navigateTasks({ task: command.task });
     }
   });
 
