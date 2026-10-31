@@ -256,3 +256,27 @@ func TestVoyageDirectRequestBytesAndHeadersUnchanged(t *testing.T) {
 	require.Equal(t, http.Header{"Content-Type": {"application/json"}, "Authorization": {"Bearer pa-synthetic"}}, header)
 	require.Equal(t, `{"input":["a"],"input_type":"document","model":"voyage-4-lite","output_dimension":256}`, body)
 }
+
+// After an attempt that may have been dispatched, a later rejection of a
+// retry does not prove the first attempt was free, so the key never changes.
+func TestVoyageManagedKeepsKeyOnceAnAttemptMayHaveDispatched(t *testing.T) {
+	p, calls, _ := fakeVoyageGateway(t, func(n int, _ gatewayCall, w http.ResponseWriter) bool {
+		switch n {
+		case 1: // the response is lost after sending
+			conn, _, err := w.(http.Hijacker).Hijack()
+			require.NoError(t, err)
+			_ = conn.Close()
+			return true
+		case 2: // the retry is turned away before the gateway checks the receipt
+			gatewayError(w, wire.CodeRateLimited, "")
+			return true
+		}
+		return false
+	})
+	_, err := p.EmbedTexts(context.Background(), []string{"a", "b"})
+	require.NoError(t, err)
+	keys := keysOf(calls())
+	require.Len(t, keys, 3)
+	require.Equal(t, keys[0], keys[1])
+	require.Equal(t, keys[0], keys[2], "a new key could charge the batch twice")
+}

@@ -56,6 +56,10 @@ var teamAccountCache struct {
 	account *session.Account
 	status  session.Status
 	err     error
+	// byOrigin keeps one Account per origin for the life of the process. An
+	// Account may hold refreshed tokens it could not yet save to the keychain;
+	// replacing it would fall back to the stored, rotated-away refresh token.
+	byOrigin map[string]*session.Account
 }
 
 func openTeamAccount() (*session.Account, session.Status, error) {
@@ -70,6 +74,7 @@ func openTeamAccount() (*session.Account, session.Status, error) {
 	return c.account, c.status, c.err
 }
 
+// lookupTeamAccount runs with teamAccountCache held.
 func lookupTeamAccount() (*session.Account, session.Status, error) {
 	store, err := session.DefaultStore()
 	if err != nil {
@@ -84,14 +89,20 @@ func lookupTeamAccount() (*session.Account, session.Status, error) {
 	if err != nil || origin == "" {
 		return nil, session.Status{}, err
 	}
-	lock, err := session.DefaultLockPath()
-	if err != nil {
-		return nil, session.Status{}, err
-	}
-	account, err := session.Open(session.Options{Origin: origin, Store: store, LockPath: lock, SelectorPath: selector,
-		BaseTransport: teamBaseTransport, UserAgent: "rzm/" + version.Version})
-	if err != nil {
-		return nil, session.Status{}, err
+	account := teamAccountCache.byOrigin[origin]
+	if account == nil {
+		lock, err := session.DefaultLockPath()
+		if err != nil {
+			return nil, session.Status{}, err
+		}
+		if account, err = session.Open(session.Options{Origin: origin, Store: store, LockPath: lock, SelectorPath: selector,
+			BaseTransport: teamBaseTransport, UserAgent: "rzm/" + version.Version}); err != nil {
+			return nil, session.Status{}, err
+		}
+		if teamAccountCache.byOrigin == nil {
+			teamAccountCache.byOrigin = map[string]*session.Account{}
+		}
+		teamAccountCache.byOrigin[origin] = account
 	}
 	status, err := account.Status()
 	if errors.Is(err, session.ErrNotFound) {

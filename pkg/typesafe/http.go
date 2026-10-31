@@ -41,13 +41,17 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 	// before the retry loop, reuse it after an ambiguous outcome (an upstream
 	// 5xx passed through, or request_in_progress), and replace it after a
 	// definitive rejection (an upstream 408/429, or a gateway rate_limited or
-	// upstream_unavailable). Transport failures are not retried at all.
+	// upstream_unavailable). Transport failures are not retried at all. Once
+	// an attempt might have been dispatched (request_in_progress), the key
+	// never changes again: a later rejection of a retry does not prove the
+	// earlier attempt was free.
 	var idempotencyKey string
 	if c.managed != nil && body != nil {
 		idempotencyKey = crand.Text()
 	}
+	mayHaveDispatched := false
 	freshKey := func() {
-		if idempotencyKey != "" {
+		if idempotencyKey != "" && !mayHaveDispatched {
 			idempotencyKey = crand.Text()
 		}
 	}
@@ -78,8 +82,11 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 		response, err := c.http.Do(request)
 		var gatewayErr *wire.GatewayError
 		if err != nil && c.managed != nil && errors.As(err, &gatewayErr) && gatewayErr.Retryable() && attempt < c.maxRetries {
-			// Retryable gateway codes guarantee nothing reached TypeSafe.
-			if gatewayErr.Code != wire.CodeInProgress {
+			// rate_limited and upstream_unavailable guarantee this attempt reached
+			// nothing; request_in_progress means an earlier one may have.
+			if gatewayErr.Code == wire.CodeInProgress {
+				mayHaveDispatched = true
+			} else {
 				freshKey()
 			}
 			delay := gatewayErr.RetryAfter

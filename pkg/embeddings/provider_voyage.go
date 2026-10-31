@@ -361,6 +361,16 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 	if p.managed {
 		idempotencyKey = crand.Text()
 	}
+	// mayHaveDispatched sticks once an attempt might have reached the provider
+	// (a lost response or request_in_progress). From then on the key never
+	// changes: a later definitive rejection of a retry does not prove the
+	// earlier attempt was free, and a new key could charge the batch twice.
+	mayHaveDispatched := false
+	renewKey := func() {
+		if !mayHaveDispatched {
+			idempotencyKey = crand.Text()
+		}
+	}
 	httpAttempts := 0
 	for {
 		var retryAfter time.Duration
@@ -390,11 +400,14 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 					return nil, err
 				}
 				retryAfter = gatewayErr.RetryAfter
-				if gatewayErr.Code != wire.CodeInProgress {
-					idempotencyKey = crand.Text()
+				if gatewayErr.Code == wire.CodeInProgress {
+					mayHaveDispatched = true
+				} else {
+					renewKey()
 				}
 			case isTransientNetworkError(err):
-				// Possibly dispatched: keep the key.
+				// Possibly dispatched: keep the key for the rest of this request.
+				mayHaveDispatched = true
 				indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageNetworkFailures, 1)
 			default:
 				return nil, err
@@ -434,7 +447,7 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 			}
 			if p.managed && resp.StatusCode == http.StatusTooManyRequests {
 				// Upstream rejected the call definitively; the gateway settled this key.
-				idempotencyKey = crand.Text()
+				renewKey()
 			}
 			indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageHttpRetry, 1)
 		} else {

@@ -231,3 +231,25 @@ func TestManagedBatchReportsUpstream5xxAsUncertain(t *testing.T) {
 	require.Equal(t, "uncertain", results[0].Status)
 	require.False(t, results[0].Retryable)
 }
+
+// request_in_progress means an earlier attempt may be running; a later
+// rate_limited retry must not switch to a new key and dispatch again.
+func TestManagedKeepsKeyAfterRequestInProgress(t *testing.T) {
+	client, calls := managedClient(t, func(n int, w http.ResponseWriter) bool {
+		switch n {
+		case 1:
+			writeGatewayError(w, wire.CodeInProgress, "0")
+			return true
+		case 2:
+			writeGatewayError(w, wire.CodeRateLimited, "0")
+			return true
+		}
+		return false
+	})
+	_, err := client.Evaluate(context.Background(), mixedRequest())
+	require.NoError(t, err)
+	got := calls()
+	require.Len(t, got, 3)
+	require.Equal(t, got[0].key, got[1].key)
+	require.Equal(t, got[0].key, got[2].key)
+}
