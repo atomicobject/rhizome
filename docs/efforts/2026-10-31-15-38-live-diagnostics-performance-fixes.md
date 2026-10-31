@@ -4,7 +4,7 @@ id: EFF-2026-10-31-15-38
 aliases: [EFF-2026-10-31-15-38]
 name: Live diagnostics performance fixes
 created-at: 2026-10-31T19:39:10Z
-status: active
+status: complete
 summary: "Fix the slowdowns and diagnostic noise found in two days of live runtime diagnostics: idle watcher ticks, health-probe logging, double resyncs, unbounded embed-cycle fan-out, false perf flags, and desktop sidecar polling."
 governing-specs:
   - "[[persistent-diagnostics]]"
@@ -38,14 +38,14 @@ Requirements-only change to SPEC-0116 and the indexing and vault-runtime subsyst
 
 ## Spec Coverage Checklist
 
-- [ ] SPEC-0116 amended for the routine health-probe exception and the unfinished-flag coverage rule.
-- [ ] Idle watcher ticks admit no lane jobs; every recovery path still converges.
-- [ ] Health probes that are healthy and fast record nothing; failures and slow probes still record.
-- [ ] `diagnostics perf` raises no unfinished flag for a terminal event outside the contiguously read range.
-- [ ] One overflow produces one `discovery.full`; ignored-tree rescans produce none.
-- [ ] Bounded embed-cycle admissions during a cold code pass.
-- [ ] Desktop sidecar launches per minute drop while idle.
-- [ ] Same-build restart behavior established with evidence.
+- [x] SPEC-0116 amended for the routine health-probe exception and the unfinished-flag coverage rule.
+- [x] Idle watcher ticks admit no lane jobs; every recovery path still converges.
+- [x] Health probes that are healthy and fast record nothing; failures and slow probes still record.
+- [x] `diagnostics perf` raises no unfinished flag for a terminal event outside the contiguously read range.
+- [x] One overflow produces one `discovery.full`; ignored-tree rescans produce none.
+- [x] Bounded embed-cycle admissions during a cold code pass.
+- [ ] Desktop sidecar launches per minute drop while idle. Unit-tested only; see Deviations.
+- [x] Same-build restart behavior established with evidence.
 
 ## Plan
 
@@ -91,22 +91,28 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
   - Every completed owner gets an unbounded goroutine, and `DerivedSourceFingerprint` runs per job.
   - The desktop app backs off instead of porting the probe to Rust.
 
+- 2026-10-31T21:40:00Z: council code review, with Claude Opus 5.5 (high) and GPT-6.1 Sol (high).
+  - Round 1: Opus 8.5, Sol 5. Fixed a duplicate test type and the agent resync baseline race.
+  - Round 2: Opus 8.5, Sol 9. Fixed compute continuing after a failed publish, the spec threshold, and a stray generated file.
+  - Round 3: Opus 9, Sol 9. Restored the generated file again.
+
 ## Deviations
 
 - 2026-10-31T21:00:00Z: the plan excluded idle-CPU work unless it remained after the other fixes. It did: about 1.1 CPU-s/min on the fixture with both builds. `sample` attributed it to `watchStartIntent`, which took a file lock and read the start intent every 50 ms for the runtime's lifetime. The poll now backs off from 50 ms to a 1 s cap, still within `StopGrace` (10 s). Added under the original authority because it is the root cause of finding F4, which was in the plan's measure-then-decide scope.
+- Desktop verification ran `make desktop-check` (cargo fmt, clippy, and 87 Rust tests, including the new interval tests) and `make desktop-build`. The packaged app could not be exercised: the single-instance plugin handed each launch to Drew's already-running `Rhizome.app`, built in worktree `t3-e36f9b1a`, and quitting that app was not authorized. Watch sidecar launches per minute after `make desktop-install-dev`.
 - WP-F accepts a slower relaunch: a runtime that crashes behind an open pane while the desktop is idle can take about 23 s to relaunch instead of about 6. No page-to-presence wake hook exists; recorded as a follow-up.
 - SPEC-0116 was amended in this change set (idle-tick admission, the health-probe exception, and the contiguous-read rule for unfinished flags). The freeze above refers to the pre-amendment revision.
 
 ## Status
 
-Implementation complete on branch `t3/investigate-performance-bottlenecks`; awaiting pull request review.
+Complete on branch `t3/investigate-performance-bottlenecks`; the pull request carries the work.
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass: `make check-full` exit 0 at `8d317875`; `./scripts/rzm validate` 0 issues; `make desktop-check` and `make desktop-build` pass.
+- [x] Alignment and actual outcomes are verified: council review rounds 1–3 and the live fixture measurement.
+- [x] Specs and documentation are reconciled: SPEC-0116, `indexing.md`, `vault-runtime.md`, the diagnostics guide, and CHANGELOG.
+- [x] Follow-ups are triaged (see Compounding Follow-ups).
 
 ## Compounding Follow-ups
 
