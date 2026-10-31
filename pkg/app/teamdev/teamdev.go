@@ -9,7 +9,6 @@ package teamdev
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -180,5 +179,3 @@ func loopback(host string) bool {
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
-
-var errUnsupported = errors.New("starting the local team API gateway is supported on macOS and Linux only")

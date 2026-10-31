@@ -2,7 +2,12 @@
 
 package teamdev
 
-import "os/exec"
+import (
+	"errors"
+	"os/exec"
+)
+
+var errUnsupported = errors.New("starting the local team API gateway is supported on macOS and Linux only")
 
 func detach(*exec.Cmd) {}
 
