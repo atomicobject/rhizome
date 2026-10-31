@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/atomicobject/rhizome/pkg/app/presentation"
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -383,7 +384,7 @@ func runDocCoverageSearch(cmd *cobra.Command, vaultPath string, vaultDef obsidia
 	)
 
 	if embCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(cmd.Context()), embCfg, "")
+		provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(cmd.Context()), embCfg, "")
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("semantic note search disabled: %v", err))
 		} else if _, statErr := os.Stat(embCfg.IndexPath); statErr == nil {
@@ -402,7 +403,7 @@ func runDocCoverageSearch(cmd *cobra.Command, vaultPath string, vaultDef obsidia
 	}
 
 	if codeEmbCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(cmd.Context()), codeEmbCfg, "")
+		provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(cmd.Context()), codeEmbCfg, "")
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("semantic code search disabled: %v", err))
 		} else if _, statErr := os.Stat(codeEmbCfg.IndexPath); statErr == nil {

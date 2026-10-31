@@ -3,6 +3,8 @@ package typesafe
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
@@ -10,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
 
 // APIError preserves a non-2xx response. Error deliberately excludes Body,
@@ -33,6 +37,20 @@ func (e *APIError) Retryable() bool {
 func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]byte, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
+	// The gateway dispatches and settles each idempotency key once. Allocate it
+	// before the retry loop, reuse it after an ambiguous outcome (an upstream
+	// 5xx passed through, or request_in_progress), and replace it after a
+	// definitive rejection (an upstream 408/429, or a gateway rate_limited or
+	// upstream_unavailable). Transport failures are not retried at all.
+	var idempotencyKey string
+	if c.managed != nil && body != nil {
+		idempotencyKey = crand.Text()
+	}
+	freshKey := func() {
+		if idempotencyKey != "" {
+			idempotencyKey = crand.Text()
+		}
+	}
 	for attempt := 0; ; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, "", err
@@ -41,7 +59,11 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 		if err != nil {
 			return nil, "", fmt.Errorf("typesafe: create HTTP request: %w", err)
 		}
-		request.Header.Set("Authorization", "Bearer "+c.apiKey)
+		if c.managed == nil {
+			request.Header.Set("Authorization", "Bearer "+c.apiKey)
+		} else if idempotencyKey != "" {
+			request.Header.Set(wire.HeaderIdempotencyKey, idempotencyKey)
+		}
 		request.Header.Set("Accept", "application/json")
 		if body != nil {
 			request.Header.Set("Content-Type", "application/json")
@@ -54,6 +76,27 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 			batchAttemptState.count++
 		}
 		response, err := c.http.Do(request)
+		var gatewayErr *wire.GatewayError
+		if err != nil && c.managed != nil && errors.As(err, &gatewayErr) && gatewayErr.Retryable() && attempt < c.maxRetries {
+			// Retryable gateway codes guarantee nothing reached TypeSafe.
+			if gatewayErr.Code != wire.CodeInProgress {
+				freshKey()
+			}
+			delay := gatewayErr.RetryAfter
+			if delay <= 0 {
+				delay = backoff(attempt)
+			}
+			if batchAttemptState != nil && gatewayErr.Code == wire.CodeRateLimited {
+				batchAttemptState.gate.pause(delay)
+			}
+			if waited, waitErr := waitRetry(ctx, delay); !waited {
+				if waitErr != nil {
+					return nil, "", waitErr
+				}
+				return nil, "", fmt.Errorf("typesafe: HTTP request: %w", err)
+			}
+			continue
+		}
 		if err != nil {
 			return nil, "", fmt.Errorf("typesafe: HTTP request: %w", err)
 		}
@@ -71,8 +114,11 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 		}
 		apiErr := &APIError{
 			StatusCode: response.StatusCode, RequestID: requestID,
-			Body:       strings.ReplaceAll(string(data), c.apiKey, "[REDACTED]"),
+			Body:       string(data),
 			RetryAfter: retryAfter(response.Header, time.Now()),
+		}
+		if c.apiKey != "" {
+			apiErr.Body = strings.ReplaceAll(apiErr.Body, c.apiKey, "[REDACTED]")
 		}
 		if batch, _ := ctx.Value(batchAttemptKey{}).(*batchAttempt); batch != nil && apiErr.StatusCode == 429 {
 			delay := apiErr.RetryAfter
@@ -84,21 +130,36 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 		if !apiErr.Retryable() || attempt >= c.maxRetries {
 			return nil, "", apiErr
 		}
+		if apiErr.StatusCode < 500 {
+			freshKey()
+		}
 		delay := apiErr.RetryAfter
 		if delay <= 0 {
 			delay = backoff(attempt)
 		}
-		// Do not retry earlier than requested or hold the caller past its budget.
-		if deadline, ok := ctx.Deadline(); ok && delay >= time.Until(deadline) {
+		if waited, waitErr := waitRetry(ctx, delay); !waited {
+			if waitErr != nil {
+				return nil, "", waitErr
+			}
 			return nil, "", apiErr
 		}
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return nil, "", ctx.Err()
-		case <-timer.C:
-		}
+	}
+}
+
+// waitRetry sleeps before a retry. It reports false with a nil error when the
+// delay would outlast the call budget (do not retry earlier than requested or
+// hold the caller past its budget), and the context error on cancellation.
+func waitRetry(ctx context.Context, delay time.Duration) (bool, error) {
+	if deadline, ok := ctx.Deadline(); ok && delay >= time.Until(deadline) {
+		return false, nil
+	}
+	timer := time.NewTimer(delay)
+	select {
+	case <-ctx.Done():
+		timer.Stop()
+		return false, ctx.Err()
+	case <-timer.C:
+		return true, nil
 	}
 }
 
