@@ -1,4 +1,4 @@
-// The settings menu: four sections that cover the decisions that matter.
+// The settings menu: five sections that cover the decisions that matter.
 // Expert settings stay in .rhizome/config.yml.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US4]]
@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
@@ -25,6 +26,7 @@ func (r *initRun) editSettings(s *setup) error {
 		fmt.Fprintf(out, "  2  %-19s %s\n", "Semantic search", searchStatus(s.cfg, r.session))
 		fmt.Fprintf(out, "  3  %-19s %s\n", "Agents", agentsFinding(r.harnessesFor(s.cfg)))
 		fmt.Fprintf(out, "  4  %-19s %s\n", "Workflow", workflowLabel(s.workflows, s.cfg.WorkflowTemplateManagement.Ejected))
+		fmt.Fprintf(out, "  5  %-19s %s\n", "Add-ons", r.addonsLabel(*s))
 		fmt.Fprintln(out, styleDim(out, "  Other settings live in .rhizome/config.yml; the rhizome skill's configuration reference explains them."))
 		var err error
 		switch promptChoice(r.reader, out, "Choose a number, or press Enter when done: ", "") {
@@ -36,6 +38,8 @@ func (r *initRun) editSettings(s *setup) error {
 			r.editAgents(s)
 		case "4":
 			err = r.editWorkflow(s)
+		case "5":
+			err = r.editAddons(s)
 		case "":
 			return nil
 		}
@@ -326,4 +330,65 @@ func (r *initRun) starterClosure(s setup, workflows []string) []string {
 		return workflows
 	}
 	return effective
+}
+
+// editAddons turns add-ons on or off, optional ones included, the way
+// --add-addon and --remove-addon do. Turning on one that uses hooks while
+// hooks are off offers to turn them on.
+//
+// Docs: [[init-starter-workflow#^SPEC-0038-US12]]
+func (r *initRun) editAddons(s *setup) error {
+	out := r.opts.Stdout
+	registry, err := loadStarterTemplateMetadataRegistry()
+	if err != nil {
+		return err
+	}
+	ids := addonIDs(registry)
+	for {
+		installed, err := resolveEffectiveTemplatesWithOptions(s.workflows, &s.cfg, suppressDefaultAddonsForExistingConfig(r.layout, s.cfg))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, styleHeading(out, "Add-ons"))
+		for i, id := range ids {
+			fmt.Fprintf(out, "  %d  %s %s\n", i+1, checkbox(contains(installed, id)), firstNonEmpty(registry[id].Name, id))
+			fmt.Fprintln(out, styleDim(out, "         "+registry[id].Description))
+		}
+		n, _ := strconv.Atoi(promptChoice(r.reader, out, "Choose a number to turn it on or off, or press Enter when done: ", ""))
+		if n < 1 || n > len(ids) {
+			return nil
+		}
+		id := ids[n-1]
+		change := RunOptions{AddAddon: id}
+		if contains(installed, id) {
+			change = RunOptions{RemoveAddon: id}
+		}
+		workflows, err := applyAddonOptions(&s.cfg, s.workflows, suppressDefaultAddonsForExistingConfig(r.layout, s.cfg), change)
+		if err != nil {
+			fmt.Fprintf(out, "%s: %v\n", styleWarn(out, "Not changed"), err)
+			continue
+		}
+		s.workflows = workflows
+		if change.AddAddon != "" && len(registry[id].Hooks) > 0 && !hooksOn(s.cfg) {
+			r.offerHooks(s, registry[id])
+		}
+	}
+}
+
+// offerHooks asks whether to turn hooks on for an add-on that uses them.
+//
+// Docs: [[agent-surface-integration-modes#^SPEC-0045-US5-AC2]]
+func (r *initRun) offerHooks(s *setup, addon starterTemplateMetadata) {
+	out := r.opts.Stdout
+	fmt.Fprintln(out)
+	fmt.Fprintf(out, "%s uses agent hooks, which are off. Turn them on to get:\n", firstNonEmpty(addon.Name, addon.ID))
+	for _, h := range addon.Hooks {
+		fmt.Fprintln(out, "  "+h.Delivers)
+	}
+	if askChoice(r.reader, out, "Turn on hooks? [Y/n]: ", "y", "y", "n") == "y" {
+		applyHooksOption(&s.cfg, agentModeOn)
+		return
+	}
+	fmt.Fprintln(out, styleDim(out, "Hooks stay off; rzm init --hooks on turns them on later."))
 }

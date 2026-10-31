@@ -60,8 +60,12 @@ func existingSkipPath(root, input string) (string, error) {
 }
 
 // chooseAddons records --addons: listed add-ons install, and default add-ons
-// of the chosen workflows that are not listed are disabled.
+// of the chosen workflows that are not listed are disabled. Without --addons
+// it changes nothing.
 func chooseAddons(s *setup, raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
 	registry, err := loadStarterTemplateMetadataRegistry()
 	if err != nil {
 		return err
