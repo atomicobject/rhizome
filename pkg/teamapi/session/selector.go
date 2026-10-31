@@ -109,8 +109,8 @@ func clearSelector(path, origin string) error {
 type ResolveOptions struct {
 	// Server is an explicit --server value from an interactive rzm auth command.
 	Server string
-	// Version is the running build's version; "dev" marks a development build.
-	Version string
+	// Development marks a development build (version.Development()).
+	Development bool
 	// Getenv reads OriginEnv. It is consulted only for development builds.
 	Getenv func(string) string
 	// Store proves an OriginEnv origin already has a stored session.
@@ -128,7 +128,7 @@ func ResolveOrigin(opts ResolveOptions) (string, error) {
 	if strings.TrimSpace(opts.Server) != "" {
 		return CanonicalOrigin(opts.Server)
 	}
-	development := opts.Version == "dev"
+	development := opts.Development
 	if development && opts.Getenv != nil {
 		if raw := strings.TrimSpace(opts.Getenv(OriginEnv)); raw != "" {
 			origin, err := CanonicalOrigin(raw)

@@ -303,16 +303,16 @@ func TestResolveOrigin(t *testing.T) {
 		return origin
 	}
 
-	require.Equal(t, "https://explicit.example.test", resolve(ResolveOptions{Server: "https://explicit.example.test/", Version: "dev", Getenv: env(signedIn)}))
-	require.Equal(t, signedIn, resolve(ResolveOptions{Version: "dev", Getenv: env(signedIn)}))
-	_, err := ResolveOrigin(ResolveOptions{Version: "dev", Getenv: env("http://127.0.0.1:9999"), Store: store, SelectorPath: selector})
+	require.Equal(t, "https://explicit.example.test", resolve(ResolveOptions{Server: "https://explicit.example.test/", Development: true, Getenv: env(signedIn)}))
+	require.Equal(t, signedIn, resolve(ResolveOptions{Development: true, Getenv: env(signedIn)}))
+	_, err := ResolveOrigin(ResolveOptions{Development: true, Getenv: env("http://127.0.0.1:9999"), Store: store, SelectorPath: selector})
 	require.ErrorIs(t, err, ErrNotFound, "the variable cannot select an origin with no stored session")
-	require.Equal(t, DevelopmentOrigin, resolve(ResolveOptions{Version: "dev"}))
-	require.Equal(t, "", resolve(ResolveOptions{Version: "v1.2.3", Getenv: env(signedIn)}), "release builds ignore the variable")
+	require.Equal(t, DevelopmentOrigin, resolve(ResolveOptions{Development: true}))
+	require.Equal(t, "", resolve(ResolveOptions{Getenv: env(signedIn)}), "release builds ignore the variable")
 
 	require.NoError(t, writeSelector(selector, "https://selected.example.test"))
-	require.Equal(t, "https://selected.example.test", resolve(ResolveOptions{Version: "v1.2.3", Getenv: env(signedIn)}))
-	require.Equal(t, "https://selected.example.test", resolve(ResolveOptions{Version: "dev"}))
+	require.Equal(t, "https://selected.example.test", resolve(ResolveOptions{Getenv: env(signedIn)}))
+	require.Equal(t, "https://selected.example.test", resolve(ResolveOptions{Development: true}))
 }
 
 func TestTransportRefusesForeignOriginAndRedirect(t *testing.T) {

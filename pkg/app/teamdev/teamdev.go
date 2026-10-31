@@ -123,6 +123,17 @@ func start(listen, dir string) error {
 	return cmd.Process.Release()
 }
 
+// RequireLive returns an error when the gateway at origin reports fake
+// upstreams. Provider access calls it for loopback origins that were not
+// explicitly chosen for a fixture run.
+func RequireLive(ctx context.Context, origin string) error { return checkLive(ctx, origin) }
+
+// Loopback reports whether origin is a plain-HTTP loopback origin.
+func Loopback(origin string) bool {
+	u, err := url.Parse(origin)
+	return err == nil && u.Scheme == "http" && loopback(u.Hostname())
+}
+
 func checkLive(ctx context.Context, origin string) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()

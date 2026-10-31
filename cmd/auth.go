@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/app/teamdev"
 	"github.com/atomicobject/rhizome/pkg/teamapi/login"
 	"github.com/atomicobject/rhizome/pkg/teamapi/session"
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
@@ -27,6 +28,7 @@ const loginTimeout = 10 * time.Minute
 // substitute every one; production derives them from the real OS user.
 type authDeps struct {
 	version      string
+	development  bool
 	getenv       func(string) string
 	store        func() (session.Store, error)
 	lockPath     func() (string, error)
@@ -37,7 +39,7 @@ type authDeps struct {
 
 func productionAuthDeps() authDeps {
 	return authDeps{
-		version: version.Version, getenv: os.Getenv, store: session.DefaultStore,
+		version: version.Version, development: version.Development(), getenv: os.Getenv, store: session.DefaultStore,
 		lockPath: session.DefaultLockPath, selectorPath: session.DefaultSelectorPath, opener: openBrowser,
 	}
 }
@@ -75,7 +77,7 @@ func (deps authDeps) origin(cmd *cobra.Command) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return session.ResolveOrigin(session.ResolveOptions{Server: server, Version: deps.version, Getenv: deps.getenv, Store: store, SelectorPath: selector})
+	return session.ResolveOrigin(session.ResolveOptions{Server: server, Development: deps.development, Getenv: deps.getenv, Store: store, SelectorPath: selector})
 }
 
 func (deps authDeps) account(origin string) (*session.Account, error) {
@@ -135,6 +137,11 @@ and open the printed URL in a local browser.`,
 			account, err := deps.requiredAccount(cmd)
 			if err != nil {
 				return fail(err)
+			}
+			if deps.development && account.Origin() == session.DevelopmentOrigin {
+				if err := teamdev.Ensure(cmd.Context(), account.Origin()); err != nil {
+					return fail(err)
+				}
 			}
 			if deviceName == "" {
 				deviceName, _ = os.Hostname()

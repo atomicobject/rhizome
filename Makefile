@@ -4,7 +4,7 @@ WEB_DIST=pkg/app/web/assets/dist
 WEB_STAMP=$(WEB_DIST)/.web-build
 DEV_BINARY=bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
 
-RELEASE_LDFLAGS=-s -w
+RELEASE_LDFLAGS=-s -w -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
 RELEASE_FLAGS=-trimpath -ldflags "$(RELEASE_LDFLAGS)" -buildvcs=false
 
 # Enable FTS5 for mattn/go-sqlite3

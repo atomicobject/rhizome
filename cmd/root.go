@@ -92,6 +92,7 @@ func Execute() int {
 		// or install, and never a nonzero exit.
 		return runHook(os.Args[2:])
 	}
+	installProviderAccess()
 	decision := maybeDelegateToRepoBinary(os.Args[1:])
 	if shouldPrintRepoDelegateWarning(os.Args[1:], decision.Warning) {
 		fmt.Fprintf(os.Stderr, "rzm: warning: %s\n", decision.Warning)
