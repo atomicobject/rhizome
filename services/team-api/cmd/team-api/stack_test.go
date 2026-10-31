@@ -262,3 +262,58 @@ func TestSecondGatewayOnTheSameDataDirRefusesToStart(t *testing.T) {
 		t.Fatalf("second gateway: %v, want refusal", err)
 	}
 }
+
+// A shutdown waits for an in-flight paid call to finish and settle before
+// run returns and the store closes.
+func TestShutdownLetsInFlightPaidCallsFinish(t *testing.T) {
+	dir := t.TempDir()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	ready := make(chan string, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- devWithReady(ctx, []string{"--listen", addr, "--data-dir", filepath.Join(dir, "data"), "--upstreams", "fake"}, ready)
+	}()
+	<-ready
+	origin := "http://" + addr
+	member := signIn(t, origin, dir, "member")
+
+	type result struct {
+		status int
+		err    error
+	}
+	call := make(chan result, 1)
+	go func() {
+		req, _ := http.NewRequest(http.MethodPost, origin+wire.RouteVoyageEmbed, strings.NewReader(`{"model":"voyage-4-lite","input":["__fault:slow:700__ hello"]}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set(wire.HeaderIdempotencyKey, "shutdown-test-key")
+		resp, err := member.HTTPClient().Do(req)
+		if err != nil {
+			call <- result{err: err}
+			return
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		call <- result{status: resp.StatusCode}
+	}()
+	time.Sleep(200 * time.Millisecond) // the call is now waiting on the slow provider
+	cancel()
+	select {
+	case err := <-done:
+		t.Fatalf("run returned (%v) before the in-flight call finished", err)
+	case r := <-call:
+		if r.err != nil || r.status != http.StatusOK {
+			t.Fatalf("in-flight call during shutdown: status %d, %v", r.status, r.err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the in-flight call never finished")
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("run: %v", err)
+	}
+}

@@ -143,7 +143,12 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 		WriteTimeout: 180 * time.Second,
 		IdleTimeout:  360 * time.Second,
 	}
+	// Serve returns as soon as Shutdown closes the listener; run waits for
+	// Shutdown itself so in-flight paid calls finish and settle before the
+	// store closes and the data directory is released.
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		if idleExit > 0 {
 			idle.wait(ctx, idleExit)
 		} else {
@@ -160,6 +165,7 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+	<-stopped
 	return nil
 }
 
