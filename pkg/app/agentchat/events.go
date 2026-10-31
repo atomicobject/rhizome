@@ -41,7 +41,7 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 				s.persistHarnessError(sessionID, kind, err)
 			}
 		}
-		projected := eventFromHarness(sessionID, incoming)
+		projected := EventFromHarness(sessionID, incoming)
 		if incoming.Kind == harness.EventDiagnostic {
 			projected.ID = -s.transientEventID.Add(1)
 			projected.CreatedAt = time.Now().UTC()
@@ -88,7 +88,9 @@ func (s *Service) finalizeTurn(sessionID string, live *liveSession) error {
 	return err
 }
 
-func eventFromHarness(sessionID string, event harness.Event) Event {
+// EventFromHarness projects a harness event into the stored event shape,
+// without an id or creation time.
+func EventFromHarness(sessionID string, event harness.Event) Event {
 	role := ""
 	if event.Kind == harness.EventAssistantTextDelta {
 		role = "assistant"
@@ -182,7 +184,7 @@ func (s *Service) handleEventPersistenceFailure(sessionID string, live *liveSess
 		delete(live.pending, incoming.RequestID)
 		s.mu.Unlock()
 	}
-	s.publishPersistenceError(eventFromHarness(sessionID, incoming), err)
+	s.publishPersistenceError(EventFromHarness(sessionID, incoming), err)
 }
 
 func (s *Service) publishPersistenceError(failed Event, err error) {

@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -29,6 +30,13 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 	if err != nil {
 		return AgentResult{}, err
 	}
+	var transcript *Transcript
+	if req.Transcript != "" {
+		if transcript, err = NewTranscript(req.Transcript); err != nil {
+			return AgentResult{}, fmt.Errorf("open transcript: %w", err)
+		}
+		defer transcript.Close()
+	}
 	prefs := settings.Harnesses[kind]
 	session, err := a.Drivers[kind].StartSession(ctx, harness.SessionOptions{
 		PermissionMode: harness.PermissionFullAccess,
@@ -51,6 +59,9 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 		defer close(done)
 		for event := range session.Events() {
 			mu.Lock()
+			if transcript != nil {
+				transcript.Add(event)
+			}
 			switch event.Kind {
 			case harness.EventAssistantTextDelta:
 				segment.WriteString(event.Text)
@@ -62,9 +73,16 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 			case harness.EventTokenUsage:
 				usage = event.Usage
 			case harness.EventError:
-				turnError = event.Text
+				// A retry notice is not fatal; the harness tries again.
+				if event.Status != "retrying" {
+					turnError = cmp.Or(event.Text, event.Reason, "harness error")
+				}
 			case harness.EventTurnCompleted:
 				final = event.Text
+				failed := event.Phase == harness.PhaseFailed || event.Phase == harness.PhaseDeclined
+				if failed && turnError == "" {
+					turnError = cmp.Or(event.Reason, event.Text, "turn "+event.Phase)
+				}
 			}
 			mu.Unlock()
 		}
@@ -77,15 +95,19 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 	if turnErr == nil && ctx.Err() != nil {
 		turnErr = ctx.Err()
 	}
-	if turnErr != nil {
-		return AgentResult{Tokens: usage.TotalTokens}, turnErr
+	if turnErr == nil && turnError != "" {
+		turnErr = fmt.Errorf("%s: %s", kind, turnError)
 	}
-	if turnError != "" {
-		return AgentResult{Tokens: usage.TotalTokens}, fmt.Errorf("%s: %s", kind, turnError)
+	result := AgentResult{Tokens: usage.TotalTokens}
+	if turnErr == nil {
+		result.Message = strings.TrimSpace(final)
+		if result.Message == "" {
+			result.Message = strings.TrimSpace(segment.String())
+		}
 	}
-	message := strings.TrimSpace(final)
-	if message == "" {
-		message = strings.TrimSpace(segment.String())
+	if transcript != nil {
+		// ponytail: a transcript write failure does not fail the run; the run record still holds the outcome.
+		_ = transcript.Finish(result.Message)
 	}
-	return AgentResult{Message: message, Tokens: usage.TotalTokens}, nil
+	return result, turnErr
 }

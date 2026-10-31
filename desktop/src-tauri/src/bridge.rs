@@ -71,12 +71,16 @@ pub async fn call(
     request: Request<'_>,
     timeout: Duration,
 ) -> Result<Value, Failure> {
+    call_sidecar(directory, request, timeout, &sidecar()?).await
+}
+
+/// The rzm bundled beside the app's executable.
+pub fn sidecar() -> Result<std::path::PathBuf, String> {
     let current = std::env::current_exe().map_err(|e| e.to_string())?;
-    let sidecar = current
+    Ok(current
         .parent()
         .ok_or("Cannot locate the desktop companion.".to_string())?
-        .join(if cfg!(windows) { "rzm.exe" } else { "rzm" });
-    call_sidecar(directory, request, timeout, &sidecar).await
+        .join(if cfg!(windows) { "rzm.exe" } else { "rzm" }))
 }
 
 async fn call_sidecar(

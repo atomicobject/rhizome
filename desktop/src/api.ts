@@ -208,7 +208,7 @@ export type FinderChoice =
   | { choice: "add" }
   | { choice: "open"; repository: string; worktree: string | null; newWindow: boolean }
   | { choice: "menu"; repository: string; x: number; y: number };
-export type PageSection = "notes" | "ontology" | "explorer" | "agent" | "graphql";
+export type PageSection = "notes" | "ontology" | "explorer" | "agent" | "tasks" | "graphql";
 /** What the toolbar's page controls show; see SPEC-0119. */
 export interface PageState {
   section: PageSection;
@@ -227,6 +227,8 @@ export interface PageState {
   sidebarCollapsed?: boolean;
   /** How many times the page itself toggled it; the app reads it, not the shell. */
   sidebarToggles?: number;
+  /** The repository's open task items that need the person; the app keeps the items. */
+  tasks?: { needs: number };
 }
 export type PageCommand =
   | { command: "section"; section: PageSection }

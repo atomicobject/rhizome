@@ -71,7 +71,8 @@ func (commandOptions *vaultCommandOptions) newServeCommand(use, short string, de
 					commandOptions.registerIndexJobHooks(hooks, rt)
 					commandOptions.registerAgentOpHooks(hooks, rt)
 				},
-				RunTasks: startTasksRunDue,
+				RunTasks:  startTasksRunDue,
+				OpenTasks: openTasksForPage(),
 			})
 			if errors.Is(err, appserve.ErrAlreadyRunning) {
 				return silentExitError{code: appruntime.ExitCodeAlreadyRunning}

@@ -9,14 +9,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
+	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
-	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -153,6 +154,10 @@ func newTasksRunCmd(open func(*cobra.Command) (*tasks.Service, error), asJSON *b
 				outcome, err = svc.RunDraft(cmd.Context(), file)
 			} else {
 				outcome, err = svc.Run(cmd.Context(), args[0])
+				if tasks.NotStarted(err) {
+					// The Tasks page launches this detached and shows the failure on the item.
+					_ = svc.RecordLaunchError(context.WithoutCancel(cmd.Context()), args[0], err.Error())
+				}
 			}
 			if err != nil {
 				return err
@@ -266,42 +271,45 @@ func openTasksService(ctx context.Context, cmd *cobra.Command, registry harnessR
 	if err != nil {
 		return nil, err
 	}
-	repo, err := tasks.OpenRepo(ctx, cwd)
-	if err != nil {
-		return nil, err
-	}
-	cfg := repoconfig.LocalTasksConfig{}
-	configRoot := repo.MainCheckout
-	if configRoot == "" {
-		configRoot = cwd
-	}
-	local, err := repoconfig.LoadLocalConfig(configRoot)
-	switch {
-	case errors.Is(err, repoconfig.ErrNoLocalConfig):
-	case err != nil:
-		return nil, fmt.Errorf("read .rhizome/config.yml: %w", err)
-	case local.Tasks != nil:
-		cfg = *local.Tasks
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
 	trust, err := repositorytrust.DefaultStore()
 	if err != nil {
 		return nil, err
 	}
 	env := commandEnvFromContext(ctx).Config
-	return tasks.New(tasks.Options{
-		Repo:    repo,
-		Config:  cfg,
-		Rzm:     exe,
-		Trusted: trust.Trusted,
-		Agent: tasks.HarnessAgent{
-			Drivers:  registry(),
-			Settings: func() (agentchat.Settings, error) { return agentchat.LoadSettings(env) },
-		},
+	return tasks.Open(ctx, tasks.OpenOptions{
+		Dir:      cwd,
+		Drivers:  registry(),
+		Settings: func() (agentchat.Settings, error) { return agentchat.LoadSettings(env) },
+		Trusted:  trust.Trusted,
 	})
+}
+
+// openTasksForPage opens the tasks service for the runtime's Tasks page.
+// The page never runs prompts in process (Run spawns `rzm tasks run`), so it
+// needs no harness drivers. The first successful open is reused.
+// ponytail: config.yml changes need a runtime restart; reopen per request if that bites.
+func openTasksForPage() func(context.Context, string) (web.TasksAPI, error) {
+	var (
+		mu      sync.Mutex
+		service *tasks.Service
+	)
+	return func(ctx context.Context, vaultPath string) (web.TasksAPI, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if service != nil {
+			return service, nil
+		}
+		trust, err := repositorytrust.DefaultStore()
+		if err != nil {
+			return nil, err
+		}
+		opened, err := tasks.Open(ctx, tasks.OpenOptions{Dir: vaultPath, Trusted: trust.Trusted})
+		if err != nil {
+			return nil, err
+		}
+		service = opened
+		return service, nil
+	}
 }
 
 // startTasksRunDue is how a runtime asks for due tasks: a detached

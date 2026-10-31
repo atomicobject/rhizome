@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -63,9 +63,10 @@ type Problem struct {
 }
 
 // ParseDefinition parses and validates one task file. The id comes from the
-// file name.
+// file name. The path may be a Git tree path or an OS path (a draft run's on
+// Windows), so filepath.Base splits on either separator there.
 func ParseDefinition(filePath string, data []byte) (Definition, error) {
-	base := path.Base(filePath)
+	base := filepath.Base(filePath)
 	id := strings.TrimSuffix(strings.TrimSuffix(base, ".yml"), ".yaml")
 	if !idPattern.MatchString(id) {
 		return Definition{}, fmt.Errorf("task id %q must be lowercase letters, digits, and hyphens", id)

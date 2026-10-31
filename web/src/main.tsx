@@ -9,6 +9,7 @@ import { VaultInvalidationBridge } from "./query/VaultInvalidationBridge";
 
 import "./base.css";
 import "./agent.css";
+import "./tasks.css";
 import "./explorer.css";
 import "./ontology.css";
 import "./configured-view.css";

@@ -7,7 +7,14 @@ import { queryKeys } from "../api/queryKeys";
 import type { StatusResponse } from "../api/types";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { BareHTMLNote } from "./BareHTMLNote";
-import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
+import {
+  desktopTitle,
+  inDesktop,
+  type Section,
+  useDesktopCommands,
+  useDesktopRequest,
+} from "./desktopHost";
+import { useDesktopTasks } from "./desktopTasks";
 import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
 import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -23,6 +30,8 @@ import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
+import { isTasksPath, navigateTasks, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
+import { TasksWorkspace } from "./tasks/TasksWorkspace";
 import { summaryCountsKnown, useOntologySummaryQuery, useValidationQuery } from "./useNotesQueries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
@@ -60,6 +69,8 @@ function normalizeRouteLocation(): Route {
 
   if (isAgentPath(pathname)) return "agent";
 
+  if (isTasksPath(pathname)) return "tasks";
+
   if (isGraphQLPath(pathname)) return "graphql";
 
   if (isOntologyPath(pathname)) return "ontology";
@@ -78,9 +89,11 @@ function navigateTo(next: Route) {
         ? ONTOLOGY_ROOT_PATH
         : next === "agent"
           ? "/agent"
-          : next === "graphql"
-            ? "/graphql"
-            : "/explorer";
+          : next === "tasks"
+            ? TASKS_ROOT_PATH
+            : next === "graphql"
+              ? "/graphql"
+              : "/explorer";
 
   window.history.pushState({}, "", url);
   notifyLocationChange();
@@ -216,6 +229,8 @@ function DesktopReporter({ route }: { route: Route }) {
   // Until the app sends its stored choice, the page's default is not a choice.
   const sidebarCollapsed = sidebar.synced ? sidebar.collapsed : undefined;
   const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
+  const request = useDesktopRequest();
+  const tasks = useDesktopTasks();
 
   useEffect(() => {
     document.title = desktopTitle({
@@ -225,8 +240,10 @@ function DesktopReporter({ route }: { route: Route }) {
       health,
       sidebarCollapsed,
       sidebarToggles,
+      request,
+      tasks,
     });
-  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles]);
+  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles, request, tasks]);
 
   return null;
 }
@@ -254,6 +271,8 @@ export function AppShell() {
       openIssues();
     } else if (command.command === "sidebar") {
       applyDesktopSidebar(command.collapsed);
+    } else if (command.command === "task") {
+      navigateTasks({ task: command.task });
     }
   });
 
@@ -358,6 +377,14 @@ export function AppShell() {
             </button>
             <button
               type="button"
+              className={route === "tasks" ? "is-active" : ""}
+              aria-current={route === "tasks" ? "page" : undefined}
+              onClick={() => navigateTo("tasks")}
+            >
+              Tasks
+            </button>
+            <button
+              type="button"
               className={route === "graphql" ? "is-active" : ""}
               aria-current={route === "graphql" ? "page" : undefined}
               onClick={() => navigateTo("graphql")}
@@ -402,6 +429,8 @@ export function AppShell() {
             <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "agent" ? (
             <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+          ) : route === "tasks" ? (
+            <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
             <Suspense fallback={<main className="graphql-explorer" />}>
               <GraphQLExplorer />
