@@ -116,7 +116,7 @@ func Read(opts Options) (Result, error) {
 			}
 			aggregator := newPerfAggregator()
 			out.Coverage, err = evidence.ScanEvents(root, filter, aggregator.visit)
-			summary := aggregator.summary()
+			summary := aggregator.summary(out.Coverage.Contiguous)
 			out.Perf = &summary
 		default:
 			return out, fmt.Errorf("unknown diagnostics mode %q", opts.Mode)
