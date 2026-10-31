@@ -97,6 +97,7 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
   - Round 5: Opus 5, Sol 8. Fixed default-config sizes, partial provider failures, and interim-table repair.
   - Round 6: Opus 8, Sol 7. Fixed cancellation dropping partial cache writes. The shared-node and stop or preemption limits are accepted and recorded. Sol's repair-history finding is dismissed because it affects only unreleased branch databases.
   - Round 7: Opus 7, Sol 8. Fixed caching when publication fails after embedding. The shared embedding node now drops queued texts from a cancelled pass and returns its in-flight vectors, so a sibling-lane failure or a preemption no longer pays for unsent text or loses delivered vectors.
+  - Round 8: Opus 9, Sol 8. Fixed a race that let a cancelled job's queued texts reach the provider when a batch slot freed at the same moment. The explicit-index preemption re-send is recorded as a follow-up.
 - 2026-10-31T21:40:00Z: council code review, with Claude Opus 5.5 (high) and GPT-6.1 Sol (high).
   - Round 1: Opus 8.5, Sol 5. Fixed a duplicate test type and the agent resync baseline race.
   - Round 2: Opus 8.5, Sol 9. Fixed compute continuing after a failed publish, the spec threshold, and a stray generated file.
@@ -129,6 +130,7 @@ Complete. Delivered by [#62](https://github.com/atomicobject/rhizome/pull/62) on
 - `~/.config/rhizome/instances` holds 7,907 leaked `*.intent.lock.guard.lock` files and 361 stale `*.pending.json` files. Find the leaking path, and prune guards for instances that no longer exist.
 - The note, code, and ontology content caches grow without bound, at about 4.2 KB per row at 1024 dimensions, because edits and renames add rows. Add a size cap or an explicit maintenance command if this becomes a problem.
 - Known limits of partial-failure caching: a 256-text slice that spans several shared-node physical batches loses its other vectors when one batch fails or is dropped, and runtime shutdown cancels provider calls in flight. A retry can re-send at most those texts. Batches already waiting at a shared provider gate are still sent after cancellation.
+- When an explicit index preempts a live derived pass, the pass's cache write queues behind it on the single-writer lane, so the explicit index can re-send up to `maxConcurrent × batch` texts that were in flight. Closing this needs a cache write that does not wait for the lane.
 - Known limit of the ontology cache: if a vault switches from an explicit embedding dimension to the provider default and the two sizes differ, a fresh process can serve cached vectors of the old size until the provider reports its real size. A per-model default-size table would close this.
 - Measure Voyage `encoding_format: base64`: responses were 7.5–10× the request bytes.
 - Move diagnostics out of worktrees into per-worktree folders under one user-level root, with a cross-worktree reader.
