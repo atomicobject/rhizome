@@ -135,8 +135,9 @@ The work is split across parallel worktrees, each owning separate files, then in
 
 ## Spec Coverage Checklist
 
-- [ ] US8: run IDs and folders; per-run record fields; interrupted runs; transcripts for Claude Code and Codex; retry and failed-turn classification; retention and token totals; drafts; Tasks list; run history; run view; live progress and detached Run; desktop section.
-- [ ] US6 (Tasks page actions): Run, Snooze, Skip, Discard, Done, mode, pause and resume.
+- [x] US8, backend: run IDs and folders, per-run record fields, interrupted runs, drafts, retention and token totals, launch errors (`pkg/app/tasks/history_test.go`, `review_fixes_phase2_test.go`, `cmd/tasks_test.go`); transcripts for Claude Code and Codex from recorded real turns plus synthetic edge streams, retry and failed-turn classification (`transcript_test.go`, `agent_test.go`); routes and detached Run (`pkg/app/web/tasks_test.go`).
+- [x] US8, page: task list, run history, run view with collapsed blocks, live progress, launch waiting, interrupted runs, desktop section (`web/src/components/tasks/*.test.ts*`, `AppShell.test.tsx`, `desktop` vitest, `cargo test page::`).
+- [x] US6 (Tasks page actions): Run, Snooze, Skip, Discard, Done, mode, pause and resume (`TasksWorkspace.test.tsx`, `pkg/app/web/tasks_test.go`).
 
 ## Original Intended Delivery
 
@@ -144,27 +145,49 @@ As in Plan.
 
 ## Actual Delivered
 
-Pending.
+Everything in Plan, built in four parallel worktrees (`t3/task-history-transcript`, `-lifecycle`, `-routes`, `-web`) and integrated on `t3/scheduled-task-history-ui`. The real routes and page were checked against a throwaway repository served by this build: the report, live state, task list, task detail, and the untrusted notice all work. A live agent run through the page is still owed (see Status).
 
 ## Deviations
 
-None yet.
+- **Merge-warning cache moved into `tasks.Service`** (`cachedMergeWarning`, 10 minutes). A cache in the web handler could not stop `Status` from calling `gh`.
+- **The runtime opens the tasks service once, with no harness drivers.** The page never runs prompts in process, because Run spawns `rzm tasks run`. A change to `.rhizome/config.yml` needs a runtime restart to reach the page.
+- **Spawn failures in the run route are recorded on the item** with `RecordLaunchError`, not only returned as 500.
+- **Live state is also polled every 60 s when idle**, so the page notices runs the scheduler starts. The contract only named the 2 s rate.
+- **A corrected transcript block reuses its `id`.** The writer appends the corrected line with the same id, and the page keeps the last line per id.
+- **Sol-loop fixes (3 rounds with GPT-6.1 Sol, approved):**
+  - later check-log snapshots win;
+  - a retried launch ignores an earlier launch error, with `launchedAt` sent at full precision;
+  - history labels the run in progress;
+  - a crash during a manual Run's check flags its item;
+  - retention skips the folder sweep when state cannot be saved.
 
 ## Closure Checklist
 
-- [ ] Quality gates pass (docs/engineering/quality-gates.md).
-- [ ] Live run of a synthetic task viewed in the Tasks page.
-- [ ] SPEC-0127 US8 status and the user guide updated.
-- [ ] Follow-ups recorded.
+- [x] Quality gates pass: `make verify` (check-full with race and integration tests, 1,718 web unit tests, 107 E2E tests) and `make desktop-check`, before the sol-loop fixes; the touched packages' tests after them.
+- [ ] Live run of a synthetic task viewed in the Tasks page. Blocked: `rzm trust` needs Drew's interactive confirmation for the throwaway repository at `/tmp/th-live/repo`.
+- [x] User guide (`docs/reference/guides/scheduled-tasks-guide.md`, "The Tasks page" and "Where state lives"), CHANGELOG, and the `pkg/app/tasks` and `pkg/app/web` CONTEXT notes updated. Story statuses stay `draft`, as for phase 1.
+- [x] Follow-ups recorded.
 
 ## Compounding Follow-ups
 
-None yet.
+- **Live run and desktop click-through:**
+  - Trust `/tmp/th-live/repo`, let its `finalize` task run, and read the transcript in the page.
+  - After merge, run `make desktop-install-dev` from the primary checkout and open the Tasks section in Rhizome Desktop.
+- **Leftover interrupted run (sol-loop S5, declined as a nit).** If a repository's last task is removed while a run was interrupted, `RunDue` returns before finalizing `Running`. The page still shows the run as interrupted.
+- **Back-to-back Claude thinking blocks.** Two consecutive Claude thinking blocks with nothing between them merge into one in the transcript writer, a known limit of flushing only at block boundaries.
+- **Impeccable:** `.impeccable/design.json` is older than DESIGN.md, and a newer Impeccable is available. Bumping it needs the license pin in `scripts/licenses/generate.py`.
+- **Phase 3:** the desktop badge, notifications, Open worktree, and Start.
 
 ## Status
 
-In progress.
+Active. Everything in scope is built and verified except the live agent run through the page, which waits on Drew trusting the throwaway repository.
 
 ## Execution Notes
 
 - 2026-10-31: Effort opened from the council-refined plan.
+- 2026-10-31: Workers A–D (Opus 5.5 high, T3 delegates) delivered their branches. The lead integrated them:
+  - swapped the route stand-ins for the real types and connected the opener;
+  - moved the merge-warning cache into the service;
+  - fixed the page so a repeated transcript id replaces the line it holds.
+- 2026-10-31: Live check against a throwaway repository: routes and page work. `rzm trust` refuses a scripted confirmation, so the agent run waits for Drew.
+- 2026-10-31: Sol loop, 3 rounds with GPT-6.1 Sol: 4 should fixes plus 1 nit fixed, 1 nit declined. Round 3 approved.

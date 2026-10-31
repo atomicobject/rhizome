@@ -103,6 +103,12 @@ Review a finished run in its worktree, then open the pull request yourself, or d
 
 An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it.
 
+## The Tasks page
+
+Open **Tasks** in the workbench, or the Tasks section in Rhizome Desktop, to see every registered task with its mode, cadence, last outcome, next due time, and inbox state. Pick a task to change its mode, act on its inbox item (Run, Snooze, Skip, Discard, Done), and read its run history, newest first. Checks that found nothing to do appear as quiet single lines.
+
+A run opens on its result: the agent's final message, the changed files, tokens, branch, and the worktree path with a copy button. Below that is the run's timeline. The check's stderr, the agent's thinking, each command with its exit code, duration, and output, tool calls, and file changes start collapsed. While a run is in progress, finished blocks appear as they arrive. Run starts the work in a separate process; if it cannot start, the item says why. Start and Open worktree remain CLI and later-desktop actions.
+
 ## Where state lives
 
 Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
