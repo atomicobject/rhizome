@@ -135,7 +135,8 @@ func (g *fakeGateway) state() (rotations, reused int, revoked bool) {
 // fileStore keeps records as files so separate processes share them.
 type fileStore struct{ dir string }
 
-func (f fileStore) path(origin string) string { return filepath.Join(f.dir, url.PathEscape(origin)) }
+// QueryEscape also escapes ":", which Windows does not allow in file names.
+func (f fileStore) path(origin string) string { return filepath.Join(f.dir, url.QueryEscape(origin)) }
 
 func (f fileStore) Load(origin string) ([]byte, error) {
 	data, err := os.ReadFile(f.path(origin))
