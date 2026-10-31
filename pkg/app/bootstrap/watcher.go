@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
@@ -60,10 +61,17 @@ type unifiedSemanticWatcher struct {
 	eventCount     map[string]uint64
 	pendingResync  bool
 	pendingReasons map[string]int64
-	ownershipWake  chan struct{}
-	watcherDone    chan struct{}
-	derived        *derivedScheduler
-	stopWatchHub   func()
+	// seenRecrawls is the cache recrawl count the watcher last acted on, and
+	// awaitedRecrawl the in-flight recrawl a pending resync waits for (0: none).
+	seenRecrawls   uint64
+	awaitedRecrawl uint64
+	// syncWaiters counts SyncWatcher calls waiting on a batch; while any wait,
+	// no batch defers a resync to a recrawl.
+	syncWaiters   atomic.Int32
+	ownershipWake chan struct{}
+	watcherDone   chan struct{}
+	derived       *derivedScheduler
+	stopWatchHub  func()
 
 	validationMu       sync.Mutex
 	validationTimer    *time.Timer

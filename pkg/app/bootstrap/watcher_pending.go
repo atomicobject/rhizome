@@ -48,7 +48,9 @@ func (w *unifiedSemanticWatcher) subscribeWatchHub() {
 		}
 		w.retainWatchInputs(dirty, resync, reasons)
 	}, func(_ context.Context, event watchhub.StaleEvent) {
-		w.retainWatchInputs(nil, true, map[string]int64{"stale_" + watchStaleReason(event.Reason): 1, "source_" + watchSource(event.Source): 1})
+		// No wake: the hub may reach the cache's stale handler after this one,
+		// and the next tick's batch must see the cache's recrawl to defer to it.
+		w.retainInputs(nil, true, map[string]int64{"stale_" + watchStaleReason(event.Reason): 1, "source_" + watchSource(event.Source): 1})
 	})
 }
 
@@ -61,6 +63,16 @@ func (w *unifiedSemanticWatcher) retainWatchEvents(dirty map[string]cache.DirtyK
 }
 
 func (w *unifiedSemanticWatcher) retainWatchInputs(dirty map[string]cache.DirtyKind, resync bool, reasons map[string]int64) {
+	w.retainInputs(dirty, resync, reasons)
+	if w.ownershipWake != nil {
+		select {
+		case w.ownershipWake <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (w *unifiedSemanticWatcher) retainInputs(dirty map[string]cache.DirtyKind, resync bool, reasons map[string]int64) {
 	w.pendingMu.Lock()
 	defer w.pendingMu.Unlock()
 	if w.pendingByRel == nil {
@@ -75,12 +87,6 @@ func (w *unifiedSemanticWatcher) retainWatchInputs(dirty map[string]cache.DirtyK
 	}
 	w.pendingResync = w.pendingResync || resync
 	w.mergeWatchReasonsLocked(reasons)
-	if w.ownershipWake != nil {
-		select {
-		case w.ownershipWake <- struct{}{}:
-		default:
-		}
-	}
 }
 
 // pruneEvents drops event counts for paths outside keep. A dropped path that
@@ -115,6 +121,35 @@ func (w *unifiedSemanticWatcher) takePendingWatchInputs() (map[string]cache.Dirt
 	w.pendingResync = false
 	w.pendingReasons = nil
 	return dirty, resync, reasons
+}
+
+// observeRecrawls reports whether the cache completed a recrawl the watcher
+// has not acted on. The count is the watcher's own, so another cache reader's
+// refresh cannot consume the completion.
+func (w *unifiedSemanticWatcher) observeRecrawls(recrawls uint64) bool {
+	w.pendingMu.Lock()
+	defer w.pendingMu.Unlock()
+	if recrawls <= w.seenRecrawls {
+		return false
+	}
+	w.seenRecrawls = recrawls
+	w.awaitedRecrawl = 0
+	return true
+}
+
+// deferResync reports whether a pending resync should wait for the recrawl
+// numbered inFlight, whose completion triggers one full discovery covering
+// both. It waits for one recrawl only: if that one finishes without
+// completing, the resync runs instead of chasing retries.
+func (w *unifiedSemanticWatcher) deferResync(resync bool, inFlight uint64) bool {
+	w.pendingMu.Lock()
+	defer w.pendingMu.Unlock()
+	wait := resync && inFlight != 0 && (w.awaitedRecrawl == 0 || w.awaitedRecrawl == inFlight) && w.syncWaiters.Load() == 0
+	w.awaitedRecrawl = 0
+	if wait {
+		w.awaitedRecrawl = inFlight
+	}
+	return wait
 }
 
 // Retry old work without overwriting events received while it was running.
