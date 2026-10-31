@@ -5,13 +5,24 @@ package session
 import (
 	"errors"
 	"os"
+
+	"golang.org/x/sys/windows"
 )
 
-// ponytail: no Windows lock yet. DefaultStore is unavailable there, so no
-// production session reaches it; add LockFileEx (see pkg/vault/indexlock)
-// together with the Credential Manager adapter.
-func tryLockFile(*os.File) error {
-	return errors.New("team session lock is not supported on Windows yet")
+// LockFileEx locks belong to the file handle, so two handles in one process
+// contend the same way two processes do, as flock does elsewhere. Managed
+// sign-in is not offered on Windows yet (DefaultStore is unavailable), but the
+// lock keeps refresh coordination correct for injected stores.
+func tryLockFile(file *os.File) error {
+	var overlapped windows.Overlapped
+	err := windows.LockFileEx(windows.Handle(file.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlapped)
+	if errors.Is(err, windows.ERROR_LOCK_VIOLATION) || errors.Is(err, windows.ERROR_IO_PENDING) {
+		return errLockBusy
+	}
+	return err
 }
 
-func unlockFile(*os.File) error { return nil }
+func unlockFile(file *os.File) error {
+	var overlapped windows.Overlapped
+	return windows.UnlockFileEx(windows.Handle(file.Fd()), 0, 1, 0, &overlapped)
+}

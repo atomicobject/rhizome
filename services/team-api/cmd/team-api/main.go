@@ -160,13 +160,16 @@ func (k providerKeys) check() error {
 }
 
 // trafficConfig takes the provider keys and, in development, the upstream
-// overrides. Slots, waits, and charges keep the traffic defaults; the
-// per-person slot limit is combined across providers.
+// overrides. The per-person slot limit is combined across providers, so it is
+// the larger of the configured per-provider concurrency values that sessions
+// advertise; those values are client hints within it. Global slots, waits,
+// and charges keep the traffic defaults.
 func trafficConfig(cfg config.Config, keys providerKeys) traffic.Config {
 	return traffic.Config{
 		VoyageKey:       keys.Voyage,
 		TypeSafeKey:     keys.TypeSafe,
 		VoyageBaseURL:   cfg.Upstreams.Voyage,
 		TypeSafeBaseURL: cfg.Upstreams.TypeSafe,
+		PersonSlots:     max(cfg.Concurrency.VoyageConcurrency, cfg.Concurrency.TypeSafeConcurrency),
 	}
 }
