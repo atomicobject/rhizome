@@ -6,7 +6,7 @@ aliases:
   - Scheduled tasks
 summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs work in their own worktree, never push, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
 spec-status: proposed
-last-updated: 2026-10-25
+last-updated: 2026-10-31
 ---
 
 # Scheduled tasks
@@ -178,6 +178,26 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 - A `team` task is due when both the person's latest local run and the latest commit on the primary ref carrying the task's tag are older than its cadence. Each commit is dated by its committer date. The tag is matched as a whole line anywhere in the message (`git log --grep='^Rhizome-Task: <id>$'`), because squash merges move trailers into the body.
 - `rzm tasks status` shows, per task, its mode and where the mode came from, its last run and who made it, its recent token usage, when it is next due, the primary ref and how long ago it was fetched, and any problem with the repository's merge settings (see Edge Cases).
 
+### US8 - See registered tasks and what each run did
+
+- id:: ^SPEC-0127-US8
+- summary:: A person opens Tasks in the workbench or Rhizome Desktop, sees every registered task and when it is next due, and reads any recent run as a transcript: the outcome first, then the check log, thinking, commands, and tool calls, collapsed until opened.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Every run, including a check that found nothing needed, gets a run ID before its check starts. Its folder under task state holds the check's stderr log and, when agent work ran, a transcript.
+- A run record keeps its own outcome, start and finish times, tokens, inbox item, branch, base commit, worktree, and changed files, so an old run never shows a newer attempt's work.
+- A run interrupted by a crash is recorded once as interrupted, with whatever transcript it wrote. The page reports it as interrupted as soon as the process holding the run lock is gone.
+- The transcript holds whole thinking blocks and messages, each command and tool call with its outcome, file changes, errors, the agent's final message, and token usage, for both Claude Code and Codex. Text and inputs are bounded and marked when cut; the final message and usage are always kept.
+- A retry notice from the harness does not fail a run, and a turn the harness reports as failed does, even without a separate error.
+- Per task, the 20 newest transcripts and 20 newest check logs are kept, along with at most 100 other run records. Token totals for the last 30 days stay correct after older records are trimmed.
+- Draft runs (`rzm tasks run --file`) do not advance a task's clock and are not listed. Their folders are deleted after 7 days.
+- The Tasks page lists each registered task with its mode, cadence, last outcome, next due time, and inbox state. A task's history lists its runs newest first, with checks that found nothing needed shown as quiet single lines.
+- A run's view shows its final message as Markdown, changed files, tokens, branch, and worktree path with a copy action. Under that is a chronological timeline. Thinking, commands (with exit code, duration, and output), tool calls, file changes, and the check log are collapsed by default.
+- While a run is in progress, the page shows completed blocks as they arrive. Run on an inbox item starts the work in a separate process and returns at once; a failure before the work starts appears on the item.
+- Rhizome Desktop shows Tasks as a sidebar section.
+
 ## Requirements
 
 - MUST run a task's prompt in the background only in auto mode, or when the person chose Run. Checks make no model calls.
@@ -211,7 +231,8 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 ## Delivery Phases
 
 - **Phase 1, core and CLI:** US1–US5, US7, and the CLI part of US6, triggered by `rzm tasks run-due` and the runtime interval, plus the harness process-group change. A synthetic task with a check and a prompt proves the whole path: the check stores context, background work uses it and produces a ready branch, and `start --print` carries the same locations.
-- **Phase 2, desktop:** the Rhizome Desktop part of US6: the inbox, badge, notifications, and Open worktree.
+- **Phase 2, task history:** US8, plus the inbox actions on the Tasks page (Run, Snooze, Skip, Discard, Done, mode, pause), in the workbench and as a Rhizome Desktop section.
+- **Phase 3, desktop:** the rest of US6 in Rhizome Desktop: the badge, notifications, Open worktree, and Start.
 - **Later:** a launchd or systemd job for runs while Rhizome is closed; Windows; a branch-versus-primary diff view in Rhizome Desktop; starter-provided outcome views; adopting tasks in session memory.
 
 ## Decisions
