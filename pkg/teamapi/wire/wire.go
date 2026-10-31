@@ -4,7 +4,12 @@
 // pulling in Rhizome's application, vault, SQLite, or CGO packages.
 package wire
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"time"
+)
 
 // APIVersion is reported by /v1/meta. Changes within v1 are additive.
 const APIVersion = 1
@@ -272,4 +277,62 @@ type AuditEntry struct {
 	Action string    `json:"action"`
 	Target string    `json:"target"`
 	Detail string    `json:"detail,omitempty"`
+}
+
+// ErrSignInRequired means the stored session can no longer be used and the
+// person must run `rzm auth login`. The message names a credential so callers
+// that detect credential failures by text recognize it.
+var ErrSignInRequired = errors.New("team API credential required: run rzm auth login")
+
+// GatewayError is a gateway-originated error as a client sees it. Clients
+// return it from their transport instead of passing the response on.
+type GatewayError struct {
+	Code       ErrorCode
+	Status     int
+	Message    string
+	RetryAfter time.Duration
+}
+
+func (e *GatewayError) Error() string {
+	return fmt.Sprintf("team API %s (HTTP %d): %s", e.Code, e.Status, e.Message)
+}
+
+// Retryable reports whether the same logical request may be sent again after
+// RetryAfter: only when the gateway guarantees nothing reached the provider.
+func (e *GatewayError) Retryable() bool {
+	return e.Code == CodeRateLimited || e.Code == CodeUpstreamDown || e.Code == CodeInProgress
+}
+
+// Unwrap makes errors.Is(err, ErrSignInRequired) true for codes that end the
+// session.
+func (e *GatewayError) Unwrap() error {
+	switch e.Code {
+	case CodeSessionRevoked, CodeSessionExpired, CodeRefreshReused, CodeNotEligible:
+		return ErrSignInRequired
+	}
+	return nil
+}
+
+// Status is the HTTP status the gateway sends with each code.
+func (c ErrorCode) Status() int {
+	switch c {
+	case CodeAccessRefreshRequired, CodeSessionRevoked, CodeSessionExpired, CodeRefreshReused:
+		return http.StatusUnauthorized
+	case CodeNotEligible, CodeNotAdmin:
+		return http.StatusForbidden
+	case CodeRateLimited, CodeBudgetExhausted:
+		return http.StatusTooManyRequests
+	case CodeServiceDisabled, CodeUpstreamDown:
+		return http.StatusServiceUnavailable
+	case CodeOutcomeUnknown, CodeResultLost, CodeInProgress, CodeIdempotencyClash:
+		return http.StatusConflict
+	case CodeTooLarge:
+		return http.StatusRequestEntityTooLarge
+	case CodeUpgradeRequired:
+		return http.StatusUpgradeRequired
+	case CodeNotFound:
+		return http.StatusNotFound
+	default: // CodeModelNotAllowed, CodeBadRequest
+		return http.StatusBadRequest
+	}
 }
