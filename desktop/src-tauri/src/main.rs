@@ -12,6 +12,7 @@ mod presence;
 mod security;
 mod setup;
 mod state;
+mod team;
 mod terminal;
 mod updater;
 mod windows;
@@ -42,6 +43,7 @@ fn main() {
             app.manage(terminal::Focus::default());
             app.manage(updater::Updates::default());
             app.manage(credentials::Imports::default());
+            app.manage(team::Team::default());
             menu::install_menu(app.handle())?;
             let settings = appearance::current(&app.state::<commands::Desktop>().directory);
             app.handle().set_theme(settings.appearance.native());
@@ -71,6 +73,7 @@ fn main() {
         // Quitting does not close windows one by one, so the session keeps them.
         tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
             app.state::<credentials::Imports>().cancel(None);
+            app.state::<team::Team>().cancel(None);
             windows::quit(app);
         }
         _ => {}

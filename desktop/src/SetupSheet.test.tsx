@@ -107,6 +107,7 @@ function serve(overrides: Partial<Record<string, (args: unknown) => unknown>> = 
     const handle = overrides[operation];
     if (handle) return handle(args) as never;
     if (operation === "credential-status") return { available: true, ready: [] };
+    if (operation === "team-status") return { signed_in: false, origin: "https://team.test" };
     if (operation === "setup-report") return plan;
     if (operation === "initialize") return { result: done, folder: {} };
     throw new Error(`Unexpected operation: ${operation}`);
@@ -443,4 +444,21 @@ it.each(["failure", "cancel"])("preserves a typed search key after import %s", a
   else rejectImport();
   await waitFor(() => expect(calls("setup-report")).toHaveLength(2));
   expect(screen.getByLabelText("Voyage API Key")).toHaveValue("synthetic-manual-key");
+});
+
+it("offers team sign-in beside key import and refreshes the plan after it", async () => {
+  serve({
+    "team-sign-in": () => ({
+      signed_in: true,
+      email: "ada@example.test",
+      origin: "https://team.test",
+      session_expires_at: "2026-11-07T12:00:00Z",
+    }),
+  });
+  sheet();
+  expect(await screen.findByText(/import your own keys from 1Password below/)).toBeVisible();
+  await waitFor(() => expect(calls("setup-report")).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "Sign in with Atomic Object" }));
+  expect(await screen.findByText("ada@example.test")).toBeVisible();
+  await waitFor(() => expect(calls("setup-report")).toHaveLength(2));
 });

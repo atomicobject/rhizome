@@ -70,6 +70,13 @@ export interface CredentialSource {
   environment: string;
   keys: string[];
 }
+/** `rzm auth status --json`, and sign-in's result (SPEC-0129 US5). */
+export interface TeamStatus {
+  signed_in: boolean;
+  email?: string;
+  origin?: string;
+  session_expires_at?: string;
+}
 export interface CredentialStatus {
   source?: CredentialSource;
   available: boolean;
@@ -170,6 +177,8 @@ export type Message =
   /** The finder's choice, relayed by the app. */
   | ({ type: "finder" } & FinderChoice)
   | { type: "settings"; settings: AppSettings }
+  /** Sign-in progress: the address the CLI opened in the browser. */
+  | { type: "team"; event: "authorize_url"; url: string }
   /** The workspace page's reported state, or null when no page has reported. */
   | { type: "page"; state: PageState | null };
 /** The app-wide appearance; `auto` follows the operating system. */
@@ -323,6 +332,10 @@ type Results = {
   "credential-status": CredentialStatus;
   "credential-import": CredentialStatus;
   "credential-cancel": null;
+  "team-status": TeamStatus;
+  "team-sign-in": TeamStatus;
+  "team-cancel": null;
+  "team-sign-out": { signed_out: boolean; remote_revoked: boolean };
   list: Library;
   discover: Discovery;
   add: { library: Library; id: string };
@@ -366,6 +379,10 @@ type Args = {
   "credential-status": Record<string, never>;
   "credential-import": { source: CredentialSource };
   "credential-cancel": Record<string, never>;
+  "team-status": Record<string, never>;
+  "team-sign-in": Record<string, never>;
+  "team-cancel": Record<string, never>;
+  "team-sign-out": Record<string, never>;
   list: Record<string, never>;
   discover: { id: string };
   add: { path: string };

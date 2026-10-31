@@ -91,6 +91,10 @@ pub enum Action {
         source: crate::credentials::Source,
     },
     CredentialCancel,
+    TeamStatus,
+    TeamSignIn,
+    TeamCancel,
+    TeamSignOut,
     UpdateStatus,
     CheckForUpdates,
     RenderProfiling,
@@ -347,6 +351,23 @@ pub async fn desktop_request(
                 .cancel(Some(window.label()));
             Ok(Value::Null)
         }
+        Action::TeamStatus => crate::team::status(&state.directory).await,
+        Action::TeamSignIn => {
+            let label = window.label().to_string();
+            let progress = |mut message: Value| {
+                message["type"] = "team".into();
+                app.state::<Panes>().with(&label, |pane| pane.send(message));
+            };
+            app.state::<crate::team::Team>()
+                .sign_in(&state.directory, window.label(), &progress)
+                .await
+        }
+        Action::TeamCancel => {
+            app.state::<crate::team::Team>()
+                .cancel(Some(window.label()));
+            Ok(Value::Null)
+        }
+        Action::TeamSignOut => crate::team::sign_out(&state.directory).await,
         Action::GlobalStatus => {
             let global = state.library().await?.1.global_executable;
             bridge::call(

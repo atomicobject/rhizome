@@ -125,6 +125,23 @@ it("keeps render timings on in Rhizome Dev", async () => {
 
 vi.mock("./CredentialImport", () => ({ CredentialImport: () => null }));
 
+it("shows the signed-in team account with its sign-out action", async () => {
+  call.mockImplementation(async (operation) =>
+    operation === "team-status"
+      ? {
+          signed_in: true,
+          email: "ada@example.test",
+          origin: "https://team.example.test",
+          session_expires_at: "2026-11-07T12:00:00Z",
+        }
+      : { enabled: false, always: false },
+  );
+  render(<Settings {...props()} />);
+  expect(await screen.findByText("ada@example.test")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Team account" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
+});
+
 it("chooses the app-wide appearance and theme", () => {
   const base = props();
   render(<Settings {...base} />);
