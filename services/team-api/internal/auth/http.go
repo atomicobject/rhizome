@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
@@ -53,7 +54,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // DecodeJSON reads exactly one JSON document of at most wire.MaxAuthRequestBytes
 // into v, rejecting unknown fields. On failure it writes the error and
 // returns false.
+// bodyReadTimeout bounds reading one auth or admin request body. A variable
+// for tests.
+var bodyReadTimeout = 10 * time.Second
+
 func DecodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	// Sign-in and refresh are unauthenticated, so a stalled body must not hold
+	// the connection: bound the read as the paid routes do.
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(bodyReadTimeout))
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, wire.MaxAuthRequestBytes))
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {
