@@ -22,17 +22,21 @@ import { PauseButton, TasksNotices, TasksOverview } from "./TasksOverview";
 import { navigateTasks, parseTasksLocation } from "./tasksRoute";
 import { useTaskRuns, useTasksLiveState, useTasksReport } from "./useTasksData";
 
-/** The task's open item, preferring live state, which carries launch errors. */
-function currentItem(task: TaskStatus, state?: TasksLiveState): TaskItem | undefined {
-  if (!state) return task.item;
-
-  const open = state.items.filter(
+function openItems(task: TaskStatus, state?: TasksLiveState): TaskItem[] {
+  return (state?.items ?? []).filter(
     (item) =>
       item.task === task.id &&
       item.kind === "task" &&
       item.state !== "done" &&
       item.state !== "dismissed",
   );
+}
+
+/** The task's open item, preferring live state, which carries launch errors. */
+function currentItem(task: TaskStatus, state?: TasksLiveState): TaskItem | undefined {
+  if (!state) return task.item;
+
+  const open = openItems(task, state);
 
   return open.find((item) => item.state !== "needs-attention") ?? open[0];
 }
@@ -253,11 +257,17 @@ export function TasksWorkspace({
       </div>
     );
   } else {
-    const item = currentItem(task, state);
     const runs = withRunning(runsQuery.data ?? [], task.id, state);
     const fallbackRun = runs.find((run) => run.outcome !== "not-needed") ?? runs[0];
     const selectedID = location.run ?? fallbackRun?.id;
     const selectedRun = runs.find((run) => run.id === selectedID);
+
+    // A retry gives the new attempt its own item; the selected run's item,
+    // while open, keeps its actions reachable.
+    const item =
+      openItems(task, state).find((open) => open.id === selectedRun?.item) ??
+      currentItem(task, state);
+
     const running = state?.running?.id === selectedID ? state?.running : undefined;
 
     body = (

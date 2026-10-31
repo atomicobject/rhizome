@@ -295,6 +295,29 @@ describe("TasksWorkspace", () => {
     expect(summaryRow("Thinking")).toBeInTheDocument();
   });
 
+  it("offers an earlier attempt's own item actions when its run is selected", async () => {
+    const failedID = "20261027T140003Z-5e5e1f00";
+    const state = stateFixture(NOW);
+
+    const earlier = {
+      ...state.items.find((item) => item.id === "7")!,
+      id: "5",
+      state: "needs-attention",
+      reason: "agent run failed",
+    };
+
+    http.json("GET", "/api/tasks/state", { ...state, items: [...state.items, earlier] });
+    http.json("GET", "/api/tasks/runs", {
+      runs: runsFixture(NOW).map((run) => (run.id === failedID ? { ...run, item: "5" } : run)),
+    });
+    http.json("GET", `/api/tasks/runs/${failedID}`, { ...runDetailFixture(NOW), events: [] });
+    open(`/tasks/docs-drift/runs/${failedID}`);
+    render(<TasksWorkspace />);
+
+    // Item 7 is ready (no Run); item 5 needs attention, so Run is offered.
+    expect(await screen.findByRole("button", { name: "Run" })).toBeVisible();
+  });
+
   it("polls live state after Run until the launched run appears", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
     const launchedAt = new Date(NOW).toISOString();
