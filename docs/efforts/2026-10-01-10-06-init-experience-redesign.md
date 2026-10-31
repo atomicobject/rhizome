@@ -395,6 +395,7 @@ A first run that asks at most three questions and writes quietly, a rerun that n
 - The agents checklist has no separate AGENTS.md switch, and Codex adds nothing beyond the shared files because no command templates ship today.
 - Regenerating this repository needed one grouped answer for the core `SKILL.md` copies, which had no record yet; they matched the committed generated output, so the update was taken.
 - 2026-10-06 (frozen-scope-drift acknowledged for SPEC-0038): EFF-2026-10-06-08-07 added one bullet to SPEC-0038 US1-AC5 pointing to the first-run options and `--json` that [[desktop-repository-setup|SPEC-0118]] owns. The edit records a contract delivered by that effort and changes no behavior this effort froze.
+- 2026-10-30 (frozen-scope-drift acknowledged for SPEC-0045): outside this effort, the init settings menu gained a fifth section, Add-ons, which lists optional add-ons and offers to turn hooks on for one that declares them. SPEC-0038 US4-AC1, US12-AC1, and the settings-menu requirement now name five sections, and SPEC-0045 US5-AC2 names the hooks offer. The four sections this effort delivered are unchanged.
 
 ## Execution Notes
 

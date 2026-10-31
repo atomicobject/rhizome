@@ -224,11 +224,6 @@ func (r *initRun) prepareFirstRun(s setup, workflowChosen bool) (setup, resolved
 	if err != nil {
 		return s, resolved{}, outcome, err
 	}
-	if strings.TrimSpace(r.opts.Addons) != "" {
-		if err := chooseAddons(&s, r.opts.Addons); err != nil {
-			return s, resolved{}, outcome, err
-		}
-	}
 	// Render guidance from the config as it will be written, so the next run
 	// renders the same blocks.
 	pruneConfigForWrite(&s.cfg)

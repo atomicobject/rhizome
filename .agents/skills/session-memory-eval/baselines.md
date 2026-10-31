@@ -2,6 +2,30 @@
 
 These are the numbers a change has to beat. Each row cites its entry in the [effort log](../../../docs/efforts/2026-10-11-15-21-session-memory-starter.md). Replace a row when a measured change wins, and keep the old numbers in the log.
 
+## Current Codex comparison, 2026-10-30
+
+Use these fresh app-server measurements when comparing Codex bindings. The older `codex exec` rows below are historical. Haiku extraction was not retested; Sonnet medium was run as the frozen scoring and verification reference. Full methods, prices, reasoning sweeps, audits, and limitations are in the [model comparison](../../../docs/performance/compounding-models-2026-10-30.md).
+
+| Extraction binding | D found / 192 | Candidates | Extraction cost | Historical H found / 208 |
+| --- | --- | --- | --- | --- |
+| Sol low | 90, 94 | 257, 261 | $1.325, $1.335 | 87 |
+| Luna xhigh | 85, 81 | 310, 316 | $0.169, $0.181 | 80 |
+| Terra medium | 102, 98 | 292, 286 | $0.680, $0.675 | not tested |
+| Terra xhigh | 106, 108 | 342, 363 | $0.742, $0.763 | 99 |
+
+D repeat spreads are four learnings for Sol low, Luna xhigh, and Terra medium, and two for Terra xhigh. H bindings were frozen on D before opening H in this campaign. H was used by earlier evaluations, so this is historical confirmation rather than a new untouched test. Terra max found 130 in one D run, at $3.419 and 26.7 minutes; it remains an unconfirmed offline option.
+
+Full verification uses 94 cases at frozen evidence commit `184889cbeb2020b8887364602e4139ae6f062233`, with the current response-classifying prompt. These results are not directly comparable to the older verifier table.
+
+| Verifier | Contract-valid proposals | Cost | Minutes |
+| --- | ---: | ---: | ---: |
+| gpt-6.1-sol low | 0, 1 | $6.441, $6.264 | 11.5, 11.2 |
+| gpt-6.1-terra low | 3, 4 | $2.308, $2.183 | 5.1, 5.2 |
+
+The fresh frozen Sonnet medium reference proposes eleven cases, but reference agreement and contract-valid proposals are not factual accuracy or correct-edit rates. Read the content audits before drawing a verification-quality conclusion. Grouping and calibration matching retain Sol medium and Sol low as the preferred bindings. Luna produced material fidelity errors and one invalid matcher repeat. Jev screening remains fixed; Luna was not tested as a replacement gate.
+
+Drew subsequently approved the OpenAI defaults. Shipped profile version 2 uses Terra xhigh for extraction and Terra low for verification, retaining Sol medium for synthesis and Sol low for matching. Claude defaults and Jev screening are unchanged. The campaign used $60.69 API-equivalent, including scoring and superseded attempts, within the approved $75 cap. Raw inputs, individual judgments, outputs, and the pinned evaluation binary remain ignored and local.
+
 ## Screening (Jev `jev-1.13.0`, passage questions `p_reusable` and `p_surprise`)
 
 | Set | Text kept | Screening recall (strong learnings whose passage survives) | Cost | Log |
@@ -18,7 +42,7 @@ The automated question search was rejected on H, so the two hand-written questio
 | Haiku 5.5 xhigh (shipped default) | lean, as shipped | 133 (one run) | 772 | $1.41 | 2026-10-18 lean prompt |
 | Haiku 5.5 xhigh | Claude Code default | 139, 136 | 588, 606 | $1.31, $1.34 | 2026-10-18 Haiku effort |
 | Haiku 5.5 medium | Claude Code default | 127, 125 | ~460 | $0.83 | 2026-10-18 Haiku effort |
-| gpt-6.1-sol low (Codex default) | `codex exec` | 110 | 350 | $3.05 API-equivalent | 2026-10-18 Codex extraction |
+| gpt-6.1-sol low (former Codex default) | `codex exec` | 110 | 350 | $3.05 API-equivalent | 2026-10-18 Codex extraction |
 | gpt-6-luna xhigh | `codex exec` | 97, 83 | ~300 | ~$0.22 | 2026-10-18 Codex extraction |
 
 - **No repeat of the shipped binding.** It has one run, so run it again before using it as a noise floor.

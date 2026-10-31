@@ -18,6 +18,7 @@ export const PRICES = {
   "claude-haiku-5-5": { input: 0.1, write5m: 0.125, write1h: 0.2, read: 0.01, output: 0.5 },
   "gpt-6-luna": { input: 0.1, read: 0.01, output: 0.5 },
   "gpt-6.1-sol": { input: 2, read: 0.1, output: 10 },
+  "gpt-6.1-terra": { input: 1, read: 0.05, output: 5 },
   "jev-1.13.0": { input: 0.042, read: 0.042, output: 0 },
 };
 
@@ -173,6 +174,7 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
         try {
           r = await clients.generate({ provider: b.provider, model: b.model, effort, prompt, schema: b.provider === "codex" && schema ? strictSchema(schema) : schema });
         } catch (err) {
+          if (err instanceof Stop) throw err;
           store.ledger({ run, stage, role, key, attempt, ok: false, error: String(err.message).slice(0, 500) });
           if (FATAL.test(err.message)) throw new Stop("binding", `${role} binding ${b.provider}:${b.model} is unavailable: ${err.message}`);
           continue;

@@ -60,8 +60,12 @@ func existingSkipPath(root, input string) (string, error) {
 }
 
 // chooseAddons records --addons: listed add-ons install, and default add-ons
-// of the chosen workflows that are not listed are disabled.
+// of the chosen workflows that are not listed are disabled. Without --addons
+// it changes nothing.
 func chooseAddons(s *setup, raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
 	registry, err := loadStarterTemplateMetadataRegistry()
 	if err != nil {
 		return err
@@ -70,17 +74,26 @@ func chooseAddons(s *setup, raw string) error {
 	if err != nil {
 		return err
 	}
+	s.cfg.WorkflowTemplateAddons = repoconfig.WorkflowTemplateAddons{Enabled: normalizeMetadataIDs(listed)}
+	return disableUnlistedDefaults(s, registry)
+}
+
+// disableUnlistedDefaults disables the default add-ons of the chosen
+// workflows that are not enabled. Choosing a workflow in first-run settings
+// runs it again, so --addons still decides the new workflow's defaults.
+func disableUnlistedDefaults(s *setup, registry map[string]starterTemplateMetadata) error {
 	set, err := resolveTemplateSet(s.workflows, repoconfig.WorkflowTemplateAddons{}, registry)
 	if err != nil {
 		return err
 	}
-	var disabled []string
+	enabled := stringSet(normalizeMetadataIDs(s.cfg.WorkflowTemplateAddons.Enabled))
+	disabled := stringSet(normalizeMetadataIDs(s.cfg.WorkflowTemplateAddons.Disabled))
 	for _, id := range set.Effective {
-		if set.Causes[id] == templateCauseDefaultAddon && !contains(listed, id) {
-			disabled = append(disabled, id)
+		if set.Causes[id] == templateCauseDefaultAddon && !enabled[id] {
+			disabled[id] = true
 		}
 	}
-	s.cfg.WorkflowTemplateAddons = repoconfig.WorkflowTemplateAddons{Enabled: normalizeMetadataIDs(listed), Disabled: normalizeMetadataIDs(disabled)}
+	s.cfg.WorkflowTemplateAddons.Disabled = sortedStringSet(disabled)
 	return nil
 }
 

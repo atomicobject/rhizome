@@ -107,7 +107,7 @@ When `rzm init` runs without a terminal, for example from an agent or a script, 
 
 A first run also accepts `--addons action-items`, `--addons action-items,compounding`, or `--addons none` to choose the add-ons that come with the workflow, `--skip <path>` and `--keep-indexed <path>` to change the suggested skips, and `--search-key-stdin` to save a key piped to it, so the key never appears in a command line. Add `--json` for one machine-readable document: with `--check`, what setup would do with those choices and every choice it offers; without it, what setup wrote. The Rhizome desktop app sets up folders this way.
 
-In a repository that is already set up, `rzm init --add-addon <id>` and `--remove-addon <id>` add or remove one add-on without changing the others. `compounding` is optional and off unless you add it: it mines your own Claude Code and Codex sessions in the repository for what slows agents down, and proposes context shards, documentation edits, fixes, and guardrails for you to review. Unreviewed data stays on your machine.
+In a repository that is already set up, `rzm init --add-addon <id>` and `--remove-addon <id>` add or remove one add-on without changing the others. In a terminal, the settings menu's Add-ons section does the same, and offers to turn hooks on when an add-on uses them. `compounding` is optional and off unless you add it: it mines your own Claude Code and Codex sessions in the repository for what slows agents down, and proposes context shards, documentation edits, fixes, and guardrails for you to review. Unreviewed data stays on your machine.
 
 The starter installs:
 
