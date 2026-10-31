@@ -2,13 +2,17 @@ package embedindex
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -144,4 +148,105 @@ func TestOntologyNodeSyncerCacheRequiresEffectiveDimensions(t *testing.T) {
 	large.Reset()
 	syncFresh(large, 0)
 	require.Zero(t, large.calls.Load(), "vectors of the effective size are reused")
+}
+
+// lazyDimsProvider reports no size until its first response, like the Voyage,
+// OpenAI and Ollama providers on default configurations.
+type lazyDimsProvider struct {
+	inner     embeddings.Provider
+	texts     atomic.Int64
+	succeeded atomic.Int64
+	known     atomic.Bool
+	fail      func(string) bool
+}
+
+func (p *lazyDimsProvider) Dimensions() int {
+	if p.known.Load() {
+		return p.inner.Dimensions()
+	}
+	return 0
+}
+
+func (p *lazyDimsProvider) EmbedTexts(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	p.texts.Add(int64(len(texts)))
+	for _, text := range texts {
+		if p.fail != nil && p.fail(text) {
+			return nil, errors.New("boom")
+		}
+	}
+	p.known.Store(true)
+	p.succeeded.Add(int64(len(texts)))
+	return p.inner.EmbedTexts(ctx, texts)
+}
+
+func newLazyDimsProvider() *lazyDimsProvider {
+	return &lazyDimsProvider{inner: embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8})}
+}
+
+// syncOntologyFixtureFresh drops the fixture's chunks and embedding state, as
+// an ownership transition after a projection-version bump does, then syncs it
+// with a fresh syncer.
+func syncOntologyFixtureFresh(t *testing.T, store *semdb.Store, schema *ontoschema.Schema, projection *ontology.NodeProjection, syncer OntologyNodeSyncer) error {
+	t.Helper()
+	ctx := context.Background()
+	model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+	require.NoError(t, err)
+	owners := make([]string, 0, len(model.Nodes))
+	for _, node := range model.Nodes {
+		owners = append(owners, node.NodeID)
+	}
+	require.NoError(t, store.ReplaceIntelChunks(ctx, owners, nil))
+	syncer.Store, syncer.Schema = store, schema
+	return syncer.SyncProjections(ctx, projection)
+}
+
+// Default provider configurations leave dimensions unset and the provider
+// learns its size from its first response, so a fresh process must take the
+// size from the cache instead of skipping it.
+func TestOntologyNodeSyncerCacheServesDefaultConfigsInFreshProcess(t *testing.T) {
+	_, schema, projection := setupOntologyNodeChunkFixture(t)
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+	require.NoError(t, err)
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(context.Background(), model))
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic"}
+
+	first := newLazyDimsProvider()
+	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: first, ProviderInfo: info}))
+	require.Positive(t, first.texts.Load())
+
+	restarted := newLazyDimsProvider()
+	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: restarted, ProviderInfo: info}))
+	require.Zero(t, restarted.texts.Load(), "a fresh process must reuse cached vectors before the provider knows its size")
+}
+
+// A failed slice must not discard the vectors other slices already paid for.
+func TestOntologyNodeSyncerCachesSucceededSlicesWhenOneFails(t *testing.T) {
+	_, schema, projection := setupOntologyNodeChunkFixture(t)
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+	require.NoError(t, err)
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(context.Background(), model))
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+
+	// The story's slice fails after the other two slices succeed.
+	failing := newLazyDimsProvider()
+	failing.fail = func(text string) bool {
+		if !strings.Contains(text, "Type: UserStory\n") {
+			return false
+		}
+		require.Eventually(t, func() bool { return failing.succeeded.Load() == 2 }, 5*time.Second, time.Millisecond)
+		return true
+	}
+	err = syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: failing, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3})
+	require.ErrorContains(t, err, "boom")
+	require.Equal(t, int64(3), failing.texts.Load())
+
+	retry := newLazyDimsProvider()
+	require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: retry, ProviderInfo: info, BatchSize: 1, MaxConcurrent: 3}))
+	require.Equal(t, int64(1), retry.texts.Load(), "the retry sends only the text whose slice failed")
 }

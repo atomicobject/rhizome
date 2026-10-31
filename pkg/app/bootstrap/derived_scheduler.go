@@ -437,13 +437,13 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			result, err = syncer.ComputeDerived(ctx, plan)
 			return err
 		})
-		if err != nil {
-			return err
+		if err == nil {
+			err = s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
 		}
-		err = s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
-		if errors.Is(err, errDerivedSuperseded) {
-			// The cache is content-addressed, so the replacement ticket reuses
-			// these vectors instead of sending the same text again.
+		// The cache is content-addressed, so the retry or replacement ticket
+		// reuses the vectors of a failed or superseded run instead of sending
+		// the same text again.
+		if err != nil && result.HasVectors() {
 			if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return syncer.CacheDerived(ctx, result) }); cacheErr != nil && ctx.Err() == nil {
 				watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
 			}

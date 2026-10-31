@@ -2,7 +2,9 @@ package embedindex
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
@@ -29,19 +31,80 @@ type OntologyDerivedResult struct {
 	vectors []embeddings.Embedding
 }
 
+// HasVectors reports whether the result holds provider vectors to cache.
+func (r OntologyDerivedResult) HasVectors() bool { return len(r.vectors) > 0 }
+
+// ontologyEmbedSliceTexts bounds how much provider work one failure discards
+// when the shared embedding node owns batching.
+const ontologyEmbedSliceTexts = 256
+
+// ComputeDerived embeds the plan's texts in independent slices. When a slice
+// fails it returns the error with a result holding only the vectors that
+// succeeded: callers cache that result (never publish it) so a retry sends only
+// the failed texts.
 func (s OntologyNodeSyncer) ComputeDerived(ctx context.Context, plan OntologyDerivedPlan) (OntologyDerivedResult, error) {
 	ctx = indexingperf.WithPhase(ctx, "embed_ontology_nodes")
-	var vectors []embeddings.Embedding
-	var err error
-	if len(plan.texts) > 0 {
-		if s.EmbeddingNode != nil {
-			vectors, err = s.EmbeddingNode.Submit(ctx, "embed_ontology_nodes", plan.texts)
-		} else {
-			vectors, err = embedTextsWithProvider(ctx, s.Provider, plan.texts, EffectiveBatchSize(s.Provider, s.BatchSize), EffectiveMaxConcurrent(s.Provider, s.MaxConcurrent), s.EmbedGate)
+	vectors := make([]embeddings.Embedding, len(plan.texts))
+	sliceTexts := ontologyEmbedSliceTexts
+	embed := func(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+		return s.EmbeddingNode.Submit(ctx, "embed_ontology_nodes", texts)
+	}
+	var sem chan struct{}
+	if s.EmbeddingNode == nil {
+		// One physical batch per slice, at most MaxConcurrent at once: the
+		// same provider concurrency as a single embedTextsWithProvider call.
+		batchSize := EffectiveBatchSize(s.Provider, s.BatchSize)
+		sliceTexts = batchSize
+		sem = make(chan struct{}, EffectiveMaxConcurrent(s.Provider, s.MaxConcurrent))
+		embed = func(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+			return embedTextsWithProvider(ctx, s.Provider, texts, batchSize, 1, s.EmbedGate)
 		}
 	}
-	if err != nil {
-		return OntologyDerivedResult{}, fmt.Errorf("embed ontology nodes: %w", err)
+	errs := make([]error, (len(plan.texts)+sliceTexts-1)/sliceTexts)
+	// After a failure, slices that have not started are skipped; slices
+	// already at the provider finish so their vectors are kept.
+	failed := make(chan struct{})
+	var failOnce sync.Once
+	var wg sync.WaitGroup
+	for i := range errs {
+		start := i * sliceTexts
+		end := min(start+sliceTexts, len(plan.texts))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if sem != nil {
+				select {
+				case <-ctx.Done():
+					errs[i] = ctx.Err()
+					return
+				case <-failed:
+					return
+				case sem <- struct{}{}:
+				}
+				defer func() { <-sem }()
+			}
+			got, err := embed(ctx, plan.texts[start:end])
+			if err == nil && len(got) != end-start {
+				err = fmt.Errorf("embed: unexpected vector count %d for %d texts", len(got), end-start)
+			}
+			if err != nil {
+				errs[i] = err
+				failOnce.Do(func() { close(failed) })
+				return
+			}
+			copy(vectors[start:end], got)
+		}()
+	}
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		partial := OntologyDerivedResult{plan: OntologyDerivedPlan{textHashes: plan.textHashes}}
+		for i, vector := range vectors {
+			if len(vector) > 0 {
+				partial.plan.ids = append(partial.plan.ids, plan.ids[i])
+				partial.vectors = append(partial.vectors, vector)
+			}
+		}
+		return partial, fmt.Errorf("embed ontology nodes: %w", err)
 	}
 	indexingperf.AddCount(ctx, indexingperf.OntologyNodesChunksEmbedded, int64(len(vectors)))
 	indexingperf.AddCount(ctx, indexingperf.OntologyBodyChunksEmbedded, int64(len(vectors)))
@@ -122,7 +185,7 @@ func (s OntologyNodeSyncer) SyncSourceSnapshots(ctx context.Context, sources []n
 	}
 	result, err := s.ComputeDerived(ctx, plan)
 	if err != nil {
-		return err
+		return errors.Join(err, s.CacheDerived(ctx, result))
 	}
 	return s.PublishDerived(ctx, result)
 }

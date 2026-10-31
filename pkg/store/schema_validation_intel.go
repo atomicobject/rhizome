@@ -97,6 +97,11 @@ func (s *Store) validateIntelSchemaTx(ctx context.Context, tx *sql.Tx) error {
 			}
 		}
 	}
+	if intact, err := ontologyEmbeddingCacheIntact(ctx, tx); err != nil {
+		return fmt.Errorf("validate table ontology_embedding_cache: %w", err)
+	} else if !intact {
+		return intelSchemaDrift("unexpected columns in ontology_embedding_cache")
+	}
 	if err := validateIntelVecOwnerPartitionsTx(ctx, tx); err != nil {
 		return err
 	}

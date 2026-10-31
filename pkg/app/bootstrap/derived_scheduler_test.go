@@ -7,6 +7,7 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -362,4 +363,68 @@ func TestDerivedOntologySupersededWhileEmbeddingStillCachesVectors(t *testing.T)
 	pending, err := store.HasDerivedWork(t.Context(), codeanchor.DerivedOntology)
 	require.NoError(t, err)
 	require.False(t, pending)
+}
+
+// failingTextProvider records texts and fails any batch containing a marker.
+type failingTextProvider struct {
+	recordingEmbeddingProvider
+	failOn string
+}
+
+func (p *failingTextProvider) EmbedTexts(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	p.mu.Lock()
+	failOn := p.failOn
+	p.mu.Unlock()
+	for _, text := range texts {
+		if failOn != "" && strings.Contains(text, failOn) {
+			// Fail only after the other two slices succeed.
+			for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
+				p.mu.Lock()
+				done := len(p.texts) >= 2
+				p.mu.Unlock()
+				if done {
+					break
+				}
+			}
+			p.mu.Lock()
+			p.texts = append(p.texts, texts...)
+			p.mu.Unlock()
+			return nil, errors.New("provider outage")
+		}
+	}
+	return p.recordingEmbeddingProvider.EmbedTexts(ctx, texts)
+}
+
+func TestDerivedOntologyProviderFailureCachesSucceededSlices(t *testing.T) {
+	root := t.TempDir()
+	writeWatcherSchema(t, root, "type Spec @node(paths: [\"notes/*.md\"]) {\n  status: String @field\n  userStories: UserStoriesSection @contains(level: H2, heading: \"User Stories\")\n}\n\ntype UserStoriesSection implements Section {\n  stories: [UserStory!] @contains(level: H3)\n}\n\ntype UserStory implements Section @node(locator: EMBEDDED) {\n  storyId: String @field\n}\n")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "checkout.md"), []byte("---\ntype: Spec\nstatus: draft\n---\n# Checkout Refresh\n\n## User Stories\n\n### Faster checkout\nstoryId:: US-1\nUsers need quicker checkout.\n"), 0o644))
+	w, c, store := newLiveOwnershipTestWatcher(t, root, obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.md"}})
+	defer store.Close()
+	defer c.Close()
+	provider := &failingTextProvider{failOn: "Type: UserStory\n"}
+	w.nodeSyncer = &embedindex.OntologyNodeSyncer{Store: store, Provider: provider, ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "recording"}, BatchSize: 1, MaxConcurrent: 3}
+	c.MarkDirty("notes/checkout.md", cache.DirtyModified)
+	runOwnershipBatch(t, w)
+	work, err := store.PendingDerivedWork(t.Context(), time.Now().Add(time.Hour), 100)
+	require.NoError(t, err)
+	var ticket codeanchor.DerivedWork
+	for _, candidate := range work {
+		if candidate.Kind == codeanchor.DerivedOntology {
+			ticket = candidate
+		}
+	}
+	require.Equal(t, codeanchor.DerivedOntology, ticket.Kind)
+
+	d := &derivedScheduler{watcher: w, ctx: t.Context()}
+	require.ErrorContains(t, d.execute(ticket), "provider outage")
+	sent := len(provider.texts)
+	require.Equal(t, 3, sent, "each of the fixture's three texts is its own slice")
+
+	provider.mu.Lock()
+	provider.failOn = ""
+	provider.mu.Unlock()
+	require.NoError(t, d.execute(ticket))
+	require.Len(t, provider.texts, sent+1, "the retry sends only the text whose slice failed")
 }

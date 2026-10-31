@@ -24,21 +24,49 @@ type OntologyEmbeddingCacheEntry struct {
 var ontologyEmbeddingCacheColumns = []string{"provider", "model", "dimensions", "text_hash", "vector"}
 
 // ontologyEmbeddingCacheIntact reports whether a domain reset may keep the
-// cache: it is a real table with every expected column. Paid vectors survive
-// resets the same way the note and code embedding caches do; a malformed
-// table is dropped and recreated empty.
+// cache: it is a real table with exactly the expected columns, since an extra
+// NOT NULL column (an interim v78 build had last_used_at) makes every upsert
+// fail. Paid vectors survive resets the same way the note and code embedding
+// caches do; a malformed table is dropped and recreated.
 func ontologyEmbeddingCacheIntact(ctx context.Context, q queryRower) (bool, error) {
 	exists, err := tableExistsQuery(ctx, q, "ontology_embedding_cache")
 	if err != nil || !exists {
 		return false, err
 	}
-	for _, column := range ontologyEmbeddingCacheColumns {
-		ok, err := tableHasColumnQuery(ctx, q, "ontology_embedding_cache", column)
-		if err != nil || !ok {
-			return false, err
+	var columns string
+	if err := q.QueryRowContext(ctx, `
+		SELECT group_concat(name, ',') FROM (
+			SELECT name FROM pragma_table_info('ontology_embedding_cache') ORDER BY name
+		)`).Scan(&columns); err != nil {
+		return false, err
+	}
+	return columns == strings.Join(slices.Sorted(slices.Values(ontologyEmbeddingCacheColumns)), ","), nil
+}
+
+// repairOntologyEmbeddingCache rebuilds a current-version cache table whose
+// columns are wrong and backfills it from stored vectors, so an interim build's
+// table is replaced without resetting the rest of Intel.
+func (s *Store) repairOntologyEmbeddingCache(ctx context.Context) error {
+	version, dirty, exists, err := s.intelSchemaState(ctx)
+	if err != nil || !exists || dirty || version != currentSchemaVersion {
+		return err
+	}
+	// Any other missing table is drift that the domain reset repairs.
+	for _, table := range []string{"ontology_embedding_cache", "intel_embeddings", "ontology_node_embedding_state"} {
+		if exists, err := tableExistsQuery(ctx, s.db, table); err != nil || !exists {
+			return err
 		}
 	}
-	return true, nil
+	intact, err := ontologyEmbeddingCacheIntact(ctx, s.db)
+	if err != nil || intact {
+		return err
+	}
+	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `DROP TABLE IF EXISTS ontology_embedding_cache`); err != nil {
+			return err
+		}
+		return backfillOntologyEmbeddingCacheSchema(ctx, tx)
+	})
 }
 
 // The cache is content-addressed: ownership transitions, node deletion and
@@ -63,10 +91,26 @@ func createOntologyEmbeddingCacheSchema(ctx context.Context, db execer) error {
 }
 
 // OntologyEmbeddingCacheVectors returns cached vectors of exactly dims values
-// keyed by text hash. An unknown size (dims <= 0) matches nothing.
+// keyed by text hash. Default provider configurations learn their size only
+// from a first provider response, so an unknown size (dims <= 0) uses the one
+// size cached for this provider and model; with none or several it matches
+// nothing rather than guessing.
 func (s *Store) OntologyEmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, hashes []string) (map[string]embeddings.Embedding, error) {
 	hashes = normalizeNonEmptyStrings(hashes)
 	out := make(map[string]embeddings.Embedding, len(hashes))
+	if dims <= 0 && len(hashes) > 0 {
+		var smallest, largest sql.NullInt64
+		if err := s.db.QueryRowContext(ctx, `
+			SELECT
+				(SELECT MIN(dimensions) FROM ontology_embedding_cache WHERE provider = ? AND model = ?),
+				(SELECT MAX(dimensions) FROM ontology_embedding_cache WHERE provider = ? AND model = ?)`,
+			provider, model, provider, model).Scan(&smallest, &largest); err != nil {
+			return nil, err
+		}
+		if smallest.Valid && smallest.Int64 == largest.Int64 {
+			dims = int(smallest.Int64)
+		}
+	}
 	if dims <= 0 {
 		return out, nil
 	}

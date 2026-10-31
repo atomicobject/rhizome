@@ -11,7 +11,7 @@ const (
 	intelBaselineVersion          = 56
 	currentSchemaVersion          = 78
 	intelVecTablePrefix           = "intel_embeddings_vec_d"
-	currentIntelSchemaFingerprint = "intel-schema-v78-2026-10-31-ontology-embedding-cache"
+	currentIntelSchemaFingerprint = "intel-schema-v78-2026-10-31-ontology-embedding-cache-permanent"
 )
 
 // forwardSchemaMigrations contains only migrations added after the consolidated

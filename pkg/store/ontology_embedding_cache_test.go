@@ -38,7 +38,7 @@ func TestOntologyEmbeddingCacheSurvivesRetirementAndMatchesExactKey(t *testing.T
 	for _, key := range [][2]any{{"other", 3}, {"test", 2}, {"test", 0}} {
 		got, err := store.OntologyEmbeddingCacheVectors(ctx, key[0].(string), "deterministic", key[1].(int), []string{"chunk-hash"})
 		require.NoError(t, err)
-		require.Empty(t, got, "provider and exact dimensions are part of the key; an unknown size matches nothing")
+		require.Empty(t, got, "provider and exact dimensions are part of the key; an unknown size with several cached sizes matches nothing")
 	}
 	got, err := store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 4, []string{"chunk-hash"})
 	require.NoError(t, err)
@@ -106,4 +106,46 @@ func TestOntologyEmbeddingCacheSurvivesIntactDomainReset(t *testing.T) {
 	got, err = store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 2, []string{"kept"})
 	require.NoError(t, err)
 	require.Empty(t, got, "a malformed cache is dropped and recreated")
+}
+
+// Earlier builds of this branch created the v78 cache with an extra NOT NULL
+// last_used_at column, which makes every upsert fail. Opening such a database
+// rebuilds and backfills only the cache, keeping the stored vectors, and the
+// repaired database opens cleanly again.
+func TestOntologyEmbeddingCacheRepairsInterimV78Table(t *testing.T) {
+	ctx := context.Background()
+	path := currentSchemaTestDBPath(t, "ontology-embedding-cache-interim.db")
+	store, err := Open(path)
+	require.NoError(t, err)
+	seedOntologyNodeSemanticRows(t, store) // state: test/deterministic, "chunk-hash", vector {1, 0, 0}
+	for _, stmt := range []string{
+		`DROP TABLE ontology_embedding_cache`,
+		`CREATE TABLE ontology_embedding_cache (
+			provider TEXT NOT NULL,
+			model TEXT NOT NULL,
+			dimensions INTEGER NOT NULL CHECK (dimensions > 0),
+			text_hash TEXT NOT NULL CHECK (text_hash != ''),
+			vector BLOB NOT NULL,
+			last_used_at INTEGER NOT NULL,
+			PRIMARY KEY (provider, model, dimensions, text_hash)
+		) STRICT`,
+		`UPDATE rzm_migration_validation SET schema_fingerprint = 'intel-schema-v78-2026-10-31-ontology-embedding-cache'`,
+	} {
+		_, err = store.db.ExecContext(ctx, stmt)
+		require.NoError(t, err)
+	}
+	require.NoError(t, store.Close())
+
+	for range 2 {
+		store, err = Open(path)
+		require.NoError(t, err)
+		require.NoError(t, store.UpsertOntologyEmbeddingCache(ctx, []OntologyEmbeddingCacheEntry{
+			{Provider: "test", Model: "deterministic", TextHash: "new-hash", Vector: embeddings.Embedding{0, 1, 0}},
+		}))
+		// Unknown dimensions resolve to the single cached size.
+		got, err := store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 0, []string{"chunk-hash", "new-hash"})
+		require.NoError(t, err)
+		require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}, "new-hash": {0, 1, 0}}, got, "the rebuilt cache is backfilled from stored vectors")
+		require.NoError(t, store.Close())
+	}
 }

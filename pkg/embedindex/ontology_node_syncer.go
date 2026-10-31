@@ -61,7 +61,7 @@ func (s OntologyNodeSyncer) SyncProjections(ctx context.Context, projections ...
 	}
 	result, err := s.ComputeDerived(ctx, plan)
 	if err != nil {
-		return err
+		return errors.Join(err, s.CacheDerived(ctx, result))
 	}
 	return s.PublishDerived(ctx, result)
 }
@@ -147,7 +147,8 @@ func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections 
 	}
 	// Text embedded once with this provider, model and size is never sent
 	// again, even after ownership transitions or rebuilds deleted its state.
-	// An unknown size skips the cache rather than guessing one.
+	// When neither the provider nor the configuration knows the size yet, the
+	// store uses the single size cached for this provider and model.
 	dims := s.Provider.Dimensions()
 	if dims <= 0 {
 		dims = s.ProviderInfo.Dimensions
