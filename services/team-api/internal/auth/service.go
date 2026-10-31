@@ -93,7 +93,18 @@ func (s *Service) Meta(w http.ResponseWriter, r *http.Request) {
 		Scopes:                s.cfg.Scopes,
 		HostedDomainHint:      s.cfg.HDHint,
 		MinClientVersion:      s.cfg.MinClientVersion,
+		Upstreams:             upstreamsLabel(s.cfg.Upstreams),
 	})
+}
+
+// upstreamsLabel reports "fake" when development overrides point the provider
+// routes away from the real providers, so development auto-start can refuse
+// to send real work there.
+func upstreamsLabel(u config.Upstreams) string {
+	if u.Voyage != "" || u.TypeSafe != "" {
+		return "fake"
+	}
+	return ""
 }
 
 type idClaims struct {
