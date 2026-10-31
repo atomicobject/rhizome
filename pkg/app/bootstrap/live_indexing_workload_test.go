@@ -94,10 +94,18 @@ func liveWorkloadWatcher(t *testing.T) (*LiveRuntime, *unifiedSemanticWatcher, *
 	// Read-side cache warmup can consume the initial discovery diff before the
 	// watcher runs. Leader boot work and polling are disabled in this fixture,
 	// so explicitly request the first structural publication from a warm cache.
+	// A recrawl still running from boot defers the resync to the next tick,
+	// and this fixture's tick never fires, so drive batches until the
+	// structural publication lands.
 	w.retainWatchEvents(nil, true)
-	handle := w.processOwnershipBatch()
-	watcherJobTerminal(t, handle)
-	require.NoError(t, handle.Err())
+	require.Eventually(t, func() bool {
+		handle := w.processOwnershipBatch()
+		watcherJobTerminal(t, handle)
+		require.NoError(t, handle.Err())
+		var nodes int
+		require.NoError(t, rt.IntelStore().DB().QueryRowContext(t.Context(), `SELECT count(*) FROM ontology_nodes`).Scan(&nodes))
+		return nodes > 0
+	}, 30*time.Second, 25*time.Millisecond, "initial structural publication")
 	ready := assert.EventuallyWithT(t, func(collect *assert.CollectT) {
 		var currentPaths int
 		err := rt.IntelStore().DB().QueryRowContext(t.Context(), `SELECT count(DISTINCT s.note_path) FROM ontology_node_embedding_state s JOIN ontology_nodes n ON n.node_id=s.node_id JOIN intel_embeddings e ON e.chunk_id=s.chunk_id JOIN intel_chunks c ON c.chunk_id=e.chunk_id JOIN intel_embeddings_vec_d8 v ON v.chunk_id=c.id WHERE s.node_structure_fingerprint=n.structural_fingerprint`).Scan(&currentPaths)
