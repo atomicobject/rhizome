@@ -80,8 +80,9 @@ type Config struct {
 	PersonSlots, GlobalSlots int
 	// Longest total wait for both slots before rate_limited (5s).
 	SlotWait time.Duration
-	// Paid request bodies being read at once (8), with the same bounded wait,
-	// separate from paid admission.
+	// Paid requests whose bodies are being read or held in memory at once
+	// (8): a permit lasts from the start of the read until the request ends,
+	// with the same bounded wait, separate from paid admission.
 	BodyReaders int
 	// Upstream deadlines (150s Voyage, 60s TypeSafe).
 	VoyageTimeout, TypeSafeTimeout time.Duration
@@ -241,7 +242,7 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 	// its own deadline so a stalled upload cannot hold a permit.
 	done, ok := t.ingress.enter(ctx)
 	if !ok {
-		return &gwError{wire.CodeRateLimited, "too many request bodies are being read", time.Second}
+		return &gwError{wire.CodeRateLimited, "too many paid requests are in progress", time.Second}
 	}
 	defer done()
 	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(bodyReadTimeout))

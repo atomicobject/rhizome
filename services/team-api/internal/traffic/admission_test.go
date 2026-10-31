@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -292,9 +293,13 @@ func TestIngressPermitCoversBufferedBodies(t *testing.T) {
 		<-release
 		okVoyage(w, r)
 	})
+	var unblock sync.Once
 	h := newHarness(t, opts{voyage: slow, cfg: func(c *Config) {
 		c.BodyReaders, c.PersonSlots, c.GlobalSlots, c.SlotWait = 2, 8, 8, 300*time.Millisecond
 	}})
+	// Registered after the harness, so it runs before the server's cleanup
+	// waits for the blocked handlers, even when an assertion fails.
+	t.Cleanup(func() { unblock.Do(func() { close(release) }) })
 	const requests = 5
 	done := make(chan reply, requests)
 	for i := range requests {
@@ -302,7 +307,7 @@ func TestIngressPermitCoversBufferedBodies(t *testing.T) {
 	}
 	time.Sleep(600 * time.Millisecond)
 	require.Equal(t, 2, len(h.tr.ingress.ch), "two buffered bodies keep their permits while upstream is slow")
-	close(release)
+	unblock.Do(func() { close(release) })
 	limited := 0
 	for range requests {
 		if r := <-done; r.code() == wire.CodeRateLimited {
