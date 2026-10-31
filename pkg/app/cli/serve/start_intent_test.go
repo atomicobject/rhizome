@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/internal/testkit"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/stretchr/testify/require"
 )
 
