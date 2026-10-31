@@ -223,7 +223,8 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 - MUST keep `pkg/teamapi/wire` standard-library only and keep `pkg/teamapi` free of `pkg/app`, `pkg/vault`, SQLite, and CGO; it builds with `CGO_ENABLED=0`.
 - MUST put the server in this repository as a nested Go module, `services/team-api`, with its own `go.mod` and `go.sum` and no vendor directory, so OIDC, SQLite-server, and later AWS dependencies never enter `rzm`'s module. It imports this module's `pkg/teamapi/wire` and `pkg/diagnostics` through a local `replace`. Account-specific deployment configuration stays out of the repository.
-- MUST keep all server state behind one narrow store interface with a shared contract test suite. Local runs use a SQLite file in a gitignored data directory, deleted by `make team-api-dev-reset`. The deployed store is chosen in Batch 5 and must pass the same suite.
+- MUST keep all server state behind one narrow store interface with a shared contract test suite. Local runs use a SQLite file in a gitignored data directory, deleted by `make team-api-dev-reset`. The deployed store is DynamoDB (Batch 5) and must pass the same suite. Store operations are atomic business operations with explicit preconditions, never caller-composed transactions.
+- MUST let server configuration cap the limits the admin API can set, so a session readable by same-user processes cannot raise limits without bound.
 
 ### Local development
 
@@ -263,7 +264,7 @@ Drew approved these on 2026-10-31, accepting the plan's defaults and then revisi
 - **Direct Google OIDC, not Cognito.** Cognito documents loopback callbacks as testing-only, and the gateway needs its own revocation check either way.
 - **Keychain trust through `/usr/bin/security`.** Any process running as the user can read the session while the keychain is unlocked, the same exposure the repository already accepts for development keys. Revocation and budgets bound the damage. Developer ID signing with a keychain access group is the upgrade path.
 - **Server in this repository (revised 2026-10-31).** A nested module, `services/team-api`, keeps server dependencies out of `rzm` while one checkout runs the whole stack. This replaces the earlier private-repository decision; security does not rely on the server source being private.
-- **SQLite for local state (2026-10-31).** An ephemeral, gitignored SQLite file backs local runs and tests. The deployed store is decided in Batch 5; because one task serves all traffic, SQLite on a persistent volume is a candidate alongside DynamoDB.
+- **SQLite for local state, DynamoDB when deployed (2026-10-31).** An ephemeral, gitignored SQLite file backs local runs and tests. Both council reviewers recommended DynamoDB for the Fargate deployment: ECS-managed EBS volumes do not survive task replacement, and SQLite warns against network filesystems such as EFS. The store interfaces are therefore atomic operations with explicit preconditions, which DynamoDB conditional writes can implement, and the DynamoDB store must pass the same contract suites in Batch 5.
 - **Admin API (2026-10-31).** Admins named in server configuration manage usage, limits, people, sessions, and switches through authenticated API routes and `rzm auth admin`.
 - **Loopback HTTP (2026-10-31)** for local development only.
 - **Development keys (2026-10-31).** Local live runs may use Drew's development Voyage and TypeSafe keys from 1Password.

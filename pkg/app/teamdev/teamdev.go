@@ -32,11 +32,21 @@ const startTimeout = 15 * time.Second
 // DataDir is the per-user directory holding the local gateway's SQLite file,
 // diagnostics, and log. It is resolved from the real OS account.
 func DataDir() (string, error) {
+	home, err := homeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "rhizome", "team-api-dev"), nil
+}
+
+// homeDir is the real OS account's home, never $HOME: it decides which
+// keychain the started gateway reads the development keys from.
+func homeDir() (string, error) {
 	u, err := user.Current()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(u.HomeDir, ".config", "rhizome", "team-api-dev"), nil
+	return u.HomeDir, nil
 }
 
 // Ensure returns nil when a live gateway answers at origin, starting one first
@@ -100,7 +110,11 @@ func start(listen, dir string) error {
 	cmd := exec.Command(bin, "dev", "--listen", listen, "--data-dir", dir, "--upstreams", "live", "--keys-from-keychain", "--idle-exit", "1h")
 	// The gateway gets no inherited environment: repository dotenv values and
 	// provider keys in this process must not reach it.
-	cmd.Env = []string{"HOME=" + os.Getenv("HOME"), "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TMPDIR=" + os.TempDir()}
+	home, err := homeDir()
+	if err != nil {
+		return err
+	}
+	cmd.Env = []string{"HOME=" + home, "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TMPDIR=" + os.TempDir()}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	detach(cmd)
 	if err := cmd.Start(); err != nil {
