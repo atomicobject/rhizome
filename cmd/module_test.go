@@ -93,3 +93,20 @@ func TestModuleCommandBuiltinsWin(t *testing.T) {
 	_, _, err = runRootCLI(t, ctx, []string{"module", "nosuchmodule"})
 	require.ErrorContains(t, err, `no module named "nosuchmodule"`)
 }
+
+func TestModuleVaultFlagMatchesCobraForms(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"recipe", "--vault", "other"}, "other"},
+		{[]string{"recipe", "--vault=other"}, "other"},
+		{[]string{"recipe", "-v", "other"}, "other"},
+		{[]string{"recipe", "-v=other"}, "other"},
+		{[]string{"recipe", "-vother"}, "other"},
+		{[]string{"recipe", "--verbose-thing"}, ""},
+		{[]string{"recipe", "--", "-vother"}, ""},
+	} {
+		require.Equal(t, tc.want, moduleVaultFlag(tc.args), "%v", tc.args)
+	}
+}

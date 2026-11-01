@@ -188,6 +188,9 @@ func moduleVaultFlag(args []string) string {
 		if (arg == "--vault" || arg == "-v") && i+1 < len(args) {
 			return args[i+1]
 		}
+		if value, ok := strings.CutPrefix(arg, "-v"); ok && value != "" && !strings.HasPrefix(arg, "--") {
+			return value
+		}
 	}
 	return ""
 }

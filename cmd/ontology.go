@@ -180,8 +180,10 @@ func printOntologyRuntimeError(cmd *cobra.Command, runtime *ontology.Runtime, er
 // ontologyFileLabel names a schema file by its repository-relative path, so
 // same-named files in two modules stay distinguishable.
 func ontologyFileLabel(root, path string) string {
-	if rel, err := filepath.Rel(root, path); err == nil && !strings.HasPrefix(rel, "..") {
-		return filepath.ToSlash(rel)
+	if vault, err := paths.NewVaultPaths(root); err == nil {
+		if rel, err := vault.RelStrict(path); err == nil {
+			return rel.String()
+		}
 	}
 	return filepath.ToSlash(path)
 }
