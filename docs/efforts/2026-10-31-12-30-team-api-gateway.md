@@ -41,7 +41,7 @@ All eight stories of SPEC-0129 (`^SPEC-0129-US1` through `^SPEC-0129-US8`).
 
 ## Spec Coverage Checklist
 
-- [ ] US1 sign in once per computer. Built and verified locally against the development issuer; Google itself (P1–P4) is still owed.
+- [ ] US1 sign in once per computer. Built and verified locally; real Google sign-in (P1–P4) passed on 2026-11-01 against a loopback production-mode gateway. The deployed origin (Batch 5) and desktop sign-in against Google remain.
 - [x] US2 Voyage and Jev without a provider key: e2e with fake and live providers.
 - [ ] US3 access ends when it should. Gateway behavior is built and tested; the offboarding drill (A6) is a live Batch 6 check.
 - [ ] US4 spending stays inside hard limits. Built and tested in process; deployment-transition and live checks (A12–A15) are Batches 5 and 6.
@@ -156,6 +156,12 @@ The local build, on `t3/team-api-proxy-auth`:
 - 2026-11-01: Greptile scored `e7260fbc` 5/5 but left a valid desktop finding: another open account screen kept its old display after the shared sign-in changed. A focus regression failed before the fix. Desktop sign-in and sign-out now broadcast an account-change message; account screens reread status on that message and window focus, ignoring replies older than their latest request or account action. `make desktop-check` passed with 99 interface tests and 102 Rust tests, `make check` passed, and the UI detector reported no findings.
 - 2026-11-01: Greptile scored `393a1d36` 5/5 and identified a related setup issue: background account refreshes did not notify setup to rerun its provider checks. Focus and account-change refreshes now notify the latest parent callback after a successful, current status response. Both callback regressions fail without the notification; all 99 interface tests and `make check` pass with it. CI's live-note event-version test failed once on this head, passed 20 consecutive local race-enabled runs, and bypasses the provider construction changed here; classified as unrelated flakiness, with the next head getting a fresh CI run.
 - 2026-11-01: Drew's first desktop sign-in in Rhizome Dev (Helium, a Chromium browser) failed: choosing `admin` on the development sign-in page did nothing, and a second submit showed the single-use CSRF error. The page's CSP `form-action 'self'` also governs the redirect after the post, so Chromium blocked the 303 to the loopback callback on another port. curl and the Go tests do not enforce CSP, so the defect passed every earlier check. The page now allows the validated loopback callback origin in `form-action`; `TestFullFlow` asserts the header. A headless Chromium run reproduced the block before the fix and completed sign-in after it. With the fixed gateway auto-started on 8787 by a dev build, Drew then completed the desktop click-through in Rhizome Dev: the open Settings screen picked up a command-line sign-in on focus, sign-out worked, Cancel during sign-in showed "Sign-in canceled.", and app sign-in as `admin` through Helium completed (stored session `dev-admin@atomicobject.com`).
+- 2026-11-01: Google prototypes P1–P4, against the Atomic Google Cloud project `rhizome-server` (organization `atomicobject.com`, Owner: Drew), Internal audience, and Desktop client `985650585520-tmjks3foshkacka1krjtokapafh6ldmu.apps.googleusercontent.com`. Drew created the project, branding, audience, and client in the console; Google offers no API for Desktop clients. The client secret lives in Drew's login keychain (service `rhizome-team-api-google`) and reached the gateway only through its environment. A production-mode gateway (`team-api serve`, issuer `https://accounts.google.com`, `accepted_domains: [atomicobject.com]`, allowlist with Drew as admin, development provider keys) ran on `127.0.0.1:8789` with state in `/tmp`.
+  - **P1 passes.** `rzm auth login --server http://127.0.0.1:8789` opened Google, Drew signed in as colthorp@atomicobject.com, and the gateway exchanged the code from a random loopback port (`auth.signin ok`, 195 ms). A Jev evaluation then went through the gateway on that session (upstream 200).
+  - **P2 passes.** Google refused Drew's personal Gmail account at its own sign-in page; the request never reached the gateway.
+  - **P3 passes for `atomicobject.com`.** The gateway admits a sign-in only when the verified ID token's `hd` is an accepted domain (`internal/auth/service.go`), so the successful sign-in shows `hd=atomicobject.com`. Other Workspace domains, if Atomic has any, are untested (X3).
+  - **P4 passes.** `rzm auth admin person <sub> --status disabled` took effect for paid calls between 30 and 34 seconds later (`not_eligible`, HTTP 403), inside the 60-second requirement; the delay matches the client's 30-second shared-state recheck. Google-only suspension remains outside this mechanism, as SPEC-0129 records.
+  - Afterwards the session was revoked, the gateway stopped, and no `127.0.0.1:8789` keychain item remained.
 
 ## Deviations
 
@@ -172,7 +178,7 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Compounding Follow-ups
 
-- **Google prototypes (P1–P4):** these need the Atomic Google Cloud project, the Desktop client, test accounts, and the domain list (X2, X3). Then point a production-mode config at Google and run the same e2e sign-in.
+- **Workspace domains (X3):** confirm whether Atomic staff sign in with any domain besides `atomicobject.com`; add each to `accepted_domains` and repeat P3 with an account there.
 - **Batch 5:** a DynamoDB store passing `storetest` plus the ledger contract tests; CloudFormation; stdout JSON diagnostics for CloudWatch; and a trusted forwarded address for the auth rate limiter behind the ALB.
 - **Pre-existing search issues:**
   - Search fails when code embeddings are enabled in a vault with no indexed code.
@@ -187,7 +193,7 @@ The local build, on `t3/team-api-proxy-auth`:
 ## Status
 
 Active. The local build is complete and verified end to end with fake and live providers; PR #60 carries that delivery. Remaining, outside the approved local scope:
-- Google configuration (X2, X3), then P1–P4.
+- The Workspace domain list (X3); Google configuration and P1–P4 are done.
 - AWS deployment and the DynamoDB store (Batch 5).
 - The pilot and live drills (Batch 6).
 - Rollout and key retirement (Batch 7).
