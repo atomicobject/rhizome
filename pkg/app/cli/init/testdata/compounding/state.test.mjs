@@ -332,4 +332,11 @@ test("a revised shard that goes missing comes back with its revised wording", ()
   const back = at(main, "list").find((p) => p.cluster === "k-rev");
   assert.equal(back.status, "missing");
   assert.equal(back.statement, "Busy timeout k-rev: 0 means the 30-second default; pass -1 to wait forever.");
+
+  // Retiring the revised shard retires every version, so the first wording
+  // does not come back either.
+  at(main, "approve", "k-rev", "--confirm-publish");
+  const revised = loadShards(main).find((x) => x.path === approved);
+  at(main, "retire", approved, "--expect", revised.contentHash, "--reason", "no longer true");
+  assert.equal(at(main, "list").find((p) => p.cluster === "k-rev"), undefined);
 });

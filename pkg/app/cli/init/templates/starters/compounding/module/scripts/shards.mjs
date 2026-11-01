@@ -111,12 +111,17 @@ function recordApproval(root, store, s, response, witness, who) {
 // revised content, not the wording first approved. An approval with no event,
 // from before decision records, has nothing to update.
 function recordRevision(root, store, witness, changes, who) {
+  const [prior] = approvalsOf(store, witness);
+  if (prior) recordApproval(root, store, { ...prior.payload, ...changes }, prior.response, witness, who);
+}
+
+// The approval events published at one path, newest first.
+function approvalsOf(store, witness) {
   const dir = store.path("decisions");
-  const prior = (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")) : [])
+  return (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")) : [])
     .map((f) => store.read(`decisions/${f}`, null))
     .filter((e) => e?.witness === witness && e.payload)
-    .sort((x, y) => String(y.at).localeCompare(String(x.at)))[0];
-  if (prior) recordApproval(root, store, { ...prior.payload, ...changes }, prior.response, witness, who);
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)));
 }
 
 // A path-qualified link, so a Person whose file name another note shares
@@ -592,6 +597,11 @@ function dispatch(a, { root, store, user, people }) {
       const s = shardAt(root, id, a.expect);
       const who = reviewer(root, user);
       const { path: file } = decide(root, store, { shared: true, ...s, decision: "retired", reason: a.reason, decider: who.name });
+      // Every earlier version of this shard is retired too, so a revised
+      // shard's first wording cannot come back for review once it is gone.
+      for (const v of approvalsOf(store, id)) {
+        if (learningHash(v.payload) !== learningHash(s)) decide(root, store, { shared: false, ...v.payload, decision: "retired", reason: a.reason, decider: who.name });
+      }
       rmSync(join(root, id));
       return { retired: id, decision: file };
     }
