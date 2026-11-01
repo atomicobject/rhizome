@@ -201,7 +201,8 @@ Resources:
   DeployRole:
     Type: AWS::IAM::Role
     Properties:
-      MaxSessionDuration: 3600
+      # Covers a failed deploy's longest recovery: three 40-minute waits plus the build.
+      MaxSessionDuration: 10800
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
