@@ -75,7 +75,7 @@ func TestDerivedPublicationBatchesResultsIntoFewLaneJobs(t *testing.T) {
 	}, func(_ context.Context, r fakeDerivedResult) error {
 		published[r] = true
 		return nil
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.Len(t, published, 1000, "every computed result is published before return")
 	maxJobs := (1000+derivedPublishBatchResults-1)/derivedPublishBatchResults + 2
@@ -87,20 +87,36 @@ func TestDerivedPublicationStopsWhenWorkIsSupersededMidPass(t *testing.T) {
 	store := s.watcher.intelStore
 	var published atomic.Int64
 	var computeStopped bool
+	var mu sync.Mutex
+	computed, covered := map[fakeDerivedResult]bool{}, map[fakeDerivedResult]bool{}
 	err := computeAndPublish(s, t.Context(), ticket, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
-		err := produce(1000, sink)
+		err := produce(1000, func(ctx context.Context, r fakeDerivedResult) error {
+			mu.Lock()
+			computed[r] = true
+			mu.Unlock()
+			return sink(ctx, r)
+		})
 		computeStopped = ctx.Err() != nil
 		return err
-	}, func(ctx context.Context, _ fakeDerivedResult) error {
+	}, func(ctx context.Context, r fakeDerivedResult) error {
+		mu.Lock()
+		covered[r] = true
+		mu.Unlock()
 		if published.Add(1) == 1 {
 			// A newer generation arrives while the first batch publishes.
 			_, err := store.MarkDerivedDirty(ctx, []codeanchor.DerivedScope{{Kind: codeanchor.DerivedCode}})
 			return err
 		}
 		return nil
+	}, func(_ context.Context, results ...fakeDerivedResult) error {
+		for _, r := range results {
+			covered[r] = true
+		}
+		return nil
 	})
 	require.ErrorIs(t, err, errDerivedSuperseded)
 	require.Less(t, published.Load(), int64(1000), "later batches must not publish superseded work")
+	require.Equal(t, computed, covered, "every computed result is published or cached, so a retry sends none of its text again")
 	require.True(t, computeStopped, "a failed batch cancels compute so the pass stops calling the provider")
 	pending, err := store.HasDerivedWork(t.Context(), codeanchor.DerivedCode)
 	require.NoError(t, err)
@@ -121,7 +137,7 @@ func TestDerivedPublicationYieldsToExplicitIndexBetweenBatches(t *testing.T) {
 			once.Do(func() { close(entered) })
 			<-ctx.Done()
 			return ctx.Err()
-		})
+		}, nil)
 	}()
 	<-entered
 	explicit, _, err := s.watcher.lane.Submit(t.Context(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, lane.Reporter) error { return nil }})

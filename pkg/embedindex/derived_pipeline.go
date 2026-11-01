@@ -58,6 +58,10 @@ func (s *NoteSyncer) PublishDerived(ctx context.Context, result NoteDerivedResul
 	if target != nil {
 		writer = directIntelEmbeddingSubmitter{ctx: ctx, writer: target}
 	}
+	// Caching first keeps the vectors when the publication below fails.
+	if err := s.CacheDerived(ctx, result); err != nil {
+		return err
+	}
 	return applySemanticWriteIntents(ctx, noteWriteSink{syncer: s, useLegacy: result.prepared.useLegacy, intelWriter: writer}, buildNoteWriteIntents(result.prepared, result.vectors, s.EmbeddingWriter != nil)...)
 }
 

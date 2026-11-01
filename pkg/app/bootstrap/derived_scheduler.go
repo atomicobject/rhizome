@@ -175,8 +175,11 @@ type derivedResult interface{ RetainedBytes() int }
 // A sink call blocks while the buffer is full and returns the publisher's
 // error once a batch fails; a failed batch also cancels compute's context so
 // the pass stops calling the provider. It returns after the publisher has
-// drained, so a nil result means every computed result was published.
-func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error) error {
+// drained, so a nil result means every computed result was published. A
+// non-nil cache records the vectors of every result left unpublished because
+// publication failed or was superseded or compute was cancelled, so the retry
+// or replacement ticket does not send the same text to the provider again.
+func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error, cache func(context.Context, ...R) error) error {
 	computeCtx, stopCompute := context.WithCancel(ctx)
 	defer stopCompute()
 	// ponytail: the byte cap bounds a batch, not this buffer; buffered results
@@ -185,6 +188,13 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 	failed := make(chan struct{})
 	done := make(chan struct{})
 	var publishErr error
+	var unpublishedMu sync.Mutex
+	var unpublished []R
+	keep := func(results ...R) {
+		unpublishedMu.Lock()
+		unpublished = append(unpublished, results...)
+		unpublishedMu.Unlock()
+	}
 	go func() {
 		defer close(done)
 		for open := true; open; {
@@ -217,6 +227,7 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 				return nil
 			}); err != nil {
 				publishErr = err
+				keep(batch...)
 				stopCompute()
 				close(failed)
 				return
@@ -226,6 +237,7 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 	err := compute(computeCtx, func(sinkCtx context.Context, result R) error {
 		select {
 		case <-failed:
+			keep(result)
 			return publishErr
 		default:
 		}
@@ -233,13 +245,23 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 		case results <- result:
 			return nil
 		case <-failed:
+			keep(result)
 			return publishErr
 		case <-sinkCtx.Done():
+			keep(result)
 			return sinkCtx.Err()
 		}
 	})
 	close(results)
 	<-done
+	for result := range results {
+		keep(result)
+	}
+	if cache != nil && len(unpublished) > 0 {
+		if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return cache(ctx, unpublished...) }); cacheErr != nil && ctx.Err() == nil {
+			watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
+		}
+	}
 	if publishErr != nil {
 		return publishErr
 	}
@@ -320,7 +342,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			return s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
 				return w.noteSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		}, w.noteSyncer.PublishDerived)
+		}, w.noteSyncer.PublishDerived, w.noteSyncer.CacheDerived)
 		if err != nil {
 			return err
 		}
@@ -366,7 +388,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			return s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
 				return w.codeSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		}, w.codeSyncer.PublishDerived)
+		}, w.codeSyncer.PublishDerived, nil)
 		if err != nil {
 			return err
 		}

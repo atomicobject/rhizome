@@ -146,7 +146,7 @@ func newPayloadKinds(q *Writer) []payloadKind {
 	nodes.idle, nodes.immediate = false, false
 	states := basic("intel.upsert_ontology_node_embedding_state", q.handlers.ApplyOntologyNodeStates != nil)
 	states.deferred = true
-	vectorCache := basic("intel.upsert_ontology_embedding_cache", q.handlers.ApplyOntologyEmbeddingCache != nil)
+	vectorCache := basic("intel.upsert_embedding_cache", q.handlers.ApplyEmbeddingCache != nil)
 	vectorCache.policy, vectorCache.deferred = q.cfg.IntelEmbed, true
 	validation := basic("intel.validation_state", q.handlers.ApplyValidationState != nil)
 	validation.drain = true
@@ -177,7 +177,7 @@ func newPayloadKinds(q *Writer) []payloadKind {
 			return len(v.model.NotePaths) + len(v.model.Nodes) + len(v.model.FieldValues)
 		}, q.flushOntologyNodeWrites),
 		payload(states, func(codeanchor.IntelOntologyNodeEmbeddingState) int { return 1 }, applyItems(q, q.handlers.ApplyOntologyNodeStates)),
-		payload(vectorCache, func(semdb.OntologyEmbeddingCacheEntry) int { return 1 }, applyItems(q, q.handlers.ApplyOntologyEmbeddingCache)),
+		payload(vectorCache, func(semdb.EmbeddingCacheEntry) int { return 1 }, applyItems(q, q.handlers.ApplyEmbeddingCache)),
 		payload(validation, func(ValidationStateWrite) int { return 1 }, q.flushValidationState),
 	}
 }

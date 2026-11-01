@@ -11,6 +11,7 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -52,7 +53,16 @@ type NoteMetaWriteQueue interface {
 	SubmitIntelChunks(context.Context, []string, []codeanchor.IntelChunk) error
 	SubmitIntelChunksByFamily(context.Context, []string, string, []codeanchor.IntelChunk) error
 	SubmitIntelEmbeddings(context.Context, map[string]embeddings.Embedding) error
+	SubmitEmbeddingCache(context.Context, []semdb.EmbeddingCacheEntry) error
 	FlushAndWait(context.Context) error
+}
+
+// NoteEmbeddingCache is the Intel content-addressed vector cache. Plain notes
+// publish their vectors to Intel, so it, not the note index's own cache, is
+// what keeps text embedded once from reaching the provider again.
+type NoteEmbeddingCache interface {
+	EmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, textHashes []string) (map[string]embeddings.Embedding, error)
+	UpsertEmbeddingCache(context.Context, []semdb.EmbeddingCacheEntry) error
 }
 
 // NoteSyncer keeps the note embeddings index in sync with intel doc sections.
@@ -96,6 +106,10 @@ type NoteSyncer struct {
 
 	// WriteQueue optionally routes note/index intel writes through a single writer lane.
 	WriteQueue NoteMetaWriteQueue
+
+	// EmbeddingCache optionally answers chunk text embedded before, after the
+	// note index's own reuse misses, and records each provider result.
+	EmbeddingCache NoteEmbeddingCache
 
 	// RawEligibility controls which notes receive raw authored-section
 	// embeddings. Nil means all notes remain raw-eligible, which is reserved

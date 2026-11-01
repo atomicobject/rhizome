@@ -37,7 +37,7 @@ func (s *Store) validateIntelSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		"intel_edges":                            {"src_type", "src_row_id", "dst_type", "dst_row_id", "kind"},
 		"intel_chunks":                           {"id", "chunk_id", "owner_id", "owner_row_id", "owner_type", "chunk_family", "ord", "content_hash", "updated_at"},
 		"intel_embeddings":                       {"chunk_row_id", "chunk_id", "norm", "dimensions", "created_at"},
-		"ontology_embedding_cache":               ontologyEmbeddingCacheColumns,
+		"intel_embedding_cache":                  embeddingCacheColumns,
 		"ontology_node_embedding_state":          {"chunk_id", "node_id", "note_path", "type_name", "node_kind", "embedding_schema_signature", "chunk_text_hash", "chunk_granularity", "updated_at"},
 		"index_metadata":                         {"key", "value"},
 		"intel_symbol_ref_files":                 {"file_id", "path"},
@@ -97,10 +97,10 @@ func (s *Store) validateIntelSchemaTx(ctx context.Context, tx *sql.Tx) error {
 			}
 		}
 	}
-	if intact, err := ontologyEmbeddingCacheIntact(ctx, tx); err != nil {
-		return fmt.Errorf("validate table ontology_embedding_cache: %w", err)
+	if intact, err := embeddingCacheIntact(ctx, tx); err != nil {
+		return fmt.Errorf("validate table intel_embedding_cache: %w", err)
 	} else if !intact {
-		return intelSchemaDrift("unexpected columns in ontology_embedding_cache")
+		return intelSchemaDrift("unexpected columns in intel_embedding_cache")
 	}
 	if err := validateIntelVecOwnerPartitionsTx(ctx, tx); err != nil {
 		return err

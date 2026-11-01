@@ -23,8 +23,8 @@ type OntologyNodeStore interface {
 	ReplaceIntelChunks(context.Context, []string, []codeanchor.IntelChunk) error
 	UpsertEmbeddings(context.Context, map[string]embeddings.Embedding) error
 	UpsertOntologyNodeEmbeddingStates(context.Context, []codeanchor.IntelOntologyNodeEmbeddingState) error
-	OntologyEmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, textHashes []string) (map[string]embeddings.Embedding, error)
-	UpsertOntologyEmbeddingCache(context.Context, []store.OntologyEmbeddingCacheEntry) error
+	EmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, textHashes []string) (map[string]embeddings.Embedding, error)
+	UpsertEmbeddingCache(context.Context, []store.EmbeddingCacheEntry) error
 	OntologyNodeEmbeddingStatesByChunkIDs(context.Context, []string) (map[string]codeanchor.IntelOntologyNodeEmbeddingState, error)
 	IntelChunksByOwners(context.Context, []string) ([]codeanchor.IntelChunk, error)
 	OntologyNodesByPaths(context.Context, []string) ([]readmodel.NodeRow, error)
@@ -149,7 +149,7 @@ func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections 
 	if dims <= 0 {
 		dims = s.ProviderInfo.Dimensions
 	}
-	vectorsByHash, err := s.Store.OntologyEmbeddingCacheVectors(ctx, s.ProviderInfo.Provider, s.ProviderInfo.Model, dims, hashes)
+	vectorsByHash, err := s.Store.EmbeddingCacheVectors(ctx, s.ProviderInfo.Provider, s.ProviderInfo.Model, dims, hashes)
 	if err != nil {
 		return OntologyDerivedPlan{}, fmt.Errorf("load ontology embedding cache: %w", err)
 	}

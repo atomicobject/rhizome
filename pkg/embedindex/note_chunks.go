@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"fmt"
+	"maps"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func sameNoteSet(existing []embeddings.NoteFileInfo, paths []string) bool {
@@ -241,6 +243,9 @@ func (s *NoteSyncer) planChunkUpdates(ctx context.Context, noteID embeddings.Not
 			indexingperf.AddCount(ctx, indexingperf.NoteplanHashCacheMiss, 1)
 		}
 	}
+	if err := s.lookupEmbeddingCache(ctx, desired, embByHash); err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	var reuseChunks []embeddings.ChunkInput
 	var reuseVecs []embeddings.Embedding
@@ -283,6 +288,65 @@ func (s *NoteSyncer) planChunkUpdates(ctx context.Context, noteID embeddings.Not
 	indexingperf.AddCount(ctx, indexingperf.NoteplanChunksRewrite, int64(len(reuseChunks)))
 	indexingperf.AddCount(ctx, indexingperf.NoteplanChunksEmbed, int64(len(embedChunks)))
 	return reuseChunks, reuseVecs, embedChunks, embedTexts, nil
+}
+
+// lookupEmbeddingCache fills embByHash from the Intel vector cache for chunk
+// text the note index could not answer, at the provider's effective size; when
+// neither the provider nor the configuration knows it, the store uses the
+// single size cached for this provider and model.
+func (s *NoteSyncer) lookupEmbeddingCache(ctx context.Context, desired []embeddings.ChunkInput, embByHash map[string]embeddings.Embedding) error {
+	if s.EmbeddingCache == nil {
+		return nil
+	}
+	var hashes []string
+	for _, ch := range desired {
+		if _, ok := embByHash[ch.Hash]; !ok {
+			hashes = append(hashes, ch.Hash)
+		}
+	}
+	if len(hashes) == 0 {
+		return nil
+	}
+	dims := s.Provider.Dimensions()
+	if dims <= 0 {
+		dims = s.ProviderInfo.Dimensions
+	}
+	cached, err := s.EmbeddingCache.EmbeddingCacheVectors(ctx, s.ProviderInfo.Provider, s.ProviderInfo.Model, dims, hashes)
+	if err != nil {
+		indexingperf.AddCount(ctx, indexingperf.NoteplanHashCacheError, 1)
+		return fmt.Errorf("load note embedding cache: %w", err)
+	}
+	indexingperf.AddCount(ctx, indexingperf.NoteplanHashCacheHit, int64(len(cached)))
+	maps.Copy(embByHash, cached)
+	return nil
+}
+
+// CacheDerived records the provider's vectors for results in the Intel vector
+// cache. It is correct even when the results were not published, so a skipped
+// or failed publication does not send the same text to the provider again.
+func (s *NoteSyncer) CacheDerived(ctx context.Context, results ...NoteDerivedResult) error {
+	if s.EmbeddingCache == nil {
+		return nil
+	}
+	var entries []semdb.EmbeddingCacheEntry
+	for _, result := range results {
+		if result.prepared == nil {
+			continue
+		}
+		chunks := result.prepared.task.payload.embedChunks
+		for i, vector := range result.vectors {
+			if i < len(chunks) && len(vector) > 0 {
+				entries = append(entries, semdb.EmbeddingCacheEntry{Provider: s.ProviderInfo.Provider, Model: s.ProviderInfo.Model, TextHash: chunks[i].Hash, Vector: vector, Format: embeddings.NoteEmbeddingTextFormat})
+			}
+		}
+	}
+	if len(entries) == 0 {
+		return nil
+	}
+	if s.WriteQueue != nil {
+		return s.WriteQueue.SubmitEmbeddingCache(ctx, entries)
+	}
+	return s.EmbeddingCache.UpsertEmbeddingCache(ctx, entries)
 }
 
 func stripChunkText(in embeddings.ChunkInput) embeddings.ChunkInput {

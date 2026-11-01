@@ -20,11 +20,11 @@ func TestPruneObsoleteEmbeddingsWaitsForPendingDerivedWork(t *testing.T) {
 	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.UpsertOntologyEmbeddingCache(ctx, []semdb.OntologyEmbeddingCacheEntry{
+	require.NoError(t, store.UpsertEmbeddingCache(ctx, []semdb.EmbeddingCacheEntry{
 		{Provider: "test", Model: "m", TextHash: "awaiting-republication", Vector: embeddings.Embedding{1, 0}, Format: "earlier"},
 	}))
 	cached := func() int {
-		got, err := store.OntologyEmbeddingCacheVectors(ctx, "test", "m", 2, []string{"awaiting-republication"})
+		got, err := store.EmbeddingCacheVectors(ctx, "test", "m", 2, []string{"awaiting-republication"})
 		require.NoError(t, err)
 		return len(got)
 	}
@@ -93,7 +93,7 @@ func TestPruneObsoleteEmbeddingsFailureKeepsTheWriterRunning(t *testing.T) {
 	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	_, err = store.DB().ExecContext(ctx, `DROP TABLE ontology_embedding_cache`)
+	_, err = store.DB().ExecContext(ctx, `DROP TABLE intel_embedding_cache`)
 	require.NoError(t, err)
 	var callbackErr error
 	ran := false

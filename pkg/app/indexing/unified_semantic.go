@@ -142,6 +142,7 @@ func prepareUnifiedSemanticResources(
 			Intel:           intelStore,
 			ChunkWriter:     intelStore,
 			EmbeddingWriter: intelStore,
+			EmbeddingCache:  intelStore,
 			NoteReader:      &obsidian.Note{},
 			NoteEmbedPacker: batchPolicy.NoteEmbedPacker,
 			RawEligibility:  embedindex.NewOntologyRawNoteEligibility(intelStore),

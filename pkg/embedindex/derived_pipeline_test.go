@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -62,6 +63,36 @@ func TestDerivedFinalizersAreBoundedByProviderConcurrency(t *testing.T) {
 	}))
 	require.EqualValues(t, 64, seen.Load())
 	require.LessOrEqual(t, peak.Load(), int64(2))
+}
+
+// The live runtime publishes plain-note results through PublishDerived. The
+// vectors it records answer a later plan for the same text, in any note, so
+// the provider never sees that text again.
+func TestNoteDerivedPublicationCachesVectorsForLaterPlans(t *testing.T) {
+	ctx := t.Context()
+	notes, err := embsqlite.OpenNotes(ctx, embsqlite.File(filepath.Join(t.TempDir(), "notes.db")), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: 8})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, notes.Close()) }()
+	intel, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	defer intel.Close()
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+	syncer := NoteSyncer{Index: notes, Provider: embeddings.NewDeterministicProvider(info), ProviderInfo: info, EmbeddingWriter: intel, EmbeddingCache: intel}
+	chunk := embeddings.NewChunkInput(0, "Install the tools first.", "Guide", "Setup")
+	plan := NotePlan{TotalWork: 1, tasks: []noteTask{{id: "notes/guide.md", payload: noteTaskPayload{
+		info: embeddings.NoteFileInfo{ID: "notes/guide.md", Path: "notes/guide.md"}, embedChunks: []embeddings.ChunkInput{chunk}, embedTexts: []string{chunk.Text},
+	}}}}
+	var published embeddings.Embedding
+	require.NoError(t, syncer.ComputeDerived(ctx, plan, func(ctx context.Context, result NoteDerivedResult) error {
+		published = result.vectors[0]
+		return syncer.PublishDerived(ctx, result)
+	}))
+
+	reuse, vectors, missing, _, err := syncer.planChunkUpdates(ctx, "notes/copy.md", []embeddings.ChunkInput{chunk}, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing, "cached text must not be sent to the provider again")
+	require.Equal(t, []embeddings.ChunkInput{stripChunkText(chunk)}, reuse)
+	require.Equal(t, []embeddings.Embedding{published}, vectors)
 }
 
 func TestOntologyDerivedComputeDoesNotPublishChunksOrVectors(t *testing.T) {

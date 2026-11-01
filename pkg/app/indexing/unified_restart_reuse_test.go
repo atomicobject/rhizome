@@ -67,7 +67,7 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	for _, stmt := range []string{
-		`DELETE FROM ontology_embedding_cache`,
+		`DELETE FROM intel_embedding_cache`,
 		`UPDATE rzm_migration_state SET version = 77 WHERE domain = 'intel'`,
 		`UPDATE note_projection_state SET projection_version = 'markdown-projection-v4'`,
 	} {
@@ -127,7 +127,7 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 		require.NoError(t, store.DB().QueryRowContext(context.Background(), `SELECT
 			COALESCE(SUM(text_hash IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)), 0),
 			COALESCE(SUM(text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)), 0)
-			FROM ontology_embedding_cache`).Scan(&live, &orphaned))
+			FROM intel_embedding_cache`).Scan(&live, &orphaned))
 		return live, orphaned
 	}
 	live, currentFormatOrphans := cacheRows()
@@ -136,8 +136,8 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	for i := range live + 1 {
-		_, err := store.DB().ExecContext(context.Background(), `INSERT OR IGNORE INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector, format)
-			SELECT provider, model, dimensions, ?, vector, 'primary-1;root-evidence-v0' FROM ontology_embedding_cache LIMIT 1`, fmt.Sprintf("old-generation-%d", i))
+		_, err := store.DB().ExecContext(context.Background(), `INSERT OR IGNORE INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector, format)
+			SELECT provider, model, dimensions, ?, vector, 'primary-1;root-evidence-v0' FROM intel_embedding_cache LIMIT 1`, fmt.Sprintf("old-generation-%d", i))
 		require.NoError(t, err)
 	}
 	closeStore()

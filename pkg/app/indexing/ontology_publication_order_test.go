@@ -54,11 +54,11 @@ type Decision @node(paths: ["notes/*.md"]) {
 	require.NotEmpty(t, catalog.Nodes)
 
 	q := indexwriter.New(ctx, indexwriter.Handlers{
-		ApplyIntelChunks:            store.ReplaceIntelChunks,
-		ApplyIntelEmbeddings:        store.UpsertEmbeddings,
-		ApplyOntologyNodeReadModel:  store.ReplaceOntologyNodeReadModel,
-		ApplyOntologyNodeStates:     store.UpsertOntologyNodeEmbeddingStates,
-		ApplyOntologyEmbeddingCache: store.UpsertOntologyEmbeddingCache,
+		ApplyIntelChunks:           store.ReplaceIntelChunks,
+		ApplyIntelEmbeddings:       store.UpsertEmbeddings,
+		ApplyOntologyNodeReadModel: store.ReplaceOntologyNodeReadModel,
+		ApplyOntologyNodeStates:    store.UpsertOntologyNodeEmbeddingStates,
+		ApplyEmbeddingCache:        store.UpsertEmbeddingCache,
 	})
 	t.Cleanup(func() { _ = q.StopAndWait() })
 	require.NoError(t, q.SubmitOntologyNodeReadModel(ctx, catalog))

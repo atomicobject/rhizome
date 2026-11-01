@@ -97,6 +97,10 @@ func (p *noteEmbeddingPipeline) run(finalize func(*notePipelineOwner) error) err
 
 func (s *NoteSyncer) processTasksPipelined(ctx context.Context, plan NotePlan, intelWriter intelEmbeddingSubmitter) error {
 	return s.ComputeDerived(ctx, plan, func(ctx context.Context, result NoteDerivedResult) error {
+		// Caching first keeps the vectors when the publication below fails.
+		if err := s.CacheDerived(ctx, result); err != nil {
+			return err
+		}
 		return applySemanticWriteIntents(ctx, noteWriteSink{syncer: s, useLegacy: result.prepared.useLegacy, intelWriter: intelWriter}, buildNoteWriteIntents(result.prepared, result.vectors, s.EmbeddingWriter != nil)...)
 	})
 }

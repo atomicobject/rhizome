@@ -162,8 +162,9 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
 }
 
-// pruneObsoleteEmbeddings drops cached ontology, note, and code vectors that an
-// earlier text format produced and no current chunk uses. It runs after the
+// pruneObsoleteEmbeddings drops cached Intel (ontology and plain-note), legacy
+// note, and code vectors that an earlier text format produced and no current
+// chunk uses. It runs after the
 // index acknowledged its derived work, and only when none remains pending,
 // because vectors awaiting republication look unreferenced until then. A nil
 // note or code store (embeddings disabled or unavailable) is skipped.
@@ -184,8 +185,8 @@ func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, noteS
 		cache string
 		prune func(context.Context) (int64, error)
 	}
-	prunes := []cachePrune{{"ontology", func(ctx context.Context) (int64, error) {
-		return intelStore.PruneOntologyEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat)
+	prunes := []cachePrune{{"intel", func(ctx context.Context) (int64, error) {
+		return intelStore.PruneEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat, embeddings.NoteEmbeddingTextFormat)
 	}}}
 	if noteStore != nil {
 		prunes = append(prunes, cachePrune{"notes", noteStore.PruneEmbeddingCache})

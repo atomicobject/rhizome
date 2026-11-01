@@ -154,11 +154,11 @@ func (s OntologyNodeSyncer) CacheDerived(ctx context.Context, result OntologyDer
 	if len(result.vectors) == 0 {
 		return nil
 	}
-	entries := make([]store.OntologyEmbeddingCacheEntry, 0, len(result.vectors))
+	entries := make([]store.EmbeddingCacheEntry, 0, len(result.vectors))
 	for i, vector := range result.vectors {
-		entries = append(entries, store.OntologyEmbeddingCacheEntry{Provider: s.ProviderInfo.Provider, Model: s.ProviderInfo.Model, TextHash: result.plan.textHashes[result.plan.ids[i]], Vector: vector, Format: OntologyEmbeddingTextFormat})
+		entries = append(entries, store.EmbeddingCacheEntry{Provider: s.ProviderInfo.Provider, Model: s.ProviderInfo.Model, TextHash: result.plan.textHashes[result.plan.ids[i]], Vector: vector, Format: OntologyEmbeddingTextFormat})
 	}
-	return s.Store.UpsertOntologyEmbeddingCache(ctx, entries)
+	return s.Store.UpsertEmbeddingCache(ctx, entries)
 }
 
 // PrepareSourceSnapshots projects the same provider-current authored sources
