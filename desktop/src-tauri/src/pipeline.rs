@@ -16,6 +16,9 @@ use tauri::{AppHandle, Manager, Window};
 use url::Url;
 
 const LOAD_TIMEOUT: Duration = Duration::from_secs(60);
+/// How long a loaded page may stay hidden waiting for its first report, as a
+/// runtime too old to report never sends one.
+const REPORT_WAIT: Duration = Duration::from_secs(3);
 
 fn now() -> Duration {
     SystemTime::now()
@@ -534,15 +537,38 @@ pub fn navigation_started(app: &AppHandle, window: &str, url: &Url) {
         .with(window, |pane| pane.navigation_started(url));
 }
 
-/// Shows the content once the runtime's page finishes its first load.
+/// Shows the content once the runtime's page finishes its first load and
+/// reports, or after REPORT_WAIT for a page that never reports.
 pub fn loaded(app: &AppHandle, window: &str, url: &Url) {
     let panes = app.state::<Panes>();
     let Some(Some(generation)) = panes.with(window, |pane| pane.loaded(url)) else {
         return;
     };
+    if !panes
+        .with(window, |pane| pane.awaiting_report(generation))
+        .unwrap_or(false)
+    {
+        return reveal(app, window, generation);
+    }
+    let (app, window) = (app.clone(), window.to_string());
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(REPORT_WAIT).await;
+        let overdue = app
+            .state::<Panes>()
+            .with(&window, |pane| pane.report_overdue(generation))
+            .unwrap_or(false);
+        if overdue {
+            reveal(&app, &window, generation);
+        }
+    });
+}
+
+/// Shows the loaded runtime page of `generation` and tells the shell it is ready.
+pub fn reveal(app: &AppHandle, window: &str, generation: u64) {
     if let Some(handle) = app.get_window(window) {
         let _ = windows::sync_visibility(&handle);
     }
-    panes.with(window, |pane| pane.report(generation, "ready", json!({})));
+    app.state::<Panes>()
+        .with(window, |pane| pane.report(generation, "ready", json!({})));
     presence::publish(app);
 }

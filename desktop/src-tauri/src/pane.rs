@@ -43,6 +43,10 @@ pub struct Pane {
     /// A load that outlived its timeout; its page may still finish.
     overdue: Option<u64>,
     ready: bool,
+    /// The generation whose page finished loading but has not reported yet.
+    /// Its content stays hidden until the page reports, so the shell's
+    /// opening notice gives way to a drawn page rather than one filling in.
+    unreported: Option<u64>,
     covered: bool,
     opening: bool,
     /// Why the app, not the user, began the current generation.
@@ -431,6 +435,7 @@ impl Pane {
         if !self.current(generation) {
             return Load::Stale;
         }
+        self.unreported = None;
         self.supervised = Some(Shown {
             pid,
             origin: url.clone(),
@@ -480,9 +485,31 @@ impl Pane {
         self.pending = None;
         self.overdue = None;
         self.ready = true;
+        self.unreported = (!self.reported).then_some(generation);
         self.failures = 0;
         self.page = Some(origin);
         Some(generation)
+    }
+
+    /// Whether the loaded page of `generation` still waits for its first report.
+    pub fn awaiting_report(&self, generation: u64) -> bool {
+        self.unreported == Some(generation)
+    }
+
+    /// The current document reported for the first time; returns the
+    /// generation this shows, when its content waited for that report.
+    pub fn first_report(&mut self) -> Option<u64> {
+        self.unreported.take()
+    }
+
+    /// Stops waiting for `generation`'s page to report, as for a runtime too
+    /// old to report; returns whether it was still waiting.
+    pub fn report_overdue(&mut self, generation: u64) -> bool {
+        let waiting = self.awaiting_report(generation);
+        if waiting {
+            self.unreported = None;
+        }
+        waiting
     }
     pub fn timed_out(&mut self, generation: u64) -> bool {
         let expired = self.pending == Some(generation);
@@ -498,7 +525,7 @@ impl Pane {
     }
 
     pub fn visible(&self) -> bool {
-        self.ready && !self.covered
+        self.ready && !self.covered && self.unreported.is_none()
     }
 
     pub fn send(&self, message: Value) {
@@ -641,9 +668,11 @@ mod tests {
         Url::parse(raw).unwrap()
     }
 
-    /// The content view starts and finishes loading `page`.
+    /// The content view starts and finishes loading `page`, which reports
+    /// as a current runtime page does.
     fn finish(pane: &mut Pane, page: &Url) -> Option<u64> {
         pane.navigation_started(page);
+        pane.reported = true;
         pane.loaded(page)
     }
 
@@ -704,6 +733,42 @@ mod tests {
             "still loading the old page"
         );
         assert_eq!(pane.showing("/other"), None);
+    }
+
+    #[test]
+    fn a_loaded_page_stays_hidden_until_it_reports() {
+        let mut pane = Pane::default();
+        let origin = url("http://127.0.0.1:1111/");
+        let generation = open(&mut pane, 1, "/w");
+        pane.expect(generation, &origin, 1, true);
+        pane.navigation_started(&origin);
+        assert_eq!(pane.loaded(&origin), Some(generation));
+        assert!(pane.awaiting_report(generation));
+        assert!(!pane.visible(), "drawn only once it reports");
+        assert_eq!(pane.first_report(), Some(generation));
+        assert!(pane.visible());
+        assert_eq!(
+            pane.first_report(),
+            None,
+            "a later report reveals nothing new"
+        );
+    }
+
+    #[test]
+    fn a_page_that_never_reports_shows_once_overdue() {
+        let mut pane = Pane::default();
+        let origin = url("http://127.0.0.1:1111/");
+        let generation = open(&mut pane, 1, "/w");
+        pane.expect(generation, &origin, 1, true);
+        pane.navigation_started(&origin);
+        pane.loaded(&origin);
+        assert!(
+            !pane.report_overdue(generation + 1),
+            "only its own generation"
+        );
+        assert!(pane.report_overdue(generation));
+        assert!(pane.visible());
+        assert!(!pane.report_overdue(generation));
     }
 
     #[test]

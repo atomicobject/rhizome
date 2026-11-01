@@ -137,7 +137,10 @@ function ScopeFacts({
   if (status.status === "loading" || data.missing || data.facts?.rebuilding)
     return (
       <div className="gv-facts">
-        <span className="gv-facts-note" role="status">
+        <span
+          className={`gv-facts-note${status.status === "loading" ? " gv-facts-loading" : ""}`}
+          role="status"
+        >
           {status.status === "loading"
             ? `Loading ${name}…`
             : data.missing

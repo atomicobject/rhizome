@@ -105,14 +105,15 @@ describe("AppShell", () => {
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
 
-  it("names no vault before the status fetch resolves", () => {
+  it("draws no shell before the status fetch resolves", () => {
     const status = deferredReply<StatusStub>();
     http.on("GET", "/api/v1/status", () => status.promise);
 
     render(<AppShell />);
 
-    expect(document.querySelector(".app-shell__brand small")).toBeNull();
-    expect(document.querySelector(".workbench-sidebar__header")).toBeNull();
+    // No shell yet, so nothing fills in and shifts when the vault is named.
+    expect(document.querySelector(".app-shell")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Opening the workspace…");
 
     // Cleanup the pending promise.
     status.resolve({ vaultName: "after", vaultPath: "/tmp/x" });
@@ -200,7 +201,7 @@ describe("AppShell", () => {
 
     render(<AppShell />);
 
-    await waitFor(() => expect(http.count("GET", "/api/v1/status")).toBe(1));
+    await screen.findByRole("searchbox", { name: "Search this project" });
     const shell = document.querySelector(".app-shell");
     const navigation = document.querySelector(".app-shell__nav");
     expect(shell).toHaveClass("app-shell");
@@ -300,7 +301,7 @@ describe("AppShell", () => {
 
     render(<AppShell />);
 
-    const search = screen.getByRole<HTMLInputElement>("searchbox", {
+    const search = await screen.findByRole<HTMLInputElement>("searchbox", {
       name: "Search this project",
     });
 
@@ -322,7 +323,7 @@ describe("AppShell", () => {
     statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
     render(<AppShell />);
 
-    const search = screen.getByRole<HTMLInputElement>("searchbox", {
+    const search = await screen.findByRole<HTMLInputElement>("searchbox", {
       name: "Search this project",
     });
 

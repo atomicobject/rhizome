@@ -1,5 +1,5 @@
 import { isJsonObject } from "../api/parse";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef, type ReactNode } from "react";
 import type {
   OntologySummaryResponse,
   OntologyEditOp,
@@ -136,6 +136,9 @@ export const HomeTab = memo(function HomeTab({
   });
 
   const choice = selectionState.choice ?? builtin;
+  // The view last drawn, kept on screen while the next target's views load so
+  // moving between targets never blanks the body.
+  const shownView = useRef<ReactNode>(null);
   const collectionView = Boolean(realType) && choice?.renderer !== "overview";
   const definition = catalogQuery.data?.views.find((view) => view.id === choice?.viewId) ?? null;
 
@@ -213,6 +216,30 @@ export const HomeTab = memo(function HomeTab({
     onOpenIssues: openIssues,
   };
 
+  const loadingViews =
+    (!catalogQuery.data && !catalogQuery.isError) ||
+    Boolean((realType || group) && !summary && !summaryQuery.isError) ||
+    (selectionState.loading && !location.presentation);
+
+  const view =
+    !loadingViews && choice ? (
+      <ViewHost
+        view={{ id: choice.viewId ?? choice.id, name: choice.name }}
+        context={context}
+        choice={choice}
+        definition={definition}
+        configuration={
+          isJsonObject(definition?.configuration) ? definition.configuration : undefined
+        }
+        active={active}
+        services={services}
+        renderers={RENDERERS}
+        embedded
+      />
+    ) : null;
+
+  if (view) shownView.current = view;
+
   return (
     <ViewHeaderSlotsProvider value={header.slots}>
       <div className={realType || group ? "type-workspace" : "home-workspace"}>
@@ -228,7 +255,8 @@ export const HomeTab = memo(function HomeTab({
               </button>
             </div>
           )}
-          {(realType || group || summary) && (
+          {/* All notes draws its header at once; its count fills in on the same line. */}
+          {(realType || group || summary || !summaryQuery.isError) && (
             <TypeWorkspaceHeader
               typeName={realType ?? ""}
               label={
@@ -291,11 +319,13 @@ export const HomeTab = memo(function HomeTab({
             />
           )}
         </div>
-        <div className="home-workspace__body">
-          {(!catalogQuery.data && !catalogQuery.isError) ||
-          ((realType || group) && !summary && !summaryQuery.isError) ||
-          (selectionState.loading && !location.presentation) ? (
-            <p role="status">Loading views…</p>
+        <div className="home-workspace__body" aria-busy={loadingViews || undefined}>
+          {loadingViews ? (
+            (shownView.current ?? (
+              <p role="status" className="delayed-status">
+                Loading views…
+              </p>
+            ))
           ) : !choice && catalogQuery.isError ? (
             <div className="ontology-home__unavailable" role="alert">
               <span>All notes views could not be loaded.</span>
@@ -306,19 +336,7 @@ export const HomeTab = memo(function HomeTab({
           ) : !choice ? (
             <p className="ontology-empty">No views are available for All notes.</p>
           ) : (
-            <ViewHost
-              view={{ id: choice.viewId ?? choice.id, name: choice.name }}
-              context={context}
-              choice={choice}
-              definition={definition}
-              configuration={
-                isJsonObject(definition?.configuration) ? definition.configuration : undefined
-              }
-              active={active}
-              services={services}
-              renderers={RENDERERS}
-              embedded
-            />
+            view
           )}
           {Boolean(catalogQuery.data?.issues?.length) && (
             <details className="configured-view__status configured-view__status--error">

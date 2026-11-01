@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type {
@@ -178,6 +178,15 @@ function viewRequest(data: unknown): ViewRequest | null {
 }
 /* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters */
 
+/** The longest a loading view stays hidden behind the one it replaces. */
+const SWAP_LIMIT_MS = 1000;
+
+/** Calls `done` after `view` paints twice, so its first render is on screen. */
+function afterPaint(view: Window | null, done: () => void) {
+  if (!view?.requestAnimationFrame) return done();
+  view.requestAnimationFrame(() => view.requestAnimationFrame(done));
+}
+
 /**
  * Frames a custom view (SPEC-0105). The view is repository code served from
  * this origin at /views/<id>, the same URL that works as a standalone page, so
@@ -202,6 +211,19 @@ export function CustomViewFrame({
   onOpenSearch,
 }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const framesRef = useRef<HTMLDivElement>(null);
+
+  // Every mounted frame: while a view loads, the one on screen still runs and
+  // may come back on screen, so it keeps getting replies, sessions, and events.
+  const mountedViews = () =>
+    [...(framesRef.current?.querySelectorAll("iframe") ?? [])].flatMap((frame) =>
+      frame.contentWindow ? [frame.contentWindow] : [],
+    );
+
+  const postAll = (message: HostMessage) => {
+    for (const target of mountedViews()) target.postMessage(message, window.location.origin);
+  };
+
   const sessionRef = useRef({ session, readLifecycle });
   sessionRef.current = { session, readLifecycle };
 
@@ -213,7 +235,8 @@ export function CustomViewFrame({
       const target = frameRef.current?.contentWindow;
 
       const respond = (message: HostMessage) => {
-        if (target === frameRef.current?.contentWindow) post(message);
+        if (target && mountedViews().includes(target))
+          target.postMessage(message, window.location.origin);
       };
 
       try {
@@ -262,23 +285,58 @@ export function CustomViewFrame({
   ]);
 
   useEffect(
-    () =>
-      subscribeVaultEvents((event) => {
-        const message: HostMessage = { type: VAULT_EVENT_MESSAGE, ...event };
-        frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
-      }),
+    () => subscribeVaultEvents((event) => postAll({ type: VAULT_EVENT_MESSAGE, ...event })),
     [],
   );
 
   useEffect(() => {
-    const message: HostMessage = { type: EDIT_SESSION_MESSAGE, session, readLifecycle };
-    frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    postAll({ type: EDIT_SESSION_MESSAGE, session, readLifecycle });
   }, [session, readLifecycle]);
 
   const href = customViewHref(view.id, context, { hosted: true });
   const src = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
 
+  // A new address loads hidden behind the frame on screen and replaces it once
+  // drawn, so switching views never flashes an empty frame. Messages go to and
+  // come from the newest frame only.
+  const [shown, setShown] = useState({ src, title: view.name });
+  const latest = useRef(src);
+  latest.current = src;
+  const current = { src, title: view.name };
+
+  const reveal = (frame: typeof current) => {
+    if (latest.current === frame.src) setShown(frame);
+  };
+
+  useEffect(() => {
+    if (shown.src === src) return;
+    const limit = window.setTimeout(() => setShown({ src, title: view.name }), SWAP_LIMIT_MS);
+
+    return () => window.clearTimeout(limit);
+  }, [shown.src, src, view.name]);
+
   return (
-    <iframe key={src} ref={frameRef} className="custom-view-frame" title={view.name} src={src} />
+    <div ref={framesRef} className="custom-view-frames">
+      {(shown.src === src ? [current] : [shown, current]).map((frame) => {
+        const incoming = frame.src !== shown.src;
+
+        return (
+          <iframe
+            key={frame.src}
+            ref={frame.src === src ? frameRef : undefined}
+            className="custom-view-frame"
+            data-incoming={incoming || undefined}
+            aria-hidden={incoming || undefined}
+            title={frame.title}
+            src={frame.src}
+            onLoad={
+              incoming
+                ? (event) => afterPaint(event.currentTarget.contentWindow, () => reveal(frame))
+                : undefined
+            }
+          />
+        );
+      })}
+    </div>
   );
 }

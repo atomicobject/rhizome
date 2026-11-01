@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OntologyEditOp, OntologyEditSessionResponse, ViewCatalogEntry } from "../api/types";
@@ -39,6 +39,11 @@ const view: ViewCatalogEntry = {
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Tests intentionally send malformed postMessage payloads.
 function post(source: MessageEventSource | null, origin: string, data: unknown) {
   window.dispatchEvent(new MessageEvent("message", { source, origin, data }));
+}
+
+/** The newest frame, which a new address loads into beside the one on screen. */
+function newestFrame() {
+  return screen.getAllByTitle<HTMLIFrameElement>("Action Board").at(-1)!;
 }
 
 describe("CustomViewFrame", () => {
@@ -110,9 +115,65 @@ describe("CustomViewFrame", () => {
     expect(frame.src).toContain("context=");
 
     rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Knowledge" }} />);
-    expect(screen.getByTitle("Action Board")).not.toBe(frame);
+    expect(newestFrame()).not.toBe(frame);
     post(source, window.location.origin, message);
     expect(onOpenNode).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers an edit from the view on screen after returning to it before the next loaded", async () => {
+    let settle: () => void = () => undefined;
+
+    const onStageOps = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+
+    const props = { view, session: null, onOpenNote: vi.fn(), onStageOps };
+    const delivery = { kind: "group", group: "Delivery" } as const;
+    const { rerender } = render(<CustomViewFrame {...props} context={delivery} />);
+    const frame = screen.getByTitle<HTMLIFrameElement>("Action Board");
+    const sent = vi.spyOn(frame.contentWindow!, "postMessage");
+
+    post(frame.contentWindow, window.location.origin, {
+      type: STAGE_OPS_MESSAGE,
+      requestId: "stage-1",
+      ops: [{ kind: "setField", path: "a.md", field: "title" }],
+    });
+    rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Knowledge" }} />);
+    settle();
+    await waitFor(() =>
+      expect(sent).toHaveBeenCalledWith(
+        { type: STAGE_RESULT_MESSAGE, requestId: "stage-1" },
+        window.location.origin,
+      ),
+    );
+
+    rerender(<CustomViewFrame {...props} context={delivery} />);
+    expect(screen.getByTitle("Action Board")).toBe(frame);
+  });
+
+  it("keeps the current view on screen until the next one has loaded", async () => {
+    const props = { view, session: null, onOpenNote: vi.fn(), onStageOps: vi.fn() };
+
+    const { rerender } = render(
+      <CustomViewFrame {...props} context={{ kind: "group", group: "Delivery" }} />,
+    );
+
+    const current = screen.getByTitle<HTMLIFrameElement>("Action Board");
+
+    rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Knowledge" }} />);
+    const next = newestFrame();
+
+    expect(current).toBeInTheDocument();
+    expect(current).not.toHaveAttribute("data-incoming");
+    expect(next).toHaveAttribute("data-incoming");
+
+    fireEvent.load(next);
+    await waitFor(() => expect(current).not.toBeInTheDocument());
+    expect(screen.getByTitle("Action Board")).toBe(next);
+    expect(next).not.toHaveAttribute("data-incoming");
   });
 
   it("opens GraphQL refs and node view contexts with null optional fields", () => {
@@ -221,10 +282,7 @@ describe("CustomViewFrame", () => {
 
     rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Other" }} />);
 
-    const sent = vi.spyOn(
-      screen.getByTitle<HTMLIFrameElement>("Action Board").contentWindow!,
-      "postMessage",
-    );
+    const sent = vi.spyOn(newestFrame().contentWindow!, "postMessage");
 
     settle();
     await Promise.resolve();
@@ -292,7 +350,7 @@ describe("CustomViewFrame", () => {
     );
   });
 
-  it("forwards every host vault event to the current frame only", () => {
+  it("forwards every host vault event to each mounted frame", async () => {
     const props = { view, session: null, onOpenNote: vi.fn(), onStageOps: vi.fn() };
 
     const { rerender, unmount } = render(
@@ -312,21 +370,26 @@ describe("CustomViewFrame", () => {
 
     rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Knowledge" }} />);
 
-    const newSent = vi.spyOn(
-      screen.getByTitle<HTMLIFrameElement>("Action Board").contentWindow!,
-      "postMessage",
-    );
+    const next = newestFrame();
+    const newSent = vi.spyOn(next.contentWindow!, "postMessage");
 
+    // The view on screen still runs while the next one loads.
     publishVaultEvent({ event: "index.changed" });
-    expect(oldSent).toHaveBeenCalledTimes(2);
+    expect(oldSent).toHaveBeenCalledTimes(3);
     expect(newSent).toHaveBeenCalledExactlyOnceWith(
       { type: VAULT_EVENT_MESSAGE, event: "index.changed" },
       origin,
     );
 
+    fireEvent.load(next);
+    await waitFor(() => expect(screen.getAllByTitle("Action Board")).toHaveLength(1));
+    publishVaultEvent({ event: "index.changed" });
+    expect(oldSent).toHaveBeenCalledTimes(3);
+    expect(newSent).toHaveBeenCalledTimes(2);
+
     unmount();
     publishVaultEvent({ event: "index.changed" });
-    expect(newSent).toHaveBeenCalledTimes(1);
+    expect(newSent).toHaveBeenCalledTimes(2);
   });
 
   it("opens issues and collections only for well-formed requests from its frame", () => {

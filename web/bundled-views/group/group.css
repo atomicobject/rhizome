@@ -150,6 +150,12 @@
   min-width: 0;
 }
 
+/* Fast loads never flash the line, as with the kit's loading lines. */
+.gv-facts-loading {
+  opacity: 0;
+  animation: rz-appear 0s linear 150ms forwards;
+}
+
 .gv-facts-list {
   display: flex;
   gap: 14px;
@@ -1502,7 +1508,9 @@
   white-space: nowrap;
 }
 
-/* "Links to" takes the remaining width and truncates; the full list is its title. */
+/* "Links to" takes the remaining width and truncates, heading included, so the
+   table never grows past the side column; the full list is its title. */
+.gv-ov-folders th:last-child,
 .gv-ov-folders .gv-ov-links {
   width: 100%;
   max-width: 0;
