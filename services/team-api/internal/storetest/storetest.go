@@ -6,6 +6,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,6 +29,11 @@ func Run(t *testing.T, open func(t *testing.T) store.Store) {
 	t.Run("ExpiryEnforcedOnRead", func(t *testing.T) { expiryOnRead(t, open(t)) })
 	t.Run("RuntimeConfigPartialUpdate", func(t *testing.T) { runtimePartial(t, open(t)) })
 	t.Run("AuditCommitsWithMutation", func(t *testing.T) { auditWithMutation(t, open(t)) })
+	t.Run("ConcurrentRotation", func(t *testing.T) { concurrentRotation(t, open(t)) })
+	t.Run("BulkRevocationAcrossPages", func(t *testing.T) { bulkRevocation(t, open(t)) })
+	t.Run("CreateRacingBulkRevocation", func(t *testing.T) { createRacingBulkRevocation(t, open(t)) })
+	t.Run("ConcurrentPartialUpdates", func(t *testing.T) { concurrentPartialUpdates(t, open(t)) })
+
 }
 
 func entry(action string) wire.AuditEntry {
@@ -259,5 +267,149 @@ func auditWithMutation(t *testing.T, s store.Store) {
 	}
 	if got, _ = s.Audit(ctx, 2); len(got) != 2 || got[1].Action != "third" {
 		t.Fatalf("limited audit = %+v", got)
+	}
+}
+
+func concurrentRotation(t *testing.T, s store.Store) {
+	x := newSession(t, s, "session", "person")
+	out := make(chan error, 16)
+	for range 16 {
+		go func() {
+			out <- s.RotateSession(context.Background(), x.ID, x.Generation, store.Rotation{AccessHash: []byte("a"), RefreshHash: []byte("r"), LastUsedAt: t0, IdleExpiresAt: x.IdleExpiresAt})
+		}()
+	}
+	wins := 0
+	for range 16 {
+		err := <-out
+		if err == nil {
+			wins++
+		} else if !errors.Is(err, store.ErrStale) {
+			t.Fatal(err)
+		}
+	}
+	if wins != 1 {
+		t.Fatalf("rotation winners = %d", wins)
+	}
+}
+func bulkRevocation(t *testing.T, s store.Store) {
+	ctx := context.Background()
+	original := newSession(t, s, "original", "person")
+	must(t, s.RevokeSession(ctx, original.ID, "logout", t0, nil))
+	// More than 100 sessions and 1 MiB prove both atomic bulk revocation and
+	// full pagination. DynamoDB transactions cannot update this set directly.
+	for i := range 105 {
+		x := original
+		x.ID = fmt.Sprint("session-", i)
+		x.DeviceName = strings.Repeat("x", 12<<10)
+		must(t, s.CreateSession(ctx, x))
+	}
+	n, err := s.RevokePersonSessions(ctx, "person", "first", t0.Add(time.Minute), entry("first"))
+	must(t, err)
+	if n != 105 {
+		t.Fatalf("revoked %d sessions", n)
+	}
+	fresh := newSession(t, s, "fresh", "person")
+	if _, err := s.Session(ctx, fresh.ID, t0.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	n, err = s.RevokePersonSessions(ctx, "person", "second", t0.Add(2*time.Minute), entry("second"))
+	must(t, err)
+	if n != 1 {
+		t.Fatalf("second bulk revoke = %d", n)
+	}
+	all, err := s.Sessions(ctx, "person")
+	must(t, err)
+	if len(all) != 107 {
+		t.Fatalf("sessions = %d", len(all))
+	}
+	for _, x := range all {
+		want, at := "first", t0.Add(time.Minute)
+		switch x.ID {
+		case "original":
+			want, at = "logout", t0
+		case "fresh":
+			want, at = "second", t0.Add(2*time.Minute)
+		}
+		if x.RevokeReason != want || !x.RevokedAt.Equal(at) {
+			t.Fatalf("session %s revocation = %s at %v", x.ID, x.RevokeReason, x.RevokedAt)
+		}
+		if err := s.RotateSession(ctx, x.ID, x.Generation, store.Rotation{}); !errors.Is(err, store.ErrStale) {
+			t.Fatalf("rotate revoked %s: %v", x.ID, err)
+		}
+	}
+	must(t, s.RevokeSession(ctx, "session-0", "later", t0.Add(3*time.Minute), nil))
+	all, err = s.Sessions(ctx, "person")
+	must(t, err)
+	for _, x := range all {
+		if x.ID == "session-0" && x.RevokeReason != "first" {
+			t.Fatalf("late explicit revoke changed first reason: %s", x.RevokeReason)
+		}
+	}
+}
+func createRacingBulkRevocation(t *testing.T, s store.Store) {
+	ctx := context.Background()
+	x := newSession(t, s, "first", "person")
+	x.ID = "racing"
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var createErr error
+	go func() { defer wg.Done(); createErr = s.CreateSession(ctx, x) }()
+	n, err := s.RevokePersonSessions(ctx, "person", "admin", t0, entry("revoke"))
+	must(t, err)
+	wg.Wait()
+	must(t, createErr)
+	_, err = s.Session(ctx, x.ID, t0)
+	if n == 1 {
+		must(t, err)
+	} else if n != 2 || !errors.Is(err, store.ErrRevoked) {
+		t.Fatalf("revoke count=%d, racing session=%v", n, err)
+	}
+	entries, err := s.Audit(ctx, 10)
+	must(t, err)
+	if len(entries) != 1 {
+		t.Fatalf("audit entries=%d", len(entries))
+	}
+}
+func concurrentPartialUpdates(t *testing.T, s store.Store) {
+	ctx := context.Background()
+	newSession(t, s, "s", "person")
+	must(t, s.InitRuntimeConfig(ctx, wire.AdminConfig{PaidCallsEnabled: true, VoyageEnabled: true}))
+	done := make(chan error, 4)
+	disabled := wire.PersonDisabled
+	off := false
+	limits := wire.DailyLimits{Requests: 99}
+	go func() {
+		_, err := s.UpdatePerson(ctx, "person", wire.AdminPersonUpdate{Status: &disabled}, entry("status"))
+		done <- err
+	}()
+	go func() {
+		_, err := s.UpdatePerson(ctx, "person", wire.AdminPersonUpdate{Limits: &limits}, entry("limits"))
+		done <- err
+	}()
+	go func() {
+		_, err := s.UpdateRuntimeConfig(ctx, wire.AdminConfigUpdate{PaidCallsEnabled: &off}, entry("paid"))
+		done <- err
+	}()
+	go func() {
+		_, err := s.UpdateRuntimeConfig(ctx, wire.AdminConfigUpdate{VoyageEnabled: &off}, entry("voyage"))
+		done <- err
+	}()
+	for range 4 {
+		must(t, <-done)
+	}
+	p, err := s.Person(ctx, "person")
+	must(t, err)
+	if p.Status != disabled || p.Limits == nil || *p.Limits != limits {
+		t.Fatalf("lost person update: %+v", p)
+	}
+	cfg, err := s.RuntimeConfig(ctx)
+	must(t, err)
+	if cfg.PaidCallsEnabled || cfg.VoyageEnabled {
+		t.Fatalf("lost config update: %+v", cfg)
+	}
+	entries, err := s.Audit(ctx, 10)
+	must(t, err)
+	if len(entries) != 4 {
+		t.Fatalf("audit entries=%d", len(entries))
 	}
 }

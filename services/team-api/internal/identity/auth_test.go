@@ -145,29 +145,33 @@ func TestEligibility(t *testing.T) {
 }
 
 func TestRefreshRotationAndGrace(t *testing.T) {
-	e := newEnv(t, options{})
-	g0 := e.signIn(memberSub, member)
+	for _, backend := range []string{"SQLite", "DynamoDB"} {
+		t.Run(backend, func(t *testing.T) {
+			e := newEnv(t, options{dynamodb: backend == "DynamoDB"})
+			g0 := e.signIn(memberSub, member)
 
-	var g1 wire.SessionGrant
-	e.decode(e.refresh(g0.RefreshToken), &g1)
-	if g1.AccessToken == g0.AccessToken || g1.RefreshToken == g0.RefreshToken || !g1.SessionExpiresAt.Equal(g0.SessionExpiresAt) {
-		t.Fatalf("refresh did not rotate both tokens: %+v", g1)
+			var g1 wire.SessionGrant
+			e.decode(e.refresh(g0.RefreshToken), &g1)
+			if g1.AccessToken == g0.AccessToken || g1.RefreshToken == g0.RefreshToken || !g1.SessionExpiresAt.Equal(g0.SessionExpiresAt) {
+				t.Fatalf("refresh did not rotate both tokens: %+v", g1)
+			}
+			e.wantCode(e.do("GET", "/test/protected", g0.AccessToken, nil), wire.CodeAccessRefreshRequired)
+			e.decode(e.do("GET", "/test/protected", g1.AccessToken, nil), &core.Principal{})
+
+			// The response was lost; the predecessor recovers within the grace period.
+			e.clock.Advance(100 * time.Second)
+			var g2 wire.SessionGrant
+			e.decode(e.refresh(g0.RefreshToken), &g2)
+			e.decode(e.do("GET", "/test/protected", g2.AccessToken, nil), &core.Principal{})
+
+			// Recovery did not extend the deadline, which is 120 s after the first
+			// rotation, so the predecessor now revokes the session.
+			e.clock.Advance(21 * time.Second)
+			e.wantCode(e.refresh(g0.RefreshToken), wire.CodeRefreshReused)
+			e.wantCode(e.refresh(g2.RefreshToken), wire.CodeSessionRevoked)
+			e.wantCode(e.do("GET", "/test/protected", g2.AccessToken, nil), wire.CodeSessionRevoked)
+		})
 	}
-	e.wantCode(e.do("GET", "/test/protected", g0.AccessToken, nil), wire.CodeAccessRefreshRequired)
-	e.decode(e.do("GET", "/test/protected", g1.AccessToken, nil), &core.Principal{})
-
-	// The response was lost; the predecessor recovers within the grace period.
-	e.clock.Advance(100 * time.Second)
-	var g2 wire.SessionGrant
-	e.decode(e.refresh(g0.RefreshToken), &g2)
-	e.decode(e.do("GET", "/test/protected", g2.AccessToken, nil), &core.Principal{})
-
-	// Recovery did not extend the deadline, which is 120 s after the first
-	// rotation, so the predecessor now revokes the session.
-	e.clock.Advance(21 * time.Second)
-	e.wantCode(e.refresh(g0.RefreshToken), wire.CodeRefreshReused)
-	e.wantCode(e.refresh(g2.RefreshToken), wire.CodeSessionRevoked)
-	e.wantCode(e.do("GET", "/test/protected", g2.AccessToken, nil), wire.CodeSessionRevoked)
 }
 
 func TestUnknownRefreshTokenCannotRevoke(t *testing.T) {
@@ -181,46 +185,49 @@ func TestUnknownRefreshTokenCannotRevoke(t *testing.T) {
 }
 
 func TestConcurrentRefreshRotatesOnce(t *testing.T) {
-	e := newEnv(t, options{})
-	g := e.signIn(memberSub, member)
-	const n = 20
-	var wg sync.WaitGroup
-	results := make([]result, n)
-	for i := range n {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			results[i] = e.refresh(g.RefreshToken)
-		}()
-	}
-	wg.Wait()
-
-	var gen int64
-	var current, prev []byte
-	var deadline int64
-	if err := e.db.QueryRow(`SELECT generation, refresh_hash, prev_refresh_hash, prev_refresh_deadline FROM sessions WHERE id = ?`, g.SessionID).
-		Scan(&gen, &current, &prev, &deadline); err != nil {
-		t.Fatal(err)
-	}
-	original := sha256.Sum256([]byte(g.RefreshToken))
-	if gen != n || !bytes.Equal(prev, original[:]) || deadline != e.clock.Now().Add(120*time.Second).UnixNano() {
-		t.Fatalf("after %d refreshes: generation %d, predecessor is original %t, deadline %d", n, gen, bytes.Equal(prev, original[:]), deadline)
-	}
-	var latest string
-	for _, r := range results {
-		var grant wire.SessionGrant
-		e.decode(r, &grant)
-		if sum := sha256.Sum256([]byte(grant.RefreshToken)); bytes.Equal(sum[:], current) {
-			if latest != "" {
-				t.Fatal("two responses carry the current refresh token")
+	for _, backend := range []string{"SQLite", "DynamoDB"} {
+		t.Run(backend, func(t *testing.T) {
+			e := newEnv(t, options{dynamodb: backend == "DynamoDB"})
+			g := e.signIn(memberSub, member)
+			const n = 20
+			var wg sync.WaitGroup
+			results := make([]result, n)
+			for i := range n {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					results[i] = e.refresh(g.RefreshToken)
+				}()
 			}
-			latest = grant.RefreshToken
-		}
+			wg.Wait()
+
+			sessions, err := e.store.Sessions(t.Context(), memberSub)
+			if err != nil || len(sessions) != 1 {
+				t.Fatalf("sessions = %d, %v", len(sessions), err)
+			}
+			stored := sessions[0]
+			gen, current, prev, deadline := stored.Generation, stored.RefreshHash, stored.PrevRefreshHash, stored.PrevRefreshDeadline.UnixNano()
+			original := sha256.Sum256([]byte(g.RefreshToken))
+			if gen != n || !bytes.Equal(prev, original[:]) || deadline != e.clock.Now().Add(120*time.Second).UnixNano() {
+				t.Fatalf("after %d refreshes: generation %d, predecessor is original %t, deadline %d", n, gen, bytes.Equal(prev, original[:]), deadline)
+			}
+			var latest string
+			for _, r := range results {
+				var grant wire.SessionGrant
+				e.decode(r, &grant)
+				if sum := sha256.Sum256([]byte(grant.RefreshToken)); bytes.Equal(sum[:], current) {
+					if latest != "" {
+						t.Fatal("two responses carry the current refresh token")
+					}
+					latest = grant.RefreshToken
+				}
+			}
+			if latest == "" {
+				t.Fatal("no response carries the current refresh token")
+			}
+			e.decode(e.refresh(latest), &wire.SessionGrant{})
+		})
 	}
-	if latest == "" {
-		t.Fatal("no response carries the current refresh token")
-	}
-	e.decode(e.refresh(latest), &wire.SessionGrant{})
 }
 
 func TestTokenConfusion(t *testing.T) {

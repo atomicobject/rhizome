@@ -412,7 +412,10 @@ team-api-build:
 
 team-api-check:
 	@mkdir -p .gocache .gomodcache .gotmp
-	cd services/team-api && $(TEAM_API_ENV) go vet ./... && $(TEAM_API_ENV) go test -race ./...
+	cd services/team-api && $(TEAM_API_ENV) go vet ./... && $(TEAM_API_ENV) go test -race $(TEAM_API_TEST_FLAGS) ./...
+
+team-api-dynamodb-check:
+	./scripts/team-api/dynamodb-check.sh
 
 team-api-dev: team-api-build
 	$(TEAM_API_BIN) dev --listen $(TEAM_API_DEV_LISTEN) --data-dir $(TEAM_API_DEV_DIR) --upstreams fake
@@ -425,5 +428,5 @@ team-api-dev-live: team-api-build
 team-api-dev-reset:
 	rm -rf $(TEAM_API_DEV_DIR)
 
-.PHONY: team-api-build team-api-check team-api-dev team-api-dev-live team-api-dev-reset
+.PHONY: team-api-build team-api-check team-api-dynamodb-check team-api-dev team-api-dev-live team-api-dev-reset
 

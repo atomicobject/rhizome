@@ -3,7 +3,8 @@
 // interface identity code uses. Each method is one atomic operation with
 // explicit preconditions (a DynamoDB conditional write or transaction maps
 // onto each), and every admin mutation commits with its audit entry. SQLite
-// implements it for local runs; a deployed store must pass storetest.
+// implements it for local runs; DynamoDB implements it for deployment. Both
+// must pass storetest.
 package store
 
 import (

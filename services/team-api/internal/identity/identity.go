@@ -5,7 +5,6 @@ package identity
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"time"
 
@@ -24,16 +23,15 @@ type Identity struct {
 	runtime *auth.Runtime
 }
 
-// New wires the identity side onto db, a handle from store.Open. usage and
+// New wires the identity side onto the selected store. usage and
 // rec may be nil; now defaults to time.Now.
-func New(cfg config.Config, db *sql.DB, usage core.UsageReader, rec *diagnostics.Recorder, now func() time.Time) (*Identity, error) {
+func New(cfg config.Config, st store.Store, usage core.UsageReader, rec *diagnostics.Recorder, now func() time.Time) (*Identity, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	if now == nil {
 		now = time.Now
 	}
-	st := store.NewSQLite(db)
 	rt, err := auth.NewRuntime(context.Background(), st, cfg, now)
 	if err != nil {
 		return nil, err

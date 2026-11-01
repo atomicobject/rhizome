@@ -130,9 +130,8 @@ func TestHundredConcurrentRequestsNeverOverAdmit(t *testing.T) {
 
 func TestPersonBudgetAndDayRollover(t *testing.T) {
 	v, _ := upstream(t, okVoyage)
-	h := newHarness(t, opts{voyage: v.Config.Handler})
+	h := newHarness(t, opts{voyage: v.Config.Handler, now: time.Date(2026, 10, 31, 23, 59, 59, 500e6, time.UTC)})
 	h.person.Store(&wire.DailyLimits{Requests: 1, InputBytes: 1 << 20, ChargeCredits: 1 << 20})
-	h.setClock(time.Date(2026, 10, 31, 23, 59, 59, 500e6, time.UTC))
 	require.Equal(t, http.StatusOK, h.voyage("alice", key(1), voyageBody("x")).status)
 	r := h.voyage("alice", key(2), voyageBody("x"))
 	require.Equal(t, wire.CodeBudgetExhausted, r.code())

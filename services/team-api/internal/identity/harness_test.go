@@ -24,6 +24,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/services/team-api/internal/config"
 	"github.com/atomicobject/rhizome/services/team-api/internal/core"
+	"github.com/atomicobject/rhizome/services/team-api/internal/dynamotest"
 	"github.com/atomicobject/rhizome/services/team-api/internal/identity"
 	"github.com/atomicobject/rhizome/services/team-api/internal/store"
 )
@@ -155,9 +156,10 @@ type env struct {
 }
 
 type options struct {
-	mutate func(*config.Config)
-	rec    *diagnostics.Recorder
-	usage  core.UsageReader
+	dynamodb bool
+	mutate   func(*config.Config)
+	rec      *diagnostics.Recorder
+	usage    core.UsageReader
 }
 
 func newEnv(t *testing.T, opts options) *env {
@@ -184,7 +186,11 @@ func newEnv(t *testing.T, opts options) *env {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	id, err := identity.New(cfg, db, opts.usage, opts.rec, c.Now)
+	var st store.Store = store.NewSQLite(db)
+	if opts.dynamodb {
+		st = store.NewDynamoDB(dynamotest.Open(t))
+	}
+	id, err := identity.New(cfg, st, opts.usage, opts.rec, c.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +203,7 @@ func newEnv(t *testing.T, opts options) *env {
 	})))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return &env{t: t, clock: c, idp: idp, db: db, store: store.NewSQLite(db), srv: srv, id: id, ua: "rzm/1.0.0"}
+	return &env{t: t, clock: c, idp: idp, db: db, store: st, srv: srv, id: id, ua: "rzm/1.0.0"}
 }
 
 type result struct {

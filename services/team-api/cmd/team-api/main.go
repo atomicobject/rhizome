@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	"github.com/atomicobject/rhizome/services/team-api/internal/config"
 	"github.com/atomicobject/rhizome/services/team-api/internal/core"
 	"github.com/atomicobject/rhizome/services/team-api/internal/identity"
-	"github.com/atomicobject/rhizome/services/team-api/internal/store"
 	"github.com/atomicobject/rhizome/services/team-api/internal/traffic"
 )
 
@@ -83,24 +81,33 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return err
 	}
-	// One gateway owns a data directory. Startup recovery marks unfinished
-	// receipts as unknown outcomes, so a second gateway must stop before it
-	// opens the store, and the port is bound before recovery runs.
-	unlock, err := lockDataDir(cfg.DataDir)
-	if err != nil {
-		return err
+	if cfg.State.Backend != "dynamodb" {
+		unlock, err := lockDataDir(cfg.DataDir)
+		if err != nil {
+			return err
+		}
+		defer unlock()
 	}
-	defer unlock()
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
 		return err
 	}
 	defer ln.Close()
-	db, err := store.Open(filepath.Join(cfg.DataDir, "team-api.db"))
+	st, l, closeState, err := openState(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer closeState()
+	// Keep the lease alive through graceful draining, then stop both workers
+	// before closing the backing store.
+	serving, cancelServing := context.WithCancel(ctx)
+	defer cancelServing()
+	stopMaintenance := maintainLedger(l, cancelServing)
+	defer stopMaintenance()
+	if err := l.Recover(ctx); err != nil {
+		return err
+	}
+	ctx = serving
 	diagRoot := cfg.DataDir
 	if cfg.DiagnosticsDir != "" {
 		diagRoot = cfg.DiagnosticsDir
@@ -114,11 +121,11 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	// Identity reads usage from the traffic ledger, and traffic reads the
 	// runtime configuration from identity; the ledger is filled in below.
 	usage := &laterUsage{}
-	id, err := identity.New(cfg, db, usage, rec, time.Now)
+	id, err := identity.New(cfg, st, usage, rec, time.Now)
 	if err != nil {
 		return err
 	}
-	traf, err := traffic.New(trafficConfig(cfg, keys), db, id.Runtime(), rec, time.Now)
+	traf, err := traffic.New(trafficConfig(cfg, keys), l, id.Runtime(), rec, time.Now)
 	if err != nil {
 		return err
 	}

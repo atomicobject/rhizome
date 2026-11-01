@@ -37,6 +37,9 @@ func TestParseDevAppliesDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if cfg.State.Backend != "sqlite" {
+		t.Fatalf("default state = %+v", cfg.State)
+	}
 	if cfg.Scopes != "openid email" || cfg.EligibilityMode != "allowlist" {
 		t.Fatalf("defaults not applied: %+v", cfg)
 	}
@@ -84,6 +87,11 @@ func TestRejectsInvalidConfigs(t *testing.T) {
 		{"bad duration", devJSON, `"mode"`, `"sessions": {"idle_ttl": 5}, "mode"`, "duration"},
 		{"idle beyond absolute", devJSON, `"mode"`, `"sessions": {"idle_ttl": "800h"}, "mode"`, "idle_ttl <= absolute_ttl"},
 		{"defaults above ceiling", devJSON, `"mode"`, `"max_person_limits": {"requests": 4, "input_bytes": 6, "charge_credits": 7}, "mode"`, "exceed max_person_limits"},
+		{"unknown backend", prodJSON, `"sessions"`, `"state": {"backend": "other"}, "sessions"`, "state backend"},
+		{"DynamoDB missing region", prodJSON, `"sessions"`, `"state": {"backend": "dynamodb", "table": "synthetic"}, "sessions"`, "requires table and region"},
+		{"DynamoDB missing table", prodJSON, `"sessions"`, `"state": {"backend": "dynamodb", "region": "us-east-1"}, "sessions"`, "requires table and region"},
+		{"SQLite table", prodJSON, `"sessions"`, `"state": {"table": "synthetic"}, "sessions"`, "require the dynamodb backend"},
+		{"dev DynamoDB", devJSON, `"mode"`, `"state": {"backend": "dynamodb", "table": "synthetic", "region": "us-east-1"}, "mode"`, "dev requires SQLite"},
 		{"two documents", devJSON + "{}", "", "", "more than one"},
 	}
 	for _, tc := range cases {
@@ -115,5 +123,16 @@ func TestLoadReadsClientSecretFromEnvironment(t *testing.T) {
 	}
 	if cfg.ClientSecret != "synthetic-public-client-secret" {
 		t.Fatal("client secret not taken from the environment")
+	}
+}
+
+func TestProductionDynamoDBConfig(t *testing.T) {
+	data := strings.Replace(prodJSON, `"sessions"`, `"state": {"backend":"dynamodb","table":"synthetic","region":"us-east-1"}, "sessions"`, 1)
+	cfg, err := Parse([]byte(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.State.Backend != "dynamodb" || cfg.State.Table != "synthetic" || cfg.State.Region != "us-east-1" {
+		t.Fatalf("state = %+v", cfg.State)
 	}
 }

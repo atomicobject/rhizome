@@ -71,7 +71,10 @@ The log of an auto-started gateway is `~/.config/rhizome/team-api-dev/team-api.l
 ## Tests
 
 ```sh
-make team-api-check          # go vet and race-enabled tests for this module
+make team-api-check          # go vet and race-enabled tests; SQLite by default
+make team-api-dynamodb-check # starts disposable DynamoDB Local, then runs all tests
+# Or use an already running Local instance:
+TEAMAPI_DYNAMODB_ENDPOINT=http://127.0.0.1:8000 make team-api-dynamodb-check
 scripts/team-api/e2e.sh      # real rzm and team-api: sign in, index, search, Jev, admin, diagnostics
 TEAM_API_E2E_UPSTREAMS=live scripts/team-api/e2e.sh   # the same against the real providers
 ```
@@ -85,4 +88,54 @@ TEAM_API_E2E_UPSTREAMS=live scripts/team-api/e2e.sh   # the same against the rea
 - `VOYAGE_API_KEY` and `TYPESAFE_API_KEY` come from the environment (Secrets Manager in ECS).
 - `RHIZOME_TEAM_API_CLIENT_SECRET` optionally holds the Google Desktop client secret.
 
-The deployed store (DynamoDB), CloudFormation, and the runbook are Batch 5 of the [build plan](../../docs/reference/analysis/rhizome-team-api-service-build-plan.md). Until then the server keeps its state in SQLite.
+Select DynamoDB for `serve` by adding this to the production configuration. The table must already exist with string keys `pk` (partition) and `sk` (sort). The gateway never provisions AWS resources.
+
+```json
+"state": {
+  "backend": "dynamodb",
+  "table": "team-api-state",
+  "region": "us-east-1"
+}
+```
+
+Credentials come from the AWS SDK v2 default chain, normally the ECS task role. Omit `state` to keep SQLite. `team-api dev` always uses SQLite and its existing data directory. DynamoDB still uses `data_dir` for local diagnostics. Production configuration has no endpoint override.
+
+## State and accounting
+
+Identity uses `store.Store`; paid accounting uses `ledger.Ledger`. Each exposes atomic business operations, with explicit state and ownership preconditions. Identity and traffic accept those interfaces; `cmd/team-api` selects and owns the backends. SQLite writes use `BEGIN IMMEDIATE`, including migration, so two ledger instances on one database serialize through SQLite itself.
+
+DynamoDB uses one table, no secondary indexes, and no TTL. Each item has a JSON `body` and an opaque `rev`. Strong reads plus revision conditions in `TransactWriteItems` protect every read-modify-write. Transactions check the complete state used for admission, including the owner lease, the receipt, and both counters. Conflicts retry with bounded jitter and a 20-second deadline; ambiguous transport errors escape conservatively. A transaction token handles SDK retries; durable receipts provide long-lived request idempotency.
+
+| Partition key `pk` | Sort key `sk` | State |
+| --- | --- | --- |
+| `people` | Google subject | Person and session revocation generation |
+| `sessions` | Session ID | Token hashes, generation, expiries, and revocation generation at creation |
+| `revocations#<subject>` | Generation number | Immutable bulk revocation time and reason |
+| `config` | `runtime` | Runtime switches and limits |
+| `audit-sequence` | `current` | Commit order for the audit log |
+| `audit` | Zero-padded sequence number | Audit entry, committed with its mutation |
+| `owners` | Random process instance ID | Lease expiry and permanent recovery fence |
+| `receipts` | `<base64url(subject)>:<idempotency key>` | Admission day, reservation, owner, and outcome |
+| `day#YYYY-MM-DD` | `global` or `person#<subject>` | Daily usage counters |
+
+The shared table keeps provisioning and transactions simple for the pilot. Collection queries walk every page. Listing sessions filters the session partition by person. Recovery reads the owners and receipts partitions, then rechecks unfinished receipts before changing them. These reads grow with retained state; measure them before expanding traffic or retention. The global counter intentionally serializes admission. Admin usage reads are observations during traffic, not a transaction snapshot across all people.
+
+Bulk session revocation advances the person's generation with an immutable revocation record and its audit entry in one transaction. Every session write also changes the person's revision, so bulk revocation counts a stable set of sessions and cannot miss a concurrent creation. A session from an older generation uses its first subsequent revocation record. This preserves the first reason and time, avoids the 100-item transaction limit, and keeps sessions created after revocation active. Rotation checks the session generation and revocation state and preserves the supplied predecessor deadline. The auth layer still enforces its fixed 120-second grace.
+
+### Canary recovery
+
+Each process creates a fresh random instance ID and a 60-second lease. The gateway heartbeats every 20 seconds, keeps heartbeating during shutdown draining, and independently runs recovery at startup and every 20 seconds. Heartbeat failure stops admission and drains HTTP work. An expired owner cannot renew its lease; a fresh process must use a new ID. Task clocks must track UTC.
+
+Every receipt records its owner. Admission and all receipt transitions require a live lease. Dispatch and settlement also require that owner to match. Recovery permanently fences an expired owner before converting its reserved or dispatched receipts to unknown, atomically adding the unknown count to both admission-day counters. A heartbeat racing that fence compares the same revision, so only one wins. Another task's unexpired lease protects its requests throughout canary overlap.
+
+A late settlement after expiry or recovery returns `ledger.ErrPrecondition` and keeps the reservation. Concurrent recovery cannot count the same receipt twice. A crash during recovery is safe to retry; a crash after an uncertain commit also keeps the reservation. Even receipts that had not yet dispatched become unknown after their owner expires. Ownerless receipts in an older SQLite database migrate to this conservative recovery path. Receipts and owner fences are retained indefinitely. A quick restart can leave the old receipt in progress until its lease expires and a recovery pass finishes.
+
+The pilot still uses process-local concurrency slots, so old and new tasks may briefly double the slot limits during canary deployments. Shared daily counters and reservations stay atomic. Store-backed slots before rollout, CloudFormation, IAM, live ECS verification, and the deployment runbook remain in Batch 5 and later work.
+
+### DynamoDB Local tests
+
+`TEAMAPI_DYNAMODB_ENDPOINT` enables the DynamoDB contract and auth integration tests. Without it, those cases skip and `make team-api-check` needs no Docker. The test helper accepts only loopback HTTP endpoints, constructs a synthetic credential provider directly, and never loads the default AWS credential chain. Each case creates and deletes a uniquely named Local table. The helper tests bulk revocation beyond 100 sessions and across query pages, concurrent rotations and partial updates, audit rollback, two-instance budget races, idempotency, canary overlap, lease expiry, and late settlement.
+
+`make team-api-dynamodb-check` starts an in-memory `amazon/dynamodb-local:3.1.0` container on a random loopback port when no endpoint is provided, waits for it, runs vet and all race tests with verbose output, and stops the container on exit. Start Docker Desktop first if needed. The CI `Team API Gateway` job runs the default checks and then the Local checks against its service container.
+
+DynamoDB transaction limits and retry semantics follow the [AWS transaction documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html).

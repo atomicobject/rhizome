@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ import (
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/services/team-api/internal/core"
+	"github.com/atomicobject/rhizome/services/team-api/internal/dynamotest"
+	"github.com/atomicobject/rhizome/services/team-api/internal/ledger"
 )
 
 // Synthetic keys; never real credentials.
@@ -58,6 +61,7 @@ type harness struct {
 }
 
 type opts struct {
+	now              time.Time
 	voyage, typesafe http.Handler
 	cfg              func(*Config)
 	rec              *diagnostics.Recorder
@@ -92,7 +96,10 @@ func newHarness(t *testing.T, o opts) *harness {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 	h := &harness{t: t, rt: &stubRuntime{rt: core.Runtime{PaidCallsEnabled: true, VoyageEnabled: true, TypeSafeEnabled: true, GlobalLimits: roomy}}}
-	h.clock.Store(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC).UnixNano())
+	if o.now.IsZero() {
+		o.now = time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	}
+	h.clock.Store(o.now.UnixNano())
 	h.person.Store(&roomy)
 	cfg := Config{VoyageKey: voyageCanary, TypeSafeKey: typesafeCanary}
 	if o.voyage != nil {
@@ -108,7 +115,15 @@ func newHarness(t *testing.T, o opts) *harness {
 	if o.cfg != nil {
 		o.cfg(&cfg)
 	}
-	h.tr, err = New(cfg, db, h.rt, o.rec, func() time.Time { return time.Unix(0, h.clock.Load()).UTC() })
+	clock := func() time.Time { return time.Unix(0, h.clock.Load()).UTC() }
+	var l ledger.Ledger
+	if os.Getenv("TEAMAPI_DYNAMODB_ENDPOINT") != "" {
+		l, err = ledger.OpenDynamoDB(context.Background(), dynamotest.Open(t), clock)
+	} else {
+		l, err = ledger.Open(context.Background(), db, clock)
+	}
+	require.NoError(t, err)
+	h.tr, err = New(cfg, l, h.rt, o.rec, clock)
 	require.NoError(t, err)
 	mux := http.NewServeMux()
 	h.tr.Routes(mux)
