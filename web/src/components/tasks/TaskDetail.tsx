@@ -240,7 +240,11 @@ export function TaskItemStrip({
     try {
       await navigator.clipboard.writeText(prompt);
       setCopy({ status: "copied" });
-      window.setTimeout(() => setCopy(undefined), 2000);
+      // Clears only this success message, never a later manual copy.
+      window.setTimeout(
+        () => setCopy((current) => (current?.status === "copied" ? undefined : current)),
+        2000,
+      );
     } catch {
       // No clipboard access, as in an insecure context: copy by hand.
       setCopy({ status: "manual", prompt });
