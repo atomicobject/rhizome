@@ -229,9 +229,10 @@ func backfillOntologyEmbeddingCacheSchema(ctx context.Context, tx *sql.Tx) error
 // format produced and no current ontology embedding state uses. Vectors of the
 // current format are kept even when unreferenced, so reverting an edit still
 // reuses them; a format change leaves the old generation unreferenced, and this
-// removes it. Rows backfilled from existing vectors carry no format: those a
-// current chunk uses adopt the current format here, and the rest are kept,
-// since nothing shows which format produced them. Callers run it only after a
+// removes it. Every vector a current chunk uses adopts the current format
+// here, so text that survived a format change keeps its revert reuse after a
+// later edit. Unreferenced rows backfilled from existing vectors carry no
+// format and are kept, since nothing shows which format produced them. Callers run it only after a
 // complete index with no pending derived work, so vectors awaiting
 // republication are never removed.
 func (s *Store) PruneOntologyEmbeddingCache(ctx context.Context, currentFormat string) (int64, error) {
@@ -239,7 +240,7 @@ func (s *Store) PruneOntologyEmbeddingCache(ctx context.Context, currentFormat s
 	var deleted int64
 	err := s.withWriteTx(ctx, func(tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE ontology_embedding_cache SET format = ?
-			WHERE format = '' AND text_hash IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`, currentFormat); err != nil {
+			WHERE format != ? AND text_hash IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`, currentFormat, currentFormat); err != nil {
 			return err
 		}
 		result, err := tx.ExecContext(ctx, `DELETE FROM ontology_embedding_cache

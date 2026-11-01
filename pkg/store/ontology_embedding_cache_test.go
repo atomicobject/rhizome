@@ -163,7 +163,7 @@ func TestOntologyEmbeddingCachePrunesOnlyUnreferencedEarlierFormats(t *testing.T
 		return OntologyEmbeddingCacheEntry{Provider: "test", Model: "deterministic", TextHash: hash, Vector: embeddings.Embedding{1, 0, 0}, Format: format}
 	}
 	require.NoError(t, store.UpsertOntologyEmbeddingCache(ctx, []OntologyEmbeddingCacheEntry{
-		entry("chunk-hash", ""), entry("old-generation", "old"), entry("edited-away", "current"), entry("backfilled-history", ""),
+		entry("chunk-hash", "old"), entry("old-generation", "old"), entry("edited-away", "current"), entry("backfilled-history", ""),
 	}))
 	pruned, err := store.PruneOntologyEmbeddingCache(ctx, "current")
 	require.NoError(t, err)
@@ -173,5 +173,16 @@ func TestOntologyEmbeddingCachePrunesOnlyUnreferencedEarlierFormats(t *testing.T
 	require.ElementsMatch(t, []string{"chunk-hash", "edited-away", "backfilled-history"}, slices.Collect(maps.Keys(got)), "only the unreferenced earlier-format vector goes")
 	var format string
 	require.NoError(t, store.db.QueryRowContext(ctx, `SELECT format FROM ontology_embedding_cache WHERE text_hash = 'chunk-hash'`).Scan(&format))
-	require.Equal(t, "current", format, "a backfilled vector a current chunk uses adopts the current format")
+	require.Equal(t, "current", format, "a vector a current chunk uses adopts the current format")
+
+	// Text that survived the format change is then edited away; the next
+	// prune must keep it so reverting the edit still reuses it.
+	_, err = store.db.ExecContext(ctx, `UPDATE ontology_node_embedding_state SET chunk_text_hash = 'edited-text'`)
+	require.NoError(t, err)
+	pruned, err = store.PruneOntologyEmbeddingCache(ctx, "current")
+	require.NoError(t, err)
+	require.Zero(t, pruned)
+	got, err = store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 3, []string{"chunk-hash"})
+	require.NoError(t, err)
+	require.Contains(t, got, "chunk-hash", "text carried across a format change keeps its revert reuse")
 }
