@@ -264,7 +264,7 @@ func TestRerunSuggestsNewDefaultAddonsAndAppliesThemOnlyWhenConfirmed(t *testing
 
 	root := t.TempDir()
 	writeProjectConfig(t, root, "notes:\n  includes: [\"**/*.md\"]\n", repoconfig.LocalWorkflowConfig{Templates: []string{templateAgenticEngineering}})
-	actionItems := filepath.Join(root, ".rhizome", "ontology", "action-items.graphql")
+	actionItems := filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql")
 
 	out, err := runInit(t, RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)

@@ -87,14 +87,15 @@ func TestCopyIsolatedPopulationKeepsAuthoredRhizomeInputsAndDropsRuntimeState(t 
 		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
 	authored := map[string]string{
-		".rhizome/config.yml":              "notes:\n  include: [\"**/*.md\"]\n",
-		".rhizome/ignore":                  "archive/\n",
-		".rhizome/ontology/schema.graphql": "type Person @node(paths: [\"people/*.md\"]) { name: String! }\n",
+		".rhizome/config.yml":                         "notes:\n  include: [\"**/*.md\"]\n",
+		".rhizome/ignore":                             "archive/\n",
+		".rhizome/ontology/schema.graphql":            "type Person @node(paths: [\"people/*.md\"]) { name: String! }\n",
+		".rhizome/modules/team/ontology/team.graphql": "type Team @node(paths: [\"teams/*.md\"]) { name: String! }\n",
 	}
 	for rel, content := range authored {
 		write(rel, content)
 	}
-	runtime := []string{".rhizome/index.sqlite", ".rhizome/cache/embeddings.bin", ".rhizome/sessions/abc.json", ".rhizome/runtime/manifest.json"}
+	runtime := []string{".rhizome/index.sqlite", ".rhizome/cache/embeddings.bin", ".rhizome/sessions/abc.json", ".rhizome/runtime/manifest.json", ".rhizome/modules/team/views/board.tsx"}
 	for _, rel := range runtime {
 		write(rel, "generated")
 	}

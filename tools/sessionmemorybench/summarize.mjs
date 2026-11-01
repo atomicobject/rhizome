@@ -4,7 +4,7 @@
 import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PRICES } from "../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/calls.mjs";
+import { PRICES } from "../../pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/calls.mjs";
 
 const ROOT = resolve(".rhizome/session-memory/eval/runs/terra61-2026-10-30");
 const GOLD = 192;

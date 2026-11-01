@@ -6,6 +6,7 @@ import (
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/codefile"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 func classifyInternalChange(rel string) internalChangeEffect {
@@ -15,9 +16,9 @@ func classifyInternalChange(rel string) internalChangeEffect {
 		return internalChangeEffect{reloadVaultDef: true, refreshMeta: true, refreshOntology: true, invalidateCapabilities: true}
 	case rel == ".rhizome/ignore", rel == ".obsidianignore":
 		return internalChangeEffect{refreshMeta: true, refreshOntology: true}
-	case strings.HasPrefix(rel, ".rhizome/ontology/") && filepath.Ext(rel) == ".graphql":
+	case assetroots.IsAssetPath(rel, assetroots.Ontology) && filepath.Ext(rel) == ".graphql":
 		return internalChangeEffect{refreshOntology: true, invalidateCapabilities: true}
-	case strings.HasPrefix(rel, ".rhizome/query-recipes/") && isYAMLPath(rel):
+	case assetroots.IsAssetPath(rel, assetroots.Recipes) && isYAMLPath(rel):
 		return internalChangeEffect{invalidateQueryRecipes: true, invalidateCapabilities: true}
 	default:
 		return internalChangeEffect{}

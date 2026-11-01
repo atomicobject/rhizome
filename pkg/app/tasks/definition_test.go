@@ -33,6 +33,17 @@ func TestParseDefinition(t *testing.T) {
 	if _, err := ParseDefinition(".rhizome/tasks/Bad_Name.yml", []byte(good)); err == nil {
 		t.Error("expected an invalid id error")
 	}
+	if _, err := ParseDefinition(".rhizome/modules/a/tasks/2026-11-01.yml", []byte(good)); err == nil {
+		t.Error("a module task named like a branch date must be refused")
+	}
+	if def, err := ParseDefinition(".rhizome/modules/compounding/tasks/sweep.yaml", []byte(good)); err != nil || def.ID != "compounding/sweep" {
+		t.Fatalf("expected the qualified id compounding/sweep, got %q, %v", def.ID, err)
+	}
+	for id, want := range map[string]bool{"a": true, "a-b": true, "a/b": true, "a/b/c": false, "a_b": false, "/b": false, "a/": false, "a/2026-11-01": false, "a/2026-11-01-2": false, "a/sweep-2026": true} {
+		if ValidID(id) != want {
+			t.Errorf("ValidID(%q) = %v", id, !want)
+		}
+	}
 }
 
 func TestDefinitionsComeFromThePrimaryRefOnly(t *testing.T) {

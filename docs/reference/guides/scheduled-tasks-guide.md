@@ -1,12 +1,12 @@
 ---
 type: ReferenceDoc
-summary: "How to declare scheduled tasks in .rhizome/tasks, choose whether they run automatically or notify, and use the rzm tasks commands and inbox."
+summary: "How to declare scheduled tasks in .rhizome/tasks or a module's tasks folder, choose whether they run automatically or notify, and use the rzm tasks commands and inbox."
 reference-kind: guide
 ---
 
 # Scheduled tasks
 
-Last verified: 2026-10-31
+Last verified: 2026-11-01
 
 Scheduled tasks are periodic agent work that a repository declares once and that runs on each teammate's machine, in that person's own agent harness (Claude Code or Codex). The contract is [[scheduled-tasks|SPEC-0127]].
 
@@ -18,6 +18,8 @@ A task has up to two parts:
 ## Declare a task
 
 Commit a file to `.rhizome/tasks/<id>.yml` on the primary branch. The id is the file name: lowercase letters, digits, and hyphens.
+
+A task can also live in a module, at `.rhizome/modules/<module>/tasks/<name>.yml` ([[rhizome-modules|SPEC-0130]]). Its id is qualified with the module name, such as `compounding/sweep`, so it never collides with a flat task. Use the qualified id wherever a command takes a task, as in `rzm tasks mode compounding/sweep off`. Only files directly inside a `tasks` folder are tasks.
 
 ```yaml
 name: Finalize notes                # shown in the inbox
@@ -84,7 +86,7 @@ A `person` task is due when your own last run is older than its cadence. A `team
 
 ## Background runs
 
-A background run, automatic or started with `rzm tasks run <item>`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. Nothing is pushed and no pull request is opened. A run that changes nothing removes its worktree and branch.
+A background run, automatic or started with `rzm tasks run <item>`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. Nothing is pushed and no pull request is opened. A run that changes nothing removes its worktree and branch.
 
 Review a finished run in its worktree, then open the pull request yourself, or discard it with `rzm tasks discard <item>`.
 
@@ -116,7 +118,7 @@ In Rhizome Desktop, the Dock icon's badge counts the task items that need you (d
 
 ## Where state lives
 
-Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
+Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. Folder names replace the slash in a module task's id with `_` (`data/compounding_sweep/`), which no id contains. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
 
 Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript). A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. `rzm tasks run --file` runs are not recorded and do not move the task's clock; their folders are deleted after 7 days.
 

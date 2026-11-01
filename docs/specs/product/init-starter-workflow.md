@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a five-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, starter ejection, and adding or removing add-ons."
 id: SPEC-0038
 spec-status: active
-last-updated: 2026-10-30
+last-updated: 2026-11-01
 aliases:
   - SPEC-0038
   - init-starter-workflow
@@ -95,7 +95,7 @@ The starter is the Rhizome repository harness for Agentic Engineering. It should
 - The selected starter writes its concise extension docs and ontology assets from the starter template tree. ^SPEC-0038-US2-AC1
   - Selecting `agentic-engineering` installs team-editable plain Markdown under `docs/engineering/` factored by recurring engineering concern rather than by workflow phase: an index plus testing policy, quality gates, documentation, review and approval, architecture, and release. Several phases read the same concern document.
   - The initial extension docs are short, readable process defaults rather than exhaustive manuals or structured-data formats; after installation, the repository owns their content.
-  - The starter ontology schemas are installed from `pkg/app/cli/init/templates/starters/agentic-engineering/rhizome/ontology/*.graphql` while preserving domain-accurate filenames such as `spec-driven.graphql`.
+  - The starter ontology schemas are installed from `pkg/app/cli/init/templates/starters/agentic-engineering/module/ontology/*.graphql` into the starter's module folder ([[rhizome-modules|SPEC-0130]]) while preserving domain-accurate filenames such as `spec-driven.graphql`.
   - Scaffold output excludes starter skill directories, managed agent-doc templates, and starter ontology schemas because those families have their own installation rules.
 - The selected starter adds a template-specific managed block to `AGENTS.md` and `CLAUDE.md` when those surfaces are enabled. ^SPEC-0038-US2-AC2
   - Enabled agent docs receive one core Rhizome managed block and one starter managed block per active template.

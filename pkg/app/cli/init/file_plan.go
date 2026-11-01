@@ -58,6 +58,9 @@ type generatedRemoval struct {
 	// retired marks a file of a skill Rhizome retired. Without a record it is
 	// removed without asking.
 	retired bool
+	// fingerprint overrides contentFingerprint when comparing the file with
+	// its record, as for generatedFile.
+	fingerprint func([]byte) string
 }
 
 type filePlan struct {
@@ -73,6 +76,9 @@ type filePlan struct {
 	currentCommands map[string]struct{}
 	// hookFiles are harness settings files holding Rhizome hook entries.
 	hookFiles []generatedHookFile
+	// keptFlat are edited flat copies of starter files whose module copies
+	// are not installed.
+	keptFlat []keptFlatCopy
 }
 
 func (p *filePlan) addFile(file generatedFile) {
@@ -177,7 +183,7 @@ func prepareGeneratedFiles(projectRoot string, in generatedInputs) (*preparedFil
 	if err := planAgentSurfaces(projectRoot, in.harnesses, in.section, in.templates, in.surfaceOpts, record, plan); err != nil {
 		return nil, err
 	}
-	if err := planTemplateScaffold(projectRoot, in.templates, in.refreshDocs, plan); err != nil {
+	if err := planTemplateScaffold(projectRoot, in.templates, in.refreshDocs, record, plan); err != nil {
 		return nil, err
 	}
 	if err := planRemovedStarterFiles(in.templates, in.surfaceOpts.PreserveSkillTemplates, record, plan); err != nil {

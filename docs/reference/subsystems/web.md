@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-10-25
+last-verified: 2026-11-01
 code-paths:
   - pkg/app/web
 tags: [subsystem/web]
@@ -24,6 +24,7 @@ code-anchors:
 - Server construction validates and retains the explicit metadata runtime. Every read scope receives that runtime so root capabilities follow the provider, including non-Markdown formats. Missing dependencies produce structured errors or retryable readiness responses.
 - Live operations consume one runtime snapshot containing its matching vault definition and configuration. Runtime-free paths assemble an explicit snapshot. Read fallbacks use existing read-only stores and never create, migrate, repair, or rebuild an index.
 - File and rendered-content routes admit only resolved paths within the resolved vault root. Ignore policy applies to both an authored symlink path and its target. Validate the application host before dispatch; isolated HTML viewing retains its separate origin and nonce contract.
+- Custom view files, stamps, and checks are read through the `os.Root` of the one views folder that holds the definition, after that folder resolves inside the vault. Flat views use `/views/_files|_stamp|_check/` and bare folder keys; module views ([[rhizome-modules|SPEC-0130]]) use `/views/_module/<module>/_files|_stamp|_check/` and the folder key `/module/<module>/<folder>`, so no module route or key can reach or collide with a flat folder, including one named `modules`. The `views.changed` poller stamps every views folder.
 - Source edits go through the shared edit-session and source-transaction owners under a real vault lease. Preview, rebase, commit, recovery, and idempotency receipts preserve conflict outcomes and later external edits. Browser backups are recovery input, not write authority.
 - Event streams are invalidation signals. Preserve subscribed refs while tracking canonical relocated identity, advance versions after publication, and refresh affected panes and collection data after commits. Provider selection governs eligible events; filename assumptions do not exclude supported formats.
 - Browser diagnostics batches (`POST /api/v1/diagnostics/client`) pass the global host and origin checks, are size-bounded and strictly validated, and become one `web.client` event each. Without a recorder or with persistence disabled they are accepted and discarded.

@@ -199,7 +199,7 @@ func applyScaffoldForTest(t *testing.T, root string, ui ownershipUI) syncReport 
 	t.Helper()
 	record, _ := loadGeneratedFiles(root)
 	plan := &filePlan{}
-	require.NoError(t, planTemplateScaffold(root, []string{templateAgenticEngineering}, false, plan))
+	require.NoError(t, planTemplateScaffold(root, []string{templateAgenticEngineering}, false, record, plan))
 	report, err := applyFilePlan(root, plan, record, ui)
 	require.NoError(t, err)
 	return report
@@ -214,7 +214,7 @@ func TestScaffoldUpdatePreservesAdoptedIdentifierStrategy(t *testing.T) {
  }
  # older shipped content
  `)
-	rel := ".rhizome/ontology/spec-driven.graphql"
+	rel := ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql"
 	target := filepath.Join(root, filepath.FromSlash(rel))
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
 	require.NoError(t, os.WriteFile(target, installed, 0o644))
@@ -255,7 +255,7 @@ func TestIdentifierMigrationDoesNotCountAsAnOntologyEdit(t *testing.T) {
 	require.Equal(t, ontologyFingerprint(shipped), ontologyFingerprint(migrated))
 	require.NotEqual(t, ontologyFingerprint(shipped), ontologyFingerprint(append(append([]byte(nil), shipped...), "\ntype Extra { id: ID! }\n"...)))
 
-	rel := ".rhizome/ontology/spec-driven.graphql"
+	rel := ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql"
 	target := filepath.Join(root, filepath.FromSlash(rel))
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
 	require.NoError(t, os.WriteFile(target, migrated, 0o644))
@@ -274,7 +274,7 @@ func TestIdentifierMigrationDoesNotCountAsAnOntologyEdit(t *testing.T) {
 func TestEditedOntologyIsKeptWithoutADecision(t *testing.T) {
 	root := t.TempDir()
 	installed := append(specDrivenOntologyTemplate(t), []byte("\n# team addition\n")...)
-	rel := ".rhizome/ontology/spec-driven.graphql"
+	rel := ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql"
 	target := filepath.Join(root, filepath.FromSlash(rel))
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
 	require.NoError(t, os.WriteFile(target, installed, 0o644))

@@ -64,3 +64,27 @@ func TestRunTasksWithoutTaskFolderIsNotApplicable(t *testing.T) {
 	require.True(t, result.OK)
 	require.Equal(t, "no task files found", result.NotApplicable)
 }
+
+func TestRunTasksChecksModuleTasks(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	write := func(rel, body string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(body), 0o644))
+	}
+	write(".rhizome/modules/compounding/tasks/sweep.yml", "name: Sweep\nevery: 1d\nprompt: x\n")
+	write(".rhizome/modules/compounding/tasks/sweep.yaml", "name: Dup\nevery: 1d\nprompt: x\n")
+	write(".rhizome/modules/compounding/tasks/broken.yml", "name: X\nevery: soon\nprompt: x\n")
+
+	result := RunTasks(RunContext{VaultPath: root})
+
+	require.False(t, result.OK)
+	require.Equal(t, "3 task files checked", result.Summary)
+	got := map[string]string{}
+	for _, issue := range result.Issues {
+		got[issue.Path] = issue.Message
+	}
+	require.Contains(t, got[".rhizome/modules/compounding/tasks/broken.yml"], "every: invalid duration")
+	require.Contains(t, got[".rhizome/modules/compounding/tasks/sweep.yml"], `task id "compounding/sweep" is also declared by .rhizome/modules/compounding/tasks/sweep.yaml`)
+}

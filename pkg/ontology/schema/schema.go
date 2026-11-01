@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 const (
@@ -22,7 +24,8 @@ var (
 	ErrNoOntologyFiles = fmt.Errorf("no ontology files found")
 )
 
-// OntologyDir returns the committed SDL directory inside a vault/repo root.
+// OntologyDir returns the flat committed SDL directory inside a vault/repo
+// root. Module ontology folders are found through assetroots.
 func OntologyDir(vaultPath string) string {
 	return filepath.Join(vaultPath, ontologyDirName)
 }
@@ -33,7 +36,8 @@ func TypeFieldName() string {
 }
 
 type authoredSchemaFile struct {
-	path string
+	path string // absolute
+	rel  string // repository-relative, forward slashes
 	data []byte
 }
 
@@ -43,31 +47,39 @@ func SchemaSourceHash(vaultPath string) (string, error) {
 	return hash, err
 }
 
+// readAuthoredSchemaFiles reads the top-level *.graphql files of every
+// ontology root: the flat folder, then each module's ontology folder. Each
+// file is named by its repository-relative path so two modules may each ship
+// a file with the same name.
 func readAuthoredSchemaFiles(vaultPath string) ([]authoredSchemaFile, string, error) {
-	dir := OntologyDir(vaultPath)
-	entries, err := os.ReadDir(dir)
+	roots, err := assetroots.Roots(vaultPath, assetroots.Ontology)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, "", ErrNoOntologyFiles
-		}
 		return nil, "", err
 	}
 	hasher := sha256.New()
-	files := make([]authoredSchemaFile, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".graphql" {
-			continue
-		}
-		path := filepath.Join(dir, entry.Name())
-		data, err := os.ReadFile(path)
+	var files []authoredSchemaFile
+	for _, root := range roots {
+		dir := root.Abs(vaultPath)
+		entries, err := os.ReadDir(dir)
 		if err != nil {
 			return nil, "", err
 		}
-		_, _ = hasher.Write([]byte(entry.Name()))
-		_, _ = hasher.Write([]byte{0})
-		_, _ = hasher.Write(data)
-		_, _ = hasher.Write([]byte{0})
-		files = append(files, authoredSchemaFile{path: path, data: data})
+		for _, entry := range entries {
+			if entry.IsDir() || filepath.Ext(entry.Name()) != ".graphql" {
+				continue
+			}
+			path := filepath.Join(dir, entry.Name())
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, "", err
+			}
+			rel := root.Rel + "/" + entry.Name()
+			_, _ = hasher.Write([]byte(rel))
+			_, _ = hasher.Write([]byte{0})
+			_, _ = hasher.Write(data)
+			_, _ = hasher.Write([]byte{0})
+			files = append(files, authoredSchemaFile{path: path, rel: rel, data: data})
+		}
 	}
 	if len(files) == 0 {
 		return nil, "", ErrNoOntologyFiles
@@ -86,7 +98,7 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 	for _, file := range authoredFiles {
 		files = append(files, file.path)
 		raw := string(file.data)
-		rel := filepath.ToSlash(filepath.Base(file.path))
+		rel := file.rel
 		// IMPORTANT: inject generated Section fields after hashing authored bytes.
 		// Compiler/prelude changes should not dirty every vault snapshot when the
 		// repo's SDL did not change.

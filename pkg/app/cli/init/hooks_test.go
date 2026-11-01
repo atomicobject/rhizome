@@ -521,7 +521,7 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	require.Equal(t, "compounding/deliver-shards", h.Key())
 	require.Equal(t, "compounding/guard-rules", handlers[1].Key())
 	require.Equal(t, "docs/memory/agent-findings", handlers[1].GuardRules)
-	require.Equal(t, []string{"node", ".agents/skills/compounding/scripts/hook.mjs"}, h.Command)
+	require.Equal(t, []string{"node", ".rhizome/modules/compounding/scripts/hook.mjs"}, h.Command)
 	require.Equal(t, ".rhizome/compounding/hook/command-prefixes.json", h.CommandPrefixes)
 	require.ElementsMatch(t, []string{hook.SessionStart, hook.SubagentStart, hook.PostToolUse}, h.Events)
 	require.FileExists(t, filepath.Join(root, filepath.FromSlash(h.Command[1])), "the handler script is installed")
@@ -542,41 +542,46 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	require.FileExists(t, filepath.Join(root, filepath.FromSlash(handlers[0].Command[1])))
 }
 
-func TestHookHandlersRunFromTheInstalledSkillFolder(t *testing.T) {
+func TestHookHandlersRunFromTheModuleFolder(t *testing.T) {
 	stubHookSupport(t, nil)
 	root := machineRunRepo(t)
-	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "claude", Search: "off", Hooks: "on"})
-	require.NoError(t, err)
-	cfg := loadConfigForTest(t, root)
-	cfg.Agents.AgentSkills = "off"
-	require.NoError(t, repoconfig.SaveLocalConfig(root, *cfg))
-	_, err = runInit(t, RunOptions{Dir: root})
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "claude,codex", Search: "off", Hooks: "on"})
 	require.NoError(t, err)
 
 	handlers, err := HookHandlers(root)
 	require.NoError(t, err)
 	require.Len(t, handlers, 2)
-	require.Equal(t, []string{"node", ".claude/skills/compounding/scripts/hook.mjs"}, handlers[0].Command)
-	require.FileExists(t, filepath.Join(root, ".claude", "skills", "compounding", "scripts", "hook.mjs"))
+	require.Equal(t, []string{"node", ".rhizome/modules/compounding/scripts/hook.mjs"}, handlers[0].Command)
+	info, err := os.Stat(filepath.Join(root, ".rhizome", "modules", "compounding", "scripts", "hook.mjs"))
+	require.NoError(t, err)
+	if runtime.GOOS != "windows" {
+		require.Equal(t, os.FileMode(0o755), info.Mode().Perm(), "module scripts are executable")
+	}
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "compounding", "models.json"))
+	for _, skills := range []string{".agents/skills", ".claude/skills"} {
+		require.FileExists(t, filepath.Join(root, skills, "compounding", "SKILL.md"))
+		require.NoDirExists(t, filepath.Join(root, skills, "compounding", "scripts"), "scripts are written once, into the module")
+	}
 }
 
-func TestAHandlerWhoseSkillFolderIsOffDoesNotRun(t *testing.T) {
+func TestAHandlerWhoseModuleFolderIsMissingDoesNotRun(t *testing.T) {
 	stubHookSupport(t, nil)
 	root := machineRunRepo(t)
 	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "codex", Search: "off", Hooks: "on"})
 	require.NoError(t, err)
-	cfg := loadConfigForTest(t, root)
-	cfg.Agents.AgentSkills = "off"
-	require.NoError(t, repoconfig.SaveLocalConfig(root, *cfg))
-	require.DirExists(t, filepath.Join(root, ".agents", "skills", "compounding"), "an old copy remains")
+	// An ejected starter keeps its files as they are, so init does not
+	// bring back a module folder it lost.
+	_, err = runInit(t, RunOptions{Dir: root, Eject: "compounding"})
+	require.NoError(t, err)
+	require.NoError(t, os.RemoveAll(filepath.Join(root, ".rhizome", "modules", "compounding")))
 
 	handlers, err := HookHandlers(root)
 	require.NoError(t, err)
-	require.Len(t, handlers, 1, "the copy in a disabled folder is not run")
-	require.Equal(t, "compounding/guard-rules", handlers[0].Key(), "the built-in guard needs no skill")
+	require.Len(t, handlers, 1, "a handler whose module folder is missing does not run")
+	require.Equal(t, "compounding/guard-rules", handlers[0].Key(), "the built-in guard needs no module")
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
-	require.Contains(t, out, "compounding/deliver-shards does not run: no enabled skill folder holds its compounding skill")
+	require.Contains(t, out, "compounding/deliver-shards does not run: its module folder .rhizome/modules/compounding is missing")
 }
 
 func TestHookDeclarationsAreValidated(t *testing.T) {

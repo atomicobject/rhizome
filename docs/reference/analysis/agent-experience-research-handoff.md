@@ -79,7 +79,7 @@ The supervisor remains responsible for the result. It reviews the actual diff an
 
 **Dependency:** the coordinator reconciles and closes the earlier active Complex Domain delivery against its original scope before redesign implementation changes its spec or starter assets. New planning can proceed now. AE phase and overlay contracts must be agreed before either side implements changes to them.
 
-**Sources:** [Complex Domain spec](../../specs/product/complex-domain-starter.md), [canonical router](../../../pkg/app/cli/init/templates/starters/complex-domain/agents/skills/complex-domain/SKILL.md), [recipes](../../../pkg/app/cli/init/templates/starters/complex-domain/rhizome/query-recipes/complex-domain.yaml), and [overlay contract](../../specs/technical/skill-template-overlays.md).
+**Sources:** [Complex Domain spec](../../specs/product/complex-domain-starter.md), [canonical router](../../../pkg/app/cli/init/templates/starters/complex-domain/agents/skills/complex-domain/SKILL.md), [recipes](../../../pkg/app/cli/init/templates/starters/complex-domain/module/recipes/complex-domain.yaml), and [overlay contract](../../specs/technical/skill-template-overlays.md).
 
 ### 5. Rhizome already has valuable safe-write machinery
 

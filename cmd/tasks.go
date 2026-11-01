@@ -30,7 +30,8 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tasks",
 		Short: "Run and manage this repository's scheduled tasks",
-		Long: "Scheduled tasks are declared in .rhizome/tasks/*.yml on the primary branch. " +
+		Long: "Scheduled tasks are declared in .rhizome/tasks/*.yml and .rhizome/modules/<module>/tasks/*.yml " +
+			"on the primary branch. A module's task id is <module>/<file name>. " +
 			"Each runs an optional free check, then a prompt in your agent harness, " +
 			"automatically or after you act on its inbox item.",
 		Args: cobra.NoArgs,

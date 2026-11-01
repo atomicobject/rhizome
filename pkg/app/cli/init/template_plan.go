@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -39,6 +40,7 @@ func inferTemplateChoices(projectRoot string, localCfg *repoconfig.LocalConfig) 
 			filepath.Join(projectRoot, ".agents", "skills", "complex-domain", "SKILL.md"),
 			filepath.Join(projectRoot, ".claude", "skills", "complex-domain", "SKILL.md"),
 			filepath.Join(projectRoot, ".rhizome", "ontology", "complex-domain.graphql"),
+			filepath.Join(projectRoot, filepath.FromSlash(assetroots.ModuleDir(templateComplexDomain, assetroots.Ontology)), "complex-domain.graphql"),
 		},
 	}
 	var detected []string
@@ -96,14 +98,53 @@ func removeInferredTemplateDependencies(detected []string, registry map[string]s
 	return out
 }
 
+// starterModuleFile is one file of a starter's module: where it installs
+// and, for an asset kind with a flat folder, the flat path init installed it
+// at before modules.
+type starterModuleFile struct {
+	target  string
+	legacy  string
+	kind    assetroots.Kind
+	content []byte
+}
+
+// starterModuleFiles lists a starter's module files with their install
+// paths under `.rhizome/modules/<id>/` ([[rhizome-modules#^SPEC-0130-US1]]).
+func starterModuleFiles(template string) ([]starterModuleFile, error) {
+	files, err := loadStarterModuleTemplates(template)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]starterModuleFile, 0, len(files))
+	for _, file := range files {
+		f := starterModuleFile{target: assetroots.ModuleRoot(template) + "/" + file.Path, content: file.Content}
+		if _, kind, sub, ok := assetroots.Classify(f.target); ok {
+			f.kind = kind
+			if flat := assetroots.FlatDir(kind); flat != "" {
+				f.legacy = flat + "/" + sub
+			}
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+// keptFlatCopy is an edited flat copy of a starter file that init keeps, so
+// it does not install the module copy that would duplicate it.
+type keptFlatCopy struct {
+	flat   string
+	module string
+}
+
 // planTemplateScaffold adds every starter file outside the agent folders:
-// starter docs (team-owned, created only), ontology schemas, saved queries,
-// and views. Target path collisions across templates are rejected.
+// starter docs (team-owned, created only) and each starter's module.
+// Target path collisions across templates are rejected.
 //
 // Docs:
 // - [[init-template-architecture#^spec-0039-us2-ac1]]
 // - [[init-starter-workflow#^SPEC-0038-US3-AC2]]
-func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bool, plan *filePlan) error {
+// - [[rhizome-modules#^SPEC-0130-US2]]
+func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bool, record *generatedFiles, plan *filePlan) error {
 	templates, err := normalizeTemplateNames(templates)
 	if err != nil {
 		return err
@@ -126,53 +167,42 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 	}
 
 	for _, template := range templates {
-		ontologyFiles, err := loadStarterOntologyTemplates(template)
+		moduleFiles, err := starterModuleFiles(template)
 		if err != nil {
 			return err
 		}
-		for _, file := range ontologyFiles {
-			// WHY: each template names its schema after itself so several
-			// starters land distinct .graphql files that the loader merges.
-			target := filepath.ToSlash(filepath.Join(".rhizome", "ontology", file.Path))
-			fresh, err := register(target, file.Content, template)
+		for _, file := range moduleFiles {
+			fresh, err := register(file.target, file.content, template)
 			if err != nil {
 				return err
 			}
 			if !fresh {
 				continue
 			}
-			content, err := ontologyWithInstalledIdentifiers(projectRoot, target, file.Content)
-			if err != nil {
-				return err
+			fingerprint := contentFingerprint
+			if file.kind == assetroots.Ontology {
+				fingerprint = ontologyFingerprint
 			}
-			plan.addFile(generatedFile{rel: target, content: content, fingerprint: ontologyFingerprint})
-		}
-		recipeFiles, err := loadStarterQueryRecipeTemplates(template)
-		if err != nil {
-			return err
-		}
-		viewFiles, err := loadStarterViewTemplates(template)
-		if err != nil {
-			return err
-		}
-		taskFiles, err := loadStarterTaskTemplates(template)
-		if err != nil {
-			return err
-		}
-		for _, group := range []struct {
-			dir   string
-			files []starterTemplateFile
-		}{{".rhizome/query-recipes", recipeFiles}, {".rhizome/views", viewFiles}, {".rhizome/tasks", taskFiles}} {
-			for _, file := range group.files {
-				target := group.dir + "/" + filepath.ToSlash(file.Path)
-				fresh, err := register(target, file.Content, template)
+			if file.legacy != "" {
+				kept, err := planLegacyFlatCopy(projectRoot, file, fingerprint, record, plan)
 				if err != nil {
 					return err
 				}
-				if fresh {
-					plan.addFile(generatedFile{rel: target, content: file.Content})
+				if kept {
+					continue
 				}
 			}
+			generated := generatedFile{rel: file.target, content: file.content}
+			switch file.kind {
+			case assetroots.Ontology:
+				if generated.content, err = ontologyWithInstalledIdentifiers(projectRoot, file.content, file.target, file.legacy); err != nil {
+					return err
+				}
+				generated.fingerprint = ontologyFingerprint
+			case assetroots.Scripts:
+				generated.mode = 0o755
+			}
+			plan.addFile(generated)
 		}
 
 		docs, err := loadStarterTemplates(template)
@@ -193,10 +223,40 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 	return nil
 }
 
-// planRemovedStarterFiles removes the saved queries and views of starters
-// that are neither active nor unlinked, when the record shows Rhizome wrote
-// them. Team-owned docs stay, and so does the schema, because existing notes
-// may still use its types.
+// planLegacyFlatCopy handles the flat copy of a module file that init
+// installed before modules. An unedited copy is removed once the module copy
+// is in place. An edited copy, or one init has no record of writing, stays,
+// and kept reports that the module copy must not be installed beside it.
+//
+// Docs: [[rhizome-modules#^SPEC-0130-US2]]
+func planLegacyFlatCopy(projectRoot string, file starterModuleFile, fingerprint func([]byte) string, record *generatedFiles, plan *filePlan) (kept bool, err error) {
+	current, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(file.legacy)))
+	if err != nil {
+		return false, err
+	}
+	written, recorded := record.Written[file.legacy]
+	if !exists {
+		// Someone moved the flat copy to the module path, as the kept-copy
+		// report suggests: its record moves with it, so its edits still count
+		// as edits.
+		if _, targetRecorded := record.Written[file.target]; recorded && !targetRecorded {
+			record.Written[file.target] = written
+		}
+		return false, nil
+	}
+	if recorded && fingerprint(current) == written {
+		plan.removals = append(plan.removals, generatedRemoval{rel: file.legacy, requires: file.target, fingerprint: fingerprint})
+		return false, nil
+	}
+	plan.keptFlat = append(plan.keptFlat, keptFlatCopy{flat: file.legacy, module: file.target})
+	return true, nil
+}
+
+// planRemovedStarterFiles removes the module files, other than the schema,
+// of starters that are neither active nor unlinked, and the flat copies init
+// installed before modules, when the record shows Rhizome wrote them.
+// Team-owned docs stay, and so does the schema, because existing notes may
+// still use its types.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US7]]
 func planRemovedStarterFiles(templates, unlinked []string, record *generatedFiles, plan *filePlan) error {
@@ -218,25 +278,16 @@ func planRemovedStarterFiles(templates, unlinked []string, record *generatedFile
 		if keep[id] {
 			continue
 		}
-		recipes, err := loadStarterQueryRecipeTemplates(id)
+		files, err := starterModuleFiles(id)
 		if err != nil {
 			return err
 		}
-		views, err := loadStarterViewTemplates(id)
-		if err != nil {
-			return err
-		}
-		tasks, err := loadStarterTaskTemplates(id)
-		if err != nil {
-			return err
-		}
-		for _, group := range []struct {
-			dir   string
-			files []starterTemplateFile
-		}{{".rhizome/query-recipes", recipes}, {".rhizome/views", views}, {".rhizome/tasks", tasks}} {
-			for _, file := range group.files {
-				target := group.dir + "/" + filepath.ToSlash(file.Path)
-				if _, recorded := record.Written[target]; !recorded || planned[target] {
+		for _, file := range files {
+			if file.kind == assetroots.Ontology {
+				continue
+			}
+			for _, target := range []string{file.target, file.legacy} {
+				if _, recorded := record.Written[target]; target == "" || !recorded || planned[target] {
 					continue
 				}
 				plan.removals = append(plan.removals, generatedRemoval{rel: target})
@@ -248,22 +299,33 @@ func planRemovedStarterFiles(templates, unlinked []string, record *generatedFile
 
 // ontologyWithInstalledIdentifiers carries an installed schema's identifier
 // allocation contracts into the new version, because init may refresh a
-// schema but never rekey an identifier pool.
-func ontologyWithInstalledIdentifiers(projectRoot, rel string, upstream []byte) ([]byte, error) {
-	existing, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(rel)))
-	if err != nil || !exists {
-		return upstream, err
+// schema but never rekey an identifier pool. The installed schema is the
+// first of rels that exists, so a schema moving into its module keeps the
+// contracts of its flat copy.
+func ontologyWithInstalledIdentifiers(projectRoot string, upstream []byte, rels ...string) ([]byte, error) {
+	for _, rel := range rels {
+		if rel == "" {
+			continue
+		}
+		existing, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(rel)))
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		if _, err := parseIdentifierAllocationContracts("installed ontology", existing); err != nil {
+			// Not a schema Rhizome can read, so there is no contract to carry;
+			// the ownership rule decides what happens to the file.
+			return upstream, nil
+		}
+		content, _, err := preserveAdoptedIdentifierStrategies(existing, upstream)
+		if err != nil {
+			return nil, fmt.Errorf("preserve adopted identifier strategies in %s: %w", rel, err)
+		}
+		return content, nil
 	}
-	if _, err := parseIdentifierAllocationContracts("installed ontology", existing); err != nil {
-		// Not a schema Rhizome can read, so there is no contract to carry;
-		// the ownership rule decides what happens to the file.
-		return upstream, nil
-	}
-	content, _, err := preserveAdoptedIdentifierStrategies(existing, upstream)
-	if err != nil {
-		return nil, fmt.Errorf("preserve adopted identifier strategies in %s: %w", rel, err)
-	}
-	return content, nil
+	return upstream, nil
 }
 
 // frozenStarters lists ejected starters and the starters they require, minus

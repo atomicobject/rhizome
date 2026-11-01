@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -56,7 +57,7 @@ func (s *Service) PlanStart(ctx context.Context, itemID string, kind harness.Kin
 	}
 	switch kind {
 	case harness.KindClaude:
-		plan.Argv = []string{"claude", "--worktree", strings.ReplaceAll(strings.TrimPrefix(branch, "rzm/"), "/", "-"), plan.Prompt}
+		plan.Argv = []string{"claude", "--worktree", worktreeName(def, branch), plan.Prompt}
 	case harness.KindCodex:
 		plan.Argv = []string{"codex", "--worktree", plan.Prompt}
 	}
@@ -128,6 +129,15 @@ func (s *Service) UndoStart(ctx context.Context, plan StartPlan, reason string) 
 	})
 }
 
+var branchSuffix = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]+)?$`)
+
+// isTaskBranch reports whether branch is rzm/<task>/<date>[-n]. Requiring
+// the date keeps flat task `a` from matching module task `a/b`'s branches.
+func isTaskBranch(branch, task string) bool {
+	rest, ok := strings.CutPrefix(branch, "rzm/"+task+"/")
+	return ok && branchSuffix.MatchString(rest)
+}
+
 // openPulls lists open pull requests on this task's branches, using gh
 // when it is installed. Any failure means none are known.
 func openPulls(ctx context.Context, dir, task string) []string {
@@ -151,7 +161,7 @@ func openPulls(ctx context.Context, dir, task string) []string {
 	}
 	var urls []string
 	for _, p := range pulls {
-		if strings.HasPrefix(p.Head, "rzm/"+task+"/") {
+		if isTaskBranch(p.Head, task) {
 			urls = append(urls, p.URL)
 		}
 	}

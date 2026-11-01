@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -118,19 +119,41 @@ func enabledSkillFolders(prefs *repoconfig.AgentPreferences) []string {
 	return folders
 }
 
-// resolveSkillCommand points a handler command at the folder its skill is
-// installed in, or reports false when no enabled folder holds it.
-func resolveSkillCommand(root string, prefs *repoconfig.AgentPreferences, h hook.Handler) ([]string, bool) {
-	if h.Skill == "" {
-		return h.Command, true
+// modulePlaceholder in a handler command stands for its starter's module
+// folder, which does not depend on the agent folders.
+//
+// Docs: [[rhizome-modules#^SPEC-0130-US1]]
+const modulePlaceholder = "{module}"
+
+func usesModule(h hook.Handler) bool {
+	for _, arg := range h.Command {
+		if strings.Contains(arg, modulePlaceholder) {
+			return true
+		}
 	}
-	dir, ok := skillDir(root, prefs, h.Skill)
-	if !ok {
+	return false
+}
+
+// resolveHandlerCommand points a handler command at its starter's module
+// folder and the folder its skill is installed in, or reports false when the
+// module folder is missing or no enabled folder holds the skill.
+func resolveHandlerCommand(root string, prefs *repoconfig.AgentPreferences, h hook.Handler) ([]string, bool) {
+	module := assetroots.ModuleRoot(h.Starter)
+	if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(module))); usesModule(h) && (err != nil || !info.IsDir()) {
 		return nil, false
 	}
+	replacements := []string{modulePlaceholder, module}
+	if h.Skill != "" {
+		dir, ok := skillDir(root, prefs, h.Skill)
+		if !ok {
+			return nil, false
+		}
+		replacements = append(replacements, skillPlaceholder, dir)
+	}
+	r := strings.NewReplacer(replacements...)
 	out := make([]string, len(h.Command))
 	for i, arg := range h.Command {
-		out[i] = strings.ReplaceAll(arg, skillPlaceholder, dir)
+		out[i] = r.Replace(arg)
 	}
 	return out, true
 }
@@ -220,11 +243,11 @@ func HookHandlers(root string) ([]hook.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	// A handler whose skill no enabled folder holds does not run; status
-	// says so.
+	// A handler whose module folder is missing, or whose skill no enabled
+	// folder holds, does not run; status says so.
 	var out []hook.Handler
 	for _, h := range handlers {
-		if command, ok := resolveSkillCommand(root, cfg.Agents, h); ok {
+		if command, ok := resolveHandlerCommand(root, cfg.Agents, h); ok {
 			h.Command = command
 			out = append(out, h)
 		}
@@ -331,6 +354,8 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 				lines = append(lines, guardStatusLines(root, h, status.Refused[file.harness])...)
 			} else if hooksOn(res.cfg) && !skillAvailable(root, res, applied, h.Skill) {
 				lines = append(lines, fmt.Sprintf("  %s does not run: no enabled skill folder holds its %s skill", h.Key(), h.Skill))
+			} else if hooksOn(res.cfg) && usesModule(h) && !plannedOrPresent(root, res, applied, assetroots.ModuleRoot(h.Starter)) {
+				lines = append(lines, fmt.Sprintf("  %s does not run: its module folder %s is missing", h.Key(), assetroots.ModuleRoot(h.Starter)))
 			} else if at, ok := status.Delivered[file.harness][h.Key()]; ok {
 				lines = append(lines, fmt.Sprintf("  %s last returned context %s", h.Key(), at.Local().Format("2006-01-02 15:04")))
 			} else {
@@ -379,17 +404,26 @@ func skillAvailable(root string, res resolved, applied bool, skill string) bool 
 	if skill == "" {
 		return true
 	}
-	if _, ok := skillDir(root, res.cfg.Agents, skill); ok {
+	for _, folder := range enabledSkillFolders(res.cfg.Agents) {
+		if plannedOrPresent(root, res, applied, folder+"/"+skill) {
+			return true
+		}
+	}
+	return false
+}
+
+// plannedOrPresent reports whether the folder dir exists, or, before res is
+// applied, will once its changes are written.
+func plannedOrPresent(root string, res resolved, applied bool, dir string) bool {
+	if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(dir))); err == nil && info.IsDir() {
 		return true
 	}
 	if applied {
 		return false
 	}
 	for _, c := range res.files.changes {
-		for _, folder := range enabledSkillFolders(res.cfg.Agents) {
-			if !c.removal && strings.HasPrefix(filepath.ToSlash(c.rel), folder+"/"+skill+"/") {
-				return true
-			}
+		if !c.removal && strings.HasPrefix(filepath.ToSlash(c.rel), dir+"/") {
+			return true
 		}
 	}
 	return false

@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { episodeView } from "../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/extract.mjs";
+import { episodeView } from "../../pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/extract.mjs";
 
 const ROOT = resolve(".rhizome/session-memory/eval/runs/terra61-2026-10-30");
 const JUDGE = { provider: "claude", model: "claude-sonnet-5-5", effort: "medium" };
@@ -77,7 +77,7 @@ function prepare(options) {
   const provenance = { version: 1, run, sample: count, seed, selection: "seeded round-robin across nonempty batch strata, independent of strength labels", judge: JUDGE,
     configSha256: hash(cfgText), episodesSha256: hash(sourceText), batches: batches.map(({ id, sha256 }) => ({ id, sha256 })),
     selected: selected.map((s, index) => ({ item: items[index].id, batch: s.batch, candidate: s.candidate.id })),
-    promptSha256: hash(PROMPT), schemaSha256: hash(SCHEMA), itemsSha256: hash(items), episodeViewSha256: hash(readFileSync("pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/extract.mjs", "utf8")) };
+    promptSha256: hash(PROMPT), schemaSha256: hash(SCHEMA), itemsSha256: hash(items), episodeViewSha256: hash(readFileSync("pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/extract.mjs", "utf8")) };
   const dir = join(ROOT, "extraction-audit", `${name}-${hash(provenance).slice(0, 12)}`);
   const path = join(dir, "fixture.json");
   if (existsSync(path) && hash(read(path).provenance) !== hash(provenance)) throw new Error("audit provenance drift");

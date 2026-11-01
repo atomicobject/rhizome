@@ -1,6 +1,6 @@
 # Model roles
 
-`models.json` (profile version 2) lists each role's candidates in order. A run uses the first one its harness can reach: Claude Code runs reach `claude`, Codex runs reach `codex`, and Jev (`typesafe`) screens in both. A newer version of a listed family runs at the listed effort and is reported as unmeasured. When a family is unavailable, the run falls back to the role's next candidate from the same provider, never to another provider.
+The shipped profile, `.rhizome/modules/compounding/models.json` (profile version 2), lists each role's candidates in order. A run uses the first one its harness can reach: Claude Code runs reach `claude`, Codex runs reach `codex`, and Jev (`typesafe`) screens in both. A newer version of a listed family runs at the listed effort and is reported as unmeasured. When a family is unavailable, the run falls back to the role's next candidate from the same provider, never to another provider.
 
 Override a role for one mining run with `--model <role>=<provider>:<model>:<effort>`. Calibration proposes repository overrides in `.rhizome/compounding/models.json`; it writes one only after a person approves the diff and runs `calibrate.mjs apply <evidence-file> --confirm`. An override replaces the role's whole list. Apply puts the measured winner first, retains fallback candidates, and leaves other roles intact.
 
@@ -14,4 +14,4 @@ Override a role for one mining run with `--model <role>=<provider>:<model>:<effo
 
 Provisional candidates have no measurement behind them yet. Earlier measurements are in the Rhizome repository's compounding effort log. The approved Codex profile version 2 is documented in `docs/performance/compounding-models-2026-10-30.md` in the Rhizome repository. Its historical H window confirms the choice but is not a newly untouched test. Claude defaults and Jev screening are unchanged.
 
-Calibration freezes `match` independently of the candidates under comparison. It never tunes its judge while scoring extraction. The synthetic fixture in `calibration-fixture.json` measures mechanics and relative cost or latency, not quality on the developer's repository. Local override candidates cite the calibration evidence file that justified them.
+Calibration freezes `match` independently of the candidates under comparison. It never tunes its judge while scoring extraction. The synthetic fixture in `.rhizome/modules/compounding/references/calibration-fixture.json` measures mechanics and relative cost or latency, not quality on the developer's repository. Local override candidates cite the calibration evidence file that justified them.

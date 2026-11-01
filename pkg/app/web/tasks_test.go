@@ -260,3 +260,21 @@ func TestTasksActions(t *testing.T) {
 	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/skip", "")
 	require.Equal(t, http.StatusBadRequest, code)
 }
+
+func TestTasksRoutesTakeAQualifiedTaskID(t *testing.T) {
+	api := &fakeTasks{}
+	s, _ := newTasksTestServer(api)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/tasks/", s.handleTasks)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/tasks/modes/compounding%2Fsweep", bytes.NewBufferString(`{"mode":"off"}`)))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/tasks/runs?task=compounding%2Fsweep", nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []string{"mode compounding/sweep off", "runs compounding/sweep"}, api.calls)
+
+	code, _ := serveTasks(t, s, http.MethodPost, "/api/tasks/modes/a%2Fb%2Fc", `{"mode":"off"}`)
+	require.Equal(t, http.StatusBadRequest, code, "only one slash is allowed")
+}

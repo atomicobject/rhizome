@@ -175,9 +175,21 @@ class CollectReleaseEvidenceTest(unittest.TestCase):
         self.assertIn("post_closure_mutation", {item.code for item in late.diagnostics})
 
     def test_workspace_types_components_using_each_git_revision_schema(self):
+        self._check_workspace_types_components(".rhizome/ontology/spec-driven.graphql")
+
+    def test_workspace_types_components_using_module_schema(self):
+        # A module's ontology folder is read like the flat one (SPEC-0130).
+        flat = ".rhizome/ontology/spec-driven.graphql"
+        module = ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql"
+        write(self.repo, module, (self.repo / flat).read_text())
+        (self.repo / flat).unlink()
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-m", "move schema into a module")
+        self._check_workspace_types_components(module)
+
+    def _check_workspace_types_components(self, schema_path):
         folder = "docs/efforts/workspace"
         entry = f"{folder}/2026-effort.html"
-        schema_path = ".rhizome/ontology/spec-driven.graphql"
         schema = (self.repo / schema_path).read_text()
 
         def snapshot(status, plan_name):

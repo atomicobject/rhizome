@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { SESSIONS, fakeClients, fakeDiscover, session, statuses, tempRepo, turn } from "./fakes.mjs";
 
-const scripts = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
+const scripts = new URL("../../templates/starters/compounding/module/scripts/", import.meta.url);
 const { mine } = await import(new URL("mine.mjs", scripts));
 const P = await import(new URL("lib/prompts.mjs", scripts));
 const { readJsonl } = await import(new URL("lib/store.mjs", scripts));
@@ -281,7 +281,7 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   const sharedState = tmp();
   const before = await mine({ root: shared, state: sharedState, budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());
   const [dismissed] = read(sharedState, "proposals.json");
-  const { learningHash } = await import(new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/lib/shards.mjs", import.meta.url));
+  const { learningHash } = await import(new URL("../../templates/starters/compounding/module/scripts/lib/shards.mjs", import.meta.url));
   mkdirSync(join(shared, "docs/memory/context-shards/decisions"), { recursive: true });
   writeFileSync(join(shared, "docs/memory/context-shards/decisions", `${learningHash(dismissed)}--1.json`), JSON.stringify({ learning: learningHash(dismissed), decision: "dismissed", statement: dismissed.statement, kind: dismissed.kind }));
   const after = await mine({ root: shared, state: tmp(), budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());

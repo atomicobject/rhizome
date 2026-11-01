@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -58,7 +59,7 @@ func (commandOptions *ontologyInvocationOptions) makeOntologyValidateCmd() *cobr
 			fmt.Fprintf(cmd.OutOrStdout(), "Schema: %s\n", runtime.Schema.Hash)
 			files := make([]string, 0, len(runtime.Schema.Files))
 			for _, file := range runtime.Schema.Files {
-				files = append(files, ontologyPathBase(file))
+				files = append(files, ontologyFileLabel(vaultDef.BasePath(), file))
 			}
 			sort.Strings(files)
 			fmt.Fprintf(cmd.OutOrStdout(), "Files: %s\n", strings.Join(files, ", "))
@@ -176,9 +177,15 @@ func printOntologyRuntimeError(cmd *cobra.Command, runtime *ontology.Runtime, er
 	return err
 }
 
-func ontologyPathBase(path string) string {
-	parts := strings.Split(strings.ReplaceAll(path, "\\", "/"), "/")
-	return parts[len(parts)-1]
+// ontologyFileLabel names a schema file by its repository-relative path, so
+// same-named files in two modules stay distinguishable.
+func ontologyFileLabel(root, path string) string {
+	if vault, err := paths.NewVaultPaths(root); err == nil {
+		if rel, err := vault.RelStrict(path); err == nil {
+			return rel.String()
+		}
+	}
+	return filepath.ToSlash(path)
 }
 
 func printOntologyTypeInventory(ctx context.Context, cmd *cobra.Command, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, runtime *ontology.Runtime) error {

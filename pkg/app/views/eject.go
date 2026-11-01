@@ -61,12 +61,12 @@ func (s *Service) Eject(_ context.Context, id string) (EjectResult, error) {
 		if copied[existing.ID] {
 			// Typically an eject from an earlier release, before the folder
 			// gained views: only a fresh copy of the whole folder fits together.
-			holder := filepath.Dir(existing.Source.Path)
-			if rel, err := filepath.Rel(viewsRoot, holder); err == nil && filepath.IsLocal(rel) {
-				holder = vaultViewPath(filepath.ToSlash(rel))
+			holderRoot := existing.Source.Root
+			if holderRoot == "" {
+				holderRoot = viewsRoot
 			}
-			return EjectResult{}, fmt.Errorf("%w: view %s already comes from %s; move %s out of .rhizome/views, eject %s again, and reapply your changes to the new copy",
-				ErrEjectRefused, existing.ID, existing.Source.Path, holder, id)
+			return EjectResult{}, fmt.Errorf("%w: view %s already comes from %s; move %s out of %s, eject %s again, and reapply your changes to the new copy",
+				ErrEjectRefused, existing.ID, existing.Source.Path, s.vaultRelative(filepath.Dir(existing.Source.Path)), s.vaultRelative(holderRoot), id)
 		}
 	}
 	var files []string

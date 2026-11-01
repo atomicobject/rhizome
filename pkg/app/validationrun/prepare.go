@@ -14,6 +14,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/validate"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -90,17 +91,29 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 		}
 		return err == nil, err
 	}
-	ontologyConfigured, err := present(".rhizome", "ontology")
+	// An asset kind is present when its flat folder or any module's folder
+	// for it exists. A folder the locator cannot read counts as present, so
+	// the check that owns it reports the problem and unrelated checks still
+	// run.
+	assetsPresent := func(kind assetroots.Kind) (bool, error) {
+		roots, err := assetroots.Roots(root, kind)
+		return len(roots) > 0 || err != nil, nil
+	}
+	ontologyConfigured, err := assetsPresent(assetroots.Ontology)
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect ontology configuration: %w", err)
 	}
-	viewsConfigured, err := present(".rhizome", "views")
+	viewsConfigured, err := assetsPresent(assetroots.Views)
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect view configuration: %w", err)
 	}
-	tasksPresent, err := present(".rhizome", "tasks")
+	tasksPresent, err := assetsPresent(assetroots.Tasks)
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect task configuration: %w", err)
+	}
+	modulesPresent, err := present(filepath.FromSlash(assetroots.ModulesDir))
+	if err != nil {
+		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect module folders: %w", err)
 	}
 	effortsPresent, err := present("docs", "efforts")
 	if err != nil {
@@ -112,7 +125,7 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 		OntologyConfigured: ontologyConfigured, CodeConfigured: codeConfigured,
 		CodeAnchorRootsConfigured: repoconfig.CodeAnchorRootsConfigured(code),
 		QueryRecipesConfigured:    includeQueryRecipes && queryrecipe.HasDefaultSources(root),
-		ViewsConfigured:           viewsConfigured, TasksPresent: tasksPresent, EffortsPresent: effortsPresent,
+		ViewsConfigured:           viewsConfigured, TasksPresent: tasksPresent, ModulesPresent: modulesPresent, EffortsPresent: effortsPresent,
 	}
 	if codeConfigured {
 		facts.RequiredCodeIndexerVersion = codeanchor.IndexerVersion

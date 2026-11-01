@@ -7,23 +7,23 @@ description: Use when mining this repository's Claude Code or Codex sessions for
 
 This skill turns the agent sessions recorded for this repository into reviewed improvements that compound: each one removes friction or supplies missing context for every later session. Mining produces local proposals, and each carries a proposed response: fix it, guard against it, or ask its owner, which becomes an agent finding with an action item in `docs/memory/agent-findings/`; document it in an existing document; or remember it as a context shard (a short, verified rule or fact in `docs/memory/context-shards/`). Memory is for human intent and facts an agent needs that documentation will not surface at the right moment, not for working around something the team can fix. A person approves each one before anything reaches the repository.
 
-Run every script from the repository root with Node 20 or later. `<skill>` below is this skill's directory. Scripts reach models only through `rzm agent generate` and Jev through `rzm agent evaluate-batch`, and print JSON. A script that refuses an action exits 2 and says why; relay the reason instead of working around it.
+Run every script from the repository root with Node 20 or later. The scripts live in the compounding module, `.rhizome/modules/compounding/scripts/`, next to its shipped model profile `models.json`. Scripts reach models only through `rzm agent generate` and Jev through `rzm agent evaluate-batch`, and print JSON. A script that refuses an action exits 2 and says why; relay the reason instead of working around it.
 
 ## Lookup
 
 Run before editing files or running commands in an area you have not worked in this session:
 
 ```sh
-node <skill>/scripts/lookup.mjs --files path/a.go path/b.md
-node <skill>/scripts/lookup.mjs --command "make web-e2e"
-node <skill>/scripts/lookup.mjs --task "add a validation check for views"
+node .rhizome/modules/compounding/scripts/lookup.mjs --files path/a.go path/b.md
+node .rhizome/modules/compounding/scripts/lookup.mjs --command "make web-e2e"
+node .rhizome/modules/compounding/scripts/lookup.mjs --task "add a validation check for views"
 ```
 
 Follow the rules it returns; facts are background, and a where-to-find shard names the document to open. Lookup returns at most five shards, rules first, and withholds shards whose files changed since they were verified. When more match, it says so; `--skip N` shows the matches after the first N. When it reports withheld shards, mention it; the person can run maintain.
 
 ## Hooks
 
-With hooks on, Rhizome's hook dispatcher runs this skill's `scripts/hook.mjs` and the shards arrive without asking: shards with no patterns at session and subagent start, and after a tool call, the shards for the files the agent read, edited, or patched, or for a command it ran. A context sees each shard once until a compaction or clear. Hook delivery selects shards the same way lookup does, so lookup is still how to check a task or files before starting, and the only way in hosts that do not run project hooks, such as Codex threads in T3 Code.
+With hooks on, Rhizome's hook dispatcher runs `.rhizome/modules/compounding/scripts/hook.mjs` and the shards arrive without asking: shards with no patterns at session and subagent start, and after a tool call, the shards for the files the agent read, edited, or patched, or for a command it ran. A context sees each shard once until a compaction or clear. Hook delivery selects shards the same way lookup does, so lookup is still how to check a task or files before starting, and the only way in hosts that do not run project hooks, such as Codex threads in T3 Code.
 
 - Hooks are off until the person turns them on: `rzm init --hooks on`, and `rzm init --hooks off` to stop. Init writes the entries into `.claude/settings.json` and `.codex/hooks.json`; never edit those entries by hand.
 - `rzm init --check` reports, per harness, whether the entries are installed and current and when this skill last returned context. Codex runs a new or changed entry only after the person trusts it with `/hooks` in Codex; tell them so after turning hooks on.
@@ -33,7 +33,7 @@ With hooks on, Rhizome's hook dispatcher runs this skill's `scripts/hook.mjs` an
 ## Mine
 
 1. Pass the harness you are running in: `--harness claude` in Claude Code, `--harness codex` in Codex. Transcript text goes only to that provider and to Jev. Local state in `.rhizome/compounding/` is readable only by the person on macOS and Linux; on Windows it has the checkout's permissions, so tell the person before a first run there.
-2. Run `node <skill>/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost; `discovery.inWindow` is the number of sessions it would read. Show these to the person. On a first run that would read more than 200 sessions, ask the person before mining them all, or narrow the window with `--since`.
+2. Run `node .rhizome/modules/compounding/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost; `discovery.inWindow` is the number of sessions it would read. Show these to the person. On a first run that would read more than 200 sessions, ask the person before mining them all, or narrow the window with `--since`.
 3. Ask for a spend limit, then run `mine.mjs --harness <h> --budget <USD>`.
 4. If the run refuses because no price is known for a model, choose a priced model with `--model`, or ask the person whether to pass `--allow-unpriced`, which makes the budget count only the costs the provider reports.
 5. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.
@@ -44,7 +44,7 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 ## Review
 
 1. Check the reviewer: `rzm agent current-user validate` must resolve to a `Person`. If it does not, stop and ask the person to run `rzm agent current-user set "<Person title>"`.
-2. `node <skill>/scripts/shards.mjs list` shows pending proposals. Present each one with its proposed response and reason first, then its tier (A: seen in two or more sessions; B: one session, confirmed in the code), statement, kind, applies-to patterns, target, and evidence (families, tool calls). `shards.mjs show <cluster>` gives the drafted artifact, verification record, and evidence; `shards.mjs source <cluster> [n]` shows a cited excerpt, redacted. A proposal with `recurrence` is a completed finding whose friction came back after its action item was checked; say so and name the finding. Mining verified it again against the new episodes. When it carries `rejected`, the verifier did not confirm the friction is back: show the reason and the matching episodes (`shards.mjs show`), and let the person choose a response or dismiss it. A reason of `contract` means the verifier's answer was unusable, so nothing was drafted. A proposal whose `response` is null has no proposed response, because the verifier rejected its recurrence or it was verified before responses existed (the next mine run verifies such a proposal again); approving it needs `--response` with the response the person chooses.
+2. `node .rhizome/modules/compounding/scripts/shards.mjs list` shows pending proposals. Present each one with its proposed response and reason first, then its tier (A: seen in two or more sessions; B: one session, confirmed in the code), statement, kind, applies-to patterns, target, and evidence (families, tool calls). `shards.mjs show <cluster>` gives the drafted artifact, verification record, and evidence; `shards.mjs source <cluster> [n]` shows a cited excerpt, redacted. A proposal with `recurrence` is a completed finding whose friction came back after its action item was checked; say so and name the finding. Mining verified it again against the new episodes. When it carries `rejected`, the verifier did not confirm the friction is back: show the reason and the matching episodes (`shards.mjs show`), and let the person choose a response or dismiss it. A reason of `contract` means the verifier's answer was unusable, so nothing was drafted. A proposal whose `response` is null has no proposed response, because the verifier rejected its recurrence or it was verified before responses existed (the next mine run verifies such a proposal again); approving it needs `--response` with the response the person chooses.
 3. Ask one question per proposal, with its drafted artifact attached, so the person accepts or redirects rather than writes:
    - **remember:** the statement as it would be delivered.
    - **document:** the document and the exact change (old text, new text).
@@ -70,7 +70,7 @@ Approving a remember response, or a guard rule's path, is also refused when the 
 
 ## Report
 
-`node <skill>/scripts/report.mjs` shows where agents lose effort. It reads only local state and tracked notes, makes no model calls, and prints no transcript text.
+`node .rhizome/modules/compounding/scripts/report.mjs` shows where agents lose effort. It reads only local state and tracked notes, makes no model calls, and prints no transcript text.
 
 - `open` ranks open fix, guard, and ask findings and pending proposals by families, then sessions, then tool calls, with the dates first and last seen. A finding's evidence includes episodes mining matched after it was approved. When an entry has `familiesApproximate`, its family count is an estimate, because this checkout lacks the finding's family IDs (a teammate approved it, or it predates them); show it as `~N (approximate)`.
 - `completed` lists findings whose action item is checked, as `resolved` (no matching episode since completion) or `recurring` (with the matching episode ids and dates). `checkedThrough` is the date of the last mine run; when it is older than the completion, offer to mine first. A recurring finding is offered for review again, unless a newer finding for the same learning is still open.
@@ -79,7 +79,7 @@ Lead with the top few open items and any recurring findings, then offer review.
 
 ## Maintain
 
-1. `node <skill>/scripts/shards.mjs check` lists shards that need attention, with reasons: their files changed, their patterns match nothing, their content was edited by hand, or they have no patterns and were verified more than 30 days ago. It also lists guard findings whose rule was edited after approval or can no longer be read, which the hooks skip until the rule is revised: show the person the rule's text verbatim, then `shards.mjs revise <finding> --expect <hash> --edit <file> --confirm-publish`, where the file holds only `guardRule`. When `check` says the frontmatter itself cannot be read, ask the person to fix it by hand first; revise refuses it.
+1. `node .rhizome/modules/compounding/scripts/shards.mjs check` lists shards that need attention, with reasons: their files changed, their patterns match nothing, their content was edited by hand, or they have no patterns and were verified more than 30 days ago. It also lists guard findings whose rule was edited after approval or can no longer be read, which the hooks skip until the rule is revised: show the person the rule's text verbatim, then `shards.mjs revise <finding> --expect <hash> --edit <file> --confirm-publish`, where the file holds only `guardRule`. When `check` says the frontmatter itself cannot be read, ask the person to fix it by hand first; revise refuses it.
 2. For each, re-check the statement against the current code and documentation, and tell the person what you found.
 3. With the person's choice, pass the `expect` hash from `check`:
    - still true: `shards.mjs renew <path> --expect <hash>`
@@ -91,9 +91,9 @@ Lead with the top few open items and any recurring findings, then offer review.
 Compare extraction or verification models using the harness you are running in:
 
 ```sh
-node <skill>/scripts/calibrate.mjs --role extract --harness claude
-node <skill>/scripts/calibrate.mjs --role extract --harness claude --budget 2
-node <skill>/scripts/calibrate.mjs --role verify --harness codex --budget 2 --candidates codex:gpt-6-luna:xhigh
+node .rhizome/modules/compounding/scripts/calibrate.mjs --role extract --harness claude
+node .rhizome/modules/compounding/scripts/calibrate.mjs --role extract --harness claude --budget 2
+node .rhizome/modules/compounding/scripts/calibrate.mjs --role verify --harness codex --budget 2 --candidates codex:gpt-6-luna:xhigh
 ```
 
 1. Run without `--budget` first. Show the estimated cost, label set, and provider to the person. A budget authorizes the model calls; reuse an already approved limit. No transcript text crosses providers.
@@ -105,7 +105,7 @@ node <skill>/scripts/calibrate.mjs --role verify --harness codex --budget 2 --ca
 6. Show the proposed diff and its evidence file to the person. Only after they approve that exact diff, apply it:
 
 ```sh
-node <skill>/scripts/calibrate.mjs apply .rhizome/compounding/calibrations/<run>/evidence.json --confirm
+node .rhizome/modules/compounding/scripts/calibrate.mjs apply .rhizome/compounding/calibrations/<run>/evidence.json --confirm
 ```
 
 Apply writes only `.rhizome/compounding/models.json`, preserves other roles, and refuses stale evidence if the profile changed. Never edit a profile file on the person's behalf outside this approval step. See `references/models.md` for the role defaults.

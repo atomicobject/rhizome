@@ -43,6 +43,7 @@ const (
 	ApplicabilityQueryRecipes CheckApplicability = "query_recipes_configured"
 	ApplicabilityViews        CheckApplicability = "views_configured"
 	ApplicabilityTasks        CheckApplicability = "tasks_present"
+	ApplicabilityModules      CheckApplicability = "modules_present"
 	ApplicabilityEfforts      CheckApplicability = "efforts_present"
 )
 
@@ -190,6 +191,13 @@ var checkRegistry = []registeredCheck{
 		Remediation: RemediationSupport{Kind: RemediationNone},
 	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunTasks(runCtx)
+	}),
+	checkRegistration(CheckDescriptor{
+		Name: CheckModules, Description: "module folder names", Category: CheckCategoryConfig,
+		Suites: allSuites, Applicability: ApplicabilityModules,
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
+		return RunModules(runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckCodeFrontmatter, Description: "code documentation frontmatter", Category: CheckCategoryCode,

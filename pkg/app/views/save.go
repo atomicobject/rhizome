@@ -15,6 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/fileio"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 // ErrSaveConflict means the view changed since the client loaded it.
@@ -53,11 +54,12 @@ type SaveResponse struct {
 	Created bool   `json:"created"`
 }
 
-// Save writes view state to YAML under .rhizome/views. A generated view
-// becomes a new native view that replaces the generated layouts of its type
-// or interface; an authored view's file gets its defaults and variants
-// rewritten in place. The result must pass the checks `rzm validate views`
-// runs, and the write is atomic and confined to the views folder. The next
+// Save writes view state to YAML. A generated view becomes a new native view
+// under .rhizome/views that replaces the generated layouts of its type or
+// interface; an authored view's file gets its defaults and variants rewritten
+// in place, in the flat or module views folder that holds it. The result must
+// pass the checks `rzm validate views` runs, and the write is atomic and
+// confined to that views folder. The next
 // catalog read serves it, since the catalog loads definitions per request.
 func (s *Service) Save(ctx context.Context, id string, req SaveRequest) (SaveResponse, error) {
 	// ponytail: one process-wide lock serializes the whole load-check-write so
@@ -85,9 +87,12 @@ func (s *Service) Save(ctx context.Context, id string, req SaveRequest) (SaveRes
 	default:
 		return SaveResponse{}, fmt.Errorf("%w: unsupported variant %q", ErrInvalidRequest, layout.Variant)
 	}
-	root := viewconfig.DefaultSourceRoot(s.opts.VaultPath)
 	if entry.Generated {
-		return s.saveGenerated(ctx, entry, layout, root)
+		return s.saveGenerated(ctx, entry, layout, viewconfig.DefaultSourceRoot(s.opts.VaultPath))
+	}
+	root := def.Source.Root
+	if root == "" {
+		root = viewconfig.DefaultSourceRoot(s.opts.VaultPath)
 	}
 	return s.saveAuthored(ctx, def, layout, root)
 }
@@ -216,7 +221,7 @@ func (s *Service) saveGenerated(ctx context.Context, entry CatalogEntry, layout 
 	if err := ensureViewsFolder(s.opts.VaultPath, root); err != nil {
 		return SaveResponse{}, err
 	}
-	if err := s.writeViewFile(def.Source.Path, data, nil); err != nil {
+	if err := s.writeViewFile(root, def.Source.Path, data, nil); err != nil {
 		return SaveResponse{}, err
 	}
 	return SaveResponse{ID: def.ID, Path: s.vaultRelative(def.Source.Path), Created: true}, nil
@@ -243,7 +248,7 @@ func (s *Service) saveAuthored(ctx context.Context, def viewconfig.ViewDefinitio
 	if err := s.checkSaveState(ctx, def.ID, layout); err != nil {
 		return SaveResponse{}, err
 	}
-	if err := s.writeViewFile(path, edited, data); err != nil {
+	if err := s.writeViewFile(root, path, edited, data); err != nil {
 		return SaveResponse{}, err
 	}
 	return SaveResponse{ID: def.ID, Path: s.vaultRelative(path), Created: false}, nil
@@ -292,13 +297,13 @@ func (s *Service) validateViewFile(existing []viewconfig.ViewDefinition, path st
 	return nil
 }
 
-// writeViewFile writes data to a view file confined to the views folder.
+// writeViewFile writes data to a view file confined to the views folder root.
 // With expected nil it creates the file, failing when another save created
 // that name first; otherwise it replaces the file only while it still holds
 // expected, checked under a per-file lock immediately before the rename.
-func (s *Service) writeViewFile(path string, data, expected []byte) error {
+func (s *Service) writeViewFile(root, path string, data, expected []byte) error {
 	create := expected == nil
-	if err := confineViewFile(s.opts.VaultPath, viewconfig.DefaultSourceRoot(s.opts.VaultPath), path, create); err != nil {
+	if err := confineViewFile(s.opts.VaultPath, root, path, create); err != nil {
 		return err
 	}
 	unlock := lockViewFile(path)
@@ -430,9 +435,10 @@ func ensureViewsFolder(vaultPath, root string) error {
 	return confineViewFile(vaultPath, root, filepath.Join(root, "probe.yaml"), true)
 }
 
-// confineViewFile refuses a view file outside the vault's .rhizome/views
-// folder, reached through a symlink, or not a regular file. When create is
-// set the file may be absent.
+// confineViewFile refuses a view file outside root, a root that is not one of
+// the vault's views folders (.rhizome/views or a module's views), a path
+// reached through a symlink, or not a regular file. When create is set the
+// file may be absent.
 func confineViewFile(vaultPath, root, path string, create bool) error {
 	realVault, err := filepath.EvalSymlinks(vaultPath)
 	if err != nil {
@@ -442,12 +448,13 @@ func confineViewFile(vaultPath, root, path string, create bool) error {
 	if err != nil {
 		return err
 	}
-	if realRoot != filepath.Join(realVault, ".rhizome", "views") {
+	rootRel, err := filepath.Rel(vaultPath, root)
+	if err != nil || !isViewsRoot(filepath.ToSlash(rootRel)) || realRoot != filepath.Join(realVault, rootRel) {
 		return fmt.Errorf("%w: views folder resolves outside the vault", ErrInvalidRequest)
 	}
 	rel, err := filepath.Rel(root, path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
-		return fmt.Errorf("%w: %s is outside .rhizome/views", ErrInvalidRequest, path)
+		return fmt.Errorf("%w: %s is outside %s", ErrInvalidRequest, path, filepath.ToSlash(rootRel))
 	}
 	realDir, err := filepath.EvalSymlinks(filepath.Dir(path))
 	if err != nil || realDir != filepath.Join(realRoot, filepath.Dir(rel)) {
@@ -463,4 +470,11 @@ func confineViewFile(vaultPath, root, path string, create bool) error {
 		return fmt.Errorf("%w: %s is not a regular file", ErrInvalidRequest, path)
 	}
 	return nil
+}
+
+// isViewsRoot reports whether a vault-relative slash path is the flat views
+// folder or a valid module's views folder.
+func isViewsRoot(rel string) bool {
+	root, kind, _, ok := assetroots.Classify(rel + "/view.yaml")
+	return ok && kind == assetroots.Views && root.Rel == rel
 }

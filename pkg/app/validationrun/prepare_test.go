@@ -1,6 +1,7 @@
 package validationrun
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -25,6 +26,38 @@ func TestPreparedVaultFeatureFactsRequireCodeAnchorRoots(t *testing.T) {
 	withRoots, err := vaultFeatureFacts(t.TempDir(), &repoconfig.LocalConfig{Code: repoconfig.LocalCodeConfig{Go: &repoconfig.LocalCodeLangConfig{Roots: []string{"."}}}}, false)
 	require.NoError(t, err)
 	require.True(t, withRoots.CodeAnchorRootsConfigured)
+}
+
+func TestPreparedVaultFeatureFactsSeeModuleAssets(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	none, err := vaultFeatureFacts(root, &repoconfig.LocalConfig{}, true)
+	require.NoError(t, err)
+	require.False(t, none.OntologyConfigured || none.ViewsConfigured || none.TasksPresent || none.QueryRecipesConfigured)
+
+	for _, kind := range []string{"ontology", "views", "tasks"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "modules", "team", kind), 0o755))
+	}
+	recipe := filepath.Join(root, ".rhizome", "modules", "team", "recipes", "roster.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(recipe), 0o755))
+	require.NoError(t, os.WriteFile(recipe, []byte("apiVersion: rhizome.query-recipe.v1\nid: roster\n"), 0o644))
+	facts, err := vaultFeatureFacts(root, &repoconfig.LocalConfig{}, true)
+	require.NoError(t, err)
+	require.True(t, facts.OntologyConfigured)
+	require.True(t, facts.ViewsConfigured)
+	require.True(t, facts.TasksPresent)
+	require.True(t, facts.QueryRecipesConfigured)
+}
+
+func TestPreparedVaultFeatureFactsKeepABrokenAssetFolderForItsOwnCheck(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "modules", "demo", "tasks"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "modules", "demo", "views"), []byte("not a folder"), 0o644))
+	facts, err := vaultFeatureFacts(root, &repoconfig.LocalConfig{}, false)
+	require.NoError(t, err, "a broken views folder must not stop unrelated checks")
+	require.True(t, facts.ViewsConfigured, "the views check runs and reports the broken folder")
+	require.True(t, facts.TasksPresent)
 }
 
 func TestPrepareDiscoversRecipeFactsOnlyForSelectedChecks(t *testing.T) {

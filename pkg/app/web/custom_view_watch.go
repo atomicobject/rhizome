@@ -2,18 +2,22 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 // GlobalEventViewsChanged announces that a file in a repository view folder
 // changed. Its data is {folder}, the definition folder relative to
-// .rhizome/views ("." for the root), matching the folder in the view shell's
-// config. Bundled views change only with the binary and are never announced.
+// .rhizome/views ("." for the root), or /module/<module>/<folder> for a
+// module's views folder, matching the folder in the view shell's config.
+// Bundled views change only with the binary and are never announced.
 const GlobalEventViewsChanged = "views.changed"
 
 // WHY: the vault watcher drops .rhizome/ paths by design, and letting view
@@ -102,36 +106,42 @@ func (s *Server) announceViewFolderChanges(ctx context.Context, interval time.Du
 	}
 }
 
-// viewFolderStamps returns a stamp of the whole views folder and, only when it
-// differs from previous, the stamp of every custom view's definition folder.
-// Definitions are read only after something changed.
+// viewFolderStamps returns a stamp of every views folder, flat and module,
+// and, only when it differs from previous, the stamp of every custom view's
+// definition folder keyed as views.changed names it. Definitions are read only
+// after something changed.
 func (s *Server) viewFolderStamps(previous string) (string, map[string]string) {
-	root, err := os.OpenRoot(s.customViewsRoot())
-	if err != nil {
-		if previous == "missing" {
-			return previous, nil
+	roots, _ := assetroots.Roots(s.cfg.VaultPath, assetroots.Views)
+	opened := map[string]*os.Root{}
+	var whole strings.Builder
+	for _, r := range roots {
+		root, err := viewRoot{module: r.Module}.open(s.cfg.VaultPath)
+		if err != nil {
+			continue
 		}
-		return "missing", map[string]string{}
+		defer root.Close()
+		opened[r.Module] = root
+		fmt.Fprintf(&whole, "%s=%s\n", r.Rel, customViewFolderStamp(root.FS(), "."))
 	}
-	defer root.Close()
-	whole := customViewFolderStamp(root.FS(), ".")
-	if whole == previous {
-		return whole, nil
+	if whole.String() == previous {
+		return previous, nil
 	}
 	defs, _ := viewconfig.LoadDefaultSource(s.cfg.VaultPath)
 	folders := map[string]string{}
 	for _, def := range defs {
-		if def.SourceSpec.Kind != viewconfig.SourceKindCustom {
+		v := definitionRoot(def)
+		root := opened[v.module]
+		if def.SourceSpec.Kind != viewconfig.SourceKindCustom || root == nil {
 			continue
 		}
-		rel, err := filepath.Rel(s.customViewsRoot(), filepath.Dir(def.Source.Path))
+		rel, err := filepath.Rel(v.dir(s.cfg.VaultPath), filepath.Dir(def.Source.Path))
 		if err != nil {
 			continue
 		}
 		folder := filepath.ToSlash(rel)
-		if _, done := folders[folder]; !done {
-			folders[folder] = customViewFolderStamp(root.FS(), folder)
+		if key := v.folderKey(folder); folders[key] == "" {
+			folders[key] = customViewFolderStamp(root.FS(), folder)
 		}
 	}
-	return whole, folders
+	return whole.String(), folders
 }

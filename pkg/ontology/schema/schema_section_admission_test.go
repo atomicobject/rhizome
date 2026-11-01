@@ -41,7 +41,7 @@ interface StoryContract implements ZBase & Section { status: String @field }`},
 						rule := requireCompileError(t, err, relation.code)
 						require.Equal(t, source, rule.TypeName)
 						require.Equal(t, "story", rule.FieldName)
-						require.Equal(t, "schema.graphql", rule.Position.Src.Name)
+						require.Equal(t, ".rhizome/ontology/schema.graphql", rule.Position.Src.Name)
 					})
 				}
 			}

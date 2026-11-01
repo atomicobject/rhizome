@@ -32,7 +32,7 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 		fmt.Fprintln(w, "Paused: background work is off until `rzm tasks resume`.")
 	}
 	if len(r.Tasks) == 0 {
-		fmt.Fprintf(w, "No tasks are declared in %s.\n", tasks.TasksDir)
+		fmt.Fprintf(w, "No tasks are declared in %s or a module's tasks folder.\n", tasks.TasksDir)
 	}
 	for _, t := range r.Tasks {
 		fmt.Fprintf(w, "\n%s (%s)\n", t.Name, t.ID)

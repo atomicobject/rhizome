@@ -236,7 +236,7 @@ func TestCustomViewHTMLAndScriptContextsMatch(t *testing.T) {
 		t.Run(entry, func(t *testing.T) {
 			srv := newCustomViewTestServer(t, entry, map[string]string{"poc/" + entry: "<html><head><script>window.loaded=true</script></head><body>hi</body></html>"})
 			definition := strings.Replace(strings.Replace(customViewTestYAML, "ENTRY", entry, 1), "kind: standalone", "kind: type\n  type: Doc", 1) + "configuration:\n  label: Authored\n"
-			if err := os.WriteFile(filepath.Join(srv.customViewsRoot(), "poc", "board.yaml"), []byte(definition), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(viewRoot{}.dir(srv.cfg.VaultPath), "poc", "board.yaml"), []byte(definition), 0600); err != nil {
 				t.Fatal(err)
 			}
 			addCustomViewTestSchema(t, srv)

@@ -8,6 +8,7 @@ installedAssetTypes:
   - ontology
   - query-recipes
   - views
+  - scripts
   - skills
   - managed-docs
 hooks:
@@ -15,8 +16,7 @@ hooks:
     delivers: approved context shards when an agent starts or reads, edits, or runs commands they apply to
     events: [session-start, subagent-start, post-tool-use]
     tools: [read, edit, patch, shell]
-    skill: compounding
-    command: [node, "{skill}/scripts/hook.mjs"]
+    command: [node, "{module}/scripts/hook.mjs"]
     timeout: 3s
     commandPrefixes: .rhizome/compounding/hook/command-prefixes.json
   - id: guard-rules

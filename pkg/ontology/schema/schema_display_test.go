@@ -106,7 +106,7 @@ type Entry implements Described @node(paths: ["notes/*.md"]) {
 			writeOntologySchema(t, root, tc.body)
 			_, err := LoadSchema(root)
 			rule := requireCompileError(t, err, tc.code)
-			require.Equal(t, "schema.graphql", rule.Position.Src.Name)
+			require.Equal(t, ".rhizome/ontology/schema.graphql", rule.Position.Src.Name)
 		})
 	}
 }
@@ -226,7 +226,7 @@ type Story implements Section & Grouping @node(locator: EMBEDDED) { name: String
 			writeOntologySchema(t, root, tc.body)
 			_, err := LoadSchema(root)
 			rule := requireCompileError(t, err, tc.code)
-			require.Equal(t, "schema.graphql", rule.Position.Src.Name)
+			require.Equal(t, ".rhizome/ontology/schema.graphql", rule.Position.Src.Name)
 		})
 	}
 }

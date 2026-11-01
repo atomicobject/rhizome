@@ -81,7 +81,7 @@ func TestDefaultRepoRecipesValidateAgainstRepoSchema(t *testing.T) {
 func TestCoreStarterOwnsSharedRuntimeRecipes(t *testing.T) {
 	root := filepath.Join(repositoryRoot(t), "pkg", "app", "cli", "init", "templates", "starters")
 	ids := func(starter, name string) map[string]bool {
-		recipes, issues := queryrecipe.LoadPath(filepath.Join(root, starter, "rhizome", "query-recipes", name))
+		recipes, issues := queryrecipe.LoadPath(filepath.Join(root, starter, "module", "recipes", name))
 		require.Empty(t, issues)
 		result := map[string]bool{}
 		for _, recipe := range recipes {
@@ -102,7 +102,7 @@ func TestCoreStarterOwnsSharedRuntimeRecipes(t *testing.T) {
 
 func TestShippedEngineeringRecipesValidateAgainstRepositorySchema(t *testing.T) {
 	root := repositoryRoot(t)
-	recipes, issues := queryrecipe.LoadPath(filepath.Join(root, "pkg", "app", "cli", "init", "templates", "starters", "agentic-engineering", "rhizome", "query-recipes"))
+	recipes, issues := queryrecipe.LoadPath(filepath.Join(root, "pkg", "app", "cli", "init", "templates", "starters", "agentic-engineering", "module", "recipes"))
 	require.Empty(t, issues)
 	require.NotEmpty(t, recipes)
 	schema, err := ontoschema.LoadSchema(root)

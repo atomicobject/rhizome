@@ -85,6 +85,7 @@ func TestOntologyValidateCommandListsNotesByType(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "Ontology valid.")
+	require.Contains(t, stdout, "Files: .rhizome/ontology/schema.graphql\n")
 	require.Contains(t, stdout, "Resolved notes by type:")
 	require.Contains(t, stdout, "Decision (2)")
 	require.Contains(t, stdout, "Person (1)")

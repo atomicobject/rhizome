@@ -215,12 +215,15 @@ def _snapshot_note_discovered(repo: Path, revision: str, path: str) -> bool:
     return _canonical_contract("note-discovery", json.dumps({"path": path, "files": files}, sort_keys=True))
 
 
+# Top-level SDL files of the flat ontology folder and of every module's
+# ontology folder, the same files the schema loader reads (SPEC-0130).
+_ONTOLOGY_FILE = re.compile(r"^\.rhizome/(?:ontology|modules/[a-z0-9][a-z0-9-]{0,62}/ontology)/[^/]+\.graphql$")
+
+
 def _snapshot_target_contract(repo: Path, revision: str, path: str, content: str, *, kind: str = "target-type") -> str | bool:
-    directory = ".rhizome/ontology/"
-    names = [name.removeprefix(directory) for name in
-             _git(repo, "ls-tree", "-r", "--name-only", revision, "--", directory).splitlines()]
-    files = {name: _read_blob(repo, revision, directory + name)
-             for name in names if "/" not in name and name.endswith(".graphql")}
+    names = _git(repo, "ls-tree", "-r", "--name-only", revision, "--",
+                 ".rhizome/ontology/", ".rhizome/modules/").splitlines()
+    files = {name: _read_blob(repo, revision, name) for name in names if _ONTOLOGY_FILE.match(name)}
     return _canonical_contract(kind, json.dumps({
         "path": path, "content": content, "schema_files": files,
     }, sort_keys=True))

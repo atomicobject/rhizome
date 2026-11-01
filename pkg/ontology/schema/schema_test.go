@@ -224,3 +224,51 @@ type Decision @node(matches: ["tag:type/decision", "classification:decision"]) {
 	require.Equal(t, []string{"tag:type/decision", "classification:decision"}, decision.Matches)
 	require.Len(t, decision.Matchers, 2)
 }
+
+func TestLoadSchema_ReadsFlatAndModuleOntologies(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	}
+	write(".rhizome/ontology/flat.graphql", `type Flat @node(paths: ["flat/*.md"]) { name: String }`)
+	// Both modules ship x.graphql; repository-relative names keep them apart.
+	write(".rhizome/modules/alpha/ontology/x.graphql", `type Alpha @node(paths: ["a/*.md"]) { name: String }`)
+	write(".rhizome/modules/beta/ontology/x.graphql", "type Beta @node(paths: [\"b/*.md\"]) {\n  name: [String] @identifier\n}\n")
+
+	_, err := LoadSchema(root)
+	rule := requireCompileError(t, err, "identifier_list")
+	require.Equal(t, ".rhizome/modules/beta/ontology/x.graphql", rule.Position.Src.Name)
+
+	write(".rhizome/modules/beta/ontology/x.graphql", `type Beta @node(paths: ["b/*.md"]) { name: String }`)
+	schema, err := LoadSchema(root)
+	require.NoError(t, err)
+	require.Contains(t, schema.Types, "Flat")
+	require.Contains(t, schema.Types, "Alpha")
+	require.Contains(t, schema.Types, "Beta")
+	require.Len(t, schema.Files, 3)
+
+	// Swapping the contents of the two same-named files changes the hash.
+	before := schema.Hash
+	write(".rhizome/modules/alpha/ontology/x.graphql", `type Beta @node(paths: ["b/*.md"]) { name: String }`)
+	write(".rhizome/modules/beta/ontology/x.graphql", `type Alpha @node(paths: ["a/*.md"]) { name: String }`)
+	hash, err := SchemaSourceHash(root)
+	require.NoError(t, err)
+	require.NotEqual(t, before, hash)
+}
+
+func TestLoadSchema_ModuleOnlyOntologyAndNoFiles(t *testing.T) {
+	root := t.TempDir()
+	// Empty roots are not ontology files.
+	require.NoError(t, os.MkdirAll(OntologyDir(root), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "modules", "alpha", "ontology"), 0o755))
+	_, err := LoadSchema(root)
+	require.ErrorIs(t, err, ErrNoOntologyFiles)
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "modules", "alpha", "ontology", "a.graphql"), []byte(`type Alpha @node(paths: ["a/*.md"]) { name: String }`), 0o644))
+	schema, err := LoadSchema(root)
+	require.NoError(t, err)
+	require.Contains(t, schema.Types, "Alpha")
+}

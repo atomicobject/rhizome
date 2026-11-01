@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 func copyIsolatedPopulation(source, destination string, excludes []string) (map[string]struct{}, error) {
@@ -108,20 +110,24 @@ func validateCorpusDirectoryName(name string) error {
 
 // authoredRhizomeInput reports whether a .rhizome path is committed vault
 // configuration the isolated index needs: config, ignore rules, and the
-// top-level ontology SDL files schema.LoadSchema reads. Generated runtime
-// state (index, caches, sessions) stays behind.
+// top-level ontology SDL files schema.LoadSchema reads from the flat folder
+// and every module. Generated runtime state (index, caches, sessions) stays
+// behind.
 func authoredRhizomeInput(rel string, dir bool) bool {
-	switch {
-	case rel == ".rhizome/config.yml" || rel == ".rhizome/ignore":
+	if rel == ".rhizome/config.yml" || rel == ".rhizome/ignore" {
 		return !dir
-	case rel == ".rhizome/ontology":
-		return dir
-	case strings.HasPrefix(rel, ".rhizome/ontology/"):
-		name := strings.TrimPrefix(rel, ".rhizome/ontology/")
-		return !dir && !strings.Contains(name, "/") && filepath.Ext(name) == ".graphql"
-	default:
-		return false
 	}
+	if dir {
+		// The ontology folders and the module folders that lead to them.
+		if rel == assetroots.FlatDir(assetroots.Ontology) || rel == assetroots.ModulesDir {
+			return true
+		}
+		rest, ok := strings.CutPrefix(rel, assetroots.ModulesDir+"/")
+		module, kind, nested := strings.Cut(rest, "/")
+		return ok && assetroots.ValidModuleName(module) && (!nested || kind == string(assetroots.Ontology))
+	}
+	_, kind, sub, ok := assetroots.Classify(rel)
+	return ok && kind == assetroots.Ontology && !strings.Contains(sub, "/") && filepath.Ext(sub) == ".graphql"
 }
 
 func fileFingerprint(path string) (string, error) {

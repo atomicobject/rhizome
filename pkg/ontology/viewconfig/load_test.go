@@ -50,6 +50,33 @@ variants:
 	require.Equal(t, 1, views[0].Source.Line)
 }
 
+func TestLoadDefaultSourceLoadsModuleViewsAndReportsDuplicateIDsAcrossRoots(t *testing.T) {
+	root := t.TempDir()
+	view := func(id string) string {
+		return "apiVersion: rhizome.view.v1\nid: " + id + "\nname: N\nsource: {kind: ontology_type, type: Task}\nmount: {kind: standalone}\nvariants: {table: {columns: [{field: title}]}}\n"
+	}
+	writeViewFile(t, filepath.Join(root, ".rhizome/views/mine.yaml"), view("mine"))
+	writeViewFile(t, filepath.Join(root, ".rhizome/views/modules/flat.yaml"), view("flat"))
+	writeViewFile(t, filepath.Join(root, ".rhizome/modules/work/views/board.yaml"), view("board"))
+	writeViewFile(t, filepath.Join(root, ".rhizome/modules/work/views/mine.yaml"), view("mine"))
+
+	views, issues := LoadDefaultSource(root)
+	require.Empty(t, issues)
+	got := map[string]string{}
+	for _, v := range views {
+		rel, err := filepath.Rel(root, v.Source.Root)
+		require.NoError(t, err)
+		got[v.Source.Module+" "+v.ID+" "+filepath.Base(v.Source.Path)] = filepath.ToSlash(rel)
+	}
+	require.Equal(t, map[string]string{
+		" mine mine.yaml":       ".rhizome/views",
+		" flat flat.yaml":       ".rhizome/views",
+		"work board board.yaml": ".rhizome/modules/work/views",
+		"work mine mine.yaml":   ".rhizome/modules/work/views",
+	}, got)
+	requireIssueCode(t, Validate(views, ValidateOptions{}).Issues, "duplicate_view_id")
+}
+
 func TestLoadDefaultSourceLoadsGroupCollapsedAlias(t *testing.T) {
 	root := t.TempDir()
 	viewPath := filepath.Join(root, ".rhizome", "views", "actions.yaml")

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { scratchRepo } from "./fakes.mjs";
 
-const scripts = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
+const scripts = new URL("../../templates/starters/compounding/module/scripts/", import.meta.url);
 const { globRegExp, loadShards, parseShard, approvedHash } = await import(new URL("lib/shards.mjs", scripts));
 const { run } = await import(new URL("shards.mjs", scripts));
 const { lookup } = await import(new URL("lookup.mjs", scripts));

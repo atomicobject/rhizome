@@ -217,22 +217,22 @@ func TestScaffoldCreatesFreshStarterFilesWithoutAsking(t *testing.T) {
 
 	report := applyScaffoldForTest(t, root, failUI{t})
 
-	require.Contains(t, report.Created, ".rhizome/ontology/spec-driven.graphql")
-	require.Contains(t, report.Created, ".rhizome/query-recipes/spec-driven.yaml")
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
+	require.Contains(t, report.Created, ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql")
+	require.Contains(t, report.Created, ".rhizome/modules/agentic-engineering/recipes/spec-driven.yaml")
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
 }
 
 func TestScaffoldAsksBeforeReplacingAStarterFileItNeverWrote(t *testing.T) {
 	root := t.TempDir()
-	target := filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql")
+	target := filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql")
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
 	require.NoError(t, os.WriteFile(target, []byte("user-owned schema\n"), 0o644))
 	ui := &scriptedUI{unknown: "keep"}
 
 	report := applyScaffoldForTest(t, root, ui)
 
-	require.Equal(t, []string{"unknown:.rhizome/ontology/spec-driven.graphql"}, ui.asked)
-	require.NotContains(t, report.changedPaths(), ".rhizome/ontology/spec-driven.graphql")
+	require.Equal(t, []string{"unknown:.rhizome/modules/agentic-engineering/ontology/spec-driven.graphql"}, ui.asked)
+	require.NotContains(t, report.changedPaths(), ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql")
 	content, err := os.ReadFile(target)
 	require.NoError(t, err)
 	require.Equal(t, "user-owned schema\n", string(content))

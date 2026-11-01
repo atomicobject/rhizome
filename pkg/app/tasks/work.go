@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 const maxMessage = 8 << 10
@@ -157,7 +159,7 @@ func (s *Service) createWorktree(ctx context.Context, def Definition, commit str
 	if err != nil {
 		return "", "", err
 	}
-	dir = filepath.Join(s.stateDir, "worktrees", strings.ReplaceAll(strings.TrimPrefix(branch, "rzm/"), "/", "-"))
+	dir = filepath.Join(s.stateDir, "worktrees", worktreeName(def, branch))
 	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
 		return "", "", err
 	}
@@ -165,6 +167,13 @@ func (s *Service) createWorktree(ctx context.Context, def Definition, commit str
 		return "", "", err
 	}
 	return branch, dir, nil
+}
+
+// worktreeName names a run's worktree folder and Claude worktree: the task's
+// path key and the branch's date suffix, so module task `a/b` and flat task
+// `a-b` never share one.
+func worktreeName(def Definition, branch string) string {
+	return taskdef.PathKey(def.ID) + "-" + strings.TrimPrefix(branch, "rzm/"+def.ID+"/")
 }
 
 // freeBranch returns rzm/<task>/<YYYY-MM-DD>, with -2, -3, ... appended

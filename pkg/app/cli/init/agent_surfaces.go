@@ -273,15 +273,22 @@ func planSkillSurface(projectRoot string, surface skillSurface, skills []rendere
 			})
 		}
 		// A file Rhizome wrote that the new version no longer ships is removed
-		// once SKILL.md stops pointing at it.
+		// once SKILL.md stops pointing at it, and so is a subfolder left empty,
+		// such as scripts/ after the scripts moved into a module.
 		for _, rel := range recordedFilesUnder(record, dir) {
-			if files[strings.TrimPrefix(rel, dir+"/")] {
+			inner := strings.TrimPrefix(rel, dir+"/")
+			if files[inner] {
 				continue
+			}
+			pruneDir := ""
+			if sub, _, nested := strings.Cut(inner, "/"); nested {
+				pruneDir = dir + "/" + sub
 			}
 			plan.removals = append(plan.removals, generatedRemoval{
 				rel:      rel,
-				group:    "skill:" + skill.name + "/" + strings.TrimPrefix(rel, dir+"/"),
+				group:    "skill:" + skill.name + "/" + inner,
 				requires: dir + "/SKILL.md",
+				pruneDir: pruneDir,
 			})
 		}
 	}

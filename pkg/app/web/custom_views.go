@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/viewscript"
 )
 
@@ -31,11 +32,13 @@ import (
 // build scripts (SPEC-0105 trust model). It is served same-origin so it can use
 // the whole public API with no bridge, and so the URL that the Notes rail frames
 // is also the standalone tool. The isolated viewer host stays for HTML notes,
-// whose content is not assumed trusted. Only files under .rhizome/views are
-// reachable here, and nothing runs until someone opens a view.
+// whose content is not assumed trusted. Only files under .rhizome/views and
+// module views folders are reachable here, each request confined to the one
+// folder it names, and nothing runs until someone opens a view.
 
 const (
 	customViewFilesPrefix   = "_files/"
+	customViewModulePrefix  = "_module/"
 	customViewBundledPrefix = "_bundled/"
 	customViewStampPrefix   = "_stamp/"
 	customViewCheckPrefix   = "_check/"
@@ -86,39 +89,28 @@ func (s *Server) handleCustomViews(w http.ResponseWriter, r *http.Request) {
 	// where one disguised click would commit an edit.
 	w.Header().Set("Content-Security-Policy", "frame-ancestors 'self'")
 	rest := strings.TrimPrefix(r.URL.Path, "/views/")
+	if after, ok := strings.CutPrefix(rest, customViewModulePrefix); ok {
+		module, sub, _ := strings.Cut(after, "/")
+		if !assetroots.ValidModuleName(module) {
+			http.NotFound(w, r)
+			return
+		}
+		s.serveRepositoryViewRoute(w, r, viewRoot{module: module}, sub)
+		return
+	}
+	if s.serveRepositoryViewRoute(w, r, viewRoot{}, rest) {
+		return
+	}
 	switch {
-	case strings.HasPrefix(rest, customViewFilesPrefix):
-		s.serveRepositoryViewFile(w, r, strings.TrimPrefix(rest, customViewFilesPrefix))
 	case strings.HasPrefix(rest, customViewBundledPrefix+customViewCheckPrefix):
 		w.Header().Set("Cache-Control", "no-store")
 		s.serveBundledViewCheck(w, strings.TrimPrefix(rest, customViewBundledPrefix+customViewCheckPrefix))
 	case strings.HasPrefix(rest, customViewBundledPrefix):
 		s.serveViewFile(w, r, BundledViews(s.assets), strings.TrimPrefix(rest, customViewBundledPrefix))
-	case strings.HasPrefix(rest, customViewStampPrefix):
-		w.Header().Set("Cache-Control", "no-store")
-		s.serveCustomViewStamp(w, strings.TrimPrefix(rest, customViewStampPrefix))
-	case strings.HasPrefix(rest, customViewCheckPrefix):
-		w.Header().Set("Cache-Control", "no-store")
-		s.serveCustomViewCheck(w, strings.TrimPrefix(rest, customViewCheckPrefix))
 	default:
 		w.Header().Set("Cache-Control", "no-store")
 		s.serveCustomViewShell(w, r, rest)
 	}
-}
-
-func (s *Server) customViewsRoot() string {
-	return viewconfig.DefaultSourceRoot(s.cfg.VaultPath)
-}
-
-func (s *Server) serveRepositoryViewFile(w http.ResponseWriter, r *http.Request, rel string) {
-	// os.Root refuses traversal and symlinks that leave .rhizome/views.
-	root, err := os.OpenRoot(s.customViewsRoot())
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	defer root.Close()
-	s.serveViewFile(w, r, root.FS(), rel)
 }
 
 // serveViewFile serves one file of a view folder, repository or bundled. Every
@@ -217,8 +209,8 @@ func (c *viewModuleCache) transform(rel string, source []byte) ([]byte, error) {
 
 // openCustomViewFolder resolves a folder request for the stamp and check
 // routes. Its fs.FS comes from os.Root, so neither route can read through a
-// symlink out of .rhizome/views, and private folders are refused like files.
-func (s *Server) openCustomViewFolder(w http.ResponseWriter, rel string) (*os.Root, string, bool) {
+// symlink out of the views folder, and private folders are refused like files.
+func (s *Server) openCustomViewFolder(w http.ResponseWriter, v viewRoot, rel string) (*os.Root, string, bool) {
 	dir := strings.TrimSuffix(rel, "/")
 	if dir == "" {
 		dir = "."
@@ -227,7 +219,7 @@ func (s *Server) openCustomViewFolder(w http.ResponseWriter, rel string) (*os.Ro
 		http.Error(w, "invalid view folder", http.StatusBadRequest)
 		return nil, "", false
 	}
-	root, err := os.OpenRoot(s.customViewsRoot())
+	root, err := v.open(s.cfg.VaultPath)
 	if err != nil {
 		http.Error(w, "view folder not found", http.StatusNotFound)
 		return nil, "", false
@@ -243,8 +235,8 @@ func (s *Server) openCustomViewFolder(w http.ResponseWriter, rel string) (*os.Ro
 // A browser reports a module that failed to transform as a failed import, or as
 // a missing export in whatever imported it. The kit asks this route for the
 // folder's real diagnostics when a view fails to load.
-func (s *Server) serveCustomViewCheck(w http.ResponseWriter, rel string) {
-	root, dir, ok := s.openCustomViewFolder(w, rel)
+func (s *Server) serveCustomViewCheck(w http.ResponseWriter, v viewRoot, rel string) {
+	root, dir, ok := s.openCustomViewFolder(w, v, rel)
 	if !ok {
 		return
 	}
@@ -274,8 +266,8 @@ func (s *Server) serveBundledViewCheck(w http.ResponseWriter, rel string) {
 
 // The stamp is a standalone page's reload fallback. Hosted views reload on the
 // views.changed event instead (custom_view_watch.go).
-func (s *Server) serveCustomViewStamp(w http.ResponseWriter, rel string) {
-	root, dir, ok := s.openCustomViewFolder(w, rel)
+func (s *Server) serveCustomViewStamp(w http.ResponseWriter, v viewRoot, rel string) {
+	root, dir, ok := s.openCustomViewFolder(w, v, rel)
 	if !ok {
 		return
 	}
@@ -358,18 +350,20 @@ func customViewEntryURL(s *Server, def viewconfig.ViewDefinition) string {
 	if def.Origin == viewconfig.OriginBundled {
 		return "/views/" + customViewBundledPrefix + escapeURLPath(path.Join(path.Dir(def.Source.Path), def.SourceSpec.Entry))
 	}
-	rel, _ := filepath.Rel(s.customViewsRoot(), def.EntryPath())
-	return "/views/" + customViewFilesPrefix + escapeURLPath(filepath.ToSlash(rel))
+	v := definitionRoot(def)
+	rel, _ := filepath.Rel(v.dir(s.cfg.VaultPath), def.EntryPath())
+	return v.prefix() + customViewFilesPrefix + escapeURLPath(filepath.ToSlash(rel))
 }
 
-// customViewFolder is the definition's folder relative to the views root, the
-// unit that views.changed names and the stamp and check routes take. Bundled
-// folders are relative to the bundled views root.
+// customViewFolder is the definition's folder relative to the views folder
+// holding it, the unit the stamp and check routes take; folderKey turns it
+// into the name views.changed uses. Bundled folders are relative to the
+// bundled views root.
 func (s *Server) customViewFolder(def viewconfig.ViewDefinition) (string, error) {
 	if def.Origin == viewconfig.OriginBundled {
 		return path.Dir(def.Source.Path), nil
 	}
-	rel, err := filepath.Rel(s.customViewsRoot(), filepath.Dir(def.Source.Path))
+	rel, err := filepath.Rel(definitionRoot(def).dir(s.cfg.VaultPath), filepath.Dir(def.Source.Path))
 	return filepath.ToSlash(rel), err
 }
 
@@ -421,19 +415,20 @@ func (s *Server) serveCustomViewShell(w http.ResponseWriter, r *http.Request, id
 		// Bundled files change only with the binary, so nothing polls them.
 		settings["check"] = "/views/" + customViewBundledPrefix + customViewCheckPrefix + folder
 	} else {
-		root, err := os.OpenRoot(s.customViewsRoot())
+		v := definitionRoot(def)
+		root, err := v.open(s.cfg.VaultPath)
 		if err != nil {
 			http.Error(w, "views folder unavailable", http.StatusNotFound)
 			return
 		}
 		defer root.Close()
 		// folder matches the views.changed event a hosted view reloads on.
-		settings["folder"] = folderRel
-		settings["stamp"] = "/views/" + customViewStampPrefix + folder
+		settings["folder"] = v.folderKey(folderRel)
+		settings["stamp"] = v.prefix() + customViewStampPrefix + folder
 		// The baseline is taken here, not on the page's first poll, so an edit
 		// made while the page loads still triggers a reload.
 		settings["stampValue"] = customViewFolderStamp(root.FS(), folderRel)
-		settings["check"] = "/views/" + customViewCheckPrefix + folder
+		settings["check"] = v.prefix() + customViewCheckPrefix + folder
 	}
 	config, _ := json.Marshal(settings)
 	entryJSON, _ := json.Marshal(entryURL)

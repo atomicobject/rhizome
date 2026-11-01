@@ -197,7 +197,7 @@ func (commandOptions *vaultCommandOptions) newViewRunCmd(agent bool, opts *viewO
 }
 
 func addViewPathFlag(cmd *cobra.Command, opts *viewOptions) {
-	cmd.Flags().StringVar(&opts.path, "path", "", "view YAML file or directory (defaults to .rhizome/views)")
+	cmd.Flags().StringVar(&opts.path, "path", "", "view YAML file or directory (defaults to .rhizome/views and every module's views folder)")
 }
 
 func addViewJSONFlag(cmd *cobra.Command, agent bool, opts *viewOptions) {
@@ -331,7 +331,7 @@ func decodeViewJSON(raw string, target any) error {
 
 func renderViewListHuman(w io.Writer, catalog appviews.Catalog) error {
 	if len(catalog.Views) == 0 {
-		_, err := fmt.Fprintln(w, "No configured views found. Add YAML files under .rhizome/views/.")
+		_, err := fmt.Fprintln(w, "No configured views found. Add YAML files under .rhizome/views/ or a module's views/ folder.")
 		return err
 	}
 	_, _ = fmt.Fprintln(w, "ID\tNAME\tMOUNT\tSOURCE")

@@ -34,6 +34,9 @@ func TestClassifyInternalChange(t *testing.T) {
 	require.Equal(t, internalChangeEffect{refreshMeta: true, refreshOntology: true}, classifyInternalChange(".rhizome/ignore"))
 	require.Equal(t, internalChangeEffect{refreshOntology: true, invalidateCapabilities: true}, classifyInternalChange(".rhizome/ontology/schema.graphql"))
 	require.Equal(t, internalChangeEffect{invalidateQueryRecipes: true, invalidateCapabilities: true}, classifyInternalChange(".rhizome/query-recipes/spec-driven.yaml"))
+	require.Equal(t, internalChangeEffect{refreshOntology: true, invalidateCapabilities: true}, classifyInternalChange(".rhizome/modules/team/ontology/team.graphql"))
+	require.Equal(t, internalChangeEffect{invalidateQueryRecipes: true, invalidateCapabilities: true}, classifyInternalChange(".rhizome/modules/team/recipes/roster.yaml"))
+	require.Equal(t, internalChangeEffect{}, classifyInternalChange(".rhizome/modules/team/views/roster.yaml"))
 	require.Equal(t, internalChangeEffect{}, classifyInternalChange(".rhizome/db.sqlite"))
 }
 

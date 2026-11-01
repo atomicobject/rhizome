@@ -25,7 +25,7 @@ func TestStarterOntologySchemasExposeViewGroupingMetadata(t *testing.T) {
 	}{
 		{
 			name:     "spec-driven-spec-status",
-			path:     filepath.Join("templates", "starters", templateAgenticEngineering, "rhizome", "ontology", "spec-driven.graphql"),
+			path:     filepath.Join("templates", "starters", templateAgenticEngineering, "module", "ontology", "spec-driven.graphql"),
 			enumName: "SpecStatus",
 			values: map[string]expectedViewValue{
 				"proposed":   {label: "Proposed", order: 10},
@@ -36,7 +36,7 @@ func TestStarterOntologySchemasExposeViewGroupingMetadata(t *testing.T) {
 		},
 		{
 			name:     "spec-driven-effort-status",
-			path:     filepath.Join("templates", "starters", templateAgenticEngineering, "rhizome", "ontology", "spec-driven.graphql"),
+			path:     filepath.Join("templates", "starters", templateAgenticEngineering, "module", "ontology", "spec-driven.graphql"),
 			enumName: "EffortStatus",
 			values: map[string]expectedViewValue{
 				"planned":  {label: "Planned", order: 10},

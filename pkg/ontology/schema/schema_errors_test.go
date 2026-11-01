@@ -29,8 +29,8 @@ func TestCompileErrorRetainsAuthoredFieldAndDiagnostic(t *testing.T) {
 	rule := requireCompileError(t, err, "identifier_list")
 	require.Equal(t, "Record", rule.TypeName)
 	require.Equal(t, "key", rule.FieldName)
-	require.Equal(t, "schema.graphql", rule.Position.Src.Name)
+	require.Equal(t, ".rhizome/ontology/schema.graphql", rule.Position.Src.Name)
 	require.Equal(t, 2, rule.Position.Line)
 	require.Equal(t, 3, rule.Position.Column)
-	require.EqualError(t, err, "schema.graphql:2:3: @identifier on Record.key cannot be a list field")
+	require.EqualError(t, err, ".rhizome/ontology/schema.graphql:2:3: @identifier on Record.key cannot be a list field")
 }

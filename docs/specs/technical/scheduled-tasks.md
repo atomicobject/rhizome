@@ -6,7 +6,7 @@ aliases:
   - Scheduled tasks
 summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs work in their own worktree, never push, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
 spec-status: proposed
-last-updated: 2026-10-31
+last-updated: 2026-11-01
 ---
 
 # Scheduled tasks
@@ -76,7 +76,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 #### Acceptance Criteria
 
-- A task is a YAML file in `.rhizome/tasks/`. The folder holds two kinds, read the same way:
+- A task is a YAML file in `.rhizome/tasks/` or in a module's `tasks/` folder (`.rhizome/modules/<module>/tasks/`, [[rhizome-modules|SPEC-0130]]). A flat task's id is its file name; a module task's id is `<module>/<file name>`, and the branch, worktree, run data, and pull-request matching built from it never collide with a flat task's. The files hold two kinds, read the same way:
   - **Starter tasks** are installed by `rzm init` as a managed asset type, the same way starters install views. `rzm init` refreshes them.
   - **Custom tasks** are written by the repository's own team and left alone by `rzm init`.
 - `rzm init` adds `tasks/` to the managed `.rhizome/.gitignore` allowlist.

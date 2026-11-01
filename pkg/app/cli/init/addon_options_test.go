@@ -18,7 +18,7 @@ func compoundingSkill(root string) string {
 }
 
 func actionItemsOntology(root string) string {
-	return filepath.Join(root, ".rhizome", "ontology", "action-items.graphql")
+	return filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql")
 }
 
 func requireUpToDate(t *testing.T, root string) {
@@ -203,7 +203,7 @@ func TestAddingAnAddonDoesNotTurnOnUnrecordedDefaults(t *testing.T) {
 	cfg := loadConfigForTest(t, root)
 	require.Equal(t, []string{templateCompounding}, cfg.WorkflowTemplateAddons.Enabled)
 	require.Equal(t, []string{templateActionItems}, cfg.WorkflowTemplateAddons.Disabled, "action-items was never installed here")
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "compounding.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "compounding", "ontology", "compounding.graphql"))
 	require.NoFileExists(t, actionItemsOntology(root))
 	requireUpToDate(t, root)
 }

@@ -5,12 +5,12 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { GROUP_PROMPT } from "../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/prompts.mjs";
+import { GROUP_PROMPT } from "../../pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/prompts.mjs";
 
 const CAMPAIGN = resolve(".rhizome/session-memory/eval/runs/terra61-2026-10-30");
 const ROOT = join(CAMPAIGN, "roles");
 const SOURCE = resolve(".rhizome/session-memory/eval/runs/D-v1-jev35");
-const LIB = resolve("pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib");
+const LIB = resolve("pkg/app/cli/init/templates/starters/compounding/module/scripts/lib");
 const JUDGE = "claude-sonnet-5-5";
 const BATCH_CONCURRENCY = 5;
 const hash = (v) => createHash("sha256").update(typeof v === "string" ? v : JSON.stringify(v)).digest("hex");
