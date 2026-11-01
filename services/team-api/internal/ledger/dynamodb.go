@@ -52,6 +52,16 @@ func (l *DynamoDB) lease(ctx context.Context) (dynamotable.Item, ownerLease, err
 	}
 	return i, lease, err
 }
+
+// live rechecks a lease deadline read earlier, immediately before a write:
+// time passes during the reads, and the write condition checks only the
+// owner's revision.
+func (l *DynamoDB) live(deadline time.Time) error {
+	if !l.now().Before(deadline) {
+		return ErrPrecondition
+	}
+	return nil
+}
 func (l *DynamoDB) Heartbeat(ctx context.Context) error {
 	return dynamotable.Retry(ctx, func(ctx context.Context) error {
 		i, lease, err := l.lease(ctx)
@@ -64,9 +74,8 @@ func (l *DynamoDB) Heartbeat(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// Time passes during the read; never renew a lease that expired meanwhile.
-		if !l.now().Before(deadline) {
-			return ErrPrecondition
+		if err := l.live(deadline); err != nil {
+			return err
 		}
 		return l.table.Write(ctx, put)
 	})
@@ -145,7 +154,7 @@ func (l *DynamoDB) recoverReceipt(ctx context.Context, key string) error {
 			return nil
 		}
 		r.State = stateUnknown
-		return l.change(ctx, i, r, l.table.Check(owner), func(u *wire.DailyUsage) { u.Unknown++ })
+		return l.change(ctx, i, r, l.table.Check(owner), time.Time{}, func(u *wire.DailyUsage) { u.Unknown++ })
 	})
 }
 func receiptKey(sub, key string) string {
@@ -156,7 +165,7 @@ func (l *DynamoDB) Reserve(ctx context.Context, r Receipt, person, everyone wire
 		return "", err
 	}
 	err := dynamotable.Retry(context.WithoutCancel(ctx), func(ctx context.Context) error {
-		owner, _, err := l.lease(ctx)
+		owner, lease, err := l.lease(ctx)
 		if err != nil {
 			return err
 		}
@@ -205,6 +214,9 @@ func (l *DynamoDB) Reserve(ctx context.Context, r Receipt, person, everyone wire
 		if err != nil {
 			return err
 		}
+		if err := l.live(lease.ExpiresAt); err != nil {
+			return err
+		}
 		return l.table.Write(ctx, append(writes, put)...)
 	})
 	var ce codeErr
@@ -238,7 +250,7 @@ func (l *DynamoDB) Settle(ctx context.Context, sub, key string, outcome Outcome,
 }
 func (l *DynamoDB) transition(ctx context.Context, sub, key, from, to string, settled *int64) error {
 	return dynamotable.Retry(context.WithoutCancel(ctx), func(ctx context.Context) error {
-		owner, _, err := l.lease(ctx)
+		owner, lease, err := l.lease(ctx)
 		if err != nil {
 			return err
 		}
@@ -271,10 +283,13 @@ func (l *DynamoDB) transition(ctx context.Context, sub, key, from, to string, se
 				}
 			}
 		}
-		return l.change(ctx, i, r, l.table.Check(owner), adjust)
+		return l.change(ctx, i, r, l.table.Check(owner), lease.ExpiresAt, adjust)
 	})
 }
-func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedReceipt, owner types.TransactWriteItem, adjust func(*wire.DailyUsage)) error {
+
+// change writes a receipt and its day counters. A nonzero deadline is the
+// acting owner's lease expiry; recovery passes none.
+func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedReceipt, owner types.TransactWriteItem, deadline time.Time, adjust func(*wire.DailyUsage)) error {
 	put, err := l.table.Put(i, r)
 	if err != nil {
 		return err
@@ -296,6 +311,11 @@ func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedRecei
 				return err
 			}
 			writes = append(writes, put)
+		}
+	}
+	if !deadline.IsZero() {
+		if err := l.live(deadline); err != nil {
+			return err
 		}
 	}
 	return l.table.Write(ctx, writes...)

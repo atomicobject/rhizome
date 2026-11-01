@@ -40,29 +40,51 @@ func TestDynamoDBContract(t *testing.T) {
 	})
 }
 
-// A lease that expires between the heartbeat's read and its write stays
-// expired: the first clock reading sees it live, every later one past expiry.
-func TestDynamoDBHeartbeatDoesNotRenewALeaseThatExpiredDuringIt(t *testing.T) {
-	table := dynamotest.Open(t)
-	base := time.Now().UTC()
-	var armed atomic.Bool
-	var calls atomic.Int64
-	now := func() time.Time {
-		switch {
-		case !armed.Load():
-			return base
-		case calls.Add(1) == 1:
-			return base.Add(ledger.LeaseDuration - time.Second)
-		default:
-			return base.Add(ledger.LeaseDuration + time.Second)
-		}
+// A lease that expires between an operation's reads and its write stays
+// expired: after expireDuring, the next clock reading sees the lease live and
+// every later one is past its expiry.
+func TestDynamoDBWritesRefuseALeaseThatExpiredDuringTheOperation(t *testing.T) {
+	ctx := context.Background()
+	for name, op := range map[string]func(ledger.Ledger) error{
+		"heartbeat": func(l ledger.Ledger) error { return l.Heartbeat(ctx) },
+		"reserve": func(l ledger.Ledger) error {
+			_, err := l.Reserve(ctx, ledger.Receipt{Sub: "s1", Key: "new", Route: "r", BodyHash: "h", InputBytes: 1, Credits: 1}, roomy, roomy)
+			return err
+		},
+		"dispatch": func(l ledger.Ledger) error { return l.MarkDispatched(ctx, "s1", "held") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			table := dynamotest.Open(t)
+			base := time.Now().UTC()
+			var armed atomic.Bool
+			var calls atomic.Int64
+			now := func() time.Time {
+				switch {
+				case !armed.Load():
+					return base
+				case calls.Add(1) == 1:
+					return base.Add(ledger.LeaseDuration - time.Second)
+				default:
+					return base.Add(ledger.LeaseDuration + time.Second)
+				}
+			}
+			l, err := ledger.OpenDynamoDB(ctx, table, now)
+			require.NoError(t, err)
+			code, err := l.Reserve(ctx, ledger.Receipt{Sub: "s1", Key: "held", Route: "r", BodyHash: "h", InputBytes: 1, Credits: 1}, roomy, roomy)
+			require.NoError(t, err)
+			require.Empty(t, code)
+			armed.Store(true)
+			require.ErrorIs(t, op(l), ledger.ErrPrecondition)
+			require.ErrorIs(t, l.Heartbeat(ctx), ledger.ErrPrecondition, "the lease was not extended")
+			everyone, _, err := l.Usage(ctx, base.Format(time.DateOnly))
+			require.NoError(t, err)
+			require.Equal(t, int64(1), everyone.Requests, "only the reservation made while the lease was live counts")
+		})
 	}
-	l, err := ledger.OpenDynamoDB(context.Background(), table, now)
-	require.NoError(t, err)
-	armed.Store(true)
-	require.ErrorIs(t, l.Heartbeat(context.Background()), ledger.ErrPrecondition)
-	require.ErrorIs(t, l.Heartbeat(context.Background()), ledger.ErrPrecondition, "the lease was not extended")
 }
+
+var roomy = wire.DailyLimits{Requests: 100, InputBytes: 1 << 20, ChargeCredits: 1 << 20}
+
 func TestSQLiteUpgradeRecoversOwnerlessReceipts(t *testing.T) {
 	ctx := context.Background()
 	db, err := store.Open(filepath.Join(t.TempDir(), "legacy.db"))
