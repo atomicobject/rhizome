@@ -135,3 +135,40 @@ export function review(store, root) {
 }
 
 export const pending = (store, root) => review(store, root).pending;
+
+// The proposal a verified cluster offers for review, with its cited episodes
+// from the pool.
+export function proposalOf(cl, eps) {
+  const broken = cl.verifyProblems;
+  const v = cl.verification ?? { decision: "reject", rejectReason: "contract", notes: broken.problems.join("; "), run: broken.run, at: broken.at };
+  // A rejection drafts nothing, so no response field it carried is proposed.
+  const r = v.decision === "reject" ? {} : v;
+  return {
+    cluster: cl.id,
+    tier: cl.tier,
+    families: cl.families.length,
+    familyIds: cl.families,
+    rejected: v.decision === "reject" ? { reason: v.rejectReason ?? "other", notes: v.notes } : undefined,
+    kind: v.kind ?? cl.kind,
+    statement: v.statement ?? cl.statement,
+    why: v.why ?? cl.why,
+    appliesTo: v.appliesTo ?? cl.appliesTo,
+    commands: v.commands ?? cl.commands,
+    target: v.target ?? cl.target,
+    response: r.response,
+    responseReason: r.responseReason,
+    workaround: r.workaround,
+    edit: r.edit,
+    documentHash: r.documentHash,
+    change: r.change,
+    guardRule: r.guardRule,
+    question: r.question,
+    owner: r.owner,
+    recurrence: cl.recurrence,
+    documentation: v.documentation,
+    verification: v.verification,
+    notes: v.notes,
+    evidence: cl.evidence.map((id) => eps[id]).filter(Boolean).map((e) => ({ episode: e.id, harness: e.harness, session: e.session, ts: e.ts, lens: e.lens, origin: e.origin, toolCalls: e.toolCalls ?? 0 })),
+    verified: { run: v.run, commit: v.commit, model: v.model, at: v.at },
+  };
+}

@@ -357,6 +357,9 @@ function applyDocument(root, store, p, s, who, rechecked) {
 // unless they name another Person, which must resolve before anything is written.
 function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
   if (assignee === true) throw new Refused("pass --assignee with the title of a Person note");
+  // A proposal approved again after its finding went missing keeps the
+  // Person it was assigned to.
+  assignee = assignee ?? s.assignee;
   const to = assignee && people(root, String(assignee));
   if (assignee && (!to?.found || to.typeName !== "Person")) throw new Refused(`--assignee ${assignee} does not resolve to a Person note; name an existing Person by title, or create the note first`);
   const path = findingPath(root, s.response, s.statement);
@@ -382,7 +385,7 @@ function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
   const families = p.familyIds ?? store.read("pool/clusters.json", {})[p.cluster]?.families ?? (pooled.length && pooled.every(Boolean) ? pooled : null);
   store.write("finding-links.json", { ...links, [path]: { clusters: [...new Set([...(links[path]?.clusters ?? []), p.cluster])].sort(), ...(families ? { families: [...new Set(families)].sort() } : { familiesApproximate: true }) } });
   markReviewed(store, p.cluster, { action: "finding", path });
-  recordApproval(root, store, s, s.response, path, who);
+  recordApproval(root, store, { ...s, assignee: to ? to.title : undefined }, s.response, path, who);
   return { finding: path, assignee: finding.assignee };
 }
 

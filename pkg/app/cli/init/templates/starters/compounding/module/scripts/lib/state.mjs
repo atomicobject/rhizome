@@ -6,10 +6,11 @@
 // one store per worktree; the first run after upgrading migrates them.
 
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { learningHash } from "./shards.mjs";
+import { proposalOf } from "./approvals.mjs";
+import { DECISION_DIR, learningHash } from "./shards.mjs";
 import { Refused, openStore, sha, writeJson } from "./store.mjs";
 
 const STATE = ".rhizome/compounding";
@@ -117,6 +118,22 @@ const NOT_STATE = new Set(["lock", "lock.reclaim", "hook", "migrated.json"]);
 const newest = (dir) => Math.max(0, ...readdirSync(dir).filter((f) => !NOT_STATE.has(f)).map((f) => statSync(join(dir, f)).mtimeMs));
 const stamp = (at) => String(at).replace(/\D/g, "").slice(0, 14);
 
+// A legacy approval's proposal: the store's proposals, else the newest run
+// snapshot that still lists it, else the verified cluster it came from, since
+// mining drops an approved proposal from proposals.json.
+function recoverProposal(store, proposals, cluster) {
+  const found = proposals.find((x) => x.cluster === cluster);
+  if (found) return found;
+  const runs = existsSync(store.path("runs")) ? readdirSync(store.path("runs")).map((id) => join("runs", id, "pool-before.json")).filter((f) => existsSync(store.path(f))) : [];
+  runs.sort((a, b) => statSync(store.path(b)).mtimeMs - statSync(store.path(a)).mtimeMs);
+  for (const f of runs) {
+    const p = (store.read(f, {})["proposals.json"] ?? []).find((x) => x.cluster === cluster);
+    if (p) return p;
+  }
+  const cl = store.read("pool/clusters.json", {})[cluster];
+  return cl?.verification?.decision === "propose" ? proposalOf(cl, store.read("pool/episodes.json", {})) : null;
+}
+
 // The legacy approval as a decision event, from the proposal its store kept.
 // Who approved it and the HEAD it was published at were never recorded.
 function legacyEvent(p, r, witness, checkout) {
@@ -163,7 +180,7 @@ export function migrate(repo, cwd, { log = (m) => process.stderr.write(`${m}\n`)
       for (const [cluster, r] of Object.entries(reviewed)) {
         const witness = LEGACY[r.action] && r[LEGACY[r.action]];
         if (!witness) continue;
-        const p = proposals.find((x) => x.cluster === cluster);
+        const p = recoverProposal(store, proposals, cluster);
         if (!p) {
           summary.unconverted.push({ store: dir, cluster, action: r.action, witness });
           continue;
@@ -171,6 +188,22 @@ export function migrate(repo, cwd, { log = (m) => process.stderr.write(`${m}\n`)
         const e = legacyEvent(p, r, witness, stateHome(dir) ?? dir);
         into.write(`decisions/${e.learning}--${stamp(e.at)}-migrated.json`, e);
         summary.converted++;
+      }
+      // A shared dismissal or document decision was written to that checkout's
+      // tracked decisions folder, which other checkouts cannot see until it
+      // is committed and merged, so it is kept privately too.
+      const home = stateHome(dir);
+      const shared = home && home !== stateHome(target) ? join(home, DECISION_DIR) : null;
+      for (const f of shared && existsSync(shared) ? readdirSync(shared).filter((f) => f.endsWith(".json")) : []) {
+        if (present.has(f)) continue;
+        let e = null;
+        try {
+          e = JSON.parse(readFileSync(join(shared, f), "utf8"));
+        } catch {}
+        if (!e?.learning) continue;
+        into.write(`decisions/${f}`, e);
+        present.add(f);
+        summary.imported++;
       }
       if (dir === adopted) continue;
       const decided = new Set();

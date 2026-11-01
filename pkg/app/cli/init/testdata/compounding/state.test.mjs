@@ -233,3 +233,44 @@ test("mine refuses with exit 2 and a reason while migration waits for an open ru
   assert.match(mine.stderr, /^refused: .*run r1 .* is still open/m);
   assert.doesNotMatch(mine.stderr, /\n\s+at /, "no stack trace");
 });
+
+test("migration recovers an approval whose proposal mining already dropped, and keeps shared dismissals from other checkouts", () => {
+  const repo = checkouts("w");
+  const { main, state } = repo;
+  const old = join(repo.wt.w, ".rhizome/compounding");
+  // k-snap survives only in a run snapshot; k-pool only as its verified cluster.
+  writeJson(join(old, "proposals.json"), []);
+  writeJson(join(old, "runs/r1/manifest.json"), { id: "r1", status: "done" });
+  writeJson(join(old, "runs/r1/pool-before.json"), { "proposals.json": [proposal("k-snap")] });
+  const pooled = proposal("k-pool");
+  writeJson(join(old, "pool/clusters.json"), { "k-pool": { id: "k-pool", tier: "A", families: ["f1", "f2"], evidence: [], kind: pooled.kind, statement: pooled.statement, verification: { decision: "propose", kind: pooled.kind, statement: pooled.statement, appliesTo: pooled.appliesTo, response: "remember", run: "r1", at: "2026-10-01T10:00:00.000Z" } } });
+  writeJson(join(old, "reviewed.json"), {
+    "k-snap": { action: "approved", path: "docs/memory/context-shards/rule-snap.md", at: "2026-10-02T10:00:00.000Z" },
+    "k-pool": { action: "approved", path: "docs/memory/context-shards/rule-pool.md", at: "2026-10-02T11:00:00.000Z" },
+  });
+  // A shared dismissal made in the worktree and never committed.
+  const dismissal = { learning: "e".repeat(16), cluster: "k-no", kind: "rule", statement: "Not wanted.", decision: "dismissed", reason: "covered", decider: "Pat Example", at: "2026-10-03T00:00:00.000Z" };
+  writeJson(join(repo.wt.w, "docs/memory/context-shards/decisions/dismissed-no.json"), dismissal);
+
+  const summary = migrate(repoState(main), main, quiet);
+  assert.equal(summary.converted, 2);
+  assert.deepEqual(summary.unconverted, []);
+  const events = readdirSync(join(state, "decisions")).map((f) => read(join(state, "decisions", f)));
+  assert.deepEqual(events.filter((e) => e.migrated).map((e) => e.cluster).sort(), ["k-pool", "k-snap"]);
+  assert.ok(events.some((e) => e.decision === "dismissed" && e.learning === dismissal.learning), "the worktree's shared dismissal is kept");
+  assert.deepEqual(at(main, "list", "--all").map((p) => [p.cluster, p.status]).sort(), [["k-pool", "missing"], ["k-snap", "missing"]]);
+});
+
+test("a finding approved again after it went missing keeps its assignee", () => {
+  const repo = checkouts();
+  const { main } = repo;
+  propose(repo, [proposal("k-fix", { response: "fix", change: "Default the timeout explicitly." })]);
+  const lee = { found: true, typeName: "Person", path: "docs/people/lee-example.md", title: "Lee Example" };
+  const people = (_root, name) => (name.toLowerCase().startsWith("lee") ? lee : { found: false });
+  const first = run(["approve", "k-fix", "--confirm-publish", "--assignee", "Lee Example"], { root: main, user, people });
+  assert.match(first.assignee, /lee-example/);
+  rmSync(join(main, first.finding));
+  assert.equal(at(main, "list").find((p) => p.cluster === "k-fix").status, "missing");
+  const again = run(["approve", "k-fix", "--confirm-publish"], { root: main, user, people });
+  assert.match(again.assignee, /lee-example/, "the recovered payload keeps the earlier assignee");
+});

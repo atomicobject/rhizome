@@ -38,7 +38,7 @@ import { facts, group, rank, tierOf } from "./lib/reduce.mjs";
 import { screen } from "./lib/screen.mjs";
 import { loadFindings, recur } from "./lib/findings.mjs";
 import { learningHash, loadDecisions, loadShards } from "./lib/shards.mjs";
-import { pending } from "./lib/approvals.mjs";
+import { pending, proposalOf as proposal } from "./lib/approvals.mjs";
 import { openRun, openState } from "./lib/state.mjs";
 import { Refused, readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
@@ -435,40 +435,6 @@ export function excerpts(cl, eps) {
   return [...perFamily.values()].slice(0, 6).map((e) => ({ lens: e.lens, origin: e.origin, confidence: e.confidence, previous: e.context?.previous?.slice(0, 600) || undefined, text: e.text.slice(0, 1500) }));
 }
 
-function proposal(cl, eps) {
-  const broken = cl.verifyProblems;
-  const v = cl.verification ?? { decision: "reject", rejectReason: "contract", notes: broken.problems.join("; "), run: broken.run, at: broken.at };
-  // A rejection drafts nothing, so no response field it carried is proposed.
-  const r = v.decision === "reject" ? {} : v;
-  return {
-    cluster: cl.id,
-    tier: cl.tier,
-    families: cl.families.length,
-    familyIds: cl.families,
-    rejected: v.decision === "reject" ? { reason: v.rejectReason ?? "other", notes: v.notes } : undefined,
-    kind: v.kind ?? cl.kind,
-    statement: v.statement ?? cl.statement,
-    why: v.why ?? cl.why,
-    appliesTo: v.appliesTo ?? cl.appliesTo,
-    commands: v.commands ?? cl.commands,
-    target: v.target ?? cl.target,
-    response: r.response,
-    responseReason: r.responseReason,
-    workaround: r.workaround,
-    edit: r.edit,
-    documentHash: r.documentHash,
-    change: r.change,
-    guardRule: r.guardRule,
-    question: r.question,
-    owner: r.owner,
-    recurrence: cl.recurrence,
-    documentation: v.documentation,
-    verification: v.verification,
-    notes: v.notes,
-    evidence: cl.evidence.map((id) => eps[id]).filter(Boolean).map((e) => ({ episode: e.id, harness: e.harness, session: e.session, ts: e.ts, lens: e.lens, origin: e.origin, toolCalls: e.toolCalls ?? 0 })),
-    verified: { run: v.run, commit: v.commit, model: v.model, at: v.at },
-  };
-}
 
 function summarize({ episodes, screened, results, touched, plan, clusters, fresh, proposals }) {
   const count = (xs, f) => xs.reduce((acc, x) => ((acc[f(x)] = (acc[f(x)] ?? 0) + 1), acc), {});
