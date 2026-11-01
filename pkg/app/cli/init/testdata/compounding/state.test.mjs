@@ -364,3 +364,14 @@ test("dismissing a revised approval that went missing keeps every wording of it 
   at(main, "dismiss", "k-dis", "--reason", "not wanted after all", "--local");
   assert.equal(at(main, "list").find((p) => p.cluster === "k-dis"), undefined);
 });
+
+test("migration carries a worktree store's saved model choices and calibration evidence", () => {
+  const repo = checkouts("w");
+  const { main, state } = repo;
+  const old = join(repo.wt.w, ".rhizome/compounding");
+  writeJson(join(old, "models.json"), { roles: { extract: { provider: "claude", model: "claude-haiku-5-5", effort: "xhigh" } } });
+  writeJson(join(old, "calibrations/c1/evidence.json"), { role: "extract" });
+  migrate(repoState(main), main, quiet);
+  assert.deepEqual(read(join(state, "models.json")).roles.extract.model, "claude-haiku-5-5");
+  assert.deepEqual(read(join(state, "calibrations/c1/evidence.json")), { role: "extract" });
+});

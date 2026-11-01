@@ -111,7 +111,7 @@ export const lockOrRefuse = (store) => {
 
 // A legacy reviewed.json approval and the field naming the file it created.
 const LEGACY = { approved: "path", finding: "path", documented: "decision" };
-const isStore = (dir) => ["proposals.json", "reviewed.json", "cursors.json", "pool", "runs", "decisions"].some((f) => existsSync(join(dir, f)));
+const isStore = (dir) => ["proposals.json", "reviewed.json", "cursors.json", "pool", "runs", "decisions", "models.json", "calibrations"].some((f) => existsSync(join(dir, f)));
 // What a store holds that is not its state: the lock migration itself takes,
 // and the per-checkout hook state.
 const NOT_STATE = new Set(["lock", "lock.reclaim", "hook", "migrated.json"]);
@@ -219,6 +219,12 @@ export function migrate(repo, cwd, { log = (m) => process.stderr.write(`${m}\n`)
         summary.imported++;
       }
       if (dir === adopted) continue;
+      // A person's saved model choices and calibration evidence move too,
+      // unless the adopted store already has its own.
+      if (existsSync(join(dir, "models.json")) && !existsSync(into.path("models.json"))) cpSync(join(dir, "models.json"), into.path("models.json"));
+      for (const run of existsSync(join(dir, "calibrations")) ? readdirSync(join(dir, "calibrations")) : []) {
+        if (!existsSync(into.path("calibrations", run))) cpSync(join(dir, "calibrations", run), into.path("calibrations", run), { recursive: true });
+      }
       const decided = new Set();
       for (const f of existsSync(store.path("decisions")) ? readdirSync(store.path("decisions")).filter((f) => f.endsWith(".json")) : []) {
         const e = store.read(`decisions/${f}`, null);
