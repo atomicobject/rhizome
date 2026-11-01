@@ -5,9 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/session"
+	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
 
 // check routes each origin to the right guard: remote origins pass, the
@@ -37,6 +41,55 @@ func TestCheckRoutesOrigins(t *testing.T) {
 	a.development = false
 	if err := a.check(ctx, session.DevelopmentOrigin); !errors.Is(err, errLive) {
 		t.Fatalf("release build, loopback origin: %v, want require live", err)
+	}
+}
+
+func TestRetainedProviderRecoversAfterGatewayCheckFailure(t *testing.T) {
+	var calls atomic.Int32
+	var checks int
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
+	t.Cleanup(srv.Close)
+	account, err := session.Open(session.Options{Origin: srv.URL, Store: &session.MemoryStore{}, LockPath: filepath.Join(t.TempDir(), "lock")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = account.Publish(context.Background(), wire.SessionGrant{SessionID: "s1", Email: "synthetic@example.test",
+		AccessToken: "a", RefreshToken: "r",
+		AccessExpiresAt: time.Now().Add(10 * time.Minute), SessionExpiresAt: time.Now().Add(time.Hour)}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unavailable := true
+	a := &access{account: account, at: time.Now(), state: session.Status{SignedIn: true},
+		requireLive: func(context.Context, string) error {
+			checks++
+			if unavailable {
+				return errors.New("temporary gateway outage")
+			}
+			return nil
+		}}
+	provider, ok, err := a.load()
+	if err != nil || !ok {
+		t.Fatalf("load provider: signed in %v, error %v", ok, err)
+	}
+	transport := provider.Transport()
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	if _, err := transport.RoundTrip(req); err == nil {
+		t.Fatal("an unavailable gateway must fail the request")
+	}
+	if calls.Load() != 0 {
+		t.Fatal("the failed guard allowed a provider call")
+	}
+	unavailable = false
+	// The same provider and transport must recover, without a new lookup.
+	req, _ = http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := transport.RoundTrip(req)
+	if err != nil {
+		t.Fatalf("the retained provider did not recover: %v", err)
+	}
+	resp.Body.Close()
+	if calls.Load() != 1 || checks != 2 {
+		t.Fatalf("provider calls %d, gateway checks %d", calls.Load(), checks)
 	}
 }
 

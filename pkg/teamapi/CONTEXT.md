@@ -19,6 +19,7 @@
 
 ## Refresh coordination
 
+- Before reusing a cached record older than 30 seconds, the request path rereads the shared store, so retained providers follow another process's sign-in or sign-out. `Status` rereads immediately. A newer unsaved rotation is retained only for the same session ID and generation.
 - Requests read the record without the lock and use the access token while it stays valid for more than 60 seconds. Otherwise the account takes `<home>/.config/rhizome/team-session.lock` (`flock`, 30-second timeout; Windows has a stub until it has a store), rereads the record, and refreshes only if no other process already did. Twenty processes refreshing at once rotate once.
 - Before rotating, the account rewrites the current record to prove the store accepts writes. If it does not, it keeps using the current token until it expires and then returns `ErrStoreUnavailable`, because rotation retires the stored refresh token and the gateway revokes the session when another process reuses it after the grace period. If the save after a rotation fails twice, this process keeps the new record in memory, records `session.save_failed`, and writes it before its next rotation.
 - `access_refresh_required` means the gateway rejected an older access token before admission. The transport refreshes only if the stored token is the rejected one, then replays the request once using `GetBody`; without `GetBody` it returns the error. It never clears a healthy shared session for this code.

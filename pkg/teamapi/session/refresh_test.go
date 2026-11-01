@@ -124,6 +124,7 @@ func TestFailedSaveAfterRotationKeepsTheNewTokens(t *testing.T) {
 	require.Equal(t, "rzt_a_s1.a1", rec.AccessToken)
 	stored, _ := loadRecord(t, memory, g.origin())
 	require.Equal(t, "rzt_a_s1.a0", stored.AccessToken, "the failed save left the old record")
+	a.now = func() time.Time { return time.Now().Add(31 * time.Second) }
 	again, err := a.current(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, rec.AccessToken, again.AccessToken, "this process keeps the new tokens")

@@ -109,16 +109,9 @@ func (a *access) load() (provideraccess.Managed, bool, error) {
 		return nil, false, err
 	}
 	m := managed{Account: account, limits: status.Limits}
-	if a.development && account.Origin() == session.DevelopmentOrigin {
-		// A long-running vault keeps this provider while the on-demand gateway
-		// exits after an idle hour, so every request makes sure it is up.
-		return ensuring{managed: m, ensure: a.ensure}, true, nil
-	}
-	if err := a.check(context.Background(), account.Origin()); err != nil {
-		// Fail every call loudly rather than quietly billing a direct key.
-		return failing{managed: m, err: err}, true, nil
-	}
-	return m, true, nil
+	// Retained providers recheck gateway availability and safety per request,
+	// so a temporary outage never becomes a permanent provider failure.
+	return ensuring{managed: m, ensure: a.check}, true, nil
 }
 
 // check decides whether the gateway at origin may serve provider calls.
@@ -164,16 +157,7 @@ type managed struct {
 
 func (m managed) Limits() wire.Limits { return m.limits }
 
-// failing reports why the gateway cannot be used on every request instead of
-// falling back to another billing source.
-type failing struct {
-	managed
-	err error
-}
-
-func (f failing) Transport() http.RoundTripper { return errorTransport{f.err} }
-
-// ensuring starts the development gateway, if needed, before each request.
+// ensuring checks the gateway, starting it when appropriate, per request.
 type ensuring struct {
 	managed
 	ensure func(context.Context, string) error
@@ -191,11 +175,10 @@ type ensureTransport struct {
 
 func (t ensureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := t.ensure(req.Context(), t.origin); err != nil {
+		if req.Body != nil {
+			_ = req.Body.Close()
+		}
 		return nil, err
 	}
 	return t.inner.RoundTrip(req)
 }
-
-type errorTransport struct{ err error }
-
-func (t errorTransport) RoundTrip(*http.Request) (*http.Response, error) { return nil, t.err }

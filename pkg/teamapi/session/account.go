@@ -18,6 +18,10 @@ import (
 // without refreshing first.
 const refreshMargin = 60 * time.Second
 
+// sharedCheckInterval bounds how long a retained provider uses a session
+// another process replaced or removed, without reading the keychain per call.
+const sharedCheckInterval = 30 * time.Second
+
 // logoutTimeout bounds remote revocation during logout. A variable for tests.
 var logoutTimeout = 10 * time.Second
 
@@ -49,8 +53,9 @@ type Account struct {
 	userAgent string
 	now       func() time.Time
 
-	mu     sync.Mutex
-	cached *Record
+	mu        sync.Mutex
+	cached    *Record
+	checkedAt time.Time
 }
 
 // Status describes a session without its tokens.
@@ -113,20 +118,33 @@ func (a *Account) Origin() string { return a.origin }
 // requests use the stored session. A cached record of the same session is
 // kept: it may hold a rotation this process could not save yet.
 func (a *Account) Status() (Status, error) {
-	rec, err := a.load()
+	rec, err := a.shared()
 	if errors.Is(err, ErrNotFound) || errors.Is(err, errMalformed) {
-		a.setCache(nil)
 		return Status{Origin: a.origin}, nil
 	}
 	if err != nil {
 		return Status{Origin: a.origin}, err
 	}
-	a.mu.Lock()
-	if a.cached != nil && a.cached.SessionID != rec.SessionID {
-		a.cached = nil
-	}
-	a.mu.Unlock()
 	return a.statusOf(rec), nil
+}
+
+// shared reconciles the cached and stored sign-ins, keeping a newer rotation
+// only within the same generation and session when its save failed.
+func (a *Account) shared() (Record, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	rec, err := a.load()
+	if err != nil {
+		if errors.Is(err, ErrNotFound) || errors.Is(err, errMalformed) {
+			a.cached = nil
+		}
+		return Record{}, err
+	}
+	if cached := a.cached; cached != nil && cached.SessionID == rec.SessionID && cached.Generation == rec.Generation && cached.AccessExpiresAt.After(rec.AccessExpiresAt) {
+		rec = *cached
+	}
+	a.cached, a.checkedAt = &rec, a.now()
+	return rec, nil
 }
 
 func (a *Account) statusOf(rec Record) Status {
@@ -231,20 +249,20 @@ func (a *Account) revoke(ctx context.Context, rec Record) bool {
 }
 
 // current returns a record whose access token is usable, refreshing when it
-// expires within refreshMargin. The common path takes no lock.
+// expires within refreshMargin. The common path takes no cross-process lock.
 func (a *Account) current(ctx context.Context) (Record, error) {
 	a.mu.Lock()
 	cached := a.cached
+	checkedAt := a.checkedAt
 	a.mu.Unlock()
-	if cached != nil && a.fresh(*cached) {
+	if cached != nil && a.fresh(*cached) && a.now().Sub(checkedAt) < sharedCheckInterval {
 		return *cached, nil
 	}
-	rec, err := a.load()
+	rec, err := a.shared()
 	if err != nil {
 		return Record{}, signInError(err)
 	}
 	if a.fresh(rec) {
-		a.setCache(&rec)
 		return rec, nil
 	}
 	return a.refresh(ctx, "")
@@ -391,7 +409,7 @@ func (a *Account) delete() error {
 
 func (a *Account) setCache(rec *Record) {
 	a.mu.Lock()
-	a.cached = rec
+	a.cached, a.checkedAt = rec, a.now()
 	a.mu.Unlock()
 }
 

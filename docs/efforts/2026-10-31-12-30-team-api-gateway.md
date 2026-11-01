@@ -152,6 +152,7 @@ The local build, on `t3/team-api-proxy-auth`:
   - `PATH="$HOME/.cargo/bin:$PATH" make desktop-check` passed: 97 interface tests, 102 Rust tests, formatting, and Clippy. The initial attempt lacked Rust on `PATH`; rerunning with the installed toolchain resolved that environment failure.
   - `./scripts/rzm validate` passed with 0 issues. `./scripts/rzm validate frozen-scope-drift` reports one unrelated, pre-existing issue in EFF-2026-10-03-18-33; this effort has no drift finding.
   - This merges the local foundation only. The effort remains active for Google setup, AWS staging, the pilot, and key retirement.
+- 2026-11-01: Greptile's fresh review of `98923351` scored 3/5 and identified two retained-provider defects. Both were reproduced before fixes: another process's replacement/removal of a sign-in was ignored while the cached access token stayed fresh, and a failed loopback gateway check permanently poisoned a retained provider. Requests now recheck shared account state after 30 seconds and rerun the gateway guard per request. A regression also verifies that shared-state rechecks retain an unsaved token rotation. The complete session and team-access suites passed with the race detector. `make check-full` then passed, including race-enabled unit and integration tests, benchmark contracts, and web tests.
 
 ## Deviations
 
