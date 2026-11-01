@@ -30,10 +30,12 @@ func registerModuleFamily(rootCmd *cobra.Command) {
 			"`rzm <name>` is a shortcut whenever <name> is not a built-in command.",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
+			at := commandArgIndex(cmd.Root(), args)
+			if at >= len(args) || args[at] == "-h" || args[at] == "--help" {
 				return cmd.Help()
 			}
-			return runModuleCommand(cmd, args[0], args[1:])
+			rest := append(append([]string{}, args[:at]...), args[at+1:]...)
+			return runModuleCommand(cmd, args[at], rest)
 		},
 	})
 }
@@ -42,15 +44,38 @@ func registerModuleFamily(rootCmd *cobra.Command) {
 // <name> is not a built-in command and names a module folder. Cobra-resolvable
 // arguments return before any file system access.
 func (app *commandInvocation) moduleDispatchArgs(ctx context.Context, args []string) ([]string, bool) {
-	if len(args) == 0 || !assetroots.ValidModuleName(args[0]) || isBuiltinCommand(app.Command, args[0]) {
+	at := commandArgIndex(app.Command, args)
+	if at >= len(args) || !assetroots.ValidModuleName(args[at]) || isBuiltinCommand(app.Command, args[at]) {
 		return nil, false
 	}
-	opts := &vaultCommandOptions{vaultName: moduleVaultFlag(args[1:])}
+	opts := &vaultCommandOptions{vaultName: moduleVaultFlag(args[at+1:])}
 	def, err := opts.vaultDefOrDefaultContext(contextWithCommandEnv(ctx, app.env))
-	if err != nil || !isDirPath(filepath.Join(def.BasePath(), filepath.FromSlash(assetroots.ModuleRoot(args[0])))) {
+	if err != nil || !isDirPath(filepath.Join(def.BasePath(), filepath.FromSlash(assetroots.ModuleRoot(args[at])))) {
 		return nil, false
 	}
-	return append([]string{"module"}, args...), true
+	routed := append(append(append([]string{}, args[:at]...), "module"), args[at:]...)
+	return routed, true
+}
+
+// commandArgIndex returns the index of the first argument after the root
+// command's own flags, such as `rzm --no-pager <name>`.
+func commandArgIndex(root *cobra.Command, args []string) int {
+	i := 0
+	for i < len(args) && strings.HasPrefix(args[i], "-") && args[i] != "-" && args[i] != "--" {
+		name, _, hasValue := strings.Cut(strings.TrimLeft(args[i], "-"), "=")
+		flag := root.PersistentFlags().Lookup(name)
+		if flag == nil && len(name) == 1 {
+			flag = root.PersistentFlags().ShorthandLookup(name)
+		}
+		if flag == nil {
+			return len(args)
+		}
+		i++
+		if !hasValue && flag.NoOptDefVal == "" {
+			i++
+		}
+	}
+	return i
 }
 
 // isBuiltinCommand reports whether name resolves to a top-level command,

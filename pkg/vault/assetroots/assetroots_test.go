@@ -92,3 +92,23 @@ func TestAllRootsAndQualify(t *testing.T) {
 		t.Fatal("Qualify")
 	}
 }
+
+func TestRootsReportsAnAssetRootThatIsNotAFolder(t *testing.T) {
+	repo := t.TempDir()
+	mkdirs(t, repo, ".rhizome", ".rhizome/modules/alpha")
+	if err := os.WriteFile(filepath.Join(repo, ".rhizome", "ontology"), []byte("oops"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Roots(repo, Ontology); err == nil {
+		t.Fatal("a flat ontology path that is a file must be an error, not an absent root")
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".rhizome", "modules", "alpha", "views"), []byte("oops"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Roots(repo, Views); err == nil {
+		t.Fatal("a module views path that is a file must be an error")
+	}
+	if roots, err := Roots(repo, Recipes); err != nil || len(roots) != 0 {
+		t.Fatalf("missing roots stay absent: %v %v", roots, err)
+	}
+}

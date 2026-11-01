@@ -7,6 +7,7 @@ package assetroots
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -107,16 +108,26 @@ func Modules(repoRoot string) (valid, invalid []string, err error) {
 // each valid module's folder by module name.
 func Roots(repoRoot string, k Kind) ([]Root, error) {
 	var roots []Root
-	if flat := flatDirs[k]; flat != "" && isDir(filepath.Join(repoRoot, filepath.FromSlash(flat))) {
-		roots = append(roots, Root{Rel: flat})
+	if flat := flatDirs[k]; flat != "" {
+		found, err := dirExists(repoRoot, flat)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			roots = append(roots, Root{Rel: flat})
+		}
 	}
 	modules, _, err := Modules(repoRoot)
 	if err != nil {
-		return roots, err
+		return nil, err
 	}
 	for _, m := range modules {
 		rel := ModuleDir(m, k)
-		if isDir(filepath.Join(repoRoot, filepath.FromSlash(rel))) {
+		found, err := dirExists(repoRoot, rel)
+		if err != nil {
+			return nil, err
+		}
+		if found {
 			roots = append(roots, Root{Module: m, Rel: rel})
 		}
 	}
@@ -182,7 +193,19 @@ func knownKind(k Kind) bool {
 	return false
 }
 
-func isDir(p string) bool {
-	info, err := os.Stat(p)
-	return err == nil && info.IsDir()
+// dirExists reports whether rel is a folder. A missing path is absent; any
+// other failure, or a path that exists but is not a folder, is an error, so
+// a broken asset root is never mistaken for an empty one.
+func dirExists(repoRoot, rel string) (bool, error) {
+	info, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(rel)))
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("%s is not a folder", rel)
+	}
+	return true, nil
 }

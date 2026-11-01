@@ -44,6 +44,10 @@ func TestModuleCommandListsAndRunsRecipes(t *testing.T) {
 	require.Contains(t, stdout, "project-by-path")
 	require.Contains(t, stdout, "Load one project and its decisions")
 
+	stdout, _, err = runRootCLI(t, ctx, []string{"--no-pager", "demo"})
+	require.NoError(t, err, "root flags before the module name still dispatch")
+	require.Contains(t, stdout, "project-by-path")
+
 	stdout, _, err = runRootCLI(t, ctx, []string{"demo", "project-by-path", "--help"})
 	require.NoError(t, err)
 	require.Contains(t, stdout, "--path string")
