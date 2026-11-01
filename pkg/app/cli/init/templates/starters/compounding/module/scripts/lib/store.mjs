@@ -1,12 +1,16 @@
-// Local state under .rhizome/compounding/: owner-only, written atomically
-// (temp file plus rename) while one lock is held. Model results are
-// content-addressed in cache/; attempts go to a separate append-only ledger,
-// so a failure is never mistaken for a result.
+// Local state under .rhizome/compounding/, which lib/state.mjs locates:
+// owner-only, written atomically (temp file plus rename) while one lock is
+// held. Model results are content-addressed in cache/; attempts go to a
+// separate append-only ledger, so a failure is never mistaken for a result.
 
 import { createHash, randomBytes } from "node:crypto";
 import { appendFileSync, chmodSync, closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
+
+// A refusal the caller reports with its reason (exit 2), such as a lock
+// another run holds.
+export class Refused extends Error {}
 
 export const sha = (v) => createHash("sha256").update(typeof v === "string" ? v : JSON.stringify(v)).digest("hex");
 
@@ -80,7 +84,7 @@ export function openStore(dir) {
     try {
       mkdirSync(guard, { mode: 0o700 });
     } catch (err) {
-      if (err.code === "EEXIST") throw new Error(`${guard} exists: another run is recovering the lock; if no run is active, delete it`);
+      if (err.code === "EEXIST") throw new Refused(`${guard} exists: another run is recovering the lock; if no run is active, delete it`);
       throw err;
     }
     try {
@@ -117,10 +121,10 @@ export function openStore(dir) {
             if (!["EEXIST", "ENOTEMPTY", "EPERM"].includes(err.code)) throw err;
           }
           const owner = readJson(ownerFile, null);
-          if (owner && (owner.host !== hostname() || alive(owner.pid))) throw new Error(`${dir} is locked by pid ${owner.pid} on ${owner.host} since ${owner.at}`);
+          if (owner && (owner.host !== hostname() || alive(owner.pid))) throw new Refused(`${dir} is locked by pid ${owner.pid} on ${owner.host} since ${owner.at}`);
           reclaim(owner);
         }
-        throw new Error(`could not take the lock at ${lockDir}`);
+        throw new Refused(`could not take the lock at ${lockDir}`);
       } finally {
         rmSync(staged, { recursive: true, force: true });
       }

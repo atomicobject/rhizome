@@ -2,8 +2,8 @@
 // Mine this repository's agent sessions into local proposals (SPEC-0124 US1):
 // episodes past each session's cursor are screened by Jev passage by passage,
 // extracted, grouped with earlier clusters, tiered, and verified (tier A
-// always, tier B up to a per-run budget), and proposals land in
-// .rhizome/compounding/proposals.json.
+// always, tier B up to a per-run budget), and proposals land in the main
+// checkout's .rhizome/compounding/proposals.json, which every worktree shares.
 //
 //   mine.mjs [--harness claude|codex] [--budget USD] [--dry-run]
 //            [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--episodes FILE]
@@ -26,8 +26,8 @@
 // Every other stop still exits 3.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom, strictSchema } from "./lib/calls.mjs";
 import { episodesFor } from "./lib/episodes.mjs";
@@ -38,10 +38,11 @@ import { facts, group, rank, tierOf } from "./lib/reduce.mjs";
 import { screen } from "./lib/screen.mjs";
 import { loadFindings, recur } from "./lib/findings.mjs";
 import { learningHash, loadDecisions, loadShards } from "./lib/shards.mjs";
-import { openStore, readJsonl, sha, writeText } from "./lib/store.mjs";
+import { pending } from "./lib/approvals.mjs";
+import { openRun, openState } from "./lib/state.mjs";
+import { readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
 import { discover } from "./sessions.mjs";
-import { pending } from "./shards.mjs";
 
 const ROLES = ["decide", "extract", "synthesize", "verify"];
 const DAY = 24 * 3600 * 1000;
@@ -55,9 +56,8 @@ export async function mine(opts, clients) {
   // No workers would skip extraction and verification yet still advance the cursors.
   const concurrency = Number(opts.concurrency ?? 4);
   if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("--concurrency must be a whole number of at least 1");
-  const state = opts.state ?? join(opts.root, ".rhizome/compounding");
-  refuseTracked(opts.root, state);
-  const store = openStore(state);
+  // Mining writes transcript text there, so Git must ignore the folder.
+  const store = openState(opts.root, { state: opts.state, guard: true });
   const dry = !opts.abandon && (opts.dryRun || opts.budget == null);
   if (dry) return mineLocked(opts, clients, store, true);
   store.lock();
@@ -66,29 +66,6 @@ export async function mine(opts, clients) {
   } finally {
     store.unlock();
   }
-}
-
-// Mining writes transcript text into its state directory, so a directory
-// inside the checkout must be one Git ignores.
-function refuseTracked(root, dir) {
-  const rel = relative(root, resolvePath(dir));
-  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return;
-  const path = rel.split(sep).join("/");
-  try {
-    execFileSync("git", ["-C", root, "check-ignore", "-q", "--", `${path}/ledger.jsonl`], { stdio: "ignore" });
-  } catch (err) {
-    if (err.status === 1) throw new Error(`Git does not ignore ${path}, so transcript text written there could be committed; rerun rzm init to restore .rhizome/.gitignore, or pass --state outside the checkout`);
-  }
-}
-
-function openRun(store) {
-  const dir = store.path("runs");
-  const ids = existsSync(dir) ? readdirSync(dir).sort() : [];
-  for (const id of ids.reverse()) {
-    const run = store.read(`runs/${id}/manifest.json`, null);
-    if (run && (run.status === "open" || run.status === "stopped")) return run;
-  }
-  return null;
 }
 
 const saveRun = (store, run) => store.write(`runs/${run.id}/manifest.json`, run);

@@ -9,12 +9,11 @@
 // Recurrence comes from the last mine run, which records the episodes that
 // matched each finding; `checkedThrough` says when that was.
 
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { pending } from "./lib/approvals.mjs";
 import { loadFindings } from "./lib/findings.mjs";
 import { repoRoot } from "./lib/shards.mjs";
-import { openStore } from "./lib/store.mjs";
-import { pending } from "./shards.mjs";
+import { openState } from "./lib/state.mjs";
 
 const day = (ts) => String(ts ?? "").slice(0, 10) || null;
 
@@ -24,7 +23,7 @@ function effort(families, evidence) {
 }
 
 export function report({ root = repoRoot(), state } = {}) {
-  const store = openStore(state ?? join(root, ".rhizome/compounding"));
+  const store = openState(root, { state });
   const record = store.read("findings.json", {});
   const links = store.read("finding-links.json", {});
   const open = [];
