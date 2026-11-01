@@ -1,5 +1,6 @@
-// Package taskdef parses scheduled task files, `.rhizome/tasks/<id>.yml`
-// ([[scheduled-tasks|SPEC-0127]]). It has no I/O so the task runner and
+// Package taskdef parses scheduled task files, `.rhizome/tasks/<id>.yml` and
+// `.rhizome/modules/<module>/tasks/<name>.yml` ([[scheduled-tasks|SPEC-0127]],
+// [[rhizome-modules|SPEC-0130]]). It has no I/O so the task runner and
 // validation share one parser.
 package taskdef
 
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 const (
@@ -28,7 +31,36 @@ const (
 	defaultTimeout = time.Hour
 )
 
-var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+// idPattern is a flat task's file name, or a module task's qualified
+// `<module>/<file name>`.
+var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}(/[a-z0-9][a-z0-9-]{0,62})?$`)
+
+// ValidID reports whether id is a well-formed task id.
+func ValidID(id string) bool { return idPattern.MatchString(id) }
+
+// PathKey turns a task id into one file-name segment. Ids never contain
+// `_`, so a module task `a/b` (`a_b`) never shares a folder with a flat
+// task `a-b`.
+func PathKey(id string) string { return strings.ReplaceAll(id, "/", "_") }
+
+// IsTaskFile reports whether a repository-relative path is a task file the
+// runner reads: a `.yml` or `.yaml` file directly inside the flat tasks
+// folder or a module's tasks folder.
+func IsTaskFile(rel string) bool {
+	_, kind, sub, ok := assetroots.Classify(rel)
+	return ok && kind == assetroots.Tasks && !strings.Contains(sub, "/") &&
+		(strings.HasSuffix(sub, ".yml") || strings.HasSuffix(sub, ".yaml"))
+}
+
+// idFromPath is the file name without its extension, qualified by the
+// module when the file is in a module's tasks folder.
+func idFromPath(filePath string) string {
+	id := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(filePath), ".yml"), ".yaml")
+	if root, kind, _, ok := assetroots.Classify(filePath); ok && kind == assetroots.Tasks {
+		id = assetroots.Qualify(root.Module, id)
+	}
+	return id
+}
 
 // Check is a task's optional pre-flight check: an argument list, or a
 // code-mode script run by `rzm agent code execute`.
@@ -37,7 +69,7 @@ type Check struct {
 	Script  string   `yaml:"script,omitempty"`
 }
 
-// Definition is one task file, `.rhizome/tasks/<id>.yml`.
+// Definition is one task file.
 type Definition struct {
 	ID          string `yaml:"-"`
 	Path        string `yaml:"-"`
@@ -63,11 +95,12 @@ type Problem struct {
 }
 
 // ParseDefinition parses and validates one task file. The id comes from the
-// file name. The path may be a Git tree path or an OS path (a draft run's on
-// Windows), so filepath.Base splits on either separator there.
+// file name, qualified as `<module>/<file name>` when the repository-relative
+// path is in a module's tasks folder. The path may be a Git tree path or an
+// OS path (a draft run's on Windows); filepath.Base and assetroots.Classify
+// accept either separator there.
 func ParseDefinition(filePath string, data []byte) (Definition, error) {
-	base := filepath.Base(filePath)
-	id := strings.TrimSuffix(strings.TrimSuffix(base, ".yml"), ".yaml")
+	id := idFromPath(filePath)
 	if !idPattern.MatchString(id) {
 		return Definition{}, fmt.Errorf("task id %q must be lowercase letters, digits, and hyphens", id)
 	}

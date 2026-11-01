@@ -26,6 +26,9 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 	return taskdef.ParseDefinition(filePath, data)
 }
 
+// ValidID reports whether id is a well-formed task id, flat or qualified.
+func ValidID(id string) bool { return taskdef.ValidID(id) }
+
 // ParseDuration accepts Go durations plus whole days (`7d`) and weeks (`2w`).
 func ParseDuration(s string) (time.Duration, error) { return taskdef.ParseDuration(s) }
 

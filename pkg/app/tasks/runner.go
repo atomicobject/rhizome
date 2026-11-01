@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 const runLock = "run.lock"
@@ -351,7 +352,7 @@ func (s *Service) locations(def Definition, commit string) Locations {
 		TaskID:       def.ID,
 		MainCheckout: s.opts.Repo.MainCheckout,
 		Commit:       commit,
-		DataDir:      filepath.Join(s.stateDir, "data", def.ID),
+		DataDir:      filepath.Join(s.stateDir, "data", taskdef.PathKey(def.ID)),
 	}
 }
 

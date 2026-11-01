@@ -17,6 +17,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 // ErrNoPrimaryRef means the primary ref is unset and origin/HEAD is unknown,
@@ -87,19 +90,24 @@ func (r Repo) ResolvePrimary(ctx context.Context, configured string) (ref, commi
 	return ref, commit, nil
 }
 
-// TaskFiles lists the task files at a commit.
+// TaskFiles lists the task files at a commit: the flat folder's first, then
+// each module's tasks folder by module name.
 func (r Repo) TaskFiles(ctx context.Context, commit string) ([]string, error) {
-	out, err := r.git(ctx, "ls-tree", "--name-only", commit, TasksDir+"/")
+	out, err := r.git(ctx, "ls-tree", "-r", "--name-only", commit, "--", TasksDir+"/", assetroots.ModulesDir+"/")
 	if err != nil {
 		return nil, err
 	}
-	var files []string
+	var flat, modules []string
 	for _, line := range strings.Split(out, "\n") {
-		if strings.HasSuffix(line, ".yml") || strings.HasSuffix(line, ".yaml") {
-			files = append(files, line)
+		switch {
+		case !taskdef.IsTaskFile(line):
+		case strings.HasPrefix(line, TasksDir+"/"):
+			flat = append(flat, line)
+		default:
+			modules = append(modules, line)
 		}
 	}
-	return files, nil
+	return append(flat, modules...), nil
 }
 
 // ShowFile reads one file at a commit.

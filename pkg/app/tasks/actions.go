@@ -178,6 +178,23 @@ func (s *Service) startRun(ctx context.Context, itemID string) (a attempt, def D
 	return a, def, ref, commit, check, err
 }
 
+// draftPath is a draft file's path relative to its checkout, so a file in a
+// module's tasks folder gets its qualified id. A path outside the checkout
+// stays as given.
+func draftPath(root, abs string) string {
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		root = resolved
+	}
+	rel, err := filepath.Rel(root, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return abs
+	}
+	return rel
+}
+
 // RunDraft runs a task file from the working tree once, ignoring its
 // cadence and mode, so an author can try it before merging. Its check runs
 // in the checkout holding the file; its prompt runs like any background run.
@@ -187,10 +204,6 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	if err != nil {
 		return Outcome{}, err
 	}
-	def, err := ParseDefinition(file, data)
-	if err != nil {
-		return Outcome{}, fmt.Errorf("%s: %w", file, err)
-	}
 	abs, err := filepath.Abs(file)
 	if err != nil {
 		return Outcome{}, err
@@ -198,6 +211,10 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	root, err := gitOutput(ctx, filepath.Dir(abs), "rev-parse", "--show-toplevel")
 	if err != nil {
 		return Outcome{}, err
+	}
+	def, err := ParseDefinition(draftPath(root, abs), data)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("%s: %w", file, err)
 	}
 	release, err := s.lockRun(ctx, 0)
 	if errors.Is(err, errLocked) {

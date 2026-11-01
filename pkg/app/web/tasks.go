@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -35,7 +36,6 @@ type TasksAPI interface {
 
 var (
 	taskRunIDPattern  = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
-	taskIDPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`) // taskdef's ID rule
 	taskItemIDPattern = regexp.MustCompile(`^[0-9]{1,18}$`)
 )
 
@@ -54,9 +54,19 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, errors.New("tasks unavailable"))
 		return
 	}
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/tasks"), "/"), "/")
+	// Split the escaped path so a qualified task id sent as `a%2Fb` stays
+	// one segment.
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.EscapedPath(), "/api/tasks"), "/"), "/")
 	if parts[0] == "" {
 		parts = nil
+	}
+	for i, part := range parts {
+		unescaped, err := url.PathUnescape(part)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		parts[i] = unescaped
 	}
 	get, post := r.Method == http.MethodGet, r.Method == http.MethodPost
 	var serve func(TasksAPI)
@@ -70,7 +80,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	case len(parts) == 1 && parts[0] == "runs" && get:
 		task := r.URL.Query().Get("task")
-		if !taskIDPattern.MatchString(task) {
+		if !tasks.ValidID(task) {
 			writeError(w, http.StatusBadRequest, errors.New("a valid task id is required"))
 			return
 		}
@@ -109,7 +119,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		serve = s.taskItemAction(w, r, itemID, action)
 	case len(parts) == 2 && parts[0] == "modes" && post:
 		task := parts[1]
-		if !taskIDPattern.MatchString(task) {
+		if !tasks.ValidID(task) {
 			writeError(w, http.StatusBadRequest, errors.New("invalid task id"))
 			return
 		}
