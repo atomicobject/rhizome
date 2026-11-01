@@ -9,6 +9,7 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -222,15 +224,21 @@ func loadTargetSchema(files map[string]string) (*ontoschema.Schema, error) {
 		return nil, err
 	}
 	defer os.RemoveAll(root)
-	dir := ontoschema.OntologyDir(root)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
 	for name, content := range files {
-		if filepath.Base(name) != name || filepath.Ext(name) != ".graphql" {
+		// Names are repository-relative paths of top-level SDL files in the
+		// flat or a module ontology folder; a bare name is a flat file.
+		rel := name
+		if filepath.Base(name) == name {
+			rel = assetroots.FlatDir(assetroots.Ontology) + "/" + name
+		}
+		if _, kind, sub, ok := assetroots.Classify(rel); !ok || kind != assetroots.Ontology || strings.Contains(sub, "/") || path.Clean(rel) != rel || filepath.Ext(sub) != ".graphql" {
 			return nil, fmt.Errorf("invalid snapshot schema filename: %q", name)
 		}
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+		target := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(target, []byte(content), 0o600); err != nil {
 			return nil, err
 		}
 	}

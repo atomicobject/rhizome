@@ -11,14 +11,18 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"gopkg.in/yaml.v3"
 )
 
 // DefaultSourceRoots returns active project locations where Rhizome should
-// discover saved query recipes for agent-facing surfaces.
+// discover saved query recipes for agent-facing surfaces. The modules folder
+// is one root filtered to `<module>/recipes/**`, so every scan lists modules
+// afresh and a module added while serving is found without a restart.
 func DefaultSourceRoots(vaultPath string) []string {
 	return []string{
-		filepath.Join(vaultPath, ".rhizome", "query-recipes"),
+		filepath.Join(vaultPath, filepath.FromSlash(assetroots.FlatDir(assetroots.Recipes))),
+		filepath.Join(vaultPath, filepath.FromSlash(assetroots.ModulesDir)),
 		filepath.Join(vaultPath, "docs", "query-recipes"),
 		filepath.Join(vaultPath, "docs", "rhizome-md-templates"),
 		filepath.Join(vaultPath, ".agents", "skills"),
@@ -102,9 +106,16 @@ func scanSources(roots []string, optional bool) ([]sourceFile, []Issue) {
 			read(root, true)
 			continue
 		}
+		modules := isModulesRoot(root)
 		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				issues = append(issues, Issue{Code: "recipe_path_error", Path: path, Message: walkErr.Error()})
+				return nil
+			}
+			if modules && !inModuleRecipes(root, path, d.IsDir()) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 			if d.IsDir() {
@@ -148,7 +159,12 @@ func isRecipeFile(path string) bool {
 	}
 }
 
+// rootUsesExplicitRecipeFiles reports whether every YAML file under root is
+// a recipe, so one without an apiVersion line is reported rather than skipped.
 func rootUsesExplicitRecipeFiles(root string) bool {
+	if isModulesRoot(root) {
+		return true
+	}
 	parts := strings.Split(filepath.ToSlash(filepath.Clean(root)), "/")
 	for i := 0; i+1 < len(parts); i++ {
 		if parts[i] == ".rhizome" && parts[i+1] == "query-recipes" {
@@ -159,6 +175,32 @@ func rootUsesExplicitRecipeFiles(root string) bool {
 		}
 	}
 	return false
+}
+
+func isModulesRoot(root string) bool {
+	root = filepath.ToSlash(filepath.Clean(root))
+	return root == assetroots.ModulesDir || strings.HasSuffix(root, "/"+assetroots.ModulesDir)
+}
+
+// inModuleRecipes keeps a modules-root walk to valid module folders and
+// their recipes folders; files directly in a module are not recipes.
+func inModuleRecipes(root, path string, dir bool) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	switch {
+	case len(parts) == 1:
+		return dir && assetroots.ValidModuleName(parts[0])
+	case len(parts) == 2:
+		return dir && parts[1] == string(assetroots.Recipes)
+	default:
+		return true
+	}
 }
 
 func isNamedQueryRecipeFile(path string) bool {

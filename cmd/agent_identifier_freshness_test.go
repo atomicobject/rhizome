@@ -122,7 +122,7 @@ func TestAgentNextIDSchemaAdmissionErrors(t *testing.T) {
 		name, schema, message string
 	}{
 		{"missing", "", "no ontology files found"},
-		{"invalid", "type Broken {", "schema.graphql:1:14: Expected Name, found <EOF>"},
+		{"invalid", "type Broken {", ".rhizome/ontology/schema.graphql:1:14: Expected Name, found <EOF>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			files := map[string]string{}

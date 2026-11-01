@@ -5,10 +5,11 @@ import (
 	"sync"
 )
 
-// SchemaCache retains one immutable compiled schema per vault source generation.
+// SchemaCache retains one immutable compiled schema per repository root and
+// source generation.
 type SchemaCache struct {
-	mu          sync.Mutex
-	byDirectory map[string]*Schema
+	mu     sync.Mutex
+	byRoot map[string]*Schema
 }
 
 var compiledSchemas SchemaCache
@@ -27,22 +28,22 @@ func (c *SchemaCache) Load(vaultPath string) (*Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	directory, err := filepath.Abs(OntologyDir(vaultPath))
+	root, err := filepath.Abs(vaultPath)
 	if err != nil {
 		return nil, err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if schema := c.byDirectory[directory]; schema != nil && schema.Hash == hash {
+	if schema := c.byRoot[root]; schema != nil && schema.Hash == hash {
 		return schema, nil
 	}
 	schema, err := compileSchema(vaultPath, authored, hash)
 	if err != nil {
 		return nil, err
 	}
-	if c.byDirectory == nil {
-		c.byDirectory = make(map[string]*Schema)
+	if c.byRoot == nil {
+		c.byRoot = make(map[string]*Schema)
 	}
-	c.byDirectory[directory] = schema
+	c.byRoot[root] = schema
 	return schema, nil
 }

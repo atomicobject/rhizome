@@ -26,6 +26,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -723,11 +724,10 @@ func isInternalFreshnessPath(rel string) bool {
 		return true
 	case rel == ".rhizome/ignore", rel == ".obsidianignore":
 		return true
-	case strings.HasPrefix(rel, ".rhizome/ontology/") && filepath.Ext(rel) == ".graphql":
+	case assetroots.IsAssetPath(rel, assetroots.Ontology) && filepath.Ext(rel) == ".graphql":
 		return true
-	case strings.HasPrefix(rel, ".rhizome/query-recipes/"):
-		ext := filepath.Ext(rel)
-		return ext == ".yaml" || ext == ".yml"
+	case assetroots.IsAssetPath(rel, assetroots.Recipes):
+		return filepath.Ext(rel) == ".yaml" || filepath.Ext(rel) == ".yml"
 	default:
 		return false
 	}

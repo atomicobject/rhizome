@@ -91,15 +91,21 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 		}
 		return err == nil, err
 	}
-	ontologyConfigured, err := present(".rhizome", "ontology")
+	// An asset kind is present when its flat folder or any module's folder
+	// for it exists.
+	assetsPresent := func(kind assetroots.Kind) (bool, error) {
+		roots, err := assetroots.Roots(root, kind)
+		return len(roots) > 0, err
+	}
+	ontologyConfigured, err := assetsPresent(assetroots.Ontology)
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect ontology configuration: %w", err)
 	}
-	viewsConfigured, err := present(".rhizome", "views")
+	viewsConfigured, err := assetsPresent(assetroots.Views)
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect view configuration: %w", err)
 	}
-	tasksPresent, err := present(".rhizome", "tasks")
+	tasksPresent, err := assetsPresent(assetroots.Tasks)
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect task configuration: %w", err)
 	}

@@ -21,7 +21,7 @@ import (
 func renderRecipeListHuman(out io.Writer, recipes []queryrecipe.Recipe, issues []queryrecipe.Issue) error {
 	if len(recipes) == 0 {
 		fmt.Fprintln(out, "No saved query recipes found.")
-		fmt.Fprintln(out, "Drop recipe YAML/Markdown files in `.rhizome/query-recipes/` or pass `--path <file>`.")
+		fmt.Fprintln(out, "Drop recipe YAML/Markdown files in `.rhizome/query-recipes/` or a module's `.rhizome/modules/<module>/recipes/`, or pass `--path <file>`.")
 		return writeRecipeIssuesIfAny(out, issues)
 	}
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)

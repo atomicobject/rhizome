@@ -115,3 +115,24 @@ func TestSnapshotSchemaFailuresAreDistinctFromContentErrors(t *testing.T) {
 		t.Fatalf("expected ordinary metadata error, got %v", err)
 	}
 }
+
+func TestSnapshotSchemaAcceptsModuleOntologyPaths(t *testing.T) {
+	schema, err := loadTargetSchema(map[string]string{
+		"flat.graphql": `type Flat @node(paths: ["flat/*.md"]) { title: String }`,
+		".rhizome/modules/alpha/ontology/x.graphql": `type Alpha @node(paths: ["a/*.md"]) { title: String }`,
+		".rhizome/modules/beta/ontology/x.graphql":  `type Beta @node(paths: ["b/*.md"]) { title: String }`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Flat", "Alpha", "Beta"} {
+		if schema.Types[name] == nil {
+			t.Fatalf("snapshot schema is missing %s", name)
+		}
+	}
+	for _, name := range []string{"../x.graphql", ".rhizome/modules/alpha/views/x.graphql", ".rhizome/modules/alpha/ontology/nested/x.graphql", ".rhizome/modules/alpha/ontology/../../x.graphql"} {
+		if _, err := loadTargetSchema(map[string]string{name: "type X { a: String }"}); err == nil || !strings.Contains(err.Error(), "invalid snapshot schema filename") {
+			t.Fatalf("%s: expected invalid filename, got %v", name, err)
+		}
+	}
+}

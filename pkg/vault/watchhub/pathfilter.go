@@ -3,6 +3,8 @@ package watchhub
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 // isNoisyInternalPath filters high-churn local build/cache paths that can flood
@@ -52,11 +54,12 @@ func shouldDropVaultRelPath(path string) bool {
 	}
 	// Most .rhizome/ files are generated cache/index state and would cause
 	// self-triggering watcher churn. Config, ignore rules, and ontology schemas
-	// are the intentional exceptions because they change how the vault is read.
+	// (flat or in a module) are the intentional exceptions because they change
+	// how the vault is read.
 	if p == ".rhizome/config.yml" || p == ".rhizome/ignore" {
 		return false
 	}
-	if strings.HasPrefix(p, ".rhizome/ontology/") && strings.HasSuffix(p, ".graphql") {
+	if assetroots.IsAssetPath(p, assetroots.Ontology) && strings.HasSuffix(p, ".graphql") {
 		return false
 	}
 	return true

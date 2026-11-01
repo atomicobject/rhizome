@@ -134,21 +134,29 @@ func TestRefreshAndDrainDirtyReturnsProcessedSet(t *testing.T) {
 }
 
 func TestRefreshAndDrainDirtyReportsInternalFreshnessPaths(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".rhizome", "query-recipes"), 0o755))
-	recipePath := filepath.Join(tmp, ".rhizome", "query-recipes", "spec-driven.yaml")
-	require.NoError(t, os.WriteFile(recipePath, []byte("apiVersion: rhizome.query-recipe.v1\n"), 0o644))
+	for _, rel := range []string{
+		".rhizome/query-recipes/spec-driven.yaml",
+		".rhizome/modules/team/recipes/roster.yaml",
+		".rhizome/modules/team/ontology/team.graphql",
+	} {
+		t.Run(rel, func(t *testing.T) {
+			tmp := t.TempDir()
+			path := filepath.Join(tmp, filepath.FromSlash(rel))
+			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+			require.NoError(t, os.WriteFile(path, []byte("apiVersion: rhizome.query-recipe.v1\n"), 0o644))
 
-	svc, err := NewService(tmp, Options{})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = svc.Close() })
-	require.NoError(t, svc.EnsureReady(context.Background()))
+			svc, err := NewService(tmp, Options{})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = svc.Close() })
+			require.NoError(t, svc.EnsureReady(context.Background()))
 
-	svc.MarkDirty(".rhizome/query-recipes/spec-driven.yaml", DirtyModified)
-	dirty, resynced, err := svc.RefreshAndDrainDirty(context.Background())
-	require.NoError(t, err)
-	require.False(t, resynced)
-	require.Equal(t, DirtyModified, dirty[".rhizome/query-recipes/spec-driven.yaml"])
+			svc.MarkDirty(rel, DirtyModified)
+			dirty, resynced, err := svc.RefreshAndDrainDirty(context.Background())
+			require.NoError(t, err)
+			require.False(t, resynced)
+			require.Equal(t, DirtyModified, dirty[rel])
+		})
+	}
 }
 
 func TestRefreshAndDrainDirtyReportsMissingInternalFreshnessPaths(t *testing.T) {

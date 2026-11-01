@@ -61,6 +61,8 @@ func TestShouldDropVaultRelPath(t *testing.T) {
 		{path: ".rhizome/config.yml", want: false},
 		{path: ".rhizome/ignore", want: false},
 		{path: ".rhizome/ontology/schema.graphql", want: false},
+		{path: ".rhizome/modules/team/ontology/team.graphql", want: false},
+		{path: ".rhizome/modules/team/views/board.tsx", want: true},
 		{path: "pkg/node_modules_helper/main.go", want: false},
 		{path: "../.claude/worktrees/repo/pkg/main.go", want: true},
 		{path: "notes/project.md", want: false},
