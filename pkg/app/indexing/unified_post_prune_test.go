@@ -30,11 +30,31 @@ func TestPruneObsoleteEmbeddingsWaitsForPendingDerivedWork(t *testing.T) {
 
 	_, err = store.MarkDerivedDirty(ctx, []codeanchor.DerivedScope{{Kind: codeanchor.DerivedOntology, Path: "notes/a.md"}})
 	require.NoError(t, err)
-	pruneObsoleteEmbeddings(ctx, store, runNow)
+	require.NoError(t, pruneObsoleteEmbeddings(ctx, store, runNow))
 	require.Equal(t, 1, cached(), "pending derived work keeps unreferenced vectors")
 
 	_, err = store.DB().ExecContext(ctx, `DELETE FROM derived_work`)
 	require.NoError(t, err)
-	pruneObsoleteEmbeddings(ctx, store, runNow)
+	require.NoError(t, pruneObsoleteEmbeddings(ctx, store, runNow))
 	require.Zero(t, cached(), "with no pending work, an unreferenced earlier-format vector is pruned")
+}
+
+// A failed prune must not fail the maintenance callback: an error returned
+// there stops the writer, and the index's later writes would then fail.
+func TestPruneObsoleteEmbeddingsFailureKeepsTheWriterRunning(t *testing.T) {
+	ctx := context.Background()
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	_, err = store.DB().ExecContext(ctx, `DROP TABLE ontology_embedding_cache`)
+	require.NoError(t, err)
+	var callbackErr error
+	ran := false
+	require.NoError(t, pruneObsoleteEmbeddings(ctx, store, func(ctx context.Context, run func(context.Context) error) error {
+		ran = true
+		callbackErr = run(ctx)
+		return nil
+	}))
+	require.True(t, ran)
+	require.NoError(t, callbackErr, "a prune failure is reported, not returned to the writer")
 }

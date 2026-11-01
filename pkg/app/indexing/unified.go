@@ -433,7 +433,9 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err := finalizer.FlushQueue(ctx); err != nil {
 		return err
 	}
-	pruneObsoleteEmbeddings(ctx, intelStore, writeQueue.SubmitMaintenance)
+	if err := pruneObsoleteEmbeddings(ctx, intelStore, writeQueue.SubmitMaintenance); err != nil {
+		return fmt.Errorf("submit embedding cache maintenance: %w", err)
+	}
 	semanticResources.close()
 	// Run the configured default validation suite from the completed index state
 	// and cache the result through the writer lane for instant API serving.
