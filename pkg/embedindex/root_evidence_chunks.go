@@ -46,7 +46,7 @@ func BuildRootEvidenceChunks(root *ontology.RootDocumentSnapshot, owner readmode
 			out.States = append(out.States, codeanchor.IntelOntologyNodeEmbeddingState{
 				ChunkID: chunkID, NodeID: owner.NodeID, NotePath: root.NotePath.String(),
 				TypeName: owner.TypeName, NodeKind: owner.NodeKind,
-				EmbeddingSchemaSignature: hashString("root-evidence-v1:" + string(root.Format)),
+				EmbeddingSchemaSignature: hashString(rootEvidenceChunkFormat + ":" + string(root.Format)),
 				NodeStructureFingerprint: owner.StructuralFingerprint,
 				SourceContentHash:        root.ContentHash, ChunkTextHash: chunk.ContentHash,
 				ChunkGranularity: granularity, Provider: provider.Provider, Model: provider.Model,

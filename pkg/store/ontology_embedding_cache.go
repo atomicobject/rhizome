@@ -18,10 +18,13 @@ type OntologyEmbeddingCacheEntry struct {
 	Model    string
 	TextHash string
 	Vector   embeddings.Embedding
+	// Format names the chunk-text format that produced the text, so a later
+	// format change can prune the vectors only the old format referenced.
+	Format string
 }
 
 // ontologyEmbeddingCacheColumns is the cache table's validated shape.
-var ontologyEmbeddingCacheColumns = []string{"provider", "model", "dimensions", "text_hash", "vector"}
+var ontologyEmbeddingCacheColumns = []string{"provider", "model", "dimensions", "text_hash", "vector", "format"}
 
 // ontologyEmbeddingCacheIntact reports whether a domain reset may keep the
 // cache: it is a real table with exactly the expected columns, since an extra
@@ -80,6 +83,7 @@ func createOntologyEmbeddingCacheSchema(ctx context.Context, db execer) error {
 			dimensions INTEGER NOT NULL CHECK (dimensions > 0),
 			text_hash TEXT NOT NULL CHECK (text_hash != ''),
 			vector BLOB NOT NULL,
+			format TEXT NOT NULL DEFAULT '',
 			PRIMARY KEY (provider, model, dimensions, text_hash)
 		) STRICT`,
 	} {
@@ -150,10 +154,11 @@ func (s *Store) UpsertOntologyEmbeddingCache(ctx context.Context, entries []Onto
 	ctx = indexingperf.WithOp(ctx, "intel.upsert_ontology_embedding_cache")
 	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
 		stmt, err := tx.PrepareContext(ctx, `
-			INSERT INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector)
-			VALUES (?, ?, ?, ?, ?)
+			INSERT INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector, format)
+			VALUES (?, ?, ?, ?, ?, ?)
 			ON CONFLICT(provider, model, dimensions, text_hash) DO UPDATE SET
-				vector = excluded.vector`)
+				vector = excluded.vector,
+				format = excluded.format`)
 		if err != nil {
 			return err
 		}
@@ -162,7 +167,7 @@ func (s *Store) UpsertOntologyEmbeddingCache(ctx context.Context, entries []Onto
 			if strings.TrimSpace(entry.TextHash) == "" || len(entry.Vector) == 0 {
 				continue
 			}
-			if _, err := stmt.ExecContext(ctx, entry.Provider, entry.Model, len(entry.Vector), entry.TextHash, embedToBytes(entry.Vector)); err != nil {
+			if _, err := stmt.ExecContext(ctx, entry.Provider, entry.Model, len(entry.Vector), entry.TextHash, embedToBytes(entry.Vector), entry.Format); err != nil {
 				return err
 			}
 		}
@@ -220,26 +225,25 @@ func backfillOntologyEmbeddingCacheSchema(ctx context.Context, tx *sql.Tx) error
 	return nil
 }
 
-// PruneOntologyEmbeddingCache deletes cached vectors whose text hash no current
-// ontology embedding state uses, but only when they are at least minShare of
-// the cache. Ordinary edits leave few such rows, so reverts keep their reuse;
-// a chunking or text-format change orphans the whole previous generation, which
-// this removes. Callers run it only after a complete index with no pending
-// derived work, so vectors awaiting republication are never mistaken for
-// obsolete ones.
-func (s *Store) PruneOntologyEmbeddingCache(ctx context.Context, minShare float64) (int64, error) {
+// PruneOntologyEmbeddingCache deletes cached vectors that an earlier chunk-text
+// format produced and no current ontology embedding state uses. Vectors of the
+// current format are kept even when unreferenced, so reverting an edit still
+// reuses them; a format change leaves the old generation unreferenced, and this
+// removes it. Rows backfilled from existing vectors carry no format: those a
+// current chunk uses adopt the current format here, and the rest are kept,
+// since nothing shows which format produced them. Callers run it only after a
+// complete index with no pending derived work, so vectors awaiting
+// republication are never removed.
+func (s *Store) PruneOntologyEmbeddingCache(ctx context.Context, currentFormat string) (int64, error) {
 	ctx = indexingperf.WithOp(ctx, "intel.prune_ontology_embedding_cache")
-	const orphaned = `text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`
-	var total, stale int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(`+orphaned+`), 0) FROM ontology_embedding_cache`).Scan(&total, &stale); err != nil {
-		return 0, err
-	}
-	if stale == 0 || float64(stale) < minShare*float64(total) {
-		return 0, nil
-	}
 	var deleted int64
 	err := s.withWriteTx(ctx, func(tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, `DELETE FROM ontology_embedding_cache WHERE `+orphaned)
+		if _, err := tx.ExecContext(ctx, `UPDATE ontology_embedding_cache SET format = ?
+			WHERE format = '' AND text_hash IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`, currentFormat); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, `DELETE FROM ontology_embedding_cache
+			WHERE format NOT IN (?, '') AND text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`, currentFormat)
 		if err == nil {
 			deleted, err = result.RowsAffected()
 		}

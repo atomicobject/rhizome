@@ -117,8 +117,8 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	require.Positive(t, changed, "a real content change must embed")
 	require.Less(t, changed, initial, "only changed content may embed; provider texts by phase: %v", byPhase)
 
-	// A chunking change orphans a whole generation of cached vectors. Seed
-	// more unreferenced rows than live ones, as such a change leaves behind.
+	// A chunking change orphans a whole generation of cached vectors, stamped
+	// with the earlier format. Seed one larger than the live set.
 	cacheRows := func() (live, orphaned int) {
 		t.Helper()
 		store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
@@ -130,13 +130,14 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 			FROM ontology_embedding_cache`).Scan(&live, &orphaned))
 		return live, orphaned
 	}
-	live, _ := cacheRows()
+	live, currentFormatOrphans := cacheRows()
 	require.Positive(t, live)
+	require.Positive(t, currentFormatOrphans, "the edits above left current-format history to keep")
 	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	for i := range live + 1 {
-		_, err := store.DB().ExecContext(context.Background(), `INSERT OR IGNORE INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector)
-			SELECT provider, model, dimensions, ?, vector FROM ontology_embedding_cache LIMIT 1`, fmt.Sprintf("old-generation-%d", i))
+		_, err := store.DB().ExecContext(context.Background(), `INSERT OR IGNORE INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector, format)
+			SELECT provider, model, dimensions, ?, vector, 'primary-1;root-evidence-v0' FROM ontology_embedding_cache LIMIT 1`, fmt.Sprintf("old-generation-%d", i))
 		require.NoError(t, err)
 	}
 	closeStore()
@@ -145,6 +146,6 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	// current chunk uses.
 	_, _ = providerTexts()
 	afterLive, orphaned := cacheRows()
-	require.Zero(t, orphaned, "an obsolete generation is pruned after a complete index")
+	require.Equal(t, currentFormatOrphans, orphaned, "an earlier format's unreferenced vectors are pruned; current-format history stays")
 	require.Equal(t, live, afterLive, "vectors current chunks use survive pruning")
 }

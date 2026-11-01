@@ -351,3 +351,13 @@ func lastPathSegment(path string) string {
 }
 
 const ontologyPrimaryChunkFormatVersion = 2
+
+// rootEvidenceChunkFormat versions root-evidence chunk text.
+const rootEvidenceChunkFormat = "root-evidence-v1"
+
+// OntologyEmbeddingTextFormat names the text both ontology chunk builders send
+// to the provider. Bump ontologyPrimaryChunkFormatVersion or
+// rootEvidenceChunkFormat whenever that text changes: cached vectors stamped
+// with an older format that no current chunk uses are pruned after the next
+// complete index.
+var OntologyEmbeddingTextFormat = fmt.Sprintf("primary-%d;%s", ontologyPrimaryChunkFormatVersion, rootEvidenceChunkFormat)

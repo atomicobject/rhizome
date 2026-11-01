@@ -12,6 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
@@ -160,18 +161,12 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
 }
 
-// obsoleteEmbeddingShare is the share of a content cache that unreferenced
-// vectors must reach before they are pruned. Ordinary edits stay well below
-// it, so reverts keep their reuse; a chunking change orphans a whole
-// generation and crosses it on the next complete index.
-const obsoleteEmbeddingShare = 0.5
-
-// pruneObsoleteEmbeddings drops cached vectors no current chunk uses once they
-// dominate a cache. It runs after the index acknowledged its derived work, and
-// only when none remains pending, because vectors awaiting republication look
-// unreferenced until then.
+// pruneObsoleteEmbeddings drops cached ontology vectors that an earlier
+// chunk-text format produced and no current chunk uses. It runs after the
+// index acknowledged its derived work, and only when none remains pending,
+// because vectors awaiting republication look unreferenced until then.
 // Maintenance failures are reported, not fatal.
-func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, resources *unifiedSemanticResources) {
+func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store) {
 	if intelStore == nil {
 		return
 	}
@@ -181,25 +176,9 @@ func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, resou
 			return
 		}
 	}
-	report := func(cache string, err error) {
-		if err == nil {
-			return
-		}
+	if _, err := intelStore.PruneOntologyEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat); err != nil {
 		if recorder := diagnostics.FromContext(ctx); recorder != nil {
-			recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", cache))
+			recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", "ontology"))
 		}
-	}
-	_, err := intelStore.PruneOntologyEmbeddingCache(ctx, obsoleteEmbeddingShare)
-	report("ontology", err)
-	if resources == nil {
-		return
-	}
-	if resources.noteStore != nil {
-		_, err := resources.noteStore.PruneStaleCache(ctx, obsoleteEmbeddingShare)
-		report("notes", err)
-	}
-	if resources.codeStore != nil {
-		_, err := resources.codeStore.PruneStaleCache(ctx, obsoleteEmbeddingShare)
-		report("code", err)
 	}
 }

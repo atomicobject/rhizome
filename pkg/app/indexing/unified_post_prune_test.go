@@ -19,7 +19,7 @@ func TestPruneObsoleteEmbeddingsWaitsForPendingDerivedWork(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	require.NoError(t, store.UpsertOntologyEmbeddingCache(ctx, []semdb.OntologyEmbeddingCacheEntry{
-		{Provider: "test", Model: "m", TextHash: "awaiting-republication", Vector: embeddings.Embedding{1, 0}},
+		{Provider: "test", Model: "m", TextHash: "awaiting-republication", Vector: embeddings.Embedding{1, 0}, Format: "earlier"},
 	}))
 	cached := func() int {
 		got, err := store.OntologyEmbeddingCacheVectors(ctx, "test", "m", 2, []string{"awaiting-republication"})
@@ -29,11 +29,11 @@ func TestPruneObsoleteEmbeddingsWaitsForPendingDerivedWork(t *testing.T) {
 
 	_, err = store.MarkDerivedDirty(ctx, []codeanchor.DerivedScope{{Kind: codeanchor.DerivedOntology, Path: "notes/a.md"}})
 	require.NoError(t, err)
-	pruneObsoleteEmbeddings(ctx, store, nil)
+	pruneObsoleteEmbeddings(ctx, store)
 	require.Equal(t, 1, cached(), "pending derived work keeps unreferenced vectors")
 
 	_, err = store.DB().ExecContext(ctx, `DELETE FROM derived_work`)
 	require.NoError(t, err)
-	pruneObsoleteEmbeddings(ctx, store, nil)
-	require.Zero(t, cached(), "with no pending work, a dominant unreferenced generation is pruned")
+	pruneObsoleteEmbeddings(ctx, store)
+	require.Zero(t, cached(), "with no pending work, an unreferenced earlier-format vector is pruned")
 }
