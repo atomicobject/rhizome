@@ -85,7 +85,10 @@ func (p *IdP) authorizePage(w http.ResponseWriter, r *http.Request) {
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Frame-Options", "DENY")
 	h.Set("Referrer-Policy", "no-referrer")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
+	// Browsers apply form-action to the redirect after the post, so the
+	// loopback callback's origin (validated above) must be allowed too.
+	callback, _ := url.Parse(q.Get("redirect_uri"))
+	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' http://"+callback.Host+"; frame-ancestors 'none'")
 	_ = pageTemplate.Execute(w, map[string]any{
 		"Action": p.basePath + "/authorize", "CSRF": csrf, "Identities": p.identities,
 	})
