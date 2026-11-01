@@ -36,6 +36,9 @@ func flood(t *testing.T, g *gated, n, admitted int, send func(i int) reply) {
 		require.Equal(t, wire.CodeRateLimited, r.code(), r.body)
 		require.Equal(t, "1", r.header.Get("Retry-After"))
 	}
+	// Admitted requests reach the upstream only after their reservations,
+	// which take round trips on DynamoDB; release them once all are there.
+	require.Eventually(t, func() bool { return g.peak.Load() == int32(admitted) }, 10*time.Second, 10*time.Millisecond)
 	close(g.open)
 	for range admitted {
 		require.Equal(t, http.StatusOK, (<-done).status)
