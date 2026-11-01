@@ -58,10 +58,15 @@ func (l *DynamoDB) Heartbeat(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		deadline := lease.ExpiresAt
 		lease.ExpiresAt = l.now().Add(LeaseDuration)
 		put, err := l.table.Put(i, lease)
 		if err != nil {
 			return err
+		}
+		// Time passes during the read; never renew a lease that expired meanwhile.
+		if !l.now().Before(deadline) {
+			return ErrPrecondition
 		}
 		return l.table.Write(ctx, put)
 	})

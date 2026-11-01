@@ -3,6 +3,7 @@ package ledger_test
 import (
 	"context"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -39,6 +40,29 @@ func TestDynamoDBContract(t *testing.T) {
 	})
 }
 
+// A lease that expires between the heartbeat's read and its write stays
+// expired: the first clock reading sees it live, every later one past expiry.
+func TestDynamoDBHeartbeatDoesNotRenewALeaseThatExpiredDuringIt(t *testing.T) {
+	table := dynamotest.Open(t)
+	base := time.Now().UTC()
+	var armed atomic.Bool
+	var calls atomic.Int64
+	now := func() time.Time {
+		switch {
+		case !armed.Load():
+			return base
+		case calls.Add(1) == 1:
+			return base.Add(ledger.LeaseDuration - time.Second)
+		default:
+			return base.Add(ledger.LeaseDuration + time.Second)
+		}
+	}
+	l, err := ledger.OpenDynamoDB(context.Background(), table, now)
+	require.NoError(t, err)
+	armed.Store(true)
+	require.ErrorIs(t, l.Heartbeat(context.Background()), ledger.ErrPrecondition)
+	require.ErrorIs(t, l.Heartbeat(context.Background()), ledger.ErrPrecondition, "the lease was not extended")
+}
 func TestSQLiteUpgradeRecoversOwnerlessReceipts(t *testing.T) {
 	ctx := context.Background()
 	db, err := store.Open(filepath.Join(t.TempDir(), "legacy.db"))
