@@ -165,6 +165,7 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Deviations
 
+- 2026-11-01: Drew chose ECS Express Mode on its AWS-provided hostname instead of a Fargate service behind a load balancer on an Atomic subdomain, to avoid an Atomic DNS change; a custom domain can come later. Express Mode deploys are always canary, so SPEC-0129 now accepts brief slot overlap during the pilot and requires store-backed concurrency slots before rollout. X4 (DNS name) is no longer needed for Batch 5. Drew also confirmed that `atomicobject.com` is the only Workspace domain to support, which closes X3. frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
 - 2026-10-31T18:00:00Z: The repository had no development-build marker; `version.Version` is always a release number. `version.Channel` now defaults to `dev`, and Goreleaser and `make build-release` set `release`. SPEC-0129 says so, and also gains the origin-selector and fake-gateway requirements that came out of the council (requirements only, same scope). frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
 - 2026-10-31T17:18:43Z: Drew moved the server into this repository, chose SQLite for local state, and added an admin API (US7) and the local stack (US8). SPEC-0129 was revised and refrozen the same day. frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
 - 2026-10-31T16:29:31Z: macOS-only managed sign-in, approved by Drew with the plan defaults. Acceptance row A22 (Linux and Windows stores) leaves this effort.
@@ -178,7 +179,7 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Compounding Follow-ups
 
-- **Workspace domains (X3):** confirm whether Atomic staff sign in with any domain besides `atomicobject.com`; add each to `accepted_domains` and repeat P3 with an account there.
+- **Store-backed concurrency slots:** move the per-person and global slots into DynamoDB before rollout (Batch 7), as SPEC-0129 now requires for Express Mode's canary deploys.
 - **Batch 5:** a DynamoDB store passing `storetest` plus the ledger contract tests; CloudFormation; stdout JSON diagnostics for CloudWatch; and a trusted forwarded address for the auth rate limiter behind the ALB.
 - **Pre-existing search issues:**
   - Search fails when code embeddings are enabled in a vault with no indexed code.
@@ -193,7 +194,7 @@ The local build, on `t3/team-api-proxy-auth`:
 ## Status
 
 Active. The local build is complete and verified end to end with fake and live providers; PR #60 carries that delivery. Remaining, outside the approved local scope:
-- The Workspace domain list (X3); Google configuration and P1–P4 are done.
+- Google configuration, P1–P4, and the domain list (X3) are done.
 - AWS deployment and the DynamoDB store (Batch 5).
 - The pilot and live drills (Batch 6).
 - Rollout and key retirement (Batch 7).
