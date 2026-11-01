@@ -3,10 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/spf13/cobra"
@@ -50,7 +49,7 @@ func (app *commandInvocation) moduleDispatchArgs(ctx context.Context, args []str
 	}
 	opts := &vaultCommandOptions{vaultName: moduleVaultFlag(args[at+1:])}
 	def, err := opts.vaultDefOrDefaultContext(contextWithCommandEnv(ctx, app.env))
-	if err != nil || !isDirPath(filepath.Join(def.BasePath(), filepath.FromSlash(assetroots.ModuleRoot(args[at])))) {
+	if err != nil || !operations.ModuleExists(def.BasePath(), args[at]) {
 		return nil, false
 	}
 	routed := append(append(append([]string{}, args[:at]...), "module"), args[at:]...)
@@ -99,15 +98,10 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	base := def.BasePath()
-	if !assetroots.ValidModuleName(name) || !isDirPath(filepath.Join(base, filepath.FromSlash(assetroots.ModuleRoot(name)))) {
-		return fmt.Errorf("no module named %q in %s", name, filepath.Join(base, filepath.FromSlash(assetroots.ModulesDir)))
+	loaded, err := operations.LoadModuleRecipes(def.BasePath(), name)
+	if err != nil {
+		return err
 	}
-	// WHY: load the shared registries plus the module's root so ids stay
-	// unique repository-wide; LoadRoots skips files it already read, so this
-	// is unchanged once default discovery includes module roots.
-	recipesRoot := filepath.Join(base, filepath.FromSlash(assetroots.ModuleDir(name, assetroots.Recipes)))
-	recipes, issues := queryrecipe.LoadRoots(append(queryrecipe.DefaultSourceRoots(base), recipesRoot))
 
 	root := &cobra.Command{Use: "rzm", SilenceErrors: true, SilenceUsage: parent.Root().SilenceUsage}
 	root.PersistentFlags().StringVarP(&opts.vaultName, "vault", "v", opts.vaultName, "vault name (uses default if unset)")
@@ -118,11 +112,12 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
+	if len(loaded.Unnamed) > 0 {
+		module.Long = fmt.Sprintf("%s\n\nRecipes whose ids contain spaces are not commands; run them with `rzm query-recipe run --id <id>`: %s", module.Short, strings.Join(loaded.Unnamed, ", "))
+	}
 	root.AddCommand(module)
-	for _, recipe := range recipes {
-		if strings.HasPrefix(recipe.Source.Path, recipesRoot+string(filepath.Separator)) {
-			module.AddCommand(opts.newModuleRecipeCmd(recipe, recipes, issues))
-		}
+	for _, recipe := range loaded.Commands {
+		module.AddCommand(opts.newModuleRecipeCmd(recipe, loaded.All, loaded.Issues))
 	}
 	root.SetArgs(append([]string{name}, args...))
 	root.SetIn(parent.InOrStdin())
@@ -201,9 +196,4 @@ func moduleVaultFlag(args []string) string {
 		}
 	}
 	return vault
-}
-
-func isDirPath(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
 }
