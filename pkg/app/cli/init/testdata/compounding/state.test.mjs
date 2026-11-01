@@ -223,3 +223,13 @@ test("with no store in the main checkout, the most recently modified worktree st
   assert.deepEqual(read(join(repo.state, "hook/command-prefixes.json")), []);
   assert.deepEqual(at(repo.wt.p, "list").map((p) => p.cluster), ["k-q"]);
 });
+
+test("mine refuses with exit 2 and a reason while migration waits for an open run", () => {
+  const repo = checkouts("w");
+  writeJson(join(repo.state, "proposals.json"), [proposal("k-a")]);
+  writeJson(join(repo.wt.w, ".rhizome/compounding/runs/r1/manifest.json"), { id: "r1", status: "stopped" });
+  const mine = spawnSync(process.execPath, [fileURLToPath(new URL("mine.mjs", scripts)), "--harness", "claude"], { cwd: repo.wt.w, encoding: "utf8", env: { ...process.env, RZM: "/nonexistent/rzm" } });
+  assert.equal(mine.status, 2, mine.stderr);
+  assert.match(mine.stderr, /^refused: .*run r1 .* is still open/m);
+  assert.doesNotMatch(mine.stderr, /\n\s+at /, "no stack trace");
+});

@@ -40,7 +40,7 @@ import { loadFindings, recur } from "./lib/findings.mjs";
 import { learningHash, loadDecisions, loadShards } from "./lib/shards.mjs";
 import { pending } from "./lib/approvals.mjs";
 import { openRun, openState } from "./lib/state.mjs";
-import { readJsonl, sha, writeText } from "./lib/store.mjs";
+import { Refused, readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
 import { discover } from "./sessions.mjs";
 
@@ -511,27 +511,36 @@ if (isMain) {
     root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {}
   const rzm = process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
-  const result = await mine(
-    {
-      root,
-      harness: a.harness,
-      budget,
-      dryRun: !!a["dry-run"],
-      since: a.since,
-      until: a.until,
-      episodes: a.episodes,
-      verifyBudget: a["verify-budget"] === undefined ? undefined : Number(a["verify-budget"]),
-      verifyHeld: a["verify-held"] === undefined ? undefined : Number(a["verify-held"]),
-      model: a.model,
-      unscreened: !!a.unscreened,
-      abandon: !!a.abandon,
-      state: a.state,
-      checkout: a.checkout,
-      concurrency: a.concurrency,
-      allowUnpriced: !!a["allow-unpriced"],
-    },
-    rzmClients(rzm, { cwd: root }),
-  );
+  let result;
+  try {
+    result = await mine(
+      {
+        root,
+        harness: a.harness,
+        budget,
+        dryRun: !!a["dry-run"],
+        since: a.since,
+        until: a.until,
+        episodes: a.episodes,
+        verifyBudget: a["verify-budget"] === undefined ? undefined : Number(a["verify-budget"]),
+        verifyHeld: a["verify-held"] === undefined ? undefined : Number(a["verify-held"]),
+        model: a.model,
+        unscreened: !!a.unscreened,
+        abandon: !!a.abandon,
+        state: a.state,
+        checkout: a.checkout,
+        concurrency: a.concurrency,
+        allowUnpriced: !!a["allow-unpriced"],
+      },
+      rzmClients(rzm, { cwd: root }),
+    );
+  } catch (err) {
+    // A refusal, such as migration waiting for an open run, is a reason for
+    // the person, not a crash.
+    if (!(err instanceof Refused)) throw err;
+    process.stderr.write(`refused: ${err.message}\n`);
+    process.exit(2);
+  }
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   if (result.status === "stopped" && taskMode) process.stderr.write(`mining stopped (${result.reason}): ${result.message}\n`);
   process.exitCode = result.status !== "stopped" ? 0 : taskMode && result.reason === "credential" ? 4 : 3;
