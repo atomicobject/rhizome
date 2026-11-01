@@ -27,6 +27,9 @@ const at = (root, ...argv) => run(argv, { root, user });
 // worktree per name on a branch of that name.
 function checkouts(...names) {
   const main = realpathSync.native(scratchRepo());
+  // Worktrees check files out byte for byte, so content hashes computed in
+  // the tests match on Windows runners that convert line endings.
+  git(main, "config", "core.autocrlf", "false");
   git(main, "branch", "-M", "main");
   writeFileSync(join(main, ".gitignore"), ".rhizome/compounding/\n.rhizome/task-state/\n");
   mkdirSync(join(main, ".rhizome"));
