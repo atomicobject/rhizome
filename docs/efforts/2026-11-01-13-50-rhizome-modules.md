@@ -71,7 +71,7 @@ All four stories of SPEC-0130 in one pull request.
 
 ## Actual Delivered
 
-All four stories, on branch `feat/rhizome-modules`:
+All four stories, in [#64](https://github.com/atomicobject/rhizome/pull/64) (branch `feat/rhizome-modules`):
 
 - `pkg/vault/assetroots`, the one locator every loader, validator, watcher, and `rzm init` uses.
 - Ontology, recipes, views, and tasks load from flat folders and modules; module views serve under `/views/_module/<module>/_files/…`; module task ids are `<module>/<name>`.
@@ -92,7 +92,7 @@ Verification on the final branch: `make check` passed; `make check-full` (race a
 
 - [x] Every story delivered or covered by a deviation
 - [x] Gates recorded
-- [ ] Pull request number recorded
+- [x] Pull request number recorded: [#64](https://github.com/atomicobject/rhizome/pull/64)
 
 ## Compounding Follow-ups
 
@@ -104,7 +104,7 @@ Verification on the final branch: `make check` passed; `make check-full` (race a
 
 ## Status
 
-Complete, pending the pull request number.
+Complete. Delivered in [#64](https://github.com/atomicobject/rhizome/pull/64).
 
 ## Execution Notes
 
