@@ -4,7 +4,7 @@ id: EFF-2026-11-01-13-50
 aliases: [EFF-2026-11-01-13-50]
 name: Rhizome modules — every starter is a module
 created-at: 2026-11-01T18:50:32Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: "Introduce modules (.rhizome/modules/<name>/ holding ontology, recipes, views, tasks, and scripts), resolve every asset folder through one locator, install each starter as a module with a lossless migration from the flat folders, and run a module's recipes as rzm <module> <command>."
 governing-specs: ["[[rhizome-modules]]"]
@@ -60,10 +60,10 @@ Drew Colthorp approved the plan in chat on 2026-11-01 (revision 7 of the compoun
 
 ## Spec Coverage Checklist
 
-- [ ] US1 every starter is a module
-- [ ] US2 lossless migration
-- [ ] US3 stable ids
-- [ ] US4 module commands
+- [x] US1 every starter is a module: all five starters install under `.rhizome/modules/<id>/`; loaders, validation, watchers, serving and `{module}` hooks read both layouts (`TestFreshInitInstallsEachStarterAsAModule`, `load_modules_test.go`, `custom_views_module_test.go`, `modules_test.go`, `module_ontology_test.go`).
+- [x] US2 lossless migration: `TestReinitMigratesAFlatLayoutIntoModules`, and the dogfood migration of this repository.
+- [x] US3 stable ids: view and recipe ids unchanged and unique across roots; module task ids qualified with collision-free keys; schema sources named by repository path.
+- [x] US4 module commands: `cmd/module_test.go`, plus `rzm action-items` and `rzm action-items all-action-items` run against a fresh repository.
 
 ## Original Intended Delivery
 
@@ -71,25 +71,40 @@ All four stories of SPEC-0130 in one pull request.
 
 ## Actual Delivered
 
-Pending.
+All four stories, on branch `feat/rhizome-modules`:
+
+- `pkg/vault/assetroots`, the one locator every loader, validator, watcher, and `rzm init` uses.
+- Ontology, recipes, views, and tasks load from flat folders and modules; module views serve under `/views/_module/<module>/_files/…`; module task ids are `<module>/<name>`.
+- Every starter installs as a module; `rzm init` migrates flat installs (unedited copies removed after the module copy lands, edited copies kept with the module copy skipped and reported, identifier contracts carried, records carried when a person moves a kept copy).
+- Compounding scripts, `models.json`, and the calibration fixture live once in its module; its hook runs `{module}/scripts/hook.mjs`.
+- `rzm <module> [recipe]`, `rzm module <name>`, and the `modules` validation check.
+- This repository migrated with the new `rzm init` (11 files into three modules).
+- A watcher fix from review: module folders created after startup are watched on non-recursive backends.
+
+Verification on the final branch: `make check` passed; `make check-full` (race and integration) passed; `make check-fast` passed after the review fix; `rzm init --check` exits 0 in this repository; `./scripts/rzm validate all` reports no issues in files this branch touches (17 pre-existing link-hygiene findings elsewhere). Proof in the real interface: a fresh repository initialized with the new binary served a module custom view at `/views/demo.hello`, which loaded its entry from `/views/_module/demo/_files/hello/hello.tsx`, ran its GraphQL query, and logged no console errors; the views API listed views from both starter modules and the scratch module. Review: sol-loop, 2 rounds with GPT-6.1 Sol (approved).
 
 ## Deviations
 
-None yet.
+- Module view files are served at `/views/_module/<module>/_files/<rel>` (stamps and checks under `_stamp`/`_check`), not `/views/_module/<module>/<rel>`, so a module folder named `_stamp` or `_check` cannot collide with those routes. Accepted during integration; the contract above records it.
+- The review added a watcher fix outside lane A's original list (`pkg/vault/watchhub/pathfilter.go`), needed for US1 on Linux and Windows.
 
 ## Closure Checklist
 
-- [ ] Every story delivered or covered by a deviation
-- [ ] Gates recorded
+- [x] Every story delivered or covered by a deviation
+- [x] Gates recorded
 - [ ] Pull request number recorded
 
 ## Compounding Follow-ups
 
-None yet.
+- An ejected compounding install from before modules has no module folder, so its shard-delivery hook stops after upgrading; `rzm init --check` reports it. Add a legacy fallback or migration if anyone ejected compounding (Sol S2, declined as a nit).
+- `claude --worktree` with an underscore in the worktree name (module task Start) is assumed, not tested.
+- A recipe input named `help`, `vault`, `summary`, `input`, or `no-pager` has no module-command flag; it is passed with `--input name=value`.
+- Pre-existing on `main`, found while proving this change: `rzm index` in a fresh agentic-engineering + action-items repository fails with "ontology readiness completeness validation failed" once a note contains an `#action-item` checkbox.
+- Group a module's views under one sidebar heading with the compounding workspace (out of scope here).
 
 ## Status
 
-Active.
+Complete, pending the pull request number.
 
 ## Execution Notes
 
