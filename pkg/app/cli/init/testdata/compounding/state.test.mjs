@@ -340,3 +340,12 @@ test("a revised shard that goes missing comes back with its revised wording", ()
   at(main, "retire", approved, "--expect", revised.contentHash, "--reason", "no longer true");
   assert.equal(at(main, "list").find((p) => p.cluster === "k-rev"), undefined);
 });
+
+test("a shard retired in one worktree does not come back for review in another", () => {
+  const repo = checkouts("a", "b");
+  propose(repo, [proposal("k-ret")]);
+  const { approved } = at(repo.wt.a, "approve", "k-ret", "--confirm-publish");
+  const shard = loadShards(repo.wt.a).find((x) => x.path === approved);
+  at(repo.wt.a, "retire", approved, "--expect", shard.contentHash, "--reason", "no longer true");
+  assert.equal(at(repo.wt.b, "list").find((p) => p.cluster === "k-ret"), undefined);
+});

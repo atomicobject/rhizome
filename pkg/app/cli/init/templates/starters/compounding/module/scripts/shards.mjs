@@ -597,10 +597,16 @@ function dispatch(a, { root, store, user, people }) {
       const s = shardAt(root, id, a.expect);
       const who = reviewer(root, user);
       const { path: file } = decide(root, store, { shared: true, ...s, decision: "retired", reason: a.reason, decider: who.name });
-      // Every earlier version of this shard is retired too, so a revised
-      // shard's first wording cannot come back for review once it is gone.
-      for (const v of approvalsOf(store, id)) {
-        if (learningHash(v.payload) !== learningHash(s)) decide(root, store, { shared: false, ...v.payload, decision: "retired", reason: a.reason, decider: who.name });
+      // The retirement is kept privately too, as shared dismissals are, so
+      // every worktree sees it before it is committed; and every earlier
+      // version of a revised shard is retired with it, so no wording of it
+      // comes back for review once the file is gone.
+      const retired = new Set();
+      for (const v of [{ payload: s }, ...approvalsOf(store, id)]) {
+        const learning = learningHash(v.payload);
+        if (retired.has(learning)) continue;
+        retired.add(learning);
+        decide(root, store, { shared: false, ...v.payload, decision: "retired", reason: a.reason, decider: who.name });
       }
       rmSync(join(root, id));
       return { retired: id, decision: file };
