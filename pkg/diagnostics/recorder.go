@@ -40,6 +40,7 @@ type Recorder struct {
 	seq            uint64
 	segment        int
 	file           *os.File
+	stream         io.Writer
 	size           int64
 	date           string
 	closed         bool
@@ -57,6 +58,17 @@ func Open(vaultRoot string, opts Options) (*Recorder, error) {
 		return r, err
 	}
 	return r, nil
+}
+
+// OpenStream writes the same bounded, redacted events as Open to a caller-owned
+// JSON-line stream. It creates no files; the log collector owns retention.
+func OpenStream(writer io.Writer, opts Options) *Recorder {
+	if writer == nil {
+		writer = io.Discard
+	}
+	opts = defaults(opts)
+	opts.Stderr = io.Discard
+	return &Recorder{processID: newID(), opts: opts, stream: writer}
 }
 
 func (r *Recorder) Event(ctx context.Context, level slog.Level, subsystem, name, message string, attrs ...slog.Attr) {
@@ -174,7 +186,11 @@ func (r *Recorder) event(ctx context.Context, mirror bool, level slog.Level, sub
 		err = fmt.Errorf("event exceeds byte limit")
 	}
 	if err == nil {
-		err = r.appendEventLocked(append(data, '\n'), level >= slog.LevelWarn || terminalEvent(name))
+		if r.stream != nil {
+			_, err = r.stream.Write(append(data, '\n'))
+		} else {
+			err = r.appendEventLocked(append(data, '\n'), level >= slog.LevelWarn || terminalEvent(name))
+		}
 	}
 	if err != nil {
 		r.warningLocked(err)
@@ -235,6 +251,9 @@ func (r *Recorder) PublishReport(ctx context.Context, report Report) error {
 	defer r.mu.Unlock()
 	if r.closed {
 		return ErrClosed
+	}
+	if r.stream != nil {
+		return errors.New("reports require a file recorder")
 	}
 	report, data, err := r.prepareReport(ctx, report)
 	if err == nil {

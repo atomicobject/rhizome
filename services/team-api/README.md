@@ -58,10 +58,11 @@ rzm auth admin audit
 
 ## Diagnostics
 
-The gateway writes diagnostics through `pkg/diagnostics` under its data directory: `<data-dir>/.rhizome/diagnostics/events/*.jsonl`. They are separate from any vault's diagnostics and carry no tokens, request bodies, or email addresses.
+Local runs write diagnostics through `pkg/diagnostics` under the data directory: `<data-dir>/.rhizome/diagnostics/events/*.jsonl`. They are separate from any vault's diagnostics and carry no tokens, request bodies, or email addresses.
 
 | Event | What it records |
 | --- | --- |
+| `teamapi.request` | One per HTTP request, including rejection and health: safe route pattern, identity, status, bytes, duration, and authentication time |
 | `teamapi.provider_request` | One per paid call: route, model, sizes, upstream status, gateway code, and timings for validation, admission wait, reservation, upstream, settlement, and total |
 | `auth.signin`, `auth.refresh`, `auth.logout` | Outcome and duration |
 | Admin events | Each admin change |
@@ -88,6 +89,10 @@ TEAM_API_E2E_UPSTREAMS=live scripts/team-api/e2e.sh   # the same against the rea
 - `VOYAGE_API_KEY` and `TYPESAFE_API_KEY` come from the environment (Secrets Manager in ECS).
 - `RHIZOME_TEAM_API_CLIENT_SECRET` optionally holds the Google Desktop client secret.
 
+The ARM64 container, CloudFormation template, protected OIDC workflow, and operations instructions are in [RUNBOOK.md](RUNBOOK.md). The infrastructure uses ECS Express Mode on its stable AWS hostname, one steady-state task, DynamoDB, and a 30-day CloudWatch log group. All account configuration stays in AWS or the protected GitHub `production` environment.
+
+`team-api serve` also accepts the full JSON configuration in `RHIZOME_TEAM_API_CONFIG`, injected from SSM by ECS. An explicit `--config` takes precedence. Environment configuration defaults diagnostics to JSON lines on stdout; set `diagnostics_output: "stdout"` explicitly in production. Provider keys and the Google client secret are separate ECS secret injections from Secrets Manager. `trusted_proxy_cidrs` identifies the ALB subnet CIDRs; only the final ALB-appended address is trusted, and task ingress must allow only the ALB security group. `/healthz` becomes ready after store initialization and recovery, checks no providers, and reports unavailable during shutdown.
+
 Select DynamoDB for `serve` by adding this to the production configuration. The table must already exist with string keys `pk` (partition) and `sk` (sort). The gateway never provisions AWS resources.
 
 ```json
@@ -98,7 +103,7 @@ Select DynamoDB for `serve` by adding this to the production configuration. The 
 }
 ```
 
-Credentials come from the AWS SDK v2 default chain, normally the ECS task role. Omit `state` to keep SQLite. `team-api dev` always uses SQLite and its existing data directory. DynamoDB still uses `data_dir` for local diagnostics. Production configuration has no endpoint override.
+Credentials come from the AWS SDK v2 default chain, normally the ECS task role. Omit `state` to keep SQLite. `team-api dev` always uses SQLite and its existing data directory. DynamoDB uses `data_dir` for diagnostics when file output is selected. Production configuration has no endpoint override.
 
 ## State and accounting
 
@@ -130,7 +135,7 @@ Every receipt records its owner. Admission and all receipt transitions require a
 
 A late settlement after expiry or recovery returns `ledger.ErrPrecondition` and keeps the reservation. Concurrent recovery cannot count the same receipt twice. A crash during recovery is safe to retry; a crash after an uncertain commit also keeps the reservation. Even receipts that had not yet dispatched become unknown after their owner expires. Ownerless receipts in an older SQLite database migrate to this conservative recovery path. Receipts and owner fences are retained indefinitely. A quick restart can leave the old receipt in progress until its lease expires and a recovery pass finishes.
 
-The pilot still uses process-local concurrency slots, so old and new tasks may briefly double the slot limits during canary deployments. Shared daily counters and reservations stay atomic. Store-backed slots before rollout, CloudFormation, IAM, live ECS verification, and the deployment runbook remain in Batch 5 and later work.
+The pilot still uses process-local concurrency slots, so old and new tasks may briefly double the slot limits during canary deployments. Shared daily counters and reservations stay atomic. The deployment package covers CloudFormation, IAM, the protected workflow, and the runbook. Store-backed slots before rollout and live AWS verification remain in Batch 5 and later work.
 
 ### DynamoDB Local tests
 

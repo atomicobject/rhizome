@@ -1,0 +1,85 @@
+name: Deploy team API
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/team-api/**'
+      - 'pkg/diagnostics/**'
+      - 'pkg/fileio/**'
+      - 'pkg/typesafe/**'
+      - 'pkg/teamapi/wire/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/team-api-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Rollback/redeploy: previous full commit SHA already in ECR. Leave empty to build main.'
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: team-api-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.TEAM_API_AWS_REGION }}
+      AWS_DEFAULT_REGION: ${{ vars.TEAM_API_AWS_REGION }}
+      AWS_PAGER: ''
+      STACK: ${{ vars.TEAM_API_STACK }}
+      ROLLBACK_TAG: ${{ inputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION"
+          test -n "$STACK"
+          if [[ -n "$ROLLBACK_TAG" && ! "$ROLLBACK_TAG" =~ ^[a-f0-9]{40}$ ]]; then
+            echo 'image_tag must be a full commit SHA' >&2
+            exit 1
+          fi
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/team-api/go.mod
+          cache-dependency-path: services/team-api/go.sum
+      - name: Check gateway and deployment helpers
+        if: inputs.image_tag == ''
+        run: make team-api-check
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TEAM_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.TEAM_API_AWS_REGION }}
+          role-session-name: team-api-${{ github.run_id }}
+          role-duration-seconds: 10800
+      - name: Build and push immutable image
+        if: inputs.image_tag == ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue | [0]' --output text)"
+          registry="${repository%%/*}"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          trap 'docker logout "$registry" >/dev/null' EXIT
+          # Re-running a commit reuses its immutable image instead of overwriting it.
+          if ! aws ecr describe-images --repository-name "${repository#*/}" --image-ids "imageTag=$GITHUB_SHA" >/dev/null 2>&1; then
+            docker build --platform linux/arm64 -f services/team-api/Dockerfile --build-arg "VERSION=$GITHUB_SHA" -t "$repository:$GITHUB_SHA" .
+            docker push "$repository:$GITHUB_SHA"
+          fi
+      - name: Deploy, verify ALB settings, and smoke test HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 services/team-api/deploy/deploy.py --stack "$STACK" \
+            --image-tag "${ROLLBACK_TAG:-$GITHUB_SHA}" \
+            --deployment-id "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"

@@ -52,18 +52,23 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: team-api serve --config <file> | team-api dev --data-dir <dir> [--listen 127.0.0.1:8788] [--upstreams fake|live] [--keys-from-keychain] [--idle-exit 1h]")
+	fmt.Fprintln(os.Stderr, "usage: team-api serve [--config <file>] | team-api dev --data-dir <dir> [--listen 127.0.0.1:8788] [--upstreams fake|live] [--keys-from-keychain] [--idle-exit 1h]")
 	os.Exit(2)
 }
 
 func serve(ctx context.Context, args []string) error {
+	// Operational messages use JSON in the deployed process too. Do not log config.
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	path := fs.String("config", "", "configuration file")
 	_ = fs.Parse(args)
-	if *path == "" {
-		return errors.New("--config is required")
+	var cfg config.Config
+	var err error
+	if *path != "" {
+		cfg, err = config.Load(*path)
+	} else {
+		cfg, err = config.LoadEnvironment()
 	}
-	cfg, err := config.Load(*path)
 	if err != nil {
 		return err
 	}
@@ -112,7 +117,13 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	if cfg.DiagnosticsDir != "" {
 		diagRoot = cfg.DiagnosticsDir
 	}
-	rec, err := diagnostics.Open(diagRoot, diagnostics.Options{Role: "team-api", Version: version})
+	opts := diagnostics.Options{Role: "team-api", Version: version}
+	var rec *diagnostics.Recorder
+	if cfg.DiagnosticsOutput == "stdout" {
+		rec = diagnostics.OpenStream(os.Stdout, opts)
+	} else {
+		rec, err = diagnostics.Open(diagRoot, opts)
+	}
 	if err != nil {
 		slog.Warn("diagnostics unavailable", "error", err)
 	}
@@ -134,12 +145,18 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	paid := http.NewServeMux()
 	traf.Routes(paid)
 	mux.Handle("/v1/providers/", id.Middleware(paid))
-	mux.HandleFunc("GET "+wire.RouteHealth, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET "+wire.RouteHealth, func(w http.ResponseWriter, r *http.Request) {
+		if ctx.Err() != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 
 	idle := newIdleTracker()
 	srv := &http.Server{
 		Addr:              cfg.Listen,
-		Handler:           idle.wrap(mux),
+		Handler:           idle.wrap(requestDiagnostics(rec, trustedForwardedAddress(cfg.TrustedProxyCIDRs, mux))),
 		ReadHeaderTimeout: 5 * time.Second,
 		// A backstop for requests rejected before their handler reads the
 		// body (for example an unauthenticated logout): Go drains the body
@@ -147,7 +164,7 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 		// read bodies set their own shorter deadline; once a body is read
 		// the deadline is cleared, so long provider calls are unaffected.
 		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 180 * time.Second,
+		WriteTimeout: 300 * time.Second,
 		IdleTimeout:  360 * time.Second,
 	}
 	// Serve returns as soon as Shutdown closes the listener; run waits for
@@ -165,7 +182,7 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 	}()
-	slog.Info("team-api listening", "addr", ln.Addr().String(), "mode", cfg.Mode, "data_dir", cfg.DataDir)
+	rec.Event(ctx, slog.LevelInfo, "teamapi", "teamapi.listening", "gateway ready")
 	if ready != nil {
 		ready <- ln.Addr().String()
 	}

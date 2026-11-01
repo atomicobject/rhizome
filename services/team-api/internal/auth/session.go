@@ -120,6 +120,10 @@ func (s *Service) rotate(ctx context.Context, raw string) (grant wire.SessionGra
 		}
 		s.cache.forget(id)
 		x.AccessExpiresAt = rot.AccessExpiresAt
+		if info := core.DiagnosticsFrom(ctx); info != nil {
+			info.Sub = person.Sub
+			info.SessionID = id
+		}
 		return s.grant(person, x, access, refresh), kind, "", id
 	}
 	return grant, "", wire.CodeInternal, id
@@ -213,12 +217,24 @@ func (s *Service) SessionInfo(w http.ResponseWriter, r *http.Request) {
 func (s *Service) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ensureRequestID(w)
+		start := s.now()
 		p, code := s.authenticate(r)
+		if info := core.DiagnosticsFrom(r.Context()); info != nil {
+			info.Authentication = s.now().Sub(start)
+			info.Sub = p.Sub
+			info.SessionID = p.SessionID
+		}
 		if code != "" {
 			WriteError(w, code, authMessages[code])
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(core.WithPrincipal(r.Context(), p)))
+		inner := r.WithContext(core.WithPrincipal(r.Context(), p))
+		defer func() {
+			if info := core.DiagnosticsFrom(r.Context()); info != nil && inner.Pattern != "" {
+				info.Route = inner.Pattern
+			}
+		}()
+		next.ServeHTTP(w, inner)
 	})
 }
 

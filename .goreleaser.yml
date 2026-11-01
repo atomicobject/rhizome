@@ -32,6 +32,7 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+      - '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}{{ with index .Env "RZM_INTERNAL_TEAM_API_ORIGIN" }}-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin={{ . }}{{ end }}{{ end }}'
 
   # Linux builds - cross-compiled with zig
   - id: rzm-linux
@@ -55,6 +56,7 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+      - '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}{{ with index .Env "RZM_INTERNAL_TEAM_API_ORIGIN" }}-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin={{ . }}{{ end }}{{ end }}'
     overrides:
       - goos: linux
         goarch: amd64
@@ -92,6 +94,7 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+      - '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}{{ with index .Env "RZM_INTERNAL_TEAM_API_ORIGIN" }}-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin={{ . }}{{ end }}{{ end }}'
 
 release:
   target_commitish: "{{ .Commit }}"

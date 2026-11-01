@@ -460,18 +460,15 @@ func begin(w http.ResponseWriter, r *http.Request, route string) *event {
 
 // clientVersion extracts <version> from a "rzm/<version>" User-Agent.
 func clientVersion(ua string) string {
-	v, ok := strings.CutPrefix(ua, "rzm/")
-	if !ok {
-		return ""
-	}
-	v, _, _ = strings.Cut(v, " ")
-	if len(v) > 64 {
-		v = v[:64]
-	}
-	return v
+	return core.ClientVersion(ua)
 }
 
 func (t *Traffic) record(ctx context.Context, ev *event) {
+	if info := core.DiagnosticsFrom(ctx); info != nil {
+		info.Model = ev.model
+		info.Inputs = ev.inputs
+		info.UpstreamStatus = ev.upstreamStatus
+	}
 	if t.rec == nil {
 		return
 	}

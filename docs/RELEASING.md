@@ -173,6 +173,7 @@ Atomic Object users may continue installing and updating from a private S3 mirro
 An internal release additionally:
 
 - requires `ATOMIC_RHIZOME_KEY`, `VOYAGE_API_KEY`, and `TYPESAFE_API_KEY`. `scripts/teamkeys/release.py` encrypts the keys into a temporary Go overlay for the publishing build only and refuses to run unless the GitHub repository is private, because GoReleaser also uploads the bundled binaries there;
+- when `RZM_INTERNAL_TEAM_API_ORIGIN` is set in the private release environment, compiles that root HTTPS origin into `pkg/teamapi/session.DefaultOrigin` for team sign-in. The gateway must be deployed first; see [the team API runbook](../services/team-api/RUNBOOK.md). Public builds discard this variable and keep an empty default;
 - links the mirror into `rzm update` and the staged installer (`https://<bucket>.s3.amazonaws.com/releases`), in place of the GitHub API default;
 - requires AWS access to the bucket (`aws login` or the release Environment), checked before apply;
 - publishes the legacy `latest.json` and `.tbz` layout read by v0.50.x and older clients, and GitHub-release-shaped `releases/latest` and `releases/tags/<version>` documents read by current clients.

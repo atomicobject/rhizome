@@ -87,8 +87,7 @@ func eligible(p store.Person, c core.Runtime) bool {
 }
 
 // limiter is a token bucket per remote address for the auth endpoints.
-// ponytail: keyed by RemoteAddr, so behind a load balancer every client
-// shares one bucket; key on the trusted forwarded address when deployed.
+// The server normalizes RemoteAddr only for configured trusted ALB peers.
 type limiter struct {
 	burst float64
 	rate  float64 // tokens per second
