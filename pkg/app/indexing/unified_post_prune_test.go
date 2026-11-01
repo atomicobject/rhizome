@@ -14,6 +14,7 @@ import (
 // Vectors look unreferenced while their derived work awaits republication, so
 // pending derived work blocks pruning even when unreferenced rows dominate.
 func TestPruneObsoleteEmbeddingsWaitsForPendingDerivedWork(t *testing.T) {
+	runNow := func(ctx context.Context, run func(context.Context) error) error { return run(ctx) }
 	ctx := context.Background()
 	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
 	require.NoError(t, err)
@@ -29,11 +30,11 @@ func TestPruneObsoleteEmbeddingsWaitsForPendingDerivedWork(t *testing.T) {
 
 	_, err = store.MarkDerivedDirty(ctx, []codeanchor.DerivedScope{{Kind: codeanchor.DerivedOntology, Path: "notes/a.md"}})
 	require.NoError(t, err)
-	pruneObsoleteEmbeddings(ctx, store)
+	pruneObsoleteEmbeddings(ctx, store, runNow)
 	require.Equal(t, 1, cached(), "pending derived work keeps unreferenced vectors")
 
 	_, err = store.DB().ExecContext(ctx, `DELETE FROM derived_work`)
 	require.NoError(t, err)
-	pruneObsoleteEmbeddings(ctx, store)
+	pruneObsoleteEmbeddings(ctx, store, runNow)
 	require.Zero(t, cached(), "with no pending work, an unreferenced earlier-format vector is pruned")
 }

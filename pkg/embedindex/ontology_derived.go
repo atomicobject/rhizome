@@ -38,6 +38,10 @@ func (r OntologyDerivedResult) HasVectors() bool { return len(r.vectors) > 0 }
 // when the shared embedding node owns batching.
 const ontologyEmbedSliceTexts = 256
 
+// ontologyEmbedNodeInFlightSlices bounds slices submitted to the shared node
+// at once.
+const ontologyEmbedNodeInFlightSlices = 8
+
 // ComputeDerived embeds the plan's texts in independent slices. When a slice
 // fails it returns the error with a result holding only the vectors that
 // succeeded: callers cache that result (never publish it) so a retry sends only
@@ -49,7 +53,10 @@ func (s OntologyNodeSyncer) ComputeDerived(ctx context.Context, plan OntologyDer
 	embed := func(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
 		return s.EmbeddingNode.Submit(ctx, "embed_ontology_nodes", texts)
 	}
-	var sem chan struct{}
+	// Slices start only as capacity frees, so goroutines stay bounded on a
+	// cold index. The shared node packs and limits provider calls itself; a
+	// few slices in flight keep its batches full.
+	sem := make(chan struct{}, ontologyEmbedNodeInFlightSlices)
 	if s.EmbeddingNode == nil {
 		// One physical batch per slice, at most MaxConcurrent at once: the
 		// same provider concurrency as a single embedTextsWithProvider call.
@@ -66,23 +73,22 @@ func (s OntologyNodeSyncer) ComputeDerived(ctx context.Context, plan OntologyDer
 	failed := make(chan struct{})
 	var failOnce sync.Once
 	var wg sync.WaitGroup
+slices:
 	for i := range errs {
 		start := i * sliceTexts
 		end := min(start+sliceTexts, len(plan.texts))
+		select {
+		case <-ctx.Done():
+			errs[i] = ctx.Err()
+			break slices
+		case <-failed:
+			break slices
+		case sem <- struct{}{}:
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if sem != nil {
-				select {
-				case <-ctx.Done():
-					errs[i] = ctx.Err()
-					return
-				case <-failed:
-					return
-				case sem <- struct{}{}:
-				}
-				defer func() { <-sem }()
-			}
+			defer func() { <-sem }()
 			got, err := embed(ctx, plan.texts[start:end])
 			if err == nil && len(got) != end-start {
 				err = fmt.Errorf("embed: unexpected vector count %d for %d texts", len(got), end-start)

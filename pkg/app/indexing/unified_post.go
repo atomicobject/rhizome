@@ -165,8 +165,9 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 // chunk-text format produced and no current chunk uses. It runs after the
 // index acknowledged its derived work, and only when none remains pending,
 // because vectors awaiting republication look unreferenced until then.
+// The delete runs through submit, the writer's ordered maintenance control.
 // Maintenance failures are reported, not fatal.
-func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store) {
+func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, submit func(context.Context, func(context.Context) error) error) {
 	if intelStore == nil {
 		return
 	}
@@ -176,7 +177,10 @@ func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store) {
 			return
 		}
 	}
-	if _, err := intelStore.PruneOntologyEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat); err != nil {
+	if err := submit(ctx, func(ctx context.Context) error {
+		_, err := intelStore.PruneOntologyEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat)
+		return err
+	}); err != nil {
 		if recorder := diagnostics.FromContext(ctx); recorder != nil {
 			recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", "ontology"))
 		}

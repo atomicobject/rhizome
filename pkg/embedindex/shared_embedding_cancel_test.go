@@ -2,6 +2,8 @@ package embedindex
 
 import (
 	"context"
+	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -105,4 +107,33 @@ func TestSharedEmbeddingNodeDropsBatchCancelledWhileWaitingForGate(t *testing.T)
 	}
 	node.Close()
 	require.Empty(t, prov.BatchSizes(), "a batch cancelled while waiting for the gate must not reach the provider")
+}
+
+// A cold ontology pass with many slices must not start a goroutine per slice
+// while the shared node is busy.
+func TestOntologyComputeDerivedBoundsSliceGoroutines(t *testing.T) {
+	release := make(chan struct{})
+	prov := &defaultingProvider{batchSize: 1000, maxConcurrency: 1, started: make(chan int, 1024), block: release}
+	node := NewSharedEmbeddingNode(context.Background(), prov, 1, nil, EmbedPackerOptions{MinTexts: 1, MaxTexts: 64, MaxBytes: 1 << 20, MaxWait: time.Millisecond})
+	defer node.Close()
+
+	const slices = 100
+	plan := OntologyDerivedPlan{textHashes: map[string]string{}}
+	for i := range slices * ontologyEmbedSliceTexts {
+		id := fmt.Sprintf("chunk-%d", i)
+		plan.ids = append(plan.ids, id)
+		plan.texts = append(plan.texts, id)
+	}
+	before := runtime.NumGoroutine()
+	done := make(chan error, 1)
+	go func() {
+		_, err := OntologyNodeSyncer{EmbeddingNode: node}.ComputeDerived(context.Background(), plan)
+		done <- err
+	}()
+	<-prov.started
+	time.Sleep(50 * time.Millisecond)
+	grown := runtime.NumGoroutine() - before
+	close(release)
+	require.NoError(t, <-done)
+	require.Less(t, grown, ontologyEmbedNodeInFlightSlices+16, "slice goroutines must stay bounded while the node is busy")
 }

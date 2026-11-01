@@ -94,3 +94,40 @@ func TestStopAllCancelsAttachedStartupBeforeManifest(t *testing.T) {
 		t.Fatal("stop --all left the starting attached owner alive")
 	}
 }
+
+// The owner's start-intent poll backs off to a one-second cap. A stop issued
+// after it reaches the cap must still cancel the waiting startup promptly and
+// release runtime ownership without touching another writer's lock.
+func TestStopCancelsStartingOwnerAfterIntentPollBacksOff(t *testing.T) {
+	t.Parallel()
+	vault := newRuntimeVault(t, "")
+	lockPath := filepath.Join(vault.root, ".rhizome", "index.lock")
+	release, acquired, err := indexlock.TryAcquire(lockPath)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	defer func() { _ = release() }()
+	started := vault.start(t, "start", "--open=false", "--port", "0")
+	require.Eventually(t, func() bool {
+		pid, live := appruntime.LockOwner(vault.root)
+		return live && pid == started.pid
+	}, 15*time.Second, 25*time.Millisecond)
+	time.Sleep(3 * time.Second) // 50 ms doubling reaches the 1 s cap after about 1.5 s
+
+	stopStarted := time.Now()
+	result := vault.run(nil, "stop")
+	require.NoError(t, result.err, result.stdout+result.stderr)
+	require.Contains(t, result.stdout+result.stderr, "stopped")
+	select {
+	case <-started.exited:
+	case <-time.After(appruntime.StopGrace):
+		t.Fatal("a backed-off start-intent poll did not cancel startup within the stop grace")
+	}
+	require.Less(t, time.Since(stopStarted), appruntime.StopGrace)
+	_, acquired, err = indexlock.TryAcquire(lockPath)
+	require.NoError(t, err)
+	require.False(t, acquired, "stop must not remove another writer's lock")
+	unlockRuntime, acquired, err := indexlock.TryAcquire(appruntime.LockPath(vault.root))
+	require.NoError(t, err)
+	require.True(t, acquired, "a stopped startup must release runtime ownership")
+	require.NoError(t, unlockRuntime())
+}
