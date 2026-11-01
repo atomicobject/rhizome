@@ -222,7 +222,9 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 			var vecs []embeddings.Embedding
 			var err error
 			if useSharedNode {
-				vecs, err = p.sharedNode.submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts, false)
+				// A run that can cache unfinalized owners keeps in-flight results, so a
+				// cancelled pass does not discard vectors the provider already returned.
+				vecs, err = p.sharedNode.submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts, p.abandon != nil)
 			} else {
 				vecs, err = p.provider.EmbedTexts(p.ctx, batchTexts)
 			}

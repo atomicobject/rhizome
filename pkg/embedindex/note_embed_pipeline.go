@@ -104,10 +104,12 @@ func (s *NoteSyncer) processTasksPipelined(ctx context.Context, plan NotePlan, i
 		}
 		return applySemanticWriteIntents(ctx, noteWriteSink{syncer: s, useLegacy: result.prepared.useLegacy, intelWriter: intelWriter}, buildNoteWriteIntents(result.prepared, result.vectors, s.EmbeddingWriter != nil)...)
 	})
-	// A retry must not send the sections that did embed again.
+	// A retry must not send the sections that did embed again. The cache write
+	// is detached from cancellation: another lane failing or a stop must not
+	// drop vectors the provider already returned.
 	var incomplete *IncompleteDerivedError[NoteDerivedResult]
 	if errors.As(err, &incomplete) {
-		_ = s.CacheDerived(ctx, incomplete.Results...)
+		_ = s.CacheDerived(context.WithoutCancel(ctx), incomplete.Results...)
 	}
 	return err
 }

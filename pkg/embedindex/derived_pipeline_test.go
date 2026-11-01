@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -172,4 +173,56 @@ func TestOntologyDerivedComputeDoesNotPublishChunksOrVectors(t *testing.T) {
 	vecs, err = store.EmbeddingsByChunkIDs(ctx, plan.ids)
 	require.NoError(t, err)
 	require.Len(t, vecs, len(plan.ids))
+}
+
+// blockingFirstProvider holds its first call until release closes, then
+// answers it, as a provider that finishes after the pass was cancelled.
+type blockingFirstProvider struct {
+	embeddings.Provider
+	once    sync.Once
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p *blockingFirstProvider) EmbedTexts(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	first := false
+	p.once.Do(func() { first = true; close(p.started) })
+	if first {
+		<-p.release
+	}
+	return p.Provider.EmbedTexts(context.Background(), texts)
+}
+
+// Cancelling a plain-note pass while its batch is at the shared node's
+// provider must still cache the vectors that batch returns.
+func TestNoteCancelledPassCachesSharedNodeInFlightVectors(t *testing.T) {
+	notes, err := embsqlite.OpenNotes(t.Context(), embsqlite.File(filepath.Join(t.TempDir(), "notes.db")), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: 8})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, notes.Close()) }()
+	intel, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	defer intel.Close()
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+	prov := &blockingFirstProvider{Provider: embeddings.NewDeterministicProvider(info), started: make(chan struct{}), release: make(chan struct{})}
+	node := NewSharedEmbeddingNode(context.Background(), prov, 1, nil, EmbedPackerOptions{MinTexts: 1, MaxTexts: 8, MaxBytes: 1 << 20, MaxWait: time.Millisecond})
+	defer node.Close()
+	chunks := []embeddings.ChunkInput{embeddings.NewChunkInput(0, "Install the tools first.", "Guide", "Setup")}
+	syncer := NoteSyncer{
+		Index: notes, ProviderInfo: info, EmbeddingWriter: intel, EmbeddingCache: intel, MaxConcurrent: 1,
+		Provider: prov, EmbeddingNode: node,
+	}
+	plan := NotePlan{TotalWork: 1, tasks: []noteTask{{id: "notes/guide.md", payload: noteTaskPayload{
+		info: embeddings.NoteFileInfo{ID: "notes/guide.md", Path: "notes/guide.md"}, embedChunks: chunks, embedTexts: []string{chunks[0].Text},
+	}}}}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- syncer.processTasksPipelined(ctx, plan, nil) }()
+	<-prov.started
+	cancel() // another lane failed while the batch is at the provider
+	close(prov.release)
+	require.Error(t, <-done)
+
+	_, _, missing, _, err := syncer.planChunkUpdates(t.Context(), "notes/guide.md", chunks, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing, "the vector the provider returned after cancellation is cached")
 }
