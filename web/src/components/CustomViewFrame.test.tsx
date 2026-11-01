@@ -14,6 +14,7 @@ import {
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
   VAULT_EVENT_MESSAGE,
+  VIEW_RENDERED_MESSAGE,
   type ViewMessage,
 } from "../lib/customViewMessages";
 import { publishVaultEvent } from "../query/vaultEvents";
@@ -70,7 +71,7 @@ describe("CustomViewFrame", () => {
     expect(onOpenNote).toHaveBeenLastCalledWith("docs/a.md", "beside");
   });
 
-  it("bridges canonical navigation only from the active frame and remounts for a new subject", () => {
+  it("bridges canonical navigation only from mounted frames and remounts for a new subject", async () => {
     const onOpenNode = vi.fn();
     const onOpenView = vi.fn();
 
@@ -115,9 +116,17 @@ describe("CustomViewFrame", () => {
     expect(frame.src).toContain("context=");
 
     rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Knowledge" }} />);
-    expect(newestFrame()).not.toBe(frame);
+    const next = newestFrame();
+    expect(next).not.toBe(frame);
+
+    // The view on screen still answers while the next one loads.
     post(source, window.location.origin, message);
-    expect(onOpenNode).toHaveBeenCalledTimes(1);
+    expect(onOpenNode).toHaveBeenCalledTimes(2);
+
+    fireEvent.load(next);
+    await waitFor(() => expect(frame).not.toBeInTheDocument());
+    post(source, window.location.origin, message);
+    expect(onOpenNode).toHaveBeenCalledTimes(2);
   });
 
   it("answers an edit from the view on screen after returning to it before the next loaded", async () => {
@@ -174,6 +183,30 @@ describe("CustomViewFrame", () => {
     await waitFor(() => expect(current).not.toBeInTheDocument());
     expect(screen.getByTitle("Action Board")).toBe(next);
     expect(next).not.toHaveAttribute("data-incoming");
+  });
+
+  it("waits for a starting kit view to announce its first render", async () => {
+    const props = { view, session: null, onOpenNote: vi.fn(), onStageOps: vi.fn() };
+
+    const { rerender } = render(
+      <CustomViewFrame {...props} context={{ kind: "group", group: "Delivery" }} />,
+    );
+
+    const current = screen.getByTitle<HTMLIFrameElement>("Action Board");
+
+    rerender(<CustomViewFrame {...props} context={{ kind: "group", group: "Knowledge" }} />);
+    const next = newestFrame();
+
+    // jsdom builds no document for the view's URL, so stand in a starting kit page's root.
+    const root = document.createElement("html");
+    root.dataset.rhizomeView = "starting";
+    Object.defineProperty(next.contentWindow!.document, "documentElement", { value: root });
+    fireEvent.load(next);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(current).toBeInTheDocument();
+
+    post(next.contentWindow, window.location.origin, { type: VIEW_RENDERED_MESSAGE });
+    await waitFor(() => expect(current).not.toBeInTheDocument());
   });
 
   it("opens GraphQL refs and node view contexts with null optional fields", () => {

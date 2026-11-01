@@ -35,8 +35,9 @@ export function FolderBlock() {
   const summaries = useTypeSummaries();
   const status = blockStatus([folders.read, summaries.read]);
   const facts = folders.data?.facts;
-  const expanded = useRememberedOpen("overview.expanded");
-  const open = expanded.isOpen("folders", false);
+  // Its own preference: overview.expanded is keyed by group name.
+  const expanded = useRememberedOpen("overview.folders");
+  const open = expanded.isOpen("all", false);
 
   return (
     <Block
@@ -114,7 +115,7 @@ export function FolderBlock() {
                 <MoreToggle
                   hidden={lines.length - FOLDER_LINES}
                   open={open}
-                  onToggle={() => expanded.setOpen("folders", !open)}
+                  onToggle={() => expanded.setOpen("all", !open)}
                 />
               )}
             </>

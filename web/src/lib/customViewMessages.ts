@@ -13,6 +13,9 @@ export const OPEN_VIEW_MESSAGE = "rhizome:open-view";
 export const OPEN_NOTE_MESSAGE = "rhizome:open-note";
 
 /** View → host: ask for the current edit session; the host answers with EDIT_SESSION_MESSAGE. */
+/** A view's first render is on screen, so a host may show it. */
+export const VIEW_RENDERED_MESSAGE = "rhizome:view-rendered";
+
 export const EDIT_SESSION_HELLO_MESSAGE = "rhizome:edit-session-hello";
 
 /** Host → view: the workspace edit session changed. `{ session }`, null when none. */
@@ -44,6 +47,7 @@ export type ViewMessage =
   | { type: typeof OPEN_VIEW_MESSAGE; id: string; context: ViewContext }
   | { type: typeof OPEN_NOTE_MESSAGE; path: string; beside?: boolean }
   | { type: typeof EDIT_SESSION_HELLO_MESSAGE }
+  | { type: typeof VIEW_RENDERED_MESSAGE }
   | { type: typeof STAGE_OPS_MESSAGE; requestId: string; ops: OntologyEditOp[] }
   | { type: typeof OPEN_ISSUES_MESSAGE; scope?: IssueScope }
   | { type: typeof OPEN_COLLECTION_MESSAGE; name: string }
