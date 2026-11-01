@@ -297,9 +297,9 @@ func TestSyncRemovesAWorkflowThatIsTurnedOff(t *testing.T) {
 	require.NoDirExists(t, filepath.Join(root, ".agents", "skills", "agentic-engineering"))
 	require.NoFileExists(t, filepath.Join(root, ".claude", "skills", "ingest-transcript", "SKILL.md"))
 	require.FileExists(t, filepath.Join(root, ".claude", "skills", "ingest-transcript", "NOTES.md"))
-	require.NoFileExists(t, filepath.Join(root, ".rhizome", "views", "efforts.yaml"), "saved views of a removed workflow go")
-	require.NoFileExists(t, filepath.Join(root, ".rhizome", "query-recipes", "spec-driven.yaml"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"), "the schema stays for existing notes")
+	require.NoFileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "views", "efforts.yaml"), "saved views of a removed workflow go")
+	require.NoFileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "recipes", "spec-driven.yaml"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"), "the schema stays for existing notes")
 	require.FileExists(t, filepath.Join(root, "docs", "engineering", "testing-policy.md"), "team-owned docs stay")
 	require.NotContains(t, readTestFile(t, root, "AGENTS.md"), managedTemplateBlockStartPrefix+templateAgenticEngineering)
 }
@@ -369,6 +369,7 @@ func TestGeneratedFilesRecordIsSortedAndUnreadableRecordsAreEmpty(t *testing.T) 
 func TestStarterValidationSelector(t *testing.T) {
 	require.Equal(t, "all", starterValidationSelector([]string{".rhizome/ontology/core.graphql", ".rhizome/views/a.yaml"}))
 	require.Equal(t, "query-recipes", starterValidationSelector([]string{".rhizome/query-recipes/core.yaml", "AGENTS.md"}))
+	require.Equal(t, "ontology", starterValidationSelector([]string{".rhizome/modules/core/ontology/core.graphql", ".rhizome/modules/compounding/scripts/hook.mjs"}))
 	require.Empty(t, starterValidationSelector([]string{"AGENTS.md"}))
 }
 
@@ -478,6 +479,6 @@ func TestSyncLeavesAnUnlinkedWorkflowInPlace(t *testing.T) {
 
 	require.Equal(t, "Our own version now.\n", readTestFile(t, root, routerSkill))
 	require.FileExists(t, filepath.Join(root, ".agents", "skills", "foundation-review", "SKILL.md"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "views", "efforts.yaml"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "views", "efforts.yaml"))
 	require.Contains(t, readTestFile(t, root, "AGENTS.md"), managedTemplateBlockStartPrefix+templateAgenticEngineering)
 }

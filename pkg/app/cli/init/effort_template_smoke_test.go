@@ -138,7 +138,7 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
 	note := result.Data["historical"].(map[string]any)
 	require.Equal(t, "EFF-2026-09-12-10-00", note["id"])
 	require.Contains(t, narrativeContent(t, note, "plan"), "historical plan")
-	recipes, issues := queryrecipe.LoadPath(filepath.Join(root, ".rhizome/query-recipes/spec-driven.yaml"))
+	recipes, issues := queryrecipe.LoadPath(filepath.Join(root, ".rhizome/modules/agentic-engineering/recipes/spec-driven.yaml"))
 	require.Empty(t, issues)
 	exercised := 0
 	for _, recipe := range recipes {

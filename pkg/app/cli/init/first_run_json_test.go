@@ -109,7 +109,7 @@ func TestApplyWritesTheChoicesAndReportsThem(t *testing.T) {
 	require.Contains(t, result.Summary, "Skipped cmd/ and testdata/ (1 file) in .rhizome/ignore")
 	require.Equal(t, ".rhizome/", result.Commit[0])
 	require.Equal(t, PinResult{Version: version.Version}, result.Pin)
-	require.NotContains(t, result.Created, ".rhizome/ontology/action-items.graphql")
+	require.NotContains(t, result.Created, ".rhizome/modules/action-items/ontology/action-items.graphql")
 	require.Equal(t, []string{".rhizome/config.yml", ".rhizome/workflows.yml", ".rhizome/ignore"}, result.Created[:3])
 
 	workflow, _, err := repoconfig.LoadLocalWorkflowConfig(root)

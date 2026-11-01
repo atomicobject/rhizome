@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const lib = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/lib/", import.meta.url);
+const lib = new URL("../../templates/starters/compounding/module/scripts/lib/", import.meta.url);
 const P = await import(new URL("prompts.mjs", lib));
 const { completeThrough } = await import(new URL("episodes.mjs", lib));
 

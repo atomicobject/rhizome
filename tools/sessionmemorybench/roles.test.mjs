@@ -48,7 +48,7 @@ test("bundled learnings can share an atomic cluster while directional matching d
 
 
 test("raw duplicate/unknown members are diagnosed while the shipped reducer normalizes harmless cases", async () => {
-  const { group } = await import("../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/reduce.mjs");
+  const { group } = await import("../../pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/reduce.mjs");
   const output = { clusters: [{ members: ["a", "a", "foreign"] }] };
   assert.deepEqual(groupDiagnostics(output, ["a", "b"]), { unknownMembers: 1, intraClusterDuplicates: 1, crossClusterMemberships: 0, missingMembers: ["b"] });
   const candidates = { a: candidate("a", "One learning"), b: candidate("b", "Another learning") };

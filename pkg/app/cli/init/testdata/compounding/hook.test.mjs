@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { scratchRepo } from "./fakes.mjs";
 
-const scripts = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
+const scripts = new URL("../../templates/starters/compounding/module/scripts/", import.meta.url);
 const S = await import(new URL("lib/shards.mjs", scripts));
 const { lookup } = await import(new URL("lookup.mjs", scripts));
 const { handle, cachedShards, HOOK_DIR, lookupCommand, lookupCommands, moreLine } = await import(new URL("hook.mjs", scripts));
@@ -215,10 +215,10 @@ test("a tool call that brings due start items selects from both together, rules 
   assert.deepEqual(everywhere.filter((p) => shown.includes(p)), everywhere);
 });
 
-test("the closing line names lookup.mjs where the skill is installed", async () => {
+test("the closing line names lookup.mjs where the module is installed", async () => {
   // The dispatcher passes the canonical root.
   const root = realpathSync(scratchRepo());
-  const installed = join(root, ".claude/skills/compounding/scripts");
+  const installed = join(root, ".rhizome/modules/compounding/scripts");
   cpSync(fileURLToPath(scripts), installed, { recursive: true });
   const copy = await import(new URL("hook.mjs", pathToFileURL(`${installed}/`)).href);
   assert.ok(copy.lookupCommand(5).includes(join(installed, "lookup.mjs").split(sep).join("/")));

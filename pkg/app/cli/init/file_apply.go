@@ -129,6 +129,10 @@ func classifyPlan(projectRoot string, plan *filePlan, record *generatedFiles) ([
 		}
 		c := &change{key: removal.rel, rel: removal.rel, group: firstNonEmpty(removal.group, removal.rel), removal: true, current: current}
 		written, recorded := record.Written[removal.rel]
+		fingerprint := removal.fingerprint
+		if fingerprint == nil {
+			fingerprint = contentFingerprint
+		}
 		switch {
 		case record.Declined[removal.rel] == declinedRemoval:
 			c.state = stateDeclined
@@ -136,7 +140,7 @@ func classifyPlan(projectRoot string, plan *filePlan, record *generatedFiles) ([
 			c.state = stateUnedited
 		case !recorded:
 			c.state = stateUnknown
-		case written == contentFingerprint(current):
+		case written == fingerprint(current):
 			c.state = stateUnedited
 		default:
 			c.state = stateEdited

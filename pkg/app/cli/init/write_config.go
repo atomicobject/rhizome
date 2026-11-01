@@ -283,6 +283,8 @@ func rhizomeGitIgnoreBody() string {
 		"!" + generatedFilesName,
 		"!migrations/",
 		"!migrations/**",
+		"!modules/",
+		"!modules/**",
 		"!ontology/",
 		"!ontology/**",
 		"!query-recipes/",

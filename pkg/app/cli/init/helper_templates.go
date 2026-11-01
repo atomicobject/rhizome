@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/skilloverlay"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 //go:embed templates templates/**/*
@@ -265,106 +266,72 @@ func loadStarterTemplates(template string) ([]starterTemplateFile, error) {
 	return files, nil
 }
 
-// loadStarterOntologyTemplates returns every `.graphql` file under a template's
-// `ontology/` directory, preserving the source filename. Templates name their
-// schemas after themselves (e.g. `spec-driven.graphql`) so multiple templates
-// can be installed side by side without overwriting each other.
-func loadStarterOntologyTemplates(template string) ([]starterTemplateFile, error) {
+// loadStarterModuleTemplates returns every file under a starter's `module/`
+// tree, which installs into `.rhizome/modules/<id>/` ([[rhizome-modules|SPEC-0130]]).
+// Paths are relative to the module folder, such as `ontology/core.graphql`
+// or `scripts/hook.mjs`.
+func loadStarterModuleTemplates(template string) ([]starterTemplateFile, error) {
 	if template == "" {
 		return nil, nil
 	}
-	root := path.Join("templates", "starters", template, "rhizome", "ontology")
-	if _, err := fs.Stat(agentHelperTemplates, root); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("stat ontology templates %q: %w", template, err)
-	}
+	root := path.Join("templates", "starters", template, "module")
 	var files []starterTemplateFile
 	if err := fs.WalkDir(agentHelperTemplates, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if p == root && errors.Is(err, fs.ErrNotExist) {
+				return fs.SkipAll
+			}
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(strings.ToLower(p), ".graphql") {
-			return fmt.Errorf("non-graphql file %q under %s", p, root)
-		}
-		prefix := root + "/"
-		if !strings.HasPrefix(p, prefix) {
-			return fmt.Errorf("ontology template file %q is not under %q", p, root)
-		}
-		rel := strings.TrimPrefix(p, prefix)
-		if rel == "" {
-			return nil
+		rel := strings.TrimPrefix(p, root+"/")
+		if strings.HasPrefix(rel, string(assetroots.Ontology)+"/") && !strings.HasSuffix(strings.ToLower(rel), ".graphql") {
+			return fmt.Errorf("non-graphql file %q under %s/ontology", p, root)
 		}
 		content, err := fs.ReadFile(agentHelperTemplates, p)
 		if err != nil {
 			return err
 		}
 		if len(content) == 0 {
-			return fmt.Errorf("ontology template %q file %q is empty", template, rel)
+			return fmt.Errorf("module template %q file %q is empty", template, rel)
 		}
 		files = append(files, starterTemplateFile{Path: rel, Content: content})
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("read ontology template files %q: %w", template, err)
+		return nil, fmt.Errorf("read module template files %q: %w", template, err)
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, nil
+}
+
+// loadStarterOntologyTemplates returns a starter's `.graphql` files, named
+// relative to the module's `ontology/` folder. Templates name their schemas
+// after themselves (e.g. `spec-driven.graphql`) so several starters' schemas
+// load side by side.
+func loadStarterOntologyTemplates(template string) ([]starterTemplateFile, error) {
+	return loadStarterKindTemplates(template, assetroots.Ontology)
 }
 
 func loadStarterQueryRecipeTemplates(template string) ([]starterTemplateFile, error) {
-	return loadStarterFamilyTemplates(template, "query-recipes", "query recipe")
+	return loadStarterKindTemplates(template, assetroots.Recipes)
 }
 
-func loadStarterViewTemplates(template string) ([]starterTemplateFile, error) {
-	return loadStarterFamilyTemplates(template, "views", "view")
-}
-
-func loadStarterTaskTemplates(template string) ([]starterTemplateFile, error) {
-	return loadStarterFamilyTemplates(template, "tasks", "task")
-}
-
-func loadStarterFamilyTemplates(template, family, label string) ([]starterTemplateFile, error) {
-	root := path.Join("templates", "starters", template, "rhizome", family)
-	if _, err := fs.Stat(agentHelperTemplates, root); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("stat %s templates %q: %w", label, template, err)
+// loadStarterKindTemplates returns the module files of one asset kind, named
+// relative to the kind's folder.
+func loadStarterKindTemplates(template string, kind assetroots.Kind) ([]starterTemplateFile, error) {
+	files, err := loadStarterModuleTemplates(template)
+	if err != nil {
+		return nil, err
 	}
-	var files []starterTemplateFile
-	if err := fs.WalkDir(agentHelperTemplates, root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	var out []starterTemplateFile
+	for _, file := range files {
+		if rel, ok := strings.CutPrefix(file.Path, string(kind)+"/"); ok {
+			out = append(out, starterTemplateFile{Path: rel, Content: file.Content})
 		}
-		if d.IsDir() {
-			return nil
-		}
-		prefix := root + "/"
-		if !strings.HasPrefix(p, prefix) {
-			return fmt.Errorf("%s template file %q is not under %q", label, p, root)
-		}
-		rel := strings.TrimPrefix(p, prefix)
-		if rel == "" {
-			return nil
-		}
-		content, err := fs.ReadFile(agentHelperTemplates, p)
-		if err != nil {
-			return err
-		}
-		if len(content) == 0 {
-			return fmt.Errorf("%s template %q file %q is empty", label, template, rel)
-		}
-		files = append(files, starterTemplateFile{Path: rel, Content: content})
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("read %s template files %q: %w", label, template, err)
 	}
-	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-	return files, nil
+	return out, nil
 }
 
 func loadStarterManagedDocTemplate(template, name string) (string, error) {

@@ -391,9 +391,9 @@ func frontmatterValue(body, key string) string {
 // dropped from installs.
 func TestStarterDirectoriesGroupAssetsByDestination(t *testing.T) {
 	allowed := map[string][]string{
-		".":       {"agents", "repo", "rhizome", "template.yaml"},
-		"agents":  {"AGENTS.md", "skill-overlays", "skills"},
-		"rhizome": {"ontology", "query-recipes", "views"},
+		".":      {"agents", "module", "repo", "template.yaml"},
+		"agents": {"AGENTS.md", "skill-overlays", "skills"},
+		"module": {"ontology", "recipes", "views", "tasks", "scripts"},
 	}
 	for _, template := range []string{templateCore, templateActionItems, templateAgenticEngineering, templateComplexDomain} {
 		t.Run(template, func(t *testing.T) {
@@ -459,25 +459,16 @@ func TestStarterTemplateScaffoldsHaveNoCrossTemplateConflicts(t *testing.T) {
 	}
 	sort.Strings(templates)
 	for _, template := range templates {
-		ontologyFiles, err := loadStarterOntologyTemplates(template)
+		moduleFiles, err := starterModuleFiles(template)
 		require.NoError(t, err)
-		for _, file := range ontologyFiles {
-			target := path.Join(".rhizome", "ontology", file.Path)
-			plans[target] = append(plans[target], plannedFile{template: template, content: file.Content})
-		}
-
-		recipeFiles, err := loadStarterQueryRecipeTemplates(template)
-		require.NoError(t, err)
-		for _, file := range recipeFiles {
-			target := path.Join(".rhizome", "query-recipes", file.Path)
-			plans[target] = append(plans[target], plannedFile{template: template, content: file.Content})
-		}
-
-		viewFiles, err := loadStarterViewTemplates(template)
-		require.NoError(t, err)
-		for _, file := range viewFiles {
-			target := path.Join(".rhizome", "views", file.Path)
-			plans[target] = append(plans[target], plannedFile{template: template, content: file.Content})
+		for _, file := range moduleFiles {
+			// The flat path is where migration finds the copy init installed
+			// before modules, so it must name one starter's file too.
+			for _, target := range []string{file.target, file.legacy} {
+				if target != "" {
+					plans[target] = append(plans[target], plannedFile{template: template, content: file.content})
+				}
+			}
 		}
 
 		docFiles, err := loadStarterTemplates(template)

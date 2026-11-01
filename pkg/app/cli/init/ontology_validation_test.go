@@ -14,7 +14,7 @@ import (
 )
 
 func TestAgenticEngineeringOntologyUsesCanonicalTemplateAndCompanionPaths(t *testing.T) {
-	path := filepath.Join("templates", "starters", templateAgenticEngineering, "rhizome", "ontology", "spec-driven.graphql")
+	path := filepath.Join("templates", "starters", templateAgenticEngineering, "module", "ontology", "spec-driven.graphql")
 	content, err := os.ReadFile(path)
 	require.NoError(t, err)
 

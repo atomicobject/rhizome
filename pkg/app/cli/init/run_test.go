@@ -442,7 +442,7 @@ func TestRun_FastPathWithExplicitTemplateStillScaffoldsStarter(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
+	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
 	require.NoError(t, err)
 	require.Contains(t, string(schema), "type EffortNote")
 	workflowDoc, err := os.ReadFile(filepath.Join(root, "docs", "engineering", "testing-policy.md"))
@@ -511,9 +511,9 @@ func TestRun_TemplateActionItemsResolvesCore(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "action-items.graphql"))
-	viewPath := filepath.Join(root, ".rhizome", "views", "action-items.yaml")
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql"))
+	viewPath := filepath.Join(root, ".rhizome", "modules", "action-items", "views", "action-items.yaml")
 	require.FileExists(t, viewPath)
 	viewData, err := os.ReadFile(viewPath)
 	require.NoError(t, err)
@@ -542,7 +542,7 @@ func TestRun_TemplateActionItemsResolvesCore(t *testing.T) {
 	require.Equal(t, "Done", view.Defaults.Group.Values[1].Label)
 	require.True(t, view.Defaults.Group.Values[1].Collapsed)
 	require.Equal(t, "done", view.Defaults.Sort[0].Field)
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"), "action-items resolves core")
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"), "action-items resolves core")
 }
 
 func TestRun_ExistingExplicitWorkflowDoesNotSilentlyAddDefaultAddon(t *testing.T) {
@@ -560,9 +560,9 @@ func TestRun_ExistingExplicitWorkflowDoesNotSilentlyAddDefaultAddon(t *testing.T
 	})
 	require.NoError(t, err)
 
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
-	require.NoFileExists(t, filepath.Join(root, ".rhizome", "ontology", "action-items.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
+	require.NoFileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql"))
 	require.NotContains(t, stdout.String(), "action-items")
 }
 
@@ -584,9 +584,9 @@ func TestRun_ExistingWorkflowCanOptIntoDefaultAddon(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "action-items.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql"))
 }
 
 func TestRun_InstallsPinnedBinaryWhenMissing(t *testing.T) {
@@ -900,6 +900,7 @@ func TestRhizomeGitIgnoreTracksTaskFilesButNotTaskState(t *testing.T) {
 		return exec.Command("git", "-C", root, "check-ignore", "--quiet", "--no-index", rel).Run() == nil
 	}
 	require.False(t, ignored(".rhizome/tasks/update-memory.yml"), "task files are tracked")
+	require.False(t, ignored(".rhizome/modules/compounding/scripts/hook.mjs"), "module files are tracked")
 	require.True(t, ignored(".rhizome/task-state/state.json"), "task state is personal")
 	require.True(t, ignored(".rhizome/task-state/worktrees/x/notes.md"), "background worktrees are personal")
 }
@@ -955,7 +956,7 @@ func TestRun_NewRepoDefaultsSharedAgentSkillsOn(t *testing.T) {
 		require.NoDirExists(t, filepath.Join(root, ".agents", "skills", name))
 	}
 	for _, path := range []string{
-		filepath.Join(".rhizome", "ontology", "spec-driven.graphql"),
+		filepath.Join(".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"),
 		filepath.Join(".rhizome", "ontology", "project-kb.graphql"),
 		filepath.Join("docs", "engineering", "testing-policy.md"),
 	} {
@@ -1118,9 +1119,9 @@ func TestRun_TemplateAgenticEngineeringScaffoldsDocs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
+	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
 	require.NoError(t, err)
-	sourceSchema, err := os.ReadFile(filepath.Join("templates", "starters", templateAgenticEngineering, "rhizome", "ontology", "spec-driven.graphql"))
+	sourceSchema, err := os.ReadFile(filepath.Join("templates", "starters", templateAgenticEngineering, "module", "ontology", "spec-driven.graphql"))
 	require.NoError(t, err)
 	require.Equal(t, string(sourceSchema), string(schema))
 	require.Contains(t, string(schema), "type EffortNote")
@@ -1194,7 +1195,7 @@ func TestRun_TemplateAgenticEngineeringScaffoldsDocs(t *testing.T) {
 	for _, retired := range []string{"development-loop", "alignment-audit", "backport", "code-docs", "compound", "debugging", "quality-gates-check", "refactor-planning", "rhizome-review-feedback", "specify", "effort-new", "plan", "implement", "effort-finish"} {
 		require.NoDirExists(t, filepath.Join(root, ".agents", "skills", retired))
 	}
-	recipePath := filepath.Join(root, ".rhizome", "query-recipes", "spec-driven.yaml")
+	recipePath := filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "recipes", "spec-driven.yaml")
 	require.FileExists(t, recipePath)
 	recipeBody, err := os.ReadFile(recipePath)
 	require.NoError(t, err)
@@ -1246,11 +1247,11 @@ func TestRun_TemplateAgenticEngineeringScaffoldsDocs(t *testing.T) {
 		_, err = os.Stat(filepath.Join(root, dir))
 		require.ErrorIs(t, err, os.ErrNotExist)
 	}
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "action-items.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "query-recipes", "action-items.yaml"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "views", "action-items.yaml"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "recipes", "action-items.yaml"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "views", "action-items.yaml"))
 	require.Equal(t, []string{templateActionItems}, cfg.WorkflowTemplateAddons.Enabled)
 }
 func TestRun_TemplateComplexDomainScaffoldsDocs(t *testing.T) {
@@ -1270,9 +1271,9 @@ func TestRun_TemplateComplexDomainScaffoldsDocs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "ontology", "complex-domain.graphql"))
+	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "modules", "complex-domain", "ontology", "complex-domain.graphql"))
 	require.NoError(t, err)
-	sourceSchema, err := os.ReadFile(filepath.Join("templates", "starters", templateComplexDomain, "rhizome", "ontology", "complex-domain.graphql"))
+	sourceSchema, err := os.ReadFile(filepath.Join("templates", "starters", templateComplexDomain, "module", "ontology", "complex-domain.graphql"))
 	require.NoError(t, err)
 	require.Equal(t, string(sourceSchema), string(schema))
 	require.Contains(t, string(schema), "type RequirementSource")
@@ -1282,7 +1283,7 @@ func TestRun_TemplateComplexDomainScaffoldsDocs(t *testing.T) {
 	require.NotContains(t, string(schema), "type CoverageReview")
 	require.NoFileExists(t, filepath.Join(root, "ontology", "complex-domain.graphql"))
 
-	recipePath := filepath.Join(root, ".rhizome", "query-recipes", "complex-domain.yaml")
+	recipePath := filepath.Join(root, ".rhizome", "modules", "complex-domain", "recipes", "complex-domain.yaml")
 	require.FileExists(t, recipePath)
 	recipeBody, err := os.ReadFile(recipePath)
 	require.NoError(t, err)
@@ -1294,16 +1295,16 @@ func TestRun_TemplateComplexDomainScaffoldsDocs(t *testing.T) {
 	requireInstalledQueryRecipesValidate(t, root)
 
 	for _, name := range []string{
-		filepath.Join(".rhizome", "views", "requirements-by-feature-area.yaml"),
-		filepath.Join(".rhizome", "views", "uncovered-requirements.yaml"),
-		filepath.Join(".rhizome", "views", "requirements-by-process.yaml"),
-		filepath.Join(".rhizome", "views", "sources-needing-review.yaml"),
-		filepath.Join(".rhizome", "views", "domain-types.yaml"),
-		filepath.Join(".rhizome", "views", "requirements-board.yaml"),
-		filepath.Join(".rhizome", "views", "efforts.yaml"),
-		filepath.Join(".rhizome", "views", "specs.yaml"),
-		filepath.Join(".rhizome", "views", "user-stories.yaml"),
-		filepath.Join(".rhizome", "views", "feature-areas.yaml"),
+		filepath.Join(".rhizome", "modules", "complex-domain", "views", "requirements-by-feature-area.yaml"),
+		filepath.Join(".rhizome", "modules", "complex-domain", "views", "uncovered-requirements.yaml"),
+		filepath.Join(".rhizome", "modules", "complex-domain", "views", "requirements-by-process.yaml"),
+		filepath.Join(".rhizome", "modules", "complex-domain", "views", "sources-needing-review.yaml"),
+		filepath.Join(".rhizome", "modules", "complex-domain", "views", "domain-types.yaml"),
+		filepath.Join(".rhizome", "modules", "complex-domain", "views", "requirements-board.yaml"),
+		filepath.Join(".rhizome", "modules", "agentic-engineering", "views", "efforts.yaml"),
+		filepath.Join(".rhizome", "modules", "agentic-engineering", "views", "specs.yaml"),
+		filepath.Join(".rhizome", "modules", "agentic-engineering", "views", "user-stories.yaml"),
+		filepath.Join(".rhizome", "modules", "agentic-engineering", "views", "feature-areas.yaml"),
 	} {
 		require.FileExists(t, filepath.Join(root, name))
 	}
@@ -1366,10 +1367,10 @@ func TestRun_TemplateComplexDomainScaffoldsDocs(t *testing.T) {
 	require.Equal(t, []string{templateComplexDomain}, cfg.WorkflowTemplates)
 
 	require.Contains(t, stdout.String(), "✓ .rhizome/config.yml")
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "complex-domain.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "views", "requirements-by-feature-area.yaml"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "complex-domain", "ontology", "complex-domain.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "complex-domain", "views", "requirements-by-feature-area.yaml"))
 	require.FileExists(t, filepath.Join(root, "docs", "reference", "guides", "complex-domain-workflow.md"))
 	require.FileExists(t, filepath.Join(root, "docs", "feature-areas", "README.md"))
 	require.FileExists(t, filepath.Join(root, "docs", "reference", "requirements", "requirements", "README.md"))
@@ -1530,11 +1531,11 @@ func TestRun_MultiTemplateInstallsBothSchemas(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	specDriven, err := os.ReadFile(filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
+	specDriven, err := os.ReadFile(filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
 	require.NoError(t, err)
 	require.Contains(t, string(specDriven), "type EffortNote")
 
-	actionItems, err := os.ReadFile(filepath.Join(root, ".rhizome", "ontology", "action-items.graphql"))
+	actionItems, err := os.ReadFile(filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql"))
 	require.NoError(t, err)
 	require.Contains(t, string(actionItems), "type ActionItem")
 
@@ -1629,9 +1630,9 @@ func TestRun_ReconfigureCanPromoteDisabledDefaultAddonToExplicitTemplate(t *test
 	})
 	require.NoError(t, err)
 
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "core.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
-	require.FileExists(t, filepath.Join(root, ".rhizome", "ontology", "action-items.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "core", "ontology", "core.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
+	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "action-items", "ontology", "action-items.graphql"))
 
 	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
@@ -1658,7 +1659,7 @@ func TestRun_RerunWithExplicitWorkflowScaffoldsStarter(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "ontology", "spec-driven.graphql"))
+	schema, err := os.ReadFile(filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "ontology", "spec-driven.graphql"))
 	require.NoError(t, err)
 	require.Contains(t, string(schema), "type EffortNote")
 	require.Contains(t, stdout.String(), "✓ Created")

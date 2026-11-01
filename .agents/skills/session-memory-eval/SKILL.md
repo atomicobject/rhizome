@@ -43,7 +43,7 @@ The contract is [SPEC-0124](../../../docs/specs/technical/session-memory-starter
 
    This is the same rule the calibrate workflow applies.
 7. **Record.** Add a dated entry to the current effort's log: question, table, spend, and decision. Quote the person's words for any decision they make.
-   - When a default changes, update `models.json` and `references/models.md` in the starter template in the same change. Bump the profile `version`, and point the candidate's `evidence` at the log entry.
+   - When a default changes, update the module's `models.json` (`pkg/app/cli/init/templates/starters/compounding/module/models.json`) and the skill's `references/models.md` in the same change. Bump the profile `version`, and point the candidate's `evidence` at the log entry.
    - Update baselines.md to the new numbers.
 
 ## Gotchas

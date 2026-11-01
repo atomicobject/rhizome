@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const lib = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/lib/", import.meta.url);
+const lib = new URL("../../templates/starters/compounding/module/scripts/lib/", import.meta.url);
 const { redact, shorten } = await import(new URL("redact.mjs", lib));
 const { shellPaths, patchPaths, codexExecCalls, relativize } = await import(new URL("paths.mjs", lib));
 

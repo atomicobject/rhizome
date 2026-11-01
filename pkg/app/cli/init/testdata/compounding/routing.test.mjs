@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { fakeClients, fakeDiscover, SESSIONS, session, tempRepo, turn } from "./fakes.mjs";
 
-const scripts = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
+const scripts = new URL("../../templates/starters/compounding/module/scripts/", import.meta.url);
 const { run } = await import(new URL("shards.mjs", scripts));
 const { excerpts, mine } = await import(new URL("mine.mjs", scripts));
 const { report } = await import(new URL("report.mjs", scripts));

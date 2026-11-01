@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/textdiff"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 // terminalOwnershipUI asks in a terminal.
@@ -135,12 +136,12 @@ func pluralVerb(n int, one, many string) string {
 func starterValidationSelector(updated []string) string {
 	checks := map[string]bool{}
 	for _, path := range updated {
-		switch {
-		case strings.HasPrefix(path, ".rhizome/ontology/"):
+		switch _, kind, _, _ := assetroots.Classify(path); kind {
+		case assetroots.Ontology:
 			checks["ontology"] = true
-		case strings.HasPrefix(path, ".rhizome/query-recipes/"):
+		case assetroots.Recipes:
 			checks["query-recipes"] = true
-		case strings.HasPrefix(path, ".rhizome/views/"):
+		case assetroots.Views:
 			checks["views"] = true
 		}
 	}

@@ -32,7 +32,7 @@ Compounding is an optional starter installed through `rzm init`. In a terminal, 
 
 The skill needs Node 20 or later. Approval records the reviewer, so `rzm agent current-user validate` must resolve to a `Person` note.
 
-Ask your agent to use the compounding skill. It runs the scripts below and explains what they return.
+Ask your agent to use the compounding skill. It runs the module's scripts in `.rhizome/modules/compounding/scripts/` and explains what they return.
 
 ## Which sessions it reads
 

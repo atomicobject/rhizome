@@ -12,7 +12,7 @@ const ROOT = join(CAMPAIGN, "heldout");
 const FREEZE = join(CAMPAIGN, "finalists.json");
 const EXPECTED_GOLD = 208;
 const MODELS = ["gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-luna"];
-const SOURCES = ["tools/sessionmemorybench/bench.mjs", "tools/sessionmemorybench/shipped.mjs", "tools/sessionmemorybench/budget.mjs", "bin/darwin/rzm", "pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/extract.mjs", "pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/calls.mjs", "pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/prompts.mjs"];
+const SOURCES = ["tools/sessionmemorybench/bench.mjs", "tools/sessionmemorybench/shipped.mjs", "tools/sessionmemorybench/budget.mjs", "bin/darwin/rzm", "pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/extract.mjs", "pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/calls.mjs", "pkg/app/cli/init/templates/starters/compounding/module/scripts/lib/prompts.mjs"];
 const hash = (v) => createHash("sha256").update(typeof v === "string" || Buffer.isBuffer(v) ? v : JSON.stringify(v)).digest("hex");
 const read = (path) => JSON.parse(readFileSync(path, "utf8"));
 const lines = (text) => text.trim().split("\n").filter(Boolean).map(JSON.parse);

@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { campaignBudget } from "./budget.mjs";
 
-const SCRIPTS = new URL("../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
+const SCRIPTS = new URL("../../pkg/app/cli/init/templates/starters/compounding/module/scripts/", import.meta.url);
 const load = (path) => import(new URL(path, SCRIPTS));
 
 export const calls = await load("lib/calls.mjs");

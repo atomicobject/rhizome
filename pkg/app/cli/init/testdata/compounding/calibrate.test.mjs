@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, mock, test } from "node:test";
 import { fakeClients, tempRepo } from "./fakes.mjs";
 
-const scripts = new URL("../../templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
+const scripts = new URL("../../templates/starters/compounding/module/scripts/", import.meta.url);
 const { calibrate, applyCalibration } = await import(new URL("calibrate.mjs", scripts));
 const { renderShard, evidenceLines } = await import(new URL("lib/shards.mjs", scripts));
 const { writeJson } = await import(new URL("lib/store.mjs", scripts));

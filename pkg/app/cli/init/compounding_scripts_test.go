@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCompoundingScripts runs the compounding skill's Node script tests.
+// TestCompoundingScripts runs the compounding module's Node script tests.
 // CI must provide Node 20 or later, so there a missing Node fails the test.
 func TestCompoundingScripts(t *testing.T) {
 	node, err := exec.LookPath("node")
