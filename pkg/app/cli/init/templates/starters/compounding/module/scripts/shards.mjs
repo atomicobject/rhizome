@@ -37,7 +37,7 @@
 // worktree shares one store (lib/state.mjs).
 
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateLearning } from "./lib/extract.mjs";
@@ -104,6 +104,19 @@ function unchanged(root, p, a) {
 function recordApproval(root, store, s, response, witness, who) {
   const e = approvalEvent(root, { proposal: s, response, witness, decider: who.name });
   store.write(`decisions/${eventName(e)}`, e);
+}
+
+// A revision publishes new content for an earlier approval, so it is recorded
+// as that approval's newest event: restoring a missing file then offers the
+// revised content, not the wording first approved. An approval with no event,
+// from before decision records, has nothing to update.
+function recordRevision(root, store, witness, changes, who) {
+  const dir = store.path("decisions");
+  const prior = (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")) : [])
+    .map((f) => store.read(`decisions/${f}`, null))
+    .filter((e) => e?.witness === witness && e.payload)
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)))[0];
+  if (prior) recordApproval(root, store, { ...prior.payload, ...changes }, prior.response, witness, who);
 }
 
 // A path-qualified link, so a Person whose file name another note shares
@@ -391,7 +404,7 @@ function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
 
 // Replaces a guard finding's rule and approves it again, so a rule edited by
 // hand, which the dispatcher skips, applies once a person approves the text.
-function reviseGuard(root, id, a, user) {
+function reviseGuard(root, store, id, a, user) {
   const file = inside(root, id);
   const text = existsSync(file) ? readFileSync(file, "utf8").replace(/\r\n/g, "\n") : null;
   const f = text && loadFindings(root).find((x) => x.path === id);
@@ -421,6 +434,7 @@ function reviseGuard(root, id, a, user) {
   const at = lines.findIndex((l) => l.startsWith("families:"));
   lines.splice(at < 0 ? lines.length : at, 0, ...guardLines("guard", rule), `reviewed-by: ${JSON.stringify(who.link)}`, `reviewed-on: ${today()}`);
   publish(root, id, `---\n${lines.join("\n")}\n---\n${body}`);
+  recordRevision(root, store, id, { guardRule: rule }, who);
   return { revised: id, guardRule: rule };
 }
 
@@ -560,7 +574,7 @@ function dispatch(a, { root, store, user, people }) {
     }
     case "revise": {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the revised statement is fit to publish, then pass --confirm-publish");
-      if (String(id ?? "").startsWith(`${FINDING_DIR}/`)) return reviseGuard(root, id, a, user);
+      if (String(id ?? "").startsWith(`${FINDING_DIR}/`)) return reviseGuard(root, store, id, a, user);
       const old = shardAt(root, id, a.expect);
       const s = edited({ kind: old.kind, statement: old.statement, why: old.why, appliesTo: old.appliesTo, commands: old.commands, target: old.target }, a.edit);
       checkScope(root, s);
@@ -570,6 +584,7 @@ function dispatch(a, { root, store, user, people }) {
       const shard = { ...s, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), families: old.families, toolCalls: old.toolCalls, checked: old.checked, verification, evidenceLines: old.evidenceSection.split("\n").filter(Boolean) };
       shard.verifiedFingerprint = freshPrint(root, shard);
       publish(root, id, renderShard(shard));
+      recordRevision(root, store, id, s, who);
       return { revised: id, approvedHash: approvedHash(shard) };
     }
     case "retire": {

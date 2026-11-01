@@ -15,7 +15,7 @@ const scripts = new URL("../../templates/starters/compounding/module/scripts/", 
 const { run } = await import(new URL("shards.mjs", scripts));
 const { migrate, openState, repoState } = await import(new URL("lib/state.mjs", scripts));
 const { openStore, writeJson } = await import(new URL("lib/store.mjs", scripts));
-const { contentHash } = await import(new URL("lib/shards.mjs", scripts));
+const { contentHash, loadShards } = await import(new URL("lib/shards.mjs", scripts));
 
 const user = { found: true, typeName: "Person", path: "docs/people/pat-example.md", title: "Pat Example" };
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
@@ -317,4 +317,19 @@ test("a recurrence stays in review when an older approval of its cluster also ex
   const listed = at(main, "list").find((p) => p.cluster === "k-r");
   assert.ok(listed, "the recurrence is offered for review");
   assert.equal(listed.status, "pending", "as a new proposal, not as a missing approval");
+});
+
+test("a revised shard that goes missing comes back with its revised wording", () => {
+  const repo = checkouts();
+  const { main } = repo;
+  propose(repo, [proposal("k-rev")]);
+  const { approved } = at(main, "approve", "k-rev", "--confirm-publish");
+  const shard = loadShards(main).find((x) => x.path === approved);
+  const edit = join(mkdtempSync(join(tmpdir(), "sm-edit-")), "edit.json");
+  writeFileSync(edit, JSON.stringify({ statement: "Busy timeout k-rev: 0 means the 30-second default; pass -1 to wait forever." }));
+  at(main, "revise", approved, "--expect", shard.contentHash, "--edit", edit, "--confirm-publish");
+  rmSync(join(main, approved));
+  const back = at(main, "list").find((p) => p.cluster === "k-rev");
+  assert.equal(back.status, "missing");
+  assert.equal(back.statement, "Busy timeout k-rev: 0 means the 30-second default; pass -1 to wait forever.");
 });
