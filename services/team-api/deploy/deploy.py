@@ -62,6 +62,17 @@ def wait_for_revision(service_arn, task_arn, deadline):
     raise TimeoutError("ECS did not converge on the requested single-task revision")
 
 
+def wait_for_stack(stack_name, deadline):
+    """Return the stack once no operation, including an update rollback, is in
+    progress. The CLI has no waiter for update rollbacks."""
+    while time.monotonic() < deadline:
+        stack = aws("cloudformation", "describe-stacks", "--stack-name", stack_name)["Stacks"][0]
+        if not stack.get("StackStatus", "").endswith("_IN_PROGRESS"):
+            return stack
+        time.sleep(15)
+    raise TimeoutError("CloudFormation stack did not settle")
+
+
 UNSETTLED = ("PENDING", "IN_PROGRESS", "STOP_REQUESTED", "ROLLBACK_REQUESTED", "ROLLBACK_IN_PROGRESS")
 
 
@@ -152,10 +163,7 @@ def deploy(stack_name, tag, deployment_id):
     finally:
         # An automatic rollback is also an Express deployment. Restore ALB
         # settings on the surviving service even when the requested update failed.
-        current = aws("cloudformation", "describe-stacks", "--stack-name", stack_name)["Stacks"][0]
-        if current.get("StackStatus") in ("UPDATE_ROLLBACK_IN_PROGRESS", "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS"):
-            aws("cloudformation", "wait", "stack-update-rollback-complete", "--stack-name", stack_name)
-            current = aws("cloudformation", "describe-stacks", "--stack-name", stack_name)["Stacks"][0]
+        current = wait_for_stack(stack_name, time.monotonic() + 2400)
         surviving = stack_outputs(current)
         if "LoadBalancerArn" in surviving:
             wait_until_settled(surviving["ServiceArn"], time.monotonic() + 2400)

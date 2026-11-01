@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from deploy import checked_changes, configure_alb, deploy, wait_for_revision, wait_until_settled
+from deploy import checked_changes, configure_alb, deploy, wait_for_revision, wait_until_settled, wait_for_stack
 
 
 class DeploymentSafetyTest(unittest.TestCase):
@@ -62,3 +62,11 @@ class DeploymentSafetyTest(unittest.TestCase):
         with patch("deploy.aws", side_effect=[rolling, done]) as cli, patch("deploy.time.sleep"):
             wait_until_settled("arn:aws:ecs:region:account:service/default/test", float("inf"))
             self.assertEqual(2, cli.call_count)
+
+    def test_update_rollback_is_polled_until_it_finishes(self):
+        rolling = {"Stacks":[{"StackStatus":"UPDATE_ROLLBACK_IN_PROGRESS"}]}
+        cleanup = {"Stacks":[{"StackStatus":"UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS"}]}
+        done = {"Stacks":[{"StackStatus":"UPDATE_ROLLBACK_COMPLETE", "Outputs":[]}]}
+        with patch("deploy.aws", side_effect=[rolling, cleanup, done]) as cli, patch("deploy.time.sleep"):
+            self.assertEqual("UPDATE_ROLLBACK_COMPLETE", wait_for_stack("synthetic-stack", float("inf"))["StackStatus"])
+            self.assertTrue(all(c.args[:2] == ("cloudformation", "describe-stacks") for c in cli.call_args_list))
