@@ -7,7 +7,7 @@ aliases:
   - Compounding add-on
 summary: "An opt-in compounding starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: active
-last-updated: 2026-10-25
+last-updated: 2026-11-01
 ---
 
 # Compounding add-on (formerly session memory)
@@ -53,7 +53,6 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 - Approving, dismissing, or retiring shards automatically, or choosing a finding's response without a person.
 - Editing `AGENTS.md`, `CLAUDE.md`, skills, documentation, or code automatically. The skill proposes such edits, and a person applies or approves them.
 - Filing findings in an external tracker. Findings stay in the repository as notes with action items.
-- Scheduled or background runs.
 - A review UI or a new storage engine. Review happens in the skill's conversation. The only new `rzm` surface is the generic `generate` operation.
 - Mining or delivery for harnesses other than Claude Code and Codex.
 - Detecting staleness by replaying sessions against newer models.
@@ -140,6 +139,23 @@ The rest of this story applies where hooks are installed.
 - The reduce pass loads every recorded decision and every `AgentFinding`, tracked and local, directly from their files and compares candidates against them. It finds approved shards and documentation through semantic search. A candidate that matches an approved shard, a decision, or a finding whose action item is open is not proposed. A candidate whose new evidence contradicts a dismissal reason is proposed together with that reason.
 - Two developers who approve the same learning on different branches produce a duplicate that the next run detects and offers to merge. Each decision event is its own file, named by learning and event, so concurrent decisions add separate files instead of editing the same one. The latest decision for a learning wins.
 - A second run over the same window changes nothing.
+
+### US8 - Mining runs as a task and shares state across worktrees
+
+- id:: ^SPEC-0124-US8
+- summary:: Compounding ships a weekly mining task, keeps its private state once per repository, records where each approval was published, and migrates the per-worktree stores of earlier releases without losing a decision.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Private state lives in the main checkout's `.rhizome/compounding/`, found through the parent of `git rev-parse --git-common-dir`, so every worktree and every task run reads the same state. The ignore guard checks that folder.
+- Every approval writes a local decision event with the learning hash, the proposal payload needed to approve it again, and the checkout, HEAD, and time of publication. Its witness is the file the approval created: the shard, the finding note, or, for a document edit, the shared decision file written beside it.
+- A proposal with an approval shows where that approval stands, checked in order: on the primary branch; present in this checkout; committed at the tip of a local branch; uncommitted in another worktree that still exists; otherwise missing, in which case it returns to pending from its saved payload.
+- Approve and dismiss accept the proposal revision and checkout HEAD a caller displayed and refuse when either changed. A run holding the store lock makes them refuse with "mining in progress".
+- The first run after upgrading adopts the main checkout's store (else the most recently modified worktree store), converts its and every other store's legacy approvals into decision events, imports the other stores' decisions, refuses while any store has an open run, and reports how many undecided proposals it left behind.
+- Session discovery skips sessions whose working directory is under `.rhizome/task-state/`, so mining never reads task runs.
+- `mine.mjs --task-mode` treats the given budget as approved, skips the question asked before reading more than 200 sessions, and exits non-zero with its reason when screening credentials are missing.
+- The starter ships the task `compounding/mine` (person scope, every 7 days, notify by default). Its check makes no model calls and, in order: needs attention when Jev screening has no credential; needs attention when an open run stopped at its budget, a credential, or a model binding; is needed to resume any other open run; is needed when at least five new episodes are waiting; otherwise is not needed. Its prompt runs mining in task mode with a fixed budget, then the report.
 
 ### US5 - Stale shards are re-verified
 

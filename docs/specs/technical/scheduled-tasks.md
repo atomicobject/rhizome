@@ -164,6 +164,8 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 - A ready item shows the work's message, the changed files compared with the resolved commit, the tokens used, and the worktree's path. It offers Open worktree and Discard. Discard removes the worktree and its local branch.
 - An item becomes done when a commit carrying its task tag reaches the primary ref after the item was created, whoever made it, or when the person marks it done with `rzm tasks done <item>`.
 - `rzm tasks inbox` lists items. `run`, `start`, `snooze`, `skip`, `discard`, and `done` act on one.
+- A due item stays current: when its task is due again, the check runs again. `needed: false` closes the item as done; `needed: true` refreshes its summary and context in place and keeps any snooze. Items that are running, ready, or started still keep their task from checking, and a re-check never creates a second item or starts work.
+- Any open item's prompt can be copied, for agents started some other way (`GET /api/tasks/items/{id}/prompt` and the Tasks page's Copy prompt). The copied prompt carries the task prompt, the check's context, and the locations, without Start's `git switch` step, so pasting it into a session in the main checkout never moves its branch.
 - Rhizome Desktop lists items for the open repository, shows a badge with the number that need the person, sends one system notification per new due, ready, or needs-attention item, and switches to a ready item's worktree with Open worktree. It reads and changes items through the runtime.
 
 ### US7 - Keep each task's clock
