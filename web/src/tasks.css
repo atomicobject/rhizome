@@ -436,6 +436,16 @@
   margin: 4px 0 2px;
 }
 
+.task-item__prompt {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 36px);
+  margin: 6px 18px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
 .task-actions {
   display: flex;
   flex-wrap: wrap;

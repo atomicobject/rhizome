@@ -72,12 +72,50 @@ func InteractivePrompt(def Definition, loc Locations, check CheckResult, ref, br
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are starting the scheduled task %q (%s) with the person.\n\n", def.Name, def.ID)
 	fmt.Fprintf(&b, "First, in this new worktree, run: git switch -c %s %s\nThat puts the work on its own branch at commit %s of %s.\n\n", branch, loc.Commit, loc.Commit, ref)
-	writeLocations(&b, loc, check)
-	fmt.Fprintf(&b, "Confirm the task is still needed against the current code. End every commit message with the line %q. If nothing is left to do, say so and stop without opening a pull request.\n\n", def.Tag())
+	writePromptBody(&b, def, loc, check)
+	return b.String()
+}
+
+// CopyablePrompt is the task's prompt for a session started some other
+// way. It has no `git switch` step, so pasting it into a session in the
+// main checkout never moves that checkout's branch.
+func CopyablePrompt(def Definition, loc Locations, check CheckResult, ref string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "You are working on the scheduled task %q (%s) with the person. Its check ran at commit %s of %s.\n\n", def.Name, def.ID, loc.Commit, ref)
+	writePromptBody(&b, def, loc, check)
+	return b.String()
+}
+
+func writePromptBody(b *strings.Builder, def Definition, loc Locations, check CheckResult) {
+	writeLocations(b, loc, check)
+	fmt.Fprintf(b, "Confirm the task is still needed against the current code. End every commit message with the line %q. If nothing is left to do, say so and stop without opening a pull request.\n\n", def.Tag())
 	b.WriteString("Task instructions:\n\n")
 	b.WriteString(strings.TrimSpace(def.Prompt))
 	b.WriteString("\n")
-	return b.String()
+}
+
+// CopyPrompt renders any open task item's prompt to copy (SPEC-0127 US6).
+// It changes nothing.
+func (s *Service) CopyPrompt(ctx context.Context, itemID string) (string, error) {
+	st, err := s.store.Load()
+	if err != nil {
+		return "", err
+	}
+	it, err := st.Item(itemID)
+	if err != nil {
+		return "", err
+	}
+	if it.Kind != KindTask || !it.Active() {
+		return "", fmt.Errorf("item %s is %s; only an open task item has a prompt", it.ID, it.State)
+	}
+	ref, commit, def, err := s.currentDefinition(ctx, it.Task)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(def.Prompt) == "" {
+		return "", fmt.Errorf("task %q has no prompt", def.ID)
+	}
+	return CopyablePrompt(def, s.locations(def, commit), CheckResult{Summary: it.Summary, Context: it.Context}, ref), nil
 }
 
 // MarkStarted reserves the item for the harness about to launch and

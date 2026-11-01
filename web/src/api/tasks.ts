@@ -156,6 +156,11 @@ export function runTaskItem(itemID: string) {
   return post<{ launchedAt: string }>(`/api/tasks/items/${enc(itemID)}/run`);
 }
 
+/** The open item's prompt to paste into any agent session, without Start's branch step. */
+export function getTaskItemPrompt(itemID: string) {
+  return fetchJSON<{ prompt: string }>(`/api/tasks/items/${enc(itemID)}/prompt`);
+}
+
 export function actOnTaskItem(itemID: string, action: TaskItemAction, until?: string) {
   return post<Record<string, never>>(
     `/api/tasks/items/${enc(itemID)}/${action}`,

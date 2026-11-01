@@ -483,7 +483,7 @@ describe("TasksWorkspace", () => {
       within(item)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["Run", "Snooze…", "Discard", "Done"]);
+    ).toEqual(["Run", "Copy prompt", "Snooze…", "Discard", "Done"]);
     fireEvent.click(within(item).getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/8/discard")).toBe(1));
 
@@ -508,6 +508,35 @@ describe("TasksWorkspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not change the mode: mode must be auto, notify, or off",
     );
+  });
+
+  it("copies an open item's prompt, or shows it when the clipboard is unavailable", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    http.json("GET", "/api/tasks/items/8/prompt", { prompt: "Triage the flaky tests." });
+    open("/tasks/flaky-tests");
+
+    try {
+      render(<TasksWorkspace />);
+      const item = await screen.findByRole("region", { name: "Inbox item" });
+      fireEvent.click(within(item).getByRole("button", { name: "Copy prompt" }));
+      expect(await within(item).findByRole("status")).toHaveTextContent("Copied the prompt.");
+      expect(writeText).toHaveBeenCalledWith("Triage the flaky tests.");
+
+      writeText.mockRejectedValue(new Error("denied"));
+      fireEvent.click(within(item).getByRole("button", { name: "Copy prompt" }));
+      expect(await within(item).findByRole("textbox", { name: "Task prompt" })).toHaveValue(
+        "Triage the flaky tests.",
+      );
+
+      http.json("GET", "/api/tasks/items/8/prompt", { error: "item 8 is done" }, 400);
+      fireEvent.click(within(item).getByRole("button", { name: "Copy prompt" }));
+      expect(await within(item).findByRole("alert")).toHaveTextContent(
+        "Could not copy the prompt: item 8 is done",
+      );
+    } finally {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   it("offers Start and Open worktree only in Rhizome Desktop, and hands them to the app", async () => {
@@ -552,7 +581,7 @@ describe("TasksWorkspace", () => {
     // A browser keeps only the worktree path and its copy button.
     const browser = await buttons("/tasks/flaky-tests");
 
-    expect(browser.labels).toEqual(["Run", "Snooze…", "Discard", "Done"]);
+    expect(browser.labels).toEqual(["Run", "Copy prompt", "Snooze…", "Discard", "Done"]);
     browser.view.unmount();
 
     window.__RHIZOME_DESKTOP__ = true;
@@ -564,6 +593,7 @@ describe("TasksWorkspace", () => {
         "Run",
         "Start",
         "Open worktree",
+        "Copy prompt",
         "Snooze…",
         "Discard",
         "Done",
@@ -584,12 +614,12 @@ describe("TasksWorkspace", () => {
       // A ready item has nothing to start; a due one has no worktree yet.
       const ready = await buttons("/tasks/docs-drift");
 
-      expect(ready.labels).toEqual(["Open worktree", "Snooze…", "Discard", "Done"]);
+      expect(ready.labels).toEqual(["Open worktree", "Copy prompt", "Snooze…", "Discard", "Done"]);
       ready.view.unmount();
 
       const due = await buttons("/tasks/dependency-updates");
 
-      expect(due.labels).toEqual(["Run", "Start", "Snooze…", "Skip", "Done"]);
+      expect(due.labels).toEqual(["Run", "Start", "Copy prompt", "Snooze…", "Skip", "Done"]);
     } finally {
       delete window.__RHIZOME_DESKTOP__;
     }

@@ -28,6 +28,7 @@ type fakeTasks struct {
 	actionErr  error
 	calls      []string
 	snoozeTill time.Time
+	prompt     string
 }
 
 func (f *fakeTasks) record(format string, args ...any) {
@@ -92,6 +93,11 @@ func (f *fakeTasks) SetPaused(_ context.Context, paused bool) error {
 func (f *fakeTasks) RecordLaunchError(_ context.Context, itemID, reason string) error {
 	f.record("launch error %s %s", itemID, reason)
 	return nil
+}
+
+func (f *fakeTasks) CopyPrompt(_ context.Context, itemID string) (string, error) {
+	f.record("prompt %s", itemID)
+	return f.prompt, f.actionErr
 }
 
 type launch struct{ vault, item string }
@@ -165,6 +171,16 @@ func TestTasksReadRoutes(t *testing.T) {
 
 	_, _ = serveTasks(t, s, http.MethodGet, "/api/tasks/runs/"+taskRunID, "")
 	require.Contains(t, api.calls, "detail "+taskRunID+" 0")
+
+	api.prompt = "Tidy the notes."
+	code, payload = serveTasks(t, s, http.MethodGet, "/api/tasks/items/4/prompt", "")
+	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, "Tidy the notes.", payload["prompt"])
+	require.Contains(t, api.calls, "prompt 4")
+
+	api.actionErr = errors.New("item 4 is done; only an open task item has a prompt")
+	code, _ = serveTasks(t, s, http.MethodGet, "/api/tasks/items/4/prompt", "")
+	require.Equal(t, http.StatusBadRequest, code)
 }
 
 func TestTasksRouteValidation(t *testing.T) {
@@ -182,6 +198,8 @@ func TestTasksRouteValidation(t *testing.T) {
 		{http.MethodGet, "/api/tasks/runs?task=../x", "", http.StatusBadRequest},
 		{http.MethodPost, "/api/tasks/items/../run", "", http.StatusBadRequest},
 		{http.MethodPost, "/api/tasks/items/abc/run", "", http.StatusBadRequest},
+		{http.MethodGet, "/api/tasks/items/abc/prompt", "", http.StatusBadRequest},
+		{http.MethodGet, "/api/tasks/items/4/run", "", http.StatusNotFound},
 		{http.MethodPost, "/api/tasks/items/4/snooze", `{}`, http.StatusBadRequest},
 		{http.MethodPost, "/api/tasks/items/4/snooze", `{"until":"tomorrow"}`, http.StatusBadRequest},
 		{http.MethodPost, "/api/tasks/modes/Bad_Task", `{"mode":"auto"}`, http.StatusBadRequest},

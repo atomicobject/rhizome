@@ -32,6 +32,7 @@ type TasksAPI interface {
 	SetMode(ctx context.Context, task, mode string) error
 	SetPaused(ctx context.Context, paused bool) error
 	RecordLaunchError(ctx context.Context, itemID, reason string) error
+	CopyPrompt(ctx context.Context, itemID string) (string, error)
 }
 
 var (
@@ -109,6 +110,20 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeTasksResult(w, detail, err)
+		}
+	case len(parts) == 3 && parts[0] == "items" && parts[2] == "prompt" && get:
+		itemID := parts[1]
+		if !taskItemIDPattern.MatchString(itemID) {
+			writeError(w, http.StatusBadRequest, errors.New("invalid item id"))
+			return
+		}
+		serve = func(api TasksAPI) {
+			prompt, err := api.CopyPrompt(r.Context(), itemID)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"prompt": prompt})
 		}
 	case len(parts) == 3 && parts[0] == "items" && post:
 		itemID, action := parts[1], parts[2]
