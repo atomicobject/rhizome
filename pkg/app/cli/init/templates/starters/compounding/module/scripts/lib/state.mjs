@@ -24,7 +24,7 @@ function real(path) {
     rest.unshift(basename(dir));
     dir = dirname(dir);
   }
-  return join(realpathSync(dir), ...rest);
+  return join(realpathSync.native(dir), ...rest);
 }
 
 // Go's os.UserConfigDir, which task state uses for the same fallback.
@@ -51,7 +51,7 @@ export function worktrees(cwd) {
     const line = lines.find((l) => l.startsWith("worktree "));
     if (!line || lines.includes("bare")) continue;
     try {
-      paths.push(realpathSync(line.slice(9)));
+      paths.push(realpathSync.native(line.slice(9)));
     } catch {}
   }
   return paths;

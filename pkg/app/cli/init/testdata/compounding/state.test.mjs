@@ -26,7 +26,7 @@ const at = (root, ...argv) => run(argv, { root, user });
 // A main checkout on `main` that ignores compounding's state, and one
 // worktree per name on a branch of that name.
 function checkouts(...names) {
-  const main = realpathSync(scratchRepo());
+  const main = realpathSync.native(scratchRepo());
   git(main, "branch", "-M", "main");
   writeFileSync(join(main, ".gitignore"), ".rhizome/compounding/\n.rhizome/task-state/\n");
   mkdirSync(join(main, ".rhizome"));
@@ -35,7 +35,7 @@ function checkouts(...names) {
   git(main, "commit", "-qm", "ignore state");
   const wt = {};
   for (const name of names) {
-    wt[name] = join(realpathSync(mkdtempSync(join(tmpdir(), "sm-wt-"))), name);
+    wt[name] = join(realpathSync.native(mkdtempSync(join(tmpdir(), "sm-wt-"))), name);
     git(main, "worktree", "add", "-q", "-b", name, wt[name]);
   }
   return { main, wt, state: join(main, ".rhizome/compounding") };
@@ -79,8 +79,8 @@ test("every worktree and task checkout reads the main checkout's state, and the 
   }
 
   // A worktree that ignores the folder does not make the main checkout ignore it.
-  const other = realpathSync(scratchRepo());
-  const y = join(realpathSync(mkdtempSync(join(tmpdir(), "sm-wt-"))), "y");
+  const other = realpathSync.native(scratchRepo());
+  const y = join(realpathSync.native(mkdtempSync(join(tmpdir(), "sm-wt-"))), "y");
   git(other, "worktree", "add", "-q", "-b", "y", y);
   writeFileSync(join(y, ".gitignore"), ".rhizome/compounding/\n");
   git(y, "add", "-A");

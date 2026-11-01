@@ -43,7 +43,7 @@ export function approvalEvent(root, { proposal, response, witness, decider }) {
     response,
     ...(response === "document" ? { document: p.edit?.document } : {}),
     witness,
-    checkout: realpathSync(root),
+    checkout: realpathSync.native(root),
     headAtPublish: headOf(root),
     publishedAt: at,
     decider,
