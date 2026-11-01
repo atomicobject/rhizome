@@ -69,7 +69,7 @@ Both slices in one pull request.
 
 ## Actual Delivered
 
-Both slices, on branch `feat/compounding-mine-task`:
+Both slices, in [#66](https://github.com/atomicobject/rhizome/pull/66) (branch `feat/compounding-mine-task`):
 
 - Compounding's private state lives once per repository, in the main checkout's `.rhizome/compounding/` (`lib/state.mjs`); every approval writes a decision event with its witness and payload (`lib/approvals.mjs`); `list --all` and `show` report each approval as merged, present, committed-elsewhere, published-elsewhere, or missing (back to pending); approve and dismiss take `--revision` and `--head`; a held lock refuses with exit 2; migration adopts one store, converts legacy approvals (recovering dropped proposals from run snapshots or verified clusters), imports decisions and uncommitted shared dismissals from other checkouts, refuses with an open run, and reports what it left behind. `mine.mjs` exits 2 with a reason when migration refuses.
 - Mining skips sessions under `.rhizome/task-state/`; `mine.mjs --task-mode`; `rzm agent evaluate-batch --check-credentials`; the `compounding/mine` task with its model-free `task-check.mjs`.
@@ -85,7 +85,7 @@ None.
 
 - [x] Every story delivered or covered by a deviation
 - [x] Gates recorded
-- [ ] Pull request number recorded
+- [x] Pull request number recorded: [#66](https://github.com/atomicobject/rhizome/pull/66)
 
 ## Compounding Follow-ups
 
@@ -96,7 +96,7 @@ None.
 
 ## Status
 
-Complete, pending the pull request number.
+Complete. Delivered in [#66](https://github.com/atomicobject/rhizome/pull/66).
 
 ## Execution Notes
 
