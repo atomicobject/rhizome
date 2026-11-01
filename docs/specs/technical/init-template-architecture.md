@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines rzm init's template architecture: embedded source trees, lean managed guidance, consolidated core skills, managed fences, starter scaffold refresh, starter management state, dependency-aware ejection, the ownership record, and collision semantics."
 id: SPEC-0039
 spec-status: active
-last-updated: 2026-10-01
+last-updated: 2026-11-01
 aliases:
   - SPEC-0039
   - init-template-architecture
@@ -47,8 +47,8 @@ Init templates are embedded source artifacts compiled into the CLI. Runtime init
 - Starter scaffold files MUST be loaded from `repo/**` and installed at the same relative path in the target repository.
 - Starter managed agent docs MUST be loaded from `agents/AGENTS.md`.
 - Starter skill templates MUST be loaded from `agents/skills/*`, and starter skill overlays from `agents/skill-overlays/*`.
-- Starter ontology schemas MUST be loaded from every `*.graphql` file under `rhizome/ontology/` and installed under `.rhizome/ontology/` preserving each schema's relative filename (for example `spec-driven.graphql`), so schemas from multiple selected starters merge rather than overwrite a single shared `schema.graphql`.
-- Starter query recipes and views MUST be loaded from `rhizome/query-recipes/` and `rhizome/views/` and installed under `.rhizome/query-recipes/` and `.rhizome/views/`.
+- Each starter installs as a module ([[rhizome-modules|SPEC-0130]]): its assets are loaded from `module/<kind>/` in the starter template and installed under `.rhizome/modules/<starter id>/<kind>/` for the kinds ontology, recipes, views, tasks, and scripts. Starter ontology schemas keep each schema's filename (for example `spec-driven.graphql`), so schemas from multiple selected starters merge rather than overwrite a single shared `schema.graphql`. Earlier releases installed into the flat `.rhizome/ontology/`, `.rhizome/query-recipes/`, and `.rhizome/views/` folders; `rzm init` migrates those installs as SPEC-0130 US2 describes.
+- Starter query recipes and views MUST be loaded from `module/recipes/` and `module/views/` and installed under the starter's module folder.
 
 ### Managed blocks
 
@@ -119,7 +119,7 @@ Init templates are embedded source artifacts compiled into the CLI. Runtime init
 
 ### Optional scaffold families
 
-- A workflow template's starter ontology schemas MAY be installed under `.rhizome/ontology/` (one file per `*.graphql`, keyed by its filename) when the starter owns a `rhizome/ontology/` family.
+- A workflow template's starter ontology schemas MAY be installed under its module's `ontology/` folder (one file per `*.graphql`, keyed by its filename) when the starter owns a `module/ontology/` family.
 - A workflow starter MAY omit `agents/AGENTS.md`, `agents/skills/`, `agents/skill-overlays/`, or any `rhizome/` family; the loader should treat missing optional starter families as absent rather than fatal.
 - MCP config scaffolding MUST stay absent unless a future spec explicitly reintroduces it.
 
