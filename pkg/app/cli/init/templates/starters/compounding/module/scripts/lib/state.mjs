@@ -10,7 +10,7 @@ import { cpSync, existsSync, readFileSync, readdirSync, realpathSync, statSync }
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { proposalOf } from "./approvals.mjs";
-import { DECISION_DIR, learningHash } from "./shards.mjs";
+import { DECISION_DIR, learningHash, parseShard } from "./shards.mjs";
 import { Refused, openStore, sha, writeJson } from "./store.mjs";
 
 const STATE = ".rhizome/compounding";
@@ -134,6 +134,19 @@ function recoverProposal(store, proposals, cluster) {
   return cl?.verification?.decision === "propose" ? proposalOf(cl, store.read("pool/episodes.json", {})) : null;
 }
 
+// Earlier approvals recorded only where they published, and an approval may
+// have been edited before it was published, so the proposal is only the
+// draft. An approved shard still on disk gives its approved wording;
+// anything else keeps the draft, marked so review says so.
+function publishedOrDraft(p, r, witness, home) {
+  const file = join(home, witness);
+  if (r.action === "approved" && existsSync(file)) {
+    const shard = parseShard(readFileSync(file, "utf8"), witness);
+    if (shard?.statement) return { ...p, kind: shard.kind, statement: shard.statement, appliesTo: shard.appliesTo, commands: shard.commands, target: shard.target, why: shard.why || p.why };
+  }
+  return { ...p, exact: false };
+}
+
 // The legacy approval as a decision event, from the proposal its store kept.
 // Who approved it and the HEAD it was published at were never recorded.
 function legacyEvent(p, r, witness, checkout) {
@@ -185,7 +198,7 @@ export function migrate(repo, cwd, { log = (m) => process.stderr.write(`${m}\n`)
           summary.unconverted.push({ store: dir, cluster, action: r.action, witness });
           continue;
         }
-        const e = legacyEvent(p, r, witness, stateHome(dir) ?? dir);
+        const e = legacyEvent(publishedOrDraft(p, r, witness, stateHome(dir) ?? dir), r, witness, stateHome(dir) ?? dir);
         into.write(`decisions/${e.learning}--${stamp(e.at)}-migrated.json`, e);
         summary.converted++;
       }

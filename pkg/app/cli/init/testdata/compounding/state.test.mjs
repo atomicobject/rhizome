@@ -283,3 +283,24 @@ test("a finding approved again after it went missing keeps its assignee", () => 
   const restored = run(["approve", "k-own", "--confirm-publish"], { root: main, user: lee, people });
   assert.match(restored.assignee, /pat-example/);
 });
+
+test("migration takes an approved shard's published wording, and marks an approval it can only recover as a draft", () => {
+  const repo = checkouts();
+  const { main, state } = repo;
+  writeJson(join(state, "proposals.json"), [proposal("k-ed"), proposal("k-lost", { response: "fix" })]);
+  writeJson(join(state, "reviewed.json"), {
+    "k-ed": { action: "approved", path: "docs/memory/context-shards/rule-ed.md", at: "2026-10-01T10:00:00.000Z" },
+    "k-lost": { action: "finding", path: "docs/memory/agent-findings/fix-lost.md", at: "2026-10-01T11:00:00.000Z" },
+  });
+  // The person edited the shard's wording before approving it.
+  mkdirSync(join(main, "docs/memory/context-shards"), { recursive: true });
+  writeFileSync(join(main, "docs/memory/context-shards/rule-ed.md"), "---\ntype: ContextShard\nkind: rule\nsummary: Edited wording the person approved.\napplies-to:\n  - pkg/store/**/*.go\n---\n\n# Edited wording\n");
+
+  migrate(repoState(main), main, quiet);
+  const events = Object.fromEntries(readdirSync(join(state, "decisions")).map((f) => read(join(state, "decisions", f))).map((e) => [e.cluster, e]));
+  assert.equal(events["k-ed"].payload.statement, "Edited wording the person approved.");
+  assert.notEqual(events["k-ed"].payload.exact, false);
+  assert.equal(events["k-lost"].payload.exact, false);
+  const lost = at(main, "list").find((p) => p.cluster === "k-lost");
+  assert.deepEqual([lost.status, lost.previous.draft], ["missing", true]);
+});

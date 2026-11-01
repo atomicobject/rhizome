@@ -3,7 +3,7 @@
 // below is a fake, and no credential is real.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,8 +40,12 @@ test("the check reports, in order: no credential, a blocked run, a run to resume
   const dry = (r) => async () => (dryRuns++, r);
   await assert.rejects(check({ credentials: credentials(false), dryRun: dry(stoppedRun("budget")) }), /no TypeSafe credential/);
   assert.equal(dryRuns, 0, "a missing credential is reported before state is read");
-  for (const reason of ["budget", "credential", "binding"]) {
-    await assert.rejects(check({ credentials: credentials(true), dryRun: dry(stoppedRun(reason)) }), new RegExp(`run r1 stopped \\(${reason}\\): ${reason} message; .*--abandon`));
+  await assert.rejects(check({ credentials: credentials(true), dryRun: dry(stoppedRun("budget")) }), /run r1 stopped \(budget\): budget message; .*--abandon/);
+  // A run stopped for a credential or a binding that is available again
+  // resumes rather than waiting on a person.
+  for (const reason of ["credential", "binding"]) {
+    const r = await check({ credentials: credentials(true), dryRun: dry(stoppedRun(reason)) });
+    assert.deepEqual([r.needed, r.summary], [true, "resume mining run r1"], reason);
   }
   // A resumed run whose frozen binding is gone comes back as a dry-run stop.
   await assert.rejects(check({ credentials: credentials(true), dryRun: dry({ status: "stopped", reason: "binding", message: "verify: claude is not signed in", run: "r2" }) }), /run r2 stopped \(binding\)/);
@@ -71,6 +75,13 @@ test("a dry run names an open run and why it stopped, and counts episodes withou
   assert.deepEqual([stopped.status, stopped.reason], ["stopped", "budget"]);
   const dry = await mine({ ...opts, harness: "claude", budget: null }, fakeClients());
   assert.deepEqual(dry.open, { run: stopped.run, status: "stopped", stoppedReason: "budget", stoppedMessage: stopped.message });
+
+  // A task run's worktree is gone by the time the run resumes: the resume
+  // verifies in the checkout it runs from.
+  const manifest = join(state, "runs", stopped.run, "manifest.json");
+  writeFileSync(manifest, JSON.stringify({ ...JSON.parse(readFileSync(manifest, "utf8")), checkout: join(tmp("sm-gone-"), "removed-worktree") }));
+  await mine({ ...opts, harness: "claude", budget: 0.03 }, fakeClients());
+  assert.equal(JSON.parse(readFileSync(manifest, "utf8")).checkout, repo);
 });
 
 // A fake rzm: harness status reports Claude signed in, generate answers the

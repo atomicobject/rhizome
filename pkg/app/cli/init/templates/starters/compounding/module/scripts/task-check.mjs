@@ -30,8 +30,10 @@ export async function check({ credentials, dryRun }) {
   const cred = await credentials();
   if (!cred.configured) throw new Error(`Jev screening has no TypeSafe credential, so mining cannot screen sessions; configure one for Rhizome, or mine unscreened over a short window through the compounding skill`);
   const r = await dryRun();
-  // A dry run reports a frozen binding that is unavailable as a stop.
-  const stop = r.status === "stopped" ? { run: r.run, reason: r.reason, message: r.message } : r.open?.status === "stopped" ? { run: r.open.run, reason: r.open.stoppedReason, message: r.open.stoppedMessage } : null;
+  // A dry run reports a frozen binding that is unavailable now as a stop. A
+  // run saved as stopped for a credential or a binding that is available
+  // again resumes; only a budget stop still needs a person.
+  const stop = r.status === "stopped" ? { run: r.run, reason: r.reason, message: r.message } : r.open?.status === "stopped" && r.open.stoppedReason === "budget" ? { run: r.open.run, reason: "budget", message: r.open.stoppedMessage } : null;
   if (stop && FIX[stop.reason]) throw new Error(`mining run ${stop.run} stopped (${stop.reason}): ${stop.message}; ${FIX[stop.reason]}`);
   if (r.status === "stopped") throw new Error(`mining stopped (${r.reason}): ${r.message}`);
   if (r.open) return { needed: true, summary: `resume mining run ${r.open.run}`, context: `Run ${r.open.run} is ${r.open.status}${r.open.stoppedReason ? ` (${r.open.stoppedReason}: ${r.open.stoppedMessage})` : ""}; mining resumes it with its frozen bindings.` };

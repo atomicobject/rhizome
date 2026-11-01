@@ -101,7 +101,9 @@ export function standing(root, events) {
   return out;
 }
 
-const earlier = (e) => ({ decision: e.decision, response: e.response, witness: e.witness, checkout: e.checkout, headAtPublish: e.headAtPublish, publishedAt: e.publishedAt, decider: e.decider });
+// `draft` marks an approval from before decision records whose approved
+// wording could not be recovered: the payload is the draft it was approved from.
+const earlier = (e) => ({ decision: e.decision, response: e.response, witness: e.witness, checkout: e.checkout, headAtPublish: e.headAtPublish, publishedAt: e.publishedAt, decider: e.decider, ...(e.payload?.exact === false ? { draft: true } : {}) });
 
 // Proposals awaiting a decision, and approvals with where each stands. A
 // finding whose action item is open suppresses its learning; a completed one

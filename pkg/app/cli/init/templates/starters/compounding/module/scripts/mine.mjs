@@ -195,6 +195,12 @@ async function mineLocked(opts, clients, store, dry) {
       if (!dry) saveRun(store, { ...run, status: "stopped", stoppedReason: "binding", stoppedMessage: why });
       return { status: "stopped", reason: "binding", message: `${why}; the run keeps its frozen bindings, so resume when it is available or rerun with --abandon`, run: run.id };
     }
+    // A task run's worktree is removed when its agent finishes, even after a
+    // stop, so a resume verifies in the checkout it runs from instead.
+    if (!existsSync(run.checkout)) {
+      run = { ...run, checkout: resolvePath(opts.checkout ?? opts.root) };
+      if (!dry) saveRun(store, run);
+    }
     log(`resuming run ${run.id} with its frozen bindings`);
   } else {
     const found = collect(opts, store);
