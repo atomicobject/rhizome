@@ -176,20 +176,28 @@ func (commandOptions *vaultCommandOptions) newModuleRecipeCmd(recipe queryrecipe
 // moduleVaultFlag finds --vault/-v before the module's flags are defined,
 // since the vault decides which recipes, and so which flags, exist.
 func moduleVaultFlag(args []string) string {
-	// Cobra keeps the last value of a repeated flag, so this does too.
+	// Cobra keeps the last value of a repeated flag, so this does too. Every
+	// module-command flag except these booleans takes a value, so the value
+	// after any other flag is skipped rather than read as a flag.
+	booleans := map[string]bool{"--summary": true, "--no-pager": true, "--help": true, "-h": true}
 	vault := ""
-	for i, arg := range args {
-		if arg == "--" {
-			break
-		}
-		if value, ok := strings.CutPrefix(arg, "--vault="); ok {
-			vault = value
-		} else if value, ok := strings.CutPrefix(arg, "-v="); ok {
-			vault = value
-		} else if (arg == "--vault" || arg == "-v") && i+1 < len(args) {
-			vault = args[i+1]
-		} else if value, ok := strings.CutPrefix(arg, "-v"); ok && value != "" && !strings.HasPrefix(arg, "--") {
-			vault = value
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			return vault
+		case !strings.HasPrefix(arg, "-") || booleans[arg]:
+		case arg == "--vault" || arg == "-v":
+			if i+1 < len(args) {
+				vault = args[i+1]
+				i++
+			}
+		case strings.HasPrefix(arg, "--vault="):
+			vault = strings.TrimPrefix(arg, "--vault=")
+		case strings.HasPrefix(arg, "-v") && !strings.HasPrefix(arg, "--"):
+			vault = strings.TrimPrefix(strings.TrimPrefix(arg, "-v"), "=")
+		case strings.HasPrefix(arg, "--") && !strings.Contains(arg, "="):
+			i++
 		}
 	}
 	return vault

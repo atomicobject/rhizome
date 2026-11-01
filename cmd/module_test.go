@@ -107,6 +107,9 @@ func TestModuleVaultFlagMatchesCobraForms(t *testing.T) {
 		{[]string{"recipe", "--verbose-thing"}, ""},
 		{[]string{"recipe", "--", "-vother"}, ""},
 		{[]string{"recipe", "--vault", "first", "-v", "last"}, "last"},
+		{[]string{"recipe", "--query", "-verbose"}, ""},
+		{[]string{"recipe", "--query=-verbose", "-v", "other"}, "other"},
+		{[]string{"recipe", "--summary", "-v", "other"}, "other"},
 	} {
 		require.Equal(t, tc.want, moduleVaultFlag(tc.args), "%v", tc.args)
 	}
