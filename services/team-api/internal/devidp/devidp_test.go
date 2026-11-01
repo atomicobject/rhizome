@@ -82,6 +82,10 @@ func (h *harness) authorize(verifier string) string {
 	if resp.StatusCode != http.StatusOK {
 		h.t.Fatalf("authorize page: %d %s", resp.StatusCode, body)
 	}
+	callback, _ := url.Parse(testRedirect)
+	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "form-action 'self' http://"+callback.Host+";") {
+		h.t.Fatalf("CSP must allow the redirect after the form post: %q", csp)
+	}
 	page := string(body)
 	for _, want := range []string{"<title>Rhizome development sign-in</title>", "not Google", `value="member"`, `value="wrongdomain"`} {
 		if !strings.Contains(page, want) {
