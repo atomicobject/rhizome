@@ -385,7 +385,7 @@ function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
   const families = p.familyIds ?? store.read("pool/clusters.json", {})[p.cluster]?.families ?? (pooled.length && pooled.every(Boolean) ? pooled : null);
   store.write("finding-links.json", { ...links, [path]: { clusters: [...new Set([...(links[path]?.clusters ?? []), p.cluster])].sort(), ...(families ? { families: [...new Set(families)].sort() } : { familiesApproximate: true }) } });
   markReviewed(store, p.cluster, { action: "finding", path });
-  recordApproval(root, store, { ...s, assignee: to ? to.title : undefined }, s.response, path, who);
+  recordApproval(root, store, { ...s, assignee: to ? to.title : who.name }, s.response, path, who);
   return { finding: path, assignee: finding.assignee };
 }
 

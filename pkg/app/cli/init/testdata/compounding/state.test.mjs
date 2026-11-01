@@ -266,11 +266,20 @@ test("a finding approved again after it went missing keeps its assignee", () => 
   const { main } = repo;
   propose(repo, [proposal("k-fix", { response: "fix", change: "Default the timeout explicitly." })]);
   const lee = { found: true, typeName: "Person", path: "docs/people/lee-example.md", title: "Lee Example" };
-  const people = (_root, name) => (name.toLowerCase().startsWith("lee") ? lee : { found: false });
+  const people = (_root, name) => (name.toLowerCase().startsWith("lee") ? lee : name.toLowerCase().startsWith("pat") ? user : { found: false });
   const first = run(["approve", "k-fix", "--confirm-publish", "--assignee", "Lee Example"], { root: main, user, people });
   assert.match(first.assignee, /lee-example/);
   rmSync(join(main, first.finding));
   assert.equal(at(main, "list").find((p) => p.cluster === "k-fix").status, "missing");
   const again = run(["approve", "k-fix", "--confirm-publish"], { root: main, user, people });
   assert.match(again.assignee, /lee-example/, "the recovered payload keeps the earlier assignee");
+
+  // The default assignee is the first reviewer, and a teammate restoring the
+  // finding does not take it over.
+  propose(repo, [proposal("k-own", { response: "fix", change: "Default the timeout explicitly." })]);
+  const own = at(main, "approve", "k-own", "--confirm-publish");
+  assert.match(own.assignee, /pat-example/);
+  rmSync(join(main, own.finding));
+  const restored = run(["approve", "k-own", "--confirm-publish"], { root: main, user: lee, people });
+  assert.match(restored.assignee, /pat-example/);
 });
