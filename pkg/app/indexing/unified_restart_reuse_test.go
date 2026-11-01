@@ -2,6 +2,7 @@ package indexing
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,4 +116,35 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	changed, byPhase := providerTexts()
 	require.Positive(t, changed, "a real content change must embed")
 	require.Less(t, changed, initial, "only changed content may embed; provider texts by phase: %v", byPhase)
+
+	// A chunking change orphans a whole generation of cached vectors. Seed
+	// more unreferenced rows than live ones, as such a change leaves behind.
+	cacheRows := func() (live, orphaned int) {
+		t.Helper()
+		store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+		require.NoError(t, err)
+		defer closeStore()
+		require.NoError(t, store.DB().QueryRowContext(context.Background(), `SELECT
+			COALESCE(SUM(text_hash IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)), 0),
+			COALESCE(SUM(text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)), 0)
+			FROM ontology_embedding_cache`).Scan(&live, &orphaned))
+		return live, orphaned
+	}
+	live, _ := cacheRows()
+	require.Positive(t, live)
+	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	for i := range live + 1 {
+		_, err := store.DB().ExecContext(context.Background(), `INSERT OR IGNORE INTO ontology_embedding_cache (provider, model, dimensions, text_hash, vector)
+			SELECT provider, model, dimensions, ?, vector FROM ontology_embedding_cache LIMIT 1`, fmt.Sprintf("old-generation-%d", i))
+		require.NoError(t, err)
+	}
+	closeStore()
+
+	// A complete index drops the obsolete generation and keeps every vector a
+	// current chunk uses.
+	_, _ = providerTexts()
+	afterLive, orphaned := cacheRows()
+	require.Zero(t, orphaned, "an obsolete generation is pruned after a complete index")
+	require.Equal(t, live, afterLive, "vectors current chunks use survive pruning")
 }

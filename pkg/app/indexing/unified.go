@@ -430,6 +430,11 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err := writeQueue.SubmitDerivedAcknowledgement(ctx, completedDerived); err != nil {
 		return fmt.Errorf("acknowledge completed derived work: %w", err)
 	}
+	if err := finalizer.FlushQueue(ctx); err != nil {
+		return err
+	}
+	pruneObsoleteEmbeddings(ctx, intelStore, semanticResources)
+	semanticResources.close()
 	// Run the configured default validation suite from the completed index state
 	// and cache the result through the writer lane for instant API serving.
 	runtime, runtimeErr := ontology.PublishedRuntimeWithStore(ctx, opts.NoteMetadata, opts.VaultDef, intelStore)

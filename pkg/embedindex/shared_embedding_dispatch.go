@@ -284,6 +284,16 @@ func (n *SharedEmbeddingNode) run() {
 					return
 				case cfg.gate <- struct{}{}:
 				}
+				// The gate can be held by another lane for a while; a batch
+				// whose every request was cancelled meanwhile is not sent.
+				if err := allJobsCancelled(jobs); err != nil {
+					<-cfg.gate
+					select {
+					case n.results <- sharedEmbeddingBatchResult{jobs: jobs, err: err}:
+					case <-n.ctx.Done():
+					}
+					return
+				}
 			}
 			indexingperf.ObserveLatency(batchCtx, indexingperf.EmbedGateWait, time.Since(gateStarted))
 			indexingperf.AddCount(batchCtx, indexingperf.ProviderCalls, 1)
@@ -436,4 +446,20 @@ func (n *SharedEmbeddingNode) run() {
 			}
 		}
 	}
+}
+
+// allJobsCancelled returns the first cancellation error when every job's
+// request context has ended, and nil when any job is still wanted.
+func allJobsCancelled(jobs []sharedEmbeddingJob) error {
+	var first error
+	for _, job := range jobs {
+		err := job.req.ctx.Err()
+		if err == nil {
+			return nil
+		}
+		if first == nil {
+			first = err
+		}
+	}
+	return first
 }

@@ -74,3 +74,35 @@ func TestSharedEmbeddingNodeDropsCancelledQueuedTextsAndDeliversInFlight(t *test
 	node.Close()
 	require.Equal(t, []int{1}, prov.BatchSizes(), "cancelled queued texts must not reach the provider")
 }
+
+// Another lane can hold the shared provider gate; a batch whose request was
+// cancelled while it waited for the gate is not sent.
+func TestSharedEmbeddingNodeDropsBatchCancelledWhileWaitingForGate(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	gate := make(chan struct{}, 1)
+	gate <- struct{}{} // another lane holds the gate
+	prov := &defaultingProvider{batchSize: 1000, maxConcurrency: 1, started: make(chan int, 4)}
+	node := NewSharedEmbeddingNode(ctx, prov, 1, gate, EmbedPackerOptions{MinTexts: 1, MaxTexts: 8, MaxBytes: 1 << 20, MaxWait: time.Millisecond})
+	defer node.Close()
+
+	reqCtx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() {
+		_, err := node.Submit(reqCtx, "embed_ontology_nodes", []string{"waiting"})
+		done <- err
+	}()
+	// Let the batch leave the queue and block on the gate, then cancel.
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-gate // the other lane releases the gate
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(2 * time.Second):
+		t.Fatal("cancelled request did not return")
+	}
+	node.Close()
+	require.Empty(t, prov.BatchSizes(), "a batch cancelled while waiting for the gate must not reach the provider")
+}

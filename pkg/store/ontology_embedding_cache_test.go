@@ -149,3 +149,34 @@ func TestOntologyEmbeddingCacheRepairsInterimV78Table(t *testing.T) {
 		require.NoError(t, store.Close())
 	}
 }
+
+// Unreferenced vectors are pruned only once they make up minShare of the cache,
+// so a few edited-away texts keep their reuse while a replaced generation goes.
+func TestOntologyEmbeddingCachePrunesOnlyDominantUnreferencedRows(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(currentSchemaTestDBPath(t, "ontology-embedding-cache-prune.db"))
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+	seedOntologyNodeSemanticRows(t, store) // current state hash "chunk-hash"
+	entry := func(hash string) OntologyEmbeddingCacheEntry {
+		return OntologyEmbeddingCacheEntry{Provider: "test", Model: "deterministic", TextHash: hash, Vector: embeddings.Embedding{1, 0, 0}}
+	}
+	require.NoError(t, store.UpsertOntologyEmbeddingCache(ctx, []OntologyEmbeddingCacheEntry{entry("chunk-hash"), entry("old-1"), entry("old-2"), entry("old-3")}))
+	count := func() int {
+		var n int
+		require.NoError(t, store.db.QueryRowContext(ctx, `SELECT count(*) FROM ontology_embedding_cache`).Scan(&n))
+		return n
+	}
+
+	pruned, err := store.PruneOntologyEmbeddingCache(ctx, 0.9)
+	require.NoError(t, err)
+	require.Zero(t, pruned, "3 of 4 rows unreferenced is below a 0.9 share")
+	require.Equal(t, 4, count())
+
+	pruned, err = store.PruneOntologyEmbeddingCache(ctx, 0.5)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), pruned)
+	got, err := store.OntologyEmbeddingCacheVectors(ctx, "test", "deterministic", 3, []string{"chunk-hash"})
+	require.NoError(t, err)
+	require.Contains(t, got, "chunk-hash", "referenced vectors survive")
+}

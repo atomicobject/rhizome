@@ -43,9 +43,6 @@ func runUnifiedPostIndex(
 	total codeintel.IndexResult,
 	noteResult codeintel.NoteIngestResult,
 ) error {
-	if semanticResources != nil {
-		semanticResources.close()
-	}
 
 	// Graph scores (HITS + label propagation) derived from intel tables.
 	// Only rebuild when notes actually changed (including deletes) to avoid expensive recomputation on no-op runs.
@@ -161,4 +158,48 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 		attrs = append(attrs, slog.String("table", match[1]))
 	}
 	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
+}
+
+// obsoleteEmbeddingShare is the share of a content cache that unreferenced
+// vectors must reach before they are pruned. Ordinary edits stay well below
+// it, so reverts keep their reuse; a chunking change orphans a whole
+// generation and crosses it on the next complete index.
+const obsoleteEmbeddingShare = 0.5
+
+// pruneObsoleteEmbeddings drops cached vectors no current chunk uses once they
+// dominate a cache. It runs after the index acknowledged its derived work, and
+// only when none remains pending, because vectors awaiting republication look
+// unreferenced until then.
+// Maintenance failures are reported, not fatal.
+func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, resources *unifiedSemanticResources) {
+	if intelStore == nil {
+		return
+	}
+	for _, kind := range []codeanchor.DerivedKind{codeanchor.DerivedNotes, codeanchor.DerivedCode, codeanchor.DerivedOntology} {
+		pending, err := intelStore.HasDerivedWork(ctx, kind)
+		if err != nil || pending {
+			return
+		}
+	}
+	report := func(cache string, err error) {
+		if err == nil {
+			return
+		}
+		if recorder := diagnostics.FromContext(ctx); recorder != nil {
+			recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", cache))
+		}
+	}
+	_, err := intelStore.PruneOntologyEmbeddingCache(ctx, obsoleteEmbeddingShare)
+	report("ontology", err)
+	if resources == nil {
+		return
+	}
+	if resources.noteStore != nil {
+		_, err := resources.noteStore.PruneStaleCache(ctx, obsoleteEmbeddingShare)
+		report("notes", err)
+	}
+	if resources.codeStore != nil {
+		_, err := resources.codeStore.PruneStaleCache(ctx, obsoleteEmbeddingShare)
+		report("code", err)
+	}
 }

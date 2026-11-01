@@ -141,8 +141,8 @@ func (s *Store) OntologyEmbeddingCacheVectors(ctx context.Context, provider, mod
 	return out, nil
 }
 
-// UpsertOntologyEmbeddingCache records provider vectors. Rows are never pruned:
-// text embedded once is not sent to the provider again.
+// UpsertOntologyEmbeddingCache records provider vectors. Text embedded once is
+// not sent to the provider again; only PruneOntologyEmbeddingCache removes rows.
 func (s *Store) UpsertOntologyEmbeddingCache(ctx context.Context, entries []OntologyEmbeddingCacheEntry) error {
 	if len(entries) == 0 {
 		return nil
@@ -218,4 +218,32 @@ func backfillOntologyEmbeddingCacheSchema(ctx context.Context, tx *sql.Tx) error
 		}
 	}
 	return nil
+}
+
+// PruneOntologyEmbeddingCache deletes cached vectors whose text hash no current
+// ontology embedding state uses, but only when they are at least minShare of
+// the cache. Ordinary edits leave few such rows, so reverts keep their reuse;
+// a chunking or text-format change orphans the whole previous generation, which
+// this removes. Callers run it only after a complete index with no pending
+// derived work, so vectors awaiting republication are never mistaken for
+// obsolete ones.
+func (s *Store) PruneOntologyEmbeddingCache(ctx context.Context, minShare float64) (int64, error) {
+	ctx = indexingperf.WithOp(ctx, "intel.prune_ontology_embedding_cache")
+	const orphaned = `text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)`
+	var total, stale int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(`+orphaned+`), 0) FROM ontology_embedding_cache`).Scan(&total, &stale); err != nil {
+		return 0, err
+	}
+	if stale == 0 || float64(stale) < minShare*float64(total) {
+		return 0, nil
+	}
+	var deleted int64
+	err := s.withWriteTx(ctx, func(tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, `DELETE FROM ontology_embedding_cache WHERE `+orphaned)
+		if err == nil {
+			deleted, err = result.RowsAffected()
+		}
+		return err
+	})
+	return deleted, err
 }
