@@ -49,6 +49,17 @@ func TestPreparedVaultFeatureFactsSeeModuleAssets(t *testing.T) {
 	require.True(t, facts.QueryRecipesConfigured)
 }
 
+func TestPreparedVaultFeatureFactsKeepABrokenAssetFolderForItsOwnCheck(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "modules", "demo", "tasks"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "modules", "demo", "views"), []byte("not a folder"), 0o644))
+	facts, err := vaultFeatureFacts(root, &repoconfig.LocalConfig{}, false)
+	require.NoError(t, err, "a broken views folder must not stop unrelated checks")
+	require.True(t, facts.ViewsConfigured, "the views check runs and reports the broken folder")
+	require.True(t, facts.TasksPresent)
+}
+
 func TestPrepareDiscoversRecipeFactsOnlyForSelectedChecks(t *testing.T) {
 	for _, test := range []struct {
 		selector string

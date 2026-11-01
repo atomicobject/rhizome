@@ -105,33 +105,34 @@ func Modules(repoRoot string) (valid, invalid []string, err error) {
 }
 
 // Roots returns the existing folders for a kind: the flat folder first, then
-// each valid module's folder by module name.
+// each valid module's folder by module name. A root that exists but cannot be
+// used is left out and reported in the error, which joins every such problem;
+// the usable roots are still returned.
 func Roots(repoRoot string, k Kind) ([]Root, error) {
 	var roots []Root
+	var problems []error
 	if flat := flatDirs[k]; flat != "" {
 		found, err := dirExists(repoRoot, flat)
 		if err != nil {
-			return nil, err
-		}
-		if found {
+			problems = append(problems, err)
+		} else if found {
 			roots = append(roots, Root{Rel: flat})
 		}
 	}
 	modules, _, err := Modules(repoRoot)
 	if err != nil {
-		return nil, err
+		return roots, errors.Join(append(problems, err)...)
 	}
 	for _, m := range modules {
 		rel := ModuleDir(m, k)
 		found, err := dirExists(repoRoot, rel)
 		if err != nil {
-			return nil, err
-		}
-		if found {
+			problems = append(problems, err)
+		} else if found {
 			roots = append(roots, Root{Module: m, Rel: rel})
 		}
 	}
-	return roots, nil
+	return roots, errors.Join(problems...)
 }
 
 // AllRoots returns every root Roots would return if each folder existed:

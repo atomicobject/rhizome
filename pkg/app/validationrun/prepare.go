@@ -92,10 +92,12 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 		return err == nil, err
 	}
 	// An asset kind is present when its flat folder or any module's folder
-	// for it exists.
+	// for it exists. A folder the locator cannot read counts as present, so
+	// the check that owns it reports the problem and unrelated checks still
+	// run.
 	assetsPresent := func(kind assetroots.Kind) (bool, error) {
 		roots, err := assetroots.Roots(root, kind)
-		return len(roots) > 0, err
+		return len(roots) > 0 || err != nil, nil
 	}
 	ontologyConfigured, err := assetsPresent(assetroots.Ontology)
 	if err != nil {

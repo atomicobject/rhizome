@@ -105,8 +105,13 @@ func TestRootsReportsAnAssetRootThatIsNotAFolder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".rhizome", "modules", "alpha", "views"), []byte("oops"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Roots(repo, Views); err == nil {
+	mkdirs(t, repo, ".rhizome/modules/beta/views")
+	roots, err := Roots(repo, Views)
+	if err == nil {
 		t.Fatal("a module views path that is a file must be an error")
+	}
+	if len(roots) != 1 || roots[0].Module != "beta" {
+		t.Fatalf("usable roots are still returned beside the error: %v", roots)
 	}
 	if roots, err := Roots(repo, Recipes); err != nil || len(roots) != 0 {
 		t.Fatalf("missing roots stay absent: %v %v", roots, err)
