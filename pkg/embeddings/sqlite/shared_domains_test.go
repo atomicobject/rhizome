@@ -57,9 +57,11 @@ func TestSharedDatabaseKeepsDomainCacheVisibilityAndRollbackIndependent(t *testi
 	require.Equal(t, embeddings.Embedding{0, 1, 0, 0}, codeVector)
 
 	require.NoError(t, code.CacheEmbedding(ctx, "unused", query))
-	pruned, err := code.PruneStaleCache(ctx, 0)
+	_, err = db.ExecContext(ctx, `UPDATE code_embedding_cache SET format = 'earlier'`)
 	require.NoError(t, err)
-	require.Equal(t, 1, pruned)
+	pruned, err := code.PruneEmbeddingCache(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, pruned)
 	itemVector, ok, err := code.EmbeddingByHash(ctx, "item-paid")
 	require.NoError(t, err)
 	require.True(t, ok, "item-only paid vectors must survive cache pruning")
@@ -156,7 +158,7 @@ func TestBorrowedReadersCannotMutateOrHealTheirDatabase(t *testing.T) {
 		func() error { return reader.ClearEmbeddingCache(ctx) },
 		func() error { return reader.UpsertNoteMetaBatch(ctx, nil) },
 		func() error { return reader.SyncNoteChunksBatch(ctx, nil) },
-		func() error { _, err := reader.PruneStaleCache(ctx, 0); return err },
+		func() error { _, err := reader.PruneEmbeddingCache(ctx); return err },
 		func() error { _, err := codeReader.PruneStaleItems(ctx, 0); return err },
 		func() error { return codeReader.UpsertItemEmbeddingBatch(ctx, nil) },
 		func() error { return codeReader.SetFingerprintVersion(ctx, 42) },

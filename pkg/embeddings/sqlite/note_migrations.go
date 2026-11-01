@@ -16,6 +16,11 @@ func (s *NoteStore) ensureDomainMigrations(ctx context.Context) error {
 				return err
 			}
 		}
+		if to == 8 {
+			if err := addColumnIfMissingTx(ctx, tx, tableEmbeddingCache, "format", "TEXT NOT NULL DEFAULT ''"); err != nil {
+				return err
+			}
+		}
 		_, err := tx.ExecContext(ctx, `
 			UPDATE `+tableIndexMeta+`
 			SET schema_version = CASE

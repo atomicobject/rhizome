@@ -3,8 +3,12 @@ package diagnostics
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -173,4 +177,85 @@ func TestPerfDisclosesPartialWindowCoverage(t *testing.T) {
 	require.Equal(t, 1, len(result.Perf.Groups))
 	require.True(t, strings.Contains(strings.Join(result.Coverage.Warnings, "\n"), "requested start precedes examined retained evidence"),
 		"the default 24h window starts before the only evidence")
+}
+
+// writeSegment writes raw event lines as one retained segment of a process.
+func writeSegment(t *testing.T, root, process string, segment int, modified time.Time, lines ...[]byte) {
+	t.Helper()
+	dir := filepath.Join(root, ".rhizome", "diagnostics", "events")
+	require.NoError(t, os.MkdirAll(dir, 0o700))
+	path := filepath.Join(dir, fmt.Sprintf("20261025-%s-%06d-4194304.jsonl", process, segment))
+	require.NoError(t, os.WriteFile(path, bytes.Join(lines, nil), 0o600))
+	require.NoError(t, os.Chtimes(path, modified, modified))
+}
+
+func perfLine(t *testing.T, at time.Time, name, operationID string, attrs map[string]any) []byte {
+	t.Helper()
+	data, err := json.Marshal(evidence.Event{SchemaVersion: evidence.SchemaVersion, Time: at, ProcessID: "proc", Level: "INFO",
+		Subsystem: "command", Name: name, OperationID: operationID, Attributes: attrs, Message: strings.Repeat("x", 1000)})
+	require.NoError(t, err)
+	return append(data, '\n')
+}
+
+func unfinishedIDs(summary PerfSummary) []string {
+	flags := flagsOfKind(summary, "unfinished_operations")
+	if len(flags) == 0 {
+		return nil
+	}
+	return flags[0].OperationIDs
+}
+
+func TestPerfFlagsUnfinishedOnlyWithinContiguousCoverage(t *testing.T) {
+	root := t.TempDir()
+	start := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	finish := map[string]any{"kind": "command", "trigger": "rzm index", "status": "success", "duration_ms": 1000}
+	// The older segment's tail starts an operation whose finish opens the newer
+	// segment. The newer segment is larger than its read allowance, so its head
+	// and that finish go unread.
+	writeSegment(t, root, "proc", 1, start.Add(time.Second), perfLine(t, start, "command.started", "split", nil))
+	newer := [][]byte{perfLine(t, start.Add(time.Second), "operation.finished", "split", finish)}
+	for i := range 400 {
+		newer = append(newer, perfLine(t, start.Add(time.Duration(2+i)*time.Second), "filler", "", nil))
+	}
+	newer = append(newer, perfLine(t, start.Add(10*time.Minute), "command.started", "hung", nil))
+	for i := range 3 {
+		newer = append(newer, perfLine(t, start.Add(12*time.Minute+time.Duration(i)*time.Second), "filler", "", nil))
+	}
+	writeSegment(t, root, "proc", 2, start.Add(time.Hour), newer...)
+
+	result, err := Read(Options{Vault: root, Mode: "perf", Now: start.Add(time.Hour), Since: "2h", MaxBytes: 300 << 10})
+	require.NoError(t, err)
+	require.True(t, result.Coverage.Truncated)
+	require.Equal(t, []string{"hung"}, unfinishedIDs(*result.Perf),
+		"a start before the unread head stays unknown; a hang in the contiguous tail is flagged")
+}
+
+func TestPerfUnreadableRecordsWithholdUnfinishedFlags(t *testing.T) {
+	start := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	for name, tc := range map[string]struct {
+		damaged bool
+		want    []string
+	}{
+		"intact":        {want: []string{"before", "after"}},
+		"malformed mid": {damaged: true, want: []string{"after"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			lines := [][]byte{perfLine(t, start, "command.started", "before", nil)}
+			if tc.damaged {
+				lines = append(lines, []byte("{broken}\n"))
+			}
+			lines = append(lines, perfLine(t, start.Add(time.Second), "filler", "", nil),
+				perfLine(t, start.Add(2*time.Second), "command.started", "after", nil),
+				perfLine(t, start.Add(5*time.Minute), "filler", "", nil))
+			writeSegment(t, root, "proc", 1, start.Add(time.Hour), lines...)
+			require.ElementsMatch(t, tc.want, unfinishedIDs(*readPerf(t, root, start.Add(time.Hour), "2h").Perf))
+		})
+	}
+
+	root := t.TempDir()
+	writeSegment(t, root, "proc", 1, start.Add(time.Hour), perfLine(t, start, "command.started", "op", nil),
+		perfLine(t, start.Add(5*time.Minute), "filler", "", nil), []byte("{\"partial\":"))
+	require.Empty(t, unfinishedIDs(*readPerf(t, root, start.Add(time.Hour), "2h").Perf),
+		"a malformed tail may hide any terminal, so no flag is definitive")
 }

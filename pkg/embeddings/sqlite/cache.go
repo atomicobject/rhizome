@@ -87,7 +87,7 @@ func (s *engine) CacheEmbedding(ctx context.Context, hash string, emb embeddings
 		if strings.TrimSpace(hash) == "" || len(emb) == 0 {
 			return nil
 		}
-		_, err := execWithRetry(ctx, db, cacheInsertSQL(s.spec.cache)+` VALUES(?,?,?,?,?)`+cacheConflictSQL(s.spec.cache), hash, embedToBytes(emb), math.Sqrt(dotFloat64(emb, emb)), len(emb), time.Now().Unix())
+		_, err := execWithRetry(ctx, db, cacheInsertSQL(s.spec.cache)+` VALUES(?,?,?,?,?,?)`+cacheConflictSQL(s.spec.cache), hash, embedToBytes(emb), math.Sqrt(dotFloat64(emb, emb)), len(emb), time.Now().Unix(), cacheFormat(s.spec.cache))
 		if err == nil && s.Dimensions() == 0 {
 			s.runtime.Dimensions.Store(int64(len(emb)))
 		}
@@ -102,19 +102,25 @@ func (s *engine) ClearEmbeddingCache(ctx context.Context) error {
 	})
 }
 
-// The persisted domains deliberately have different content-hash conflict policies.
+// The persisted domains deliberately have different content-hash conflict
+// policies: notes keep the first vector, code updates it. Both stamp the
+// current text format.
 func cacheInsertSQL(table string) string {
-	verb := "INSERT INTO "
-	if table == tableEmbeddingCache {
-		verb = "INSERT OR IGNORE INTO "
-	}
-	return verb + table + ` (content_hash,embedding,norm,dimensions,created_at)`
+	return `INSERT INTO ` + table + ` (content_hash,embedding,norm,dimensions,created_at,format)`
 }
 func cacheConflictSQL(table string) string {
 	if table != codeTableEmbeddingCache {
-		return ""
+		return ` ON CONFLICT(content_hash) DO UPDATE SET format=excluded.format`
 	}
-	return ` ON CONFLICT(content_hash) DO UPDATE SET embedding=excluded.embedding,norm=excluded.norm,dimensions=excluded.dimensions,created_at=excluded.created_at`
+	return ` ON CONFLICT(content_hash) DO UPDATE SET embedding=excluded.embedding,norm=excluded.norm,dimensions=excluded.dimensions,created_at=excluded.created_at,format=excluded.format`
+}
+
+// cacheFormat is the text format that produced a domain's current vectors.
+func cacheFormat(table string) string {
+	if table == codeTableEmbeddingCache {
+		return embeddings.CodeEmbeddingTextFormat
+	}
+	return embeddings.NoteEmbeddingTextFormat
 }
 func cacheEmbeddingTx(ctx context.Context, tx *sql.Tx, table string, hash string, emb embeddings.Embedding, now int64) error {
 	if strings.TrimSpace(hash) == "" || len(emb) == 0 {
@@ -132,14 +138,14 @@ func bulkUpsertEmbeddingCacheTx(ctx context.Context, tx *sql.Tx, table string, r
 		return fmt.Errorf("invalid embedding cache table: %s", table)
 	}
 	for batch := range slices.Chunk(rows, batchSize) {
-		args := make([]any, 0, len(batch)*5)
+		args := make([]any, 0, len(batch)*6)
 		values := make([]string, 0, len(batch))
 		for _, r := range batch {
 			if strings.TrimSpace(r.hash) == "" || len(r.vec) == 0 {
 				continue
 			}
-			values = append(values, "(?,?,?,?,?)")
-			args = append(args, r.hash, embedToBytes(r.vec), math.Sqrt(dotFloat64(r.vec, r.vec)), len(r.vec), now)
+			values = append(values, "(?,?,?,?,?,?)")
+			args = append(args, r.hash, embedToBytes(r.vec), math.Sqrt(dotFloat64(r.vec, r.vec)), len(r.vec), now, cacheFormat(table))
 		}
 		if len(values) == 0 {
 			continue
@@ -150,36 +156,34 @@ func bulkUpsertEmbeddingCacheTx(ctx context.Context, tx *sql.Tx, table string, r
 	}
 	return nil
 }
-func (s *engine) PruneStaleCache(ctx context.Context, threshold float64) (int, error) {
-	if err := s.requireWrite(); err != nil {
-		return 0, err
-	}
-	ctx = indexingperf.WithOp(ctx, s.spec.label+".prune_stale_cache")
+
+// PruneEmbeddingCache deletes cached vectors that an earlier text format
+// produced and no current chunk or item uses. Vectors of the current format are
+// kept even when unreferenced, so reverting an edit still reuses them. Every
+// vector a current chunk or item uses first adopts the current format, so text
+// that survived a format change keeps its revert reuse. Rows with an empty
+// format (written before formats were recorded) count
+// as earlier: the first prune keeps those a current chunk or item uses and
+// removes the rest, so an upgrade reclaims vectors no current content needs.
+// Callers run it only after a complete index with no pending derived work, so
+// vectors awaiting republication are never removed.
+func (s *engine) PruneEmbeddingCache(ctx context.Context) (int64, error) {
+	ctx = indexingperf.WithOp(ctx, s.spec.label+".prune_embedding_cache")
 	refs := `SELECT content_hash FROM ` + s.spec.chunks + ` WHERE content_hash IS NOT NULL AND content_hash!=''`
 	if s.spec.itemVectors != "" {
 		refs += ` UNION SELECT content_hash FROM ` + s.spec.itemVectors + ` WHERE content_hash IS NOT NULL AND content_hash!=''`
 	}
-	predicate := ` WHERE content_hash NOT IN (` + refs + `)`
-	var total, orphaned int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM `+s.spec.cache).Scan(&total); err != nil {
-		return 0, err
-	}
-	if total == 0 {
-		return 0, nil
-	}
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM `+s.spec.cache+predicate).Scan(&orphaned); err != nil {
-		return 0, err
-	}
-	if orphaned == 0 || (threshold > 0 && float64(orphaned)/float64(total) < threshold) {
-		return 0, nil
-	}
-	var count int64
-	err := s.withWrite(ctx, func(ctx context.Context, db *sql.DB) error {
-		result, err := execWithRetry(ctx, db, `DELETE FROM `+s.spec.cache+predicate)
+	format := cacheFormat(s.spec.cache)
+	var deleted int64
+	err := s.withWriteTx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `UPDATE `+s.spec.cache+` SET format = ? WHERE format != ? AND content_hash IN (`+refs+`)`, format, format); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, `DELETE FROM `+s.spec.cache+` WHERE format != ? AND content_hash NOT IN (`+refs+`)`, format)
 		if err == nil {
-			count, err = result.RowsAffected()
+			deleted, err = result.RowsAffected()
 		}
 		return err
 	})
-	return int(count), err
+	return deleted, err
 }

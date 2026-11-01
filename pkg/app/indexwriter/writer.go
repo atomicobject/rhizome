@@ -133,6 +133,7 @@ type Handlers struct {
 	ApplyIntelEmbeddings               func(context.Context, map[string]embeddings.Embedding) error
 	ApplyOntologyNodeReadModel         func(context.Context, readmodel.NodeReadModel) error
 	ApplyOntologyNodeStates            func(context.Context, []codeanchor.IntelOntologyNodeEmbeddingState) error
+	ApplyEmbeddingCache                func(context.Context, []semdb.EmbeddingCacheEntry) error
 	ApplyOntologyDelta                 func(context.Context, semdb.OntologyDelta) error
 	ApplyNoteMetadataDelta             func(context.Context, semdb.NoteMetadataDelta) error
 	ApplyValidationState               func(context.Context, ValidationStateWrite) error

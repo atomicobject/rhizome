@@ -94,16 +94,7 @@ func (s *derivedScheduler) run() {
 
 func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.DerivedWork, ack bool, phase string, run func(context.Context) error) error {
 	w := s.watcher
-	handle, _, err := w.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) (jobErr error) {
-		ctx, finish := watchPhase(ctx, phase)
-		defer func() {
-			if panicked := recover(); panicked != nil {
-				finish(errors.New("diagnostic boundary panicked"))
-				panic(panicked)
-			}
-			finish(jobErr)
-		}()
-		defer watchDuration(parent, phase)()
+	return s.inLane(parent, phase, func(ctx context.Context) error {
 		current, err := w.intelStore.CurrentDerivedWork(ctx, ticket)
 		if err != nil {
 			return err
@@ -138,6 +129,22 @@ func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.D
 			}
 		}
 		return nil
+	})
+}
+
+// inLane runs one writer-lease lane job without ticket checks.
+func (s *derivedScheduler) inLane(parent context.Context, phase string, run func(context.Context) error) error {
+	handle, _, err := s.watcher.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) (jobErr error) {
+		ctx, finish := watchPhase(ctx, phase)
+		defer func() {
+			if panicked := recover(); panicked != nil {
+				finish(errors.New("diagnostic boundary panicked"))
+				panic(panicked)
+			}
+			finish(jobErr)
+		}()
+		defer watchDuration(parent, phase)()
+		return run(ctx)
 	}})
 	if err != nil {
 		return err
@@ -150,6 +157,119 @@ func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.D
 	case <-handle.Done():
 		return handle.Err()
 	}
+}
+
+// Publication batch bounds keep each lane job short enough for explicit
+// indexing and watcher batches to interleave with a large derived pass.
+const (
+	derivedPublishBatchResults = 128
+	derivedPublishBatchBytes   = 16 << 20
+	derivedPublishBatchWait    = 250 * time.Millisecond
+)
+
+type derivedResult interface{ RetainedBytes() int }
+
+// computeAndPublish gives compute a sink that hands results to one publisher.
+// The publisher publishes bounded batches, each inside one lease, so a pass
+// admits one lane job and one witness check per batch rather than per result.
+// A sink call blocks while the buffer is full and returns the publisher's
+// error once a batch fails; a failed batch also cancels compute's context so
+// the pass stops calling the provider. It returns after the publisher has
+// drained, so a nil result means every computed result was published. A
+// non-nil cache records the vectors of every result left unpublished (failed or
+// superseded publication, cancelled compute, or an owner a failed compute left
+// incomplete), so the retry or replacement does not resend that text.
+func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error, cache func(context.Context, ...R) error) error {
+	computeCtx, stopCompute := context.WithCancel(ctx)
+	defer stopCompute()
+	// ponytail: the byte cap bounds a batch, not this buffer; buffered results
+	// are capped by count only. Weigh the buffer too if owners grow huge.
+	results := make(chan R, derivedPublishBatchResults)
+	failed := make(chan struct{})
+	done := make(chan struct{})
+	var publishErr error
+	var unpublishedMu sync.Mutex
+	var unpublished []R
+	keep := func(results ...R) {
+		unpublishedMu.Lock()
+		unpublished = append(unpublished, results...)
+		unpublishedMu.Unlock()
+	}
+	go func() {
+		defer close(done)
+		for open := true; open; {
+			first, ok := <-results
+			if !ok {
+				return
+			}
+			batch, bytes := []R{first}, first.RetainedBytes()
+			timer := time.NewTimer(derivedPublishBatchWait)
+		fill:
+			for len(batch) < derivedPublishBatchResults && bytes < derivedPublishBatchBytes {
+				select {
+				case next, ok := <-results:
+					if !ok {
+						open = false
+						break fill
+					}
+					batch, bytes = append(batch, next), bytes+next.RetainedBytes()
+				case <-timer.C:
+					break fill
+				}
+			}
+			timer.Stop()
+			if err := s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error {
+				for _, result := range batch {
+					if err := publish(ctx, result); err != nil {
+						return err
+					}
+				}
+				return nil
+			}); err != nil {
+				publishErr = err
+				keep(batch...)
+				stopCompute()
+				close(failed)
+				return
+			}
+		}
+	}()
+	err := compute(computeCtx, func(sinkCtx context.Context, result R) error {
+		select {
+		case <-failed:
+			keep(result)
+			return publishErr
+		default:
+		}
+		select {
+		case results <- result:
+			return nil
+		case <-failed:
+			keep(result)
+			return publishErr
+		case <-sinkCtx.Done():
+			keep(result)
+			return sinkCtx.Err()
+		}
+	})
+	close(results)
+	<-done
+	for result := range results {
+		keep(result)
+	}
+	var incomplete *embedindex.IncompleteDerivedError[R]
+	if errors.As(err, &incomplete) {
+		keep(incomplete.Results...)
+	}
+	if cache != nil && len(unpublished) > 0 {
+		if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return cache(ctx, unpublished...) }); cacheErr != nil && ctx.Err() == nil {
+			watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
+		}
+	}
+	if publishErr != nil {
+		return publishErr
+	}
+	return err
 }
 
 func (s *derivedScheduler) computeContext(parent context.Context) (context.Context, func()) {
@@ -222,11 +342,11 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		err = s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
-			return w.noteSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result embedindex.NoteDerivedResult) error {
-				return s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error { return w.noteSyncer.PublishDerived(ctx, result) })
+		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.NoteDerivedResult) error) error {
+			return s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
+				return w.noteSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		})
+		}, w.noteSyncer.PublishDerived, w.noteSyncer.CacheDerived)
 		if err != nil {
 			return err
 		}
@@ -268,11 +388,11 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		err = s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
-			return w.codeSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result embedindex.CodeDerivedResult) error {
-				return s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error { return w.codeSyncer.PublishDerived(ctx, result) })
+		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.CodeDerivedResult) error) error {
+			return s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
+				return w.codeSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		})
+		}, w.codeSyncer.PublishDerived, nil)
 		if err != nil {
 			return err
 		}
@@ -343,10 +463,18 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			result, err = syncer.ComputeDerived(ctx, plan)
 			return err
 		})
-		if err != nil {
-			return err
+		if err == nil {
+			err = s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
 		}
-		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
+		// The cache is content-addressed, so the retry or replacement ticket
+		// reuses the vectors of a failed or superseded run instead of sending
+		// the same text again.
+		if err != nil && result.HasVectors() {
+			if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return syncer.CacheDerived(ctx, result) }); cacheErr != nil && ctx.Err() == nil {
+				watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
+			}
+		}
+		return err
 	case codeanchor.DerivedGraph:
 		var scores semdb.DerivedGraphScores
 		err := s.compute(ctx, "graph_scores", func(ctx context.Context) error {

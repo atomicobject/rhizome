@@ -10,10 +10,16 @@ import (
 )
 
 // ResetDomain drops and recreates the code-index domain tables (code anchors + intel + doc_links).
-// It does NOT touch semantic embeddings tables (`emb_*`) nor code embeddings tables (`code_*`).
+// It does NOT touch semantic embeddings tables (`emb_*`) nor code embeddings tables (`code_*`),
+// and it keeps an intact intel_embedding_cache so paid vectors are not re-requested.
+// An interim ontology_embedding_cache is dropped; the repair before any reset moves its rows.
 func (s *Store) ResetDomain(ctx context.Context) error {
 	ctx = indexingperf.WithOp(ctx, "intel.reset_domain")
 	return s.withWrite(ctx, func(ctx context.Context, db *sql.DB) error {
+		keepCache, err := embeddingCacheIntact(ctx, db)
+		if err != nil {
+			return err
+		}
 		if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
 			return err
 		}
@@ -81,10 +87,15 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"ontology_node_field_values",
 			"ontology_node_field_value_dependencies",
 			"ontology_node_embedding_state",
+			"intel_embedding_cache",
+			legacyEmbeddingCacheTable,
 			"mcp_session_item_reservations",
 			"mcp_session_maintenance",
 		}
 		for _, name := range dropViews {
+			if keepCache && name == "intel_embedding_cache" {
+				continue
+			}
 			if err := dropViewIfExists(ctx, db, name); err != nil {
 				return err
 			}
@@ -215,6 +226,8 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"ontology_type_policies",
 			"ontology_schema_state",
 			"ontology_node_embedding_state",
+			"intel_embedding_cache",
+			legacyEmbeddingCacheTable,
 			"ontology_node_field_value_dependencies",
 			"ontology_node_field_values",
 			"ontology_nodes",
@@ -269,6 +282,9 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"schema_version",
 		}
 		for _, name := range dropTables {
+			if keepCache && name == "intel_embedding_cache" {
+				continue
+			}
 			if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS `+name); err != nil {
 				return err
 			}

@@ -2,6 +2,7 @@ package embedindex
 
 import (
 	"context"
+	"slices"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
@@ -16,14 +17,24 @@ type NoteDerivedResult struct {
 }
 
 // ComputeDerived runs the shared provider node and packer without publishing.
-// sink supplies backpressure and must finish consuming a result before returning.
+// At most the pipeline's provider concurrency of sink calls run at once; while
+// they are all busy, dispatch stops. A blocking sink therefore backpressures
+// computation, and a sink that takes ownership of results must bound them.
 func (s *NoteSyncer) ComputeDerived(ctx context.Context, plan NotePlan, sink func(context.Context, NoteDerivedResult) error) error {
 	opts := EmbedPackerOptions{}
 	if s.NoteEmbedPacker != nil {
 		opts = *s.NoteEmbedPacker
 	}
 	pipeline := newNoteEmbeddingPipelineWithNode(ctx, s.Provider, s.EmbeddingNode, s.maxConcurrent(), s.EmbedGate, opts)
-	return runPreparedPipeline(ctx, plan.tasks, plan.TotalWork, s.maxConcurrent(), indexingperf.NoteembedPrepare, indexingperf.NoteembedReadyEnqueueWait, pipeline.preparedCh, pipeline.run,
+	var incomplete []NoteDerivedResult
+	pipeline.stage.core.abandon = func(owners []*notePipelineOwner) {
+		for _, owner := range owners {
+			if slices.ContainsFunc(owner.missingVecs, func(vec embeddings.Embedding) bool { return len(vec) > 0 }) {
+				incomplete = append(incomplete, NoteDerivedResult{task: owner.prepared.task, prepared: owner.prepared, vectors: owner.missingVecs})
+			}
+		}
+	}
+	err := runPreparedPipeline(ctx, plan.tasks, plan.TotalWork, s.maxConcurrent(), indexingperf.NoteembedPrepare, indexingperf.NoteembedReadyEnqueueWait, pipeline.preparedCh, pipeline.run,
 		func(ctx context.Context, task noteTask) (*notePreparedTask, error) {
 			if reused := len(task.payload.reuseChunks); reused > 0 {
 				indexingperf.AddCount(ctx, indexingperf.NoteembedReuseHits, int64(reused))
@@ -35,7 +46,26 @@ func (s *NoteSyncer) ComputeDerived(ctx context.Context, plan NotePlan, sink fun
 				return sink(ctx, NoteDerivedResult{task: owner.prepared.task, prepared: owner.prepared, vectors: owner.missingVecs})
 			})
 		}, s.OnEmbedProgress)
+	if err != nil && len(incomplete) > 0 {
+		return &IncompleteDerivedError[NoteDerivedResult]{Err: err, Results: incomplete}
+	}
+	return err
 }
+
+// IncompleteDerivedError reports a failed computation together with the
+// owners it left incomplete. Their results hold every vector the provider
+// returned (nil where it did not), so a caller can cache them; they must not
+// be published.
+type IncompleteDerivedError[R any] struct {
+	Err     error
+	Results []R
+}
+
+func (e *IncompleteDerivedError[R]) Error() string { return e.Err.Error() }
+func (e *IncompleteDerivedError[R]) Unwrap() error { return e.Err }
+
+// RetainedBytes approximates the vector memory a publisher holds for result.
+func (r NoteDerivedResult) RetainedBytes() int { return vectorBytes(r.vectors) }
 
 // PublishDerived must execute after the coordinator checks its generation while
 // holding the writer lease. Chunk replacement and vectors share that boundary.
@@ -52,6 +82,10 @@ func (s *NoteSyncer) PublishDerived(ctx context.Context, result NoteDerivedResul
 	var writer intelEmbeddingSubmitter
 	if target != nil {
 		writer = directIntelEmbeddingSubmitter{ctx: ctx, writer: target}
+	}
+	// Caching first keeps the vectors when the publication below fails.
+	if err := s.CacheDerived(ctx, result); err != nil {
+		return err
 	}
 	return applySemanticWriteIntents(ctx, noteWriteSink{syncer: s, useLegacy: result.prepared.useLegacy, intelWriter: writer}, buildNoteWriteIntents(result.prepared, result.vectors, s.EmbeddingWriter != nil)...)
 }
@@ -92,6 +126,22 @@ func (s *Syncer) ComputeDerived(ctx context.Context, plan SyncPlan, sink func(co
 			s.recordPreparedReuseEmbeddings(plan.state.reuseCache, owner.prepared, owner.missingVecs, owner.prepared.itemVec)
 			return sink(ctx, CodeDerivedResult{task: tasks[string(owner.prepared.anchorID)], prepared: owner.prepared, vectors: owner.missingVecs})
 		}, s.OnEmbedProgress)
+}
+
+func (r CodeDerivedResult) RetainedBytes() int {
+	n := vectorBytes(r.vectors)
+	if r.prepared != nil {
+		n += 4 * len(r.prepared.itemVec)
+	}
+	return n
+}
+
+func vectorBytes(vectors []embeddings.Embedding) int {
+	n := 0
+	for _, vec := range vectors {
+		n += 4 * len(vec)
+	}
+	return n
 }
 
 func (s *Syncer) PublishDerived(ctx context.Context, result CodeDerivedResult) error {

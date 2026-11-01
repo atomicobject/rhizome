@@ -38,7 +38,7 @@ var (
 	searchOutcomeLabels     = []string{"ok", "error", "canceled", "timeout", "partial", "success", "failed", "timed_out", "unknown", "other"}
 	searchRetrieverLabels   = []string{"anchor_graph", "auto_expand", "auto_expand.diffusion", "auto_expand.graph", "auto_expand.ontology", "auto_expand.refs", "call_edges", "code_anchor_notes", "code_anchor_refs", "composite", "definition", "diffusion", "doc_links", "explicit_seeds", "graph", "graph_ppr", "implementers", "intel_lexical", "link_text", "local_docs", "note_lexical", "ontology", "other", "outgoing_links", "rationale_fts", "refs", "seed_vector", "symbol_probe", "tests_for_code", "vector"}
 
-	WatcherDuration = MetricFamily{pattern: "%s", choices: [][]string{{"derived_retry", "derived_prepare", "derived_publication"}}}
+	WatcherDuration = MetricFamily{pattern: "%s", choices: [][]string{{"derived_retry", "derived_prepare", "derived_publication", "derived_vector_cache"}}}
 
 	CallEdgeCacheLookup        = MetricFamily{pattern: "%s.%s", choices: [][]string{{"calledge.cache.fqn", "calledge.cache.import", "calledge.cache.go_method", "calledge.cache.py_fallback"}, {"hit", "miss"}}, classify: false}
 	CallEdgeSourceFallback     = MetricFamily{pattern: "calledge.source_fallback.%s.count", choices: [][]string{{"runtime_missing_refs", "runtime_parse_untrusted", "no_authoritative_inputs"}}, classify: false}

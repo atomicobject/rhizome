@@ -1503,6 +1503,7 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 			Intel:           intelStore,
 			ChunkWriter:     intelStore,
 			EmbeddingWriter: intelStore,
+			EmbeddingCache:  intelStore,
 			NoteReader:      &obsidian.Note{},
 			BatchSize:       embCfg.BatchSize,
 			MaxConcurrent:   embCfg.MaxConcurrency,

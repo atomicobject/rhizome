@@ -187,6 +187,14 @@ func (q *Writer) SubmitOntologyNodeEmbeddingStates(ctx context.Context, states [
 	return q.submit(ctx, ontologyNodeStateWrite{states: append([]codeanchor.IntelOntologyNodeEmbeddingState(nil), states...)}, len(states)*192)
 }
 
+func (q *Writer) SubmitEmbeddingCache(ctx context.Context, entries []semdb.EmbeddingCacheEntry) error {
+	bytes := 0
+	for _, entry := range entries {
+		bytes += 96 + len(entry.Vector)*4
+	}
+	return q.submit(ctx, append([]semdb.EmbeddingCacheEntry(nil), entries...), bytes)
+}
+
 func (q *Writer) SubmitOntologyDelta(ctx context.Context, delta semdb.OntologyDelta) error {
 	for _, model := range delta.ReadModels {
 		indexingperf.AddCount(ctx, indexingperf.OntologyFieldRowsPlanned, int64(len(model.FieldValues)))

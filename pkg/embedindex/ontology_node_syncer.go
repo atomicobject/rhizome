@@ -15,6 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -22,6 +23,8 @@ type OntologyNodeStore interface {
 	ReplaceIntelChunks(context.Context, []string, []codeanchor.IntelChunk) error
 	UpsertEmbeddings(context.Context, map[string]embeddings.Embedding) error
 	UpsertOntologyNodeEmbeddingStates(context.Context, []codeanchor.IntelOntologyNodeEmbeddingState) error
+	EmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, textHashes []string) (map[string]embeddings.Embedding, error)
+	UpsertEmbeddingCache(context.Context, []store.EmbeddingCacheEntry) error
 	OntologyNodeEmbeddingStatesByChunkIDs(context.Context, []string) (map[string]codeanchor.IntelOntologyNodeEmbeddingState, error)
 	IntelChunksByOwners(context.Context, []string) ([]codeanchor.IntelChunk, error)
 	OntologyNodesByPaths(context.Context, []string) ([]readmodel.NodeRow, error)
@@ -56,11 +59,7 @@ func (s OntologyNodeSyncer) SyncProjections(ctx context.Context, projections ...
 		}
 		plan.chunksChanged = false
 	}
-	result, err := s.ComputeDerived(ctx, plan)
-	if err != nil {
-		return err
-	}
-	return s.PublishDerived(ctx, result)
+	return s.embedAndPublish(ctx, plan)
 }
 
 func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections ...*ontology.NodeProjection) (OntologyDerivedPlan, error) {
@@ -136,11 +135,37 @@ func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections 
 	indexingperf.AddCount(ctx, indexingperf.OntologyNodesChunksReused, int64(len(combined.States)-len(nextStates)))
 	indexingperf.AddCount(ctx, indexingperf.OntologyBodyChunksReused, int64(len(combined.States)-len(nextStates)))
 	sort.Strings(toEmbed)
+	textHashes := make(map[string]string, len(nextStates))
+	hashes := make([]string, 0, len(nextStates))
+	for _, state := range nextStates {
+		textHashes[state.ChunkID] = state.ChunkTextHash
+		hashes = append(hashes, state.ChunkTextHash)
+	}
+	// Text embedded once with this provider, model and size is never sent
+	// again, even after ownership transitions or rebuilds deleted its state.
+	// When neither the provider nor the configuration knows the size yet, the
+	// store uses the single size cached for this provider and model.
+	dims := s.Provider.Dimensions()
+	if dims <= 0 {
+		dims = s.ProviderInfo.Dimensions
+	}
+	vectorsByHash, err := s.Store.EmbeddingCacheVectors(ctx, s.ProviderInfo.Provider, s.ProviderInfo.Model, dims, hashes)
+	if err != nil {
+		return OntologyDerivedPlan{}, fmt.Errorf("load ontology embedding cache: %w", err)
+	}
+	cached := make(map[string]embeddings.Embedding, len(vectorsByHash))
+	misses := make([]string, 0, len(toEmbed))
 	texts := make([]string, 0, len(toEmbed))
 	for _, id := range toEmbed {
+		if vector, ok := vectorsByHash[textHashes[id]]; ok {
+			cached[id] = vector
+			continue
+		}
+		misses = append(misses, id)
 		texts = append(texts, combined.Texts[id])
 	}
-	return OntologyDerivedPlan{owners: ownerIDs, chunks: combined.Chunks, chunksChanged: chunksChanged, ids: toEmbed, texts: texts, states: nextStates}, nil
+	indexingperf.AddCount(ctx, indexingperf.OntologyBodyChunksCacheHit, int64(len(cached)))
+	return OntologyDerivedPlan{owners: ownerIDs, chunks: combined.Chunks, chunksChanged: chunksChanged, ids: misses, texts: texts, cached: cached, textHashes: textHashes, states: nextStates}, nil
 }
 
 func (s OntologyNodeSyncer) chunkSetForProjection(projection *ontology.NodeProjection, now int64) (OntologyNodeChunkSet, error) {

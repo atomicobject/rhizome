@@ -1,0 +1,151 @@
+package indexing
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
+)
+
+// TestSameBuildCatchUpReusesUnchangedEmbeddings models a runtime restart: boot
+// catch-up is a fresh RunUnifiedCore over the existing index. Every indexing
+// EmbedTexts call site counts provider.texts, so a zero count proves the
+// provider saw no text for unchanged ontology bodies, notes, or code.
+func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+	}
+	write(".rhizome/config.yml", "notes:\n  includes: [\"notes/*.md\"]\ncode:\n  enabled: true\n  goRoots: [src]\nnoteEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\ncodeEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\n")
+	write(".rhizome/ontology/schema.graphql", "type Decision @node(paths: [\"notes/decision-*.md\"]) { summary: String }\n")
+	write("notes/decision-cache.md", "---\nsummary: Cache embeddings\n---\n# Cache embeddings\n\nReuse vectors when content is unchanged.\n\n## Consequences\n\nRestarts stay cheap.\n")
+	write("notes/decision-lane.md", "# Serialize indexing\n\nOne lane owns the index lock.\n")
+	write("notes/guide.md", "# Guide\n\nUntyped guidance that uses fallback ontology coverage.\n")
+	write("src/foo.go", "package fixture\n\n// Foo computes a result.\nfunc Foo() int { return 1 }\n\n// Bar computes another result.\nfunc Bar() int { return 2 }\n")
+
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
+	require.NoError(t, err)
+	opts := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testkit.NoteMetadataIndexer(t), SkipConfigPersistence: true}
+	providerTexts := func() (int64, map[string]int64) {
+		t.Helper()
+		collector := indexingperf.New()
+		require.NoError(t, runUnifiedCoreForTest(t, indexingperf.WithCollector(context.Background(), collector), opts))
+		var total int64
+		byPhase := map[string]int64{}
+		for _, counter := range collector.Snapshot().Counters {
+			if counter.Name == string(indexingperf.ProviderTexts) {
+				total += counter.Total
+				byPhase[counter.Phase] += counter.Total
+			}
+		}
+		return total, byPhase
+	}
+
+	initial, _ := providerTexts()
+	require.Positive(t, initial, "the first index must embed the fixture")
+
+	restart, byPhase := providerTexts()
+	require.Zero(t, restart, "same-build catch-up must not re-embed unchanged content; provider texts by phase: %v", byPhase)
+
+	// A database upgraded from before the vector cache has embeddings but no
+	// cache rows. The v78 backfill runs at the next open, before catch-up's
+	// ownership transition, so a projection-version bump in the same upgrade
+	// still sends nothing to the provider.
+	store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	for _, stmt := range []string{
+		`DELETE FROM intel_embedding_cache`,
+		`UPDATE rzm_migration_state SET version = 77 WHERE domain = 'intel'`,
+		`UPDATE note_projection_state SET projection_version = 'markdown-projection-v4'`,
+	} {
+		_, err = store.DB().ExecContext(context.Background(), stmt)
+		require.NoError(t, err)
+	}
+	closeStore()
+	upgraded, byPhase := providerTexts()
+	require.Zero(t, upgraded, "an upgrade must backfill the vector cache before reprojecting unchanged content; provider texts by phase: %v", byPhase)
+
+	// A build that bumps OntologyMaterializationVersion makes catch-up rebuild
+	// the ontology and re-plan every body, so this run exercises the stored
+	// embedding-state comparison rather than the unchanged-source skip.
+	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	_, err = store.DB().ExecContext(context.Background(), `UPDATE ontology_schema_state SET materialization_version = materialization_version - 1`)
+	closeStore()
+	require.NoError(t, err)
+	rebuilt, byPhase := providerTexts()
+	require.Zero(t, rebuilt, "an ontology rebuild over unchanged content must reuse stored embeddings; provider texts by phase: %v", byPhase)
+
+	// A build that bumps the Markdown ProjectionVersion turns every note into a
+	// changed owner, so the ownership transition deletes its ontology chunk and
+	// embedding-state rows. Text already embedded must not reach the provider.
+	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	_, err = store.DB().ExecContext(context.Background(), `UPDATE note_projection_state SET projection_version = 'markdown-projection-v4'`)
+	closeStore()
+	require.NoError(t, err)
+	reprojected, byPhase := providerTexts()
+	require.Zero(t, reprojected, "a projection-version bump over unchanged content must reuse embedded text; provider texts by phase: %v", byPhase)
+
+	// Editing one typed body sends only that body's chunk; reverting the edit
+	// is answered from the content-addressed vector cache.
+	decisionCache := "---\nsummary: Cache embeddings\n---\n# Cache embeddings\n\nReuse vectors when content is unchanged.\n\n## Consequences\n\nRestarts stay cheap.\n"
+	write("notes/decision-cache.md", strings.Replace(decisionCache, "when content is unchanged", "when chunk text is unchanged", 1))
+	edited, byPhase := providerTexts()
+	require.Equal(t, map[string]int64{"embed_ontology_nodes": 1}, byPhase, "only the edited ontology body may embed")
+	require.Equal(t, int64(1), edited)
+	write("notes/decision-cache.md", decisionCache)
+	reverted, byPhase := providerTexts()
+	require.Zero(t, reverted, "reverting an edit must reuse the cached vector; provider texts by phase: %v", byPhase)
+
+	write("notes/decision-lane.md", "# Serialize indexing\n\nOne lane owns the index lock, and explicit index preempts it.\n")
+	write("src/foo.go", "package fixture\n\n// Foo computes a result.\nfunc Foo() int { return 1 }\n\n// Bar computes a different result.\nfunc Bar() int { return 3 }\n")
+	changed, byPhase := providerTexts()
+	require.Positive(t, changed, "a real content change must embed")
+	require.Less(t, changed, initial, "only changed content may embed; provider texts by phase: %v", byPhase)
+
+	// A chunking change orphans a whole generation of cached vectors, stamped
+	// with the earlier format. Seed one larger than the live set.
+	cacheRows := func() (live, orphaned int) {
+		t.Helper()
+		store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+		require.NoError(t, err)
+		defer closeStore()
+		require.NoError(t, store.DB().QueryRowContext(context.Background(), `SELECT
+			COALESCE(SUM(text_hash IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)), 0),
+			COALESCE(SUM(text_hash NOT IN (SELECT chunk_text_hash FROM ontology_node_embedding_state)), 0)
+			FROM intel_embedding_cache`).Scan(&live, &orphaned))
+		return live, orphaned
+	}
+	live, currentFormatOrphans := cacheRows()
+	require.Positive(t, live)
+	require.Positive(t, currentFormatOrphans, "the edits above left current-format history to keep")
+	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	for i := range live + 1 {
+		_, err := store.DB().ExecContext(context.Background(), `INSERT OR IGNORE INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector, format)
+			SELECT provider, model, dimensions, ?, vector, 'primary-1;root-evidence-v0' FROM intel_embedding_cache LIMIT 1`, fmt.Sprintf("old-generation-%d", i))
+		require.NoError(t, err)
+	}
+	closeStore()
+
+	// A complete index drops the obsolete generation and keeps every vector a
+	// current chunk uses.
+	_, _ = providerTexts()
+	afterLive, orphaned := cacheRows()
+	require.Equal(t, currentFormatOrphans, orphaned, "an earlier format's unreferenced vectors are pruned; current-format history stays")
+	require.Equal(t, live, afterLive, "vectors current chunks use survive pruning")
+}

@@ -46,6 +46,19 @@ func NewChunkInput(index int, text, breadcrumb, heading string) ChunkInput {
 	}
 }
 
+// The cached note and code vectors record the text format that produced them,
+// so pruning can drop vectors only an earlier format referenced.
+const (
+	// NoteEmbeddingTextFormat names the note section text that pkg/embedindex
+	// buildChunkText embeds. Bump it whenever that text changes.
+	NoteEmbeddingTextFormat = "note-section-v1"
+	// CodeEmbeddingTextFormat names the code chunk and item text that
+	// pkg/embedindex ChunkBuilder and the chunk policies embed. Bump it whenever
+	// that text changes, together with codeFingerprintVersion so anchors with
+	// unchanged fingerprints are re-chunked.
+	CodeEmbeddingTextFormat = "code-v1"
+)
+
 // StoredChunk represents a chunk that has already been embedded and stored.
 type StoredChunk struct {
 	Index      int

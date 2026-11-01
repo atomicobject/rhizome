@@ -210,6 +210,10 @@ func (s *CodeStore) migrateDomainStepTx(ctx context.Context, tx *sql.Tx, from, t
 		if err := addColumnIfMissingTx(ctx, tx, codeTableIndexMeta, "source_high_water", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 			return err
 		}
+	case 13:
+		if err := addColumnIfMissingTx(ctx, tx, codeTableEmbeddingCache, "format", "TEXT NOT NULL DEFAULT ''"); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported code embeddings migration %d->%d", from, to)
 	}

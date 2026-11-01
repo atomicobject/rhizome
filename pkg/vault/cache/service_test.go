@@ -841,18 +841,16 @@ func TestCollectionCacheContextDocInitialAndIncrementalParity(t *testing.T) {
 	require.True(t, ok)
 }
 
-// waitResynced drains refreshes until the background recrawl reports
-// completion through RefreshResult.Resynced.
+// waitResynced drains refreshes until the recrawl its caller armed has
+// finished: every caller marks the cache stale synchronously or has a recrawl
+// in flight, so a settled cache (neither stale nor recrawling) means it ran.
+// Checking settlement rather than a completion count taken here avoids racing
+// a recrawl that finishes before the helper starts.
 func waitResynced(t *testing.T, svc *Service) {
 	t.Helper()
-	sawResynced := false
 	require.Eventually(t, func() bool {
-		result, err := svc.RefreshWithResult(context.Background())
+		_, err := svc.RefreshWithResult(context.Background())
 		require.NoError(t, err)
-		sawResynced = sawResynced || result.Resynced
-		if !sawResynced {
-			return false
-		}
 		svc.mu.RLock()
 		settled := !svc.stale && !svc.recrawling
 		svc.mu.RUnlock()
@@ -1052,4 +1050,47 @@ func (p gatedProjectionProvider) Project(source noteformat.AuthoredSource) (note
 		descriptor.Capabilities,
 		noteformat.ProjectionFacts{},
 	)
+}
+
+func TestRecrawlCompletionIsVisibleToEveryReader(t *testing.T) {
+	root := t.TempDir()
+	writeCacheFile(t, root, "note.md", "# Note")
+	svc, err := NewService(root, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+	require.False(t, svc.HasPendingWork(0))
+
+	svc.MarkStale()
+	require.True(t, svc.HasPendingWork(0))
+	waitResynced(t, svc)
+
+	// A reader that refreshed afterward still sees the completion it has not acted on.
+	result, err := svc.RefreshWithResult(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), result.Recrawls)
+	require.Zero(t, result.RecrawlInFlight)
+	require.True(t, svc.HasPendingWork(0))
+	require.False(t, svc.HasPendingWork(result.Recrawls))
+}
+
+// A recrawl another reader starts and finishes after the mark still covers it.
+func TestResyncCoveredByRecrawlAnotherReaderCompleted(t *testing.T) {
+	root := t.TempDir()
+	writeCacheFile(t, root, "note.md", "# Note")
+	svc, err := NewService(root, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	attempt := svc.MarkStaleForResync()
+	require.False(t, svc.ResyncCovered(attempt))
+	waitResynced(t, svc) // another reader starts and completes the recrawl
+	require.True(t, svc.ResyncCovered(attempt))
+
+	// A second mark needs a later recrawl than the one already completed.
+	next := svc.MarkStaleForResync()
+	require.False(t, svc.ResyncCovered(next))
+	waitResynced(t, svc)
+	require.True(t, svc.ResyncCovered(next))
 }

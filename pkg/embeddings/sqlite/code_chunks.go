@@ -146,7 +146,7 @@ type codeChunkRow struct {
 }
 
 const (
-	codeSchemaVersion        = 12
+	codeSchemaVersion        = 13
 	codeTableIndexMeta       = "code_index_meta"
 	tableItems               = "code_items"
 	tableItemEmbeddings      = "code_item_embeddings"

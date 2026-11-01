@@ -12,6 +12,8 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeemb "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
@@ -43,9 +45,6 @@ func runUnifiedPostIndex(
 	total codeintel.IndexResult,
 	noteResult codeintel.NoteIngestResult,
 ) error {
-	if semanticResources != nil {
-		semanticResources.close()
-	}
 
 	// Graph scores (HITS + label propagation) derived from intel tables.
 	// Only rebuild when notes actually changed (including deletes) to avoid expensive recomputation on no-op runs.
@@ -161,4 +160,48 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 		attrs = append(attrs, slog.String("table", match[1]))
 	}
 	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
+}
+
+// pruneObsoleteEmbeddings drops cached Intel (ontology and plain-note), legacy
+// note, and code vectors that an earlier text format produced and no current
+// chunk uses. It runs after the
+// index acknowledged its derived work, and only when none remains pending,
+// because vectors awaiting republication look unreferenced until then. A nil
+// note or code store (embeddings disabled or unavailable) is skipped.
+// The deletes run through submit, the writer's ordered maintenance control. A
+// prune failure is reported and swallowed inside the callback, because an
+// error returned there stops the writer; only a failure to submit is returned.
+func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, noteStore *codeemb.NoteStore, codeStore *codeemb.CodeStore, submit func(context.Context, func(context.Context) error) error) error {
+	if intelStore == nil {
+		return nil
+	}
+	for _, kind := range []codeanchor.DerivedKind{codeanchor.DerivedNotes, codeanchor.DerivedCode, codeanchor.DerivedOntology} {
+		pending, err := intelStore.HasDerivedWork(ctx, kind)
+		if err != nil || pending {
+			return nil
+		}
+	}
+	type cachePrune struct {
+		cache string
+		prune func(context.Context) (int64, error)
+	}
+	prunes := []cachePrune{{"intel", func(ctx context.Context) (int64, error) {
+		return intelStore.PruneEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat, embeddings.NoteEmbeddingTextFormat)
+	}}}
+	if noteStore != nil {
+		prunes = append(prunes, cachePrune{"notes", noteStore.PruneEmbeddingCache})
+	}
+	if codeStore != nil {
+		prunes = append(prunes, cachePrune{"code", codeStore.PruneEmbeddingCache})
+	}
+	return submit(ctx, func(runCtx context.Context) error {
+		for _, p := range prunes {
+			if _, err := p.prune(runCtx); err != nil {
+				if recorder := diagnostics.FromContext(ctx); recorder != nil {
+					recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", p.cache))
+				}
+			}
+		}
+		return nil
+	})
 }

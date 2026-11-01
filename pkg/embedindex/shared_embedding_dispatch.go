@@ -284,6 +284,16 @@ func (n *SharedEmbeddingNode) run() {
 					return
 				case cfg.gate <- struct{}{}:
 				}
+				// The gate can be held by another lane for a while; a batch
+				// whose every request was cancelled meanwhile is not sent.
+				if err := allJobsCancelled(jobs); err != nil {
+					<-cfg.gate
+					select {
+					case n.results <- sharedEmbeddingBatchResult{jobs: jobs, err: err}:
+					case <-n.ctx.Done():
+					}
+					return
+				}
 			}
 			indexingperf.ObserveLatency(batchCtx, indexingperf.EmbedGateWait, time.Since(gateStarted))
 			indexingperf.AddCount(batchCtx, indexingperf.ProviderCalls, 1)
@@ -314,9 +324,40 @@ func (n *SharedEmbeddingNode) run() {
 			}
 		}(phase)
 	}
+	complete := func(req *sharedEmbeddingRequest, err error) {
+		if req.err == nil && err != nil {
+			req.err = err
+		}
+		req.left--
+		if req.left <= 0 {
+			close(req.done)
+		}
+	}
+	// dropCancelled completes queued jobs whose submitter's context ended so
+	// their texts are never sent; jobs already in a provider batch finish.
+	dropCancelled := func() {
+		kept := pending[:0]
+		for _, job := range pending {
+			if err := job.req.ctx.Err(); err != nil {
+				bytes -= job.bytes
+				complete(job.req, err)
+				continue
+			}
+			kept = append(kept, job)
+		}
+		clear(pending[len(kept):])
+		pending = kept
+		indexingperf.SetGauge(n.ctx, indexingperf.EmbedReadyDepth, int64(len(pending)))
+	}
 	dispatchReady := func(force bool) {
 		draining := force
 		for active < n.config().maxConcurrent && len(pending) > 0 {
+			// Every batch selection filters cancelled jobs, so a cancellation
+			// that raced a result, timer, or request is never sent.
+			dropCancelled()
+			if len(pending) == 0 {
+				return
+			}
 			if !force && !ready() {
 				return
 			}
@@ -326,15 +367,6 @@ func (n *SharedEmbeddingNode) run() {
 			if !draining {
 				force = false
 			}
-		}
-	}
-	complete := func(req *sharedEmbeddingRequest, err error) {
-		if req.err == nil && err != nil {
-			req.err = err
-		}
-		req.left--
-		if req.left <= 0 {
-			close(req.done)
 		}
 	}
 	defer func() {
@@ -375,7 +407,13 @@ func (n *SharedEmbeddingNode) run() {
 			if !ok {
 				n.requests = nil
 				stopTimer()
+				dropCancelled()
 				dispatchReady(true)
+				continue
+			}
+			if err := req.ctx.Err(); err != nil {
+				req.err = err
+				close(req.done)
 				continue
 			}
 			for i, text := range req.texts {
@@ -397,6 +435,9 @@ func (n *SharedEmbeddingNode) run() {
 			if len(pending) > 0 {
 				startTimer()
 			}
+		case <-n.cancelled:
+			dropCancelled()
+			dispatchReady(false)
 		case <-timerCh:
 			stopTimer()
 			dispatchReady(true)
@@ -405,4 +446,20 @@ func (n *SharedEmbeddingNode) run() {
 			}
 		}
 	}
+}
+
+// allJobsCancelled returns the first cancellation error when every job's
+// request context has ended, and nil when any job is still wanted.
+func allJobsCancelled(jobs []sharedEmbeddingJob) error {
+	var first error
+	for _, job := range jobs {
+		err := job.req.ctx.Err()
+		if err == nil {
+			return nil
+		}
+		if first == nil {
+			first = err
+		}
+	}
+	return first
 }

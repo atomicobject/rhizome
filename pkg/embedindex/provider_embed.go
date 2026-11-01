@@ -111,10 +111,9 @@ func embedTextsWithProvider(ctx context.Context, provider embeddings.Provider, t
 				return
 			}
 
-			select {
-			case <-ctx.Done():
-			case resultCh <- batchResult{start: start, vecs: vecs, err: err}:
-			}
+			// resultCh holds every batch, so this never blocks; a finished
+			// batch is kept even if the context was cancelled meanwhile.
+			resultCh <- batchResult{start: start, vecs: vecs, err: err}
 		}(start, batchTexts)
 	}
 
@@ -125,6 +124,7 @@ func embedTextsWithProvider(ctx context.Context, provider embeddings.Provider, t
 
 	out := make([]embeddings.Embedding, len(texts))
 	var firstErr error
+	delivered := 0
 	for result := range resultCh {
 		if result.err != nil {
 			if firstErr == nil {
@@ -134,12 +134,17 @@ func embedTextsWithProvider(ctx context.Context, provider embeddings.Provider, t
 			continue
 		}
 		copy(out[result.start:], result.vecs)
+		delivered++
 	}
 	if firstErr != nil {
 		return nil, firstErr
 	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
+	// Batches skipped after cancellation deliver nothing; when every batch
+	// delivered, the provider work is complete and is returned.
+	if delivered < cap(resultCh) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }

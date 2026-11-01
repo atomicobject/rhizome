@@ -44,6 +44,9 @@ func (s *Store) ensureSchemaWithRecovery(ctx context.Context, schemaVersion int)
 			return nil
 		}
 	}
+	if err := s.repairEmbeddingCache(ctx); err != nil {
+		return err
+	}
 	if reset, err := s.classifyIntelBaseline(ctx, schemaVersion); err != nil {
 		return err
 	} else if reset {

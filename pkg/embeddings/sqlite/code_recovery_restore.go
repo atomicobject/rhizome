@@ -123,8 +123,8 @@ func (s *CodeStore) restoreCodeTx(ctx context.Context, tx *sql.Tx, b codeRecover
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
-		INSERT OR IGNORE INTO `+codeTableEmbeddingCache+` (content_hash, embedding, norm, dimensions, created_at)
-		SELECT content_hash, embedding, COALESCE(norm, 0), dimensions, created_at
+		INSERT OR IGNORE INTO `+codeTableEmbeddingCache+` (content_hash, embedding, norm, dimensions, created_at, format)
+		SELECT content_hash, embedding, COALESCE(norm, 0), dimensions, created_at, COALESCE(format, '')
 		FROM `+b.cache+`
 	`); err != nil {
 		return err

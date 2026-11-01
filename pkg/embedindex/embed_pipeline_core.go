@@ -1,8 +1,9 @@
 package embedindex
 
 import (
-	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -10,86 +11,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 )
 
-type embedPipelineOwnerState interface {
-	pipelineReadyAt() time.Time
-	pipelinePending() int
-	pipelineSetPending(int)
-}
-
-type embedPipelineJobState[K comparable] interface {
-	pipelineOwnerKey() K
-	pipelineText() string
-	pipelineBytes() int
-}
-
-type embedPipelineBatchResult[Owner any, Job any] struct {
-	jobs []queuedEmbedJob[Owner, Job]
-	vecs []embeddings.Embedding
-	err  error
-}
-
-type queuedEmbedJob[Owner any, Job any] struct {
-	owner      Owner
-	job        Job
-	enqueuedAt time.Time
-}
-
-type embedPipelineCore[K comparable, Prepared any, Owner embedPipelineOwnerState, Job embedPipelineJobState[K]] struct {
-	ctx           context.Context
-	provider      embeddings.Provider
-	sharedNode    *SharedEmbeddingNode
-	maxConcurrent int
-	globalSem     chan struct{}
-	opts          EmbedPackerOptions
-
-	preparedCh chan Prepared
-	resultCh   chan embedPipelineBatchResult[Owner, Job]
-
-	readyMaxTexts int
-	readyMaxBytes int
-	completeStat  indexingperf.MetricName
-
-	acceptPrepared func(Prepared) (K, Owner, []Job)
-	applyResult    func(Owner, Job, embeddings.Embedding) error
-	finalize       func(Owner) error
-}
-
-func newEmbedPipelineCoreWithNode[K comparable, Prepared any, Owner embedPipelineOwnerState, Job embedPipelineJobState[K]](
-	ctx context.Context,
-	provider embeddings.Provider,
-	sharedNode *SharedEmbeddingNode,
-	maxConcurrent int,
-	globalSem chan struct{},
-	opts EmbedPackerOptions,
-	preparedCh chan Prepared,
-	acceptPrepared func(Prepared) (K, Owner, []Job),
-	applyResult func(Owner, Job, embeddings.Embedding) error,
-	finalize func(Owner) error,
-) *embedPipelineCore[K, Prepared, Owner, Job] {
-	if maxConcurrent < 1 {
-		maxConcurrent = EffectiveMaxConcurrent(provider, 0)
-	}
-	opts = normalizeEmbedPackerOptions(opts)
-	return &embedPipelineCore[K, Prepared, Owner, Job]{
-		ctx:            ctx,
-		provider:       provider,
-		sharedNode:     sharedNode,
-		maxConcurrent:  maxConcurrent,
-		globalSem:      globalSem,
-		opts:           opts,
-		preparedCh:     preparedCh,
-		resultCh:       make(chan embedPipelineBatchResult[Owner, Job], maxConcurrent*2),
-		readyMaxTexts:  defaultCodePipelineReadyTexts,
-		readyMaxBytes:  defaultCodePipelineReadyBytes,
-		completeStat:   indexingperf.CodeembedCompleteWait,
-		acceptPrepared: acceptPrepared,
-		applyResult:    applyResult,
-		finalize:       finalize,
-	}
-}
-
-func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
+func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 	var (
+		incomplete   = map[K]Owner{}
 		pending      []queuedEmbedJob[Owner, Job]
 		pendingBytes int
 		active       int
@@ -298,7 +222,9 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 			var vecs []embeddings.Embedding
 			var err error
 			if useSharedNode {
-				vecs, err = p.sharedNode.Submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts)
+				// A run that can cache unfinalized owners keeps in-flight results, so a
+				// cancelled pass does not discard vectors the provider already returned.
+				vecs, err = p.sharedNode.submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts, p.abandon != nil)
 			} else {
 				vecs, err = p.provider.EmbedTexts(p.ctx, batchTexts)
 			}
@@ -335,10 +261,25 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 			}
 		}
 	}
-	sendComplete := func(owner Owner) {
+	// Finalizers share the provider concurrency bound. A full set blocks the
+	// loop, so a slow sink backpressures dispatch instead of piling up owners.
+	finalizeSlots := make(chan struct{}, p.maxConcurrent)
+	sendComplete := func(key K, owner Owner) {
+		select {
+		case finalizeSlots <- struct{}{}:
+		case <-p.ctx.Done():
+			finalizeMu.Lock()
+			if finalizeErr == nil {
+				finalizeErr = p.ctx.Err()
+			}
+			finalizeMu.Unlock()
+			return
+		}
+		delete(incomplete, key)
 		finalizeWG.Add(1)
 		go func(owner Owner) {
 			defer finalizeWG.Done()
+			defer func() { <-finalizeSlots }()
 			indexingperf.ObserveLatency(p.ctx, p.completeStat, time.Since(owner.pipelineReadyAt()))
 			if err := p.finalize(owner); err != nil {
 				finalizeMu.Lock()
@@ -350,7 +291,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 		}(owner)
 	}
 	acceptPrepared := func(prepared Prepared) {
-		_, owner, jobs := p.acceptPrepared(prepared)
+		key, owner, jobs := p.acceptPrepared(prepared)
 		indexingperf.AddCount(p.ctx, indexingperf.NodeEmbedIn, int64(len(jobs)))
 		owner.pipelineSetPending(len(jobs))
 		for _, job := range jobs {
@@ -358,8 +299,9 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 			pendingBytes += job.pipelineBytes()
 		}
 		setReadyDepth()
+		incomplete[key] = owner
 		if owner.pipelinePending() == 0 {
-			sendComplete(owner)
+			sendComplete(key, owner)
 		}
 	}
 
@@ -367,6 +309,24 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 		stopTimer()
 		dispatchWG.Wait()
 		finalizeWG.Wait()
+		if runErr != nil && p.abandon != nil {
+			// Batches in flight when the run failed have all reported now.
+			for drained := false; !drained; {
+				select {
+				case res := <-p.resultCh:
+					for idx, qjob := range res.jobs {
+						if res.err == nil && idx < len(res.vecs) {
+							_ = p.applyResult(qjob.owner, qjob.job, res.vecs[idx])
+						}
+					}
+				default:
+					drained = true
+				}
+			}
+			if len(incomplete) > 0 {
+				p.abandon(slices.Collect(maps.Values(incomplete)))
+			}
+		}
 		now := time.Now()
 		recordReadyInterval(readyState, now)
 		recordSlotInterval(slotBucket, now)
@@ -452,7 +412,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 				}
 				owner.pipelineSetPending(owner.pipelinePending() - 1)
 				if owner.pipelinePending() == 0 {
-					sendComplete(owner)
+					sendComplete(job.pipelineOwnerKey(), owner)
 				}
 			}
 			indexingperf.AddCount(p.ctx, indexingperf.NodeEmbedOut, int64(len(res.jobs)))

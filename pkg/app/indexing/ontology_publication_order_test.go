@@ -58,6 +58,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 		ApplyIntelEmbeddings:       store.UpsertEmbeddings,
 		ApplyOntologyNodeReadModel: store.ReplaceOntologyNodeReadModel,
 		ApplyOntologyNodeStates:    store.UpsertOntologyNodeEmbeddingStates,
+		ApplyEmbeddingCache:        store.UpsertEmbeddingCache,
 	})
 	t.Cleanup(func() { _ = q.StopAndWait() })
 	require.NoError(t, q.SubmitOntologyNodeReadModel(ctx, catalog))
@@ -137,7 +138,8 @@ type Decision @node(paths: ["notes/*.md"]) {
 	require.Empty(t, states)
 
 	// The final refresh then installs the current catalog and regenerates the
-	// current body surface through the same queued store.
+	// current body surface through the same queued store, reusing the cached
+	// vector for the unchanged text.
 	require.NoError(t, q.SubmitOntologyNodeReadModel(ctx, catalog))
 	require.NoError(t, q.FlushAndWait(ctx))
 	finalProvider := &publicationOrderCountingProvider{
@@ -157,7 +159,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	states, err = store.OntologyNodeEmbeddingStatesByChunkIDs(ctx, chunkIDs)
 	require.NoError(t, err)
 	require.Len(t, states, len(chunkIDs))
-	require.Equal(t, 1, finalProvider.CallCount(), "the final body refresh must embed the reinstalled current chunk")
+	require.Zero(t, finalProvider.CallCount(), "the final body refresh republishes the unchanged chunk from the vector cache")
 	results, _, err := store.SearchEmbeddings(ctx, embeddings.Embedding{1, 0, 0, 0, 0, 0, 0, 0}, len(chunkIDs), semdb.EmbeddingSearchFilters{OwnerTypes: []string{embeddings.OntologyNodeOwnerType}})
 	require.NoError(t, err)
 	require.Len(t, results, len(chunkIDs), "every current ontology chunk must have an embedding")

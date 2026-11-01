@@ -20,6 +20,9 @@ use tauri::{AppHandle, Manager};
 use tokio::sync::Notify;
 
 const POLL: Duration = Duration::from_secs(3);
+/// Between polls while nothing is changing. Focus, library changes, and opens
+/// still poll at once through `refresh`.
+const IDLE: Duration = Duration::from_secs(20);
 const DISCOVERY: Duration = Duration::from_secs(30);
 const TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -149,10 +152,25 @@ impl Presence {
         self.snapshot.lock().unwrap().runtimes.clone()
     }
 
-    async fn run<F: Future<Output = ()>>(&self, interval: Duration, mut poll: impl FnMut() -> F) {
+    /// Polls until woken or the interval the last poll returned elapses.
+    async fn run<F: Future<Output = Duration>>(&self, mut poll: impl FnMut() -> F) {
         loop {
-            poll().await;
+            let interval = poll().await;
             let _ = tokio::time::timeout(interval, self.wake.notified()).await;
+        }
+    }
+
+    /// The short interval while a runtime is starting, a pane is opening or
+    /// recovering (`settling`), or a changed build waits to restart; else idle.
+    fn interval(&self, settling: bool) -> Duration {
+        let starting =
+            (self.snapshot.lock().unwrap().runtimes.values()).any(|r| r.state == State::Starting);
+        let rebuilding = self.builds.lock().unwrap().values().any(|b| b.changed)
+            || !self.waiting.lock().unwrap().is_empty();
+        if settling || starting || rebuilding {
+            POLL
+        } else {
+            IDLE
         }
     }
 
@@ -280,12 +298,18 @@ impl Presence {
     }
 }
 
-/// Starts the app-wide presence loop: every few seconds while a window is
-/// visible, and soon after a focus, library change, or completed open.
+/// Starts the app-wide presence loop: every few seconds while something is
+/// changing and a window is visible, less often while idle, and soon after a
+/// focus, library change, or completed open.
 pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let presence = app.state::<Presence>();
-        presence.run(POLL, || poll(&app)).await;
+        presence
+            .run(|| async {
+                poll(&app).await;
+                presence.interval(app.state::<Panes>().settling())
+            })
+            .await;
     });
 }
 
@@ -599,6 +623,47 @@ mod tests {
     }
 
     #[test]
+    fn polls_quickly_only_while_something_is_changing() {
+        let presence = Presence::default();
+        assert_eq!(presence.interval(false), IDLE);
+        assert_eq!(
+            presence.interval(true),
+            POLL,
+            "a pane is opening or recovering"
+        );
+
+        let runtime = |state| Runtime {
+            state,
+            mode: Some("headless".into()),
+            pid: Some(1),
+            url: None,
+        };
+        let set = |state| {
+            presence.snapshot.lock().unwrap().runtimes =
+                BTreeMap::from([("/w".to_string(), runtime(state))]);
+        };
+        set(State::Starting);
+        assert_eq!(presence.interval(false), POLL, "a runtime is starting");
+        set(State::Running);
+        assert_eq!(presence.interval(false), IDLE);
+
+        let at = Some((1, SystemTime::UNIX_EPOCH));
+        let mut builds = presence.builds.lock().unwrap();
+        settled(&mut builds, BTreeMap::from([("/rzm".to_string(), at)]));
+        settled(&mut builds, BTreeMap::from([("/rzm".to_string(), None)]));
+        drop(builds);
+        assert_eq!(presence.interval(false), POLL, "a build is changing");
+        let mut builds = presence.builds.lock().unwrap();
+        settled(&mut builds, BTreeMap::from([("/rzm".to_string(), at)]));
+        settled(&mut builds, BTreeMap::from([("/rzm".to_string(), at)]));
+        drop(builds);
+        assert_eq!(presence.interval(false), IDLE, "the build settled");
+
+        (presence.waiting.lock().unwrap()).insert("/w".into(), "a".repeat(64));
+        assert_eq!(presence.interval(false), POLL, "a rebuilt runtime waits");
+    }
+
+    #[test]
     fn polls_never_overlap_and_requests_coalesce() {
         let presence = Arc::new(Presence::default());
         let (active, peak, polls) = (
@@ -614,13 +679,14 @@ mod tests {
         tauri::async_runtime::block_on(async move {
             let poller = tokio::time::timeout(
                 Duration::from_millis(300),
-                looped.run(Duration::from_secs(3600), move || {
+                looped.run(move || {
                     let (a, p, n) = (a.clone(), p.clone(), n.clone());
                     async move {
                         p.fetch_max(a.fetch_add(1, SeqCst) + 1, SeqCst);
                         n.fetch_add(1, SeqCst);
                         tokio::time::sleep(Duration::from_millis(20)).await;
                         a.fetch_sub(1, SeqCst);
+                        Duration::from_secs(3600)
                     }
                 }),
             );

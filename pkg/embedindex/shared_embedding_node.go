@@ -24,7 +24,10 @@ type SharedEmbeddingNode struct {
 	closed   bool
 	requests chan *sharedEmbeddingRequest
 	results  chan sharedEmbeddingBatchResult
-	wg       sync.WaitGroup
+	// cancelled wakes the dispatcher to drop queued requests whose context
+	// ended, so their texts are never sent.
+	cancelled chan struct{}
+	wg        sync.WaitGroup
 }
 
 type sharedEmbeddingNodeConfig struct {
@@ -80,6 +83,7 @@ func NewSharedEmbeddingNode(ctx context.Context, provider embeddings.Provider, m
 		opts:          opts,
 		requests:      make(chan *sharedEmbeddingRequest, maxConcurrent*opts.MaxTexts),
 		results:       make(chan sharedEmbeddingBatchResult, maxConcurrent*2),
+		cancelled:     make(chan struct{}, 1),
 	}
 	n.wg.Add(1)
 	go n.run()
@@ -134,7 +138,17 @@ func (n *SharedEmbeddingNode) config() sharedEmbeddingNodeConfig {
 	}
 }
 
+// Submit embeds texts through the shared node. When ctx ends, texts still
+// queued are dropped unsent, but a batch already at the provider finishes and
+// Submit returns its vectors, so callers can cache what was paid for.
 func (n *SharedEmbeddingNode) Submit(ctx context.Context, phase string, texts []string) ([]embeddings.Embedding, error) {
+	return n.submit(ctx, phase, texts, true)
+}
+
+// submit with keepInFlight false returns as soon as ctx ends, for callers that
+// discard late vectors anyway (the note and code pipelines stop reading results
+// on cancellation).
+func (n *SharedEmbeddingNode) submit(ctx context.Context, phase string, texts []string, keepInFlight bool) ([]embeddings.Embedding, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
@@ -165,6 +179,13 @@ func (n *SharedEmbeddingNode) Submit(ctx context.Context, phase string, texts []
 	case n.requests <- req:
 		n.submitMu.RUnlock()
 	}
+	stopWake := context.AfterFunc(ctx, func() {
+		select {
+		case n.cancelled <- struct{}{}:
+		default:
+		}
+	})
+	defer stopWake()
 	// NOTE: submit_wait includes backpressure on the shared request queue. A
 	// high value is usually provider packing/capacity pressure, not SQLite write
 	// pressure.
@@ -173,14 +194,27 @@ func (n *SharedEmbeddingNode) Submit(ctx context.Context, phase string, texts []
 	indexingperf.ObserveLatency(phaseCtx, indexingperf.EmbedSubmitWait, time.Since(submitStarted))
 	indexingperf.ObserveLatency(phaseCtx, indexingperf.EmbedEnqueueWait, time.Since(submitStarted))
 	futureStarted := time.Now()
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-req.done:
-		indexingperf.ObserveLatency(phaseCtx, indexingperf.EmbedFutureWait, time.Since(futureStarted))
-		if req.err != nil {
-			return nil, req.err
-		}
-		return req.vecs, nil
+	callerDone := ctx.Done()
+	if keepInFlight {
+		// The dispatcher completes a cancelled request promptly unless its
+		// texts are already at the provider.
+		callerDone = nil
 	}
+	select {
+	case <-callerDone:
+		return nil, ctx.Err()
+	case <-n.ctx.Done():
+		// In-flight results are dropped once the node stops.
+		select {
+		case <-req.done:
+		default:
+			return nil, n.ctx.Err()
+		}
+	case <-req.done:
+	}
+	indexingperf.ObserveLatency(phaseCtx, indexingperf.EmbedFutureWait, time.Since(futureStarted))
+	if req.err != nil {
+		return nil, req.err
+	}
+	return req.vecs, nil
 }

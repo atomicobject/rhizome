@@ -68,7 +68,8 @@ func (s *NoteStore) recoverNoteTx(ctx context.Context, tx *sql.Tx) error {
 				embedding BLOB,
 				norm REAL,
 				dimensions INTEGER,
-				created_at INTEGER
+				created_at INTEGER,
+				format TEXT
 			);`,
 	}
 	for _, stmt := range stmts {
@@ -198,6 +199,15 @@ func (s *NoteStore) recoverNoteTx(ctx context.Context, tx *sql.Tx) error {
 	if hasCacheNorm {
 		cacheNormSelect = "COALESCE(norm, 0)"
 	}
+	// Pruning keys on the format stamp, so keep it; an older table has none.
+	hasCacheFormat, err := tableHasColumn(ctx, tx, tableEmbeddingCache, "format")
+	if err != nil {
+		return err
+	}
+	cacheFormatSelect := "''"
+	if hasCacheFormat {
+		cacheFormatSelect = "COALESCE(format, '')"
+	}
 	{
 		exists, err := tableExists(ctx, tx, tableEmbeddingCache)
 		if err != nil {
@@ -205,8 +215,8 @@ func (s *NoteStore) recoverNoteTx(ctx context.Context, tx *sql.Tx) error {
 		}
 		if exists {
 			if _, err := tx.ExecContext(ctx, `
-			INSERT INTO `+b.cache+` (content_hash, embedding, norm, dimensions, created_at)
-			SELECT content_hash, embedding, `+cacheNormSelect+`, dimensions, created_at
+			INSERT INTO `+b.cache+` (content_hash, embedding, norm, dimensions, created_at, format)
+			SELECT content_hash, embedding, `+cacheNormSelect+`, dimensions, created_at, `+cacheFormatSelect+`
 			FROM `+tableEmbeddingCache+`
 		`); err != nil {
 				return err
@@ -243,8 +253,8 @@ func (s *NoteStore) recoverNoteTx(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO `+tableEmbeddingCache+` (content_hash, embedding, norm, dimensions, created_at)
-			SELECT content_hash, embedding, COALESCE(norm, 0), dimensions, created_at
+			INSERT OR IGNORE INTO `+tableEmbeddingCache+` (content_hash, embedding, norm, dimensions, created_at, format)
+			SELECT content_hash, embedding, COALESCE(norm, 0), dimensions, created_at, COALESCE(format, '')
 			FROM `+b.cache+`
 		`); err != nil {
 		return err

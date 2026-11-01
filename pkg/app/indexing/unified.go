@@ -185,6 +185,12 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err != nil {
 		return err
 	}
+	// Before ownership transitions retire published chunks, and before the
+	// writer lane opens, so this direct write cannot race it.
+	if err := backfillNoteEmbeddingCache(ctx, intelStore, semanticResources.noteSyncer); err != nil {
+		semanticResources.close() // the finalizer that would close them is not registered yet
+		return err
+	}
 	writeQueue := indexwriter.New(ctx, indexcore.BindWriterHandlers(semanticResources.writerHandlers(intelStore), service, intelStore))
 	semanticResources.bindWriter(writeQueue)
 	finalizer := &unifiedBatchFinalizer{writeQueue: writeQueue, semanticResources: semanticResources}
@@ -430,6 +436,13 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err := writeQueue.SubmitDerivedAcknowledgement(ctx, completedDerived); err != nil {
 		return fmt.Errorf("acknowledge completed derived work: %w", err)
 	}
+	if err := finalizer.FlushQueue(ctx); err != nil {
+		return err
+	}
+	if err := pruneObsoleteEmbeddings(ctx, intelStore, semanticResources.noteStore, semanticResources.codeStore, writeQueue.SubmitMaintenance); err != nil {
+		return fmt.Errorf("submit embedding cache maintenance: %w", err)
+	}
+	semanticResources.close()
 	// Run the configured default validation suite from the completed index state
 	// and cache the result through the writer lane for instant API serving.
 	runtime, runtimeErr := ontology.PublishedRuntimeWithStore(ctx, opts.NoteMetadata, opts.VaultDef, intelStore)

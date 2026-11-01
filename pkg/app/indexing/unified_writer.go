@@ -18,6 +18,7 @@ func (r *unifiedSemanticResources) writerHandlers(store *semdb.Store) indexwrite
 		ApplyIntelChunksByFamily: store.ReplaceIntelChunksByFamily,
 		ApplyIntelEmbeddings:     store.UpsertEmbeddings,
 		ApplyOntologyNodeStates:  store.UpsertOntologyNodeEmbeddingStates,
+		ApplyEmbeddingCache:      store.UpsertEmbeddingCache,
 		ApplyValidationState: func(ctx context.Context, write indexwriter.ValidationStateWrite) error {
 			generation, err := store.SetValidationRunning(ctx)
 			if err != nil {

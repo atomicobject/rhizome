@@ -7,6 +7,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type stubDocIntelSource struct {
@@ -58,6 +59,10 @@ func (q *recordingNoteWriteQueue) SubmitIntelChunksByFamily(context.Context, []s
 }
 
 func (q *recordingNoteWriteQueue) SubmitIntelEmbeddings(context.Context, map[string]embeddings.Embedding) error {
+	return nil
+}
+
+func (q *recordingNoteWriteQueue) SubmitEmbeddingCache(context.Context, []semdb.EmbeddingCacheEntry) error {
 	return nil
 }
 
