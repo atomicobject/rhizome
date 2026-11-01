@@ -123,9 +123,15 @@ export function review(store, root) {
   for (const f of loadFindings(root)) (f.open ? suppressed : done).add(f.learning);
   const open = (p) => !suppressed.has(learningHash(p)) && (p.recurrence || !done.has(learningHash(p)));
   const events = latest.filter((d) => d.witness && d.payload).sort((a, b) => String(b.at).localeCompare(String(a.at)));
-  const approvalOf = (p) => events.find((e) => (e.cluster === p.cluster || e.learning === learningHash(p)) && e.witness !== p.recurrence?.finding);
+  // Events are newest first, so the first per cluster is the one that counts.
+  const byCluster = new Map();
+  for (const e of events) if (!byCluster.has(e.cluster)) byCluster.set(e.cluster, e);
+  const newest = [...byCluster.values()];
+  const approvalOf = (p) => {
+    const e = byCluster.get(p.cluster) ?? events.find((x) => x.learning === learningHash(p));
+    return e && e.witness !== p.recurrence?.finding ? e : null;
+  };
   const pending = store.read("proposals.json", []).filter((p) => current(p) && !approvalOf(p) && !reviewed[p.cluster] && open(p));
-  const newest = [...new Map(events.map((e) => [e.cluster, e]).reverse()).values()];
   const where = standing(root, newest);
   const approved = [];
   for (const e of newest) {

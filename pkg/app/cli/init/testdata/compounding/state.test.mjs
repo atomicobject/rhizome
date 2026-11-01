@@ -304,3 +304,17 @@ test("migration takes an approved shard's published wording, and marks an approv
   const lost = at(main, "list").find((p) => p.cluster === "k-lost");
   assert.deepEqual([lost.status, lost.previous.draft], ["missing", true]);
 });
+
+test("a recurrence stays in review when an older approval of its cluster also exists", () => {
+  const repo = checkouts();
+  const { main, state } = repo;
+  const newer = "docs/memory/agent-findings/fix-new.md";
+  propose(repo, [proposal("k-r", { response: "fix", change: "Default the timeout explicitly.", recurrence: { finding: newer, episodes: ["claude:s2:1"] } })]);
+  const event = (name, witness, at, statement) => writeJson(join(state, "decisions", name), { learning: name.slice(0, 16).padEnd(16, "0"), cluster: "k-r", decision: "approved", response: "fix", witness, checkout: main, at, publishedAt: at, payload: proposal("k-r", { response: "fix", statement }) });
+  // The first approval, then the approval of the finding the recurrence reopened, edited.
+  event("aaaaaaaaaaaaaaaa--old.json", "docs/memory/agent-findings/fix-old.md", "2026-10-01T10:00:00.000Z", "Original wording.");
+  event("bbbbbbbbbbbbbbbb--new.json", newer, "2026-10-05T10:00:00.000Z", "Edited wording.");
+  const listed = at(main, "list").find((p) => p.cluster === "k-r");
+  assert.ok(listed, "the recurrence is offered for review");
+  assert.equal(listed.status, "pending", "as a new proposal, not as a missing approval");
+});
