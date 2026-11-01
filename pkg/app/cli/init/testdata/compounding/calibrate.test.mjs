@@ -164,6 +164,18 @@ test("apply requires confirmation and writes only the local override", async () 
   assert.throws(() => applyCalibration({ root, evidenceFile: r.evidenceFile, confirm: true }), /profile changed/);
 });
 
+test("apply accepts evidence a migration moved between path forms, but not another run's", async () => {
+  const root = repo();
+  const r = await run(root, client({ costs: [0.1, 0.05] }));
+  const file = join(root, r.evidenceFile);
+  const report = JSON.parse(readFileSync(file, "utf8"));
+  writeJson(file, { ...report, evidenceFile: r.evidenceFile.replace(/calibrations\/[^/]+\//, "calibrations/other-run/") });
+  assert.throws(() => applyCalibration({ root, evidenceFile: r.evidenceFile, confirm: true }), /evidence path differs/);
+  // A report written in a per-user store names its evidence absolutely.
+  writeFileSync(file, JSON.stringify(report).split(JSON.stringify(r.evidenceFile)).join(JSON.stringify(file)));
+  assert.equal(applyCalibration({ root, evidenceFile: r.evidenceFile, confirm: true }).path, ".rhizome/compounding/models.json");
+});
+
 test("apply rechecks fixture restrictions and refuses fabricated quality diffs", async () => {
   const root = repo();
   const r = await run(root, client({ counts: [1, 1, 2] }));

@@ -98,7 +98,11 @@ export function applyCalibration({ root, evidenceFile, confirm }) {
     if (!file.startsWith(parent + sep) || !file.endsWith(`${sep}evidence.json`)) throw new Error("evidence must be a local calibration evidence.json");
     const report = readJson(file);
     if (report.version !== 1 || !["extract", "verify"].includes(report.role) || report.status !== "done") throw new Error("not a completed calibration");
-    if ((home ? relative(realpathSync(home), file).split(sep).join("/") : file) !== report.evidenceFile) throw new Error("evidence path differs from the reviewed diff");
+    // The report names its evidence by repository path, or by absolute path
+    // in a per-user store; migration can move it between the two, so the
+    // run it belongs to is what must match.
+    const run = relative(parent, file).split(sep).join("/");
+    if (!String(report.evidenceFile).split(sep).join("/").endsWith(`calibrations/${run}`)) throw new Error("evidence path differs from the reviewed diff");
     const local = store.read("models.json", null);
     if (sha(local) !== report.localProfileHash) throw new Error("local profile changed; recalibrate before applying");
     const shipped = readFileSync(new URL("../models.json", import.meta.url), "utf8");
