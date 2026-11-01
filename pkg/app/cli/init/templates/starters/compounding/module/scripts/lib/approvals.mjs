@@ -132,9 +132,14 @@ export function review(store, root) {
     return e && e.witness !== p.recurrence?.finding ? e : null;
   };
   const pending = store.read("proposals.json", []).filter((p) => current(p) && !approvalOf(p) && !reviewed[p.cluster] && open(p));
+  // A dismissal or retirement newer than a cluster's last approval closes
+  // the cluster, so none of its earlier wordings comes back for review.
+  const closed = new Map();
+  for (const d of latest) if (!d.witness && d.cluster && String(d.at) > String(closed.get(d.cluster) ?? "")) closed.set(d.cluster, d.at);
   const where = standing(root, newest);
   const approved = [];
   for (const e of newest) {
+    if (String(closed.get(e.cluster) ?? "") > String(e.at)) continue;
     const w = where.get(e);
     if (w.status !== "missing") approved.push({ cluster: e.cluster, kind: e.kind, statement: e.statement, response: e.response, ...w, approval: earlier(e), proposal: e.payload });
     else if (!pending.some((p) => p.cluster === e.cluster) && open(e.payload)) pending.push({ ...e.payload, status: "missing", previous: earlier(e) });

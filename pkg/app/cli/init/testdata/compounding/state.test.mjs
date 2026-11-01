@@ -349,3 +349,18 @@ test("a shard retired in one worktree does not come back for review in another",
   at(repo.wt.a, "retire", approved, "--expect", shard.contentHash, "--reason", "no longer true");
   assert.equal(at(repo.wt.b, "list").find((p) => p.cluster === "k-ret"), undefined);
 });
+
+test("dismissing a revised approval that went missing keeps every wording of it out of review", () => {
+  const repo = checkouts();
+  const { main } = repo;
+  propose(repo, [proposal("k-dis")]);
+  const { approved } = at(main, "approve", "k-dis", "--confirm-publish");
+  const shard = loadShards(main).find((x) => x.path === approved);
+  const edit = join(mkdtempSync(join(tmpdir(), "sm-edit-")), "edit.json");
+  writeFileSync(edit, JSON.stringify({ statement: "Busy timeout k-dis: revised wording." }));
+  at(main, "revise", approved, "--expect", shard.contentHash, "--edit", edit, "--confirm-publish");
+  rmSync(join(main, approved));
+  assert.equal(at(main, "list").find((p) => p.cluster === "k-dis").statement, "Busy timeout k-dis: revised wording.");
+  at(main, "dismiss", "k-dis", "--reason", "not wanted after all", "--local");
+  assert.equal(at(main, "list").find((p) => p.cluster === "k-dis"), undefined);
+});

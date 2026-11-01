@@ -602,7 +602,7 @@ function dispatch(a, { root, store, user, people }) {
       // version of a revised shard is retired with it, so no wording of it
       // comes back for review once the file is gone.
       const retired = new Set();
-      for (const v of [{ payload: s }, ...approvalsOf(store, id)]) {
+      for (const v of [...approvalsOf(store, id), { payload: s }]) {
         const learning = learningHash(v.payload);
         if (retired.has(learning)) continue;
         retired.add(learning);
