@@ -40,6 +40,11 @@ func (s *CodeStore) backupCodeTx(ctx context.Context, tx *sql.Tx, b codeRecovery
 	if err != nil {
 		return err
 	}
+	// Pruning keys on the format stamp, so keep it; an older table has none.
+	hasCacheFormat, err := tableHasColumn(ctx, tx, codeTableEmbeddingCache, "format")
+	if err != nil {
+		return err
+	}
 
 	// Check if optional columns exist for graceful migration from older codeemb schemas.
 	hasMetaFingerprintVersion, err := tableHasColumn(ctx, tx, codeTableIndexMeta, "fingerprint_version")
@@ -217,10 +222,14 @@ func (s *CodeStore) backupCodeTx(ctx context.Context, tx *sql.Tx, b codeRecovery
 	if hasCacheNorm {
 		cacheNormSelect = "COALESCE(norm, 0)"
 	}
+	cacheFormatSelect := "''"
+	if hasCacheFormat {
+		cacheFormatSelect = "COALESCE(format, '')"
+	}
 	if hasEmbeddingCacheTable {
 		if _, err := tx.ExecContext(ctx, `
-		INSERT INTO `+b.cache+` (content_hash, embedding, norm, dimensions, created_at)
-		SELECT content_hash, embedding, `+cacheNormSelect+`, dimensions, created_at
+		INSERT INTO `+b.cache+` (content_hash, embedding, norm, dimensions, created_at, format)
+		SELECT content_hash, embedding, `+cacheNormSelect+`, dimensions, created_at, `+cacheFormatSelect+`
 		FROM `+codeTableEmbeddingCache+`
 	`); err != nil {
 			return err

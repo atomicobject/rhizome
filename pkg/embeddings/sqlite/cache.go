@@ -162,7 +162,7 @@ func bulkUpsertEmbeddingCacheTx(ctx context.Context, tx *sql.Tx, table string, r
 // kept even when unreferenced, so reverting an edit still reuses them. Every
 // vector a current chunk or item uses first adopts the current format, so text
 // that survived a format change keeps its revert reuse. Rows with an empty
-// format (written before formats were recorded, or restored by recovery) count
+// format (written before formats were recorded) count
 // as earlier: the first prune keeps those a current chunk or item uses and
 // removes the rest, so an upgrade reclaims vectors no current content needs.
 // Callers run it only after a complete index with no pending derived work, so

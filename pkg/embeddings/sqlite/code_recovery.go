@@ -81,7 +81,8 @@ func (s *CodeStore) recoverCodeTx(ctx context.Context, tx *sql.Tx) error {
 			embedding BLOB,
 			norm REAL,
 			dimensions INTEGER,
-			created_at INTEGER
+			created_at INTEGER,
+			format TEXT
 		);`,
 	}
 	for _, stmt := range stmts {

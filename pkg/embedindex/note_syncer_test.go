@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"path/filepath"
+	"strings"
 
 	"testing"
 	"time"
@@ -252,4 +253,16 @@ func TestNoteSyncerFullSyncPrunesStaleExtraWithoutReembeddingCurrent(t *testing.
 	require.NoError(t, err)
 	require.Len(t, notes, 1)
 	require.Equal(t, "notes/current.md", notes[0].Path)
+}
+
+// A plain-note chunk's content hash keys the Intel vector cache, so it must be
+// the hash of the text the configured section limit embeds.
+func TestIntelChunkHashNamesEmbeddedTextUnderSectionLimit(t *testing.T) {
+	sections := []codeanchor.IntelDocSection{{SectionID: "s1", Title: "Long", Level: 2, Content: strings.Repeat("words ", 40)}}
+	embedded := buildSectionChunks("Guide", sections, 64)[0]
+	require.Less(t, len(embedded.Text), len(buildSectionChunks("Guide", sections, 0)[0].Text), "the limit truncates the section")
+
+	_, chunks := buildIntelChunksForSections("Guide", sections, 64, 1)
+	require.Len(t, chunks, 1)
+	require.Equal(t, embedded.Hash, chunks[0].ContentHash)
 }

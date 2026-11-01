@@ -354,7 +354,9 @@ func stripChunkText(in embeddings.ChunkInput) embeddings.ChunkInput {
 	return in
 }
 
-func buildIntelChunksForSections(noteTitle string, sections []codeanchor.IntelDocSection, now int64) (ownerIDs []string, chunks []codeanchor.IntelChunk) {
+// buildIntelChunksForSections hashes each section's text at maxBytes, the
+// limit that embeds it, so a chunk's content hash names its embedded text.
+func buildIntelChunksForSections(noteTitle string, sections []codeanchor.IntelDocSection, maxBytes int, now int64) (ownerIDs []string, chunks []codeanchor.IntelChunk) {
 	if len(sections) == 0 {
 		return nil, nil
 	}
@@ -365,7 +367,7 @@ func buildIntelChunksForSections(noteTitle string, sections []codeanchor.IntelDo
 		}
 		return sections[i].StartByte < sections[j].StartByte
 	})
-	desired := buildSectionChunks(noteTitle, sections, 0)
+	desired := buildSectionChunks(noteTitle, sections, maxBytes)
 	ownerIDs = make([]string, 0, len(sections))
 	chunks = make([]codeanchor.IntelChunk, 0, len(sections))
 	for i, sec := range sections {
@@ -408,11 +410,12 @@ func (s *NoteSyncer) persistNoteIntelChunks(ctx context.Context, tasks []noteTas
 	}
 
 	now := time.Now().Unix()
+	maxBytes := s.sectionMaxBytes()
 	ownerSet := make(map[string]struct{}, 256)
 	var ownerIDs []string
 	var chunks []codeanchor.IntelChunk
 	for _, task := range tasks {
-		ids, cs := buildIntelChunksForSections(task.payload.info.Title, task.payload.sections, now)
+		ids, cs := buildIntelChunksForSections(task.payload.info.Title, task.payload.sections, maxBytes, now)
 		for _, id := range ids {
 			if _, ok := ownerSet[id]; ok {
 				continue

@@ -2,6 +2,7 @@ package embedindex
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
@@ -96,11 +97,17 @@ func (p *noteEmbeddingPipeline) run(finalize func(*notePipelineOwner) error) err
 }
 
 func (s *NoteSyncer) processTasksPipelined(ctx context.Context, plan NotePlan, intelWriter intelEmbeddingSubmitter) error {
-	return s.ComputeDerived(ctx, plan, func(ctx context.Context, result NoteDerivedResult) error {
+	err := s.ComputeDerived(ctx, plan, func(ctx context.Context, result NoteDerivedResult) error {
 		// Caching first keeps the vectors when the publication below fails.
 		if err := s.CacheDerived(ctx, result); err != nil {
 			return err
 		}
 		return applySemanticWriteIntents(ctx, noteWriteSink{syncer: s, useLegacy: result.prepared.useLegacy, intelWriter: intelWriter}, buildNoteWriteIntents(result.prepared, result.vectors, s.EmbeddingWriter != nil)...)
 	})
+	// A retry must not send the sections that did embed again.
+	var incomplete *IncompleteDerivedError[NoteDerivedResult]
+	if errors.As(err, &incomplete) {
+		_ = s.CacheDerived(ctx, incomplete.Results...)
+	}
+	return err
 }

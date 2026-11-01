@@ -18,6 +18,7 @@ type cachePruneDomain struct {
 		CacheEmbedding(context.Context, string, embeddings.Embedding) error
 		EmbeddingByHash(context.Context, string) (embeddings.Embedding, bool, error)
 		PruneEmbeddingCache(context.Context) (int64, error)
+		rebuildDomainPreservingEmbeddings(context.Context) error
 	}
 	editAway func(t *testing.T)
 	// Previous schema, before the cache recorded formats.
@@ -89,6 +90,26 @@ func TestPruneEmbeddingCacheRemovesOnlyUnreferencedEarlierFormats(t *testing.T) 
 			_, err = d.store.PruneEmbeddingCache(ctx)
 			require.NoError(t, err)
 			require.True(t, cached(d.referenced), "a promoted vector survives being edited away, so a revert reuses it")
+		})
+	}
+}
+
+// Schema recovery keeps each cached vector's format, so pruning after it still
+// keeps current-format revert history.
+func TestSchemaRecoveryKeepsCacheFormats(t *testing.T) {
+	db, domains := cachePruneDomains(t)
+	ctx := t.Context()
+	for _, d := range domains {
+		t.Run(d.name, func(t *testing.T) {
+			require.NoError(t, d.store.CacheEmbedding(ctx, "revert-history", embeddings.Embedding{0, 0, 0, 1}))
+			require.NoError(t, d.store.rebuildDomainPreservingEmbeddings(ctx))
+			require.Equal(t, cacheFormat(d.table), cacheFormatOf(t, db, d.table, "revert-history"))
+
+			_, err := d.store.PruneEmbeddingCache(ctx)
+			require.NoError(t, err)
+			_, ok, err := d.store.EmbeddingByHash(ctx, "revert-history")
+			require.NoError(t, err)
+			require.True(t, ok, "recovered current-format history survives pruning")
 		})
 	}
 }

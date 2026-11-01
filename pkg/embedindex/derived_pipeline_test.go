@@ -95,6 +95,54 @@ func TestNoteDerivedPublicationCachesVectorsForLaterPlans(t *testing.T) {
 	require.Equal(t, []embeddings.Embedding{published}, vectors)
 }
 
+// failingTextProvider fails any request containing fail; other requests wait
+// briefly, so they are still in flight when the failure ends the pass.
+type failingTextProvider struct {
+	embeddings.Provider
+	fail string
+}
+
+func (p failingTextProvider) EmbedTexts(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	for _, text := range texts {
+		if text == p.fail {
+			return nil, errors.New("provider rejected text")
+		}
+	}
+	time.Sleep(20 * time.Millisecond)
+	return p.Provider.EmbedTexts(ctx, texts)
+}
+
+// When the provider fails one section of a note, the note is not published,
+// but the sections it did embed are cached: the retry sends only the section
+// that failed.
+func TestNoteComputeFailureCachesEmbeddedSectionsOfIncompleteNotes(t *testing.T) {
+	ctx := t.Context()
+	notes, err := embsqlite.OpenNotes(ctx, embsqlite.File(filepath.Join(t.TempDir(), "notes.db")), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: 8})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, notes.Close()) }()
+	intel, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	defer intel.Close()
+	info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+	chunks := []embeddings.ChunkInput{
+		embeddings.NewChunkInput(0, "Install the tools first.", "Guide", "Setup"),
+		embeddings.NewChunkInput(1, "Run the index after edits.", "Guide", "Usage"),
+	}
+	syncer := NoteSyncer{
+		Index: notes, ProviderInfo: info, EmbeddingWriter: intel, EmbeddingCache: intel, MaxConcurrent: 2,
+		Provider:        failingTextProvider{Provider: embeddings.NewDeterministicProvider(info), fail: chunks[1].Text},
+		NoteEmbedPacker: &EmbedPackerOptions{MaxTexts: 1, MinTexts: 1},
+	}
+	plan := NotePlan{TotalWork: 2, tasks: []noteTask{{id: "notes/guide.md", payload: noteTaskPayload{
+		info: embeddings.NoteFileInfo{ID: "notes/guide.md", Path: "notes/guide.md"}, embedChunks: chunks, embedTexts: []string{chunks[0].Text, chunks[1].Text},
+	}}}}
+	require.ErrorContains(t, syncer.processTasksPipelined(ctx, plan, nil), "provider rejected text")
+
+	_, _, missing, _, err := syncer.planChunkUpdates(ctx, "notes/guide.md", chunks, nil)
+	require.NoError(t, err)
+	require.Equal(t, []embeddings.ChunkInput{chunks[1]}, missing, "only the failed section is sent again")
+}
+
 func TestOntologyDerivedComputeDoesNotPublishChunksOrVectors(t *testing.T) {
 	ctx := context.Background()
 	_, schema, projection := setupOntologyNodeChunkFixture(t)

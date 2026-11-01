@@ -185,6 +185,11 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err != nil {
 		return err
 	}
+	// Before ownership transitions retire published chunks, and before the
+	// writer lane opens, so this direct write cannot race it.
+	if err := backfillNoteEmbeddingCache(ctx, intelStore, semanticResources.noteSyncer); err != nil {
+		return err
+	}
 	writeQueue := indexwriter.New(ctx, indexcore.BindWriterHandlers(semanticResources.writerHandlers(intelStore), service, intelStore))
 	semanticResources.bindWriter(writeQueue)
 	finalizer := &unifiedBatchFinalizer{writeQueue: writeQueue, semanticResources: semanticResources}

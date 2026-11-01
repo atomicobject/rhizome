@@ -55,8 +55,10 @@ func TestEmbeddingCacheSurvivesRetirementAndMatchesExactKey(t *testing.T) {
 }
 
 // A database upgraded from v77 or earlier has vectors but no cache rows; the
-// v78 step copies them so the first ownership transition, projection bump, or
-// plain-note edit reuses them.
+// v78 step copies ontology vectors so the first ownership transition or
+// projection bump reuses them. Plain-note vectors are copied once by
+// BackfillNoteEmbeddingCache, and only when the caller's section limit makes
+// the stored hashes exact.
 func TestEmbeddingCacheBackfillsExistingVectorsOnUpgrade(t *testing.T) {
 	ctx := context.Background()
 	path := currentSchemaTestDBPath(t, "ontology-embedding-cache-backfill.db")
@@ -76,9 +78,27 @@ func TestEmbeddingCacheBackfillsExistingVectorsOnUpgrade(t *testing.T) {
 	store, err = Open(path)
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
-	got, err := store.EmbeddingCacheVectors(ctx, "test", "deterministic", 3, []string{"chunk-hash", "note-hash"})
+	cached := func() map[string]embeddings.Embedding {
+		t.Helper()
+		got, err := store.EmbeddingCacheVectors(ctx, "test", "deterministic", 3, []string{"chunk-hash", "note-hash"})
+		require.NoError(t, err)
+		return got
+	}
+	require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}}, cached(), "the migration backfills only ontology vectors")
+
+	pending, err := store.NoteEmbeddingCacheBackfillPending(ctx)
 	require.NoError(t, err)
-	require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}, "note-hash": {0, 0, 1}}, got, "ontology and plain-note vectors are both backfilled")
+	require.True(t, pending)
+	require.NoError(t, store.BackfillNoteEmbeddingCache(ctx, false))
+	require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}}, cached(), "a non-default section limit copies no plain-note vectors")
+	pending, err = store.NoteEmbeddingCacheBackfillPending(ctx)
+	require.NoError(t, err)
+	require.False(t, pending, "the skipped backfill is recorded, so it never runs later")
+
+	_, err = store.db.ExecContext(ctx, `DELETE FROM index_metadata WHERE key = ?`, noteEmbeddingCacheBackfillKey)
+	require.NoError(t, err)
+	require.NoError(t, store.BackfillNoteEmbeddingCache(ctx, true))
+	require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}, "note-hash": {0, 0, 1}}, cached(), "the default limit backfills plain-note vectors")
 }
 
 // A schema-recovery domain reset keeps an intact cache, like the note and code
@@ -126,7 +146,6 @@ func TestEmbeddingCacheRepairsInterimV78Table(t *testing.T) {
 	store, err := Open(path)
 	require.NoError(t, err)
 	seedOntologyNodeSemanticRows(t, store) // state: test/deterministic, "chunk-hash", vector {1, 0, 0}
-	seedPlainNoteSectionVector(t, store, "note-hash", embeddings.Embedding{0, 0, 1})
 	for _, stmt := range []string{
 		`DROP TABLE intel_embedding_cache`,
 		`CREATE TABLE ontology_embedding_cache (
@@ -153,10 +172,10 @@ func TestEmbeddingCacheRepairsInterimV78Table(t *testing.T) {
 			{Provider: "test", Model: "deterministic", TextHash: "new-hash", Vector: embeddings.Embedding{0, 1, 0}},
 		}))
 		// Unknown dimensions resolve to the single cached size.
-		got, err := store.EmbeddingCacheVectors(ctx, "test", "deterministic", 0, []string{"chunk-hash", "new-hash", "note-hash", "edited-away"})
+		got, err := store.EmbeddingCacheVectors(ctx, "test", "deterministic", 0, []string{"chunk-hash", "new-hash", "edited-away"})
 		require.NoError(t, err)
-		require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}, "new-hash": {0, 1, 0}, "note-hash": {0, 0, 1}, "edited-away": {1, 0, 0}}, got,
-			"the interim table's rows move, including unreferenced history, and stored vectors are backfilled")
+		require.Equal(t, map[string]embeddings.Embedding{"chunk-hash": {1, 0, 0}, "new-hash": {0, 1, 0}, "edited-away": {1, 0, 0}}, got,
+			"the interim table's rows move, including unreferenced history, and stored ontology vectors are backfilled")
 		legacy, err := tableExistsQuery(ctx, store.db, legacyEmbeddingCacheTable)
 		require.NoError(t, err)
 		require.False(t, legacy, "the interim table is dropped")

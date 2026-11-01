@@ -2,6 +2,7 @@ package embedindex
 
 import (
 	"context"
+	"slices"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
@@ -25,7 +26,15 @@ func (s *NoteSyncer) ComputeDerived(ctx context.Context, plan NotePlan, sink fun
 		opts = *s.NoteEmbedPacker
 	}
 	pipeline := newNoteEmbeddingPipelineWithNode(ctx, s.Provider, s.EmbeddingNode, s.maxConcurrent(), s.EmbedGate, opts)
-	return runPreparedPipeline(ctx, plan.tasks, plan.TotalWork, s.maxConcurrent(), indexingperf.NoteembedPrepare, indexingperf.NoteembedReadyEnqueueWait, pipeline.preparedCh, pipeline.run,
+	var incomplete []NoteDerivedResult
+	pipeline.stage.core.abandon = func(owners []*notePipelineOwner) {
+		for _, owner := range owners {
+			if slices.ContainsFunc(owner.missingVecs, func(vec embeddings.Embedding) bool { return len(vec) > 0 }) {
+				incomplete = append(incomplete, NoteDerivedResult{task: owner.prepared.task, prepared: owner.prepared, vectors: owner.missingVecs})
+			}
+		}
+	}
+	err := runPreparedPipeline(ctx, plan.tasks, plan.TotalWork, s.maxConcurrent(), indexingperf.NoteembedPrepare, indexingperf.NoteembedReadyEnqueueWait, pipeline.preparedCh, pipeline.run,
 		func(ctx context.Context, task noteTask) (*notePreparedTask, error) {
 			if reused := len(task.payload.reuseChunks); reused > 0 {
 				indexingperf.AddCount(ctx, indexingperf.NoteembedReuseHits, int64(reused))
@@ -37,7 +46,23 @@ func (s *NoteSyncer) ComputeDerived(ctx context.Context, plan NotePlan, sink fun
 				return sink(ctx, NoteDerivedResult{task: owner.prepared.task, prepared: owner.prepared, vectors: owner.missingVecs})
 			})
 		}, s.OnEmbedProgress)
+	if err != nil && len(incomplete) > 0 {
+		return &IncompleteDerivedError[NoteDerivedResult]{Err: err, Results: incomplete}
+	}
+	return err
 }
+
+// IncompleteDerivedError reports a failed computation together with the
+// owners it left incomplete. Their results hold every vector the provider
+// returned (nil where it did not), so a caller can cache them; they must not
+// be published.
+type IncompleteDerivedError[R any] struct {
+	Err     error
+	Results []R
+}
+
+func (e *IncompleteDerivedError[R]) Error() string { return e.Err.Error() }
+func (e *IncompleteDerivedError[R]) Unwrap() error { return e.Err }
 
 // RetainedBytes approximates the vector memory a publisher holds for result.
 func (r NoteDerivedResult) RetainedBytes() int { return vectorBytes(r.vectors) }

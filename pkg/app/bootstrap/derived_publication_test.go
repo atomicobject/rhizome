@@ -12,6 +12,7 @@ import (
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -121,6 +122,29 @@ func TestDerivedPublicationStopsWhenWorkIsSupersededMidPass(t *testing.T) {
 	pending, err := store.HasDerivedWork(t.Context(), codeanchor.DerivedCode)
 	require.NoError(t, err)
 	require.True(t, pending, "superseded work is never acknowledged")
+}
+
+// A failed compute reports the owners it left incomplete; their vectors are
+// cached but never published, so the retry sends only the text that failed.
+func TestDerivedPublicationCachesIncompleteResultsOfFailedCompute(t *testing.T) {
+	s, _, ticket := derivedPublicationFixture(t)
+	providerErr := errors.New("provider rejected text")
+	var published, cached []fakeDerivedResult
+	err := computeAndPublish(s, t.Context(), ticket, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
+		if err := sink(ctx, 1); err != nil {
+			return err
+		}
+		return &embedindex.IncompleteDerivedError[fakeDerivedResult]{Err: providerErr, Results: []fakeDerivedResult{2}}
+	}, func(_ context.Context, r fakeDerivedResult) error {
+		published = append(published, r)
+		return nil
+	}, func(_ context.Context, results ...fakeDerivedResult) error {
+		cached = append(cached, results...)
+		return nil
+	})
+	require.ErrorIs(t, err, providerErr)
+	require.Equal(t, []fakeDerivedResult{1}, published)
+	require.Equal(t, []fakeDerivedResult{2}, cached)
 }
 
 func TestDerivedPublicationYieldsToExplicitIndexBetweenBatches(t *testing.T) {

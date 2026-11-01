@@ -176,9 +176,9 @@ type derivedResult interface{ RetainedBytes() int }
 // error once a batch fails; a failed batch also cancels compute's context so
 // the pass stops calling the provider. It returns after the publisher has
 // drained, so a nil result means every computed result was published. A
-// non-nil cache records the vectors of every result left unpublished because
-// publication failed or was superseded or compute was cancelled, so the retry
-// or replacement ticket does not send the same text to the provider again.
+// non-nil cache records the vectors of every result left unpublished (failed or
+// superseded publication, cancelled compute, or an owner a failed compute left
+// incomplete), so the retry or replacement does not resend that text.
 func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error, cache func(context.Context, ...R) error) error {
 	computeCtx, stopCompute := context.WithCancel(ctx)
 	defer stopCompute()
@@ -256,6 +256,10 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 	<-done
 	for result := range results {
 		keep(result)
+	}
+	var incomplete *embedindex.IncompleteDerivedError[R]
+	if errors.As(err, &incomplete) {
+		keep(incomplete.Results...)
 	}
 	if cache != nil && len(unpublished) > 0 {
 		if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return cache(ctx, unpublished...) }); cacheErr != nil && ctx.Err() == nil {

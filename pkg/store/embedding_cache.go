@@ -60,7 +60,7 @@ func embeddingCacheIntact(ctx context.Context, q queryRower) (bool, error) {
 // repairEmbeddingCache converges a current-version database from an interim
 // build without resetting the rest of Intel: it rebuilds a cache table whose
 // columns are wrong, moves the rows of the interim ontology-only table, and
-// backfills both from stored vectors.
+// backfills ontology vectors from stored vectors.
 func (s *Store) repairEmbeddingCache(ctx context.Context) error {
 	version, dirty, exists, err := s.intelSchemaState(ctx)
 	if err != nil || !exists || dirty || version != currentSchemaVersion {
@@ -231,21 +231,33 @@ func (s *Store) UpsertEmbeddingCache(ctx context.Context, entries []EmbeddingCac
 	})
 }
 
-// backfillEmbeddingCacheSchema copies ontology and plain-note vectors
-// embedded before the cache existed, so the first ownership transition,
-// projection-version bump, or edit after an upgrade reuses them instead of
-// calling the provider. Plain-note vectors take their provider and model from
-// the note embedding index metadata in the same database, and only at its
-// recorded size. A vector table that cannot be read is skipped; its text is
-// embedded once later.
+// backfillEmbeddingCacheSchema copies ontology vectors embedded before the
+// cache existed, so the first ownership transition or projection-version bump
+// after an upgrade reuses them instead of calling the provider. Ontology state
+// hashes are the hashes of the exact embedded text. Plain-note vectors are not
+// copied here: their stored hashes depend on the configured section limit,
+// which only indexing knows (BackfillNoteEmbeddingCache). A vector table that
+// cannot be read is skipped; its text is embedded once later.
 func backfillEmbeddingCacheSchema(ctx context.Context, tx *sql.Tx) error { // v77 -> v78
 	if err := createEmbeddingCacheSchema(ctx, tx); err != nil {
 		return err
 	}
-	noteMeta, err := tableExistsQuery(ctx, tx, "emb_index_meta")
-	if err != nil {
+	return forEachIntelVectorTable(ctx, tx, func(dims int, vecTable string) error {
+		_, err := tx.ExecContext(ctx, fmt.Sprintf(`
+			INSERT OR IGNORE INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector)
+			SELECT s.provider, s.model, length(v.embedding) / 4, s.chunk_text_hash, v.embedding
+			FROM ontology_node_embedding_state s
+			JOIN intel_embeddings e ON e.chunk_id = s.chunk_id AND e.dimensions = ?
+			JOIN %s v ON v.chunk_id = e.chunk_row_id
+			WHERE COALESCE(s.provider, '') != '' AND COALESCE(s.model, '') != '' AND s.chunk_text_hash != ''
+				AND length(v.embedding) = ? * 4`, vecTable), dims, dims)
 		return err
-	}
+	})
+}
+
+// forEachIntelVectorTable calls fn for each stored Intel vector size whose
+// vector table exists. An fn error stops the walk only when ctx is done.
+func forEachIntelVectorTable(ctx context.Context, tx *sql.Tx, fn func(dims int, vecTable string) error) error {
 	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT dimensions FROM intel_embeddings WHERE dimensions > 0`)
 	if err != nil {
 		return err
@@ -272,34 +284,61 @@ func backfillEmbeddingCacheSchema(ctx context.Context, tx *sql.Tx) error { // v7
 		if !exists {
 			continue
 		}
-		_, err = tx.ExecContext(ctx, fmt.Sprintf(`
-			INSERT OR IGNORE INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector)
-			SELECT s.provider, s.model, length(v.embedding) / 4, s.chunk_text_hash, v.embedding
-			FROM ontology_node_embedding_state s
-			JOIN intel_embeddings e ON e.chunk_id = s.chunk_id AND e.dimensions = ?
-			JOIN %s v ON v.chunk_id = e.chunk_row_id
-			WHERE COALESCE(s.provider, '') != '' AND COALESCE(s.model, '') != '' AND s.chunk_text_hash != ''
-				AND length(v.embedding) = ? * 4`, intelVecTableName(dims)), dims, dims)
-		if err != nil && ctx.Err() != nil {
-			return err
-		}
-		if !noteMeta {
-			continue
-		}
-		_, err = tx.ExecContext(ctx, fmt.Sprintf(`
-			INSERT OR IGNORE INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector)
-			SELECT m.provider, m.model, length(v.embedding) / 4, c.content_hash, v.embedding
-			FROM emb_index_meta m
-			JOIN intel_chunks c ON c.owner_type = 'doc_section' AND c.content_hash != ''
-			JOIN intel_embeddings e ON e.chunk_id = c.chunk_id AND e.dimensions = ?
-			JOIN %s v ON v.chunk_id = e.chunk_row_id
-			WHERE m.id = 1 AND COALESCE(m.provider, '') != '' AND COALESCE(m.model, '') != '' AND m.dimensions = ?
-				AND length(v.embedding) = ? * 4`, intelVecTableName(dims)), dims, dims, dims)
-		if err != nil && ctx.Err() != nil {
+		if err := fn(dims, intelVecTableName(dims)); err != nil && ctx.Err() != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// noteEmbeddingCacheBackfillKey records in index_metadata that plain-note
+// vectors stored before the cache existed have been considered.
+const noteEmbeddingCacheBackfillKey = "intel_embedding_cache_note_backfill"
+
+// NoteEmbeddingCacheBackfillPending reports whether BackfillNoteEmbeddingCache
+// has not yet run on this database.
+func (s *Store) NoteEmbeddingCacheBackfillPending(ctx context.Context) (bool, error) {
+	_, ok, err := s.GetMetadata(ctx, noteEmbeddingCacheBackfillKey)
+	return !ok, err
+}
+
+// BackfillNoteEmbeddingCache runs once per database: it copies published
+// plain-note vectors into the cache under their stored chunk hashes, taking
+// provider and model from the note embedding index metadata, and records that
+// it ran. Builds before the cache hashed authored sections at the default
+// section limit whatever limit embedded them, so the stored hash names the
+// embedded text only when the effective limit is the default; any other
+// caller passes copyVectors false and only records the marker. A one-time
+// cache miss is acceptable; a vector served for differently truncated text is
+// not.
+func (s *Store) BackfillNoteEmbeddingCache(ctx context.Context, copyVectors bool) error {
+	ctx = indexingperf.WithOp(ctx, "intel.backfill_note_embedding_cache")
+	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+		noteMeta, err := tableExistsQuery(ctx, tx, "emb_index_meta")
+		if err != nil {
+			return err
+		}
+		if copyVectors && noteMeta {
+			if err := forEachIntelVectorTable(ctx, tx, func(dims int, vecTable string) error {
+				_, err := tx.ExecContext(ctx, fmt.Sprintf(`
+					INSERT OR IGNORE INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector)
+					SELECT m.provider, m.model, length(v.embedding) / 4, c.content_hash, v.embedding
+					FROM emb_index_meta m
+					JOIN intel_chunks c ON c.owner_type = 'doc_section' AND c.content_hash != ''
+					JOIN intel_embeddings e ON e.chunk_id = c.chunk_id AND e.dimensions = ?
+					JOIN %s v ON v.chunk_id = e.chunk_row_id
+					WHERE m.id = 1 AND COALESCE(m.provider, '') != '' AND COALESCE(m.model, '') != '' AND m.dimensions = ?
+						AND length(v.embedding) = ? * 4`, vecTable), dims, dims, dims)
+				return err
+			}); err != nil {
+				return err
+			}
+		}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO index_metadata(key, value) VALUES (?, '1')
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value`, noteEmbeddingCacheBackfillKey)
+		return err
+	})
 }
 
 // PruneEmbeddingCache deletes cached vectors that an earlier chunk-text

@@ -196,6 +196,17 @@ func (s *NoteSyncer) ensureReady(ctx context.Context) error {
 	return nil
 }
 
+// SectionMaxBytes returns the section limit that embeds note text, after
+// applying the provider's context cap.
+func (s *NoteSyncer) SectionMaxBytes(ctx context.Context) int {
+	s.applyProviderCaps(ctx)
+	return s.sectionMaxBytes()
+}
+
+// DefaultSectionMaxBytes is the section limit when neither the configuration
+// nor the provider sets one.
+const DefaultSectionMaxBytes = defaultSectionMaxBytes
+
 func (s *NoteSyncer) sectionMaxBytes() int {
 	if s.MaxSectionBytes > 0 {
 		return s.MaxSectionBytes

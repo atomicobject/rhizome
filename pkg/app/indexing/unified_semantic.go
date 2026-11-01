@@ -221,3 +221,18 @@ func prepareUnifiedSemanticResources(
 	ready = true
 	return res, nil
 }
+
+// backfillNoteEmbeddingCache copies plain-note vectors published before the
+// Intel vector cache existed into it, once per database. Their stored chunk
+// hashes name the embedded text only at the default section limit, so under
+// any other limit it records the run without copying.
+func backfillNoteEmbeddingCache(ctx context.Context, intelStore *semdb.Store, syncer *embedindex.NoteSyncer) error {
+	if syncer == nil {
+		return nil
+	}
+	pending, err := intelStore.NoteEmbeddingCacheBackfillPending(ctx)
+	if err != nil || !pending {
+		return err
+	}
+	return intelStore.BackfillNoteEmbeddingCache(ctx, syncer.SectionMaxBytes(ctx) == embedindex.DefaultSectionMaxBytes)
+}
