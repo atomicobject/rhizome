@@ -302,6 +302,7 @@ export function TasksWorkspace({
         />
         {item ? (
           <TaskItemStrip
+            key={item.id}
             item={item}
             busy={pending === "item"}
             launching={live.watch?.item === item.id}

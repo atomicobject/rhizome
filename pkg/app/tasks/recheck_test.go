@@ -158,3 +158,22 @@ func TestCopyPromptHasNoBranchStep(t *testing.T) {
 		t.Fatal("a closed item has no prompt to copy")
 	}
 }
+
+func TestFailedRecheckLeavesAClosedItemClosed(t *testing.T) {
+	svc, _ := clockedService(t, &fakeAgent{})
+	ctx := context.Background()
+	answer(t, svc, `{"needed": true, "summary": "3 notes need tidying"}`)
+	if _, err := svc.RunDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	item := taskItems(mustState(t, svc), "tidy")[0]
+	def := Definition{ID: "tidy"}
+	// The person closes the item while its re-check is still running.
+	if err := svc.Done(ctx, item.ID); err != nil {
+		t.Fatal(err)
+	}
+	svc.failRecheck(ctx, def, svc.newAttempt(false), item.ID, "", "check failed: boom")
+	if it := taskItems(mustState(t, svc), "tidy")[0]; it.State != StateDone {
+		t.Fatalf("a failed re-check must not reopen a closed item, got %s", it.State)
+	}
+}

@@ -315,7 +315,7 @@ func (s *Service) recheck(ctx context.Context, def Definition, itemID, commit st
 		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, "")
 		log.Close()
 		if err != nil {
-			return s.fail(ctx, def, a, itemID, commit, "check failed: "+err.Error(), 0)
+			return s.failRecheck(ctx, def, a, itemID, commit, "check failed: "+err.Error())
 		}
 	}
 	outcome := OutcomeNotified
@@ -343,6 +343,24 @@ func (s *Service) recheck(ctx context.Context, def Definition, itemID, commit st
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID}
+}
+
+// failRecheck records a failed re-check and moves its item to needs
+// attention only while the item is still due: the person may have closed it
+// while the check ran.
+func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, itemID, commit, reason string) Outcome {
+	now := s.opts.Now()
+	_ = s.store.Update(ctx, func(st *State) error {
+		if it, _ := st.Item(itemID); it != nil && it.State == StateDue {
+			it.set(StateAttention, now)
+			it.Reason, it.Tokens = reason, 0
+		}
+		r := a.record(def.ID, OutcomeFailed, now)
+		r.Message, r.Item, r.Commit = reason, itemID, commit
+		st.Record(r)
+		return nil
+	})
+	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
 }
 
 // fail records a failed run, with any tokens it used, and a needs-attention
