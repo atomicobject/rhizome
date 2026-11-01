@@ -76,7 +76,8 @@ func (s *CodeStore) ensureSchemaStatements() []string {
                 embedding    BLOB NOT NULL,
                 norm         REAL NOT NULL DEFAULT 0,
                 dimensions   INTEGER NOT NULL,
-                created_at   INTEGER NOT NULL
+                created_at   INTEGER NOT NULL,
+                format       TEXT NOT NULL DEFAULT ''
         );`,
 		`CREATE INDEX IF NOT EXISTS idx_code_chunk_embeddings_item_row_id ON ` + codeTableChunkEmbeddings + `(item_row_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_code_chunk_embeddings_granularity_lower ON ` + codeTableChunkEmbeddings + `(lower(granularity));`,

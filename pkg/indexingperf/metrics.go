@@ -217,7 +217,6 @@ const (
 	NoteembEnsureSchema                              MetricName = "noteemb.ensure_schema"
 	NoteembEnsureVecMirror                           MetricName = "noteemb.ensure_vec_mirror"
 	NoteembIncrementSyncGeneration                   MetricName = "noteemb.increment_sync_generation"
-	NoteembPruneStaleCache                           MetricName = "noteemb.prune_stale_cache"
 	NoteembPruneStaleNotes                           MetricName = "noteemb.prune_stale_notes"
 	NoteembResetDomain                               MetricName = "noteemb.reset_domain"
 	NoteembResetDomainPreserveCache                  MetricName = "noteemb.reset_domain_preserve_cache"

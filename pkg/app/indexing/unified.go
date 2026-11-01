@@ -433,7 +433,7 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err := finalizer.FlushQueue(ctx); err != nil {
 		return err
 	}
-	if err := pruneObsoleteEmbeddings(ctx, intelStore, writeQueue.SubmitMaintenance); err != nil {
+	if err := pruneObsoleteEmbeddings(ctx, intelStore, semanticResources.noteStore, semanticResources.codeStore, writeQueue.SubmitMaintenance); err != nil {
 		return fmt.Errorf("submit embedding cache maintenance: %w", err)
 	}
 	semanticResources.close()

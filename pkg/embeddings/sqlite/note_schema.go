@@ -49,7 +49,8 @@ func (s *NoteStore) ensureSchemaStatements() []string {
 			embedding    BLOB NOT NULL,
 			norm         REAL NOT NULL DEFAULT 0,
 			dimensions   INTEGER NOT NULL,
-			created_at   INTEGER NOT NULL
+			created_at   INTEGER NOT NULL,
+			format       TEXT NOT NULL DEFAULT ''
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_emb_chunk_embeddings_note_row_id ON ` + tableChunkEmbeddings + `(note_row_id);`,
 	}

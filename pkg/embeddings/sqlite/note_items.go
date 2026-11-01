@@ -47,7 +47,7 @@ func validateNoteExisting(ctx context.Context, db *sql.DB, expected embeddings.I
 	return nil
 }
 
-const noteSchemaVersion = 7
+const noteSchemaVersion = 8
 
 func chunkVecTableName(dims int) string {
 	return fmt.Sprintf("%s%d", vecChunkTablePrefix, dims)

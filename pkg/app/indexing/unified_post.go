@@ -12,6 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeemb "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/embedindex"
 	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
@@ -161,14 +162,15 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
 }
 
-// pruneObsoleteEmbeddings drops cached ontology vectors that an earlier
-// chunk-text format produced and no current chunk uses. It runs after the
+// pruneObsoleteEmbeddings drops cached ontology, note, and code vectors that an
+// earlier text format produced and no current chunk uses. It runs after the
 // index acknowledged its derived work, and only when none remains pending,
-// because vectors awaiting republication look unreferenced until then.
-// The delete runs through submit, the writer's ordered maintenance control. A
+// because vectors awaiting republication look unreferenced until then. A nil
+// note or code store (embeddings disabled or unavailable) is skipped.
+// The deletes run through submit, the writer's ordered maintenance control. A
 // prune failure is reported and swallowed inside the callback, because an
 // error returned there stops the writer; only a failure to submit is returned.
-func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, submit func(context.Context, func(context.Context) error) error) error {
+func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, noteStore *codeemb.NoteStore, codeStore *codeemb.CodeStore, submit func(context.Context, func(context.Context) error) error) error {
 	if intelStore == nil {
 		return nil
 	}
@@ -178,10 +180,25 @@ func pruneObsoleteEmbeddings(ctx context.Context, intelStore *semdb.Store, submi
 			return nil
 		}
 	}
+	type cachePrune struct {
+		cache string
+		prune func(context.Context) (int64, error)
+	}
+	prunes := []cachePrune{{"ontology", func(ctx context.Context) (int64, error) {
+		return intelStore.PruneOntologyEmbeddingCache(ctx, embedindex.OntologyEmbeddingTextFormat)
+	}}}
+	if noteStore != nil {
+		prunes = append(prunes, cachePrune{"notes", noteStore.PruneEmbeddingCache})
+	}
+	if codeStore != nil {
+		prunes = append(prunes, cachePrune{"code", codeStore.PruneEmbeddingCache})
+	}
 	return submit(ctx, func(runCtx context.Context) error {
-		if _, err := intelStore.PruneOntologyEmbeddingCache(runCtx, embedindex.OntologyEmbeddingTextFormat); err != nil {
-			if recorder := diagnostics.FromContext(ctx); recorder != nil {
-				recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", "ontology"))
+		for _, p := range prunes {
+			if _, err := p.prune(runCtx); err != nil {
+				if recorder := diagnostics.FromContext(ctx); recorder != nil {
+					recorder.Event(ctx, slog.LevelWarn, "indexing", "embedding_cache.prune_failed", err.Error(), slog.String("cache", p.cache))
+				}
 			}
 		}
 		return nil
