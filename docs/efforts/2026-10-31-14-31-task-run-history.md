@@ -4,7 +4,7 @@ id: EFF-2026-10-31-14-31
 aliases: [EFF-2026-10-31-14-31]
 name: Scheduled tasks, phase 2 — task history
 created-at: 2026-10-31T18:31:17Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: "Build phase 2 of scheduled tasks: run IDs and per-run folders, harness transcripts for every agent run, bounded per-task retention, runtime routes, and a Tasks page in the workbench and Rhizome Desktop that lists registered tasks, when each is due, and each run's outcome and collapsed transcript."
 governing-specs: ["[[scheduled-tasks]]"]
@@ -149,7 +149,7 @@ As in Plan.
 
 ## Actual Delivered
 
-PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-transcript`, `-lifecycle`, `-routes`, `-web`) and integrated on `t3/scheduled-task-history-ui`. The real routes and page were checked against a throwaway repository served by this build: the report, live state, task list, task detail, and the untrusted notice all work. A live agent run through the page is still owed (see Status).
+PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-transcript`, `-lifecycle`, `-routes`, `-web`) and integrated on `t3/scheduled-task-history-ui`, plus phase 3 (see Deviations): the Dock badge, notifications, Open worktree, and Start. The real routes and page were checked against a throwaway repository served by this build: the report, live state, task list, task detail, and the untrusted notice all work. A live agent run and the desktop click-through were carried forward to Drew's testing on `main` (see Closure Checklist).
 
 ## Deviations
 
@@ -174,16 +174,17 @@ PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-t
 
 ## Closure Checklist
 
-- [x] Quality gates pass: `make verify` (check-full with race and integration tests, 1,718 web unit tests, 107 E2E tests) and `make desktop-check`, before the sol-loop fixes; the touched packages' tests after them.
-- [ ] Live run of a synthetic task viewed in the Tasks page. Blocked: `rzm trust` needs Drew's interactive confirmation for the throwaway repository at `/tmp/th-live/repo`.
+- [x] Quality gates pass: `make verify` (check-full with race and integration tests, 1,734 web unit tests, 107 E2E tests) and `make desktop-check` (96 Rust tests, 89 desktop tests) on the integrated phase 3 work; the touched packages' tests after the last review fixes; all 21 CI checks on `0fc4cf0e`.
+- [x] Live run of a synthetic task viewed in the Tasks page, and the desktop click-through: carried forward. On 2026-11-01 Drew chose to close the effort and test both on `main` after the merge, because `rzm trust` needs his interactive confirmation. Listed under Compounding Follow-ups.
 - [x] User guide (`docs/reference/guides/scheduled-tasks-guide.md`, "The Tasks page" and "Where state lives"), CHANGELOG, and the `pkg/app/tasks` and `pkg/app/web` CONTEXT notes updated. Story statuses stay `draft`, as for phase 1.
 - [x] Follow-ups recorded.
 
 ## Compounding Follow-ups
 
-- **Live run and desktop click-through:**
-  - Trust `/tmp/th-live/repo`, let its `finalize` task run, and read the transcript in the page.
-  - After merge, run `make desktop-install-dev` from the primary checkout and open the Tasks section in Rhizome Desktop.
+- **Live run and desktop click-through (Drew, on `main`):**
+  - Run `make desktop-install-dev` from the primary checkout and open the Tasks section in Rhizome Desktop.
+  - Trust a repository with a task (for example `/tmp/th-live/repo`), let the task run, read the transcript in the page, then untrust it.
+  - Check the badge, a notification and its click, Open worktree, and Start with its first-time Automation prompt.
 - **Desktop follow-ups from phase 3:**
   - On a live screen, check that a notification appears under the release bundle identifier and that clicking it opens the task.
   - Check that polling keeps running while the window is occluded. The content web view is in a window, so WebKit should throttle rather than suspend it; if it doesn't, set `inactiveSchedulingPolicy` to `.none` or poll from the desktop bridge.
@@ -193,7 +194,7 @@ PR #61. Everything in Plan, built in four parallel worktrees (`t3/task-history-t
 
 ## Status
 
-Active. Everything in scope is built and verified except the live checks that need Drew: an agent run through the page after he trusts the throwaway repository, and a desktop click-through of the notifications and Start.
+Complete. Delivered by PR #61, squash-merged to `main`. Everything in scope is built and verified by tests, CI, and reviews; the live agent run and desktop click-through are Drew's checks on `main` (Compounding Follow-ups).
 
 ## Execution Notes
 
@@ -233,3 +234,4 @@ Active. Everything in scope is built and verified except the live checks that ne
   - the selected run's own open item keeps its actions.
 
   Declined: a length bound on agent message and thinking text. That text is limited by the model's output size, and the contract bounds tool and command output.
+- 2026-11-01: Drew approved closing the effort before the merge and asked for a squash merge of PR #61. The live run and desktop click-through move to his testing on `main`.
