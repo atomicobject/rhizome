@@ -245,6 +245,17 @@ func truncate(s string, n int) string {
 // event records an outcome and its duration. Attributes carry sub and
 // session IDs only: never tokens, codes, or email addresses.
 func (s *Service) event(ctx context.Context, name, outcome string, start time.Time, attrs ...slog.Attr) {
+	if info := core.DiagnosticsFrom(ctx); info != nil {
+		info.Authentication = s.now().Sub(start)
+		for _, attr := range attrs {
+			if attr.Key == "sub" {
+				info.Sub = attr.Value.String()
+			}
+			if attr.Key == "session_id" {
+				info.SessionID = attr.Value.String()
+			}
+		}
+	}
 	RecordEvent(ctx, s.rec, subsystem, name, outcome, s.now().Sub(start), attrs...)
 }
 
@@ -259,6 +270,11 @@ func RecordEvent(ctx context.Context, rec *diagnostics.Recorder, sub, name, outc
 		level = slog.LevelError
 	}
 	metrics, _ := json.Marshal(map[string]float64{"duration_ms": float64(d.Microseconds()) / 1000})
+	for i, attr := range attrs {
+		if attr.Key == "sub" || attr.Key == "session_id" || attr.Key == "target" {
+			attrs[i] = slog.String(attr.Key, core.LogIdentifier(attr.Value.String()))
+		}
+	}
 	attrs = append(attrs, slog.String("outcome", outcome))
 	rec.EventMetrics(ctx, level, sub, name, fmt.Sprintf("%s %s", name, outcome), metrics, attrs...)
 }

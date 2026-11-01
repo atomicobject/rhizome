@@ -28,6 +28,7 @@ const (
 	// a Desktop client's secret as public metadata, so it is not a credential
 	// the gateway relies on, but it still stays out of the config file.
 	ClientSecretEnv = "RHIZOME_TEAM_API_CLIENT_SECRET"
+	JSONEnv         = "RHIZOME_TEAM_API_CONFIG"
 )
 
 type Config struct {
@@ -61,10 +62,12 @@ type Config struct {
 	// enforces the same values.
 	Concurrency wire.Limits `json:"concurrency"`
 
-	Sessions         Sessions  `json:"sessions"`
-	MinClientVersion string    `json:"min_client_version"`
-	Upstreams        Upstreams `json:"upstreams"`
-	DiagnosticsDir   string    `json:"diagnostics_dir"`
+	Sessions          Sessions  `json:"sessions"`
+	MinClientVersion  string    `json:"min_client_version"`
+	Upstreams         Upstreams `json:"upstreams"`
+	DiagnosticsDir    string    `json:"diagnostics_dir"`
+	DiagnosticsOutput string    `json:"diagnostics_output"`
+	TrustedProxyCIDRs []string  `json:"trusted_proxy_cidrs"`
 }
 
 // State selects the backend for serve. Dev always uses SQLite.
@@ -117,6 +120,20 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
 	cfg.ClientSecret = os.Getenv(ClientSecretEnv)
+	return cfg, nil
+}
+
+// LoadEnvironment reads the complete configuration without exposing its contents
+// in errors. File configuration remains an explicit alternative.
+func LoadEnvironment() (Config, error) {
+	cfg, err := Parse([]byte(os.Getenv(JSONEnv)))
+	if err != nil {
+		return Config{}, errors.New("invalid " + JSONEnv + "; check the server configuration")
+	}
+	cfg.ClientSecret = os.Getenv(ClientSecretEnv)
+	if cfg.DiagnosticsOutput == "" {
+		cfg.DiagnosticsOutput = "stdout"
+	}
 	return cfg, nil
 }
 
@@ -180,6 +197,14 @@ func (c Config) Validate() error {
 	var errs []error
 	fail := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 
+	if c.DiagnosticsOutput != "" && c.DiagnosticsOutput != "files" && c.DiagnosticsOutput != "stdout" {
+		fail("diagnostics_output must be files or stdout")
+	}
+	for _, cidr := range c.TrustedProxyCIDRs {
+		if _, network, err := net.ParseCIDR(cidr); err != nil || network == nil {
+			fail("trusted_proxy_cidrs must contain valid CIDRs")
+		}
+	}
 	if c.Listen == "" {
 		fail("listen is required")
 	}

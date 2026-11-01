@@ -1,0 +1,280 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Rhizome team API pilot on ECS Express Mode. Bootstrap disabled, configure out of band, then enable.
+Parameters:
+  ImageTag:
+    Type: String
+    Default: bootstrap
+    AllowedPattern: 'bootstrap|[a-f0-9]{40}'
+    Description: Immutable Git commit SHA in this stack's ECR repository.
+  DeploymentId:
+    Type: String
+    Default: bootstrap
+    Description: A new value forces tasks to reload SSM and Secrets Manager, even for a rollback.
+  EnableService:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Keep false for bootstrap; never turn false after the service exists (Retain would orphan it).
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Set true only if token.actions.githubusercontent.com is not already registered in this account.
+Conditions:
+  Serving: !Equals [!Ref EnableService, 'true']
+  CreateOidc: !Equals [!Ref CreateGitHubOidcProvider, 'true']
+Resources:
+  Repository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration: {ScanOnPush: true}
+      EncryptionConfiguration: {EncryptionType: AES256}
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      DeletionProtectionEnabled: true
+  VoyageSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Set the Voyage API key out of band before enabling the service.
+      SecretString: NOT_CONFIGURED
+  TypeSafeSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Set the TypeSafe API key out of band before enabling the service.
+      SecretString: NOT_CONFIGURED
+  ClientSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Set the Google Desktop OAuth client secret out of band.
+      SecretString: NOT_CONFIGURED
+  Config:
+    Type: AWS::SSM::Parameter
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Type: String
+      Tier: Advanced
+      Value: '{}'
+      Description: Full team-api JSON configuration. Set out of band, never pass the value through CI or CloudFormation.
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PullImageAndDeliverConfiguration
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action: [ecr:BatchCheckLayerAvailability, ecr:GetDownloadUrlForLayer, ecr:BatchGetImage]
+                Resource: !GetAtt Repository.Arn
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt Logs.Arn
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: [!Ref VoyageSecret, !Ref TypeSafeSecret, !Ref ClientSecret]
+              - Effect: Allow
+                Action: ssm:GetParameters
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Config}'
+  TaskRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: GatewayStateOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:DeleteItem, dynamodb:ConditionCheckItem, dynamodb:Query]
+                Resource: !GetAtt StateTable.Arn
+  InfrastructureRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices'
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Family: !Sub '${AWS::StackName}-gateway'
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '1024'
+      Memory: '2048'
+      RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: Main
+          Image: !Sub '${Repository.RepositoryUri}:${ImageTag}'
+          Essential: true
+          User: '65532:65532'
+          ReadonlyRootFilesystem: true
+          PortMappings:
+            - {ContainerPort: 8080, Protocol: tcp, Name: http}
+          Environment:
+            - {Name: DEPLOYMENT_ID, Value: !Ref DeploymentId}
+          Secrets:
+            - {Name: RHIZOME_TEAM_API_CONFIG, ValueFrom: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Config}'}
+            - {Name: VOYAGE_API_KEY, ValueFrom: !Ref VoyageSecret}
+            - {Name: TYPESAFE_API_KEY, ValueFrom: !Ref TypeSafeSecret}
+            - {Name: RHIZOME_TEAM_API_CLIENT_SECRET, ValueFrom: !Ref ClientSecret}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref Logs
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: gateway
+  Gateway:
+    Type: AWS::ECS::ExpressGatewayService
+    Condition: Serving
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      # These three properties require replacement. Never change them after bootstrap.
+      Cluster: default
+      ServiceName: !Ref AWS::StackName
+      InfrastructureRoleArn: !GetAtt InfrastructureRole.Arn
+      TaskDefinitionArn: !Ref TaskDefinition
+      HealthCheckPath: /healthz
+      ScalingTarget: {MinTaskCount: 1, MaxTaskCount: 1}
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidc
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [CreateOidc, !Ref GitHubOidc, !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com']
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: repo:atomicobject/rhizome:environment:production
+      Policies:
+        - PolicyName: DeployGatewayOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:DescribeImages]
+                Resource: !GetAtt Repository.Arn
+              - Effect: Allow
+                Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DescribeStacks, cloudformation:DescribeStackResource]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*'
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:changeSet/team-api-*/*'
+              - Effect: Allow
+                Action: [ecs:CreateExpressGatewayService, ecs:UpdateExpressGatewayService, ecs:DescribeExpressGatewayService, ecs:DescribeServices, ecs:ListServiceDeployments, ecs:TagResource, ecs:ListTagsForResource]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/default/${AWS::StackName}'
+              - Effect: Allow
+                Action: ecs:DescribeTaskDefinition
+                Resource: '*'
+              - Effect: Allow
+                Action: [ecs:RegisterTaskDefinition, ecs:TagResource, ecs:ListTagsForResource]
+                Resource: !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/${AWS::StackName}-gateway:*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: [!GetAtt ExecutionRole.Arn, !GetAtt TaskRole.Arn]
+                Condition: {StringEquals: {iam:PassedToService: ecs-tasks.amazonaws.com}}
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt InfrastructureRole.Arn
+                Condition: {StringEquals: {iam:PassedToService: ecs.amazonaws.com}}
+              - Effect: Allow
+                Action: [elasticloadbalancing:DescribeLoadBalancerAttributes, elasticloadbalancing:DescribeLoadBalancers, ec2:DescribeSecurityGroups]
+                Resource: '*'
+              - Effect: Allow
+                Action: elasticloadbalancing:ModifyLoadBalancerAttributes
+                Resource: !Sub 'arn:${AWS::Partition}:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:loadbalancer/app/*/*'
+                Condition: {StringEquals: {'aws:ResourceTag/AmazonECSManaged': 'true'}}
+Outputs:
+  RepositoryUri: {Value: !GetAtt Repository.RepositoryUri}
+  TableName: {Value: !Ref StateTable}
+  ConfigParameter: {Value: !Ref Config}
+  VoyageSecretArn: {Value: !Ref VoyageSecret}
+  TypeSafeSecretArn: {Value: !Ref TypeSafeSecret}
+  ClientSecretArn: {Value: !Ref ClientSecret}
+  LogGroup: {Value: !Ref Logs}
+  ExecutionRoleArn: {Value: !GetAtt ExecutionRole.Arn}
+  TaskRoleArn: {Value: !GetAtt TaskRole.Arn}
+  InfrastructureRoleArn: {Value: !GetAtt InfrastructureRole.Arn}
+  DeployRoleArn: {Value: !GetAtt DeployRole.Arn}
+  Endpoint:
+    Condition: Serving
+    Value: !GetAtt Gateway.Endpoint
+  ServiceArn:
+    Condition: Serving
+    Value: !GetAtt Gateway.ServiceArn
+  LoadBalancerArn:
+    Condition: Serving
+    Value: !GetAtt Gateway.ECSManagedResourceArns.IngressPath.LoadBalancerArn
+  ServiceSecurityGroups:
+    Condition: Serving
+    Value: !Join [',', !GetAtt Gateway.ECSManagedResourceArns.ServiceSecurityGroups]
