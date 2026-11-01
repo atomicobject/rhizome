@@ -39,31 +39,37 @@ export function TeamAccount({
   const signingIn = useRef(false);
   const canceled = useRef(false);
   const statusRequest = useRef(0);
+  const changed = useRef(onChange);
+  changed.current = onChange;
   useEffect(() => {
     alive.current = true;
     const listener = (next: string) => {
       if (signingIn.current) setUrl(next);
     };
     listeners.add(listener);
-    const refresh = () => {
+    const refresh = (notify = false) => {
       if (signingIn.current) return;
       const revision = ++statusRequest.current;
       void request("team-status", {})
         .then((fresh) => {
-          if (alive.current && statusRequest.current === revision) setStatus(fresh);
+          if (alive.current && statusRequest.current === revision) {
+            setStatus(fresh);
+            if (notify) changed.current?.();
+          }
         })
         .catch((cause) => {
           if (alive.current && statusRequest.current === revision) setError(failure(cause).message);
         });
     };
-    changeListeners.add(refresh);
-    window.addEventListener("focus", refresh);
+    const refreshAfterChange = () => refresh(true);
+    changeListeners.add(refreshAfterChange);
+    window.addEventListener("focus", refreshAfterChange);
     refresh();
     return () => {
       alive.current = false;
       listeners.delete(listener);
-      changeListeners.delete(refresh);
-      window.removeEventListener("focus", refresh);
+      changeListeners.delete(refreshAfterChange);
+      window.removeEventListener("focus", refreshAfterChange);
       if (signingIn.current) void request("team-cancel", {}).catch(() => {});
     };
   }, []);

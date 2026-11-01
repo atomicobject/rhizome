@@ -135,16 +135,20 @@ it("cancels a running sign-in when it unmounts", async () => {
 it("refreshes the shared account when the window regains focus", async () => {
   let current: TeamStatus = signedIn;
   serve({ "team-status": () => current });
-  render(<TeamAccount />);
+  const onChange = vi.fn();
+  render(<TeamAccount onChange={onChange} />);
   expect(await screen.findByText("ada@example.test")).toBeVisible();
+  expect(onChange).not.toHaveBeenCalled();
   current = { ...signedIn, email: "grace@example.test" };
   fireEvent(window, new Event("focus"));
   expect(await screen.findByText("grace@example.test")).toBeVisible();
   expect(screen.queryByText("ada@example.test")).toBeNull();
+  expect(onChange).toHaveBeenCalledOnce();
   current = { signed_in: false, origin };
   fireEvent(window, new Event("focus"));
   expect(await signInButton()).toBeVisible();
   expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+  expect(onChange).toHaveBeenCalledTimes(2);
 });
 
 it("refreshes after another window changes the account and ignores older replies", async () => {
@@ -152,13 +156,16 @@ it("refreshes after another window changes the account and ignores older replies
   serve({
     "team-status": () => new Promise<TeamStatus>((resolve) => replies.push(resolve)),
   });
-  render(<TeamAccount />);
+  const onChange = vi.fn();
+  render(<TeamAccount onChange={onChange} />);
   expect(replies).toHaveLength(1);
   act(() => teamChanged());
   expect(replies).toHaveLength(2);
   await act(async () => replies[1]({ ...signedIn, email: "grace@example.test" }));
   expect(screen.getByText("grace@example.test")).toBeVisible();
+  expect(onChange).toHaveBeenCalledOnce();
   await act(async () => replies[0](signedIn));
   expect(screen.getByText("grace@example.test")).toBeVisible();
   expect(screen.queryByText("ada@example.test")).toBeNull();
+  expect(onChange).toHaveBeenCalledOnce();
 });
