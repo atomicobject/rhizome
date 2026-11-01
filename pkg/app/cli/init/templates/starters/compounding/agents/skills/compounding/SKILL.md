@@ -39,6 +39,8 @@ With hooks on, Rhizome's hook dispatcher runs `.rhizome/modules/compounding/scri
 5. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.
 6. Summarize the run report, then offer review.
 
+The add-on's scheduled task `compounding/mine` mines weekly; its check needs attention when Jev has no credential or a run is blocked, and its prompt runs `mine.mjs --harness <h> --task-mode --budget 10`, then `report.mjs`. Task mode treats the budget as approved, so when you run as that task, skip steps 2 and 3 and ask nothing. A credential stop exits 4 with its reason on stderr. Put any stop, with its reason and fix, first in your final message. Outside the task, never pass `--task-mode`.
+
 Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-session clusters (default 40), and `--verify-held N` verifies N that earlier runs held back. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
 
 ## Review

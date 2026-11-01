@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-10-31
+last-verified: 2026-11-01
 code-paths:
   - pkg/app/agentchat
   - pkg/app/agentapi
@@ -121,7 +121,7 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 
 ## Bulk audits and concurrency
 
-`check_paths` returns ordered decisions from the unified ignore matcher, including nested git rules, Rhizome ignore files, configuration excludes, and physical path containment. It does not infer note inclusion. `evaluate_batch` runs independent typed requests with bounded workers, one retry policy, shared batch throttle pauses, and per-item completion evidence. Callers persist checkpoints and must not replay uncertain requests automatically.
+`check_paths` returns ordered decisions from the unified ignore matcher, including nested git rules, Rhizome ignore files, configuration excludes, and physical path containment. It does not infer note inclusion. `evaluate_batch` runs independent typed requests with bounded workers, one retry policy, shared batch throttle pauses, and per-item completion evidence. Callers persist checkpoints and must not replay uncertain requests automatically. The CLI-only `rzm agent evaluate-batch --check-credentials` skips the tool: it prints `{"configured", "source"}` from `provideraccess.TypeSafeSource`, makes no model call, never prints a key, and exits 0 either way.
 
 Code-mode dispatch admits concurrent calls, with exclusive access for live vault refresh/mutation, shared access for audited existing-index reads, and independent provider/ignore calls. Lock waits honor cancellation. The client defaults to eight concurrent calls, configurable up to 32; the server admits at most 32 active handlers. Callers use `await` to order dependencies. This updates the initial serial behavior described by the persistent code-mode spec. Whole-script execution allows an explicit deadline up to 24 hours; default and per-call limits remain bounded.
 

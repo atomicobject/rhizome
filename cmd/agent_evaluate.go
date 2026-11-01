@@ -9,11 +9,32 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/spf13/cobra"
 )
 
 func (commandOptions *vaultCommandOptions) newAgentEvaluateCmd() *cobra.Command {
 	return commandOptions.newAgentJSONStdinCmd("evaluate", "Evaluate supplied state with Jev using typed questions from JSON stdin")
+}
+
+// newAgentEvaluateBatchCmd adds --check-credentials, which reports whether
+// Jev has TypeSafe access and where it comes from, so a caller such as a task
+// check can decide before it spends anything. It makes no model call and never
+// prints a key, and it exits 0 either way.
+func (commandOptions *vaultCommandOptions) newAgentEvaluateBatchCmd() *cobra.Command {
+	cmd := commandOptions.newAgentJSONStdinCmd("evaluate-batch", "Evaluate independent Jev states from JSON stdin")
+	var checkCredentials bool
+	cmd.Flags().BoolVar(&checkCredentials, "check-credentials", false, `print {"configured", "source"} for Jev's TypeSafe access instead of evaluating`)
+	evaluate := cmd.RunE
+	cmd.RunE = func(command *cobra.Command, args []string) error {
+		if !checkCredentials {
+			return evaluate(command, args)
+		}
+		source := provideraccess.Default().TypeSafeSource(vaultconfig.FromContext(command.Context()))
+		return json.NewEncoder(command.OutOrStdout()).Encode(map[string]any{"configured": source != provideraccess.SourceNone, "source": source})
+	}
+	return cmd
 }
 
 func (commandOptions *vaultCommandOptions) newAgentGenerateCmd() *cobra.Command {

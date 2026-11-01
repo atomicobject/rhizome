@@ -9,6 +9,7 @@ installedAssetTypes:
   - query-recipes
   - views
   - scripts
+  - tasks
   - skills
   - managed-docs
 hooks:

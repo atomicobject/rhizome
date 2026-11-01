@@ -1,0 +1,13 @@
+name: Mine agent sessions
+description: Mines this repository's new agent sessions into compounding proposals for you to review
+every: 7d
+scope: person
+timeout: 2h
+check:
+  command: [node, .rhizome/modules/compounding/scripts/task-check.mjs]
+prompt: |
+  Mine this repository's agent sessions for the compounding add-on, then report. Change no tracked files: proposals stay in local state until a person reviews them with the compounding skill.
+
+  1. From the repository root, run `node .rhizome/modules/compounding/scripts/mine.mjs --harness <h> --task-mode --budget 10`, with `claude` for `<h>` in Claude Code or `codex` in Codex. The task approved this $10 budget, so do not ask before mining and do not change the budget or the session window. Exit 0 means the run finished. Exit 3 means it stopped, at its budget or for the reason it prints; the next run resumes it. Exit 4 means Jev screening has no TypeSafe credential, which a person must configure.
+  2. Run `node .rhizome/modules/compounding/scripts/report.mjs`.
+  3. In your final message, state any stop first: its reason, its message, and what the person should do. Then summarize the run (episodes read and kept, proposals waiting for review, and spend) and the report's open items, and say to review them with the compounding skill.

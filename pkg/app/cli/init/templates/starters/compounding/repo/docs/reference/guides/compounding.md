@@ -1,6 +1,6 @@
 ---
 type: ReferenceDoc
-summary: "Guide to the compounding add-on: mining agent sessions into reviewed shards, document edits, and findings; privacy boundaries; TypeSafe; hooks and trust; and the friction report."
+summary: "Guide to the compounding add-on: mining agent sessions into reviewed shards, document edits, and findings; privacy boundaries; TypeSafe; the weekly mining task; hooks and trust; and the friction report."
 reference-kind: guide
 status: active
 ---
@@ -36,7 +36,7 @@ Ask your agent to use the compounding skill. It runs the module's scripts in `.r
 
 ## Which sessions it reads
 
-Discovery selects local Claude Code and Codex sessions associated with this repository by their recorded working directory. It includes current Git worktrees. Codex sessions with the same Git origin also qualify, including sessions from another clone or a deleted worktree. Unrelated repositories are excluded unless you explicitly extend the scope with `extraPaths` in `.rhizome/compounding/config.json`.
+Discovery selects local Claude Code and Codex sessions associated with this repository by their recorded working directory. It includes current Git worktrees. Codex sessions with the same Git origin also qualify, including sessions from another clone or a deleted worktree. Unrelated repositories are excluded unless you explicitly extend the scope with `extraPaths` in `.rhizome/compounding/config.json`. Sessions that scheduled tasks ran, whose working directory is under `.rhizome/task-state/`, are never mined, so mining never reads its own runs.
 
 This selects repository-associated threads rather than classifying each thread's topic. Off-topic discussion inside a matching thread can enter screening. The extraction prompt tells the model to exclude personal style preferences without a repository-specific reason, outside-world facts, and generic advice. It does not read general ChatGPT history.
 
@@ -55,6 +55,20 @@ Screening asks Jev two cheap questions about each passage of a session and sends
 A first run reads the last 7 days of sessions and asks before reading more than 200. Run it without a budget first: it spends nothing, and it shows the model for each role, every provider that will receive transcript text, and the estimated cost. Then give it a spend limit. Cost grows with the number of sessions, so the estimate is the number to check. Later runs read only new turns, and an unchanged rerun makes no model calls.
 
 A run that reaches its budget stops and resumes where it left off.
+
+## The weekly mining task
+
+The add-on ships the scheduled task `compounding/mine` (`.rhizome/modules/compounding/tasks/mine.yml`). It is a person-scope task due every 7 days, and it follows the repository's default mode, which is notify unless `.rhizome/config.yml` says otherwise, so it waits in your Tasks inbox until you run it. `rzm tasks mode compounding/mine auto` runs it in the background instead, and `off` turns it off for you.
+
+Its check makes no model calls. It asks `rzm agent evaluate-batch --check-credentials` whether Jev has a TypeSafe credential, and reads mining state through a dry run. In order, it:
+
+1. needs your attention when Jev has no credential;
+2. needs your attention when an open run stopped at its budget, for a credential, or because its model is unavailable, and names the fix;
+3. is needed to resume any other open run;
+4. is needed when at least five new episodes are waiting;
+5. otherwise reports nothing to do.
+
+Its prompt runs `mine.mjs --task-mode` with a fixed $10 budget, then the friction report. Task mode treats that budget as approved and does not ask before reading many sessions. A credential stop exits 4 with its reason, and a budget stop exits 3, which the next run resumes. The run's final message names any stop first. Proposals stay in local state; review them with the skill as usual. To give a run a larger budget, mine through the skill instead.
 
 ## Review
 

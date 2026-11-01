@@ -63,7 +63,12 @@ function normalizeRemote(url) {
 // Transcripts record Windows paths with either separator; Git prints forward slashes.
 const slash = (p) => (p ? p.replace(/\\/g, "/") : p);
 
-function repoMatcher(root) {
+// Scheduled task runs work in worktrees under the main checkout's
+// .rhizome/task-state/, or the per-user rhizome/task-state/ of a repository
+// without one; mining them would mine its own runs.
+const TASK_STATE = /(^|\/)\.?rhizome\/task-state(\/|$)/;
+
+export function repoMatcher(root) {
   root = slash(root);
   const configPath = join(root, ".rhizome/compounding/config.json");
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf8")) : {};
@@ -89,6 +94,7 @@ function repoMatcher(root) {
       return cwd;
     },
     matches(cwd, repoUrl) {
+      if (cwd && TASK_STATE.test(slash(cwd))) return false;
       if (repoUrl && remote && normalizeRemote(repoUrl) === remote) return true;
       return !!cwd && patterns.some((re) => re.test(slash(cwd)));
     },
