@@ -50,7 +50,7 @@ func TestModuleCustomViewIsServedAndStampedFromItsModule(t *testing.T) {
 	body := getCustomView(srv, "/views/work.team").Body.String()
 	for _, want := range []string{
 		`import("/views/_module/work/_files/team/team.tsx")`,
-		`"folder":"module:work/team"`,
+		`"folder":"/module/work/team"`,
 		`"stamp":"/views/_module/work/_stamp/team"`,
 		`"check":"/views/_module/work/_check/team"`,
 	} {
@@ -116,5 +116,14 @@ func TestViewFolderPollerAnnouncesModuleViewChanges(t *testing.T) {
 
 	writeModuleViewFile(t, srv, "team/team.tsx", "export default function Team() { return <b /> }")
 	// The flat "team" folder is a different folder and stays quiet.
-	awaitViewsChanged(t, events, "module:work/team", "team")
+	awaitViewsChanged(t, events, "/module/work/team", "team")
+}
+
+func TestModuleViewFolderKeysNeverMatchFlatKeys(t *testing.T) {
+	module := viewRoot{module: "work"}.folderKey("team")
+	for _, flat := range []string{"module:work/team", "module/work/team", "modules/work/team"} {
+		if (viewRoot{}).folderKey(flat) == module {
+			t.Fatalf("flat folder %q shares the module key %q", flat, module)
+		}
+	}
 }

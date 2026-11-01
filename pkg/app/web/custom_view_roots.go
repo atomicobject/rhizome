@@ -36,8 +36,9 @@ func (s *Server) serveRepositoryViewRoute(w http.ResponseWriter, r *http.Request
 // viewRoot is one repository views folder as the browser reaches it: the flat
 // .rhizome/views (module "") or a module's views folder (SPEC-0130). Flat
 // views keep their /views/_files/ URLs and bare folder keys; module views use
-// /views/_module/<module>/ and the key module:<module>/<folder>, which no
-// flat folder key can equal, so a flat folder named "modules" stays distinct.
+// /views/_module/<module>/ and the key /module/<module>/<folder>. A flat key
+// is relative and never starts with "/", so no flat folder (not even one
+// named "modules" or "module:x") can share a module key.
 type viewRoot struct{ module string }
 
 func definitionRoot(def viewconfig.ViewDefinition) viewRoot {
@@ -69,7 +70,7 @@ func (v viewRoot) folderKey(folder string) string {
 	if v.module == "" {
 		return folder
 	}
-	return path.Join("module:"+v.module, folder)
+	return path.Join("/module", v.module, folder)
 }
 
 // open opens the folder as an os.Root once it resolves inside the vault, so

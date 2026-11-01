@@ -15,7 +15,7 @@ import (
 
 // GlobalEventViewsChanged announces that a file in a repository view folder
 // changed. Its data is {folder}, the definition folder relative to
-// .rhizome/views ("." for the root), or module:<module>/<folder> for a
+// .rhizome/views ("." for the root), or /module/<module>/<folder> for a
 // module's views folder, matching the folder in the view shell's config.
 // Bundled views change only with the binary and are never announced.
 const GlobalEventViewsChanged = "views.changed"

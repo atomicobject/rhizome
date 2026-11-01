@@ -117,7 +117,7 @@ This is slice 0 of the compounding-workspace plan: later work adds actions, whic
 
 ## Edge Cases
 
-- **A repository-owned flat folder named `modules`** under `.rhizome/views` is unaffected: module view folders are keyed `module:<name>/<folder>`, which a flat folder key cannot be.
+- **A repository-owned flat folder named `modules`** under `.rhizome/views` is unaffected: module view folders are keyed `/module/<name>/<folder>`, which a flat folder key cannot be.
 - **A module added while `rzm serve` runs** is found without a restart, because recipe and view discovery list module folders each time they load.
 - **Two modules each ship `x.graphql`:** both load, named by their repository-relative paths.
 
