@@ -554,7 +554,9 @@ func TestHookHandlersRunFromTheModuleFolder(t *testing.T) {
 	require.Equal(t, []string{"node", ".rhizome/modules/compounding/scripts/hook.mjs"}, handlers[0].Command)
 	info, err := os.Stat(filepath.Join(root, ".rhizome", "modules", "compounding", "scripts", "hook.mjs"))
 	require.NoError(t, err)
-	require.Equal(t, os.FileMode(0o755), info.Mode().Perm(), "module scripts are executable")
+	if runtime.GOOS != "windows" {
+		require.Equal(t, os.FileMode(0o755), info.Mode().Perm(), "module scripts are executable")
+	}
 	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "compounding", "models.json"))
 	for _, skills := range []string{".agents/skills", ".claude/skills"} {
 		require.FileExists(t, filepath.Join(root, skills, "compounding", "SKILL.md"))

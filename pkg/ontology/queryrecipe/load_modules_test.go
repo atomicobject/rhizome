@@ -84,13 +84,16 @@ func TestDefaultDiscoveryReportsAModuleRecipesPathThatIsNotAFolder(t *testing.T)
 	root := t.TempDir()
 	writeRecipeFile(t, root, ".rhizome/modules/team/recipes", "not a folder\n")
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "modules", "gone"), 0o755))
-	require.NoError(t, os.Symlink(filepath.Join(root, "missing"), filepath.Join(root, ".rhizome", "modules", "gone", "recipes")))
+	want := []string{"team"}
+	if err := os.Symlink(filepath.Join(root, "missing"), filepath.Join(root, ".rhizome", "modules", "gone", "recipes")); err == nil {
+		want = append(want, "gone")
+	}
 	_, issues := LoadDefaultSources(root)
 	paths := []string{}
 	for _, issue := range issues {
 		require.Equal(t, "recipe_path_error", issue.Code)
 		paths = append(paths, filepath.Base(filepath.Dir(issue.Path)))
 	}
-	require.ElementsMatch(t, []string{"team", "gone"}, paths)
+	require.ElementsMatch(t, want, paths)
 	require.True(t, HasDefaultSources(root), "validation runs so it can report the broken folders")
 }
