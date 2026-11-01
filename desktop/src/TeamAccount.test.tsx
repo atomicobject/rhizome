@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { request, type TeamStatus } from "./api";
-import { TeamAccount, teamProgress } from "./TeamAccount";
+import { TeamAccount, teamChanged, teamProgress } from "./TeamAccount";
 
 /** The sign-in button once the status request has settled and enabled it. */
 async function signInButton() {
@@ -130,4 +130,35 @@ it("cancels a running sign-in when it unmounts", async () => {
   await screen.findByText("Waiting for the browser…");
   unmount();
   expect(call).toHaveBeenCalledWith("team-cancel", {});
+});
+
+it("refreshes the shared account when the window regains focus", async () => {
+  let current: TeamStatus = signedIn;
+  serve({ "team-status": () => current });
+  render(<TeamAccount />);
+  expect(await screen.findByText("ada@example.test")).toBeVisible();
+  current = { ...signedIn, email: "grace@example.test" };
+  fireEvent(window, new Event("focus"));
+  expect(await screen.findByText("grace@example.test")).toBeVisible();
+  expect(screen.queryByText("ada@example.test")).toBeNull();
+  current = { signed_in: false, origin };
+  fireEvent(window, new Event("focus"));
+  expect(await signInButton()).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+});
+
+it("refreshes after another window changes the account and ignores older replies", async () => {
+  const replies: ((status: TeamStatus) => void)[] = [];
+  serve({
+    "team-status": () => new Promise<TeamStatus>((resolve) => replies.push(resolve)),
+  });
+  render(<TeamAccount />);
+  expect(replies).toHaveLength(1);
+  act(() => teamChanged());
+  expect(replies).toHaveLength(2);
+  await act(async () => replies[1]({ ...signedIn, email: "grace@example.test" }));
+  expect(screen.getByText("grace@example.test")).toBeVisible();
+  await act(async () => replies[0](signedIn));
+  expect(screen.getByText("grace@example.test")).toBeVisible();
+  expect(screen.queryByText("ada@example.test")).toBeNull();
 });

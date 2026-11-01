@@ -2,9 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { failure, request, type TeamStatus } from "./api";
 
 const listeners = new Set<(url: string) => void>();
+const changeListeners = new Set<() => void>();
 /** Called by the shell for each sign-in progress message from the app. */
 export function teamProgress(url: string) {
   for (const listener of listeners) listener(url);
+}
+
+/** The shared session changed in another desktop window. */
+export function teamChanged() {
+  for (const listener of changeListeners) listener();
 }
 
 function expiry(value?: string): string {
@@ -32,27 +38,38 @@ export function TeamAccount({
   const alive = useRef(true);
   const signingIn = useRef(false);
   const canceled = useRef(false);
+  const statusRequest = useRef(0);
   useEffect(() => {
     alive.current = true;
     const listener = (next: string) => {
       if (signingIn.current) setUrl(next);
     };
     listeners.add(listener);
-    void request("team-status", {})
-      .then((fresh) => {
-        if (alive.current) setStatus(fresh);
-      })
-      .catch((cause) => {
-        if (alive.current) setError(failure(cause).message);
-      });
+    const refresh = () => {
+      if (signingIn.current) return;
+      const revision = ++statusRequest.current;
+      void request("team-status", {})
+        .then((fresh) => {
+          if (alive.current && statusRequest.current === revision) setStatus(fresh);
+        })
+        .catch((cause) => {
+          if (alive.current && statusRequest.current === revision) setError(failure(cause).message);
+        });
+    };
+    changeListeners.add(refresh);
+    window.addEventListener("focus", refresh);
+    refresh();
     return () => {
       alive.current = false;
       listeners.delete(listener);
+      changeListeners.delete(refresh);
+      window.removeEventListener("focus", refresh);
       if (signingIn.current) void request("team-cancel", {}).catch(() => {});
     };
   }, []);
 
   async function signIn() {
+    statusRequest.current++;
     setBusy("sign-in");
     signingIn.current = true;
     canceled.current = false;
@@ -91,6 +108,7 @@ export function TeamAccount({
     }
   }
   async function signOut() {
+    statusRequest.current++;
     setBusy("sign-out");
     setError("");
     setMessage("");

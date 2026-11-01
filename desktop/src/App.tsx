@@ -34,7 +34,7 @@ import { PageSections, PageTools } from "./PageControls";
 import { Settings } from "./Settings";
 import { SetupSheet } from "./SetupSheet";
 import { Notice, OpenStatus } from "./Status";
-import { teamProgress } from "./TeamAccount";
+import { teamChanged, teamProgress } from "./TeamAccount";
 
 type Found = { info?: Discovery; error?: Failure };
 type Item = Omit<MenuEntry, "id" | "items"> & { run?: () => void; items?: Item[] };
@@ -609,6 +609,8 @@ export function App() {
         setAppSettings(message.settings);
       } else if (message.type === "team") {
         teamProgress(message.url);
+      } else if (message.type === "team-changed") {
+        teamChanged();
       } else if (message.type === "command") {
         const { command } = message;
         // A finder draws above the window, so it would cover what any other command shows.

@@ -358,16 +358,25 @@ pub async fn desktop_request(
                 message["type"] = "team".into();
                 app.state::<Panes>().with(&label, |pane| pane.send(message));
             };
-            app.state::<crate::team::Team>()
+            let result = app
+                .state::<crate::team::Team>()
                 .sign_in(&state.directory, window.label(), &progress)
-                .await
+                .await;
+            app.state::<Panes>()
+                .broadcast(&json!({"type": "team-changed"}));
+            result
         }
         Action::TeamCancel => {
             app.state::<crate::team::Team>()
                 .cancel(Some(window.label()));
             Ok(Value::Null)
         }
-        Action::TeamSignOut => crate::team::sign_out(&state.directory).await,
+        Action::TeamSignOut => {
+            let result = crate::team::sign_out(&state.directory).await;
+            app.state::<Panes>()
+                .broadcast(&json!({"type": "team-changed"}));
+            result
+        }
         Action::GlobalStatus => {
             let global = state.library().await?.1.global_executable;
             bridge::call(

@@ -179,6 +179,8 @@ export type Message =
   | { type: "settings"; settings: AppSettings }
   /** Sign-in progress: the address the CLI opened in the browser. */
   | { type: "team"; event: "authorize_url"; url: string }
+  /** A sign-in or sign-out changed the shared account. */
+  | { type: "team-changed" }
   /** The workspace page's reported state, or null when no page has reported. */
   | { type: "page"; state: PageState | null };
 /** The app-wide appearance; `auto` follows the operating system. */
