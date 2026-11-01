@@ -223,11 +223,11 @@ func (r *initRun) printRerunResult(plan rerunPlan, report syncReport) {
 		}
 	}
 	for _, group := range []struct {
-		verb, noun string
-		paths      []string
-	}{{"Created", "Rhizome file", report.Created}, {"Updated", "Rhizome file", report.Updated}, {"Removed", "file Rhizome no longer ships", report.Removed}} {
+		verb, noun, suffix string
+		paths              []string
+	}{{"Created", "Rhizome file", "", report.Created}, {"Updated", "Rhizome file", "", report.Updated}, {"Removed", "file", " Rhizome no longer ships", report.Removed}} {
 		if n := len(dedupePreserveOrder(group.paths)); n > 0 {
-			done = append(done, group.verb+" "+countNoun(n, group.noun))
+			done = append(done, group.verb+" "+countNoun(n, group.noun)+group.suffix)
 		}
 	}
 	done = append(done, keptYourVersion(report.Declined)...)

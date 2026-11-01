@@ -5,7 +5,7 @@ description: Build or fix Rhizome HTML/TSX views for type collections, display g
 
 # Custom views
 
-A custom view is a definition and an HTML or script entry in `.rhizome/views/<folder>/`. `rzm` serves it with the kit and per-file TSX transform; no install, bundler, or second server is needed. Overview, Table, Cards, Kanban, and custom entries share registration, context, configuration, lifecycle, navigation, and workspace edit services. The host handles React versus frame rendering. Rhizome's own All notes and group Overview and Briefing pages, its Trace and Sections group pages, and its type Briefing are custom views built on the same public kit and APIs; see [Start from a bundled view](#start-from-a-bundled-view).
+A custom view is a definition and an HTML or script entry in `.rhizome/views/<folder>/`, or in a module's `.rhizome/modules/<module>/views/<folder>/` when it belongs to a capability that ships its ontology, recipes, tasks, and scripts together. Module view files are served under `/views/_module/<module>/_files/`; view ids stay unique across the repository. `rzm` serves it with the kit and per-file TSX transform; no install, bundler, or second server is needed. Overview, Table, Cards, Kanban, and custom entries share registration, context, configuration, lifecycle, navigation, and workspace edit services. The host handles React versus frame rendering. Rhizome's own All notes and group Overview and Briefing pages, its Trace and Sections group pages, and its type Briefing are custom views built on the same public kit and APIs; see [Start from a bundled view](#start-from-a-bundled-view).
 
 The code runs with the user's full Rhizome authority, like a build script in the repository. Write it accordingly.
 

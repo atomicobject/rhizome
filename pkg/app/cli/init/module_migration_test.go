@@ -71,6 +71,7 @@ func TestReinitMigratesAFlatLayoutIntoModules(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(root, moduleEdited), "the module copy of an edited flat file is not installed")
 	require.Contains(t, out, flatEdited+" may have local edits")
 	require.Contains(t, out, "move it to "+moduleEdited)
+	require.Regexp(t, `Removed \d+ files Rhizome no longer ships\n`, out)
 	require.Equal(t, "team-owned\n", readTestFile(t, root, teamView))
 
 	for _, skills := range []string{".agents/skills", ".claude/skills"} {

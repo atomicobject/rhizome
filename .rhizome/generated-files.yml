@@ -23,7 +23,7 @@ written:
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .agents/skills/custom-views/SKILL.md: ee3dde65ec1b967d
+  .agents/skills/custom-views/SKILL.md: a5451c125fd1cd54
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .agents/skills/custom-views/references/kit-api.md: 83cff28086e61977
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
@@ -74,7 +74,7 @@ written:
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .claude/skills/custom-views/SKILL.md: ee3dde65ec1b967d
+  .claude/skills/custom-views/SKILL.md: a5451c125fd1cd54
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .claude/skills/custom-views/references/kit-api.md: 83cff28086e61977
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
@@ -104,17 +104,17 @@ written:
   .claude/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .claude/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .claude/skills/rhizome/references/views.md: 26fb7388f96eefbc
-  .rhizome/ontology/action-items.graphql: b2b177dd9acbd65c
-  .rhizome/ontology/core.graphql: 157ef7679ea0bec5
-  .rhizome/ontology/spec-driven.graphql: 08586516cff0bc34
-  .rhizome/query-recipes/action-items.yaml: 8246a77453eb9071
-  .rhizome/query-recipes/core.yaml: b827188339002edb
-  .rhizome/query-recipes/spec-driven.yaml: cd2dc1d47c6de656
-  .rhizome/views/action-items.yaml: 8a2b90e98887652d
-  .rhizome/views/efforts.yaml: 74e3810c2c89941e
-  .rhizome/views/feature-areas.yaml: 79a2c23d9da7b18d
-  .rhizome/views/specs.yaml: 50b804397b2ee138
-  .rhizome/views/user-stories.yaml: 249c69287538b817
+  .rhizome/modules/action-items/ontology/action-items.graphql: b2b177dd9acbd65c
+  .rhizome/modules/action-items/recipes/action-items.yaml: 8246a77453eb9071
+  .rhizome/modules/action-items/views/action-items.yaml: 8a2b90e98887652d
+  .rhizome/modules/agentic-engineering/ontology/spec-driven.graphql: 08586516cff0bc34
+  .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: cd2dc1d47c6de656
+  .rhizome/modules/agentic-engineering/views/efforts.yaml: 74e3810c2c89941e
+  .rhizome/modules/agentic-engineering/views/feature-areas.yaml: 79a2c23d9da7b18d
+  .rhizome/modules/agentic-engineering/views/specs.yaml: 50b804397b2ee138
+  .rhizome/modules/agentic-engineering/views/user-stories.yaml: 249c69287538b817
+  .rhizome/modules/core/ontology/core.graphql: 157ef7679ea0bec5
+  .rhizome/modules/core/recipes/core.yaml: b827188339002edb
   AGENTS.md#action-items: b9dee797a18a3bff
   AGENTS.md#agentic-engineering: 737877a99f942574
   AGENTS.md#core: 7700941d8ff06922

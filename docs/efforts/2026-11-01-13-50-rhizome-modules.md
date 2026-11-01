@@ -38,7 +38,7 @@ Drew Colthorp approved the plan in chat on 2026-11-01 (revision 7 of the compoun
 - **Locator:** `pkg/vault/assetroots` (`Roots`, `AllRoots`, `Classify`, `Modules`, `ModuleDir`, `FlatDir`, `Qualify`). Flat folders first, then valid modules by name. Recipes' flat folder is `.rhizome/query-recipes`; the module folder is `recipes/`. Scripts have no flat folder.
 - **Ontology:** source names, hashes, and errors use repository-relative paths; the schema cache keys by repository root.
 - **Recipes:** module `recipes/` folders are explicit recipe roots; discovery lists modules on each load.
-- **Views:** module view files are served under `/views/_module/<module>/…`, folder keys are `module:<module>/<folder>`, and saving writes inside the root that holds the definition.
+- **Views:** module view files are served under `/views/_module/<module>/_files/…` (stamps and checks under `/views/_module/<module>/_stamp|_check/<folder>`, mirroring the flat routes so a module folder named `_stamp` cannot collide), folder keys are `module:<module>/<folder>`, and saving writes inside the root that holds the definition.
 - **Tasks:** a module task's id is `<module>/<file name>`; the id pattern allows one `/`; run data, worktree names, and the pull-request prefix use a collision-free form; web routes read the escaped path.
 - **Init:** starter templates live under `starters/<id>/module/<kind>/` and install to `.rhizome/modules/<id>/<kind>/`; unedited flat copies recorded in `generated-files.yml` are removed in favor of the module copy; an edited flat copy is kept and its module copy skipped, with a report; ontology identifier contracts carry over; `.rhizome/.gitignore` allowlists `modules/`.
 - **Hooks:** `{module}` resolves to `.rhizome/modules/<starter id>`.
@@ -83,6 +83,10 @@ None yet.
 - [ ] Gates recorded
 - [ ] Pull request number recorded
 
+## Compounding Follow-ups
+
+None yet.
+
 ## Status
 
 Active.
@@ -90,3 +94,6 @@ Active.
 ## Execution Notes
 
 - 2026-11-01: B0 locator landed with unit tests (`go test ./pkg/vault/assetroots/` ok).
+- 2026-11-01: B1 lanes merged without code conflicts: C tasks (`22f577a2`), E module CLI and `modules` validation (`a569c04d`; one note conflict in validate.md resolved by keeping both paragraphs), B views (`9e0c8dc4`; served at `/views/_module/<module>/_files/…`, accepted), A ontology and recipes (`89f74eb4`), D init, starters, hooks, scripts (`2d5e760d`).
+- 2026-11-01: Integration: `NO_WEB=1 make build` ok; focused tests over `pkg/app/cli/... pkg/vault/... pkg/ontology/... pkg/app/tasks/... pkg/app/views/... pkg/app/web/... pkg/validate/... pkg/app/validationrun/... cmd/...` all pass, including the 9 init tests that needed lane A. Dogfood `rzm init` in this repository moved 11 starter files into `.rhizome/modules/{core,action-items,agentic-engineering}`; `rzm init --check` exits 0; `./scripts/rzm validate all` checks 18 recipes, 8 views and 3 modules with no issues in this change (17 link-hygiene findings are in files this branch does not touch). Fixed the rerun summary's "Removed N file Rhizome no longer shipss" plural.
+- 2026-11-01: The schema hash now includes repository-relative file names, so each repository rebuilds its ontology projection once after upgrading. Ontology embedding reuse is keyed by each type's field signature (`embedindex.EmbeddingSchemaSignature`), not by file names, so no text is re-embedded.
