@@ -1,0 +1,173 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
+	"github.com/spf13/cobra"
+)
+
+// Module commands ([[rhizome-modules#^SPEC-0130-US4|SPEC-0130 US4]]): each
+// query recipe in `.rhizome/modules/<name>/recipes/` is a command named by its
+// recipe id, with one flag per declared input. `rzm module <name>` always
+// works; `rzm <name>` is rewritten to it only when <name> is not a built-in.
+
+// moduleReservedFlags are the module command's own flags; an input with one of
+// these names is passed with --input name=value instead.
+var moduleReservedFlags = map[string]bool{"help": true, "vault": true, "summary": true, "input": true, "no-pager": true}
+
+func registerModuleFamily(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "module <name> [command] [flags]",
+		Short: "Run a module's query recipes as commands (also `rzm <name>`)",
+		Long: "Lists or runs the commands of the module in .rhizome/modules/<name>/. Each query recipe in the\n" +
+			"module's recipes/ folder is a command named by its recipe id, with its declared inputs as flags.\n" +
+			"`rzm <name>` is a shortcut whenever <name> is not a built-in command.",
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
+				return cmd.Help()
+			}
+			return runModuleCommand(cmd, args[0], args[1:])
+		},
+	})
+}
+
+// moduleDispatchArgs rewrites `rzm <name> ...` to `rzm module <name> ...` when
+// <name> is not a built-in command and names a module folder. Cobra-resolvable
+// arguments return before any file system access.
+func (app *commandInvocation) moduleDispatchArgs(ctx context.Context, args []string) ([]string, bool) {
+	if len(args) == 0 || !assetroots.ValidModuleName(args[0]) || isBuiltinCommand(app.Command, args[0]) {
+		return nil, false
+	}
+	opts := &vaultCommandOptions{vaultName: moduleVaultFlag(args[1:])}
+	def, err := opts.vaultDefOrDefaultContext(contextWithCommandEnv(ctx, app.env))
+	if err != nil || !isDirPath(filepath.Join(def.BasePath(), filepath.FromSlash(assetroots.ModuleRoot(args[0])))) {
+		return nil, false
+	}
+	return append([]string{"module"}, args...), true
+}
+
+// isBuiltinCommand reports whether name resolves to a top-level command,
+// including the help and completion commands Cobra adds at execution.
+func isBuiltinCommand(root *cobra.Command, name string) bool {
+	if name == "help" || name == "completion" {
+		return true
+	}
+	for _, sub := range root.Commands() {
+		if sub.Name() == name || sub.HasAlias(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func runModuleCommand(parent *cobra.Command, name string, args []string) error {
+	ctx := parent.Context()
+	opts := &vaultCommandOptions{vaultName: moduleVaultFlag(args)}
+	def, err := opts.vaultDefOrDefaultContext(ctx)
+	if err != nil {
+		return err
+	}
+	base := def.BasePath()
+	if !assetroots.ValidModuleName(name) || !isDirPath(filepath.Join(base, filepath.FromSlash(assetroots.ModuleRoot(name)))) {
+		return fmt.Errorf("no module named %q in %s", name, filepath.Join(base, filepath.FromSlash(assetroots.ModulesDir)))
+	}
+	// WHY: load the shared registries plus the module's root so ids stay
+	// unique repository-wide; LoadRoots skips files it already read, so this
+	// is unchanged once default discovery includes module roots.
+	recipesRoot := filepath.Join(base, filepath.FromSlash(assetroots.ModuleDir(name, assetroots.Recipes)))
+	recipes, issues := queryrecipe.LoadRoots(append(queryrecipe.DefaultSourceRoots(base), recipesRoot))
+
+	root := &cobra.Command{Use: "rzm", SilenceErrors: true, SilenceUsage: parent.Root().SilenceUsage}
+	root.PersistentFlags().StringVarP(&opts.vaultName, "vault", "v", opts.vaultName, "vault name (uses default if unset)")
+	root.PersistentFlags().Bool("no-pager", false, "disable paging (when stdout is a TTY)")
+	module := &cobra.Command{
+		Use:   name,
+		Short: fmt.Sprintf("Commands from .rhizome/modules/%s", name),
+		Args:  cobra.NoArgs,
+		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	}
+	root.AddCommand(module)
+	for _, recipe := range recipes {
+		if strings.HasPrefix(recipe.Source.Path, recipesRoot+string(filepath.Separator)) {
+			module.AddCommand(opts.newModuleRecipeCmd(recipe, recipes, issues))
+		}
+	}
+	root.SetArgs(append([]string{name}, args...))
+	root.SetIn(parent.InOrStdin())
+	root.SetOut(parent.OutOrStdout())
+	root.SetErr(parent.ErrOrStderr())
+	return root.ExecuteContext(ctx)
+}
+
+func (commandOptions *vaultCommandOptions) newModuleRecipeCmd(recipe queryrecipe.Recipe, recipes []queryrecipe.Recipe, issues []queryrecipe.Issue) *cobra.Command {
+	opts := &queryRecipeOptions{id: recipe.ID}
+	values := map[string]*string{}
+	short := truncateOneLine(recipe.Problem, 80)
+	if short == "" {
+		short = recipe.Name
+	}
+	cmd := &cobra.Command{
+		Use:   recipe.ID,
+		Short: short,
+		Long:  strings.TrimSpace(recipe.Name + "\n\n" + recipe.Problem),
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			inputs, err := parseRecipeInputs(opts.inputs, "", "")
+			if err != nil {
+				return err
+			}
+			for name, value := range values {
+				if cmd.Flags().Changed(name) {
+					inputs[name] = *value
+				}
+			}
+			service := commandOptions.newQueryRecipeService(cmd.Context())
+			service.Load = func(string) ([]queryrecipe.Recipe, []queryrecipe.Issue, error) { return recipes, issues, nil }
+			return runQueryRecipeCommand(cmd, service, false, opts, inputs, nil)
+		},
+	}
+	for _, input := range recipe.InputSpec.Inputs {
+		if moduleReservedFlags[input.Name] || cmd.Flags().Lookup(input.Name) != nil {
+			continue
+		}
+		usage := input.Description
+		if input.Required {
+			usage = strings.TrimSpace(usage + " (required)")
+		}
+		values[input.Name] = cmd.Flags().String(input.Name, input.Default, usage)
+	}
+	cmd.Flags().StringArrayVar(&opts.inputs, "input", nil, "named input as key=value (repeatable)")
+	cmd.Flags().BoolVar(&opts.summary, "summary", false, "after the JSON envelope, write a human-readable summary footer to stderr")
+	return cmd
+}
+
+// moduleVaultFlag finds --vault/-v before the module's flags are defined,
+// since the vault decides which recipes, and so which flags, exist.
+func moduleVaultFlag(args []string) string {
+	for i, arg := range args {
+		if arg == "--" {
+			break
+		}
+		for _, prefix := range []string{"--vault=", "-v="} {
+			if value, ok := strings.CutPrefix(arg, prefix); ok {
+				return value
+			}
+		}
+		if (arg == "--vault" || arg == "-v") && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
+func isDirPath(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}

@@ -18,6 +18,7 @@ type commandInvocation struct {
 	*cobra.Command
 	env      commandEnv
 	pager    invocationPager
+	args     []string
 	executed bool
 }
 
@@ -65,6 +66,7 @@ func newRootCommand(env commandEnv) *commandInvocation {
 	registerViewFamily(rootCmd)
 	registerHookFamily(rootCmd)
 	registerTasksFamily(rootCmd)
+	registerModuleFamily(rootCmd)
 	return app
 }
 
@@ -75,8 +77,22 @@ func (app *commandInvocation) ExecuteContextC(ctx context.Context) (*cobra.Comma
 	}
 	app.executed = true
 	defer app.pager.close()
+	args := app.args
+	if args == nil {
+		args = os.Args[1:]
+	}
+	if routed, ok := app.moduleDispatchArgs(ctx, args); ok {
+		app.Command.SetArgs(routed)
+	}
 	return app.Command.ExecuteContextC(contextWithCommandEnv(ctx, app.env))
 }
+
+// SetArgs records arguments so module dispatch can inspect them.
+func (app *commandInvocation) SetArgs(args []string) {
+	app.args = args
+	app.Command.SetArgs(args)
+}
+
 func (app *commandInvocation) ExecuteContext(ctx context.Context) error {
 	_, err := app.ExecuteContextC(ctx)
 	return err

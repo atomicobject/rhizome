@@ -22,6 +22,7 @@ func TestResolveCheckApplicability_FeatureAbsenceIsAnExplicitResult(t *testing.T
 		{name: "query recipes", applicability: ApplicabilityQueryRecipes},
 		{name: "views", applicability: ApplicabilityViews},
 		{name: "tasks", applicability: ApplicabilityTasks},
+		{name: "modules", applicability: ApplicabilityModules},
 		{name: "efforts", applicability: ApplicabilityEfforts},
 	}
 

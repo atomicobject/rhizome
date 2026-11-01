@@ -44,6 +44,7 @@ type VaultFeatureFacts struct {
 	QueryRecipesConfigured     bool   `json:"queryRecipesConfigured"`
 	ViewsConfigured            bool   `json:"viewsConfigured"`
 	TasksPresent               bool   `json:"tasksPresent"`
+	ModulesPresent             bool   `json:"modulesPresent"`
 	EffortsPresent             bool   `json:"effortsPresent"`
 	RequiredCodeIndexerVersion string `json:"requiredCodeIndexerVersion,omitempty"`
 	RequiredCodeScopeHash      string `json:"requiredCodeScopeHash,omitempty"`
@@ -334,6 +335,8 @@ func checkFeatureAvailable(applicability CheckApplicability, features VaultFeatu
 		return features.ViewsConfigured, true
 	case ApplicabilityTasks:
 		return features.TasksPresent, true
+	case ApplicabilityModules:
+		return features.ModulesPresent, true
 	case ApplicabilityEfforts:
 		return features.EffortsPresent, true
 	default:

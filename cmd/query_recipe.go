@@ -175,26 +175,7 @@ func (commandOptions *vaultCommandOptions) newQueryRecipeRunCmd(agent bool, opts
 			if cmd.Flags().Changed("anchor") {
 				anchors = opts.anchors
 			}
-			response, validation, err := commandOptions.newQueryRecipeService(cmd.Context()).Run(cmd.Context(), opts.path, opts.id, inputs, anchors)
-			if err != nil {
-				return writeQueryRecipeCommandError(agent, err)
-			}
-			if validation != nil {
-				_ = writeJSON(cmd.OutOrStdout(), validation)
-				return silentExitError{code: 1}
-			}
-			if err := writeJSON(cmd.OutOrStdout(), response); err != nil {
-				return err
-			}
-			// WHY: --summary writes to stderr only so callers piping JSON to
-			// `jq` or other consumers do not see the summary mixed into stdout.
-			if !agent && opts.summary {
-				renderRecipeRunSummary(cmd.ErrOrStderr(), response)
-			}
-			if len(response.Result.Errors) > 0 {
-				return silentExitError{code: 1}
-			}
-			return nil
+			return runQueryRecipeCommand(cmd, commandOptions.newQueryRecipeService(cmd.Context()), agent, opts, inputs, anchors)
 		},
 	}
 	addQueryRecipeCommonFlags(cmd, opts, true)
@@ -203,6 +184,31 @@ func (commandOptions *vaultCommandOptions) newQueryRecipeRunCmd(agent bool, opts
 		cmd.Flags().BoolVar(&opts.summary, "summary", false, "after the JSON envelope, write a human-readable summary footer to stderr")
 	}
 	return cmd
+}
+
+// runQueryRecipeCommand runs one recipe and writes its envelope; module
+// commands share it so `rzm <module> <id>` prints what `query-recipe run` does.
+func runQueryRecipeCommand(cmd *cobra.Command, service actions.QueryRecipeService, agent bool, opts *queryRecipeOptions, inputs map[string]string, anchors []string) error {
+	response, validation, err := service.Run(cmd.Context(), opts.path, opts.id, inputs, anchors)
+	if err != nil {
+		return writeQueryRecipeCommandError(agent, err)
+	}
+	if validation != nil {
+		_ = writeJSON(cmd.OutOrStdout(), validation)
+		return silentExitError{code: 1}
+	}
+	if err := writeJSON(cmd.OutOrStdout(), response); err != nil {
+		return err
+	}
+	// WHY: --summary writes to stderr only so callers piping JSON to
+	// `jq` or other consumers do not see the summary mixed into stdout.
+	if !agent && opts.summary {
+		renderRecipeRunSummary(cmd.ErrOrStderr(), response)
+	}
+	if len(response.Result.Errors) > 0 {
+		return silentExitError{code: 1}
+	}
+	return nil
 }
 
 func addQueryRecipeCommonFlags(cmd *cobra.Command, opts *queryRecipeOptions, includeInputs bool) {
