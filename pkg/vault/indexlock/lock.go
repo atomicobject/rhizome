@@ -461,3 +461,7 @@ func touchIfOwner(lockPath string, owner LockData) bool {
 // Windows). Other packages use it instead of os.FindProcess, which always
 // succeeds on Windows.
 func PIDExists(pid int) bool { return pidExists(pid) }
+
+// RuntimeIdentity is this host and boot as recorded in LockData.Runtime. A
+// holder with a different identity cannot be checked by PID from here.
+func RuntimeIdentity() (string, error) { return runtimeIdentity() }

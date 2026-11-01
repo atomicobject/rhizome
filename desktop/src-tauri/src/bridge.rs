@@ -75,7 +75,7 @@ pub async fn call(
 }
 
 /// The `rzm` bundled beside the app's executable.
-pub fn sidecar() -> Result<std::path::PathBuf, Failure> {
+pub fn sidecar() -> Result<std::path::PathBuf, String> {
     let current = std::env::current_exe().map_err(|e| e.to_string())?;
     Ok(current
         .parent()

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Rhizome opens Terminal to start a scheduled task in your agent harness.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSExceptionDomains</key>

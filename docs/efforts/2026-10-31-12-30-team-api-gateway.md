@@ -146,6 +146,13 @@ The local build, on `t3/team-api-proxy-auth`:
 - **Surprise: the fixture vault indexes no code.** Its code roots point at the repository root rather than `vault/`. With code embeddings enabled, search then fails with "code embedding metadata is missing", which predates this work (Follow-ups). The e2e script points the roots at `vault/`.
 - **Surprise: search right after `rzm index` can fail** with "stale search continuation: index changed during search" while live background work settles. This predates this work; the script retries search.
 
+- 2026-11-01: Drew authorized updating PR #60 with the latest `main` and squash merging after verification. Merged `26e8d572` (Tasks page and desktop inbox) into the local gateway branch, preserving both changelog entries, both desktop state registrations, task notifications, and sign-in cancellation. The shared sidecar helper retains `String` errors, which the team commands convert through `Failure::from`.
+  - Independent integration review approved the overlap with no concrete findings.
+  - `make check` passed, including the gateway race suite and 1,734 web tests.
+  - `PATH="$HOME/.cargo/bin:$PATH" make desktop-check` passed: 97 interface tests, 102 Rust tests, formatting, and Clippy. The initial attempt lacked Rust on `PATH`; rerunning with the installed toolchain resolved that environment failure.
+  - `./scripts/rzm validate` passed with 0 issues. `./scripts/rzm validate frozen-scope-drift` reports one unrelated, pre-existing issue in EFF-2026-10-03-18-33; this effort has no drift finding.
+  - This merges the local foundation only. The effort remains active for Google setup, AWS staging, the pilot, and key retirement.
+
 ## Deviations
 
 - 2026-10-31T18:00:00Z: The repository had no development-build marker; `version.Version` is always a release number. `version.Channel` now defaults to `dev`, and Goreleaser and `make build-release` set `release`. SPEC-0129 says so, and also gains the origin-selector and fake-gateway requirements that came out of the council (requirements only, same scope). frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
@@ -176,7 +183,7 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Status
 
-Active. The local build is complete and verified end to end with fake and live providers, and it is in review as a pull request. Remaining, outside the approved local scope:
+Active. The local build is complete and verified end to end with fake and live providers; PR #60 carries that delivery. Remaining, outside the approved local scope:
 - Google configuration (X2, X3), then P1–P4.
 - AWS deployment and the DynamoDB store (Batch 5).
 - The pilot and live drills (Batch 6).

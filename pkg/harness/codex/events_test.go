@@ -85,11 +85,11 @@ func TestRichItemMapping(t *testing.T) {
 }
 
 func TestCommandOutputIsBounded(t *testing.T) {
-	content, err := json.Marshal(map[string]any{"threadId": "thr", "turnId": "turn", "item": map[string]any{"id": "i", "type": "commandExecution", "aggregatedOutput": strings.Repeat("x", maxOutputBytes+100)}})
+	content, err := json.Marshal(map[string]any{"threadId": "thr", "turnId": "turn", "item": map[string]any{"id": "i", "type": "commandExecution", "aggregatedOutput": strings.Repeat("x", harness.MaxOutputBytes+100)}})
 	require.NoError(t, err)
 	event, _ := mapNotification(rpcMessage{Method: "item/completed", Params: content})
 	require.Equal(t, harness.EventCommandExecution, event.Kind)
 	require.True(t, event.Truncated)
-	require.LessOrEqual(t, len(event.Output), maxOutputBytes)
+	require.LessOrEqual(t, len(event.Output), harness.MaxOutputBytes)
 	require.True(t, json.Valid(event.Output))
 }

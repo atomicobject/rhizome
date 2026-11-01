@@ -259,6 +259,13 @@ body,
   color: var(--chrome-text);
   font-weight: 600;
 }
+.section-count {
+  margin-left: 5px;
+  color: var(--chrome-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
 .page-search {
   position: relative;
   flex: 0 1 240px;

@@ -13,54 +13,101 @@ import (
 // ErrBusy means another task run holds the repository's run lock.
 var ErrBusy = errors.New("a task run is in progress in this repository; try again when it finishes")
 
-// Run does a due item's work in the background now, at the person's
-// request. It reads the task's current definition from the primary ref.
-func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
-	release, err := s.lockRun(ctx, 0)
-	if errors.Is(err, errLocked) {
-		return Outcome{}, ErrBusy
-	}
-	if err != nil {
-		return Outcome{}, err
-	}
-	defer func() { _ = release() }()
+// notStartedError wraps a Run failure from before the run started, so
+// nothing was recorded for it. Its message is the cause's.
+type notStartedError struct{ error }
+
+func (e notStartedError) Unwrap() error { return e.error }
+
+// NotStarted reports whether Run failed before the run started; the caller
+// can then record the failure with RecordLaunchError.
+func NotStarted(err error) bool {
+	var n notStartedError
+	return errors.As(err, &n)
+}
+
+// PrecheckRun reports, without running anything, the error Run would return
+// at once: an untrusted repository, an item that cannot be run, or a busy
+// run lock.
+func (s *Service) PrecheckRun(ctx context.Context, itemID string) error {
 	if reason := s.untrusted(); reason != "" {
-		return Outcome{}, errors.New(reason)
+		return errors.New(reason)
 	}
 	st, err := s.store.Load()
 	if err != nil {
-		return Outcome{}, err
+		return err
 	}
+	if _, err := runnableItem(&st, itemID); err != nil {
+		return err
+	}
+	release, err := s.lockRun(ctx, 0)
+	if errors.Is(err, errLocked) {
+		return ErrBusy
+	}
+	if err != nil {
+		return err
+	}
+	return release()
+}
+
+// RecordLaunchError saves why a Run of the item failed before it started.
+func (s *Service) RecordLaunchError(ctx context.Context, itemID, reason string) error {
+	return s.updateItem(ctx, itemID, func(st *State, it *Item) error {
+		it.LaunchError, it.Updated = reason, s.opts.Now()
+		return nil
+	})
+}
+
+// runnableItem returns the item when Run may do its work.
+func runnableItem(st *State, itemID string) (*Item, error) {
 	it, err := st.Item(itemID)
 	if err != nil {
-		return Outcome{}, err
+		return nil, err
 	}
 	if it.Kind != KindTask || (it.State != StateDue && it.State != StateAttention) {
-		return Outcome{}, fmt.Errorf("item %s is %s; only a due or needs-attention task can be run", it.ID, it.State)
+		return nil, fmt.Errorf("item %s is %s; only a due or needs-attention task can be run", it.ID, it.State)
 	}
 	if other := st.ActiveTaskItem(it.Task); other != nil && other.ID != it.ID && other.State != StateAttention {
-		return Outcome{}, fmt.Errorf("item %s already has this task %s; finish or discard it first", other.ID, other.State)
+		return nil, fmt.Errorf("item %s already has this task %s; finish or discard it first", other.ID, other.State)
 	}
-	ref, commit, def, err := s.currentDefinition(ctx, it.Task)
+	return it, nil
+}
+
+// Run does a due item's work in the background now, at the person's
+// request. It reads the task's current definition from the primary ref.
+// Failures before the run starts satisfy NotStarted.
+func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
+	release, err := s.lockRun(ctx, 0)
+	if errors.Is(err, errLocked) {
+		return Outcome{}, notStartedError{ErrBusy}
+	}
 	if err != nil {
-		return Outcome{}, err
+		return Outcome{}, notStartedError{err}
 	}
-	if def.Prompt == "" {
-		return Outcome{}, fmt.Errorf("task %q has no prompt to run", def.ID)
+	defer func() { _ = release() }()
+	if err := s.finalizeInterrupted(ctx); err != nil {
+		return Outcome{}, notStartedError{err}
 	}
-	check := CheckResult{Needed: true, Summary: it.Summary, Context: it.Context}
+	defer s.retain(ctx)
+	a, def, ref, commit, check, err := s.startRun(ctx, itemID)
+	if err != nil {
+		return Outcome{}, notStartedError{err}
+	}
+	defer s.end(ctx, a)
 	if def.Check != nil {
 		// The work uses fresh context, and a check that failed must pass
 		// before any agent work starts.
-		log, closeLog := s.openLog(def.ID, "check")
+		log := s.openCheckLog(a)
 		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, "")
-		closeLog()
+		log.Close()
 		if err != nil {
-			return s.fail(ctx, def, itemID, commit, "check failed: "+err.Error(), 0), nil
+			return s.fail(ctx, def, a, itemID, commit, "check failed: "+err.Error(), 0), nil
 		}
 		if !check.Needed {
 			err := s.updateItem(ctx, itemID, func(st *State, it *Item) error {
-				st.Record(RunRecord{Task: def.ID, At: s.opts.Now(), Outcome: OutcomeNotNeeded})
+				r := a.record(def.ID, OutcomeNotNeeded, s.opts.Now())
+				r.Item, r.Commit = itemID, commit
+				st.Record(r)
 				if it.Worktree != "" {
 					// A failed attempt's work stays reviewable and discardable.
 					it.Reason = "the check found nothing to do now; the earlier attempt's worktree is kept at " + it.Worktree
@@ -86,6 +133,7 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 			// A failed attempt's worktree stays on its item, so the new
 			// attempt gets an item of its own.
 			itemID = st.AddItem(Item{Task: it.Task, Kind: KindTask, State: StateRunning, Summary: check.Summary, Context: check.Context}, s.opts.Now()).ID
+			running(st, a, func(r *RunRecord) { r.Item = itemID })
 			return nil
 		}
 		it.set(StateRunning, s.opts.Now())
@@ -94,12 +142,46 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 	}); err != nil {
 		return Outcome{}, err
 	}
-	return s.work(ctx, def, itemID, check, ref, commit), nil
+	return s.work(ctx, def, a, itemID, check, ref, commit), nil
+}
+
+// startRun checks that the item can run under the held run lock, loads its
+// task, and marks the run as Running.
+func (s *Service) startRun(ctx context.Context, itemID string) (a attempt, def Definition, ref, commit string, check CheckResult, err error) {
+	if reason := s.untrusted(); reason != "" {
+		return a, def, "", "", check, errors.New(reason)
+	}
+	st, err := s.store.Load()
+	if err != nil {
+		return a, def, "", "", check, err
+	}
+	it, err := runnableItem(&st, itemID)
+	if err != nil {
+		return a, def, "", "", check, err
+	}
+	ref, commit, def, err = s.currentDefinition(ctx, it.Task)
+	if err != nil {
+		return a, def, "", "", check, err
+	}
+	if def.Prompt == "" {
+		return a, def, "", "", check, fmt.Errorf("task %q has no prompt to run", def.ID)
+	}
+	check = CheckResult{Needed: true, Summary: it.Summary, Context: it.Context}
+	a = s.newAttempt(false)
+	r := a.record(def.ID, "", time.Time{})
+	r.Item, r.Commit = itemID, commit
+	err = s.begin(ctx, a, r, func(st *State) {
+		if it, err := st.Item(itemID); err == nil {
+			it.LaunchError = ""
+		}
+	})
+	return a, def, ref, commit, check, err
 }
 
 // RunDraft runs a task file from the working tree once, ignoring its
 // cadence and mode, so an author can try it before merging. Its check runs
 // in the checkout holding the file; its prompt runs like any background run.
+// The run gets a folder but no record, so the task's clock does not move.
 func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
@@ -125,6 +207,10 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 		return Outcome{}, err
 	}
 	defer func() { _ = release() }()
+	if err := s.finalizeInterrupted(ctx); err != nil {
+		return Outcome{}, err
+	}
+	defer s.retain(ctx)
 	if reason := s.untrusted(); reason != "" {
 		return Outcome{}, errors.New(reason)
 	}
@@ -132,11 +218,12 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	if err != nil {
 		return Outcome{}, err
 	}
+	a := s.newAttempt(true)
 	check := CheckResult{Needed: true}
 	if def.Check != nil {
-		log, closeLog := s.openLog(def.ID, "draft-check")
+		log := s.openCheckLog(a)
 		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, root)
-		closeLog()
+		log.Close()
 		if err != nil {
 			return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}, nil
 		}
@@ -154,7 +241,7 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	}); err != nil {
 		return Outcome{}, err
 	}
-	return s.work(ctx, def, id, check, ref, commit), nil
+	return s.work(ctx, def, a, id, check, ref, commit), nil
 }
 
 // currentDefinition loads one task's definition at the resolved primary ref.

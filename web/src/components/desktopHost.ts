@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useSyncExternalStore } from "react";
 
 import { isBoolean, isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
@@ -18,7 +18,7 @@ declare global {
 // The page has no native permissions: it reports its state through the
 // document title, and the app sends it commands as `rhizome:desktop` events.
 
-export const SECTIONS = ["notes", "ontology", "explorer", "agent", "graphql"] as const;
+export const SECTIONS = ["notes", "ontology", "explorer", "agent", "tasks", "graphql"] as const;
 
 export type Section = (typeof SECTIONS)[number];
 
@@ -28,7 +28,21 @@ export type DesktopCommand =
   | { command: "issues" }
   | { command: "shortcuts" }
   | { command: "find" }
-  | { command: "sidebar"; collapsed: boolean };
+  | { command: "sidebar"; collapsed: boolean }
+  /** Opens a task's page, after a click on its notification. */
+  | { command: "task"; task: string };
+
+/** A task item that needs the person, for the Dock badge and notifications. */
+export type DesktopTaskItem = {
+  id: string;
+  task: string;
+  name?: string;
+  state: "due" | "ready" | "needs-attention";
+  /** The item's summary or reason, shortened. */
+  text: string;
+};
+
+export type DesktopTasks = { needs: number; items: DesktopTaskItem[] };
 
 export type DesktopReport = {
   section: Section;
@@ -39,7 +53,41 @@ export type DesktopReport = {
   sidebarCollapsed?: boolean;
   /** How many times the page itself toggled it, sent with `sidebarCollapsed`. */
   sidebarToggles?: number;
+  /** The page's latest Tasks request; the app acts on each new `n` once. */
+  request?: NumberedRequest;
+  /** The repository's open task items that need the person, unsnoozed. */
+  tasks?: DesktopTasks;
 };
+
+/** What the Tasks page may ask the app to do. The app validates both. */
+export type DesktopRequest =
+  | { action: "openTaskWorktree"; path: string }
+  | { action: "startTask"; item: string };
+
+type NumberedRequest = DesktopRequest & { n: number };
+
+let latestRequest: NumberedRequest | undefined;
+
+const requestListeners = new Set<() => void>();
+
+/** Asks Rhizome Desktop to act; the next title report carries the request. */
+export function requestDesktop(request: DesktopRequest) {
+  latestRequest = { ...request, n: (latestRequest?.n ?? 0) + 1 };
+
+  for (const listener of requestListeners) listener();
+}
+
+function subscribeRequests(listener: () => void) {
+  requestListeners.add(listener);
+
+  return () => {
+    requestListeners.delete(listener);
+  };
+}
+
+export function useDesktopRequest(): NumberedRequest | undefined {
+  return useSyncExternalStore(subscribeRequests, () => latestRequest);
+}
 
 /** The app marks its content view with an initialization script. */
 export function inDesktop(): boolean {
@@ -65,6 +113,8 @@ function readCommand(event: Event): DesktopCommand | null {
   if (command === "search") return isString(detail.query) ? { command, query: detail.query } : null;
 
   if (command === "issues" || command === "shortcuts" || command === "find") return { command };
+
+  if (command === "task") return isString(detail.task) ? { command, task: detail.task } : null;
 
   if (command === "sidebar")
     return isBoolean(detail.collapsed) ? { command, collapsed: detail.collapsed } : null;

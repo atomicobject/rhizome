@@ -159,6 +159,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/agent/settings", s.handleAgentSettings)
 	s.mux.HandleFunc("/api/agent/sessions", s.handleAgentSessions)
 	s.mux.HandleFunc("/api/agent/sessions/", s.handleAgentSessionByID)
+	s.mux.HandleFunc("/api/tasks", s.handleTasks)
+	s.mux.HandleFunc("/api/tasks/", s.handleTasks)
 	s.mux.HandleFunc("/api", rejectUnknownAPI)
 	s.mux.HandleFunc("/api/", rejectUnknownAPI)
 

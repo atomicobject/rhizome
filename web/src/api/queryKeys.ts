@@ -90,6 +90,12 @@ export const queryKeys = {
     settings: () => [...queryKeys.agent.all(), "settings"] as const,
     models: () => [...queryKeys.agent.all(), "models"] as const,
   },
+  tasks: {
+    all: () => [...queryKeys.all, "tasks"] as const,
+    report: () => [...queryKeys.tasks.all(), "report"] as const,
+    state: () => [...queryKeys.tasks.all(), "state"] as const,
+    runs: (task: string) => [...queryKeys.tasks.all(), "runs", task] as const,
+  },
   validationAll: () => [...queryKeys.all, "validation"] as const,
   validation: (editFingerprint = "committed") =>
     [...queryKeys.validationAll(), editFingerprint] as const,
