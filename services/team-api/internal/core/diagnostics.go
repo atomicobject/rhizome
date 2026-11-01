@@ -9,6 +9,9 @@ import (
 // RequestDiagnostics contains only fields approved for request logging. Handlers
 // fill it synchronously; the outer HTTP handler emits it after they return.
 type RequestDiagnostics struct {
+	// Route is the pattern an inner mux matched, which the outer request
+	// cannot see because handlers below it receive request copies.
+	Route                  string
 	Sub, SessionID, Model  string
 	Inputs, UpstreamStatus int
 	Authentication         time.Duration

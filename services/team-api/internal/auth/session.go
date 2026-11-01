@@ -228,7 +228,13 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 			WriteError(w, code, authMessages[code])
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(core.WithPrincipal(r.Context(), p)))
+		inner := r.WithContext(core.WithPrincipal(r.Context(), p))
+		defer func() {
+			if info := core.DiagnosticsFrom(r.Context()); info != nil && inner.Pattern != "" {
+				info.Route = inner.Pattern
+			}
+		}()
+		next.ServeHTTP(w, inner)
 	})
 }
 

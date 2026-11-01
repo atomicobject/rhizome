@@ -62,6 +62,21 @@ def wait_for_revision(service_arn, task_arn, deadline):
     raise TimeoutError("ECS did not converge on the requested single-task revision")
 
 
+UNSETTLED = ("PENDING", "IN_PROGRESS", "STOP_REQUESTED", "ROLLBACK_REQUESTED", "ROLLBACK_IN_PROGRESS")
+
+
+def wait_until_settled(service_arn, deadline):
+    """Wait until no ECS deployment is still running or rolling back, so ALB
+    settings apply to the load balancer that survives."""
+    cluster, service = service_arn.split(":service/", 1)[1].split("/", 1)
+    while time.monotonic() < deadline:
+        history = aws("ecs", "list-service-deployments", "--cluster", cluster, "--service", service)["serviceDeployments"]
+        if not any(d["status"] in UNSETTLED for d in history):
+            return
+        time.sleep(15)
+    raise TimeoutError("ECS deployments did not settle")
+
+
 def configure_alb(arn):
     aws("elbv2", "modify-load-balancer-attributes", "--load-balancer-arn", arn,
         "--attributes", "Key=idle_timeout.timeout_seconds,Value=300",
@@ -143,6 +158,7 @@ def deploy(stack_name, tag, deployment_id):
             current = aws("cloudformation", "describe-stacks", "--stack-name", stack_name)["Stacks"][0]
         surviving = stack_outputs(current)
         if "LoadBalancerArn" in surviving:
+            wait_until_settled(surviving["ServiceArn"], time.monotonic() + 2400)
             configure_alb(surviving["LoadBalancerArn"])
             verify_ingress(surviving)
             smoke(surviving["Endpoint"])

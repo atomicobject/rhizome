@@ -83,19 +83,34 @@ func requestDiagnostics(rec *diagnostics.Recorder, next http.Handler) http.Handl
 		info := &core.RequestDiagnostics{}
 		r = r.WithContext(core.WithRequestDiagnostics(r.Context(), info))
 		response := &responseLog{ResponseWriter: w}
+		// Log from a defer so an aborted request (a panic, including
+		// http.ErrAbortHandler) still gets its record; the panic continues.
+		defer func() {
+			panicked := recover()
+			if response.status == 0 && panicked == nil {
+				response.status = http.StatusOK
+			}
+			logRequest(rec, w, r, info, response, start, panicked != nil)
+			if panicked != nil {
+				panic(panicked)
+			}
+		}()
 		next.ServeHTTP(response, r)
-		if response.status == 0 {
-			response.status = http.StatusOK
-		}
-		route := r.Pattern
-		if route == "" {
-			route = "unmatched"
-		}
-		metrics, _ := json.Marshal(map[string]any{"bytes_in": r.ContentLength, "bytes_out": response.bytes, "input_count": info.Inputs, "duration_ms": float64(time.Since(start).Microseconds()) / 1000, "authentication_ms": float64(info.Authentication.Microseconds()) / 1000})
-		rec.EventMetrics(context.WithoutCancel(r.Context()), slog.LevelInfo, "teamapi", "teamapi.request", "", metrics,
-			slog.String("request_id", w.Header().Get(wire.HeaderRequestID)), slog.String("route", route),
-			slog.String("sub", core.LogIdentifier(info.Sub)), slog.String("session_id", core.LogIdentifier(info.SessionID)), slog.String("model", info.Model),
-			slog.Int("status", response.status), slog.Int("upstream_status", info.UpstreamStatus), slog.String("gateway_code", w.Header().Get(wire.HeaderGatewayError)),
-			slog.String("client_version", core.ClientVersion(r.UserAgent())))
 	}))
+}
+
+func logRequest(rec *diagnostics.Recorder, w http.ResponseWriter, r *http.Request, info *core.RequestDiagnostics, response *responseLog, start time.Time, aborted bool) {
+	route := info.Route
+	if route == "" {
+		route = r.Pattern
+	}
+	if route == "" {
+		route = "unmatched"
+	}
+	metrics, _ := json.Marshal(map[string]any{"bytes_in": r.ContentLength, "bytes_out": response.bytes, "input_count": info.Inputs, "duration_ms": float64(time.Since(start).Microseconds()) / 1000, "authentication_ms": float64(info.Authentication.Microseconds()) / 1000})
+	rec.EventMetrics(context.WithoutCancel(r.Context()), slog.LevelInfo, "teamapi", "teamapi.request", "", metrics,
+		slog.String("request_id", w.Header().Get(wire.HeaderRequestID)), slog.String("route", route),
+		slog.String("sub", core.LogIdentifier(info.Sub)), slog.String("session_id", core.LogIdentifier(info.SessionID)), slog.String("model", info.Model),
+		slog.Int("status", response.status), slog.Int("upstream_status", info.UpstreamStatus), slog.String("gateway_code", w.Header().Get(wire.HeaderGatewayError)),
+		slog.String("client_version", core.ClientVersion(r.UserAgent())), slog.Bool("aborted", aborted))
 }

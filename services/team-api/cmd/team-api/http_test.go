@@ -82,3 +82,27 @@ func TestDuplicateForwardedHeadersUsePeerBucket(t *testing.T) {
 	}))
 	h.ServeHTTP(httptest.NewRecorder(), r)
 }
+
+func TestAbortedRequestIsLoggedAndStillAborts(t *testing.T) {
+	var out bytes.Buffer
+	rec := diagnostics.OpenStream(&out, diagnostics.Options{})
+	h := requestDiagnostics(rec, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		panic(http.ErrAbortHandler)
+	}))
+	func() {
+		defer func() {
+			if p := recover(); p != http.ErrAbortHandler {
+				t.Fatalf("panic = %v, want http.ErrAbortHandler to propagate", p)
+			}
+		}()
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/providers/voyage/v1/embeddings", nil))
+	}()
+	var ev diagnostics.Event
+	if err := json.Unmarshal(out.Bytes(), &ev); err != nil {
+		t.Fatalf("aborted request left no record: %v", err)
+	}
+	if ev.Attributes["aborted"] != true || ev.Attributes["status"] != float64(200) {
+		t.Fatalf("aborted request fields: %#v", ev.Attributes)
+	}
+}

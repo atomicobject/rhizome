@@ -233,6 +233,13 @@ Resources:
                 Action: [ecs:CreateExpressGatewayService, ecs:UpdateExpressGatewayService, ecs:DescribeExpressGatewayService, ecs:DescribeServices, ecs:ListServiceDeployments, ecs:TagResource, ecs:ListTagsForResource]
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/default/${AWS::StackName}'
+              # Express Mode creates and associates an ECS gateway on create and update.
+              - Effect: Allow
+                Action: [ecs:CreateGateway, ecs:AssociateGatewayWithCluster]
+                Resource: !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:gateway/*/*'
+              - Effect: Allow
+                Action: ecs:CreateCluster
+                Resource: !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/default'
               - Effect: Allow
                 Action: ecs:DescribeTaskDefinition
                 Resource: '*'

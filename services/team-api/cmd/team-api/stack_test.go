@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -132,6 +135,27 @@ func TestDevStack(t *testing.T) {
 	events, _ := filepath.Glob(filepath.Join(dir, "data", ".rhizome", "diagnostics", "events", "*.jsonl"))
 	if len(events) == 0 {
 		t.Fatal("no server diagnostics events were written")
+	}
+	// The request log names the provider route the inner mux matched, not
+	// the outer /v1/providers/ prefix.
+	var routes []string
+	for _, file := range events {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+			var ev struct {
+				Event      string         `json:"event"`
+				Attributes map[string]any `json:"attributes"`
+			}
+			if json.Unmarshal([]byte(line), &ev) == nil && ev.Event == "teamapi.request" {
+				routes = append(routes, fmt.Sprint(ev.Attributes["route"]))
+			}
+		}
+	}
+	if !slices.ContainsFunc(routes, func(r string) bool { return strings.Contains(r, "/v1/providers/voyage/") }) {
+		t.Fatalf("no teamapi.request event named the Voyage route; routes: %v", routes)
 	}
 }
 

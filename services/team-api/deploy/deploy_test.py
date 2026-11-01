@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from deploy import checked_changes, configure_alb, deploy, wait_for_revision
+from deploy import checked_changes, configure_alb, deploy, wait_for_revision, wait_until_settled
 
 
 class DeploymentSafetyTest(unittest.TestCase):
@@ -38,13 +38,15 @@ class DeploymentSafetyTest(unittest.TestCase):
                 wait_for_revision("arn:aws:ecs:region:account:service/default/test", "new", float("inf"))
 
     def test_failed_update_still_restores_surviving_alb(self):
-        outputs = {"RepositoryUri":"123456789012.dkr.ecr.us-east-2.amazonaws.com/synthetic", "LoadBalancerArn":"synthetic-alb", "Endpoint":"https://synthetic.invalid"}
+        outputs = {"RepositoryUri":"123456789012.dkr.ecr.us-east-2.amazonaws.com/synthetic", "LoadBalancerArn":"synthetic-alb", "Endpoint":"https://synthetic.invalid", "ServiceArn":"arn:aws:ecs:region:account:service/default/test"}
         stack = {"Stacks":[{"Parameters":[], "Outputs":[{"OutputKey":k,"OutputValue":v} for k,v in outputs.items()]}]}
         def cli(*args):
             if args[:2] == ("cloudformation", "describe-stacks"):
                 return stack
             if args[:3] == ("cloudformation", "wait", "stack-update-complete"):
                 raise RuntimeError("failed deployment")
+            if args[:2] == ("ecs", "list-service-deployments"):
+                return {"serviceDeployments":[{"status":"ROLLBACK_SUCCESSFUL"}]}
             if args[:2] == ("cloudformation", "describe-change-set"):
                 return {"Changes":[{"ResourceChange":{"LogicalResourceId":"Gateway", "Action":"Modify", "Replacement":"False"}}]}
             return {}
@@ -53,3 +55,10 @@ class DeploymentSafetyTest(unittest.TestCase):
                 deploy("synthetic-stack", "a" * 40, "synthetic-run")
             alb.assert_called_once_with("synthetic-alb")
             health.assert_called_once_with("https://synthetic.invalid")
+
+    def test_alb_waits_for_ecs_rollback_to_finish(self):
+        rolling = {"serviceDeployments":[{"status":"ROLLBACK_IN_PROGRESS"}]}
+        done = {"serviceDeployments":[{"status":"ROLLBACK_SUCCESSFUL"}, {"status":"SUCCESSFUL"}]}
+        with patch("deploy.aws", side_effect=[rolling, done]) as cli, patch("deploy.time.sleep"):
+            wait_until_settled("arn:aws:ecs:region:account:service/default/test", float("inf"))
+            self.assertEqual(2, cli.call_count)
