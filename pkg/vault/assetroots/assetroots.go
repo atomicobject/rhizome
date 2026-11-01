@@ -198,8 +198,13 @@ func knownKind(k Kind) bool {
 // other failure, or a path that exists but is not a folder, is an error, so
 // a broken asset root is never mistaken for an empty one.
 func dirExists(repoRoot, rel string) (bool, error) {
-	info, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(rel)))
+	abs := filepath.Join(repoRoot, filepath.FromSlash(rel))
+	info, err := os.Stat(abs)
 	if errors.Is(err, fs.ErrNotExist) {
+		// A link whose target is missing is broken, not absent.
+		if _, lerr := os.Lstat(abs); lerr == nil {
+			return false, fmt.Errorf("%s is a broken link", rel)
+		}
 		return false, nil
 	}
 	if err != nil {

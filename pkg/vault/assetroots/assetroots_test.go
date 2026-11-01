@@ -117,3 +117,14 @@ func TestRootsReportsAnAssetRootThatIsNotAFolder(t *testing.T) {
 		t.Fatalf("missing roots stay absent: %v %v", roots, err)
 	}
 }
+
+func TestRootsReportsABrokenLinkedAssetRoot(t *testing.T) {
+	repo := t.TempDir()
+	mkdirs(t, repo, ".rhizome/modules/demo")
+	if err := os.Symlink(filepath.Join(repo, "missing"), filepath.Join(repo, ".rhizome", "modules", "demo", "tasks")); err != nil {
+		t.Skip("symlinks unavailable")
+	}
+	if _, err := Roots(repo, Tasks); err == nil {
+		t.Fatal("a broken link at a module tasks folder must be reported, not treated as absent")
+	}
+}
