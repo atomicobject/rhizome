@@ -162,8 +162,9 @@ func bulkUpsertEmbeddingCacheTx(ctx context.Context, tx *sql.Tx, table string, r
 // kept even when unreferenced, so reverting an edit still reuses them. Every
 // vector a current chunk or item uses first adopts the current format, so text
 // that survived a format change keeps its revert reuse. Rows with an empty
-// format (written before formats were recorded, or restored by recovery) are
-// kept unless referenced, since nothing shows which format produced them.
+// format (written before formats were recorded, or restored by recovery) count
+// as earlier: the first prune keeps those a current chunk or item uses and
+// removes the rest, so an upgrade reclaims vectors no current content needs.
 // Callers run it only after a complete index with no pending derived work, so
 // vectors awaiting republication are never removed.
 func (s *engine) PruneEmbeddingCache(ctx context.Context) (int64, error) {
@@ -178,7 +179,7 @@ func (s *engine) PruneEmbeddingCache(ctx context.Context) (int64, error) {
 		if _, err := tx.ExecContext(ctx, `UPDATE `+s.spec.cache+` SET format = ? WHERE format != ? AND content_hash IN (`+refs+`)`, format, format); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `DELETE FROM `+s.spec.cache+` WHERE format NOT IN (?, '') AND content_hash NOT IN (`+refs+`)`, format)
+		result, err := tx.ExecContext(ctx, `DELETE FROM `+s.spec.cache+` WHERE format != ? AND content_hash NOT IN (`+refs+`)`, format)
 		if err == nil {
 			deleted, err = result.RowsAffected()
 		}

@@ -77,11 +77,11 @@ func TestPruneEmbeddingCacheRemovesOnlyUnreferencedEarlierFormats(t *testing.T) 
 
 			pruned, err := d.store.PruneEmbeddingCache(ctx)
 			require.NoError(t, err)
-			require.EqualValues(t, 1, pruned)
+			require.EqualValues(t, 2, pruned)
 			require.False(t, cached("earlier"), "an unreferenced earlier-format vector is pruned")
 			require.True(t, cached("revert-history"), "an unreferenced current-format vector keeps revert reuse")
 			require.Equal(t, cacheFormat(d.table), cacheFormatOf(t, db, d.table, "revert-history"), "every cache write records the current format")
-			require.True(t, cached("unknown"), "a vector of unknown format is kept")
+			require.False(t, cached("unknown"), "an unreferenced vector from before formats were recorded is reclaimed")
 			require.True(t, cached(d.referenced), "a referenced vector is kept")
 			require.Equal(t, cacheFormat(d.table), cacheFormatOf(t, db, d.table, d.referenced), "a referenced vector adopts the current format")
 

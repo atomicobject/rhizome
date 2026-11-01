@@ -93,6 +93,16 @@ func TestCompleteIndexPrunesEarlierCodeCacheGenerations(t *testing.T) {
 	require.Zero(t, unchanged, "provider texts by phase: %v", byPhase)
 	afterLive, orphaned := rows()
 	require.Equal(t, history, orphaned, "an earlier format's unreferenced vectors are pruned; current-format history stays")
+
+	// Vectors cached before formats were recorded have an empty format; the
+	// first complete index after the upgrade reclaims those no item uses.
+	withDB(func(exec func(string, ...any), _ func(string) int) {
+		exec(`INSERT INTO code_embedding_cache (content_hash, embedding, norm, dimensions, created_at, format)
+			SELECT 'pre-upgrade', embedding, norm, dimensions, created_at, '' FROM code_embedding_cache LIMIT 1`)
+	})
+	_, _ = providerTexts()
+	_, orphaned = rows()
+	require.Equal(t, history, orphaned, "an unreferenced pre-upgrade vector is reclaimed")
 	require.Equal(t, live, afterLive, "vectors current chunks use survive pruning")
 
 	write("src/foo.go", foo)

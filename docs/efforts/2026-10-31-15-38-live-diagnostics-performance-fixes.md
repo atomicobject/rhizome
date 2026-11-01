@@ -105,6 +105,8 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
 
 ## Deviations
 
+- 2026-11-01T16:30:00Z: Drew asked to prune the note and code content caches too (WP-I), to reclaim unused vectors already in the cache (about 20k of 54k code vectors in the main checkout), and to fix plain-note revert reuse in this PR (WP-J).
+
 - 2026-10-31T22:30:00Z: Drew decided the projection-refresh follow-up. Text already embedded with the same provider, model, and dimensions must never be re-embedded, even when notes are reprojected; only a chunking or text change, or a change of provider, model, or dimensions, justifies a provider call. This was added to this effort as WP-H: a content-addressed cache for ontology body embeddings in the intel store, which ownership transitions do not delete.
 
 - 2026-10-31T21:00:00Z: the plan excluded idle-CPU work unless it remained after the other fixes. It did: about 1.1 CPU-s/min on the fixture with both builds. `sample` attributed it to `watchStartIntent`, which took a file lock and read the start intent every 50 ms for the runtime's lifetime. The poll now backs off from 50 ms to a 1 s cap, still within `StopGrace` (10 s). Added under the original authority because it is the root cause of finding F4, which was in the plan's measure-then-decide scope.
@@ -129,7 +131,6 @@ Complete. Delivered by [#62](https://github.com/atomicobject/rhizome/pull/62) on
 - Wake desktop presence when a page loses its runtime connection, to restore about 6 s crash recovery while idle.
 - `~/.config/rhizome/instances` holds 7,907 leaked `*.intent.lock.guard.lock` files and 361 stale `*.pending.json` files. Find the leaking path, and prune guards for instances that no longer exist.
 - The live runtime never prunes the embedding caches; only an explicit index or boot catch-up does. A vault that is never explicitly indexed keeps obsolete vectors until its next catch-up.
-- The note and code content caches (`embedding_cache`, `code_embedding_cache`) are never pruned, so a note or code chunking change leaves its old generation behind. Give them the same per-row format stamp and format-based prune as the ontology cache.
 - Changing the ontology chunk text without bumping `ontologyPrimaryChunkFormatVersion` or `rootEvidenceChunkFormat` leaves the old vectors unpruned. This leaks storage but cannot serve a wrong vector.
 - Known limits of partial-failure caching: a 256-text slice that spans several shared-node physical batches loses its other vectors when one batch fails or is dropped, and runtime shutdown cancels provider calls in flight. A retry can re-send at most those texts. Batches already waiting at a shared provider gate are still sent after cancellation.
 - When an explicit index preempts a live derived pass, the pass's cache write queues behind it on the single-writer lane, so the explicit index can re-send up to `maxConcurrent × batch` texts that were in flight. Closing this needs a cache write that does not wait for the lane.
