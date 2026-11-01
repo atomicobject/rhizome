@@ -79,3 +79,18 @@ func TestModuleRecipesFolderReportsYAMLWithoutAPIVersion(t *testing.T) {
 	require.Len(t, recipes, 1, "a module recipes folder checked directly loads YAML without apiVersion so validation reports it")
 	require.False(t, rootUsesExplicitRecipeFiles(filepath.Join(root, ".rhizome", "modules", "team", "views")))
 }
+
+func TestDefaultDiscoveryReportsAModuleRecipesPathThatIsNotAFolder(t *testing.T) {
+	root := t.TempDir()
+	writeRecipeFile(t, root, ".rhizome/modules/team/recipes", "not a folder\n")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "modules", "gone"), 0o755))
+	require.NoError(t, os.Symlink(filepath.Join(root, "missing"), filepath.Join(root, ".rhizome", "modules", "gone", "recipes")))
+	_, issues := LoadDefaultSources(root)
+	paths := []string{}
+	for _, issue := range issues {
+		require.Equal(t, "recipe_path_error", issue.Code)
+		paths = append(paths, filepath.Base(filepath.Dir(issue.Path)))
+	}
+	require.ElementsMatch(t, []string{"team", "gone"}, paths)
+	require.True(t, HasDefaultSources(root), "validation runs so it can report the broken folders")
+}

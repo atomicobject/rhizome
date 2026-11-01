@@ -112,6 +112,10 @@ func scanSources(roots []string, optional bool) ([]sourceFile, []Issue) {
 				issues = append(issues, Issue{Code: "recipe_path_error", Path: path, Message: walkErr.Error()})
 				return nil
 			}
+			if modules && !d.IsDir() && isModuleRecipesEntry(root, path) {
+				issues = append(issues, Issue{Code: "recipe_path_error", Path: path, Message: "a module's recipes path must be a folder"})
+				return nil
+			}
 			if modules && !inModuleRecipes(root, path, d.IsDir()) {
 				if d.IsDir() {
 					return filepath.SkipDir
@@ -193,6 +197,17 @@ func isModuleRecipesRoot(root string) bool {
 	}
 	parts := strings.Split(strings.Trim(root[i+len(marker):], "/"), "/")
 	return len(parts) >= 2 && assetroots.ValidModuleName(parts[0]) && parts[1] == string(assetroots.Recipes)
+}
+
+// isModuleRecipesEntry reports whether path is `<module>/recipes` directly
+// under a modules root.
+func isModuleRecipesEntry(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	return len(parts) == 2 && assetroots.ValidModuleName(parts[0]) && parts[1] == string(assetroots.Recipes)
 }
 
 // inModuleRecipes keeps a modules-root walk to valid module folders and
