@@ -43,6 +43,8 @@ pub fn profiling_for(app: &AppHandle) -> Profiling {
 
 const PREFIX: &str = "rhizome-desktop:";
 const SEARCH_LIMIT: usize = 500;
+/// Bounds a title before it is parsed; real reports stay far below it.
+const TITLE_LIMIT: usize = 64 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -51,6 +53,7 @@ pub enum Section {
     Ontology,
     Explorer,
     Agent,
+    Tasks,
     Graphql,
 }
 
@@ -92,16 +95,46 @@ pub struct Report {
         skip_serializing_if = "Option::is_none"
     )]
     sidebar_toggles: Option<u32>,
+    /// The page's latest Tasks request, numbered by the page. Rust acts on
+    /// each new number once and validates what it names (tasks.rs).
+    #[serde(default, skip_serializing)]
+    request: Option<Request>,
+    /// The repository's task items that need the person (crate::inbox).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tasks: Option<crate::inbox::Tasks>,
+}
+
+/// A Tasks page request: only these two, never a command or URL.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct Request {
+    pub n: u32,
+    #[serde(flatten)]
+    pub ask: Ask,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase")]
+pub enum Ask {
+    /// Opens an item's worktree in a new window.
+    OpenTaskWorktree { path: String },
+    /// Opens Terminal running `rzm tasks start <item>`.
+    StartTask { item: String },
 }
 
 /// Reads a page title as a report, only from a page on the verified runtime
 /// origin. Any other title, such as an HTML viewer page's, yields `None`.
 pub fn decode(title: &str, page: &Url, runtime: Option<&Url>) -> Option<Report> {
-    if !security::same_origin(runtime?, page) {
+    if !security::same_origin(runtime?, page) || title.len() > TITLE_LIMIT {
         return None;
     }
     let report: Report = serde_json::from_str(title.strip_prefix(PREFIX)?).ok()?;
-    (report.v == 1 && report.search.chars().count() <= SEARCH_LIMIT).then_some(report)
+    (report.v == 1
+        && report.search.chars().count() <= SEARCH_LIMIT
+        && report
+            .tasks
+            .as_ref()
+            .map_or(true, crate::inbox::Tasks::valid))
+    .then_some(report)
 }
 
 /// A new document is loading in the content view; it has reported nothing yet.
@@ -113,6 +146,9 @@ pub fn loading(pane: &mut Pane, url: &Url) {
     pane.sidebar = None;
     pane.sidebar_toggles = None;
     pane.graphql = false;
+    pane.requests = None;
+    pane.tasks = None;
+    pane.tasks_reported = false;
     pane.send(json!({"type": "page", "state": null}));
 }
 
@@ -135,12 +171,31 @@ pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
     pane.graphql = report
         .as_ref()
         .is_some_and(|r| r.section == Section::Graphql);
+    if let Some(report) = &report {
+        asked(pane, report.request.as_ref());
+    }
+    pane.tasks = report.as_ref().and_then(|r| r.tasks.clone());
     let toggled = match (previous_toggles, pane.sidebar_toggles) {
         (Some(before), Some(now)) if now > before => pane.sidebar,
         _ => None,
     };
     pane.send(json!({"type": "page", "state": report}));
     (first, toggled)
+}
+
+/// Holds a request newer than the document's last, for the caller to take. A
+/// document's first report only sets the count, so a late title from an
+/// earlier document never repeats its request.
+fn asked(pane: &mut Pane, request: Option<&Request>) {
+    let n = request.map_or(0, |r| r.n);
+    match pane.requests {
+        Some(before) if n > before => {
+            pane.asked = request.map(|r| r.ask.clone());
+            pane.requests = Some(n);
+        }
+        Some(_) => {}
+        None => pane.requests = Some(n),
+    }
 }
 
 /// Whether the shown page can toggle its sidebar: a runtime page that took
@@ -244,6 +299,12 @@ pub enum Command {
     Sidebar {
         collapsed: bool,
     },
+    /// Opens a task's page, after a click on its notification. Only the app
+    /// sends it.
+    #[serde(skip_deserializing)]
+    Task {
+        task: String,
+    },
 }
 
 impl Command {
@@ -312,6 +373,12 @@ mod tests {
             serde_json::to_value(&report).unwrap(),
             json!({"section": "graphql", "search": ""})
         );
+        let title = r#"rhizome-desktop:{"v":1,"section":"tasks","search":""}"#;
+        let report = decode(title, &page("/tasks/nightly"), Some(&runtime())).unwrap();
+        assert_eq!(
+            serde_json::to_value(&report).unwrap(),
+            json!({"section": "tasks", "search": ""})
+        );
     }
 
     #[test]
@@ -322,6 +389,11 @@ mod tests {
             .unwrap();
         assert!(decode(valid, &viewer, Some(&runtime())).is_none());
         assert!(decode(valid, &page("/notes"), None).is_none());
+        let huge = format!(
+            r#"rhizome-desktop:{{"v":1,"section":"tasks","search":"","request":{{"n":2,"action":"openTaskWorktree","path":"/{}"}}}}"#,
+            "a".repeat(TITLE_LIMIT)
+        );
+        assert!(decode(&huge, &page("/tasks"), Some(&runtime())).is_none());
         let long = format!(
             r#"rhizome-desktop:{{"v":1,"section":"notes","search":"{}"}}"#,
             "a".repeat(501)
@@ -432,6 +504,25 @@ mod tests {
     }
 
     #[test]
+    fn keeps_the_documents_task_items_and_relays_only_their_count() {
+        let (mut pane, received) = shown_pane();
+        let title = r#"rhizome-desktop:{"v":1,"section":"notes","search":"","tasks":{"needs":2,"items":[{"id":"8","task":"flaky","state":"ready","text":"x"}]}}"#;
+        loading(&mut pane, &page("/notes"));
+        titled(&mut pane, title);
+        assert_eq!(pane.tasks.as_ref().map(|t| t.needs), Some(2));
+        assert_eq!(
+            received.try_iter().last().unwrap()["state"],
+            json!({"section": "notes", "search": "", "tasks": {"needs": 2}})
+        );
+        pane.tasks_reported = true;
+        loading(&mut pane, &page("/notes"));
+        assert_eq!(pane.tasks, None, "a new document has reported nothing");
+        assert!(!pane.tasks_reported);
+        let unbounded = r#"rhizome-desktop:{"v":1,"section":"notes","search":"","tasks":{"needs":0,"items":[{"id":"8","task":"flaky","state":"ready"}]}}"#;
+        assert!(decode(unbounded, &page("/notes"), Some(&runtime())).is_none());
+    }
+
+    #[test]
     fn only_a_change_the_page_made_counts_as_a_sidebar_toggle() {
         let (mut pane, _received) = shown_pane();
         let report = |section: &str, sidebar: Option<(bool, u32)>| {
@@ -484,6 +575,46 @@ mod tests {
     }
 
     #[test]
+    fn each_new_tasks_request_is_taken_once_and_never_from_a_first_report() {
+        let (mut pane, received) = shown_pane();
+        let report = |request: &str| {
+            format!(r#"rhizome-desktop:{{"v":1,"section":"tasks","search":""{request}}}"#)
+        };
+        let start = |n: u32| format!(r#","request":{{"n":{n},"action":"startTask","item":"8"}}"#);
+        loading(&mut pane, &page("/tasks"));
+        // A late title from an earlier document only sets the count.
+        titled(&mut pane, &report(&start(4)));
+        assert_eq!(pane.asked.take(), None);
+        titled(&mut pane, &report(&start(4)));
+        assert_eq!(pane.asked.take(), None, "a repeated report asks nothing");
+        titled(&mut pane, &report(&start(5)));
+        assert_eq!(pane.asked.take(), Some(Ask::StartTask { item: "8".into() }));
+        let open = r#","request":{"n":6,"action":"openTaskWorktree","path":"/r/w"}"#;
+        titled(&mut pane, &report(open));
+        assert_eq!(
+            pane.asked.take(),
+            Some(Ask::OpenTaskWorktree {
+                path: "/r/w".into()
+            })
+        );
+        // The shell never sees the request.
+        let last = received.try_iter().last().unwrap();
+        assert_eq!(last["state"], json!({"section": "tasks", "search": ""}));
+        // A new document counts from its own first report.
+        loading(&mut pane, &page("/tasks"));
+        titled(&mut pane, &report(""));
+        titled(&mut pane, &report(&start(1)));
+        assert_eq!(pane.asked.take(), Some(Ask::StartTask { item: "8".into() }));
+        for unknown in [
+            r#","request":{"n":2,"action":"exec","command":"ls"}"#,
+            r#","request":{"n":2,"action":"startTask"}"#,
+        ] {
+            titled(&mut pane, &report(unknown));
+            assert_eq!(pane.asked.take(), None, "{unknown}");
+        }
+    }
+
+    #[test]
     fn serializes_commands_into_a_fixed_event() {
         let command: Command =
             serde_json::from_value(json!({"command": "search", "query": "a'b\"</script>"}))
@@ -491,6 +622,13 @@ mod tests {
         assert_eq!(
             command.script().unwrap(),
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"search","query":"a'b\"</script>"} }))"#
+        );
+        assert_eq!(
+            serde_json::from_value::<Command>(json!({"command": "section", "section": "tasks"}))
+                .unwrap(),
+            Command::Section {
+                section: Section::Tasks
+            }
         );
         let command: Command =
             serde_json::from_value(json!({"command": "section", "section": "ontology"})).unwrap();
@@ -523,12 +661,22 @@ mod tests {
             sidebar.script().unwrap(),
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"sidebar","collapsed":true} }))"#
         );
+        assert_eq!(
+            Command::Task {
+                task: "docs-drift".into()
+            }
+            .script()
+            .unwrap(),
+            r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"task","task":"docs-drift"} }))"#
+        );
         for invalid in [
             json!({"command": "sidebar"}),
             json!({"command": "sidebar", "collapsed": "yes"}),
             json!({"command": "sidebar", "collapsed": true, "width": 300}),
             // The shell cannot send the theme command; the app sends it from settings.
             json!({"command": "theme", "theme": "indigo"}),
+            // Nor can it open a task; the app does after a notification click.
+            json!({"command": "task", "task": "docs-drift"}),
             json!({"command": "section", "section": "settings"}),
             json!({"command": "navigate", "url": "https://example.com"}),
             json!({"command": "search"}),

@@ -17,6 +17,8 @@ const maxMessage = 8 << 10
 type AgentRequest struct {
 	Dir    string
 	Prompt string
+	// Transcript is the run's events.jsonl path; empty means no capture.
+	Transcript string
 }
 
 // AgentResult is what a prompt run reports.
@@ -33,14 +35,15 @@ type AgentRunner interface {
 }
 
 // work runs a task's prompt in a new worktree and commits what it changed.
-// The item must already exist.
-func (s *Service) work(ctx context.Context, def Definition, itemID string, check CheckResult, ref, commit string) Outcome {
+// The item must already exist. The harness transcript goes to the run's
+// events.jsonl.
+func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID string, check CheckResult, ref, commit string) Outcome {
 	if s.opts.Agent == nil {
-		return s.fail(ctx, def, itemID, commit, "no agent harness is available to run the prompt", 0)
+		return s.fail(ctx, def, a, itemID, commit, "no agent harness is available to run the prompt", 0)
 	}
 	branch, dir, err := s.createWorktree(ctx, def, commit)
 	if err != nil {
-		return s.fail(ctx, def, itemID, commit, "create worktree: "+err.Error(), 0)
+		return s.fail(ctx, def, a, itemID, commit, "create worktree: "+err.Error(), 0)
 	}
 	// The worktree's location must be saved before any work starts, or a
 	// later pass could not find it.
@@ -50,7 +53,10 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 			return err
 		}
 		it.set(StateRunning, s.opts.Now())
-		it.Branch, it.Worktree, it.Commit = branch, dir, commit
+		it.Branch, it.Worktree, it.Commit, it.Run = branch, dir, commit, a.id
+		running(st, a, func(r *RunRecord) {
+			r.Stage, r.Item, r.Branch, r.Worktree, r.Commit = StageAgent, itemID, branch, dir, commit
+		})
 		return nil
 	}); err != nil {
 		_ = s.removeWorktree(ctx, branch, dir)
@@ -58,13 +64,17 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	}
 	loc := s.locations(def, commit)
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
-		return s.fail(ctx, def, itemID, commit, err.Error(), 0)
+		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
+	}
+	transcript := s.runFile(a.id, transcriptFile)
+	if err := os.MkdirAll(filepath.Dir(transcript), 0o700); err != nil {
+		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
 	}
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
-	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir)})
+	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir), Transcript: transcript})
 	cancel()
 	if err != nil {
-		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir), res.Tokens)
+		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
 	message := strings.TrimSpace(res.Message)
 	if len(message) > maxMessage {
@@ -72,7 +82,7 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	}
 	changed, committed, err := commitWork(ctx, def, dir, commit, message)
 	if err != nil {
-		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
+		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
 	now := s.opts.Now()
 	outcome := OutcomeReady
@@ -96,7 +106,15 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 				it.Branch, it.Worktree = "", ""
 			}
 		}
-		st.Record(RunRecord{Task: def.ID, At: now, Outcome: outcome, Tokens: res.Tokens, Message: firstLine(message)})
+		if a.draft {
+			return nil
+		}
+		r := a.record(def.ID, outcome, now)
+		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, commit, changed
+		if outcome == OutcomeReady || cleanupErr != nil {
+			r.Branch, r.Worktree = branch, dir
+		}
+		st.Record(r)
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, worktree at %s) but its result could not be saved: %v", outcome, dir, err)}

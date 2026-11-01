@@ -348,6 +348,15 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                 if let Some(collapsed) = toggled {
                     page::sidebar_reported(app, collapsed);
                 }
+                let label = webview.window().label().to_string();
+                if let Some(ask) = app
+                    .state::<Panes>()
+                    .with(&label, |pane| pane.asked.take())
+                    .flatten()
+                {
+                    crate::tasks::handle(app, &label, ask);
+                }
+                crate::inbox::reported(app, webview.window().label());
                 crate::menu::refresh_sidebar(app);
             })
             .on_new_window(move |target, _| {
@@ -380,6 +389,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                         .with(webview.window().label(), |pane| {
                             page::loading(pane, payload.url())
                         });
+                    crate::inbox::refresh(webview.app_handle());
                     crate::menu::refresh_sidebar(webview.app_handle());
                     crate::pipeline::navigation_started(
                         webview.app_handle(),
@@ -414,11 +424,14 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             &events,
             appearance::current(&app.state::<Desktop>().directory).theme,
         ),
-        WindowEvent::CloseRequested { .. } => app
-            .state::<Sessions>()
-            .close(events.label(), Geometry::read(&events)),
+        WindowEvent::CloseRequested { .. } => {
+            crate::inbox::closing(&app, events.label());
+            app.state::<Sessions>()
+                .close(events.label(), Geometry::read(&events));
+        }
         WindowEvent::Destroyed => {
             app.state::<Panes>().remove(events.label());
+            crate::inbox::refresh(&app);
             app.state::<Focus>().closed(events.label());
         }
         _ => {}

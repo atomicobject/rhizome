@@ -1,12 +1,14 @@
 package serve
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/web"
 )
 
 // ErrAlreadyRunning reports that another runtime already owns this vault. The
@@ -65,4 +67,7 @@ type Options struct {
 	RunTasks        func(vaultPath string) error
 	TasksFirstDelay time.Duration
 	TasksInterval   time.Duration
+	// OpenTasks opens the scheduled-tasks service for the Tasks page; nil
+	// makes /api/tasks report the feature unavailable.
+	OpenTasks func(ctx context.Context, vaultPath string) (web.TasksAPI, error)
 }

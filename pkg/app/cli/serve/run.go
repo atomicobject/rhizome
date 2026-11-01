@@ -305,6 +305,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		HTMLContentOriginTemplate: opts.HTMLContentOrigin,
 		ApplicationOrigin:         opts.ApplicationOrigin,
 		RuntimeControl:            control,
+		TasksOpener:               opts.OpenTasks,
 	}, web.Assets())
 	if err != nil {
 		return err

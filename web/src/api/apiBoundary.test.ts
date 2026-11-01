@@ -32,8 +32,12 @@ function isPublicOrInternalAgentRoute(route: string) {
   );
 }
 
+// Internal routes the workbench owns: agent chat, and scheduled tasks
+// (SPEC-0127 US8), which share its auth and vault scoping.
 function isInternalAgentRoute(route: string) {
-  return route === "/api/agent" || route.startsWith("/api/agent/");
+  return ["/api/agent", "/api/tasks"].some(
+    (prefix) => route === prefix || route.startsWith(`${prefix}/`),
+  );
 }
 
 describe("frontend API boundary", () => {

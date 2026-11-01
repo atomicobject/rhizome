@@ -115,7 +115,7 @@ func mapItem(base harness.Event, item threadItem, completed bool) harness.Event 
 		base.Kind = harness.EventToolCall
 		base.Name = strings.Trim(strings.Join([]string{item.Server, item.Tool, item.Name}, "/"), "/")
 		base.Input = append(json.RawMessage(nil), item.Arguments...)
-		base.Output, base.Truncated = boundedRaw(item.Result)
+		base.Output, base.Truncated = harness.BoundedRaw(item.Result)
 	case "reasoning", "plan":
 		base.Kind = harness.EventReasoning
 		base.Text = item.Text
@@ -174,28 +174,9 @@ func phaseForStatus(status string, completed bool) string {
 	return harness.PhaseStarted
 }
 
-const maxOutputBytes = 16 * 1024
-
 func boundedJSON(value any) (json.RawMessage, bool) {
 	raw, _ := json.Marshal(value)
-	return boundedRaw(raw)
-}
-
-func boundedRaw(raw json.RawMessage) (json.RawMessage, bool) {
-	if len(raw) <= maxOutputBytes {
-		return append(json.RawMessage(nil), raw...), false
-	}
-	var text string
-	if json.Unmarshal(raw, &text) == nil {
-		runes := []byte(text)
-		if len(runes) > maxOutputBytes-2 {
-			runes = runes[:maxOutputBytes-2]
-		}
-		encoded, _ := json.Marshal(string(runes))
-		return encoded, true
-	}
-	encoded, _ := json.Marshal(string(raw[:maxOutputBytes-2]))
-	return encoded, true
+	return harness.BoundedRaw(raw)
 }
 
 func toHarnessUsage(usage tokenUsage) harness.TokenUsage {
