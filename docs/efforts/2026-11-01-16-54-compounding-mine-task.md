@@ -4,7 +4,7 @@ id: EFF-2026-11-01-16-54
 aliases: [EFF-2026-11-01-16-54]
 name: Compounding runs as a task — shared state, task mode, and the mine task
 created-at: 2026-11-01T21:54:49Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: "Keep compounding's private state once per repository with publication records and a lossless migration, run mining in task mode, ship the compounding/mine task with a model-free check, keep due task items current, and let any task item's prompt be copied."
 governing-specs: ["[[session-memory-starter]]", "[[scheduled-tasks]]"]
@@ -60,8 +60,8 @@ Drew Colthorp approved the compounding-workspace plan (revision 7) in chat on 20
 
 ## Spec Coverage Checklist
 
-- [ ] SPEC-0124 US8
-- [ ] SPEC-0127 US6 re-check and Copy prompt criteria
+- [x] SPEC-0124 US8: state root, decision events, status order, stale guard, lock refusal and migration (`state.test.mjs`); session exclusion, task mode, the task and its check (`task.test.mjs`, `TestCompoundingInstallsTheMineTask`); `--check-credentials` (cmd test).
+- [x] SPEC-0127 US6 re-check and Copy prompt criteria (`recheck_test.go`, `tasks_test.go`, Tasks page unit tests).
 
 ## Original Intended Delivery
 
@@ -69,25 +69,34 @@ Both slices in one pull request.
 
 ## Actual Delivered
 
-Pending.
+Both slices, on branch `feat/compounding-mine-task`:
+
+- Compounding's private state lives once per repository, in the main checkout's `.rhizome/compounding/` (`lib/state.mjs`); every approval writes a decision event with its witness and payload (`lib/approvals.mjs`); `list --all` and `show` report each approval as merged, present, committed-elsewhere, published-elsewhere, or missing (back to pending); approve and dismiss take `--revision` and `--head`; a held lock refuses with exit 2; migration adopts one store, converts legacy approvals (recovering dropped proposals from run snapshots or verified clusters), imports decisions and uncommitted shared dismissals from other checkouts, refuses with an open run, and reports what it left behind. `mine.mjs` exits 2 with a reason when migration refuses.
+- Mining skips sessions under `.rhizome/task-state/`; `mine.mjs --task-mode`; `rzm agent evaluate-batch --check-credentials`; the `compounding/mine` task with its model-free `task-check.mjs`.
+- Due task items re-check when their task comes due again; `GET /api/tasks/items/{id}/prompt` and a Copy prompt button on the Tasks page.
+
+Verification: 151 compounding Node tests pass; `make check` passed; `make check-fast` passed after each fix; `make web-e2e` passed (107 tests). Dogfood with the new binary: a scratch repository with compounding installed validated the task (`rzm validate tasks`), `--check-credentials` returned `{"configured":true,"source":"team"}`, `task-check.mjs` returned `{"needed":false}` without a model call, a second worktree read the main checkout's state, and in a real browser the Tasks page showed `compounding/mine` (Default · Notify, every 7d) and Copy prompt put the 1,665-character prompt, without `git switch`, on the clipboard with no console errors. Review: sol-loop, 3 rounds with GPT-6.1 Sol (approved); its findings fixed were migration of approvals whose proposals mining had dropped, uncommitted shared dismissals in other checkouts, and keeping a finding's assignee when it is restored.
 
 ## Deviations
 
-None yet.
+None.
 
 ## Closure Checklist
 
-- [ ] Every story delivered or covered by a deviation
-- [ ] Gates recorded
+- [x] Every story delivered or covered by a deviation
+- [x] Gates recorded
 - [ ] Pull request number recorded
 
 ## Compounding Follow-ups
 
-None yet.
+- A budget-stopped run needs a person (raise the budget through the skill, or `--abandon`), because the task's fixed budget cannot resume a cumulative ceiling.
+- A crash mid-copy during migration leaves a partial store that the rerun adopts (`ponytail:` note in `lib/state.mjs`).
+- A worktree still on an older branch runs its older scripts, which keep writing to its own store after migration marked it migrated.
+- Copy prompt uses the primary branch's current commit, as Start does, not the item's original commit.
 
 ## Status
 
-Active.
+Complete, pending the pull request number.
 
 ## Execution Notes
 
