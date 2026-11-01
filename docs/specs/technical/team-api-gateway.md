@@ -6,7 +6,7 @@ aliases:
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
 spec-status: proposed
-last-updated: 2026-10-31
+last-updated: 2026-11-01
 ---
 
 # Team API gateway
@@ -200,10 +200,11 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST start with 4 concurrent paid calls per person and 8 globally, revised only from measurements and provider limits.
 - MUST enforce daily per-person and global limits on request count and input bytes, and reserve a conservative charge for each allowed model before dispatch, atomically with the receipt (one store transaction). A model without a defensible charge bound stays disabled for live use.
 - MUST settle each receipt once, against the UTC day it was admitted on, and keep the full reservation when the outcome or actual usage is unknown.
-- MUST keep receipts for as long as their idempotency keys can be presented; this build never deletes them. On restart, a receipt left in progress becomes an unknown outcome with its reservation kept.
+- MUST keep receipts for as long as their idempotency keys can be presented; this build never deletes them.
+- MUST give each serving process a unique instance ID and a renewable shared-store lease, and record the owner on every receipt. Admission and receipt transitions require a live owner lease; dispatch and settlement also require matching receipt ownership. Recovery runs at startup and periodically, permanently fences only expired owners, and changes only their in-progress receipts to unknown with reservations kept. Lease renewal and recovery fencing MUST be atomic against each other. An expired or fenced owner cannot renew, and late settlement after recovery MUST change neither the receipt nor its counters. Task clocks MUST track UTC.
 - MUST bound how many request bodies are buffered at once, separately from paid admission, so uploads waiting to be validated cannot exhaust memory.
 - MUST recheck the kill switch and provider switches immediately before reservation.
-- MUST run one serving task, replaced by stop-and-replace deployment so two tasks never admit at once. Multiple tasks require distributed admission first.
+- MUST run one serving task at steady state. During the pilot, the brief old/new overlap of a canary deployment is accepted: daily limits and charge reservations stay exact because they are atomic in the shared store, while the in-process concurrency slots can briefly allow up to twice their limits. Before rollout (Batch 7), and before ever running more than one steady-state task, the concurrency slots MUST move into the shared store.
 
 ### Admin API
 
@@ -225,7 +226,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 - MUST keep `pkg/teamapi/wire` standard-library only and keep `pkg/teamapi` free of `pkg/app`, `pkg/vault`, SQLite, and CGO; it builds with `CGO_ENABLED=0`.
 - MUST put the server in this repository as a nested Go module, `services/team-api`, with its own `go.mod` and `go.sum` and no vendor directory, so OIDC, SQLite-server, and later AWS dependencies never enter `rzm`'s module. It imports this module's `pkg/teamapi/wire` and `pkg/diagnostics` through a local `replace`. Account-specific deployment configuration stays out of the repository.
-- MUST keep all server state behind one narrow store interface with a shared contract test suite. Local runs use a SQLite file in a gitignored data directory, deleted by `make team-api-dev-reset`. The deployed store is DynamoDB (Batch 5) and must pass the same suite. Store operations are atomic business operations with explicit preconditions, never caller-composed transactions.
+- MUST keep server state behind narrow store and ledger interfaces, each with a shared contract test suite. Local runs use a SQLite file in a gitignored data directory, deleted by `make team-api-dev-reset`. The deployed store is DynamoDB (Batch 5) and must pass the same suite. Store operations are atomic business operations with explicit preconditions, never caller-composed transactions.
 - MUST let server configuration cap the limits the admin API can set, so a session readable by same-user processes cannot raise limits without bound.
 
 ### Local development
@@ -271,7 +272,7 @@ Drew approved these on 2026-10-31, accepting the plan's defaults and then revisi
 - **Loopback HTTP (2026-10-31)** for local development only.
 - **Development keys (2026-10-31).** Local live runs may use Drew's development Voyage and TypeSafe keys from 1Password.
 - **Offboarding disables the person in the gateway explicitly.** No Google refresh tokens are held, so Workspace suspension alone does not end a gateway session.
-- **One serving task with stop-and-replace deploys**, accepting brief downtime to keep admission exact.
+- **ECS Express Mode on its AWS hostname (revised 2026-11-01).** The gateway runs as one Fargate task behind Express Mode's load balancer, at `https://<service>.ecs.<region>.on.aws` with an AWS-issued certificate, so no Atomic DNS record or IT change is needed. Express Mode deploys are always canary, which replaces the earlier stop-and-replace decision and the slot overlap it allows; see the placement requirement in Admission and budgets. The hostname belongs to the service, so the service is treated as permanent; moving to a custom domain later means a new compiled-in origin and one more sign-in per person. Express Mode adds no charge beyond the task, load balancer, and public IPv4 addresses (about $60–75 a month for one task).
 - **macOS first.** Managed sign-in ships on macOS; Linux and Windows keep direct keys until their store adapters pass native checks.
 
 ## Open Questions

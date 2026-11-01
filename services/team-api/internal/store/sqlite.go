@@ -347,26 +347,7 @@ func (s *SQLite) UpdateRuntimeConfig(ctx context.Context, u wire.AdminConfigUpda
 	if err != nil {
 		return wire.AdminConfig{}, err
 	}
-	set := func(dst *bool, v *bool) {
-		if v != nil {
-			*dst = *v
-		}
-	}
-	set(&c.PaidCallsEnabled, u.PaidCallsEnabled)
-	set(&c.VoyageEnabled, u.VoyageEnabled)
-	set(&c.TypeSafeEnabled, u.TypeSafeEnabled)
-	if u.EligibilityMode != nil {
-		c.EligibilityMode = *u.EligibilityMode
-	}
-	if u.Allowlist != nil {
-		c.Allowlist = append([]string{}, (*u.Allowlist)...)
-	}
-	if u.PersonLimits != nil {
-		c.PersonLimits = *u.PersonLimits
-	}
-	if u.GlobalLimits != nil {
-		c.GlobalLimits = *u.GlobalLimits
-	}
+	applyRuntime(&c, u)
 	body, err := encodeRuntime(c)
 	if err != nil {
 		return wire.AdminConfig{}, err
@@ -393,6 +374,10 @@ func readRuntime(row *sql.Row) (wire.AdminConfig, error) {
 	} else if err != nil {
 		return wire.AdminConfig{}, err
 	}
+	return decodeRuntime(body)
+}
+
+func decodeRuntime(body string) (wire.AdminConfig, error) {
 	var c wire.AdminConfig
 	if err := json.Unmarshal([]byte(body), &c); err != nil {
 		return wire.AdminConfig{}, err
@@ -427,4 +412,27 @@ func (s *SQLite) Audit(ctx context.Context, limit int) ([]wire.AuditEntry, error
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func applyRuntime(c *wire.AdminConfig, u wire.AdminConfigUpdate) {
+	set := func(dst *bool, v *bool) {
+		if v != nil {
+			*dst = *v
+		}
+	}
+	set(&c.PaidCallsEnabled, u.PaidCallsEnabled)
+	set(&c.VoyageEnabled, u.VoyageEnabled)
+	set(&c.TypeSafeEnabled, u.TypeSafeEnabled)
+	if u.EligibilityMode != nil {
+		c.EligibilityMode = *u.EligibilityMode
+	}
+	if u.Allowlist != nil {
+		c.Allowlist = append([]string{}, (*u.Allowlist)...)
+	}
+	if u.PersonLimits != nil {
+		c.PersonLimits = *u.PersonLimits
+	}
+	if u.GlobalLimits != nil {
+		c.GlobalLimits = *u.GlobalLimits
+	}
 }

@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -93,7 +92,7 @@ type Traffic struct {
 	voyage, typesafe *provider
 	modelsURL        string
 	runtime          core.RuntimeSource
-	ledger           *ledger.Ledger
+	ledger           ledger.Ledger
 	slots            *slots
 	ingress          *gate
 	transport        http.RoundTripper
@@ -111,12 +110,11 @@ type provider struct {
 	tokens          func(usage []byte) (int64, bool)
 }
 
-// New migrates the ledger tables in db and marks receipts a previous process
-// left in flight as unknown outcomes. rec may be nil; now defaults to
-// time.Now and decides the UTC day.
-func New(cfg Config, db *sql.DB, runtime core.RuntimeSource, rec *diagnostics.Recorder, now func() time.Time) (*Traffic, error) {
-	if db == nil || runtime == nil {
-		return nil, errors.New("traffic: db and runtime source are required")
+// New wires the provider routes onto the selected process-owned ledger.
+// The composition root owns lease maintenance and receipt recovery.
+func New(cfg Config, l ledger.Ledger, runtime core.RuntimeSource, rec *diagnostics.Recorder, now func() time.Time) (*Traffic, error) {
+	if l == nil || runtime == nil {
+		return nil, errors.New("traffic: ledger and runtime source are required")
 	}
 	if now == nil {
 		now = time.Now
@@ -128,14 +126,6 @@ func New(cfg Config, db *sql.DB, runtime core.RuntimeSource, rec *diagnostics.Re
 	typesafeBase, err := baseURL(cfg.TypeSafeBaseURL, DefaultTypeSafeBaseURL)
 	if err != nil {
 		return nil, err
-	}
-	ctx := context.Background()
-	l, err := ledger.Open(ctx, db, now)
-	if err != nil {
-		return nil, err
-	}
-	if err := l.Recover(ctx); err != nil {
-		return nil, fmt.Errorf("traffic: recover receipts: %w", err)
 	}
 	t := &Traffic{
 		voyage: &provider{
@@ -363,8 +353,8 @@ func (t *Traffic) unknown(ctx context.Context, ev *event, sub, key string) {
 
 func (t *Traffic) settled(ctx context.Context, ev *event, err error) {
 	if err != nil && t.rec != nil {
-		// The receipt stays dispatched: duplicates see request_in_progress
-		// until restart recovery marks it unknown.
+		// Keep the existing receipt and reservation on failure. Owner-expiry
+		// recovery handles any receipt that is still unfinished.
 		t.rec.Event(ctx, slog.LevelError, "teamapi.traffic", "teamapi.settle_failed", "settlement failed",
 			slog.String("request_id", ev.requestID))
 	}

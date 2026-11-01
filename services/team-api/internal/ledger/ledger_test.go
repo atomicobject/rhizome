@@ -1,155 +1,120 @@
-package ledger
+package ledger_test
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
+	"github.com/atomicobject/rhizome/services/team-api/internal/dynamotest"
+	"github.com/atomicobject/rhizome/services/team-api/internal/ledger"
+	"github.com/atomicobject/rhizome/services/team-api/internal/ledgertest"
+	"github.com/atomicobject/rhizome/services/team-api/internal/store"
 )
 
-var roomy = wire.DailyLimits{Requests: 100, InputBytes: 1 << 20, ChargeCredits: 1000}
+func TestSQLiteContract(t *testing.T) {
+	ledgertest.Run(t, func(t *testing.T, now func() time.Time) func() ledger.Ledger {
+		path := filepath.Join(t.TempDir(), "ledger.db")
+		return func() ledger.Ledger {
+			db, err := store.Open(path)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			l, err := ledger.Open(context.Background(), db, now)
+			require.NoError(t, err)
+			return l
+		}
+	})
+}
+func TestDynamoDBContract(t *testing.T) {
+	ledgertest.Run(t, func(t *testing.T, now func() time.Time) func() ledger.Ledger {
+		table := dynamotest.Open(t)
+		return func() ledger.Ledger {
+			l, err := ledger.OpenDynamoDB(context.Background(), table, now)
+			require.NoError(t, err)
+			return l
+		}
+	})
+}
 
-func openLedger(t *testing.T) (*Ledger, *sql.DB) {
-	t.Helper()
-	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "l.db")+"?_journal_mode=WAL&_busy_timeout=5000")
+// A lease that expires between an operation's reads and its write stays
+// expired: after expireDuring, the next clock reading sees the lease live and
+// every later one is past its expiry.
+func TestDynamoDBWritesRefuseALeaseThatExpiredDuringTheOperation(t *testing.T) {
+	ctx := context.Background()
+	for name, op := range map[string]func(ledger.Ledger) error{
+		"heartbeat": func(l ledger.Ledger) error { return l.Heartbeat(ctx) },
+		"reserve": func(l ledger.Ledger) error {
+			_, err := l.Reserve(ctx, ledger.Receipt{Sub: "s1", Key: "new", Route: "r", BodyHash: "h", InputBytes: 1, Credits: 1}, roomy, roomy)
+			return err
+		},
+		"dispatch": func(l ledger.Ledger) error { return l.MarkDispatched(ctx, "s1", "held") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			table := dynamotest.Open(t)
+			base := time.Now().UTC()
+			var armed atomic.Bool
+			var calls atomic.Int64
+			now := func() time.Time {
+				switch {
+				case !armed.Load():
+					return base
+				case calls.Add(1) == 1:
+					return base.Add(ledger.LeaseDuration - time.Second)
+				default:
+					return base.Add(ledger.LeaseDuration + time.Second)
+				}
+			}
+			l, err := ledger.OpenDynamoDB(ctx, table, now)
+			require.NoError(t, err)
+			code, err := l.Reserve(ctx, ledger.Receipt{Sub: "s1", Key: "held", Route: "r", BodyHash: "h", InputBytes: 1, Credits: 1}, roomy, roomy)
+			require.NoError(t, err)
+			require.Empty(t, code)
+			armed.Store(true)
+			require.ErrorIs(t, op(l), ledger.ErrPrecondition)
+			require.ErrorIs(t, l.Heartbeat(ctx), ledger.ErrPrecondition, "the lease was not extended")
+			everyone, _, err := l.Usage(ctx, base.Format(time.DateOnly))
+			require.NoError(t, err)
+			require.Equal(t, int64(1), everyone.Requests, "only the reservation made while the lease was live counts")
+		})
+	}
+}
+
+var roomy = wire.DailyLimits{Requests: 100, InputBytes: 1 << 20, ChargeCredits: 1 << 20}
+
+func TestSQLiteUpgradeRecoversOwnerlessReceipts(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(filepath.Join(t.TempDir(), "legacy.db"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	defer db.Close()
 	now := func() time.Time { return time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC) }
-	l, err := Open(context.Background(), db, now)
+	old, err := ledger.Open(ctx, db, now)
 	require.NoError(t, err)
-	return l, db
-}
-
-func receipt(key string) Receipt {
-	return Receipt{Sub: "s1", Key: key, Route: "/r", BodyHash: "h", Model: "m", InputBytes: 100, Credits: 10}
-}
-
-func TestSettleAppliesOnceAndRefundsOnlyUnused(t *testing.T) {
-	ctx := context.Background()
-	l, _ := openLedger(t)
-	code, err := l.Reserve(ctx, receipt("k1"), roomy, roomy)
-	require.NoError(t, err)
-	require.Empty(t, code)
-	require.NoError(t, l.MarkDispatched(ctx, "s1", "k1"))
-	require.NoError(t, l.Settle(ctx, "s1", "k1", Succeeded, 3))
-	require.ErrorIs(t, l.Settle(ctx, "s1", "k1", Succeeded, 0), ErrPrecondition, "a duplicate settlement changes nothing")
-	require.ErrorIs(t, l.Settle(ctx, "s1", "k1", NotDispatched, -1), ErrPrecondition, "a late release changes nothing")
-	require.ErrorIs(t, l.MarkUnknown(ctx, "s1", "k1"), ErrPrecondition)
-	require.ErrorIs(t, l.MarkDispatched(ctx, "s1", "k1"), ErrPrecondition)
-
-	everyone, people, err := l.Usage(ctx, "2026-10-31")
-	require.NoError(t, err)
-	want := wire.DailyUsage{Requests: 1, InputBytes: 100, ReservedCredits: 3, SettledCredits: 3}
-	require.Equal(t, want, everyone)
-	require.Equal(t, want, people["s1"])
-
-	code, err = l.Reserve(ctx, receipt("k1"), roomy, roomy)
-	require.NoError(t, err)
-	require.Equal(t, wire.CodeResultLost, code)
-}
-
-func TestOutcomesAndTheirReservations(t *testing.T) {
-	ctx := context.Background()
-	l, _ := openLedger(t)
-	for _, key := range []string{"ok", "rejected", "lost", "unsent"} {
-		_, err := l.Reserve(ctx, receipt(key), roomy, roomy)
+	limits := wire.DailyLimits{Requests: 10, InputBytes: 1000, ChargeCredits: 100}
+	for _, key := range []string{"unfinished", "settled"} {
+		code, err := old.Reserve(ctx, ledger.Receipt{Sub: "s", Key: key, InputBytes: 10, Credits: 5}, limits, limits)
 		require.NoError(t, err)
-		require.NoError(t, l.MarkDispatched(ctx, "s1", key))
+		require.Empty(t, code)
+		require.NoError(t, old.MarkDispatched(ctx, "s", key))
 	}
-	require.NoError(t, l.Settle(ctx, "s1", "ok", Succeeded, -1))         // unknown usage keeps 10
-	require.NoError(t, l.Settle(ctx, "s1", "rejected", Rejected, -1))    // releases its credits
-	require.NoError(t, l.MarkUnknown(ctx, "s1", "lost"))                 // keeps 10
-	require.NoError(t, l.Settle(ctx, "s1", "unsent", NotDispatched, -1)) // releases everything
-	everyone, _, err := l.Usage(ctx, "2026-10-31")
+	require.NoError(t, old.Settle(ctx, "s", "settled", ledger.Succeeded, 2))
+	// Reproduce the pre-lease layout while keeping actual legacy data.
+	_, err = db.ExecContext(ctx, "ALTER TABLE ledger_receipts DROP COLUMN owner")
 	require.NoError(t, err)
-	require.Equal(t, wire.DailyUsage{Requests: 3, InputBytes: 300, ReservedCredits: 20, Unknown: 1}, everyone)
-
-	for key, want := range map[string]wire.ErrorCode{"ok": wire.CodeResultLost, "rejected": wire.CodeResultLost, "lost": wire.CodeOutcomeUnknown, "unsent": ""} {
-		code, err := l.Reserve(ctx, receipt(key), roomy, roomy)
-		require.NoError(t, err)
-		require.Equal(t, want, code, key)
-	}
-}
-
-func TestPreconditionsOnMissingAndReservedReceipts(t *testing.T) {
-	ctx := context.Background()
-	l, _ := openLedger(t)
-	require.ErrorIs(t, l.MarkDispatched(ctx, "s1", "missing"), ErrPrecondition)
-	require.ErrorIs(t, l.MarkUnknown(ctx, "s1", "missing"), ErrPrecondition)
-	require.ErrorIs(t, l.Settle(ctx, "s1", "missing", Succeeded, 1), ErrPrecondition)
-	_, err := l.Reserve(ctx, receipt("r"), roomy, roomy)
+	upgraded, err := ledger.Open(ctx, db, now)
 	require.NoError(t, err)
-	require.ErrorIs(t, l.Settle(ctx, "s1", "r", Succeeded, 1), ErrPrecondition, "settlement needs dispatch first")
-	require.ErrorIs(t, l.MarkUnknown(ctx, "s1", "r"), ErrPrecondition)
-	code, err := l.Reserve(ctx, receipt("r"), roomy, roomy)
+	require.NoError(t, upgraded.Recover(ctx))
+	require.NoError(t, upgraded.Recover(ctx))
+	again, err := ledger.Open(ctx, db, now)
 	require.NoError(t, err)
-	require.Equal(t, wire.CodeInProgress, code)
-	other := receipt("r")
-	other.BodyHash = "different"
-	code, err = l.Reserve(ctx, other, roomy, roomy)
+	u, people, err := again.Usage(ctx, "2026-10-31")
 	require.NoError(t, err)
-	require.Equal(t, wire.CodeIdempotencyClash, code)
-}
-
-func TestRecoverMarksInFlightReceiptsUnknown(t *testing.T) {
-	ctx := context.Background()
-	l, _ := openLedger(t)
-	_, err := l.Reserve(ctx, receipt("crashed"), roomy, roomy)
-	require.NoError(t, err)
-	require.NoError(t, l.MarkDispatched(ctx, "s1", "crashed"))
-
-	require.NoError(t, l.Recover(ctx))
-	everyone, people, err := l.Usage(ctx, "2026-10-31")
-	require.NoError(t, err)
-	require.Equal(t, int64(1), everyone.Unknown)
-	require.Equal(t, int64(1), people["s1"].Unknown)
-	require.Equal(t, int64(10), everyone.ReservedCredits)
-
-	code, err := l.Reserve(ctx, receipt("crashed"), roomy, roomy)
+	require.Equal(t, wire.DailyUsage{Requests: 2, InputBytes: 20, ReservedCredits: 7, SettledCredits: 2, Unknown: 1}, u)
+	require.Equal(t, u, people["s"])
+	code, err := again.Reserve(ctx, ledger.Receipt{Sub: "s", Key: "unfinished", InputBytes: 10, Credits: 5}, limits, limits)
 	require.NoError(t, err)
 	require.Equal(t, wire.CodeOutcomeUnknown, code)
-}
-
-func TestBudgetRejectionChangesNothing(t *testing.T) {
-	ctx := context.Background()
-	l, _ := openLedger(t)
-	tight := wire.DailyLimits{Requests: 1, InputBytes: 1 << 20, ChargeCredits: 1000}
-	code, err := l.Reserve(ctx, receipt("a"), tight, roomy)
-	require.NoError(t, err)
-	require.Empty(t, code)
-	code, err = l.Reserve(ctx, receipt("b"), tight, roomy)
-	require.NoError(t, err)
-	require.Equal(t, wire.CodeBudgetExhausted, code)
-	code, err = l.Reserve(ctx, receipt("b"), roomy, roomy)
-	require.NoError(t, err)
-	require.Empty(t, code, "a rejected key left no receipt behind")
-	_, _, err = l.Usage(ctx, "10/31/2026")
-	require.Error(t, err)
-}
-
-func TestSettlementAfterMidnightUpdatesAdmissionDay(t *testing.T) {
-	ctx := context.Background()
-	_, db := openLedger(t)
-	clock := time.Date(2026, 10, 31, 23, 59, 59, 0, time.UTC)
-	l, err := Open(ctx, db, func() time.Time { return clock })
-	require.NoError(t, err)
-	_, err = l.Reserve(ctx, receipt("late"), roomy, roomy)
-	require.NoError(t, err)
-	require.NoError(t, l.MarkDispatched(ctx, "s1", "late"))
-	clock = clock.Add(2 * time.Second)
-	require.NoError(t, l.Settle(ctx, "s1", "late", Succeeded, 4))
-
-	day1, _, err := l.Usage(ctx, "2026-10-31")
-	require.NoError(t, err)
-	require.Equal(t, wire.DailyUsage{Requests: 1, InputBytes: 100, ReservedCredits: 4, SettledCredits: 4}, day1)
-	day2, people, err := l.Usage(ctx, "2026-11-01")
-	require.NoError(t, err)
-	require.Zero(t, day2)
-	require.Empty(t, people)
 }

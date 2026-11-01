@@ -34,6 +34,7 @@ type Config struct {
 	Mode    string `json:"mode"`
 	Listen  string `json:"listen"`
 	DataDir string `json:"data_dir"`
+	State   State  `json:"state"`
 
 	Issuer       string `json:"issuer"`
 	ClientID     string `json:"client_id"`
@@ -64,6 +65,13 @@ type Config struct {
 	MinClientVersion string    `json:"min_client_version"`
 	Upstreams        Upstreams `json:"upstreams"`
 	DiagnosticsDir   string    `json:"diagnostics_dir"`
+}
+
+// State selects the backend for serve. Dev always uses SQLite.
+type State struct {
+	Backend string `json:"backend"`
+	Table   string `json:"table"`
+	Region  string `json:"region"`
 }
 
 type Sessions struct {
@@ -132,6 +140,9 @@ func Parse(data []byte) (Config, error) {
 }
 
 func (c *Config) applyDefaults() {
+	if c.State.Backend == "" {
+		c.State.Backend = "sqlite"
+	}
 	if c.Scopes == "" {
 		c.Scopes = DefaultScopes
 	}
@@ -210,6 +221,21 @@ func (c Config) Validate() error {
 		fail("session lifetimes must satisfy access_ttl <= idle_ttl <= absolute_ttl")
 	}
 
+	switch c.State.Backend {
+	case "", "sqlite":
+		if c.State.Table != "" || c.State.Region != "" {
+			fail("state table and region require the dynamodb backend")
+		}
+	case "dynamodb":
+		if c.State.Table == "" || c.State.Region == "" {
+			fail("dynamodb state requires table and region")
+		}
+		if c.Mode == ModeDev {
+			fail("dev requires SQLite state")
+		}
+	default:
+		fail("state backend must be sqlite or dynamodb")
+	}
 	switch c.Mode {
 	case ModeProduction:
 		if c.Issuer != GoogleIssuer {

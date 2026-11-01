@@ -148,6 +148,11 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:3.1.0
+        ports:
+          - 8000:8000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,6 +168,11 @@ jobs:
       # tests do not cover it.
       - name: Vet and test with the race detector
         run: make team-api-check
+
+      - name: DynamoDB Local contracts and gateway integration
+        env:
+          TEAMAPI_DYNAMODB_ENDPOINT: http://127.0.0.1:8000
+        run: make team-api-dynamodb-check
 
   runtime-evidence:
     name: Runtime Code Evidence
