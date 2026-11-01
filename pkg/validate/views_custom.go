@@ -25,12 +25,16 @@ import (
 // inside it; checking the deepest folders first leaves each script's finding
 // with the nearest view that owns it. A nil execSchema skips GraphQL checks.
 func customViewScriptIssues(vaultPath string, views []viewconfig.ViewDefinition, execSchema *ontologyquery.ExecutableSchema) []viewconfig.Issue {
-	root := viewconfig.DefaultSourceRoot(vaultPath)
-	fsRoot, err := os.OpenRoot(root)
-	if err != nil {
-		return nil
-	}
-	defer fsRoot.Close()
+	// Each view's folder is read through the os.Root of the flat or module
+	// views folder holding it, opened once per folder.
+	fsRoots := map[string]*os.Root{}
+	defer func() {
+		for _, fsRoot := range fsRoots {
+			if fsRoot != nil {
+				_ = fsRoot.Close()
+			}
+		}
+	}()
 	custom := make([]viewconfig.ViewDefinition, 0, len(views))
 	for _, view := range views {
 		if view.SourceSpec.Kind == viewconfig.SourceKindCustom && view.Source.Path != "" {
@@ -44,11 +48,20 @@ func customViewScriptIssues(vaultPath string, views []viewconfig.ViewDefinition,
 	reported := map[string]bool{}
 	var issues []viewconfig.Issue
 	for _, view := range custom {
+		root := view.Source.Root
+		if root == "" {
+			root = viewconfig.DefaultSourceRoot(vaultPath)
+		}
+		fsRoot, opened := fsRoots[root]
+		if !opened {
+			fsRoot, _ = os.OpenRoot(root)
+			fsRoots[root] = fsRoot
+		}
 		folder, err := filepath.Rel(root, filepath.Dir(view.Source.Path))
-		if err != nil || checked[folder] {
+		if fsRoot == nil || err != nil || checked[filepath.Join(root, folder)] {
 			continue
 		}
-		checked[folder] = true
+		checked[filepath.Join(root, folder)] = true
 		diagnostics, unreadable, err := viewscript.CheckDir(fsRoot.FS(), filepath.ToSlash(folder))
 		if err != nil {
 			unreadable = append(unreadable, fmt.Sprintf("%s: cannot read view folder: %v", filepath.ToSlash(folder), err))

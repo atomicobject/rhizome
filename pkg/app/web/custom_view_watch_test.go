@@ -17,7 +17,7 @@ const watchTestTeamYAML = "apiVersion: rhizome.view.v1\nid: team\nname: Team\nso
 
 func editViewFile(t *testing.T, srv *Server, rel, body string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(srv.customViewsRoot(), filepath.FromSlash(rel)), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(viewRoot{}.dir(srv.cfg.VaultPath), filepath.FromSlash(rel)), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

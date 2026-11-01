@@ -10,28 +10,38 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
 func DefaultSourceRoot(vaultPath string) string {
 	return filepath.Join(vaultPath, ".rhizome", "views")
 }
 
+// LoadDefaultSource loads the flat .rhizome/views folder and every module's
+// views folder. Module folders are listed on each call, so a module added
+// while rzm runs is found without a restart.
 func LoadDefaultSource(vaultPath string) ([]ViewDefinition, []Issue) {
-	root := DefaultSourceRoot(vaultPath)
-	if _, err := os.Stat(root); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, []Issue{{Code: "view_path_error", Path: root, Message: err.Error()}}
+	roots, err := assetroots.Roots(vaultPath, assetroots.Views)
+	views, issues := LoadRoots(vaultPath, roots)
+	if err != nil {
+		issues = append(issues, Issue{Code: "view_path_error", Path: filepath.Join(vaultPath, filepath.FromSlash(assetroots.ModulesDir)), Message: err.Error()})
 	}
-	return LoadPath(root)
+	return views, issues
 }
 
-func LoadRoots(roots []string) ([]ViewDefinition, []Issue) {
+// LoadRoots loads each views folder under repoRoot, recording on every
+// definition the folder and module that hold it.
+func LoadRoots(repoRoot string, roots []assetroots.Root) ([]ViewDefinition, []Issue) {
 	var views []ViewDefinition
 	var issues []Issue
 	for _, root := range roots {
-		rootViews, rootIssues := LoadPath(root)
+		dir := root.Abs(repoRoot)
+		rootViews, rootIssues := LoadPath(dir)
+		for i := range rootViews {
+			rootViews[i].Source.Root = dir
+			rootViews[i].Source.Module = root.Module
+		}
 		views = append(views, rootViews...)
 		issues = append(issues, rootIssues...)
 	}

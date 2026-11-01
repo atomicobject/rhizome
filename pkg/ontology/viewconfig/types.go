@@ -47,6 +47,11 @@ type Source struct {
 	Path  string `json:"path,omitempty"`
 	Line  int    `json:"line,omitempty"`
 	Block string `json:"block,omitempty"`
+	// Root is the absolute views folder holding Path, and Module the module
+	// that folder belongs to ("" for the flat .rhizome/views). Serving and
+	// saving stay confined to Root (SPEC-0130).
+	Root   string `json:"-"`
+	Module string `json:"-"`
 }
 
 type ViewDefinition struct {

@@ -40,7 +40,7 @@ func TestCustomViewFilesRevalidateWithETags(t *testing.T) {
 	}
 
 	before := getCustomView(srv, "/views/_files/poc/board.tsx")
-	board := filepath.Join(srv.customViewsRoot(), "poc", "board.tsx")
+	board := filepath.Join(viewRoot{}.dir(srv.cfg.VaultPath), "poc", "board.tsx")
 	if err := os.WriteFile(board, []byte(`export default function Board() { return <p>second</p>; }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestBundledViewIsServedFromEmbeddedAssets(t *testing.T) {
 
 func TestRepositoryViewReplacesBundledViewWhenServed(t *testing.T) {
 	srv := newBundledViewTestServer(t)
-	folder := filepath.Join(srv.customViewsRoot(), "group")
+	folder := filepath.Join(viewRoot{}.dir(srv.cfg.VaultPath), "group")
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}

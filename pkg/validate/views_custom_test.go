@@ -36,6 +36,23 @@ func TestRunViewsReportsCustomViewScriptErrors(t *testing.T) {
 	require.Contains(t, result.Issues[0].Message, "poc/components/Card.tsx:1:")
 }
 
+func TestRunViewsChecksModuleCustomViewsInTheirOwnFolder(t *testing.T) {
+	root := t.TempDir()
+	definition := "apiVersion: rhizome.view.v1\nid: ID\nname: Board\nsource:\n  kind: custom\n  entry: board.tsx\nmount:\n  kind: standalone\n"
+	// The same folder name in the flat folder holds a working view.
+	writeValidationTestFile(t, root+"/.rhizome/views/poc/board.yaml", strings.Replace(definition, "ID", "flat.board", 1))
+	writeValidationTestFile(t, root+"/.rhizome/views/poc/board.tsx", "export default null")
+	writeValidationTestFile(t, root+"/.rhizome/modules/work/views/poc/board.yaml", strings.Replace(definition, "ID", "work.board", 1))
+	writeValidationTestFile(t, root+"/.rhizome/modules/work/views/poc/board.tsx", "export default () => <div>;")
+
+	result := runViewsAt(root)
+
+	require.Equal(t, 1, result.IssueCount)
+	require.Equal(t, "custom_view_script_error", result.Issues[0].Code)
+	require.Equal(t, "work.board", result.Issues[0].Target)
+	require.Contains(t, result.Issues[0].Message, "poc/board.tsx:1:")
+}
+
 func TestRunViewsReportsANestedBrokenScriptOnce(t *testing.T) {
 	root := t.TempDir()
 	views := root + "/.rhizome/views/"

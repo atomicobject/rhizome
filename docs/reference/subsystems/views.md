@@ -1,7 +1,7 @@
 ---
 summary: "Configured native views: schema-derived rows, shared query execution, deterministic presentation, and explicit saved configuration."
 reference-kind: guide
-last-verified: 2026-10-17
+last-verified: 2026-11-01
 code-paths:
   - pkg/app/views
   - pkg/ontology/viewconfig
@@ -27,6 +27,7 @@ code-anchors:
 - Link predicates resolve targets through the shared request scope. Staged aliases, new targets, deleted targets, and ambiguous targets use the same target identity rules as committed rows. An unresolved `valueFrom` binding returns no rows for every operator.
 - Recipe sources use the shared registry, runner, and application query engine. Only the selected recipe's errors block execution. Duplicate selected IDs fail consistently. Extract rows from the declared result path or output contract; never guess the first array in an object.
 - Execution proceeds from source through search, filters, sort, group summaries, and pagination. Apply supported indexed constraints before limits. Diagnostics distinguish pushed and residual constraints without changing the result.
+- Repository definitions load from `.rhizome/views` and every module's `views/` folder through `assetroots.Roots` ([[rhizome-modules|SPEC-0130]]); each definition records its folder and module in `Source.Root` and `Source.Module`. View ids stay unique across all of them (`duplicate_view_id`). Saving an authored view writes only inside the folder that holds it; saving a generated view and ejecting a bundled one write to `.rhizome/views`.
 - Catalog reads and interactions do not write YAML. Generated defaults remain executable runtime values. Shared saves are explicit, preserve unrelated authored configuration, and reject stale writes or existing destinations. Personal widths and expansion state stay personal until explicitly promoted.
 - Editing capabilities come from the owning schema field. Enum options, cardinality, relation targets, and read-only reasons are projected facts. File mutation goes through the edit-session owner; views do not write note content.
 - Fingerprints include the definition, source identity, and normalized execution state. Cache keys include overlays and every input that can change rows or capabilities.

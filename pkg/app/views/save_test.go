@@ -120,6 +120,22 @@ func TestSaveAuthoredViewRewritesDefaultsAndVariantsInPlace(t *testing.T) {
 	require.Equal(t, &viewconfig.KanbanVariant{ColumnField: "status", HideEmptyColumns: true, LaneField: "priority"}, defs[0].Variants.Kanban)
 }
 
+func TestSaveWritesAModuleViewInsideItsModule(t *testing.T) {
+	root := writeTypeViewsFixture(t, saveFixture)
+	rel := ".rhizome/modules/work-tracking/views/work.yaml"
+	writeSourceFixture(t, root, rel, authoredTaskView)
+	service, _ := indexTypeViewsFixture(t, root)
+
+	resp, err := service.Save(context.Background(), "work", SaveRequest{State: SaveState{Variant: "kanban"}})
+	require.NoError(t, err)
+	require.Equal(t, SaveResponse{ID: "work", Path: rel}, resp)
+	defs, issues := viewconfig.LoadPath(filepath.Join(root, rel))
+	require.Empty(t, issues)
+	require.Equal(t, "kanban", defs[0].Defaults.Variant)
+	_, err = os.Stat(filepath.Join(root, ".rhizome/views/work.yaml"))
+	require.ErrorIs(t, err, os.ErrNotExist, "nothing was written to the flat folder")
+}
+
 func TestSaveRefusesInvalidResultsConflictsAndSymlinks(t *testing.T) {
 	root := writeTypeViewsFixture(t, saveFixture)
 	path := filepath.Join(root, ".rhizome/views/work.yaml")
