@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/pkg/typesafe"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -126,3 +127,22 @@ func TestEvaluationClientUsesInvocationCredential(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateToolReportsGatewayErrorCode(t *testing.T) {
+	transport := roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return nil, &wire.GatewayError{Code: wire.CodeBudgetExhausted, Status: 429, Message: "synthetic"}
+	})
+	handler := evaluateTool(func(context.Context) (*typesafe.Client, error) {
+		return typesafe.NewClient("", typesafe.WithManaged(typesafe.Managed{Origin: "https://team.example.test", Transport: transport}))
+	})
+	result, err := handler(context.Background(), evaluationCall(t, `{"state":"x","questions":{"stale":{"type":"noul","instructions":"Is it stale?"}}}`))
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	text := result.Content[0].(mcp.TextContent).Text
+	require.Contains(t, text, `"code":"budget_exhausted"`)
+	require.Contains(t, text, `"retryable":false`)
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

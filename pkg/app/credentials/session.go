@@ -7,6 +7,7 @@ import (
 
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/teamkeys"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -16,7 +17,7 @@ import (
 // at any point in the run is visible to every later prompt site.
 //
 // Resolution precedence: process env -> provided this run -> persisted CLI
-// config env -> team-key coverage (for team-covered providers).
+// config env -> team API session -> team-key coverage (for team-covered providers).
 //
 // Keys and skips are persisted to the global CLI config immediately when
 // entered, never staged for an end-of-run save.
@@ -26,6 +27,7 @@ type Session struct {
 	out    io.Writer
 
 	teamCoverage func(string) bool
+	teamSession  func() bool
 	teamBundled  func() bool
 	teamUnlocks  func(string) bool
 	provided     map[string]string
@@ -52,6 +54,15 @@ func WithTeamCoverage(covered func(string) bool) Option {
 	}
 }
 
+// WithTeamSession overrides whether a team API session is signed in
+// (default: the installed provider-access factory). A session satisfies every
+// team-covered need (voyage, typesafe).
+func WithTeamSession(signedIn func() bool) Option {
+	return func(s *Session) {
+		s.teamSession = signedIn
+	}
+}
+
 // WithTeamKeyBundle overrides whether this build carries the Atomic Object
 // team-key bundle and which pasted values unlock it (defaults: pkg/teamkeys).
 func WithTeamKeyBundle(bundled func() bool, unlocks func(string) bool) Option {
@@ -64,6 +75,7 @@ func WithTeamKeyBundle(bundled func() bool, unlocks func(string) bool) Option {
 // NewSession creates a Session with default team-key coverage.
 func NewSession(env vaultconfig.Env, opts ...Option) *Session {
 	s := &Session{env: env,
+		teamSession: provideraccess.Default().SignedIn,
 		teamBundled: teamkeys.Bundled,
 		teamUnlocks: teamkeys.Unlocks,
 		provided:    map[string]string{},
@@ -98,14 +110,19 @@ func (s *Session) Resolve(key string) string {
 }
 
 // Satisfied reports whether the need resolves to a usable credential, either
-// via its env keys or via team-key coverage. Skips do not satisfy a need.
+// via its env keys, a team API session, or team-key coverage. Skips do not
+// satisfy a need.
 func (s *Session) Satisfied(need Need) bool {
 	for _, key := range need.keys() {
 		if s.Resolve(key) != "" {
 			return true
 		}
 	}
-	return need.AllowTeamKey && s.teamCovered()
+	return need.AllowTeamKey && (s.teamSignedIn() || s.teamCovered())
+}
+
+func (s *Session) teamSignedIn() bool {
+	return s.teamSession != nil && s.teamSession()
 }
 
 // Skipped reports whether the user declined this credential, either earlier

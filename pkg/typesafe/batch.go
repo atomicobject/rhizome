@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
 
 // BatchItem identifies an independent state and its questions.
@@ -42,6 +44,9 @@ func (c *Client) EvaluateBatch(ctx context.Context, items []BatchItem, concurren
 	if concurrency < 1 || concurrency > 32 {
 		return nil, fmt.Errorf("typesafe: concurrency must be 1 to 32")
 	}
+	if c.managed != nil && c.managed.MaxConcurrency > 0 {
+		concurrency = min(concurrency, c.managed.MaxConcurrency)
+	}
 	seen := map[string]bool{}
 	results := make([]BatchResult, len(items))
 	for i, item := range items {
@@ -72,12 +77,29 @@ func (c *Client) EvaluateBatch(ctx context.Context, items []BatchItem, concurren
 				} else {
 					result.Error = err.Error()
 					var apiErr *APIError
+					var gatewayErr *wire.GatewayError
 					switch {
+					case attempt.mayHaveDispatched:
+						// An earlier attempt may still run and be billed, whatever
+						// the last retry was told.
+						result.Status = "uncertain"
+					case errors.As(err, &apiErr) && c.managed != nil && apiErr.StatusCode >= 500:
+						// The gateway passed through a provider 5xx after dispatch and
+						// keeps that receipt as an unknown outcome: the work may have
+						// been billed, so resubmitting is not known to be safe.
+						result.Status = "uncertain"
+						result.StatusCode = apiErr.StatusCode
+						result.RequestID = apiErr.RequestID
 					case errors.As(err, &apiErr):
 						result.Status = "failed"
 						result.StatusCode = apiErr.StatusCode
 						result.Retryable = apiErr.Retryable()
 						result.RequestID = apiErr.RequestID
+					case errors.As(err, &gatewayErr) && !gatewayOutcomeUnknown(gatewayErr.Code):
+						// Rejected before admission: nothing reached TypeSafe.
+						result.Status = "failed"
+						result.StatusCode = gatewayErr.Status
+						result.Retryable = gatewayErr.Retryable()
 					case attempt.count > 0:
 						result.Status = "uncertain"
 					case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded):
@@ -104,10 +126,19 @@ func (c *Client) EvaluateBatch(ctx context.Context, items []BatchItem, concurren
 	return results, nil
 }
 
+// gatewayOutcomeUnknown reports gateway codes for a request that may have
+// reached TypeSafe; those items stay uncertain and must not be replayed.
+func gatewayOutcomeUnknown(code wire.ErrorCode) bool {
+	return code == wire.CodeOutcomeUnknown || code == wire.CodeResultLost || code == wire.CodeInProgress
+}
+
 type batchAttemptKey struct{}
 type batchAttempt struct {
 	gate  *batchGate
 	count int
+	// mayHaveDispatched is set when an attempt may have reached TypeSafe
+	// (request_in_progress). A later rejection of a retry does not settle it.
+	mayHaveDispatched bool
 }
 type batchGate struct {
 	mu    sync.Mutex

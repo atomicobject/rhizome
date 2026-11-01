@@ -1,7 +1,9 @@
 // Puts the rzm the app bundles at its Tauri sidecar path. The release build
-// passes the exact binary GoReleaser archives in RZM_DESKTOP_PREBUILT_RZM;
-// otherwise `make build` builds rzm with the workspace web UI it embeds
-// (NO_WEB=1 skips the web build, as for make build).
+// passes the exact binary GoReleaser archives in RZM_DESKTOP_PREBUILT_RZM and
+// bundles rzm alone (tauri.release.conf.json). Otherwise `make build` builds
+// rzm with the workspace web UI it embeds (NO_WEB=1 skips the web build, as
+// for make build), plus the local team API gateway that development builds of
+// rzm start beside themselves.
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -30,5 +32,8 @@ if (prebuilt) {
   const goos = execFileSync("go", ["env", "GOOS"], { encoding: "utf8" }).trim();
   copyFileSync(resolve(root, `bin/${goos}/rzm${suffix}`), output);
   chmodSync(output, 0o755);
-  console.log(`Built rzm for ${target}`);
+  const gateway = resolve(root, `desktop/src-tauri/binaries/team-api-${target}${suffix}`);
+  copyFileSync(resolve(root, `bin/${goos}/team-api${suffix}`), gateway);
+  chmodSync(gateway, 0o755);
+  console.log(`Built rzm and team-api for ${target}`);
 }

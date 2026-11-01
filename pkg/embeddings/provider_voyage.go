@@ -5,6 +5,7 @@ package embeddings
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,8 +18,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/teamkeys"
-	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
 
 const (
@@ -70,11 +70,25 @@ type voyageProvider struct {
 	now                func() time.Time
 	jitter             func(time.Duration) time.Duration
 	withRecoveryBudget func(context.Context, time.Duration) (context.Context, context.CancelFunc)
+	// managed sends requests to the team gateway with an idempotency key and
+	// no provider Authorization header; see ProviderConfig.Managed.
+	managed bool
 }
 
-// NewVoyageProvider constructs a Voyage AI embeddings provider.
+// NewVoyageProvider constructs a Voyage AI embeddings provider. It requires
+// either a direct API key or explicit managed (team gateway) access, not both.
 func NewVoyageProvider(cfg ProviderConfig) (Provider, error) {
-	if cfg.APIKey == "" {
+	if cfg.Managed != nil {
+		if cfg.APIKey != "" {
+			return nil, fmt.Errorf("voyage provider: an API key and team session access are mutually exclusive")
+		}
+		if strings.TrimSpace(cfg.Managed.Origin) == "" || cfg.Managed.Transport == nil {
+			return nil, fmt.Errorf("voyage provider: team session access requires an origin and transport")
+		}
+		if cfg.Endpoint != "" && strings.TrimRight(cfg.Endpoint, "/") != DefaultVoyageEndpoint {
+			return nil, fmt.Errorf("voyage provider: team_session_endpoint_conflict: embeddings.endpoint %q cannot be used with a team session; remove it or set VOYAGE_API_KEY", cfg.Endpoint)
+		}
+	} else if cfg.APIKey == "" {
 		return nil, fmt.Errorf("voyage provider requires api key")
 	}
 	model := cfg.Model
@@ -118,6 +132,19 @@ func NewVoyageProvider(cfg ProviderConfig) (Provider, error) {
 		now:                time.Now,
 		jitter:             jitterVoyageBackoff,
 		withRecoveryBudget: context.WithTimeout,
+	}
+	if m := cfg.Managed; m != nil {
+		// The fingerprint keeps the logical endpoint; only the request URL moves.
+		p.managed = true
+		p.endpoint = strings.TrimRight(m.Origin, "/") + wire.RouteVoyageEmbed
+		p.httpClient = &http.Client{
+			Transport:     m.Transport,
+			Timeout:       voyageHTTPTimeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		}
+		if m.MaxConcurrency > 0 && m.MaxConcurrency < p.maxConc {
+			p.maxConc = m.MaxConcurrency
+		}
 	}
 	return p, nil
 }
@@ -184,7 +211,7 @@ func (p *voyageProvider) embedBatchAdaptive(ctx context.Context, texts []string)
 
 func (p *voyageProvider) embedBatchAdaptiveWithinBudget(ctx context.Context, texts []string) ([]Embedding, error) {
 	vecs, err := p.embedBatch(ctx, texts)
-	if err == nil || len(texts) <= 1 || !shouldSplitVoyageBatchError(ctx, err) {
+	if err == nil || len(texts) <= 1 || !p.shouldSplit(ctx, err) {
 		return vecs, err
 	}
 
@@ -203,6 +230,18 @@ func (p *voyageProvider) embedBatchAdaptiveWithinBudget(ctx context.Context, tex
 	out = append(out, left...)
 	out = append(out, right...)
 	return out, nil
+}
+
+// shouldSplit decides adaptive recovery. In managed mode only the gateway's
+// definitive pre-admission size rejection splits: a split child is a new
+// logical request with its own idempotency key, so splitting after an
+// ambiguous or terminal failure could pay for the same inputs twice.
+func (p *voyageProvider) shouldSplit(ctx context.Context, err error) bool {
+	if !p.managed {
+		return shouldSplitVoyageBatchError(ctx, err)
+	}
+	var gatewayErr *wire.GatewayError
+	return ctx.Err() == nil && errors.As(err, &gatewayErr) && gatewayErr.Code == wire.CodeTooLarge
 }
 
 func shouldSplitVoyageBatchError(ctx context.Context, err error) bool {
@@ -304,10 +343,31 @@ func (p *voyageProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 	return res, nil
 }
 
+// doEmbeddingRequestWithRetry sends one physical batch.
+//
+// In managed mode the gateway dispatches each idempotency key at most once and
+// settles it once. The key is allocated before the retry loop and reused only
+// when the previous attempt's outcome is ambiguous (a transport failure after
+// sending, request_in_progress, or an upstream 5xx passed through), so the
+// gateway answers from its receipt instead of paying again. After a definitive
+// answer (an upstream 429 passed through, or a retryable gateway rejection
+// such as rate_limited) the next attempt gets a fresh key. Split children are
+// new physical batches and allocate their own keys.
 func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body []byte) (*http.Response, error) {
 	const maxAttempts = 3
-
 	var lastErr error
+	var idempotencyKey string
+	if p.managed {
+		idempotencyKey = crand.Text()
+	}
+	// Once an attempt may have reached the provider, the key never changes: a
+	// later rejection does not prove that attempt was free.
+	mayHaveDispatched := false
+	renewKey := func() {
+		if !mayHaveDispatched {
+			idempotencyKey = crand.Text()
+		}
+	}
 	httpAttempts := 0
 	for {
 		var retryAfter time.Duration
@@ -316,13 +376,44 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+		if p.managed {
+			req.Header.Set(wire.HeaderIdempotencyKey, idempotencyKey)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+p.apiKey)
+		}
 
 		resp, err := doProviderHTTP(p.httpClient, req, "voyage")
 		if err == nil {
 			indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageCompleted, 1)
 		}
-		if err != nil {
+		if err != nil && p.managed {
+			lastErr = err
+			var gatewayErr *wire.GatewayError
+			switch {
+			case errors.As(err, &gatewayErr):
+				// Terminal codes, including upstream_outcome_unknown and
+				// result_unavailable, end this logical request.
+				if !gatewayErr.Retryable() {
+					return nil, err
+				}
+				retryAfter = gatewayErr.RetryAfter
+				if gatewayErr.Code == wire.CodeInProgress {
+					mayHaveDispatched = true
+				} else {
+					renewKey()
+				}
+			case isTransientNetworkError(err):
+				mayHaveDispatched = true
+				indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageNetworkFailures, 1)
+			default:
+				return nil, err
+			}
+			httpAttempts++
+			if httpAttempts >= maxAttempts {
+				return nil, lastErr
+			}
+			indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageHttpRetry, 1)
+		} else if err != nil {
 			lastErr = err
 			// Adaptive recovery splits transient failures immediately. The shared
 			// logical-batch budget bounds the resulting request tree.
@@ -344,8 +435,13 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 			_ = resp.Body.Close()
 
 			lastErr = fmt.Errorf("http status %d: %s", resp.StatusCode, string(msg))
-			if httpAttempts >= maxAttempts {
+			// Managed: the gateway holds a provider 5xx as an unknown outcome.
+			if httpAttempts >= maxAttempts || (p.managed && resp.StatusCode >= 500) {
 				return nil, lastErr
+			}
+			if p.managed && resp.StatusCode == http.StatusTooManyRequests {
+				// Upstream rejected the call definitively; the gateway settled this key.
+				renewKey()
 			}
 			indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageHttpRetry, 1)
 		} else {
@@ -401,16 +497,4 @@ func voyageRetryAfter(value string, now time.Time) time.Duration {
 		delay = retryAt.Sub(now)
 	}
 	return delay
-}
-
-// ResolveVoyageAPIKey returns the Voyage AI API key from env vars or team keys.
-func ResolveVoyageAPIKey(env vaultconfig.Env, explicit string) string {
-	if explicit != "" {
-		return explicit
-	}
-	if val := vaultconfig.ResolveValue(env, "RHIZOME_VOYAGE_API_KEY", "VOYAGE_API_KEY"); val != "" {
-		return val
-	}
-	// Fall back to team key if available
-	return teamkeys.VoyageKey(env)
 }

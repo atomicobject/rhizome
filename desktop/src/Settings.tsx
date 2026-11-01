@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { THEMES } from "../../web/src/lib/themes";
 import { CredentialImport } from "./CredentialImport";
+import { TeamAccount } from "./TeamAccount";
 import {
   failure,
   request,
@@ -277,6 +278,7 @@ export function Settings({
         )}
         {action && <p className="hint">macOS asks for an administrator password when needed.</p>}
       </div>
+      <TeamAccount />
       <CredentialImport />
       <Diagnostics />
       {developmentBuilds.length > 0 && (

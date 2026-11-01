@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { margin: 0; color: var(--foreground); font-family: var(--font-sans); }
+#team-api-diagram { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr); align-items: center; gap: 8px; }
+#team-api-diagram .node { padding: 16px; border-radius: var(--radius); background: var(--card); }
+#team-api-diagram .node strong { display: block; font-weight: 500; margin-bottom: 10px; }
+#team-api-diagram .detail { color: var(--muted-foreground); margin-top: 10px; }
+#team-api-diagram .connector { text-align: center; color: var(--muted-foreground); }
+#team-api-diagram .optional { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); color: var(--muted-foreground); }
+#team-api-diagram .label { margin-bottom: 10px; color: var(--muted-foreground); }
+@media (max-width: 540px) {
+  #team-api-diagram { grid-template-columns: minmax(0, 1fr); }
+  #team-api-diagram .connector { transform: rotate(90deg); padding: 3px; }
+}
+</style>
+</head>
+<body>
+<div id="team-api-diagram" role="img" aria-label="Proposed architecture. Desktop and CLI share a renewable session in the computer's keychain. Google sign-in through Cognito authorizes the AWS gateway. The gateway keeps provider keys and forwards requests to Voyage and Jev. An embedding cache can be added later.">
+  <section class="node">
+    <div class="label">Your computer</div>
+    <strong>Desktop + CLI</strong>
+    <div>All repositories</div>
+    <div class="detail">One shared session<br>OS keychain</div>
+  </section>
+  <div class="connector" aria-hidden="true">→</div>
+  <section class="node">
+    <div class="label">AWS</div>
+    <strong>Team API service</strong>
+    <div>Google sign-in via Cognito</div>
+    <div class="detail">Access checks + limits<br>Provider keys stay here</div>
+    <div class="optional">Later: embedding cache</div>
+  </section>
+  <div class="connector" aria-hidden="true">→</div>
+  <section class="node">
+    <div class="label">Provider APIs</div>
+    <strong>Voyage</strong>
+    <div>Embeddings</div>
+    <strong style="margin-top: 18px">TypeSafe / Jev</strong>
+    <div>Evaluations</div>
+  </section>
+</div>
+</body>
+</html>

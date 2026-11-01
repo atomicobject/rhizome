@@ -30,6 +30,7 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
@@ -609,7 +610,7 @@ func (rt *LiveRuntime) initPhase2Semantic() {
 		return
 	}
 
-	provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(rt.ctx), embCfg, "")
+	provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(rt.ctx), embCfg, "")
 	if err != nil {
 		err = embeddings.ProviderUnavailableError(embCfg, err)
 		rt.semanticErr.Store(&err)
@@ -1337,7 +1338,7 @@ func (rt *LiveRuntime) initCodeEmbeddings(intelStore *semdb.Store) {
 		}
 	}
 	if codeProvider == nil {
-		codeProvider, codeProviderCfg, err = embeddings.NewProviderForConfig(vaultconfig.FromContext(rt.ctx), codeEmbCfg, "")
+		codeProvider, codeProviderCfg, err = provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(rt.ctx), codeEmbCfg, "")
 		if err != nil {
 			if diagnostics.FromContext(rt.ctx) != nil {
 				rt.recordDiagnostic(slog.LevelInfo, "code_provider.unavailable", err)
@@ -1470,7 +1471,7 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 		codeSyncer = &embedindex.Syncer{
 			Index:           codeEmbStore,
 			Provider:        *codeProvider,
-			ProviderInfo:    codeEmbCfg.ProviderCfg(embeddings.ResolveAPIKeyForProvider(vaultconfig.FromContext(rt.ctx), codeEmbCfg.Provider)),
+			ProviderInfo:    codeEmbCfg.ProviderCfg(""),
 			Intel:           intelStore,
 			Calls:           intelStore,
 			ChunkWriter:     intelStore,
@@ -1498,7 +1499,7 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 		noteSyncer = &embedindex.NoteSyncer{
 			Index:           noteIndex,
 			Provider:        *noteProvider,
-			ProviderInfo:    embCfg.ProviderCfg(embeddings.ResolveAPIKeyForProvider(vaultconfig.FromContext(rt.ctx), embCfg.Provider)),
+			ProviderInfo:    embCfg.ProviderCfg(""),
 			Intel:           intelStore,
 			ChunkWriter:     intelStore,
 			EmbeddingWriter: intelStore,

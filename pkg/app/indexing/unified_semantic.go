@@ -10,6 +10,7 @@ import (
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	codeemb "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 
@@ -86,7 +87,7 @@ func prepareUnifiedSemanticResources(
 		if err := embeddings.EnsureOllamaForConfig(ctx, codeEmbCfg, os.Stderr); err != nil {
 			return nil, err
 		}
-		codeProvider, codeProviderCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), codeEmbCfg, opts.APIKey)
+		codeProvider, codeProviderCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), codeEmbCfg, opts.APIKey)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +124,7 @@ func prepareUnifiedSemanticResources(
 		if err := embeddings.EnsureOllamaForConfig(ctx, embCfg, os.Stderr); err != nil {
 			return nil, err
 		}
-		noteProvider, noteProviderCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), embCfg, opts.APIKey)
+		noteProvider, noteProviderCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), embCfg, opts.APIKey)
 		if err != nil {
 			return nil, err
 		}

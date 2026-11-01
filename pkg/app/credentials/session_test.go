@@ -153,6 +153,24 @@ func TestAOKeySatisfiesTeamCoveredProviders(t *testing.T) {
 	require.False(t, session.Satisfied(anthropic), "AO key must not satisfy anthropic")
 }
 
+func TestTeamSessionSatisfiesTeamCoveredProviders(t *testing.T) {
+	env := setupSessionTest(t)
+	signedIn := true
+	session := NewSession(env, WithTeamCoverage(func(string) bool { return false }), WithTeamSession(func() bool { return signedIn }))
+	for _, provider := range []string{"voyage", "typesafe"} {
+		need, ok := NeedForProvider(provider, "semantic search")
+		require.True(t, ok)
+		require.True(t, session.Satisfied(need), "a team session should satisfy %s", provider)
+	}
+	openai, ok := NeedForProvider("openai", "semantic search")
+	require.True(t, ok)
+	require.False(t, session.Satisfied(openai), "a team session must not satisfy openai")
+
+	signedIn = false
+	voyage, _ := NeedForProvider("voyage", "semantic search")
+	require.False(t, session.Satisfied(voyage))
+}
+
 func TestResolvePrecedence(t *testing.T) {
 	env := setupSessionTest(t)
 	require.NoError(t, repoconfig.SaveCliConfig(env, repoconfig.CliConfig{

@@ -9,6 +9,7 @@ import {
   type SetupResult,
 } from "./api";
 import { CredentialImport } from "./CredentialImport";
+import { TeamAccount } from "./TeamAccount";
 import { IndexScope, rulePath, type RuleAction } from "./IndexScope";
 import { Elapsed, Notice } from "./Status";
 
@@ -529,6 +530,14 @@ export function SetupSheet({
         </div>
       </fieldset>
 
+      <TeamAccount
+        setup
+        disabled={running || partial}
+        onChange={() => {
+          setRefreshing(true);
+          setCredentialRevision((revision) => revision + 1);
+        }}
+      />
       <CredentialImport
         disabled={running || partial}
         onImported={() => {

@@ -57,3 +57,6 @@ __pycache__
 # Private 1Password tenant defaults
 .1password/account
 .1password/environment-id
+
+# Local team API gateway state (make team-api-dev)
+.team-api-dev/

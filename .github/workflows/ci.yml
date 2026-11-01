@@ -143,6 +143,27 @@ jobs:
           path: ${{ runner.temp }}/go-build
           key: go-build-${{ runner.os }}-${{ github.sha }}
 
+  team-api:
+    name: Team API Gateway
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+          cache-dependency-path: services/team-api/go.sum
+
+      # services/team-api is a nested module, so the root module's vet and
+      # tests do not cover it.
+      - name: Vet and test with the race detector
+        run: make team-api-check
+
   runtime-evidence:
     name: Runtime Code Evidence
     needs: [changes]

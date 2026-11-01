@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
@@ -41,6 +42,8 @@ type Service struct {
 	ensure          func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
 	install         func(context.Context, appupdate.Options) (appupdate.Result, error)
 	ensurePinned    func(context.Context, appupdate.EnsureOptions) error
+	// teamStatus reports the team session; nil uses the installed provider-access factory.
+	teamStatus func() provideraccess.TeamStatus
 }
 
 func New(stateDir string, env vaultconfig.Env) (*Service, error) {

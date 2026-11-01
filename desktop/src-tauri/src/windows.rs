@@ -433,6 +433,8 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             app.state::<Panes>().remove(events.label());
             crate::inbox::refresh(&app);
             app.state::<Focus>().closed(events.label());
+            app.state::<crate::team::Team>()
+                .cancel(Some(events.label()));
         }
         _ => {}
     });

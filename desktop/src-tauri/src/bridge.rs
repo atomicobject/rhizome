@@ -74,7 +74,7 @@ pub async fn call(
     call_sidecar(directory, request, timeout, &sidecar()?).await
 }
 
-/// The rzm bundled beside the app's executable.
+/// The `rzm` bundled beside the app's executable.
 pub fn sidecar() -> Result<std::path::PathBuf, String> {
     let current = std::env::current_exe().map_err(|e| e.to_string())?;
     Ok(current

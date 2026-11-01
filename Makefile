@@ -4,7 +4,7 @@ WEB_DIST=pkg/app/web/assets/dist
 WEB_STAMP=$(WEB_DIST)/.web-build
 DEV_BINARY=bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
 
-RELEASE_LDFLAGS=-s -w
+RELEASE_LDFLAGS=-s -w -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
 RELEASE_FLAGS=-trimpath -ldflags "$(RELEASE_LDFLAGS)" -buildvcs=false
 
 # Enable FTS5 for mattn/go-sqlite3
@@ -33,6 +33,7 @@ build: web-build
 	@mkdir -p bin/$(GOOS)
 	@mkdir -p .gocache .gomodcache .gotmp
 	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(CGO_TAGS) -o bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
+	$(MAKE) team-api-build
 
 build-release: web-build
 	@mkdir -p bin/$(GOOS)
@@ -141,14 +142,14 @@ check-fast:
 
 check:
 	$(MAKE) web-generate
-	$(MAKE) -j$(CHECK_JOBS) $(CHECK_FAST_TARGETS) test-fast credential-check
+	$(MAKE) -j$(CHECK_JOBS) $(CHECK_FAST_TARGETS) test-fast credential-check team-api-check
 	$(MAKE) web-test
 
 # Each go test target already uses every core, so they run one after another,
 # and web-test runs apart from them: its DOM timeouts fail under that load.
 check-full:
 	$(MAKE) web-generate
-	$(MAKE) -j$(CHECK_JOBS) $(CHECK_FAST_TARGETS) test credential-check benchmark-test
+	$(MAKE) -j$(CHECK_JOBS) $(CHECK_FAST_TARGETS) test credential-check benchmark-test team-api-check
 	$(MAKE) web-test
 	$(MAKE) integration-packages
 	$(MAKE) integration-mixed
@@ -395,3 +396,34 @@ desktop-install-dev:
 	desktop/scripts/install-dev.sh
 
 .PHONY: desktop-deps desktop-dev desktop-build desktop-check desktop-install-dev
+
+# Team API gateway (services/team-api, a nested module with no vendor tree).
+# team-api-dev runs the whole local stack with fake upstreams on port 8788 and
+# repository-local state; development builds of rzm start their own live
+# gateway on 8787 (pkg/app/teamdev), so the two never share an origin.
+TEAM_API_ENV=GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOFLAGS=-mod=mod GOTOOLCHAIN=local
+TEAM_API_BIN=bin/$(GOOS)/team-api$(EXE_SUFFIX)
+TEAM_API_DEV_DIR ?= $(PWD)/.team-api-dev
+TEAM_API_DEV_LISTEN ?= 127.0.0.1:8788
+
+team-api-build:
+	@mkdir -p bin/$(GOOS) .gocache .gomodcache .gotmp
+	cd services/team-api && $(TEAM_API_ENV) go build -o ../../$(TEAM_API_BIN) ./cmd/team-api
+
+team-api-check:
+	@mkdir -p .gocache .gomodcache .gotmp
+	cd services/team-api && $(TEAM_API_ENV) go vet ./... && $(TEAM_API_ENV) go test -race ./...
+
+team-api-dev: team-api-build
+	$(TEAM_API_BIN) dev --listen $(TEAM_API_DEV_LISTEN) --data-dir $(TEAM_API_DEV_DIR) --upstreams fake
+
+# Live upstreams with the development keys from 1Password; the keys reach only
+# the gateway process.
+team-api-dev-live: team-api-build
+	./scripts/with-secrets development $(TEAM_API_BIN) dev --listen $(TEAM_API_DEV_LISTEN) --data-dir $(TEAM_API_DEV_DIR) --upstreams live
+
+team-api-dev-reset:
+	rm -rf $(TEAM_API_DEV_DIR)
+
+.PHONY: team-api-build team-api-check team-api-dev team-api-dev-live team-api-dev-reset
+

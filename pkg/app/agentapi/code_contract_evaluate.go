@@ -28,7 +28,7 @@ func evaluateContract() *CodeOperationContract {
 		map[string]any{"state": map[string]any{"title": "Authentication spec", "content": "The spec describes the retired password flow."}, "questions": map[string]any{
 			"action": map[string]any{"type": "choice", "instructions": "Choose how to maintain this spec.", "criteria": map[string]any{"keep": "Accurate and useful", "update": "Needs correction", "consolidate": "Duplicates another supplied spec"}},
 			"stale":  map[string]any{"type": "noul", "instructions": "Does this spec describe obsolete behavior?"},
-		}}, "sends supplied state and questions to TypeSafe and incurs API usage", "uses TYPESAFE_API_KEY from environment/config, then the unlocked Atomic key bundle", "does not mutate vault content")
+		}}, "sends supplied state and questions to TypeSafe and incurs API usage", "uses TYPESAFE_API_KEY from environment/config, then the signed-in team session (rzm auth login), then the unlocked Atomic key bundle", "does not mutate vault content")
 }
 
 func generateContract() *CodeOperationContract {

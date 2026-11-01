@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -89,10 +90,10 @@ func embeddingsProviderReady(env vaultconfig.Env, cfg *embeddings.Config) (bool,
 		}
 		return false, "missing OPENAI_API_KEY or RHIZOME_OPENAI_API_KEY"
 	case "voyage":
-		if embeddings.ResolveVoyageAPIKey(env, "") != "" {
+		if provideraccess.Default().VoyageSource(env) != provideraccess.SourceNone {
 			return true, ""
 		}
-		return false, "missing VOYAGE_API_KEY or RHIZOME_VOYAGE_API_KEY"
+		return false, "missing VOYAGE_API_KEY or RHIZOME_VOYAGE_API_KEY (or run `rzm auth login`)"
 	case "ollama":
 		if !embeddings.OllamaEndpointIsLocal(cfg.Endpoint) {
 			return true, ""

@@ -14,6 +14,9 @@ import (
 const (
 	DefaultBaseURL = "https://api.typesafe.ai"
 	DefaultModel   = "jev-latest"
+	// managedPathPrefix is the gateway's TypeSafe root (wire.RouteTypeSafeEval
+	// without /v1/systemone).
+	managedPathPrefix = "/v1/providers/typesafe"
 )
 
 // Client is reusable across goroutines. It never reads environment variables,
@@ -26,7 +29,23 @@ type Client struct {
 	timeout          time.Duration
 	maxRetries       int
 	maxResponseBytes int64
+	managed          *Managed
 }
+
+// Managed routes calls through the Atomic team API gateway instead of an API
+// key. Transport adds the session credential and returns gateway-originated
+// errors as *wire.GatewayError. MaxConcurrency, when positive, caps
+// EvaluateBatch workers at the gateway's advertised limit.
+type Managed struct {
+	Origin         string
+	Transport      http.RoundTripper
+	MaxConcurrency int
+}
+
+// WithManaged selects team gateway access. Pass an empty API key to NewClient;
+// a key, WithBaseURL, or WithHTTPClient alongside it is rejected so the
+// credential mode is never ambiguous.
+func WithManaged(managed Managed) Option { return func(c *Client) { c.managed = &managed } }
 
 // Option configures a Client. Invalid options fail in NewClient.
 type Option func(*Client)
@@ -59,9 +78,10 @@ func WithMaxResponseBytes(limit int64) Option {
 // NewClient validates configuration and constructs a client. API keys are
 // supplied explicitly; the zero Client value is not usable.
 func NewClient(apiKey string, options ...Option) (*Client, error) {
+	defaultHTTP := &http.Client{}
 	c := &Client{
 		apiKey: strings.TrimSpace(apiKey), baseURL: DefaultBaseURL, model: DefaultModel,
-		http: &http.Client{}, timeout: 30 * time.Second, maxRetries: 2,
+		http: defaultHTTP, timeout: 30 * time.Second, maxRetries: 2,
 		maxResponseBytes: 16 << 20,
 	}
 	for _, option := range options {
@@ -70,7 +90,16 @@ func NewClient(apiKey string, options ...Option) (*Client, error) {
 		}
 		option(c)
 	}
-	if c.apiKey == "" || strings.ContainsAny(c.apiKey, "\r\n") {
+	if m := c.managed; m != nil {
+		if c.apiKey != "" || c.baseURL != DefaultBaseURL || c.http != defaultHTTP {
+			return nil, fmt.Errorf("typesafe: managed access excludes an API key, base URL, or HTTP client")
+		}
+		if m.Transport == nil || m.MaxConcurrency < 0 {
+			return nil, fmt.Errorf("typesafe: managed access requires a transport")
+		}
+		c.baseURL = strings.TrimRight(m.Origin, "/") + managedPathPrefix
+		c.http = &http.Client{Transport: m.Transport}
+	} else if c.apiKey == "" || strings.ContainsAny(c.apiKey, "\r\n") {
 		return nil, fmt.Errorf("typesafe: a valid API key is required")
 	}
 	parsed, err := url.Parse(c.baseURL)

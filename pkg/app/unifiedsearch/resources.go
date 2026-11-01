@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 
@@ -51,7 +51,7 @@ func openSearchResources(ctx context.Context, opts Options) (searchResources, er
 	)
 
 	if usesVectorProvider && opts.EmbCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), opts.EmbCfg, opts.ProviderAPIKey)
+		provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), opts.EmbCfg, opts.ProviderAPIKey)
 		if err != nil {
 			return fail(err)
 		}
@@ -82,11 +82,11 @@ func openSearchResources(ctx context.Context, opts Options) (searchResources, er
 
 	if codeProvider == nil && usesVectorProvider && codeEmbCfg.Enabled {
 		if _, statErr := os.Stat(codeEmbCfg.IndexPath); statErr == nil {
-			apiKey := strings.TrimSpace(opts.ProviderAPIKey)
-			if apiKey == "" {
-				apiKey = embeddings.ResolveAPIKeyForProvider(vaultconfig.FromContext(ctx), codeEmbCfg.Provider)
+			var providerCfg embeddings.ProviderConfig
+			providerCfg, err = provideraccess.Default().EmbeddingConfig(vaultconfig.FromContext(ctx), codeEmbCfg, opts.ProviderAPIKey)
+			if err != nil {
+				return fail(err)
 			}
-			providerCfg := codeEmbCfg.ProviderCfg(apiKey)
 			var provider embeddings.Provider
 			if noteProvider != nil && providerConfigsMatch(providerCfg, noteCfg) {
 				// Reuse the note provider when configs match so one search request
@@ -95,7 +95,7 @@ func openSearchResources(ctx context.Context, opts Options) (searchResources, er
 				provider = noteProvider
 				providerCfg = noteCfg
 			} else {
-				provider, providerCfg, err = embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), codeEmbCfg, apiKey)
+				provider, err = embeddings.NewConfiguredProvider(vaultconfig.FromContext(ctx), providerCfg)
 				if err != nil {
 					return fail(err)
 				}
