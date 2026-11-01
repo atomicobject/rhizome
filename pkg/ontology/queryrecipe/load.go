@@ -162,7 +162,7 @@ func isRecipeFile(path string) bool {
 // rootUsesExplicitRecipeFiles reports whether every YAML file under root is
 // a recipe, so one without an apiVersion line is reported rather than skipped.
 func rootUsesExplicitRecipeFiles(root string) bool {
-	if isModulesRoot(root) {
+	if isModulesRoot(root) || isModuleRecipesRoot(root) {
 		return true
 	}
 	parts := strings.Split(filepath.ToSlash(filepath.Clean(root)), "/")
@@ -180,6 +180,19 @@ func rootUsesExplicitRecipeFiles(root string) bool {
 func isModulesRoot(root string) bool {
 	root = filepath.ToSlash(filepath.Clean(root))
 	return root == assetroots.ModulesDir || strings.HasSuffix(root, "/"+assetroots.ModulesDir)
+}
+
+// isModuleRecipesRoot reports whether root is a module's recipes folder or a
+// folder inside it.
+func isModuleRecipesRoot(root string) bool {
+	root = "/" + strings.Trim(filepath.ToSlash(filepath.Clean(root)), "/") + "/"
+	marker := "/" + assetroots.ModulesDir + "/"
+	i := strings.LastIndex(root, marker)
+	if i < 0 {
+		return false
+	}
+	parts := strings.Split(strings.Trim(root[i+len(marker):], "/"), "/")
+	return len(parts) >= 2 && assetroots.ValidModuleName(parts[0]) && parts[1] == string(assetroots.Recipes)
 }
 
 // inModuleRecipes keeps a modules-root walk to valid module folders and

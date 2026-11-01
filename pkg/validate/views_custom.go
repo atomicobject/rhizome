@@ -45,7 +45,8 @@ func customViewScriptIssues(vaultPath string, views []viewconfig.ViewDefinition,
 		return folderDepth(custom[i].Source.Path) > folderDepth(custom[j].Source.Path)
 	})
 	checked := map[string]bool{}
-	reported := map[string]bool{}
+	// Messages name files relative to their root, so duplicates are per root.
+	reported := map[string]map[string]bool{}
 	var issues []viewconfig.Issue
 	for _, view := range custom {
 		root := view.Source.Root
@@ -62,18 +63,23 @@ func customViewScriptIssues(vaultPath string, views []viewconfig.ViewDefinition,
 			continue
 		}
 		checked[filepath.Join(root, folder)] = true
+		seen := reported[root]
+		if seen == nil {
+			seen = map[string]bool{}
+			reported[root] = seen
+		}
 		diagnostics, unreadable, err := viewscript.CheckDir(fsRoot.FS(), filepath.ToSlash(folder))
 		if err != nil {
 			unreadable = append(unreadable, fmt.Sprintf("%s: cannot read view folder: %v", filepath.ToSlash(folder), err))
 		}
-		issues = append(issues, customViewIssues(view, "custom_view_script_error", unseen(reported, diagnostics))...)
+		issues = append(issues, customViewIssues(view, "custom_view_script_error", unseen(seen, diagnostics))...)
 		// A script that could not be read was never checked; saying nothing
 		// would pass a view that may not load.
-		issues = append(issues, customViewIssues(view, "custom_view_read_error", unseen(reported, unreadable))...)
+		issues = append(issues, customViewIssues(view, "custom_view_read_error", unseen(seen, unreadable))...)
 		refs := customViewReferenceProblems(fsRoot.FS(), filepath.ToSlash(folder), execSchema)
-		issues = append(issues, customViewIssues(view, "custom_view_import_unresolved", unseen(reported, refs.unresolved))...)
-		issues = append(issues, customViewIssues(view, "custom_view_import_unmapped", unseen(reported, refs.unmapped))...)
-		issues = append(issues, customViewIssues(view, "custom_view_graphql_invalid", unseen(reported, refs.graphQL))...)
+		issues = append(issues, customViewIssues(view, "custom_view_import_unresolved", unseen(seen, refs.unresolved))...)
+		issues = append(issues, customViewIssues(view, "custom_view_import_unmapped", unseen(seen, refs.unmapped))...)
+		issues = append(issues, customViewIssues(view, "custom_view_graphql_invalid", unseen(seen, refs.graphQL))...)
 	}
 	return issues
 }

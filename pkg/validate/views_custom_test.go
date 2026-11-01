@@ -53,6 +53,19 @@ func TestRunViewsChecksModuleCustomViewsInTheirOwnFolder(t *testing.T) {
 	require.Contains(t, result.Issues[0].Message, "poc/board.tsx:1:")
 }
 
+func TestRunViewsReportsTheSameBrokenFileInEachModule(t *testing.T) {
+	root := t.TempDir()
+	definition := "apiVersion: rhizome.view.v1\nid: ID\nname: Board\nsource:\n  kind: custom\n  entry: board.tsx\nmount:\n  kind: standalone\n"
+	for _, module := range []string{"alpha", "beta"} {
+		writeValidationTestFile(t, root+"/.rhizome/modules/"+module+"/views/poc/board.yaml", strings.Replace(definition, "ID", module+".board", 1))
+		writeValidationTestFile(t, root+"/.rhizome/modules/"+module+"/views/poc/board.tsx", "export default () => <div>;")
+	}
+
+	result := runViewsAt(root)
+
+	require.Equal(t, 2, result.IssueCount, "each module's broken file is its own finding")
+}
+
 func TestRunViewsReportsANestedBrokenScriptOnce(t *testing.T) {
 	root := t.TempDir()
 	views := root + "/.rhizome/views/"

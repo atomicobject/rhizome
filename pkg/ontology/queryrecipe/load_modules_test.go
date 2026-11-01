@@ -68,3 +68,14 @@ func TestDuplicateRecipeIDAcrossFlatAndModuleIsReported(t *testing.T) {
 	require.Len(t, recipes, 2)
 	requireIssue(t, Validate(recipes, nil).Issues, "duplicate_recipe_id")
 }
+
+func TestModuleRecipesFolderReportsYAMLWithoutAPIVersion(t *testing.T) {
+	root := t.TempDir()
+	writeRecipeFile(t, root, ".rhizome/modules/team/recipes/broken.yaml", "id: broken\nname: broken\n")
+	for _, dir := range []string{".rhizome/modules/team/recipes", ".rhizome/modules/team/recipes/nested"} {
+		require.True(t, rootUsesExplicitRecipeFiles(filepath.Join(root, filepath.FromSlash(dir))), dir)
+	}
+	recipes, _ := LoadRoots([]string{filepath.Join(root, ".rhizome", "modules", "team", "recipes")})
+	require.Len(t, recipes, 1, "a module recipes folder checked directly loads YAML without apiVersion so validation reports it")
+	require.False(t, rootUsesExplicitRecipeFiles(filepath.Join(root, ".rhizome", "modules", "team", "views")))
+}
