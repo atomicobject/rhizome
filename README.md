@@ -95,6 +95,8 @@ Rhizome opens a local browser workspace where you can read notes and specs, foll
 
 Repositories can declare scheduled tasks in `.rhizome/tasks/`: periodic agent work, such as refreshing agent memory, that runs on each teammate's machine in their own Claude Code or Codex. A free check decides whether the work is needed, and the prompt then runs in the background on a local branch for you to review, or waits in your inbox, as the repository and each person choose. `rzm tasks status`, `rzm tasks inbox`, and `rzm tasks start <item>` manage them. [Scheduled tasks](docs/reference/guides/scheduled-tasks-guide.md)
 
+Each starter installs as a module, a folder `.rhizome/modules/<name>/` that holds its ontology, query recipes, views, tasks, and scripts. `rzm <module>` lists a module's query recipes and `rzm <module> <recipe> --<input> <value>` runs one; `rzm module <name> ...` does the same when a built-in command shares the module's name. [Rhizome modules](docs/specs/technical/rhizome-modules.md)
+
 When the default views stop answering your team's questions, you can adapt them or ask an agent to build a custom view over your project data. Meeting notes, action items, requirements, and other information can become part of the same workspace. Display groups open Briefing, Trace, or Sections views; `rzm view eject <id>` (for example `rzm view eject group.briefing`) copies one into `.rhizome/views/` so your team can modify it. [Adapting the workspace](docs/reference/guides/adapting-rhizome.md#adapt-the-workspace)
 
 ## Install with a coding agent

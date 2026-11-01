@@ -35,8 +35,12 @@ const (
 // `<module>/<file name>`.
 var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}(/[a-z0-9][a-z0-9-]{0,62})?$`)
 
+// datedName matches a branch date segment. A module task named like one
+// would put its branches below a flat task's (`rzm/a/2026-11-01/...`).
+var datedName = regexp.MustCompile(`/\d{4}-\d{2}-\d{2}(-\d+)?$`)
+
 // ValidID reports whether id is a well-formed task id.
-func ValidID(id string) bool { return idPattern.MatchString(id) }
+func ValidID(id string) bool { return idPattern.MatchString(id) && !datedName.MatchString(id) }
 
 // PathKey turns a task id into one file-name segment. Ids never contain
 // `_`, so a module task `a/b` (`a_b`) never shares a folder with a flat
@@ -103,6 +107,9 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 	id := idFromPath(filePath)
 	if !idPattern.MatchString(id) {
 		return Definition{}, fmt.Errorf("task id %q must be lowercase letters, digits, and hyphens", id)
+	}
+	if datedName.MatchString(id) {
+		return Definition{}, fmt.Errorf("task id %q must not be named like a date (YYYY-MM-DD), which its branches use", id)
 	}
 	var def Definition
 	dec := yaml.NewDecoder(bytes.NewReader(data))

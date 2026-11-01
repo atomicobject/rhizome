@@ -176,23 +176,23 @@ func (commandOptions *vaultCommandOptions) newModuleRecipeCmd(recipe queryrecipe
 // moduleVaultFlag finds --vault/-v before the module's flags are defined,
 // since the vault decides which recipes, and so which flags, exist.
 func moduleVaultFlag(args []string) string {
+	// Cobra keeps the last value of a repeated flag, so this does too.
+	vault := ""
 	for i, arg := range args {
 		if arg == "--" {
 			break
 		}
-		for _, prefix := range []string{"--vault=", "-v="} {
-			if value, ok := strings.CutPrefix(arg, prefix); ok {
-				return value
-			}
-		}
-		if (arg == "--vault" || arg == "-v") && i+1 < len(args) {
-			return args[i+1]
-		}
-		if value, ok := strings.CutPrefix(arg, "-v"); ok && value != "" && !strings.HasPrefix(arg, "--") {
-			return value
+		if value, ok := strings.CutPrefix(arg, "--vault="); ok {
+			vault = value
+		} else if value, ok := strings.CutPrefix(arg, "-v="); ok {
+			vault = value
+		} else if (arg == "--vault" || arg == "-v") && i+1 < len(args) {
+			vault = args[i+1]
+		} else if value, ok := strings.CutPrefix(arg, "-v"); ok && value != "" && !strings.HasPrefix(arg, "--") {
+			vault = value
 		}
 	}
-	return ""
+	return vault
 }
 
 func isDirPath(path string) bool {
