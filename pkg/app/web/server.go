@@ -14,6 +14,7 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/actions"
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 
 	"github.com/atomicobject/rhizome/pkg/app/finder"
@@ -73,6 +74,9 @@ type Config struct {
 	// TasksOpener opens the vault's scheduled-tasks service for one
 	// /api/tasks request. Nil answers every tasks route with 503.
 	TasksOpener func(ctx context.Context, vaultPath string) (TasksAPI, error)
+	// Actions runs the vault's module actions; nil uses actions.New on
+	// VaultPath, which checks the person's repository trust.
+	Actions *actions.Runner
 }
 
 // Server serves the API and bundled UI.
