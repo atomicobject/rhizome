@@ -44,3 +44,31 @@ func TestCompoundingMineTaskPromptMinesInTaskModeThenReports(t *testing.T) {
 	require.Contains(t, def.Prompt, "mine.mjs --harness <h> --task-mode --budget 10")
 	require.Contains(t, def.Prompt, "scripts/report.mjs")
 }
+
+// The run's final message renders as Markdown on the Tasks page, so it links
+// to the workspace.
+func TestCompoundingMineTaskPromptLinksToTheWorkspace(t *testing.T) {
+	data, err := agentHelperTemplates.ReadFile("templates/starters/compounding/module/tasks/mine.yml")
+	require.NoError(t, err)
+	def, err := taskdef.ParseDefinition(".rhizome/modules/compounding/tasks/mine.yml", data)
+	require.NoError(t, err)
+	require.Contains(t, def.Prompt, "[Review in the compounding workspace](/notes?view=compounding-workspace)")
+}
+
+// The workspace ships one action per workspace.mjs operation, each running
+// that operation, and its two custom views (SPEC-0124 US9).
+func TestCompoundingTemplateShipsTheWorkspaceActionsAndViews(t *testing.T) {
+	const module = "templates/starters/compounding/module/"
+	for _, op := range []string{"recommendations", "item", "prompt", "dismiss", "hide", "health", "shards-check"} {
+		data, err := agentHelperTemplates.ReadFile(module + "actions/" + op + ".yaml")
+		require.NoError(t, err, op)
+		require.Contains(t, string(data), `command: [node, "{module}/scripts/workspace.mjs", "`+op+`"]`, op)
+	}
+	for _, file := range []string{"scripts/workspace.mjs", "views/workspace/workspace.yaml", "views/workspace/workspace.tsx", "views/workspace/compounding-item.yaml", "views/workspace/item.tsx", "views/workspace/parts.tsx"} {
+		_, err := agentHelperTemplates.ReadFile(module + file)
+		require.NoError(t, err, file)
+	}
+	meta, err := agentHelperTemplates.ReadFile("templates/starters/compounding/template.yaml")
+	require.NoError(t, err)
+	require.Contains(t, string(meta), "  - actions\n")
+}

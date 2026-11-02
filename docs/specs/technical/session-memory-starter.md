@@ -7,7 +7,7 @@ aliases:
   - Compounding add-on
 summary: "An opt-in compounding starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: active
-last-updated: 2026-11-01
+last-updated: 2026-11-02
 ---
 
 # Compounding add-on (formerly session memory)
@@ -196,6 +196,25 @@ The rest of this story applies where hooks are installed.
 - For each finding whose action item is complete, later runs check whether new episodes still match its learning, and the report marks it `resolved` (no recurrence since completion) or `recurring`, with the episodes that matched. A recurring finding is offered for review again.
 - The report reads only local state and tracked notes, makes no model calls, and contains no transcript text.
   verification:: a fixture with an open, a resolved, and a recurring finding.
+
+### US9 - Review in the workspace and hand one prompt to an agent
+
+- id:: ^SPEC-0124-US9
+- summary:: A developer opens the compounding workspace, unchecks or removes what they do not want, and copies one prompt that has an agent approve the rest, apply the edits, and implement the fixes on one branch. The workspace also shows the friction report and the team's approved memory.
+- status:: draft
+
+#### Acceptance Criteria
+
+- The module declares [[module-actions|SPEC-0131]] actions in `.rhizome/modules/compounding/actions/`, each a command over `scripts/workspace.mjs <op>` that reads its input from stdin: `recommendations` (pending proposals and open fix, guard, and ask findings, each with its `proposal:<cluster>` or `finding:<path>` reference, grouped by response), `item` (one reference in full: a proposal's drafted artifact and evidence with its cited excerpts redacted, or a finding's note), `prompt` (input `items`, returns `{prompt}`), `dismiss` (input `cluster` and `reason`, a local dismissal), `hide` (input `path`), `health` (the friction report with the last mine run's spend and stop reason), and `shards-check`. A held store lock, as while mining, makes a change refuse.
+- Recommendations include teammates' open findings, which have no local proposal or private evidence. Findings a developer hid are left out for that developer only.
+- The `compounding-workspace` view has the tabs Recommendations, Health, and Memory. `tab` is a UI parameter and `item` an identity parameter that opens one recommendation expanded.
+  - Recommendations is a checklist grouped by response, with every item checked by default. Each row expands to its `item` detail. Remove dismisses a proposal locally with a quick reason (not relevant, wrong, already fixed, or typed), or hides a finding locally; neither changes a tracked file, and hiding never checks off the shared action item. Copy prompt writes the prompt for the checked items to the clipboard and shows it to copy by hand when the clipboard is unavailable.
+  - Health renders `health`, and each row opens the `compounding-item` view, which shows one reference, named by its identity parameter `item`, with its quick actions.
+  - Memory lists the configured `context-shards` and `agent-findings` views' rows and the shards `shards-check` reports.
+- The prompt's wording ships in the module. It lists references, not content, and states that the person reviewed these items in the workspace and approves publishing them. It asks the agent to approve each proposal as drafted with the compounding skill, apply document edits, implement the selected fixes and guards, check off the action items it completes, and finish on one branch ready for one pull request.
+- The skill accepts the prompt's statement as the publication confirmation for the proposals it lists. Each refusal still comes back to the person, one at a time.
+- The mine task's prompt ends the run's final message with a link to the workspace.
+  verification:: Node tests for each `workspace.mjs` operation in a scratch repository, and the end-to-end journey in the browser.
 
 ## Requirements
 

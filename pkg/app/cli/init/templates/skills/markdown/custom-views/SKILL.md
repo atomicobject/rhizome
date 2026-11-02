@@ -101,6 +101,10 @@ Place each chart beside the question it answers, in the lens, tab, or panel abou
 
 Read `references/example.md` for a standalone board with a shared component and staged write. The mounted example covers a specific group dashboard, parameterized node page, and HTML accessor.
 
+## A module view that runs actions
+
+A view that needs something only a script can do, such as building a prompt from private local state or dismissing a proposal, calls its module's actions. Read `references/module-example.md`: the compounding workspace is the worked example of a module with actions, a custom view using `useActionQuery`, `useActionCommand`, and `params`, and validating them.
+
 ## An HTML entry or a standalone tool
 
 Set `entry: index.html` to own the whole document. Put `<script src="/kit/v1/boot.js"></script>` in `<head>` before any module script. Launch contextual pages through `/views/<id>` or `customViewHref(id, context)` so registration/configuration/context reach the entry. Direct file URLs are also available for context-free tools. YAML files, dot-prefixed files and folders, and `node_modules` are never served. A built folder works the same way: point `entry` at its built HTML.
