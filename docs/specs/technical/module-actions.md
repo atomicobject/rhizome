@@ -95,28 +95,51 @@ Starters install `actions` as a managed asset type, refreshed and removed by `rz
 
 ## User Stories
 
-### US1: A view runs a module's operation ^SPEC-0131-US1
+### US1 - A view runs a module's operation
+
+- id:: ^SPEC-0131-US1
+- summary:: A custom view calls a script its module ships through useActionCommand and useActionQuery and receives one envelope, and an untrusted repository refuses every action.
+- status:: draft
 
 As a custom view author, I want to call a script my module ships, so that a view can do what the browser cannot.
 
-**Acceptance Criteria:**
+#### Acceptance Criteria
+
 - A view's `useActionCommand("<module>/<name>")` runs the declared command with its input on stdin and receives the envelope.
 - `useActionQuery` polls while the view is visible, and a successful command refreshes the view's action queries once.
 - In an untrusted repository every action returns `refused` with a reason naming `rzm trust`.
 
-### US2: Agents and people reach the same actions ^SPEC-0131-US2
+### US2 - Agents and people reach the same actions
+
+- id:: ^SPEC-0131-US2
+- summary:: Agents run actions through action_list and action_run, and people through rzm <module> <action>, with the same envelope the HTTP route returns.
+- status:: draft
 
 As an agent or a person at the terminal, I want the actions a view uses, so that I can check or repeat what the view did.
 
-**Acceptance Criteria:**
+#### Acceptance Criteria
+
 - `rzm agent code surface` lists `action_list` and `action_run`, and `action_run` returns the HTTP route's envelope.
 - `rzm <module> <action> --<input> <value>` runs the action and exits 0, 2, or 1 for ok, refused, or error.
 
-### US3: Declarations fail early ^SPEC-0131-US3
+### US3 - Declarations fail early
+
+- id:: ^SPEC-0131-US3
+- summary:: rzm validate actions reports bad declarations, and the runner rejects mismatched input and kills a timed-out process tree.
+- status:: draft
 
 As a module author, I want mistakes reported before anyone runs the action.
 
-**Acceptance Criteria:**
+#### Acceptance Criteria
+
 - `rzm validate actions` reports a bad input kind, a missing script, a timeout over the limit, and a name shared with a recipe.
 - The runner rejects input that does not match the declaration, without starting a process.
 - A timeout kills the action's whole process tree and returns `error`.
+
+## Requirements
+
+- MUST check repository trust before every run and refuse an untrusted repository with a reason naming `rzm trust`.
+- MUST validate input against the declaration before starting a process.
+- MUST run commands and task checks through one shared runner that bounds time and output and kills the whole process tree.
+- MUST return the same envelope to views, agents, and the command line.
+- MUST NOT take the task run lock.

@@ -4,7 +4,7 @@ id: EFF-2026-11-02-06-37
 aliases: [EFF-2026-11-02-06-37]
 name: Module actions, view parameters, and the compounding workspace
 created-at: 2026-11-02T11:37:09Z
-status: in-progress
+status: active
 plan-approved-by: Drew Colthorp
 summary: "Give modules typed actions that views, agents, and the command line run through one runner; let views take identity and UI parameters; and ship the compounding workspace (Recommendations, Health, Memory) that turns a checklist into one agent prompt."
 governing-specs: ["[[module-actions]]", "[[unified-view-contract]]", "[[custom-view-apps]]", "[[session-memory-starter]]"]
@@ -150,6 +150,10 @@ None yet.
 - [ ] Every story delivered or covered by a deviation
 - [ ] Gates recorded
 - [ ] Pull request number recorded
+
+## Compounding Follow-ups
+
+None yet.
 
 ## Status
 
