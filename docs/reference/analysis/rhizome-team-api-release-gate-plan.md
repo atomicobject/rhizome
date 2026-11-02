@@ -1,3 +1,10 @@
+---
+type: ReferenceDoc
+summary: "Proposed release-branch deployment gate that verifies the gateway before publishing Rhizome client artifacts."
+reference-kind: analysis
+status: proposed
+---
+
 # Gate client releases on a verified gateway deployment
 
 Proposed outcome: every supported Rhizome publication path waits for GitHub Actions to deploy and verify the intended server source before GoReleaser or S3 uploads client artifacts. AWS credentials remain in the existing protected production workflow. Release retries retain the original server source selection.
