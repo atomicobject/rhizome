@@ -14,6 +14,10 @@ npm run tauri -- dev
 
 The Tauri development and build hooks run `make build` (the workspace web UI, then `rzm`; `NO_WEB=1` skips the web build) and copy `rzm` into the app's sidecar slot; development then starts Vite. The app's companion is that `rzm`, run as `rzm desktop-bridge`. `npm run dev` starts only the shell frontend; native operations require Tauri.
 
+Desktop development builds use the deployed team API for Google sign-in by default. The build reads the nonsecret `TEAM_API_ORIGIN` variable from `atomicobject/rhizome`'s GitHub `production` environment using your signed-in `gh` CLI and compiles it into a separate `rzm-desktop` binary before copying it into the sidecar slot. The standalone CLI binary is not changed. A missing or invalid setting stops the build. This setting changes no AWS permissions or runtime budgets. An existing signed-in server still takes precedence; sign in with `rzm auth login --server <team-origin>` to switch from an earlier local account.
+
+For an explicit local test or a build without access to that GitHub environment, set `RZM_DESKTOP_TEAM_API_ORIGIN` for the build, for example `RZM_DESKTOP_TEAM_API_ORIGIN=http://127.0.0.1:8787 npm run tauri -- dev`. The local gateway remains bundled and starts when selected explicitly. Plain CLI development builds retain their local default. Release builds using `RZM_DESKTOP_PREBUILT_RZM` copy their supplied binary without reading or applying this development setting.
+
 ```sh
 npm run check
 npm run build
