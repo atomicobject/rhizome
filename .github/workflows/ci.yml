@@ -174,6 +174,9 @@ jobs:
           TEAMAPI_DYNAMODB_ENDPOINT: http://127.0.0.1:8000
         run: make team-api-dynamodb-check
 
+      - name: Build gateway image and scan its binary
+        run: docker build --pull --no-cache -f services/team-api/Dockerfile -t rhizome-team-api:security-check .
+
   runtime-evidence:
     name: Runtime Code Evidence
     needs: [changes]

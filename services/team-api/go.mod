@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.17
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.50.5
 	github.com/coreos/go-oidc/v3 v3.17.0
-	github.com/go-jose/go-jose/v4 v4.1.3
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/mattn/go-sqlite3 v1.14.48
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.35.0
