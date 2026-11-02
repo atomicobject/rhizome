@@ -133,6 +133,9 @@ var toolCatalog = []ToolDescriptor{
 		Surfaces: SurfaceCodeMode, Availability: AvailabilityReadWrite, Mutation: MutationReadWrite,
 		CodeLocal: CodeLocalService.NoteMove,
 	},
+	{Name: "action_list", Kind: ToolKindLocal, Surfaces: SurfaceCodeMode, Availability: AvailabilityAlways, Mutation: MutationNever, CodeLocal: CodeLocalService.ActionList},
+	// An action runs whatever its module's command does, so it may write.
+	{Name: "action_run", Kind: ToolKindLocal, Surfaces: SurfaceCodeMode, Availability: AvailabilityAlways, Mutation: MutationAlways, CodeLocal: CodeLocalService.ActionRun},
 }
 
 func init() {

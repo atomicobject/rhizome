@@ -69,6 +69,11 @@ func TestCodeModeCoversEveryExecutableAgentTask(t *testing.T) {
 	inspect(agentCmd)
 	require.Equal(t, "note_move", covered["note move"])
 	delete(covered, "note move")
+	// Module commands are generated per vault, so they are not agent leaves.
+	require.Equal(t, "action_list", covered["module <module>"])
+	require.Equal(t, "action_run", covered["module <module> <action>"])
+	delete(covered, "module <module>")
+	delete(covered, "module <module> <action>")
 	require.Empty(t, covered, "catalog contains stale or non-executable CLI coverage")
 }
 
