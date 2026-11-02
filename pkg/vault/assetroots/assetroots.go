@@ -26,15 +26,17 @@ const (
 	Views    Kind = "views"
 	Tasks    Kind = "tasks"
 	Scripts  Kind = "scripts"
+	Actions  Kind = "actions"
 )
 
 // ModulesDir holds module folders, relative to the repository root.
 const ModulesDir = ".rhizome/modules"
 
 // Kinds lists every asset kind in a stable order.
-var Kinds = []Kind{Ontology, Recipes, Views, Tasks, Scripts}
+var Kinds = []Kind{Ontology, Recipes, Views, Tasks, Scripts, Actions}
 
-// flatDirs maps a kind to its flat folder. Scripts have no flat folder.
+// flatDirs maps a kind to its flat folder. Scripts and actions have no flat
+// folder.
 var flatDirs = map[Kind]string{
 	Ontology: ".rhizome/ontology",
 	Recipes:  ".rhizome/query-recipes",
