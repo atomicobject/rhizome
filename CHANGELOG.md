@@ -11,7 +11,7 @@
 
 ### Added
 
-- Repository-owned `rhizome-ops` skill for gateway health, global and per-user usage, bounded logs, request/provider latency, AWS capacity metrics, access checks, and incident guidance.
+- Repository-owned `rhizome-ops` skill for gateway health, global and per-user usage, bounded logs, request/provider latency, AWS capacity metrics, access checks, incident guidance, and previewed runtime switch/limit changes with readback and audit verification.
 - Team API deployment package for ARM64 ECS Express Mode: protected GitHub OIDC deploys, DynamoDB state, Secrets Manager delivery, 30-day JSON logs, and a bootstrap and rollback runbook. Deployment remains an operator step.
 
 - Compounding runs as a weekly scheduled task, `compounding/mine`. Its check makes no model calls: it flags a missing Jev credential or a run stopped at its budget, resumes an interrupted run, and mines only when at least five new session episodes are waiting. Compounding's private state now lives once per repository, in the main checkout's `.rhizome/compounding/`, so every worktree and task run sees the same proposals; the first run after upgrading merges earlier per-worktree stores without losing a decision. Every approval records where it was published, and a proposal shows whether its approval is merged, present here, committed on another branch, uncommitted in another worktree, or missing, in which case it returns for review. `rzm agent evaluate-batch --check-credentials` reports whether Jev has a credential without calling it. Scheduled tasks re-check a due inbox item when the task comes due again, closing it when the work is no longer needed, and the Tasks page has Copy prompt for any open item, without Start's `git switch` step.

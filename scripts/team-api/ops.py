@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only team API operations. Uses AWS CLI credentials and existing rzm login."""
+"""Team API reports and explicit settings changes using AWS CLI and rzm login."""
 import argparse
 import datetime as dt
 import json
@@ -12,6 +12,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+import ops_settings
 
 ROOT = Path(__file__).resolve().parents[2]
 COUNTERS = ("requests", "input_bytes", "reserved_credits", "settled_credits", "unknown_outcomes")
@@ -317,6 +319,7 @@ def main():
     parser.add_argument("--stack", required=True)
     parser.add_argument("--rzm", type=Path, default=ROOT / "scripts/rzm", help="rzm executable or project launcher")
     sub = parser.add_subparsers(dest="mode", required=True)
+    ops_settings.add_parsers(sub)
     sub.add_parser("status")
     usage = sub.add_parser("usage")
     usage.add_argument("--start", help="first UTC date YYYY-MM-DD, default today")
@@ -340,10 +343,13 @@ def main():
         if args.mode == "usage":
             date_range(args.start, args.end)
         ops = Ops(args)
-        result = ops.logs() if args.mode in ("logs", "performance") else getattr(ops, args.mode)()
+        if args.mode in ("settings", "settings-update"):
+            result = ops_settings.run(ops, args)
+        else:
+            result = ops.logs() if args.mode in ("logs", "performance") else getattr(ops, args.mode)()
         print(json.dumps({"identity": ops.identity, **result}, indent=2))
     except (ValueError, KeyError, IndexError, subprocess.TimeoutExpired) as exc:
-        print(json.dumps({"error": str(exc), "hint": "Check AWS login/account/region/stack and read permissions. Usage or user-filtered logs also require an existing admin rzm login."}), file=sys.stderr)
+        print(json.dumps({"error": str(exc), "hint": "Check AWS login/account/region/stack and read permissions. Usage, settings, and user-filtered logs also require an existing admin rzm login."}), file=sys.stderr)
         return 1
     return 0
 
