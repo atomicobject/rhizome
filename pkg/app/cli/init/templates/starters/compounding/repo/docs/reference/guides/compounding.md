@@ -1,6 +1,6 @@
 ---
 type: ReferenceDoc
-summary: "Guide to the compounding add-on: mining agent sessions into reviewed shards, document edits, and findings; privacy boundaries; TypeSafe; the weekly mining task; hooks and trust; and the friction report."
+summary: "Guide to the compounding add-on: mining agent sessions into reviewed shards, document edits, and findings; privacy boundaries; TypeSafe; the weekly mining task; hooks and trust; the friction report; and the review workspace."
 reference-kind: guide
 status: active
 ---
@@ -68,7 +68,7 @@ Its check makes no model calls. It asks `rzm agent evaluate-batch --check-creden
 4. is needed when at least five new episodes are waiting;
 5. otherwise reports nothing to do.
 
-Its prompt runs `mine.mjs --task-mode` with a fixed $10 budget, then the friction report. Task mode treats that budget as approved and does not ask before reading many sessions. A credential stop exits 4 with its reason, and a budget stop exits 3, which the next run resumes. The run's final message names any stop first. Proposals stay in local state; review them with the skill as usual. To give a run a larger budget, mine through the skill instead.
+Its prompt runs `mine.mjs --task-mode` with a fixed $10 budget, then the friction report. Task mode treats that budget as approved and does not ask before reading many sessions. A credential stop exits 4 with its reason, and a budget stop exits 3, which the next run resumes. The run's final message names any stop first and ends with a link to the workspace. Proposals stay in local state; review them with the skill as usual. To give a run a larger budget, mine through the skill instead.
 
 ## Review
 
@@ -79,6 +79,20 @@ The skill presents each proposal with its proposed response and reason first, th
 - Approval is refused while the files a proposal depends on have uncommitted changes, or when they changed after verification read them. The agent re-checks and asks you before passing `--rechecked`.
 
 New shards, findings, document edits, and shared decisions are ordinary changes for you to commit.
+
+## Workspace
+
+The **Compounding** view, under Knowledge in the Notes sidebar, is the quicker way to review. It has three tabs.
+
+- **Recommendations** lists pending proposals and open fix, guard, and ask findings as a checklist, grouped by response, with everything checked. Expand a row to read its draft, evidence, and cited excerpts, or the finding's note. Uncheck what you want to leave for later, then **Copy prompt** and paste it into your agent. The prompt names the items, not their text, and says you reviewed them and approve publishing them. The agent approves each proposal as drafted with the compounding skill, applies the document edits, implements the fixes and guards, checks off the action items it completes, and finishes on one branch for one pull request. Anything a script refuses comes back to you one item at a time.
+- **Health** shows the friction report and the last mine run's spend and outcome. Each row opens that item on its own page.
+- **Memory** lists the approved context shards and findings, and the shards that need re-verifying.
+
+**Remove** changes only your own review. It dismisses a proposal locally, with a quick reason, or hides a finding from your workspace. A teammate still sees both, and hiding a finding never checks off its action item; only finishing the work does. To share a dismissal with the team, dismiss it through the skill with `--shared`.
+
+The workspace also lists findings your teammates approved and committed. Their evidence came from your teammates' sessions and stays on their machines, so those findings show their note but no source excerpts, and their family counts are approximate.
+
+The workspace runs the module's actions in `.rhizome/modules/compounding/actions/`, which need a trusted repository (`rzm trust`).
 
 ## How shards reach agents
 
