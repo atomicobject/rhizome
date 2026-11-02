@@ -1,0 +1,18 @@
+apiVersion: rhizome.view.v1
+id: workspace
+name: Compounding
+description: Review compounding recommendations as a checklist and copy one agent prompt for the selected ones, read the friction report, and see approved memory.
+source:
+  kind: custom
+  entry: workspace.tsx
+mount:
+  kind: standalone
+  group: Knowledge
+  order: 29
+params:
+  - name: tab
+    kind: string
+    default: recommendations
+  - name: item
+    kind: string
+    identity: true

@@ -1,0 +1,14 @@
+apiVersion: rhizome.view.v1
+id: compounding-item
+name: Compounding recommendation
+description: One compounding proposal or agent finding with its quick actions.
+source:
+  kind: custom
+  entry: item.tsx
+mount:
+  kind: standalone
+  hidden: true
+params:
+  - name: item
+    kind: string
+    identity: true

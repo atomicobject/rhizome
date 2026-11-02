@@ -132,11 +132,16 @@ test("item gives a proposal's draft and redacted sources, or a finding's note", 
   const p = ws("item", { ref: "proposal:k-1" });
   assert.equal(p.proposal.cluster, "k-1");
   assert.equal(p.proposal.why, "Callers expecting no wait block for 30 seconds.");
+  assert.equal(p.current, true);
   assert.equal(p.sources.length, 1);
   assert.ok(!p.sources[0].text.includes(secret));
   const f = ws("item", { ref: "finding:docs/memory/agent-findings/fix-teammate-a.md" });
   assert.match(f.note, /## Proposed change\n\nDelete the fallback\./);
-  assert.throws(() => ws("item", { ref: "proposal:k-9" }), /no longer a recommendation/);
+  assert.throws(() => ws("item", { ref: "proposal:k-9" }), /no proposal k-9/);
+  assert.throws(
+    () => ws("item", { ref: "finding:docs/memory/agent-findings/none.md" }),
+    /no finding at/,
+  );
 });
 
 test("prompt names the selected references of both kinds and the publish statement", () => {

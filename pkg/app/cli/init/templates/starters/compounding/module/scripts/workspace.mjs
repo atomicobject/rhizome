@@ -55,24 +55,26 @@ function recommendations(root, store) {
   // Teammates' findings count too: they come from tracked notes, not local state.
   const findings = loadFindings(root)
     .filter((f) => f.open && ["fix", "guard", "ask"].includes(f.response) && !hidden[f.path])
-    .map((f) => {
-      const [, actionItem = null, assignee = null] =
-        readFileSync(join(root, f.path), "utf8").replace(/\r\n/g, "\n").match(ACTION) ?? [];
-      return {
-        ref: `finding:${f.path}`,
-        kind: "finding",
-        response: f.response,
-        title: titleOf(f.statement),
-        summary: f.statement,
-        path: f.path,
-        assignee: assignee?.trim() || null,
-        actionItem,
-        families: f.families,
-        reviewedOn: f.reviewedOn,
-      };
-    });
+    .map((f) => findingRow(root, f));
   const items = [...proposals, ...findings].sort((a, b) => rank(a.response) - rank(b.response));
   return { items };
+}
+
+function findingRow(root, f) {
+  const [, actionItem = null, assignee = null] =
+    readFileSync(join(root, f.path), "utf8").replace(/\r\n/g, "\n").match(ACTION) ?? [];
+  return {
+    ref: `finding:${f.path}`,
+    kind: "finding",
+    response: f.response,
+    title: titleOf(f.statement),
+    summary: f.statement,
+    path: f.path,
+    assignee: assignee?.trim() || null,
+    actionItem,
+    families: f.families,
+    reviewedOn: f.reviewedOn,
+  };
 }
 
 function parseRef(ref) {
@@ -81,17 +83,47 @@ function parseRef(ref) {
   return { kind: m[1], id: m[2] };
 }
 
+// Any finding or proposal the health report can name, not only current
+// recommendations: a completed finding, or an approved proposal.
+// `current` says whether it is still a recommendation the quick actions apply to.
 function item(root, store, ref, { state, user }) {
   const { kind, id } = parseRef(ref);
-  const listed = recommendations(root, store).items.find((x) => x.ref === ref);
-  if (!listed) throw new Refused(`${ref} is no longer a recommendation; refresh the workspace`);
-  if (kind === "finding") return { ...listed, note: readFileSync(join(root, id), "utf8") };
+  const current = recommendations(root, store).items.some((x) => x.ref === ref);
+  if (kind === "finding") {
+    const f = loadFindings(root).find((x) => x.path === id);
+    if (!f) throw new Refused(`no finding at ${id}`);
+    const note = readFileSync(join(root, id), "utf8");
+    return {
+      ...findingRow(root, f),
+      open: f.open,
+      hidden: Boolean(store.read(HIDDEN, {})[id]),
+      current,
+      note,
+    };
+  }
   const shown = shards(["show", id], { root, state, user });
-  // The cited excerpts, redacted as `shards.mjs source` gives them.
-  const sources = (shown.evidence ?? []).map((_, k) =>
-    shards(["source", id, String(k + 1)], { root, state, user }),
-  );
-  return { ...listed, proposal: shown, sources };
+  // An approval carries its proposal as approved; a pending proposal is itself.
+  const proposal = shown.proposal ?? shown;
+  // The cited excerpts of a pending proposal, redacted as `shards.mjs source` gives them.
+  const sources = shown.proposal
+    ? []
+    : (proposal.evidence ?? []).map((_, k) =>
+        shards(["source", id, String(k + 1)], { root, state, user }),
+      );
+  return {
+    ref,
+    kind: "proposal",
+    response: proposal.response ?? null,
+    title: titleOf(proposal.statement),
+    summary: proposal.statement,
+    cluster: id,
+    tier: proposal.tier,
+    families: proposal.families,
+    status: shown.status ?? "pending",
+    current,
+    proposal,
+    sources,
+  };
 }
 
 // The prompt names references, never their content, so the agent reads each
