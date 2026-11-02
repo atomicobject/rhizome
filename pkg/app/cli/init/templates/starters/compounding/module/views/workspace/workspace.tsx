@@ -352,9 +352,20 @@ type Row = {
   fields?: Record<string, unknown>;
 };
 
+const PAGE = 100;
+
 function Memory() {
-  const shards = useViewRows("context-shards", { variant: "table" });
-  const findings = useViewRows("agent-findings", { variant: "table" });
+  // Each list grows a page at a time with Show more.
+  const [shardPages, setShardPages] = useState(1);
+  const [findingPages, setFindingPages] = useState(1);
+  const shards = useViewRows("context-shards", {
+    variant: "table",
+    page: { first: PAGE * shardPages },
+  });
+  const findings = useViewRows("agent-findings", {
+    variant: "table",
+    page: { first: PAGE * findingPages },
+  });
   const check = useActionQuery("compounding/shards-check", {});
   const attention =
     (check.data as { path: string; statement: string; reasons: string[] }[] | undefined) ?? [];
@@ -385,6 +396,8 @@ function Memory() {
         title="Context shards"
         query={shards}
         rows={shardRows}
+        total={shards.data?.pageInfo?.total}
+        more={shards.data?.pageInfo?.hasMore ? () => setShardPages((n) => n + 1) : undefined}
         field="kind"
         what="context shards"
         empty="No approved shards yet."
@@ -393,6 +406,8 @@ function Memory() {
         title="Agent findings"
         query={findings}
         rows={findingRows}
+        total={findings.data?.pageInfo?.total}
+        more={findings.data?.pageInfo?.hasMore ? () => setFindingPages((n) => n + 1) : undefined}
         field="response"
         what="agent findings"
         empty="No findings yet."
@@ -405,6 +420,8 @@ function MemoryRows({
   title,
   query,
   rows,
+  total,
+  more,
   field,
   what,
   empty,
@@ -412,6 +429,8 @@ function MemoryRows({
   title: string;
   query: Parameters<typeof sectionStatus>[0];
   rows: Row[];
+  total?: number;
+  more?: () => void;
   field: string;
   what: string;
   empty: string;
@@ -419,24 +438,31 @@ function MemoryRows({
   return (
     <Section
       title={title}
-      count={rows.length}
+      count={total ?? rows.length}
       status={sectionStatus(query)}
       what={what}
       empty={rows.length ? undefined : empty}
     >
       {() => (
-        <ul className="divide-y divide-[var(--border-faint)]">
-          {rows.map((r) => (
-            <li key={r.ref.notePath} className="flex items-baseline gap-2 py-1">
-              <NoteLink path={r.ref.notePath} className="min-w-0 flex-1 truncate">
-                {String(r.fields?.summary ?? r.title ?? r.ref.notePath)}
-              </NoteLink>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {r.fields?.[field] ? String(r.fields[field]) : <Dash />}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-[var(--border-faint)]">
+            {rows.map((r) => (
+              <li key={r.ref.notePath} className="flex items-baseline gap-2 py-1">
+                <NoteLink path={r.ref.notePath} className="min-w-0 flex-1 truncate">
+                  {String(r.fields?.summary ?? r.title ?? r.ref.notePath)}
+                </NoteLink>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {r.fields?.[field] ? String(r.fields[field]) : <Dash />}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {more ? (
+            <Button variant="ghost" size="sm" onClick={more}>
+              Show more ({rows.length} of {total})
+            </Button>
+          ) : null}
+        </>
       )}
     </Section>
   );
