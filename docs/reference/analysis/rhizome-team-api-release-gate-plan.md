@@ -1,19 +1,19 @@
 ---
 type: ReferenceDoc
-summary: "Proposed release-branch deployment gate that verifies the gateway before publishing Rhizome client artifacts."
+summary: "Approved release-branch deployment gate that verifies the gateway before publishing Rhizome client artifacts."
 reference-kind: analysis
-status: proposed
+status: approved
 ---
 
 # Gate client releases on a verified gateway deployment
 
-Proposed outcome: every supported Rhizome publication path waits for GitHub Actions to deploy and verify the intended server source before GoReleaser or S3 uploads client artifacts. AWS credentials remain in the existing protected production workflow. Release retries retain the original server source selection.
+Approved outcome: every supported Rhizome publication path waits for GitHub Actions to deploy and verify the intended server source before GoReleaser or S3 uploads client artifacts. AWS credentials remain in the existing protected production workflow. Release retries retain the original server source selection.
 
-Status: proposed, awaiting Drew’s approval. This is a plain design draft; no release automation has changed.
+Status: approved by Drew on 2026-11-02 ("Let's do that"). Implementation and deployment-only verification are authorized; cutting or publishing a client release is excluded.
 
 ## Decisions and evidence
 
-This changes the release contract across local orchestration and GitHub Actions. Implementation requires the explicit plan approval required by `docs/engineering/review-and-approval.md`.
+This changes the release contract across local orchestration and GitHub Actions. Drew supplied the explicit approval required by `docs/engineering/review-and-approval.md`.
 
 A main release currently pushes both canonical branches to the release commit. A release hotfix pushes its release commit to `release` and a synthetic main-first merge to `main`. The existing deployment workflow triggers only selected main paths and builds `GITHUB_SHA`. A version-only release need not trigger it, and a hotfix's main merge SHA is not the client release SHA.
 
@@ -36,13 +36,13 @@ Before dispatch, compare the private client's committed release snapshot with th
 
 Build a deterministic fingerprint from each path's Git object mode, type and object ID, with explicit absence markers only for optional ignore files. Compare committed trees, never worktree files. Public Git tree API reads can provide the public object IDs without fetching private history into the public repository. Reject missing required paths, truncated tree responses, lookup errors and mismatches. Report differing paths and hashes, never source content or secret values.
 
-Keep a small explicit build-input manifest and validate the Dockerfile's non-stage `COPY` sources against it at runtime. Support its current simple syntax and fail closed if a new source, glob or unsupported COPY syntax appears. This prevents a future Dockerfile dependency from escaping the agreement check. The entire service directory comparison is conservative: documentation or test differences can block publication. Resolve by synchronizing the relevant public source into the private release checkout, not by overriding the gate.
+Keep a small explicit build-input manifest and validate the Dockerfile's non-stage `COPY` sources against it at runtime. Support its current simple syntax and fail closed if a new source, glob or unsupported COPY syntax appears. Reject unreviewed Docker parser directives and RUN context mounts rather than silently excluding their inputs. This prevents a future Dockerfile dependency from escaping the agreement check. The entire service directory comparison is conservative: documentation or test differences can block publication. Resolve by synchronizing the relevant public source into the private release checkout, not by overriding the gate.
 
 This proves that the server source accompanying the private client is deployed. It cannot prove an untested client feature works. Existing client/server tests remain required. A private client change that depends on new gateway capabilities must first land those server changes publicly, then synchronize the matching build inputs into the private checkout.
 
 ## GitHub Actions changes
 
-Extend `.github/workflows/team-api-deploy.yml` with separate `source_commit` and `request_id` dispatch inputs. Retain existing manual `image_tag` rollback mode; reject mixed rollback/build inputs. Add an exact run name containing the correlation ID and source SHA.
+Remove its automatic main-push trigger so unreleased main changes cannot deploy between releases. Extend `.github/workflows/team-api-deploy.yml` with separate `source_commit` and `request_id` dispatch inputs. Retain existing manual `image_tag` rollback mode; reject mixed rollback/build inputs. Add an exact run name containing the correlation ID and source SHA.
 
 Dispatch using `--ref main` in `atomicobject/rhizome`, preserving the production environment's main-only rule and current OIDC trust. Checkout main first, validate input shape and trusted public main ancestry, then build and test the selected immutable source commit in a separate checkout. Execute the deployment helper from the trusted dispatcher main checkout, so an older hotfix source cannot discard current deployment verification fixes. Use that source SHA consistently for the image tag, binary version and deploy argument. Public release orchestration performs the stronger release topology check before dispatch. The existing `deploy.py` remains the AWS deployment and verification owner.
 
@@ -62,7 +62,7 @@ On resume, reuse pending runs. If the prior run failed, create a fresh attempt f
 - An internal resume that only needs S3 still runs the gate before that remaining client upload.
 - Direct `make release` must invoke the same gated publication entry point after exact-tag/topology validation; it must not call GoReleaser directly.
 - The manual `.github/workflows/release.yml` fallback must depend on successful deployment of its validated release commit before its write-capable GoReleaser job. Prefer calling a reusable version of the existing deployment job, preserving its production protection and shared concurrency. If using dispatch instead, give only the gate job `actions: write` and use the same correlation helper; never add a second deploy implementation.
-- `make release-s3` needs the same gate before uploads, while preflight/dry-run modes remain read-only. Pass a verified local receipt from orchestration to avoid duplicate deployment in one uninterrupted publish command; validate its release/source identity rather than trusting an arbitrary bypass environment flag.
+- `make release-s3` needs the same gate before uploads, while preflight/dry-run modes remain read-only. Pass a verified local receipt from orchestration to avoid duplicate deployment in one uninterrupted publish command; validate its release/source identity and live originating publisher process rather than trusting an arbitrary bypass environment flag. A receipt from an ended invocation must trigger a fresh attempt even if its old GitHub run succeeded.
 - Direct invocation of third-party GoReleaser remains outside the supported release interface. Documentation names the supported gated commands.
 
 ## Verification and delivery

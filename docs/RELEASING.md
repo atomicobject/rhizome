@@ -1,6 +1,6 @@
 # Releasing Rhizome
 
-`make cut-release` remains the guided release entrypoint. It creates a bounded evidence snapshot and reviewed plan before any repository mutation, builds a release candidate, applies the version changes, publishes the canonical Git branches atomically, then publishes GitHub Release assets, including the macOS desktop app, and the Homebrew formula.
+`make cut-release` remains the guided release entrypoint. It creates a bounded evidence snapshot and reviewed plan before any repository mutation, builds a release candidate, applies the version changes, publishes the canonical Git branches atomically, deploys and verifies the release gateway source, then publishes GitHub Release assets, including the macOS desktop app, and the Homebrew formula.
 
 ## Prerequisites
 
@@ -94,6 +94,20 @@ The order is fixed:
 
 The apply phase owns only `CHANGELOG.md`, `pkg/vault/version/version.go`, and `pkg/vault/changelog/CHANGELOG.md`.
 
+## Gateway deployment before publication
+
+Every supported client publisher waits for a successful gateway deployment before uploading artifacts: `make cut-release`, publish/resume, `make release`, `make release-s3`, and the manual Actions fallback. Gateway deployment no longer follows ordinary pushes to `main`. Planning, preflight and dry-run commands do not deploy anything.
+
+For a public release, the server source is the validated client release commit at `origin/release`, including the exact hotfix commit. A private internal release automatically selects the public `atomicobject/rhizome` release commit and retains that selection across retries. Its committed server Docker inputs must match the public source by mode, type and Git object hash. Missing inputs, differences, or unreviewed Docker context reads block publication. Synchronize matching public gateway changes into the private release checkout before retrying; do not substitute a different SHA manually.
+
+The trusted workflow still runs on public `main`, preserving its production environment and OIDC restrictions. It tests and builds a separate immutable source checkout, tags the image with that source SHA, and uses the deployment verifier from trusted main. The private publisher needs `gh` authorization to dispatch and read public Actions runs; it gains no gateway AWS access. No private source, repository location, mirror setting, provider key, or publishing token is sent in dispatch inputs.
+
+The release run stores `gateway-receipt.json` beside its existing checkpoints. It contains the pinned public source and fingerprint, request ID, and matched workflow URL. The gate prints that URL promptly and waits up to four hours. Failure, cancellation, timeout, ambiguous identity or API errors prevent client uploads and preserve the existing resume command. Uncertain dispatches reconcile the saved request instead of blindly creating another deployment. Pending runs resume; an earlier terminal run requires a fresh attempt for the same saved source. Canonical release refs and the local tag are checked again after the wait.
+
+Only a live publisher process and its descendants can reuse its verified receipt during one uninterrupted publish invocation. Reusing an older receipt through a direct command starts fresh deployment verification. GoReleaser and a remaining internal S3 upload therefore share one deployment during an uninterrupted run, while S3-only resume verifies again. Receipt arguments are internal handoffs, not skip controls.
+
+The existing first-publication atomic push creates a missing `release` branch before this gate. The Actions fallback must be dispatched on public `main`; its write-capable publisher depends on the validated deployment. Do not cut or publish a client release merely to test the gate. Deployment-only acceptance can exercise a pinned public main ancestor before the first release branch exists; it does not authorize client publication.
+
 ## Desktop app
 
 Every public release publishes the macOS desktop app built from the same tag ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser's `rzm-darwin` build runs `scripts/release/build_desktop.py` as a post-build hook. For the `darwin/arm64` binary it builds the Tauri app in `desktop/` with `desktop/src-tauri/tauri.release.conf.json` and the release version, bundling that exact `rzm`. It then checks the ad-hoc signature with `codesign --verify --deep --strict` and stages these assets in `.tmp/goreleaser-extra/`:
@@ -106,7 +120,7 @@ GoReleaser uploads all four and lists them in `checksums.txt`.
 
 The candidate build, a GoReleaser snapshot, runs the same hook, so a broken desktop toolchain stops the release before any repository change. Without the signing key the snapshot still builds the app and DMG but skips the updater archive and `latest.json`. Publication sets `RZM_RELEASE_DESKTOP=1`. In that mode the hook fails when the key is missing, and GoReleaser fails when any of the four assets is absent, so a public release cannot go out without the app. Apply also refuses to start a public release without the key.
 
-These publish the CLI only: internal releases (`RZM_INTERNAL_S3_BUCKET` set), the GitHub Actions recovery workflow, and `make release` unless `RZM_RELEASE_DESKTOP=1` is set. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
+Public `make release` also enables desktop publication automatically and requires the signing key and desktop build tools listed in the prerequisites. Internal releases (`RZM_INTERNAL_S3_BUCKET` set) and the GitHub Actions recovery workflow publish the CLI only. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
 
 If the desktop build fails during publication, GoReleaser stops in its build phase, before it creates a GitHub release. Fix the cause, such as a missing Rust toolchain or key, and rerun the printed resume command. Resume continues from the recorded checkpoint and runs GoReleaser again.
 
@@ -188,7 +202,7 @@ The local orchestrator is the sole publisher during a normal release. Do not pus
 
 The GitHub Actions release workflow is a manual, guarded recovery surface. Dispatch it only for an existing validated version tag when local resume cannot complete publication. Its read-only probe validates the tag and canonical topology first, and an existing GitHub release makes the write-capable GoReleaser job a no-op. API errors, invalid tags, and conflicting refs fail closed; any existing release, including a draft or partially populated release, is left untouched for maintainer inspection.
 
-`make release` remains the lower-level GoReleaser command for an already-tagged `HEAD`; use `make cut-release` for normal releases. It publishes the CLI only unless `RZM_RELEASE_DESKTOP=1` and the signing key are set.
+`make release` is the gated lower-level publisher for an exact, clean release tag with matching canonical topology; use `make cut-release` for normal releases. Public publication also requires the desktop signing key and builds the desktop app through the same publisher.
 
 The GitHub Actions workflow never builds the desktop app: it does not set `RZM_RELEASE_DESKTOP` and has no signing key, so a release it recovers carries the CLI assets only.
 
