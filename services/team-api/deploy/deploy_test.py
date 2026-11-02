@@ -22,13 +22,21 @@ class DeploymentSafetyTest(unittest.TestCase):
     def test_success_requires_target_revision_and_single_task(self):
         express = {"service": {"activeConfigurations": [{"taskDefinitionArn":"new", "serviceRevisionArn":"revision-new"}]}}
         history = {"serviceDeployments": [{"targetServiceRevisionArn":"revision-new", "status":"SUCCESSFUL", "createdAt":"2026-11-01T12:00:00Z"}]}
-        service = {"services": [{"taskDefinition":"new", "desiredCount":1, "runningCount":1, "pendingCount":0}]}
+        service = {"services": [{"currentServiceRevisions":[{"arn":"revision-new", "runningTaskCount":1, "pendingTaskCount":0}], "desiredCount":1, "runningCount":1, "pendingCount":0}]}
         with patch("deploy.aws", side_effect=[express, history, service]):
             wait_for_revision("arn:aws:ecs:region:account:service/default/test", "new", float("inf"))
         history["serviceDeployments"][0]["status"] = "ROLLBACK_SUCCESSFUL"
         with patch("deploy.aws", side_effect=[express, history]):
             with self.assertRaisesRegex(ValueError,"rolled back"):
                 wait_for_revision("arn:aws:ecs:region:account:service/default/test", "new", float("inf"))
+
+    def test_successful_history_cannot_hide_a_different_running_revision(self):
+        express = {"service": {"activeConfigurations": [{"taskDefinitionArn":"new", "serviceRevisionArn":"revision-new"}]}}
+        history = {"serviceDeployments": [{"targetServiceRevisionArn":"revision-new", "status":"SUCCESSFUL", "createdAt":"2026-11-01T12:00:00Z"}]}
+        service = {"services": [{"currentServiceRevisions":[{"arn":"revision-old"}], "desiredCount":1, "runningCount":1, "pendingCount":0}]}
+        with patch("deploy.aws", side_effect=[express, history, service]), patch("deploy.time.sleep"), patch("deploy.time.monotonic", side_effect=[0, 2]):
+            with self.assertRaises(TimeoutError):
+                wait_for_revision("arn:aws:ecs:region:account:service/default/test", "new", 1)
 
     def test_automatic_rollback_is_not_success(self):
         service={"services":[{"taskDefinition":"old", "runningCount":1, "pendingCount":0, "deployments":[{"rolloutState":"COMPLETED"}]}]}
