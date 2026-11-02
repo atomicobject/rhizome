@@ -59,6 +59,7 @@ type ViewDefinition struct {
 	ID            string         `json:"id" yaml:"id"`
 	Name          string         `json:"name" yaml:"name"`
 	Configuration map[string]any `json:"configuration,omitempty" yaml:"configuration,omitempty"`
+	Params        []ViewParam    `json:"params,omitempty" yaml:"params,omitempty"`
 	Description   string         `json:"description,omitempty" yaml:"description,omitempty"`
 	SourceSpec    SourceSpec     `json:"source" yaml:"source"`
 	Mount         MountSpec      `json:"mount" yaml:"mount"`

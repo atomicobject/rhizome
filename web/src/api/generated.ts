@@ -2483,12 +2483,23 @@ export interface components {
       };
       description?: string;
       generated?: boolean;
+      /** @description Declared view parameters (SPEC-0110). Values live on the view's URL query under each name. */
+      params?: components["schemas"]["ViewParam"][];
       source: components["schemas"]["ViewSourceSpec"];
       mount: components["schemas"]["ViewMountSpec"];
       defaults?: components["schemas"]["ViewDefaultsSpec"];
       variants: components["schemas"]["ViewVariantSet"];
     } & {
       [key: string]: unknown;
+    };
+    ViewParam: {
+      name: string;
+      /** @enum {string} */
+      kind: "string" | "int" | "bool";
+      /** @description A value of the param's kind, applied when the URL omits it. */
+      default?: string | number | boolean;
+      /** @description Part of the view's invocation; changing it remounts the view. */
+      identity?: boolean;
     };
     ViewSourceSpec: {
       kind: string;

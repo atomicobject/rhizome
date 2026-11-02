@@ -17,6 +17,7 @@ func Validate(defs []ViewDefinition, opts ValidateOptions) ValidationResult {
 		normalized := normalizeView(def)
 		out.Views = append(out.Views, normalized)
 		out.Issues = append(out.Issues, validateMetadata(normalized)...)
+		out.Issues = append(out.Issues, validateParams(normalized)...)
 		if normalized.ID != "" {
 			if first, ok := seen[normalized.ID]; ok {
 				out.Issues = append(out.Issues,
@@ -60,6 +61,7 @@ func normalizeView(def ViewDefinition) ViewDefinition {
 	if def.Configuration != nil {
 		def.Configuration = jsonValue(def.Configuration).(map[string]any)
 	}
+	normalizeParams(def.Params)
 	if def.SourceSpec.Kind == SourceKindCustom {
 		def.SourceSpec.Entry = strings.TrimSpace(def.SourceSpec.Entry)
 		return def

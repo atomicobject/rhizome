@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -495,4 +496,44 @@ func TestWorkspaceMountHasNoSubjectAndConflictsOnDefaults(t *testing.T) {
 	issues := validateMountedDefaults([]ViewDefinition{def, other}, nil)
 	require.Len(t, issues, 2)
 	requireIssueCode(t, issues, "duplicate_mount_default")
+}
+
+func TestValidateChecksViewParams(t *testing.T) {
+	defs, issues := Decode([]byte(`apiVersion: rhizome.view.v1
+id: workspace
+name: Workspace
+source: {kind: custom, entry: index.tsx}
+mount: {kind: standalone}
+params:
+  - {name: tab, kind: string, default: health}
+  - {name: page, kind: int, default: 2}
+  - {name: open, kind: bool, default: false}
+  - {name: item, kind: string, identity: true}
+  - {name: tab, kind: string}
+  - {name: 9lives, kind: string}
+  - {name: note, kind: string}
+  - {name: size, kind: float}
+  - {name: count, kind: int, default: "3"}
+  - {name: half, kind: int, default: 1.5}
+`), "views/workspace.yaml")
+	require.Empty(t, issues)
+
+	result := Validate(defs, ValidateOptions{EntryFS: fstest.MapFS{"views/index.tsx": {}}})
+	params := result.Views[0].Params
+	require.Equal(t, ViewParam{Name: "tab", Kind: ParamKindString, Default: "health"}, params[0])
+	require.Equal(t, int64(2), params[1].Default)
+	require.Equal(t, false, params[2].Default)
+	require.True(t, params[3].Identity)
+
+	requireIssueField(t, result.Issues, "duplicate_view_param", "params[4].name")
+	requireIssueField(t, result.Issues, "invalid_view_param", "params[5].name")
+	requireIssueField(t, result.Issues, "invalid_view_param", "params[6].name")
+	requireIssueField(t, result.Issues, "invalid_view_param", "params[7].kind")
+	requireIssueField(t, result.Issues, "invalid_view_param", "params[8].default")
+	requireIssueField(t, result.Issues, "invalid_view_param", "params[9].default")
+	require.Len(t, result.Issues, 6)
+
+	encoded, err := json.Marshal(result.Views[0])
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"params":[{"name":"tab","kind":"string","default":"health"},{"name":"page","kind":"int","default":2},{"name":"open","kind":"bool","default":false}`)
 }
