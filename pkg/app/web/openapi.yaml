@@ -1081,6 +1081,60 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/IndexInitializing"
+  /api/v1/actions:
+    get:
+      operationId: listActions
+      description: Lists module actions (SPEC-0131).
+      responses:
+        "200":
+          description: Declared module actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModuleAction"
+  /api/v1/actions/{module}/{name}:
+    post:
+      operationId: runAction
+      description: Runs one module action with the body as its input. Every run that starts answers 200 with its envelope, including refused and error.
+      parameters:
+        - in: path
+          name: module
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Action envelope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionEnvelope"
+        "400":
+          description: Input does not match the declaration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/view-preferences:
     get:
       operationId: getViewPreferences
@@ -4660,6 +4714,39 @@ components:
         nonce: { type: string }
         expiresAt: { type: string, format: date-time }
       additionalProperties: false
+    ModuleAction:
+      type: object
+      required: [id, module, name, description, inputs]
+      properties:
+        id: { type: string }
+        module: { type: string }
+        name: { type: string }
+        description: { type: string }
+        inputs:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ModuleActionInput"
+    ModuleActionInput:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [string, int, bool, list]
+        required: { type: boolean }
+        enum:
+          type: array
+          items: { type: string }
+    ActionEnvelope:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, refused, error]
+        result: {}
+        reason: { type: string }
+        stderrTail: { type: string }
     ErrorResponse:
       type: object
       required: [error]

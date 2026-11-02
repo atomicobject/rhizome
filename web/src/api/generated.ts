@@ -651,6 +651,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/actions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lists module actions (SPEC-0131). */
+    get: operations["listActions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/actions/{module}/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Runs one module action with the body as its input. Every run that starts answers 200 with its envelope, including refused and error. */
+    post: operations["runAction"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/view-preferences": {
     parameters: {
       query?: never;
@@ -2951,6 +2985,28 @@ export interface components {
       /** Format: date-time */
       expiresAt: string;
     };
+    ModuleAction: {
+      id: string;
+      module: string;
+      name: string;
+      description: string;
+      inputs: {
+        [key: string]: components["schemas"]["ModuleActionInput"];
+      };
+    };
+    ModuleActionInput: {
+      /** @enum {string} */
+      kind: "string" | "int" | "bool" | "list";
+      required?: boolean;
+      enum?: string[];
+    };
+    ActionEnvelope: {
+      /** @enum {string} */
+      status: "ok" | "refused" | "error";
+      result?: unknown;
+      reason?: string;
+      stderrTail?: string;
+    };
     ErrorResponse: {
       error: string;
       code?: string;
@@ -4393,6 +4449,73 @@ export interface operations {
         };
       };
       503: components["responses"]["IndexInitializing"];
+    };
+  };
+  listActions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Declared module actions */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModuleAction"][];
+        };
+      };
+    };
+  };
+  runAction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        module: string;
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Action envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionEnvelope"];
+        };
+      };
+      /** @description Input does not match the declaration */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Unknown action */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   getViewPreferences: {
