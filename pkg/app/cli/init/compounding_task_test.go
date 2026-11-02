@@ -3,6 +3,7 @@ package init
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,5 +71,5 @@ func TestCompoundingTemplateShipsTheWorkspaceActionsAndViews(t *testing.T) {
 	}
 	meta, err := agentHelperTemplates.ReadFile("templates/starters/compounding/template.yaml")
 	require.NoError(t, err)
-	require.Contains(t, string(meta), "  - actions\n")
+	require.Contains(t, strings.ReplaceAll(string(meta), "\r\n", "\n"), "  - actions\n")
 }
