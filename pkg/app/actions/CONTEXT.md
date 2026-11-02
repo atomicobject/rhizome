@@ -1,0 +1,9 @@
+# pkg/app/actions
+
+Module actions ([[module-actions|SPEC-0131]]): named operations a module declares in `.rhizome/modules/<module>/actions/<name>.yaml`.
+
+- **Entry points:** `New` (a `Runner` for a repository root, checking trust against the person's `repositorytrust` store through `tasks.Untrusted`), `Runner.List`, `Runner.Run`, and `CoerceFlags` for command-line values. The HTTP routes (`pkg/app/web/actions.go`), the `action_list`/`action_run` code-mode operations (`cmd/agent_code_local.go`), and `rzm <module> <action>` (`cmd/module.go`) all call `Run`.
+- **Declarations** are parsed by `pkg/vault/actiondef`, which `rzm validate actions` also uses, so validation never imports `pkg/app`. A declaration with problems is left out of `List` and cannot run.
+- **Order of a run.** Find the action (`ErrUnknownAction`), check the input against the declaration (`actiondef.ErrInvalidInput`), then trust, then the process. Nothing starts before all three pass. Every run that starts returns an `Envelope` and a nil error, including refusals, failures, and timeouts.
+- **Processes** go through `pkg/app/procrun`, shared with scheduled task checks: own session, login-shell PATH, 1 MiB stdout, the whole tree killed at exit or timeout. Stderr keeps only its last 4 KiB. A command runs in the repository root with `{module}` expanded to the module folder and the input JSON on stdin; exit 2 is `refused` with the last non-empty stderr line. A script runs through `rzm agent code execute` with `{action, input, moduleDir, repoRoot}`; a result that is exactly `{refused: "<reason>"}` is `refused`.
+- **No locks, no retries.** Actions never take the tasks run lock; a script that needs exclusion takes its own.

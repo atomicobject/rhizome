@@ -1,12 +1,12 @@
 ---
 type: ReferenceDoc
-summary: "How to declare scheduled tasks in .rhizome/tasks or a module's tasks folder, choose whether they run automatically or notify, and use the rzm tasks commands and inbox."
+summary: "How to declare scheduled tasks in .rhizome/tasks or a module's tasks folder, choose whether they run automatically or notify, and use the rzm tasks commands and inbox; also how a module declares on-demand actions."
 reference-kind: guide
 ---
 
 # Scheduled tasks
 
-Last verified: 2026-11-01
+Last verified: 2026-11-02
 
 Scheduled tasks are periodic agent work that a repository declares once and that runs on each teammate's machine, in that person's own agent harness (Claude Code or Codex). The contract is [[scheduled-tasks|SPEC-0127]].
 
@@ -127,3 +127,35 @@ Everything personal stays in the main checkout's ignored `.rhizome/task-state/`,
 Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript). A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. `rzm tasks run --file` runs are not recorded and do not move the task's clock; their folders are deleted after 7 days.
 
 When `rzm tasks run <item>` fails before the run starts, for example because another run holds the lock, the reason is saved on the item until its next state change.
+
+## Module actions
+
+A module can also declare actions: named operations that a view, an agent, or a person runs on demand rather than on a schedule ([[module-actions|SPEC-0131]]). An action runs once and returns; it uses the same process handling and repository trust as a task's check.
+
+Declare one action per file in `.rhizome/modules/<module>/actions/<name>.yaml`. Its id is `<module>/<name>`.
+
+```yaml
+description: Build one agent prompt for the selected recommendations
+inputs:
+  items: { kind: list, required: true }
+  reason: { kind: string, enum: [not-relevant, wrong, already-fixed] }
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "prompt"]
+timeout: 30s
+```
+
+- `inputs` names each input, lowercase words joined by hyphens, with a `kind` of `string`, `int`, `bool`, or `list` (of strings), and optionally `required` and, for `string` and `list`, an `enum`.
+- `run` holds exactly one of:
+  - `command`: runs in the repository root with the input as JSON on stdin. `{module}` stands for the module folder. Print exactly one JSON value and exit 0 to succeed. Exit 2 to refuse, with the reason as the last line on stderr. Any other exit is an error.
+  - `script`: a code-mode script inside the module, run through `rzm agent code execute` with `input` set to `{action, input, moduleDir, repoRoot}`. Return the result, or `{ refused: "<reason>" }` to refuse. The script can load a module file with `await import(input.moduleDir + "/scripts/lib.mjs")`.
+- `timeout` defaults to 60 s and may be at most 5 minutes. The action and everything it started are stopped when it passes.
+
+Every run returns `{"status": "ok", "result": …}`, `{"status": "refused", "reason": …}`, or `{"status": "error", "reason": …, "stderrTail": …}`. In a repository you have not trusted, every action is refused until you run `rzm trust`.
+
+Run an action from:
+
+- **The command line:** `rzm <module>` lists the module's actions beside its recipes. `rzm <module> <action> --<input> <value>` runs one, repeating the flag for each value of a `list` input. It prints the result and exits 0, prints the reason and exits 2 when the action refuses, and exits 1 on an error.
+- **Agents:** the code-mode operations `action_list` and `action_run({id, input})`.
+- **Views:** the kit hooks `useActionQuery` and `useActionCommand`, over `GET /api/v1/actions` and `POST /api/v1/actions/<module>/<name>`.
+
+`rzm validate actions`, part of `rzm validate all`, reports a declaration that cannot be read or parsed, a missing description, an unknown input kind, an enum on `int` or `bool`, a `run` with no form or both, a script or `{module}` path that does not exist, a timeout over the limit, and an action named like a query recipe in its module. Starters install their `module/actions/` files with the rest of the module.
