@@ -108,6 +108,28 @@ CloudWatch retains records for 30 days. The gateway writes bounded JSON lines to
 
 A failed workflow is not evidence of a successful release. Inspect CloudFormation events, ECS deployment history, and task exit reasons. An ECS automatic rollback must not pass the revision check. A failure in the ALB or smoke checks happens after a deployment may already be serving; investigate and redeploy a known image. Check the exact running task revision and endpoint. Review billing, retained receipt growth, DynamoDB throttling, and memory under maximum concurrency during the pilot; right-size only from those measurements. This change adds no pager integration or live alarms.
 
+## Ops skill and reports
+
+Use the repository's `rhizome-ops` skill from Codex or Claude Code for service health, usage, logs, performance, access, and incident guidance. Its shared helper performs read-only operations. Supply the expected AWS account, region, and stack explicitly; it refuses a different account before reading the stack. It discovers the endpoint and resource names from stack outputs.
+
+```sh
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> status
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> usage \
+  --start 2026-11-01 --end 2026-11-02
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> usage \
+  --user operator@example.com
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> performance --hours 1
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> capacity --hours 1
+```
+
+Usage and email-filtered logs require an existing admin sign-in to the discovered production origin. If sign-in is missing, use `./scripts/rzm auth login --server <https-origin>`; the helper never reads tokens directly. Usage covers inclusive UTC dates, up to 31 days. It reports admitted requests, input bytes, reserved and settled credits, and unknown outcomes globally and by person. Reserved credits already include settled credits, so never add them. Credits are accounting units, not a provider bill. Limits shown for an old day are today's configured limits. The API has no historical limit snapshots or provider/model breakdown.
+
+Performance reports distinguish HTTP request events from provider events to avoid counting a call twice. They exclude health checks and report sample counts beside latency percentiles. Provider timings separate validation, admission wait, reservation, upstream work, settlement, and total time. Log reads are bounded to 24 hours and an explicit event cap; `complete: false` means the result is partial. A sparse sample or missing measurement is not zero latency or zero traffic.
+
+AWS already exposes service CPU and memory utilization, ALB response time and error counts, and DynamoDB capacity and throttling metrics. The helper pulls a small diagnostic set; use the documented AWS metric dimensions for deeper queries. Missing datapoints are not proof of zero errors. Container Insights, custom application metrics, ALB access logs, dashboards, alarms, and paging are not configured by this template.
+
+Recommended follow-ups are an external HTTPS availability check, alerts for sustained target/ALB errors and resource pressure, notification of failed deployments, and an alert on unknown accounting outcomes. Choose thresholds and a notification owner from pilot measurements before provisioning them. Keep per-user accounting in the admin API rather than adding identity labels to CloudWatch metrics.
+
 ## Teardown
 
 Teardown is an intentional operator action, never part of the deployment workflow. It loses the random hostname permanently.
@@ -128,6 +150,7 @@ docker build --platform linux/arm64 -f services/team-api/Dockerfile \
   --build-arg VERSION=local-deployment-check -t rhizome-team-api:deployment-check .
 python3 services/team-api/deploy/container-check.py
 python3 -m unittest discover -s services/team-api/deploy -p '*_test.py'
+python3 -m unittest discover -s scripts/team-api -p '*_test.py'
 cfn-lint services/team-api/deploy/template.yml
 actionlint .github/workflows/team-api-deploy.yml
 make check
@@ -136,6 +159,9 @@ make check
 The image uses CGO with musl static linking, so SQLite remains available for local use. Scratch contains only the executable, CA certificates, and empty UID-65532-owned directories. ECS uses an explicit ARM64 task definition with a container named `Main` and one named TCP port, as Express requires. Config supplied through `RHIZOME_TEAM_API_CONFIG` defaults diagnostics to stdout; `--config <file>` still works and defaults to local files. The container check uses a disposable Docker network, DynamoDB Local, synthetic credentials, and production config delivered through the environment. It calls no provider or Google endpoint.
 
 ## AWS references
+
+- [ECS service CPU and memory metrics](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/available-metrics.html)
+- [ALB metrics, dimensions, and reporting gaps](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html)
 
 - [CloudFormation Express service properties and replacement rules](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ecs-expressgatewayservice.html).
 - [Express custom task definition requirements and ARM64 support](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-getting-started.html).
