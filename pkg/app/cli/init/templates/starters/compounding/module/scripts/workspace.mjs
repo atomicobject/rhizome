@@ -5,7 +5,8 @@
 //
 //   recommendations                 pending proposals and open findings, by response
 //   item {ref}                      one recommendation in full
-//   prompt {items: [ref]}           one agent prompt for the selected recommendations
+//   prompt {items: [ref]}           one agent prompt for the selected recommendations;
+//                                   a proposal may carry the revision shown, `proposal:<cluster>@<revision>`
 //   dismiss {cluster, reason}       dismisses a proposal locally
 //   hide {path}                     hides a finding in this workspace, locally
 //   health                          the friction report and the last mine run
@@ -121,6 +122,7 @@ function item(root, store, ref, { state, user }) {
     tier: proposal.tier,
     families: proposal.families,
     status: shown.status ?? "pending",
+    ...(shown.proposal ? {} : { revision: revision(proposal) }),
     current,
     proposal,
     sources,
@@ -128,15 +130,20 @@ function item(root, store, ref, { state, user }) {
 }
 
 // The prompt names references, never their content, so the agent reads each
-// one where it lives. Each proposal carries the revision the person
-// reviewed: approving with it refuses a draft that mining replaced since.
+// one where it lives. A view sends each proposal as `proposal:<cluster>@<revision>`,
+// the revision the person saw; a redraft since refuses, and the prompt pins
+// that revision so approving refuses a later one too.
 function prompt(root, store, refs) {
   if (!Array.isArray(refs) || !refs.length) throw new Refused("select at least one recommendation");
   const listed = new Map(recommendations(root, store).items.map((x) => [x.ref, x]));
-  const gone = refs.filter((r) => !listed.has(r));
+  const asked = refs.map((r) => String(r).match(/^(proposal:[^@]+)@(.+)$/) ?? [r, r, null]);
+  const gone = asked.filter(([, ref]) => !listed.has(ref)).map(([r]) => r);
   if (gone.length)
     throw new Refused(`no longer recommendations: ${gone.join(", ")}; refresh the workspace`);
-  const chosen = [...new Set(refs)].map((r) => listed.get(r));
+  const changed = asked.filter(([, ref, rev]) => rev && listed.get(ref).revision !== rev).map(([, ref]) => ref);
+  if (changed.length)
+    throw new Refused(`redrafted since you reviewed them: ${changed.join(", ")}; refresh the workspace and review them again`);
+  const chosen = [...new Set(asked.map(([, ref]) => ref))].map((r) => listed.get(r));
   const line = (x) =>
     `- \`${x.ref}\`${x.response ? ` (${x.response})` : ""}${x.revision ? `, revision \`${x.revision}\`` : ""}`;
   const proposals = chosen.filter((x) => x.kind === "proposal");

@@ -25,11 +25,17 @@ function Item({ itemRef }: { itemRef: string }) {
   const [removed, setRemoved] = useState(false);
   const x = query.data as (Recommendation & { current?: boolean }) | undefined;
   const toWorkspace = () =>
-    openView("compounding-workspace", { kind: "standalone" }, { tab: "recommendations", item: itemRef });
+    openView(
+      "compounding-workspace",
+      { kind: "standalone" },
+      { tab: "recommendations", item: itemRef },
+    );
 
   const copyPrompt = async () => {
     try {
-      const { prompt } = (await promptCommand.mutateAsync({ items: [itemRef] })) as {
+      const { prompt } = (await promptCommand.mutateAsync({
+        items: [x?.revision ? `${itemRef}@${x.revision}` : itemRef],
+      })) as {
         prompt: string;
       };
       await navigator.clipboard.writeText(prompt).then(

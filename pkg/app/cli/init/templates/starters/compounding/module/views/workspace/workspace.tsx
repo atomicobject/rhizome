@@ -1,7 +1,7 @@
 // The compounding workspace (SPEC-0124 US9): review recommendations as a
 // checklist and copy one agent prompt for the selected ones, read the
 // friction report, and see the memory the team has approved.
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import {
   Count,
   Dash,
@@ -70,14 +70,17 @@ function Recommendations({
   unchecked: [unchecked, setUnchecked],
 }: {
   initial?: string;
-  unchecked: [Set<string>, (next: Set<string>) => void];
+  unchecked: [Set<string>, Dispatch<SetStateAction<Set<string>>>];
 }) {
   const query = useActionQuery("compounding/recommendations", {});
   const promptCommand = useActionCommand("compounding/prompt");
   const items = ((query.data as { items?: Recommendation[] })?.items ?? []) as Recommendation[];
   const [open, setOpen] = useState<Set<string>>(new Set(initial ? [initial] : []));
   const [copy, setCopy] = useState<Copy>();
-  const selected = items.filter((x) => !unchecked.has(x.ref)).map((x) => x.ref);
+  // A proposal goes with the revision shown, so a redraft since is refused.
+  const selected = items
+    .filter((x) => !unchecked.has(x.ref))
+    .map((x) => (x.revision ? `${x.ref}@${x.revision}` : x.ref));
   const toggle = (set: Set<string>, ref: string) => {
     const next = new Set(set);
     next.has(ref) ? next.delete(ref) : next.add(ref);

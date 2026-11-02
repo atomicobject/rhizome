@@ -178,6 +178,16 @@ test("prompt names the selected references of both kinds and the publish stateme
   assert.ok(!prompt.includes("Busy timeout"));
   assert.throws(() => ws("prompt", { items: ["proposal:k-9"] }), /no longer recommendations/);
   assert.throws(() => ws("prompt", { items: [] }), /at least one/);
+  // The revision the view showed is pinned; a redraft since refuses.
+  const shown = listed.find((x) => x.ref === "proposal:k-1").revision;
+  assert.match(
+    ws("prompt", { items: [`proposal:k-1@${shown}`] }).prompt,
+    new RegExp(`revision \`${shown}\``),
+  );
+  assert.throws(
+    () => ws("prompt", { items: ["proposal:k-1@stale"] }),
+    /redrafted since you reviewed them: proposal:k-1/,
+  );
 });
 
 test("dismiss records a local dismissal that removes the proposal", () => {

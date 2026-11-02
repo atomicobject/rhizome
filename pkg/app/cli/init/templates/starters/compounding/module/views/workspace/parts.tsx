@@ -21,6 +21,7 @@ export type Recommendation = {
   tier?: string;
   families?: number;
   status?: string;
+  revision?: string;
   path?: string;
   assignee?: string | null;
   actionItem?: string | null;
