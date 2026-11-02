@@ -31,6 +31,7 @@ Actions are not a sandbox. Views already run same-origin with every route, and a
 - Retries, queues, background runs, or progress streaming. An action runs once and returns.
 - Actions outside modules; the flat `.rhizome/` folders get no `actions/`.
 - Merging actions with query recipes or task declarations.
+- A direct `rzm mcp` tool for actions, for now.
 
 ## Declaration
 
@@ -75,7 +76,7 @@ Every run first checks repository trust with the same check scheduled tasks use.
 ## Callers
 
 - **HTTP.** `GET /api/v1/actions` lists every action: id, module, description, and inputs. `POST /api/v1/actions/{module}/{name}` takes the input object as its JSON body and answers 200 with the envelope for every outcome a run reaches, including `refused` and `error`. It answers 400 for invalid input and 404 for an unknown action. The route sits behind the same mutation-origin guard as other writes.
-- **Agents.** The agent catalog registers `action_list` and `action_run({id, input})`, which return the same list and envelope, so code mode, MCP, and `rzm agent code surface` see them.
+- **Agents.** The agent catalog registers `action_list` and `action_run({id, input})`, which return the same list and envelope. They are available to code mode and listed by `rzm agent code surface`.
 - **Command line.** `rzm <module> <action> --<input> <value>` runs an action. A `list` input repeats its flag. `rzm <module>` lists the module's actions beside its recipes. It prints `result` as JSON and exits 0 for `ok`, prints the reason and exits 2 for `refused`, and exits 1 for `error`.
 - **Views.** The kit's `useActionQuery(id, input)` and `useActionCommand(id)` (SPEC-0105) call the HTTP route.
 
