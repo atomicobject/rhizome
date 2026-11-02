@@ -70,9 +70,9 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 
 ### From the workspace
 
-The compounding workspace (the `workspace` view, Knowledge in the Notes sidebar) lets the person review recommendations as a checklist and copy one prompt for the ones they kept. That prompt lists `proposal:<cluster>` and `finding:<path>` references and states "The person reviewed these in the workspace and approves publishing them." Take that statement as the person's answer to step 4's publication question for each proposal it lists, and skip steps 2 and 3 for them:
+The compounding workspace (the `compounding-workspace` view, Knowledge in the Notes sidebar) lets the person review recommendations as a checklist and copy one prompt for the ones they kept. That prompt lists `proposal:<cluster>` and `finding:<path>` references and states "The person reviewed these in the workspace and approves publishing them." Take that statement as the person's answer to step 4's publication question for each proposal it lists, and skip steps 2 and 3 for them:
 
-- For each proposal, run `shards.mjs show <cluster>` and approve it as drafted with `--confirm-publish` and the `revision` and `head` that `show` printed. Never change its response or text; a proposal whose `response` is null needs the person to choose one.
+- For each proposal, run `shards.mjs show <cluster>` and approve it as drafted with `--confirm-publish`, the revision the prompt lists for it, and the `head` that `show` printed. The statement covers only that revision: when `show` prints another, mining redrafted it after the person reviewed it, so present what changed and ask before approving. Never change its response or text; a proposal whose `response` is null needs the person to choose one.
 - For each finding, read its note.
 - Implement the fixes and guards, including those the approvals create, and check off each action item you complete. Put each ask to its owner and leave its action item open.
 - A refusal is still the person's to resolve: bring each one back to them, one at a time, with its reason, and continue with the rest. `--rechecked` and `--broad` still need the person's yes.

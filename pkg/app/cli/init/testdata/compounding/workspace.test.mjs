@@ -152,7 +152,8 @@ test("prompt names the selected references of both kinds and the publish stateme
     [proposal("k-1"), proposal("k-2", { response: "document" }), proposal("k-3")],
     findings,
   );
-  const refs = ws("recommendations").items.map((x) => x.ref);
+  const listed = ws("recommendations").items;
+  const refs = listed.map((x) => x.ref);
   assert.equal(refs.length, 6);
   const chosen = [
     "proposal:k-1",
@@ -165,6 +166,13 @@ test("prompt names the selected references of both kinds and the publish stateme
   for (const r of refs.filter((r) => !chosen.includes(r))) assert.ok(!prompt.includes(r), r);
   assert.ok(prompt.includes(PUBLISH_STATEMENT));
   assert.match(prompt, /shards\.mjs show <cluster>/);
+  // Each proposal carries the revision the person reviewed, so a redraft is not covered.
+  for (const c of ["k-1", "k-3"]) {
+    const { revision } = listed.find((x) => x.ref === `proposal:${c}`);
+    assert.match(revision, /\S/);
+    assert.ok(prompt.includes(`\`proposal:${c}\` (remember), revision \`${revision}\``), c);
+  }
+  assert.match(prompt, /prints a different revision[^\n]*do not approve/);
   assert.match(prompt, /one branch, ready for one pull request/);
   // References, not content.
   assert.ok(!prompt.includes("Busy timeout"));

@@ -1,5 +1,5 @@
 apiVersion: rhizome.view.v1
-id: workspace
+id: compounding-workspace
 name: Compounding
 description: Review compounding recommendations as a checklist and copy one agent prompt for the selected ones, read the friction report, and see approved memory.
 source:

@@ -52,7 +52,7 @@ func TestCompoundingMineTaskPromptLinksToTheWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	def, err := taskdef.ParseDefinition(".rhizome/modules/compounding/tasks/mine.yml", data)
 	require.NoError(t, err)
-	require.Contains(t, def.Prompt, "[Review in the compounding workspace](/notes?view=workspace)")
+	require.Contains(t, def.Prompt, "[Review in the compounding workspace](/notes?view=compounding-workspace)")
 }
 
 // The workspace ships one action per workspace.mjs operation, each running

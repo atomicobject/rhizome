@@ -18,7 +18,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { review } from "./lib/approvals.mjs";
+import { review, revision } from "./lib/approvals.mjs";
 import { loadFindings } from "./lib/findings.mjs";
 import { repoRoot, titleOf } from "./lib/shards.mjs";
 import { lockOrRefuse, openState } from "./lib/state.mjs";
@@ -47,6 +47,7 @@ function recommendations(root, store) {
     tier: p.tier,
     families: p.families,
     status: p.status ?? "pending",
+    revision: revision(p),
     ...(p.previous ? { previous: p.previous } : {}),
     ...(p.recurrence ? { recurrence: p.recurrence.finding } : {}),
     ...(p.rejected ? { rejected: p.rejected.reason } : {}),
@@ -127,7 +128,8 @@ function item(root, store, ref, { state, user }) {
 }
 
 // The prompt names references, never their content, so the agent reads each
-// one where it lives and acts on what is current.
+// one where it lives. Each proposal carries the revision the person
+// reviewed: approving with it refuses a draft that mining replaced since.
 function prompt(root, store, refs) {
   if (!Array.isArray(refs) || !refs.length) throw new Refused("select at least one recommendation");
   const listed = new Map(recommendations(root, store).items.map((x) => [x.ref, x]));
@@ -135,7 +137,8 @@ function prompt(root, store, refs) {
   if (gone.length)
     throw new Refused(`no longer recommendations: ${gone.join(", ")}; refresh the workspace`);
   const chosen = [...new Set(refs)].map((r) => listed.get(r));
-  const line = (x) => `- \`${x.ref}\`${x.response ? ` (${x.response})` : ""}`;
+  const line = (x) =>
+    `- \`${x.ref}\`${x.response ? ` (${x.response})` : ""}${x.revision ? `, revision \`${x.revision}\`` : ""}`;
   const proposals = chosen.filter((x) => x.kind === "proposal");
   const findings = chosen.filter((x) => x.kind === "finding");
   const out = [
@@ -146,7 +149,7 @@ function prompt(root, store, refs) {
   if (proposals.length)
     out.push(
       "",
-      "Proposals: read each with `node .rhizome/modules/compounding/scripts/shards.mjs show <cluster>`, then approve it as drafted with `shards.mjs approve <cluster> --confirm-publish --revision <revision> --head <head>`, using the values `show` printed. Apply each document edit an approval makes. A proposal with no response needs the person to choose one, so ask them.",
+      "Proposals: read each with `node .rhizome/modules/compounding/scripts/shards.mjs show <cluster>`, then approve it as drafted with `shards.mjs approve <cluster> --confirm-publish --revision <revision> --head <head>`, using the revision listed here and the head `show` printed. If `show` prints a different revision, the draft changed after the person reviewed it: do not approve it; show them what changed and ask. Apply each document edit an approval makes. A proposal with no response needs the person to choose one, so ask them.",
       ...proposals.map(line),
     );
   if (findings.length) out.push("", "Findings: read each note.", ...findings.map(line));

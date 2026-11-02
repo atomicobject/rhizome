@@ -34,6 +34,9 @@ const TABS = ["recommendations", "health", "memory"];
 export default function Workspace() {
   const params = useViewParams() as { tab?: string; item?: string };
   const tab = TABS.includes(params.tab ?? "") ? params.tab! : "recommendations";
+  // Held here, not in Recommendations, which unmounts on another tab: an
+  // item the person unchecked must stay unchecked when they come back.
+  const unchecked = useState<Set<string>>(new Set());
   return (
     <main className="px-5 py-3 text-base">
       <h1 className="mb-2 text-xl font-bold">Compounding</h1>
@@ -44,7 +47,7 @@ export default function Workspace() {
           <TabsTrigger value="memory">Memory</TabsTrigger>
         </TabsList>
         <TabsContent value="recommendations">
-          <Recommendations initial={params.item} />
+          <Recommendations initial={params.item} unchecked={unchecked} />
         </TabsContent>
         <TabsContent value="health">
           <Health />
@@ -62,12 +65,16 @@ type Copy =
   | { status: "manual"; prompt: string }
   | { status: "error"; message: string };
 
-function Recommendations({ initial }: { initial?: string }) {
+function Recommendations({
+  initial,
+  unchecked: [unchecked, setUnchecked],
+}: {
+  initial?: string;
+  unchecked: [Set<string>, (next: Set<string>) => void];
+}) {
   const query = useActionQuery("compounding/recommendations", {});
   const promptCommand = useActionCommand("compounding/prompt");
   const items = ((query.data as { items?: Recommendation[] })?.items ?? []) as Recommendation[];
-  // Unchecked refs, so an item that appears later starts checked.
-  const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<Set<string>>(new Set(initial ? [initial] : []));
   const [copy, setCopy] = useState<Copy>();
   const selected = items.filter((x) => !unchecked.has(x.ref)).map((x) => x.ref);

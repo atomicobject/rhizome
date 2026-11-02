@@ -39,7 +39,7 @@ A view declares the parameters it takes. A UI parameter, such as the open tab, c
 ```yaml
 # views/workspace/workspace.yaml
 apiVersion: rhizome.view.v1
-id: workspace
+id: compounding-workspace
 name: Compounding
 source:
   kind: custom
