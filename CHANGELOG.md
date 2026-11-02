@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.
+- Team API bootstrap takes the repository's exact GitHub OIDC subject so deployment credentials work with immutable organization and repository IDs.
+- Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
+- Team API deployment verifies Express service revisions using the revision field AWS returns, allowing a healthy deployment to pass its final check.
+
 ### Added
 
 - Team API deployment package for ARM64 ECS Express Mode: protected GitHub OIDC deploys, DynamoDB state, Secrets Manager delivery, 30-day JSON logs, and a bootstrap and rollback runbook. Deployment remains an operator step.

@@ -54,7 +54,9 @@ def wait_for_revision(service_arn, task_arn, deadline):
         if details.get("failures"):
             raise ValueError("ECS service lookup failed")
         item = details["services"][0]
-        if (latest and latest["status"] == "SUCCESSFUL" and item["taskDefinition"] == task_arn
+        revisions = item.get("currentServiceRevisions", [])
+        if (latest and latest["status"] == "SUCCESSFUL"
+                and len(revisions) == 1 and revisions[0]["arn"] == desired["serviceRevisionArn"]
                 and item["desiredCount"] == 1 and item["runningCount"] == 1 and item["pendingCount"] == 0):
             print("Canary successful: requested ARM64 task revision, one running task")
             return

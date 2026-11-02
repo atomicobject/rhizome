@@ -4,13 +4,23 @@
       "Effect": "Allow",
       "Action": "Update:*",
       "Principal": "*",
-      "Resource": ["LogicalResourceId/TaskDefinition", "LogicalResourceId/Gateway"]
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ResourceType": ["AWS::ECS::TaskDefinition", "AWS::ECS::ExpressGatewayService"]
+        }
+      }
     },
     {
       "Effect": "Deny",
       "Action": ["Update:Replace", "Update:Delete"],
       "Principal": "*",
-      "Resource": "LogicalResourceId/Gateway"
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ResourceType": ["AWS::ECS::ExpressGatewayService"]
+        }
+      }
     }
   ]
 }

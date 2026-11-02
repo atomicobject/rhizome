@@ -20,6 +20,10 @@ Parameters:
     Default: 'false'
     AllowedValues: ['true', 'false']
     Description: Set true only if token.actions.githubusercontent.com is not already registered in this account.
+  GitHubOidcSubject:
+    Type: String
+    AllowedPattern: 'repo:atomicobject(@[0-9]+)?/rhizome(@[0-9]+)?:environment:production'
+    Description: Exact production subject from the repository's current GitHub OIDC subject prefix, including immutable IDs when present.
 Conditions:
   Serving: !Equals [!Ref EnableService, 'true']
   CreateOidc: !Equals [!Ref CreateGitHubOidcProvider, 'true']
@@ -213,7 +217,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: repo:atomicobject/rhizome:environment:production
+                token.actions.githubusercontent.com:sub: !Ref GitHubOidcSubject
       Policies:
         - PolicyName: DeployGatewayOnly
           PolicyDocument:
@@ -223,8 +227,15 @@ Resources:
                 Action: ecr:GetAuthorizationToken
                 Resource: '*'
               - Effect: Allow
-                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:DescribeImages]
+                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:DescribeImages, ecr:DescribeRepositories, ecr:GetLifecyclePolicy, ecr:GetRepositoryPolicy, ecr:ListTagsForResource]
                 Resource: !GetAtt Repository.Arn
+              # CloudFormation resolves role ARN attributes through the role read handler.
+              - Effect: Allow
+                Action: [iam:GetRole, iam:GetRolePolicy, iam:ListRolePolicies, iam:ListAttachedRolePolicies]
+                Resource:
+                  - !GetAtt ExecutionRole.Arn
+                  - !GetAtt TaskRole.Arn
+                  - !GetAtt InfrastructureRole.Arn
               - Effect: Allow
                 Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DescribeStacks, cloudformation:DescribeStackResource]
                 Resource:
@@ -235,6 +246,12 @@ Resources:
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/default/${AWS::StackName}'
               # Express Mode creates and associates an ECS gateway on create and update.
+              - Effect: Allow
+                Action: [ecs:DescribeServiceDeployments, ecs:DescribeServiceRevisions]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/default/${AWS::StackName}'
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service-deployment/default/${AWS::StackName}/*'
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service-revision/default/${AWS::StackName}/*'
               - Effect: Allow
                 Action: [ecs:CreateGateway, ecs:AssociateGatewayWithCluster]
                 Resource: !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:gateway/*/*'
@@ -273,7 +290,7 @@ Outputs:
   ExecutionRoleArn: {Value: !GetAtt ExecutionRole.Arn}
   TaskRoleArn: {Value: !GetAtt TaskRole.Arn}
   InfrastructureRoleArn: {Value: !GetAtt InfrastructureRole.Arn}
-  DeployRoleArn: {Value: !GetAtt DeployRole.Arn}
+  DeployRoleArn: {Value: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${DeployRole}'}
   Endpoint:
     Condition: Serving
     Value: !GetAtt Gateway.Endpoint
