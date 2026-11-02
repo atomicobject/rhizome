@@ -5,7 +5,8 @@ const effortPath = "notes/view-demo/effort-a.md";
 
 const betaPath = "notes/view-demo/effort-b.md";
 
-const customFrame = (page: Page) => page.frameLocator("iframe.custom-view-frame");
+const customFrame = (page: Page) =>
+  page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
 async function openEffortCollection(page: Page) {
   const collections = page.getByRole("region", { name: "Collections" });

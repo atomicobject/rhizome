@@ -197,7 +197,7 @@ test("a bulk edit adds a link to every selected row, stages, and saves", async (
 test("the type Briefing reads a collection and opens its Table from a signal", async ({ page }) => {
   await page.goto("/notes/tv-work-item");
   await chooseView(page, "Briefing");
-  const frame = page.frameLocator("iframe.custom-view-frame");
+  const frame = page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
   const attention = frame.getByRole("region", { name: "Needs attention" });
   const context = frame.getByRole("region", { name: "Context", exact: true });

@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, type APIRequestContext, type Page, test } from "./fixtures";
 import { chooseView, openViewOptions, rowsChoice } from "./workspaceView";
 
-const frame = (page: Page) => page.frameLocator("iframe.custom-view-frame");
+const frame = (page: Page) => page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
 const rows = (page: Page) => page.locator("tr.configured-view__row");
 
@@ -142,6 +142,11 @@ test("Trace remembers row-tree collapse and selected row type for its concrete g
 
   await openGroup(page, "E2E Type views");
   await chooseView(page, "Trace");
+  // The Planning frame stays live until the Type views frame has drawn.
+  await expect(page.locator("iframe.custom-view-frame:not([data-incoming])")).toHaveAttribute(
+    "src",
+    /E2E\+Type\+views/,
+  );
   const defaultRows = rowTypes.getByRole("radio", { checked: true });
   const defaultName = await defaultRows.getAttribute("value");
   expect(defaultName).not.toBeNull();

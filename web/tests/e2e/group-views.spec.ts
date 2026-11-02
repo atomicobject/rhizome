@@ -16,7 +16,8 @@ test.use({ timezoneId: "America/Detroit", locale: "en-US" });
 // - E2E Contacts: one root.
 // - E2E Library: two roots with no links.
 
-const customFrame = (page: Page) => page.frameLocator("iframe.custom-view-frame");
+const customFrame = (page: Page) =>
+  page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
 const viewChoice = (page: Page, name: string) =>
   workspaceView(page).getByRole("button", { name, exact: true });
@@ -58,7 +59,7 @@ test("a group opens the bundled view its shape calls for and remembers a choice"
 
   await openGroup(page, "E2E Planning");
   await expectView(page, "Briefing");
-  await expect(page.locator("iframe.custom-view-frame")).toBeVisible();
+  await expect(page.locator("iframe.custom-view-frame:not([data-incoming])")).toBeVisible();
 
   for (const name of ["Overview", "Briefing", "Trace", "Sections"]) {
     await expect(viewChoice(page, name)).toHaveCount(1);
@@ -87,7 +88,7 @@ test("a group opens the bundled view its shape calls for and remembers a choice"
   await expectView(page, "Overview");
 
   await chooseView(page, "Sections");
-  await expect(page.locator("iframe.custom-view-frame")).toBeVisible();
+  await expect(page.locator("iframe.custom-view-frame:not([data-incoming])")).toBeVisible();
   await page.reload();
   await expectView(page, "Sections");
 });
