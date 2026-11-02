@@ -11,11 +11,13 @@ Drew performs these steps in order. Account IDs, resource names, the endpoint, G
 3. Using admin credentials outside agent sessions, create the stack once, with serving disabled. Set `CreateGitHubOidcProvider=true` only when the account does not already have `token.actions.githubusercontent.com`. An existing provider must allow audience `sts.amazonaws.com`. Never delete a shared provider.
 
    ```sh
+   github_subject="$(gh api repos/atomicobject/rhizome/actions/oidc/customization/sub --jq '.sub_claim_prefix + ":environment:production"')"
    aws cloudformation create-stack --region <region> --stack-name <stack-name> \
      --template-body file://services/team-api/deploy/template.yml \
      --capabilities CAPABILITY_IAM \
      --parameters ParameterKey=EnableService,ParameterValue=false \
        ParameterKey=CreateGitHubOidcProvider,ParameterValue=<true-or-false> \
+       ParameterKey=GitHubOidcSubject,ParameterValue="$github_subject" \
      --stack-policy-body file://services/team-api/deploy/stack-policy.json
    aws cloudformation wait stack-create-complete --region <region> --stack-name <stack-name>
    aws cloudformation describe-stacks --region <region> --stack-name <stack-name> \
@@ -51,7 +53,7 @@ Drew performs these steps in order. Account IDs, resource names, the endpoint, G
    ```
 
    Limits, allowlists, and switches seed DynamoDB only on first startup. Later changes use the admin API. Admin identities, domains, and ceilings remain startup configuration. Task clocks must track UTC. Receipts have no TTL and must not be pruned.
-6. Create the GitHub environment `production`, with required approvers, prevention of self-review where supported, and a deployment branch rule allowing only `main`. Keep `main` protected. Set environment variables `TEAM_API_AWS_REGION`, `TEAM_API_STACK`, and `TEAM_API_DEPLOY_ROLE_ARN` from the bootstrap outputs. These are references, never secret values. The role's OIDC trust requires audience `sts.amazonaws.com` and exactly `repo:atomicobject/rhizome:environment:production`. GitHub environment branch protection supplies the main-only restriction because the environment OIDC subject does not also contain a branch.
+6. Create the GitHub environment `production`, with required approvers, prevention of self-review where supported, and a deployment branch rule allowing only `main`. Keep `main` protected. Set environment variables `TEAM_API_AWS_REGION`, `TEAM_API_STACK`, and `TEAM_API_DEPLOY_ROLE_ARN` from the bootstrap outputs. These are references, never secret values. The role's OIDC trust requires audience `sts.amazonaws.com` and the exact `GitHubOidcSubject` from bootstrap. Current GitHub repositories include immutable owner and repository IDs in their subject prefix; do not substitute the older name-only format or a wildcard. Inspect customized subject claims separately if the repository does not use GitHub's default template. GitHub environment branch protection supplies the main-only restriction because the environment OIDC subject does not also contain a branch.
 7. Run **Deploy team API** on `main`, with `image_tag` empty, and approve it through `production`. It tests the gateway, builds ARM64, pushes an immutable commit-SHA tag, and updates the existing stack using its previous template. The first update enables the service. Subsequent updates must never set `EnableService=false`, change its logical ID, `Cluster`, `ServiceName`, `InfrastructureRoleArn`, or add/change `Tags`. CloudFormation marks those service properties as replacement operations. `Retain`, a stack policy, and the deployment change-set guard protect the hostname.
 8. Confirm the workflow reports the requested canary revision successful, one running task, ALB settings verified, task ingress restricted to ALB security groups, and `HTTPS /healthz: 200`. Save the `Endpoint` as the canonical root HTTPS origin. An initial bootstrap failure before service creation can be retried; if it retains a partially created service, inspect and import or recover that service rather than creating another hostname casually.
 9. Sign in to the endpoint from a release build with `rzm auth login --server <https-origin>`. Check admin access, set approved limits, and perform the pilot's live offboarding, kill-switch, retry, cancellation, slow-request, deployment, rollback, and memory drills. A health check proves startup and lease recovery, not provider availability or Google sign-in. Hold broader rollout until the spec's remaining gates pass.

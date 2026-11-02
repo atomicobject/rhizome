@@ -20,6 +20,10 @@ Parameters:
     Default: 'false'
     AllowedValues: ['true', 'false']
     Description: Set true only if token.actions.githubusercontent.com is not already registered in this account.
+  GitHubOidcSubject:
+    Type: String
+    AllowedPattern: 'repo:atomicobject(@[0-9]+)?/rhizome(@[0-9]+)?:environment:production'
+    Description: Exact production subject from the repository's current GitHub OIDC subject prefix, including immutable IDs when present.
 Conditions:
   Serving: !Equals [!Ref EnableService, 'true']
   CreateOidc: !Equals [!Ref CreateGitHubOidcProvider, 'true']
@@ -213,7 +217,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: repo:atomicobject/rhizome:environment:production
+                token.actions.githubusercontent.com:sub: !Ref GitHubOidcSubject
       Policies:
         - PolicyName: DeployGatewayOnly
           PolicyDocument:
