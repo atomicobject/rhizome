@@ -20,6 +20,62 @@ def args(*argv):
 
 
 class SettingsTests(unittest.TestCase):
+    def test_provider_dollars_are_exact_and_reject_non_decimal_or_overflow(self):
+        for text, expected in [("2.50", 2500000000), ("0.000000001", 1), ("0", 0),
+                               ("9223372036.854775807", 9223372036854775807)]:
+            self.assertEqual(ops_settings.parse_usd(text), expected)
+            self.assertEqual(ops_settings.parse_usd(ops_settings.format_usd(expected)), expected)
+        for text in ["-1", "1e2", "NaN", "Infinity", "1.0000000001", "9223372036.854775808", "1_000", "1,25"]:
+            with self.assertRaises(argparse.ArgumentTypeError):
+                ops_settings.parse_usd(text)
+
+    def test_provider_preview_includes_only_changed_nested_keys_and_exact_usd(self):
+        config = {**CONFIG, "provider_daily_nanodollars": {"voyage": 0, "typesafe": 1250000000},
+                  "pricing_assumptions": {"typesafe": {"provider": "typesafe", "model": "jev-latest", "version": "reviewed-v1",
+                                                       "nanodollars_per_token": 7, "unrelated_secret": "omit"}}}
+        client = Mock()
+        client.admin.return_value = config
+        result = ops_settings.run(client, args("settings-update", "--voyage-daily-usd", "2.50", "--typesafe-daily-usd", "1.25"))
+        self.assertEqual(result["changes"], {"provider_daily_nanodollars": {"voyage": 2500000000}})
+        self.assertEqual(result["changes_provider_daily_usd"], {"voyage": "2.5"})
+        self.assertEqual(result["admin_arguments"], ["config", "--voyage-daily-usd", "2.5"])
+        self.assertEqual(result["current"]["provider_daily_usd"], {"voyage": "0", "typesafe": "1.25"})
+        self.assertEqual(result["current"]["pricing_assumptions"]["typesafe"],
+                         {"provider": "typesafe", "model": "jev-latest", "version": "reviewed-v1", "nanodollars_per_token": 7})
+        client.admin.assert_called_once_with("config")
+
+    def test_provider_apply_verifies_requested_key_while_preserving_other_provider(self):
+        before = {**CONFIG, "provider_daily_nanodollars": {"voyage": 0, "typesafe": 1250000000}}
+        after = {**CONFIG, "provider_daily_nanodollars": {"voyage": 2500000000, "typesafe": 1750000000}}
+        audit = {"at": "new", "action": "config.update", "target": "config", "detail": "provider_daily_nanodollars.voyage=2500000000"}
+        client = Mock()
+        client.admin.side_effect = [before, [], after, after, [audit]]
+        result = ops_settings.run(client, args("settings-update", "--voyage-daily-usd", "2.50", "--apply"))
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["settings"]["provider_daily_nanodollars"], {"voyage": 2500000000, "typesafe": 1750000000})
+        self.assertEqual(client.admin.call_args_list[2].args, ("config", "--voyage-daily-usd", "2.5"))
+
+    def test_provider_wrong_readback_or_other_provider_audit_is_unverified(self):
+        before = {**CONFIG, "provider_daily_nanodollars": {"voyage": 0, "typesafe": 0}}
+        desired = {**CONFIG, "provider_daily_nanodollars": {"voyage": 1, "typesafe": 0}}
+        for readback, detail in [(before, "provider_daily_nanodollars.voyage=1"),
+                                 (desired, "provider_daily_nanodollars.typesafe=1")]:
+            client = Mock()
+            client.admin.side_effect = [before, [], desired, readback,
+                                       [{"at": "new", "action": "config.update", "target": "config", "detail": detail}]]
+            with self.assertRaisesRegex(ValueError, "Do not retry blindly"):
+                ops_settings.run(client, args("settings-update", "--voyage-daily-usd", "0.000000001", "--apply"))
+
+    def test_old_gateway_cannot_preview_dollar_changes_as_supported(self):
+        client = Mock()
+        client.admin.return_value = CONFIG
+        with self.assertRaisesRegex(ValueError, "deploy a compatible gateway"):
+            ops_settings.run(client, args("settings-update", "--voyage-daily-usd", "2.5"))
+        client.admin.assert_called_once_with("config")
+        client.admin.return_value = {**CONFIG, "provider_daily_nanodollars": None}
+        preview = ops_settings.run(client, args("settings-update", "--voyage-daily-usd", "2.5"))
+        self.assertEqual(preview["changes"], {"provider_daily_nanodollars": {"voyage": 2500000000}})
+
     def test_read_returns_only_operator_settings(self):
         client = Mock()
         client.admin.return_value = CONFIG

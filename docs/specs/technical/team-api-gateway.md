@@ -6,7 +6,7 @@ aliases:
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
 spec-status: proposed
-last-updated: 2026-11-01
+last-updated: 2026-11-02
 ---
 
 # Team API gateway
@@ -99,6 +99,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 - Concurrency limits hold under load and across a deployment; a request that waits more than 5 seconds for a slot gets `rate_limited`.
 - One hundred concurrent requests near the daily limit never over-admit.
+- Voyage and TypeSafe have independent daily currency allowances, with atomic conservative reservations and no cross-provider budget borrowing. Published pricing and context assumptions remain visible; these are gateway accounting limits rather than guarantees against vendor price changes or unrelated account charges.
 - Retrying an idempotency key after a lost response never dispatches again; reusing a key with a different body is rejected.
 - An ambiguous failure after dispatch is terminal for that logical request in both providers, including Voyage's adaptive batch splitting.
 - The kill switch blocks new paid calls within 15 seconds.
@@ -200,6 +201,9 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST start with 4 concurrent paid calls per person and 8 globally, revised only from measurements and provider limits.
 - MUST enforce daily per-person and global limits on request count and input bytes, and reserve a conservative charge for each allowed model before dispatch, atomically with the receipt (one store transaction). A model without a defensible charge bound stays disabled for live use.
 - MUST settle each receipt once, against the UTC day it was admitted on, and keep the full reservation when the outcome or actual usage is unknown.
+- MUST enforce separate per-provider daily USD allowances using integer nanodollars. Reserve the reviewed maximum billable request cost atomically with the receipt, person/global credit counters, provider counter, and process lease condition. Missing or zero provider allowances disable paid admission for that provider. Record the pricing/accounting version on the receipt; keep full currency holds on uncertain outcomes and release only verified unused charges. Keep existing shared credit controls.
+- MUST expose provider allowance, reserved/settled currency, unknown outcomes, and reviewed price/context assumptions through the authenticated admin API and ops reports. Runtime provider allowances cannot exceed startup ceilings. Keep `jev-latest` and original request bytes unchanged; a changed provider price/context contract requires reviewing the accounting assumptions.
+- MUST migrate provider accounting with paid calls off and no old active requests. Refuse to silently assign zero currency usage to previously admitted legacy requests. Disable paid calls and drain before rollback to a binary that does not enforce provider allowances.
 - MUST keep receipts for as long as their idempotency keys can be presented; this build never deletes them.
 - MUST give each serving process a unique instance ID and a renewable shared-store lease, and record the owner on every receipt. Admission and receipt transitions require a live owner lease; dispatch and settlement also require matching receipt ownership. Recovery runs at startup and periodically, permanently fences only expired owners, and changes only their in-progress receipts to unknown with reservations kept. Lease renewal and recovery fencing MUST be atomic against each other. An expired or fenced owner cannot renew, and late settlement after recovery MUST change neither the receipt nor its counters. Task clocks MUST track UTC.
 - MUST bound how many request bodies are buffered at once, separately from paid admission, so uploads waiting to be validated cannot exhaust memory.

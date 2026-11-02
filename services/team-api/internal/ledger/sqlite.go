@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS ledger_receipts (
 		if err != nil {
 			return err
 		}
-		hasOwner := false
+		columns := map[string]bool{}
 		for rows.Next() {
 			var cid, notnull, pk int
 			var name, typ string
@@ -71,17 +71,32 @@ CREATE TABLE IF NOT EXISTS ledger_receipts (
 				rows.Close()
 				return err
 			}
-			hasOwner = hasOwner || name == "owner"
+			columns[name] = true
 		}
 		err = rows.Err()
 		rows.Close()
 		if err != nil {
 			return err
 		}
-		if !hasOwner {
-			if _, err := c.ExecContext(ctx, "ALTER TABLE ledger_receipts ADD COLUMN owner TEXT NOT NULL DEFAULT ''"); err != nil {
-				return err
+		for _, col := range []struct{ name, ddl string }{
+			{"owner", "TEXT NOT NULL DEFAULT ''"},
+			{"provider", "TEXT NOT NULL DEFAULT ''"},
+			{"price_version", "TEXT NOT NULL DEFAULT ''"},
+			{"reserved_nanodollars", "INTEGER NOT NULL DEFAULT 0"},
+			{"settled_nanodollars", "INTEGER"},
+			{"provider_limit_nanodollars", "INTEGER NOT NULL DEFAULT 0"},
+			{"price_nanodollars_per_token", "INTEGER NOT NULL DEFAULT 0"},
+			{"max_billable_tokens", "INTEGER NOT NULL DEFAULT 0"},
+			{"accounting_version", "INTEGER NOT NULL DEFAULT 0"},
+		} {
+			if !columns[col.name] {
+				if _, err := c.ExecContext(ctx, "ALTER TABLE ledger_receipts ADD COLUMN "+col.name+" "+col.ddl); err != nil {
+					return err
+				}
 			}
+		}
+		if err := migrateProviderSQLite(ctx, c); err != nil {
+			return err
 		}
 		_, err = c.ExecContext(ctx, "INSERT INTO ledger_owners (owner, expires_at) VALUES (?, ?)", l.owner, now().Add(LeaseDuration).UnixNano())
 		return err
@@ -112,6 +127,9 @@ func (l *SQLite) Heartbeat(ctx context.Context) error {
 func (l *SQLite) Recover(ctx context.Context) error {
 	return l.tx(ctx, func(ctx context.Context, c *sql.Conn) error {
 		if _, err := c.ExecContext(ctx, "UPDATE ledger_owners SET expires_at = 0 WHERE expires_at <= ?", l.now().UnixNano()); err != nil {
+			return err
+		}
+		if err := l.recoverProviders(ctx, c); err != nil {
 			return err
 		}
 		const abandoned = `state IN ('reserved', 'dispatched') AND NOT EXISTS (SELECT 1 FROM ledger_owners o WHERE o.owner = r.owner AND o.expires_at > 0)`
@@ -146,6 +164,9 @@ func (l *SQLite) Reserve(ctx context.Context, r Receipt, person, everyone wire.D
 	if err := validReceipt(r); err != nil {
 		return "", err
 	}
+	if r.Provider != "" {
+		r.AccountingVersion = providerAccountingVersion
+	}
 	err := l.tx(ctx, func(ctx context.Context, c *sql.Conn) error {
 		if err := l.live(ctx, c); err != nil {
 			return err
@@ -167,6 +188,9 @@ func (l *SQLite) Reserve(ctx context.Context, r Receipt, person, everyone wire.D
 			return codeErr{wire.CodeOutcomeUnknown}
 		}
 		day := l.Day()
+		if err := l.reserveProvider(ctx, c, day, r); err != nil {
+			return err
+		}
 		for _, scope := range []struct {
 			sub    string
 			limits wire.DailyLimits
@@ -181,21 +205,25 @@ func (l *SQLite) Reserve(ctx context.Context, r Receipt, person, everyone wire.D
 				return codeErr{wire.CodeBudgetExhausted}
 			}
 			if _, err := c.ExecContext(ctx, `
-INSERT INTO ledger_days (day, sub, requests, input_bytes, reserved_credits) VALUES (?, ?, 1, ?, ?)
+INSERT INTO ledger_days (day, sub, requests, input_bytes, reserved_credits, budgeted_requests) VALUES (?, ?, 1, ?, ?, ?)
 ON CONFLICT (day, sub) DO UPDATE SET requests = requests + 1,
 	input_bytes = input_bytes + excluded.input_bytes,
-	reserved_credits = reserved_credits + excluded.reserved_credits`,
-				day, scope.sub, r.InputBytes, r.Credits); err != nil {
+	reserved_credits = reserved_credits + excluded.reserved_credits,
+    budgeted_requests = budgeted_requests + excluded.budgeted_requests`,
+				day, scope.sub, r.InputBytes, r.Credits, providerRequest(r)); err != nil {
 				return err
 			}
 		}
 		now := l.stamp()
 		_, err = c.ExecContext(ctx, `
-INSERT INTO ledger_receipts (sub, idem_key, route, body_hash, model, day, state, input_bytes, reserved_credits, created_at, updated_at, owner)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ledger_receipts (sub, idem_key, route, body_hash, model, day, state, input_bytes, reserved_credits, created_at, updated_at, owner, provider, price_version, reserved_nanodollars, price_nanodollars_per_token, max_billable_tokens, accounting_version, provider_limit_nanodollars)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (sub, idem_key) DO UPDATE SET model = excluded.model, day = excluded.day, state = excluded.state,
-	input_bytes = excluded.input_bytes, reserved_credits = excluded.reserved_credits, updated_at = excluded.updated_at, owner = excluded.owner`,
-			r.Sub, r.Key, r.Route, r.BodyHash, r.Model, day, stateReserved, r.InputBytes, r.Credits, now, now, l.owner)
+	input_bytes = excluded.input_bytes, reserved_credits = excluded.reserved_credits, updated_at = excluded.updated_at, owner = excluded.owner,
+    settled_credits = NULL, settled_nanodollars = NULL, provider_limit_nanodollars = excluded.provider_limit_nanodollars, provider = excluded.provider, price_version = excluded.price_version,
+    reserved_nanodollars = excluded.reserved_nanodollars, price_nanodollars_per_token = excluded.price_nanodollars_per_token,
+    max_billable_tokens = excluded.max_billable_tokens, accounting_version = excluded.accounting_version`,
+			r.Sub, r.Key, r.Route, r.BodyHash, r.Model, day, stateReserved, r.InputBytes, r.Credits, now, now, l.owner, r.Provider, r.PriceVersion, r.ReservedNanodollars, r.PriceNanodollarsPerToken, r.MaxBillableTokens, r.AccountingVersion, r.ProviderLimitNanodollars)
 		return err
 	})
 	var ce codeErr
@@ -222,6 +250,9 @@ func (l *SQLite) MarkUnknown(ctx context.Context, sub, key string) error {
 		if err != nil {
 			return err
 		}
+		if err := l.adjustProvider(ctx, c, r.day, sub, r.Receipt, stateUnknown, nil); err != nil {
+			return err
+		}
 		return l.adjust(ctx, c, r.day, sub, `unknown = unknown + 1`)
 	})
 }
@@ -230,7 +261,7 @@ func (l *SQLite) MarkUnknown(ctx context.Context, sub, key string) error {
 // not dispatched, including one already settled, returns ErrPrecondition and
 // changes nothing, so nothing is refunded twice. actualCredits < 0 means
 // usage is unknown; it only matters for Succeeded.
-func (l *SQLite) Settle(ctx context.Context, sub, key string, outcome Outcome, actualCredits int64) error {
+func (l *SQLite) Settle(ctx context.Context, sub, key string, outcome Outcome, actualCredits int64, actualNanodollars ...int64) error {
 	to, ok := map[Outcome]string{NotDispatched: stateNotDispatched, Succeeded: stateSucceeded, Rejected: stateRejected}[outcome]
 	if !ok {
 		return fmt.Errorf("ledger: unknown outcome %d", outcome)
@@ -244,10 +275,23 @@ func (l *SQLite) Settle(ctx context.Context, sub, key string, outcome Outcome, a
 		if err != nil {
 			return err
 		}
+		if _, err := c.ExecContext(ctx, "UPDATE ledger_receipts SET settled_nanodollars = ? WHERE sub = ? AND idem_key = ?", settledCurrency(r.Receipt, to, actualNanodollars), sub, key); err != nil {
+			return err
+		}
+		if err := l.adjustProvider(ctx, c, r.day, sub, r.Receipt, to, actualNanodollars); err != nil {
+			return err
+		}
+		_, unknown := providerAdjustment(r.Receipt, to, actualNanodollars)
+		if unknown {
+			if _, err := c.ExecContext(ctx, "UPDATE ledger_receipts SET state = ?, settled_credits = NULL WHERE sub = ? AND idem_key = ?", stateUnknown, sub, key); err != nil {
+				return err
+			}
+			return l.adjust(ctx, c, r.day, sub, `unknown = unknown + 1`)
+		}
 		switch {
 		case outcome == NotDispatched:
 			return l.adjust(ctx, c, r.day, sub,
-				`requests = requests - 1, input_bytes = input_bytes - ?, reserved_credits = reserved_credits - ?`, r.bytes, r.reserved)
+				`requests = requests - 1, input_bytes = input_bytes - ?, reserved_credits = reserved_credits - ?, budgeted_requests = budgeted_requests - ?`, r.bytes, r.reserved, providerRequest(r.Receipt))
 		case outcome == Rejected:
 			return l.adjust(ctx, c, r.day, sub, `reserved_credits = reserved_credits - ?`, r.reserved)
 		case settled != nil:
@@ -260,6 +304,7 @@ func (l *SQLite) Settle(ctx context.Context, sub, key string, outcome Outcome, a
 
 // held is what a receipt holds against its admission day.
 type held struct {
+	Receipt
 	day             string
 	bytes, reserved int64
 }
@@ -270,8 +315,8 @@ func (l *SQLite) transition(ctx context.Context, c *sql.Conn, sub, key, from, to
 	if err := l.live(ctx, c); err != nil {
 		return r, err
 	}
-	err := c.QueryRowContext(ctx, `SELECT day, input_bytes, reserved_credits FROM ledger_receipts WHERE sub = ? AND idem_key = ? AND state = ? AND owner = ?`,
-		sub, key, from, l.owner).Scan(&r.day, &r.bytes, &r.reserved)
+	err := c.QueryRowContext(ctx, `SELECT day, input_bytes, reserved_credits, provider, price_version, reserved_nanodollars, price_nanodollars_per_token, max_billable_tokens, accounting_version FROM ledger_receipts WHERE sub = ? AND idem_key = ? AND state = ? AND owner = ?`,
+		sub, key, from, l.owner).Scan(&r.day, &r.bytes, &r.reserved, &r.Provider, &r.PriceVersion, &r.ReservedNanodollars, &r.PriceNanodollarsPerToken, &r.MaxBillableTokens, &r.AccountingVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, ErrPrecondition
 	}

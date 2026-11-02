@@ -44,4 +44,5 @@ type RuntimeSource interface {
 // the admin API reads it. date is YYYY-MM-DD.
 type UsageReader interface {
 	Usage(ctx context.Context, date string) (global wire.DailyUsage, people map[string]wire.DailyUsage, err error)
+	ProviderUsage(ctx context.Context, date string) (map[string]wire.ProviderUsage, map[string]map[string]wire.ProviderUsage, error)
 }

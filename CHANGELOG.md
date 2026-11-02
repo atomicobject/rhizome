@@ -11,6 +11,8 @@
 
 ### Added
 
+- Team API gateway enforces independent daily provider allowances with atomic integer currency reservations, audited operator controls, per-user/provider reports, and visible pricing assumptions. Missing budgets disable paid admission; unknown outcomes retain their reservations.
+
 - Repository-owned `rhizome-ops` skill for gateway health, global and per-user usage, bounded logs, request/provider latency, AWS capacity metrics, access checks, incident guidance, and previewed runtime switch/limit changes with readback and audit verification.
 - Team API deployment package for ARM64 ECS Express Mode: protected GitHub OIDC deploys, DynamoDB state, Secrets Manager delivery, 30-day JSON logs, and a bootstrap and rollback runbook. Deployment remains an operator step.
 

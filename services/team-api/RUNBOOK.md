@@ -48,6 +48,8 @@ Drew performs these steps in order. Account IDs, resource names, the endpoint, G
      "global_limits": {"requests": 0, "input_bytes": 0, "charge_credits": 0},
      "max_person_limits": {"requests": 100, "input_bytes": 1000000, "charge_credits": 100000},
      "max_global_limits": {"requests": 300, "input_bytes": 3000000, "charge_credits": 300000},
+     "provider_daily_nanodollars": {"voyage": 0, "typesafe": 0},
+     "max_provider_daily_nanodollars": {"voyage": 0, "typesafe": 0},
      "concurrency": {"voyage_concurrency": 4, "typesafe_concurrency": 4}
    }
    ```
@@ -108,6 +110,16 @@ CloudWatch retains records for 30 days. The gateway writes bounded JSON lines to
 
 A failed workflow is not evidence of a successful release. Inspect CloudFormation events, ECS deployment history, and task exit reasons. An ECS automatic rollback must not pass the revision check. A failure in the ALB or smoke checks happens after a deployment may already be serving; investigate and redeploy a known image. Check the exact running task revision and endpoint. Review billing, retained receipt growth, DynamoDB throttling, and memory under maximum concurrency during the pilot; right-size only from those measurements. This change adds no pager integration or live alarms.
 
+## Provider budgets and first enablement
+
+Each provider has its own UTC admission-day allowance in integer nanodollars (one dollar is one billion nanodollars). Runtime `provider_daily_nanodollars` values are clamped to startup `max_provider_daily_nanodollars`; absent or zero effective values disable that provider. Existing request, byte, and credit limits also apply. Keep actual production allowances and filled configuration in AWS and private operations records.
+
+Before first currency-accounting deployment, turn paid calls off and verify today's admitted usage is zero and no old paid work remains. Legacy paid requests have no trustworthy dollar attribution; a nonzero legacy day refuses new currency-budgeted admission until a clean UTC day or a separately reviewed reconciliation. First deploy the budget-aware binary with the old startup configuration; missing new fields mean zero provider allowance. Verify the requested successful canary and only the new revision serving. Then add the approved startup currency ceilings, deploy a fresh revision of that same image, and apply provider allowances, compatible shared limits, and provider switches through the admin API. Startup SSM values seed runtime state only on first boot; they do not overwrite an existing runtime record.
+
+The gateway reserves the reviewed maximum possible request charge before dispatch and settles down only from unambiguous billing usage. Currency reservations survive missing/malformed usage, rejections without proof of no billing, interrupted responses, and owner recovery. The reservation includes settled charges; do not add them together. TypeSafe dollar accounting uses input tokens only, while existing shared credits keep their prior accounting semantics. Request bodies and `jev-latest` are preserved. Ops reports expose the currently reviewed rates/context bounds; vendor price/context changes require reviewing these assumptions. These controls cover gateway accounting, not unrelated account use or a guarantee against vendor contract changes.
+
+Usage above a reviewed bound fences the provider until accounting review. The fence survives day changes and process restarts. Raising the allowance does not clear it. Global `fenced` reports current admission status even for historical dates; per-person counters describe their admission day. Keep the provider disabled while diagnosing pricing, context, or usage-format changes. Before rollback to a binary without provider-budget enforcement, switch paid calls off and drain. Restore the compatible startup configuration before starting that binary: old strict config decoders reject the new provider fields. Keep paid calls off on an older binary because it cannot enforce provider allowances.
+
 ## Ops skill and reports
 
 Use the repository's `rhizome-ops` skill from Codex or Claude Code for service health, usage, logs, performance, access, and incident guidance. Its shared helper provides read-only reports and explicit runtime settings changes. Settings changes preview by default and require `--apply` to write. Supply the expected AWS account, region, and stack explicitly; it refuses a different account before reading the stack. It discovers the endpoint and resource names from stack outputs.
@@ -122,7 +134,7 @@ python3 scripts/team-api/ops.py --account <account> --region <region> --stack <s
 python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> capacity --hours 1
 ```
 
-Usage and email-filtered logs require an existing admin sign-in to the discovered production origin. If sign-in is missing, use `./scripts/rzm auth login --server <https-origin>`; the helper never reads tokens directly. Usage covers inclusive UTC dates, up to 31 days. It reports admitted requests, input bytes, reserved and settled credits, and unknown outcomes globally and by person. Reserved credits already include settled credits, so never add them. Credits are accounting units, not a provider bill. Limits shown for an old day are today's configured limits. The API has no historical limit snapshots or provider/model breakdown.
+Usage and email-filtered logs require an existing admin sign-in to the discovered production origin. If sign-in is missing, use `./scripts/rzm auth login --server <https-origin>`; the helper never reads tokens directly. Usage covers inclusive UTC dates, up to 31 days. It reports admitted requests, input bytes, reserved and settled credits, and unknown outcomes globally and by person. Reserved credits already include settled credits, so never add them. Credits are accounting units, not a provider bill. Limits shown for an old day are today's configured limits. The API has no historical limit snapshots or per-model breakdown. Provider currency totals and current pricing assumptions are reported separately.
 
 Performance reports distinguish HTTP request events from provider events to avoid counting a call twice. They exclude health checks and report sample counts beside latency percentiles. Provider timings separate validation, admission wait, reservation, upstream work, settlement, and total time. Log reads are bounded to 24 hours and an explicit event cap; `complete: false` means the result is partial. A sparse sample or missing measurement is not zero latency or zero traffic.
 
@@ -133,10 +145,11 @@ For settings, read the current values or preview a change before applying the ex
 ```sh
 python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> settings
 python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> settings-update \
-  --paid-calls on --voyage on --typesafe on
+  --paid-calls on --voyage on --typesafe on \
+  --voyage-daily-usd <approved-USD> --typesafe-daily-usd <approved-USD>
 ```
 
-Add `--apply` only for an authorized change. The helper reads back requested fields and checks for its matching audit entry. Runtime daily limits must fit the startup ceilings. To raise a ceiling, review a patch to only `max_person_limits` and `max_global_limits` in the non-secret SSM `ConfigParameter`, preserve its other fields, deploy a fresh task through CI, then apply the runtime limits through the admin API. Do not alter DynamoDB directly or expect SSM seed values to replace current runtime settings. Zero effective runtime limits prevent paid admission. Startup ceilings constrain later admin updates; lowering them does not replace existing runtime limits or per-person overrides. Use `--paid-calls off` to stop new paid admissions. Ceilings and runtime limits are accounting bounds, not dollar budgets.
+Add `--apply` only for an authorized change. The helper reads back requested fields and checks for its matching audit entry. Runtime daily limits must fit the startup ceilings. To raise a ceiling, review a patch to only the relevant `max_person_limits`, `max_global_limits`, and `max_provider_daily_nanodollars` in the non-secret SSM `ConfigParameter`, preserve its other fields, deploy a fresh task through CI, then apply the runtime limits through the admin API. Do not alter DynamoDB directly or expect SSM seed values to replace current runtime settings. Zero effective runtime limits prevent paid admission. Shared request/byte/credit ceilings constrain later admin updates; lowering them does not replace existing runtime limits or per-person overrides. Provider currency ceilings also clamp the effective runtime allowance. Use `--paid-calls off` to stop new paid admissions. Shared credits remain accounting units rather than dollars; the separate provider allowances use the reviewed currency bounds described above.
 
 Recommended follow-ups are an external HTTPS availability check, alerts for sustained target/ALB errors and resource pressure, notification of failed deployments, and an alert on unknown accounting outcomes. Choose thresholds and a notification owner from pilot measurements before provisioning them. Keep per-user accounting in the admin API rather than adding identity labels to CloudWatch metrics.
 

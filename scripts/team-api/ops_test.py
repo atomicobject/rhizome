@@ -25,6 +25,50 @@ def event(name, attrs, metrics, identifier="one"):
 
 
 class UsageTests(unittest.TestCase):
+    def test_quiet_user_can_have_a_null_provider_map_from_go_json(self):
+        result = ops.aggregate_usage([{"date": "2026-01-01", "global": {"usage": usage(), "limits": {}},
+                                       "providers": {}, "pricing_assumptions": None,
+                                       "people": [{"sub": "s1", "email": "member@example.com", "usage": usage(),
+                                                   "limits": {}, "providers": None}]}])
+        self.assertEqual(result["people"][0]["providers"], {})
+        self.assertFalse(result["accounting_fenced"])
+
+    def test_provider_dollars_aggregate_by_day_and_person_without_float_or_double_count(self):
+        def money(requests, reserved, settled, unknown):
+            return {"requests": requests, "reserved_nanodollars": reserved, "settled_nanodollars": settled, "unknown_outcomes": unknown}
+        reports = [
+            {"date": "2026-01-01", "global": {"usage": usage(2), "limits": {}},
+             "providers": {"voyage": {"usage": money(2, 9007199254740993, 250000000, 1), "daily_limit_nanodollars": 2500000000}},
+             "pricing_assumptions": {"voyage": {"model": "voyage-synthetic", "version": "reviewed-v1"}},
+             "people": [{"sub": "s1", "email": "member@example.com", "usage": usage(1), "limits": {},
+                         "providers": {"voyage": money(1, 1250000000, 250000000, 1)}}]},
+            {"date": "2026-01-02", "global": {"usage": usage(1), "limits": {}},
+             "providers": {"voyage": {"usage": money(1, 1, 1, 0), "daily_limit_nanodollars": 1250000000},
+                           "typesafe": {"usage": money(1, 1250000000, 250000000, 0), "daily_limit_nanodollars": 2500000000}},
+             "people": [{"sub": "s1", "email": "member@example.com", "usage": usage(1), "limits": {},
+                         "providers": {"typesafe": money(1, 1250000000, 250000000, 0)}}]},
+        ]
+        result = ops.aggregate_usage(reports)
+        self.assertEqual(result["providers"]["voyage"], {"requests": 3, "reserved_nanodollars": 9007199254740994,
+                                                         "settled_nanodollars": 250000001, "unknown_outcomes": 1,
+                                                         "reserved_usd": "9007199.254740994", "settled_usd": "0.250000001", "fenced": False})
+        self.assertEqual(result["days"][0]["providers"]["voyage"]["daily_limit_usd"], "2.5")
+        self.assertEqual(result["days"][1]["providers"]["voyage"]["daily_limit_usd"], "1.25")
+        self.assertEqual(result["days"][0]["pricing_assumptions"]["voyage"]["version"], "reviewed-v1")
+        selected = ops.aggregate_usage(reports, {"sub": "s1", "email": "member@example.com"})
+        self.assertEqual(selected["providers"]["voyage"]["reserved_nanodollars"], 1250000000)
+        self.assertEqual(selected["providers"]["typesafe"]["reserved_usd"], "1.25")
+        self.assertEqual(selected["people"][0]["providers"]["voyage"]["unknown_outcomes"], 1)
+        reports[0]["providers"]["voyage"]["usage"]["fenced"] = True
+        reports[0]["people"][0]["providers"]["voyage"]["fenced"] = True
+        fenced = ops.aggregate_usage(reports, {"sub": "s1", "email": "member@example.com"})
+        self.assertTrue(fenced["accounting_fenced"])
+        self.assertEqual(fenced["accounting_fences"], ["voyage"])
+        self.assertTrue(fenced["providers"]["voyage"]["fenced"])
+        self.assertTrue(fenced["people"][0]["providers"]["voyage"]["fenced"])
+        reports[0]["people"][0]["providers"]["voyage"]["fenced"] = False
+        self.assertTrue(ops.aggregate_usage(reports, {"sub": "s1"})["accounting_fenced"])
+
     def test_daily_aggregation_keeps_credits_distinct_and_exact(self):
         reports = [
             {"date": "2026-01-01", "global": {"usage": usage(2, 9007199254740993), "limits": {"requests": 10}},

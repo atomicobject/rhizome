@@ -17,6 +17,7 @@ import ops_settings
 
 ROOT = Path(__file__).resolve().parents[2]
 COUNTERS = ("requests", "input_bytes", "reserved_credits", "settled_credits", "unknown_outcomes")
+PROVIDER_COUNTERS = ("requests", "reserved_nanodollars", "settled_nanodollars", "unknown_outcomes")
 PAID_ROUTES = ("/v1/providers/voyage/v1/embeddings", "/v1/providers/typesafe/v1/systemone")
 
 
@@ -213,34 +214,63 @@ def resolve_person(people, user):
     return {"sub": matches[0]["sub"], "email": matches[0]["email"]}
 
 
-def add_usage(total, usage):
-    for key in COUNTERS:
+def add_usage(total, usage, counters=COUNTERS):
+    for key in counters:
         value = usage[key]
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(f"Invalid usage counter: {key}")
         total[key] += value
 
 
+def add_provider_usage(total, providers):
+    for provider, usage in (providers or {}).items():
+        row = total.setdefault(provider, {**dict.fromkeys(PROVIDER_COUNTERS, 0), "fenced": False})
+        add_usage(row, usage, PROVIDER_COUNTERS)
+        if not isinstance(usage.get("fenced", False), bool):
+            raise ValueError("Invalid provider accounting fence")
+        row["fenced"] = row["fenced"] or usage.get("fenced", False)
+
+
+def provider_dollars(providers):
+    return {provider: {**usage, "reserved_usd": ops_settings.format_usd(usage["reserved_nanodollars"]),
+                       "settled_usd": ops_settings.format_usd(usage["settled_nanodollars"])} for provider, usage in providers.items()}
+
+
 def aggregate_usage(reports, selected=None):
     total = dict.fromkeys(COUNTERS, 0)
-    people = {}
+    people, providers = {}, {}
     for day in reports:
         if not selected:
             add_usage(total, day["global"]["usage"])
+            add_provider_usage(providers, {p: entry["usage"] for p, entry in (day.get("providers") or {}).items()})
         for person in day["people"]:
             if selected and person["sub"] != selected["sub"]:
                 continue
-            row = people.setdefault(person["sub"], {"sub": person["sub"], "email": person["email"], "usage": dict.fromkeys(COUNTERS, 0)})
+            row = people.setdefault(person["sub"], {"sub": person["sub"], "email": person["email"],
+                                                   "usage": dict.fromkeys(COUNTERS, 0), "providers": {}})
             add_usage(row["usage"], person["usage"])
+            add_provider_usage(row["providers"], person.get("providers", {}))
             if selected:
                 add_usage(total, person["usage"])
+                add_provider_usage(providers, person.get("providers", {}))
+    for person in people.values():
+        person["providers"] = provider_dollars(person["providers"])
     days = [{"date": day["date"], "global": day["global"],
+             "providers": {p: {**entry, "daily_limit_usd": ops_settings.format_usd(entry["daily_limit_nanodollars"])}
+                           for p, entry in (day.get("providers") or {}).items()},
+             "pricing_assumptions": ops_settings.pricing_assumptions(day),
              "people": [p for p in day["people"] if not selected or p["sub"] == selected["sub"]]} for day in reports]
     return {"scope": selected or "global", "total_usage": total, "people": list(people.values()), "days": days,
+            "providers": provider_dollars(providers),
+            "accounting_fenced": any(entry["usage"].get("fenced", False) for day in reports for entry in (day.get("providers") or {}).values()),
+            "accounting_fences": sorted({p for day in reports for p, entry in (day.get("providers") or {}).items() if entry["usage"].get("fenced", False)}),
             "notes": ["UTC admission-day accounting. Requests and bytes count admitted work, not every HTTP attempt.",
                       "Reserved credits include settled credits; do not add them together. Credits are not a provider bill or currency.",
+                      "Provider reserved nanodollars include settled nanodollars. USD strings are exact conservative admission accounting, not a vendor invoice.",
                       "Unknown outcomes retain full reservations. Never clear receipts to retry an ambiguous paid call.",
-                      "Daily limits shown are current limits, including for historical dates. No historical limit snapshot or provider/model breakdown is available."]}
+                      "Accounting fences are ORed across dates, not summed. Global provider/day fences remain visible in user-filtered reports.",
+                      "Daily limits and pricing assumptions shown are current, including for historical dates. Multi-day usage does not imply a summed daily budget.",
+                      "Missing provider dollar data means unavailable, not zero. Usage has provider breakdowns but no model-level totals."]}
 
 
 def parse_events(events, selected=None, request_id=None):

@@ -31,7 +31,7 @@ Append one of these modes after the target flags:
 | Investigate one person's requests | `logs --hours 2 --user person@example.com` |
 | Request errors and phase timings | `performance --hours 1`, optionally `--user <email-or-sub>` |
 | ECS, ALB, and DynamoDB measurements | `capacity --hours 1` |
-| Current paid-call switches and daily limits | `settings` |
+| Current paid-call switches, daily dollar budgets, limits, and reviewed pricing | `settings` |
 
 State the actual account, stack, UTC window, and completeness in the report. Log and capacity windows are at most 24 hours. Log retrieval follows pagination up to the requested `--max-events`, default 5000 and maximum 10000. `complete: false` means counts and percentiles cover only the retrieved portion. Narrow a partial window before presenting a complete total. No matching events, missing metrics, and denied reads are separate findings.
 
@@ -54,26 +54,30 @@ Use the stack's `Endpoint` as the explicit `--server` HTTPS origin. Use an exist
 
 ## Incident changes
 
-A report request authorizes reads. Apply changes within the user's authorization. Use `settings-update` for the global paid-call switch, Voyage/Jev switches, and default person/global limits. Choose only the requested fields; the helper preserves unrelated settings. Preview with approved values, then supply `--apply` to submit once, compare requested fields with runtime readback, and verify a new matching `config.update` audit entry.
+A report request authorizes reads. Apply changes within the user's authorization. Use `settings-update` for the global paid-call switch, Voyage/Jev switches, provider-wide daily dollar budgets, and default person/global limits. Choose only the requested fields and providers; the helper preserves unrelated settings. Preview with approved values, then supply `--apply` to submit once, compare requested fields with runtime readback, and verify a new matching `config.update` audit entry.
 
 ```sh
 python3 scripts/team-api/ops.py --account "$TEAM_API_ACCOUNT" \
   --region "$TEAM_API_REGION" --stack "$TEAM_API_STACK" settings-update \
   --paid-calls on --voyage on --typesafe on \
+  --voyage-daily-usd "$APPROVED_VOYAGE_DAILY_USD" \
+  --typesafe-daily-usd "$APPROVED_TYPESAFE_DAILY_USD" \
   --person-limits "$APPROVED_PERSON_LIMITS" --global-limits "$APPROVED_GLOBAL_LIMITS"
 ```
 
-`--typesafe` controls Jev. Add `--apply` to this command to apply the preview within the authorized scope. Enabling provider switches while a daily limit is zero still admits no paid traffic. Set explicit approved limits before claiming a provider is usable. After an unverified apply outcome, read `settings` and audit before another update; a lost response may follow a committed change, so the helper never resends automatically.
+`--typesafe` controls Jev. Dollar flags accept nonnegative decimal USD with at most nine fractional digits and convert exactly to integer nanodollars. Preview and settings show both units. Provider budget patches merge only the selected provider; setting Voyage does not replace TypeSafe's budget. Add `--apply` to this command to apply the preview within the authorized scope. Enabling switches while an effective admission limit or provider dollar budget is zero still admits no paid traffic. Set explicit approved budgets and limits before claiming a provider is usable. After an unverified apply outcome, read `settings` and audit before another update; a lost response may follow a committed change, so the helper never resends automatically.
+
+`settings` reports the server's current reviewed `pricing_assumptions`, including model, version, review date, rate, and maximum billable tokens. Jev uses the `jev-latest` alias. The pricing record describes its reviewed billing assumptions; it does not pin a model revision. Investigate an accounting fence or changed provider billing terms before continuing paid traffic. A higher budget cannot clear a provider accounting fence.
 
 Use the admin API for current switches, limits, and eligibility. These values seed DynamoDB on first boot; editing their startup SSM values later does not change current runtime state.
 
 For an authorized spending stop, use `auth admin config --paid-calls off`. It blocks new paid admissions within 15 seconds; already dispatched work can still be charged. To offboard someone, use their Google subject with `auth admin person <sub> --status disabled` and `auth admin revoke-all <sub>`. The runbook allows up to 60 seconds for cached access to expire. Workspace suspension alone is insufficient. Revoke one device with `auth admin revoke <session-id>`.
 
-Limits use `requests,input_bytes,charge_credits`; a zero limit admits no paid calls. `--person-limits`, `--global-limits`, and `auth admin person <sub> --limits` cannot exceed startup ceilings. The runtime API does not expose or change these ceilings. If approved limits require higher ceilings, review a targeted patch to the nonsecret startup configuration in SSM and perform a fresh protected deployment before applying the runtime change. Preserve unrelated startup fields and runtime state. Never write DynamoDB counters/settings directly or treat SSM seed edits as runtime changes. Treat increasing limits, re-enabling paid calls, and widening eligibility as explicit operating decisions. Follow [the runbook](../../../services/team-api/RUNBOOK.md) for authorized changes and recovery. Preserve the service hostname and durable ledger receipts.
+Legacy limits use `requests,input_bytes,charge_credits`; a zero effective limit admits no paid calls. `--person-limits`, `--global-limits`, `auth admin person <sub> --limits`, and provider dollar budgets cannot exceed their startup ceilings. The runtime API does not expose or change these ceilings. If approved settings require higher ceilings, review a targeted patch to the nonsecret startup configuration in SSM and perform a fresh protected deployment before applying the runtime change. Preserve unrelated startup fields and runtime state. Never write DynamoDB counters/settings directly or treat SSM seed edits as runtime changes. Treat increasing budgets, re-enabling paid calls, and widening eligibility as explicit operating decisions. Follow [the runbook](../../../services/team-api/RUNBOOK.md) for authorized changes and recovery. Preserve the service hostname and durable ledger receipts.
 
 ## Deployment and rollback
 
-Read [the runbook](../../../services/team-api/RUNBOOK.md) and the current `.github/workflows/team-api-deploy.yml` before a deployment operation. Production CI retains the main-only environment restriction and GitHub OIDC identity. It deploys automatically without a separate environment reviewer prompt. Use that workflow and its acceptance checks; release publication waits for the gateway revision check. Inspect the exact requested commit/image and report the final workflow result and running revision. A local health check does not replace CI acceptance.
+Read [the runbook](../../../services/team-api/RUNBOOK.md) and the current `.github/workflows/team-api-deploy.yml` before a deployment operation. Production CI retains the main-only environment restriction and GitHub OIDC identity. It deploys automatically without a separate environment reviewer prompt. Use that workflow and its acceptance checks. Waiting for gateway deployment before client publication remains a proposed release change; current client publication does not establish gateway deployment success. Inspect the exact requested commit/image and report the final workflow result and running revision. A local health check does not replace CI acceptance.
 
 Rollback uses the same protected workflow with a previously published full commit SHA as `image_tag`. It changes code while current runtime settings and durable state remain. Secret or startup configuration changes need a fresh deployment to reach running tasks. IAM/template changes follow their separate reviewed administrative path. The ops helper creates no deployment. Only an explicit `settings-update --apply` changes runtime settings.
 
