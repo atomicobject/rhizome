@@ -3945,6 +3945,11 @@ components:
           additionalProperties: true
         description: { type: string }
         generated: { type: boolean }
+        params:
+          type: array
+          description: Declared view parameters (SPEC-0110). Values live on the view's URL query under each name.
+          items:
+            $ref: "#/components/schemas/ViewParam"
         source:
           $ref: "#/components/schemas/ViewSourceSpec"
         mount:
@@ -3953,6 +3958,23 @@ components:
           $ref: "#/components/schemas/ViewDefaultsSpec"
         variants:
           $ref: "#/components/schemas/ViewVariantSet"
+    ViewParam:
+      type: object
+      required: [name, kind]
+      properties:
+        name: { type: string }
+        kind:
+          type: string
+          enum: [string, int, bool]
+        default:
+          description: A value of the param's kind, applied when the URL omits it.
+          oneOf:
+            - { type: string }
+            - { type: integer }
+            - { type: boolean }
+        identity:
+          type: boolean
+          description: Part of the view's invocation; changing it remounts the view.
     ViewSourceSpec:
       type: object
       additionalProperties: true

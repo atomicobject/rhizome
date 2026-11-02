@@ -235,7 +235,7 @@ func TestCustomViewHTMLAndScriptContextsMatch(t *testing.T) {
 	for _, entry := range []string{"index.html", "board.tsx"} {
 		t.Run(entry, func(t *testing.T) {
 			srv := newCustomViewTestServer(t, entry, map[string]string{"poc/" + entry: "<html><head><script>window.loaded=true</script></head><body>hi</body></html>"})
-			definition := strings.Replace(strings.Replace(customViewTestYAML, "ENTRY", entry, 1), "kind: standalone", "kind: type\n  type: Doc", 1) + "configuration:\n  label: Authored\n"
+			definition := strings.Replace(strings.Replace(customViewTestYAML, "ENTRY", entry, 1), "kind: standalone", "kind: type\n  type: Doc", 1) + "configuration:\n  label: Authored\nparams:\n  - {name: tab, kind: string, default: health}\n"
 			if err := os.WriteFile(filepath.Join(viewRoot{}.dir(srv.cfg.VaultPath), "poc", "board.yaml"), []byte(definition), 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -247,7 +247,7 @@ func TestCustomViewHTMLAndScriptContextsMatch(t *testing.T) {
 			if response.Code != http.StatusOK {
 				t.Fatalf("response %d: %s", response.Code, response.Body.String())
 			}
-			for _, want := range []string{`id="rhizome-view-invocation"`, `"context":{"kind":"type","type":"Doc"}`, `"configuration":{"label":"Authored"}`} {
+			for _, want := range []string{`id="rhizome-view-invocation"`, `"context":{"kind":"type","type":"Doc"}`, `"configuration":{"label":"Authored"}`, `"params":[{"name":"tab","kind":"string","default":"health"}]`} {
 				if !strings.Contains(response.Body.String(), want) {
 					t.Fatalf("missing %s: %s", want, response.Body.String())
 				}

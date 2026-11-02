@@ -2,6 +2,7 @@ import { isPlainObject, isNodeRef, isString, type JsonObject } from "../api/pars
 import type { NodeRef } from "../api/types";
 import { encodeURLFragment } from "../lib/noteDeepLink";
 import { formatTypeName } from "../lib/typeNames";
+import { withViewParams, type ViewParamValue } from "./params";
 
 export type ViewContext =
   | { kind: "type"; type: string }
@@ -121,7 +122,7 @@ export function isViewContext(value: unknown): value is ViewContext {
 export function customViewHref(
   id: string,
   context: ViewContextInput = { kind: "standalone" },
-  options: { hosted?: boolean } = {},
+  options: { hosted?: boolean; params?: Record<string, ViewParamValue> } = {},
 ) {
   const path = `/views/${encodeURIComponent(id)}`;
 
@@ -135,7 +136,7 @@ export function customViewHref(
 
   if (options.hosted) params.set("hosted", "1");
 
-  return params.size ? `${path}?${params}` : path;
+  return withViewParams(params.size ? `${path}?${params}` : path, options.params);
 }
 
 export function nodeHref(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
@@ -150,8 +151,19 @@ export function nodeHref(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
   return `/notes?${params}${encodeURLFragment(ref.fragment ?? "")}`;
 }
 
-/** Workspace navigation for built-in choices and registered native or custom views. */
-export function workspaceViewHref(id: string, context: ViewContextInput = { kind: "standalone" }) {
+/**
+ * Workspace navigation for built-in choices and registered native or custom
+ * views, with optional view param values on the query.
+ */
+export function workspaceViewHref(
+  id: string,
+  context: ViewContextInput = { kind: "standalone" },
+  params?: Record<string, ViewParamValue>,
+) {
+  return withViewParams(workspaceViewPath(id, context), params);
+}
+
+function workspaceViewPath(id: string, context: ViewContextInput) {
   if (context.kind === "node") return nodeHref(context.ref, { view: id });
 
   if (context.kind === "standalone") return `/notes?${new URLSearchParams({ view: id })}`;

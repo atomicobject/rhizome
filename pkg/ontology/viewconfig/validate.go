@@ -189,7 +189,7 @@ func validateMetadata(def ViewDefinition) []Issue {
 	if def.Name == "" {
 		issues = append(issues, issue(def, "missing_required_field", "name", "name is required"))
 	}
-	return issues
+	return append(issues, validateParams(def)...)
 }
 
 func validateSource(def ViewDefinition, opts ValidateOptions) []Issue {

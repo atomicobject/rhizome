@@ -24,6 +24,7 @@ import {
   type ViewContextInput,
   type ViewNodeRef,
 } from "../src/views/context";
+import { isViewParamValues, type ViewParamValue } from "../src/views/params";
 import { startView, type ViewConfig, type ViewModule } from "./startView";
 import { getViewInvocation } from "./viewContext";
 
@@ -34,6 +35,20 @@ export { mermaid } from "./mermaid";
 export * from "./viewContext";
 
 export * from "./preferences";
+
+export * from "./actions";
+
+export {
+  getViewParams,
+  setViewParams,
+  subscribeViewParams,
+  useViewParams,
+  type ViewParamDeclaration,
+  type ViewParamKind,
+  type ViewParams,
+  type ViewParamsPatch,
+  type ViewParamValue,
+} from "./viewParams";
 
 import {
   OPEN_COLLECTION_MESSAGE,
@@ -348,22 +363,33 @@ export function openNode(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
   else window.location.assign(nodeHref(ref, options));
 }
 
-/** Open another registered view with an explicit subject. */
-export function openView(id: string, context: ViewContextInput = { kind: "standalone" }) {
+/**
+ * Open another registered view with an explicit subject, optionally setting
+ * its declared params.
+ */
+export function openView(
+  id: string,
+  context: ViewContextInput = { kind: "standalone" },
+  params?: Record<string, ViewParamValue>,
+) {
   const parsedContext = parseViewContext(context);
 
   if (!parsedContext) throw new Error("Invalid view context");
 
+  if (params !== undefined && !isViewParamValues(params)) throw new Error("Invalid view params");
+
   if (embedded) {
     window.parent.postMessage(
-      { type: OPEN_VIEW_MESSAGE, id, context: parsedContext },
+      params
+        ? { type: OPEN_VIEW_MESSAGE, id, context: parsedContext, params }
+        : { type: OPEN_VIEW_MESSAGE, id, context: parsedContext },
       window.location.origin,
     );
 
     return;
   }
 
-  window.location.assign(workspaceViewHref(id, parsedContext));
+  window.location.assign(workspaceViewHref(id, parsedContext, params));
 }
 
 const postToHost = (message: ViewMessage) =>
