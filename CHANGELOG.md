@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.
+
 ### Added
 
 - Team API deployment package for ARM64 ECS Express Mode: protected GitHub OIDC deploys, DynamoDB state, Secrets Manager delivery, 30-day JSON logs, and a bootstrap and rollback runbook. Deployment remains an operator step.
