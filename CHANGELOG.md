@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.
+- Team API bootstrap takes the repository's exact GitHub OIDC subject so deployment credentials work with immutable organization and repository IDs.
+- Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
+- Team API deployment verifies Express service revisions using the revision field AWS returns, allowing a healthy deployment to pass its final check.
+
 ### Added
 
 - Custom views can run their module's actions and put their state on the URL. `useActionQuery` keeps an action's result current, polling every 15 seconds while the page is visible, and `useActionCommand` runs one and refreshes every action read; a refused or failed action rejects with `ActionError` and its reason. A view definition can declare `params` (`string`, `int`, or `bool`, with an optional default): `useViewParams()` reads them from the URL, `setViewParams` changes them with a history entry, and `openView(id, context, params)` opens a view with them, so a link such as `/notes?view=<id>&tab=health` opens a view on a tab and Back undoes a change. An `identity: true` param, such as the item a view shows, reopens the view when it changes.
