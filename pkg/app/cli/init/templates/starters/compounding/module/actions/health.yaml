@@ -1,0 +1,4 @@
+description: The friction report, with the last mine run's spend and stop reason
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "health"]
+timeout: 30s

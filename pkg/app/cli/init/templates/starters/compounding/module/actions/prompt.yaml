@@ -1,0 +1,6 @@
+description: Build one agent prompt for the selected recommendations
+inputs:
+  items: { kind: list, required: true }
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "prompt"]
+timeout: 30s

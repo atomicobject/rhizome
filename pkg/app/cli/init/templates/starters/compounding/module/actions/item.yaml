@@ -1,0 +1,6 @@
+description: One compounding recommendation in full, by its proposal:<cluster> or finding:<path> reference
+inputs:
+  ref: { kind: string, required: true }
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "item"]
+timeout: 30s
