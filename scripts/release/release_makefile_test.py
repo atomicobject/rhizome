@@ -19,9 +19,23 @@ class ReleaseMakeTargetsTest(unittest.TestCase):
         self.assertIn("release-plan:\n\tpython3 scripts/release/release_cli.py plan", self.makefile)
         self.assertIn("release-dry:\n\tpython3 scripts/release/release_cli.py dry-run", self.makefile)
 
-    def test_direct_release_bundles_through_the_clean_publish_wrapper(self):
+    def test_direct_release_uses_gated_publisher(self):
         release_target = self.makefile.split("\nrelease:\n", 1)[1].split("\nrelease-plan:\n", 1)[0]
-        self.assertIn("python3 scripts/teamkeys/release.py python3 scripts/release/run_clean.py publish -- goreleaser release --clean", release_target)
+        self.assertIn("python3 scripts/release/release_publish.py", release_target)
+        self.assertNotIn("goreleaser release", release_target)
+
+    def test_direct_make_release_executes_gated_publisher(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "git").write_text('#!/bin/sh\nprintf "v1.2.3\\n"\n', encoding="utf-8")
+            (root / "python3").write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n', encoding="utf-8")
+            for name in ("git", "python3"):
+                (root / name).chmod(0o755)
+            env = {**os.environ, "PATH": directory + os.pathsep + os.environ["PATH"]}
+            result = subprocess.run(["make", "--no-print-directory", "-s", "-f", str(MAKEFILE), "release"],
+                                    cwd=directory, env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.splitlines(), ["scripts/release/release_publish.py"])
 
     def test_resumable_phase_targets_are_exposed(self):
         for target, command in (

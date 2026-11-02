@@ -170,9 +170,11 @@ func newEnv(t *testing.T, opts options) *env {
 		"mode": "dev", "listen": "127.0.0.1:0", "data_dir": t.TempDir(),
 		"issuer": idp.srv.URL, "client_id": clientID, "hd_hint": "atomicobject.com",
 		"accepted_domains": []string{"atomicobject.com"}, "admins": []string{adminEmail},
-		"eligibility_mode": "all",
-		"person_limits":    wire.DailyLimits{Requests: 100, InputBytes: 1000, ChargeCredits: 10},
-		"global_limits":    wire.DailyLimits{Requests: 1000, InputBytes: 10000, ChargeCredits: 100},
+		"eligibility_mode":               "all",
+		"person_limits":                  wire.DailyLimits{Requests: 100, InputBytes: 1000, ChargeCredits: 10},
+		"global_limits":                  wire.DailyLimits{Requests: 1000, InputBytes: 10000, ChargeCredits: 100},
+		"provider_daily_nanodollars":     map[string]int64{"voyage": 1000, "typesafe": 2000},
+		"max_provider_daily_nanodollars": map[string]int64{"voyage": 5000, "typesafe": 6000},
 	})
 	cfg, err := config.Parse(cfgJSON)
 	if err != nil {
@@ -285,3 +287,7 @@ func (e *env) wantCode(r result, code wire.ErrorCode) {
 var codeCounter atomic.Int64
 
 func randomSuffix() string { return strconv.FormatInt(codeCounter.Add(1), 10) }
+
+func (u usageReader) ProviderUsage(context.Context, string) (map[string]wire.ProviderUsage, map[string]map[string]wire.ProviderUsage, error) {
+	return map[string]wire.ProviderUsage{"voyage": {Requests: 3, ReservedNanodollars: 600, SettledNanodollars: 400}}, map[string]map[string]wire.ProviderUsage{memberSub: {"voyage": {Requests: 2, ReservedNanodollars: 300, SettledNanodollars: 200}}}, nil
+}

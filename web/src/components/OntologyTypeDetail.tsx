@@ -111,7 +111,7 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
           </button>
         </div>
       ) : !data ? (
-        <p className="ontology-type-detail__loading">Loading…</p>
+        <p className="ontology-type-detail__loading delayed-status">Loading…</p>
       ) : (
         <>
           {error ? (

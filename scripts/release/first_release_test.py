@@ -45,6 +45,7 @@ class FirstReleaseTest(unittest.TestCase):
         self.release = Orchestrator(
             self.repo.work,
             command_runner=self.run_command,
+            gateway=self.verify_gateway,
             note_generator=lambda *args, **kwargs: GenerationResult(
                 recommended_bump="minor", rationale="First public release.",
                 themes=(ReleaseTheme("First usable release.", "First usable release.", ("unreleased:1",)),),
@@ -52,6 +53,12 @@ class FirstReleaseTest(unittest.TestCase):
             input_fn=lambda _: "", output_fn=lambda _: None,
             environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic", "TAURI_SIGNING_PRIVATE_KEY": "synthetic"},
         )
+
+    def verify_gateway(self, root, release_commit, receipt, **kwargs):
+        # Bootstrap must create release before any server deployment is requested.
+        self.assertEqual(self.repo.remote_ref("refs/heads/release"), release_commit)
+        self.calls.append(("gateway", release_commit))
+        return {"attempt": {"state": "success"}}
 
     def run_command(self, command, cwd):
         command = tuple(command)

@@ -122,7 +122,8 @@ describe("All home header", () => {
 
     await waitFor(() => expect(http.count("GET", "/api/v1/ontology/summary")).toBe(1));
     expect(screen.queryByText(/notes typed/)).toBeNull();
-    expect(screen.queryByRole("heading", { name: "All notes" })).toBeNull();
+    // The header draws at once, without a count until the summary knows it.
+    expect(screen.getByRole("heading", { name: "All notes" })).toBeVisible();
   });
 });
 

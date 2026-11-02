@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// DefaultOrigin is the gateway origin internal release builds compile in:
+// DefaultOrigin is the gateway origin internal releases and desktop dev builds compile in:
 // -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://...
 // Public builds leave it empty.
 var DefaultOrigin = ""
@@ -121,7 +121,7 @@ type ResolveOptions struct {
 
 // ResolveOrigin picks the gateway origin: an explicit server; in development
 // builds, OriginEnv if that origin already has a stored session; the
-// selector; then the development or compiled-in default. It returns "" when
+// selector; the compiled-in default; then the local development fallback. It returns "" when
 // nothing applies. Repository configuration never takes part, and OriginEnv
 // cannot send a token anywhere the person has not signed in interactively.
 func ResolveOrigin(opts ResolveOptions) (string, error) {
@@ -150,11 +150,11 @@ func ResolveOrigin(opts ResolveOptions) (string, error) {
 			return origin, err
 		}
 	}
-	if development {
-		return DevelopmentOrigin, nil
-	}
 	if DefaultOrigin != "" {
 		return CanonicalOrigin(DefaultOrigin)
+	}
+	if development {
+		return DevelopmentOrigin, nil
 	}
 	return "", nil
 }

@@ -174,6 +174,9 @@ jobs:
           TEAMAPI_DYNAMODB_ENDPOINT: http://127.0.0.1:8000
         run: make team-api-dynamodb-check
 
+      - name: Build gateway image and scan its binary
+        run: docker build --pull --no-cache -f services/team-api/Dockerfile -t rhizome-team-api:security-check .
+
   runtime-evidence:
     name: Runtime Code Evidence
     needs: [changes]
@@ -396,6 +399,8 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.desktop == 'true'
     runs-on: macos-latest
+    env:
+      RZM_DESKTOP_TEAM_API_ORIGIN: https://team.example.test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -428,8 +433,16 @@ jobs:
       - name: Install desktop dependencies
         run: make desktop-deps
 
+      - name: Record standalone CLI before desktop builds
+        run: |
+          make build
+          shasum -a 256 bin/darwin/rzm > "$RUNNER_TEMP/desktop-cli.sha256"
+
       - name: Check desktop
         run: make desktop-check
 
       - name: Build desktop application
         run: make desktop-build
+
+      - name: Verify desktop builds preserved the standalone CLI
+        run: shasum -a 256 --check "$RUNNER_TEMP/desktop-cli.sha256"

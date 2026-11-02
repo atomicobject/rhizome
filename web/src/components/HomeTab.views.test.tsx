@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { OntologySummaryResponse, ViewCatalog, ViewCatalogEntry } from "../api/types";
-import { deferredReply, withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { HomeTab } from "./HomeTab";
 import { parseNotesLocation } from "./notesRoute";
@@ -62,6 +62,23 @@ function renderAll() {
   );
 }
 
+function groupTab(group: string) {
+  const location = parseNotesLocation(`/notes/group/${encodeURIComponent(group)}`, "", "");
+
+  return (
+    <HomeTab
+      summary={summary}
+      selection={location.selection}
+      selectedType={null}
+      location={location}
+      editSession={{ session: null, replaceOps: async () => undefined, vaultKey: "vault" }}
+      onOpenNote={vi.fn()}
+      onSelectCollection={vi.fn()}
+      onStageOps={async () => undefined}
+    />
+  );
+}
+
 function renderGroup(group: string) {
   const location = parseNotesLocation(`/notes/group/${encodeURIComponent(group)}`, "", "");
 
@@ -109,6 +126,42 @@ describe("mounted collection defaults", () => {
     expect(JSON.parse(params.get("context")!)).toEqual({ kind: "group", group: "Delivery" });
     expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
     await waitFor(() => expect(viewSegment("Dashboard")).toHaveAttribute("aria-pressed", "true"));
+  });
+
+  it("keeps the last view on screen while the next group's views load", async () => {
+    registerReads();
+
+    const target = (name: string) => ({
+      kind: "group",
+      name,
+      defaultChoiceId: "dashboard",
+      choices: [{ id: "dashboard", name: "Dashboard", renderer: "custom", viewId: custom.id }],
+    });
+
+    http.json("GET", "/api/v1/views", {
+      views: [custom],
+      targets: [target("Delivery"), target("Knowledge")],
+    });
+    const knowledge = deferredReply<Response>();
+    http.on("GET", "/api/v1/view-preferences", (request) => {
+      const scope = JSON.parse(request.query.get("scope") ?? "{}");
+      const row = jsonReply({ scope, revision: 0, values: {}, migrationClosed: true });
+
+      return request.query.get("scope")?.includes("Knowledge") ? knowledge.promise : row;
+    });
+    const { rerender } = renderWithQueryClient(groupTab("Delivery"));
+    const delivery = await screen.findByTitle("Dashboard");
+
+    rerender(groupTab("Knowledge"));
+    expect(screen.getByTitle("Dashboard")).toBe(delivery);
+    expect(screen.queryByText("Loading views…")).toBeNull();
+
+    await act(async () =>
+      knowledge.resolve(jsonReply({ scope: {}, revision: 0, values: {}, migrationClosed: true })),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByTitle("Dashboard").at(-1)!.getAttribute("src")).toContain("Knowledge"),
+    );
   });
 
   it("waits for the summary before migrating an interface's legacy preference", async () => {

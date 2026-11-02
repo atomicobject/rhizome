@@ -33,7 +33,7 @@ Excluded: SPEC-0129 Non-Goals, including Linux and Windows managed sign-in, Voya
 
 ## Spec Set (Frozen)
 
-- [[team-api-gateway|SPEC-0129]], 2026-10-31 revision: US1–US8 and all requirements. Refrozen the same day after adding the admin API, local development, and in-repository server requirements (Deviations).
+- [[team-api-gateway|SPEC-0129]], refrozen 2026-11-02 for independent provider currency budgets (Deviations); original 2026-10-31 revision: US1–US8 and all requirements. Refrozen the same day after adding the admin API, local development, and in-repository server requirements (Deviations).
 
 ## Stories In Scope (Frozen)
 
@@ -80,6 +80,19 @@ The foundation review runs as an independent review once sessions and admission 
 
 **Escalation boundary.** Stop for Drew if P1 or P2 fails (the callback or audience design changes), if a provider says "no" to proxied team keys (X5), if the foundation review changes a frozen contract, or before any AWS resource, Google configuration, or provider key is created.
 
+### Provider-budget addendum, approved 2026-11-02
+
+Drew approved the independent daily provider-budget plan before merging the ops pull request, then corrected the proposed model pin: "Let's actually just use the latest Jev." Keep `jev-latest` and the original request body. The approved deployment values stay in AWS and the private operations record, not this note.
+
+| Batch | Deliverable | Exit evidence |
+|---|---|---|
+| Currency contract | Add per-provider nanodollar allowances, startup ceilings, audited admin/CLI changes, and reviewed price/context metadata | Config/store/admin/CLI round-trip tests; existing session behavior preserved |
+| Atomic accounting | Reserve, settle, and recover provider/person currency counters in the same transactions as receipts and shared credit counters, with legacy accounting checks | Shared SQLite/DynamoDB Local contracts: independent caps, concurrent boundary admission, unknown outcomes, idempotency, recovery, UTC rollover, migration |
+| Ops and compatibility | Exact decimal controls, preview/apply verification, provider reports, and `jev-latest` request compatibility | Helper and HTTP fake-provider tests; independent review; Greptile 5/5; required CI checks |
+| Production enablement | Paid calls off during migration/canary; raise only approved startup ceilings, verify new revision, apply budgets/shared limits/switches through the admin API | Live settings/audit/revision readback and bounded provider smoke checks, with actual usage reported |
+
+The dollar reservations use documented maximum accepted request sizes and reviewed rates. Missing or untrusted billing evidence keeps the full reservation. Vendor price changes require reviewing these assumptions; no invoice guarantee is implied. Any unresolved billable-token bound leaves that provider off. Rollback to an old binary requires a paid-call stop and drain.
+
 ## Plan Approval
 
 - 2026-10-31T16:29:31Z: Drew approved the plan's default decisions and the macOS-first change ("OK. Let's do it."), authorizing Batch 0 and the Batch 1 work that needs no Google project: the wire contract, the macOS keychain proof (P5), and the size and memory measurements (P7). Batch 1's Google prototypes (P1–P4) wait for X2 and X3. Batches 2 onward need Drew's go-ahead after the foundation review and re-estimate, as the plan requires.
@@ -111,6 +124,9 @@ The local build, on `t3/team-api-proxy-auth`:
 - **Tooling:** `make team-api-{build,check,dev,dev-live,dev-reset}`, the CI job `Team API Gateway`, `scripts/team-api/e2e.sh`, and `services/team-api/README.md`.
 
 ## Execution Notes
+
+- 2026-11-02: Drew approved provider-budget implementation before PR #71 merges, with `jev-latest` retained. Provider accounting, config/admin/CLI, traffic, and ops controls are implemented. Full `make check-full` passed with DynamoDB Local and all 29 ops tests. Independent review found ambiguous outer billing JSON and provider fences that reset across days; both have regression fixes. Final `make team-api-check` passed with race tests on SQLite and DynamoDB Local; the rebuilt CLI exposes exact dollar controls. Both independent rechecks approve the fixes; CI and current-head Greptile precede merge; no provider budgets have been enabled. The existing first AWS deployment is healthy; initial paid switches, daily limits, and startup ceilings remain zero. Drew approved removing the separate production deployment reviewer gate; it is removed and the main-only branch rule is verified. The overall effort remains active for the broader pilot and rollout gates.
+
 
 - 2026-10-31T16:29:31Z: effort opened from `dbc04f3a` on `t3/team-api-proxy-auth`, with the build plan and research note uncommitted on the same branch. `rzm agent current-user` is not configured in this worktree; approval is recorded by name as in earlier efforts.
 - 2026-10-31T16:32:37Z, keychain probe on a temporary keychain:
@@ -183,6 +199,9 @@ The local build, on `t3/team-api-proxy-auth`:
   - No AWS calls, credentials, live provider calls, pushes, PRs, or deployment were authorized or performed. The operator must bootstrap and configure AWS/GitHub, then perform the live IAM, canary/rollback, slow-request, cancellation, memory, and offboarding acceptance drills. Whether Express resets the ALB timeout remains a live question; finalization restores and verifies it after both successful updates and completed automatic rollbacks. This effort remains active.
 
 ## Deviations
+
+- 2026-11-02: The approved provider-budget addendum extends SPEC-0129 with independent daily currency accounting and an explicit migration/rollback boundary. `jev-latest` remains supported as Drew requested; there is no model-pinning or request-rewrite exception. The spec set is refrozen at this revision. Actual provider allowance values remain in AWS/private operations records.
+
 
 - 2026-11-01: Drew chose ECS Express Mode on its AWS-provided hostname instead of a Fargate service behind a load balancer on an Atomic subdomain, to avoid an Atomic DNS change; a custom domain can come later. Express Mode deploys are always canary, so SPEC-0129 now accepts brief slot overlap during the pilot and requires store-backed concurrency slots before rollout. X4 (DNS name) is no longer needed for Batch 5. Drew also confirmed that `atomicobject.com` is the only Workspace domain to support, which closes X3. frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
 - 2026-10-31T18:00:00Z: The repository had no development-build marker; `version.Version` is always a release number. `version.Channel` now defaults to `dev`, and Goreleaser and `make build-release` set `release`. SPEC-0129 says so, and also gains the origin-selector and fake-gateway requirements that came out of the council (requirements only, same scope). frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.

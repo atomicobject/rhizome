@@ -8,7 +8,7 @@ import {
   type UseQueryOptions,
   type MutateOptions,
 } from "@tanstack/react-query";
-import type { ComponentProps } from "react";
+import { useEffect, type ComponentProps, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
@@ -57,6 +57,7 @@ import {
   OPEN_VIEW_MESSAGE,
   OPEN_NOTE_MESSAGE,
   OPEN_SEARCH_MESSAGE,
+  VIEW_RENDERED_MESSAGE,
   type IssueScope,
   type ViewMessage,
 } from "../src/lib/customViewMessages";
@@ -524,9 +525,29 @@ export async function mountView(load: () => Promise<ViewModule>, view: ViewConfi
 
   if (!container) throw new Error("mountView needs an element with id root");
 
+  // A framing workspace keeps the view it shows until this one has drawn:
+  // "starting" tells it to wait for the rendered message, not the page load.
+  document.documentElement.dataset.rhizomeView = "starting";
+
   await startView(load, view, {
     hosted: embedded,
-    render: (element) => createRoot(container).render(element),
+    render: (element) => createRoot(container).render(<FirstRender>{element}</FirstRender>),
     reload: () => window.location.reload(),
   });
+  // A module that mounts itself has done so by now.
+  announceRendered();
+}
+
+function announceRendered() {
+  if (document.documentElement.dataset.rhizomeView === "rendered") return;
+  document.documentElement.dataset.rhizomeView = "rendered";
+
+  if (embedded) postToHost({ type: VIEW_RENDERED_MESSAGE });
+}
+
+/** Announces the view's first committed render to the framing workspace. */
+function FirstRender({ children }: { children: ReactNode }) {
+  useEffect(announceRendered, []);
+
+  return children;
 }

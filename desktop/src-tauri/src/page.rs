@@ -428,6 +428,8 @@ mod tests {
         pane.expect(generation, &runtime(), 1, true);
         pane.navigation_started(&page("/notes"));
         pane.loaded(&page("/notes"));
+        // Its first report revealed it (crate::windows).
+        pane.first_report();
         (pane, received)
     }
 

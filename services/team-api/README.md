@@ -91,6 +91,8 @@ TEAM_API_E2E_UPSTREAMS=live scripts/team-api/e2e.sh   # the same against the rea
 
 The ARM64 container, CloudFormation template, protected OIDC workflow, and operations instructions are in [RUNBOOK.md](RUNBOOK.md). The infrastructure uses ECS Express Mode on its stable AWS hostname, one steady-state task, DynamoDB, and a 30-day CloudWatch log group. All account configuration stays in AWS or the protected GitHub `production` environment.
 
+The image builds with Go 1.26.10 and runs the pinned `govulncheck` 1.9.0 against the compiled binary before packaging it. A finding or unavailable vulnerability database fails the build. CI builds the image without cached layers to exercise this gate. ECR does not support scanning the final `scratch` image, and the Go scan does not cover statically linked C dependencies such as SQLite or musl.
+
 `team-api serve` also accepts the full JSON configuration in `RHIZOME_TEAM_API_CONFIG`, injected from SSM by ECS. An explicit `--config` takes precedence. Environment configuration defaults diagnostics to JSON lines on stdout; set `diagnostics_output: "stdout"` explicitly in production. Provider keys and the Google client secret are separate ECS secret injections from Secrets Manager. `trusted_proxy_cidrs` identifies the ALB subnet CIDRs; only the final ALB-appended address is trusted, and task ingress must allow only the ALB security group. `/healthz` becomes ready after store initialization and recovery, checks no providers, and reports unavailable during shutdown.
 
 Select DynamoDB for `serve` by adding this to the production configuration. The table must already exist with string keys `pk` (partition) and `sk` (sort). The gateway never provisions AWS resources.

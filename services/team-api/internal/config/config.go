@@ -51,8 +51,12 @@ type Config struct {
 	EligibilityMode string   `json:"eligibility_mode"`
 	Allowlist       []string `json:"allowlist"`
 
-	PersonLimits wire.DailyLimits `json:"person_limits"`
-	GlobalLimits wire.DailyLimits `json:"global_limits"`
+	// Missing or zero provider limits disable admission. Maximums are immutable
+	// startup ceilings; an admin may only lower or restore values within them.
+	ProviderDailyNanodollars    map[string]int64 `json:"provider_daily_nanodollars"`
+	MaxProviderDailyNanodollars map[string]int64 `json:"max_provider_daily_nanodollars"`
+	PersonLimits                wire.DailyLimits `json:"person_limits"`
+	GlobalLimits                wire.DailyLimits `json:"global_limits"`
 	// MaxPersonLimits and MaxGlobalLimits cap what the admin API may set, so
 	// a stolen admin session cannot raise spending without bound. Only this
 	// file can raise them. They default to ten times the defaults.
@@ -235,6 +239,19 @@ func (c Config) Validate() error {
 			fail("global_limits exceed max_global_limits")
 		}
 	}
+	for name, limits := range map[string]map[string]int64{
+		"provider_daily_nanodollars":     c.ProviderDailyNanodollars,
+		"max_provider_daily_nanodollars": c.MaxProviderDailyNanodollars,
+	} {
+		if err := ValidProviderLimits(limits); err != nil {
+			fail("%s: %v", name, err)
+		}
+	}
+	for provider, limit := range c.ProviderDailyNanodollars {
+		if limit > c.MaxProviderDailyNanodollars[provider] {
+			fail("provider_daily_nanodollars.%s exceeds max_provider_daily_nanodollars", provider)
+		}
+	}
 	if c.Concurrency.VoyageConcurrency <= 0 || c.Concurrency.TypeSafeConcurrency <= 0 {
 		fail("concurrency values must be positive")
 	}
@@ -322,4 +339,17 @@ func lower(values []string) []string {
 		}
 	}
 	return out
+}
+
+// ValidProviderLimits validates keys and nonnegative integer dollar accounting.
+func ValidProviderLimits(limits map[string]int64) error {
+	for provider, limit := range limits {
+		if provider != "voyage" && provider != "typesafe" {
+			return fmt.Errorf("unknown provider %q", provider)
+		}
+		if limit < 0 {
+			return fmt.Errorf("%s must not be negative", provider)
+		}
+	}
+	return nil
 }

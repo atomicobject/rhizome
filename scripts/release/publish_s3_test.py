@@ -86,13 +86,23 @@ class PublishS3PreflightTest(unittest.TestCase):
         self.assertNotIn("s3.amazonaws.com/", script.replace("${RELEASE_BUCKET}.s3.amazonaws.com", ""))
         self.assertRegex(script, r'RELEASE_BUCKET="\$\{RZM_INTERNAL_S3_BUCKET:-\}"')
 
-    def publish(self, temp_dir: str, version: str, built_version: str) -> tuple[subprocess.CompletedProcess[str], Path]:
+    def publish(self, temp_dir: str, version: str, built_version: str, *, gate_fails=False, dry_run=False, tagged=True, receipt=False) -> tuple[subprocess.CompletedProcess[str], Path]:
         repo = SCRIPT.parents[2]
         targets = [("darwin", "amd64"), ("darwin", "arm64"), ("linux", "amd64"), ("linux", "arm64"), ("windows", "amd64")]
         root = Path(temp_dir) / "repo"
         for relative in ("scripts/release/publish_s3.sh", "scripts/release/build_installer.py", "scripts/install/install-rzm.sh", "scripts/teamkeys/release.py"):
             (root / relative).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(repo / relative, root / relative)
+        gate_log = Path(temp_dir) / "gateway-calls"
+        (root / "scripts/release/release_publication.py").write_text(
+            "import sys\nfrom pathlib import Path\n"
+            + f"Path({str(gate_log)!r}).write_text(' '.join(sys.argv[1:]))\n"
+            + ("sys.exit('gateway deployment failed')\n" if gate_fails else ""))
+        subprocess.run(("git", "init", "-q", str(root)), check=True)
+        subprocess.run(("git", "-C", str(root), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                        "commit", "--allow-empty", "-qm", "fixture"), check=True)
+        if tagged:
+            subprocess.run(("git", "-C", str(root), "tag", "v" + version), check=True)
         (root / "pkg/vault/version").mkdir(parents=True)
         (root / "pkg/vault/version/version.go").write_text(f'package version\n\nvar Version = "{version}"\n')
         (root / "dist").mkdir()
@@ -115,7 +125,7 @@ class PublishS3PreflightTest(unittest.TestCase):
             case "$1 $2" in
               "sts get-caller-identity") echo '{{"Account":"123456789012","Arn":"arn:aws:iam::123456789012:user/release"}}' ;;
               "s3api head-bucket") ;;
-              "s3 cp") key="${{4#s3://example-bucket/}}"; mkdir -p "{uploads}/$(dirname "$key")"; cp "$3" "{uploads}/$key" ;;
+              "s3 cp") [[ " $* " == *" --dryrun "* ]] && exit 0; key="${{4#s3://example-bucket/}}"; mkdir -p "{uploads}/$(dirname "$key")"; cp "$3" "{uploads}/$key" ;;
               *) echo "unexpected aws command: $*" >&2; exit 2 ;;
             esac
             """))
@@ -124,8 +134,40 @@ class PublishS3PreflightTest(unittest.TestCase):
         env.update(PATH=f"{fake_bin}:{env['PATH']}", RZM_INTERNAL_S3_BUCKET="example-bucket",
                    RZM_INTERNAL_S3_LEGACY_SUFFIX="abcde12345", GIT_CEILING_DIRECTORIES=temp_dir)
 
+        if dry_run:
+            env["DRY_RUN"] = "1"
+        if receipt:
+            env["RZM_RELEASE_GATEWAY_RECEIPT"] = str(Path(temp_dir) / "receipt.json")
         result = subprocess.run(("bash", str(root / "scripts/release/publish_s3.sh")), env=env, text=True, capture_output=True)
         return result, uploads
+
+    def test_gate_failure_prevents_any_s3_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result, uploads = self.publish(temp_dir, "0.51.0", "0.51.0", gate_fails=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("gateway deployment failed", result.stderr)
+            self.assertEqual([], list(uploads.rglob("*")))
+            self.assertTrue((Path(temp_dir) / "gateway-calls").exists())
+
+    def test_handoff_forwards_receipt_for_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result, _ = self.publish(temp_dir, "0.51.0", "0.51.0", receipt=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--gateway-receipt " + str(Path(temp_dir) / "receipt.json"),
+                          (Path(temp_dir) / "gateway-calls").read_text())
+
+    def test_direct_upload_requires_exact_tag_but_dry_run_does_not_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result, uploads = self.publish(temp_dir, "0.51.0", "0.51.0", tagged=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not an exact release tag", result.stderr)
+            self.assertFalse((Path(temp_dir) / "gateway-calls").exists())
+            self.assertEqual([], list(uploads.rglob("*")))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result, uploads = self.publish(temp_dir, "0.51.0", "0.51.0", tagged=False, dry_run=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((Path(temp_dir) / "gateway-calls").exists())
+            self.assertEqual([], list(uploads.rglob("*")))
 
     def test_publishes_legacy_and_github_shaped_layouts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -7,7 +7,7 @@ test("Briefing stays readable on wide and narrow screens while Table and Cards f
   await page.setViewportSize({ width: 2400, height: 1000 });
   await page.goto("/notes/tv-guide");
   await chooseView(page, "Briefing");
-  const frame = page.frameLocator("iframe.custom-view-frame");
+  const frame = page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
   await expect(frame.getByRole("region", { name: "Needs attention", exact: true })).toBeVisible();
   const main = frame.getByRole("main");
 

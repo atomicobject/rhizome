@@ -8,10 +8,11 @@ import { Fragment, useMemo, type ReactNode } from "react";
 import { boundary } from "./activity.ts";
 import { OutsideNotes } from "./briefing-activity.tsx";
 import { GuideAndViews } from "./briefing-contents.tsx";
-import { Block, BlockBody, ModelBlock, Rebuilding } from "./briefing-parts.tsx";
+import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
 import type { GroupModel } from "./model.ts";
+import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, type DeclaredRelation, type ScopeModel } from "./scope.ts";
 import {
   blockStatus,
@@ -23,6 +24,9 @@ import {
 
 const fmt = (count: number) => count.toLocaleString("en-US");
 
+/** Folders listed before "+N more", so the block stays about as tall as the map beside it. */
+const FOLDER_LINES = 8;
+
 const linksText = (targets: readonly { label: string; count: number }[]) =>
   targets.map((target) => `${target.label} ${fmt(target.count)}`).join(", ") || undefined;
 
@@ -31,6 +35,9 @@ export function FolderBlock() {
   const summaries = useTypeSummaries();
   const status = blockStatus([folders.read, summaries.read]);
   const facts = folders.data?.facts;
+  // Its own preference: overview.expanded is keyed by group name.
+  const expanded = useRememberedOpen("overview.folders");
+  const open = expanded.isOpen("all", false);
 
   return (
     <Block
@@ -45,63 +52,73 @@ export function FolderBlock() {
           const lines = folderLines(folders.data?.folders ?? [], summaries.data ?? new Map());
 
           if (!lines.length) return <p className="gv-quiet">Every note has a type.</p>;
+          const shown = open ? lines : lines.slice(0, FOLDER_LINES);
 
           return (
-            <table className="gv-table gv-ov-folders">
-              <thead>
-                <tr>
-                  <th scope="col">Folder</th>
-                  <th scope="col" className="gv-right">
-                    Untyped
-                  </th>
-                  <th scope="col">Share of folder</th>
-                  <th scope="col">Untyped notes link to</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line) => {
-                  const percent = Math.round(line.share * 100);
+            <>
+              <table className="gv-table gv-ov-folders">
+                <thead>
+                  <tr>
+                    <th scope="col">Folder</th>
+                    <th scope="col" className="gv-right">
+                      Untyped
+                    </th>
+                    <th scope="col">Share of folder</th>
+                    <th scope="col">Untyped notes link to</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((line) => {
+                    const percent = Math.round(line.share * 100);
 
-                  return (
-                    <tr key={line.folder}>
-                      <td>
-                        <button
-                          type="button"
-                          className="gv-link gv-ov-folder"
-                          // Notes at the vault root sit in no folder; "/" names the root.
-                          onClick={() => openSearch({ folder: line.folder || "/" })}
+                    return (
+                      <tr key={line.folder}>
+                        <td>
+                          <button
+                            type="button"
+                            className="gv-link gv-ov-folder"
+                            // Notes at the vault root sit in no folder; "/" names the root.
+                            onClick={() => openSearch({ folder: line.folder || "/" })}
+                          >
+                            {line.folder}/
+                          </button>
+                        </td>
+                        <td className="gv-right gv-num">{fmt(line.untyped)}</td>
+                        <td
+                          title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
                         >
-                          {line.folder}/
-                        </button>
-                      </td>
-                      <td className="gv-right gv-num">{fmt(line.untyped)}</td>
-                      <td
-                        title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
-                      >
-                        <span className="gv-ov-share">
-                          <span className="gv-num">{percent}%</span>
-                          <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
-                            <i style={{ width: `${percent}%` }} />
+                          <span className="gv-ov-share">
+                            <span className="gv-num">{percent}%</span>
+                            <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
+                              <i style={{ width: `${percent}%` }} />
+                            </span>
                           </span>
-                        </span>
-                      </td>
-                      <td className="gv-ov-links" title={linksText(line.linksTo)}>
-                        {line.linksTo.length ? (
-                          line.linksTo.map((target, index) => (
-                            <Fragment key={target.type}>
-                              {index > 0 && ", "}
-                              {target.label} <span className="gv-num">{fmt(target.count)}</span>
-                            </Fragment>
-                          ))
-                        ) : (
-                          <span className="gv-faint">no typed notes</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="gv-ov-links" title={linksText(line.linksTo)}>
+                          {line.linksTo.length ? (
+                            line.linksTo.map((target, index) => (
+                              <Fragment key={target.type}>
+                                {index > 0 && ", "}
+                                {target.label} <span className="gv-num">{fmt(target.count)}</span>
+                              </Fragment>
+                            ))
+                          ) : (
+                            <span className="gv-faint">no typed notes</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {lines.length > FOLDER_LINES && (
+                <MoreToggle
+                  hidden={lines.length - FOLDER_LINES}
+                  open={open}
+                  onToggle={() => expanded.setOpen("all", !open)}
+                />
+              )}
+            </>
           );
         }}
       </BlockBody>

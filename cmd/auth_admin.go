@@ -148,6 +148,8 @@ func newAuthAdminCommand(deps authDeps) *cobra.Command {
 	config.Flags().StringSlice("allow", nil, "replace the allowlist with these emails")
 	config.Flags().String("person-limits", "", "default daily per-person limits as requests,input_bytes,charge_credits")
 	config.Flags().String("global-limits", "", "daily global limits as requests,input_bytes,charge_credits")
+	config.Flags().String("voyage-daily-usd", "", "UTC daily Voyage budget in USD (zero disables admission)")
+	config.Flags().String("typesafe-daily-usd", "", "UTC daily TypeSafe budget in USD (zero disables admission)")
 
 	audit := &cobra.Command{Use: "audit", Short: "Show recent admin changes", Args: cobra.NoArgs,
 		RunE: run(func(cmd *cobra.Command, _ []string) (string, string, any, error) {
@@ -197,6 +199,19 @@ func adminConfigUpdate(cmd *cobra.Command) (wire.AdminConfigUpdate, bool, error)
 			*target, changed = &limits, true
 		}
 	}
+	for provider, flag := range map[string]string{"voyage": "voyage-daily-usd", "typesafe": "typesafe-daily-usd"} {
+		if cmd.Flags().Changed(flag) {
+			raw, _ := cmd.Flags().GetString(flag)
+			amount, err := parseDailyUSD(raw)
+			if err != nil {
+				return update, false, fmt.Errorf("--%s: %w", flag, err)
+			}
+			if update.ProviderDailyNanodollars == nil {
+				update.ProviderDailyNanodollars = map[string]int64{}
+			}
+			update.ProviderDailyNanodollars[provider], changed = amount, true
+		}
+	}
 	return update, changed, nil
 }
 
@@ -214,4 +229,39 @@ func parseDailyLimits(raw string) (wire.DailyLimits, error) {
 		values[i] = value
 	}
 	return wire.DailyLimits{Requests: values[0], InputBytes: values[1], ChargeCredits: values[2]}, nil
+}
+
+// parseDailyUSD preserves the exact decimal amount without floating point.
+func parseDailyUSD(raw string) (int64, error) {
+	invalid := errors.New("want a non-negative USD decimal with at most nine fractional digits")
+	parts := strings.Split(raw, ".")
+	if len(parts) > 2 || parts[0] == "" {
+		return 0, invalid
+	}
+	for _, part := range parts {
+		if part == "" {
+			return 0, invalid
+		}
+		for _, c := range part {
+			if c < '0' || c > '9' {
+				return 0, invalid
+			}
+		}
+	}
+	fraction := ""
+	if len(parts) == 2 {
+		fraction = parts[1]
+	}
+	if len(fraction) > 9 {
+		return 0, invalid
+	}
+	digits := strings.TrimLeft(parts[0]+fraction+strings.Repeat("0", 9-len(fraction)), "0")
+	if digits == "" {
+		return 0, nil
+	}
+	amount, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil {
+		return 0, errors.New("USD amount exceeds the supported nanodollar range")
+	}
+	return amount, nil
 }

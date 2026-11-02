@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"maps"
 	"net"
 	"net/http"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/services/team-api/internal/config"
 	"github.com/atomicobject/rhizome/services/team-api/internal/core"
+	"github.com/atomicobject/rhizome/services/team-api/internal/providerbudget"
 	"github.com/atomicobject/rhizome/services/team-api/internal/store"
 )
 
@@ -34,6 +36,8 @@ type Runtime struct {
 
 // NewRuntime seeds the table from cfg on first start.
 func NewRuntime(ctx context.Context, st store.Store, cfg config.Config, now func() time.Time) (*Runtime, error) {
+	cfg.ProviderDailyNanodollars = maps.Clone(cfg.ProviderDailyNanodollars)
+	cfg.MaxProviderDailyNanodollars = maps.Clone(cfg.MaxProviderDailyNanodollars)
 	allow := slices.Clone(cfg.Allowlist)
 	for _, a := range cfg.Admins {
 		if !slices.Contains(allow, a) {
@@ -44,6 +48,7 @@ func NewRuntime(ctx context.Context, st store.Store, cfg config.Config, now func
 		PaidCallsEnabled: true, VoyageEnabled: true, TypeSafeEnabled: true,
 		EligibilityMode: cfg.EligibilityMode, Allowlist: allow,
 		PersonLimits: cfg.PersonLimits, GlobalLimits: cfg.GlobalLimits,
+		ProviderDailyNanodollars: maps.Clone(cfg.ProviderDailyNanodollars),
 	})
 	if err != nil {
 		return nil, err
@@ -56,16 +61,21 @@ func (r *Runtime) Runtime(ctx context.Context) (core.Runtime, error) {
 	defer r.mu.Unlock()
 	now := r.now()
 	if !r.fetched.IsZero() && now.Sub(r.fetched) < RuntimeTTL {
-		return r.cached, nil
+		return cloneRuntime(r.cached), nil
 	}
 	c, err := r.store.RuntimeConfig(ctx)
 	if err != nil {
 		return core.Runtime{}, err
 	}
+	// Startup ceilings also bound previously persisted settings after a restart.
+	for provider, limit := range c.ProviderDailyNanodollars {
+		c.ProviderDailyNanodollars[provider] = min(limit, r.cfg.MaxProviderDailyNanodollars[provider])
+	}
+	c.PricingAssumptions = providerbudget.ReviewedPrices()
 	c.AcceptedDomains = slices.Clone(r.cfg.AcceptedDomains)
 	c.Admins = slices.Clone(r.cfg.Admins)
 	r.cached, r.fetched = c, now
-	return c, nil
+	return cloneRuntime(c), nil
 }
 
 // Invalidate makes the next read go to the store. Admin updates call it.
@@ -144,4 +154,13 @@ func (l *limiter) wrap(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+func cloneRuntime(c core.Runtime) core.Runtime {
+	c.ProviderDailyNanodollars = maps.Clone(c.ProviderDailyNanodollars)
+	c.PricingAssumptions = maps.Clone(c.PricingAssumptions)
+	c.AcceptedDomains = slices.Clone(c.AcceptedDomains)
+	c.Admins = slices.Clone(c.Admins)
+	c.Allowlist = slices.Clone(c.Allowlist)
+	return c
 }

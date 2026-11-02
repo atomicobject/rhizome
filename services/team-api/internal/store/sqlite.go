@@ -362,7 +362,7 @@ func (s *SQLite) UpdateRuntimeConfig(ctx context.Context, u wire.AdminConfigUpda
 }
 
 func encodeRuntime(c wire.AdminConfig) (string, error) {
-	c.AcceptedDomains, c.Admins = nil, nil
+	c.AcceptedDomains, c.Admins, c.PricingAssumptions = nil, nil, nil
 	b, err := json.Marshal(c)
 	return string(b), err
 }
@@ -382,7 +382,10 @@ func decodeRuntime(body string) (wire.AdminConfig, error) {
 	if err := json.Unmarshal([]byte(body), &c); err != nil {
 		return wire.AdminConfig{}, err
 	}
-	c.AcceptedDomains, c.Admins = nil, nil
+	c.AcceptedDomains, c.Admins, c.PricingAssumptions = nil, nil, nil
+	if c.ProviderDailyNanodollars == nil {
+		c.ProviderDailyNanodollars = map[string]int64{}
+	}
 	if c.Allowlist == nil {
 		c.Allowlist = []string{}
 	}
@@ -415,6 +418,16 @@ func (s *SQLite) Audit(ctx context.Context, limit int) ([]wire.AuditEntry, error
 }
 
 func applyRuntime(c *wire.AdminConfig, u wire.AdminConfigUpdate) {
+	// Copy before merging: returned configurations and caller-owned updates must
+	// never share mutable maps with a subsequent update.
+	limits := make(map[string]int64, len(c.ProviderDailyNanodollars)+len(u.ProviderDailyNanodollars))
+	for provider, limit := range c.ProviderDailyNanodollars {
+		limits[provider] = limit
+	}
+	for provider, limit := range u.ProviderDailyNanodollars {
+		limits[provider] = limit
+	}
+	c.ProviderDailyNanodollars = limits
 	set := func(dst *bool, v *bool) {
 		if v != nil {
 			*dst = *v

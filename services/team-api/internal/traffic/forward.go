@@ -91,6 +91,7 @@ func relay(w http.ResponseWriter, resp *http.Response, key string) (*relayResult
 	copyHeaders(w, resp)
 	w.WriteHeader(resp.StatusCode)
 	var scan usageScanner
+	defer scan.close()
 	n, err := io.Copy(w, io.TeeReader(io.LimitReader(resp.Body, wire.MaxResponseBytes), &scan))
 	res.bytesOut = n
 	if err != nil {
@@ -128,9 +129,14 @@ type usageScanner struct {
 	capturing, overflow bool
 	key, value, usage   []byte
 	found               int
+	validation          *usageValidation
 }
 
 func (s *usageScanner) Write(p []byte) (int, error) {
+	if s.validation == nil {
+		s.validation = newUsageValidation()
+	}
+	s.validation.write(p)
 	for _, c := range p {
 		s.step(c)
 	}
@@ -198,8 +204,12 @@ func (s *usageScanner) step(c byte) {
 }
 
 func (s *usageScanner) result() []byte {
-	if s.depth != 0 || s.found != 1 || s.overflow {
+	if !s.close() || s.depth != 0 || s.found != 1 || s.overflow {
 		return nil
 	}
 	return s.usage
+}
+
+func (s *usageScanner) close() bool {
+	return s.validation != nil && s.validation.close()
 }

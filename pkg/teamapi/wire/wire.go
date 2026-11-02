@@ -192,11 +192,38 @@ type DailyUsage struct {
 	Unknown         int64 `json:"unknown_outcomes"`
 }
 
+// ProviderUsage accounts for one provider on one UTC admission day.
+// ReservedNanodollars includes settled charges and outstanding conservative holds.
+type ProviderUsage struct {
+	Fenced              bool  `json:"fenced"`
+	Requests            int64 `json:"requests"`
+	ReservedNanodollars int64 `json:"reserved_nanodollars"`
+	SettledNanodollars  int64 `json:"settled_nanodollars"`
+	Unknown             int64 `json:"unknown_outcomes"`
+}
+
+// PriceAssumption describes the reviewed upstream billing bound, not an invoice.
+type PriceAssumption struct {
+	Provider            string `json:"provider"`
+	Model               string `json:"model"`
+	Version             string `json:"version"`
+	ReviewedAt          string `json:"reviewed_at"`
+	NanodollarsPerToken int64  `json:"nanodollars_per_token"`
+	MaxBillableTokens   int64  `json:"max_billable_tokens"`
+}
+
+type ProviderUsageWithLimits struct {
+	Usage                 ProviderUsage `json:"usage"`
+	DailyLimitNanodollars int64         `json:"daily_limit_nanodollars"`
+}
+
 // AdminUsage is the /v1/admin/usage response.
 type AdminUsage struct {
-	Date   string          `json:"date"`
-	Global UsageWithLimits `json:"global"`
-	People []PersonUsage   `json:"people"`
+	PricingAssumptions map[string]PriceAssumption         `json:"pricing_assumptions"`
+	Date               string                             `json:"date"`
+	Providers          map[string]ProviderUsageWithLimits `json:"providers"`
+	Global             UsageWithLimits                    `json:"global"`
+	People             []PersonUsage                      `json:"people"`
 }
 
 type UsageWithLimits struct {
@@ -205,8 +232,9 @@ type UsageWithLimits struct {
 }
 
 type PersonUsage struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
+	Providers map[string]ProviderUsage `json:"providers"`
+	Sub       string                   `json:"sub"`
+	Email     string                   `json:"email"`
 	UsageWithLimits
 }
 
@@ -254,26 +282,30 @@ const (
 // AdminConfig is the runtime configuration operators may change. Accepted
 // domains and the admin list come from server configuration, read-only here.
 type AdminConfig struct {
-	PaidCallsEnabled bool        `json:"paid_calls_enabled"`
-	VoyageEnabled    bool        `json:"voyage_enabled"`
-	TypeSafeEnabled  bool        `json:"typesafe_enabled"`
-	EligibilityMode  string      `json:"eligibility_mode"`
-	Allowlist        []string    `json:"allowlist"`
-	PersonLimits     DailyLimits `json:"person_limits"`
-	GlobalLimits     DailyLimits `json:"global_limits"`
-	AcceptedDomains  []string    `json:"accepted_domains"`
-	Admins           []string    `json:"admins"`
+	PricingAssumptions       map[string]PriceAssumption `json:"pricing_assumptions"`
+	ProviderDailyNanodollars map[string]int64           `json:"provider_daily_nanodollars"`
+	PaidCallsEnabled         bool                       `json:"paid_calls_enabled"`
+	VoyageEnabled            bool                       `json:"voyage_enabled"`
+	TypeSafeEnabled          bool                       `json:"typesafe_enabled"`
+	EligibilityMode          string                     `json:"eligibility_mode"`
+	Allowlist                []string                   `json:"allowlist"`
+	PersonLimits             DailyLimits                `json:"person_limits"`
+	GlobalLimits             DailyLimits                `json:"global_limits"`
+	AcceptedDomains          []string                   `json:"accepted_domains"`
+	Admins                   []string                   `json:"admins"`
 }
 
 // AdminConfigUpdate changes only the fields that are set.
 type AdminConfigUpdate struct {
-	PaidCallsEnabled *bool        `json:"paid_calls_enabled,omitempty"`
-	VoyageEnabled    *bool        `json:"voyage_enabled,omitempty"`
-	TypeSafeEnabled  *bool        `json:"typesafe_enabled,omitempty"`
-	EligibilityMode  *string      `json:"eligibility_mode,omitempty"`
-	Allowlist        *[]string    `json:"allowlist,omitempty"`
-	PersonLimits     *DailyLimits `json:"person_limits,omitempty"`
-	GlobalLimits     *DailyLimits `json:"global_limits,omitempty"`
+	// ProviderDailyNanodollars merges only the supplied provider keys. Zero disables admission.
+	ProviderDailyNanodollars map[string]int64 `json:"provider_daily_nanodollars,omitempty"`
+	PaidCallsEnabled         *bool            `json:"paid_calls_enabled,omitempty"`
+	VoyageEnabled            *bool            `json:"voyage_enabled,omitempty"`
+	TypeSafeEnabled          *bool            `json:"typesafe_enabled,omitempty"`
+	EligibilityMode          *string          `json:"eligibility_mode,omitempty"`
+	Allowlist                *[]string        `json:"allowlist,omitempty"`
+	PersonLimits             *DailyLimits     `json:"person_limits,omitempty"`
+	GlobalLimits             *DailyLimits     `json:"global_limits,omitempty"`
 }
 
 // AuditEntry records one admin change. It never contains tokens.

@@ -17,7 +17,7 @@ for (const activation of ["click", "Enter", "middle"]) {
     if (await expand.count()) await expand.click();
 
     await collections.getByRole("button", { name: "View demo efforts (2)", exact: true }).click();
-    const frame = page.frameLocator("iframe.custom-view-frame");
+    const frame = page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
     await expect(frame.getByRole("heading", { name: "Demo dashboard", exact: true })).toBeVisible();
 
     if (activation === "click") expect(peleRequests).toHaveLength(0);

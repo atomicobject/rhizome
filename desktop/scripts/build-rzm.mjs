@@ -2,12 +2,13 @@
 // passes the exact binary GoReleaser archives in RZM_DESKTOP_PREBUILT_RZM and
 // bundles rzm alone (tauri.release.conf.json). Otherwise `make build` builds
 // rzm with the workspace web UI it embeds (NO_WEB=1 skips the web build, as
-// for make build), plus the local team API gateway that development builds of
-// rzm start beside themselves.
+// for make build), with the configured team server as its default. The local
+// gateway remains bundled for explicit local testing.
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { desktopTeamAPIOrigin } from "./team-api-origin.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const rustInfo = execFileSync("rustc", ["-vV"], { encoding: "utf8" });
 const host = rustInfo.match(/^host: (.+)$/m)?.[1];
@@ -24,13 +25,22 @@ if (prebuilt) {
   console.log(`Bundled ${prebuilt} for ${target}`);
 } else {
   // The Makefile reads $(PWD), which cwd alone does not update.
-  execFileSync("make", ["build"], {
-    cwd: root,
-    stdio: "inherit",
-    env: { ...process.env, PWD: root },
-  });
+  const origin = desktopTeamAPIOrigin();
+  execFileSync(
+    "make",
+    [
+      "build",
+      "BINARY_NAME=rzm-desktop",
+      `BUILD_LDFLAGS=-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=${origin}`,
+    ],
+    {
+      cwd: root,
+      stdio: "inherit",
+      env: { ...process.env, PWD: root },
+    },
+  );
   const goos = execFileSync("go", ["env", "GOOS"], { encoding: "utf8" }).trim();
-  copyFileSync(resolve(root, `bin/${goos}/rzm${suffix}`), output);
+  copyFileSync(resolve(root, `bin/${goos}/rzm-desktop${suffix}`), output);
   chmodSync(output, 0o755);
   const gateway = resolve(root, `desktop/src-tauri/binaries/team-api-${target}${suffix}`);
   copyFileSync(resolve(root, `bin/${goos}/team-api${suffix}`), gateway);

@@ -48,6 +48,12 @@ const (
 type Receipt struct {
 	Sub, Key, Route, BodyHash, Model string
 	InputBytes, Credits              int64
+	Provider, PriceVersion           string
+	ReservedNanodollars              int64
+	PriceNanodollarsPerToken         int64
+	MaxBillableTokens                int64
+	ProviderLimitNanodollars         int64
+	AccountingVersion                int
 }
 
 // LeaseDuration bounds crash recovery delay. Owners heartbeat every third of
@@ -73,9 +79,12 @@ type Ledger interface {
 	MarkUnknown(context.Context, string, string) error
 	// Settle requires dispatched, applies an Outcome once to the admission
 	// day, and rejects late settlement after recovery. Negative actual credits
-	// mean unknown usage, preserving the reservation on success.
-	Settle(context.Context, string, string, Outcome, int64) error
+	// mean unknown usage, preserving the reservation on success. For currency
+	// receipts the optional actual nanodollars must be known and within the
+	// recorded reservation; otherwise both holds remain and usage is unknown.
+	Settle(context.Context, string, string, Outcome, int64, ...int64) error
 	Usage(context.Context, string) (wire.DailyUsage, map[string]wire.DailyUsage, error)
+	ProviderUsage(context.Context, string) (map[string]wire.ProviderUsage, map[string]map[string]wire.ProviderUsage, error)
 }
 
 type codeErr struct{ code wire.ErrorCode }
@@ -85,6 +94,12 @@ func (e codeErr) Error() string { return string(e.code) }
 func validReceipt(r Receipt) error {
 	if r.Sub == "" || r.Key == "" || r.InputBytes < 0 || r.Credits < 0 {
 		return errors.New("ledger: receipt requires a person, key, and nonnegative reservation")
+	}
+	if r.Provider == "" && (r.PriceVersion != "" || r.ReservedNanodollars != 0 || r.PriceNanodollarsPerToken != 0 || r.MaxBillableTokens != 0 || r.ProviderLimitNanodollars != 0 || r.AccountingVersion != 0) {
+		return errors.New("ledger: currency reservation requires a provider")
+	}
+	if r.Provider != "" && (r.Provider != "voyage" && r.Provider != "typesafe" || r.PriceVersion == "" || r.ReservedNanodollars <= 0 || r.PriceNanodollarsPerToken <= 0 || r.MaxBillableTokens <= 0 || r.ProviderLimitNanodollars < 0 || r.MaxBillableTokens > r.ReservedNanodollars/r.PriceNanodollarsPerToken) {
+		return errors.New("ledger: invalid provider reservation or price bound")
 	}
 	return nil
 }

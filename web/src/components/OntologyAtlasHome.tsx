@@ -33,7 +33,7 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
     return (
       <section className="ontology-atlas">
         <h1>Ontology Atlas</h1>
-        <p className="ontology-atlas__loading">Loading…</p>
+        <p className="ontology-atlas__loading delayed-status">Loading…</p>
       </section>
     );
   }
@@ -76,7 +76,7 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
       </header>
 
       <div className="ontology-atlas__diagram-scroll">
-        <Suspense fallback={<p>Rendering diagram…</p>}>
+        <Suspense fallback={<p className="delayed-status">Rendering diagram…</p>}>
           <OntologyGraph atlas={atlas} />
         </Suspense>
       </div>

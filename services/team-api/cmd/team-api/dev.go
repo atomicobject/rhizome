@@ -61,8 +61,10 @@ func devWithReady(ctx context.Context, args []string, ready chan<- string) error
 		"admins":           []string{"dev-admin@atomicobject.com"},
 		"eligibility_mode": wire.EligibilityAll,
 		// Generous local limits; the admin API can lower them.
-		"person_limits": wire.DailyLimits{Requests: 100_000, InputBytes: 20 << 30, ChargeCredits: 1 << 40},
-		"global_limits": wire.DailyLimits{Requests: 1_000_000, InputBytes: 200 << 30, ChargeCredits: 1 << 44},
+		"person_limits":                  wire.DailyLimits{Requests: 100_000, InputBytes: 20 << 30, ChargeCredits: 1 << 40},
+		"global_limits":                  wire.DailyLimits{Requests: 1_000_000, InputBytes: 200 << 30, ChargeCredits: 1 << 44},
+		"provider_daily_nanodollars":     map[string]int64{"voyage": 10_000_000_000, "typesafe": 10_000_000_000},
+		"max_provider_daily_nanodollars": map[string]int64{"voyage": 10_000_000_000, "typesafe": 10_000_000_000},
 	}
 	var keys providerKeys
 	switch *upstreams {

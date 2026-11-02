@@ -319,6 +319,36 @@ it("searches the vault root's own untyped notes as folder /", async () => {
   ]);
 });
 
+it("lists the eight largest folders before +N more", async () => {
+  const rows = Array.from({ length: 11 }, (_, index) => ({
+    folder: `F${index}`,
+    total: 20,
+    untyped: 20 - index,
+    typed: {},
+    untypedLinksTo: {},
+  }));
+
+  await renderGroupView(loadOverview, {
+    context: WORKSPACE,
+    embedded: true,
+    routes: scopeRoutes({
+      "GET /api/v1/ontology/shape": (request) =>
+        request.query.get("parts") === "folders"
+          ? jsonReply({ ...AGGREGATE_PARTS.folders, folders: { rows } })
+          : jsonReply(
+              request.query.get("parts") === "members"
+                ? AGGREGATE_PARTS.members
+                : AGGREGATE_PARTS.links,
+            ),
+    }),
+  });
+
+  const folders = within(region("Untyped notes by folder"));
+  expect(folders.getAllByRole("row")).toHaveLength(1 + 8);
+  fireEvent.click(folders.getByRole("button", { name: "+3 more" }));
+  expect(folders.getAllByRole("row")).toHaveLength(1 + 11);
+});
+
 it("paints every block's heading at once and fills each in as its part arrives", async () => {
   let release = () => {};
 

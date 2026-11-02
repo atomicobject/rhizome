@@ -54,7 +54,9 @@ class CollectReleaseEvidenceTest(unittest.TestCase):
         git(self.repo, "init", "-b", "main")
         git(self.repo, "config", "user.email", "release@example.com")
         git(self.repo, "config", "user.name", "Release Test")
-        for schema in (Path(__file__).resolve().parents[2] / ".rhizome/ontology").glob("*.graphql"):
+        # These historical-snapshot tests intentionally start with flat schema
+        # paths, even when the checkout now stores its schemas in modules.
+        for schema in (Path(__file__).resolve().parents[2] / ".rhizome").rglob("*.graphql"):
             write(self.repo, f".rhizome/ontology/{schema.name}", schema.read_text())
         write(self.repo, ".rhizome/config.yml", 'notes:\n  includes: ["**/*.md", "**/*.html"]\n')
         write(

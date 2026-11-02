@@ -28,6 +28,7 @@ from notes import (
 from release_actions import RELEASE_FILE_PATHS, VERSION_PATH, apply_release_files
 from release_command import run_cli
 from release_git import ReleaseGit, ReleaseGitError
+from release_gateway import GatewayError, ensure_gateway
 from release_preconditions import ReleasePreconditionError, validate_stored_apply_boundary, verify_base_tag
 from build_desktop import SIGNING_KEY
 from release_publish import PUBLISH_TOKEN_ENV, publish_command
@@ -73,6 +74,7 @@ class Orchestrator:
         output_fn: Callable[[str], None] = print,
         today_fn: Callable[[], str] = lambda: date.today().isoformat(),
         environ: Mapping[str, str] | None = None,
+        gateway: Callable[..., dict] = ensure_gateway,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.command_runner = command_runner
@@ -82,6 +84,7 @@ class Orchestrator:
         self.output_fn = output_fn
         self.today_fn = today_fn
         self.environ = os.environ if environ is None else environ
+        self.gateway = gateway
         self.store = ReleaseStore(
             self.repo_root,
             command_runner=lambda command: self._run(command),
@@ -493,8 +496,18 @@ class Orchestrator:
                 "canonical release branches no longer match the release commit",
                 next_command=retry,
             )
+        receipt_path = run.run_dir / "gateway-receipt.json"
+        if ("github_published" not in run.state.completed_checkpoints
+                or (self._internal_release() and "s3_published" not in run.state.completed_checkpoints)):
+            try:
+                self.gateway(self.repo_root, release_commit, receipt_path,
+                             internal=self._internal_release(), output=self.output_fn)
+                if not self.release_git.publication_complete(release_commit, run.evidence.release_branch):
+                    raise ReleaseGitError("canonical release branches changed while waiting for gateway deployment")
+            except (GatewayError, ReleaseGitError, OSError) as error:
+                raise OrchestrationError(str(error), next_command=retry) from error
         if "github_published" not in run.state.completed_checkpoints:
-            self._run(publish_command(self.repo_root, notes_path), next_command=retry)
+            self._run(publish_command(self.repo_root, notes_path, receipt_path), next_command=retry)
             try:
                 self.release_git.verify_remote_tag(version, release_commit)
             except ReleaseGitError as error:
@@ -506,7 +519,7 @@ class Orchestrator:
             except ReleaseGitError as error:
                 raise OrchestrationError(str(error), next_command=retry) from error
         if self._internal_release() and "s3_published" not in run.state.completed_checkpoints:
-            self._run(("make", "release-s3"), next_command=retry)
+            self._run(("make", "release-s3", f"RZM_RELEASE_GATEWAY_RECEIPT={receipt_path}"), next_command=retry)
             run = self._checkpoint(run, "s3_published", "publishing")
         run = self._checkpoint(run, "published", "complete")
         self.store.cleanup(base, head, succeeded=True)

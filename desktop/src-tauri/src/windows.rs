@@ -348,6 +348,19 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                 if let Some(collapsed) = toggled {
                     page::sidebar_reported(app, collapsed);
                 }
+                // A page waiting on its first report shows now, with the
+                // theme and sidebar it was just sent.
+                if first {
+                    let window = webview.window();
+                    let label = window.label();
+                    if let Some(generation) = app
+                        .state::<Panes>()
+                        .with(label, |pane| pane.first_report())
+                        .flatten()
+                    {
+                        crate::pipeline::reveal(app, label, generation);
+                    }
+                }
                 let label = webview.window().label().to_string();
                 if let Some(ask) = app
                     .state::<Panes>()

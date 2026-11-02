@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type {
@@ -22,6 +22,7 @@ import {
   STAGE_RESULT_MESSAGE,
   VAULT_EVENT_MESSAGE,
   VIEW_PARAMS_MESSAGE,
+  VIEW_RENDERED_MESSAGE,
   type HostMessage,
   type IssueScope,
 } from "../lib/customViewMessages";
@@ -76,6 +77,7 @@ type ViewRequest =
   | { kind: "params"; patch: ViewParamsPatch }
   | { kind: "open-note"; path: string; mode: OpenMode }
   | { kind: "hello" }
+  | { kind: "rendered" }
   | { kind: "stage"; requestId: string; ops: OntologyEditOp[] }
   | { kind: "open-issues"; scope?: IssueScope }
   | { kind: "open-collection"; name: string }
@@ -110,6 +112,8 @@ function viewRequest(data: unknown, params: readonly ViewParamDeclaration[]): Vi
   const reject = (reason: string) => rejectViewRequest(data.type, reason);
 
   if (data.type === EDIT_SESSION_HELLO_MESSAGE) return { kind: "hello" };
+
+  if (data.type === VIEW_RENDERED_MESSAGE) return { kind: "rendered" };
 
   if (data.type === OPEN_NOTE_MESSAGE) {
     if (!("path" in data) || typeof data.path !== "string" || data.path === "")
@@ -230,6 +234,15 @@ function pushViewParams(params: readonly ViewParamDeclaration[], patch: ViewPara
   notifyLocationChange();
 }
 
+/** The longest a loading view stays hidden behind the one it replaces. */
+const SWAP_LIMIT_MS = 1000;
+
+/** Calls `done` after `view` paints twice, so its first render is on screen. */
+function afterPaint(view: Window | null, done: () => void) {
+  if (!view?.requestAnimationFrame) return done();
+  view.requestAnimationFrame(() => view.requestAnimationFrame(done));
+}
+
 /**
  * Frames a custom view (SPEC-0105). The view is repository code served from
  * this origin at /views/<id>, the same URL that works as a standalone page, so
@@ -254,8 +267,18 @@ export function CustomViewFrame({
   onOpenSearch,
 }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const sessionRef = useRef({ session, readLifecycle });
-  sessionRef.current = { session, readLifecycle };
+  const framesRef = useRef<HTMLDivElement>(null);
+
+  // Every mounted frame: while a view loads, the one on screen still runs and
+  // may come back on screen, so it keeps getting replies, sessions, and events.
+  const mountedViews = () =>
+    [...(framesRef.current?.querySelectorAll("iframe") ?? [])].flatMap((frame) =>
+      frame.contentWindow ? [frame.contentWindow] : [],
+    );
+
+  const postAll = (message: HostMessage) => {
+    for (const target of mountedViews()) target.postMessage(message, window.location.origin);
+  };
 
   // Declared params live on the workspace URL (SPEC-0110). Another app route
   // leaves the last workspace query in place, so a kept-alive frame is untouched.
@@ -270,31 +293,67 @@ export function CustomViewFrame({
   paramsRef.current = params;
   const paramsJSON = JSON.stringify(params);
 
+  const href = customViewHref(view.id, context, { hosted: true });
+  const base = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
+  // Identity params are part of the invocation, so changing one loads a new
+  // frame; a frame keeps the src it first loaded and gets UI params as messages.
+  const key = `${base}#${viewParamsIdentity(declarations, params)}`;
+  const mounted = useRef({ key: "", src: "" });
+
+  if (mounted.current.key !== key) mounted.current = { key, src: withViewParams(base, params) };
+
+  // A new frame loads hidden behind the frame on screen and replaces it once
+  // its view has drawn, so switching views never flashes an empty frame. The
+  // newest frame gets the ref; requests come from any mounted frame.
+  const current = { key, src: mounted.current.src, title: view.name };
+  const [shown, setShown] = useState(current);
+  const currentRef = useRef(current);
+  currentRef.current = current;
+
+  const reveal = (frame: typeof current) => {
+    if (currentRef.current.key === frame.key)
+      setShown((previous) => (previous.key === frame.key ? previous : frame));
+  };
+
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
+
   useEffect(() => {
-    const post = (message: HostMessage) =>
-      frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    if (shown.key === key) return;
+    const limit = window.setTimeout(() => setShown(currentRef.current), SWAP_LIMIT_MS);
 
-    const stage = async (requestId: string, ops: OntologyEditOp[]) => {
-      const target = frameRef.current?.contentWindow;
+    return () => window.clearTimeout(limit);
+  }, [shown.key, key]);
 
-      const respond = (message: HostMessage) => {
-        if (target === frameRef.current?.contentWindow) post(message);
-      };
+  const sessionRef = useRef({ session, readLifecycle });
+  sessionRef.current = { session, readLifecycle };
 
+  useEffect(() => {
+    const reply = (target: Window, message: HostMessage) => {
+      if (mountedViews().includes(target)) target.postMessage(message, window.location.origin);
+    };
+
+    const stage = async (target: Window, requestId: string, ops: OntologyEditOp[]) => {
       try {
         await onStageOps(ops);
-        respond({ type: STAGE_RESULT_MESSAGE, requestId });
+        reply(target, { type: STAGE_RESULT_MESSAGE, requestId });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to stage edits";
-        respond({ type: STAGE_RESULT_MESSAGE, requestId, error: message });
+        reply(target, { type: STAGE_RESULT_MESSAGE, requestId, error: message });
       }
     };
 
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
+      const source = mountedViews().find((view) => view === event.source);
 
-      if (event.source !== frameRef.current?.contentWindow) return;
+      if (!source) return;
       const request = viewRequest(event.data, declarations);
+
+      if (request?.kind === "rendered" && source === frameRef.current?.contentWindow) {
+        const frame = currentRef.current;
+        afterPaint(source, () => revealRef.current(frame));
+      }
 
       if (request?.kind === "open-note") onOpenNote(request.path, request.mode);
 
@@ -305,11 +364,14 @@ export function CustomViewFrame({
         onOpenView?.(request.id, request.context, request.params);
       else if (request?.kind === "open-view") onOpenView?.(request.id, request.context);
 
-      if (request?.kind === "params") pushViewParams(declarations, request.patch);
+      // Only the newest frame's params match the declarations.
+      if (request?.kind === "params" && source === frameRef.current?.contentWindow)
+        pushViewParams(declarations, request.patch);
 
-      if (request?.kind === "hello") post({ type: EDIT_SESSION_MESSAGE, ...sessionRef.current });
+      if (request?.kind === "hello")
+        reply(source, { type: EDIT_SESSION_MESSAGE, ...sessionRef.current });
 
-      if (request?.kind === "stage") void stage(request.requestId, request.ops);
+      if (request?.kind === "stage") void stage(source, request.requestId, request.ops);
 
       if (request?.kind === "open-issues") onOpenIssues?.(request.scope);
 
@@ -333,46 +395,59 @@ export function CustomViewFrame({
   ]);
 
   useEffect(
-    () =>
-      subscribeVaultEvents((event) => {
-        const message: HostMessage = { type: VAULT_EVENT_MESSAGE, ...event };
-        frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
-      }),
+    () => subscribeVaultEvents((event) => postAll({ type: VAULT_EVENT_MESSAGE, ...event })),
     [],
   );
 
   useEffect(() => {
-    const message: HostMessage = { type: EDIT_SESSION_MESSAGE, session, readLifecycle };
-    frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    postAll({ type: EDIT_SESSION_MESSAGE, session, readLifecycle });
   }, [session, readLifecycle]);
 
-  // A UI param reaches the mounted frame as a message; the next mount reads
-  // it from its src.
+  // A UI param reaches the newest frame as a message; a new frame reads it
+  // from its src.
   useEffect(() => {
+    if (declarations.length === 0) return;
     const message: HostMessage = { type: VIEW_PARAMS_MESSAGE, params: JSON.parse(paramsJSON) };
     frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
-  }, [paramsJSON]);
-
-  const href = customViewHref(view.id, context, { hosted: true });
-  const base = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
-  // Identity params are part of the invocation, so changing one remounts.
-  const key = `${base}#${viewParamsIdentity(declarations, params)}`;
-  const mounted = useRef({ key: "", src: "" });
-
-  if (mounted.current.key !== key) mounted.current = { key, src: withViewParams(base, params) };
+  }, [declarations, paramsJSON]);
 
   return (
-    <iframe
-      key={key}
-      ref={frameRef}
-      className="custom-view-frame"
-      title={view.name}
-      src={mounted.current.src}
-      // Params that changed while the frame loaded.
-      onLoad={() => {
-        const message: HostMessage = { type: VIEW_PARAMS_MESSAGE, params: paramsRef.current };
-        frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
-      }}
-    />
+    <div ref={framesRef} className="custom-view-frames">
+      {(shown.key === key ? [current] : [shown, current]).map((frame) => {
+        const incoming = frame.key !== shown.key;
+
+        return (
+          <iframe
+            key={frame.key}
+            ref={frame.key === key ? frameRef : undefined}
+            className="custom-view-frame"
+            data-incoming={incoming || undefined}
+            aria-hidden={incoming || undefined}
+            title={frame.title}
+            src={frame.src}
+            onLoad={(event) => {
+              const loaded = event.currentTarget.contentWindow;
+
+              // Params that changed while the newest frame loaded.
+              if (declarations.length > 0 && frame.key === currentRef.current.key) {
+                const message: HostMessage = {
+                  type: VIEW_PARAMS_MESSAGE,
+                  params: paramsRef.current,
+                };
+
+                loaded?.postMessage(message, window.location.origin);
+              }
+
+              if (!incoming) return;
+
+              // A kit view still starting announces its first render;
+              // any other page has drawn what it will by its load.
+              if (loaded?.document.documentElement?.dataset.rhizomeView === "starting") return;
+              afterPaint(loaded, () => reveal(frame));
+            }}
+          />
+        );
+      })}
+    </div>
   );
 }

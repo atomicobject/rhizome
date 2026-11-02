@@ -118,3 +118,46 @@ func TestSQLiteUpgradeRecoversOwnerlessReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, wire.CodeOutcomeUnknown, code)
 }
+
+func TestSQLiteCurrencyMigrationPreservesLegacyUsageAndFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(filepath.Join(t.TempDir(), "currency-upgrade.db"))
+	require.NoError(t, err)
+	defer db.Close()
+	clock := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	now := func() time.Time { return clock }
+	old, err := ledger.Open(ctx, db, now)
+	require.NoError(t, err)
+	r := ledger.Receipt{Sub: "s", Key: "legacy", InputBytes: 10, Credits: 5}
+	code, err := old.Reserve(ctx, r, roomy, roomy)
+	require.NoError(t, err)
+	require.Empty(t, code)
+	require.NoError(t, old.MarkDispatched(ctx, r.Sub, r.Key))
+	require.NoError(t, old.Settle(ctx, r.Sub, r.Key, ledger.Succeeded, 2))
+	// Recreate the actual pre-currency layout, preserving its counters and receipt.
+	for _, col := range []string{"provider", "price_version", "reserved_nanodollars", "price_nanodollars_per_token", "max_billable_tokens", "accounting_version", "provider_limit_nanodollars", "settled_nanodollars"} {
+		_, err := db.ExecContext(ctx, "ALTER TABLE ledger_receipts DROP COLUMN "+col)
+		require.NoError(t, err)
+	}
+	_, err = db.ExecContext(ctx, "ALTER TABLE ledger_days DROP COLUMN budgeted_requests; DROP TABLE ledger_provider_days")
+	require.NoError(t, err)
+	upgraded, err := ledger.Open(ctx, db, now)
+	require.NoError(t, err)
+	u, _, err := upgraded.Usage(ctx, upgraded.Day())
+	require.NoError(t, err)
+	require.Equal(t, wire.DailyUsage{Requests: 1, InputBytes: 10, ReservedCredits: 2, SettledCredits: 2}, u)
+	r.Key, r.Provider, r.PriceVersion = "currency", "voyage", "synthetic-v1"
+	r.ReservedNanodollars, r.PriceNanodollarsPerToken, r.MaxBillableTokens, r.ProviderLimitNanodollars = 20, 2, 10, 100
+	code, err = upgraded.Reserve(ctx, r, roomy, roomy)
+	require.NoError(t, err)
+	require.Equal(t, wire.CodeBudgetExhausted, code)
+	clock = clock.Add(24 * time.Hour)
+	upgraded, err = ledger.Open(ctx, db, now)
+	require.NoError(t, err)
+	code, err = upgraded.Reserve(ctx, r, roomy, roomy)
+	require.NoError(t, err)
+	require.Empty(t, code)
+	providers, _, err := upgraded.ProviderUsage(ctx, upgraded.Day())
+	require.NoError(t, err)
+	require.Equal(t, wire.ProviderUsage{Requests: 1, ReservedNanodollars: 20}, providers["voyage"])
+}

@@ -3,6 +3,7 @@ WEB_DIR=web
 WEB_DIST=pkg/app/web/assets/dist
 WEB_STAMP=$(WEB_DIST)/.web-build
 DEV_BINARY=bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
+BUILD_LDFLAGS ?=
 
 RELEASE_LDFLAGS=-s -w -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
 RELEASE_FLAGS=-trimpath -ldflags "$(RELEASE_LDFLAGS)" -buildvcs=false
@@ -32,7 +33,7 @@ endif
 build: web-build
 	@mkdir -p bin/$(GOOS)
 	@mkdir -p .gocache .gomodcache .gotmp
-	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(CGO_TAGS) -o bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(CGO_TAGS) $(if $(strip $(BUILD_LDFLAGS)),-ldflags "$(BUILD_LDFLAGS)") -o bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
 	$(MAKE) team-api-build
 
 build-release: web-build
@@ -292,7 +293,7 @@ release:
 		echo "hint: current commit is $$(git describe --tags --always --dirty 2>/dev/null || git rev-parse --short HEAD)"; \
 		exit 1; \
 	fi
-	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} python3 scripts/teamkeys/release.py python3 scripts/release/run_clean.py publish -- goreleaser release --clean
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} python3 scripts/release/release_publish.py
 
 release-plan:
 	python3 scripts/release/release_cli.py plan
@@ -320,7 +321,7 @@ cut-release:
 	./scripts/release/cut_release.sh
 
 release-s3:
-	@./scripts/release/publish_s3.sh
+	@RZM_RELEASE_GATEWAY_RECEIPT="$(RZM_RELEASE_GATEWAY_RECEIPT)" ./scripts/release/publish_s3.sh
 
 release-s3-check:
 	@PREFLIGHT_ONLY=1 ./scripts/release/publish_s3.sh
@@ -414,6 +415,7 @@ team-api-check:
 	@mkdir -p .gocache .gomodcache .gotmp
 	cd services/team-api && $(TEAM_API_ENV) go vet ./... && $(TEAM_API_ENV) go test -race $(TEAM_API_TEST_FLAGS) ./...
 	python3 -m unittest discover -s services/team-api/deploy -p '*_test.py'
+	python3 -m unittest discover -s scripts/team-api -p '*_test.py'
 
 team-api-dynamodb-check:
 	./scripts/team-api/dynamodb-check.sh

@@ -6,7 +6,7 @@ The pilot runs one ARM64 Fargate task on ECS Express Mode, with its AWS-issued H
 
 Drew performs these steps in order. Account IDs, resource names, the endpoint, Google client metadata, people, and budget decisions stay in AWS or protected GitHub environment variables. Do not commit a filled configuration or parameter file.
 
-1. Merge the reviewed change to protected `main`. Configure branch protection with required review and checks. Do not approve a production deployment until bootstrap and configuration are complete.
+1. Merge the reviewed change to protected `main`. Configure branch protection with required checks. Complete bootstrap and configuration before the first deployment.
 2. In the target region, confirm the default VPC has public subnets with internet routing and the `default` ECS cluster exists. Express uses those public subnets and public task IPs, with no NAT. The ECS service-linked role must exist; the target account's spike already created it. Record the public subnet CIDRs for `trusted_proxy_cidrs`. Confirm ARM64 Fargate capacity and GitHub's `ubuntu-24.04-arm` runner are available.
 3. Using admin credentials outside agent sessions, create the stack once, with serving disabled. Set `CreateGitHubOidcProvider=true` only when the account does not already have `token.actions.githubusercontent.com`. An existing provider must allow audience `sts.amazonaws.com`. Never delete a shared provider.
 
@@ -48,20 +48,24 @@ Drew performs these steps in order. Account IDs, resource names, the endpoint, G
      "global_limits": {"requests": 0, "input_bytes": 0, "charge_credits": 0},
      "max_person_limits": {"requests": 100, "input_bytes": 1000000, "charge_credits": 100000},
      "max_global_limits": {"requests": 300, "input_bytes": 3000000, "charge_credits": 300000},
+     "provider_daily_nanodollars": {"voyage": 0, "typesafe": 0},
+     "max_provider_daily_nanodollars": {"voyage": 0, "typesafe": 0},
      "concurrency": {"voyage_concurrency": 4, "typesafe_concurrency": 4}
    }
    ```
 
    Limits, allowlists, and switches seed DynamoDB only on first startup. Later changes use the admin API. Admin identities, domains, and ceilings remain startup configuration. Task clocks must track UTC. Receipts have no TTL and must not be pruned.
-6. Create the GitHub environment `production`, with required approvers, prevention of self-review where supported, and a deployment branch rule allowing only `main`. Keep `main` protected. Set environment variables `TEAM_API_AWS_REGION`, `TEAM_API_STACK`, and `TEAM_API_DEPLOY_ROLE_ARN` from the bootstrap outputs. These are references, never secret values. The role's OIDC trust requires audience `sts.amazonaws.com` and the exact `GitHubOidcSubject` from bootstrap. Current GitHub repositories include immutable owner and repository IDs in their subject prefix; do not substitute the older name-only format or a wildcard. Inspect customized subject claims separately if the repository does not use GitHub's default template. GitHub environment branch protection supplies the main-only restriction because the environment OIDC subject does not also contain a branch.
-7. Run **Deploy team API** on `main`, with `image_tag` empty, and approve it through `production`. It tests the gateway, builds ARM64, pushes an immutable commit-SHA tag, and updates the existing stack using its previous template. The first update enables the service. Subsequent updates must never set `EnableService=false`, change its logical ID, `Cluster`, `ServiceName`, `InfrastructureRoleArn`, or add/change `Tags`. CloudFormation marks those service properties as replacement operations. `Retain`, a stack policy, and the deployment change-set guard protect the hostname.
+6. Create the GitHub environment `production` with a deployment branch rule allowing only `main`. Deployments run automatically without required environment reviewers, as Drew requested. Keep `main` protected. Set environment variables `TEAM_API_AWS_REGION`, `TEAM_API_STACK`, and `TEAM_API_DEPLOY_ROLE_ARN` from the bootstrap outputs. These are references, never secret values. The role's OIDC trust requires audience `sts.amazonaws.com` and the exact `GitHubOidcSubject` from bootstrap. Current GitHub repositories include immutable owner and repository IDs in their subject prefix; do not substitute the older name-only format or a wildcard. Inspect customized subject claims separately if the repository does not use GitHub's default template. GitHub environment branch protection supplies the main-only restriction because the environment OIDC subject does not also contain a branch.
+7. Run **Deploy team API** on `main`, with `image_tag` empty. It tests the gateway, builds ARM64, pushes an immutable commit-SHA tag, and updates the existing stack using its previous template. The first update enables the service. Subsequent updates must never set `EnableService=false`, change its logical ID, `Cluster`, `ServiceName`, `InfrastructureRoleArn`, or add/change `Tags`. CloudFormation marks those service properties as replacement operations. `Retain`, a stack policy, and the deployment change-set guard protect the hostname.
 8. Confirm the workflow reports the requested canary revision successful, one running task, ALB settings verified, task ingress restricted to ALB security groups, and `HTTPS /healthz: 200`. Save the `Endpoint` as the canonical root HTTPS origin. An initial bootstrap failure before service creation can be retried; if it retains a partially created service, inspect and import or recover that service rather than creating another hostname casually.
 9. Sign in to the endpoint from a release build with `rzm auth login --server <https-origin>`. Check admin access, set approved limits, and perform the pilot's live offboarding, kill-switch, retry, cancellation, slow-request, deployment, rollback, and memory drills. A health check proves startup and lease recovery, not provider availability or Google sign-in. Hold broader rollout until the spec's remaining gates pass.
 10. Supply `RZM_INTERNAL_TEAM_API_ORIGIN=<https-origin>` in the private release environment alongside `RZM_INTERNAL_S3_BUCKET`. GoReleaser embeds it as `pkg/teamapi/session.DefaultOrigin` only for internal builds. Public builds keep an empty default. Changing this input does not retire the legacy bundle or rotate any key; those remain later rollout work.
 
 ## Deploy and rollback
 
-Push reviewed changes to `main`, or manually run **Deploy team API** on `main`. Approvers review the exact commit. Actions follow the repository's existing version-tag convention. No long-lived AWS keys are configured; CI receives an OIDC session. The role can push only this repository, update only this stack and service, pass only these roles, and operate on this task-definition family. ECS task registration is scoped to this stack's family. AWS requires `*` for ECR authorization, `DescribeTaskDefinition`, and the network describe operations. Task-definition revisions are retained, so the deploy role needs no unrestricted deregistration permission. ALB writes are limited to this account/region's Express-managed ALBs by the `AmazonECSManaged=true` tag; their generated ARNs are unknown at bootstrap. Review that residual scope with IAM Access Analyzer during the live acceptance pass.
+Supported client release commands automatically dispatch **Deploy team API** on trusted public `main` and wait before publishing client artifacts. Server source is the exact selected public `release` commit, not the dispatcher main commit. Ordinary pushes to main no longer deploy. The production environment still permits only main; its OIDC restrictions are unchanged. Actions follow the repository's existing version-tag convention. No long-lived AWS keys are configured; CI receives an OIDC session. The role can push only this repository, update only this stack and service, pass only these roles, and operate on this task-definition family. ECS task registration is scoped to this stack's family. AWS requires `*` for ECR authorization, `DescribeTaskDefinition`, and the network describe operations. Task-definition revisions are retained, so the deploy role needs no unrestricted deregistration permission. ALB writes are limited to this account/region's Express-managed ALBs by the `AmazonECSManaged=true` tag; their generated ARNs are unknown at bootstrap. Review that residual scope with IAM Access Analyzer during the live acceptance pass.
+
+Source deployment requires paired full-SHA `source_commit` and random hex `request_id` inputs; normal release commands choose them automatically. It checks the source against trusted public main history, tests/builds a separate source checkout, and executes `deploy.py` from trusted main. Do not select a private commit or run an old deployment helper. See [release publication gating](../../docs/RELEASING.md#gateway-deployment-before-publication) for private/public source agreement, receipts and retries.
 
 The workflow uses the previous CloudFormation template and values, changing only image tag, deployment ID, and initial enablement. CloudFormation also needs read access to this stack's role metadata, image repository metadata, and ECS service deployments and revisions to resolve resource attributes and wait for completion. These permissions do not allow reading provider secret values. It cannot deliver template/IAM/schema changes. An operator reviews and applies those separately with admin credentials and an explicit temporary stack-policy override. Preserve out-of-band SSM/secret values and service identity. Do not replace the bootstrap template with a new stack for an ordinary release.
 
@@ -108,6 +112,49 @@ CloudWatch retains records for 30 days. The gateway writes bounded JSON lines to
 
 A failed workflow is not evidence of a successful release. Inspect CloudFormation events, ECS deployment history, and task exit reasons. An ECS automatic rollback must not pass the revision check. A failure in the ALB or smoke checks happens after a deployment may already be serving; investigate and redeploy a known image. Check the exact running task revision and endpoint. Review billing, retained receipt growth, DynamoDB throttling, and memory under maximum concurrency during the pilot; right-size only from those measurements. This change adds no pager integration or live alarms.
 
+## Provider budgets and first enablement
+
+Each provider has its own UTC admission-day allowance in integer nanodollars (one dollar is one billion nanodollars). Runtime `provider_daily_nanodollars` values are clamped to startup `max_provider_daily_nanodollars`; absent or zero effective values disable that provider. Existing request, byte, and credit limits also apply. Keep actual production allowances and filled configuration in AWS and private operations records.
+
+Before first currency-accounting deployment, turn paid calls off and verify today's admitted usage is zero and no old paid work remains. Legacy paid requests have no trustworthy dollar attribution; a nonzero legacy day refuses new currency-budgeted admission until a clean UTC day or a separately reviewed reconciliation. First deploy the budget-aware binary with the old startup configuration; missing new fields mean zero provider allowance. Verify the requested successful canary and only the new revision serving. Then add the approved startup currency ceilings, deploy a fresh revision of that same image, and apply provider allowances, compatible shared limits, and provider switches through the admin API. Startup SSM values seed runtime state only on first boot; they do not overwrite an existing runtime record.
+
+The gateway reserves the reviewed maximum possible request charge before dispatch and settles down only from unambiguous billing usage. Currency reservations survive missing/malformed usage, rejections without proof of no billing, interrupted responses, and owner recovery. The reservation includes settled charges; do not add them together. TypeSafe dollar accounting uses input tokens only, while existing shared credits keep their prior accounting semantics. Request bodies and `jev-latest` are preserved. Ops reports expose the currently reviewed rates/context bounds; vendor price/context changes require reviewing these assumptions. These controls cover gateway accounting, not unrelated account use or a guarantee against vendor contract changes.
+
+Usage above a reviewed bound fences the provider until accounting review. The fence survives day changes and process restarts. Raising the allowance does not clear it. Global `fenced` reports current admission status even for historical dates; per-person counters describe their admission day. Keep the provider disabled while diagnosing pricing, context, or usage-format changes. Before rollback to a binary without provider-budget enforcement, switch paid calls off and drain. Restore the compatible startup configuration before starting that binary: old strict config decoders reject the new provider fields. Keep paid calls off on an older binary because it cannot enforce provider allowances.
+
+## Ops skill and reports
+
+Use the repository's `rhizome-ops` skill from Codex or Claude Code for service health, usage, logs, performance, access, and incident guidance. Its shared helper provides read-only reports and explicit runtime settings changes. Settings changes preview by default and require `--apply` to write. Supply the expected AWS account, region, and stack explicitly; it refuses a different account before reading the stack. It discovers the endpoint and resource names from stack outputs.
+
+```sh
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> status
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> usage \
+  --start 2026-11-01 --end 2026-11-02
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> usage \
+  --user operator@example.com
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> performance --hours 1
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> capacity --hours 1
+```
+
+Usage and email-filtered logs require an existing admin sign-in to the discovered production origin. If sign-in is missing, use `./scripts/rzm auth login --server <https-origin>`; the helper never reads tokens directly. Usage covers inclusive UTC dates, up to 31 days. It reports admitted requests, input bytes, reserved and settled credits, and unknown outcomes globally and by person. Reserved credits already include settled credits, so never add them. Credits are accounting units, not a provider bill. Limits shown for an old day are today's configured limits. The API has no historical limit snapshots or per-model breakdown. Provider currency totals and current pricing assumptions are reported separately.
+
+Performance reports distinguish HTTP request events from provider events to avoid counting a call twice. They exclude health checks and report sample counts beside latency percentiles. Provider timings separate validation, admission wait, reservation, upstream work, settlement, and total time. Log reads are bounded to 24 hours and an explicit event cap; `complete: false` means the result is partial. A sparse sample or missing measurement is not zero latency or zero traffic.
+
+AWS already exposes service CPU and memory utilization, ALB response time and error counts, and DynamoDB capacity and throttling metrics. The helper pulls a small diagnostic set; use the documented AWS metric dimensions for deeper queries. Missing datapoints are not proof of zero errors. Container Insights, custom application metrics, ALB access logs, dashboards, alarms, and paging are not configured by this template.
+
+For settings, read the current values or preview a change before applying the exact authorized values:
+
+```sh
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> settings
+python3 scripts/team-api/ops.py --account <account> --region <region> --stack <stack> settings-update \
+  --paid-calls on --voyage on --typesafe on \
+  --voyage-daily-usd <approved-USD> --typesafe-daily-usd <approved-USD>
+```
+
+Add `--apply` only for an authorized change. The helper reads back requested fields and checks for its matching audit entry. Runtime daily limits must fit the startup ceilings. To raise a ceiling, review a patch to only the relevant `max_person_limits`, `max_global_limits`, and `max_provider_daily_nanodollars` in the non-secret SSM `ConfigParameter`, preserve its other fields, deploy a fresh task through CI, then apply the runtime limits through the admin API. Do not alter DynamoDB directly or expect SSM seed values to replace current runtime settings. Zero effective runtime limits prevent paid admission. Shared request/byte/credit ceilings constrain later admin updates; lowering them does not replace existing runtime limits or per-person overrides. Provider currency ceilings also clamp the effective runtime allowance. Use `--paid-calls off` to stop new paid admissions. Shared credits remain accounting units rather than dollars; the separate provider allowances use the reviewed currency bounds described above.
+
+Recommended follow-ups are an external HTTPS availability check, alerts for sustained target/ALB errors and resource pressure, notification of failed deployments, and an alert on unknown accounting outcomes. Choose thresholds and a notification owner from pilot measurements before provisioning them. Keep per-user accounting in the admin API rather than adding identity labels to CloudWatch metrics.
+
 ## Teardown
 
 Teardown is an intentional operator action, never part of the deployment workflow. It loses the random hostname permanently.
@@ -128,6 +175,7 @@ docker build --platform linux/arm64 -f services/team-api/Dockerfile \
   --build-arg VERSION=local-deployment-check -t rhizome-team-api:deployment-check .
 python3 services/team-api/deploy/container-check.py
 python3 -m unittest discover -s services/team-api/deploy -p '*_test.py'
+python3 -m unittest discover -s scripts/team-api -p '*_test.py'
 cfn-lint services/team-api/deploy/template.yml
 actionlint .github/workflows/team-api-deploy.yml
 make check
@@ -136,6 +184,9 @@ make check
 The image uses CGO with musl static linking, so SQLite remains available for local use. Scratch contains only the executable, CA certificates, and empty UID-65532-owned directories. ECS uses an explicit ARM64 task definition with a container named `Main` and one named TCP port, as Express requires. Config supplied through `RHIZOME_TEAM_API_CONFIG` defaults diagnostics to stdout; `--config <file>` still works and defaults to local files. The container check uses a disposable Docker network, DynamoDB Local, synthetic credentials, and production config delivered through the environment. It calls no provider or Google endpoint.
 
 ## AWS references
+
+- [ECS service CPU and memory metrics](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/available-metrics.html)
+- [ALB metrics, dimensions, and reporting gaps](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html)
 
 - [CloudFormation Express service properties and replacement rules](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ecs-expressgatewayservice.html).
 - [Express custom task definition requirements and ARM64 support](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-getting-started.html).

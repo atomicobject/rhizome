@@ -29,6 +29,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
                 "PATH": "/bin",
             },
             runner=runner,
+            gate=lambda *args, **kwargs: {},
         )
 
         command, kwargs = calls[0]
@@ -63,9 +64,43 @@ class PublishGithubReleaseTest(unittest.TestCase):
                 "/repo/notes.md",
                 environ={"RZM_RELEASE_GITHUB_TOKEN": "release-secret", "RZM_INTERNAL_S3_BUCKET": "example-bucket"},
                 runner=runner,
+                gate=lambda *args, **kwargs: {},
             )
 
         self.assertNotIn("RZM_RELEASE_DESKTOP", calls[0]["env"])
+
+    def test_gateway_failure_blocks_goreleaser(self):
+        from release_gateway import GatewayError
+        calls = []
+        def gate(*args, **kwargs):
+            raise GatewayError("gateway failed")
+        with self.assertRaisesRegex(GatewayError, "gateway failed"):
+            publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+                                   gate=gate, runner=lambda *a, **k: calls.append(a))
+        self.assertEqual(calls, [])
+
+    def test_direct_publish_gates_before_goreleaser_and_optional_notes(self):
+        calls = []
+        def gate(*args, **kwargs):
+            calls.append(("gate", kwargs))
+            return {}
+        def runner(command, **kwargs):
+            calls.append(("publish", command))
+            return subprocess.CompletedProcess(command, 0, "", "")
+        publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+                               gate=gate, runner=runner)
+        self.assertEqual([c[0] for c in calls], ["gate", "publish"])
+        self.assertIsNone(calls[0][1]["receipt_path"])
+        self.assertNotIn("--release-notes", calls[1][1])
+
+    def test_handoff_passes_receipt_for_verification(self):
+        from pathlib import Path
+        received = []
+        publish_github_release(gateway_receipt=Path("/tmp/receipt.json"),
+            environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+            gate=lambda *a, **k: received.append(k),
+            runner=lambda c, **k: subprocess.CompletedProcess(c, 0, "", ""))
+        self.assertEqual(received[0]["receipt_path"], Path("/tmp/receipt.json"))
 
     def test_missing_release_token_fails_before_goreleaser(self):
         calls = []
@@ -75,6 +110,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
                 "/repo/notes.md",
                 environ={},
                 runner=lambda *args, **kwargs: calls.append((args, kwargs)),
+                gate=lambda *args, **kwargs: self.fail("gate dispatched without publish credentials"),
             )
 
         self.assertEqual(calls, [])

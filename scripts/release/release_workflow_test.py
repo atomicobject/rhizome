@@ -8,6 +8,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 GORELEASER_CONFIG = ROOT / ".goreleaser.yml"
+DEPLOY_WORKFLOW = ROOT / ".github" / "workflows" / "team-api-deploy.yml"
 
 
 class ReleaseWorkflowContractTest(unittest.TestCase):
@@ -45,7 +46,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("release_commit: ${{ steps.topology.outputs.commit }}", probe)
         self.assertIn('echo "commit=$release_commit" >> "$GITHUB_OUTPUT"', probe)
         self.assertIn("/releases/tags/$RELEASE_TAG", probe)
-        self.assertIn("needs: [probe, test]", publisher)
+        self.assertIn("needs: [probe, test, gateway]", publisher)
         self.assertIn("if: needs.probe.outputs.release_exists == 'false'", publisher)
         self.assertIn("permissions:\n      contents: write", publisher)
         self.assertIn("ref: ${{ needs.probe.outputs.release_commit }}", publisher)
@@ -71,6 +72,40 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
             'echo "error: release commit is not on the canonical main topology" >&2',
             publisher,
         )
+
+    def test_fallback_waits_for_the_trusted_gate_before_write_capable_publication(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        gate = workflow.split("\n  gateway:\n", 1)[1].split("\n  goreleaser:\n", 1)[0]
+        self.assertIn("needs: [probe, test]", gate)
+        self.assertIn("contents: read\n      actions: write", gate)
+        self.assertNotIn("contents: write", gate)
+        self.assertNotIn("id-token: write", gate)
+        self.assertIn("ref: ${{ github.sha }}\n          path: trusted", gate)
+        self.assertIn("ref: ${{ needs.probe.outputs.release_commit }}\n          path: source", gate)
+        self.assertEqual(2, gate.count("persist-credentials: false"))
+        self.assertIn("python3 trusted/scripts/release/release_gateway.py", gate)
+        self.assertIn('--repo-root "$GITHUB_WORKSPACE/source"', gate)
+        self.assertIn('--release-commit "$RELEASE_COMMIT"', gate)
+        self.assertIn("if: github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'", workflow)
+
+    def test_deployment_uses_trusted_main_controls_and_the_selected_source_image(self) -> None:
+        workflow = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+        self.assertNotIn("\n  push:", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("format('Deploy team API {0} {1}', inputs.request_id, inputs.source_commit)", workflow)
+        self.assertIn("if: github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'", workflow)
+        self.assertIn("environment: production", workflow)
+        self.assertIn("group: team-api-production\n  cancel-in-progress: false", workflow)
+        self.assertIn("ref: ${{ github.sha }}\n          path: trusted", workflow)
+        self.assertIn("ref: ${{ steps.selection.outputs.source_commit }}\n          path: source", workflow)
+        self.assertEqual(2, workflow.count("persist-credentials: false"))
+        self.assertLess(workflow.index("deployment_inputs.py"), workflow.index("Checkout selected source"))
+        self.assertLess(workflow.index("go test -race"), workflow.index("aws-actions/configure-aws-credentials"))
+        self.assertIn("python3 trusted/services/team-api/deploy/deploy.py", workflow)
+        self.assertNotIn("python3 source/services/team-api/deploy/deploy.py", workflow)
+        self.assertIn('--build-arg "VERSION=$IMAGE_TAG" -t "$repository:$IMAGE_TAG" source', workflow)
+        self.assertIn('--image-tag "$IMAGE_TAG"', workflow)
+        self.assertNotIn('imageTag=$GITHUB_SHA', workflow)
 
     def test_goreleaser_asks_github_to_create_tag_at_release_commit(self) -> None:
         config = GORELEASER_CONFIG.read_text(encoding="utf-8")
