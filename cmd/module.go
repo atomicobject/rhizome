@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	moduleactions "github.com/atomicobject/rhizome/pkg/app/actions"
@@ -31,6 +31,9 @@ var newActionRunner = moduleactions.New
 // moduleReservedFlags are the module command's own flags; an input with one of
 // these names is passed with --input name=value instead.
 var moduleReservedFlags = map[string]bool{"help": true, "vault": true, "summary": true, "input": true, "no-pager": true}
+
+// moduleSharedFlags are the flags an action command has besides its inputs.
+var moduleSharedFlags = map[string]bool{"help": true, "vault": true, "no-pager": true}
 
 func registerModuleFamily(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(&cobra.Command{
@@ -167,7 +170,12 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 	root.SetIn(parent.InOrStdin())
 	root.SetOut(parent.OutOrStdout())
 	root.SetErr(parent.ErrOrStderr())
-	return root.ExecuteContext(ctx)
+	err = root.ExecuteContext(ctx)
+	// An action already reported its refusal or error.
+	if errors.As(err, new(silentExitError)) {
+		parent.SilenceUsage, parent.SilenceErrors = true, true
+	}
+	return err
 }
 
 func (commandOptions *vaultCommandOptions) newModuleRecipeCmd(recipe queryrecipe.Recipe, recipes []queryrecipe.Recipe, issues []queryrecipe.Issue) *cobra.Command {
@@ -222,6 +230,8 @@ func newModuleActionCmd(runner *moduleactions.Runner, action actiondef.Action) *
 		Long:    action.Description,
 		Args:    cobra.NoArgs,
 		GroupID: "actions",
+		// Its outcomes are printed by RunE; Cobra adds nothing.
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			given := map[string][]string{}
 			for name, spec := range action.Inputs {
@@ -231,9 +241,6 @@ func newModuleActionCmd(runner *moduleactions.Runner, action actiondef.Action) *
 				switch spec.Kind {
 				case actiondef.KindList:
 					given[name], _ = cmd.Flags().GetStringArray(name)
-				case actiondef.KindBool:
-					value, _ := cmd.Flags().GetBool(name)
-					given[name] = []string{strconv.FormatBool(value)}
 				default:
 					value, _ := cmd.Flags().GetString(name)
 					given[name] = []string{value}
@@ -275,8 +282,8 @@ func newModuleActionCmd(runner *moduleactions.Runner, action actiondef.Action) *
 	sort.Strings(names)
 	for _, name := range names {
 		spec := action.Inputs[name]
-		// ponytail: an input named like a module-command flag cannot be set here; add --input when one needs it.
-		if moduleReservedFlags[name] {
+		// ponytail: an input named like a flag every module command has cannot be set here; add --input when one needs it.
+		if moduleSharedFlags[name] {
 			continue
 		}
 		usage := spec.Kind
@@ -289,12 +296,11 @@ func newModuleActionCmd(runner *moduleactions.Runner, action actiondef.Action) *
 		if spec.Required {
 			usage += " (required)"
 		}
-		switch spec.Kind {
-		case actiondef.KindList:
+		// A bool takes an explicit true or false, so every flag but the shared
+		// booleans takes a value, which moduleVaultFlag relies on.
+		if spec.Kind == actiondef.KindList {
 			cmd.Flags().StringArray(name, nil, usage)
-		case actiondef.KindBool:
-			cmd.Flags().Bool(name, false, usage)
-		default:
+		} else {
 			cmd.Flags().String(name, "", usage)
 		}
 	}

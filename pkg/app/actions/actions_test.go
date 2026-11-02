@@ -157,6 +157,7 @@ func TestScriptEnvelopeForEachResult(t *testing.T) {
 	}{
 		{"ok", `{"ok":true,"result":{"done":true}}`, 0, Envelope{Status: StatusOK, Result: json.RawMessage(`{"done":true}`)}},
 		{"refused", `{"ok":true,"result":{"refused":"busy"}}`, 0, Envelope{Status: StatusRefused, Reason: "busy"}},
+		{"a null refusal is a result", `{"ok":true,"result":{"refused":null}}`, 0, Envelope{Status: StatusOK, Result: json.RawMessage(`{"refused":null}`)}},
 		{"refused with more keys is a result", `{"ok":true,"result":{"refused":"busy","n":1}}`, 0, Envelope{Status: StatusOK, Result: json.RawMessage(`{"refused":"busy","n":1}`)}},
 		{"thrown", `{"ok":false,"error":{"message":"bad thing"}}`, 1, Envelope{Status: StatusError, Reason: "bad thing"}},
 	} {

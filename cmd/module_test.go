@@ -130,7 +130,7 @@ func trustActionsForTest(t *testing.T) {
 
 func moduleActionFiles() map[string]string {
 	return map[string]string{
-		".rhizome/modules/demo/actions/echo.yaml":   "description: Echo the input\ninputs:\n  items: {kind: list, required: true}\n  count: {kind: int}\n  dry: {kind: bool}\nrun:\n  command: [cat]\n",
+		".rhizome/modules/demo/actions/echo.yaml":   "description: Echo the input\ninputs:\n  items: {kind: list, required: true}\n  count: {kind: int}\n  dry: {kind: bool}\n  summary: {kind: string}\nrun:\n  command: [cat]\n",
 		".rhizome/modules/demo/actions/refuse.yaml": "description: Always refuse\nrun:\n  command: [sh, -c, \"echo busy >&2; exit 2\"]\n",
 		".rhizome/modules/demo/actions/fail.yaml":   "description: Always fail\nrun:\n  command: [sh, -c, \"echo boom >&2; exit 1\"]\n",
 	}
@@ -156,13 +156,19 @@ func TestModuleCommandRunsActionsWithExitCodes(t *testing.T) {
 	require.Contains(t, stdout, "Actions:")
 	require.Contains(t, stdout, "Echo the input")
 
-	stdout, _, err = runRootCLI(t, ctx, []string{"demo", "echo", "--items", "a", "--items", "b", "--count", "3", "--dry"})
+	// A bool takes its value; an input may share a recipe-only flag's name.
+	stdout, _, err = runRootCLI(t, ctx, []string{"demo", "echo", "--items", "a", "--items", "b", "--count", "3", "--dry", "true", "--summary", "s"})
 	require.NoError(t, err)
-	require.JSONEq(t, `{"items": ["a", "b"], "count": 3, "dry": true}`, stdout)
+	require.JSONEq(t, `{"items": ["a", "b"], "count": 3, "dry": true, "summary": "s"}`, stdout)
+	// --vault after a bool input still chooses the vault, which has no demo module.
+	_, _, err = runRootCLI(t, ctx, []string{"demo", "echo", "--items", "a", "--dry", "false", "--vault", "no-such-vault"})
+	require.ErrorContains(t, err, `unknown command "demo"`)
 
-	_, stderr, err := runRootCLI(t, ctx, []string{"demo", "refuse"})
+	// Without the test driver's silencing, a refusal prints only its reason.
+	stdout, stderr, err := runRootCLIWithRootSilence(t, ctx, []string{"demo", "refuse"}, false)
 	require.Equal(t, silentExitError{code: 2}, err)
 	require.Equal(t, "busy", stderr)
+	require.Empty(t, stdout)
 
 	_, stderr, err = runRootCLI(t, ctx, []string{"demo", "fail"})
 	require.Equal(t, silentExitError{code: 1}, err)

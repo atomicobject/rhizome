@@ -195,7 +195,8 @@ func (r *Runner) runScript(ctx context.Context, a actiondef.Action, input map[st
 	var refusal map[string]json.RawMessage
 	if json.Unmarshal(result, &refusal) == nil && len(refusal) == 1 {
 		var reason string
-		if raw, found := refusal["refused"]; found && json.Unmarshal(raw, &reason) == nil {
+		// Only a string is a refusal; {"refused": null} is an ordinary result.
+		if raw, found := refusal["refused"]; found && bytes.HasPrefix(bytes.TrimSpace(raw), []byte(`"`)) && json.Unmarshal(raw, &reason) == nil {
 			return refused(reason)
 		}
 	}
