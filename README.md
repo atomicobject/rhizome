@@ -50,12 +50,17 @@ rzm init
 
 Atomic Object employees can import shared provider keys from a team 1Password Environment in Rhizome setup or Settings. The import uses the stable 1Password CLI and saves keys on your computer; ordinary use needs no 1Password prompt. Ask the team for the account and Environment ID. [Credential setup](docs/engineering/secrets.md#developer-setup)
 
-A team API gateway will replace those shared keys with a per-person Google sign-in. It is not deployed yet:
+A team API gateway provides per-person Google sign-in for the initial Atomic pilot:
+
 - `rzm auth login --server <gateway URL>` signs in once for every Rhizome process on your Mac.
 - `rzm auth status` and `rzm auth logout` manage the session.
 - `rzm auth admin` lets admins check usage and manage people, sessions, and limits.
 
 Your own provider keys still take precedence. [Team API gateway](services/team-api/README.md)
+
+Admins can read settings with `rzm auth admin config --server <gateway URL>` and set separate UTC daily provider budgets with `--voyage-daily-usd` and `--typesafe-daily-usd`. Each accepts a non-negative USD decimal with up to nine fractional digits; zero disables paid admission for that provider.
+
+Changes must fit the server's startup `max_provider_daily_nanodollars` ceilings. Raising a ceiling requires an AWS configuration change and deployment before applying the runtime budget. Existing request, byte, credit limits, and paid-call switches also apply. Jev requests use `jev-latest`. See the [operations runbook](services/team-api/RUNBOOK.md#provider-budgets-and-first-enablement) for accounting assumptions and the repository's `rhizome-ops` skill for previewed, audited settings changes.
 
 When preparing another checkout, run `rzm new-worktree <source-worktree-path>` from the new worktree. It copies the index and seeds personal view settings once. Each worktree remembers later preference changes independently, and existing personal settings are preserved.
 

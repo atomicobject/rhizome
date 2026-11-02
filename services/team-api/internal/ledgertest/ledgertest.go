@@ -27,6 +27,7 @@ func openLedger(t *testing.T, open Factory) (ledger.Ledger, func() ledger.Ledger
 	return newInstance(), newInstance
 }
 func Run(t *testing.T, open Factory) {
+	runProviders(t, open)
 	t.Run("SettleAppliesOnceAndRefundsOnlyUnused", func(t *testing.T) { testSettleAppliesOnceAndRefundsOnlyUnused(t, open) })
 	t.Run("OutcomesAndTheirReservations", func(t *testing.T) { testOutcomesAndTheirReservations(t, open) })
 	t.Run("PreconditionsOnMissingAndReservedReceipts", func(t *testing.T) { testPreconditionsOnMissingAndReservedReceipts(t, open) })

@@ -24,6 +24,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/services/team-api/internal/core"
 	"github.com/atomicobject/rhizome/services/team-api/internal/ledger"
+	"github.com/atomicobject/rhizome/services/team-api/internal/providerbudget"
 )
 
 const (
@@ -101,13 +102,13 @@ type Traffic struct {
 }
 
 type provider struct {
-	route, url, key string
-	timeout         time.Duration
-	maxBody         int64
-	models          map[string]Charge
-	validate        func([]byte, map[string]Charge) (string, int, *gwError)
-	enabled         func(core.Runtime) bool
-	tokens          func(usage []byte) (int64, bool)
+	name, route, url, key string
+	timeout               time.Duration
+	maxBody               int64
+	models                map[string]Charge
+	validate              func([]byte, map[string]Charge) (string, int, *gwError)
+	enabled               func(core.Runtime) bool
+	tokens                func(usage []byte) (int64, bool)
 }
 
 // New wires the provider routes onto the selected process-owned ledger.
@@ -129,6 +130,7 @@ func New(cfg Config, l ledger.Ledger, runtime core.RuntimeSource, rec *diagnosti
 	}
 	t := &Traffic{
 		voyage: &provider{
+			name:  providerbudget.Voyage,
 			route: wire.RouteVoyageEmbed, url: voyageBase + "/v1/embeddings", key: cfg.VoyageKey,
 			timeout: or(cfg.VoyageTimeout, 150*time.Second), maxBody: wire.MaxVoyageRequestBytes,
 			models: merge(DefaultVoyageModels, cfg.VoyageModels), validate: validateVoyage,
@@ -136,6 +138,7 @@ func New(cfg Config, l ledger.Ledger, runtime core.RuntimeSource, rec *diagnosti
 			tokens:  voyageTokens,
 		},
 		typesafe: &provider{
+			name:  providerbudget.TypeSafe,
 			route: wire.RouteTypeSafeEval, url: typesafeBase + "/v1/systemone", key: cfg.TypeSafeKey,
 			timeout: or(cfg.TypeSafeTimeout, 60*time.Second), maxBody: wire.MaxTypeSafeRequestBytes,
 			models: merge(DefaultTypeSafeModels, cfg.TypeSafeModels), validate: validateTypeSafe,
@@ -220,7 +223,7 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 	}
 	ev.sub, ev.session = pr.Sub, pr.SessionID
 	rt, err := t.runtime.Runtime(ctx)
-	if err != nil || !rt.PaidCallsEnabled || !p.enabled(rt) || p.key == "" {
+	if err != nil || !rt.PaidCallsEnabled || !p.enabled(rt) || p.key == "" || rt.ProviderDailyNanodollars[p.name] <= 0 {
 		return fail(wire.CodeServiceDisabled, "paid calls are disabled")
 	}
 	key := r.Header.Get(wire.HeaderIdempotencyKey)
@@ -247,6 +250,10 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 	}
 	ev.model, ev.inputs = model, inputs
 	charge := p.models[model]
+	price, reservedNanodollars, priced := providerbudget.Reserve(p.name, model, inputs)
+	if !priced {
+		return fail(wire.CodeServiceDisabled, "this model has no reviewed price and request bound")
+	}
 	ev.validation = time.Since(start)
 
 	waitStart := time.Now()
@@ -260,13 +267,16 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 	reserveStart := time.Now()
 	// Recheck the switches: a request queued for a slot must not dispatch
 	// after paid calls were switched off.
-	if rt, err = t.runtime.Runtime(ctx); err != nil || !rt.PaidCallsEnabled || !p.enabled(rt) {
+	if rt, err = t.runtime.Runtime(ctx); err != nil || !rt.PaidCallsEnabled || !p.enabled(rt) || rt.ProviderDailyNanodollars[p.name] <= 0 {
 		return fail(wire.CodeServiceDisabled, "paid calls are disabled")
 	}
 	sum := sha256.Sum256(body)
 	code, err := t.ledger.Reserve(ctx, ledger.Receipt{
 		Sub: pr.Sub, Key: key, Route: p.route, BodyHash: hex.EncodeToString(sum[:]), Model: model,
 		InputBytes: int64(len(body)), Credits: charge.reserve(int64(len(body)), inputs),
+		Provider: p.name, ReservedNanodollars: reservedNanodollars, PriceNanodollarsPerToken: price.NanodollarsPerToken,
+		MaxBillableTokens: price.MaxBillableTokens, ProviderLimitNanodollars: rt.ProviderDailyNanodollars[p.name],
+		PriceVersion: price.Version, AccountingVersion: 1,
 	}, pr.Limits, rt.GlobalLimits)
 	if err == nil && code == "" {
 		err = t.ledger.MarkDispatched(ctx, pr.Sub, key)
@@ -307,7 +317,7 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 		if tokens, ok := p.tokens(res.usage); ok {
 			credits = charge.credits(tokens)
 		}
-		t.settle(ctx, ev, pr.Sub, key, ledger.Succeeded, credits)
+		t.settle(ctx, ev, pr.Sub, key, ledger.Succeeded, credits, t.billedNanodollars(ctx, ev, res.usage, p.name, price))
 	case ok2xx:
 		// A cut-off 2xx stream: keep the reservation and reset the
 		// connection so the caller cannot mistake it for a whole body.
@@ -338,9 +348,9 @@ func (t *Traffic) admissionError(code wire.ErrorCode) *gwError {
 	}
 }
 
-func (t *Traffic) settle(ctx context.Context, ev *event, sub, key string, o ledger.Outcome, credits int64) {
+func (t *Traffic) settle(ctx context.Context, ev *event, sub, key string, o ledger.Outcome, credits int64, nanodollars ...int64) {
 	start := time.Now()
-	t.settled(ctx, ev, t.ledger.Settle(ctx, sub, key, o, credits))
+	t.settled(ctx, ev, t.ledger.Settle(ctx, sub, key, o, credits, nanodollars...))
 	ev.settlement += time.Since(start)
 }
 

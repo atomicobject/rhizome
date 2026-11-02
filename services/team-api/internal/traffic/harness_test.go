@@ -95,7 +95,8 @@ func newHarness(t *testing.T, o opts) *harness {
 	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "gw.db")+"?_journal_mode=WAL&_busy_timeout=5000")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
-	h := &harness{t: t, rt: &stubRuntime{rt: core.Runtime{PaidCallsEnabled: true, VoyageEnabled: true, TypeSafeEnabled: true, GlobalLimits: roomy}}}
+	h := &harness{t: t, rt: &stubRuntime{rt: core.Runtime{PaidCallsEnabled: true, VoyageEnabled: true, TypeSafeEnabled: true, GlobalLimits: roomy,
+		ProviderDailyNanodollars: map[string]int64{"voyage": 50_000_000_000, "typesafe": 50_000_000_000}}}}
 	if o.now.IsZero() {
 		o.now = time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 	}

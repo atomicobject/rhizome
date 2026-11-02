@@ -414,6 +414,7 @@ team-api-check:
 	@mkdir -p .gocache .gomodcache .gotmp
 	cd services/team-api && $(TEAM_API_ENV) go vet ./... && $(TEAM_API_ENV) go test -race $(TEAM_API_TEST_FLAGS) ./...
 	python3 -m unittest discover -s services/team-api/deploy -p '*_test.py'
+	python3 -m unittest discover -s scripts/team-api -p '*_test.py'
 
 team-api-dynamodb-check:
 	./scripts/team-api/dynamodb-check.sh

@@ -92,19 +92,29 @@ func (h *Handler) getUsage(w http.ResponseWriter, r *http.Request, _ core.Princi
 	}
 	var global wire.DailyUsage
 	var byPerson map[string]wire.DailyUsage
+	var providers map[string]wire.ProviderUsage
+	var personProviders map[string]map[string]wire.ProviderUsage
 	if h.usage != nil {
 		if global, byPerson, err = h.usage.Usage(r.Context(), date); err != nil {
 			internal(w)
 			return
 		}
+		if providers, personProviders, err = h.usage.ProviderUsage(r.Context(), date); err != nil {
+			internal(w)
+			return
+		}
 	}
-	out := wire.AdminUsage{Date: date, Global: wire.UsageWithLimits{Usage: global, Limits: rt.GlobalLimits}, People: []wire.PersonUsage{}}
+	out := wire.AdminUsage{PricingAssumptions: rt.PricingAssumptions, Date: date, Global: wire.UsageWithLimits{Usage: global, Limits: rt.GlobalLimits}, People: []wire.PersonUsage{}}
+	out.Providers = map[string]wire.ProviderUsageWithLimits{}
+	for _, provider := range []string{"voyage", "typesafe"} {
+		out.Providers[provider] = wire.ProviderUsageWithLimits{Usage: providers[provider], DailyLimitNanodollars: rt.ProviderDailyNanodollars[provider]}
+	}
 	for _, p := range people {
 		limits := rt.PersonLimits
 		if p.Limits != nil {
 			limits = *p.Limits
 		}
-		out.People = append(out.People, wire.PersonUsage{Sub: p.Sub, Email: p.Email, UsageWithLimits: wire.UsageWithLimits{Usage: byPerson[p.Sub], Limits: limits}})
+		out.People = append(out.People, wire.PersonUsage{Providers: personProviders[p.Sub], Sub: p.Sub, Email: p.Email, UsageWithLimits: wire.UsageWithLimits{Usage: byPerson[p.Sub], Limits: limits}})
 	}
 	auth.WriteJSON(w, out)
 }
@@ -229,6 +239,16 @@ func (h *Handler) patchConfig(w http.ResponseWriter, r *http.Request, actor core
 		auth.WriteError(w, wire.CodeBadRequest, "limits must be between zero and the server's max_person_limits and max_global_limits")
 		return
 	}
+	if err := config.ValidProviderLimits(u.ProviderDailyNanodollars); err != nil {
+		auth.WriteError(w, wire.CodeBadRequest, err.Error())
+		return
+	}
+	for provider, limit := range u.ProviderDailyNanodollars {
+		if limit > h.cfg.MaxProviderDailyNanodollars[provider] {
+			auth.WriteError(w, wire.CodeBadRequest, "provider daily budget exceeds the server's max_provider_daily_nanodollars")
+			return
+		}
+	}
 	if u.Allowlist != nil {
 		list := []string{}
 		for _, e := range *u.Allowlist {
@@ -316,6 +336,9 @@ func configDetail(u wire.AdminConfigUpdate) string {
 	}
 	if u.GlobalLimits != nil {
 		parts = append(parts, "global_limits="+limitsText(*u.GlobalLimits))
+	}
+	for provider, limit := range u.ProviderDailyNanodollars {
+		parts = append(parts, fmt.Sprintf("provider_daily_nanodollars.%s=%d", provider, limit))
 	}
 	slices.Sort(parts)
 	return strings.Join(parts, " ")

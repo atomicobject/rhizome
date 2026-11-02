@@ -25,8 +25,9 @@ type ownerLease struct {
 }
 type storedReceipt struct {
 	Receipt
-	Day, State, Owner string
-	Settled           *int64
+	Day, State, Owner  string
+	Settled            *int64
+	SettledNanodollars *int64
 }
 
 func OpenDynamoDB(ctx context.Context, table *dynamotable.Table, now func() time.Time) (*DynamoDB, error) {
@@ -154,7 +155,8 @@ func (l *DynamoDB) recoverReceipt(ctx context.Context, key string) error {
 			return nil
 		}
 		r.State = stateUnknown
-		return l.change(ctx, i, r, l.table.Check(owner), time.Time{}, func(u *wire.DailyUsage) { u.Unknown++ })
+		adjustProvider, _ := providerAdjustment(r.Receipt, r.State, nil)
+		return l.change(ctx, i, r, l.table.Check(owner), time.Time{}, func(u *storedDailyUsage) { u.Unknown++ }, adjustProvider)
 	})
 }
 func receiptKey(sub, key string) string {
@@ -163,6 +165,9 @@ func receiptKey(sub, key string) string {
 func (l *DynamoDB) Reserve(ctx context.Context, r Receipt, person, everyone wire.DailyLimits) (wire.ErrorCode, error) {
 	if err := validReceipt(r); err != nil {
 		return "", err
+	}
+	if r.Provider != "" {
+		r.AccountingVersion = providerAccountingVersion
 	}
 	err := dynamotable.Retry(context.WithoutCancel(ctx), func(ctx context.Context) error {
 		owner, lease, err := l.lease(ctx)
@@ -193,15 +198,19 @@ func (l *DynamoDB) Reserve(ctx context.Context, r Receipt, person, everyone wire
 			sub    string
 			limits wire.DailyLimits
 		}{{r.Sub, person}, {global, everyone}} {
-			var u wire.DailyUsage
+			var u storedDailyUsage
 			counter, err := l.table.Get(ctx, "day#"+day, dayKey(scope.sub), &u)
 			if err != nil {
 				return err
 			}
-			if exceeds(u, r, scope.limits) {
+			if exceeds(u.DailyUsage, r, scope.limits) {
+				return codeErr{wire.CodeBudgetExhausted}
+			}
+			if budgeted(r) && scope.sub == global && u.Requests != u.BudgetedRequests {
 				return codeErr{wire.CodeBudgetExhausted}
 			}
 			u.Requests++
+			u.BudgetedRequests += providerRequest(r)
 			u.InputBytes += r.InputBytes
 			u.ReservedCredits += r.Credits
 			put, err := l.table.Put(counter, u)
@@ -210,6 +219,11 @@ func (l *DynamoDB) Reserve(ctx context.Context, r Receipt, person, everyone wire
 			}
 			writes = append(writes, put)
 		}
+		providerWrites, err := l.reserveProvider(ctx, day, r)
+		if err != nil {
+			return err
+		}
+		writes = append(writes, providerWrites...)
 		put, err := l.table.Put(i, storedReceipt{Receipt: r, Day: day, State: stateReserved, Owner: l.owner})
 		if err != nil {
 			return err
@@ -237,7 +251,7 @@ func (l *DynamoDB) MarkDispatched(ctx context.Context, sub, key string) error {
 func (l *DynamoDB) MarkUnknown(ctx context.Context, sub, key string) error {
 	return l.transition(ctx, sub, key, stateDispatched, stateUnknown, nil)
 }
-func (l *DynamoDB) Settle(ctx context.Context, sub, key string, outcome Outcome, actual int64) error {
+func (l *DynamoDB) Settle(ctx context.Context, sub, key string, outcome Outcome, actual int64, actualNanodollars ...int64) error {
 	to, ok := map[Outcome]string{NotDispatched: stateNotDispatched, Succeeded: stateSucceeded, Rejected: stateRejected}[outcome]
 	if !ok {
 		return fmt.Errorf("ledger: unknown outcome %d", outcome)
@@ -246,9 +260,9 @@ func (l *DynamoDB) Settle(ctx context.Context, sub, key string, outcome Outcome,
 	if outcome == Succeeded && actual >= 0 {
 		settled = &actual
 	}
-	return l.transition(ctx, sub, key, stateDispatched, to, settled)
+	return l.transition(ctx, sub, key, stateDispatched, to, settled, actualNanodollars...)
 }
-func (l *DynamoDB) transition(ctx context.Context, sub, key, from, to string, settled *int64) error {
+func (l *DynamoDB) transition(ctx context.Context, sub, key, from, to string, settled *int64, actualNanodollars ...int64) error {
 	return dynamotable.Retry(context.WithoutCancel(ctx), func(ctx context.Context) error {
 		owner, lease, err := l.lease(ctx)
 		if err != nil {
@@ -263,14 +277,20 @@ func (l *DynamoDB) transition(ctx context.Context, sub, key, from, to string, se
 			return ErrPrecondition
 		}
 		r.State, r.Settled = to, settled
-		var adjust func(*wire.DailyUsage)
+		r.SettledNanodollars = settledCurrency(r.Receipt, to, actualNanodollars)
+		adjustProvider, unknown := providerAdjustment(r.Receipt, to, actualNanodollars)
+		if unknown {
+			r.State, r.Settled = stateUnknown, nil
+		}
+		var adjust func(*storedDailyUsage)
 		if to != stateDispatched {
-			adjust = func(u *wire.DailyUsage) {
-				switch to {
+			adjust = func(u *storedDailyUsage) {
+				switch r.State {
 				case stateUnknown:
 					u.Unknown++
 				case stateNotDispatched:
 					u.Requests--
+					u.BudgetedRequests -= providerRequest(r.Receipt)
 					u.InputBytes -= r.InputBytes
 					u.ReservedCredits -= r.Credits
 				case stateRejected:
@@ -283,13 +303,13 @@ func (l *DynamoDB) transition(ctx context.Context, sub, key, from, to string, se
 				}
 			}
 		}
-		return l.change(ctx, i, r, l.table.Check(owner), lease.ExpiresAt, adjust)
+		return l.change(ctx, i, r, l.table.Check(owner), lease.ExpiresAt, adjust, adjustProvider)
 	})
 }
 
 // change writes a receipt and its day counters. A nonzero deadline is the
 // acting owner's lease expiry; recovery passes none.
-func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedReceipt, owner types.TransactWriteItem, deadline time.Time, adjust func(*wire.DailyUsage)) error {
+func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedReceipt, owner types.TransactWriteItem, deadline time.Time, adjust func(*storedDailyUsage), adjustProvider func(*providerCounter)) error {
 	put, err := l.table.Put(i, r)
 	if err != nil {
 		return err
@@ -297,7 +317,7 @@ func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedRecei
 	writes := []types.TransactWriteItem{owner, put}
 	if adjust != nil {
 		for _, sub := range []string{r.Sub, global} {
-			var u wire.DailyUsage
+			var u storedDailyUsage
 			counter, err := l.table.Get(ctx, "day#"+r.Day, dayKey(sub), &u)
 			if err != nil {
 				return err
@@ -312,6 +332,13 @@ func (l *DynamoDB) change(ctx context.Context, i dynamotable.Item, r storedRecei
 			}
 			writes = append(writes, put)
 		}
+	}
+	if adjustProvider != nil {
+		providerWrites, err := l.adjustProvider(ctx, r, adjustProvider)
+		if err != nil {
+			return err
+		}
+		writes = append(writes, providerWrites...)
 	}
 	if !deadline.IsZero() {
 		if err := l.live(deadline); err != nil {
