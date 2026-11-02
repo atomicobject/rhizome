@@ -3,6 +3,7 @@ WEB_DIR=web
 WEB_DIST=pkg/app/web/assets/dist
 WEB_STAMP=$(WEB_DIST)/.web-build
 DEV_BINARY=bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
+BUILD_LDFLAGS ?=
 
 RELEASE_LDFLAGS=-s -w -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
 RELEASE_FLAGS=-trimpath -ldflags "$(RELEASE_LDFLAGS)" -buildvcs=false
@@ -32,7 +33,7 @@ endif
 build: web-build
 	@mkdir -p bin/$(GOOS)
 	@mkdir -p .gocache .gomodcache .gotmp
-	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(CGO_TAGS) -o bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(CGO_TAGS) $(if $(strip $(BUILD_LDFLAGS)),-ldflags "$(BUILD_LDFLAGS)") -o bin/$(GOOS)/$(BINARY_NAME)$(EXE_SUFFIX)
 	$(MAKE) team-api-build
 
 build-release: web-build

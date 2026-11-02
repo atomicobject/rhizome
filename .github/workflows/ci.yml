@@ -399,6 +399,8 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.desktop == 'true'
     runs-on: macos-latest
+    env:
+      RZM_DESKTOP_TEAM_API_ORIGIN: https://team.example.test
     steps:
       - name: Checkout
         uses: actions/checkout@v4

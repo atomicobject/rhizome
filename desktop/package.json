@@ -12,7 +12,8 @@
     "test:native": "cargo test --manifest-path src-tauri/Cargo.toml",
     "tauri": "tauri",
     "rzm": "node scripts/build-rzm.mjs",
-    "check": "npm run typecheck && npm run lint && npm test",
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:build-config",
+    "test:build-config": "node --test scripts/team-api-origin_test.mjs",
     "lint": "oxlint src && oxfmt --check src scripts *.json *.ts src-tauri/*.json src-tauri/capabilities/*.json",
     "format": "oxfmt src scripts *.json *.ts src-tauri/*.json src-tauri/capabilities/*.json"
   },

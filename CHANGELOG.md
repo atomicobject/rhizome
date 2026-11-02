@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Desktop development builds default to the deployed team API for Google sign-in, while retaining explicit local server testing.
+
 - Team API images use a patched Go toolchain and JOSE dependency and must pass a Go binary vulnerability scan before packaging.
 
 - Client release commands now deploy and verify the exact release gateway source before uploading artifacts, with pinned retries and private/public source agreement. Ordinary main merges no longer deploy the gateway.
