@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./fixtures";
 
-const frame = (page: Page) => page.frameLocator("iframe.custom-view-frame");
+const frame = (page: Page) => page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
 const started = async (page: Page) =>
   (await frame(page).getByLabel("Mount").textContent())?.replace(/ mount \d+$/, "");
