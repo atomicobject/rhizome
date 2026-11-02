@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { completeThrough, episodesFor, familyOf, openingTask } from "./lib/episodes.mjs";
+import { repoState } from "./lib/state.mjs";
 import { parseClaude, parseCodex } from "./lib/transcripts.mjs";
 
 const IDLE_MS = 15 * 60 * 1000;
@@ -63,9 +64,14 @@ function normalizeRemote(url) {
 // Transcripts record Windows paths with either separator; Git prints forward slashes.
 const slash = (p) => (p ? p.replace(/\\/g, "/") : p);
 
-function repoMatcher(root) {
+// Scheduled task runs work in worktrees under the main checkout's
+// .rhizome/task-state/, or the per-user rhizome/task-state/ of a repository
+// without one; mining them would mine its own runs.
+const TASK_STATE = /(^|\/)\.?rhizome\/task-state(\/|$)/;
+
+export function repoMatcher(root) {
   root = slash(root);
-  const configPath = join(root, ".rhizome/compounding/config.json");
+  const configPath = join(repoState(root).dir, "config.json");
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf8")) : {};
   const roots = new Set([root]);
   for (const line of git(root, "worktree", "list", "--porcelain").split("\n")) {
@@ -89,6 +95,7 @@ function repoMatcher(root) {
       return cwd;
     },
     matches(cwd, repoUrl) {
+      if (cwd && TASK_STATE.test(slash(cwd))) return false;
       if (repoUrl && remote && normalizeRemote(repoUrl) === remote) return true;
       return !!cwd && patterns.some((re) => re.test(slash(cwd)));
     },

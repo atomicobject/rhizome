@@ -2,23 +2,23 @@
 // SPEC-0124 US6. Run from the repository root. No budget means no model calls.
 import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Stop, rzmClients } from "./lib/calls.mjs";
 import { fixtureCheckout, labeledSet } from "./lib/calibration-data.mjs";
 import { bindingKey, calibrationBindings, calibrationEstimate, calibrationProfile } from "./lib/calibration-models.mjs";
 import { compareMeasurements, measure } from "./lib/calibration-score.mjs";
-import { openStore, readJson, sha } from "./lib/store.mjs";
+import { openState, stateHome } from "./lib/state.mjs";
+import { readJson, sha } from "./lib/store.mjs";
 
-function localStore(root) {
-  const dir = join(root, ".rhizome/compounding");
-  try {
-    execFileSync("git", ["-C", root, "check-ignore", "-q", "--", ".rhizome/compounding/ledger.jsonl"], { stdio: "pipe" });
-  } catch {
-    throw new Error("Git must ignore .rhizome/compounding; run rzm init before calibrating");
-  }
-  return openStore(dir);
-}
+// The repository's shared store, which Git must ignore: calibration keeps
+// transcript excerpts there.
+const localStore = (root) => openState(root, { guard: true });
+
+// Evidence is named relative to the checkout holding the store, the main
+// checkout, so the same name works from every worktree; a store outside any
+// checkout is named by its absolute path.
+const evidenceName = (store, name) => (stateHome(store.dir) ? `.rhizome/compounding/${name}` : store.path(name));
 
 function proposal(report) {
   const comparison = compareMeasurements(report.samples, report.set.synthetic);
@@ -49,8 +49,8 @@ export async function calibrate(opts, clients) {
     if (opts.budget == null) return { status: "estimate", set: summary, estimate, bindings: dryBindings, next: "rerun with --budget USD" };
     if (estimate.unpriced.length) throw new Error(`no price for ${estimate.unpriced.join(", ")}; choose priced candidates so the budget can be enforced`);
     const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${sha([process.pid, Math.random()]).slice(0, 6)}`;
-    const evidenceFile = `.rhizome/compounding/calibrations/${id}/evidence.json`;
     const name = `calibrations/${id}/evidence.json`;
+    const evidenceFile = evidenceName(store, name);
     const spend = { usd: 0, byRole: {} };
     const report = { version: 1, id, role: opts.role, status: "running", set: summary, estimate, evidenceFile, provenance: prepared.provenance, localProfileHash: sha(prepared.local),
       previousCandidates: prepared.profile.roles[opts.role].map(({ source, ...c }) => c), candidates: Object.values(prepared.profile.roles).flat(), samples: [], spend };
@@ -92,12 +92,17 @@ export function applyCalibration({ root, evidenceFile, confirm }) {
   const store = localStore(root);
   store.lock();
   try {
-    const file = realpathSync(resolve(root, evidenceFile));
+    const home = stateHome(store.dir);
+    const file = realpathSync(isAbsolute(evidenceFile) ? evidenceFile : resolve(home ?? root, evidenceFile));
     const parent = realpathSync(store.path("calibrations"));
     if (!file.startsWith(parent + sep) || !file.endsWith(`${sep}evidence.json`)) throw new Error("evidence must be a local calibration evidence.json");
     const report = readJson(file);
     if (report.version !== 1 || !["extract", "verify"].includes(report.role) || report.status !== "done") throw new Error("not a completed calibration");
-    if (relative(realpathSync(root), file).split(sep).join("/") !== report.evidenceFile) throw new Error("evidence path differs from the reviewed diff");
+    // The report names its evidence by repository path, or by absolute path
+    // in a per-user store; migration can move it between the two, so the
+    // run it belongs to is what must match.
+    const run = relative(parent, file).split(sep).join("/");
+    if (!String(report.evidenceFile).split(sep).join("/").endsWith(`calibrations/${run}`)) throw new Error("evidence path differs from the reviewed diff");
     const local = store.read("models.json", null);
     if (sha(local) !== report.localProfileHash) throw new Error("local profile changed; recalibrate before applying");
     const shipped = readFileSync(new URL("../models.json", import.meta.url), "utf8");

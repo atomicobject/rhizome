@@ -75,6 +75,8 @@ export type TaskStatus = {
   due: boolean;
   item?: TaskItem;
   tokensLast30Days?: number;
+  /** The task has no prompt, so its items cannot be run, started, or copied. */
+  checkOnly?: boolean;
 };
 
 export type TaskProblem = { path: string; message: string };
@@ -154,6 +156,11 @@ export function getTaskRun(runID: string, after = 0, options: RequestOptions = {
 /** Starts the item's work in a separate process; a failed precheck is a 409. */
 export function runTaskItem(itemID: string) {
   return post<{ launchedAt: string }>(`/api/tasks/items/${enc(itemID)}/run`);
+}
+
+/** The open item's prompt to paste into any agent session, without Start's branch step. */
+export function getTaskItemPrompt(itemID: string) {
+  return fetchJSON<{ prompt: string }>(`/api/tasks/items/${enc(itemID)}/prompt`);
 }
 
 export function actOnTaskItem(itemID: string, action: TaskItemAction, until?: string) {

@@ -456,6 +456,8 @@ test("a guard rule rewritten as a YAML block is reported by check and replaced w
   const front = revised.split("\n---\n")[0].split("\n").slice(1);
   assert.deepEqual(front.filter((l) => !/^[\w-]+:/.test(l) && !/^  - /.test(l)), [], revised);
   assert.deepEqual(sm("check"), []);
+  // The revision's quoted approved hash is what the finding holds.
+  assert.equal(sm("list", "--all").find((p) => p.cluster === "k-guard")?.status, "present");
 
   // Frontmatter revise cannot rewrite safely is refused, and left as it is.
   const broken = revised.replace(/^(summary: .*)$/m, "$1\n  a continuation under a scalar");

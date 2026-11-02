@@ -103,11 +103,15 @@ Review a finished run in its worktree, then open the pull request yourself, or d
 
 `rzm tasks start <item>` opens your harness in a new worktree that the harness manages (`claude --worktree` or `codex --worktree`). The prompt's first step switches to a fresh `rzm/<task>/<date>` branch at the primary commit. `--print` prints that prompt without starting anything, for agents you start some other way. Claude Code and Codex each ask once before they work in a folder they have not seen; if Start reports that the harness exited at once, run `claude` or `codex` in the main checkout, accept, and start again.
 
+A due item stays current. Each time its task comes due again, Rhizome runs the check again: if nothing is needed now, the item closes as done; if it is still needed, its summary and context are refreshed in place, and any snooze is kept. A re-check never adds a second item or starts work, and a check that fails moves the item to needs attention. Running, ready, and started items keep their task from checking until they close.
+
 An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it.
 
 ## The Tasks page
 
-Open **Tasks** in the workbench, or the Tasks section in Rhizome Desktop, to see every registered task with its mode, cadence, last outcome, next due time, and inbox state. Pick a task to change its mode, act on its inbox item (Run, Snooze, Skip, Discard, Done), and read its run history, newest first. Checks that found nothing to do appear as quiet single lines.
+Open **Tasks** in the workbench, or the Tasks section in Rhizome Desktop, to see every registered task with its mode, cadence, last outcome, next due time, and inbox state. Pick a task to change its mode, act on its inbox item (Run, Copy prompt, Snooze, Skip, Discard, Done), and read its run history, newest first. Checks that found nothing to do appear as quiet single lines.
+
+**Copy prompt** copies any open item's prompt, for an agent you start some other way. It carries the task's instructions, the check's findings, and the locations, but not Start's `git switch` step, so pasting it into a session in the main checkout never moves its branch. When the clipboard is unavailable, the page shows the prompt to copy by hand. The same text is served at `GET /api/tasks/items/<id>/prompt`.
 
 A run opens on its result: the agent's final message, the changed files, tokens, branch, and the worktree path with a copy button. Below that is the run's timeline. The check's stderr, the agent's thinking, each command with its exit code, duration, and output, tool calls, and file changes start collapsed. While a run is in progress, finished blocks appear as they arrive. Run starts the work in a separate process; if it cannot start, the item says why.
 

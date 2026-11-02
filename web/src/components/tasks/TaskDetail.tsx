@@ -1,11 +1,12 @@
 import { useState } from "react";
 
-import type {
-  TaskItem,
-  TaskItemAction,
-  TaskModeChoice,
-  TaskRunView,
-  TaskStatus,
+import {
+  getTaskItemPrompt,
+  type TaskItem,
+  type TaskItemAction,
+  type TaskModeChoice,
+  type TaskRunView,
+  type TaskStatus,
 } from "../../api/tasks";
 import { inDesktop, requestDesktop } from "../desktopHost";
 import { StatusMark } from "../StatusMark";
@@ -65,17 +66,27 @@ function ModeSelector({
   );
 }
 
+type PromptCopy =
+  | { status: "copied" }
+  | { status: "manual"; prompt: string }
+  | { status: "error"; message: string };
+
 function ItemActions({
   item,
+  checkOnly,
   busy,
   onCommand,
+  onCopyPrompt,
 }: {
   item: TaskItem;
+  checkOnly?: boolean;
   busy: boolean;
   onCommand: (command: ItemCommand) => void;
+  onCopyPrompt: () => void;
 }) {
   const [snoozing, setSnoozing] = useState(false);
-  const task = item.kind === "task";
+  // Run, Start, and Copy prompt all need the task's prompt.
+  const task = item.kind === "task" && !checkOnly;
   const canRun = task && (item.state === "due" || item.state === "needs-attention");
   const active = item.state !== "done" && item.state !== "dismissed";
 
@@ -146,6 +157,16 @@ function ItemActions({
           Open worktree
         </button>
       ) : null}
+      {task && active ? (
+        <button
+          type="button"
+          className="task-button"
+          title="Copy the task's prompt for an agent session you start yourself"
+          onClick={onCopyPrompt}
+        >
+          Copy prompt
+        </button>
+      ) : null}
       {active ? (
         <button
           type="button"
@@ -193,12 +214,14 @@ function ItemActions({
 
 export function TaskItemStrip({
   item,
+  checkOnly,
   busy,
   actionError,
   launching,
   onCommand,
 }: {
   item: TaskItem;
+  checkOnly?: boolean;
   busy: boolean;
   actionError?: string;
   launching: boolean;
@@ -206,6 +229,32 @@ export function TaskItemStrip({
 }) {
   const { label, tone } = itemStatePresentation(item.state);
   const snoozed = item.snoozedUntil && new Date(item.snoozedUntil).getTime() > Date.now();
+  const [copy, setCopy] = useState<PromptCopy>();
+
+  const copyPrompt = async () => {
+    let prompt: string;
+
+    try {
+      ({ prompt } = await getTaskItemPrompt(item.id));
+    } catch (error) {
+      setCopy({ status: "error", message: error instanceof Error ? error.message : String(error) });
+
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopy({ status: "copied" });
+      // Clears only this success message, never a later manual copy.
+      window.setTimeout(
+        () => setCopy((current) => (current?.status === "copied" ? undefined : current)),
+        2000,
+      );
+    } catch {
+      // No clipboard access, as in an insecure context: copy by hand.
+      setCopy({ status: "manual", prompt });
+    }
+  };
 
   return (
     <section className="task-item" aria-label="Inbox item">
@@ -217,8 +266,39 @@ export function TaskItemStrip({
           </span>
         ) : null}
         <span className="task-item__summary">{item.summary || item.message || ""}</span>
-        <ItemActions item={item} busy={busy || launching} onCommand={onCommand} />
+        <ItemActions
+          item={item}
+          checkOnly={checkOnly}
+          busy={busy || launching}
+          onCommand={onCommand}
+          onCopyPrompt={() => void copyPrompt()}
+        />
       </div>
+      {copy?.status === "copied" ? (
+        <p className="task-item__note" role="status">
+          Copied the prompt.
+        </p>
+      ) : null}
+      {copy?.status === "manual" ? (
+        <>
+          <p className="task-item__note">
+            The clipboard is unavailable; copy the prompt from here.
+          </p>
+          <textarea
+            className="task-item__prompt"
+            aria-label="Task prompt"
+            readOnly
+            rows={8}
+            value={copy.prompt}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        </>
+      ) : null}
+      {copy?.status === "error" ? (
+        <p className="task-inline-error" role="alert">
+          Could not copy the prompt: {copy.message}
+        </p>
+      ) : null}
       {launching ? (
         <p className="task-item__note" role="status">
           Starting the run…

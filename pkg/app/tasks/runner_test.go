@@ -128,6 +128,24 @@ func TestNotifyModeSpendsNothingUntilRun(t *testing.T) {
 	}
 }
 
+func TestStatusMarksTasksWithoutAPrompt(t *testing.T) {
+	dir := newRepo(t, map[string]string{
+		"look.yml":  "name: Look\nevery: 1d\nprompt: Look around.\n",
+		"watch.yml": "name: Watch\nevery: 1d\ncheck:\n  command: [sh, -c, 'echo {}']\n",
+	})
+	report, err := newService(t, dir, &fakeAgent{}, "").Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, ts := range report.Tasks {
+		got[ts.ID] = ts.CheckOnly
+	}
+	if len(report.Problems) != 0 || got["look"] || !got["watch"] {
+		t.Fatalf("only the task without a prompt is check-only: %v %+v", got, report.Problems)
+	}
+}
+
 func TestModeOverridesAndPause(t *testing.T) {
 	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
 	agent := &fakeAgent{}

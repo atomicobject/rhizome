@@ -148,12 +148,18 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		}
 		mode, _ := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
 		// An open item blocks the task, except a needs-attention item, which
-		// waits only for the next cadence.
-		if it := st.ActiveTaskItem(def.ID); mode == ModeOff || (it != nil && it.State != StateAttention) {
+		// waits only for the next cadence, and a due item, whose check runs
+		// again to keep it current.
+		it := st.ActiveTaskItem(def.ID)
+		if mode == ModeOff || (it != nil && it.State != StateAttention && it.State != StateDue) {
 			continue
 		}
 		last, _ := st.LastRun(def.ID)
 		if !(Clock{LastLocal: last.At, LastTagged: tagged[def.ID]}).Due(def, now) {
+			continue
+		}
+		if it != nil && it.State == StateDue {
+			summary.Outcomes = append(summary.Outcomes, s.recheck(ctx, def, it.ID, commit))
 			continue
 		}
 		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, def, mode, ref, commit))
@@ -288,6 +294,73 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
 	return s.work(ctx, def, a, id, check, ref, commit)
+}
+
+// recheck runs a due item's check again (SPEC-0127 US6). Nothing needed
+// closes the item as done; still needed refreshes its summary and context
+// in place, keeping any snooze. It never adds an item or starts work, and a
+// failed check moves the item to needs attention.
+func (s *Service) recheck(ctx context.Context, def Definition, itemID, commit string) Outcome {
+	a := s.newAttempt(false)
+	base := a.record(def.ID, "", time.Time{})
+	base.Commit, base.Item = commit, itemID
+	if err := s.begin(ctx, a, base, nil); err != nil {
+		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
+	}
+	defer s.end(ctx, a)
+	check := CheckResult{Needed: true}
+	if def.Check != nil {
+		log := s.openCheckLog(a)
+		var err error
+		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, "")
+		log.Close()
+		if err != nil {
+			return s.failRecheck(ctx, def, a, itemID, commit, "check failed: "+err.Error())
+		}
+	}
+	outcome := OutcomeNotified
+	if !check.Needed {
+		outcome = OutcomeNotNeeded
+	}
+	now := s.opts.Now()
+	err := s.store.Update(ctx, func(st *State) error {
+		r := a.record(def.ID, outcome, now)
+		r.Item, r.Commit = itemID, commit
+		// The person may have acted on the item while the check ran.
+		if it, _ := st.Item(itemID); it != nil && it.State == StateDue {
+			if check.Needed {
+				it.Summary, it.Context, it.Updated = check.Summary, check.Context, now
+				r.Message = check.Summary
+			} else {
+				it.set(StateDone, now)
+				it.Reason = "the check found nothing to do"
+			}
+		}
+		st.Record(r)
+		return nil
+	})
+	if err != nil {
+		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
+	}
+	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID}
+}
+
+// failRecheck records a failed re-check and moves its item to needs
+// attention only while the item is still due: the person may have closed it
+// while the check ran.
+func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, itemID, commit, reason string) Outcome {
+	now := s.opts.Now()
+	_ = s.store.Update(ctx, func(st *State) error {
+		if it, _ := st.Item(itemID); it != nil && it.State == StateDue {
+			it.set(StateAttention, now)
+			it.Reason, it.Tokens = reason, 0
+		}
+		r := a.record(def.ID, OutcomeFailed, now)
+		r.Message, r.Item, r.Commit = reason, itemID, commit
+		st.Record(r)
+		return nil
+	})
+	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
 }
 
 // fail records a failed run, with any tokens it used, and a needs-attention

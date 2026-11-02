@@ -2,14 +2,14 @@
 // Mine this repository's agent sessions into local proposals (SPEC-0124 US1):
 // episodes past each session's cursor are screened by Jev passage by passage,
 // extracted, grouped with earlier clusters, tiered, and verified (tier A
-// always, tier B up to a per-run budget), and proposals land in
-// .rhizome/compounding/proposals.json.
+// always, tier B up to a per-run budget), and proposals land in the main
+// checkout's .rhizome/compounding/proposals.json, which every worktree shares.
 //
 //   mine.mjs [--harness claude|codex] [--budget USD] [--dry-run]
 //            [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--episodes FILE]
 //            [--verify-budget N] [--verify-held N] [--model ROLE=PROVIDER:MODEL:EFFORT]...
 //            [--unscreened] [--abandon] [--state DIR] [--checkout DIR] [--concurrency N]
-//            [--allow-unpriced]
+//            [--allow-unpriced] [--task-mode]
 //
 // Without --budget it prints the estimate and spends nothing. With it, it runs
 // or resumes the open run, which keeps its frozen bindings, and stops cleanly
@@ -19,10 +19,15 @@
 // of discovered sessions, for evaluations. A binding with no known price
 // would reserve nothing against the budget, so it is refused unless
 // --allow-unpriced accepts that only reported costs count.
+//
+// --task-mode is for the compounding/mine scheduled task, which nobody
+// watches: its --budget is required and counts as approved, and a credential
+// stop exits 4 with its reason on stderr, since only a person can fix it.
+// Every other stop still exits 3.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom, strictSchema } from "./lib/calls.mjs";
 import { episodesFor } from "./lib/episodes.mjs";
@@ -33,10 +38,11 @@ import { facts, group, rank, tierOf } from "./lib/reduce.mjs";
 import { screen } from "./lib/screen.mjs";
 import { loadFindings, recur } from "./lib/findings.mjs";
 import { learningHash, loadDecisions, loadShards } from "./lib/shards.mjs";
-import { openStore, readJsonl, sha, writeText } from "./lib/store.mjs";
+import { pending, proposalOf as proposal } from "./lib/approvals.mjs";
+import { openRun, openState } from "./lib/state.mjs";
+import { Refused, readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
 import { discover } from "./sessions.mjs";
-import { pending } from "./shards.mjs";
 
 const ROLES = ["decide", "extract", "synthesize", "verify"];
 const DAY = 24 * 3600 * 1000;
@@ -50,9 +56,8 @@ export async function mine(opts, clients) {
   // No workers would skip extraction and verification yet still advance the cursors.
   const concurrency = Number(opts.concurrency ?? 4);
   if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("--concurrency must be a whole number of at least 1");
-  const state = opts.state ?? join(opts.root, ".rhizome/compounding");
-  refuseTracked(opts.root, state);
-  const store = openStore(state);
+  // Mining writes transcript text there, so Git must ignore the folder.
+  const store = openState(opts.root, { state: opts.state, guard: true });
   const dry = !opts.abandon && (opts.dryRun || opts.budget == null);
   if (dry) return mineLocked(opts, clients, store, true);
   store.lock();
@@ -61,29 +66,6 @@ export async function mine(opts, clients) {
   } finally {
     store.unlock();
   }
-}
-
-// Mining writes transcript text into its state directory, so a directory
-// inside the checkout must be one Git ignores.
-function refuseTracked(root, dir) {
-  const rel = relative(root, resolvePath(dir));
-  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return;
-  const path = rel.split(sep).join("/");
-  try {
-    execFileSync("git", ["-C", root, "check-ignore", "-q", "--", `${path}/ledger.jsonl`], { stdio: "ignore" });
-  } catch (err) {
-    if (err.status === 1) throw new Error(`Git does not ignore ${path}, so transcript text written there could be committed; rerun rzm init to restore .rhizome/.gitignore, or pass --state outside the checkout`);
-  }
-}
-
-function openRun(store) {
-  const dir = store.path("runs");
-  const ids = existsSync(dir) ? readdirSync(dir).sort() : [];
-  for (const id of ids.reverse()) {
-    const run = store.read(`runs/${id}/manifest.json`, null);
-    if (run && (run.status === "open" || run.status === "stopped")) return run;
-  }
-  return null;
 }
 
 const saveRun = (store, run) => store.write(`runs/${run.id}/manifest.json`, run);
@@ -168,7 +150,8 @@ async function bind(opts, clients, statuses, store, dry, runId) {
   if (!provider) {
     const ready = statuses.filter((s) => s.installed && s.loggedIn).map((s) => s.kind);
     if (ready.length === 1) provider = ready[0];
-    else if (dry) throw new Error(`pass --harness (signed in: ${ready.join(", ") || "none"})`);
+    // A dry run still reports what it found, which the task check reads.
+    else if (dry) return { unbound: `pass --harness to estimate (signed in: ${ready.join(", ") || "none"})` };
     else provider = (await clients.generate(PROBE)).provider;
   }
   const { bindings } = await resolve(profile, { providers: [provider], statuses, probe, cache: probes });
@@ -195,6 +178,7 @@ function refreshFindings(store, root) {
 async function mineLocked(opts, clients, store, dry) {
   const log = opts.log ?? ((m) => process.stderr.write(m + "\n"));
   let run = openRun(store);
+  const resumed = run;
   let episodes;
   if (opts.abandon) {
     if (!run) return { status: "nothing-to-abandon" };
@@ -210,6 +194,12 @@ async function mineLocked(opts, clients, store, dry) {
     if (why) {
       if (!dry) saveRun(store, { ...run, status: "stopped", stoppedReason: "binding", stoppedMessage: why });
       return { status: "stopped", reason: "binding", message: `${why}; the run keeps its frozen bindings, so resume when it is available or rerun with --abandon`, run: run.id };
+    }
+    // A task run's worktree is removed when its agent finishes, even after a
+    // stop, so a resume verifies in the checkout it runs from instead.
+    if (!existsSync(run.checkout)) {
+      run = { ...run, checkout: resolvePath(opts.checkout ?? opts.root) };
+      if (!dry) saveRun(store, run);
     }
     log(`resuming run ${run.id} with its frozen bindings`);
   } else {
@@ -233,6 +223,7 @@ async function mineLocked(opts, clients, store, dry) {
       if (!(err instanceof Stop)) throw err;
       return { status: "stopped", reason: err.reason, message: err.message };
     }
+    if (bound.unbound) return { status: "estimate", estimate: null, episodes: episodes.length, discovery: found.report, next: bound.unbound };
     run = {
       id,
       status: "open",
@@ -254,7 +245,10 @@ async function mineLocked(opts, clients, store, dry) {
   }
   const est = estimate(run, episodes, store);
   log(formatEstimate(est));
-  if (dry) return { status: "estimate", estimate: est, bindings: run.bindings, discovery: run.discovery, next: "rerun with --budget <USD> to spend up to that amount" };
+  // A dry run over an open run names it, and why it stopped, so a caller can
+  // tell a resumable run from one a person must unblock.
+  const open = resumed ? { run: run.id, status: run.status, stoppedReason: run.stoppedReason ?? null, stoppedMessage: run.stoppedMessage ?? null } : undefined;
+  if (dry) return { status: "estimate", estimate: est, episodes: est.episodes, bindings: run.bindings, discovery: run.discovery, open, next: "rerun with --budget <USD> to spend up to that amount" };
   const unpriced = est.rows.filter((r) => !r.priced).map((r) => `${r.role} (${r.binding})`);
   if (unpriced.length && !opts.allowUnpriced) throw new Error(`no price is known for ${unpriced.join(", ")}, so the budget cannot reserve for it; choose a priced model with --model, or pass --allow-unpriced to count only the costs the provider reports`);
   run.budget = opts.budget;
@@ -447,40 +441,6 @@ export function excerpts(cl, eps) {
   return [...perFamily.values()].slice(0, 6).map((e) => ({ lens: e.lens, origin: e.origin, confidence: e.confidence, previous: e.context?.previous?.slice(0, 600) || undefined, text: e.text.slice(0, 1500) }));
 }
 
-function proposal(cl, eps) {
-  const broken = cl.verifyProblems;
-  const v = cl.verification ?? { decision: "reject", rejectReason: "contract", notes: broken.problems.join("; "), run: broken.run, at: broken.at };
-  // A rejection drafts nothing, so no response field it carried is proposed.
-  const r = v.decision === "reject" ? {} : v;
-  return {
-    cluster: cl.id,
-    tier: cl.tier,
-    families: cl.families.length,
-    familyIds: cl.families,
-    rejected: v.decision === "reject" ? { reason: v.rejectReason ?? "other", notes: v.notes } : undefined,
-    kind: v.kind ?? cl.kind,
-    statement: v.statement ?? cl.statement,
-    why: v.why ?? cl.why,
-    appliesTo: v.appliesTo ?? cl.appliesTo,
-    commands: v.commands ?? cl.commands,
-    target: v.target ?? cl.target,
-    response: r.response,
-    responseReason: r.responseReason,
-    workaround: r.workaround,
-    edit: r.edit,
-    documentHash: r.documentHash,
-    change: r.change,
-    guardRule: r.guardRule,
-    question: r.question,
-    owner: r.owner,
-    recurrence: cl.recurrence,
-    documentation: v.documentation,
-    verification: v.verification,
-    notes: v.notes,
-    evidence: cl.evidence.map((id) => eps[id]).filter(Boolean).map((e) => ({ episode: e.id, harness: e.harness, session: e.session, ts: e.ts, lens: e.lens, origin: e.origin, toolCalls: e.toolCalls ?? 0 })),
-    verified: { run: v.run, commit: v.commit, model: v.model, at: v.at },
-  };
-}
 
 function summarize({ episodes, screened, results, touched, plan, clusters, fresh, proposals }) {
   const count = (xs, f) => xs.reduce((acc, x) => ((acc[f(x)] = (acc[f(x)] ?? 0) + 1), acc), {});
@@ -516,32 +476,44 @@ if (isMain) {
   if (a.harness && !["claude", "codex"].includes(a.harness)) throw new Error("--harness must be claude or codex");
   const budget = a.budget === undefined ? null : Number(a.budget);
   if (budget !== null && !(budget > 0)) throw new Error("--budget must be a positive number of US dollars");
+  const taskMode = !!a["task-mode"];
+  if (taskMode && budget === null) throw new Error("--task-mode needs --budget, the spend the task approved");
   let root = process.cwd();
   try {
     root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {}
   const rzm = process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
-  const result = await mine(
-    {
-      root,
-      harness: a.harness,
-      budget,
-      dryRun: !!a["dry-run"],
-      since: a.since,
-      until: a.until,
-      episodes: a.episodes,
-      verifyBudget: a["verify-budget"] === undefined ? undefined : Number(a["verify-budget"]),
-      verifyHeld: a["verify-held"] === undefined ? undefined : Number(a["verify-held"]),
-      model: a.model,
-      unscreened: !!a.unscreened,
-      abandon: !!a.abandon,
-      state: a.state,
-      checkout: a.checkout,
-      concurrency: a.concurrency,
-      allowUnpriced: !!a["allow-unpriced"],
-    },
-    rzmClients(rzm, { cwd: root }),
-  );
+  let result;
+  try {
+    result = await mine(
+      {
+        root,
+        harness: a.harness,
+        budget,
+        dryRun: !!a["dry-run"],
+        since: a.since,
+        until: a.until,
+        episodes: a.episodes,
+        verifyBudget: a["verify-budget"] === undefined ? undefined : Number(a["verify-budget"]),
+        verifyHeld: a["verify-held"] === undefined ? undefined : Number(a["verify-held"]),
+        model: a.model,
+        unscreened: !!a.unscreened,
+        abandon: !!a.abandon,
+        state: a.state,
+        checkout: a.checkout,
+        concurrency: a.concurrency,
+        allowUnpriced: !!a["allow-unpriced"],
+      },
+      rzmClients(rzm, { cwd: root }),
+    );
+  } catch (err) {
+    // A refusal, such as migration waiting for an open run, is a reason for
+    // the person, not a crash.
+    if (!(err instanceof Refused)) throw err;
+    process.stderr.write(`refused: ${err.message}\n`);
+    process.exit(2);
+  }
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-  process.exitCode = result.status === "stopped" ? 3 : 0;
+  if (result.status === "stopped" && taskMode) process.stderr.write(`mining stopped (${result.reason}): ${result.message}\n`);
+  process.exitCode = result.status !== "stopped" ? 0 : taskMode && result.reason === "credential" ? 4 : 3;
 }

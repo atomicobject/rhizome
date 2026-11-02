@@ -2,12 +2,12 @@
 // Review proposals and maintain approved context shards (SPEC-0124 US2, US5).
 // Every tracked write happens here, as one atomic replacement.
 //
-//   shards.mjs list                               proposals awaiting review
-//   shards.mjs show <cluster>                     one proposal in full
+//   shards.mjs list [--all]                       proposals awaiting review; --all adds approvals
+//   shards.mjs show <cluster>                     one proposal in full, or an approval and where it stands
 //   shards.mjs source <cluster> [n]               the nth cited source excerpt, redacted
 //   shards.mjs approve <cluster> --confirm-publish [--response R] [--edit FILE] [--assignee PERSON]
-//                                                 [--broad] [--rechecked]
-//   shards.mjs dismiss <cluster> --reason TEXT (--shared | --local)
+//                                                 [--broad] [--rechecked] [--revision R] [--head SHA]
+//   shards.mjs dismiss <cluster> --reason TEXT (--shared | --local) [--revision R] [--head SHA]
 //   shards.mjs check                              shards to re-verify, and why
 //   shards.mjs renew <shard> --expect HASH
 //   shards.mjs revise <shard> --expect HASH --edit FILE --confirm-publish [--broad]
@@ -28,15 +28,20 @@
 // --broad accepts patterns, and a guard rule's path, that match much of the
 // repository. Revising a guard finding replaces its guardRule (the only field
 // its --edit file may hold) and approves it again; `check` lists guard
-// findings whose rule was edited after approval. Run from the repository
-// root.
+// findings whose rule was edited after approval. Every approval also records
+// a local decision event, and `list --all` and `show` say where each
+// approval stands (lib/approvals.mjs). --revision and --head are the
+// proposal revision and checkout HEAD that `list` or `show` printed; either
+// having changed refuses the approval or dismissal. A held store lock, as
+// while mining, refuses every change. Run from the repository root; every
+// worktree shares one store (lib/state.mjs).
 
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateLearning } from "./lib/extract.mjs";
-import { FINDING_DIR, findingPath, frontmatterProblem, guardHash, guardLines, loadFindings, renderFinding, REVISED_FIELDS } from "./lib/findings.mjs";
+import { FINDING_DIR, findingPath, frontmatterProblem, guardFields, guardHash, guardLines, loadFindings, renderFinding, REVISED_FIELDS } from "./lib/findings.mjs";
 import { redact } from "./lib/redact.mjs";
 import {
   DECISION_DIR,
@@ -49,7 +54,6 @@ import {
   git,
   landPair,
   learningHash,
-  loadDecisions,
   loadShards,
   matchesAny,
   parseShard,
@@ -64,12 +68,12 @@ import {
   today,
   writeAtomic,
 } from "./lib/shards.mjs";
-import { openStore } from "./lib/store.mjs";
+import { approvalEvent, bare, eventName, headOf, pending, review, revision } from "./lib/approvals.mjs";
+import { lockOrRefuse, openState } from "./lib/state.mjs";
+import { Refused } from "./lib/store.mjs";
 import { RESPONSES, applyEdit, guardRuleProblems, responseProblems } from "./lib/verify.mjs";
 import { publishPrefixes } from "./hook.mjs";
 
-
-class Refused extends Error {}
 
 function args(argv) {
   const out = { _: [] };
@@ -81,26 +85,45 @@ function args(argv) {
   return out;
 }
 
-// Proposals a person has not yet approved or dismissed. A finding whose
-// action item is open suppresses its learning; a completed one suppresses it
-// unless mining found that the friction recurred. A proposal whose local
-// cluster no longer holds the verification it came from, because a
-// recurrence cleared it or a later run replaced it, is no longer a draft.
-export function pending(store, root) {
-  const reviewed = store.read("reviewed.json", {});
-  const clusters = store.read("pool/clusters.json", {});
-  const current = (p) => !clusters[p.cluster] || (clusters[p.cluster].verification ?? clusters[p.cluster].verifyProblems)?.at === p.verified?.at;
-  const suppressed = new Set(loadDecisions(root, store.dir).map((d) => d.learning));
-  for (const s of loadShards(root)) suppressed.add(learningHash(s));
-  const done = new Set();
-  for (const f of loadFindings(root)) (f.open ? suppressed : done).add(f.learning);
-  return store.read("proposals.json", []).filter((p) => current(p) && !reviewed[p.cluster] && !suppressed.has(learningHash(p)) && (p.recurrence || !done.has(learningHash(p))));
-}
-
 function find(store, root, cluster) {
   const p = pending(store, root).find((x) => x.cluster === cluster);
   if (!p) throw new Refused(`no pending proposal ${cluster}; run \`shards.mjs list\``);
-  return p;
+  return bare(p);
+}
+
+// A caller that displayed a proposal passes the revision and HEAD it showed,
+// so a decision never lands on a proposal or checkout that changed since.
+function unchanged(root, p, a) {
+  for (const flag of ["revision", "head"]) if (a[flag] === true) throw new Refused(`pass --${flag} with the value \`shards.mjs list\` or \`show\` printed`);
+  if (a.revision && a.revision !== revision(p)) throw new Refused(`${p.cluster} changed since it was shown (revision ${a.revision}, now ${revision(p)}); show it again`);
+  const head = headOf(root);
+  if (a.head && a.head !== head) throw new Refused(`the checkout moved since ${p.cluster} was shown (HEAD ${a.head}, now ${head}); show it again`);
+}
+
+// Records an approval as a local decision event naming the file it created.
+function recordApproval(root, store, s, response, witness, who, hash) {
+  const e = approvalEvent(root, { proposal: s, response, witness, decider: who.name, approvedHash: hash });
+  store.write(`decisions/${eventName(e)}`, e);
+}
+
+// A revision publishes new content for an earlier approval, so it is recorded
+// as that approval's newest event: restoring a missing file then offers the
+// revised content, not the wording first approved. It keeps the approved
+// hash the revision wrote, since the path alone also matches the earlier
+// wording. An approval with no event, from before decision records, has
+// nothing to update.
+function recordRevision(root, store, witness, changes, who, hash) {
+  const [prior] = approvalsOf(store, witness);
+  if (prior) recordApproval(root, store, { ...prior.payload, ...changes }, prior.response, witness, who, hash);
+}
+
+// The approval events published at one path, newest first.
+function approvalsOf(store, witness) {
+  const dir = store.path("decisions");
+  return (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")) : [])
+    .map((f) => store.read(`decisions/${f}`, null))
+    .filter((e) => e?.witness === witness && e.payload)
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)));
 }
 
 // A path-qualified link, so a Person whose file name another note shares
@@ -288,18 +311,18 @@ function shardAt(root, path, expect) {
 function decision(root, store, { shared, statement, kind, appliesTo, cluster, decision, reason, decider, document }) {
   const at = new Date().toISOString();
   const event = { learning: learningHash({ kind, statement }), cluster: cluster ?? null, kind, statement, appliesTo: appliesTo ?? [], decision, ...(document ? { document } : {}), reason, decider, at };
-  const name = `${event.learning}--${at.replace(/\D/g, "").slice(0, 14)}-${slugify(decider)}.json`;
+  const name = eventName(event);
   if (shared) {
     const stage = prepare(root, `${DECISION_DIR}/${name}`, JSON.stringify(event, null, 2) + "\n");
-    return { path: `${DECISION_DIR}/${name}`, stage, write: () => stage().commit() };
+    return { path: `${DECISION_DIR}/${name}`, event, name, stage, write: () => stage().commit() };
   }
-  return { path: `.rhizome/compounding/decisions/${name}`, write: () => store.write(`decisions/${name}`, event) };
+  return { path: store.path("decisions", name), event, name, write: () => store.write(`decisions/${name}`, event) };
 }
 
 function decide(root, store, fields) {
   const d = decision(root, store, fields);
   d.write();
-  return d.path;
+  return d;
 }
 
 const toolCalls = (p) => (p.evidence ?? []).reduce((t, e) => t + (e.toolCalls ?? 0), 0);
@@ -346,6 +369,7 @@ function applyDocument(root, store, p, s, who, rechecked) {
     throw new Error(`could not record the decision for ${document} (${code(err)}); the document was restored and nothing was approved`);
   }
   markReviewed(store, p.cluster, { action: "documented", document, documentHash: contentHash(before), decision: d.path });
+  recordApproval(root, store, s, "document", d.path, who);
   return { documented: document, decision: d.path, next: `review and commit the change to ${document} with the decision` };
 }
 
@@ -353,6 +377,9 @@ function applyDocument(root, store, p, s, who, rechecked) {
 // unless they name another Person, which must resolve before anything is written.
 function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
   if (assignee === true) throw new Refused("pass --assignee with the title of a Person note");
+  // A proposal approved again after its finding went missing keeps the
+  // Person it was assigned to.
+  assignee = assignee ?? s.assignee;
   const to = assignee && people(root, String(assignee));
   if (assignee && (!to?.found || to.typeName !== "Person")) throw new Refused(`--assignee ${assignee} does not resolve to a Person note; name an existing Person by title, or create the note first`);
   const path = findingPath(root, s.response, s.statement);
@@ -378,12 +405,13 @@ function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
   const families = p.familyIds ?? store.read("pool/clusters.json", {})[p.cluster]?.families ?? (pooled.length && pooled.every(Boolean) ? pooled : null);
   store.write("finding-links.json", { ...links, [path]: { clusters: [...new Set([...(links[path]?.clusters ?? []), p.cluster])].sort(), ...(families ? { families: [...new Set(families)].sort() } : { familiesApproximate: true }) } });
   markReviewed(store, p.cluster, { action: "finding", path });
+  recordApproval(root, store, { ...s, assignee: to ? to.title : who.name }, s.response, path, who);
   return { finding: path, assignee: finding.assignee };
 }
 
 // Replaces a guard finding's rule and approves it again, so a rule edited by
 // hand, which the dispatcher skips, applies once a person approves the text.
-function reviseGuard(root, id, a, user) {
+function reviseGuard(root, store, id, a, user) {
   const file = inside(root, id);
   const text = existsSync(file) ? readFileSync(file, "utf8").replace(/\r\n/g, "\n") : null;
   const f = text && loadFindings(root).find((x) => x.path === id);
@@ -413,6 +441,7 @@ function reviseGuard(root, id, a, user) {
   const at = lines.findIndex((l) => l.startsWith("families:"));
   lines.splice(at < 0 ? lines.length : at, 0, ...guardLines("guard", rule), `reviewed-by: ${JSON.stringify(who.link)}`, `reviewed-on: ${today()}`);
   publish(root, id, `---\n${lines.join("\n")}\n---\n${body}`);
+  recordRevision(root, store, id, { guardRule: rule }, who, guardHash("guard", guardFields(rule)));
   return { revised: id, guardRule: rule };
 }
 
@@ -420,11 +449,11 @@ function reviseGuard(root, id, a, user) {
 // `people(root, ref)` for the Person lookup.
 export function run(argv, { root = repoRoot(), state, user, people } = {}) {
   const a = args(argv);
-  const store = openStore(state ?? join(root, ".rhizome/compounding"));
+  const store = openState(root, { state });
   if (!CHANGES.has(a._[0])) return dispatch(a, { root, store, user, people });
   // A change holds the lock from its first read to its last write, so two
-  // reviews cannot both pass the same check.
-  store.lock();
+  // reviews cannot both pass the same check, and none runs while mining.
+  lockOrRefuse(store);
   try {
     const out = dispatch(a, { root, store, user, people });
     // The hook starts for a shell call only on a published prefix, so a
@@ -443,10 +472,20 @@ const CHANGES = new Set(["approve", "dismiss", "renew", "revise", "retire"]);
 function dispatch(a, { root, store, user, people }) {
   const [cmd, id, n] = a._;
   switch (cmd) {
-    case "list":
-      return pending(store, root).map((p) => ({ response: p.response ?? null, responseReason: p.responseReason, rejected: p.rejected, workaround: p.workaround, cluster: p.cluster, tier: p.tier, families: p.families, toolCalls: toolCalls(p), kind: p.kind, statement: p.statement, appliesTo: p.appliesTo, target: p.target, recurrence: p.recurrence && { finding: p.recurrence.finding, episodes: p.recurrence.episodes.length } }));
-    case "show":
-      return find(store, root, id);
+    case "list": {
+      const head = headOf(root);
+      const { pending: open, approved } = review(store, root);
+      const rows = open.map((p) => ({ response: p.response ?? null, responseReason: p.responseReason, rejected: p.rejected, workaround: p.workaround, cluster: p.cluster, tier: p.tier, families: p.families, toolCalls: toolCalls(p), kind: p.kind, statement: p.statement, appliesTo: p.appliesTo, target: p.target, recurrence: p.recurrence && { finding: p.recurrence.finding, episodes: p.recurrence.episodes.length }, status: p.status ?? "pending", previous: p.previous, revision: revision(p), head }));
+      return a.all ? [...rows, ...approved.map(({ proposal, ...x }) => x)] : rows;
+    }
+    case "show": {
+      const { pending: open, approved } = review(store, root);
+      const p = open.find((x) => x.cluster === id);
+      if (p) return { ...p, status: p.status ?? "pending", revision: revision(p), head: headOf(root) };
+      const done = approved.find((x) => x.cluster === id);
+      if (!done) throw new Refused(`no proposal ${id}; run \`shards.mjs list --all\``);
+      return done;
+    }
     case "source": {
       const p = find(store, root, id);
       const ev = p.evidence[Number(n ?? 1) - 1];
@@ -457,6 +496,7 @@ function dispatch(a, { root, store, user, people }) {
     case "approve": {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the statement is fit to publish in this repository, then pass --confirm-publish");
       const p = find(store, root, id);
+      unchanged(root, p, a);
       // A rejected recurrence proposes nothing, whatever fields its answer carried.
       const response = a.response ?? (p.rejected ? undefined : p.response);
       if (!response) throw new Refused(`${id} has no proposed response, because ${p.rejected ? `the verifier rejected the recurrence (${p.rejected.reason})` : "it was verified before responses existed"}; ask the reviewer which response fits and pass --response ${RESPONSES.join("|")}`);
@@ -482,6 +522,7 @@ function dispatch(a, { root, store, user, people }) {
       if (!remember) return writeFinding(root, store, p, s, who, a.assignee, people);
       publish(root, path, renderShard(shard));
       store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "approved", path, at: new Date().toISOString() } });
+      recordApproval(root, store, s, "remember", path, who);
       const global = everywhere(s) ? loadShards(root).filter(everywhere).length : 0;
       const warning = global > 5 ? `${global} shards now apply everywhere, and session start delivers five; give this one a pattern or propose an AGENTS.md edit for it` : undefined;
       return { approved: path, approvedHash: approvedHash(shard), warning };
@@ -490,10 +531,13 @@ function dispatch(a, { root, store, user, people }) {
       if (!a.reason || a.reason === true) throw new Refused("pass --reason with why the learning is not wanted");
       if (!a.shared === !a.local) throw new Refused("ask the reviewer whether to share the decision through the repository (--shared) or keep it local (--local)");
       const p = find(store, root, id);
+      unchanged(root, p, a);
       const who = reviewer(root, user);
-      const file = decide(root, store, { shared: Boolean(a.shared), ...p, decision: "dismissed", reason: a.reason, decider: who.name });
-      store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "dismissed", decision: file, at: new Date().toISOString() } });
-      return { dismissed: p.cluster, decision: file };
+      const d = decide(root, store, { shared: Boolean(a.shared), ...p, decision: "dismissed", reason: a.reason, decider: who.name });
+      // A dismissal holds in every worktree, so a shared one is kept locally too.
+      if (a.shared) store.write(`decisions/${d.name}`, d.event);
+      store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "dismissed", decision: d.path, at: new Date().toISOString() } });
+      return { dismissed: p.cluster, decision: d.path };
     }
     case "check": {
       const index = readIndex(root);
@@ -537,7 +581,7 @@ function dispatch(a, { root, store, user, people }) {
     }
     case "revise": {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the revised statement is fit to publish, then pass --confirm-publish");
-      if (String(id ?? "").startsWith(`${FINDING_DIR}/`)) return reviseGuard(root, id, a, user);
+      if (String(id ?? "").startsWith(`${FINDING_DIR}/`)) return reviseGuard(root, store, id, a, user);
       const old = shardAt(root, id, a.expect);
       const s = edited({ kind: old.kind, statement: old.statement, why: old.why, appliesTo: old.appliesTo, commands: old.commands, target: old.target }, a.edit);
       checkScope(root, s);
@@ -547,13 +591,25 @@ function dispatch(a, { root, store, user, people }) {
       const shard = { ...s, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), families: old.families, toolCalls: old.toolCalls, checked: old.checked, verification, evidenceLines: old.evidenceSection.split("\n").filter(Boolean) };
       shard.verifiedFingerprint = freshPrint(root, shard);
       publish(root, id, renderShard(shard));
+      recordRevision(root, store, id, s, who, approvedHash(shard));
       return { revised: id, approvedHash: approvedHash(shard) };
     }
     case "retire": {
       if (!a.reason || a.reason === true) throw new Refused("pass --reason with why the shard no longer holds");
       const s = shardAt(root, id, a.expect);
       const who = reviewer(root, user);
-      const file = decide(root, store, { shared: true, ...s, decision: "retired", reason: a.reason, decider: who.name });
+      const { path: file } = decide(root, store, { shared: true, ...s, decision: "retired", reason: a.reason, decider: who.name });
+      // The retirement is kept privately too, as shared dismissals are, so
+      // every worktree sees it before it is committed; and every earlier
+      // version of a revised shard is retired with it, so no wording of it
+      // comes back for review once the file is gone.
+      const retired = new Set();
+      for (const v of [...approvalsOf(store, id), { payload: s }]) {
+        const learning = learningHash(v.payload);
+        if (retired.has(learning)) continue;
+        retired.add(learning);
+        decide(root, store, { shared: false, ...v.payload, decision: "retired", reason: a.reason, decider: who.name });
+      }
       rmSync(join(root, id));
       return { retired: id, decision: file };
     }

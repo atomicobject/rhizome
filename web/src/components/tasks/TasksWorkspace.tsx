@@ -302,7 +302,9 @@ export function TasksWorkspace({
         />
         {item ? (
           <TaskItemStrip
+            key={item.id}
             item={item}
+            checkOnly={task.checkOnly}
             busy={pending === "item"}
             launching={live.watch?.item === item.id}
             actionError={actionError?.scope === item.id ? actionError.text : undefined}
