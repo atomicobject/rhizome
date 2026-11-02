@@ -30,7 +30,17 @@ func TestCompoundingInstallsTheMineTask(t *testing.T) {
 	require.Equal(t, 7*24*time.Hour, def.Cadence)
 	require.Equal(t, []string{"node", ".rhizome/modules/compounding/scripts/task-check.mjs"}, def.Check.Command)
 	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "compounding", "scripts", "task-check.mjs"))
+	requireUpToDate(t, root)
+}
+
+// The mining task's prompt mines in task mode with a fixed budget, then
+// reports.
+func TestCompoundingMineTaskPromptMinesInTaskModeThenReports(t *testing.T) {
+	const source = "templates/starters/compounding/module/tasks/mine.yml"
+	data, err := agentHelperTemplates.ReadFile(source)
+	require.NoError(t, err)
+	def, err := taskdef.ParseDefinition(".rhizome/modules/compounding/tasks/mine.yml", data)
+	require.NoError(t, err)
 	require.Contains(t, def.Prompt, "mine.mjs --harness <h> --task-mode --budget 10")
 	require.Contains(t, def.Prompt, "scripts/report.mjs")
-	requireUpToDate(t, root)
 }
