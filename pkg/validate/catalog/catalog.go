@@ -20,6 +20,7 @@ const (
 	CheckSkillOverlays    = "skill_overlays"
 	CheckTasks            = "tasks"
 	CheckModules          = "modules"
+	CheckActions          = "actions"
 	CheckCompanionDocs    = "companion_docs"
 	CheckFrozenScopeDrift = "frozen_scope_drift"
 	CheckFragileExternal  = "fragile_external_link"
@@ -44,6 +45,7 @@ var checks = []Check{
 	{ID: CheckSkillOverlays, Name: "skill-overlays", Aliases: []string{"skill_overlay", "skilloverlays", "skilloverlay", "overlays"}},
 	{ID: CheckTasks, Name: "tasks", Aliases: []string{"task", "scheduled_tasks", "task_files"}},
 	{ID: CheckModules, Name: "modules", Aliases: []string{"module", "module_names"}},
+	{ID: CheckActions, Name: "actions", Aliases: []string{"action", "module_actions"}},
 	{ID: CheckCodeFrontmatter, Name: "code-frontmatter", Aliases: []string{"frontmatter", "code_validate"}},
 	{ID: CheckCodeAnchors, Name: "code-anchors", Aliases: []string{"anchors", "anchor_matches"}},
 	{ID: CheckCompanionDocs, Name: "companion-docs", Aliases: []string{"companiondocs", "companion_doc", "companiondoc"}},

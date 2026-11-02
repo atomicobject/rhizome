@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"testing"
 
+	moduleactions "github.com/atomicobject/rhizome/pkg/app/actions"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/validate"
+	"github.com/atomicobject/rhizome/pkg/vault/actiondef"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
@@ -113,4 +116,99 @@ func TestModuleVaultFlagMatchesCobraForms(t *testing.T) {
 	} {
 		require.Equal(t, tc.want, moduleVaultFlag(tc.args), "%v", tc.args)
 	}
+}
+
+// trustActionsForTest makes every action runner trust the repository.
+func trustActionsForTest(t *testing.T) {
+	t.Helper()
+	previous := newActionRunner
+	t.Cleanup(func() { newActionRunner = previous })
+	newActionRunner = func(root string) *moduleactions.Runner {
+		return &moduleactions.Runner{RepoRoot: root, Trust: func(context.Context) string { return "" }}
+	}
+}
+
+func moduleActionFiles() map[string]string {
+	return map[string]string{
+		".rhizome/modules/demo/actions/echo.yaml":   "description: Echo the input\ninputs:\n  items: {kind: list, required: true}\n  count: {kind: int}\n  dry: {kind: bool}\n  summary: {kind: string}\nrun:\n  command: [cat]\n",
+		".rhizome/modules/demo/actions/refuse.yaml": "description: Always refuse\nrun:\n  command: [sh, -c, \"echo busy >&2; exit 2\"]\n",
+		".rhizome/modules/demo/actions/fail.yaml":   "description: Always fail\nrun:\n  command: [sh, -c, \"echo boom >&2; exit 1\"]\n",
+	}
+}
+
+func TestModuleCommandRunsActionsWithExitCodes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sh and cat")
+	}
+	trustActionsForTest(t)
+	files := ontologyCommandFiles()
+	for rel, body := range moduleActionFiles() {
+		files[rel] = body
+	}
+	vault := setupAgentTestVault(t, files)
+	writeModuleRecipe(t, vault.path, "demo")
+	ctx := vaultconfig.WithEnv(context.Background(), vault.env)
+
+	stdout, _, err := runRootCLI(t, ctx, []string{"demo"})
+	require.NoError(t, err)
+	require.Contains(t, stdout, "Recipes:")
+	require.Contains(t, stdout, "project-by-path")
+	require.Contains(t, stdout, "Actions:")
+	require.Contains(t, stdout, "Echo the input")
+
+	// A bool takes its value; an input may share a recipe-only flag's name.
+	stdout, _, err = runRootCLI(t, ctx, []string{"demo", "echo", "--items", "a", "--items", "b", "--count", "3", "--dry", "true", "--summary", "s"})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"items": ["a", "b"], "count": 3, "dry": true, "summary": "s"}`, stdout)
+	// --vault after a bool input still chooses the vault, which has no demo module.
+	_, _, err = runRootCLI(t, ctx, []string{"demo", "echo", "--items", "a", "--dry", "false", "--vault", "no-such-vault"})
+	require.ErrorContains(t, err, `unknown command "demo"`)
+
+	// Without the test driver's silencing, a refusal prints only its reason.
+	stdout, stderr, err := runRootCLIWithRootSilence(t, ctx, []string{"demo", "refuse"}, false)
+	require.Equal(t, silentExitError{code: 2}, err)
+	require.Equal(t, "busy", stderr)
+	require.Empty(t, stdout)
+
+	_, stderr, err = runRootCLI(t, ctx, []string{"demo", "fail"})
+	require.Equal(t, silentExitError{code: 1}, err)
+	require.Equal(t, "exit status 1\nboom", stderr)
+
+	_, _, err = runRootCLI(t, ctx, []string{"demo", "echo"})
+	require.ErrorIs(t, err, actiondef.ErrInvalidInput, "a missing required input starts nothing")
+	_, _, err = runRootCLI(t, ctx, []string{"demo", "echo", "--items", "a", "--count", "x"})
+	require.ErrorIs(t, err, actiondef.ErrInvalidInput)
+}
+
+func TestActionOperationsRunThroughTheCodeCatalog(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses cat")
+	}
+	trustActionsForTest(t)
+	vault := setupAgentTestVault(t, moduleActionFiles())
+	ctx := vaultconfig.WithEnv(context.Background(), vault.env)
+	options := &vaultCommandOptions{root: newRootCommand(commandEnvFromContext(ctx)).Command, vaultName: vault.name}
+
+	outcome, handled := options.callAgentCodeLocal(ctx, "action_list", map[string]any{}, false)
+	require.True(t, handled)
+	require.True(t, outcome.OK, outcome.Stderr)
+	listed, err := json.Marshal(outcome.Payload)
+	require.NoError(t, err)
+	require.Contains(t, string(listed), `"id":"demo/echo"`)
+
+	outcome, handled = options.callAgentCodeLocal(ctx, "action_run", map[string]any{"id": "demo/echo", "input": map[string]any{"items": []any{"x"}}}, false)
+	require.True(t, handled)
+	require.True(t, outcome.OK, outcome.Stderr)
+	payload, err := json.Marshal(outcome.Payload)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"status":"ok","result":{"items":["x"]}}`, string(payload))
+
+	outcome, _ = options.callAgentCodeLocal(ctx, "action_run", map[string]any{"id": "demo/refuse"}, false)
+	require.True(t, outcome.OK, "a refusal is an envelope, not a failed call")
+	payload, _ = json.Marshal(outcome.Payload)
+	require.JSONEq(t, `{"status":"refused","reason":"busy"}`, string(payload))
+
+	outcome, _ = options.callAgentCodeLocal(ctx, "action_run", map[string]any{"id": "demo/missing"}, false)
+	require.False(t, outcome.OK)
+	require.Contains(t, outcome.Stderr, "unknown action")
 }

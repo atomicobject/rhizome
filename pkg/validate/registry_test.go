@@ -24,6 +24,7 @@ func TestCheckRegistryHasStableCoreAndSuiteOrder(t *testing.T) {
 		CheckSkillOverlays,
 		CheckTasks,
 		CheckModules,
+		CheckActions,
 		CheckCodeFrontmatter,
 		CheckCodeAnchors,
 		CheckCompanionDocs,

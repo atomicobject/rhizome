@@ -63,6 +63,7 @@ func TestRemediationRegistryHasExactClassificationForAuditedIssueCodes(t *testin
 		},
 		CheckTasks:   {IssueCodeInvalidTaskFile},
 		CheckModules: {IssueCodeInvalidModuleName, IssueCodeReservedModuleName},
+		CheckActions: {IssueCodeInvalidActionFile},
 		CheckCompanionDocs: {
 			"companion_doc_outside_vault", "companion_doc_invalid_path", "companion_doc_missing",
 			"companion_doc_stat_failed", "companion_doc_directory",

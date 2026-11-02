@@ -200,6 +200,13 @@ var checkRegistry = []registeredCheck{
 		return RunModules(runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
+		Name: CheckActions, Description: "module action declarations", Category: CheckCategoryConfig,
+		Suites: allSuites, Applicability: ApplicabilityModules,
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
+		return RunActions(runCtx)
+	}),
+	checkRegistration(CheckDescriptor{
 		Name: CheckCodeFrontmatter, Description: "code documentation frontmatter", Category: CheckCategoryCode,
 		Suites: allSuites, Applicability: ApplicabilityCode,
 		Remediation: remediationPlan("code-frontmatter"),
