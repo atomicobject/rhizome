@@ -126,7 +126,7 @@ export type NoteTabsApi = {
     },
   ) => void;
   openCollection: (collection: CollectionKind) => void;
-  openView: (view: ViewCatalogEntry) => void;
+  openView: (view: Pick<ViewCatalogEntry, "id"> & Partial<Pick<ViewCatalogEntry, "name">>) => void;
   openSearch: (query: string, filters?: Partial<SearchFilters>) => void;
   /** Changes a search tab's filters, and its query when one is given, in place. */
   refineSearch: (id: string, filters: Partial<SearchFilters>, query?: string) => void;
@@ -1255,7 +1255,7 @@ export function useNoteTabs(
   );
 
   const openView = useCallback(
-    (view: ViewCatalogEntry) => {
+    (view: Pick<ViewCatalogEntry, "id"> & Partial<Pick<ViewCatalogEntry, "name">>) => {
       const result = openViewInto(tabsRef.current, view.id, view.name);
       commitTabs(result.tabs, true);
 

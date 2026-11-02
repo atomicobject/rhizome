@@ -355,9 +355,10 @@ export function NotesShell({ active = true }: { active?: boolean }) {
         return;
       }
 
-      const view = viewCatalogQuery.data?.views.find((candidate) => candidate.id === id);
-
-      if (view) tabs.openView(view);
+      // A hidden view is not in the catalog; its tab loads it by id.
+      tabs.openView(
+        viewCatalogQuery.data?.views.find((candidate) => candidate.id === id) ?? { id },
+      );
     },
     [openNode, tabs.openView, viewCatalogQuery.data],
   );

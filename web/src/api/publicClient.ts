@@ -8,6 +8,7 @@ export {
   diffOntologyEditSession,
   executePublicView,
   getPublicEventsUrl,
+  getPublicView,
   getPublicValidate,
   getPublicValidationDiagnostics,
   getPublicValidationIssueGroups,

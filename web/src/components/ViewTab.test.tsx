@@ -203,6 +203,7 @@ describe("ViewTab", () => {
   it("reports an unknown view id once the catalog has loaded", async () => {
     http
       .json("GET", "/api/v1/views", { views: [] })
+      .json("GET", "/api/v1/views/planning.retired", { error: "view not found" }, 404)
       .json("GET", "/api/v2/validate", { status: "never_ran", generation: 0 })
       .on("POST", "/api/v1/validation/summaries", emptyValidationSummariesReply);
 

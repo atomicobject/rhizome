@@ -468,4 +468,61 @@ describe("NotesShell configured views", () => {
     expect(new URLSearchParams(window.location.search).get("folder")).toBe("/");
     expect(await screen.findByText("No notes in /")).toBeInTheDocument();
   });
+
+  it("opens a hidden view another view asks for, with its params", async () => {
+    const custom = (id: string, name: string, hidden?: boolean): ViewCatalogEntry => {
+      const mount: ViewCatalogEntry["mount"] = { kind: "standalone", ...(hidden && { hidden }) };
+      const source: ViewCatalogEntry["source"] = { kind: "custom", entry: `${id}.tsx` };
+      const params = [{ name: "item", kind: "string" as const, identity: true }];
+
+      return {
+        id,
+        name,
+        source,
+        mount,
+        defaults: {},
+        variants: {},
+        definition: {
+          apiVersion: "rhizome.view.v1",
+          id,
+          name,
+          source,
+          mount,
+          variants: {},
+          params,
+        },
+      };
+    };
+
+    // The catalog leaves the hidden item view out; it is served by id.
+    registerReads([]);
+    http.json("GET", "/api/v1/views", { views: [custom("ws", "Workspace")], targets: [] });
+    http.json("GET", "/api/v1/views/ws.item", custom("ws.item", "Item", true));
+    window.history.replaceState({}, "", "/notes?view=ws");
+
+    const frame = (title: string) =>
+      document.querySelector<HTMLIFrameElement>(`iframe[title="${title}"]`);
+
+    render(<NotesShell />);
+    await waitFor(() => expect(frame("Workspace")).not.toBeNull());
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: frame("Workspace")!.contentWindow,
+        origin: window.location.origin,
+        data: {
+          type: OPEN_VIEW_MESSAGE,
+          id: "ws.item",
+          context: { kind: "standalone" },
+          params: { item: "proposal:k-1" },
+        },
+      }),
+    );
+
+    await waitFor(() => expect(window.location.search).toBe("?view=ws.item&item=proposal%3Ak-1"));
+    expect(await screen.findByRole("tab", { name: "Item" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() => expect(frame("Item")).not.toBeNull());
+  });
 });

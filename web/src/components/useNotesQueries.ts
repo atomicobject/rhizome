@@ -7,7 +7,12 @@ import {
   getOntologyType,
   searchNotes,
 } from "../api/client";
-import { executePublicView, getPublicValidate, listPublicViews } from "../api/publicClient";
+import {
+  executePublicView,
+  getPublicValidate,
+  getPublicView,
+  listPublicViews,
+} from "../api/publicClient";
 import { queryKeys } from "../api/queryKeys";
 import type {
   NodeRef,
@@ -73,6 +78,17 @@ export function useViewCatalogQuery(enabled = true) {
     queryKey: queryKeys.views.catalog(),
     queryFn: ({ signal }) => listPublicViews({ signal }),
     enabled,
+  });
+}
+
+// The catalog leaves out hidden views (`mount.hidden`); another view still
+// opens one by id.
+export function useHiddenViewQuery(viewID: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.views.detail(viewID),
+    queryFn: () => getPublicView(viewID),
+    enabled,
+    retry: false,
   });
 }
 
