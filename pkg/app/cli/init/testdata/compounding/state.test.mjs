@@ -345,6 +345,24 @@ test("a revised shard that goes missing comes back with its revised wording", ()
   assert.equal(at(main, "list").find((p) => p.cluster === "k-rev"), undefined);
 });
 
+test("a revision of a merged shard stands where its revised wording is, not where the first wording was merged", () => {
+  const repo = checkouts("x", "y");
+  const { wt } = repo;
+  propose(repo, [proposal("k-mrev")]);
+  const { approved } = at(wt.x, "approve", "k-mrev", "--confirm-publish");
+  git(wt.x, "add", approved);
+  git(wt.x, "commit", "-qm", "k-mrev");
+  git(repo.main, "merge", "-q", "--ff-only", "x");
+  const shard = loadShards(wt.x).find((x) => x.path === approved);
+  const edit = join(mkdtempSync(join(tmpdir(), "sm-edit-")), "edit.json");
+  writeFileSync(edit, JSON.stringify({ statement: "Busy timeout k-mrev: revised wording." }));
+  at(wt.x, "revise", approved, "--expect", shard.contentHash, "--edit", edit, "--confirm-publish");
+  assert.equal(standing(wt.y)["k-mrev"], `published-elsewhere ${wt.x}`);
+  git(wt.x, "checkout", "--", approved);
+  const back = at(wt.y, "list").find((p) => p.cluster === "k-mrev");
+  assert.deepEqual([back.status, back.statement], ["missing", "Busy timeout k-mrev: revised wording."]);
+});
+
 test("a shard retired in one worktree does not come back for review in another", () => {
   const repo = checkouts("a", "b");
   propose(repo, [proposal("k-ret")]);

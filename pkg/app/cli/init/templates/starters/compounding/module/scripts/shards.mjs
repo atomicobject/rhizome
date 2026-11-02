@@ -41,7 +41,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, rmSync 
 import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateLearning } from "./lib/extract.mjs";
-import { FINDING_DIR, findingPath, frontmatterProblem, guardHash, guardLines, loadFindings, renderFinding, REVISED_FIELDS } from "./lib/findings.mjs";
+import { FINDING_DIR, findingPath, frontmatterProblem, guardFields, guardHash, guardLines, loadFindings, renderFinding, REVISED_FIELDS } from "./lib/findings.mjs";
 import { redact } from "./lib/redact.mjs";
 import {
   DECISION_DIR,
@@ -101,18 +101,20 @@ function unchanged(root, p, a) {
 }
 
 // Records an approval as a local decision event naming the file it created.
-function recordApproval(root, store, s, response, witness, who) {
-  const e = approvalEvent(root, { proposal: s, response, witness, decider: who.name });
+function recordApproval(root, store, s, response, witness, who, hash) {
+  const e = approvalEvent(root, { proposal: s, response, witness, decider: who.name, approvedHash: hash });
   store.write(`decisions/${eventName(e)}`, e);
 }
 
 // A revision publishes new content for an earlier approval, so it is recorded
 // as that approval's newest event: restoring a missing file then offers the
-// revised content, not the wording first approved. An approval with no event,
-// from before decision records, has nothing to update.
-function recordRevision(root, store, witness, changes, who) {
+// revised content, not the wording first approved. It keeps the approved
+// hash the revision wrote, since the path alone also matches the earlier
+// wording. An approval with no event, from before decision records, has
+// nothing to update.
+function recordRevision(root, store, witness, changes, who, hash) {
   const [prior] = approvalsOf(store, witness);
-  if (prior) recordApproval(root, store, { ...prior.payload, ...changes }, prior.response, witness, who);
+  if (prior) recordApproval(root, store, { ...prior.payload, ...changes }, prior.response, witness, who, hash);
 }
 
 // The approval events published at one path, newest first.
@@ -439,7 +441,7 @@ function reviseGuard(root, store, id, a, user) {
   const at = lines.findIndex((l) => l.startsWith("families:"));
   lines.splice(at < 0 ? lines.length : at, 0, ...guardLines("guard", rule), `reviewed-by: ${JSON.stringify(who.link)}`, `reviewed-on: ${today()}`);
   publish(root, id, `---\n${lines.join("\n")}\n---\n${body}`);
-  recordRevision(root, store, id, { guardRule: rule }, who);
+  recordRevision(root, store, id, { guardRule: rule }, who, guardHash("guard", guardFields(rule)));
   return { revised: id, guardRule: rule };
 }
 
@@ -589,7 +591,7 @@ function dispatch(a, { root, store, user, people }) {
       const shard = { ...s, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), families: old.families, toolCalls: old.toolCalls, checked: old.checked, verification, evidenceLines: old.evidenceSection.split("\n").filter(Boolean) };
       shard.verifiedFingerprint = freshPrint(root, shard);
       publish(root, id, renderShard(shard));
-      recordRevision(root, store, id, s, who);
+      recordRevision(root, store, id, s, who, approvedHash(shard));
       return { revised: id, approvedHash: approvedHash(shard) };
     }
     case "retire": {

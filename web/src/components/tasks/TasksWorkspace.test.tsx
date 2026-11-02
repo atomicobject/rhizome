@@ -625,6 +625,33 @@ describe("TasksWorkspace", () => {
     }
   });
 
+  it("offers no prompt actions on an item from a task without a prompt", async () => {
+    const report = reportFixture(NOW);
+
+    http.json("GET", "/api/tasks", {
+      ...report,
+      tasks: report.tasks.map((task) =>
+        task.id === "dependency-updates" ? { ...task, checkOnly: true } : task,
+      ),
+    });
+    window.__RHIZOME_DESKTOP__ = true;
+
+    try {
+      open("/tasks/dependency-updates");
+      render(<TasksWorkspace />);
+
+      const item = await screen.findByRole("region", { name: "Inbox item" });
+
+      expect(
+        within(item)
+          .getAllByRole("button")
+          .map((button) => button.textContent),
+      ).toEqual(["Snooze…", "Skip", "Done"]);
+    } finally {
+      delete window.__RHIZOME_DESKTOP__;
+    }
+  });
+
   it("reports an interrupted run once the run lock holder is gone", async () => {
     const running = { ...runsFixture(NOW)[0]!, outcome: "", stage: "agent" as const };
     http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), running, stale: true });

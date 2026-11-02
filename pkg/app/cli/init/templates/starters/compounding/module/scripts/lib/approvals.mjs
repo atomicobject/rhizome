@@ -30,7 +30,7 @@ export function headOf(root) {
 
 // The payload is the proposal as approved, edits included, so approving it
 // again reproduces the approval.
-export function approvalEvent(root, { proposal, response, witness, decider }) {
+export function approvalEvent(root, { proposal, response, witness, decider, approvedHash }) {
   const at = new Date().toISOString();
   const p = bare(proposal);
   return {
@@ -43,6 +43,7 @@ export function approvalEvent(root, { proposal, response, witness, decider }) {
     response,
     ...(response === "document" ? { document: p.edit?.document } : {}),
     witness,
+    ...(approvedHash ? { approvedHash } : {}),
     checkout: realpathSync.native(root),
     headAtPublish: headOf(root),
     publishedAt: at,
@@ -68,10 +69,32 @@ function primaryRef(root) {
   }
 }
 
+// A revision's witness counts only where it holds the approved hash the
+// revision wrote; a copy with the earlier wording holds the same path.
+const holds = (e, text) => !e.approvedHash || new RegExp(`^approved-hash: "?${e.approvedHash}"?\\r?$`, "m").test(text ?? "");
+const holdsAt = (dir, e) => existsSync(join(dir, e.witness)) && (!e.approvedHash || holds(e, readFileSync(join(dir, e.witness), "utf8")));
+
+// The contents of `ref:path` objects, read in one `cat-file --batch`.
+function blobs(root, queries) {
+  const out = new Map();
+  if (!queries.length) return out;
+  const buf = execFileSync("git", ["cat-file", "--batch"], { cwd: root, input: queries.join("\n") + "\n", maxBuffer: 256 << 20 });
+  let i = 0;
+  for (const q of queries) {
+    const nl = buf.indexOf(10, i);
+    const size = Number(buf.toString("utf8", i, nl).split(" ")[2]);
+    i = nl + 1;
+    if (!Number.isInteger(size)) continue;
+    out.set(q, buf.toString("utf8", i, i + size));
+    i += size + 1;
+  }
+  return out;
+}
+
 // Where each approval's witness is. Branch tips come from for-each-ref and
 // are probed in one `cat-file --batch-check`, the batched `cat-file -e`;
 // history is never searched, since a deletion commit or a stash also holds
-// the path.
+// the path. A revision's hits are then read to check its approved hash.
 export function standing(root, events) {
   const out = new Map();
   if (!events.length) return out;
@@ -81,19 +104,20 @@ export function standing(root, events) {
   const queries = events.flatMap((e) => refs.map((r) => `${r}:${e.witness}`));
   const answers = execFileSync("git", ["cat-file", "--batch-check"], { cwd: root, input: queries.join("\n") + "\n", encoding: "utf8", maxBuffer: 256 << 20 }).split("\n");
   const hit = new Set(queries.filter((q, k) => /^[0-9a-f]{40,64} /.test(answers[k] ?? "")));
+  const texts = blobs(root, events.filter((e) => e.approvedHash).flatMap((e) => refs.map((r) => `${r}:${e.witness}`)).filter((q) => hit.has(q)));
   const checkouts = new Set(worktrees(root));
   for (const e of events) {
-    const at = (ref) => hit.has(`${ref}:${e.witness}`);
+    const at = (ref) => hit.has(`${ref}:${e.witness}`) && holds(e, texts.get(`${ref}:${e.witness}`));
     const branch = branches.find(at);
     out.set(
       e,
       primary && at(primary)
         ? { status: "merged", ref: primary }
-        : existsSync(join(root, e.witness))
+        : holdsAt(root, e)
           ? { status: "present" }
           : branch
             ? { status: "committed-elsewhere", branch: branch.replace(/^refs\/heads\//, "") }
-            : checkouts.has(e.checkout) && existsSync(join(e.checkout, e.witness))
+            : checkouts.has(e.checkout) && holdsAt(e.checkout, e)
               ? { status: "published-elsewhere", checkout: e.checkout }
               : { status: "missing" },
     );
