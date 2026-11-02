@@ -75,6 +75,8 @@ export type TaskStatus = {
   due: boolean;
   item?: TaskItem;
   tokensLast30Days?: number;
+  /** The task has no prompt, so its items cannot be run, started, or copied. */
+  checkOnly?: boolean;
 };
 
 export type TaskProblem = { path: string; message: string };

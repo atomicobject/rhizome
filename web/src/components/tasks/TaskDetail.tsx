@@ -73,17 +73,20 @@ type PromptCopy =
 
 function ItemActions({
   item,
+  checkOnly,
   busy,
   onCommand,
   onCopyPrompt,
 }: {
   item: TaskItem;
+  checkOnly?: boolean;
   busy: boolean;
   onCommand: (command: ItemCommand) => void;
   onCopyPrompt: () => void;
 }) {
   const [snoozing, setSnoozing] = useState(false);
-  const task = item.kind === "task";
+  // Run, Start, and Copy prompt all need the task's prompt.
+  const task = item.kind === "task" && !checkOnly;
   const canRun = task && (item.state === "due" || item.state === "needs-attention");
   const active = item.state !== "done" && item.state !== "dismissed";
 
@@ -211,12 +214,14 @@ function ItemActions({
 
 export function TaskItemStrip({
   item,
+  checkOnly,
   busy,
   actionError,
   launching,
   onCommand,
 }: {
   item: TaskItem;
+  checkOnly?: boolean;
   busy: boolean;
   actionError?: string;
   launching: boolean;
@@ -263,6 +268,7 @@ export function TaskItemStrip({
         <span className="task-item__summary">{item.summary || item.message || ""}</span>
         <ItemActions
           item={item}
+          checkOnly={checkOnly}
           busy={busy || launching}
           onCommand={onCommand}
           onCopyPrompt={() => void copyPrompt()}
