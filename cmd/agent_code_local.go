@@ -88,7 +88,7 @@ func (service codeLocalService) ActionList(ctx context.Context, _ map[string]any
 	if err != nil {
 		return codeModeFailure(err)
 	}
-	list, err := newActionRunner(def.BasePath()).List()
+	list, err := vaultActionRunner(def).List()
 	if err != nil {
 		return codeModeFailure(err)
 	}
@@ -106,7 +106,7 @@ func (service codeLocalService) ActionRun(ctx context.Context, input map[string]
 	if raw, given := input["input"]; given && raw != nil && actionInput == nil {
 		return codeModeFailure(fmt.Errorf("input.input must be an object"))
 	}
-	envelope, err := newActionRunner(def.BasePath()).Run(ctx, codeModeString(input, "id"), actionInput)
+	envelope, err := vaultActionRunner(def).Run(ctx, codeModeString(input, "id"), actionInput)
 	if err != nil {
 		return codeModeFailure(err)
 	}

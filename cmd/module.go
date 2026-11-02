@@ -14,6 +14,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/vault/actiondef"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +28,13 @@ import (
 // newActionRunner opens a vault's actions runner; tests replace it to
 // control repository trust.
 var newActionRunner = moduleactions.New
+
+// vaultActionRunner opens def's actions runner, bound to def by name.
+func vaultActionRunner(def obsidian.VaultDefinition) *moduleactions.Runner {
+	runner := newActionRunner(def.BasePath())
+	runner.Vault = def.Name
+	return runner
+}
 
 // moduleReservedFlags are the module command's own flags; an input with one of
 // these names is passed with --input name=value instead.
@@ -133,7 +141,7 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 		module.Long = fmt.Sprintf("%s\n\nRecipes whose ids contain spaces are not commands; run them with `rzm query-recipe run --id <id>`: %s", module.Short, strings.Join(loaded.Unnamed, ", "))
 	}
 	root.AddCommand(module)
-	runner := newActionRunner(def.BasePath())
+	runner := vaultActionRunner(def)
 	actionList, err := runner.List()
 	if err != nil {
 		return err

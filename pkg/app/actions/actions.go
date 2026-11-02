@@ -50,6 +50,9 @@ type Runner struct {
 	RepoRoot string
 	// Rzm runs code-mode scripts; empty means this executable.
 	Rzm string
+	// Vault names the vault code-mode scripts bind to, so a vault with no
+	// .rhizome/config.yml in RepoRoot does not fall back to the default one.
+	Vault string
 	// Trust explains why the repository may not run actions, or returns "".
 	Trust func(ctx context.Context) string
 }
@@ -174,6 +177,9 @@ func (r *Runner) runScript(ctx context.Context, a actiondef.Action, input map[st
 	}
 	// Trust already passed, and an action may write, as a command action can.
 	cmd.Args = append(cmd.Args, "--read-write")
+	if r.Vault != "" {
+		cmd.Args = append(cmd.Args, "--vault", r.Vault)
+	}
 	cmd.Env = procrun.WithPath(os.Environ(), procrun.LoginPath())
 	var stderr tail
 	out, err := procrun.Run(ctx, cmd, &stderr, maxStdout)

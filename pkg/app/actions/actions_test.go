@@ -167,7 +167,7 @@ func TestScriptEnvelopeForEachResult(t *testing.T) {
 				".rhizome/modules/demo/scripts/go.js":   "return 1;\n",
 			})
 			rzm, record := fakeRzm(t, tc.output, tc.exit)
-			got, err := (&Runner{RepoRoot: root, Rzm: rzm, Trust: trusted}).Run(context.Background(), "demo/go", map[string]any{"path": "a.md"})
+			got, err := (&Runner{RepoRoot: root, Rzm: rzm, Vault: "work", Trust: trusted}).Run(context.Background(), "demo/go", map[string]any{"path": "a.md"})
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)
 			code, err := os.ReadFile(record + ".code")
@@ -176,6 +176,7 @@ func TestScriptEnvelopeForEachResult(t *testing.T) {
 			args, err := os.ReadFile(record + ".args")
 			require.NoError(t, err)
 			require.Contains(t, strings.Split(string(args), "\n"), "--read-write", "a trusted action script may write")
+			require.Contains(t, string(args), "--vault\nwork\n", "the script binds to the runner's vault, not the default one")
 			input, err := os.ReadFile(record + ".input")
 			require.NoError(t, err)
 			require.JSONEq(t, `{"action":"demo/go","input":{"path":"a.md"},"moduleDir":`+strconv.Quote(filepath.Join(root, ".rhizome/modules/demo"))+`,"repoRoot":`+strconv.Quote(root)+`}`, string(input))

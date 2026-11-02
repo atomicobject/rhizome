@@ -23,6 +23,7 @@ func (s *Server) handleActions(w http.ResponseWriter, r *http.Request) {
 	runner := s.cfg.Actions
 	if runner == nil {
 		runner = actions.New(s.cfg.VaultPath)
+		runner.Vault = s.cfg.VaultDef.Name
 	}
 	rest := strings.Trim(strings.TrimPrefix(r.URL.EscapedPath(), "/api/v1/actions"), "/")
 	if rest == "" {
