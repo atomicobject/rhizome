@@ -227,8 +227,16 @@ Resources:
                 Action: ecr:GetAuthorizationToken
                 Resource: '*'
               - Effect: Allow
-                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:DescribeImages]
+                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:DescribeImages, ecr:DescribeRepositories, ecr:GetLifecyclePolicy, ecr:GetRepositoryPolicy, ecr:ListTagsForResource]
                 Resource: !GetAtt Repository.Arn
+              # CloudFormation resolves role ARN attributes through the role read handler.
+              - Effect: Allow
+                Action: [iam:GetRole, iam:GetRolePolicy, iam:ListRolePolicies, iam:ListAttachedRolePolicies]
+                Resource:
+                  - !GetAtt ExecutionRole.Arn
+                  - !GetAtt TaskRole.Arn
+                  - !GetAtt InfrastructureRole.Arn
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AWS::StackName}-DeployRole-*'
               - Effect: Allow
                 Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DescribeStacks, cloudformation:DescribeStackResource]
                 Resource:
@@ -239,6 +247,12 @@ Resources:
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/default/${AWS::StackName}'
               # Express Mode creates and associates an ECS gateway on create and update.
+              - Effect: Allow
+                Action: [ecs:DescribeServiceDeployments, ecs:DescribeServiceRevisions]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/default/${AWS::StackName}'
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service-deployment/default/${AWS::StackName}/*'
+                  - !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service-revision/default/${AWS::StackName}/*'
               - Effect: Allow
                 Action: [ecs:CreateGateway, ecs:AssociateGatewayWithCluster]
                 Resource: !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:gateway/*/*'

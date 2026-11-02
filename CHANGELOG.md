@@ -6,6 +6,7 @@
 
 - Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.
 - Team API bootstrap takes the repository's exact GitHub OIDC subject so deployment credentials work with immutable organization and repository IDs.
+- Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
 
 ### Added
 
