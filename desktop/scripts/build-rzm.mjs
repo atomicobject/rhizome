@@ -30,6 +30,7 @@ if (prebuilt) {
     "make",
     [
       "build",
+      "BINARY_NAME=rzm-desktop",
       `BUILD_LDFLAGS=-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=${origin}`,
     ],
     {
@@ -39,7 +40,7 @@ if (prebuilt) {
     },
   );
   const goos = execFileSync("go", ["env", "GOOS"], { encoding: "utf8" }).trim();
-  copyFileSync(resolve(root, `bin/${goos}/rzm${suffix}`), output);
+  copyFileSync(resolve(root, `bin/${goos}/rzm-desktop${suffix}`), output);
   chmodSync(output, 0o755);
   const gateway = resolve(root, `desktop/src-tauri/binaries/team-api-${target}${suffix}`);
   copyFileSync(resolve(root, `bin/${goos}/team-api${suffix}`), gateway);
