@@ -319,6 +319,16 @@ export function AppShell() {
     );
   }
 
+  // Until the status names the vault, draw an empty page rather than a shell
+  // that fills in and shifts. Desktop keeps its opening notice up until the
+  // page's first report, which comes from the shell below.
+  if (statusQuery.isPending)
+    return (
+      <div className="app-boot" role="status">
+        <p>Opening the workspace…</p>
+      </div>
+    );
+
   return (
     <div className="app-shell">
       {desktop ? (

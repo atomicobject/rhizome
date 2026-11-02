@@ -116,13 +116,20 @@ function GroupStateLine({ state }: { state: Exclude<GroupModelState, { status: "
       </p>
     );
 
+  // Loading takes the facts strip's place and size, so the facts replace it
+  // without moving the blocks below.
+  if (state.status === "loading")
+    return (
+      <div className="gv-facts">
+        <span className="gv-facts-note gv-facts-loading" role="status">
+          {text.loading}
+        </span>
+      </div>
+    );
+
   return (
     <p className="gv-state" role="status">
-      {state.status === "loading"
-        ? text.loading
-        : state.name === null
-          ? text.outside
-          : text.missing(state.name)}
+      {state.name === null ? text.outside : text.missing(state.name)}
     </p>
   );
 }
