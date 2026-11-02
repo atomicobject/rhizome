@@ -1,6 +1,6 @@
 # Build from the repository root. CGO keeps SQLite available for local runs;
 # musl's static libc lets the deployed image contain only the binary and CAs.
-FROM golang:1.25-alpine AS build
+FROM golang:1.26.10-alpine AS build
 RUN apk add --no-cache build-base ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -15,6 +15,9 @@ COPY services/team-api ./
 ARG VERSION=dev
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w -linkmode external -extldflags '-static' -X main.version=${VERSION}" -o /out/team-api ./cmd/team-api \
  && mkdir -p /out/data /out/tmp
+# ECR cannot scan this scratch image. Check the actual binary before packaging.
+RUN GOBIN=/scan go install golang.org/x/vuln/cmd/govulncheck@v1.9.0 \
+ && /scan/govulncheck -mode binary /out/team-api
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /out/team-api /team-api
