@@ -15,7 +15,8 @@ const scripts = new URL("../../templates/starters/compounding/module/scripts/", 
 const { run } = await import(new URL("shards.mjs", scripts));
 const { migrate, openState, repoState } = await import(new URL("lib/state.mjs", scripts));
 const { openStore, writeJson } = await import(new URL("lib/store.mjs", scripts));
-const { contentHash, loadShards } = await import(new URL("lib/shards.mjs", scripts));
+const loadShardsModule = await import(new URL("lib/shards.mjs", scripts));
+const { contentHash, loadShards } = loadShardsModule;
 
 const user = { found: true, typeName: "Person", path: "docs/people/pat-example.md", title: "Pat Example" };
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
@@ -380,4 +381,17 @@ test("migration carries a worktree store's saved model choices, calibration evid
   assert.deepEqual(read(join(state, "config.json")).extraPaths.sort(), ["~/main-extra/*", "~/old-worktrees/app-*"]);
   assert.deepEqual(read(join(state, "models.json")).roles.extract.model, "claude-haiku-5-5");
   assert.deepEqual(read(join(state, "calibrations/c1/evidence.json")), { role: "extract" });
+});
+
+test("migration keeps the main checkout's uncommitted shared retirements, so other worktrees do not offer them again", () => {
+  const repo = checkouts("w");
+  const { main, state } = repo;
+  const p = proposal("k-gone");
+  writeJson(join(state, "proposals.json"), [p]);
+  writeJson(join(state, "reviewed.json"), { "k-gone": { action: "approved", path: "docs/memory/context-shards/rule-gone.md", at: "2026-10-01T10:00:00.000Z" } });
+  // Retired in the main checkout and never committed: the shard file is gone.
+  const { learningHash } = loadShardsModule;
+  writeJson(join(main, "docs/memory/context-shards/decisions/retired-gone.json"), { learning: learningHash(p), cluster: null, kind: p.kind, statement: p.statement, decision: "retired", reason: "no longer true", decider: "Pat Example", at: "2026-10-05T10:00:00.000Z" });
+  migrate(repoState(main), main, quiet);
+  assert.equal(at(repo.wt.w, "list").find((x) => x.cluster === "k-gone"), undefined);
 });

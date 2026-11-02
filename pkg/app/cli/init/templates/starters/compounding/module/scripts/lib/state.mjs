@@ -202,11 +202,12 @@ export function migrate(repo, cwd, { log = (m) => process.stderr.write(`${m}\n`)
         into.write(`decisions/${e.learning}--${stamp(e.at)}-migrated.json`, e);
         summary.converted++;
       }
-      // A shared dismissal or document decision was written to that checkout's
-      // tracked decisions folder, which other checkouts cannot see until it
-      // is committed and merged, so it is kept privately too.
+      // A shared dismissal, retirement, or document decision was written to
+      // that checkout's tracked decisions folder, the main checkout's
+      // included, which other checkouts cannot see until it is committed and
+      // merged, so it is kept privately too.
       const home = stateHome(dir);
-      const shared = home && home !== stateHome(target) ? join(home, DECISION_DIR) : null;
+      const shared = home ? join(home, DECISION_DIR) : null;
       for (const f of shared && existsSync(shared) ? readdirSync(shared).filter((f) => f.endsWith(".json")) : []) {
         if (present.has(f)) continue;
         let e = null;
