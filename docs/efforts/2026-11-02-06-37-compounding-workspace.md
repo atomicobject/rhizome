@@ -162,3 +162,8 @@ In progress.
 ## Execution Notes
 
 - 2026-11-02: Branch `feat/compounding-workspace` from `dc94d242` (#66's head; #66 awaits a required review). It is rebased onto `main` once #66 merges.
+- 2026-11-02, C2 integration after merging lanes A–C:
+  - Gates: `make build` passed. `rzm init` regenerated the custom-views skill copies, and `rzm init --check` then exited 0. `make check` passed (141 Go packages; 190 web test files, 1757 tests). `./scripts/rzm validate` reports 0 issues. `make web-e2e` passed 109 tests. `rzm validate frozen-scope-drift` reports one issue in EFF-2026-10-03-18-33, which this branch does not touch.
+  - The workspace TSX views type-check against the kit with tsc. `rzm validate views` and `rzm validate actions` were clean in a scratch repository.
+  - Fixed: the Notes shell could not open a `mount.hidden` view. The catalog leaves hidden views out, so `openView("compounding-item", …, {item})` set `item` on the workspace's own URL instead. The tab now loads such a view by id.
+  - The browser journey passed in a scratch repository with seeded proposals and a teammate's finding: refusal before trust, the checklist, the prompt, remove and hide, Health to the item view, Memory, history, and the link. There were no console errors.
