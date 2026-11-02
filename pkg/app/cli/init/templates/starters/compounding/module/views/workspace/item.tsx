@@ -1,6 +1,6 @@
 // One compounding recommendation, named by the identity param `item`, with
 // its quick actions. Health links here.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { openView, useActionCommand, useActionQuery, useViewParams } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import {
@@ -24,6 +24,9 @@ function Item({ itemRef }: { itemRef: string }) {
   const [note, setNote] = useState<string>();
   const [removed, setRemoved] = useState(false);
   const x = query.data as (Recommendation & { current?: boolean }) | undefined;
+  // The revision first shown; a poll that brings a redraft is refused at copy time.
+  const shown = useRef<string>();
+  if (!shown.current && x?.revision) shown.current = x.revision;
   const toWorkspace = () =>
     openView(
       "compounding-workspace",
@@ -32,19 +35,21 @@ function Item({ itemRef }: { itemRef: string }) {
     );
 
   const copyPrompt = async () => {
+    let prompt: string;
     try {
-      const { prompt } = (await promptCommand.mutateAsync({
-        items: [x?.revision ? `${itemRef}@${x.revision}` : itemRef],
-      })) as {
-        prompt: string;
-      };
-      await navigator.clipboard.writeText(prompt).then(
-        () => setNote("Copied the prompt. Paste it into your agent."),
-        // No clipboard access: show the prompt to copy by hand.
-        () => setNote(prompt),
-      );
+      ({ prompt } = (await promptCommand.mutateAsync({
+        items: [shown.current ? `${itemRef}@${shown.current}` : itemRef],
+      })) as { prompt: string });
     } catch (err) {
       setNote(`Could not build the prompt: ${errorText(err)}`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setNote("Copied the prompt. Paste it into your agent.");
+    } catch {
+      // No clipboard access, as in an insecure context: copy by hand.
+      setNote(prompt);
     }
   };
 

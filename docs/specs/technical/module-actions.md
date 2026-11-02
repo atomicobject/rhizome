@@ -51,7 +51,7 @@ timeout: 30s
 - `inputs` maps each input name to a `kind` (`string`, `int`, `bool`, or `list` of strings), with optional `required` and, for `string` and `list`, an `enum`. Input names are lowercase words joined by hyphens.
 - `run` holds exactly one of:
   - `command`: an argument vector. `{module}` expands to the module folder relative to the repository root, as in hook commands. The first word resolves through the login shell's PATH. It runs in the repository root of the checkout serving the vault, with the input JSON on stdin, which is then closed.
-  - `script`: a module-relative path to a code-mode script. It runs through `rzm agent code execute` against the serving vault, with `{action, input, moduleDir, repoRoot}` as its input, where both directories are absolute.
+  - `script`: a module-relative path to a code-mode script. It runs through `rzm agent code execute --read-write` against the serving vault, so it may write as a command action can, with `{action, input, moduleDir, repoRoot}` as its input, where both directories are absolute.
 - `timeout` defaults to 60 s and may not exceed 5 minutes.
 
 An action and a query recipe in one module may not share a name.

@@ -141,7 +141,7 @@ func fakeRzm(t *testing.T, output string, exit int) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	record := filepath.Join(dir, "record")
-	script := "#!/bin/sh\nwhile [ $# -gt 0 ]; do [ \"$1\" = --input ] && printf '%s' \"$2\" > " + record + ".input; shift; done\n" +
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + record + ".args\nwhile [ $# -gt 0 ]; do [ \"$1\" = --input ] && printf '%s' \"$2\" > " + record + ".input; shift; done\n" +
 		"cat > " + record + ".code\nprintf '%s' " + strconv.Quote(output) + "\nexit " + strconv.Itoa(exit) + "\n"
 	path := filepath.Join(dir, "rzm")
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
@@ -173,6 +173,9 @@ func TestScriptEnvelopeForEachResult(t *testing.T) {
 			code, err := os.ReadFile(record + ".code")
 			require.NoError(t, err)
 			require.Equal(t, "return 1;\n", string(code))
+			args, err := os.ReadFile(record + ".args")
+			require.NoError(t, err)
+			require.Contains(t, strings.Split(string(args), "\n"), "--read-write", "a trusted action script may write")
 			input, err := os.ReadFile(record + ".input")
 			require.NoError(t, err)
 			require.JSONEq(t, `{"action":"demo/go","input":{"path":"a.md"},"moduleDir":`+strconv.Quote(filepath.Join(root, ".rhizome/modules/demo"))+`,"repoRoot":`+strconv.Quote(root)+`}`, string(input))

@@ -172,6 +172,8 @@ func (r *Runner) runScript(ctx context.Context, a actiondef.Action, input map[st
 	if err != nil {
 		return failed(err.Error(), "")
 	}
+	// Trust already passed, and an action may write, as a command action can.
+	cmd.Args = append(cmd.Args, "--read-write")
 	cmd.Env = procrun.WithPath(os.Environ(), procrun.LoginPath())
 	var stderr tail
 	out, err := procrun.Run(ctx, cmd, &stderr, maxStdout)

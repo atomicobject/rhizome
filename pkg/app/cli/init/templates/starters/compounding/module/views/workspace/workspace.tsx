@@ -1,7 +1,7 @@
 // The compounding workspace (SPEC-0124 US9): review recommendations as a
 // checklist and copy one agent prompt for the selected ones, read the
 // friction report, and see the memory the team has approved.
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Count,
   Dash,
@@ -37,6 +37,9 @@ export default function Workspace() {
   // Held here, not in Recommendations, which unmounts on another tab: an
   // item the person unchecked must stay unchecked when they come back.
   const unchecked = useState<Set<string>>(new Set());
+  // The revision of each proposal the person has seen; a poll that brings a
+  // redraft does not replace it until they open the proposal again.
+  const reviewed = useState<Record<string, string>>({});
   return (
     <main className="px-5 py-3 text-base">
       <h1 className="mb-2 text-xl font-bold">Compounding</h1>
@@ -47,7 +50,7 @@ export default function Workspace() {
           <TabsTrigger value="memory">Memory</TabsTrigger>
         </TabsList>
         <TabsContent value="recommendations">
-          <Recommendations initial={params.item} unchecked={unchecked} />
+          <Recommendations initial={params.item} unchecked={unchecked} reviewed={reviewed} />
         </TabsContent>
         <TabsContent value="health">
           <Health />
@@ -68,19 +71,34 @@ type Copy =
 function Recommendations({
   initial,
   unchecked: [unchecked, setUnchecked],
+  reviewed: [reviewed, setReviewed],
 }: {
   initial?: string;
   unchecked: [Set<string>, Dispatch<SetStateAction<Set<string>>>];
+  reviewed: [Record<string, string>, Dispatch<SetStateAction<Record<string, string>>>];
 }) {
   const query = useActionQuery("compounding/recommendations", {});
   const promptCommand = useActionCommand("compounding/prompt");
   const items = ((query.data as { items?: Recommendation[] })?.items ?? []) as Recommendation[];
   const [open, setOpen] = useState<Set<string>>(new Set(initial ? [initial] : []));
   const [copy, setCopy] = useState<Copy>();
-  // A proposal goes with the revision shown, so a redraft since is refused.
+  useEffect(() => {
+    const unseen = items.filter((x) => x.revision && !(x.ref in reviewed));
+    if (unseen.length)
+      setReviewed((r) => ({
+        ...r,
+        ...Object.fromEntries(unseen.map((x) => [x.ref, x.revision!])),
+      }));
+  }, [items, reviewed, setReviewed]);
+  const redrafted = (x: Recommendation) =>
+    Boolean(x.revision && reviewed[x.ref] && reviewed[x.ref] !== x.revision);
+  // A proposal goes with the revision the person reviewed, so a redraft since is refused.
   const selected = items
     .filter((x) => !unchecked.has(x.ref))
-    .map((x) => (x.revision ? `${x.ref}@${x.revision}` : x.ref));
+    .map((x) => {
+      const revision = reviewed[x.ref] ?? x.revision;
+      return revision ? `${x.ref}@${revision}` : x.ref;
+    });
   const toggle = (set: Set<string>, ref: string) => {
     const next = new Set(set);
     next.has(ref) ? next.delete(ref) : next.add(ref);
@@ -173,10 +191,20 @@ function Recommendations({
                       <button
                         className="min-w-0 flex-1 truncate text-left"
                         aria-expanded={open.has(x.ref)}
-                        onClick={() => setOpen((s) => toggle(s, x.ref))}
+                        onClick={() => {
+                          // Opening a proposal shows its current draft, which the person then has reviewed.
+                          if (!open.has(x.ref) && x.revision)
+                            setReviewed((r) => ({ ...r, [x.ref]: x.revision! }));
+                          setOpen((s) => toggle(s, x.ref));
+                        }}
                       >
                         {x.title}
                       </button>
+                      {redrafted(x) ? (
+                        <span className="shrink-0 text-xs text-[var(--warning-ink)]">
+                          redrafted; open it to review
+                        </span>
+                      ) : null}
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {x.kind === "finding" ? (
                           <>
