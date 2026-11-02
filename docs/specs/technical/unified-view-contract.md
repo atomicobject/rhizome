@@ -4,7 +4,7 @@ id: SPEC-0110
 aliases: [SPEC-0110, Unified view contract]
 summary: "One registration, invocation context, configuration, lifecycle, and service contract for built-in and custom views mounted on type collections, display groups, and individual nodes."
 spec-status: active
-last-updated: 2026-10-17
+last-updated: 2026-11-02
 ---
 
 # Unified view contract
@@ -32,6 +32,29 @@ This extends [[configured-view-engine-and-repo-config|SPEC-0058]] and [[custom-v
 - A new public config version, plugin loader, package registry, or visual configuration editor.
 - Changing ontology membership through display grouping or introducing a generic group query source.
 - Combining trusted custom views with the isolated HTML-note viewer.
+
+## User Stories
+
+### US1 - Link to a view's state
+
+- id:: ^SPEC-0110-US1
+- summary:: A link opens a view on a chosen tab or item, and Back and Forward move through the view's own changes.
+- status:: ready
+
+#### Acceptance Criteria
+
+- A configured or custom view definition MAY declare `params: [{name, kind, default?, identity?}]`, where `kind` is `string`, `int`, or `bool` and `identity` defaults to false. Validation rejects a name outside `[A-Za-z][A-Za-z0-9_]*`, a name the workspace or `/views` URL already reads (`context`, `hosted`, `preferenceSlot`, `viewId`, `note`, `noteQuery`, `view`, `presentation`, `nodeId`, `kind`, `structural`, `search`, `scope`, `noteType`, `folder`, `searchTab`, `issueScopeKind`, `issueScopeKey`, `issue`), an unknown kind, a default of another kind, and a duplicate name.
+  verification:: viewconfig unit test.
+- Param values live on the view's URL query under each unprefixed name, in the workspace and on a standalone page. `useViewParams()` returns the declared params with defaults applied, reading each value as its kind; undeclared keys and values that do not parse are ignored.
+  verification:: kit and host unit tests; browser run.
+- `openView(id, context, params?)` opens a view with those params on its URL.
+  verification:: kit and host unit tests.
+- `setViewParams(patch)` sends `rhizome:params-changed` to the host, which pushes a workspace history entry. A UI param reaches the same frame as `rhizome:view-params` and `useViewParams()` updates; an identity param is part of the invocation, so the frame remounts. `null` returns a param to its default, which leaves the URL.
+  verification:: host unit tests; browser run.
+- Back and Forward compare identity params: when they changed the frame remounts, and otherwise the host sends the UI params to the same frame.
+  verification:: host unit tests; browser run.
+- A standalone page reads and writes its own URL query by the same rules, reloading when an identity param changes.
+  verification:: kit unit tests; browser run.
 
 ## Requirements
 

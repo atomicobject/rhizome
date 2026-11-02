@@ -4,7 +4,7 @@ id: SPEC-0105
 aliases: [SPEC-0105, custom-view-apps]
 summary: "A configured view can be custom code: a view definition names a TSX or HTML entry beside it, rzm serves it same-origin with a prebuilt UI kit and per-file TSX transform, and the same URL works mounted in the Rhizome nav or as a standalone tool."
 spec-status: active
-last-updated: 2026-10-04
+last-updated: 2026-11-02
 ---
 
 # Custom view apps
@@ -104,6 +104,14 @@ Two limits keep the choice contained: custom view code runs only when a user or 
   verification:: screenshots of the embedded view beside the first-party UI.
 - The `/kit/v1/` module names and exports are a versioned public contract; a breaking change ships as `/kit/v2/`.
   verification:: recorded in `web/CONTEXT.md`.
+- `useActionQuery(id, input, options?)` is a TanStack query keyed `["action", id, input]` over `POST /api/v1/actions/{module}/{name}` ([[module-actions|SPEC-0131]]). Its data is the ok `result`; it polls every 15 s only while the document is visible and never retries a refused envelope.
+  verification:: kit unit test with a mocked fetch.
+- `useActionCommand(id)` is a TanStack mutation whose `mutateAsync(input)` resolves to the ok `result` and invalidates every `["action", …]` query once.
+  verification:: kit unit test with a mocked fetch.
+- A refused or error envelope, and an HTTP 400 or 404, reject with the exported `ActionError`, carrying `status` (`refused` or `error`), `reason`, and `stderrTail`.
+  verification:: kit unit test with a mocked fetch.
+- `useViewParams()`, `getViewParams()`, `subscribeViewParams()`, `setViewParams(patch)`, and `openView(id, context, params?)` implement view parameters as [[unified-view-contract#^SPEC-0110-US1|SPEC-0110 US1]] defines; the invocation carries the declared params.
+  verification:: kit unit tests; browser run.
 
 ### US4 - Mount and standalone
 

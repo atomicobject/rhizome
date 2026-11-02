@@ -22,9 +22,11 @@
 | `noteHref(path)` | The note's URL in the Rhizome UI. |
 | `openNode(ref, { view?, beside? })` | Open a canonical root or embedded node, optionally selecting a named node presentation. Uses the workspace bridge when embedded. |
 | `nodeHref(ref, { view? })` | A normal Rhizome node link preserving fragment, node identity, and requested presentation. |
-| `openView(id, context)` | Open a registered native/custom view or normalized choice in the Rhizome workspace for an explicit subject, from either embedded or standalone code. A native definition ID selects its configured variant. |
-| `workspaceViewHref(id, context)` | Build the corresponding Rhizome workspace URL, including a selected presentation. |
-| `customViewHref(id, context)` | A contextual `/views/<id>` URL for embedded/direct launch parity. |
+| `openView(id, context, params?)` | Open a registered native/custom view or normalized choice in the Rhizome workspace for an explicit subject, from either embedded or standalone code. A native definition ID selects its configured variant. `params` sets the target's [view params](#view-params). |
+| `workspaceViewHref(id, context, params?)` | Build the corresponding Rhizome workspace URL, including a selected presentation and param values. |
+| `customViewHref(id, context, { params? })` | A contextual `/views/<id>` URL for embedded/direct launch parity. |
+| `useViewParams()` / `getViewParams()` / `subscribeViewParams(listener)` / `setViewParams(patch)` | Read and change the view's declared URL params. See [View params](#view-params). |
+| `useActionQuery(id, input?, options?)` / `useActionCommand(id)` / `ActionError` | Run a module action. See [Module actions](#module-actions). |
 | `openCollection(name)` | Open a type or interface collection in the workspace. |
 | `openSearch({ folder, query? })` | Open a project search tab filtered to a vault folder, listing the folder's notes, or ranking matches when `query` is set. `folder: "/"` lists the notes at the vault root, which sit in no folder. |
 | `openIssues(scope?)` | Open the issues panel, optionally scoped to `{ kind: "type" \| "interface" \| "note", key }`. Without a scope, a view presenting a note opens that note's issues; a view anywhere else, or a standalone page, opens every issue. |
@@ -64,6 +66,42 @@ GraphQL is read-only. Enum values are lowercase where the schema says so (`direc
 An optimistic updater returns a new result with the supplied session's operations applied. Match each operation to its target `ref`; apply absolute field values rather than increments, since server data may already include the operation. Keep this function pure and leave unrelated rows unchanged. Rhizome does not infer your query's shape or sort order.
 
 `savedEditsPending` stays true while a successful save awaits its canonical query result. The updater receives retained saved operations followed by newer dirty operations, so the display remains stable. A request started before successful persistence cannot clear those retained operations. `editOutcome` reports the latest workspace save or discard outcome as `saved`, `discarded`, `failed`, `conflicted`, or `null`. Query errors still appear in `error`; a refresh error does not mean persistence failed.
+
+## View params
+
+Params put a view's navigable state on its URL, so a link can open it on a tab or item and Back undoes a change. Declare them in the definition:
+
+```yaml
+params:
+  - { name: tab, kind: string, default: overview }   # UI state: updates in place
+  - { name: item, kind: string, identity: true }     # part of the invocation: remounts
+```
+
+`kind` is `string`, `int`, or `bool`; a `default` must match it. Names match `[A-Za-z][A-Za-z0-9_]*` and cannot be a key the workspace URL already uses, such as `view`, `presentation`, `note`, `search`, `scope`, `folder`, or `context`; `rzm validate views` lists the rest.
+
+- `useViewParams()` returns `{ [name]: value }` for the declared params, each read as its kind, with defaults applied. A param with no default and no value is absent. Undeclared keys and values that do not parse are ignored. `getViewParams()` and `subscribeViewParams(listener)` do the same for HTML.
+- `setViewParams({ tab: "health" })` adds a history entry. A UI param updates `useViewParams()` without remounting; an identity param remounts the view with the new value. `null` returns a param to its default, and a default stays off the URL. An undeclared name or a value of the wrong kind throws.
+- Back and Forward follow the same split: a changed identity param remounts, anything else updates in place.
+- Links carry params as plain query keys: `/notes?view=team.board&tab=health` for a standalone mount, `/notes?presentation=team.board&item=a` on All notes, `/notes/<Type>?presentation=team.board&tab=health` on a type, and `/views/team.board?tab=health` for the page alone. Build them with `workspaceViewHref(id, context, params)` or `openView(id, context, params)`.
+- Keep params for state worth linking to or going back over. A remembered display choice belongs in `useViewPreference`; transient UI state stays in React.
+
+## Module actions
+
+A module's actions, declared in `.rhizome/modules/<module>/actions/<name>.yaml`, run a command or script the module ships and answer with `{ status: "ok" | "refused" | "error", result?, reason?, stderrTail? }`. Ids are `<module>/<name>`.
+
+```tsx
+const health = useActionQuery<Health>("compounding/health");
+const dismiss = useActionCommand<null, { cluster: string; reason: string }>("compounding/dismiss");
+
+<Section title="Health" status={sectionStatus(health)} what="health">{() => <Report data={health.data} />}</Section>
+<Button onClick={() => dismiss.mutate({ cluster, reason })} disabled={dismiss.isPending}>Dismiss</Button>
+{dismiss.error && <p className="text-risk">{dismiss.error.reason ?? dismiss.error.message}</p>}
+```
+
+- `useActionQuery(id, input?, options?)` is a TanStack query keyed `["action", id, input]` whose `data` is the ok `result`. It polls every 15 s while the page is visible, refetches on vault changes like other data, and never retries a refused action. `options` takes ordinary query options such as `enabled`.
+- `useActionCommand(id)` is a TanStack mutation; `mutateAsync(input)` resolves to the ok `result`. On ok it refetches every `useActionQuery` once.
+- Both reject with `ActionError`, whose `status` is `refused` (a deliberate no, such as an untrusted repository; show `reason`) or `error` (a failure, an unknown action, or invalid input; `stderrTail` holds the command's last output). Show the reason beside the control that ran it.
+- Input is a JSON object matching the action's declared inputs; the server rejects anything else. An action runs with the user's authority, so run commands only from a deliberate click.
 
 ## Personal view preferences
 

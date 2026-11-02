@@ -60,6 +60,14 @@ Use `useViewPreference` for meaningful display choices such as filters, selected
 
 Personal overrides live in ignored repository-local SQLite, survive reloads and server restarts, and remain separate from shared YAML and staged Markdown edits. Reset removes overrides so current authored defaults apply. Show loading, pending writes, errors, and retry; a failed write is not saved. Read [Personal view preferences](references/kit-api.md#personal-view-preferences) for the React and subscribed HTML APIs and the board example for an interaction using them.
 
+## Link to a view's state
+
+When a tab, item, or page of a view is worth linking to or going back over, declare it under `params` in the definition and read it with `useViewParams()`. A UI param (`tab`) changes in place; an `identity: true` param (`item`) is part of the invocation and remounts the view. `setViewParams(patch)` adds a history entry, and Back and Forward follow the same split. Links carry params as plain query keys, such as `/notes?view=<id>&tab=health`; build them with `workspaceViewHref(id, context, params)` or `openView(id, context, params)`. Use params for navigation, `useViewPreference` for a remembered display choice, and React state for the rest. Read [View params](references/kit-api.md#view-params).
+
+## Run module actions
+
+A view in a module can run the module's declared actions: `useActionQuery("<module>/<name>", input)` for a result that stays current, and `useActionCommand("<module>/<name>")` for a change the user asks for, which refreshes every action read once it succeeds. A refused or failed action rejects with `ActionError`; show its `reason` beside the control. Read [Module actions](references/kit-api.md#module-actions).
+
 ## Diagrams
 
 A view can draw a live Mermaid diagram with `Diagram` from `@rhizome/kit`. Build its source during render from query data; the kit refetches when the vault changes, so the diagram stays current with no extra code. `mermaid.text`, `mermaid.csv`, and `mermaid.id` escape note titles and make node ids. Read [Diagrams](references/kit-api.md#diagrams) for the API and examples.
