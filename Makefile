@@ -292,7 +292,7 @@ release:
 		echo "hint: current commit is $$(git describe --tags --always --dirty 2>/dev/null || git rev-parse --short HEAD)"; \
 		exit 1; \
 	fi
-	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} python3 scripts/teamkeys/release.py python3 scripts/release/run_clean.py publish -- goreleaser release --clean
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} python3 scripts/release/release_publish.py
 
 release-plan:
 	python3 scripts/release/release_cli.py plan
@@ -320,7 +320,7 @@ cut-release:
 	./scripts/release/cut_release.sh
 
 release-s3:
-	@./scripts/release/publish_s3.sh
+	@RZM_RELEASE_GATEWAY_RECEIPT="$(RZM_RELEASE_GATEWAY_RECEIPT)" ./scripts/release/publish_s3.sh
 
 release-s3-check:
 	@PREFLIGHT_ONLY=1 ./scripts/release/publish_s3.sh

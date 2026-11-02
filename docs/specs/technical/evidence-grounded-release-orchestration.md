@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines bounded release evidence, reviewable release plans, and resumable apply/build/publish orchestration for Rhizome releases."
 id: SPEC-0078
 spec-status: active
-last-updated: 2026-10-25
+last-updated: 2026-11-02
 aliases:
   - SPEC-0078
 ---
@@ -119,6 +119,11 @@ The workflow separates read-only planning from repository mutation and artifact 
 - Retry MUST verify existing release refs before treating Git publication as complete and MUST NOT force-update conflicting remote refs or tags.
 - Normal releases MUST have exactly one GoReleaser publication owner.
 - Build and publish phases MUST consume the reviewed plan rather than rediscovering release scope.
+- Every supported GitHub or S3 client publication path MUST wait for a successful, exactly correlated gateway deployment before its first artifact upload. Planning, preflight, and dry-run modes MUST NOT dispatch a deployment.
+- Gateway source MUST be the exact validated public client release commit, including a release hotfix rather than its main merge. An internal client release MUST automatically select and persist the public `release` commit, verify its canonical main integration, and match every committed Docker build input across the separate histories before dispatch. Unmatched or unsupported build inputs MUST block publication.
+- The trusted deployment workflow MUST execute on public `main`, preserve its production/OIDC restrictions, test and build the selected immutable server source, and run deployment verification from its trusted main checkout. Ordinary pushes to `main` MUST NOT deploy the gateway.
+- Release retries MUST retain the original selected server source, reconcile uncertain dispatches by persisted request identity, resume pending deployments, and obtain fresh deployment verification after an earlier terminal attempt. A saved success from a prior publication invocation MUST NOT bypass this verification.
+- Before uploads, publication MUST revalidate the exact local release commit/tag and canonical remote topology after waiting for deployment. Any failed, cancelled, ambiguous, missing, or timed-out deployment MUST preserve resumable state and prevent client uploads. The existing deployment helper remains the single AWS deployment implementation.
 
 ### Should
 

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Client release commands now deploy and verify the exact release gateway source before uploading artifacts, with pinned retries and private/public source agreement. Ordinary main merges no longer deploy the gateway.
+
 ### Fixed
 
 - Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.

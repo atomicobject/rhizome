@@ -105,7 +105,7 @@ fi
 mkdir -p "$RELEASE_DIR"
 python3 "$ROOT_DIR/scripts/release/build_installer.py" --output-dir "$RELEASE_DIR" >/dev/null
 VERSION="$(git describe --tags --exact-match 2>/dev/null || true)"
-if [[ -z "$VERSION" ]]; then
+if [[ -z "$VERSION" && ( "${DRY_RUN:-}" == "1" || "${DRY_RUN:-}" == "true" ) ]]; then
   VERSION="$(python3 - <<'PY'
 from pathlib import Path
 import re
@@ -116,7 +116,7 @@ PY
 )"
 fi
 if [[ -z "$VERSION" ]]; then
-  echo "error: cannot determine release version" >&2
+  echo "error: HEAD is not an exact release tag" >&2
   exit 1
 fi
 if [[ "$VERSION" != v* ]]; then
@@ -128,6 +128,16 @@ if [[ "v${built_version}" != "$VERSION" ]]; then
   echo "error: dist/ holds build '${built_version:-unknown}', not the ${VERSION} release; run the keyed release build (make release) first" >&2
   exit 1
 fi
+# Dry-run remains read-only. Actual publication either deploys afresh or verifies
+# the explicit receipt handed down by this invocation's release orchestrator.
+if [[ "${DRY_RUN:-}" != "1" && "${DRY_RUN:-}" != "true" ]]; then
+  gateway_args=(--repo-root "$ROOT_DIR" --internal)
+  if [[ -n "${RZM_RELEASE_GATEWAY_RECEIPT:-}" ]]; then
+    gateway_args+=(--gateway-receipt "$RZM_RELEASE_GATEWAY_RECEIPT")
+  fi
+  python3 "$ROOT_DIR/scripts/release/release_publication.py" "${gateway_args[@]}"
+fi
+
 STABLE=1
 if [[ "$VERSION" == *-* ]]; then
   STABLE=0

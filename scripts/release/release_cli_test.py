@@ -196,6 +196,7 @@ class Fixture:
         self.orchestrator = Orchestrator(
             self.repo,
             command_runner=self.commands,
+            gateway=self.gate,
             evidence_collector=self.collect,
             note_generator=self.generate,
             input_fn=self.ask,
@@ -203,6 +204,10 @@ class Fixture:
             today_fn=lambda: "2026-07-17",
             environ={"RZM_RELEASE_GITHUB_TOKEN": "publish-secret", "TAURI_SIGNING_PRIVATE_KEY": "signing-secret"},
         )
+
+    def gate(self, repo, release_commit, receipt_path, **kwargs):
+        self.commands.calls.append(("gateway", release_commit, str(receipt_path)))
+        return {"attempt": {"state": "success"}}
 
     def collect(self, repo, base, head, **kwargs):
         return self.evidence
@@ -504,6 +509,40 @@ class OrchestratorTest(unittest.TestCase):
         self.assertFalse(fixture.orchestrator.store.run_dir(BASE, HEAD_SHA).exists())
         self.assertFalse(any(call[:2] == ("make", "release-s3") or call[:2] == ("make", "release-s3-check") for call in fixture.commands.calls))
 
+    def test_gateway_failure_blocks_both_publishers_and_preserves_resume(self) -> None:
+        from release_gateway import GatewayError
+        fixture = Fixture(self)
+        fixture.orchestrator.environ = {**fixture.orchestrator.environ, "RZM_INTERNAL_S3_BUCKET": "example-bucket"}
+        fixture.plan()
+        fixture.orchestrator.build(BASE, HEAD_SHA)
+        fixture.orchestrator.apply(BASE, HEAD_SHA)
+        def failed(*args, **kwargs):
+            self.assertEqual(fixture.commands.remote_release, RELEASE_SHA)
+            raise GatewayError("deployment cancelled")
+        fixture.orchestrator.gateway = failed
+        with self.assertRaisesRegex(OrchestrationError, "deployment cancelled") as raised:
+            fixture.orchestrator.publish(BASE, HEAD_SHA)
+        self.assertIn(" resume ", raised.exception.next_command)
+        saved = fixture.orchestrator.load(BASE, HEAD_SHA)
+        self.assertIn("canonical_branches_published", saved.state.completed_checkpoints)
+        self.assertNotIn("github_published", saved.state.completed_checkpoints)
+        self.assertFalse(any(len(c) > 1 and c[1].endswith("release_publish.py") for c in fixture.commands.calls))
+        self.assertFalse(any(c[:2] == ("make", "release-s3") for c in fixture.commands.calls))
+
+    def test_gateway_wait_revalidates_remote_branches_before_upload(self) -> None:
+        fixture = Fixture(self)
+        fixture.plan()
+        fixture.orchestrator.build(BASE, HEAD_SHA)
+        fixture.orchestrator.apply(BASE, HEAD_SHA)
+        def moved(*args, **kwargs):
+            fixture.commands.remote_release = "f" * 40
+            return {}
+        fixture.orchestrator.gateway = moved
+        with self.assertRaisesRegex(OrchestrationError, "changed while waiting") as raised:
+            fixture.orchestrator.publish(BASE, HEAD_SHA)
+        self.assertIn(" resume ", raised.exception.next_command)
+        self.assertFalse(any(len(c) > 1 and c[1].endswith("release_publish.py") for c in fixture.commands.calls))
+
     def test_internal_release_checks_s3_before_apply_and_resumes_only_s3(self) -> None:
         fixture = Fixture(self)
         fixture.orchestrator.environ = {**fixture.orchestrator.environ, "RZM_INTERNAL_S3_BUCKET": "example-bucket"}
@@ -526,6 +565,9 @@ class OrchestratorTest(unittest.TestCase):
 
         github_calls = [call for call in fixture.commands.calls if len(call) > 1 and call[1].endswith("release_publish.py")]
         self.assertEqual(len(github_calls), 1)
+        self.assertEqual(2, sum(c[0] == "gateway" for c in fixture.commands.calls))
+        s3_calls = [c for c in fixture.commands.calls if c[:2] == ("make", "release-s3")]
+        self.assertTrue(all(c[2].startswith("RZM_RELEASE_GATEWAY_RECEIPT=") for c in s3_calls))
         self.assertIn("s3_published", resumed.state.completed_checkpoints)
 
     def test_resume_refuses_to_switch_release_mode(self) -> None:
@@ -569,7 +611,11 @@ class OrchestratorTest(unittest.TestCase):
 
         push = next(call for call in fixture.commands.calls if call[:3] == ("git", "push", "--atomic"))
         github = next(call for call in fixture.commands.calls if len(call) > 1 and call[1].endswith("release_publish.py"))
-        self.assertLess(fixture.commands.calls.index(push), fixture.commands.calls.index(github))
+        gate = next(call for call in fixture.commands.calls if call[0] == "gateway")
+        self.assertLess(fixture.commands.calls.index(push), fixture.commands.calls.index(gate))
+        self.assertLess(fixture.commands.calls.index(gate), fixture.commands.calls.index(github))
+        self.assertEqual(gate[1], RELEASE_SHA)
+        self.assertIn("--gateway-receipt", github)
         self.assertEqual(fixture.commands.remote_main, MERGE_SHA)
         self.assertEqual(fixture.commands.remote_release, RELEASE_SHA)
         self.assertIn("published", published.state.completed_checkpoints)
