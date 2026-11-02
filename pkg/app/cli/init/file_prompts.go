@@ -132,7 +132,7 @@ func pluralVerb(n int, one, many string) string {
 }
 
 // starterValidationSelector names the validation selector to run after
-// schema, saved query, or view files change, or "" when none changed.
+// schema, saved query, view, or action files change, or "" when none changed.
 func starterValidationSelector(updated []string) string {
 	checks := map[string]bool{}
 	for _, path := range updated {
@@ -143,10 +143,12 @@ func starterValidationSelector(updated []string) string {
 			checks["query-recipes"] = true
 		case assetroots.Views:
 			checks["views"] = true
+		case assetroots.Actions:
+			checks["actions"] = true
 		}
 	}
 	var ordered []string
-	for _, check := range []string{"ontology", "query-recipes", "views"} {
+	for _, check := range []string{"ontology", "query-recipes", "views", "actions"} {
 		if checks[check] {
 			ordered = append(ordered, check)
 		}
