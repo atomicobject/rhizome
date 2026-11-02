@@ -236,7 +236,6 @@ Resources:
                   - !GetAtt ExecutionRole.Arn
                   - !GetAtt TaskRole.Arn
                   - !GetAtt InfrastructureRole.Arn
-                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AWS::StackName}-DeployRole-*'
               - Effect: Allow
                 Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DescribeStacks, cloudformation:DescribeStackResource]
                 Resource:
@@ -291,7 +290,7 @@ Outputs:
   ExecutionRoleArn: {Value: !GetAtt ExecutionRole.Arn}
   TaskRoleArn: {Value: !GetAtt TaskRole.Arn}
   InfrastructureRoleArn: {Value: !GetAtt InfrastructureRole.Arn}
-  DeployRoleArn: {Value: !GetAtt DeployRole.Arn}
+  DeployRoleArn: {Value: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${DeployRole}'}
   Endpoint:
     Condition: Serving
     Value: !GetAtt Gateway.Endpoint
