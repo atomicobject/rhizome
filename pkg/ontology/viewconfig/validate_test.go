@@ -521,7 +521,7 @@ params:
 	result := Validate(defs, ValidateOptions{EntryFS: fstest.MapFS{"views/index.tsx": {}}})
 	params := result.Views[0].Params
 	require.Equal(t, ViewParam{Name: "tab", Kind: ParamKindString, Default: "health"}, params[0])
-	require.Equal(t, int64(2), params[1].Default)
+	require.Equal(t, 2, params[1].Default)
 	require.Equal(t, false, params[2].Default)
 	require.True(t, params[3].Identity)
 

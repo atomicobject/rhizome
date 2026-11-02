@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"regexp"
-	"strings"
 )
 
 // ParamKind is the value type of a view parameter.
@@ -36,16 +35,6 @@ var reservedParamNames = map[string]struct{}{
 	"note": {}, "noteQuery": {}, "view": {}, "presentation": {}, "nodeId": {}, "kind": {}, "structural": {},
 	"search": {}, "scope": {}, "noteType": {}, "folder": {}, "searchTab": {},
 	"issueScopeKind": {}, "issueScopeKey": {}, "issue": {},
-}
-
-func normalizeParams(params []ViewParam) {
-	for i := range params {
-		params[i].Name = strings.TrimSpace(params[i].Name)
-		params[i].Kind = ParamKind(strings.TrimSpace(string(params[i].Kind)))
-		if value, ok := integral(params[i].Default); ok && params[i].Kind == ParamKindInt {
-			params[i].Default = value
-		}
-	}
 }
 
 func validateParams(def ViewDefinition) []Issue {
