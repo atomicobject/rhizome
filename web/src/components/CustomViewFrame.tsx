@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type {
@@ -17,14 +17,17 @@ import {
   OPEN_NODE_MESSAGE,
   OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
+  PARAMS_CHANGED_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
   VAULT_EVENT_MESSAGE,
+  VIEW_PARAMS_MESSAGE,
   type HostMessage,
   type IssueScope,
 } from "../lib/customViewMessages";
 import { subscribeVaultEvents } from "../query/vaultEvents";
-import { isPseudoType } from "./notesRoute";
+import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
+import { NOTES_ROOT_PATH, isPseudoType } from "./notesRoute";
 import type { OpenMode } from "./useNoteTabs";
 
 import {
@@ -34,13 +37,24 @@ import {
   type OpenNodeOptions,
   type ViewContext,
 } from "../views/context";
+import {
+  applyViewParamsPatch,
+  isViewParamValues,
+  readViewParams,
+  viewParamsIdentity,
+  viewParamsPatchError,
+  withViewParams,
+  type ViewParamDeclaration,
+  type ViewParamsPatch,
+  type ViewParamValue,
+} from "../views/params";
 
 type Props = {
   context?: ViewContext;
   /** An independent mount of the view in this context; its preferences are separate. */
   preferenceSlot?: string;
   onOpenNode?: (ref: NodeRef, options: OpenNodeOptions) => void;
-  onOpenView?: (id: string, context: ViewContext) => void;
+  onOpenView?: (id: string, context: ViewContext, params?: Record<string, ViewParamValue>) => void;
   view: ViewCatalogEntry;
   session: OntologyEditSessionResponse | null;
   readLifecycle?: EditReadLifecycle;
@@ -53,7 +67,13 @@ type Props = {
 
 type ViewRequest =
   | { kind: "open-node"; ref: NodeRef; options: OpenNodeOptions }
-  | { kind: "open-view"; id: string; context: ViewContext }
+  | {
+      kind: "open-view";
+      id: string;
+      context: ViewContext;
+      params?: Record<string, ViewParamValue>;
+    }
+  | { kind: "params"; patch: ViewParamsPatch }
   | { kind: "open-note"; path: string; mode: OpenMode }
   | { kind: "hello" }
   | { kind: "stage"; requestId: string; ops: OntologyEditOp[] }
@@ -83,7 +103,7 @@ function rejectViewRequest(type: unknown, reason: string): null {
   return null;
 }
 
-function viewRequest(data: unknown): ViewRequest | null {
+function viewRequest(data: unknown, params: readonly ViewParamDeclaration[]): ViewRequest | null {
   if (typeof data !== "object" || data === null || !("type" in data))
     return rejectViewRequest(undefined, "Expected a message object with a type");
 
@@ -127,7 +147,23 @@ function viewRequest(data: unknown): ViewRequest | null {
     if (!context)
       return reject("Invalid context: expected a concrete view subject with a valid ref for nodes");
 
-    return { kind: "open-view", id: data.id, context };
+    if (!("params" in data) || data.params === undefined)
+      return { kind: "open-view", id: data.id, context };
+
+    if (!isViewParamValues(data.params))
+      return reject("Invalid params: expected string, integer, or boolean values");
+
+    return { kind: "open-view", id: data.id, context, params: data.params };
+  }
+
+  if (data.type === PARAMS_CHANGED_MESSAGE) {
+    const patch = "params" in data ? data.params : undefined;
+    const error = viewParamsPatchError(params, patch);
+
+    // SAFETY: viewParamsPatchError accepted every key and value.
+    return error
+      ? reject(`Invalid params: ${error}`)
+      : { kind: "params", patch: patch as ViewParamsPatch };
   }
 
   if (data.type === STAGE_OPS_MESSAGE) {
@@ -178,6 +214,22 @@ function viewRequest(data: unknown): ViewRequest | null {
 }
 /* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters */
 
+const isNotesPath = (pathname: string) =>
+  pathname === NOTES_ROOT_PATH || pathname.startsWith(`${NOTES_ROOT_PATH}/`);
+
+// A params change from the frame becomes a workspace history entry; the
+// location change then remounts the frame or updates it in place.
+function pushViewParams(params: readonly ViewParamDeclaration[], patch: ViewParamsPatch) {
+  const url = new URL(window.location.href);
+  applyViewParamsPatch(params, url.searchParams, patch);
+  const next = `${url.pathname}${url.search}${url.hash}`;
+
+  if (next === `${window.location.pathname}${window.location.search}${window.location.hash}`)
+    return;
+  window.history.pushState({}, "", next);
+  notifyLocationChange();
+}
+
 /**
  * Frames a custom view (SPEC-0105). The view is repository code served from
  * this origin at /views/<id>, the same URL that works as a standalone page, so
@@ -205,6 +257,19 @@ export function CustomViewFrame({
   const sessionRef = useRef({ session, readLifecycle });
   sessionRef.current = { session, readLifecycle };
 
+  // Declared params live on the workspace URL (SPEC-0110). Another app route
+  // leaves the last workspace query in place, so a kept-alive frame is untouched.
+  const declarations = useMemo(() => view.definition.params ?? [], [view.definition.params]);
+  const browser = useLocationSnapshot();
+  const searchRef = useRef(browser.search);
+
+  if (isNotesPath(browser.pathname)) searchRef.current = browser.search;
+  const search = searchRef.current;
+  const params = useMemo(() => readViewParams(declarations, search), [declarations, search]);
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
+  const paramsJSON = JSON.stringify(params);
+
   useEffect(() => {
     const post = (message: HostMessage) =>
       frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
@@ -229,13 +294,18 @@ export function CustomViewFrame({
       if (event.origin !== window.location.origin) return;
 
       if (event.source !== frameRef.current?.contentWindow) return;
-      const request = viewRequest(event.data);
+      const request = viewRequest(event.data, declarations);
 
       if (request?.kind === "open-note") onOpenNote(request.path, request.mode);
 
       if (request?.kind === "open-node") onOpenNode?.(request.ref, request.options);
 
-      if (request?.kind === "open-view") onOpenView?.(request.id, request.context);
+      // Params are passed only when the view sent them.
+      if (request?.kind === "open-view" && request.params)
+        onOpenView?.(request.id, request.context, request.params);
+      else if (request?.kind === "open-view") onOpenView?.(request.id, request.context);
+
+      if (request?.kind === "params") pushViewParams(declarations, request.patch);
 
       if (request?.kind === "hello") post({ type: EDIT_SESSION_MESSAGE, ...sessionRef.current });
 
@@ -252,6 +322,7 @@ export function CustomViewFrame({
 
     return () => window.removeEventListener("message", onMessage);
   }, [
+    declarations,
     onOpenNote,
     onOpenNode,
     onOpenView,
@@ -275,10 +346,33 @@ export function CustomViewFrame({
     frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
   }, [session, readLifecycle]);
 
+  // A UI param reaches the mounted frame as a message; the next mount reads
+  // it from its src.
+  useEffect(() => {
+    const message: HostMessage = { type: VIEW_PARAMS_MESSAGE, params: JSON.parse(paramsJSON) };
+    frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+  }, [paramsJSON]);
+
   const href = customViewHref(view.id, context, { hosted: true });
-  const src = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
+  const base = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
+  // Identity params are part of the invocation, so changing one remounts.
+  const key = `${base}#${viewParamsIdentity(declarations, params)}`;
+  const mounted = useRef({ key: "", src: "" });
+
+  if (mounted.current.key !== key) mounted.current = { key, src: withViewParams(base, params) };
 
   return (
-    <iframe key={src} ref={frameRef} className="custom-view-frame" title={view.name} src={src} />
+    <iframe
+      key={key}
+      ref={frameRef}
+      className="custom-view-frame"
+      title={view.name}
+      src={mounted.current.src}
+      // Params that changed while the frame loaded.
+      onLoad={() => {
+        const message: HostMessage = { type: VIEW_PARAMS_MESSAGE, params: paramsRef.current };
+        frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+      }}
+    />
   );
 }

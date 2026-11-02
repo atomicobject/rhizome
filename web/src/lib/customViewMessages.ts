@@ -4,10 +4,18 @@
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type { NodeRef, OntologyEditOp, OntologyEditSessionResponse } from "../api/types";
 import type { OpenNodeOptions, ViewContext } from "../views/context";
+import type { ViewParams, ViewParamsPatch, ViewParamValue } from "../views/params";
 
 export const OPEN_NODE_MESSAGE = "rhizome:open-node";
 
+/** View → host: open a view. `{ id, context, params? }` */
 export const OPEN_VIEW_MESSAGE = "rhizome:open-view";
+
+/** View → host: change declared view params. `{ params }`, null resets one to its default. */
+export const PARAMS_CHANGED_MESSAGE = "rhizome:params-changed";
+
+/** Host → view: the view's params after a change that did not remount it. `{ params }` */
+export const VIEW_PARAMS_MESSAGE = "rhizome:view-params";
 
 /** View → host: open a note in the workspace. `{ path, beside? }` */
 export const OPEN_NOTE_MESSAGE = "rhizome:open-note";
@@ -41,7 +49,13 @@ export type IssueScope = { kind: "type" | "interface" | "note"; key: string };
 
 export type ViewMessage =
   | ({ type: typeof OPEN_NODE_MESSAGE; ref: NodeRef } & OpenNodeOptions)
-  | { type: typeof OPEN_VIEW_MESSAGE; id: string; context: ViewContext }
+  | {
+      type: typeof OPEN_VIEW_MESSAGE;
+      id: string;
+      context: ViewContext;
+      params?: Record<string, ViewParamValue>;
+    }
+  | { type: typeof PARAMS_CHANGED_MESSAGE; params: ViewParamsPatch }
   | { type: typeof OPEN_NOTE_MESSAGE; path: string; beside?: boolean }
   | { type: typeof EDIT_SESSION_HELLO_MESSAGE }
   | { type: typeof STAGE_OPS_MESSAGE; requestId: string; ops: OntologyEditOp[] }
@@ -56,4 +70,5 @@ export type HostMessage =
       readLifecycle?: EditReadLifecycle;
     }
   | { type: typeof STAGE_RESULT_MESSAGE; requestId: string; error?: string }
-  | { type: typeof VAULT_EVENT_MESSAGE; event: string; data?: string };
+  | { type: typeof VAULT_EVENT_MESSAGE; event: string; data?: string }
+  | { type: typeof VIEW_PARAMS_MESSAGE; params: ViewParams };

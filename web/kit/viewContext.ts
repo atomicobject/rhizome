@@ -1,5 +1,6 @@
 import { isJsonObject, isString, type JsonObject } from "../src/api/parse";
 import { isViewContext, type ViewContext, type ViewInvocation } from "../src/views/context";
+import { parseViewParamDeclarations, type ViewParamDeclaration } from "../src/views/params";
 import type { ViewOrigin } from "./types";
 
 export { customViewHref, nodeHref, workspaceViewHref } from "../src/views/context";
@@ -15,6 +16,8 @@ export type {
 
 export type KitViewInvocation = ViewInvocation & {
   view: ViewInvocation["view"] & { origin?: ViewOrigin };
+  /** The definition's declared params; read their values with `useViewParams`. */
+  params?: ViewParamDeclaration[];
 };
 
 /** Validated context and authored configuration supplied by the server, for HTML and TSX. */
@@ -72,6 +75,8 @@ function parseInvocation(data: string): KitViewInvocation {
   };
 
   if (value.vaultKey !== undefined) invocation.vaultKey = value.vaultKey;
+
+  if (value.params !== undefined) invocation.params = parseViewParamDeclarations(value.params);
 
   if (value.preferenceSlot !== undefined) invocation.preferenceSlot = value.preferenceSlot;
 
