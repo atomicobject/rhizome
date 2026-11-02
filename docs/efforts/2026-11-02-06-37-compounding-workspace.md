@@ -143,7 +143,9 @@ In progress.
 
 ## Deviations
 
-None yet.
+- **No link on the task item.** The Tasks page shows a task item's summary as plain text, so the mine task item cannot link to the workspace. The mine run's final message, which the Tasks page renders as Markdown, ends with the link instead.
+- **No direct MCP tool.** `action_list` and `action_run` are code-mode operations; `rzm mcp` reaches them through code mode only (SPEC-0131 non-goal).
+- **Desktop clipboard check is left to Drew.** The harness cannot drive the Desktop webview, so Copy prompt in Rhizome Desktop is a human check after merge.
 
 ## Closure Checklist
 
@@ -153,7 +155,11 @@ None yet.
 
 ## Compounding Follow-ups
 
-None yet.
+- Copy prompt in Rhizome Desktop (clipboard access in its webview), checked by a person after merge.
+- Switching Notes tabs rebuilds the URL from tab state, so a tab's view params are lost when the person leaves it and comes back; two custom frames visible side by side read the same query.
+- A module action input named `help`, `vault`, or `no-pager` cannot be set from the CLI, and a string input whose value is literally `--vault=…` after `--summary` is read as the vault flag (Sol lane A S5, declined as a rare case).
+- A direct `rzm mcp` tool for actions.
+- `rzm agent current-user set "<title>"` resolved a Person only by path in the scratch repository; not investigated.
 
 ## Status
 
