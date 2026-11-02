@@ -4,7 +4,7 @@ id: EFF-2026-11-02-06-37
 aliases: [EFF-2026-11-02-06-37]
 name: Module actions, view parameters, and the compounding workspace
 created-at: 2026-11-02T11:37:09Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: "Give modules typed actions that views, agents, and the command line run through one runner; let views take identity and UI parameters; and ship the compounding workspace (Recommendations, Health, Memory) that turns a checklist into one agent prompt."
 governing-specs: ["[[module-actions]]", "[[unified-view-contract]]", "[[custom-view-apps]]", "[[session-memory-starter]]"]
@@ -128,10 +128,10 @@ Decisions taken under that approval:
 
 ## Spec Coverage Checklist
 
-- [ ] SPEC-0131 US1–US3
-- [ ] SPEC-0110 view parameters
-- [ ] SPEC-0105 kit hooks and parameter APIs
-- [ ] SPEC-0124 workspace
+- [x] SPEC-0131 US1–US3: `pkg/app/actions` envelope, input, timeout, and trust tests; `pkg/app/web` actions route tests; `TestModuleCommandRunsActionsWithExitCodes`; `TestActionOperationsRunThroughTheCodeCatalog`; `pkg/validate` actions tests.
+- [x] SPEC-0110 view parameters: `pkg/ontology/viewconfig` params tests; host and kit params tests; `view-params.spec.ts`.
+- [x] SPEC-0105 kit hooks and parameter APIs: `web/kit` action-hook and params tests.
+- [x] SPEC-0124 workspace: `workspace.test.mjs`; the compounding template tests; the browser journey in Execution Notes.
 
 ## Original Intended Delivery
 
@@ -139,7 +139,37 @@ Slices 3–5 with docs and the end-to-end proof, in one pull request.
 
 ## Actual Delivered
 
-In progress.
+All three slices, in [#70](https://github.com/atomicobject/rhizome/pull/70) (branch `feat/compounding-workspace`, stacked on #66):
+
+- **Module actions (SPEC-0131):**
+  - declarations and input checks in `pkg/vault/actiondef`;
+  - the runner in `pkg/app/actions`, over `pkg/app/procrun`, which task checks share;
+  - the trust gate through `tasks.Untrusted`;
+  - `GET/POST /api/v1/actions` in OpenAPI;
+  - the `action_list`/`action_run` code-mode operations;
+  - `rzm <module> <action>`;
+  - `rzm validate actions`.
+- **Kit and view parameters (SPEC-0105, SPEC-0110 US1):**
+  - `useActionQuery`, `useActionCommand` and `ActionError`;
+  - `params` in view definitions;
+  - `useViewParams`, `setViewParams`, and `openView` with params;
+  - host history handling;
+  - standalone pages;
+  - the Notes shell opening a `mount.hidden` view by id.
+- **Compounding workspace (SPEC-0124 US9):**
+  - `workspace.mjs` and seven actions;
+  - the `compounding-workspace` view (Recommendations, Health, Memory) and the `compounding-item` view;
+  - prompts that pin the reviewed revision;
+  - the mine run's final-message link;
+  - the skill's review step accepting the workspace statement.
+
+Review: sol-loop per lane (A two rounds, B one, C three) and on the integrated branch (one round), all approved, with GPT-6.1 Sol. Fixes Sol prompted:
+- selections survive tab changes;
+- prompts pin the revision the view displayed;
+- bool CLI inputs take a value;
+- recipe-only flag names stay usable for actions;
+- refusals print only their reason;
+- `{refused: null}` is a result.
 
 ## Deviations
 
@@ -149,9 +179,9 @@ In progress.
 
 ## Closure Checklist
 
-- [ ] Every story delivered or covered by a deviation
-- [ ] Gates recorded
-- [ ] Pull request number recorded
+- [x] Every story delivered or covered by a deviation
+- [x] Gates recorded
+- [x] Pull request number recorded: [#70](https://github.com/atomicobject/rhizome/pull/70)
 
 ## Compounding Follow-ups
 
@@ -163,7 +193,7 @@ In progress.
 
 ## Status
 
-In progress.
+Complete. Delivered in [#70](https://github.com/atomicobject/rhizome/pull/70).
 
 ## Execution Notes
 
