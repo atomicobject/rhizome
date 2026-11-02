@@ -120,6 +120,13 @@ func LookLoginPath(name string) (string, error) {
 	if strings.ContainsRune(name, '/') || strings.ContainsRune(name, filepath.Separator) {
 		return name, nil
 	}
+	if runtime.GOOS == "windows" {
+		// The login PATH is the process PATH there, and LookPath adds PATHEXT.
+		if path, err := exec.LookPath(name); err == nil {
+			return path, nil
+		}
+		return "", fmt.Errorf("command %q is not on PATH", name)
+	}
 	for _, dir := range filepath.SplitList(LoginPath()) {
 		candidate := filepath.Join(dir, name)
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
