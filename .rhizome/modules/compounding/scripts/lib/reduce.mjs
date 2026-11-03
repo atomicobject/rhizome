@@ -9,8 +9,8 @@ import { sha } from "./store.mjs";
 
 export const CHUNK = 300;
 const EXISTING_CHARS = 150000;
-// Jev `checkable` at or above this marks a single-family cluster tier B. On
-// D-v1's clusters it keeps 322 of 327 extractor tier B and 27 of 51 tier C.
+// A checkability estimate labels the candidate; it never controls eligibility
+// for the stronger verifier, which reads actual repository evidence.
 export const CHECKABLE_MIN = 0.72;
 
 export const GROUP_SCHEMA = {
@@ -105,10 +105,11 @@ export function facts(cl, candidates, episodes) {
 }
 
 // Tier A: two or more families, or a confirmed person's correction. Tier B:
-// one family, a claim repository evidence can confirm. Tier C: held for another family.
-// Without Jev, the grouper's own checkable label decides B against C.
+// one family, estimated repository checkability. Tier C: uncertain checkability.
+// Every tier remains eligible for evidence verification. Without Jev, the
+// grouper's own checkable label estimates B against C.
 // Saved v1 clusters used "code" for repository evidence. Its "workflow" and
-// "environment" labels did not establish checkability, so they remain held.
+// "environment" labels did not establish checkability, so they estimate C.
 export function tierOf(f, cl, rank) {
   if (f.families.length >= 2 || f.confirmedCorrection) return "A";
   const checkable = rank?.checkable;
