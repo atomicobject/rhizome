@@ -1,6 +1,7 @@
 description: Dismiss a compounding proposal locally, with a reason
 inputs:
   cluster: { kind: string, required: true }
+  revision: { kind: string, required: true }
   reason: { kind: string, required: true }
 run:
   command: [node, "{module}/scripts/workspace.mjs", "dismiss"]

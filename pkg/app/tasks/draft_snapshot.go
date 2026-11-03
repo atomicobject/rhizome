@@ -59,6 +59,11 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 	if err = os.MkdirAll(runDir, 0o700); err != nil {
 		return "", "", err
 	}
+	hooks := filepath.Join(runDir, "hooks")
+	if err = os.Mkdir(hooks, 0o700); err != nil {
+		return "", "", err
+	}
+	noHooks := "core.hooksPath=" + hooks
 	indexFile, err := os.CreateTemp("", "rhizome-task-index-*")
 	if err != nil {
 		return "", "", err
@@ -72,14 +77,14 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 		return "", "", err
 	}
 	env := []string{"GIT_INDEX_FILE=" + privateIndex}
-	tracked, err := gitBytes(ctx, root, env, "ls-files", "-z")
+	tracked, err := gitBytes(ctx, root, env, "-c", noHooks, "ls-files", "-z")
 	if err != nil {
 		return "", "", err
 	}
-	if _, err = gitBytesInput(ctx, root, env, tracked, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
+	if _, err = gitBytesInput(ctx, root, env, tracked, "-c", noHooks, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
 		return "", "", err
 	}
-	args := []string{"-c", "core.splitIndex=false", "add", "-A", "--", "."}
+	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "add", "-A", "--", "."}
 	// The executing runner owns this directory, including its changing locks.
 	if rel, err := filepath.Rel(root, s.stateDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		rel = filepath.ToSlash(rel)
@@ -92,7 +97,7 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 	if _, err = gitBytes(ctx, root, env, args...); err != nil {
 		return "", "", err
 	}
-	tree, err := gitBytes(ctx, root, env, "write-tree")
+	tree, err := gitBytes(ctx, root, env, "-c", noHooks, "write-tree")
 	if err != nil {
 		return "", "", err
 	}
@@ -101,7 +106,7 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 		return "", "", err
 	}
 	env = append(env, "GIT_AUTHOR_NAME=Rhizome task test", "GIT_AUTHOR_EMAIL=task-test@rhizome.local", "GIT_COMMITTER_NAME=Rhizome task test", "GIT_COMMITTER_EMAIL=task-test@rhizome.local")
-	commit, err := gitBytes(ctx, root, env, "-c", "commit.gpgSign=false", "commit-tree", strings.TrimSpace(string(tree)), "-p", head, "-m", "Local task test snapshot", "--no-gpg-sign")
+	commit, err := gitBytes(ctx, root, env, "-c", noHooks, "-c", "commit.gpgSign=false", "commit-tree", strings.TrimSpace(string(tree)), "-p", head, "-m", "Local task test snapshot", "--no-gpg-sign")
 	if err != nil {
 		return "", "", err
 	}
@@ -116,7 +121,7 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 	}); err != nil {
 		return snapshot, "", err
 	}
-	if _, err = s.opts.Repo.git(ctx, "worktree", "add", "--quiet", "--detach", dir, snapshot); err != nil {
+	if _, err = s.opts.Repo.git(ctx, "-c", noHooks, "worktree", "add", "--quiet", "--detach", dir, snapshot); err != nil {
 		return snapshot, dir, err
 	}
 	return snapshot, dir, nil

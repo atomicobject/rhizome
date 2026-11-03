@@ -216,7 +216,7 @@ function Recommendations({
                           `proposal · tier ${x.tier} · ${x.families} families`
                         )}
                       </span>
-                      <RemoveControl item={x} />
+                      <RemoveControl item={x} revision={reviewed[x.ref] ?? x.revision} />
                     </div>
                     {open.has(x.ref) ? (
                       <div className="py-1 pl-7">

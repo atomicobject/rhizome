@@ -94,7 +94,7 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 		return s.finishTest(ctx, a, def.ID, snapshot, dir, OutcomeFailed, "no agent harness is available to run the prompt", 0)
 	}
 	// Give the agent the same clean source baseline as the check, with shared data outside it.
-	if _, err = gitOutput(ctx, dir, "reset", "--hard", snapshot); err == nil {
+	if _, err = gitOutput(ctx, dir, "-c", "core.hooksPath="+s.runFile(a.id, "hooks"), "reset", "--hard", snapshot); err == nil {
 		_, err = gitOutput(ctx, dir, "clean", "-ffdxq")
 	}
 	if err != nil {
@@ -137,7 +137,7 @@ func (s *Service) finishTest(ctx context.Context, a attempt, task, snapshot, dir
 		}
 	}
 	if dir != "" {
-		_, err := gitOutput(ctx, dir, "add", "-A")
+		_, err := gitOutput(ctx, dir, "-c", "core.hooksPath="+s.runFile(a.id, "hooks"), "add", "-A")
 		var diff string
 		if err == nil {
 			diff, err = gitOutput(ctx, dir, "diff", "--name-only", "-z", snapshot)

@@ -93,7 +93,7 @@ The **Compounding** view, under Knowledge in the Notes sidebar, is the quicker w
 - **Health** shows the friction report and the last mine run's spend and outcome. Each row opens that item on its own page.
 - **Memory** lists the approved context shards and findings, and the shards that need re-verifying.
 
-**Remove** changes only your own review. It dismisses a proposal locally, with a quick reason, or hides a finding from your workspace. A teammate still sees both, and hiding a finding never checks off its action item; only finishing the work does. To share a dismissal with the team, dismiss it through the skill with `--shared`.
+**Remove** changes only your own review. It dismisses a proposal locally, with a quick reason, or hides a finding from your workspace. A proposal redrafted since you reviewed it must be reviewed again before removal. A teammate still sees both, and hiding a finding never checks off its action item; only finishing the work does. To share a dismissal with the team, dismiss it through the skill with `--shared`.
 
 The workspace also lists findings your teammates approved and committed. Their evidence came from your teammates' sessions and stays on their machines, so those findings show their note but no source excerpts, and their family counts are approximate.
 

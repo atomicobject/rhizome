@@ -7,7 +7,7 @@
 //   item {ref}                      one recommendation in full
 //   prompt {items: [ref]}           one agent prompt for the selected recommendations;
 //                                   a proposal may carry the revision shown, `proposal:<cluster>@<revision>`
-//   dismiss {cluster, reason}       dismisses a proposal locally
+//   dismiss {cluster, revision, reason} dismisses the reviewed proposal locally
 //   hide {path}                     hides a finding in this workspace, locally
 //   health                          the friction report and the last mine run
 //   shards-check                    shards and guard rules needing attention
@@ -222,7 +222,9 @@ export function workspace(op, input = {}, { root = repoRoot(), state, user } = {
     case "dismiss":
       if (!input.cluster || !input.reason || typeof input.reason !== "string")
         throw new Refused("pass the proposal's cluster and a reason");
-      return shards(["dismiss", input.cluster, "--reason", input.reason, "--local"], {
+      if (typeof input.revision !== "string" || !input.revision)
+        throw new Refused("pass the proposal revision you reviewed");
+      return shards(["dismiss", input.cluster, "--reason", input.reason, "--revision", input.revision, "--local"], {
         root,
         state,
         user,

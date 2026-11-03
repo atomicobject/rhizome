@@ -192,7 +192,8 @@ test("prompt names the selected references of both kinds and the publish stateme
 
 test("dismiss records a local dismissal that removes the proposal", () => {
   const { root, ws } = repo([proposal("k-1"), proposal("k-2")]);
-  const out = ws("dismiss", { cluster: "k-1", reason: "not relevant" });
+  const { revision } = ws("recommendations").items[0];
+  const out = ws("dismiss", { cluster: "k-1", revision, reason: "not relevant" });
   assert.equal(out.dismissed, "k-1");
   assert.ok(out.decision.startsWith(join(root, ".rhizome/compounding/decisions")));
   assert.deepEqual(
@@ -200,6 +201,23 @@ test("dismiss records a local dismissal that removes the proposal", () => {
     ["proposal:k-2"],
   );
   assert.equal(git(root, "status", "--porcelain"), "");
+});
+
+test("dismiss refuses missing or changed reviewed revisions without hiding a proposal", () => {
+  const { state, ws } = repo([proposal("k-1")]);
+  const { revision } = ws("recommendations").items[0];
+  assert.throws(() => ws("dismiss", { cluster: "k-1", reason: "not relevant" }), /revision/);
+  const path = join(state, "proposals.json");
+  const proposals = JSON.parse(readFileSync(path, "utf8"));
+  proposals[0].statement = "A redrafted rule the person has not reviewed.";
+  writeFileSync(path, JSON.stringify(proposals));
+  const before = readFileSync(path, "utf8");
+  assert.throws(
+    () => ws("dismiss", { cluster: "k-1", revision, reason: "not relevant" }),
+    /changed since it was shown/,
+  );
+  assert.equal(readFileSync(path, "utf8"), before);
+  assert.equal(ws("recommendations").items[0].cluster, "k-1");
 });
 
 test("hide hides a finding locally and leaves its note and action item alone", () => {
@@ -226,11 +244,12 @@ test("the script exits 2 with a one-line reason while the lock is held", () => {
   const listed = call("recommendations", {});
   assert.equal(listed.status, 0, listed.stderr);
   assert.equal(JSON.parse(listed.stdout).items[0].ref, "proposal:k-1");
+  const { revision } = JSON.parse(listed.stdout).items[0];
   const other = openStore(state);
   other.lock();
   try {
     for (const [op, input] of [
-      ["dismiss", { cluster: "k-1", reason: "wrong" }],
+      ["dismiss", { cluster: "k-1", revision, reason: "wrong" }],
       ["hide", { path: "docs/memory/agent-findings/x.md" }],
     ]) {
       const r = call(op, input);
