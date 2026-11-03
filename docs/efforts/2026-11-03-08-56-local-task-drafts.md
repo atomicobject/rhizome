@@ -45,12 +45,12 @@ Drew subsequently asked: "fix the compounding skill's coverage of Markdown/workf
 
 ## Spec Coverage Checklist
 
-- [ ] US1: new, modified, invalid, and absent-local task states are clear without hiding scheduled tasks.
-- [ ] US3 and US7: test execution cannot change scheduled clocks, modes, data, or task tags.
-- [ ] US4: a captured source baseline includes local helpers and both check forms use that baseline.
-- [ ] US8: outcomes, failures, and transcripts are visible, with bounded retention.
-- [ ] SPEC-0124 US1: repository evidence, including Markdown/schema, determines verification eligibility; both ranked and fallback mining preserve provenance and negative controls.
-- [ ] SPEC-0124 US8: compounding tests use a fresh per-attempt store and leave real proposals and cursors unchanged.
+- [x] US1: new, modified, invalid, and absent-local task states are clear without hiding scheduled tasks.
+- [x] US3 and US7: test execution cannot change scheduled clocks, modes, data, or task tags.
+- [x] US4: a captured source baseline includes local helpers and both check forms use that baseline.
+- [x] US8: outcomes, failures, and transcripts are visible, with bounded retention.
+- [x] SPEC-0124 US1: repository evidence, including Markdown/schema, determines verification eligibility; both ranked and fallback mining preserve provenance and negative controls.
+- [x] SPEC-0124 US8: compounding tests use a fresh per-attempt store and leave real proposals and cursors unchanged.
 
 ## Plan
 
@@ -99,7 +99,9 @@ One reviewed pull request that makes branch-local task authoring and testing wor
 
 ## Actual Delivered
 
-Implemented local discovery, isolated test snapshots and history, per-session harness environment, and the Opus-authored Tasks UI. Canonical compounding coverage changes and source-based workflow dispositions are implemented; integrated gates, measured replay, and final reviews remain in progress.
+Implemented local discovery, immutable test snapshots, separate test history and data, per-session harness environment, and the Opus-authored Tasks UI. Scheduled execution continues to use the primary ref. Real Git and compiled-runtime regressions cover capture fidelity, unchanged source indexes, scheduled-state isolation and offline code-mode checks. Native Desktop proof covers discovery, a visible failed test and a successful check-only test; full repository and browser gates passed.
+
+Installed compounding in this repository and corrected canonical Markdown/workflow eligibility with synthetic tests through both mining paths. The private disposition review covers all 17 held candidates; the public coverage report supplies anonymized examples and evidence. Four approved isolated replay runs cost $0.8084008. They support the narrower fallback-admission improvement, with no proposals generated and no demonstrated semantic-search extraction improvement. Final independent review and delivery gates remain in progress.
 
 ## Execution Notes
 
@@ -126,6 +128,8 @@ Implemented local discovery, isolated test snapshots and history, per-session ha
 - 2026-11-03 [coordination] After the isolated replay, a separate authorized task installed the updated module in Drew's source vault and manually staged the 17 held candidates as pending, with skipped verification disclosed and original tier/provenance preserved. Replay state-integrity evidence applies to the earlier before/after interval. These manually staged items are not evaluation output or approvals.
 - 2026-11-03 [review] Astra's implementation recheck approved at 9/10 after the canonical-checkout launch fix. Sol round 1 requested disabling runtime autostart for code-mode tests and correcting local-only CLI status. Both were fixed, along with unreachable guards. Greptile round 1 scored 4/5 and identified stale snapshot bytes for assume-unchanged files; the private index now clears that flag without changing the author's index. A real runtime fixture also exposed an already-ignored state-directory exclusion error, which was corrected.
 - 2026-11-03 [review] Sol round 2 approved all five corrections with no blocker or should-fix finding. Focused CLI, compiled-runtime, and Git snapshot regressions passed. Final `make check` passed, including 1,774 web tests, followed by a successful full CLI/web build. Final Opus review and Greptile recheck remain pending.
+- 2026-11-03 [verification] The final built binary passed the targeted runtime/CLI/snapshot regressions. `./scripts/rzm validate` reported zero issues; `./scripts/rzm init --check` reported everything up to date; `make test-content` passed. The reviewed fixes are committed in `ffddb308`.
+- 2026-11-03 [review] Opus's full implementation review approved at 9/10 with no blockers. Its low-severity follow-ups are recorded below. Together with Astra's 9/10 recheck and Sol round 2 approval, independent review is complete; Greptile and final-head CI remain delivery gates.
 
 ## Deviations
 
@@ -135,8 +139,8 @@ Code-mode contextual queries use the selected checkout's current index, while th
 
 ## Closure Checklist
 
-- [ ] Agreed scope delivered and deviations recorded.
-- [ ] Focused and integrated proof recorded.
+- [x] Agreed scope delivered and deviations recorded.
+- [x] Focused and integrated proof recorded.
 - [ ] Council, sol-loop, Greptile, and CI gates satisfied.
 - [ ] Pull request and merge recorded.
 - [ ] Merged Rhizome Dev installed from the primary checkout.
@@ -145,6 +149,8 @@ Code-mode contextual queries use the selected checkout's current index, while th
 
 The Markdown/workflow coverage request is now in scope. Any remaining tool defect or vault-specific document change identified by the disposition review is a follow-up unless implemented and verified in this effort; no private vault proposals are published automatically.
 
+Opus recorded three nonblocking Tasks edge cases: a broken primary definition repaired locally is labelled local-only rather than distinguished from a new definition; another checkout's active test can be visible until it completes; and a detached CLI failure before a record exists can leave launch feedback to expire after 30 seconds. These do not change scheduling, state isolation, or launch ownership. They are deferred to focused follow-up work: the first needs an explicit invalid-scheduled-version presentation, and the latter two need consistent history visibility and launch-failure feedback across the CLI and UI.
+
 ## Status
 
-Active. Implementation is complete; integrated verification, workflow replay, and final reviews are in progress.
+Active. Implementation, integrated verification, workflow replay and independent review are complete. Final Greptile review, PR delivery and the merged Desktop install remain.
