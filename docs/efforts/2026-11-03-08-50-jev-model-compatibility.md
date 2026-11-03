@@ -4,7 +4,7 @@ id: EFF-2026-11-03-08-50
 aliases: [EFF-2026-11-03-08-50]
 name: Jev model compatibility
 created-at: 2026-11-03T13:58:32Z
-status: active
+status: complete
 summary: "Use the stable Jev alias in compounding and accept explicit Jev releases through gateway validation and accounting."
 governing-specs: ["[[session-memory-starter]]", "[[team-api-gateway]]"]
 ---
@@ -59,7 +59,11 @@ Profile version 3 selects `jev-latest`; the cost table prices the alias at the e
 
 Tests verify forwarding, settlement, admission limits, uncertain holds, explicit charge overrides, model resolution, and alias pricing. Fresh installation and a synthetic installed pipeline run pass.
 
+Delivery: [PR #76](https://github.com/atomicobject/rhizome/pull/76), carrying implementation commit `79930b0584590c5846d46e8d59ad7535b04710fc`. The merge gate rechecks the final closure commit; deployment and installed-app updates remain excluded.
+
 ## Execution Notes
+
+- 2026-11-03T14:21:01Z: closure prepared for PR #76. Greptile reviewed `86500a1113e6c2010cb667449c112d78b244ea6b` at 5/5 with no comments; all five required CI checks passed on that head. The final documentation commit will receive its own required checks and Greptile recheck before merge. No behavior changed after Sol approval.
 
 - Sol-loop round 1 reviewed head `79930b0584590c5846d46e8d59ad7535b04710fc` against `6da57df811c551a4cd9f9b0f59104122873afa13`: APPROVE, no blockers or should-level findings. Reviewer: Work/Codex, `gpt-6.1-sol`, `xhigh`; usage not reported. Ledger: S1, nit, deferred as the pre-existing optional Jev 1.14 pin-price gap outside the default-alias request. No behavior changes were needed. Behavior diff remains the reviewed version; documentation adds this record.
 - Rebased on main `6da57df811c551a4cd9f9b0f59104122873afa13`, whose intervening changes are limited to unrelated group views. Compounding Node suite and gateway race suite passed after rebase.
@@ -98,9 +102,9 @@ Historical benchmark pins remain fixed to their measured releases. Sol S1 identi
 - [x] Full repository gate passed.
 - [x] Final documentation validation passed with zero issues. Frozen-scope validation reports no drift for this effort; its one repository-wide issue is recorded below.
 - [x] Sol-loop approval on the final behavior diff: one round, GPT-6.1 Sol, xhigh.
-- [ ] Greptile 5/5 on the current head with no unresolved findings.
-- [ ] Carrying PR and green CI recorded before merge.
+- [x] Greptile 5/5 with no findings on the reviewed implementation head; final documentation head is rechecked by the merge workflow.
+- [x] Carrying PR #76 and green required CI on `86500a11` recorded; final-head CI remains an enforced merge gate.
 
 ## Status
 
-Implementation and local verification are complete. Sol-loop, Greptile, PR/CI, and merge are now authorized and in progress. Deployment and installed-app changes remain excluded.
+Implementation, local verification, and review are complete in PR #76. The full-send workflow owns final-head checks and merge. Deployment and installed-app changes remain excluded.
