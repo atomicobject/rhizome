@@ -13,9 +13,14 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { approvedHash, loadShards, MAX_CHARS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
+import { taskTestState } from "./lib/state.mjs";
 import { readJson, writeJson, writeText } from "./lib/store.mjs";
 
 export const HOOK_DIR = ".rhizome/compounding/hook";
+const hookDir = (root) => {
+  const test = taskTestState();
+  return test ? join(test, "hook") : join(root, HOOK_DIR);
+};
 const MAX_INPUT = 1 << 20;
 const PREFIX = "Context shard ";
 const TOOLS = new Set(["read", "edit", "patch", "shell"]);
@@ -71,7 +76,7 @@ function listing(root) {
 // written only when the listing did not change while the files were read, so
 // it never pairs a key with a torn read.
 export function cachedShards(root, load = loadShards) {
-  const file = join(root, HOOK_DIR, "shard-cache.json");
+  const file = join(hookDir(root), "shard-cache.json");
   const before = listing(root);
   const key = hash(before);
   let cache = null;
@@ -94,7 +99,7 @@ export function cachedShards(root, load = loadShards) {
 // this handler, rewritten only when they change.
 export function publishPrefixes(root, shards) {
   const prefixes = [...new Set(shards.filter((s) => approvedHash(s) === s.approvedHash).flatMap((s) => s.commands.map(norm)).filter(Boolean))].sort();
-  const file = join(root, HOOK_DIR, "command-prefixes.json");
+  const file = join(hookDir(root), "command-prefixes.json");
   const text = JSON.stringify(prefixes);
   let old = null;
   try {

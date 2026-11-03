@@ -51,7 +51,7 @@ func TestStatusStates(t *testing.T) {
 }
 
 func statusDriver(script *harnesstest.ScriptedIO) *Driver {
-	return &Driver{binary: "claude", runner: &fakeRunner{results: []command.Result{{Stdout: "2.1.269 (Claude Code)"}}}, start: func(context.Context, string, []string, string) (transport, error) {
+	return &Driver{binary: "claude", runner: &fakeRunner{results: []command.Result{{Stdout: "2.1.269 (Claude Code)"}}}, start: func(context.Context, string, []string, string, []string) (transport, error) {
 		return newJSONTransport(script, script, script), nil
 	}}
 }

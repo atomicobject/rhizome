@@ -21,6 +21,9 @@ Most friction agents hit comes from something the team can change: dead code tha
 
 Findings live in `docs/memory/agent-findings/`. Their action items use the `#action-item` format, so the action-items queries list them.
 
+
+Repository evidence includes Markdown guides, schemas, templates, and skills as well as code. A workflow or writing lesson can reach verification when those sources can confirm it. Verification still rejects redundant, obsolete, generic, one-off, or unsupported claims. Finding an existing rule does not prove its delivery works; a proposed discovery or enforcement fix needs evidence of a current gap. Source attribution remains unchanged.
+
 ## Set up
 
 ```bash
@@ -69,6 +72,8 @@ Its check makes no model calls. It asks `rzm agent evaluate-batch --check-creden
 5. otherwise reports nothing to do.
 
 Its prompt runs `mine.mjs --task-mode` with a fixed $10 budget, then the friction report. Task mode treats that budget as approved and does not ask before reading many sessions. A credential stop exits 4 with its reason, and a budget stop exits 3, which the next run resumes. The run's final message names any stop first and ends with a link to the workspace. Proposals stay in local state; review them with the skill as usual. To give a run a larger budget, mine through the skill instead.
+
+**Test once** runs the checkout's task with fresh compounding state for that attempt. Its proposals, cursors, discovery settings, model choices, and caches stay separate from scheduled mining state. Testing can process sessions that normal mining already read, using the task's usual budget. Test output is retained with the test run rather than added to the normal compounding workspace.
 
 ## Review
 

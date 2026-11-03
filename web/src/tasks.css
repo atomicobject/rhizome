@@ -396,6 +396,28 @@
   font-size: var(--fs-sm);
 }
 
+.task-table__local {
+  display: inline-flex;
+  margin-left: 12px;
+  vertical-align: baseline;
+  font-weight: 400;
+}
+
+/* A Test once run: the neutral chip, so a test never reads as a status. */
+.task-test-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
 /* ---- Inbox item ---- */
 
 .task-item {
@@ -433,6 +455,27 @@
 }
 
 .task-inline-error {
+  margin: 4px 0 2px;
+}
+
+/* The local definition's path truncates before Test once does. */
+.task-local__path {
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The summary carries the explanation, so it wraps instead of truncating. */
+.task-local__summary {
+  white-space: normal;
+}
+
+.task-local .task-inline-error {
   margin: 4px 0 2px;
 }
 
@@ -523,6 +566,13 @@
 .task-history__row.is-selected {
   background: var(--selection);
   box-shadow: inset 3px 0 0 var(--selection-edge);
+}
+
+.task-history__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .task-history__time {

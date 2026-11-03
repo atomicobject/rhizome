@@ -33,7 +33,7 @@ func generateDriver(t *testing.T, script *harnesstest.ScriptedIO, version string
 	return &Driver{
 		binary: "codex",
 		runner: &fakeRunner{results: []command.Result{{Stdout: "codex-cli " + version}}},
-		start: func(_ context.Context, _ string, args []string, cwd string) (transport, error) {
+		start: func(_ context.Context, _ string, args []string, cwd string, env []string) (transport, error) {
 			launch.args, launch.cwd = args, cwd
 			catalog, err := os.ReadFile(filepath.Join(cwd, "models.json"))
 			require.NoError(t, err)

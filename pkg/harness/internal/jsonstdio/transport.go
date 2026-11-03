@@ -56,12 +56,15 @@ type Transport[M any] struct {
 }
 
 // Start inherits the caller's environment and owns the child until Close.
-func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd string) (*Transport[M], error) {
+func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd string, env ...[]string) (*Transport[M], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
 	cmd := exec.Command(binary, args...)
 	cmd.Dir, cmd.Env = cwd, os.Environ()
+	for _, vars := range env {
+		cmd.Env = append(cmd.Env, vars...)
+	}
 	// Harness CLIs spawn shells, tools, and MCP servers, some in process
 	// groups or sessions of their own; Close kills everything the tracker
 	// can attribute to the child.

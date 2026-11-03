@@ -16,6 +16,8 @@ import (
 type OpenOptions struct {
 	// Dir is any checkout of the repository, or a folder inside one.
 	Dir string
+	// Checkout identifies the selected checkout; defaults to Dir.
+	Checkout string
 	// Drivers are the person's harnesses; Settings reads their agent
 	// settings. Together they run prompts.
 	Drivers  map[harness.Kind]harness.Harness
@@ -55,12 +57,33 @@ func Open(ctx context.Context, opts OpenOptions) (*Service, error) {
 			return nil, err
 		}
 	}
+	checkout := opts.Checkout
+	if checkout == "" {
+		checkout = opts.Dir
+	}
+	checkout, err = gitOutput(ctx, checkout, "rev-parse", "--show-toplevel")
+	if err != nil {
+		if repo.MainCheckout != "" || opts.Checkout != "" {
+			return nil, err
+		}
+		checkout = "" // Bare repositories can still run their primary-ref tasks.
+	}
+	if checkout != "" {
+		selected, err := OpenRepo(ctx, checkout)
+		if err != nil {
+			return nil, err
+		}
+		if selected.CommonDir != repo.CommonDir {
+			return nil, errors.New("selected checkout belongs to a different repository")
+		}
+	}
 	return New(Options{
-		Repo:    repo,
-		Config:  cfg,
-		Rzm:     opts.Rzm,
-		Trusted: opts.Trusted,
-		Agent:   HarnessAgent{Drivers: opts.Drivers, Settings: opts.Settings},
-		Now:     opts.Now,
+		Checkout: checkout,
+		Repo:     repo,
+		Config:   cfg,
+		Rzm:      opts.Rzm,
+		Trusted:  opts.Trusted,
+		Agent:    HarnessAgent{Drivers: opts.Drivers, Settings: opts.Settings},
+		Now:      opts.Now,
 	})
 }

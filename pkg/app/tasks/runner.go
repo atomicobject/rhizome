@@ -18,8 +18,9 @@ const runLock = "run.lock"
 
 // Options configure a Service.
 type Options struct {
-	Repo   Repo
-	Config repoconfig.LocalTasksConfig
+	Checkout string
+	Repo     Repo
+	Config   repoconfig.LocalTasksConfig
 	// Agent runs prompts; nil makes prompt work fail with needs attention.
 	Agent AgentRunner
 	// Rzm is the executable that runs code-mode check scripts.
@@ -46,6 +47,12 @@ func New(opts Options) (*Service, error) {
 	dir, err := opts.Repo.StateDir()
 	if err != nil {
 		return nil, err
+	}
+	if opts.Checkout == "" {
+		opts.Checkout = opts.Repo.MainCheckout
+	}
+	if resolved, err := filepath.EvalSymlinks(opts.Checkout); err == nil {
+		opts.Checkout = resolved
 	}
 	if opts.Now == nil {
 		opts.Now = time.Now

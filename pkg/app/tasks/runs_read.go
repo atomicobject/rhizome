@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
@@ -56,8 +57,9 @@ func (s *Service) LiveState(ctx context.Context) (LiveState, error) {
 			live.Items = append(live.Items, it)
 		}
 	}
-	for i := len(st.History) - 1; i >= 0 && len(live.Recent) < recentRuns; i-- {
-		live.Recent = append(live.Recent, st.History[i])
+	history := s.visibleHistory(st)
+	for i := len(history) - 1; i >= 0 && len(live.Recent) < recentRuns; i-- {
+		live.Recent = append(live.Recent, history[i])
 	}
 	if st.Running != nil {
 		live.Stale = !runLockHeld(filepath.Join(s.stateDir, runLock))
@@ -91,8 +93,9 @@ func (s *Service) Runs(task string) ([]RunView, error) {
 	if st.Running != nil && (task == "" || st.Running.Task == task) {
 		out = append(out, s.view(*st.Running))
 	}
-	for i := len(st.History) - 1; i >= 0; i-- {
-		if r := st.History[i]; task == "" || r.Task == task {
+	history := s.visibleHistory(st)
+	for i := len(history) - 1; i >= 0; i-- {
+		if r := history[i]; task == "" || r.Task == task {
 			out = append(out, s.view(r))
 		}
 	}
@@ -122,9 +125,10 @@ func (s *Service) RunDetail(id string, after int64) (RunDetail, error) {
 	if st.Running != nil && st.Running.ID == id {
 		found = st.Running
 	}
-	for i := len(st.History) - 1; found == nil && i >= 0; i-- {
-		if st.History[i].ID == id {
-			found = &st.History[i]
+	history := s.visibleHistory(st)
+	for i := len(history) - 1; found == nil && i >= 0; i-- {
+		if history[i].ID == id {
+			found = &history[i]
 		}
 	}
 	if found == nil {
@@ -146,4 +150,24 @@ func (s *Service) RunDetail(id string, after int64) (RunDetail, error) {
 		detail.CheckLog = string(data)
 	}
 	return detail, nil
+}
+
+func (s *Service) visibleHistory(st State) []RunRecord {
+	history := append([]RunRecord(nil), st.History...)
+	for _, r := range st.Tests {
+		if r.SourceCheckout == s.opts.Checkout {
+			history = append(history, r)
+		}
+	}
+	sort.SliceStable(history, func(i, j int) bool {
+		left, right := history[i].StartedAt, history[j].StartedAt
+		if left.IsZero() {
+			left = history[i].At
+		}
+		if right.IsZero() {
+			right = history[j].At
+		}
+		return left.Before(right)
+	})
+	return history
 }

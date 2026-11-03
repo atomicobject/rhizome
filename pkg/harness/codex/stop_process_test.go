@@ -17,7 +17,7 @@ import (
 func TestStopDeadlineKillsChildBlockedOnApprovalWrites(t *testing.T) {
 	binary, err := os.Executable()
 	require.NoError(t, err)
-	connection, err := startStdio(context.Background(), binary, []string{"-test.run=TestCodexNeverReadsHelper", "--", "codex-never-read"}, t.TempDir())
+	connection, err := startStdio(context.Background(), binary, []string{"-test.run=TestCodexNeverReadsHelper", "--", "codex-never-read"}, t.TempDir(), nil)
 	require.NoError(t, err)
 	transport := connection.(*stdioTransport)
 	t.Cleanup(func() {

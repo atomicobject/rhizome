@@ -30,7 +30,7 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		return status, err
 	}
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--strict-mcp-config", "--permission-prompt-tool", "stdio", "--permission-mode", "dontAsk", "--tools", "", "--settings", `{"disableAllHooks":true}`}
-	connection, err := d.start(ctx, path, args, cwd)
+	connection, err := d.start(ctx, path, args, cwd, nil)
 	if err != nil {
 		status.LastError = err.Error()
 		return status, nil

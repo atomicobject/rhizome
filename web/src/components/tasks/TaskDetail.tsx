@@ -17,6 +17,7 @@ import {
   formatDuration,
   formatTokens,
   itemStatePresentation,
+  localStatePresentation,
   MODE_LABELS,
   outcomePresentation,
 } from "./taskFormat";
@@ -319,6 +320,89 @@ export function TaskItemStrip({
   );
 }
 
+/** Marks a Test once run, which never counts toward the task's schedule. */
+export function TestChip() {
+  return (
+    <span className="task-test-chip" title="Test once of this checkout's version">
+      Test
+    </span>
+  );
+}
+
+const LOCAL_SUMMARIES = {
+  new: "Only in this checkout, so it runs only when you test it.",
+  differs: "This checkout's definition differs from the primary ref, which scheduled runs use.",
+  same: "Matches the primary ref. Test once still uses this checkout's files, including uncommitted changes but not ignored untracked files.",
+  invalid: "This checkout's definition does not load.",
+} as const;
+
+/**
+ * The selected checkout's version of a task and its Test once action. A test
+ * captures this checkout's files, uncommitted changes included and ignored
+ * untracked files left out, and records its run apart from scheduled history.
+ */
+export function TaskLocalStrip({
+  task,
+  blocked,
+  launching,
+  actionError,
+  onTest,
+}: {
+  task: TaskStatus;
+  /** Why Test once is unavailable right now, such as a run in progress. */
+  blocked?: string;
+  launching: boolean;
+  actionError?: string;
+  onTest: () => void;
+}) {
+  const local = task.local;
+
+  if (!local) return null;
+  const { label, tone } = localStatePresentation(local.state);
+  const invalid = local.state === "invalid";
+  const unavailable = invalid ? "Fix the definition before testing it" : blocked;
+
+  return (
+    <section className="task-item task-local" aria-label="Local version">
+      <div className="task-item__line">
+        <StatusMark tone={tone} label={label} />
+        <span className="task-item__summary task-local__summary">
+          {LOCAL_SUMMARIES[local.state] ?? ""}
+          {invalid && task.scheduled ? " Scheduled runs still use the primary ref." : ""}
+        </span>
+        <code className="task-local__path" title={local.path}>
+          {local.path}
+        </code>
+        <div className="task-actions">
+          <button
+            type="button"
+            className="task-button"
+            disabled={Boolean(unavailable) || launching}
+            title={
+              unavailable ??
+              "Run this checkout's version once, including uncommitted changes but not ignored untracked files. Scheduled runs are unaffected."
+            }
+            onClick={onTest}
+          >
+            Test once
+          </button>
+        </div>
+      </div>
+      {invalid && local.error ? <p className="task-inline-error">{local.error}</p> : null}
+      {launching ? (
+        <p className="task-item__note" role="status">
+          Starting the test…
+        </p>
+      ) : null}
+      {actionError ? (
+        <p className="task-inline-error" role="alert">
+          The test could not start: {actionError}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function HistoryRow({
   run,
   selected,
@@ -340,7 +424,10 @@ function HistoryRow({
         aria-current={selected ? "true" : undefined}
         onClick={onSelect}
       >
-        <StatusMark tone={tone} label={label} />
+        <span className="task-history__mark">
+          <StatusMark tone={tone} label={label} />
+          {run.test ? <TestChip /> : null}
+        </span>
         <time className="task-history__time" dateTime={run.startedAt || run.at}>
           {formatDateTime(run.startedAt || run.at)}
         </time>
@@ -381,12 +468,18 @@ export function TaskHeader({
         <h2>{task.name || task.id}</h2>
         <p>
           <code>{task.id}</code>
-          <span>Every {task.every}</span>
-          <span>{task.scope === "team" ? "Team clock" : "Personal clock"}</span>
-          <span>{formatDue(task.nextDue, task.due)}</span>
+          {task.every ? <span>Every {task.every}</span> : null}
+          {task.scheduled ? (
+            <>
+              <span>{task.scope === "team" ? "Team clock" : "Personal clock"}</span>
+              <span>{formatDue(task.nextDue, task.due)}</span>
+            </>
+          ) : (
+            <span>Not scheduled</span>
+          )}
         </p>
       </div>
-      <ModeSelector task={task} pending={modePending} onChange={onMode} />
+      {task.scheduled ? <ModeSelector task={task} pending={modePending} onChange={onMode} /> : null}
     </header>
   );
 }
@@ -428,8 +521,9 @@ export function TaskHistory({
         </p>
       ) : runs.length === 0 ? (
         <p className="task-empty">
-          No runs yet. The first run is recorded when this task is next due (
-          {formatDue(task.nextDue, task.due).toLowerCase()}).
+          {task.scheduled
+            ? `No runs yet. The first run is recorded when this task is next due (${formatDue(task.nextDue, task.due).toLowerCase()}).`
+            : "No tests yet. Test once runs this checkout's version and records it here."}
         </p>
       ) : (
         <ol className="task-history__list">

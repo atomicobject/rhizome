@@ -65,7 +65,7 @@ func statusDriver(script *harnesstest.ScriptedIO) *Driver {
 	return &Driver{
 		binary: "codex",
 		runner: &fakeRunner{results: []command.Result{{Stdout: "codex-cli 0.154.0"}}},
-		start: func(context.Context, string, []string, string) (transport, error) {
+		start: func(context.Context, string, []string, string, []string) (transport, error) {
 			return newJSONTransport(script, script, script), nil
 		},
 	}

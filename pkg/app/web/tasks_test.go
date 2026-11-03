@@ -19,6 +19,7 @@ import (
 const taskRunID = "20261031T183117Z-0123abcd"
 
 type fakeTasks struct {
+	testSource tasks.TestSource
 	report     tasks.Report
 	statusErr  error
 	runs       []tasks.RunView
@@ -98,6 +99,18 @@ func (f *fakeTasks) RecordLaunchError(_ context.Context, itemID, reason string) 
 func (f *fakeTasks) CopyPrompt(_ context.Context, itemID string) (string, error) {
 	f.record("prompt %s", itemID)
 	return f.prompt, f.actionErr
+}
+
+func (f *fakeTasks) PrecheckTest(_ context.Context, task string) (tasks.TestSource, error) {
+	f.record("precheck test %s", task)
+	if f.testSource.Checkout != "" {
+		return f.testSource, f.precheck
+	}
+	return tasks.TestSource{File: "/repo/vault/.rhizome/tasks/" + task + ".yml", Checkout: "/repo/vault"}, f.precheck
+}
+func (f *fakeTasks) RecordTestLaunchError(_ context.Context, task, reason string) error {
+	f.record("test launch error %s %s", task, reason)
+	return nil
 }
 
 type launch struct{ vault, item string }
@@ -295,4 +308,36 @@ func TestTasksRoutesTakeAQualifiedTaskID(t *testing.T) {
 
 	code, _ := serveTasks(t, s, http.MethodPost, "/api/tasks/modes/a%2Fb%2Fc", `{"mode":"off"}`)
 	require.Equal(t, http.StatusBadRequest, code, "only one slash is allowed")
+}
+
+func TestTasksLaunchLocalTestByID(t *testing.T) {
+	api := &fakeTasks{testSource: tasks.TestSource{File: "/canonical/worktree/.rhizome/modules/compounding/tasks/mine.yml", Checkout: "/canonical/worktree"}}
+	s, _ := newTasksTestServer(api)
+	var gotVault, gotFile string
+	s.tasksTestLaunch = func(vault, file string) error { gotVault, gotFile = vault, file; return nil }
+	w := httptest.NewRecorder()
+	s.handleTasks(w, httptest.NewRequest(http.MethodPost, "/api/tasks/tests/compounding%2Fmine", nil))
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.Equal(t, "/repo/vault", gotVault)
+	require.Equal(t, api.testSource.File, gotFile)
+	require.Contains(t, api.calls, "precheck test compounding/mine")
+	var response map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.NotEmpty(t, response["launchedAt"])
+	require.Equal(t, "/canonical/worktree", response["sourceCheckout"])
+}
+
+func TestTasksTestRefusesBusyAndRecordsLaunchFailure(t *testing.T) {
+	api := &fakeTasks{precheck: tasks.ErrBusy}
+	s, _ := newTasksTestServer(api)
+	s.tasksTestLaunch = func(string, string) error { t.Fatal("busy test launched"); return nil }
+	w := httptest.NewRecorder()
+	s.handleTasks(w, httptest.NewRequest(http.MethodPost, "/api/tasks/tests/local", nil))
+	require.Equal(t, http.StatusConflict, w.Code)
+	api.precheck = nil
+	s.tasksTestLaunch = func(string, string) error { return errors.New("launch failed") }
+	w = httptest.NewRecorder()
+	s.handleTasks(w, httptest.NewRequest(http.MethodPost, "/api/tasks/tests/local", nil))
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.Contains(t, api.calls, "test launch error local launch failed")
 }

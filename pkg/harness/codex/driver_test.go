@@ -231,13 +231,15 @@ func TestOptionsAndMCPReachCodex(t *testing.T) {
 	)
 	var spawnArgs []string
 	driver := testDriver(script)
-	driver.start = func(_ context.Context, _ string, args []string, cwd string) (transport, error) {
+	driver.start = func(_ context.Context, _ string, args []string, cwd string, env []string) (transport, error) {
 		spawnArgs = append([]string(nil), args...)
+		require.Equal(t, []string{"RZM_TASK_TEST=1", "RZM_TASK_DATA_DIR=/tmp/task-data"}, env)
 		require.Equal(t, "/tmp/project", cwd)
 		return newJSONTransport(script, script, script), nil
 	}
 	session, err := driver.StartSession(context.Background(), harness.SessionOptions{
 		Cwd: "/tmp/project", Instructions: "Be precise.",
+		Env:            []string{"RZM_TASK_TEST=1", "RZM_TASK_DATA_DIR=/tmp/task-data"},
 		PermissionMode: harness.PermissionAutoAcceptEdits, Model: "gpt-test", Effort: "xhigh",
 		MCPServers: []harness.MCPServer{{Name: "local", Command: "rzm", Args: []string{"mcp", "serve"}, Env: []string{"MODE=test"}}},
 	})
@@ -355,7 +357,7 @@ func testDriver(script *harnesstest.ScriptedIO) *Driver {
 	return &Driver{
 		binary: "codex",
 		runner: &fakeRunner{results: []command.Result{{Stdout: "codex-cli 0.154.0"}}},
-		start: func(context.Context, string, []string, string) (transport, error) {
+		start: func(context.Context, string, []string, string, []string) (transport, error) {
 			return newJSONTransport(script, script, script), nil
 		},
 	}

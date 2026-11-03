@@ -72,22 +72,29 @@ func fileExists(path string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-// attempt is one run in progress. Drafts get an ID and a folder but are
-// never recorded, so they do not move the task's clock or token totals.
+// attempt is one run in progress. Draft tests keep separate records and data.
 type attempt struct {
 	id      string
 	started time.Time
 	draft   bool
+	source  string
 }
 
 func (s *Service) newAttempt(draft bool) attempt {
 	now := s.opts.Now()
-	return attempt{id: newRunID(now), started: now, draft: draft}
+	return attempt{id: newRunID(now), started: now, draft: draft, source: s.opts.Checkout}
 }
 
 // record is the attempt's run record with the given outcome.
+func testSource(a attempt) string {
+	if a.draft {
+		return a.source
+	}
+	return ""
+}
+
 func (a attempt) record(task, outcome string, at time.Time) RunRecord {
-	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome}
+	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a)}
 }
 
 // checkLog writes a check's stderr to its run folder, creating the file on
@@ -137,14 +144,11 @@ func (l *checkLog) Close() {
 	}
 }
 
-// begin marks the attempt as the running one. Drafts are never Running,
-// because an interrupted Running is recorded.
+// begin marks the attempt as the running one, including explicit tests.
 func (s *Service) begin(ctx context.Context, a attempt, r RunRecord, fn func(*State)) error {
 	return s.store.Update(ctx, func(st *State) error {
-		if !a.draft {
-			r.Stage = StageCheck
-			st.Running = &r
-		}
+		r.Stage = StageCheck
+		st.Running = &r
 		if fn != nil {
 			fn(st)
 		}
@@ -226,6 +230,7 @@ func (s *Service) retain(ctx context.Context) {
 	if err := s.store.Update(ctx, func(st *State) error {
 		st.seedTokens()
 		st.trimTokens(s.opts.Now())
+		st.Tests = s.retainTests(ctx, st.Tests, referenced)
 		transcripts, logs := map[string]int{}, map[string]int{}
 		withTranscript, others := map[string]int{}, map[string]int{}
 		kept := make([]RunRecord, 0, len(st.History))

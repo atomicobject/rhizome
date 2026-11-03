@@ -1,0 +1,84 @@
+"""
+What a context shard tells an agent.
+"""
+enum ContextShardKind
+  @guidance(
+    meaning: "Whether a shard is a rule to follow, a fact about the project, or a pointer to where something is documented.",
+    authoring: "Set by the compounding skill when a person approves a proposal; change it only through the skill's revise route.",
+    agentImplications: "Follow rules, use facts as background, and open the target of a where_to_find shard."
+  ) {
+  rule @view(label: "Rule", order: 10)
+  fact @view(label: "Fact", order: 20)
+  where_to_find @view(label: "Where to find", order: 30)
+}
+
+"""
+A short, reviewed piece of project knowledge mined from agent sessions and
+checked against the code. The compounding skill writes these notes; a
+person approves each one.
+"""
+type ContextShard
+  @node(paths: ["docs/memory/context-shards/*.md"])
+  @display(singular: "Context shard", plural: "Context shards", group: "Knowledge")
+  @guidance(
+    meaning: "Approved, verified project knowledge that agents should have when they touch the files it applies to.",
+    authoring: "Do not hand-edit the frontmatter. Approve, revise, renew, and retire shards through the compounding skill, which keeps the approved hash and fingerprint consistent.",
+    agentImplications: "Treat a shard as current only when the compounding lookup returns it; lookup withholds shards whose content or files changed since approval."
+  )
+  {
+  kind: ContextShardKind! @display(importance: KEY) @field
+  """The statement, at most 400 bytes."""
+  summary: String!
+  appliesTo: [String!] @display(importance: KEY) @field(source: "applies-to")
+  """Command text that lookup matches, such as `make web-e2e`."""
+  commands: [String!] @display(importance: DETAIL) @field
+  """Repository path of the document a where_to_find shard points to."""
+  target: String @field
+  reviewedBy: Person! @display(importance: DETAIL) @link(source: "reviewed-by")
+  reviewedOn: Date! @display(importance: DETAIL) @field(source: "reviewed-on")
+  approvedHash: String! @display(importance: DETAIL) @field(source: "approved-hash")
+  verifiedOn: Date! @display(importance: KEY) @field(source: "verified-on")
+  verifiedFingerprint: String @display(importance: DETAIL) @field(source: "verified-fingerprint")
+  families: Int @display(importance: DETAIL) @field
+  toolCalls: Int @display(importance: DETAIL) @field(source: "tool-calls")
+}
+
+"""
+What a person decided to do about friction agents kept hitting.
+"""
+enum AgentFindingResponse
+  @guidance(
+    meaning: "Whether the friction calls for a fix, a guard that enforces a rule, or a question for an owner.",
+    authoring: "Set by the compounding skill when a person approves a proposal.",
+    agentImplications: "A guard finding may carry a guard rule that hooks enforce; a fix or ask finding is work for its assignee."
+  ) {
+  fix @view(label: "Fix", order: 10)
+  guard @view(label: "Guard", order: 20)
+  ask @view(label: "Ask", order: 30)
+}
+
+"""
+Friction mined from agent sessions that a person chose to fix, guard against,
+or ask about instead of remembering. Each note holds one action item; the
+compounding skill writes these notes and does not propose the learning
+again while the action item is open.
+"""
+type AgentFinding
+  @node(paths: ["docs/memory/agent-findings/*.md"])
+  @display(singular: "Agent finding", plural: "Agent findings", group: "Knowledge")
+  @guidance(
+    meaning: "Approved friction that the team removes at its source: a defect to fix, a rule to enforce, or a question to settle.",
+    authoring: "Approve findings through the compounding skill. Complete the action item by checking it; mining then reports whether the friction recurs.",
+    agentImplications: "Do not work around an open finding silently; follow its proposed change or question, and mention it when it affects your task."
+  )
+  {
+  response: AgentFindingResponse! @display(importance: KEY) @field
+  """The statement, at most 400 bytes."""
+  summary: String!
+  learningHash: String! @display(importance: DETAIL) @field(source: "learning-hash")
+  appliesTo: [String!] @display(importance: KEY) @field(source: "applies-to")
+  reviewedBy: Person! @display(importance: DETAIL) @link(source: "reviewed-by")
+  reviewedOn: Date! @display(importance: KEY) @field(source: "reviewed-on")
+  families: Int @display(importance: DETAIL) @field
+  toolCalls: Int @display(importance: DETAIL) @field(source: "tool-calls")
+}

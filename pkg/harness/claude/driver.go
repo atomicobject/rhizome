@@ -64,7 +64,7 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 	if err != nil {
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
-	connection, err := d.start(ctx, path, args, cwd)
+	connection, err := d.start(ctx, path, args, cwd, options.Env)
 	if err != nil {
 		if isNotFound(err) {
 			return nil, harness.Phase(harness.ErrNotInstalled, err)

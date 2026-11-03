@@ -7,6 +7,7 @@ import {
   formatDue,
   formatRelative,
   itemStatePresentation,
+  localStatePresentation,
   MODE_LABELS,
   outcomePresentation,
   shortCommit,
@@ -101,6 +102,10 @@ function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
   const last = task.lastRun ? outcomePresentation(task.lastRun.outcome) : null;
   const item = task.item ? itemStatePresentation(task.item.state) : null;
 
+  // A local copy that matches the primary ref needs no mark.
+  const local =
+    task.local && task.local.state !== "same" ? localStatePresentation(task.local.state) : null;
+
   return (
     <tr>
       <th scope="row">
@@ -108,11 +113,22 @@ function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
           <span>{task.name || task.id}</span>
           <code>{task.id}</code>
         </button>
+        {local ? (
+          <span className="task-table__local">
+            <StatusMark tone={local.tone} label={local.label} />
+          </span>
+        ) : null}
       </th>
       <td>
-        {MODE_LABELS[task.mode] ?? task.mode}
-        {task.modeSource === "override" ? null : (
-          <span className="task-table__aside"> · default</span>
+        {task.scheduled ? (
+          <>
+            {MODE_LABELS[task.mode] ?? task.mode}
+            {task.modeSource === "override" ? null : (
+              <span className="task-table__aside"> · default</span>
+            )}
+          </>
+        ) : (
+          <span className="task-table__none">—</span>
         )}
       </td>
       <td className="task-table__mono is-optional">{task.every}</td>
@@ -231,7 +247,7 @@ export function TasksOverview({
           <div className="task-empty task-empty--page">
             <h3>No tasks are registered</h3>
             <p>
-              A task is a YAML file in <code>.rhizome/tasks/</code>. Rhizome reads them from the
+              A task is a YAML file in <code>.rhizome/tasks/</code>. Rhizome schedules them from the
               primary ref
               {report.ref ? (
                 <>
@@ -239,7 +255,7 @@ export function TasksOverview({
                   (<code>{report.ref}</code>)
                 </>
               ) : null}
-              , so a new task appears here once it is merged and fetched.
+              . A task added in this checkout appears here to test before it is merged.
             </p>
           </div>
         ) : (

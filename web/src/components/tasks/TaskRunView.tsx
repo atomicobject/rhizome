@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 
 import type { TaskRunView as TaskRun } from "../../api/tasks";
 import { StatusMark } from "../StatusMark";
+import { TestChip } from "./TaskDetail";
 import { BackIcon, CopyIcon } from "./TaskIcons";
 import {
   formatDuration,
@@ -15,7 +16,7 @@ import { CheckLogBlock, type Expansion, TimelineEntry } from "./TranscriptBlocks
 import { buildTimeline, finalMessage, lastUsage } from "./transcript";
 import { useRunTranscript } from "./useTasksData";
 
-function CopyPath({ path }: { path: string }) {
+function CopyPath({ path, name = "worktree path" }: { path: string; name?: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -24,7 +25,7 @@ function CopyPath({ path }: { path: string }) {
       <button
         type="button"
         className="task-icon-button"
-        aria-label={copied ? "Copied worktree path" : "Copy worktree path"}
+        aria-label={copied ? `Copied ${name}` : `Copy ${name}`}
         title="Copy path"
         onClick={async () => {
           try {
@@ -112,6 +113,7 @@ export function TaskRunView({
           History
         </button>
         <StatusMark tone={tone} label={label} />
+        {run?.test ? <TestChip /> : null}
         {run?.stage && live ? (
           <span className="task-run__stage">
             {run.stage === "check" ? "Running check" : "Agent working"}
@@ -159,11 +161,25 @@ export function TaskRunView({
                 </dd>
               </>
             ) : null}
+            {run?.sourceCheckout ? (
+              <>
+                <dt>Source</dt>
+                <dd>
+                  <CopyPath path={run.sourceCheckout} name="source checkout path" />
+                </dd>
+              </>
+            ) : null}
             {run?.commit ? (
               <>
-                <dt>Base commit</dt>
+                <dt>{run.test ? "Snapshot" : "Base commit"}</dt>
                 <dd>
                   <code title={run.commit}>{shortCommit(run.commit)}</code>
+                  {run.test ? (
+                    <span className="task-facts__aside">
+                      the source checkout's files, with uncommitted changes and without ignored
+                      untracked files
+                    </span>
+                  ) : null}
                 </dd>
               </>
             ) : null}

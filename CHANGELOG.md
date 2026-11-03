@@ -13,13 +13,15 @@
 ### Fixed
 
 - Compounding uses `jev-latest` for screening and ranking, with priced estimates and usage accounting. The team gateway also accepts explicit Jev release IDs such as `jev-1.13.0`, retaining budget reservations and per-person/global limits.
-
+- Compounding can verify Markdown and workflow learnings against repository documentation and schemas, including when Jev screening is unavailable. Source confidence is preserved, and redundant or obsolete guidance is still rejected.
 - Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.
 - Team API bootstrap takes the repository's exact GitHub OIDC subject so deployment credentials work with immutable organization and repository IDs.
 - Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
 - Team API deployment verifies Express service revisions using the revision field AWS returns, allowing a healthy deployment to pass its final check.
 
 ### Added
+
+- The Tasks page shows local task versions before merge and can run **Test once** against a captured checkout, including uncommitted changes and nonignored helper files. Test outcomes and transcripts are visible with separate data and history; scheduled execution continues to use the primary ref. Compounding tests use fresh mining state rather than changing real proposals or cursors.
 
 - Team API gateway enforces independent daily provider allowances with atomic integer currency reservations, audited operator controls, per-user/provider reports, and visible pricing assumptions. Missing budgets disable paid admission; unknown outcomes retain their reservations.
 

@@ -28,7 +28,7 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 	if err != nil {
 		return status, err
 	}
-	connection, err := d.start(ctx, path, []string{"app-server"}, cwd)
+	connection, err := d.start(ctx, path, []string{"app-server"}, cwd, nil)
 	if err != nil {
 		status.LastError = err.Error()
 		return status, nil

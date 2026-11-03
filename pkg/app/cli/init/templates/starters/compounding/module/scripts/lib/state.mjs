@@ -1,6 +1,6 @@
 // Where compounding's private state lives (SPEC-0124 US8): once per
 // repository, in the main checkout's .rhizome/compounding/, so every
-// worktree and every task run reads the same proposals and decisions. A bare
+// worktree and scheduled task run reads the same proposals and decisions. A bare
 // repository has no main checkout; its state goes to a per-user folder keyed
 // by the Git common directory, as task state does. Releases before this kept
 // one store per worktree; the first run after upgrading migrates them.
@@ -14,6 +14,14 @@ import { DECISION_DIR, learningHash, parseShard } from "./shards.mjs";
 import { Refused, openStore, sha, writeJson } from "./store.mjs";
 
 const STATE = ".rhizome/compounding";
+
+// Task tests must never resume, migrate, or replace normal mining state.
+export function taskTestState() {
+  if (process.env.RZM_TASK_TEST !== "1") return null;
+  const data = process.env.RZM_TASK_DATA_DIR;
+  if (!data?.trim() || !isAbsolute(data)) throw new Refused("RZM_TASK_TEST=1 requires RZM_TASK_DATA_DIR to be a nonempty absolute path");
+  return join(data, "compounding");
+}
 
 // The real path of a file that may not exist yet: its nearest existing
 // parent resolved, the rest appended.
@@ -35,11 +43,12 @@ function userConfigDir() {
 }
 
 export function repoState(cwd) {
+  const test = taskTestState();
   const git = (...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   const common = real(git("rev-parse", "--path-format=absolute", "--git-common-dir"));
   const bare = git(`--git-dir=${common}`, "rev-parse", "--is-bare-repository") === "true";
   const main = !bare && basename(common) === ".git" ? dirname(common) : null;
-  return { common, main, dir: main ? join(main, STATE) : join(userConfigDir(), "rhizome", "compounding", sha(common).slice(0, 16)) };
+  return { common, main, dir: test ?? (main ? join(main, STATE) : join(userConfigDir(), "rhizome", "compounding", sha(common).slice(0, 16))) };
 }
 
 // Every checkout of the repository that still exists, as real paths.
@@ -79,10 +88,12 @@ export function refuseTracked(dir, roots) {
 
 // The repository's store, migrated on first use. `state` names another
 // directory, for tests and evaluations, which is neither migrated nor
-// guarded unless the caller asks.
+// guarded unless the caller asks. A task test always uses its attempt's
+// private directory, including when a caller supplies an explicit `state`.
 export function openState(root, { state, guard = !state, log } = {}) {
-  const repo = state ? null : repoState(root);
-  const dir = state ?? repo.dir;
+  const test = taskTestState();
+  const repo = state || test ? null : repoState(root);
+  const dir = test ?? state ?? repo.dir;
   if (guard) refuseTracked(dir, [root, repo?.main]);
   if (repo) migrate(repo, root, { log });
   return openStore(dir);
@@ -165,6 +176,7 @@ function legacyEvent(p, r, witness, checkout) {
 // ponytail: a crash mid-copy leaves a partial store that the rerun adopts;
 // copy to a temporary folder first if that ever happens.
 export function migrate(repo, cwd, { log = (m) => process.stderr.write(`${m}\n`) } = {}) {
+  if (taskTestState()) return null;
   const target = repo.dir;
   if (existsSync(join(target, "migration.json"))) return null;
   const others = worktrees(cwd)

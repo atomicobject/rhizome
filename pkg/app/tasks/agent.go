@@ -43,6 +43,7 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 		Model:          prefs.Model,
 		Effort:         prefs.Effort,
 		Cwd:            req.Dir,
+		Env:            req.Env,
 	})
 	if err != nil {
 		return AgentResult{}, err

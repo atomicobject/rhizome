@@ -1,4 +1,5 @@
 import type {
+  TaskLocalVersion,
   TaskRunDetail,
   TaskRunView,
   TasksLiveState,
@@ -36,6 +37,7 @@ export function reportFixture(now = Date.now()): TasksReport {
         every: "1d",
         mode: "auto",
         modeSource: "repository",
+        scheduled: true,
         lastRun: { id: RUN_ID, task: "docs-drift", at: at(now, -3 * HOUR), outcome: "ready" },
         nextDue: at(now, 21 * HOUR),
         due: false,
@@ -60,6 +62,7 @@ export function reportFixture(now = Date.now()): TasksReport {
         every: "7d",
         mode: "notify",
         modeSource: "default",
+        scheduled: true,
         lastRun: {
           id: "20261024T080000Z-11aa22bb",
           task: "dependency-updates",
@@ -85,6 +88,7 @@ export function reportFixture(now = Date.now()): TasksReport {
         every: "12h",
         mode: "auto",
         modeSource: "override",
+        scheduled: true,
         lastRun: { task: "flaky-tests", at: at(now, -5 * HOUR), outcome: "failed" },
         nextDue: at(now, 7 * HOUR),
         due: false,
@@ -106,11 +110,79 @@ export function reportFixture(now = Date.now()): TasksReport {
         every: "1d",
         mode: "off",
         modeSource: "override",
+        scheduled: true,
         lastRun: { task: "changelog", at: at(now, -26 * HOUR), outcome: "not-needed" },
         nextDue: at(now, 9 * HOUR),
         due: false,
       },
     ],
+  };
+}
+
+export const TEST_RUN_ID = "20261031T163000Z-7e57d4a1";
+
+export const SOURCE_CHECKOUT = "/Users/dev/src/rhizome-feature";
+
+/**
+ * The report as a feature checkout sees it: docs-drift changed locally,
+ * flaky-tests invalid locally, changelog unchanged, dependency-updates deleted
+ * locally, and session-mining only in this checkout.
+ */
+export function localDraftsReportFixture(now = Date.now()): TasksReport {
+  const report = reportFixture(now);
+
+  const local = new Map<string, TaskLocalVersion>([
+    ["docs-drift", { state: "differs", path: ".rhizome/tasks/docs-drift.yaml" }],
+    [
+      "flaky-tests",
+      {
+        state: "invalid",
+        path: ".rhizome/tasks/flaky-tests.yaml",
+        error: "every: expected a duration such as 12h",
+      },
+    ],
+    ["changelog", { state: "same", path: ".rhizome/tasks/changelog.yaml" }],
+  ]);
+
+  return {
+    ...report,
+    tasks: [
+      ...report.tasks.map((task) => {
+        const version = local.get(task.id);
+
+        return version ? { ...task, local: version } : task;
+      }),
+      {
+        id: "session-mining",
+        name: "Session mining",
+        scope: "person",
+        every: "1d",
+        mode: "off",
+        modeSource: "default",
+        due: false,
+        scheduled: false,
+        local: { state: "new", path: ".rhizome/tasks/session-mining.yaml" },
+      },
+    ],
+  };
+}
+
+/** A finished Test once of docs-drift, newer than its last scheduled run. */
+export function testRunFixture(now = Date.now(), fields: Partial<TaskRunView> = {}): TaskRunView {
+  return {
+    id: TEST_RUN_ID,
+    task: "docs-drift",
+    test: true,
+    sourceCheckout: SOURCE_CHECKOUT,
+    startedAt: at(now, -30 * MIN - 90_000),
+    at: at(now, -30 * MIN),
+    outcome: "no-changes",
+    tokens: 9_400,
+    commit: "8c41f0e2b7d9a3c1e5f6",
+    worktree: "/Users/dev/.local/state/rhizome/tasks/rhizome/worktrees/test-docs-drift-163000",
+    hasTranscript: true,
+    hasCheckLog: true,
+    ...fields,
   };
 }
 

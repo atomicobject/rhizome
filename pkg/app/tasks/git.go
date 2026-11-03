@@ -112,8 +112,7 @@ func (r Repo) TaskFiles(ctx context.Context, commit string) ([]string, error) {
 
 // ShowFile reads one file at a commit.
 func (r Repo) ShowFile(ctx context.Context, commit, path string) ([]byte, error) {
-	out, err := r.git(ctx, "show", commit+":"+path)
-	return []byte(out), err
+	return gitBytes(ctx, "", nil, "--git-dir="+r.CommonDir, "show", commit+":"+path)
 }
 
 // Tagged is the latest commit on a ref whose message carries a task's tag.
@@ -152,19 +151,25 @@ func (r Repo) FetchedAt() (time.Time, bool) {
 }
 
 func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
+	out, err := gitBytes(ctx, dir, nil, args...)
+	return strings.TrimRight(string(out), "\n"), err
+}
+
+func gitBytes(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	if dir != "" {
 		cmd.Dir = dir
 	}
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
+	cmd.Env = append(cmd.Env, env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
-			return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+			return nil, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 		}
-		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
+		return nil, fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
 	}
-	return strings.TrimRight(stdout.String(), "\n"), nil
+	return stdout.Bytes(), nil
 }

@@ -34,7 +34,11 @@ prompt: |
 timeout: 1h                         # optional, applies to the check and the prompt each
 ```
 
-Rhizome reads task files from the primary branch's history, never from the files you have checked out. Editing a task on a branch changes nothing until it merges. To try a draft, run it once by hand: `rzm tasks run --file .rhizome/tasks/finalize.yml`.
+Scheduled execution reads task files from the primary branch's history. Editing a task on a branch does not change its schedule. The Tasks page also shows definitions in the selected checkout, including uncommitted new tasks, with their local version marked as new, different, unchanged, or invalid.
+
+To try one before merging, use **Test once** on its local version or run `rzm tasks run --file .rhizome/tasks/finalize.yml`. The test captures the checkout's current source, including new nonignored helper scripts and uncommitted changes, into a detached worktree. It leaves your working files and staging area unchanged and compares the output against that capture. Invalid local definitions display their error; a valid scheduled version stays available.
+
+Each test starts with fresh task data and has its own visible result and transcript. It does not change the task's next due time, mode, scheduled usage totals, or ordinary inbox items. Test output is not committed or tagged as scheduled work. A running test uses the repository's task lock, so scheduled work may wait until it finishes. Local-only tasks receive scheduling controls after they reach the primary branch.
 
 `rzm validate tasks` (also part of `rzm validate all`) checks the task files you have checked out and reports each one that does not parse, such as a bad id, an unknown field, an invalid `every` or `timeout`, or an id that another file also declares. `rzm tasks status` reports the same problems for the primary branch.
 
@@ -53,6 +57,8 @@ Either kind prints one JSON object:
 or `{"needed": false}`. A task with no check is needed whenever it is due.
 
 Checks and prompts receive the same locations: `RZM_TASK_ID`, `RZM_TASK_MAIN_CHECKOUT`, `RZM_TASK_COMMIT`, and `RZM_TASK_DATA_DIR`, a private folder that keeps the task's state between runs. Prompts receive them in their instructions.
+
+For a test, `RZM_TASK_COMMIT` names the source snapshot and `RZM_TASK_DATA_DIR` is fresh for that attempt. `RZM_TASK_TEST=1` lets a task with its own private state choose separate test storage; the compounding module does this automatically. Command checks and agent work use the captured worktree. A code-mode test reads its captured script but queries the selected checkout's existing index; create that index first if it is missing. It does not automatically index a new test worktree.
 
 ### Cost is the task's job
 
@@ -124,7 +130,7 @@ In Rhizome Desktop, the Dock icon's badge counts the task items that need you (d
 
 Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. Folder names replace the slash in a module task's id with `_` (`data/compounding_sweep/`), which no id contains. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
 
-Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript). A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. `rzm tasks run --file` runs are not recorded and do not move the task's clock; their folders are deleted after 7 days.
+Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript). A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. Tests have a separate bounded history, labelled Test, with their source checkout and snapshot. Their records and owned output worktrees are retained together and do not move the task's clock.
 
 When `rzm tasks run <item>` fails before the run starts, for example because another run holds the lock, the reason is saved on the item until its next state change.
 

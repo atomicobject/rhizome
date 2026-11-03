@@ -235,15 +235,16 @@ func TestDraftRunsDoNotAdvanceTheClock(t *testing.T) {
 		t.Fatalf("a draft must not be recorded: %+v", st)
 	}
 	items, _ := svc.Inbox()
-	if len(items) != 1 || items[0].Run == "" || items[0].State != StateReady {
-		t.Fatalf("the draft's item stays in the inbox: %+v", items)
+	if len(items) != 0 || len(st.Tests) != 1 {
+		t.Fatalf("test belongs in separate history: %+v", st)
 	}
-	if transcript != svc.runFile(items[0].Run, transcriptFile) {
-		t.Fatalf("the draft's transcript goes to its run folder, got %q", transcript)
+	if transcript != svc.runFile(st.Tests[0].ID, transcriptFile) {
+		t.Fatalf("transcript: %q", transcript)
 	}
-	if _, err := svc.RunDetail(items[0].Run, 0); !errors.Is(err, ErrRunNotFound) {
-		t.Fatalf("drafts are not listed: %v", err)
+	if detail, err := svc.RunDetail(st.Tests[0].ID, 0); err != nil || !detail.Run.Test {
+		t.Fatalf("test detail: %+v %v", detail, err)
 	}
+
 }
 
 func TestRunRecordKeepsItsOwnWorkAndTranscript(t *testing.T) {

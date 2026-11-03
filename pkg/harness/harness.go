@@ -29,6 +29,8 @@ type Session interface {
 }
 
 type SessionOptions struct {
+	// Env adds per-session variables to the inherited process environment.
+	Env             []string
 	Instructions    string
 	AllowedTools    []string
 	DisallowedTools []string

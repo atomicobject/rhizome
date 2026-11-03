@@ -2,6 +2,17 @@
 
 These are the numbers a change has to beat. Each row cites its entry in the [effort log](../../../docs/efforts/2026-10-11-15-21-session-memory-starter.md). Replace a row when a measured change wins, and keep the old numbers in the log.
 
+## Workflow eligibility regression, 2026-11-03
+
+This bounded development packet tests Markdown/workflow admission, not general extraction recall or a blind holdout. Four isolated unscreened runs used the same 14 episodes and captured source; bindings stayed Terra xhigh / Sol medium / Terra low. [Methods and case results](../../../docs/reference/analysis/compounding-workflow-coverage.md) and [delivery effort](../../../docs/efforts/2026-11-03-08-56-local-task-drafts.md) retain the decision.
+
+| Prompt | Verified clusters, two repeats | Proposals | Combined cost |
+| --- | --- | --- | --- |
+| v1 baseline | 2, 5 | 0, 0 | $0.3032 |
+| v2 repository-evidence eligibility | 7, 9 | 0, 0 | $0.5052 |
+
+Writing and optional-field policies were held in both baselines and reached verification with correct duplicate rejection in both candidates. Semantic-search recovery was not demonstrated. The obsolete-publication control was rejected in all four; the identity control was absent in one candidate and correctly rejected in the other. Preserve these limits when using the result. The narrow fallback correction is supported; general prompt quality still needs an untouched window. Normal Jev ranking remained unchanged and was exercised by offline pipeline tests, not these paid runs.
+
 ## Current Codex comparison, 2026-10-30
 
 Use these fresh app-server measurements when comparing Codex bindings. The older `codex exec` rows below are historical. Haiku extraction was not retested; Sonnet medium was run as the frozen scoring and verification reference. Full methods, prices, reasoning sweeps, audits, and limitations are in the [model comparison](../../../docs/performance/compounding-models-2026-10-30.md).
