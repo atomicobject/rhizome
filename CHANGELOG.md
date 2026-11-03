@@ -12,6 +12,8 @@
 
 ### Fixed
 
+- Compounding sends low-ranked candidates to evidence verification, resumes deferred work without new sessions, and shows verification coverage, deferral reasons and the active mining store in its workspace. Jev passage screening and human publication approval remain in place.
+
 - Compounding uses `jev-latest` for screening and ranking, with priced estimates and usage accounting. The team gateway also accepts explicit Jev release IDs such as `jev-1.13.0`, retaining budget reservations and per-person/global limits.
 - Compounding can verify Markdown and workflow learnings against repository documentation and schemas, including when Jev screening is unavailable. Source confidence is preserved, and redundant or obsolete guidance is still rejected.
 - Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.

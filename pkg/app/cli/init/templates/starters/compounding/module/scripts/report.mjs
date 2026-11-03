@@ -10,12 +10,34 @@
 // matched each finding; `checkedThrough` says when that was.
 
 import { pathToFileURL } from "node:url";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { pending } from "./lib/approvals.mjs";
 import { loadFindings } from "./lib/findings.mjs";
 import { repoRoot } from "./lib/shards.mjs";
-import { openState } from "./lib/state.mjs";
+import { openState, taskTestState } from "./lib/state.mjs";
+import { verificationStatus } from "./lib/verification-queue.mjs";
 
 const day = (ts) => String(ts ?? "").slice(0, 10) || null;
+
+// Run outcomes and the current queue are separate: a completed historical
+// run may have held candidates that still need evidence verification.
+function miningReport(root, store, state) {
+  const dir = store.path("runs");
+  const manifests = existsSync(dir) ? readdirSync(dir).sort().reverse() : [];
+  const m = manifests.map((id) => store.read(`runs/${id}/manifest.json`, null)).find(Boolean);
+  return {
+    store: { root: realpathSync(root), path: resolve(store.dir), mode: taskTestState() ? "task-test" : state ? "isolated" : "repository" },
+    lastRun: m ? {
+      run: m.id, status: m.status,
+      startedAt: m.startedAt ?? null, finishedAt: m.finishedAt ?? null,
+      spend: m.spend ?? null,
+      stoppedReason: m.stoppedReason ?? null, stoppedMessage: m.stoppedMessage ?? null,
+      report: m.report ?? null,
+    } : null,
+    verification: verificationStatus(root, store, m, { reason: m?.status === "stopped" ? m.stoppedReason : undefined }),
+  };
+}
 
 function effort(families, evidence) {
   const days = evidence.map((e) => day(e.ts)).filter(Boolean).sort();
@@ -50,7 +72,7 @@ export function report({ root = repoRoot(), state } = {}) {
   for (const p of pending(store, root)) open.push({ proposal: p.cluster, response: p.response ?? null, statement: p.statement, ...effort(p.families ?? 0, p.evidence ?? []) });
   open.sort((a, b) => b.families - a.families || b.sessions - a.sessions || b.toolCalls - a.toolCalls);
   completed.sort((a, b) => (a.status === b.status ? 0 : a.status === "recurring" ? -1 : 1));
-  return { open, completed };
+  return { open, completed, mining: miningReport(root, store, state) };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

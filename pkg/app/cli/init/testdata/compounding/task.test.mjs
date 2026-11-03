@@ -59,6 +59,19 @@ test("the check reports, in order: no credential, a blocked run, a run to resume
   assert.equal((await check({ credentials: credentials(true), dryRun: dry({ status: "nothing-new" }) })).needed, false);
 });
 
+test("the task check resumes a real count-deferred pool without new episodes", async () => {
+  const root = tempRepo();
+  const state = tmp("sm-state-");
+  const opts = { root, state, harness: "claude", discover: fakeDiscover([SESSIONS.s1]), log: () => {} };
+  const deferred = await mine({ ...opts, budget: 5, verifyBudget: 0 }, fakeClients());
+  assert.equal(deferred.status, "deferred");
+  const dryRun = await mine({ ...opts, budget: null }, fakeClients());
+  assert.equal(dryRun.episodes, 0);
+  assert.ok(dryRun.verification.pending > 0);
+  const result = await check({ credentials: credentials(true), dryRun: async () => dryRun });
+  assert.deepEqual([result.needed, result.summary], [true, `${dryRun.verification.pending} clusters await evidence verification`]);
+});
+
 test("a dry run names an open run and why it stopped, and counts episodes without a harness", async () => {
   const repo = tempRepo();
   const state = tmp("sm-state-");

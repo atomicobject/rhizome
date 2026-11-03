@@ -36,7 +36,7 @@ With hooks on, Rhizome's hook dispatcher runs `.rhizome/modules/compounding/scri
 2. Run `node .rhizome/modules/compounding/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost; `discovery.inWindow` is the number of sessions it would read. Show these to the person. On a first run that would read more than 200 sessions, ask the person before mining them all, or narrow the window with `--since`.
 3. Ask for a spend limit, then run `mine.mjs --harness <h> --budget <USD>`.
 4. If the run refuses because no price is known for a model, choose a priced model with `--model`, or ask the person whether to pass `--allow-unpriced`, which makes the budget count only the costs the provider reports.
-5. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.
+5. Exit 3 means the run stopped at its spend budget. Rerunning resumes it with the same models, and finished calls are not repeated. A `deferred` result also leaves verification unfinished: rerun with an approved budget to continue the eligible pool, even without new episodes. The report gives the reason and exact command. `--abandon` discards an open run instead.
 6. Summarize the run report, then offer review.
 
 The add-on's scheduled task `compounding/mine` mines weekly; its check needs attention when Jev has no credential or a run is blocked, and its prompt runs `mine.mjs --harness <h> --task-mode --budget 10`, then `report.mjs`. Task mode treats the budget as approved, so when you run as that task, skip steps 2 and 3 and ask nothing. A credential stop exits 4 with its reason on stderr. Put any stop, with its reason and fix, first in your final message. Outside the task, never pass `--task-mode`.
@@ -45,7 +45,7 @@ When running inside a task test (`RZM_TASK_TEST=1`), preserve the supplied `RZM_
 
 Markdown and workflow learnings are eligible when repository evidence can confirm them. Check current guides, schemas, templates, and skills before proposing a change. Existing guidance resolves a duplicate claim; a separate failure to find or follow it needs evidence of a current entrypoint, tool, or enforcement gap. Preserve source origin and confidence, including likely human attribution and unknown delegated briefs.
 
-Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-session clusters (default 40), and `--verify-held N` verifies N that earlier runs held back. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
+Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-family clusters (default 40), including the existing backlog; `--verify-held N` adds capacity for earlier candidates. Jev ranks work but never excludes a candidate from evidence verification. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
 
 ## Review
 

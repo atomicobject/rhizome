@@ -8,6 +8,8 @@ status: active
 
 # Compounding workflow coverage
 
+The later [verification-gate replay](compounding-verification-gate.md) supersedes the unchanged normal-Jev admission policy described below. These earlier measurements remain historical evidence for the fallback correction.
+
 A mining run examined Markdown but held every workflow candidate before verification. The run processed 37 sessions and 457 episodes, extracted 76 candidates into 67 clusters, and proposed none. All 36 verified clusters cited Markdown. The gap was the unscreened fallback: it treated a workflow subject as insufficient evidence, even when a guide or schema could confirm the claim.
 
 The fix separates **subject** from **checkability**. The grouper now identifies repository evidence versus external evidence. Code, Markdown guides, schemas, templates, and skills can all support verification. Normal Jev ranking keeps its existing question and threshold. The fallback accepts repository-backed claims and the legacy `code` label; old `workflow` and `environment` labels alone remain insufficient. Unclassified grouper omissions also remain held.
