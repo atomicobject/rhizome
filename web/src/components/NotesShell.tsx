@@ -52,6 +52,7 @@ import {
 } from "./useNotesQueries";
 import { useOntologyEditSession } from "./useOntologyEditSession";
 import type { OpenNodeOptions, ViewContext } from "../views/context";
+import { withViewParams, type ViewParamValue } from "../views/params";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { validationHealth } from "./validation/validationPresentation";
 
@@ -323,7 +324,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     [tabs.open],
   );
 
-  const openView = useCallback(
+  const openViewSubject = useCallback(
     (id: string, context: ViewContext) => {
       if (context.kind === "node") {
         openNode(context.ref, { view: id });
@@ -354,11 +355,29 @@ export function NotesShell({ active = true }: { active?: boolean }) {
         return;
       }
 
-      const view = viewCatalogQuery.data?.views.find((candidate) => candidate.id === id);
-
-      if (view) tabs.openView(view);
+      // A hidden view is not in the catalog; its tab loads it by id.
+      tabs.openView(
+        viewCatalogQuery.data?.views.find((candidate) => candidate.id === id) ?? { id },
+      );
     },
     [openNode, tabs.openView, viewCatalogQuery.data],
+  );
+
+  // The opened view reads its params from the workspace URL it lands on.
+  const openView = useCallback(
+    (id: string, context: ViewContext, params?: Record<string, ViewParamValue>) => {
+      openViewSubject(id, context);
+
+      if (params)
+        navigate(
+          withViewParams(
+            `${window.location.pathname}${window.location.search}${window.location.hash}`,
+            params,
+          ),
+          true,
+        );
+    },
+    [openViewSubject],
   );
 
   const openSearch = useCallback(

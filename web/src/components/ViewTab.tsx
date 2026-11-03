@@ -6,7 +6,7 @@ import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
 import type { ViewChoice, ViewTarget } from "../api/types";
 import type { ViewTab as ViewTabModel } from "./useNoteTabs";
-import { useViewCatalogQuery } from "./useNotesQueries";
+import { useHiddenViewQuery, useViewCatalogQuery } from "./useNotesQueries";
 import { useTypeLabel, viewDisplayName } from "./typeLabels";
 import { useViewHeaderSlotRefs, ViewHeader, ViewHeaderSlotsProvider } from "./ConfiguredViewHeader";
 
@@ -41,7 +41,9 @@ export const ViewTab = memo(function ViewTab({
   onTitle,
 }: Props) {
   const catalog = useViewCatalogQuery(active);
-  const entry = catalog.data?.views.find((view) => view.id === tab.viewId) ?? null;
+  const listed = catalog.data?.views.find((view) => view.id === tab.viewId);
+  const hidden = useHiddenViewQuery(tab.viewId, active && Boolean(catalog.data) && !listed);
+  const entry = listed ?? hidden.data ?? null;
 
   const target = catalog.data?.targets?.find(
     (target) => target.kind === "standalone" && target.name === tab.viewId,
@@ -75,7 +77,7 @@ export const ViewTab = memo(function ViewTab({
   }, [name, tab.id, tab.title, onTitle]);
 
   if (!entry)
-    return catalog.data ? (
+    return hidden.isError ? (
       <p className="ontology-empty">
         This view is no longer available. Close this tab to continue.
       </p>

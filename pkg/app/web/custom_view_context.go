@@ -28,11 +28,14 @@ type ViewContext struct {
 }
 
 type customViewInvocation struct {
-	View           customViewIdentity `json:"view"`
-	Context        ViewContext        `json:"context"`
-	Configuration  map[string]any     `json:"configuration,omitempty"`
-	VaultKey       string             `json:"vaultKey,omitempty"`
-	PreferenceSlot string             `json:"preferenceSlot,omitempty"`
+	View          customViewIdentity `json:"view"`
+	Context       ViewContext        `json:"context"`
+	Configuration map[string]any     `json:"configuration,omitempty"`
+	// Params are the declared view parameters; the kit reads their values
+	// from the page's own URL query.
+	Params         []viewconfig.ViewParam `json:"params,omitempty"`
+	VaultKey       string                 `json:"vaultKey,omitempty"`
+	PreferenceSlot string                 `json:"preferenceSlot,omitempty"`
 }
 type customViewIdentity struct {
 	ID     string            `json:"id"`
@@ -143,7 +146,7 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 			return customViewInvocation{}, fmt.Errorf("view subject %s %q does not exist", c.Kind, name)
 		}
 	}
-	return customViewInvocation{View: customViewIdentity{ID: def.ID, Name: def.Name, Origin: def.Origin}, Context: c, Configuration: def.Configuration, VaultKey: s.cfg.VaultPath}, nil
+	return customViewInvocation{View: customViewIdentity{ID: def.ID, Name: def.Name, Origin: def.Origin}, Context: c, Configuration: def.Configuration, Params: def.Params, VaultKey: s.cfg.VaultPath}, nil
 }
 
 func (s *Server) customViewInvocationForRequest(r *http.Request, def viewconfig.ViewDefinition) (customViewInvocation, error) {

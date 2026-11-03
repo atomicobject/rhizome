@@ -17,7 +17,7 @@ func TestCodeOperationCatalogCoversConcreteCLISurface(t *testing.T) {
 		"ontology_query": true, "query_recipe": true, "node_link": true, "note_rename_heading": true,
 		"start": true, "ontology_reference": true, "ontology_authoring_guide": true, "ontology_inspect": true,
 		"view": true, "validate": true, "current_user": true, "next_id": true, "code_rationale": true,
-		"surface": true, "note_move": true,
+		"surface": true, "note_move": true, "action_list": true, "action_run": true,
 	}
 	leaves := map[string]string{}
 	for _, descriptor := range CodeOperationDescriptors() {
@@ -45,7 +45,7 @@ func TestCodeOperationCatalogCoversConcreteCLISurface(t *testing.T) {
 		}
 	}
 	require.Empty(t, want)
-	require.Len(t, leaves, 45)
+	require.Len(t, leaves, 47)
 }
 
 func TestCodeCatalogOwnsLocalOverrides(t *testing.T) {

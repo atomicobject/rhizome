@@ -83,6 +83,36 @@ func (service codeLocalService) NoteMove(ctx context.Context, input map[string]a
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
 
+func (service codeLocalService) ActionList(ctx context.Context, _ map[string]any) agentapi.CallOutcome {
+	def, err := service.vaultDefOrDefaultContext(ctx)
+	if err != nil {
+		return codeModeFailure(err)
+	}
+	list, err := vaultActionRunner(def).List()
+	if err != nil {
+		return codeModeFailure(err)
+	}
+	return codeModeSuccess(list)
+}
+
+// ActionRun answers every run that starts, including refused and error
+// envelopes, as a successful call; an unknown action or invalid input fails.
+func (service codeLocalService) ActionRun(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	def, err := service.vaultDefOrDefaultContext(ctx)
+	if err != nil {
+		return codeModeFailure(err)
+	}
+	actionInput, _ := input["input"].(map[string]any)
+	if raw, given := input["input"]; given && raw != nil && actionInput == nil {
+		return codeModeFailure(fmt.Errorf("input.input must be an object"))
+	}
+	envelope, err := vaultActionRunner(def).Run(ctx, codeModeString(input, "id"), actionInput)
+	if err != nil {
+		return codeModeFailure(err)
+	}
+	return codeModeSuccess(envelope)
+}
+
 func codeModeSuccess(payload any) agentcode.CallOutcome {
 	return codeModeWorkflowOutcome(actions.CodeModeSuccess(payload))
 }

@@ -147,6 +147,10 @@ var codeOperationInputMetadata = map[string]map[string]codeInputFieldMetadata{
 	"surface": {
 		"command": {Description: "Optional exact agent command path to select; omit for the complete surface."},
 	},
+	"action_run": {
+		"id":    {Description: "Action id, <module>/<name>, as action_list returns it."},
+		"input": {Description: "Input object matching the action's declared inputs; omit when it declares none."},
+	},
 	"note_move": {
 		"source":          {Description: "One source path. Use with target, or combine sources with toFolder."},
 		"sources":         {Description: "Multiple source paths. Requires toFolder and read-write authority."},
@@ -191,6 +195,8 @@ var codeOperationInterpretations = map[string]string{
 	"next_id":                  "Returned identifiers are not reservations; allocation may refresh metadata while reading identifier claims.",
 	"code_rationale":           "path narrows extracted rationale comments; kinds filters the comment classifications returned.",
 	"surface":                  "Omit command for all agent command metadata or select one exact command path.",
+	"action_list":              "Declarations that fail validation are left out; rzm validate actions reports them.",
+	"action_run":               "status is ok with the action's result, refused with a reason (including an untrusted repository), or error with a reason and stderrTail. An unknown id or input that does not match the declaration fails the call without running anything.",
 	"note_move":                "Use source plus target for one move, or sources plus toFolder for a batch; execution requires a read-write connection.",
 }
 

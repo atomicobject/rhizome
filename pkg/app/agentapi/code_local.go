@@ -29,6 +29,8 @@ type CodeLocalService interface {
 	CodeRationale(context.Context, map[string]any) CallOutcome
 	RenameHeading(context.Context, map[string]any) CallOutcome
 	NoteMove(context.Context, map[string]any) CallOutcome
+	ActionList(context.Context, map[string]any) CallOutcome
+	ActionRun(context.Context, map[string]any) CallOutcome
 }
 
 type CodeLocalHandler func(CodeLocalService, context.Context, map[string]any) CallOutcome

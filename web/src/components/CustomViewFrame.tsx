@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type {
@@ -17,15 +17,18 @@ import {
   OPEN_NODE_MESSAGE,
   OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
+  PARAMS_CHANGED_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
   VAULT_EVENT_MESSAGE,
+  VIEW_PARAMS_MESSAGE,
   VIEW_RENDERED_MESSAGE,
   type HostMessage,
   type IssueScope,
 } from "../lib/customViewMessages";
 import { subscribeVaultEvents } from "../query/vaultEvents";
-import { isPseudoType } from "./notesRoute";
+import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
+import { NOTES_ROOT_PATH, isPseudoType } from "./notesRoute";
 import type { OpenMode } from "./useNoteTabs";
 
 import {
@@ -35,13 +38,24 @@ import {
   type OpenNodeOptions,
   type ViewContext,
 } from "../views/context";
+import {
+  applyViewParamsPatch,
+  isViewParamValues,
+  readViewParams,
+  viewParamsIdentity,
+  viewParamsPatchError,
+  withViewParams,
+  type ViewParamDeclaration,
+  type ViewParamsPatch,
+  type ViewParamValue,
+} from "../views/params";
 
 type Props = {
   context?: ViewContext;
   /** An independent mount of the view in this context; its preferences are separate. */
   preferenceSlot?: string;
   onOpenNode?: (ref: NodeRef, options: OpenNodeOptions) => void;
-  onOpenView?: (id: string, context: ViewContext) => void;
+  onOpenView?: (id: string, context: ViewContext, params?: Record<string, ViewParamValue>) => void;
   view: ViewCatalogEntry;
   session: OntologyEditSessionResponse | null;
   readLifecycle?: EditReadLifecycle;
@@ -54,7 +68,13 @@ type Props = {
 
 type ViewRequest =
   | { kind: "open-node"; ref: NodeRef; options: OpenNodeOptions }
-  | { kind: "open-view"; id: string; context: ViewContext }
+  | {
+      kind: "open-view";
+      id: string;
+      context: ViewContext;
+      params?: Record<string, ViewParamValue>;
+    }
+  | { kind: "params"; patch: ViewParamsPatch }
   | { kind: "open-note"; path: string; mode: OpenMode }
   | { kind: "hello" }
   | { kind: "rendered" }
@@ -85,7 +105,7 @@ function rejectViewRequest(type: unknown, reason: string): null {
   return null;
 }
 
-function viewRequest(data: unknown): ViewRequest | null {
+function viewRequest(data: unknown, params: readonly ViewParamDeclaration[]): ViewRequest | null {
   if (typeof data !== "object" || data === null || !("type" in data))
     return rejectViewRequest(undefined, "Expected a message object with a type");
 
@@ -131,7 +151,23 @@ function viewRequest(data: unknown): ViewRequest | null {
     if (!context)
       return reject("Invalid context: expected a concrete view subject with a valid ref for nodes");
 
-    return { kind: "open-view", id: data.id, context };
+    if (!("params" in data) || data.params === undefined)
+      return { kind: "open-view", id: data.id, context };
+
+    if (!isViewParamValues(data.params))
+      return reject("Invalid params: expected string, integer, or boolean values");
+
+    return { kind: "open-view", id: data.id, context, params: data.params };
+  }
+
+  if (data.type === PARAMS_CHANGED_MESSAGE) {
+    const patch = "params" in data ? data.params : undefined;
+    const error = viewParamsPatchError(params, patch);
+
+    // SAFETY: viewParamsPatchError accepted every key and value.
+    return error
+      ? reject(`Invalid params: ${error}`)
+      : { kind: "params", patch: patch as ViewParamsPatch };
   }
 
   if (data.type === STAGE_OPS_MESSAGE) {
@@ -182,6 +218,22 @@ function viewRequest(data: unknown): ViewRequest | null {
 }
 /* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters */
 
+const isNotesPath = (pathname: string) =>
+  pathname === NOTES_ROOT_PATH || pathname.startsWith(`${NOTES_ROOT_PATH}/`);
+
+// A params change from the frame becomes a workspace history entry; the
+// location change then remounts the frame or updates it in place.
+function pushViewParams(params: readonly ViewParamDeclaration[], patch: ViewParamsPatch) {
+  const url = new URL(window.location.href);
+  applyViewParamsPatch(params, url.searchParams, patch);
+  const next = `${url.pathname}${url.search}${url.hash}`;
+
+  if (next === `${window.location.pathname}${window.location.search}${window.location.hash}`)
+    return;
+  window.history.pushState({}, "", next);
+  notifyLocationChange();
+}
+
 /** The longest a loading view stays hidden behind the one it replaces. */
 const SWAP_LIMIT_MS = 1000;
 
@@ -228,31 +280,50 @@ export function CustomViewFrame({
     for (const target of mountedViews()) target.postMessage(message, window.location.origin);
   };
 
-  const href = customViewHref(view.id, context, { hosted: true });
-  const src = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
+  // Declared params live on the workspace URL (SPEC-0110). Another app route
+  // leaves the last workspace query in place, so a kept-alive frame is untouched.
+  const declarations = useMemo(() => view.definition.params ?? [], [view.definition.params]);
+  const browser = useLocationSnapshot();
+  const searchRef = useRef(browser.search);
 
-  // A new address loads hidden behind the frame on screen and replaces it once
+  if (isNotesPath(browser.pathname)) searchRef.current = browser.search;
+  const search = searchRef.current;
+  const params = useMemo(() => readViewParams(declarations, search), [declarations, search]);
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
+  const paramsJSON = JSON.stringify(params);
+
+  const href = customViewHref(view.id, context, { hosted: true });
+  const base = preferenceSlot ? `${href}&${new URLSearchParams({ preferenceSlot })}` : href;
+  // Identity params are part of the invocation, so changing one loads a new
+  // frame; a frame keeps the src it first loaded and gets UI params as messages.
+  const key = `${base}#${viewParamsIdentity(declarations, params)}`;
+  const mounted = useRef({ key: "", src: "" });
+
+  if (mounted.current.key !== key) mounted.current = { key, src: withViewParams(base, params) };
+
+  // A new frame loads hidden behind the frame on screen and replaces it once
   // its view has drawn, so switching views never flashes an empty frame. The
   // newest frame gets the ref; requests come from any mounted frame.
-  const [shown, setShown] = useState({ src, title: view.name });
-  const current = { src, title: view.name };
+  const current = { key, src: mounted.current.src, title: view.name };
+  const [shown, setShown] = useState(current);
   const currentRef = useRef(current);
   currentRef.current = current;
 
   const reveal = (frame: typeof current) => {
-    if (currentRef.current.src === frame.src)
-      setShown((previous) => (previous.src === frame.src ? previous : frame));
+    if (currentRef.current.key === frame.key)
+      setShown((previous) => (previous.key === frame.key ? previous : frame));
   };
 
   const revealRef = useRef(reveal);
   revealRef.current = reveal;
 
   useEffect(() => {
-    if (shown.src === src) return;
-    const limit = window.setTimeout(() => setShown({ src, title: view.name }), SWAP_LIMIT_MS);
+    if (shown.key === key) return;
+    const limit = window.setTimeout(() => setShown(currentRef.current), SWAP_LIMIT_MS);
 
     return () => window.clearTimeout(limit);
-  }, [shown.src, src, view.name]);
+  }, [shown.key, key]);
 
   const sessionRef = useRef({ session, readLifecycle });
   sessionRef.current = { session, readLifecycle };
@@ -277,7 +348,7 @@ export function CustomViewFrame({
       const source = mountedViews().find((view) => view === event.source);
 
       if (!source) return;
-      const request = viewRequest(event.data);
+      const request = viewRequest(event.data, declarations);
 
       if (request?.kind === "rendered" && source === frameRef.current?.contentWindow) {
         const frame = currentRef.current;
@@ -288,7 +359,14 @@ export function CustomViewFrame({
 
       if (request?.kind === "open-node") onOpenNode?.(request.ref, request.options);
 
-      if (request?.kind === "open-view") onOpenView?.(request.id, request.context);
+      // Params are passed only when the view sent them.
+      if (request?.kind === "open-view" && request.params)
+        onOpenView?.(request.id, request.context, request.params);
+      else if (request?.kind === "open-view") onOpenView?.(request.id, request.context);
+
+      // Only the newest frame's params match the declarations.
+      if (request?.kind === "params" && source === frameRef.current?.contentWindow)
+        pushViewParams(declarations, request.patch);
 
       if (request?.kind === "hello")
         reply(source, { type: EDIT_SESSION_MESSAGE, ...sessionRef.current });
@@ -306,6 +384,7 @@ export function CustomViewFrame({
 
     return () => window.removeEventListener("message", onMessage);
   }, [
+    declarations,
     onOpenNote,
     onOpenNode,
     onOpenView,
@@ -324,33 +403,48 @@ export function CustomViewFrame({
     postAll({ type: EDIT_SESSION_MESSAGE, session, readLifecycle });
   }, [session, readLifecycle]);
 
+  // A UI param reaches the newest frame as a message; a new frame reads it
+  // from its src.
+  useEffect(() => {
+    if (declarations.length === 0) return;
+    const message: HostMessage = { type: VIEW_PARAMS_MESSAGE, params: JSON.parse(paramsJSON) };
+    frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+  }, [declarations, paramsJSON]);
+
   return (
     <div ref={framesRef} className="custom-view-frames">
-      {(shown.src === src ? [current] : [shown, current]).map((frame) => {
-        const incoming = frame.src !== shown.src;
+      {(shown.key === key ? [current] : [shown, current]).map((frame) => {
+        const incoming = frame.key !== shown.key;
 
         return (
           <iframe
-            key={frame.src}
-            ref={frame.src === src ? frameRef : undefined}
+            key={frame.key}
+            ref={frame.key === key ? frameRef : undefined}
             className="custom-view-frame"
             data-incoming={incoming || undefined}
             aria-hidden={incoming || undefined}
             title={frame.title}
             src={frame.src}
-            onLoad={
-              incoming
-                ? (event) => {
-                    const loaded = event.currentTarget.contentWindow;
+            onLoad={(event) => {
+              const loaded = event.currentTarget.contentWindow;
 
-                    // A kit view still starting announces its first render;
-                    // any other page has drawn what it will by its load.
-                    if (loaded?.document.documentElement?.dataset.rhizomeView === "starting")
-                      return;
-                    afterPaint(loaded, () => reveal(frame));
-                  }
-                : undefined
-            }
+              // Params that changed while the newest frame loaded.
+              if (declarations.length > 0 && frame.key === currentRef.current.key) {
+                const message: HostMessage = {
+                  type: VIEW_PARAMS_MESSAGE,
+                  params: paramsRef.current,
+                };
+
+                loaded?.postMessage(message, window.location.origin);
+              }
+
+              if (!incoming) return;
+
+              // A kit view still starting announces its first render;
+              // any other page has drawn what it will by its load.
+              if (loaded?.document.documentElement?.dataset.rhizomeView === "starting") return;
+              afterPaint(loaded, () => reveal(frame));
+            }}
           />
         );
       })}

@@ -87,6 +87,9 @@ impl Server {
                     Reply::Package(bytes) => respond(&mut stream, bytes),
                     // A canceled download must not delay the next feed request.
                     Reply::SlowPackage => downloads.push(thread::spawn(move || {
+                        // Without this, Nagle's algorithm can hold a byte for the
+                        // client's delayed ACK and stretch a gap past LIMIT.
+                        stream.set_nodelay(true).unwrap();
                         if stream
                             .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n")
                             .is_err()

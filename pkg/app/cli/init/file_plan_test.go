@@ -370,6 +370,7 @@ func TestStarterValidationSelector(t *testing.T) {
 	require.Equal(t, "all", starterValidationSelector([]string{".rhizome/ontology/core.graphql", ".rhizome/views/a.yaml"}))
 	require.Equal(t, "query-recipes", starterValidationSelector([]string{".rhizome/query-recipes/core.yaml", "AGENTS.md"}))
 	require.Equal(t, "ontology", starterValidationSelector([]string{".rhizome/modules/core/ontology/core.graphql", ".rhizome/modules/compounding/scripts/hook.mjs"}))
+	require.Equal(t, "actions", starterValidationSelector([]string{".rhizome/modules/compounding/actions/prompt.yaml"}))
 	require.Empty(t, starterValidationSelector([]string{"AGENTS.md"}))
 }
 

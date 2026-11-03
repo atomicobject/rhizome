@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OntologyEditOp, OntologyEditSessionResponse, ViewCatalogEntry } from "../api/types";
@@ -11,12 +11,15 @@ import {
   OPEN_NODE_MESSAGE,
   OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
+  PARAMS_CHANGED_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
   VAULT_EVENT_MESSAGE,
+  VIEW_PARAMS_MESSAGE,
   VIEW_RENDERED_MESSAGE,
   type ViewMessage,
 } from "../lib/customViewMessages";
+import { isPlainObject } from "../api/parse";
 import { publishVaultEvent } from "../query/vaultEvents";
 import { CustomViewFrame } from "./CustomViewFrame";
 
@@ -506,5 +509,160 @@ describe("CustomViewFrame", () => {
       [{ folder: "/" }],
     ]);
     expect(onOpenView).toHaveBeenCalledExactlyOnceWith("workspace.overview", { kind: "workspace" });
+  });
+});
+
+describe("CustomViewFrame params", () => {
+  const workspace: ViewCatalogEntry = {
+    ...view,
+    definition: {
+      ...view.definition,
+      params: [
+        { name: "tab", kind: "string", default: "recommendations" },
+        { name: "item", kind: "string", identity: true },
+      ],
+    },
+  };
+
+  function renderAt(url: string) {
+    window.history.replaceState({}, "", url);
+    render(
+      <CustomViewFrame view={workspace} session={null} onOpenNote={vi.fn()} onStageOps={vi.fn()} />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>("Action Board");
+
+    return { frame, posted: vi.spyOn(frame.contentWindow!, "postMessage") };
+  }
+
+  const viewParamsPosts = (posted: { mock: { calls: unknown[][] } }) =>
+    posted.mock.calls.flatMap(([message]) =>
+      isPlainObject(message) && message.type === VIEW_PARAMS_MESSAGE ? [message] : [],
+    );
+
+  function popTo(url: string) {
+    act(() => {
+      window.history.replaceState({}, "", url);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+  }
+
+  it("frames declared params from the workspace URL and ignores undeclared keys", () => {
+    const { frame } = renderAt("/notes?view=poc.action-board&tab=health&other=1");
+
+    expect(frame.getAttribute("src")).toBe("/views/poc.action-board?hosted=1&tab=health");
+  });
+
+  it("pushes a UI param into history without remounting the frame", () => {
+    const { frame, posted } = renderAt("/notes?view=poc.action-board");
+    const before = window.history.length;
+
+    act(() =>
+      post(frame.contentWindow, window.location.origin, {
+        type: PARAMS_CHANGED_MESSAGE,
+        params: { tab: "memory" },
+      }),
+    );
+
+    expect(window.location.search).toBe("?view=poc.action-board&tab=memory");
+    expect(window.history.length).toBe(before + 1);
+    expect(screen.getByTitle("Action Board")).toBe(frame);
+    expect(viewParamsPosts(posted).at(-1)).toEqual({
+      type: VIEW_PARAMS_MESSAGE,
+      params: { tab: "memory" },
+    });
+
+    // A default leaves the URL.
+    act(() =>
+      post(frame.contentWindow, window.location.origin, {
+        type: PARAMS_CHANGED_MESSAGE,
+        params: { tab: null },
+      }),
+    );
+    expect(window.location.search).toBe("?view=poc.action-board");
+  });
+
+  it("remounts the frame when an identity param changes", () => {
+    const { frame } = renderAt("/notes?view=poc.action-board&tab=health");
+
+    act(() =>
+      post(frame.contentWindow, window.location.origin, {
+        type: PARAMS_CHANGED_MESSAGE,
+        params: { item: "finding:a.md" },
+      }),
+    );
+
+    const next = newestFrame();
+    expect(next).not.toBe(frame);
+    expect(next.getAttribute("src")).toBe(
+      "/views/poc.action-board?hosted=1&tab=health&item=finding%3Aa.md",
+    );
+  });
+
+  it("rejects params the view did not declare or of the wrong kind", () => {
+    const { frame } = renderAt("/notes?view=poc.action-board");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    act(() => {
+      post(frame.contentWindow, window.location.origin, {
+        type: PARAMS_CHANGED_MESSAGE,
+        params: { other: "x" },
+      });
+      post(frame.contentWindow, window.location.origin, {
+        type: PARAMS_CHANGED_MESSAGE,
+        params: { tab: 3 },
+      });
+    });
+
+    expect(window.location.search).toBe("?view=poc.action-board");
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it("on Back and Forward, sends changed UI params to the same frame and remounts for identity", () => {
+    const { frame, posted } = renderAt("/notes?view=poc.action-board&tab=memory&item=a");
+
+    popTo("/notes?view=poc.action-board&item=a");
+    expect(screen.getByTitle("Action Board")).toBe(frame);
+    expect(viewParamsPosts(posted).at(-1)).toEqual({
+      type: VIEW_PARAMS_MESSAGE,
+      params: { tab: "recommendations", item: "a" },
+    });
+
+    popTo("/notes?view=poc.action-board&item=b");
+    expect(newestFrame()).not.toBe(frame);
+  });
+
+  it("relays params a view opens another view with", () => {
+    window.history.replaceState({}, "", "/notes");
+    const onOpenView = vi.fn();
+    render(
+      <CustomViewFrame
+        view={workspace}
+        session={null}
+        onOpenNote={vi.fn()}
+        onStageOps={vi.fn()}
+        onOpenView={onOpenView}
+      />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>("Action Board");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const open = { type: OPEN_VIEW_MESSAGE, id: "item", context: { kind: "standalone" } };
+
+    post(frame.contentWindow, window.location.origin, { ...open, params: { item: { x: 1 } } });
+    post(frame.contentWindow, window.location.origin, { ...open, params: { item: "a", n: 2 } });
+
+    expect(onOpenView).toHaveBeenCalledExactlyOnceWith(
+      "item",
+      { kind: "standalone" },
+      { item: "a", n: 2 },
+    );
+    warn.mockRestore();
+  });
+
+  it("keeps the last workspace params while another app route is showing", () => {
+    const { frame } = renderAt("/notes?view=poc.action-board&item=a");
+
+    popTo("/tasks");
+    expect(screen.getByTitle("Action Board")).toBe(frame);
   });
 });

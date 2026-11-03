@@ -1,0 +1,6 @@
+description: Hide an agent finding from this workspace, locally; its note and action item stay as they are
+inputs:
+  path: { kind: string, required: true }
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "hide"]
+timeout: 30s

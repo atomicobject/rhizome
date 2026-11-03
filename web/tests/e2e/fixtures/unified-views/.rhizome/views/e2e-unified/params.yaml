@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.params
+name: Params demo
+source:
+  kind: custom
+  entry: params.tsx
+mount:
+  kind: standalone
+  group: E2E
+params:
+  - { name: tab, kind: string, default: first }
+  - { name: item, kind: string, default: one, identity: true }

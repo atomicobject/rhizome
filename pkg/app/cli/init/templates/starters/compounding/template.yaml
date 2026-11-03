@@ -10,6 +10,7 @@ installedAssetTypes:
   - views
   - scripts
   - tasks
+  - actions
   - skills
   - managed-docs
 hooks:

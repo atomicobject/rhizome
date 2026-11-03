@@ -14,6 +14,7 @@ import { ViewPreferencesStatus } from "../components/ViewPreferencesStatus";
 import type { ViewPreferenceScope } from "../viewPreferences/types";
 import { NativeCollectionView } from "./NativeCollectionView";
 import type { OpenNodeOptions, ViewContext, ViewModuleProps } from "./context";
+import type { ViewParamValue } from "./params";
 
 export type ViewServices = {
   session: OntologyEditSessionResponse | null;
@@ -24,7 +25,7 @@ export type ViewServices = {
   onSelectCollection?: (typeName: string) => void;
   onOpenNote: (path: string, mode?: OpenMode) => void;
   onOpenNode?: (ref: NodeRef, options: OpenNodeOptions) => void;
-  onOpenView?: (id: string, context: ViewContext) => void;
+  onOpenView?: (id: string, context: ViewContext, params?: Record<string, ViewParamValue>) => void;
   onStageOps: (ops: OntologyEditOp[]) => Promise<void>;
   onOpenIssues?: (scope?: ValidationScope) => void;
   onOpenSearch?: (search: { folder: string; query?: string }) => void;

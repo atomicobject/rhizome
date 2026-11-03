@@ -1,7 +1,7 @@
 ---
 summary: "Configured native views: schema-derived rows, shared query execution, deterministic presentation, and explicit saved configuration."
 reference-kind: guide
-last-verified: 2026-11-01
+last-verified: 2026-11-02
 code-paths:
   - pkg/app/views
   - pkg/ontology/viewconfig
@@ -30,6 +30,7 @@ code-anchors:
 - Repository definitions load from `.rhizome/views` and every module's `views/` folder through `assetroots.Roots` ([[rhizome-modules|SPEC-0130]]); each definition records its folder and module in `Source.Root` and `Source.Module`. View ids stay unique across all of them (`duplicate_view_id`). Saving an authored view writes only inside the folder that holds it; saving a generated view and ejecting a bundled one write to `.rhizome/views`.
 - Catalog reads and interactions do not write YAML. Generated defaults remain executable runtime values. Shared saves are explicit, preserve unrelated authored configuration, and reject stale writes or existing destinations. Personal widths and expansion state stay personal until explicitly promoted.
 - Editing capabilities come from the owning schema field. Enum options, cardinality, relation targets, and read-only reasons are projected facts. File mutation goes through the edit-session owner; views do not write note content.
+- A definition's `params` ([[unified-view-contract#^SPEC-0110-US1|SPEC-0110 US1]]) are validated here (`invalid_view_param`, `duplicate_view_param`) and reach the browser unchanged through the catalog definition and the custom-view invocation. Names exclude the query keys the workspace and `/views` routes read; adding a routing key there means adding it to `reservedParamNames`. Values are read and coerced in the browser, never by the server.
 - Fingerprints include the definition, source identity, and normalized execution state. Cache keys include overlays and every input that can change rows or capabilities.
 
 ## Must-dos when changing this subsystem

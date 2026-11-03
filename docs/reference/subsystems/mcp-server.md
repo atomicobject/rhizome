@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, responsiveness/async-init rules, and review checklist for MCP handlers, catalog dispatch, and per-call live capability snapshots."
 reference-kind: guide
-last-verified: 2026-10-17
+last-verified: 2026-11-02
 code-paths:
   - pkg/app/mcp
   - pkg/app/agentapi
@@ -48,6 +48,7 @@ Persistent MCP and code-mode invokers also record request preparation and forwar
 
 - **Compact output stays in shared handlers.** Semantic-query applies narrowing before packing and projects optional compact sources after session dedupe, preserving diagnostics and continuation controls. Ontology query-schema type fragments use the same compiled-schema helper as CLI and code mode; do not add local authoring operations to MCP solely for transport parity.
 
+- **Module actions are not `rzm mcp` tools yet.** `action_list` and `action_run` ([[module-actions|SPEC-0131]]) are local code-mode operations reached through `rzm agent code execute` and `serve`. `rzm mcp` serves only shared handlers that resolve to an agent CLI one-shot operation, so exposing actions there needs a `pkg/app/mcp` handler and a runtime declaration first; the agent-surface note owns their contract.
 - **Code-client contracts remain catalog metadata.** The full agent task surface attaches input/output descriptions and CLI-leaf coverage to `ToolDescriptor`. Shared code-mode operations call the same handlers using request-scoped runtime preparation; local-only operations reuse application functions without becoming MCP tools. One generated client owns a persistent stdio process, but application runtime resources remain request-scoped. This is a code-mode protocol, not another MCP transport. Readiness remains handler/runtime-owned.
 
 - **Note metadata composition stays at the boundary.** Configuration carries the command-scoped note-metadata indexer for handlers needing metadata or ontology freshness; handlers reject a missing indexer before opening a durable store, and no MCP business package selects a provider.
