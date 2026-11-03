@@ -45,7 +45,7 @@ When running inside a task test (`RZM_TASK_TEST=1`), preserve the supplied `RZM_
 
 Markdown and workflow learnings are eligible when repository evidence can confirm them. Check current guides, schemas, templates, and skills before proposing a change. Existing guidance resolves a duplicate claim; a separate failure to find or follow it needs evidence of a current entrypoint, tool, or enforcement gap. Preserve source origin and confidence, including likely human attribution and unknown delegated briefs.
 
-Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-family clusters (default 40), including the existing backlog; `--verify-held N` adds capacity for earlier candidates. Jev ranks work but never excludes a candidate from evidence verification. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
+Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-family clusters (default 40), including the existing backlog; `--verify-held N` adds N slots to the same eligible queue. Jev ranks work but never excludes a candidate from evidence verification. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
 
 ## Review
 

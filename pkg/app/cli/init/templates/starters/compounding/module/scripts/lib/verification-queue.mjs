@@ -31,7 +31,8 @@ export function verificationStatus(root, store, run = null, { reason } = {}) {
     reasons[why] = (reasons[why] ?? 0) + 1;
   }
   const harness = run?.bindings?.verify?.provider ?? run?.bindings?.extract?.provider;
-  const command = `node .rhizome/modules/compounding/scripts/mine.mjs${harness ? ` --harness ${harness}` : " --harness <claude|codex>"} --budget ${run?.budget ?? "<USD>"} --state ${quote(store.dir)}`;
+  const budget = reason === "budget" ? "<USD>" : run?.budget ?? "<USD>";
+  const command = `node .rhizome/modules/compounding/scripts/mine.mjs${harness ? ` --harness ${harness}` : " --harness <claude|codex>"} --budget ${budget} --state ${quote(store.dir)}`;
   return {
     examined: attempted.length,
     proposed: verified.filter((c) => c.verification.decision === "propose").length,
@@ -40,6 +41,6 @@ export function verificationStatus(root, store, run = null, { reason } = {}) {
     complete: !queue.length && !reason,
     deferred: { count: queue.length, reasons },
     contractProblems: attempted.filter((c) => c.verifyProblems?.run === run.id).length,
-    next: queue.length || reason ? { command, reason: reasons.contract ? "Repair the verification response or refresh its evidence, then rerun with an approved budget; cached invalid responses stay pending." : reason ? `Resolve the ${reason} stop and rerun with an approved budget to continue mining.` : "Rerun with an approved budget to verify the remaining candidates." } : null,
+    next: queue.length || reason ? { command, reason: reasons.contract ? "Repair the verification response or refresh its evidence, then rerun with an approved budget; cached invalid responses stay pending." : reason === "budget" ? "Resume with a larger approved cumulative --budget than the stopped run, or abandon it through the compounding skill." : reason ? `Resolve the ${reason} stop and rerun with an approved budget to continue mining.` : "Rerun with an approved budget to verify the remaining candidates." } : null,
   };
 }

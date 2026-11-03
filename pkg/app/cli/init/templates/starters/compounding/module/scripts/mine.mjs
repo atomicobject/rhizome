@@ -225,7 +225,7 @@ async function mineLocked(opts, clients, store, dry) {
       if (!(err instanceof Stop)) throw err;
       return { status: "stopped", reason: err.reason, message: err.message };
     }
-    if (bound.unbound) return { status: "estimate", estimate: null, episodes: episodes.length, discovery: found.report, next: bound.unbound };
+    if (bound.unbound) return { status: "estimate", estimate: null, episodes: episodes.length, discovery: found.report, verification: verificationStatus(opts.root, store), next: bound.unbound };
     run = {
       id,
       status: "open",

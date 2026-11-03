@@ -85,6 +85,8 @@ test("spend-deferred evidence checks report pending work and resume the same fro
   assert.equal(stopped.reason, "budget");
   assert.equal(stopped.report.verification.pending, 2);
   assert.deepEqual(stopped.report.verification.deferred.reasons, { budget: 2 });
+  assert.match(stopped.report.verification.next.command, /--budget <USD>/);
+  assert.match(stopped.report.verification.next.reason, /larger approved cumulative/);
   const resumed = await f.run(fakeClients());
   assert.equal(resumed.run, stopped.run);
   assert.equal(resumed.status, "done");

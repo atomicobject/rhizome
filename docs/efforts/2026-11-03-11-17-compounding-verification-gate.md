@@ -4,7 +4,7 @@ id: EFF-2026-11-03-11-17
 aliases: [EFF-2026-11-03-11-17]
 name: Evidence verification for every unsettled compounding candidate
 created-at: 2026-11-03T16:16:14Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: "Remove Jev's verification veto, resume deferred candidates, and prove real dispositions and workspace status against an isolated vault."
 governing-specs: ["[[session-memory-starter]]"]
@@ -38,7 +38,7 @@ Drew's November 3 task authorizes implementation and ordinary design choices: "I
 - [x] Count/spend resume, no duplicates, legacy C eligibility and settled-decision suppression are covered.
 - [x] All 24 held cases plus postcard control receive real Terra dispositions against frozen disposable source.
 - [x] Installed workspace shows real deferral and completion in its actual isolated store.
-- [ ] Required checks, independent review corrections and focused PR recorded.
+- [x] Required local checks and independent review corrections recorded; carrying PR adds final-head review and CI evidence.
 
 ## Plan
 
@@ -55,7 +55,7 @@ One focused PR that lets the existing evidence-reading verifier inspect unsettle
 
 ## Actual Delivered
 
-Core queue and Health reporting implemented. All 25 saved cases reached Terra verification and were rejected with zero proposals or contract failures for $0.5517428. Browser proof demonstrated count deferral followed by completion using the installed disposable module. Full detail and limitations: [[compounding-verification-gate]]. Final gates and delivery are in progress.
+Core queue and Health reporting implemented. All 25 saved cases reached Terra verification and were rejected with zero proposals or contract failures for $0.5517428. Browser proof demonstrated count deferral followed by completion using the installed disposable module. Full detail and limitations: [[compounding-verification-gate]]. Local gates, independent corrections and the private evidence archive are complete. The carrying PR records final-head Greptile and CI state.
 
 ## Execution Notes
 
@@ -66,6 +66,10 @@ Core queue and Health reporting implemented. All 25 saved cases reached Terra ve
 - Real runs `20261103T160821-70f81c` and `20261103T161156-2d2642` spent $0.032633 and $0.5191098. An unchanged third invocation returned `nothing-new` without a new run or model calls. All 24 former holds and the postcard control were checked; no manually staged UI examples were created.
 - The assigned checkout's metadata refresh repeatedly failed with `note projection is not current`. Effort DATETIME allocation succeeded in a metadata-only disposable fixture containing this checkout's ontology and existing effort claims. This does not claim the failed checkout retrieval succeeded. Temporary local index/embedding config changes were restored byte-for-byte.
 
+- Final `make check` passed (including 1,774 web tests); `make web-e2e` passed 110 browser tests. Default validation passed with zero issues after supplying the required Compounding Follow-ups section. Frozen-scope validation flagged only unrelated pre-existing EFF-2026-10-03-18-33 / SPEC-0111 drift; this effort was not flagged. All 2,309 live state files remained byte-identical.
+- Greptile reviewed `2c8b6a84` at 4/5 and found the unbound dry-run path omitted pending counts when both harnesses were signed in. The actual-mine task test reproduced it red, then passed green with verification status included before harness selection. The budget-stop command also now requests a larger approved cumulative budget instead of repeating the exhausted amount. Final-head review is enforced in the carrying PR.
+- Real browser proof used the installed module's real store. After the review corrections, rebuilt module/native Health checks retained the same actual results; no additional model replay was needed. The full private packet is retained in an ignored worktree archive.
+
 ## Deviations
 
 The task was already a detailed approved execution brief; no extra approval round was introduced. The replay reuses frozen extraction/grouping outputs, so it directly tests admission and verification rather than repeating full-month extraction. Source and outside-service uncertainties remain explicit in the analysis.
@@ -73,8 +77,8 @@ The task was already a detailed approved execution brief; no extra approval roun
 ## Closure Checklist
 
 - [x] Authorized behavior, private replay and installed workspace proof delivered.
-- [ ] Final gates and review results recorded.
-- [ ] Carrying PR and closure recorded before handoff.
+- [x] Local gates and independent/Greptile correction evidence recorded; final-head Greptile and green CI remain enforced before any future merge.
+- [x] Implementation closure recorded on this branch before PR publication; carrying PR number is added immediately after creation.
 
 ## Compounding Follow-ups
 
@@ -82,6 +86,4 @@ Invalid cached verifier responses remain visibly pending and need evidence/respo
 
 ## Status
 
-Implementation and bounded replay are complete. Final verification, review and PR publication are in progress. No merge or desktop installation is authorized.
-
-- Verification update: final `make check` passed (including 1,774 web tests); `make web-e2e` passed 110 browser tests; final build and disposable `init --check` passed. Default validation identified only this effort's missing Compounding Follow-ups section, now supplied. All 2,309 live compounding-state files remain byte-identical.
+Implementation, offline verification, bounded real replay and installed workspace proof are complete. The carrying PR owns final-head review and CI evidence; no merge or desktop installation is authorized.
