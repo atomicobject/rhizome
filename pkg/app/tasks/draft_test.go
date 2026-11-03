@@ -314,7 +314,8 @@ func TestLocalTaskTestsUseTheSelectedWorktree(t *testing.T) {
 func TestCheckAndAgentFindTheRuntimesRzmFirst(t *testing.T) {
 	shellAvailable(t)
 	dir := newRepo(t, nil)
-	writeFile(t, filepath.Join(dir, TasksDir, "local.yml"), "name: Local\nevery: 1d\ncheck:\n  command: [sh, -c, rzm]\nprompt: work\n")
+	writeFile(t, filepath.Join(dir, TasksDir, "shell.yml"), "name: Shell\nevery: 1d\ncheck:\n  command: [sh, -c, rzm]\nprompt: work\n")
+	writeFile(t, filepath.Join(dir, TasksDir, "direct.yml"), "name: Direct\nevery: 1d\ncheck:\n  command: [rzm]\nprompt: work\n")
 	bin := t.TempDir()
 	writeFile(t, filepath.Join(bin, "rzm"), "#!/bin/sh\nprintf '{\"needed\":true}'\n")
 	require.NoError(t, os.Chmod(filepath.Join(bin, "rzm"), 0o755))
@@ -329,8 +330,11 @@ func TestCheckAndAgentFindTheRuntimesRzmFirst(t *testing.T) {
 	}}
 	svc := newService(t, dir, agent, "auto")
 	svc.opts.Rzm = filepath.Join(bin, "rzm")
-	out, err := svc.RunDraft(context.Background(), filepath.Join(dir, TasksDir, "local.yml"))
-	require.NoError(t, err)
-	require.Equal(t, OutcomeNoChanges, out.Outcome)
-	require.Equal(t, bin, filepath.SplitList(agentPath)[0])
+	for _, file := range []string{"shell.yml", "direct.yml"} {
+		agentPath = ""
+		out, err := svc.RunDraft(context.Background(), filepath.Join(dir, TasksDir, file))
+		require.NoError(t, err)
+		require.Equal(t, OutcomeNoChanges, out.Outcome, file)
+		require.Equal(t, bin, filepath.SplitList(agentPath)[0], file)
+	}
 }

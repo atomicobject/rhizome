@@ -97,9 +97,12 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 				return CheckResult{}, fmt.Errorf("prepare check checkout: %w", err)
 			}
 		}
-		name, err := procrun.LookLoginPath(def.Check.Command[0])
-		if err != nil {
-			return CheckResult{}, fmt.Errorf("check %w", err)
+		name := s.opts.Rzm
+		if def.Check.Command[0] != "rzm" {
+			var err error
+			if name, err = procrun.LookLoginPath(def.Check.Command[0]); err != nil {
+				return CheckResult{}, fmt.Errorf("check %w", err)
+			}
 		}
 		cmd = exec.Command(name, def.Check.Command[1:]...)
 		cmd.Dir = dir
