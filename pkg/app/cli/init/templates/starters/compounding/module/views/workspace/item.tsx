@@ -24,7 +24,7 @@ function Item({ itemRef }: { itemRef: string }) {
   const [note, setNote] = useState<string>();
   const [removed, setRemoved] = useState(false);
   const x = query.data as (Recommendation & { current?: boolean }) | undefined;
-  // The revision first shown; a poll that brings a redraft is refused at copy time.
+  // The revision first shown; a poll that brings a redraft is refused at copy and remove time.
   const shown = useRef<string>();
   if (!shown.current && x?.revision) shown.current = x.revision;
   const toWorkspace = () =>
@@ -84,7 +84,9 @@ function Item({ itemRef }: { itemRef: string }) {
             <Button size="sm" variant="ghost" onClick={toWorkspace}>
               Open in the workspace
             </Button>
-            {x?.current ? <RemoveControl item={x} onRemoved={() => setRemoved(true)} /> : null}
+            {x?.current ? (
+              <RemoveControl item={x} revision={shown.current} onRemoved={() => setRemoved(true)} />
+            ) : null}
           </div>
           {note ? (
             <pre

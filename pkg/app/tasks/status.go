@@ -10,18 +10,20 @@ import (
 
 // TaskStatus describes one task for `rzm tasks status`.
 type TaskStatus struct {
-	ID         string     `json:"id"`
-	Name       string     `json:"name"`
-	Scope      string     `json:"scope"`
-	Every      string     `json:"every"`
-	Mode       Mode       `json:"mode"`
-	ModeSource string     `json:"modeSource"`
-	LastRun    *RunRecord `json:"lastRun,omitempty"`
-	LastTagged *Tagged    `json:"lastTagged,omitempty"`
-	NextDue    time.Time  `json:"nextDue,omitzero"`
-	Due        bool       `json:"due"`
-	Item       *Item      `json:"item,omitempty"`
-	Tokens     int64      `json:"tokensLast30Days,omitempty"`
+	Scheduled  bool          `json:"scheduled"`
+	Local      *LocalVersion `json:"local,omitempty"`
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	Scope      string        `json:"scope"`
+	Every      string        `json:"every"`
+	Mode       Mode          `json:"mode"`
+	ModeSource string        `json:"modeSource"`
+	LastRun    *RunRecord    `json:"lastRun,omitempty"`
+	LastTagged *Tagged       `json:"lastTagged,omitempty"`
+	NextDue    time.Time     `json:"nextDue,omitzero"`
+	Due        bool          `json:"due"`
+	Item       *Item         `json:"item,omitempty"`
+	Tokens     int64         `json:"tokensLast30Days,omitempty"`
 	// CheckOnly marks a task with no prompt: its items cannot be run,
 	// started, or copied, only handled by hand.
 	CheckOnly bool `json:"checkOnly,omitempty"`
@@ -59,6 +61,9 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	report.Ref, report.Commit = ref, commit
 	if err != nil {
 		report.RefError = err.Error()
+		if err := s.addLocalTasks(ctx, &report, nil); err != nil {
+			return report, err
+		}
 		return report, nil
 	}
 	defs, problems, err := LoadDefinitions(ctx, s.opts.Repo, commit)
@@ -70,7 +75,7 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	now := s.opts.Now()
 	for _, def := range defs {
 		mode, source := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
-		ts := TaskStatus{ID: def.ID, Name: def.Name, Scope: def.Scope, Every: def.Every, Mode: mode, ModeSource: source, LastTagged: tagged[def.ID], CheckOnly: strings.TrimSpace(def.Prompt) == ""}
+		ts := TaskStatus{Scheduled: true, ID: def.ID, Name: def.Name, Scope: def.Scope, Every: def.Every, Mode: mode, ModeSource: source, LastTagged: tagged[def.ID], CheckOnly: strings.TrimSpace(def.Prompt) == ""}
 		if last, ok := st.LastRun(def.ID); ok {
 			ts.LastRun = &last
 		}
@@ -91,6 +96,9 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 			report.MergeWarning = s.cachedMergeWarning(ctx, now)
 			break
 		}
+	}
+	if err := s.addLocalTasks(ctx, &report, defs); err != nil {
+		return report, err
 	}
 	return report, nil
 }

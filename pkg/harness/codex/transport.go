@@ -12,8 +12,8 @@ import (
 
 type stdioTransport = jsonstdio.Transport[rpcMessage]
 
-func startStdio(ctx context.Context, binary string, args []string, cwd string) (transport, error) {
-	return jsonstdio.Start[rpcMessage](ctx, "codex", binary, args, cwd)
+func startStdio(ctx context.Context, binary string, args []string, cwd string, env []string) (transport, error) {
+	return jsonstdio.Start[rpcMessage](ctx, "codex", binary, args, cwd, env)
 }
 
 func newJSONTransport(reader io.Reader, writer io.Writer, closer io.Closer) *stdioTransport {

@@ -20,7 +20,7 @@ export const GROUP_SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        properties: { existing: { type: "string" }, members: { type: "array", items: { type: "string" }, minItems: 1 }, ...LEARNING_FIELDS, checkable: { enum: ["code", "environment", "workflow"] } },
+        properties: { existing: { type: "string" }, members: { type: "array", items: { type: "string" }, minItems: 1 }, ...LEARNING_FIELDS, checkable: { enum: ["repository", "external"] } },
         required: ["members", "kind", "statement", "appliesTo", "commands", "checkable"],
       },
     },
@@ -87,7 +87,7 @@ export async function group(caller, { candidates, clusters, fresh, firstSeen, sa
     for (const c of chunk) {
       if (now.has(c.id)) continue;
       const id = clusterId([c.id], firstSeen, new Set(Object.keys(clusters)));
-      clusters[id] = { id, seq: ++seq, members: [c.id], kind: c.kind, statement: c.statement, why: c.why, appliesTo: c.appliesTo, commands: c.commands, target: c.target, checkable: "code", ungrouped: true, createdAt: at };
+      clusters[id] = { id, seq: ++seq, members: [c.id], kind: c.kind, statement: c.statement, why: c.why, appliesTo: c.appliesTo, commands: c.commands, target: c.target, checkable: null, ungrouped: true, createdAt: at };
     }
     save(clusters);
   }
@@ -105,12 +105,14 @@ export function facts(cl, candidates, episodes) {
 }
 
 // Tier A: two or more families, or a confirmed person's correction. Tier B:
-// one family, a claim the code can confirm. Tier C: held for another family.
+// one family, a claim repository evidence can confirm. Tier C: held for another family.
 // Without Jev, the grouper's own checkable label decides B against C.
+// Saved v1 clusters used "code" for repository evidence. Its "workflow" and
+// "environment" labels did not establish checkability, so they remain held.
 export function tierOf(f, cl, rank) {
   if (f.families.length >= 2 || f.confirmedCorrection) return "A";
   const checkable = rank?.checkable;
-  return (typeof checkable === "number" ? checkable >= CHECKABLE_MIN : cl.checkable === "code") ? "B" : "C";
+  return (typeof checkable === "number" ? checkable >= CHECKABLE_MIN : ["repository", "code"].includes(cl.checkable)) ? "B" : "C";
 }
 
 export const RANK_JEV = Object.fromEntries(Object.entries(RANK_QUESTIONS).map(([k, q]) => [k, { type: "noul", instructions: q }]));

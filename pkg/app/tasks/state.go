@@ -63,23 +63,26 @@ const (
 // the person's clock. A record keeps its own item, branch, and worktree, so
 // an old run never shows a newer attempt's work.
 type RunRecord struct {
-	ID        string    `json:"id,omitempty"`
-	Task      string    `json:"task"`
-	StartedAt time.Time `json:"startedAt,omitzero"`
-	At        time.Time `json:"at"`
-	Outcome   string    `json:"outcome"`
-	Stage     string    `json:"stage,omitempty"`
-	Tokens    int64     `json:"tokens,omitempty"`
-	Message   string    `json:"message,omitempty"`
-	Item      string    `json:"item,omitempty"`
-	Branch    string    `json:"branch,omitempty"`
-	Commit    string    `json:"commit,omitempty"`
-	Worktree  string    `json:"worktree,omitempty"`
-	Changed   []string  `json:"changed,omitempty"`
+	Test           bool      `json:"test,omitempty"`
+	SourceCheckout string    `json:"sourceCheckout,omitempty"`
+	ID             string    `json:"id,omitempty"`
+	Task           string    `json:"task"`
+	StartedAt      time.Time `json:"startedAt,omitzero"`
+	At             time.Time `json:"at"`
+	Outcome        string    `json:"outcome"`
+	Stage          string    `json:"stage,omitempty"`
+	Tokens         int64     `json:"tokens,omitempty"`
+	Message        string    `json:"message,omitempty"`
+	Item           string    `json:"item,omitempty"`
+	Branch         string    `json:"branch,omitempty"`
+	Commit         string    `json:"commit,omitempty"`
+	Worktree       string    `json:"worktree,omitempty"`
+	Changed        []string  `json:"changed,omitempty"`
 }
 
 // State is one person's task state for one repository.
 type State struct {
+	Tests   []RunRecord          `json:"tests,omitempty"`
 	Paused  bool                 `json:"paused,omitempty"`
 	Modes   map[string]Mode      `json:"modes,omitempty"`
 	Seen    map[string]time.Time `json:"seen,omitempty"`
@@ -120,17 +123,21 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // Record appends a run and counts its tokens. It clears Running when that
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
+	r.Stage = ""
+	if s.Running != nil && r.ID != "" && s.Running.ID == r.ID {
+		s.Running = nil
+	}
+	if r.Test {
+		s.Tests = append(s.Tests, r)
+		return
+	}
 	if s.Last == nil {
 		s.Last = map[string]RunRecord{}
 	}
-	r.Stage = ""
 	// Seed before appending, so this run is not counted twice.
 	s.seedTokens()
 	s.Last[r.Task] = r
 	s.History = append(s.History, r)
-	if s.Running != nil && r.ID != "" && s.Running.ID == r.ID {
-		s.Running = nil
-	}
 	if r.Tokens > 0 {
 		s.addTokens(r.Task, r.At, r.Tokens)
 	}

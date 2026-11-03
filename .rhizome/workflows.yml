@@ -1,3 +1,6 @@
 templates:
   - action-items
   - agentic-engineering
+addons:
+  enabled:
+    - compounding

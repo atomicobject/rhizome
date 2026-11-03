@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-11-02
+last-verified: 2026-11-03
 code-paths:
   - pkg/app/web
 tags: [subsystem/web]
@@ -28,6 +28,7 @@ code-anchors:
 - Source edits go through the shared edit-session and source-transaction owners under a real vault lease. Preview, rebase, commit, recovery, and idempotency receipts preserve conflict outcomes and later external edits. Browser backups are recovery input, not write authority.
 - Event streams are invalidation signals. Preserve subscribed refs while tracking canonical relocated identity, advance versions after publication, and refresh affected panes and collection data after commits. Provider selection governs eligible events; filename assumptions do not exclude supported formats.
 - Module actions ([[module-actions|SPEC-0131]]) are `GET /api/v1/actions` and `POST /api/v1/actions/{module}/{name}`, served by `pkg/app/actions` with `Config.Actions` (nil means `actions.New` on the vault, which checks the person's repository trust). A run that starts always answers 200 with its envelope, including `refused` and `error`; only an unknown action (404) or input that does not match the declaration (400) answers otherwise, and neither starts a process. POST passes the global mutation-origin guard like every other write.
+- Task routes retain the selected checkout separately from repository identity. `POST /api/tasks/tests/{task}` accepts a discovered task ID, never a caller-supplied path, applies trust and busy checks, and launches the existing detached CLI with a retained failure record. Local definitions supplement primary-ref scheduled definitions; mode changes require a primary-ref task.
 - Browser diagnostics batches (`POST /api/v1/diagnostics/client`) pass the global host and origin checks, are size-bounded and strictly validated, and become one `web.client` event each. Without a recorder or with persistence disabled they are accepted and discarded.
 - Server-owned handles and subscriptions have one cleanup owner. Cancellation reaches reads and background work. A failed construction releases only resources that construction acquired.
 

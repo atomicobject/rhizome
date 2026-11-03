@@ -1,0 +1,4 @@
+description: Context shards and guard rules that need re-verification, and why
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "shards-check"]
+timeout: 30s

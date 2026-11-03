@@ -1,5 +1,5 @@
 import type { StatusTone } from "../StatusMark";
-import type { TaskItemState } from "../../api/tasks";
+import type { TaskItemState, TaskLocalState } from "../../api/tasks";
 
 const dateTime = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -117,3 +117,17 @@ export function itemStatePresentation(state: TaskItemState): StatusPresentation 
 }
 
 export const MODE_LABELS = { auto: "Auto", notify: "Notify", off: "Off" } as const;
+
+const LOCAL_STATES = {
+  new: ["Local only", "info"],
+  differs: ["Local changes", "warning"],
+  same: ["Unchanged locally", "neutral"],
+  invalid: ["Invalid locally", "risk"],
+} satisfies Record<TaskLocalState, [string, StatusTone]>;
+
+/** The selected checkout's version of a task, against the primary ref's. */
+export function localStatePresentation(state: TaskLocalState): StatusPresentation {
+  const [label, tone]: [string, StatusTone] = LOCAL_STATES[state] ?? [state, "neutral"];
+
+  return { label, tone };
+}

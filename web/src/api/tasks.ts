@@ -58,9 +58,24 @@ export type TaskRunRecord = {
   commit?: string;
   worktree?: string;
   changed?: string[];
+  /** A Test once of a local definition, kept apart from scheduled history. */
+  test?: boolean;
+  /** For a test: the checkout whose files were captured into `commit`. */
+  sourceCheckout?: string;
 };
 
 export type TaskTagged = { At: string; Author: string; Commit: string };
+
+/** How the selected checkout's definition compares with the primary ref's. */
+export type TaskLocalState = "new" | "differs" | "same" | "invalid";
+
+export type TaskLocalVersion = {
+  state: TaskLocalState;
+  /** Repository-relative. */
+  path: string;
+  /** Why an invalid definition did not load. */
+  error?: string;
+};
 
 export type TaskStatus = {
   id: string;
@@ -77,6 +92,13 @@ export type TaskStatus = {
   tokensLast30Days?: number;
   /** The task has no prompt, so its items cannot be run, started, or copied. */
   checkOnly?: boolean;
+  /**
+   * Declared on the primary ref. A local-only task takes its fields from the
+   * local definition and has no mode, clock, or items.
+   */
+  scheduled: boolean;
+  /** The selected checkout's definition; absent when the checkout has none. */
+  local?: TaskLocalVersion;
 };
 
 export type TaskProblem = { path: string; message: string };
@@ -156,6 +178,14 @@ export function getTaskRun(runID: string, after = 0, options: RequestOptions = {
 /** Starts the item's work in a separate process; a failed precheck is a 409. */
 export function runTaskItem(itemID: string) {
   return post<{ launchedAt: string }>(`/api/tasks/items/${enc(itemID)}/run`);
+}
+
+/**
+ * Tests the selected checkout's definition once; a failed precheck is a 409.
+ * `sourceCheckout` is the canonical checkout the test captures.
+ */
+export function testTask(task: string) {
+  return post<{ launchedAt: string; sourceCheckout: string }>(`/api/tasks/tests/${enc(task)}`);
 }
 
 /** The open item's prompt to paste into any agent session, without Start's branch step. */

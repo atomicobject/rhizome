@@ -7,6 +7,7 @@ import {
   runTaskItem,
   setTaskMode,
   setTasksPaused,
+  testTask,
   type TaskItem,
   type TaskModeChoice,
   type TaskRunView,
@@ -15,7 +16,13 @@ import {
 } from "../../api/tasks";
 import { useLocationSnapshot } from "../locationStore";
 import { WorkbenchSidebar } from "../WorkbenchSidebar";
-import { TaskHeader, TaskHistory, TaskItemStrip, type ItemCommand } from "./TaskDetail";
+import {
+  TaskHeader,
+  TaskHistory,
+  TaskItemStrip,
+  TaskLocalStrip,
+  type ItemCommand,
+} from "./TaskDetail";
 import { formatDue, itemStatePresentation } from "./taskFormat";
 import { TaskRunView as RunView } from "./TaskRunView";
 import { PauseButton, TasksNotices, TasksOverview } from "./TasksOverview";
@@ -118,7 +125,9 @@ function TasksRail({
             >
               <span className="tasks-rail__name">{task.name || task.id}</span>
               <RailMark item={task.item} />
-              <span className="tasks-rail__aside">{formatDue(task.nextDue, task.due)}</span>
+              <span className="tasks-rail__aside">
+                {task.scheduled ? formatDue(task.nextDue, task.due) : "Local"}
+              </span>
             </button>
           </li>
         ))}
@@ -140,8 +149,8 @@ export function TasksWorkspace({
   const reportQuery = useTasksReport();
   const live = useTasksLiveState();
   const runsQuery = useTaskRuns(location.task);
-  const [pending, setPending] = useState<"" | "item" | "mode" | "pause">("");
-  // Which action failed: an item ID, "mode", or "pause".
+  const [pending, setPending] = useState<"" | "item" | "mode" | "pause" | "test">("");
+  // Which action failed: an item ID, "mode", "pause", or "test:<task>".
   const [actionError, setActionError] = useState<{ scope: string; text: string } | null>(null);
 
   const report = reportQuery.data;
@@ -189,10 +198,26 @@ export function TasksWorkspace({
     void perform("item", item.id, async () => {
       if (command.kind === "run") {
         const { launchedAt } = await runTaskItem(item.id);
-        live.awaitLaunch(item.task, item.id, launchedAt);
+        live.awaitLaunch({ task: item.task, item: item.id, launchedAt });
       } else {
         await actOnTaskItem(item.id, command.kind, command.until);
       }
+    });
+
+  const runTest = (id: string) =>
+    void perform("test", `test:${id}`, async () => {
+      const { launchedAt, sourceCheckout } = await testTask(id);
+      live.awaitLaunch({
+        task: id,
+        test: true,
+        sourceCheckout,
+        launchedAt,
+        // Open the test once it starts, unless the person has moved on.
+        onStarted: (run) => {
+          if (parseTasksLocation(window.location.pathname).task === id)
+            navigateTasks({ task: id, run });
+        },
+      });
     });
 
   const pageError =
@@ -254,7 +279,9 @@ export function TasksWorkspace({
             (item.kind === "task" &&
               item.state !== "done" &&
               item.state !== "dismissed" &&
-              !report.tasks.some((registered) => registered.id === item.task)),
+              !report.tasks.some(
+                (registered) => registered.id === item.task && registered.scheduled,
+              )),
         )}
         onDismiss={(item) => runCommand(item, { kind: "done" })}
         onDiscard={(item) => runCommand(item, { kind: "discard" })}
@@ -265,7 +292,9 @@ export function TasksWorkspace({
     body = (
       <div className="task-empty task-empty--page">
         <h3>No task named “{location.task}”</h3>
-        <p>It is not registered on the primary ref. It may have been renamed or removed.</p>
+        <p>
+          It is not on the primary ref or in this checkout. It may have been renamed or removed.
+        </p>
         <button type="button" className="task-button" onClick={() => navigateTasks({})}>
           All tasks
         </button>
@@ -273,7 +302,13 @@ export function TasksWorkspace({
     );
   } else {
     const runs = withRunning(runsQuery.data ?? [], task.id, state);
-    const fallbackRun = runs.find((run) => run.outcome !== "not-needed") ?? runs[0];
+    // A scheduled task opens on its latest scheduled run; tests stay a click away.
+    const scheduledRuns = task.scheduled ? runs.filter((run) => !run.test) : runs;
+
+    const latest = (list: TaskRunView[]) =>
+      list.find((run) => run.outcome !== "not-needed") ?? list[0];
+
+    const fallbackRun = latest(scheduledRuns) ?? latest(runs);
     const selectedID = location.run ?? fallbackRun?.id;
     const selectedRun = runs.find((run) => run.id === selectedID);
 
@@ -284,6 +319,7 @@ export function TasksWorkspace({
       currentItem(task, state);
 
     const running = state?.running?.id === selectedID ? state?.running : undefined;
+    const runActive = Boolean(state?.running) && !state?.stale;
 
     body = (
       <>
@@ -300,7 +336,14 @@ export function TasksWorkspace({
           pausePending={pending === "pause"}
           onResume={resume}
         />
-        {item ? (
+        <TaskLocalStrip
+          task={task}
+          blocked={runActive ? "A task run is in progress; test when it finishes" : undefined}
+          launching={pending === "test" || Boolean(live.watch?.test && live.watch.task === task.id)}
+          actionError={actionError?.scope === `test:${task.id}` ? actionError.text : undefined}
+          onTest={() => runTest(task.id)}
+        />
+        {item && task.scheduled ? (
           <TaskItemStrip
             key={item.id}
             item={item}

@@ -49,7 +49,7 @@ func (d *Driver) Generate(ctx context.Context, request harness.GenerateRequest) 
 	if err != nil {
 		return harness.GenerateResult{}, unsupported("%v", err)
 	}
-	connection, err := d.start(ctx, path, generateArgs(catalog), dir)
+	connection, err := d.start(ctx, path, generateArgs(catalog), dir, nil)
 	if err != nil {
 		if isNotFound(err) {
 			return harness.GenerateResult{}, harness.Phase(harness.ErrNotInstalled, err)

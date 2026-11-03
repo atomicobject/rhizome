@@ -25,6 +25,8 @@ type TasksAPI interface {
 	Runs(task string) ([]tasks.RunView, error)
 	RunDetail(id string, after int64) (tasks.RunDetail, error)
 	PrecheckRun(ctx context.Context, itemID string) error
+	PrecheckTest(ctx context.Context, taskID string) (tasks.TestSource, error)
+	RecordTestLaunchError(ctx context.Context, taskID, reason string) error
 	Snooze(ctx context.Context, itemID string, until time.Time) error
 	Skip(ctx context.Context, itemID string) error
 	Discard(ctx context.Context, itemID string) error
@@ -48,6 +50,14 @@ func launchTaskRun(vaultPath, itemID string) error {
 		return err
 	}
 	return appruntime.StartDetached(exe, vaultPath, "tasks", "run", itemID)
+}
+
+func launchTaskTest(vaultPath, file string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	return appruntime.StartDetached(exe, vaultPath, "tasks", "run", "--file", file)
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
@@ -132,6 +142,34 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serve = s.taskItemAction(w, r, itemID, action)
+	case len(parts) == 2 && parts[0] == "tests" && post:
+		task := parts[1]
+		if !tasks.ValidID(task) {
+			writeError(w, http.StatusBadRequest, errors.New("invalid task id"))
+			return
+		}
+		serve = func(api TasksAPI) {
+			source, err := api.PrecheckTest(r.Context(), task)
+			if err != nil {
+				code := http.StatusBadRequest
+				if errors.Is(err, tasks.ErrBusy) {
+					code = http.StatusConflict
+				}
+				writeError(w, code, err)
+				return
+			}
+			launchedAt := time.Now().UTC()
+			launch := s.tasksTestLaunch
+			if launch == nil {
+				launch = launchTaskTest
+			}
+			if err := launch(s.cfg.VaultPath, source.File); err != nil {
+				_ = api.RecordTestLaunchError(r.Context(), task, err.Error())
+				writeError(w, http.StatusInternalServerError, fmt.Errorf("start task test: %w", err))
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339Nano), "sourceCheckout": source.Checkout})
+		}
 	case len(parts) == 2 && parts[0] == "modes" && post:
 		task := parts[1]
 		if !tasks.ValidID(task) {

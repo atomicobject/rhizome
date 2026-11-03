@@ -6,7 +6,7 @@ aliases:
   - Scheduled tasks
 summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs work in their own worktree, never push, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
 spec-status: proposed
-last-updated: 2026-11-01
+last-updated: 2026-11-03
 ---
 
 # Scheduled tasks
@@ -37,6 +37,8 @@ Coordination needs no shared service:
 
 Tasks are trusted repository code, reviewed on the primary branch, the same trust that hooks get. Rhizome neither sandboxes them nor polices what they change.
 
+Task authors can see and test a local version before it reaches the primary branch. **Test once** deliberately runs that version from a captured source snapshot, with fresh task data and separate test history. It does not enable a schedule or change the scheduled task's clock.
+
 ## Goals
 
 - Let a repository declare periodic agent tasks once and have them work for teammates using Claude Code, Codex, or both.
@@ -60,7 +62,9 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 ## Key Entities
 
 - **Task:** a YAML declaration with an id, a cadence, a scope (`person` or `team`), an optional check, an optional prompt, and an optional timeout. A task needs a check, a prompt, or both.
-- **Primary ref:** the branch tasks are read from and work starts from. It defaults to the remote's default branch (`origin/HEAD`) and can be overridden in `.rhizome/config.yml`, for example for teams that work on `dev`. Each run resolves it to one commit first and uses that commit throughout.
+- **Primary ref:** the branch scheduled tasks are read from and scheduled work starts from. It defaults to the remote's default branch (`origin/HEAD`) and can be overridden in `.rhizome/config.yml`, for example for teams that work on `dev`. Each scheduled run resolves it to one commit first and uses that commit throughout.
+- **Local version:** a task definition in the selected checkout, including uncommitted changes. Its state is new, differs, same, or invalid relative to the scheduled definition. It is not automatically scheduled.
+- **Test run:** an explicit run of the local version from an immutable source snapshot. Its record names the source checkout and snapshot, and its data and history are separate from scheduled runs.
 - **Mode:** auto, notify, or off. The repository's default applies unless the person overrides it for a task.
 - **Task state:** ignored local state for one person and repository: mode overrides, run records, usage, inbox items, and each task's private data folder.
 - **Inbox item:** a task that needs the person. Its state is due, running, ready, started, needs attention, done, or dismissed (US6).
@@ -81,7 +85,8 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
   - **Custom tasks** are written by the repository's own team and left alone by `rzm init`.
 - `rzm init` adds `tasks/` to the managed `.rhizome/.gitignore` allowlist.
 - A declaration names its check, as an argument list or a code-mode script run with `rzm agent code execute`; its prompt, as text; and its cadence, scope, and timeout. The timeout defaults to one hour.
-- Rhizome reads task files from the resolved primary ref through Git objects, without a checkout. Editing a task file on a branch never changes what runs. `rzm tasks run <id> --file <path>` runs a draft once by hand.
+- Rhizome reads scheduled task files from the resolved primary ref through Git objects, without a checkout. Editing a task file on a branch never changes automatic execution. `rzm tasks run --file <path>` and **Test once** run a local version deliberately.
+- The Tasks page includes local definitions from its selected checkout. A new local task appears before it is committed or merged. A changed or invalid local version does not replace the valid scheduled definition, and a task absent locally remains visible if scheduled. Local-only tasks have no mode, skip, or snooze controls; the mode API rejects an ID absent from the primary ref.
 - An invalid task file is reported by `rzm tasks status` and by validation, and does not prevent other tasks from running.
 
 ### US2 - Choose whether tasks run automatically or notify
@@ -127,6 +132,11 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 - Rhizome records the token usage the harness reports for each run.
 - Rhizome runs every check and every prompt run in its own process group. When the task's timeout passes, it terminates the whole group, including harness processes, before releasing the lock.
 - A failed run or a timeout creates a needs-attention item that gives the reason, and the task waits for its next cadence rather than retrying on every tick. The person can retry it from the item.
+- A local test captures HEAD and effective working-tree contents through a private Git index before parsing its definition. Unstaged contents win, while tracked dependencies, deletions, executable modes, symlinks, and gitlinks keep their Git meaning. Untracked ignored files are excluded. The author's checkout and index are unchanged. The capture becomes an unsigned snapshot commit and a detached test worktree; it is the baseline for changed-file reporting.
+- Runner-owned Git index and checkout operations disable repository hooks for that invocation, without changing the repository's hook configuration.
+- A test's command check and agent work run from that snapshot. A code-mode check uses script bytes from the snapshot against the selected checkout's existing indexed vault. If the selected checkout has no index, the test fails with a clear setup message rather than starting an index or embedding work. Contextual queries therefore read the selected live index, not a historical snapshot of that index. Code-mode test children disable runtime autostart so an existing offline index cannot trigger indexing catch-up.
+- A test receives fresh `RZM_TASK_DATA_DIR` data for each attempt and `RZM_TASK_TEST=1` in its checks and agent subprocesses. It creates no ordinary task inbox item, branch, commit, or task tag. Its outcome, errors, changed files, and transcript remain available as test history. The same repository execution lock serializes tests and scheduled work; a test may delay a tick, but never advances a scheduled clock or suppresses future work.
+- A draft file must belong to the same canonical Git repository as the selected checkout. The HTTP test operation accepts a discovered task ID, never an arbitrary filesystem path, and performs the same trust and busy checks as the CLI.
 
 ### US5 - Start a task in the person's harness, in its own worktree
 
@@ -194,7 +204,8 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 - The transcript holds whole thinking blocks and messages, each command and tool call with its outcome, file changes, errors, the agent's final message, and token usage, for both Claude Code and Codex. Text and inputs are bounded and marked when cut; the final message and usage are always kept.
 - A retry notice from the harness does not fail a run, and a turn the harness reports as failed does, even without a separate error.
 - Per task, the 20 newest transcripts and 20 newest check logs are kept, along with at most 100 other run records. Token totals for the last 30 days stay correct after older records are trimmed.
-- Draft runs (`rzm tasks run --file`) do not advance a task's clock and are not listed. Their folders are deleted after 7 days.
+- Test runs (`rzm tasks run --file` or **Test once**) are stored separately from scheduled history and token totals. They appear chronologically with a Test label, source checkout, and snapshot. Check-only, not-needed, failed, and interrupted tests remain inspectable. Retention has a separate bounded test quota and removes a retained test worktree only through its owned cleanup path.
+- A scheduled task opens on its most recent scheduled run. Its local-version section still offers Test once when the YAML is unchanged, because a helper may have changed. An invalid local definition displays its error and disables testing without hiding scheduled status.
 - The Tasks page lists each registered task with its mode, cadence, last outcome, next due time, and inbox state. A task's history lists its runs newest first, with checks that found nothing needed shown as quiet single lines.
 - A run's view shows its final message as Markdown, changed files, tokens, branch, and worktree path with a copy action. Under that is a chronological timeline. Thinking, commands (with exit code, duration, and output), tool calls, file changes, and the check log are collapsed by default.
 - While a run is in progress, the page shows completed blocks as they arrive. Run on an inbox item starts the work in a separate process and returns at once; a failure before the work starts appears on the item.
@@ -204,7 +215,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 - MUST run a task's prompt in the background only in auto mode, or when the person chose Run. Checks make no model calls.
 - MUST NOT push, open pull requests, or merge on the person's behalf.
-- MUST run a task only from the resolved primary ref's definition, and only in a repository the person trusted.
+- MUST use the resolved primary ref's definition for scheduled execution, and run local versions only through an explicit test in a repository the person trusted.
 - MUST keep task state outside every Git-tracked path, readable only by the person on macOS and Linux.
 - MUST NOT fetch from the network to decide what is due. The primary ref is as fresh as the person's last fetch.
 - MUST resolve each check's interpreter the way the person's login shell does, because a runtime started by the desktop app or launchd lacks the shell's PATH, and version-manager shims such as mise fail without their environment.
@@ -239,6 +250,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 ## Decisions
 
 - **Task sources (2026-10-25):** both starter tasks and custom tasks, as files in `.rhizome/tasks/`. Hooks take a different approach and accept declarations only from the binary's built-in registry. Tasks can be repository files because a task runs only from the reviewed primary ref.
+- **Local tests (2026-11-03):** scheduled execution keeps the primary-ref contract. Authors can deliberately test the selected checkout's task and supporting files before merge. Test records, task data, and output are distinct from scheduled work; tests do not create task-tagged commits. Code-mode checks reuse the selected checkout's existing index to avoid unexpected indexing cost.
 - **Worktrees (2026-10-25):** interactive work uses the person's harness's own worktrees (US5). Background work uses worktrees Rhizome creates, because Rhizome must find them to show the outcome (US4, US6).
 - **Trust (2026-10-25):** tasks are trusted code, like hooks. Rhizome does not sandbox them or detect what they change outside their worktree.
 - **Cost (2026-10-25):** Rhizome does not meter or cap tasks. The question for a person is whether they want a task to happen, answered by its mode. An expensive task is fixed by its author or turned off.

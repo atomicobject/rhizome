@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { relativize, shellPaths } from "./lib/paths.mjs";
 import { repoRoot, selectShards } from "./lib/shards.mjs";
+import { taskTestState } from "./lib/state.mjs";
 
 export { MAX_CHARS, MAX_SHARDS } from "./lib/shards.mjs";
 
@@ -42,6 +43,7 @@ function searchShards(root, task) {
 }
 
 export function lookup({ root, files = [], command, task, skip = 0, search = searchShards }) {
+  taskTestState();
   const paths = files.map((f) => relativize(f, root, true)).filter(Boolean);
   if (command) {
     const p = shellPaths(command, root, true);

@@ -47,7 +47,7 @@ export function fakeClients({ word = "states", fail = () => false, killAfter = n
         const existing = between(prompt, "existing-clusters");
         const byTopic = new Map();
         for (const c of between(prompt, "candidates")) byTopic.set(topic(c.statement), [...(byTopic.get(topic(c.statement)) ?? []), c]);
-        const clusters = [...byTopic].map(([t, cs]) => ({ existing: existing.find((x) => topic(x.statement) === t)?.id ?? "", members: cs.map((c) => c.id), kind: "fact", statement: cs[0].statement, appliesTo: [], commands: [], checkable: "code" }));
+        const clusters = [...byTopic].map(([t, cs]) => ({ existing: existing.find((x) => topic(x.statement) === t)?.id ?? "", members: cs.map((c) => c.id), kind: "fact", statement: cs[0].statement, appliesTo: [], commands: [], checkable: "repository" }));
         return reply({ clusters });
       }
       if (prompt.startsWith(P.PACKET_PREFIX)) {

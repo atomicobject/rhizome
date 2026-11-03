@@ -23,6 +23,8 @@ written:
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
+  .agents/skills/compounding/SKILL.md: f4d5105bed19d018
+  .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .agents/skills/custom-views/references/kit-api.md: bafce3a53d05696d
@@ -75,6 +77,8 @@ written:
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
+  .claude/skills/compounding/SKILL.md: f4d5105bed19d018
+  .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .claude/skills/custom-views/references/kit-api.md: bafce3a53d05696d
@@ -115,10 +119,59 @@ written:
   .rhizome/modules/agentic-engineering/views/feature-areas.yaml: 79a2c23d9da7b18d
   .rhizome/modules/agentic-engineering/views/specs.yaml: 50b804397b2ee138
   .rhizome/modules/agentic-engineering/views/user-stories.yaml: 249c69287538b817
+  .rhizome/modules/compounding/actions/dismiss.yaml: e576e612da8c8b25
+  .rhizome/modules/compounding/actions/health.yaml: 9a01e7cbfa7d32b0
+  .rhizome/modules/compounding/actions/hide.yaml: 6d4a806584372781
+  .rhizome/modules/compounding/actions/item.yaml: 10e04ed53ebc2c0c
+  .rhizome/modules/compounding/actions/prompt.yaml: 72bfefcfd44fab95
+  .rhizome/modules/compounding/actions/recommendations.yaml: 439317b036fa5de2
+  .rhizome/modules/compounding/actions/shards-check.yaml: fb373e5df12f1b6d
+  .rhizome/modules/compounding/models.json: 221ff855b19ee900
+  .rhizome/modules/compounding/ontology/compounding.graphql: d43cdaa92757f036
+  .rhizome/modules/compounding/recipes/compounding.yaml: 994398ce86bd8209
+  .rhizome/modules/compounding/references/calibration-fixture.json: 4b858dc5aaf769c2
+  .rhizome/modules/compounding/scripts/calibrate.mjs: 234a22ffbf38fe3c
+  .rhizome/modules/compounding/scripts/hook.mjs: efa68e344705ef9a
+  .rhizome/modules/compounding/scripts/lib/approvals.mjs: 16da27f1855db130
+  .rhizome/modules/compounding/scripts/lib/calibration-data.mjs: 50c7ba8e358f3780
+  .rhizome/modules/compounding/scripts/lib/calibration-models.mjs: 040bd397ef1cbe0c
+  .rhizome/modules/compounding/scripts/lib/calibration-score.mjs: 56b8330db4ad1099
+  .rhizome/modules/compounding/scripts/lib/calls.mjs: e43c954d88f347d7
+  .rhizome/modules/compounding/scripts/lib/episodes.mjs: 192fa78eda45082b
+  .rhizome/modules/compounding/scripts/lib/estimate.mjs: 8d558e42ffc15125
+  .rhizome/modules/compounding/scripts/lib/extract.mjs: b7e8d59f161d707b
+  .rhizome/modules/compounding/scripts/lib/findings.mjs: 6e6bc518645f53aa
+  .rhizome/modules/compounding/scripts/lib/models.mjs: 189a5584719e4766
+  .rhizome/modules/compounding/scripts/lib/paths.mjs: 53c2c47fbf39919f
+  .rhizome/modules/compounding/scripts/lib/prompts.mjs: 7c7211509f4afbf8
+  .rhizome/modules/compounding/scripts/lib/redact.mjs: 25824a33e2267332
+  .rhizome/modules/compounding/scripts/lib/reduce.mjs: 1bc75694c3e883a5
+  .rhizome/modules/compounding/scripts/lib/screen.mjs: 8fbe8b03cc74e283
+  .rhizome/modules/compounding/scripts/lib/shards.mjs: 9f2421c70deb8172
+  .rhizome/modules/compounding/scripts/lib/state.mjs: aade14a5df62f2c4
+  .rhizome/modules/compounding/scripts/lib/store.mjs: 8ec498437289cfbc
+  .rhizome/modules/compounding/scripts/lib/transcripts.mjs: d63ee8f3cd1b89e7
+  .rhizome/modules/compounding/scripts/lib/verify.mjs: 0ac53b2adbc79f41
+  .rhizome/modules/compounding/scripts/lookup.mjs: a0e82c9ced433250
+  .rhizome/modules/compounding/scripts/mine.mjs: 423c089019766739
+  .rhizome/modules/compounding/scripts/report.mjs: 8e1e95f77fb45ea2
+  .rhizome/modules/compounding/scripts/sessions.mjs: 4cf33f17d765ff00
+  .rhizome/modules/compounding/scripts/shards.mjs: e1ca24687fe3a6f5
+  .rhizome/modules/compounding/scripts/task-check.mjs: 017e481284cd6a76
+  .rhizome/modules/compounding/scripts/workspace.mjs: 9e9e9d9dd382d1ff
+  .rhizome/modules/compounding/tasks/mine.yml: 025b33525840426c
+  .rhizome/modules/compounding/views/agent-findings.yaml: f9149a8753a64840
+  .rhizome/modules/compounding/views/context-shards.yaml: 83368ad10a4f2745
+  .rhizome/modules/compounding/views/workspace/compounding-item.yaml: 11445f67f5b303ac
+  .rhizome/modules/compounding/views/workspace/item.tsx: 0a57b7ef78e9ad7e
+  .rhizome/modules/compounding/views/workspace/parts.tsx: 7e5b43475eabc38a
+  .rhizome/modules/compounding/views/workspace/workspace.tsx: 5c78fe273c6d8bd6
+  .rhizome/modules/compounding/views/workspace/workspace.yaml: fa91cd2fe3751911
   .rhizome/modules/core/ontology/core.graphql: 157ef7679ea0bec5
   .rhizome/modules/core/recipes/core.yaml: b827188339002edb
   AGENTS.md#action-items: b9dee797a18a3bff
   AGENTS.md#agentic-engineering: 737877a99f942574
+  AGENTS.md#compounding: 3128aee8be9d37c6
   AGENTS.md#core: 7700941d8ff06922
   AGENTS.md#rhizome: 3b48c48059476248
   CLAUDE.md#rhizome: 73f661b1e661ce44
@@ -131,6 +184,7 @@ written:
   docs/feature-areas/README.md: 4db58d08cb351500
   docs/reference/analysis/README.md: f440da110978dca2
   docs/reference/architecture/README.md: 0ab61f8d6baa118c
+  docs/reference/guides/compounding.md: 0f7f2efc69277c70
   docs/reference/guides/core-identity.md: 8a593f277edf2906
   docs/reference/guides/harness-capabilities.md: 08103bcfbaf38b6f
   docs/reference/guides/ontology-driven-transcript-ingestion.md: 52dae4cc2e5e6ff8

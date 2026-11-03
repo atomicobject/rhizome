@@ -17,12 +17,12 @@ type transport interface {
 	Close(context.Context) error
 }
 
-type transportStarter func(context.Context, string, []string, string) (transport, error)
+type transportStarter func(context.Context, string, []string, string, []string) (transport, error)
 
 type stdioTransport = jsonstdio.Transport[message]
 
-func startStdio(ctx context.Context, binary string, args []string, cwd string) (transport, error) {
-	return jsonstdio.Start[message](ctx, "claude", binary, args, cwd)
+func startStdio(ctx context.Context, binary string, args []string, cwd string, env []string) (transport, error) {
+	return jsonstdio.Start[message](ctx, "claude", binary, args, cwd, env)
 }
 
 func newJSONTransport(reader io.Reader, writer io.Writer, closer io.Closer) *stdioTransport {

@@ -21,6 +21,9 @@ Most friction agents hit comes from something the team can change: dead code tha
 
 Findings live in `docs/memory/agent-findings/`. Their action items use the `#action-item` format, so the action-items queries list them.
 
+
+Repository evidence includes Markdown guides, schemas, templates, and skills as well as code. A workflow or writing lesson can reach verification when those sources can confirm it. Verification still rejects redundant, obsolete, generic, one-off, or unsupported claims. Finding an existing rule does not prove its delivery works; a proposed discovery or enforcement fix needs evidence of a current gap. Source attribution remains unchanged.
+
 ## Set up
 
 ```bash
@@ -70,6 +73,8 @@ Its check makes no model calls. It asks `rzm agent evaluate-batch --check-creden
 
 Its prompt runs `mine.mjs --task-mode` with a fixed $10 budget, then the friction report. Task mode treats that budget as approved and does not ask before reading many sessions. A credential stop exits 4 with its reason, and a budget stop exits 3, which the next run resumes. The run's final message names any stop first and ends with a link to the workspace. Proposals stay in local state; review them with the skill as usual. To give a run a larger budget, mine through the skill instead.
 
+**Test once** runs the checkout's task with fresh compounding state for that attempt. Its proposals, cursors, discovery settings, model choices, and caches stay separate from scheduled mining state. Testing can process sessions that normal mining already read, using the task's usual budget. Test output is retained with the test run rather than added to the normal compounding workspace.
+
 ## Review
 
 The skill presents each proposal with its proposed response and reason first, then the statement, evidence, and drafted artifact. You can approve it, redirect it to another response, revise it, dismiss it (shared with the team or kept local), or defer it.
@@ -88,7 +93,7 @@ The **Compounding** view, under Knowledge in the Notes sidebar, is the quicker w
 - **Health** shows the friction report and the last mine run's spend and outcome. Each row opens that item on its own page.
 - **Memory** lists the approved context shards and findings, and the shards that need re-verifying.
 
-**Remove** changes only your own review. It dismisses a proposal locally, with a quick reason, or hides a finding from your workspace. A teammate still sees both, and hiding a finding never checks off its action item; only finishing the work does. To share a dismissal with the team, dismiss it through the skill with `--shared`.
+**Remove** changes only your own review. It dismisses a proposal locally, with a quick reason, or hides a finding from your workspace. A proposal redrafted since you reviewed it must be reviewed again before removal. A teammate still sees both, and hiding a finding never checks off its action item; only finishing the work does. To share a dismissal with the team, dismiss it through the skill with `--shared`.
 
 The workspace also lists findings your teammates approved and committed. Their evidence came from your teammates' sessions and stays on their machines, so those findings show their note but no source excerpts, and their family counts are approximate.
 

@@ -23,7 +23,7 @@ func TestPongGoldenTranscript(t *testing.T) {
 	script := harnesstest.NewScriptedIO(lines[:2]...)
 	var args []string
 	driver := testDriver(script)
-	driver.start = func(_ context.Context, _ string, spawnArgs []string, cwd string) (transport, error) {
+	driver.start = func(_ context.Context, _ string, spawnArgs []string, cwd string, env []string) (transport, error) {
 		args = append([]string(nil), spawnArgs...)
 		require.Equal(t, "/tmp/project", cwd)
 		return newJSONTransport(script, script, script), nil
@@ -55,11 +55,12 @@ func TestOptionsPermissionAndMCPArgs(t *testing.T) {
 	script := harnesstest.NewScriptedIO(initResponse("init-1"))
 	var args []string
 	driver := testDriver(script)
-	driver.start = func(_ context.Context, _ string, spawnArgs []string, _ string) (transport, error) {
+	driver.start = func(_ context.Context, _ string, spawnArgs []string, _ string, env []string) (transport, error) {
 		args = spawnArgs
+		require.Equal(t, []string{"RZM_TASK_TEST=1", "RZM_TASK_DATA_DIR=/tmp/task-data"}, env)
 		return newJSONTransport(script, script, script), nil
 	}
-	session, err := driver.StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project", Instructions: "Be precise.", AllowedTools: []string{"Read", "Bash"}, DisallowedTools: []string{"Write"}, PermissionMode: harness.PermissionFullAccess, Model: "opus", Effort: "xhigh", Resume: "session-old", MCPServers: []harness.MCPServer{{Name: "local", Command: "rzm", Args: []string{"mcp", "serve"}, Env: []string{"MODE=test"}}}})
+	session, err := driver.StartSession(context.Background(), harness.SessionOptions{Env: []string{"RZM_TASK_TEST=1", "RZM_TASK_DATA_DIR=/tmp/task-data"}, Cwd: "/tmp/project", Instructions: "Be precise.", AllowedTools: []string{"Read", "Bash"}, DisallowedTools: []string{"Write"}, PermissionMode: harness.PermissionFullAccess, Model: "opus", Effort: "xhigh", Resume: "session-old", MCPServers: []harness.MCPServer{{Name: "local", Command: "rzm", Args: []string{"mcp", "serve"}, Env: []string{"MODE=test"}}}})
 	require.NoError(t, err)
 	require.NoError(t, session.Stop())
 	require.Equal(t, "bypassPermissions", argValue(t, args, "--permission-mode"))
@@ -299,7 +300,7 @@ func TestInterruptCompletesWhenResultArrives(t *testing.T) {
 }
 
 func testDriver(script *harnesstest.ScriptedIO) *Driver {
-	return &Driver{binary: "claude", runner: &fakeRunner{}, interruptTimeout: time.Second, start: func(context.Context, string, []string, string) (transport, error) {
+	return &Driver{binary: "claude", runner: &fakeRunner{}, interruptTimeout: time.Second, start: func(context.Context, string, []string, string, []string) (transport, error) {
 		return newJSONTransport(script, script, script), nil
 	}}
 }

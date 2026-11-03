@@ -23,8 +23,8 @@ func TestClaudeProcessProtocolFailureRetiresSession(t *testing.T) {
 			trigger := filepath.Join(t.TempDir(), "fail")
 			var process *stdioTransport
 			driver := testDriver(nil)
-			driver.start = func(ctx context.Context, _ string, _ []string, cwd string) (transport, error) {
-				connection, err := startStdio(ctx, binary, []string{"-test.run=^TestClaudeProtocolFailureHelper$", "--", "protocol-failure-helper", mode, trigger}, cwd)
+			driver.start = func(ctx context.Context, _ string, _ []string, cwd string, env []string) (transport, error) {
+				connection, err := startStdio(ctx, binary, []string{"-test.run=^TestClaudeProtocolFailureHelper$", "--", "protocol-failure-helper", mode, trigger}, cwd, env)
 				if err == nil {
 					process = connection.(*stdioTransport)
 				}

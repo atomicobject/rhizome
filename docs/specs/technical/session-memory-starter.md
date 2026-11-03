@@ -37,10 +37,10 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 ## Goals
 
-- Recover learnings that would otherwise be lost: human corrections, hard-won facts about the code, and questions agents keep researching.
+- Recover learnings that would otherwise be lost: human corrections, hard-won facts about code, documents, schemas, and workflows, and questions agents keep researching.
 - Remove friction at its source. Route each finding to the response that ends it, and remember only what an agent cannot learn from the code or its documents.
 - Show where agents lose the most effort, and whether a fix removed the friction it targeted.
-- Propose only learnings that are true of the current code, not already documented, not obvious from reading the code, and supported by independent evidence.
+- Propose only learnings supported by current repository evidence, with a concrete unresolved need and preserved source provenance. Existing documentation resolves a duplicate knowledge claim; independently evidenced failures in its discovery or enforcement still need verification of a current gap.
 - Keep a human in charge. Nothing the pipeline produces enters the repository until a person approves it, and hooks deliver a shard only while its content matches what was approved. A hand edit to a tracked shard is an ordinary repository change, reviewed like any other file, and verify mode flags it.
 - Get approved shards to agents in Claude Code, Codex, and T3 Code before consequential work: through lookup and guidance everywhere, and through hooks where a host supports them.
 - Make repeated runs incremental and crash-safe, and let decisions made by one developer spare teammates the same review.
@@ -72,12 +72,12 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 - The skill finds the developer's sessions for this repository, including subagent transcripts and sessions from current and deleted worktrees. It excludes the session running the skill, and reports sessions read, skipped, and unrecognized, with reasons.
 - Every message records its role, transport, origin (`person`, `agent`, `harness`, or `unknown`), and how confident the origin is (`confirmed`, `likely`, or `unknown`), with the evidence for each. Only `person` messages feed the corrections lens.
 - Sessions are grouped into families: a root session together with its subagents, resumed continuations, spawned workers, and sessions it delegated through tools or started through a CLI (`codex exec`, `claude -p`). Recurrence counts distinct families, never transcript files.
-- Candidates are verified by tier. Tier A (two or more families, or a correction whose origin is `confirmed` person) is always verified. Tier B (one family, a claim the code can confirm) is verified up to a per-run budget, in the order Jev ranks them. Tier C (one family, a claim the code cannot confirm, such as environment, workflow, or behavior) is held until another family supports it.
-- Review shows each proposal's tier, so a reviewer knows when a learning was seen once and confirmed only in the code.
-- Each proposal has a kind (`rule`, `fact`, or `where_to_find`), a statement of at most 400 bytes, the reason it matters, the files it applies to, evidence references, and a verification record naming the code locations checked and the documentation searched.
+- Candidates are verified by tier. Tier A (two or more families, or a correction whose origin is `confirmed` person) is always verified. Tier B (one family, a claim that repository code, configuration, scripts, schemas, or documentation can confirm) is verified up to a per-run budget, in the order Jev ranks them. Tier C (one family, insufficient repository evidence to confirm the claim) is held until another family supports it. Workflow and writing subjects do not determine the tier. Without Jev, the grouper classifies repository versus external evidence; saved legacy `code` labels remain eligible, while legacy `workflow` and `environment` labels alone establish no checkability.
+- Review shows each proposal's tier, so a reviewer knows when a learning was seen once and confirmed only against repository evidence.
+- Each proposal has a kind (`rule`, `fact`, or `where_to_find`), a statement of at most 400 bytes, the reason it matters, the files it applies to, evidence references, and a verification record naming the repository locations checked and the documentation searched.
 - Verification also proposes a response: `remember`, `document`, `fix`, `guard`, or `ask`, with a one-sentence reason. A proposal that only helps agents work around something the team could change is marked as such and gets `fix`, `guard`, or `document` instead of `remember`. A `document` proposal names the document to change and drafts the edit; a `fix` or `guard` proposal names the code or check to change and sketches the change; an `ask` proposal names the decision and, when the evidence shows one, its owner.
-- A proposal whose evidence contradicts the current code or its tools is rejected as false, even when several sessions repeated it.
-- A candidate that is false for the current code, already documented, or obvious from reading the files it applies to is not proposed. When the answer is already documented, the candidate becomes a `where_to_find` proposal whose target is that document.
+- A proposal whose evidence contradicts current code, tools, schemas, or governing documents is rejected as false, even when several sessions repeated it.
+- A candidate that is false now, already documented where the task reaches it, or obvious from reading the files it applies to is not proposed as duplicate guidance. A `where_to_find` proposal requires source evidence of a search and a lasting missing route to the answer. A document, fix, or guard response to missed guidance requires a current gap in its entrypoint, tool, or check; recurrence alone does not establish that gap. Unknown or likely provenance remains unchanged during extraction and verification.
 - Credential-shaped values are redacted before any text is truncated, written to disk, or sent to TypeSafe. No transcript text appears in tracked files.
 - The run reports Jev usage, episodes kept versus read, and candidates proposed, merged, held for more evidence, suppressed by a recorded decision, or rejected, each with a reason.
   verification:: synthetic fixtures for every observed transcript record shape, plus measured runs over this repository (Batches 2–4).
@@ -148,7 +148,8 @@ The rest of this story applies where hooks are installed.
 
 #### Acceptance Criteria
 
-- Private state lives in the main checkout's `.rhizome/compounding/`, found through the parent of `git rev-parse --git-common-dir`, so every worktree and every task run reads the same state. The ignore guard checks that folder.
+- Private state lives in the main checkout's `.rhizome/compounding/`, found through the parent of `git rev-parse --git-common-dir`, so ordinary worktrees and scheduled task runs read the same state. The ignore guard checks that folder.
+- Explicit local task tests (`RZM_TASK_TEST=1`) use `<RZM_TASK_DATA_DIR>/compounding` for mining, reporting, discovery configuration, and hook caches. The data directory must be nonempty and absolute. This test context overrides an explicit state option, bypasses migration, and leaves the ordinary shared store untouched.
 - Every approval writes a local decision event with the learning hash, the proposal payload needed to approve it again, and the checkout, HEAD, and time of publication. Its witness is the file the approval created: the shard, the finding note, or, for a document edit, the shared decision file written beside it.
 - A proposal with an approval shows where that approval stands, checked in order: on the primary branch; present in this checkout; committed at the tip of a local branch; uncommitted in another worktree that still exists; otherwise missing, in which case it returns to pending from its saved payload.
 - Approve and dismiss accept the proposal revision and checkout HEAD a caller displayed and refuse when either changed. A run holding the store lock makes them refuse with "mining in progress".
@@ -282,7 +283,7 @@ The rest of this story applies where hooks are installed.
 
 ### Local data and extraction
 
-- All unreviewed data MUST live under `.rhizome/compounding/`, created with owner-only permissions on macOS and Linux. On Windows, which has no owner-only mode bits, it inherits the checkout's access control, and the skill tells the person before a first run there. A lock MUST guard every write.
+- Unreviewed data MUST live under the resolved `.rhizome/compounding/` store, or the fresh per-attempt compounding store during an explicit local task test, created with owner-only permissions on macOS and Linux. On Windows, which has no owner-only mode bits, it inherits the checkout's access control, and the skill tells the person before a first run there. A lock MUST guard every write.
 - Session discovery MUST match by recorded `cwd` and, for Codex, by `git.repository_url`. It MUST cover the repository root, current worktrees, and configured path patterns for deleted worktrees, and MUST skip Codex guardian-review sessions.
 - Episodes MUST share one representation that carries:
   - family and lineage

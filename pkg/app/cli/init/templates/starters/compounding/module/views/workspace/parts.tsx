@@ -155,11 +155,14 @@ const REASONS = ["Not relevant", "Wrong", "Already fixed"];
 
 // Dismisses a proposal locally with a quick reason, or hides a finding here.
 // Neither touches a tracked file.
+// `revision` is the draft the person reviewed; a proposal redrafted since is refused.
 export function RemoveControl({
   item,
+  revision,
   onRemoved,
 }: {
   item: Recommendation;
+  revision?: string;
   onRemoved?: () => void;
 }) {
   const dismiss = useActionCommand("compounding/dismiss");
@@ -179,7 +182,7 @@ export function RemoveControl({
   };
   const busy = dismiss.isPending || hide.isPending;
   const dismissWith = (reason: string) =>
-    run(() => dismiss.mutateAsync({ cluster: item.cluster, reason }));
+    run(() => dismiss.mutateAsync({ cluster: item.cluster, revision, reason }));
 
   if (item.kind === "finding")
     return (

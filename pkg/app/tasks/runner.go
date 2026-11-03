@@ -18,8 +18,9 @@ const runLock = "run.lock"
 
 // Options configure a Service.
 type Options struct {
-	Repo   Repo
-	Config repoconfig.LocalTasksConfig
+	Checkout string
+	Repo     Repo
+	Config   repoconfig.LocalTasksConfig
 	// Agent runs prompts; nil makes prompt work fail with needs attention.
 	Agent AgentRunner
 	// Rzm is the executable that runs code-mode check scripts.
@@ -46,6 +47,12 @@ func New(opts Options) (*Service, error) {
 	dir, err := opts.Repo.StateDir()
 	if err != nil {
 		return nil, err
+	}
+	if opts.Checkout == "" {
+		opts.Checkout = opts.Repo.MainCheckout
+	}
+	if resolved, err := filepath.EvalSymlinks(opts.Checkout); err == nil {
+		opts.Checkout = resolved
 	}
 	if opts.Now == nil {
 		opts.Now = time.Now
@@ -367,7 +374,7 @@ func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, it
 // item. A failure with no item of its own reuses the task's earlier
 // failure notice when that holds no worktree, so notices do not pile up.
 // The record takes the item's branch and worktree only when this attempt
-// made them. A draft's failure updates its item but is not recorded.
+// made them.
 func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, commit, reason string, tokens int64) Outcome {
 	now := s.opts.Now()
 	_ = s.store.Update(ctx, func(st *State) error {
@@ -387,9 +394,6 @@ func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, c
 		it.set(StateAttention, now)
 		it.Reason, it.Tokens = reason, tokens
 		itemID = it.ID
-		if a.draft {
-			return nil
-		}
 		r := a.record(def.ID, OutcomeFailed, now)
 		r.Message, r.Tokens, r.Item, r.Commit = reason, tokens, it.ID, commit
 		if it.Run == a.id {

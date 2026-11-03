@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -195,72 +194,6 @@ func draftPath(root, abs string) string {
 	return rel
 }
 
-// RunDraft runs a task file from the working tree once, ignoring its
-// cadence and mode, so an author can try it before merging. Its check runs
-// in the checkout holding the file; its prompt runs like any background run.
-// The run gets a folder but no record, so the task's clock does not move.
-func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return Outcome{}, err
-	}
-	abs, err := filepath.Abs(file)
-	if err != nil {
-		return Outcome{}, err
-	}
-	root, err := gitOutput(ctx, filepath.Dir(abs), "rev-parse", "--show-toplevel")
-	if err != nil {
-		return Outcome{}, err
-	}
-	def, err := ParseDefinition(draftPath(root, abs), data)
-	if err != nil {
-		return Outcome{}, fmt.Errorf("%s: %w", file, err)
-	}
-	release, err := s.lockRun(ctx, 0)
-	if errors.Is(err, errLocked) {
-		return Outcome{}, ErrBusy
-	}
-	if err != nil {
-		return Outcome{}, err
-	}
-	defer func() { _ = release() }()
-	if err := s.finalizeInterrupted(ctx); err != nil {
-		return Outcome{}, err
-	}
-	defer s.retain(ctx)
-	if reason := s.untrusted(); reason != "" {
-		return Outcome{}, errors.New(reason)
-	}
-	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
-	if err != nil {
-		return Outcome{}, err
-	}
-	a := s.newAttempt(true)
-	check := CheckResult{Needed: true}
-	if def.Check != nil {
-		log := s.openCheckLog(a)
-		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, root)
-		log.Close()
-		if err != nil {
-			return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}, nil
-		}
-	}
-	if !check.Needed {
-		return Outcome{Task: def.ID, Outcome: OutcomeNotNeeded}, nil
-	}
-	if strings.TrimSpace(def.Prompt) == "" {
-		return Outcome{Task: def.ID, Outcome: "needed", Reason: check.Summary}, nil
-	}
-	var id string
-	if err := s.store.Update(ctx, func(st *State) error {
-		id = st.AddItem(Item{Task: def.ID, Kind: KindTask, State: StateRunning, Summary: check.Summary, Context: check.Context, Commit: commit}, s.opts.Now()).ID
-		return nil
-	}); err != nil {
-		return Outcome{}, err
-	}
-	return s.work(ctx, def, a, id, check, ref, commit), nil
-}
-
 // currentDefinition loads one task's definition at the resolved primary ref.
 func (s *Service) currentDefinition(ctx context.Context, task string) (ref, commit string, def Definition, err error) {
 	ref, commit, err = s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
@@ -351,6 +284,9 @@ func (s *Service) Done(ctx context.Context, itemID string) error {
 // SetMode overrides a task's mode for the person; "default" removes the
 // override.
 func (s *Service) SetMode(ctx context.Context, task, mode string) error {
+	if _, _, _, err := s.currentDefinition(ctx, task); err != nil {
+		return err
+	}
 	var m Mode
 	if mode != "default" {
 		var err error

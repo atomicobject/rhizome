@@ -8,6 +8,7 @@ import {
   getTasksReport,
   getTasksState,
   type TaskRunDetail,
+  type TaskRunRecord,
   type TasksLiveState,
 } from "../../api/tasks";
 import { appendEvents } from "./transcript";
@@ -45,18 +46,42 @@ export function useTasksReport() {
   });
 }
 
-/** A Run the page launched, awaited until it shows up or fails. */
-export type LaunchWatch = { task: string; item: string; launchedAt: string; until: number };
+/**
+ * A Run or Test once the page launched, awaited until it shows up or fails.
+ * A test has no item; its record carries the test marker and the checkout it
+ * captured. The running slot is repository-wide, so a test from another
+ * checkout of the same task must not count as this one.
+ */
+export type LaunchWatch = {
+  task: string;
+  item?: string;
+  test?: boolean;
+  /** For a test: the canonical checkout the launch response named. */
+  sourceCheckout?: string;
+  launchedAt: string;
+  until: number;
+  /** Called with the launched run's ID once it appears. */
+  onStarted?: (runID: string) => void;
+};
+
+function launchedRun(watch: LaunchWatch, state: TasksLiveState): TaskRunRecord | undefined {
+  const since = new Date(watch.launchedAt).getTime();
+
+  const startedSince = (record: TaskRunRecord) =>
+    record.task === watch.task &&
+    Boolean(record.test) === Boolean(watch.test) &&
+    (!watch.test || record.sourceCheckout === watch.sourceCheckout) &&
+    Boolean(record.startedAt) &&
+    new Date(record.startedAt!).getTime() >= since;
+
+  return [...(state.running ? [state.running] : []), ...state.recent].find(startedSince);
+}
 
 function launchResolved(watch: LaunchWatch, state: TasksLiveState): boolean {
   const since = new Date(watch.launchedAt).getTime();
 
-  const startedSince = (task: string, startedAt?: string) =>
-    task === watch.task && Boolean(startedAt) && new Date(startedAt!).getTime() >= since;
-
   return (
-    (state.running ? startedSince(state.running.task, state.running.startedAt) : false) ||
-    state.recent.some((record) => startedSince(record.task, record.startedAt)) ||
+    Boolean(launchedRun(watch, state)) ||
     // An error from an earlier launch is still in the cached state; only one
     // recorded since this launch ends the wait.
     state.items.some(
@@ -86,6 +111,9 @@ export function useTasksLiveState() {
 
     if (state && launchResolved(watch, state)) {
       setWatch(null);
+      const started = launchedRun(watch, state)?.id;
+
+      if (started) watch.onStarted?.(started);
 
       return;
     }
@@ -111,8 +139,8 @@ export function useTasksLiveState() {
     seen.current = signature;
   }, [latestID, queryClient, runningID]);
 
-  const awaitLaunch = useCallback((task: string, item: string, launchedAt: string) => {
-    setWatch({ task, item, launchedAt, until: Date.now() + LAUNCH_WAIT_MS });
+  const awaitLaunch = useCallback((launch: Omit<LaunchWatch, "until">) => {
+    setWatch({ ...launch, until: Date.now() + LAUNCH_WAIT_MS });
   }, []);
 
   return { query, state, watch, awaitLaunch };

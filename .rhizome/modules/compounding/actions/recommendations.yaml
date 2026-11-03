@@ -1,0 +1,4 @@
+description: Pending compounding proposals and open agent findings, grouped by response
+run:
+  command: [node, "{module}/scripts/workspace.mjs", "recommendations"]
+timeout: 30s

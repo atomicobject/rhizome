@@ -43,6 +43,7 @@ export function episodeView(e) {
     id: e.id,
     lens: e.lens,
     origin: e.origin,
+    confidence: e.confidence,
     session: e.session,
     title: e.context?.title || undefined,
     task: e.context?.task || undefined,

@@ -4,7 +4,7 @@ id: SPEC-0101
 aliases: [SPEC-0101, coding-agent-harness]
 summary: "Drive Claude Code and Codex as child-process harnesses over stdio for chat, one-shot generation, and specialized in-code agents, using the user's own subscriptions and a per-user harness setting."
 spec-status: active
-last-updated: 2026-09-12
+last-updated: 2026-11-03
 ---
 
 # Coding-agent harness
@@ -115,7 +115,7 @@ Reference implementation for protocol and lifecycle decisions: T3 Code ([pingdot
 
 #### Acceptance Criteria
 
-- `SessionOptions` carries `Instructions`, `AllowedTools`, `DisallowedTools`, `PermissionMode`, `MCPServers`, `Model`, `Effort`, `Cwd`, and `Resume`; the zero value means the harness's repository-default behavior, which is what chat uses. Permission modes are `approval-required`, `auto-accept-edits`, and `full-access`; there is no `auto` mode because Claude Code's `-p` mode cannot honor it. A driver that cannot enforce an option fails closed: Codex rejects non-empty `AllowedTools`/`DisallowedTools` at `StartSession` rather than approximating them with instructions. `Status.Capabilities` reports `supportsAllowedTools`, `supportsAllowForSession`, and the supported permission modes so callers can choose before starting.
+- `SessionOptions` carries `Instructions`, `AllowedTools`, `DisallowedTools`, `PermissionMode`, `MCPServers`, `Model`, `Effort`, `Cwd`, `Resume`, and `Env`; the zero value means the harness's repository-default behavior, which is what chat uses. Permission modes are `approval-required`, `auto-accept-edits`, and `full-access`; there is no `auto` mode because Claude Code's `-p` mode cannot honor it. A driver that cannot enforce an option fails closed: Codex rejects non-empty `AllowedTools`/`DisallowedTools` at `StartSession` rather than approximating them with instructions. `Status.Capabilities` reports `supportsAllowedTools`, `supportsAllowForSession`, and the supported permission modes so callers can choose before starting.
   verification:: each driver test asserts how every populated field reaches the CLI (Claude flags and initialize options; Codex `-c` overrides, `collaborationMode.settings.developer_instructions`, sandbox and approval policy).
 - `MCPServer` is stdio-only: `Name`, `Command`, `Args`, `Env`. An HTTP variant needs its own contract for headers, authentication, and network policy before it is added.
 - `rzm mcp serve --tools <allowlist>` exposes existing `pkg/app/mcp` handlers over stdio MCP using the vendored `mcp-go` server; handlers are not duplicated or re-described.
@@ -152,7 +152,7 @@ Reference implementation for protocol and lifecycle decisions: T3 Code ([pingdot
 - MUST spawn one child process per harness session, owned by the session, killed on stop with a bounded force-kill delay; a separate short-lived process per status probe and per one-shot generation.
 - MUST keep one reader goroutine per session that owns the transport for the session's lifetime and feeds consumers through an internal unbounded queue, so a slow consumer never blocks protocol reading and startup notifications cannot deadlock `StartSession`. Every server request receives a reply. `SendTurn` is synchronous, rejects a second concurrent turn, and on caller cancellation interrupts the vendor turn and waits a bounded time before force-closing the session.
 - MUST answer or deny every pending approval on `Respond`, protocol cancellation, transport EOF, and `Stop`, exactly once.
-- MUST pass cwd explicitly (spawn cwd and `thread/start.cwd` for Codex; `--add-dir`/cwd for Claude) and inherit the user's environment; isolation, when added, uses `CODEX_HOME` and `CLAUDE_CONFIG_DIR`, never `HOME`.
+- MUST pass cwd explicitly (spawn cwd and `thread/start.cwd` for Codex; `--add-dir`/cwd for Claude) and inherit the user's environment with `SessionOptions.Env` overrides applied only to that child. Overrides MUST NOT change the parent environment or other sessions, probes, or generation; isolation uses `CODEX_HOME` and `CLAUDE_CONFIG_DIR`, never `HOME`.
 - MUST gate on a minimum CLI version per harness and report the installed version in status.
 - MUST drain stderr and keep a bounded tail for diagnostics.
 

@@ -30,15 +30,20 @@ type Locations struct {
 	MainCheckout string `json:"mainCheckout"`
 	Commit       string `json:"commit"`
 	DataDir      string `json:"dataDir"`
+	Test         bool   `json:"test,omitempty"`
 }
 
 func (l Locations) env() []string {
-	return []string{
+	env := []string{
 		"RZM_TASK_ID=" + l.TaskID,
 		"RZM_TASK_MAIN_CHECKOUT=" + l.MainCheckout,
 		"RZM_TASK_COMMIT=" + l.Commit,
 		"RZM_TASK_DATA_DIR=" + l.DataDir,
 	}
+	if l.Test {
+		env = append(env, "RZM_TASK_TEST=1")
+	}
+	return env
 }
 
 // runCheck runs a task's check and parses its result. A command runs in the
@@ -63,6 +68,11 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 		if err != nil {
 			return CheckResult{}, fmt.Errorf("read check script: %w", err)
 		}
+		if loc.Test {
+			if err := requireTestIndex(loc.MainCheckout); err != nil {
+				return CheckResult{}, err
+			}
+		}
 		if cmd, err = procrun.CodeModeCommand(s.opts.Rzm, loc.MainCheckout, def.Limit, loc, code); err != nil {
 			return CheckResult{}, err
 		}
@@ -82,6 +92,9 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 		cmd.Dir = dir
 	}
 	cmd.Env = append(procrun.WithPath(os.Environ(), procrun.LoginPath()), loc.env()...)
+	if loc.Test && def.Check.Script != "" {
+		cmd.Env = append(cmd.Env, "RZM_RUNTIME_AUTOSTART=0")
+	}
 	out, err := runBounded(ctx, cmd, log)
 	if def.Check.Script == "" && err != nil {
 		return CheckResult{}, err

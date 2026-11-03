@@ -123,6 +123,7 @@ type Server struct {
 	htmlViewers         *htmlViewerRegistry
 	viewModules         viewModuleCache
 	viewWatch           viewFolderWatch
+	tasksTestLaunch     func(vaultPath, file string) error
 	tasksLaunch         func(vaultPath, itemID string) error // nil starts `rzm tasks run`
 }
 
