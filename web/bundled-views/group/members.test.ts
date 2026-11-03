@@ -297,6 +297,31 @@ it("keeps linked members placed when unlinked rows would fill the box", () => {
   }
 });
 
+it("grows the box when unlinked rows would rise above it", () => {
+  const crowd = Array.from({ length: 7 }, (_, n) => ({
+    id: `Loose${n}`,
+    radius: 30,
+    label: "A member name",
+  }));
+
+  const layout = layoutMap({
+    ...LAYOUT,
+    width: 380,
+    height: 400,
+    nodes: [...LAYOUT.nodes, ...crowd],
+  });
+
+  expect(layout.height).toBeGreaterThan(400);
+
+  for (const node of crowd) {
+    const point = layout.positions.get(node.id);
+    expect(point?.y ?? -1).toBeGreaterThanOrEqual(node.radius);
+    expect(point?.y ?? Infinity).toBeLessThanOrEqual(layout.height);
+  }
+
+  expect(layoutMap(LAYOUT).height).toBe(LAYOUT.height);
+});
+
 it("draws the row line at the top of the unlinked rows", () => {
   const crowd = Array.from({ length: 10 }, (_, n) => ({
     id: `Loose${n}`,

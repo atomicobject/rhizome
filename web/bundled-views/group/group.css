@@ -1184,11 +1184,10 @@
   }
 }
 
-/* The map. Its canvas has a fixed height and the block's width, and the map lays
-   out at that measured size, so labels draw at their real size. */
+/* The map. Its canvas takes the block's width and the layout's height (400px, or
+   more for many unlinked members), so labels draw at their real size. */
 .gv-map-canvas {
   position: relative;
-  height: 400px;
 }
 
 .gv-map {

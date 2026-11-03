@@ -22,47 +22,37 @@ import type { TypeSummary } from "./aggregate.ts";
 /** Outside neighbors drawn on the ring; the legend counts the rest. */
 export const OUTSIDE_RING = 7;
 
-/** The layout size before the canvas is measured, and where ResizeObserver is missing. */
+/** The layout width before the canvas is measured, and where it cannot be measured. */
 const WIDTH = 760;
 
+/** The map's height; the layout grows it when unlinked rows need the room. */
 const HEIGHT = 400;
 
-/** The canvas's size in CSS pixels, so the map fills its column and labels draw at their real size. */
-function useCanvasSize() {
+/** The canvas's width in CSS pixels, so the map fills its column and labels draw at their real size. */
+function useCanvasWidth() {
   const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: WIDTH, height: HEIGHT });
+  const [width, setWidth] = useState(WIDTH);
 
   useEffect(() => {
     const element = ref.current;
 
     if (!element) return;
+    const measure = (next: number) => next > 0 && setWidth(Math.round(next));
 
     // Without ResizeObserver, measure once so the layout and tooltips match the drawn canvas.
     if (typeof ResizeObserver === "undefined") {
-      const width = Math.round(element.clientWidth);
-      const height = Math.round(element.clientHeight);
-
-      if (width > 0 && height > 0) setSize({ width, height });
+      measure(element.clientWidth);
 
       return;
     }
 
-    const observer = new ResizeObserver(([entry]) => {
-      const width = Math.round(entry.contentRect.width);
-      const height = Math.round(entry.contentRect.height);
-
-      if (width > 0 && height > 0)
-        setSize((last) =>
-          last.width === width && last.height === height ? last : { width, height },
-        );
-    });
-
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width));
     observer.observe(element);
 
     return () => observer.disconnect();
   }, []);
 
-  return { ref, ...size };
+  return { ref, width };
 }
 
 // Categorical hues for named groups, from the shared type palette. The first
@@ -205,7 +195,7 @@ function OutsideTip({ model, neighbor }: { model: ScopeModel; neighbor: OutsideN
 
 export function ScopeMap({ model, links, relations, summaries, expanded, onExpand }: MapProps) {
   const [hot, setHot] = useState<Hot>(null);
-  const { ref: canvas, width, height } = useCanvasSize();
+  const { ref: canvas, width } = useCanvasWidth();
   const group = model.scope.kind === "group" ? model.scope.group : null;
   const ring = links.outside.slice(0, OUTSIDE_RING);
   const unused = useMemo(() => unusedPairs(links, relations), [links, relations]);
@@ -224,7 +214,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
     return layoutMap({
       width,
-      height,
+      height: HEIGHT,
       nodes: model.nodes.map((node) => ({
         id: node.id,
         radius: size(node),
@@ -239,7 +229,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
         label: `${neighbor.label} ${fmt(neighbor.links)} links`,
       })),
     });
-  }, [model, links, group, maxLinks, width, height]);
+  }, [model, links, group, maxLinks, width]);
 
   const at = (id: string): Point => layout.positions.get(id) ?? { x: 0, y: 0 };
 
@@ -307,10 +297,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
   return (
     <div className="gv-map-wrap">
-      <div className="gv-map-canvas" ref={canvas}>
+      <div className="gv-map-canvas" ref={canvas} style={{ height: `${layout.height}px` }}>
         <svg
           className="gv-map"
-          viewBox={`0 0 ${width} ${height}`}
+          viewBox={`0 0 ${width} ${layout.height}`}
           role="group"
           aria-label={`${group ?? "All notes"} map`}
           data-dim={hot ? "true" : undefined}

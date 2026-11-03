@@ -33,6 +33,8 @@ export type Point = { x: number; y: number };
 export type LabelPlacement = Point & { anchor: "start" | "middle" | "end" };
 
 export type MapLayout = {
+  /** The box's height: the input height, or taller when unlinked rows need the room. */
+  height: number;
   positions: ReadonlyMap<string, Point>;
   labels: ReadonlyMap<string, LabelPlacement>;
   /** Members with no links to other members, in the bottom rows. */
@@ -348,16 +350,18 @@ export function placeEdgeLabels(
 }
 
 export function layoutMap(input: LayoutInput): MapLayout {
-  const { width, height } = input;
+  const { width } = input;
   const linked = new Set(input.edges.flatMap((edge) => [edge.a, edge.b]));
   const core = input.nodes.filter((node) => linked.has(node.id));
   // With no linked members there is nothing to set the unlinked ones apart from.
   const spread = core.length === 0;
   const loose = spread ? [] : input.nodes.filter((node) => !linked.has(node.id));
   const looseOnly = new Map<string, Point>();
+  // Unlinked rows take at most two thirds of the box; a taller box keeps every row inside it.
+  const rowsHeight = placeLoose(new Map(), loose, width, input.height);
+  const height = Math.max(input.height, Math.ceil(rowsHeight * 1.5));
   const looseHeight = placeLoose(looseOnly, loose, width, height);
   const top = height - looseHeight;
-  // ponytail: many large unlinked members can overrun the box; keep a third of it for linked ones.
   const coreHeight = Math.max(top, height / 3);
   const positions = forceLayout(spread ? input.nodes : core, input.edges, width, coreHeight);
   const ring = input.outside.length > 0;
@@ -385,6 +389,7 @@ export function layoutMap(input: LayoutInput): MapLayout {
   );
 
   return {
+    height,
     positions,
     labels,
     loose: loose.map((node) => node.id),
