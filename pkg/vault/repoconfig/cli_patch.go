@@ -60,6 +60,18 @@ func PatchCliConfigValues(env config.Env, section string, changes map[string]*st
 	if values.Kind != yaml.MappingNode {
 		return errors.New(RhizomeConfigParseError)
 	}
+	// Editing inherited or shared mappings can change unrelated effective
+	// settings. Leave these configurations intact for an explicit manual edit.
+	for _, mapping := range []*yaml.Node{root, values} {
+		if mapping.Anchor != "" {
+			return errors.New("Settings cannot edit configuration sections with YAML anchors or merges. Edit the configuration file directly.")
+		}
+		for i := 0; i < len(mapping.Content); i += 2 {
+			if mapping.Content[i].Tag == "!!merge" {
+				return errors.New("Settings cannot edit configuration sections with YAML anchors or merges. Edit the configuration file directly.")
+			}
+		}
+	}
 	keys := make([]string, 0, len(changes))
 	for key := range changes {
 		keys = append(keys, key)

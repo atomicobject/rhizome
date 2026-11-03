@@ -133,6 +133,34 @@ func TestProviderSettingsPreserveReferencedAnchors(t *testing.T) {
 	}
 }
 
+func TestProviderSettingsRejectInheritedOrSharedSections(t *testing.T) {
+	for name, initial := range map[string]string{
+		"root merge":     "<<: {env: {OTHER_SETTING: preserved, VOYAGE_API_KEY: synthetic-old}}\n",
+		"env merge":      "env: {<<: {OTHER_SETTING: preserved, VOYAGE_API_KEY: synthetic-old}}\n",
+		"shared section": "env: &shared {OTHER_SETTING: preserved, VOYAGE_API_KEY: synthetic-old}\nfuture_setting: *shared\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, operation := range []string{"provider-key-set", "provider-key-clear"} {
+				env := testkit.Env(t)
+				env.CLIConfigFile = filepath.Join(t.TempDir(), "config.yml")
+				require.NoError(t, os.WriteFile(env.CLIConfigFile, []byte(initial), 0600))
+				_, err := repoconfig.LoadCliConfig(env, false)
+				require.NoError(t, err)
+				request := Request{Protocol: Protocol, Operation: operation, Provider: "voyage"}
+				if operation == "provider-key-set" {
+					request.Key = "synthetic-new"
+				}
+				response := (&Service{env: env}).Handle(context.Background(), request)
+				require.NotNil(t, response.Error)
+				data, err := os.ReadFile(env.CLIConfigFile)
+				require.NoError(t, err)
+				require.Equal(t, initial, string(data))
+				require.NotContains(t, response.Error.Message, "synthetic-")
+			}
+		})
+	}
+}
+
 func TestProviderSettingsRejectInvalidRequestsWithoutSavingOrEchoingKeys(t *testing.T) {
 	for _, request := range []Request{
 		{Operation: "provider-key-set", Provider: "unknown", Key: "synthetic-secret"},

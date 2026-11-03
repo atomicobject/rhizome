@@ -52,7 +52,7 @@ A signed-in user can choose where Voyage and Jev calls go, enter or import their
 
 ## Actual Delivered
 
-Implemented in commit `67d3b0fdc89d1832333d85c8b7a6195d256fdff9` on `t3/provider-access-settings-ready`, rebased onto main `996c25118e26e990107ead22942b134f977241a8`. Settings now owns explicit per-provider routing, manual key management, the existing 1Password importer, app-default reports and actual runtime connection reports with restart actions. Native configuration writes preserve unrelated values and import references; reports expose provenance without credentials.
+Delivered through [PR #77](https://github.com/atomicobject/rhizome/pull/77) on `t3/provider-access-settings-ready`, rebased onto main `6da57df811c551a4cd9f9b0f59104122873afa13`. Implementation and prior fixes are carried by `eb7c5054`, `1ba76374`, `1dbd09fd` and `4d5deb84`. Settings now owns explicit per-provider routing, manual key management, the existing 1Password importer, app-default reports and actual runtime connection reports with restart actions. Native configuration writes preserve unrelated values and import references; reports expose provenance without credentials.
 
 ## Deviations
 
@@ -60,9 +60,9 @@ The approved amendments replace the design draft's environment-key override and 
 
 ## Closure Checklist
 
-- [ ] Approved scope implemented and owning documentation reconciled.
+- [x] Approved scope implemented and owning documentation reconciled.
 - [ ] Required gates and review evidence recorded with material limitations.
-- [ ] Delivery commit and pull request identified.
+- [x] Delivery commit and pull request identified.
 
 ## Compounding Follow-ups
 
@@ -70,7 +70,7 @@ Runtime reports deliberately compare routing provenance rather than credential v
 
 ## Status
 
-Active: implementation, independent review and rendered frontend proof are complete. Current-base gate completion, current-head Greptile review, PR/CI and installation remain.
+Active: implementation, independent review and rendered frontend proof are complete. Final configuration-preservation review, current-head Greptile, PR CI and installation remain.
 
 ## Execution Notes
 
@@ -89,3 +89,5 @@ Active: implementation, independent review and rendered frontend proof are compl
 - Greptile's third review confirmed the four earlier findings were fixed and identified dangling YAML references after editing an anchored key. A regression reproduced corruption for both replace and clear. Generated YAML is now parsed before publication, rejecting those edits while preserving the original file byte for byte. The review loop extends one round for this concrete configuration data-loss issue.
 
 - Sol-loop round 4 approved the final YAML-reference fix at `4d5deb84`, independently passing all provider-settings regressions with the race detector. The branch is rebased onto main `6da57df8`; the new main changes are unrelated group overview work. Final current-base gates and Greptile are running before closure.
+
+- The rebased full gate passed with 1,765 web tests and race-enabled integration suites. Actual frontend browser proof and documentation validation passed again. Greptile round 4 confirmed G1–G5 fixed and identified YAML merge inheritance changing unrelated effective settings. Synthetic regressions reproduced root merge, target merge and shared-map side effects. Provider writes now reject inherited/shared root or target mappings without changing bytes; focused race tests passed. The final allowed Sol round checks this configuration data-loss fix.
