@@ -55,7 +55,7 @@ One focused PR that lets the existing evidence-reading verifier inspect unsettle
 
 ## Actual Delivered
 
-Core queue and Health reporting implemented. All 25 saved cases reached Terra verification and were rejected with zero proposals or contract failures for $0.5517428. Browser proof demonstrated count deferral followed by completion using the installed disposable module. Full detail and limitations: [[compounding-verification-gate]]. Local gates, independent corrections and the private evidence archive are complete. The carrying PR records final-head Greptile and CI state.
+Core queue and Health reporting implemented. All 25 saved cases reached Terra verification and were rejected with zero proposals or contract failures for $0.5517428. Browser proof demonstrated count deferral followed by completion using the installed disposable module. Full detail and limitations: [[compounding-verification-gate]]. Local gates, independent corrections and the private evidence archive are complete. Carrying PR [#80](https://github.com/atomicobject/rhizome/pull/80) records final-head Greptile and CI state.
 
 ## Execution Notes
 
@@ -78,7 +78,7 @@ The task was already a detailed approved execution brief; no extra approval roun
 
 - [x] Authorized behavior, private replay and installed workspace proof delivered.
 - [x] Local gates and independent/Greptile correction evidence recorded; final-head Greptile and green CI remain enforced before any future merge.
-- [x] Implementation closure recorded on this branch before PR publication; carrying PR number is added immediately after creation.
+- [x] Implementation closure committed before publication, and carrying PR [#80](https://github.com/atomicobject/rhizome/pull/80) recorded immediately after creation.
 
 ## Compounding Follow-ups
 
@@ -86,4 +86,4 @@ Invalid cached verifier responses remain visibly pending and need evidence/respo
 
 ## Status
 
-Implementation, offline verification, bounded real replay and installed workspace proof are complete. The carrying PR owns final-head review and CI evidence; no merge or desktop installation is authorized.
+Implementation, offline verification, bounded real replay and installed workspace proof are complete. PR [#80](https://github.com/atomicobject/rhizome/pull/80) owns final-head review and CI evidence; no merge or desktop installation is authorized.
