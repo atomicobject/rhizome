@@ -125,6 +125,21 @@ func TestReportedUsageAboveBoundFencesFurtherProviderCalls(t *testing.T) {
 	require.True(t, found, "the pricing assumption failure needs a durable error event")
 }
 
+func TestRuntimeBudgetSnapshotIsolatedFromUpdates(t *testing.T) {
+	runtime := &stubRuntime{rt: core.Runtime{ProviderDailyNanodollars: map[string]int64{"voyage": 10}}}
+	before, err := runtime.Runtime(context.Background())
+	require.NoError(t, err)
+	runtime.set(func(rt *core.Runtime) { rt.ProviderDailyNanodollars["voyage"] = 0 })
+	after, err := runtime.Runtime(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(10), before.ProviderDailyNanodollars["voyage"])
+	require.Zero(t, after.ProviderDailyNanodollars["voyage"])
+	before.ProviderDailyNanodollars["voyage"] = 99
+	again, err := runtime.Runtime(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, again.ProviderDailyNanodollars["voyage"])
+}
+
 func TestProviderBudgetRecheckedAfterSlotWait(t *testing.T) {
 	g := newGated()
 	h := newHarness(t, opts{voyage: http.HandlerFunc(g.handler), cfg: shortWaits(1, 1)})

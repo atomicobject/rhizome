@@ -2,7 +2,7 @@
 // repositories. Every proposal, person, and credential below is synthetic.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -306,7 +306,8 @@ test("health and CLI report identify their store and show unfinished verificatio
   store.write("runs/r1/manifest.json", { id: "r1", status: "done", bindings: { verify: { provider: "codex" } }, report: { verified: { planned: 1, proposed: 0, rejected: { already_documented: 1 }, contractProblems: 0 }, held: { tierC: 1, tierBOverBudget: 0 }, proposals: 0 } });
   assert.deepEqual(ws("recommendations").items, []);
   const health = ws("health");
-  assert.deepEqual(health.store, { root: realpathSync(root), path: state, mode: "isolated" });
+  const processRoot = execFileSync(process.execPath, ["-p", "process.cwd()"], { cwd: root, encoding: "utf8" }).trim();
+  assert.deepEqual(health.store, { root: processRoot, path: state, mode: "isolated" });
   assert.equal(health.lastRun.status, "done", "retain the historical run outcome");
   assert.deepEqual(health.lastRun.report.held, { tierC: 1, tierBOverBudget: 0 });
   assert.deepEqual([health.verification.pending, health.verification.complete], [1, false]);

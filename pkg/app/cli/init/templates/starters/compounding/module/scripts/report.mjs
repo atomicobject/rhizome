@@ -27,7 +27,7 @@ function miningReport(root, store, state) {
   const manifests = existsSync(dir) ? readdirSync(dir).sort().reverse() : [];
   const m = manifests.map((id) => store.read(`runs/${id}/manifest.json`, null)).find(Boolean);
   return {
-    store: { root: realpathSync(root), path: resolve(store.dir), mode: taskTestState() ? "task-test" : state ? "isolated" : "repository" },
+    store: { root: realpathSync.native(root), path: resolve(store.dir), mode: taskTestState() ? "task-test" : state ? "isolated" : "repository" },
     lastRun: m ? {
       run: m.id, status: m.status,
       startedAt: m.startedAt ?? null, finishedAt: m.finishedAt ?? null,
