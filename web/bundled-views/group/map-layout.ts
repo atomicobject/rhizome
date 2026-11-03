@@ -355,17 +355,18 @@ export function layoutMap(input: LayoutInput): MapLayout {
   const loose = spread ? [] : input.nodes.filter((node) => !linked.has(node.id));
   const looseOnly = new Map<string, Point>();
   const looseHeight = placeLoose(looseOnly, loose, width, height);
+  const top = height - looseHeight;
   // ponytail: many large unlinked members can overrun the box; keep a third of it for linked ones.
-  const top = Math.max(height - looseHeight, height / 3);
-  const positions = forceLayout(spread ? input.nodes : core, input.edges, width, top);
+  const coreHeight = Math.max(top, height / 3);
+  const positions = forceLayout(spread ? input.nodes : core, input.edges, width, coreHeight);
   const ring = input.outside.length > 0;
 
   if (positions.size)
-    fit(positions, width, top, ring ? 190 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
+    fit(positions, width, coreHeight, ring ? 190 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
 
   for (const [id, point] of looseOnly) positions.set(id, point);
 
-  if (ring) placeRing(positions, input.outside, width, top);
+  if (ring) placeRing(positions, input.outside, width, coreHeight);
 
   const { labels, boxes } = placeLabels(
     positions,

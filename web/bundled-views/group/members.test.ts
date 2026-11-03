@@ -289,6 +289,22 @@ it("keeps linked members placed when unlinked rows would fill the box", () => {
   }
 });
 
+it("draws the row line at the top of the unlinked rows", () => {
+  const crowd = Array.from({ length: 10 }, (_, n) => ({
+    id: `Loose${n}`,
+    radius: 30,
+    label: "A long member name 9",
+  }));
+
+  const layout = layoutMap({ ...LAYOUT, nodes: [...LAYOUT.nodes, ...crowd] });
+  const top = layout.looseTop ?? 0;
+
+  for (const id of layout.loose) {
+    const node = [...LAYOUT.nodes, ...crowd].find((candidate) => candidate.id === id);
+    expect((layout.positions.get(id)?.y ?? 0) - (node?.radius ?? 0)).toBeGreaterThanOrEqual(top);
+  }
+});
+
 it("spreads the members over the box when none links to another", () => {
   const layout = layoutMap({ ...LAYOUT, edges: [], outside: [] });
 
