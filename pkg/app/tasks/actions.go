@@ -146,11 +146,20 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 
 // RequestRun gives a task an item that Run can start, so the person can run
 // a task the scheduler has not made due yet. It returns the task's open due
-// or needs-attention item, or adds a due item when the task has none.
+// or needs-attention item, or adds a due item when the task has none. It
+// holds the run lock so a scheduler pass cannot add a competing item.
 func (s *Service) RequestRun(ctx context.Context, task string) (string, error) {
 	if reason := s.untrusted(); reason != "" {
 		return "", errors.New(reason)
 	}
+	release, err := s.lockRun(ctx, 0)
+	if errors.Is(err, errLocked) {
+		return "", ErrBusy
+	}
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = release() }()
 	_, commit, def, err := s.currentDefinition(ctx, task)
 	if err != nil {
 		return "", err

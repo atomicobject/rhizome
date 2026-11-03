@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -138,14 +137,21 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 }
 
 func newTasksRunCmd(open func(*cobra.Command) (*tasks.Service, error), asJSON *bool) *cobra.Command {
-	var file string
+	var file, task string
 	cmd := &cobra.Command{
-		Use:   "run [<item> | <task>]",
-		Short: "Do a task's work in the background now, or try a draft task file with --file",
+		Use:   "run [<item>]",
+		Short: "Do a due item's work in the background now, run a task with --task, or try a draft task file with --file",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if (file == "") == (len(args) == 0) {
-				return errors.New("name an inbox item or task, or pass --file with a draft task file")
+			given := len(args)
+			if file != "" {
+				given++
+			}
+			if task != "" {
+				given++
+			}
+			if given != 1 {
+				return errors.New("name an inbox item, or pass --task with a task id or --file with a draft task file")
 			}
 			svc, err := open(cmd)
 			if err != nil {
@@ -155,12 +161,14 @@ func newTasksRunCmd(open func(*cobra.Command) (*tasks.Service, error), asJSON *b
 			if file != "" {
 				outcome, err = svc.RunDraft(cmd.Context(), file)
 			} else {
-				item := args[0]
-				if _, numeric := strconv.Atoi(item); numeric != nil {
-					// A task id: run its open item, or a new one.
-					if item, err = svc.RequestRun(cmd.Context(), item); err != nil {
+				var item string
+				if task != "" {
+					// Run the task's open item, or a new one.
+					if item, err = svc.RequestRun(cmd.Context(), task); err != nil {
 						return err
 					}
+				} else {
+					item = args[0]
 				}
 				outcome, err = svc.Run(cmd.Context(), item)
 				if tasks.NotStarted(err) {
@@ -175,6 +183,7 @@ func newTasksRunCmd(open func(*cobra.Command) (*tasks.Service, error), asJSON *b
 		},
 	}
 	cmd.Flags().StringVar(&file, "file", "", "draft task file to run once, ignoring its cadence and mode")
+	cmd.Flags().StringVar(&task, "task", "", "task id to run now, check first, whether or not it is due")
 	return cmd
 }
 

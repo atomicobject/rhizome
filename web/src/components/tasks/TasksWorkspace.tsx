@@ -341,7 +341,7 @@ export function TasksWorkspace({
           onBack={() => navigateTasks({})}
           onRun={task.scheduled && !task.checkOnly && !item ? () => runNow(task.id) : undefined}
           runBlocked={
-            pending === "run"
+            pending === "run" || (live.watch?.task === task.id && !live.watch.test)
               ? "Starting the run…"
               : runActive
                 ? "A task run is in progress; run when it finishes"
