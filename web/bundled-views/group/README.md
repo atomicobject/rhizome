@@ -54,19 +54,19 @@ Briefing's blocks are split across `briefing-attention.tsx` (Needs attention), `
 
 The scope pages are SPEC-0117's. A scope is the rail node above a type: All notes (`{ kind: "workspace" }`) or a display group, including the API's `Other` group of ungrouped types. Their counts come from the aggregate endpoint rather than records, so they stay fast on large vaults, and every block loads on its own: the facts strip and each block's heading paint at once, each block shows its own loading line in reserved space, and a failed read shows what failed and a retry without touching the other blocks. While the index rebuilds, the page says so instead of drawing empty counts.
 
-| File                     | Owns                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aggregate.ts`           | Requests for and parsers of `GET /api/v1/ontology/shape?parts=…` and `GET /api/v1/ontology/types`.                                                            |
-| `scope.ts`               | Scope membership (members by role, collapsed and expanded groups at All notes), member edges by relation majority, outside neighbors, and declared relations. |
-| `members.ts`             | Member table rows (lifecycle by stage, gaps, linked share, links, issues), untyped folder rows, and the coverage line.                                        |
-| `map-layout.ts`          | The map's deterministic positions: a seeded force layout, the bottom row of unlinked members, the outside ring, and label placement.                          |
-| `scope-load.ts`          | One query per aggregate part, type summaries, the scope model, member documentation, and each block's loading, failure, and retry.                            |
-| `overview.tsx`           | The Overview entry for groups and All notes: facts strip, map or Matrix block, member table, layout, and remembered choices.                                  |
-| `overview-map.tsx`       | The SVG map: nodes focusable most records first, hover and focus highlight with tooltips, Trace from a relation edge, and the legend.                         |
-| `overview-tables.tsx`    | The Matrix and the member table.                                                                                                                              |
-| `overview-side.tsx`      | Untyped notes by folder (activating a row opens project search for the folder), coverage, Declared unused, Outside the group, and Guide and views.            |
-| `workspace-activity.ts`  | The All notes Briefing's parsers and its active-stage records query.                                                                                          |
-| `workspace-briefing.tsx` | The All notes Briefing.                                                                                                                                       |
+| File                     | Owns                                                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `aggregate.ts`           | Requests for and parsers of `GET /api/v1/ontology/shape?parts=…` and `GET /api/v1/ontology/types`.                                                                             |
+| `scope.ts`               | Scope membership (members by role, collapsed and expanded groups at All notes), member edges by relation majority, outside neighbors, and declared relations.                  |
+| `members.ts`             | Member table rows (lifecycle by stage, gaps, linked share, links, issues), untyped folder rows, and the coverage line.                                                         |
+| `map-layout.ts`          | The map's deterministic positions: a seeded force layout, the bottom rows of unlinked members (spread over the map when nothing links), the outside ring, and label placement. |
+| `scope-load.ts`          | One query per aggregate part, type summaries, the scope model, member documentation, and each block's loading, failure, and retry.                                             |
+| `overview.tsx`           | The Overview entry for groups and All notes: facts strip, map or Matrix block, member table, layout, and remembered choices.                                                   |
+| `overview-map.tsx`       | The SVG map: nodes focusable most records first, hover and focus highlight with tooltips, Trace from a relation edge, and the legend.                                          |
+| `overview-tables.tsx`    | The Matrix and the member table.                                                                                                                                               |
+| `overview-side.tsx`      | Untyped notes by folder (activating a row opens project search for the folder), coverage, Declared unused, Outside the group, and Guide and views.                             |
+| `workspace-activity.ts`  | The All notes Briefing's parsers and its active-stage records query.                                                                                                           |
+| `workspace-briefing.tsx` | The All notes Briefing.                                                                                                                                                        |
 
 The Overview reads:
 

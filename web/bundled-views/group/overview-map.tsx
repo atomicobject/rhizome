@@ -277,7 +277,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
         {layout.looseTop !== null && (
           <g className="gv-map-row">
             <line x1={0} x2={WIDTH} y1={layout.looseTop} y2={layout.looseTop} />
-            <text x={0} y={layout.looseTop + 19}>
+            <text x={0} y={at(layout.loose[layout.loose.length - 1]).y + 4}>
               No member links
             </text>
           </g>

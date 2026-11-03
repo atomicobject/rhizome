@@ -3,7 +3,7 @@
 //
 // Linked members get a small force layout seeded on a golden-angle spiral and
 // stretched to the box. Members with no links to other members sit in labeled
-// rows along the bottom. Outside neighbors sit on an ellipse at the edge, each
+// rows along the bottom, or spread over the whole box when no member is linked. Outside neighbors sit on an ellipse at the edge, each
 // at the angle of the members it links to, spread so none overlap. Each label
 // goes below, above, right, or left of its node, whichever first clears the
 // labels and nodes already placed, largest nodes first.
@@ -48,6 +48,9 @@ export const OUTSIDE_RADIUS = 6;
 const ITERATIONS = 400;
 
 const ROW_HEIGHT = 30;
+
+/** Space below the bottom row, so it clears the legend under the map. */
+const ROW_BOTTOM_GAP = 10;
 
 /** The row label's width, before the first loose member. */
 const ROW_START = 104;
@@ -158,29 +161,39 @@ function fit(
   }
 }
 
-/** Loose members left to right in rows from the bottom up; returns the rows used. */
+/** Loose members left to right in rows from the bottom up, each row as tall as its largest node; returns the rows' total height. */
 function placeLoose(
   positions: Map<string, Point>,
   loose: readonly LayoutNode[],
   width: number,
   height: number,
 ) {
-  let row = 0;
+  const rows: { node: LayoutNode; x: number }[][] = [];
   let x = ROW_START;
 
   for (const node of loose) {
     const span = 2 * node.radius + 10 + node.label.length * GLYPH + 24;
 
-    if (x > ROW_START && x + span > width) {
-      row += 1;
+    if (!rows.length || (x > ROW_START && x + span > width)) {
+      rows.push([]);
       x = ROW_START;
     }
 
-    positions.set(node.id, { x: x + node.radius, y: height - ROW_HEIGHT / 2 - row * ROW_HEIGHT });
+    rows[rows.length - 1].push({ node, x: x + node.radius });
     x += span;
   }
 
-  return loose.length ? row + 1 : 0;
+  if (!rows.length) return 0;
+  let bottom = height - ROW_BOTTOM_GAP;
+
+  for (const row of rows) {
+    const rowHeight = Math.max(ROW_HEIGHT, ...row.map(({ node }) => 2 * node.radius + 8));
+
+    for (const { node, x: cx } of row) positions.set(node.id, { x: cx, y: bottom - rowHeight / 2 });
+    bottom -= rowHeight;
+  }
+
+  return height - bottom;
 }
 
 /** Outside neighbors on an ellipse, each toward the members it links to, at least 0.6 rad apart. */
@@ -337,23 +350,28 @@ export function layoutMap(input: LayoutInput): MapLayout {
   const { width, height } = input;
   const linked = new Set(input.edges.flatMap((edge) => [edge.a, edge.b]));
   const core = input.nodes.filter((node) => linked.has(node.id));
-  const loose = input.nodes.filter((node) => !linked.has(node.id));
+  // With no linked members there is nothing to set the unlinked ones apart from.
+  const spread = core.length === 0;
+  const loose = spread ? [] : input.nodes.filter((node) => !linked.has(node.id));
   const looseOnly = new Map<string, Point>();
-  const rows = placeLoose(looseOnly, loose, width, height);
-  const top = height - rows * ROW_HEIGHT;
-  const positions = forceLayout(core, input.edges, width, top);
+  const looseHeight = placeLoose(looseOnly, loose, width, height);
+  const top = height - looseHeight;
+  // ponytail: many large unlinked members can overrun the box; keep a third of it for linked ones.
+  const coreHeight = Math.max(top, height / 3);
+  const positions = forceLayout(spread ? input.nodes : core, input.edges, width, coreHeight);
   const ring = input.outside.length > 0;
 
-  if (core.length) fit(positions, width, top, ring ? 190 : 80, ring ? 70 : 30);
+  if (positions.size)
+    fit(positions, width, coreHeight, ring ? 190 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
 
   for (const [id, point] of looseOnly) positions.set(id, point);
 
-  if (ring) placeRing(positions, input.outside, width, top);
+  if (ring) placeRing(positions, input.outside, width, coreHeight);
 
   const { labels, boxes } = placeLabels(
     positions,
     [
-      ...input.nodes.map((node) => ({ ...node, loose: !linked.has(node.id) })),
+      ...input.nodes.map((node) => ({ ...node, loose: looseOnly.has(node.id) })),
       ...input.outside.map((neighbor) => ({
         id: neighbor.id,
         radius: OUTSIDE_RADIUS,
@@ -369,7 +387,7 @@ export function layoutMap(input: LayoutInput): MapLayout {
     positions,
     labels,
     loose: loose.map((node) => node.id),
-    looseTop: rows ? top : null,
+    looseTop: loose.length ? top : null,
     edgeLabels: placeEdgeLabels(positions, input.edges, boxes),
   };
 }
