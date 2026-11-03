@@ -32,32 +32,28 @@ func (s *Service) SetProviderAccess(req Request) (CredentialStatus, error) {
 	default:
 		return CredentialStatus{}, problem("invalid_request", "Unknown provider settings operation.")
 	}
-	cfg, err := repoconfig.LoadCliConfig(s.env, true)
+	_, err := repoconfig.LoadCliConfig(s.env, true)
 	if err != nil {
 		return CredentialStatus{}, problem("credential_config", "Cannot read user configuration. Repair it before changing provider settings.")
 	}
+	section := "provider_access"
+	changes := map[string]*string{req.Provider: nil}
 	if req.Operation == "provider-preference-set" {
-		if cfg.ProviderAccess == nil {
-			cfg.ProviderAccess = map[string]string{}
-		}
-		if req.Preference == "" {
-			delete(cfg.ProviderAccess, req.Provider)
-		} else {
-			cfg.ProviderAccess[req.Provider] = req.Preference
+		if req.Preference != "" {
+			changes[req.Provider] = &req.Preference
 		}
 	} else {
+		section = "env"
+		changes = map[string]*string{}
 		for _, name := range aliases {
-			delete(cfg.Env, name)
+			changes[name] = nil
 		}
 		if req.Operation == "provider-key-set" {
-			if cfg.Env == nil {
-				cfg.Env = map[string]string{}
-			}
-			cfg.Env[aliases[0]] = req.Key
+			changes[aliases[0]] = &req.Key
 		}
 	}
-	if err := repoconfig.SaveCliConfig(s.env, cfg); err != nil {
-		return CredentialStatus{}, problem("credential_config", "Cannot save provider settings. Check user configuration permissions.")
+	if err := repoconfig.PatchCliConfigValues(s.env, section, changes); err != nil {
+		return CredentialStatus{}, problem("credential_config", "Cannot save provider settings. Check your user configuration and file permissions.")
 	}
 	return s.CredentialStatus()
 }

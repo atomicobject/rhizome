@@ -95,6 +95,23 @@ it("reverts an optimistic choice when saving fails", async () => {
   expect(within(group).getByLabelText("Atomic Object server")).not.toBeChecked();
 });
 
+it("keeps a source-save error after the failure broadcast refreshes readable settings", async () => {
+  const serving = call.getMockImplementation();
+  call.mockImplementation(async (operation, args) => {
+    if (operation === "provider-preference-set") throw new Error("Cannot save provider settings.");
+    return serving?.(operation, args);
+  });
+  render(<ProviderAccess />);
+  const group = await screen.findByRole("radiogroup", { name: "Voyage source" });
+  fireEvent.click(within(group).getByLabelText("Atomic Object server"));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Cannot save provider settings.");
+  await act(async () => {
+    providerAccessChanged();
+  });
+  expect(screen.getByRole("alert")).toHaveTextContent("Cannot save provider settings.");
+  expect(within(group).getByLabelText("Atomic Object server")).not.toBeChecked();
+});
+
 it("keeps a newer other-window refresh when an older save response arrives afterward", async () => {
   const serving = call.getMockImplementation();
   let finishSave: ((value: CredentialStatus) => void) | undefined;

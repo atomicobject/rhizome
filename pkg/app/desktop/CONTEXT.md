@@ -277,7 +277,7 @@ Settings groups account sign-in, independent Voyage/Jev route choices, manual ke
 
 `provider-preference-set` accepts `provider` (`voyage` or `typesafe`) and `preference` (`server`, `key`, or empty to restore automatic). `provider-key-set` accepts `provider` and `key` on stdin JSON; `provider-key-clear` accepts only `provider`. Mutations return refreshed credential status. Server preference overrides all local keys and never falls back. Key writes replace or clear that provider's saved aliases together, preserving unrelated settings and remembered import references. Existing secret values are never returned for display.
 
-Native mutations use the same app-wide global lock as setup and import, and broadcast a provider-access change so other windows refresh. Saved configuration remains private and atomic; key values never enter arguments, diagnostics or results. Runtime restart remains an explicit action and never terminates an attached runtime.
+Native mutations use the same app-wide global lock as setup and import, and broadcast a provider-access change so other windows refresh. Provider preference/key writes patch only selected values in the original YAML document, preserving unrelated and unknown fields including nested data. Saved configuration remains private and atomic; key values never enter arguments, diagnostics or results. Save errors remain visible across status refreshes. Runtime restart remains an explicit action and never terminates an attached runtime.
 
 `credential-status` reads user-local source references and provider readiness,
 without invoking 1Password or returning values. It returns

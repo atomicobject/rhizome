@@ -11,6 +11,7 @@ import (
 	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestProviderSettingsPreserveConfigAndReplaceEverySavedAlias(t *testing.T) {
@@ -53,6 +54,60 @@ func TestProviderSettingsPreserveConfigAndReplaceEverySavedAlias(t *testing.T) {
 	require.Equal(t, map[string]string{"typesafe": "key"}, cfg.ProviderAccess)
 	require.Equal(t, map[string]string{"TYPESAFE_API_KEY": "synthetic-jev", "OTHER_SETTING": "preserved"}, cfg.Env)
 	require.Equal(t, source, cfg.CredentialSource)
+}
+
+func TestProviderSettingsPreserveUnknownRootAndNestedConfiguration(t *testing.T) {
+	env := testkit.Env(t)
+	env.CLIConfigFile = filepath.Join(t.TempDir(), "config.yml")
+	initial := `# Keep this user's configuration
+future_feature:
+  enabled: true
+  rules: [first, second]
+vaults:
+  example:
+    path: /synthetic/example
+    future_option: keep-me
+env:
+  RHIZOME_VOYAGE_API_KEY: synthetic-old
+  OTHER_SETTING: preserved
+provider_access:
+  future_provider: custom
+`
+	require.NoError(t, os.WriteFile(env.CLIConfigFile, []byte(initial), 0600))
+	service := &Service{env: env}
+	for _, req := range []Request{
+		{Operation: "provider-preference-set", Provider: "voyage", Preference: "server"},
+		{Operation: "provider-key-set", Provider: "voyage", Key: "synthetic-new"},
+		{Operation: "provider-key-clear", Provider: "voyage"},
+	} {
+		req.Protocol = Protocol
+		response := service.Handle(context.Background(), req)
+		require.Nil(t, response.Error)
+	}
+	data, err := os.ReadFile(env.CLIConfigFile)
+	require.NoError(t, err)
+	var result map[string]any
+	require.NoError(t, yaml.Unmarshal(data, &result))
+	require.Equal(t, map[string]any{"enabled": true, "rules": []any{"first", "second"}}, result["future_feature"])
+	require.Equal(t, map[string]any{"example": map[string]any{"path": "/synthetic/example", "future_option": "keep-me"}}, result["vaults"])
+	require.Equal(t, map[string]any{"OTHER_SETTING": "preserved"}, result["env"])
+	require.Equal(t, map[string]any{"voyage": "server", "future_provider": "custom"}, result["provider_access"])
+	require.Contains(t, string(data), "# Keep this user's configuration")
+}
+
+func TestProviderSettingsNeverDropTrailingConfigurationDocuments(t *testing.T) {
+	env := testkit.Env(t)
+	env.CLIConfigFile = filepath.Join(t.TempDir(), "config.yml")
+	initial := []byte("env: {}\n---\nfuture_document: preserve-me\n")
+	require.NoError(t, os.WriteFile(env.CLIConfigFile, initial, 0600))
+	response := (&Service{env: env}).Handle(context.Background(), Request{
+		Protocol: Protocol, Operation: "provider-key-set", Provider: "voyage", Key: "synthetic-new",
+	})
+	require.NotNil(t, response.Error)
+	data, err := os.ReadFile(env.CLIConfigFile)
+	require.NoError(t, err)
+	require.Equal(t, initial, data)
+	require.NotContains(t, response.Error.Message, "synthetic-new")
 }
 
 func TestProviderSettingsRejectInvalidRequestsWithoutSavingOrEchoingKeys(t *testing.T) {

@@ -29,6 +29,7 @@ export function ProviderAccess({
 }) {
   const [status, setStatus] = useState<CredentialStatus | null>(null);
   const [error, setError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{
     provider: Provider;
@@ -42,11 +43,11 @@ export function ProviderAccess({
       .then((fresh) => {
         if (alive.current && current === revision.current) {
           setStatus(fresh);
-          setError("");
+          setRefreshError("");
         }
       })
       .catch((cause) => {
-        if (alive.current && current === revision.current) setError(failure(cause).message);
+        if (alive.current && current === revision.current) setRefreshError(failure(cause).message);
       });
   }, []);
   useEffect(() => {
@@ -188,9 +189,9 @@ export function ProviderAccess({
           </p>
         )}
       </div>
-      {error && (
+      {(error || refreshError) && (
         <p className="error-text" role="alert">
-          {error}
+          {error || refreshError}
         </p>
       )}
       <ProviderRuntimes repositories={repositories} onRestart={onRestart} />
