@@ -2,9 +2,9 @@
 // repositories. Every proposal, person, and credential below is synthetic.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
@@ -306,8 +306,11 @@ test("health and CLI report identify their store and show unfinished verificatio
   store.write("runs/r1/manifest.json", { id: "r1", status: "done", bindings: { verify: { provider: "codex" } }, report: { verified: { planned: 1, proposed: 0, rejected: { already_documented: 1 }, contractProblems: 0 }, held: { tierC: 1, tierBOverBudget: 0 }, proposals: 0 } });
   assert.deepEqual(ws("recommendations").items, []);
   const health = ws("health");
-  const processRoot = execFileSync(process.execPath, ["-p", "process.cwd()"], { cwd: root, encoding: "utf8" }).trim();
-  assert.deepEqual(health.store, { root: processRoot, path: state, mode: "isolated" });
+  assert.deepEqual({ path: health.store.path, mode: health.store.mode }, { path: state, mode: "isolated" });
+  assert.ok(isAbsolute(health.store.root));
+  const expectedRoot = statSync(root, { bigint: true });
+  const reportedRoot = statSync(health.store.root, { bigint: true });
+  assert.deepEqual([reportedRoot.dev, reportedRoot.ino], [expectedRoot.dev, expectedRoot.ino], "the reported root identifies this checkout despite path aliases");
   assert.equal(health.lastRun.status, "done", "retain the historical run outcome");
   assert.deepEqual(health.lastRun.report.held, { tierC: 1, tierBOverBudget: 0 });
   assert.deepEqual([health.verification.pending, health.verification.complete], [1, false]);
