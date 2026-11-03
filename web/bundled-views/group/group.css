@@ -1184,16 +1184,19 @@
   }
 }
 
-/* The map. */
-.gv-map-wrap {
+/* The map. Its canvas has a fixed height and the block's width, and the map lays
+   out at that measured size, so labels draw at their real size. */
+.gv-map-canvas {
   position: relative;
+  height: 400px;
 }
 
 .gv-map {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 360px;
+  height: 100%;
 }
 
 .gv-map text {
@@ -1376,7 +1379,20 @@
   overflow-x: auto;
 }
 
+/* The Overview matrix spreads its cells across the block's width. */
+.gv-ov-mx {
+  width: 100%;
+}
+
+.gv-ov-mx td {
+  width: auto;
+  min-width: 34px;
+  height: 28px;
+  font-size: var(--fs-sm);
+}
+
 .gv-ov-mx th[scope="row"] {
+  width: 1%;
   color: var(--text);
   font-size: var(--fs-xs);
   font-weight: 500;

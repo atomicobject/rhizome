@@ -12,6 +12,8 @@
 
 ### Fixed
 
+- The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.
+
 - Compounding sends low-ranked candidates to evidence verification, resumes deferred work without new sessions, and shows verification coverage, deferral reasons and the active mining store in its workspace. Jev passage screening and human publication approval remain in place.
 
 - Compounding uses `jev-latest` for screening and ranking, with priced estimates and usage accounting. The team gateway also accepts explicit Jev release IDs such as `jev-1.13.0`, retaining budget reservations and per-person/global limits.

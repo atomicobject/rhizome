@@ -4,7 +4,7 @@
 // keyboard focus most records first; hovering or focusing one highlights its
 // edges and shows its figures. The Matrix is the text alternative.
 import { openCollection, openView } from "@rhizome/kit";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { layoutMap, OUTSIDE_RADIUS, type Point } from "./map-layout.ts";
 import { plural } from "./briefing-parts.tsx";
@@ -22,9 +22,38 @@ import type { TypeSummary } from "./aggregate.ts";
 /** Outside neighbors drawn on the ring; the legend counts the rest. */
 export const OUTSIDE_RING = 7;
 
+/** The layout size before the canvas is measured, and where ResizeObserver is missing. */
 const WIDTH = 760;
 
-const HEIGHT = 340;
+const HEIGHT = 400;
+
+/** The canvas's size in CSS pixels, so the map fills its column and labels draw at their real size. */
+function useCanvasSize() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: WIDTH, height: HEIGHT });
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.round(entry.contentRect.width);
+      const height = Math.round(entry.contentRect.height);
+
+      if (width > 0 && height > 0)
+        setSize((last) =>
+          last.width === width && last.height === height ? last : { width, height },
+        );
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, ...size };
+}
 
 // Categorical hues for named groups, from the shared type palette. The first
 // palette color marks types in no named group; red (risk) and teal
@@ -166,6 +195,7 @@ function OutsideTip({ model, neighbor }: { model: ScopeModel; neighbor: OutsideN
 
 export function ScopeMap({ model, links, relations, summaries, expanded, onExpand }: MapProps) {
   const [hot, setHot] = useState<Hot>(null);
+  const { ref: canvas, width, height } = useCanvasSize();
   const group = model.scope.kind === "group" ? model.scope.group : null;
   const ring = links.outside.slice(0, OUTSIDE_RING);
   const unused = useMemo(() => unusedPairs(links, relations), [links, relations]);
@@ -183,8 +213,8 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
     const showCount = (edge: MapEdge) => group !== null || edge.links >= maxLinks * 0.03;
 
     return layoutMap({
-      width: WIDTH,
-      height: HEIGHT,
+      width,
+      height,
       nodes: model.nodes.map((node) => ({
         id: node.id,
         radius: size(node),
@@ -199,7 +229,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
         label: `${neighbor.label} ${fmt(neighbor.links)} links`,
       })),
     });
-  }, [model, links, group, maxLinks]);
+  }, [model, links, group, maxLinks, width, height]);
 
   const at = (id: string): Point => layout.positions.get(id) ?? { x: 0, y: 0 };
 
@@ -267,175 +297,183 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
   return (
     <div className="gv-map-wrap">
-      <svg
-        className="gv-map"
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        role="group"
-        aria-label={`${group ?? "All notes"} map`}
-        data-dim={hot ? "true" : undefined}
-      >
-        {layout.looseTop !== null && (
-          <g className="gv-map-row">
-            <line x1={0} x2={WIDTH} y1={layout.looseTop} y2={layout.looseTop} />
-            <text x={0} y={at(layout.loose[layout.loose.length - 1]).y + 4}>
-              No member links
-            </text>
-          </g>
-        )}
-        {unused.map((pair) => (
-          <line
-            key={`unused:${edgeKey(pair.a, pair.b)}`}
-            className="gv-map-unused"
-            x1={at(pair.a).x}
-            y1={at(pair.a).y}
-            x2={at(pair.b).x}
-            y2={at(pair.b).y}
-          />
-        ))}
-        {ring.flatMap((neighbor) =>
-          [...neighbor.byMember].map(([member, count]) => (
-            <line
-              key={`out:${member}:${neighbor.id}`}
-              className="gv-map-spoke"
-              data-hot={on(`out:${member}:${neighbor.id}`)}
-              x1={at(member).x}
-              y1={at(member).y}
-              x2={at(neighbor.id).x}
-              y2={at(neighbor.id).y}
-              strokeWidth={Math.max(1, stroke(count) * 0.55)}
-            />
-          )),
-        )}
-        {links.edges.map((edge) => (
-          <g
-            key={edge.key}
-            className="gv-map-edge"
-            data-kind={edge.relation ? "relation" : "plain"}
-            data-hot={on(edge.key)}
-          >
-            <line
-              x1={at(edge.a).x}
-              y1={at(edge.a).y}
-              x2={at(edge.b).x}
-              y2={at(edge.b).y}
-              strokeWidth={stroke(edge.links)}
-            />
-            <line
-              className="gv-map-hit"
-              data-action={traceable(edge) ? "trace" : undefined}
-              x1={at(edge.a).x}
-              y1={at(edge.a).y}
-              x2={at(edge.b).x}
-              y2={at(edge.b).y}
-              onMouseEnter={() => setHot({ kind: "edge", key: edge.key })}
-              onMouseLeave={() => setHot(null)}
-              onClick={() => {
-                if (group !== null && traceable(edge))
-                  openView("group.trace", { kind: "group", group });
-              }}
-            />
-            {countAt(edge) && (
-              <text className="gv-map-count" x={countAt(edge)?.x} y={countAt(edge)?.y}>
-                {fmt(edge.links)}
-              </text>
-            )}
-          </g>
-        ))}
-        {ring.map((neighbor) => {
-          const point = at(neighbor.id);
-          const place = layout.labels.get(neighbor.id);
-
-          return (
-            <g
-              key={neighbor.id}
-              className="gv-map-node"
-              data-outside="true"
-              data-hot={on(neighbor.id)}
-              onMouseEnter={() => setHot({ kind: "node", id: neighbor.id })}
-              onMouseLeave={() => setHot(null)}
-            >
-              <title>{`${neighbor.label}, ${fmt(neighbor.links)} links, outside the group`}</title>
-              <circle cx={point.x} cy={point.y} r={OUTSIDE_RADIUS} />
-              {place && (
-                <text x={place.x} y={place.y} textAnchor={place.anchor}>
-                  {neighbor.label} <tspan className="gv-map-n">{fmt(neighbor.links)} links</tspan>
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {ordered.map((node) => {
-          const point = at(node.id);
-          const place = layout.labels.get(node.id);
-          const r = radius(node);
-          const hue = nodeHue(model, node);
-
-          return (
-            <g
-              key={node.id}
-              className="gv-map-node"
-              data-node={node.id}
-              data-hot={on(node.id)}
-              tabIndex={0}
-              role={node.kind === "untyped" ? "img" : "button"}
-              aria-label={nodeName(model, links, node)}
-              onMouseEnter={() => setHot({ kind: "node", id: node.id })}
-              onMouseLeave={() => setHot(null)}
-              onFocus={() => setHot({ kind: "node", id: node.id })}
-              onBlur={() => setHot(null)}
-              onClick={() => activate(node)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                activate(node);
-              }}
-            >
-              {node.kind === "group" && (
-                <circle className="gv-map-ring" cx={point.x} cy={point.y} r={r + 4} stroke={hue} />
-              )}
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={r}
-                fill={node.count === 0 ? "var(--surface)" : hue}
-                stroke={node.count === 0 ? hue : "var(--surface)"}
-              />
-              {place && (
-                <text
-                  x={place.x}
-                  y={place.y}
-                  textAnchor={place.anchor}
-                  data-group={node.kind === "group" ? "true" : undefined}
-                >
-                  {node.label}
-                  {node.kind === "group" && (
-                    <tspan className="gv-map-n"> · {node.members.length} types</tspan>
-                  )}{" "}
-                  <tspan className="gv-map-n">{fmt(node.count)}</tspan>
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      {tipAt && (hotNode || hotEdge || hotOutside) && (
-        <div
-          className="gv-map-tip"
-          role="tooltip"
-          style={{ left: `${(tipAt.x / WIDTH) * 100}%`, top: `${(tipAt.y / HEIGHT) * 100}%` }}
+      <div className="gv-map-canvas" ref={canvas}>
+        <svg
+          className="gv-map"
+          viewBox={`0 0 ${width} ${height}`}
+          role="group"
+          aria-label={`${group ?? "All notes"} map`}
+          data-dim={hot ? "true" : undefined}
         >
-          {hotNode && <NodeTip model={model} links={links} node={hotNode} />}
-          {hotEdge && (
-            <EdgeTip
-              edge={hotEdge}
-              label={label}
-              summaries={summaries}
-              trace={traceable(hotEdge)}
-            />
+          {layout.looseTop !== null && (
+            <g className="gv-map-row">
+              <line x1={0} x2={width} y1={layout.looseTop} y2={layout.looseTop} />
+              <text x={0} y={at(layout.loose[layout.loose.length - 1]).y + 4}>
+                No member links
+              </text>
+            </g>
           )}
-          {hotOutside && <OutsideTip model={model} neighbor={hotOutside} />}
-        </div>
-      )}
+          {unused.map((pair) => (
+            <line
+              key={`unused:${edgeKey(pair.a, pair.b)}`}
+              className="gv-map-unused"
+              x1={at(pair.a).x}
+              y1={at(pair.a).y}
+              x2={at(pair.b).x}
+              y2={at(pair.b).y}
+            />
+          ))}
+          {ring.flatMap((neighbor) =>
+            [...neighbor.byMember].map(([member, count]) => (
+              <line
+                key={`out:${member}:${neighbor.id}`}
+                className="gv-map-spoke"
+                data-hot={on(`out:${member}:${neighbor.id}`)}
+                x1={at(member).x}
+                y1={at(member).y}
+                x2={at(neighbor.id).x}
+                y2={at(neighbor.id).y}
+                strokeWidth={Math.max(1, stroke(count) * 0.55)}
+              />
+            )),
+          )}
+          {links.edges.map((edge) => (
+            <g
+              key={edge.key}
+              className="gv-map-edge"
+              data-kind={edge.relation ? "relation" : "plain"}
+              data-hot={on(edge.key)}
+            >
+              <line
+                x1={at(edge.a).x}
+                y1={at(edge.a).y}
+                x2={at(edge.b).x}
+                y2={at(edge.b).y}
+                strokeWidth={stroke(edge.links)}
+              />
+              <line
+                className="gv-map-hit"
+                data-action={traceable(edge) ? "trace" : undefined}
+                x1={at(edge.a).x}
+                y1={at(edge.a).y}
+                x2={at(edge.b).x}
+                y2={at(edge.b).y}
+                onMouseEnter={() => setHot({ kind: "edge", key: edge.key })}
+                onMouseLeave={() => setHot(null)}
+                onClick={() => {
+                  if (group !== null && traceable(edge))
+                    openView("group.trace", { kind: "group", group });
+                }}
+              />
+              {countAt(edge) && (
+                <text className="gv-map-count" x={countAt(edge)?.x} y={countAt(edge)?.y}>
+                  {fmt(edge.links)}
+                </text>
+              )}
+            </g>
+          ))}
+          {ring.map((neighbor) => {
+            const point = at(neighbor.id);
+            const place = layout.labels.get(neighbor.id);
+
+            return (
+              <g
+                key={neighbor.id}
+                className="gv-map-node"
+                data-outside="true"
+                data-hot={on(neighbor.id)}
+                onMouseEnter={() => setHot({ kind: "node", id: neighbor.id })}
+                onMouseLeave={() => setHot(null)}
+              >
+                <title>{`${neighbor.label}, ${fmt(neighbor.links)} links, outside the group`}</title>
+                <circle cx={point.x} cy={point.y} r={OUTSIDE_RADIUS} />
+                {place && (
+                  <text x={place.x} y={place.y} textAnchor={place.anchor}>
+                    {neighbor.label} <tspan className="gv-map-n">{fmt(neighbor.links)} links</tspan>
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          {ordered.map((node) => {
+            const point = at(node.id);
+            const place = layout.labels.get(node.id);
+            const r = radius(node);
+            const hue = nodeHue(model, node);
+
+            return (
+              <g
+                key={node.id}
+                className="gv-map-node"
+                data-node={node.id}
+                data-hot={on(node.id)}
+                tabIndex={0}
+                role={node.kind === "untyped" ? "img" : "button"}
+                aria-label={nodeName(model, links, node)}
+                onMouseEnter={() => setHot({ kind: "node", id: node.id })}
+                onMouseLeave={() => setHot(null)}
+                onFocus={() => setHot({ kind: "node", id: node.id })}
+                onBlur={() => setHot(null)}
+                onClick={() => activate(node)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  activate(node);
+                }}
+              >
+                {node.kind === "group" && (
+                  <circle
+                    className="gv-map-ring"
+                    cx={point.x}
+                    cy={point.y}
+                    r={r + 4}
+                    stroke={hue}
+                  />
+                )}
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={r}
+                  fill={node.count === 0 ? "var(--surface)" : hue}
+                  stroke={node.count === 0 ? hue : "var(--surface)"}
+                />
+                {place && (
+                  <text
+                    x={place.x}
+                    y={place.y}
+                    textAnchor={place.anchor}
+                    data-group={node.kind === "group" ? "true" : undefined}
+                  >
+                    {node.label}
+                    {node.kind === "group" && (
+                      <tspan className="gv-map-n"> · {node.members.length} types</tspan>
+                    )}{" "}
+                    <tspan className="gv-map-n">{fmt(node.count)}</tspan>
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+        {tipAt && (hotNode || hotEdge || hotOutside) && (
+          <div
+            className="gv-map-tip"
+            role="tooltip"
+            style={{ left: `${tipAt.x}px`, top: `${tipAt.y}px` }}
+          >
+            {hotNode && <NodeTip model={model} links={links} node={hotNode} />}
+            {hotEdge && (
+              <EdgeTip
+                edge={hotEdge}
+                label={label}
+                summaries={summaries}
+                trace={traceable(hotEdge)}
+              />
+            )}
+            {hotOutside && <OutsideTip model={model} neighbor={hotOutside} />}
+          </div>
+        )}
+      </div>
       <MapLegend
         model={model}
         links={links}
