@@ -58,7 +58,7 @@ or `{"needed": false}`. A task with no check is needed whenever it is due.
 
 Checks and prompts receive the same locations: `RZM_TASK_ID`, `RZM_TASK_MAIN_CHECKOUT`, `RZM_TASK_COMMIT`, and `RZM_TASK_DATA_DIR`, a private folder that keeps the task's state between runs. Prompts receive them in their instructions.
 
-For a test, `RZM_TASK_COMMIT` names the source snapshot and `RZM_TASK_DATA_DIR` is fresh for that attempt. `RZM_TASK_TEST=1` lets a task with its own private state choose separate test storage; the compounding module does this automatically. Command checks and agent work use the captured worktree. A code-mode test reads its captured script but queries the selected checkout's existing index; create that index first if it is missing. It does not automatically index a new test worktree.
+For a test, `RZM_TASK_COMMIT` names the source snapshot and `RZM_TASK_DATA_DIR` is fresh for that attempt. `RZM_TASK_TEST=1` lets a task with its own private state choose separate test storage; the compounding module does this automatically. Command checks and agent work use the captured worktree. A code-mode test reads its captured script but queries the selected checkout's existing index; create that index first if it is missing. It does not automatically index a new test worktree or start a runtime. If no runtime is running, code mode uses its existing in-process read path with `RZM_RUNTIME_AUTOSTART=0`.
 
 ### Cost is the task's job
 

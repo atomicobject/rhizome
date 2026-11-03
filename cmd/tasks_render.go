@@ -14,14 +14,14 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 		fmt.Fprintf(w, "Not running: %s\n", r.Untrusted)
 	}
 	if r.RefError != "" {
-		fmt.Fprintf(w, "No tasks run: %s\n", r.RefError)
-		return
+		fmt.Fprintf(w, "No scheduled tasks run: %s\n", r.RefError)
+	} else {
+		fetched := "never fetched"
+		if !r.FetchedAt.IsZero() {
+			fetched = "fetched " + ago(r.FetchedAt)
+		}
+		fmt.Fprintf(w, "Primary ref %s at %s (%s)\n", r.Ref, shortCommit(r.Commit), fetched)
 	}
-	fetched := "never fetched"
-	if !r.FetchedAt.IsZero() {
-		fetched = "fetched " + ago(r.FetchedAt)
-	}
-	fmt.Fprintf(w, "Primary ref %s at %s (%s)\n", r.Ref, shortCommit(r.Commit), fetched)
 	if r.PassError != nil {
 		fmt.Fprintf(w, "The last automatic pass failed %s: %s\n", ago(r.PassError.At), r.PassError.Message)
 	}
@@ -36,6 +36,16 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 	}
 	for _, t := range r.Tasks {
 		fmt.Fprintf(w, "\n%s (%s)\n", t.Name, t.ID)
+		if t.Local != nil {
+			fmt.Fprintf(w, "  local %s (%s)\n", t.Local.State, t.Local.Path)
+			if t.Local.Error != "" {
+				fmt.Fprintf(w, "  local error: %s\n", t.Local.Error)
+			}
+		}
+		if !t.Scheduled {
+			fmt.Fprintln(w, "  not scheduled (local test only)")
+			continue
+		}
 		fmt.Fprintf(w, "  every %s, %s scope, %s mode (%s)\n", t.Every, t.Scope, t.Mode, t.ModeSource)
 		last := "never"
 		if t.LastRun != nil {

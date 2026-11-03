@@ -109,9 +109,6 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 				it.Branch, it.Worktree = "", ""
 			}
 		}
-		if a.draft {
-			return nil
-		}
 		r := a.record(def.ID, outcome, now)
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, commit, changed
 		if outcome == OutcomeReady || cleanupErr != nil {

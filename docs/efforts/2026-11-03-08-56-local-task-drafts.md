@@ -123,6 +123,10 @@ Implemented local discovery, isolated test snapshots and history, per-session ha
 
 - 2026-11-03 [validation] Default `rzm validate` passed with zero issues. Repository-wide frozen-scope validation found one unrelated existing drift in EFF-2026-10-03-18-33 against SPEC-0111 (group views); this effort was not flagged. The historical/other effort was left unchanged.
 
+- 2026-11-03 [coordination] After the isolated replay, a separate authorized task installed the updated module in Drew's source vault and manually staged the 17 held candidates as pending, with skipped verification disclosed and original tier/provenance preserved. Replay state-integrity evidence applies to the earlier before/after interval. These manually staged items are not evaluation output or approvals.
+- 2026-11-03 [review] Astra's implementation recheck approved at 9/10 after the canonical-checkout launch fix. Sol round 1 requested disabling runtime autostart for code-mode tests and correcting local-only CLI status. Both were fixed, along with unreachable guards. Greptile round 1 scored 4/5 and identified stale snapshot bytes for assume-unchanged files; the private index now clears that flag without changing the author's index. A real runtime fixture also exposed an already-ignored state-directory exclusion error, which was corrected.
+- 2026-11-03 [review] Sol round 2 approved all five corrections with no blocker or should-fix finding. Focused CLI, compiled-runtime, and Git snapshot regressions passed. Final `make check` passed, including 1,774 web tests, followed by a successful full CLI/web build. Final Opus review and Greptile recheck remain pending.
+
 ## Deviations
 
 Council uses two providers, explicitly approved by Drew, because no third provider is enabled.

@@ -92,6 +92,9 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 		cmd.Dir = dir
 	}
 	cmd.Env = append(procrun.WithPath(os.Environ(), procrun.LoginPath()), loc.env()...)
+	if loc.Test && def.Check.Script != "" {
+		cmd.Env = append(cmd.Env, "RZM_RUNTIME_AUTOSTART=0")
+	}
 	out, err := runBounded(ctx, cmd, log)
 	if def.Check.Script == "" && err != nil {
 		return CheckResult{}, err

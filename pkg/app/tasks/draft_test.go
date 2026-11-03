@@ -268,6 +268,7 @@ func TestDraftCodeModeUsesCapturedScriptAndSelectedIndex(t *testing.T) {
 read source
 [ "$source" = captured-script-v1 ] || exit 4
 [ "$RZM_TASK_TEST" = 1 ] || exit 5
+[ "$RZM_RUNTIME_AUTOSTART" = 0 ] || exit 8
 [ "$PWD" = "$RZM_TASK_MAIN_CHECKOUT" ] || exit 6
 [ -f "$PWD/.rhizome/db.sqlite" ] || exit 7
 printf '%s' '{"ok":true,"result":{"needed":false,"summary":"used selected index"}}'

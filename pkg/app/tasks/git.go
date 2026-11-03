@@ -156,12 +156,17 @@ func gitOutput(ctx context.Context, dir string, args ...string) (string, error) 
 }
 
 func gitBytes(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
+	return gitBytesInput(ctx, dir, env, nil, args...)
+}
+
+func gitBytesInput(ctx context.Context, dir string, env []string, input []byte, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	if dir != "" {
 		cmd.Dir = dir
 	}
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
 	cmd.Env = append(cmd.Env, env...)
+	cmd.Stdin = bytes.NewReader(input)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {

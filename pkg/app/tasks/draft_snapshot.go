@@ -72,10 +72,22 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 		return "", "", err
 	}
 	env := []string{"GIT_INDEX_FILE=" + privateIndex}
+	tracked, err := gitBytes(ctx, root, env, "ls-files", "-z")
+	if err != nil {
+		return "", "", err
+	}
+	if _, err = gitBytesInput(ctx, root, env, tracked, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
+		return "", "", err
+	}
 	args := []string{"-c", "core.splitIndex=false", "add", "-A", "--", "."}
 	// The executing runner owns this directory, including its changing locks.
 	if rel, err := filepath.Rel(root, s.stateDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		args = append(args, ":(exclude)"+filepath.ToSlash(rel))
+		rel = filepath.ToSlash(rel)
+		// Git rejects even a negative pathspec naming an ignored directory.
+		// Already-ignored state needs no explicit exclusion.
+		if _, err := gitBytes(ctx, root, nil, "check-ignore", "--quiet", "--", rel); err != nil {
+			args = append(args, ":(exclude)"+rel)
+		}
 	}
 	if _, err = gitBytes(ctx, root, env, args...); err != nil {
 		return "", "", err

@@ -81,6 +81,8 @@ In the explicit test context, state resolves to `$FRESH_ABSOLUTE_DATA/compoundin
 
 Offline regression tests and the manual disposition review are complete. Two real CLI previews each estimated $1.57 and made zero model calls. Drew then approved four isolated replay runs with an $8 aggregate cap. All four completed for $0.8084008. The captured source stayed clean, all 134 live state files remained byte-identical, and both variants kept identical model bindings: Terra xhigh for extraction, Sol medium for grouping, and Terra low for verification.
 
+That state comparison covers the replay interval. Afterward, a separate authorized task installed the updated module in the source vault and manually staged the 17 held candidates for interface testing. Those pending items retain their original tier and provenance and explicitly disclose skipped verification. They are not proposals produced or approved by this evaluation.
+
 ### Paired replay results
 
 Four runs replayed the same 14 development episodes against one captured source snapshot. Both variants used identical model bindings and independent fresh state. All runs used unscreened fallback.
