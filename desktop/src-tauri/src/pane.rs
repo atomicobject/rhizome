@@ -907,6 +907,8 @@ mod tests {
             mode: Some("headless".into()),
             pid: Some(pid),
             url: Some(origin.into()),
+            version: None,
+            provider_access: None,
         }
     }
 

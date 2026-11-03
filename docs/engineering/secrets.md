@@ -4,7 +4,7 @@ Secrets belong in 1Password, private user configuration, or protected GitHub Act
 
 ## Developer setup
 
-Ordinary contributors need no provider credentials to build, test, or use local Ollama embeddings. Optional cloud providers resolve keys from the environment first, then the user-global `~/.config/rhizome/config.yml`.
+Ordinary contributors need no provider credentials to build, test, or use local Ollama embeddings. Direct cloud-provider access resolves keys from the environment first, then user-global `~/.config/rhizome/config.yml`. In Settings, an explicit Atomic Object server choice for Voyage or Jev overrides all local keys; Your key excludes server and legacy-bundle fallback. With no choice, existing precedence remains unchanged.
 
 Atomic Object developers use dedicated shared Rhizome provider keys in a 1Password Environment. Install stable `op` 2.41 or newer, sign in to an account with read access, and enable **Settings > Developer > Integrate with 1Password CLI** in the 1Password app. In Rhizome setup or Settings, use **Import provider keys from 1Password**. Select Voyage and TypeSafe, enter the account and shared Environment ID supplied by the team, then approve the 1Password prompt. The CLI supports the same import:
 
@@ -29,7 +29,7 @@ CLI credential imports stay on the invoked Rhizome version, including inside rep
 
 The shared Environment or item and provider administration belong to the team, outside the repository. Use provider spend limits and separately scoped keys where available. Removing 1Password access does not revoke an already imported provider key; rotate the provider keys when access must end. Do not put tenant IDs, account defaults, live values, or exported secret files in Git.
 
-The team API gateway ([SPEC-0129](../specs/technical/team-api-gateway.md)) replaces distributed keys with a per-person session. `rzm auth login` stores the session in the login keychain (service `rhizome-team-session`, account = the gateway origin), through `/usr/bin/security` as the development keys are, and never in `config.yml`. Any process running as the user can read that item while the keychain is unlocked; revoking the session or disabling the person in the gateway ends it, and daily limits bound misuse in the meantime. Provider keys stay on the gateway. The gateway is not deployed yet; until it is, keep using the 1Password import above.
+The team API gateway ([SPEC-0129](../specs/technical/team-api-gateway.md)) replaces distributed keys with a per-person session. `rzm auth login` stores the session in the login keychain (service `rhizome-team-session`, account = the gateway origin), through `/usr/bin/security` as the development keys are, and never in `config.yml`. Any process running as the user can read that item while the keychain is unlocked; revoking the session or disabling the person in the gateway ends it, and daily limits bound misuse in the meantime. Provider keys stay on the gateway. The gateway is deployed. Desktop Settings groups account sign-in, independent Voyage/Jev route choices, manual key entry and 1Password import under Provider access. Signing in or importing keys does not silently change routing. The page reports defaults separately from actual running-repository connections; older pinned runtimes may not understand route choices and are shown as unknown. Keys are never returned for display. Add, replace and clear operations use the same private atomic user-global save and native configuration lock as setup/import.
 
 ## Development and release tooling
 

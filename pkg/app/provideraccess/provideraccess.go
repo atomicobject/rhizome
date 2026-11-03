@@ -64,14 +64,18 @@ type Factory struct {
 	DevBuild bool
 
 	// bundle overrides the legacy bundle lookup in tests.
-	bundle func(env vaultconfig.Env, provider string) string
+	bundle   func(env vaultconfig.Env, provider string) string
+	recorder *runtimeRecorder
 }
 
 var installed atomic.Pointer[Factory]
 
 // Install sets the process-wide factory. The application calls it once at
 // startup, before constructing providers.
-func Install(f Factory) { installed.Store(&f) }
+func Install(f Factory) {
+	f.recorder = &runtimeRecorder{}
+	installed.Store(&f)
+}
 
 // Default returns the installed factory, or the zero Factory.
 func Default() Factory {
@@ -86,11 +90,31 @@ type access struct {
 	key     string
 	managed Managed
 	loadErr error
+	report  Report
 }
 
-// resolve applies the precedence: a direct key, then the team session, then
-// the legacy bundle. A development build first takes a loopback session.
-func (f Factory) resolve(env vaultconfig.Env, provider, directKey string) access {
+// resolve is shared by reports and constructors; only construction records an
+// active route. Explicit preferences never fall through to another source.
+func (f Factory) resolve(env vaultconfig.Env, provider, explicit string) access {
+	var cfg vaultconfig.GlobalConfig
+	var err error
+	// An invocation without a home/config path cannot have a saved preference.
+	// Preserve environment-only callers while refusing unreadable existing config.
+	if _, _, pathErr := env.CliPath(); pathErr == nil {
+		cfg, err = vaultconfig.LoadGlobalConfig(env, true)
+	}
+	report := Report{Provider: provider, Saved: savedKey(cfg, provider) != ""}
+	if err != nil {
+		report.Source, report.Reason = SourceNone, "configuration_unavailable"
+		return access{source: SourceNone, report: report}
+	}
+	preference := cfg.ProviderAccess[provider]
+	if preference != "" && preference != "server" && preference != "key" {
+		report.Source, report.Reason = SourceNone, "invalid_preference"
+		return access{source: SourceNone, report: report}
+	}
+	report.Preference = preference
+	direct, provenance, envName := directKey(env, cfg, provider, explicit)
 	loaded := false
 	var session Managed
 	var signedIn bool
@@ -101,21 +125,86 @@ func (f Factory) resolve(env vaultconfig.Env, provider, directKey string) access
 		}
 		loaded = true
 	}
+	result := func(source Source, key string, managed Managed) access {
+		report.Source = source
+		if source == SourceDirect {
+			report.Key, report.EnvName = provenance, envName
+		}
+		if source == SourceTeam {
+			report.Origin = managed.Origin()
+		}
+		return access{source: source, key: key, managed: managed, loadErr: loadErr, report: report}
+	}
+	if report.Preference == "server" {
+		load()
+		if signedIn && loadErr == nil && session != nil {
+			return result(SourceTeam, "", session)
+		}
+		report.Reason = "server_signed_out"
+		if loadErr != nil {
+			report.Reason = "session_unavailable"
+		}
+		return result(SourceNone, "", nil)
+	}
+	if report.Preference == "key" {
+		if direct != "" {
+			return result(SourceDirect, direct, nil)
+		}
+		report.Reason = "key_missing"
+		return result(SourceNone, "", nil)
+	}
 	if f.DevBuild {
-		if load(); signedIn && isLoopbackOrigin(session.Origin()) {
-			return access{source: SourceTeam, managed: session}
+		load()
+		if signedIn && session != nil && isLoopbackOrigin(session.Origin()) {
+			return result(SourceTeam, "", session)
 		}
 	}
-	if directKey = strings.TrimSpace(directKey); directKey != "" {
-		return access{source: SourceDirect, key: directKey}
+	if direct != "" {
+		return result(SourceDirect, direct, nil)
 	}
-	if load(); signedIn {
-		return access{source: SourceTeam, managed: session}
+	load()
+	if signedIn && session != nil {
+		return result(SourceTeam, "", session)
 	}
 	if key := f.bundleKey(env, provider); key != "" {
-		return access{source: SourceBundle, key: key}
+		return result(SourceBundle, key, nil)
 	}
-	return access{source: SourceNone, loadErr: loadErr}
+	report.Reason = "not_configured"
+	if loadErr != nil {
+		report.Reason = "session_unavailable"
+	}
+	return result(SourceNone, "", nil)
+}
+
+func providerKeyNames(provider string) []string {
+	if provider == "voyage" {
+		return []string{"RHIZOME_VOYAGE_API_KEY", "VOYAGE_API_KEY"}
+	}
+	return []string{"TYPESAFE_API_KEY"}
+}
+
+func savedKey(cfg vaultconfig.GlobalConfig, provider string) string {
+	for _, name := range providerKeyNames(provider) {
+		if key := strings.TrimSpace(cfg.Env[name]); key != "" {
+			return key
+		}
+	}
+	return ""
+}
+
+func directKey(env vaultconfig.Env, cfg vaultconfig.GlobalConfig, provider, explicit string) (string, string, string) {
+	if key := strings.TrimSpace(explicit); key != "" {
+		return key, "flag", ""
+	}
+	for _, name := range providerKeyNames(provider) {
+		if value, _ := env.Lookup(name); strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value), "environment", name
+		}
+	}
+	if key := savedKey(cfg, provider); key != "" {
+		return key, "saved", ""
+	}
+	return "", "", ""
 }
 
 func (f Factory) bundleKey(env vaultconfig.Env, provider string) string {
@@ -128,25 +217,14 @@ func (f Factory) bundleKey(env vaultconfig.Env, provider string) string {
 	return teamkeys.TypeSafeKey(env)
 }
 
-func voyageDirectKey(env vaultconfig.Env, explicit string) string {
-	if explicit = strings.TrimSpace(explicit); explicit != "" {
-		return explicit
-	}
-	return vaultconfig.ResolveValue(env, "RHIZOME_VOYAGE_API_KEY", "VOYAGE_API_KEY")
-}
-
-func typeSafeDirectKey(env vaultconfig.Env) string {
-	return vaultconfig.ResolveValue(env, "TYPESAFE_API_KEY")
-}
-
 // VoyageSource reports where Voyage access would come from.
 func (f Factory) VoyageSource(env vaultconfig.Env) Source {
-	return f.resolve(env, "voyage", voyageDirectKey(env, "")).source
+	return f.resolve(env, "voyage", "").source
 }
 
 // TypeSafeSource reports where TypeSafe access would come from.
 func (f Factory) TypeSafeSource(env vaultconfig.Env) Source {
-	return f.resolve(env, "typesafe", typeSafeDirectKey(env)).source
+	return f.resolve(env, "typesafe", "").source
 }
 
 // SignedIn reports whether a team session is available.
@@ -176,7 +254,11 @@ func (f Factory) EmbeddingConfig(env vaultconfig.Env, cfg embeddings.Config, api
 		}
 		return cfg.ProviderCfg(apiKey), nil
 	}
-	resolved := f.resolve(env, "voyage", voyageDirectKey(env, apiKey))
+	resolved := f.resolve(env, "voyage", apiKey)
+	return embeddingConfig(cfg, resolved)
+}
+
+func embeddingConfig(cfg embeddings.Config, resolved access) (embeddings.ProviderConfig, error) {
 	providerCfg := cfg.ProviderCfg(resolved.key)
 	switch resolved.source {
 	case SourceTeam:
@@ -186,7 +268,7 @@ func (f Factory) EmbeddingConfig(env vaultconfig.Env, cfg embeddings.Config, api
 			MaxConcurrency: resolved.managed.Limits().VoyageConcurrency,
 		}
 	case SourceNone:
-		return providerCfg, unavailable("voyage provider requires api key: set VOYAGE_API_KEY or run `rzm auth login`", resolved.loadErr)
+		return providerCfg, resolved.unavailable("voyage provider requires api key: set VOYAGE_API_KEY or run `rzm auth login`")
 	}
 	return providerCfg, nil
 }
@@ -195,18 +277,32 @@ func (f Factory) EmbeddingConfig(env vaultconfig.Env, cfg embeddings.Config, api
 // callers. The caller owns the returned provider and closes it when it
 // implements io.Closer, as before.
 func (f Factory) NewEmbeddings(env vaultconfig.Env, cfg embeddings.Config, apiKey string) (embeddings.Provider, embeddings.ProviderConfig, error) {
-	providerCfg, err := f.EmbeddingConfig(env, cfg, apiKey)
+	var resolved access
+	var providerCfg embeddings.ProviderConfig
+	var err error
+	if cfg.Provider == "voyage" {
+		f.attemptingVoyage(strings.TrimSpace(apiKey) != "")
+		resolved = f.resolve(env, "voyage", apiKey)
+		providerCfg, err = embeddingConfig(cfg, resolved)
+	} else {
+		providerCfg, err = f.EmbeddingConfig(env, cfg, apiKey)
+	}
 	if err != nil {
 		return nil, providerCfg, err
 	}
 	provider, err := embeddings.NewConfiguredProvider(env, providerCfg)
+	if err == nil && cfg.Provider == "voyage" {
+		f.record(resolved.report, strings.TrimSpace(apiKey) != "")
+	}
 	return provider, providerCfg, err
 }
 
 // NewTypeSafe builds a TypeSafe client from the resolved access. options must
 // not set a base URL or HTTP client; managed access supplies both.
 func (f Factory) NewTypeSafe(env vaultconfig.Env, options ...typesafe.Option) (*typesafe.Client, error) {
-	resolved := f.resolve(env, "typesafe", typeSafeDirectKey(env))
+	resolved := f.resolve(env, "typesafe", "")
+	var client *typesafe.Client
+	var err error
 	switch resolved.source {
 	case SourceTeam:
 		managed := typesafe.Managed{
@@ -214,16 +310,30 @@ func (f Factory) NewTypeSafe(env vaultconfig.Env, options ...typesafe.Option) (*
 			Transport:      resolved.managed.Transport(),
 			MaxConcurrency: resolved.managed.Limits().TypeSafeConcurrency,
 		}
-		return typesafe.NewClient("", append(options, typesafe.WithManaged(managed))...)
+		client, err = typesafe.NewClient("", append(options, typesafe.WithManaged(managed))...)
 	case SourceNone:
-		return nil, unavailable("TypeSafe credential unavailable: configure TYPESAFE_API_KEY, unlock the Atomic key bundle with ATOMIC_RHIZOME_KEY, or run `rzm auth login`", resolved.loadErr)
+		return nil, resolved.unavailable("TypeSafe credential unavailable: configure TYPESAFE_API_KEY, unlock the Atomic key bundle with ATOMIC_RHIZOME_KEY, or run `rzm auth login`")
+	default:
+		client, err = typesafe.NewClient(resolved.key, options...)
 	}
-	return typesafe.NewClient(resolved.key, options...)
+	if err == nil {
+		f.record(resolved.report, false)
+	}
+	return client, err
 }
 
-func unavailable(message string, loadErr error) error {
-	if loadErr != nil {
-		return fmt.Errorf("%s (team session unavailable: %w)", message, loadErr)
+func (a access) unavailable(message string) error {
+	switch a.report.Reason {
+	case "configuration_unavailable", "invalid_preference":
+		return errors.New("provider access configuration unavailable; check Provider access in Settings")
+	}
+	if a.report.Preference == "server" {
+		message = "Atomic Object server unavailable: unlock the system keychain or run `rzm auth login`"
+	} else if a.report.Preference == "key" {
+		message = "provider key unavailable: add your key in Settings or configure the provider environment variable"
+	}
+	if a.loadErr != nil {
+		return fmt.Errorf("%s (team session unavailable; unlock the system keychain or sign in again)", message)
 	}
 	return errors.New(message)
 }

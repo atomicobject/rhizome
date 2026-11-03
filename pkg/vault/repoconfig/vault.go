@@ -20,6 +20,7 @@ type Vault struct {
 
 // CliConfig stores user-managed vault mappings (classic or collection).
 type CliConfig struct {
+	ProviderAccess   map[string]string                   `json:"provider_access,omitempty" yaml:"provider_access,omitempty"`
 	DefaultVaultName string                              `json:"default_vault_name" yaml:"default_vault_name"`
 	Vaults           map[string]obsidian.VaultDefinition `json:"vaults,omitempty" yaml:"vaults,omitempty"`
 	LLM              *llm.Config                         `json:"llm,omitempty" yaml:"llm,omitempty"`

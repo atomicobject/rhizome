@@ -77,10 +77,30 @@ export interface TeamStatus {
   origin?: string;
   session_expires_at?: string;
 }
+export type Provider = "voyage" | "typesafe";
+export type ProviderPreference = "" | "server" | "key";
+/** Non-secret report from the same resolver that constructs provider clients. */
+export interface ProviderReport {
+  provider: Provider;
+  preference?: Exclude<ProviderPreference, "">;
+  source: "direct" | "team" | "bundle" | "none";
+  key?: "flag" | "environment" | "saved";
+  envName?: string;
+  saved: boolean;
+  origin?: string;
+  reason?: string;
+}
+export interface RuntimeReport {
+  provider: Provider;
+  active?: ProviderReport;
+  next: ProviderReport;
+  restartRequired: boolean;
+}
 export interface CredentialStatus {
   source?: CredentialSource;
   available: boolean;
   ready: string[];
+  providers?: ProviderReport[];
 }
 export interface GlobalInfo {
   path: string;
@@ -151,6 +171,8 @@ export interface OpenState {
 }
 export type RuntimeState = "running" | "starting" | "stopped";
 export interface Runtime {
+  version?: string;
+  providerAccess?: RuntimeReport[];
   state: RuntimeState;
   mode: "headless" | "attached" | null;
 }
@@ -181,6 +203,7 @@ export type Message =
   | { type: "team"; event: "authorize_url"; url: string }
   /** A sign-in or sign-out changed the shared account. */
   | { type: "team-changed" }
+  | { type: "provider-access-changed" }
   /** The workspace page's reported state, or null when no page has reported. */
   | { type: "page"; state: PageState | null };
 /** The app-wide appearance; `auto` follows the operating system. */
@@ -333,6 +356,9 @@ export interface MenuEntry {
   items?: MenuEntry[];
 }
 type Results = {
+  "provider-preference-set": CredentialStatus;
+  "provider-key-set": CredentialStatus;
+  "provider-key-clear": CredentialStatus;
   "credential-status": CredentialStatus;
   "credential-import": CredentialStatus;
   "credential-cancel": null;
@@ -380,6 +406,9 @@ type Results = {
   "set-settings": AppSettings;
 };
 type Args = {
+  "provider-preference-set": { provider: Provider; preference: ProviderPreference };
+  "provider-key-set": { provider: Provider; key: string };
+  "provider-key-clear": { provider: Provider };
   "credential-status": Record<string, never>;
   "credential-import": { source: CredentialSource };
   "credential-cancel": Record<string, never>;

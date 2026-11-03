@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 )
@@ -33,12 +34,14 @@ type RepositoryRef struct {
 // RuntimeStatus never carries a control token. URL is present only for a
 // running runtime whose identity and loopback origin were verified.
 type RuntimeStatus struct {
-	State string `json:"state"`
-	Mode  string `json:"mode,omitempty"`
-	Ready bool   `json:"ready,omitempty"`
-	PID   int    `json:"pid,omitempty"`
-	URL   string `json:"url,omitempty"`
-	Error string `json:"error,omitempty"`
+	State          string                         `json:"state"`
+	Mode           string                         `json:"mode,omitempty"`
+	Ready          bool                           `json:"ready,omitempty"`
+	PID            int                            `json:"pid,omitempty"`
+	URL            string                         `json:"url,omitempty"`
+	Error          string                         `json:"error,omitempty"`
+	Version        string                         `json:"version,omitempty"`
+	ProviderAccess []provideraccess.RuntimeReport `json:"providerAccess,omitempty"`
 }
 
 type Discovered struct {
@@ -115,7 +118,7 @@ func (s *Service) runtimeStatus(ctx context.Context, folder string) RuntimeStatu
 				stopped.Error = err.Error()
 				return stopped
 			}
-			return RuntimeStatus{State: StateRunning, Mode: opened.Mode, Ready: health.Ready, PID: opened.PID, URL: opened.URL}
+			return RuntimeStatus{State: StateRunning, Mode: opened.Mode, Ready: health.Ready, PID: opened.PID, URL: opened.URL, Version: health.Version, ProviderAccess: health.ProviderAccess}
 		}
 		if errors.Is(err, appruntime.ErrRuntimeUnresponsive) {
 			return RuntimeStatus{State: StateStarting}

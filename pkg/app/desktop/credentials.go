@@ -18,7 +18,8 @@ type CredentialStatus struct {
 	Available bool                         `json:"available"`
 	Ready     []string                     `json:"ready"`
 	// Team is the team API session; it never includes a token.
-	Team provideraccess.TeamStatus `json:"team"`
+	Team      provideraccess.TeamStatus `json:"team"`
+	Providers []provideraccess.Report   `json:"providers"`
 }
 
 func (s *Service) CredentialStatus() (CredentialStatus, error) {
@@ -31,6 +32,7 @@ func (s *Service) CredentialStatus() (CredentialStatus, error) {
 		teamStatus = provideraccess.Default().TeamStatus
 	}
 	status := CredentialStatus{Source: cfg.CredentialSource, Available: credentials.FindOnePassword(s.env) != "", Ready: []string{}, Team: teamStatus()}
+	status.Providers = provideraccess.Default().Reports(s.env)
 	for _, provider := range []string{"voyage", "typesafe", "openai", "cerebras", "anthropic"} {
 		need, _ := credentials.NeedForProvider(provider, "")
 		keys := append([]string{need.Key}, need.AltKeys...)

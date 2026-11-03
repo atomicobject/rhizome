@@ -5,9 +5,11 @@ import (
 	"log/slog"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 // ControlDeps are the runtime-owned pieces of the control API. The lane-owned
@@ -35,17 +37,18 @@ func BuildRuntimeControl(deps ControlDeps) *web.RuntimeControl {
 		Health: func() appruntime.Health {
 			current := deps.Manifest()
 			return appruntime.Health{
-				InstanceID:  current.InstanceID,
-				RunID:       current.RunID,
-				PID:         current.PID,
-				VaultPath:   current.VaultPath,
-				Mode:        current.Mode,
-				Version:     current.Version,
-				BuildID:     current.BuildID,
-				Ready:       current.Ready,
-				Lane:        laneStateOf(deps.Live),
-				IdleSeconds: deps.Idle.IdleFor().Seconds(),
-				StartedAt:   current.StartedAt,
+				ProviderAccess: provideraccess.Default().RuntimeReports(vaultconfig.FromContext(deps.Context)),
+				InstanceID:     current.InstanceID,
+				RunID:          current.RunID,
+				PID:            current.PID,
+				VaultPath:      current.VaultPath,
+				Mode:           current.Mode,
+				Version:        current.Version,
+				BuildID:        current.BuildID,
+				Ready:          current.Ready,
+				Lane:           laneStateOf(deps.Live),
+				IdleSeconds:    deps.Idle.IdleFor().Seconds(),
+				StartedAt:      current.StartedAt,
 			}
 		},
 		Shutdown: func(reason string) {

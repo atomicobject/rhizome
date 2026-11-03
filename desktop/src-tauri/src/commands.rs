@@ -91,6 +91,17 @@ pub enum Action {
         source: crate::credentials::Source,
     },
     CredentialCancel,
+    ProviderPreferenceSet {
+        provider: String,
+        preference: String,
+    },
+    ProviderKeySet {
+        provider: String,
+        key: Secret,
+    },
+    ProviderKeyClear {
+        provider: String,
+    },
     TeamStatus,
     TeamSignIn,
     TeamCancel,
@@ -342,14 +353,74 @@ pub async fn desktop_request(
             .await
         }
         Action::CredentialImport { source } => {
-            app.state::<crate::credentials::Imports>()
+            let result = app
+                .state::<crate::credentials::Imports>()
                 .import(&state.directory, &source, window.label(), &state.global)
-                .await
+                .await;
+            // Cancellation may race an already committed save. Every window
+            // must refresh after either outcome.
+            app.state::<Panes>()
+                .broadcast(&json!({"type": "provider-access-changed"}));
+            app.state::<Presence>().rediscover();
+            result
         }
         Action::CredentialCancel => {
             app.state::<crate::credentials::Imports>()
                 .cancel(Some(window.label()));
             Ok(Value::Null)
+        }
+        Action::ProviderPreferenceSet {
+            provider,
+            preference,
+        } => {
+            let result = crate::credentials::update(
+                &state.directory,
+                Request {
+                    operation: "provider-preference-set",
+                    provider: Some(&provider),
+                    preference: Some(&preference),
+                    ..Request::default()
+                },
+                &state.global,
+            )
+            .await;
+            app.state::<Panes>()
+                .broadcast(&json!({"type": "provider-access-changed"}));
+            app.state::<Presence>().rediscover();
+            result
+        }
+        Action::ProviderKeySet { provider, key } => {
+            let result = crate::credentials::update(
+                &state.directory,
+                Request {
+                    operation: "provider-key-set",
+                    provider: Some(&provider),
+                    key: Some(&key),
+                    ..Request::default()
+                },
+                &state.global,
+            )
+            .await;
+            app.state::<Panes>()
+                .broadcast(&json!({"type": "provider-access-changed"}));
+            app.state::<Presence>().rediscover();
+            result
+        }
+        Action::ProviderKeyClear { provider } => {
+            let result = crate::credentials::update(
+                &state.directory,
+                Request {
+                    operation: "provider-key-clear",
+                    provider: Some(&provider),
+                    ..Request::default()
+                },
+                &state.global,
+            )
+            .await;
+            app.state::<Panes>()
+                .broadcast(&json!({"type": "provider-access-changed"}));
+            app.state::<Presence>().rediscover();
+            result
         }
         Action::TeamStatus => crate::team::status(&state.directory).await,
         Action::TeamSignIn => {

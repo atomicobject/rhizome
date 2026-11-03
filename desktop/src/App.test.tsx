@@ -1019,3 +1019,58 @@ describe("desktop shell", () => {
     expect(document.documentElement.dataset.theme).toBe("oxblood");
   });
 });
+
+it("shows runtime provider reports in Settings and restarts that worktree through the app", async () => {
+  start(undefined, (operation) => {
+    if (operation === "credential-status")
+      return {
+        available: true,
+        ready: [],
+        providers: [{ provider: "voyage", preference: "server", source: "team", saved: false }],
+      };
+    if (operation === "team-status") return { signed_in: true, email: "ada@example.test" };
+    if (operation === "global-status") return { path: "/app/rzm", bundled: true, version: "0.1.0" };
+    if (operation === "render-profiling") return { enabled: false, always: false };
+    if (operation === "restart") return null;
+    return undefined;
+  });
+  await waitFor(() => expect(opened()).toHaveLength(1));
+  act(() =>
+    emit({
+      type: "presence",
+      repositories: { [repository.id]: { info: discovery } },
+      runtimes: {
+        [main]: {
+          state: "running",
+          mode: "headless",
+          version: "0.1.0",
+          providerAccess: [
+            {
+              provider: "voyage",
+              active: {
+                provider: "voyage",
+                source: "direct",
+                key: "environment",
+                envName: "VOYAGE_API_KEY",
+                saved: false,
+              },
+              next: { provider: "voyage", source: "team", preference: "server", saved: false },
+              restartRequired: true,
+            },
+          ],
+        },
+        [feature]: { state: "running", mode: "attached" },
+      },
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(
+    await screen.findByText("Active connection: VOYAGE_API_KEY from the environment"),
+  ).toBeVisible();
+  expect(screen.getByText("Next start: Atomic Object server")).toBeVisible();
+  expect(screen.getByText(/Unknown: this runtime does not report provider sources/)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Restart project / main" }));
+  await waitFor(() =>
+    expect(call).toHaveBeenCalledWith("restart", { id: repository.id, worktree: main }),
+  );
+});

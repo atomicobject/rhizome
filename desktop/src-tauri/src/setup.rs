@@ -6,6 +6,24 @@ use std::fmt;
 #[serde(transparent)]
 pub struct Secret(String);
 
+impl Secret {
+    /// Treat echoed keys anywhere in a companion response as unsafe, including
+    /// object names and failure messages. Never include the value in diagnostics.
+    pub(crate) fn appears_in(&self, value: &serde_json::Value) -> bool {
+        if self.0.is_empty() {
+            return false;
+        }
+        match value {
+            serde_json::Value::String(text) => text.contains(&self.0),
+            serde_json::Value::Array(values) => values.iter().any(|value| self.appears_in(value)),
+            serde_json::Value::Object(values) => values
+                .iter()
+                .any(|(name, value)| name.contains(&self.0) || self.appears_in(value)),
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Debug for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("[redacted]")

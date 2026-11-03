@@ -11,7 +11,8 @@ import (
 // GlobalConfig captures the home-level Rhizome config fields that generic value
 // resolution needs. Unknown fields are ignored when the full config is parsed.
 type GlobalConfig struct {
-	Env map[string]string `yaml:"env,omitempty"`
+	Env            map[string]string `yaml:"env,omitempty"`
+	ProviderAccess map[string]string `yaml:"provider_access,omitempty"`
 }
 
 // LoadGlobalConfig reads ~/.config/rhizome/config.yml and returns the subset of

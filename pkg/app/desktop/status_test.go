@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -36,6 +37,25 @@ func fakeRuntime(t *testing.T, folder string, manifest appruntime.InstanceManife
 	}
 	manifest.PID, manifest.RunID, manifest.ControlToken = health.PID, health.RunID, "synthetic-control-secret"
 	require.NoError(t, appruntime.WriteManifest(folder, manifest))
+}
+
+func TestStatusForwardsProviderReportsOnlyFromVerifiedLiveRuntime(t *testing.T) {
+	service := testService(t)
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
+	reports := []provideraccess.RuntimeReport{{Provider: "voyage", Next: provideraccess.Report{Provider: "voyage", Source: provideraccess.SourceTeam}}}
+	health := appruntime.Health{VaultPath: folder, PID: os.Getpid(), RunID: "report-run", Mode: appruntime.ModeHeadless, Version: "v1.2.3", ProviderAccess: reports}
+	fakeRuntime(t, folder, appruntime.InstanceManifest{VaultPath: folder}, health, 0)
+	status := service.runtimeStatus(context.Background(), folder)
+	require.Equal(t, StateRunning, status.State)
+	require.Equal(t, "v1.2.3", status.Version)
+	require.Equal(t, reports, status.ProviderAccess)
+	foreign := config(t, repoconfig.LocalRhizomeConfig{})
+	health.VaultPath = t.TempDir()
+	fakeRuntime(t, foreign, appruntime.InstanceManifest{VaultPath: foreign}, health, 0)
+	status = service.runtimeStatus(context.Background(), foreign)
+	require.Equal(t, StateStopped, status.State)
+	require.Empty(t, status.Version)
+	require.Empty(t, status.ProviderAccess)
 }
 
 func TestStatusReportsOnlyVerifiedRuntimes(t *testing.T) {

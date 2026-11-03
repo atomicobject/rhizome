@@ -32,6 +32,7 @@ import {
 import { ScopePage } from "./IndexScope";
 import { PageSections, PageTools } from "./PageControls";
 import { Settings } from "./Settings";
+import { providerAccessChanged } from "./ProviderAccess";
 import { SetupSheet } from "./SetupSheet";
 import { Notice, OpenStatus } from "./Status";
 import { teamChanged, teamProgress } from "./TeamAccount";
@@ -611,6 +612,9 @@ export function App() {
         teamProgress(message.url);
       } else if (message.type === "team-changed") {
         teamChanged();
+        providerAccessChanged();
+      } else if (message.type === "provider-access-changed") {
+        providerAccessChanged();
       } else if (message.type === "command") {
         const { command } = message;
         // A finder draws above the window, so it would cover what any other command shows.
@@ -637,6 +641,28 @@ export function App() {
           update={update}
           selected={library?.globalExecutable}
           busy={!!busy}
+          providerRuntimes={Object.entries(runtimes).map(([path, runtime]) => {
+            const repository = repositories.find(
+              (repo) =>
+                repo.root === path ||
+                repo.acknowledged.includes(path) ||
+                found[repo.id]?.info?.worktrees.some((worktree) => worktree.path === path),
+            );
+            const worktree =
+              repository &&
+              found[repository.id]?.info?.worktrees.find((item) => item.path === path);
+            return {
+              repository: repository?.id ?? "",
+              name: repository
+                ? `${repository.name} / ${worktree ? worktreeName(worktree) : basename(path)}`
+                : basename(path),
+              worktree: path,
+              runtime,
+            };
+          })}
+          onProviderRestart={async (repository, worktree) => {
+            await request("restart", { id: repository, worktree });
+          }}
           developmentBuilds={repositories.flatMap((repository) =>
             (found[repository.id]?.info?.worktrees ?? []).flatMap((w) =>
               w.executable

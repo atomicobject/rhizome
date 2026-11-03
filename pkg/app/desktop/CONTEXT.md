@@ -51,6 +51,7 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
 - `repoexec.Select` determines executable authority. Trust precedes every
   repository-selected probe, download, and start. Only explicit initialization
   writes setup files; opening an unconfigured folder never initializes it.
+- Verified running status also carries optional runtime version and provider-access reports. Constructed Voyage and last constructed Jev access are distinct from the next-construction decision in that runtime's environment. An older runtime without reports is unknown; desktop never substitutes its own credential report as actual repository routing.
 - Setup-report runs `init --check --json`; initialize runs `init --json` with
   explicit choices and returns the untouched setup result plus post-run folder
   information. Both require an unconfigured folder, use Initialize's executable
@@ -271,6 +272,12 @@ failed, as the normal updater reports. The native caller reopens the worktree
 through `open` after success. No Go operation or field persists dismissals.
 
 ### Provider credential import
+
+Settings groups account sign-in, independent Voyage/Jev route choices, manual key management and 1Password import as Provider access. Sign-in and imports do not alter route choices. `credential-status` additionally returns secret-free `providers` reports from the shared provider factory; these are the app's next-run defaults, not proof of a running repository's connection.
+
+`provider-preference-set` accepts `provider` (`voyage` or `typesafe`) and `preference` (`server`, `key`, or empty to restore automatic). `provider-key-set` accepts `provider` and `key` on stdin JSON; `provider-key-clear` accepts only `provider`. Mutations return refreshed credential status. Server preference overrides all local keys and never falls back. Key writes replace or clear that provider's saved aliases together, preserving unrelated settings and remembered import references. Existing secret values are never returned for display.
+
+Native mutations use the same app-wide global lock as setup and import, and broadcast a provider-access change so other windows refresh. Saved configuration remains private and atomic; key values never enter arguments, diagnostics or results. Runtime restart remains an explicit action and never terminates an attached runtime.
 
 `credential-status` reads user-local source references and provider readiness,
 without invoking 1Password or returning values. It returns

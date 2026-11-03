@@ -138,7 +138,7 @@ it("shows the signed-in team account with its sign-out action", async () => {
   );
   render(<Settings {...props()} />);
   expect(await screen.findByText("ada@example.test")).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Team account" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Atomic Object server" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
 });
 

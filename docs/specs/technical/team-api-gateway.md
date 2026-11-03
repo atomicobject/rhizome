@@ -112,7 +112,9 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 #### Acceptance Criteria
 
-- Settings shows a Team account section with the signed-in email or a **Sign in with Atomic Object** button; setup offers the same button.
+- Settings groups provider access with the signed-in email or a **Sign in with Atomic Object** button; setup offers the same button. Signing in does not silently change a provider's route.
+- Voyage and Jev each offer **Atomic Object server** or **Your key**. Users can add, replace or clear saved keys, or import them from a 1Password Environment. Importing keys does not change the selected route. Existing keys are never returned for display.
+- Settings distinguishes the app's next-run defaults from the actual connections reported by each running repository. It shows pending Voyage restarts and reports unknown routing for older runtimes instead of inferring it from sign-in.
 - Sign-in runs `rzm auth login --json` through the bridge and can be cancelled. Sign-out runs logout.
 - The packaged app on macOS completes all three against a local gateway.
 
@@ -184,8 +186,16 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST record the signed-in origin in one non-secret, user-global selector file (`team-session.json` beside the session lock), written by login and cleared by logout under the session lock, and resolve every consumer's origin from it: an explicit `--server`, then (development builds only) `RHIZOME_TEAM_API_ORIGIN` naming an origin that already has a stored session, then the selector, then the default origin.
 - MUST refuse to route provider calls to a loopback gateway that reports fake upstreams unless `RHIZOME_TEAM_API_ORIGIN` names it explicitly, so a selector left pointing at a fake stack cannot put fake vectors in a real index.
 - MUST run `rzm auth` on the invoked executable, bypassing repository delegation, pin installation, and dotenv loading.
-- MUST resolve credentials in this order: an explicit direct key, then the team session, then the legacy bundle until it is retired. A gateway failure never falls back to another billing source.
+- MUST respect an explicit user-global `provider_access` choice independently for Voyage and TypeSafe. `server` uses only the team session, overriding caller-supplied, environment and saved keys; an unavailable session fails without trying another billing source. `key` uses caller-supplied, environment and saved keys in that order, without a team-session or legacy-bundle fallback. Repository configuration cannot supply this preference.
+- MUST preserve existing resolution when no choice is saved: an explicit direct key, then the team session, then the legacy bundle until it is retired. Development builds continue to prefer a signed-in loopback session in this automatic mode. A gateway failure never falls back to another billing source.
 - MUST NOT start sign-in from CI or any unattended call; those return a typed sign-in-required error.
+
+### Provider access settings and reporting
+
+- MUST report route decisions through the same resolver used to construct providers, without keys, tokens, partial secrets or credential fingerprints. Reports may identify the provider, selected preference, route, key provenance/name, saved-key presence, gateway origin and bounded unavailability reason.
+- MUST save route preferences and direct keys only in private user-global configuration, atomically and while preserving unrelated settings. Desktop writes share the existing global setup/import lock. Key values travel through stdin JSON and never appear in arguments, logs, results or failure messages.
+- MUST distinguish a runtime's constructed Voyage connection and last constructed Jev client from its current next-construction decision. A changed Voyage route requires a runtime restart. Before the first Jev construction, report that no evaluation client has been created rather than inventing an active route.
+- MUST carry optional runtime reports through the existing identity-verified loopback health/status path. Missing reports mean unknown, including older pinned runtimes. Desktop restart actions retain existing headless/attached ownership rules.
 
 ### Gateway contract
 

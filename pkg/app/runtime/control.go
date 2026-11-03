@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 )
 
 // Control API routes served by the runtime on its loopback listener. Health is
@@ -44,17 +46,18 @@ type LaneState struct {
 
 // Health is the open, token-free liveness answer at HealthPath.
 type Health struct {
-	InstanceID  string    `json:"instanceId"`
-	RunID       string    `json:"runId"`
-	PID         int       `json:"pid"`
-	VaultPath   string    `json:"vaultPath"`
-	Mode        Mode      `json:"mode"`
-	Version     string    `json:"version"`
-	BuildID     string    `json:"buildId"`
-	Ready       bool      `json:"ready"`
-	Lane        LaneState `json:"lane"`
-	IdleSeconds float64   `json:"idleSeconds"`
-	StartedAt   time.Time `json:"startedAt"`
+	ProviderAccess []provideraccess.RuntimeReport `json:"providerAccess,omitempty"`
+	InstanceID     string                         `json:"instanceId"`
+	RunID          string                         `json:"runId"`
+	PID            int                            `json:"pid"`
+	VaultPath      string                         `json:"vaultPath"`
+	Mode           Mode                           `json:"mode"`
+	Version        string                         `json:"version"`
+	BuildID        string                         `json:"buildId"`
+	Ready          bool                           `json:"ready"`
+	Lane           LaneState                      `json:"lane"`
+	IdleSeconds    float64                        `json:"idleSeconds"`
+	StartedAt      time.Time                      `json:"startedAt"`
 }
 
 // An explicit index job takes no options: requests coalesce into one job, so
