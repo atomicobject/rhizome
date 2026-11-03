@@ -4,6 +4,7 @@ import { useState } from "react";
 import { queryKeys } from "../../api/queryKeys";
 import {
   actOnTaskItem,
+  runTask,
   runTaskItem,
   setTaskMode,
   setTasksPaused,
@@ -149,8 +150,8 @@ export function TasksWorkspace({
   const reportQuery = useTasksReport();
   const live = useTasksLiveState();
   const runsQuery = useTaskRuns(location.task);
-  const [pending, setPending] = useState<"" | "item" | "mode" | "pause" | "test">("");
-  // Which action failed: an item ID, "mode", "pause", or "test:<task>".
+  const [pending, setPending] = useState<"" | "item" | "mode" | "pause" | "run" | "test">("");
+  // Which action failed: an item ID, "mode", "pause", "run", or "test:<task>".
   const [actionError, setActionError] = useState<{ scope: string; text: string } | null>(null);
 
   const report = reportQuery.data;
@@ -204,6 +205,12 @@ export function TasksWorkspace({
       }
     });
 
+  const runNow = (id: string) =>
+    void perform("run", "run", async () => {
+      const { launchedAt, item } = await runTask(id);
+      live.awaitLaunch({ task: id, item, launchedAt });
+    });
+
   const runTest = (id: string) =>
     void perform("test", `test:${id}`, async () => {
       const { launchedAt, sourceCheckout } = await testTask(id);
@@ -221,11 +228,15 @@ export function TasksWorkspace({
     });
 
   const pageError =
-    actionError?.scope === "mode" || actionError?.scope === "pause" ? (
+    actionError?.scope === "mode" ||
+    actionError?.scope === "pause" ||
+    actionError?.scope === "run" ? (
       <p className="task-inline-error task-page-error" role="alert">
         {actionError.scope === "mode"
           ? "Could not change the mode: "
-          : "Could not change pausing: "}
+          : actionError.scope === "run"
+            ? "Could not run the task: "
+            : "Could not change pausing: "}
         {actionError.text}
       </p>
     ) : null;
@@ -328,6 +339,14 @@ export function TasksWorkspace({
           modePending={pending === "mode"}
           onMode={changeMode}
           onBack={() => navigateTasks({})}
+          onRun={task.scheduled && !task.checkOnly && !item ? () => runNow(task.id) : undefined}
+          runBlocked={
+            pending === "run" || (live.watch?.task === task.id && !live.watch.test)
+              ? "Starting the run…"
+              : runActive
+                ? "A task run is in progress; run when it finishes"
+                : undefined
+          }
         />
         {pageError}
         <TasksNotices

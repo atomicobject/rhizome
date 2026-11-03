@@ -428,6 +428,25 @@ describe("TasksWorkspace", () => {
     expect(http.count("GET", "/api/tasks/state")).toBe(settled);
   });
 
+  it("runs a task that has no inbox item from Run now", async () => {
+    http.json("POST", "/api/tasks/run/changelog", {
+      launchedAt: new Date(NOW).toISOString(),
+      item: "12",
+    });
+    open("/tasks/changelog");
+    const { unmount } = render(<TasksWorkspace />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(http.count("POST", "/api/tasks/run/changelog")).toBe(1));
+    unmount();
+
+    // A task with an open item runs from the item instead.
+    open("/tasks/dependency-updates");
+    render(<TasksWorkspace />);
+    expect(await screen.findByRole("button", { name: "Run" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Run now" })).not.toBeInTheDocument();
+  });
+
   it("stops awaiting a launch after 30 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
     http.json("POST", "/api/tasks/items/9/run", { launchedAt: new Date(NOW).toISOString() });
