@@ -24,7 +24,7 @@ written:
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .agents/skills/compounding/SKILL.md: f4d5105bed19d018
-  .agents/skills/compounding/references/models.md: b3bf106dc2dd7a61
+  .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .agents/skills/custom-views/references/kit-api.md: bafce3a53d05696d
@@ -78,7 +78,7 @@ written:
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .claude/skills/compounding/SKILL.md: f4d5105bed19d018
-  .claude/skills/compounding/references/models.md: b3bf106dc2dd7a61
+  .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .claude/skills/custom-views/references/kit-api.md: bafce3a53d05696d
@@ -126,7 +126,7 @@ written:
   .rhizome/modules/compounding/actions/prompt.yaml: 72bfefcfd44fab95
   .rhizome/modules/compounding/actions/recommendations.yaml: 439317b036fa5de2
   .rhizome/modules/compounding/actions/shards-check.yaml: fb373e5df12f1b6d
-  .rhizome/modules/compounding/models.json: 098cb62a191ff308
+  .rhizome/modules/compounding/models.json: 221ff855b19ee900
   .rhizome/modules/compounding/ontology/compounding.graphql: d43cdaa92757f036
   .rhizome/modules/compounding/recipes/compounding.yaml: 994398ce86bd8209
   .rhizome/modules/compounding/references/calibration-fixture.json: 4b858dc5aaf769c2
@@ -136,7 +136,7 @@ written:
   .rhizome/modules/compounding/scripts/lib/calibration-data.mjs: 50c7ba8e358f3780
   .rhizome/modules/compounding/scripts/lib/calibration-models.mjs: 040bd397ef1cbe0c
   .rhizome/modules/compounding/scripts/lib/calibration-score.mjs: 56b8330db4ad1099
-  .rhizome/modules/compounding/scripts/lib/calls.mjs: 80e26c80087ed5d0
+  .rhizome/modules/compounding/scripts/lib/calls.mjs: e43c954d88f347d7
   .rhizome/modules/compounding/scripts/lib/episodes.mjs: 192fa78eda45082b
   .rhizome/modules/compounding/scripts/lib/estimate.mjs: 8d558e42ffc15125
   .rhizome/modules/compounding/scripts/lib/extract.mjs: b7e8d59f161d707b
