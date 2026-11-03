@@ -219,6 +219,7 @@ Task authors can see and test a local version before it reaches the primary bran
 - MUST keep task state outside every Git-tracked path, readable only by the person on macOS and Linux.
 - MUST NOT fetch from the network to decide what is due. The primary ref is as fresh as the person's last fetch.
 - MUST resolve each check's interpreter the way the person's login shell does, because a runtime started by the desktop app or launchd lacks the shell's PATH, and version-manager shims such as mise fail without their environment.
+- MUST put the runtime's own `rzm` first on the PATH of checks and agent work. The runtime runs with repo delegation off, and its subprocesses inherit that, so a bare `rzm` would otherwise run whichever `rzm` the shell finds first.
 - SHOULD keep deciding what is due cheap enough to run every tick.
 
 ## Edge Cases
