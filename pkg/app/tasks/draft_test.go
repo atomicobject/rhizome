@@ -308,3 +308,33 @@ func TestLocalTaskTestsUseTheSelectedWorktree(t *testing.T) {
 	require.Len(t, secondRuns, 1)
 	require.Equal(t, other, secondRuns[0].SourceCheckout)
 }
+
+// The runtime runs with repo delegation off, so a bare `rzm` in a check or
+// agent must find the runtime's own binary, not whichever rzm is on PATH.
+func TestCheckAndAgentFindTheRuntimesRzmFirst(t *testing.T) {
+	shellAvailable(t)
+	dir := newRepo(t, nil)
+	writeFile(t, filepath.Join(dir, TasksDir, "shell.yml"), "name: Shell\nevery: 1d\ncheck:\n  command: [sh, -c, rzm]\nprompt: work\n")
+	writeFile(t, filepath.Join(dir, TasksDir, "direct.yml"), "name: Direct\nevery: 1d\ncheck:\n  command: [rzm]\nprompt: work\n")
+	bin := t.TempDir()
+	writeFile(t, filepath.Join(bin, "rzm"), "#!/bin/sh\nprintf '{\"needed\":true}'\n")
+	require.NoError(t, os.Chmod(filepath.Join(bin, "rzm"), 0o755))
+	var agentPath string
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		for _, entry := range req.Env {
+			if strings.HasPrefix(entry, "PATH=") {
+				agentPath = strings.TrimPrefix(entry, "PATH=")
+			}
+		}
+		return AgentResult{Message: "done"}, nil
+	}}
+	svc := newService(t, dir, agent, "auto")
+	svc.opts.Rzm = filepath.Join(bin, "rzm")
+	for _, file := range []string{"shell.yml", "direct.yml"} {
+		agentPath = ""
+		out, err := svc.RunDraft(context.Background(), filepath.Join(dir, TasksDir, file))
+		require.NoError(t, err)
+		require.Equal(t, OutcomeNoChanges, out.Outcome, file)
+		require.Equal(t, bin, filepath.SplitList(agentPath)[0], file)
+	}
+}
