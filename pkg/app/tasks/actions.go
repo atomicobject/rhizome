@@ -160,6 +160,10 @@ func (s *Service) RequestRun(ctx context.Context, task string) (string, error) {
 		return "", err
 	}
 	defer func() { _ = release() }()
+	// A crashed run leaves its item running; recover it so it can be retried.
+	if err := s.finalizeInterrupted(ctx); err != nil {
+		return "", err
+	}
 	_, commit, def, err := s.currentDefinition(ctx, task)
 	if err != nil {
 		return "", err
