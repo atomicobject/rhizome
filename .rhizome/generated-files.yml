@@ -154,7 +154,7 @@ written:
   .rhizome/modules/compounding/scripts/lib/verification-queue.mjs: 57a8a20bb10f875b
   .rhizome/modules/compounding/scripts/lib/verify.mjs: 0ac53b2adbc79f41
   .rhizome/modules/compounding/scripts/lookup.mjs: a0e82c9ced433250
-  .rhizome/modules/compounding/scripts/mine.mjs: 9c1c094e4590abb0
+  .rhizome/modules/compounding/scripts/mine.mjs: f422ef47434689df
   .rhizome/modules/compounding/scripts/report.mjs: 14bf0256850597d1
   .rhizome/modules/compounding/scripts/sessions.mjs: 4cf33f17d765ff00
   .rhizome/modules/compounding/scripts/shards.mjs: e1ca24687fe3a6f5

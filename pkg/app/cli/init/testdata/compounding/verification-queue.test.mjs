@@ -50,6 +50,17 @@ test("count-deferred candidates resume without new episodes or verify-held, then
   assert.equal(final.calls.generate + final.calls.evaluate, 0);
 });
 
+test("a cached invalid reply does not hold the only verification slot on later runs", async () => {
+  const f = fixture();
+  const over = { discover: fakeDiscover([SESSIONS.s1, SESSIONS.s3]), verifyBudget: 1 };
+  await f.run(fakeClients(), { ...over, verifyBudget: 0 });
+  // Each run gets an invalid reply; the second must try the other candidate
+  // instead of replaying the first one's cached failure.
+  for (let i = 0; i < 2; i++) await f.run(fakeClients({ badVerify: true }), over);
+  const tried = Object.values(read(f.state, "pool/clusters.json")).filter((c) => /Topic (beta|delta)/.test(c.statement) && c.verifyProblems);
+  assert.equal(tried.length, 2, "both pending candidates were tried");
+});
+
 test("saved tier C estimates remain eligible, while approved and dismissed cluster decisions suppress verification", async () => {
   const f = fixture();
   await f.run(fakeClients(), { verifyBudget: 0 });

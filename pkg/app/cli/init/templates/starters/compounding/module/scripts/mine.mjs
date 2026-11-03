@@ -365,9 +365,12 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     const queue = verificationQueue(root, store, clusters);
     const byWorth = (x, y) => (y.worth ?? 0) - (x.worth ?? 0) || (x.id < y.id ? -1 : 1);
     // Earlier count-deferred work precedes fresh work so repeated new sessions
-    // cannot starve it. Jev orders peers, but never excludes a candidate.
+    // cannot starve it, and a retry of an invalid reply goes last so a cached
+    // failure cannot hold the slots untried work needs. Jev orders peers, but
+    // never excludes a candidate.
     const touchedIds = new Set(touched.map((c) => c.id));
-    const byAge = (x, y) => Number(touchedIds.has(x.id)) - Number(touchedIds.has(y.id)) || byWorth(x, y);
+    const byAge = (x, y) =>
+      Number(!!x.verifyProblems) - Number(!!y.verifyProblems) || Number(touchedIds.has(x.id)) - Number(touchedIds.has(y.id)) || byWorth(x, y);
     const urgent = (c) => c.tier === "A" || unrouted(c) || reopen(c);
     plan = [
       ...queue.filter(urgent),
