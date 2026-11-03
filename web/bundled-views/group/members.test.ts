@@ -274,6 +274,21 @@ it("puts members without links in a bottom row and outside neighbors on the ring
   }
 });
 
+it("keeps linked members placed when unlinked rows would fill the box", () => {
+  const crowd = Array.from({ length: 13 }, (_, n) => ({
+    id: `Loose${n}`,
+    radius: 30,
+    label: "A long member name 9",
+  }));
+
+  const layout = layoutMap({ ...LAYOUT, nodes: [...LAYOUT.nodes, ...crowd] });
+
+  for (const point of layout.positions.values()) {
+    expect(Number.isFinite(point.x)).toBe(true);
+    expect(Number.isFinite(point.y)).toBe(true);
+  }
+});
+
 it("spreads the members over the box when none links to another", () => {
   const layout = layoutMap({ ...LAYOUT, edges: [], outside: [] });
 
