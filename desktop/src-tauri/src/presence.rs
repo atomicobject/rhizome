@@ -46,6 +46,10 @@ pub struct Runtime {
     pub pid: Option<i64>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub provider_access: Option<Vec<Value>>,
 }
 
 #[derive(Default, Deserialize)]
@@ -277,7 +281,7 @@ impl Presence {
             };
             runtimes.insert(
                 path.clone(),
-                json!({ "state": state, "mode": runtime.mode }),
+                json!({ "state": state, "mode": runtime.mode, "version": runtime.version, "providerAccess": runtime.provider_access }),
             );
         }
         for path in opening {
@@ -449,7 +453,34 @@ mod tests {
             mode: Some("headless".into()),
             pid: Some(4),
             url: Some(origin.into()),
+            version: None,
+            provider_access: None,
         }
+    }
+
+    #[test]
+    fn provider_reports_survive_presence_and_old_runtimes_remain_unknown() {
+        let old: Runtime =
+            serde_json::from_value(json!({"state":"running","mode":"headless"})).unwrap();
+        assert_eq!(old.provider_access, None);
+        let reports = json!([{"provider":"voyage","active":{"provider":"voyage","source":"team","saved":false},"next":{"provider":"voyage","source":"direct","saved":true},"restartRequired":true}]);
+        let runtime: Runtime = serde_json::from_value(
+            json!({"state":"running","version":"v1.2.3","providerAccess":reports}),
+        )
+        .unwrap();
+        let presence = Presence::default();
+        presence
+            .snapshot
+            .lock()
+            .unwrap()
+            .runtimes
+            .insert("/work/project".into(), runtime);
+        let message = presence.changed(&BTreeSet::new()).unwrap();
+        assert_eq!(message["runtimes"]["/work/project"]["version"], "v1.2.3");
+        assert_eq!(
+            message["runtimes"]["/work/project"]["providerAccess"],
+            reports
+        );
     }
 
     #[test]
@@ -504,6 +535,8 @@ mod tests {
             mode: None,
             pid: None,
             url: None,
+            version: None,
+            provider_access: None,
         };
         presence.record(&library, false, status(stopped));
         let opening = BTreeSet::from(["/work/project".to_string(), "/work/new".to_string()]);
@@ -558,6 +591,8 @@ mod tests {
                     mode: Some("headless".into()),
                     pid: Some(1),
                     url: None,
+                    version: None,
+                    provider_access: None,
                 },
             )]);
         };
@@ -593,6 +628,8 @@ mod tests {
                 mode: Some("headless".into()),
                 pid: Some(1),
                 url: None,
+                version: None,
+                provider_access: None,
             };
             let mut snapshot = presence.snapshot.lock().unwrap();
             snapshot.repositories = BTreeMap::from([(
@@ -637,6 +674,8 @@ mod tests {
             mode: Some("headless".into()),
             pid: Some(1),
             url: None,
+            version: None,
+            provider_access: None,
         };
         let set = |state| {
             presence.snapshot.lock().unwrap().runtimes =

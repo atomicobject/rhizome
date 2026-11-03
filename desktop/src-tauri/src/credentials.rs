@@ -26,6 +26,16 @@ struct Active {
 pub struct Imports(Mutex<Option<Active>>);
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
+/// Settings writes share setup/import's process-wide config lock across windows.
+pub async fn update(
+    directory: &Path,
+    request: Request<'_>,
+    global: &tokio::sync::Mutex<()>,
+) -> Result<Value, Failure> {
+    let _global = global.lock().await;
+    bridge::call(directory, request, bridge::TIMEOUT).await
+}
+
 struct Marker<'a> {
     path: PathBuf,
     imports: &'a Imports,
@@ -136,6 +146,26 @@ impl Imports {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn settings_wait_for_the_same_config_lock_as_import_and_setup() {
+        tauri::async_runtime::block_on(async {
+            let directory = tempfile::tempdir().unwrap();
+            let global = tokio::sync::Mutex::new(());
+            let _importing = global.lock().await;
+            for operation in [
+                "provider-key-set",
+                "provider-key-clear",
+                "provider-preference-set",
+            ] {
+                let request = Request {
+                    operation,
+                    provider: Some("voyage"),
+                    ..Request::default()
+                };
+                assert!(tokio::time::timeout(std::time::Duration::from_millis(30), update(directory.path(), request, &global)).await.is_err(), "settings must not reach the companion while setup or import owns global config");
+            }
+        });
+    }
     #[test]
     fn marker_drop_cancels_and_releases_import_for_retry() {
         let directory = tempfile::tempdir().unwrap();

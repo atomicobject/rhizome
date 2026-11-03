@@ -1,6 +1,28 @@
 use super::*;
 
 #[test]
+fn provider_settings_decode_the_shell_contract_and_reject_keys_elsewhere() {
+    assert!(matches!(
+        serde_json::from_value::<Action>(
+            json!({"operation":"provider-preference-set","provider":"voyage","preference":"server"})
+        )
+        .unwrap(),
+        Action::ProviderPreferenceSet { .. }
+    ));
+    assert!(matches!(serde_json::from_value::<Action>(json!({"operation":"provider-key-set","provider":"typesafe","key":"synthetic-provider-secret"})).unwrap(), Action::ProviderKeySet { .. }));
+    assert!(matches!(
+        serde_json::from_value::<Action>(
+            json!({"operation":"provider-key-clear","provider":"typesafe"})
+        )
+        .unwrap(),
+        Action::ProviderKeyClear { .. }
+    ));
+    for operation in ["provider-preference-set", "provider-key-clear"] {
+        assert!(serde_json::from_value::<Action>(json!({"operation":operation,"provider":"voyage","preference":"server","key":"synthetic-provider-secret"})).is_err());
+    }
+}
+
+#[test]
 fn every_library_save_advances_the_revision_shells_receive() {
     let directory = tempfile::tempdir().unwrap();
     let desktop = Desktop::new(directory.path().into());

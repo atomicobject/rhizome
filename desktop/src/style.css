@@ -1174,3 +1174,126 @@ label.choice {
 .finder-foot .grow {
   flex: 1;
 }
+
+/* Provider sources: next-run defaults and actual runtime connections stay separate. */
+.provider-access h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.provider-account,
+.provider-subsection,
+.provider-import-disclosure {
+  margin-top: 24px;
+}
+.provider-access .hint {
+  margin: 4px 0 8px;
+}
+.provider-access .path {
+  overflow-wrap: anywhere;
+}
+.provider-route,
+.provider-key {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.provider-route {
+  display: grid;
+  grid-template-columns: minmax(145px, 1fr) auto;
+  gap: 6px 14px;
+  align-items: start;
+}
+.provider-route .segmented {
+  font-size: var(--fs-sm);
+}
+.provider-route .segmented label {
+  padding-inline: 10px;
+}
+.provider-route .segmented label:has(:disabled) {
+  cursor: default;
+  opacity: 0.65;
+}
+.provider-route-description {
+  grid-column: 1 / -1;
+}
+.provider-source-status {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+.provider-status-mark {
+  display: inline-block;
+  flex: 0 0 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.provider-status-mark.connected {
+  background: var(--link);
+}
+.provider-status-mark.unavailable {
+  border-radius: 0;
+  background: var(--accent);
+  transform: rotate(45deg);
+}
+.provider-status-mark.legacy {
+  border: 1px dashed var(--text-muted);
+}
+.provider-key-heading,
+.provider-runtime-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.provider-key form,
+.provider-key-confirmation {
+  margin-top: 12px;
+}
+.provider-runtimes {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.provider-runtimes > li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.provider-runtimes p {
+  margin: 4px 0;
+}
+.provider-runtime-route {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.provider-runtime-route > span {
+  padding-top: 4px;
+  font-weight: 500;
+}
+.provider-restart {
+  margin-top: 12px;
+}
+.provider-import-disclosure > summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.provider-import {
+  margin-top: 14px;
+}
+@media (max-width: 600px) {
+  .provider-route {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .provider-route .segmented {
+    justify-self: start;
+  }
+  .provider-key-heading {
+    display: block;
+  }
+  .provider-key-heading .actions {
+    margin-top: 8px;
+  }
+}

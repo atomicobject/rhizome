@@ -44,6 +44,10 @@ pub struct Request<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<&'a Secret>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preference: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edits: Option<&'a ScopeEdits>,
     /// Replaces a live headless runtime with a fresh one during open.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -116,7 +120,16 @@ async fn call_sidecar(
         .await
         .map_err(|_| "Rhizome took too long to respond. Try again.".to_string())?
         .map_err(|e| e.to_string())?;
-    let response: Response = serde_json::from_slice(&output.stdout)
+    let document: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|_| "The Rhizome companion returned an invalid response.".to_string())?;
+    if request.key.is_some_and(|key| key.appears_in(&document)) {
+        return Err(
+            "The Rhizome companion returned an unsafe response. The key was hidden."
+                .to_string()
+                .into(),
+        );
+    }
+    let response: Response = serde_json::from_value(document)
         .map_err(|_| "The Rhizome companion returned an invalid response.".to_string())?;
     if response.protocol != 1 {
         return Err("The Rhizome companion uses an unsupported protocol."
@@ -144,6 +157,41 @@ async fn call_sidecar(
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn provider_keys_travel_in_stdin_and_echoed_responses_are_rejected() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            for response in [
+                r#"{"protocol":1,"result":{"saved":true}}"#,
+                r#"{"protocol":1,"result":{"key":"synthetic-provider-secret"}}"#,
+                r#"{"protocol":1,"result":{"synthetic-provider-secret":true}}"#,
+                r#"{"protocol":1,"error":{"code":"failed","message":"failed: synthetic-provider-secret"}}"#,
+            ] {
+                let directory = tempfile::tempdir().unwrap();
+                let sidecar = directory.path().join("sidecar");
+                std::fs::write(&sidecar, format!("#!/bin/sh\nprintf '%s\\n' \"$@\" > arguments\n/bin/cat > input.json\nprintf '%s' '{response}'\n")).unwrap();
+                std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o700)).unwrap();
+                let key: Secret = serde_json::from_str(r#""synthetic-provider-secret""#).unwrap();
+                let result = call_sidecar(directory.path(), Request {
+                    operation: "provider-key-set", provider: Some("voyage"), key: Some(&key), ..Request::default()
+                }, Duration::from_secs(1), &sidecar).await;
+                assert!(!std::fs::read_to_string(directory.path().join("arguments")).unwrap().contains("synthetic-provider-secret"));
+                let input: Value = serde_json::from_slice(&std::fs::read(directory.path().join("input.json")).unwrap()).unwrap();
+                assert_eq!(input["key"], "synthetic-provider-secret");
+                if response.contains("synthetic-provider-secret") {
+                    let error = result.unwrap_err();
+                    assert!(!error.message.contains("synthetic-provider-secret"));
+                    assert!(error.message.contains("unsafe response"));
+                } else {
+                    assert_eq!(result.unwrap()["saved"], true);
+                }
+            }
+        });
+    }
 
     #[test]
     fn credential_timeout_and_future_drop_leave_supervisor_to_observe_cancellation() {

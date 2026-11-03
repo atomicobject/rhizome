@@ -84,7 +84,7 @@ func TestUnavailableNamesSignIn(t *testing.T) {
 	_, _, err := f.NewEmbeddings(env, embeddings.Config{Provider: "voyage"}, "")
 	require.ErrorContains(t, err, "voyage provider requires api key")
 	require.ErrorContains(t, err, "rzm auth login")
-	require.ErrorContains(t, err, "keychain locked")
+	require.ErrorContains(t, err, "team session unavailable")
 	_, err = f.NewTypeSafe(env)
 	require.ErrorContains(t, err, "TypeSafe credential unavailable")
 	require.ErrorContains(t, err, "rzm auth login")

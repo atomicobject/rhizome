@@ -355,8 +355,11 @@ func TestRunHeadlessAsksForTasksAndStillExitsWhenIdle(t *testing.T) {
 	var calls atomic.Int32
 	handle := startRun(t, vault, func(o *Options) {
 		o.Headless = true
-		o.IdleTimeout = 300 * time.Millisecond
-		o.TasksFirstDelay = 5 * time.Millisecond
+		o.IdleTimeout = time.Millisecond
+		// Startup may consume the idle budget. Let tasks run before the first
+		// idle poll, rather than racing two equal-delay timers on Windows.
+		o.IdlePoll = time.Second
+		o.TasksFirstDelay = 20 * time.Millisecond
 		o.TasksInterval = 10 * time.Millisecond
 		o.RunTasks = func(path string) error {
 			if path == vault.path {
@@ -368,8 +371,7 @@ func TestRunHeadlessAsksForTasksAndStillExitsWhenIdle(t *testing.T) {
 
 	result := handle.awaitExit(t, 30*time.Second)
 	require.NoError(t, result.err)
-	// Repetition is covered by TestRunTasksTickerRepeatsUntilCanceled;
-	// slow runtime startup on Windows can leave room for one tick here.
+	// Repetition is covered by TestRunTasksTickerRepeatsUntilCanceled.
 	require.GreaterOrEqual(t, calls.Load(), int32(1), "the runtime should ask for due tasks")
 }
 

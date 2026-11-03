@@ -23,10 +23,12 @@ function expiry(value?: string): string {
 /** The Atomic Object team account (SPEC-0129 US5). `setup` adds the key-import alternative. */
 export function TeamAccount({
   setup = false,
+  compact = false,
   disabled = false,
   onChange,
 }: {
   setup?: boolean;
+  compact?: boolean;
   disabled?: boolean;
   onChange?: () => void;
 }) {
@@ -135,8 +137,9 @@ export function TeamAccount({
   }
 
   return (
-    <div className="setting-group">
-      <h2>Team account</h2>
+    <div className={compact ? "provider-account" : "setting-group"}>
+      {compact ? <h3>Atomic Object server</h3> : <h2>Team account</h2>}
+      {!status && !error && busy !== "sign-in" && <p>Checking the Atomic Object session…</p>}
       {busy === "sign-in" ? (
         <>
           <div className="actions">
@@ -163,8 +166,15 @@ export function TeamAccount({
         </>
       ) : (
         <>
+          {status?.session_expires_at &&
+            new Date(status.session_expires_at).getTime() <= Date.now() && (
+              <p>
+                Your session expired {expiry(status.session_expires_at)}. Sign in again to use the
+                server.
+              </p>
+            )}
           <p>
-            Uses the team's Voyage and Jev access without storing provider keys on this Mac.
+            Sign in to the Atomic Object server, then choose which providers use it in Settings.
             {setup && " Or import your own keys from 1Password below."}
           </p>
           <div className="actions">

@@ -40,7 +40,7 @@ it("signs in through the browser, shows progress, and then the account", async (
   });
   const onChange = vi.fn();
   render(<TeamAccount onChange={onChange} />);
-  expect(await screen.findByText(/without storing provider keys on this Mac/)).toBeVisible();
+  expect(await screen.findByText(/choose which providers use it in Settings/)).toBeVisible();
   expect(screen.queryByText(/import your own keys/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Sign in with Atomic Object" }));
   expect(await screen.findByText("Waiting for the browser…")).toBeVisible();

@@ -17,9 +17,11 @@ const defaults: CredentialSource = {
 export function CredentialImport({
   onImported,
   disabled = false,
+  compact = false,
 }: {
-  onImported?: () => void;
+  onImported?: (status: CredentialStatus) => void;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const [status, setStatus] = useState<CredentialStatus | null>(null);
   const [source, setSource] = useState<CredentialSource>(defaults);
@@ -64,9 +66,9 @@ export function CredentialImport({
       if (!alive.current) return;
       setStatus(fresh);
       setMessage(
-        "Provider keys imported into your private user configuration. Environment variables still take precedence.",
+        "Provider keys imported into your private user configuration. Your provider source choices are unchanged.",
       );
-      onImported?.();
+      onImported?.(fresh);
     } catch (cause) {
       if (alive.current) {
         if (canceled.current) setMessage("Import canceled. Checking the saved provider status…");
@@ -76,7 +78,7 @@ export function CredentialImport({
         const fresh = await request("credential-status", {});
         if (alive.current) {
           setStatus(fresh);
-          onImported?.();
+          onImported?.(fresh);
         }
       } catch (refreshCause) {
         if (alive.current) setError(failure(refreshCause).message);
@@ -96,8 +98,8 @@ export function CredentialImport({
   }
 
   return (
-    <div className="setting-group">
-      <h2>Import provider keys from 1Password</h2>
+    <div className={compact ? "provider-import" : "setting-group"}>
+      {!compact && <h2>Import provider keys from 1Password</h2>}
       <p>
         Atomic Object setup uses Voyage and TypeSafe. Install stable 1Password CLI 2.41 or newer,
         unlock the 1Password app, sign in to your account, and enable CLI integration under Settings

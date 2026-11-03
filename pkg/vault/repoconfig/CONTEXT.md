@@ -7,3 +7,5 @@ Typed repository YAML, workflow state, global CLI preferences, vault selection, 
 Unknown YAML keys survive typed saves; malformed YAML, trailing documents, and wrong known-field types remain errors. Full-file saves reread and merge current disk state, use two spaces, retain existing modes, and skip byte-identical replacements. Source-preserving publication uses `pkg/fileio`. A load never writes. Only init performs the bounded retired workflow migration.
 
 Saving loaded config with unchanged workflow settings preserves authored workflow bytes without reserializing, including runtime-pin-only updates. Changed workflows still persist when the main config is unchanged.
+
+Desktop provider settings use `PatchCliConfigValues` for private user-global `env` and `provider_access` edits. It changes only the requested scalar entries in the original YAML tree, preserving unknown root/nested fields and comments. Nil removes an entry. The native caller holds its existing global lock; writes are atomic with mode `0600`, and malformed or multiple documents are rejected without rewriting. Errors never include credential values.

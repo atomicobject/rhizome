@@ -447,7 +447,12 @@ it.each(["failure", "cancel"])("preserves a typed search key after import %s", a
 });
 
 it("offers team sign-in beside key import and refreshes the plan after it", async () => {
+  let finishStatus: () => void = () => {};
   serve({
+    "team-status": () =>
+      new Promise((resolve) => {
+        finishStatus = () => resolve({ signed_in: false, origin: "https://team.test" });
+      }),
     "team-sign-in": () => ({
       signed_in: true,
       email: "ada@example.test",
@@ -458,7 +463,11 @@ it("offers team sign-in beside key import and refreshes the plan after it", asyn
   sheet();
   expect(await screen.findByText(/import your own keys from 1Password below/)).toBeVisible();
   await waitFor(() => expect(calls("setup-report")).toHaveLength(1));
-  fireEvent.click(screen.getByRole("button", { name: "Sign in with Atomic Object" }));
+  const signIn = screen.getByRole("button", { name: "Sign in with Atomic Object" });
+  expect(signIn).toBeDisabled();
+  finishStatus();
+  await waitFor(() => expect(signIn).toBeEnabled());
+  fireEvent.click(signIn);
   expect(await screen.findByText("ada@example.test")).toBeVisible();
   await waitFor(() => expect(calls("setup-report")).toHaveLength(2));
 });

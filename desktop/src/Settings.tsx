@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { THEMES } from "../../web/src/lib/themes";
-import { CredentialImport } from "./CredentialImport";
-import { TeamAccount } from "./TeamAccount";
+import { ProviderAccess } from "./ProviderAccess";
+import type { ProviderRuntime } from "./ProviderRoutes";
 import {
   failure,
   request,
@@ -172,6 +172,8 @@ export function Settings({
   appearance,
   onAppearance,
   developmentBuilds = [],
+  providerRuntimes = [],
+  onProviderRestart,
 }: {
   info: GlobalInfo | null;
   link: LinkInfo | null;
@@ -188,6 +190,8 @@ export function Settings({
   appearance: AppSettings;
   onAppearance: (change: Partial<AppSettings>) => void;
   developmentBuilds?: { repository: string; worktree: string; executable: string }[];
+  providerRuntimes?: ProviderRuntime[];
+  onProviderRestart?: (repository: string, worktree: string) => Promise<void>;
 }) {
   const [path, setPath] = useState(selected ?? "");
   useEffect(() => setPath(selected ?? ""), [selected]);
@@ -278,8 +282,11 @@ export function Settings({
         )}
         {action && <p className="hint">macOS asks for an administrator password when needed.</p>}
       </div>
-      <TeamAccount />
-      <CredentialImport />
+      <ProviderAccess
+        version={info?.version}
+        repositories={providerRuntimes}
+        onRestart={onProviderRestart}
+      />
       <Diagnostics />
       {developmentBuilds.length > 0 && (
         <div className="development-builds">

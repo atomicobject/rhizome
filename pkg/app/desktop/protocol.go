@@ -26,6 +26,8 @@ type Request struct {
 	Primary          string                       `json:"primary,omitempty"`
 	Setup            *SetupChoices                `json:"setup,omitempty"`
 	Key              string                       `json:"key,omitempty"`
+	Provider         string                       `json:"provider,omitempty"`
+	Preference       string                       `json:"preference,omitempty"`
 	Edits            *ScopeEdits                  `json:"edits,omitempty"`
 	// Restart makes open replace a live headless runtime with a fresh one.
 	Restart bool `json:"restart,omitempty"`
@@ -85,8 +87,8 @@ func Serve(ctx context.Context, s *Service, input io.Reader, output io.Writer) e
 func (s *Service) Handle(ctx context.Context, req Request) Response {
 	response := Response{Protocol: Protocol}
 	var err error
-	if req.Key != "" && req.Operation != "initialize" {
-		err = problem("invalid_request", "A search key is accepted only during initialization.")
+	if req.Key != "" && req.Operation != "initialize" && req.Operation != "provider-key-set" {
+		err = problem("invalid_request", "A key is accepted only when saving a provider key or initializing a repository.")
 	} else if req.Protocol != Protocol {
 		err = problem("invalid_request", "Unsupported desktop bridge protocol.")
 	} else {
@@ -115,6 +117,8 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.CredentialStatus()
 		case "credential-import":
 			response.Result, err = s.ImportCredentials(ctx, req)
+		case "provider-preference-set", "provider-key-set", "provider-key-clear":
+			response.Result, err = s.SetProviderAccess(req)
 		case "global-status":
 			response.Result, err = s.GlobalStatus(ctx, req.GlobalExecutable)
 		case "cli-link-status":
