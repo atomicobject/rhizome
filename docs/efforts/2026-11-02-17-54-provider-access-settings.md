@@ -27,12 +27,12 @@ Implement the approved Opus design as one Provider access section in desktop Set
 
 ## Spec Coverage Checklist
 
-- [ ] Explicit server routing overrides all local keys and fails closed.
-- [ ] Explicit key routing excludes server and bundle; unset preserves existing precedence.
-- [ ] Private atomic key/preference saves preserve unrelated user settings and import references.
-- [ ] Settings presents source choices and secret-free per-provider reports.
-- [ ] Running repositories report actual connections separately from next-call decisions.
-- [ ] Older runtimes show unknown; Voyage changes offer authorized headless restart.
+- [x] Explicit server routing overrides all local keys and fails closed.
+- [x] Explicit key routing excludes server and bundle; unset preserves existing precedence.
+- [x] Private atomic key/preference saves preserve unrelated user settings and import references.
+- [x] Settings presents source choices and secret-free per-provider reports.
+- [x] Running repositories report actual connections separately from next-call decisions.
+- [x] Older runtimes show unknown; Voyage changes offer authorized headless restart.
 - [ ] Focused and integrated checks, rendered packaged verification, independent review and Greptile pass.
 
 ## Plan
@@ -52,11 +52,11 @@ A signed-in user can choose where Voyage and Jev calls go, enter or import their
 
 ## Actual Delivered
 
-Implementation is in progress on `t3/provider-access-settings`.
+Implemented in commit `67d3b0fdc89d1832333d85c8b7a6195d256fdff9` on `t3/provider-access-settings-ready`, rebased onto main `996c25118e26e990107ead22942b134f977241a8`. Settings now owns explicit per-provider routing, manual key management, the existing 1Password importer, app-default reports and actual runtime connection reports with restart actions. Native configuration writes preserve unrelated values and import references; reports expose provenance without credentials.
 
 ## Deviations
 
-None. The approved amendments replace the design draft's environment-key override and its proposed deferral of running-repository reporting.
+The approved amendments replace the design draft's environment-key override and its proposed deferral of running-repository reporting. Packaged native visual control was refused by the computer-use harness. Direct rendered proof instead ran the actual frontend with synthetic bridge responses in desktop and narrow browser viewports; native bridge tests and both packaged builds passed. No native click-through or live paid provider traffic is claimed.
 
 ## Closure Checklist
 
@@ -70,9 +70,16 @@ Runtime reports deliberately compare routing provenance rather than credential v
 
 ## Status
 
-Active: routing, bridge and Settings implementation proceed in independent owned lanes.
+Active: implementation, independent review and rendered frontend proof are complete. Current-base gate completion, current-head Greptile review, PR/CI and installation remain.
 
 ## Execution Notes
 
 - Identifier allocation and authoring-guide discovery succeeded outside the sandbox after the sandbox denied the runtime boot-time identity check. The broader code-mode context query timed out; direct owning policy, spec and package notes supply that evidence gap. Current-user discovery returned `missing_current_user`.
 - Existing generated `pkg/app/web/assets/dist/index.html` changes predate this effort and remain outside the change set.
+- Local verification before rebase: `make check-full` passed, including race and integration tests and 1,741 web tests. `make desktop-check` passed 111 UI tests, 110 native tests, formatting and Clippy. `make desktop-build` and the separately identified fixture app both packaged successfully.
+- Independent integration review found two concrete restart gaps: a runtime that failed Voyage initialization could not apply newly available access, and saved-key restart notices vanished across windows/remounts. Both are fixed with focused regressions and a fresh approved recheck. Imports now broadcast after every outcome because cancellation can race a committed save.
+- Sol-loop round 1 used GPT-6.1 Sol, high reasoning effort, on implementation commit `67d3b0fd`: APPROVE, no blocker or should findings. Sol independently passed provider/desktop/runtime Go tests and 76 selected UI tests. A changed-code recheck follows the Greptile fixes below.
+- Browser proof passed server selection, password-form Escape cancellation, clear confirmation, active-versus-next reports, no fabricated Jev connection, older-runtime unknown status and narrow-layout overflow checks. Desktop and narrow screenshots were inspected. All data were synthetic, and no paid provider call was made.
+- Documentation validation after rebuilding the rebased CLI passed with 0 issues. A local full-gate attempt encountered untracked cache symlinks in execution-source snapshots; those local dependency paths were excluded and the gate was restarted. The original worktree and its unrelated generated asset change remain untouched.
+- Greptile's initial review scored 4/5 and identified two confirmed defects: synchronous keychain access could stall health, and an older settings-save response could overwrite a newer other-window refresh. Health now returns an immutable cached report immediately and refreshes in the background; pending reports say checking. Save responses use the same revision guard as refreshes. Focused regressions exercise a blocked session loader and delayed save responses.
+- Frozen-scope validation reports only the pre-existing SPEC-0111 drift in EFF-2026-10-03-18-33. The current gateway effort records this approved provider-settings increment as a scoped refreeze; unrelated historical work remains untouched.

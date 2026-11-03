@@ -72,8 +72,9 @@ func (f Factory) record(report Report, explicit bool) {
 	}
 }
 
-// RuntimeReports is called only by the running runtime's health handler. Its
-// recorder is process-local and cannot inherit a desktop bridge's clients.
+// RuntimeReports resolves current access using this running process's inputs.
+// Its recorder cannot inherit a desktop bridge's clients. Health uses the
+// nonblocking CachedRuntimeReports wrapper rather than doing this I/O inline.
 func (f Factory) RuntimeReports(env vaultconfig.Env) []RuntimeReport {
 	result := make([]RuntimeReport, 0, 2)
 	for _, provider := range []string{"voyage", "typesafe"} {

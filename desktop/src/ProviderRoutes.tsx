@@ -22,6 +22,7 @@ export function routeText(report: ProviderReport): string {
     case "bundle":
       return "Legacy Atomic key bundle";
     case "none":
+      if (report.reason === "checking") return "Checking provider source…";
       if (report.reason === "configuration_unavailable")
         return "Unavailable: repair your Rhizome user configuration";
       if (report.reason === "invalid_preference")

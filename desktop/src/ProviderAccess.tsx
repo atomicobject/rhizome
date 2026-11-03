@@ -62,13 +62,12 @@ export function ProviderAccess({
   }, [refresh]);
 
   async function update(action: () => Promise<CredentialStatus>) {
-    revision.current++;
+    const current = ++revision.current;
     setBusy(true);
     setError("");
     try {
       const fresh = await action();
-      if (alive.current) {
-        revision.current++;
+      if (alive.current && current === revision.current) {
         setStatus(fresh);
       }
     } finally {

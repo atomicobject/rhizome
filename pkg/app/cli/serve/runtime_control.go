@@ -32,12 +32,13 @@ type ControlDeps struct {
 // manifest trustworthy (SPEC-0104 US1).
 func BuildRuntimeControl(deps ControlDeps) *web.RuntimeControl {
 	manifest := deps.Manifest()
+	providerReports := provideraccess.Default().CachedRuntimeReports(deps.Context, vaultconfig.FromContext(deps.Context))
 	return &web.RuntimeControl{
 		Token: manifest.ControlToken,
 		Health: func() appruntime.Health {
 			current := deps.Manifest()
 			return appruntime.Health{
-				ProviderAccess: provideraccess.Default().RuntimeReports(vaultconfig.FromContext(deps.Context)),
+				ProviderAccess: providerReports(),
 				InstanceID:     current.InstanceID,
 				RunID:          current.RunID,
 				PID:            current.PID,

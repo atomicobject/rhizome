@@ -196,6 +196,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST save route preferences and direct keys only in private user-global configuration, atomically and while preserving unrelated settings. Desktop writes share the existing global setup/import lock. Key values travel through stdin JSON and never appear in arguments, logs, results or failure messages.
 - MUST distinguish a runtime's constructed Voyage connection and last constructed Jev client from its current next-construction decision. A changed Voyage route requires a runtime restart. Before the first Jev construction, report that no evaluation client has been created rather than inventing an active route.
 - MUST carry optional runtime reports through the existing identity-verified loopback health/status path. Missing reports mean unknown, including older pinned runtimes. Desktop restart actions retain existing headless/attached ownership rules.
+- MUST keep health responses independent of credential-store and configuration I/O by returning the latest cached provider snapshot while refreshing it in the background. A pending initial report says checking; a locked keychain must not make a healthy runtime fail its liveness probe.
 
 ### Gateway contract
 

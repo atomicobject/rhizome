@@ -95,6 +95,42 @@ it("reverts an optimistic choice when saving fails", async () => {
   expect(within(group).getByLabelText("Atomic Object server")).not.toBeChecked();
 });
 
+it("keeps a newer other-window refresh when an older save response arrives afterward", async () => {
+  const serving = call.getMockImplementation();
+  let finishSave: ((value: CredentialStatus) => void) | undefined;
+  const delayedSave = new Promise<CredentialStatus>((resolve) => {
+    finishSave = resolve;
+  });
+  call.mockImplementation(async (operation, args) => {
+    if (operation === "provider-preference-set") return delayedSave;
+    return serving?.(operation, args);
+  });
+  render(<ProviderAccess />);
+  const group = await screen.findByRole("radiogroup", { name: "Voyage source" });
+  fireEvent.click(within(group).getByLabelText("Atomic Object server"));
+  const older = {
+    ...status,
+    providers: [{ ...voyage, preference: "server", source: "team" } satisfies ProviderReport, jev],
+  };
+  status = {
+    ...status,
+    providers: [{ ...voyage, preference: "key" }, jev],
+  };
+  const beforeRefresh = call.mock.calls.filter(([op]) => op === "credential-status").length;
+  act(() => providerAccessChanged());
+  await waitFor(() =>
+    expect(call.mock.calls.filter(([op]) => op === "credential-status").length).toBeGreaterThan(
+      beforeRefresh,
+    ),
+  );
+  await act(async () => {
+    finishSave?.(older);
+    await delayedSave;
+  });
+  await waitFor(() => expect(within(group).getByLabelText("Your key")).toBeChecked());
+  expect(within(group).getByLabelText("Atomic Object server")).not.toBeChecked();
+});
+
 it("focuses replacement input, clears it on Escape, and returns focus to Replace", async () => {
   const user = userEvent.setup();
   render(<ProviderAccess />);
