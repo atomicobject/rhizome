@@ -147,8 +147,9 @@ function fit(
     Math.max(...ys),
   ];
 
-  const sx = (width - 2 * padX) / Math.max(maxX - minX, 1);
-  const sy = (height - 2 * padY) / Math.max(maxY - minY, 1);
+  // Padding never takes more than 70% of the box, so a narrow canvas still spreads its members.
+  const sx = Math.max(width - 2 * padX, width * 0.3) / Math.max(maxX - minX, 1);
+  const sy = Math.max(height - 2 * padY, height * 0.3) / Math.max(maxY - minY, 1);
   const scale = Math.min(sx, sy, 3);
   const tx = Math.min(sx, scale * 2, 4);
   const ty = Math.min(sy, scale * 2, 4);

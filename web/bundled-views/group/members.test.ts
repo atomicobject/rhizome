@@ -251,6 +251,14 @@ it("lays the map out the same way every time, inside the box", () => {
   }
 });
 
+it("keeps linked members apart in a canvas narrower than the ring's padding", () => {
+  const layout = layoutMap({ ...LAYOUT, width: 380, height: 400 });
+  const points = ["Area", "Work", "Release", "Checklist"].map((id) => layout.positions.get(id));
+  const distinct = new Set(points.map((point) => `${point?.x},${point?.y}`));
+
+  expect(distinct.size).toBe(points.length);
+});
+
 it("puts members without links in a bottom row and outside neighbors on the ring", () => {
   const layout = layoutMap(LAYOUT);
 

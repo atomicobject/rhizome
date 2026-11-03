@@ -35,7 +35,17 @@ function useCanvasSize() {
   useEffect(() => {
     const element = ref.current;
 
-    if (!element || typeof ResizeObserver === "undefined") return;
+    if (!element) return;
+
+    // Without ResizeObserver, measure once so the layout and tooltips match the drawn canvas.
+    if (typeof ResizeObserver === "undefined") {
+      const width = Math.round(element.clientWidth);
+      const height = Math.round(element.clientHeight);
+
+      if (width > 0 && height > 0) setSize({ width, height });
+
+      return;
+    }
 
     const observer = new ResizeObserver(([entry]) => {
       const width = Math.round(entry.contentRect.width);
