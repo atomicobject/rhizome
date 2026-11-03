@@ -61,6 +61,9 @@ Tests verify forwarding, settlement, admission limits, uncertain holds, explicit
 
 ## Execution Notes
 
+- Sol-loop round 1 reviewed head `79930b0584590c5846d46e8d59ad7535b04710fc` against `6da57df811c551a4cd9f9b0f59104122873afa13`: APPROVE, no blockers or should-level findings. Reviewer: Work/Codex, `gpt-6.1-sol`, `xhigh`; usage not reported. Ledger: S1, nit, deferred as the pre-existing optional Jev 1.14 pin-price gap outside the default-alias request. No behavior changes were needed. Behavior diff remains the reviewed version; documentation adds this record.
+- Rebased on main `6da57df811c551a4cd9f9b0f59104122873afa13`, whose intervening changes are limited to unrelated group views. Compounding Node suite and gateway race suite passed after rebase.
+
 - 2026-11-03T14:08:02Z: user invoked sol-loop and full-send, authorizing review, PR, and merge. Refreshed origin/main is still `996c25118e26e990107ead22942b134f977241a8`; the existing full-gate and installed-fixture evidence covers the unchanged implementation.
 
 - Confirmed the related provider-source thread reports its implementation complete and still under review. No source-selection code changed here.
@@ -85,7 +88,7 @@ Final `./scripts/rzm validate` passed with zero issues. `./scripts/rzm validate 
 
 ## Compounding Follow-ups
 
-No new product follow-up is proposed. Historical benchmark pins remain fixed to their measured releases.
+Historical benchmark pins remain fixed to their measured releases. Sol S1 identified the existing missing compounding price for an optional `jev-1.14.0` pin. It is outside the requested default-alias path and is deferred; the shipped alias and existing `jev-1.13.0` pin are priced. Gateway billing accepts and accounts for both explicit releases.
 
 ## Closure Checklist
 
@@ -94,7 +97,7 @@ No new product follow-up is proposed. Historical benchmark pins remain fixed to 
 - [x] Independent review completed.
 - [x] Full repository gate passed.
 - [x] Final documentation validation passed with zero issues. Frozen-scope validation reports no drift for this effort; its one repository-wide issue is recorded below.
-- [ ] Sol-loop approval on the final behavior diff.
+- [x] Sol-loop approval on the final behavior diff: one round, GPT-6.1 Sol, xhigh.
 - [ ] Greptile 5/5 on the current head with no unresolved findings.
 - [ ] Carrying PR and green CI recorded before merge.
 
