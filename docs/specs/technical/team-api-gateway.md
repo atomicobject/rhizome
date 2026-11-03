@@ -6,7 +6,7 @@ aliases:
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
 spec-status: proposed
-last-updated: 2026-11-02
+last-updated: 2026-11-03
 ---
 
 # Team API gateway
@@ -191,7 +191,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 - MUST implement the v1 routes, headers, error codes, and bodies defined in [`pkg/teamapi/wire`](../../../pkg/teamapi/wire/wire.go). Changes within v1 are additive.
 - MUST forward only to compile-time upstream URLs, strip the caller's `Authorization`, cookies, and hop-by-hop headers, and redact the provider key from passed-through error bodies.
-- MUST reject, before admission: unknown routes and methods; disallowed models (Voyage `voyage-4-lite`; TypeSafe exact approved IDs plus a controlled `jev-latest` alias); more than 1,000 Voyage inputs; Voyage `output_dimension` above 1,024; bodies over 32 MiB (Voyage) or 2 MiB (TypeSafe); unknown cost-affecting options; and malformed or multiple JSON documents.
+- MUST reject, before admission: unknown routes and methods; disallowed models (Voyage `voyage-4-lite`; TypeSafe `jev-latest` or numeric release IDs `jev-MAJOR.MINOR.PATCH`, at most 64 characters with no leading zeroes); more than 1,000 Voyage inputs; Voyage `output_dimension` above 1,024; bodies over 32 MiB (Voyage) or 2 MiB (TypeSafe); unknown cost-affecting options; and malformed or multiple JSON documents. Jev releases such as `jev-1.13.0` do not require an exact allowlist entry or inclusion in the provider's model list. Upstream decides whether a syntactically valid release exists.
 - MUST make at most one upstream attempt per admitted idempotency key, with the receipt and reservation persisted before dispatch. A crash around dispatch is recorded as an unknown outcome, never as permission to resend.
 - MUST propagate client cancellation upstream, without claiming that cancellation refunds inference.
 
@@ -202,7 +202,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST enforce daily per-person and global limits on request count and input bytes, and reserve a conservative charge for each allowed model before dispatch, atomically with the receipt (one store transaction). A model without a defensible charge bound stays disabled for live use.
 - MUST settle each receipt once, against the UTC day it was admitted on, and keep the full reservation when the outcome or actual usage is unknown.
 - MUST enforce separate per-provider daily USD allowances using integer nanodollars. Reserve the reviewed maximum billable request cost atomically with the receipt, person/global credit counters, provider counter, and process lease condition. Missing or zero provider allowances disable paid admission for that provider. Record the pricing/accounting version on the receipt; keep full currency holds on uncertain outcomes and release only verified unused charges. Keep existing shared credit controls.
-- MUST expose provider allowance, reserved/settled currency, unknown outcomes, and reviewed price/context assumptions through the authenticated admin API and ops reports. Runtime provider allowances cannot exceed startup ceilings. Keep `jev-latest` and original request bytes unchanged; a changed provider price/context contract requires reviewing the accounting assumptions.
+- MUST expose provider allowance, reserved/settled currency, unknown outcomes, and reviewed price/context assumptions through the authenticated admin API and ops reports. Runtime provider allowances cannot exceed startup ceilings. Keep requested Jev IDs and original request bytes unchanged; a changed provider price/context contract requires reviewing the accounting assumptions. All accepted Jev releases use the same reviewed currency reservation and rate. A release without a configured shared-credit charge inherits `jev-latest`'s reservation and settlement rate.
 - MUST migrate provider accounting with paid calls off and no old active requests. Refuse to silently assign zero currency usage to previously admitted legacy requests. Disable paid calls and drain before rollback to a binary that does not enforce provider allowances.
 - MUST keep receipts for as long as their idempotency keys can be presented; this build never deletes them.
 - MUST give each serving process a unique instance ID and a renewable shared-store lease, and record the owner on every receipt. Admission and receipt transitions require a live owner lease; dispatch and settlement also require matching receipt ownership. Recovery runs at startup and periodically, permanently fences only expired owners, and changes only their in-progress receipts to unknown with reservations kept. Lease renewal and recovery fencing MUST be atomic against each other. An expired or fenced owner cannot renew, and late settlement after recovery MUST change neither the receipt nor its counters. Task clocks MUST track UTC.

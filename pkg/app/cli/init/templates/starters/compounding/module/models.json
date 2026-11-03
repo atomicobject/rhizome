@@ -1,8 +1,8 @@
 {
-  "version": 2,
+  "version": 3,
   "roles": {
     "decide": [
-      { "provider": "typesafe", "family": "jev", "version": "1.13", "model": "jev-1.13.0", "effort": "", "evidence": "effort 2026-10-17: Jev lab, passage screening" }
+      { "provider": "typesafe", "family": "jev", "model": "jev-latest", "effort": "", "evidence": "Drew's 2026-11-03 compatibility fix: use the stable Jev alias; historical screening measurements used Jev 1.13.0" }
     ],
     "extract": [
       { "provider": "claude", "family": "haiku", "version": "5.5", "model": "claude-haiku-5-5", "effort": "xhigh", "evidence": "effort 2026-10-18: 139 and 136 of 192 on D, 135 of 208 on H, $1.31 per D run" },

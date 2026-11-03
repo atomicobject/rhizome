@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
+	"github.com/atomicobject/rhizome/services/team-api/internal/providerbudget"
 )
 
 // gwError is a gateway-originated error before it is written.
@@ -216,7 +217,7 @@ func skipSpace(data []byte, i int) int {
 
 // validateTypeSafe returns the model (or the default) and question count of a
 // System One request. Fields inside the documented top-level keys pass as is.
-func validateTypeSafe(body []byte, models map[string]Charge) (string, int, *gwError) {
+func validateTypeSafe(body []byte, _ map[string]Charge) (string, int, *gwError) {
 	model := defaultTypeSafeModel
 	var questions map[string]json.RawMessage
 	e := object(body, func(key string, dec *json.Decoder) *gwError {
@@ -242,7 +243,7 @@ func validateTypeSafe(body []byte, models map[string]Charge) (string, int, *gwEr
 	if e != nil {
 		return "", 0, e
 	}
-	if _, ok := models[model]; !ok {
+	if !providerbudget.IsJevModel(model) {
 		return "", 0, fail(wire.CodeModelNotAllowed, "model is not allowed")
 	}
 	if len(questions) == 0 {

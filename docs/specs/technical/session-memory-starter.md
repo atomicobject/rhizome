@@ -7,7 +7,7 @@ aliases:
   - Compounding add-on
 summary: "An opt-in compounding starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: active
-last-updated: 2026-11-02
+last-updated: 2026-11-03
 ---
 
 # Compounding add-on (formerly session memory)
@@ -238,12 +238,12 @@ The rest of this story applies where hooks are installed.
 
 ### Model profile
 
-- Each role MUST resolve from an ordered list of candidates. Each candidate names a provider (`claude`, `codex`, or `typesafe`), a model family and the version it was measured at (for example Haiku 5.5), and the provider's own effort value.
+- Each role MUST resolve from an ordered list of candidates. Each candidate names a provider (`claude`, `codex`, or `typesafe`), a model family, the provider's own effort value, and the measured version when pinned (for example Haiku 5.5). The shipped Jev `decide` binding is `jev-latest`; it passes through to TypeSafe without a generation probe. A local profile or run flag MAY pin an explicit Jev release. The alias MUST have a reviewed price for cost estimates and usage accounting, and historical screening measurements MUST remain attributed to their measured release.
 - A run MUST use only the providers the harness running the skill can reach, and MUST NOT move transcript text to another provider. In Claude Code that means `claude`; in Codex, `codex`. Only a harness that reaches both MAY choose between them, in profile order. Jev (`typesafe`) is the exception, because screening sends it passages in every harness.
 - The run MUST take its provider from, in order: the harness the calling agent names (the skill tells the agent to pass the harness it is running in); the user's Rhizome agent setting (`agent.harness`, which the desktop agent chat already uses); and the only provider installed and signed in. Otherwise it MUST stop and ask which to use. Only a local profile listing both providers lets a run choose between them.
 - When the provider's catalog has a newer version of a candidate's family than the profile names, and the profile has no entry for that version, the resolver MUST use the newest version at the candidate's effort, and report it as unmeasured.
 - When no version of a candidate's family is available, the resolver MUST fall back to the role's next candidate from the same provider (for example Haiku to Sonnet), never to another provider's.
-- The starter MUST ship its default profile as `models.json` in the `compounding` skill. The profile has a `version`, and each candidate has either a reference to the measurement that chose it or a `provisional` flag. A change to the shipped profile MUST update `references/models.md` in the same change. A test MUST check that every role has a candidate for each provider, or an explicit `none` with a reason.
+- The starter MUST ship its default profile as `.rhizome/modules/compounding/models.json`. The profile has a `version`, and each candidate has either a reference to the measurement that chose it or a `provisional` flag. A change to the shipped profile MUST update `references/models.md` in the same change. A test MUST check that every role has a candidate for each provider, or an explicit `none` with a reason.
 - A developer MAY override the profile in `.rhizome/compounding/models.json`. A run MAY override a role with `--model <role>=<provider>:<model>:<effort>`. A run flag takes precedence over the local file, and the local file over the shipped profile. An override replaces a role's whole candidate list.
 - When a run starts, the resolver MUST select, for each role, the first candidate that meets three conditions:
   - Its provider is reachable from the running harness, and `rzm harness status` reports it as installed and signed in.

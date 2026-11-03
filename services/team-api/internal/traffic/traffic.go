@@ -60,7 +60,7 @@ func (c Charge) credits(tokens int64) int64 {
 // than one token per byte of JSON), so PerKiBInput is 1,024.
 //   - voyage-4-lite: 8 credits per input covers per-input special tokens;
 //     embeddings have no output tokens.
-//   - jev-latest: 4,096 per request covers System One's prompt overhead and
+//   - Jev releases: 4,096 per request covers System One's prompt overhead and
 //     512 per question covers its instructions and answer tokens. This
 //     assumes the state is billed once per request, not once per question.
 var (
@@ -74,7 +74,8 @@ type Config struct {
 	VoyageKey, TypeSafeKey string
 	// Upstream origins; the identity lane allows overrides only in dev mode.
 	VoyageBaseURL, TypeSafeBaseURL string
-	// Allowed models and their charges, merged over the defaults.
+	// Model charges, merged over the defaults. Voyage uses an exact allowlist;
+	// unlisted Jev releases inherit jev-latest's charge.
 	VoyageModels, TypeSafeModels map[string]Charge
 	// Concurrent paid calls per person (4) and in total (8).
 	PersonSlots, GlobalSlots int
@@ -249,7 +250,7 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 		return e
 	}
 	ev.model, ev.inputs = model, inputs
-	charge := p.models[model]
+	charge := p.charge(model)
 	price, reservedNanodollars, priced := providerbudget.Reserve(p.name, model, inputs)
 	if !priced {
 		return fail(wire.CodeServiceDisabled, "this model has no reviewed price and request bound")

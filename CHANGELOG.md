@@ -10,6 +10,8 @@
 
 ### Fixed
 
+- Compounding uses `jev-latest` for screening and ranking, with priced estimates and usage accounting. The team gateway also accepts explicit Jev release IDs such as `jev-1.13.0`, retaining budget reservations and per-person/global limits.
+
 - Team API bootstrap accepts its stack policy while the gateway is disabled, preserving the protection against gateway replacement and deletion.
 - Team API bootstrap takes the repository's exact GitHub OIDC subject so deployment credentials work with immutable organization and repository IDs.
 - Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
