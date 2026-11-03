@@ -5,6 +5,7 @@ import { costOf, itemKey } from "./calls.mjs";
 import { BATCH_CHARS, episodeView } from "./extract.mjs";
 import { CHUNK } from "./reduce.mjs";
 import { SHARE, screenItems } from "./screen.mjs";
+import { unrouted, verificationQueue } from "./verification-queue.mjs";
 
 // On D, Haiku 5.5 xhigh cost about $0.036 per 45,000-character batch (18k
 // input, about 65k output tokens with thinking); the 30% passage gate kept
@@ -53,7 +54,9 @@ export function estimate(run, episodes, store) {
   const batches = Math.ceil((gatedChars + overhead * (run.unscreened ? 1 : SIZES.keptEpisodes)) / (BATCH_CHARS * 0.9));
   const candidates = batches && Math.max(1, Math.round(gatedChars / SIZES.charsPerCandidate));
   const clusters = candidates && Math.max(1, Math.round(candidates * SIZES.clustersPerCandidate));
-  const verified = Math.round(clusters * SIZES.tierAShare) + Math.min(run.verifyBudget, Math.round(clusters * (1 - SIZES.tierAShare))) + (run.verifyHeld ?? 0);
+  const queued = run.checkout ? verificationQueue(run.checkout, store) : [];
+  const urgent = queued.filter((c) => c.tier === "A" || unrouted(c) || c.recurrence).length;
+  const verified = urgent + Math.round(clusters * SIZES.tierAShare) + Math.min(run.verifyBudget + (run.verifyHeld ?? 0), queued.length - urgent + Math.round(clusters * (1 - SIZES.tierAShare)));
   const chunks = Math.ceil(candidates / CHUNK);
   const exOut = SIZES.extract.output[b.extract?.effort] ?? SIZES.extract.outputDefault;
   const jev = jevNew + (run.unscreened ? 0 : clusters);

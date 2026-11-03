@@ -54,6 +54,7 @@ export function fakeClients({ word = "states", fail = () => false, killAfter = n
         const statement = prompt.match(/"statement": "([^"]*)"/)[1];
         // A rejection may still carry the topic's response fields, which mining must drop.
         if (rejectVerify) return reply({ decision: "reject", rejectReason: "single_session", notes: "seen once", ...routes[topic(statement)] });
+        if (/Topic env/.test(statement)) return reply({ decision: "reject", rejectReason: "not_repository_specific", documentation: "No repository evidence supports the environmental claim.", verification: [], notes: "Synthetic negative control." });
         // An over-long statement breaks the proposal contract even after repair.
         return reply({ decision: "propose", kind: "fact", statement: badVerify ? statement.padEnd(500, " and more") : statement, why: "It costs time.", appliesTo: [], commands: [], documentation: "none found", verification: [{ path: "README.md", checked: "read it" }], notes: "", response: "remember", responseReason: "A lasting fact.", ...routes[topic(statement)] });
       }

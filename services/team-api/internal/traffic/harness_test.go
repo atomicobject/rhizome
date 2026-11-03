@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,7 +43,9 @@ type stubRuntime struct {
 func (s *stubRuntime) Runtime(context.Context) (core.Runtime, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.rt, nil
+	rt := s.rt
+	rt.ProviderDailyNanodollars = maps.Clone(rt.ProviderDailyNanodollars)
+	return rt, nil
 }
 
 func (s *stubRuntime) set(fn func(*core.Runtime)) {

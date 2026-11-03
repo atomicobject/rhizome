@@ -2,9 +2,9 @@
 // repositories. Every proposal, person, and credential below is synthetic.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
@@ -12,6 +12,7 @@ const scripts = new URL("../../templates/starters/compounding/module/scripts/", 
 const { PUBLISH_STATEMENT, workspace } = await import(new URL("workspace.mjs", scripts));
 const { renderFinding } = await import(new URL("lib/findings.mjs", scripts));
 const { openStore } = await import(new URL("lib/store.mjs", scripts));
+const { report } = await import(new URL("report.mjs", scripts));
 
 const user = {
   found: true,
@@ -291,4 +292,34 @@ test("health adds refs and the last mine run's spend and stop; shards-check is c
     ["2026-10-08T000000Z-b", { usd: 10 }, "budget"],
   );
   assert.deepEqual(ws("shards-check"), []);
+});
+
+test("health and CLI report identify their store and show unfinished verification without recommendations", () => {
+  const { root, state, ws } = repo([]);
+  const store = openStore(state);
+  store.write("pool/clusters.json", {
+    "k-held": { id: "k-held", members: ["c1"], families: ["s1"], tier: "C", statement: "An unverified workflow claim", worth: 0.8, checkability: 0.3 },
+    "k-rejected": { id: "k-rejected", members: ["c2"], families: ["s2"], verification: { decision: "reject", rejectReason: "already_documented", run: "r1", families: 1 } },
+    "k-settled": { id: "k-settled", members: ["c3"], families: ["s3"] },
+  });
+  store.write("reviewed.json", { "k-settled": { action: "dismissed" } });
+  store.write("runs/r1/manifest.json", { id: "r1", status: "done", bindings: { verify: { provider: "codex" } }, report: { verified: { planned: 1, proposed: 0, rejected: { already_documented: 1 }, contractProblems: 0 }, held: { tierC: 1, tierBOverBudget: 0 }, proposals: 0 } });
+  assert.deepEqual(ws("recommendations").items, []);
+  const health = ws("health");
+  assert.deepEqual({ path: health.store.path, mode: health.store.mode }, { path: state, mode: "isolated" });
+  assert.ok(isAbsolute(health.store.root));
+  const expectedRoot = statSync(root, { bigint: true });
+  const reportedRoot = statSync(health.store.root, { bigint: true });
+  assert.deepEqual([reportedRoot.dev, reportedRoot.ino], [expectedRoot.dev, expectedRoot.ino], "the reported root identifies this checkout despite path aliases");
+  assert.equal(health.lastRun.status, "done", "retain the historical run outcome");
+  assert.deepEqual(health.lastRun.report.held, { tierC: 1, tierBOverBudget: 0 });
+  assert.deepEqual([health.verification.pending, health.verification.complete], [1, false]);
+  assert.deepEqual(health.verification.rejected, { already_documented: 1 });
+  assert.match(health.verification.next.command, /--harness codex --budget <USD> --state/);
+  assert.ok(health.verification.next.command.includes(state));
+  assert.deepEqual(report({ root, state }).mining, { store: health.store, lastRun: health.lastRun, verification: health.verification });
+  assert.ok(!JSON.stringify(health).includes("An unverified workflow claim"));
+  store.write("pool/clusters.json", {});
+  const finished = ws("health");
+  assert.deepEqual([finished.verification.pending, finished.verification.complete, finished.verification.next], [0, true, null]);
 });

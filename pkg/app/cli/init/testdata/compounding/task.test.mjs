@@ -59,6 +59,24 @@ test("the check reports, in order: no credential, a blocked run, a run to resume
   assert.equal((await check({ credentials: credentials(true), dryRun: dry({ status: "nothing-new" }) })).needed, false);
 });
 
+test("the task check resumes a real count-deferred pool without new episodes", async () => {
+  const root = tempRepo();
+  const state = tmp("sm-state-");
+  const opts = { root, state, harness: "claude", discover: fakeDiscover([SESSIONS.s1]), log: () => {} };
+  const deferred = await mine({ ...opts, budget: 5, verifyBudget: 0 }, fakeClients());
+  assert.equal(deferred.status, "deferred");
+  for (const harness of ["claude", undefined]) {
+    const clients = fakeClients({ status: [statuses()[0], { ...statuses()[0], kind: "codex" }] });
+    const dryRun = await mine({ ...opts, harness, budget: null }, clients);
+    assert.equal(dryRun.episodes, 0);
+    if (!harness) assert.equal(dryRun.estimate, null, "both signed-in harnesses leave the estimate unbound");
+    assert.ok(dryRun.verification?.pending > 0, "unbound discovery must still report the backlog");
+    const result = await check({ credentials: credentials(true), dryRun: async () => dryRun });
+    assert.deepEqual([result.needed, result.summary], [true, `${dryRun.verification.pending} clusters await evidence verification`]);
+    assert.equal(clients.calls.generate + clients.calls.evaluate, 0, "the task check spends nothing");
+  }
+});
+
 test("a dry run names an open run and why it stopped, and counts episodes without a harness", async () => {
   const repo = tempRepo();
   const state = tmp("sm-state-");
