@@ -4,7 +4,7 @@ id: EFF-2026-11-02-17-54
 aliases: [EFF-2026-11-02-17-54]
 name: Desktop provider access settings
 created-at: 2026-11-02T22:54:04Z
-status: active
+status: complete
 summary: "Make provider routing explicit in Settings, manage local keys, and report the connections running repositories actually use."
 governing-specs: ["[[team-api-gateway]]"]
 ---
@@ -33,7 +33,7 @@ Implement the approved Opus design as one Provider access section in desktop Set
 - [x] Settings presents source choices and secret-free per-provider reports.
 - [x] Running repositories report actual connections separately from next-call decisions.
 - [x] Older runtimes show unknown; Voyage changes offer authorized headless restart.
-- [ ] Focused and integrated checks, rendered packaged verification, independent review and Greptile pass.
+- [x] Focused and integrated checks, rendered frontend verification with packaged builds, independent review and Greptile pass.
 
 ## Plan
 
@@ -52,7 +52,7 @@ A signed-in user can choose where Voyage and Jev calls go, enter or import their
 
 ## Actual Delivered
 
-Delivered through [PR #77](https://github.com/atomicobject/rhizome/pull/77) on `t3/provider-access-settings-ready`, rebased onto main `6da57df811c551a4cd9f9b0f59104122873afa13`. Implementation and prior fixes are carried by `eb7c5054`, `1ba76374`, `1dbd09fd` and `4d5deb84`. Settings now owns explicit per-provider routing, manual key management, the existing 1Password importer, app-default reports and actual runtime connection reports with restart actions. Native configuration writes preserve unrelated values and import references; reports expose provenance without credentials.
+Delivered through [PR #77](https://github.com/atomicobject/rhizome/pull/77) on `t3/provider-access-settings-ready`, rebased onto main `935d80cc`. The reviewed implementation is carried by `9f115a7d`, `2e3764ad`, `ef538604`, `1c7a01d0`, `4000b2d8` and `16e72847`. Settings now owns explicit per-provider routing, manual key management, the existing 1Password importer, app-default reports and actual runtime connection reports with restart actions. Native configuration writes preserve unrelated values and import references; reports expose provenance without credentials.
 
 ## Deviations
 
@@ -61,7 +61,7 @@ The approved amendments replace the design draft's environment-key override and 
 ## Closure Checklist
 
 - [x] Approved scope implemented and owning documentation reconciled.
-- [ ] Required gates and review evidence recorded with material limitations.
+- [x] Required gates and review evidence recorded with material limitations.
 - [x] Delivery commit and pull request identified.
 
 ## Compounding Follow-ups
@@ -70,7 +70,7 @@ Runtime reports deliberately compare routing provenance rather than credential v
 
 ## Status
 
-Active: implementation, independent review and rendered frontend proof are complete. Final configuration-preservation review, current-head Greptile, PR CI and installation remain.
+Complete: the approved implementation, documentation, local verification and review fixes are delivered in PR #77. Greptile scored the reviewed implementation 5/5 with no comments, including the unchanged rebase onto the Jev compatibility work. The final test-only CI correction and this closure record must pass current-head review and CI before merge. Installation into Rhizome Dev follows merge from the primary main checkout; neither merge nor installation is claimed here.
 
 ## Execution Notes
 
@@ -93,3 +93,6 @@ Active: implementation, independent review and rendered frontend proof are compl
 - The rebased full gate passed with 1,765 web tests and race-enabled integration suites. Actual frontend browser proof and documentation validation passed again. Greptile round 4 confirmed G1–G5 fixed and identified YAML merge inheritance changing unrelated effective settings. Synthetic regressions reproduced root merge, target merge and shared-map side effects. Provider writes now reject inherited/shared root or target mappings without changing bytes; focused race tests passed. The final allowed Sol round checks this configuration data-loss fix.
 
 - Sol-loop round 5 approved the inherited/shared mapping guard at `a24dfff6`, independently passing preservation regressions with the race detector. The first PR desktop CI job exposed a test clicking Sign in before its initial status check enabled the button. The test now deliberately delays that response, confirms the button starts disabled, then waits for readiness before clicking. All 113 desktop UI tests, typechecking, lint and build-configuration tests passed locally. No application behavior changed for this CI correction.
+
+- Final integration onto `935d80cc` applied without conflicts; range comparison confirmed all seven reviewed patches unchanged. `make check-fast`, focused race tests for provider access, desktop, runtime, serve and configuration, and documentation validation passed. Greptile scored both `a24dfff6` and rebased `16e72847` 5/5 with zero comments; all six findings were resolved. Review usage was not exposed.
+- Windows CI twice exposed a pre-existing test assumption that startup finished within a 300 ms idle budget and two equal-delay timers ran in a particular order. The failure ordering was reproduced locally. The test now uses an already-consumed idle budget and defers the first idle poll until the task ticker has a chance to run, still proving that periodic tasks do not prevent idle exit. Ten race-enabled runs, the whole serve package and static gates passed. Production lifecycle behavior is unchanged.
