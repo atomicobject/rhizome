@@ -110,6 +110,29 @@ func TestProviderSettingsNeverDropTrailingConfigurationDocuments(t *testing.T) {
 	require.NotContains(t, response.Error.Message, "synthetic-new")
 }
 
+func TestProviderSettingsPreserveReferencedAnchors(t *testing.T) {
+	for _, operation := range []string{"provider-key-set", "provider-key-clear"} {
+		t.Run(operation, func(t *testing.T) {
+			env := testkit.Env(t)
+			env.CLIConfigFile = filepath.Join(t.TempDir(), "config.yml")
+			initial := []byte("env:\n  VOYAGE_API_KEY: &shared synthetic-old\nfuture_setting: *shared\n")
+			require.NoError(t, os.WriteFile(env.CLIConfigFile, initial, 0600))
+			request := Request{Protocol: Protocol, Operation: operation, Provider: "voyage"}
+			if operation == "provider-key-set" {
+				request.Key = "synthetic-new"
+			}
+			response := (&Service{env: env}).Handle(context.Background(), request)
+			require.NotNil(t, response.Error)
+			data, err := os.ReadFile(env.CLIConfigFile)
+			require.NoError(t, err)
+			require.Equal(t, initial, data)
+			_, err = repoconfig.LoadCliConfig(env, false)
+			require.NoError(t, err)
+			require.NotContains(t, response.Error.Message, "synthetic-")
+		})
+	}
+}
+
 func TestProviderSettingsRejectInvalidRequestsWithoutSavingOrEchoingKeys(t *testing.T) {
 	for _, request := range []Request{
 		{Operation: "provider-key-set", Provider: "unknown", Key: "synthetic-secret"},

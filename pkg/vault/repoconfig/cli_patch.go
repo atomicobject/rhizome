@@ -91,6 +91,12 @@ func PatchCliConfigValues(env config.Env, section string, changes map[string]*st
 	if err != nil {
 		return errors.New(RhizomeConfigGenerateError)
 	}
+	// Replacing or deleting an anchored value can strand aliases elsewhere.
+	// Reject an unreadable result before touching the original configuration.
+	var generated yaml.Node
+	if err := yaml.Unmarshal(data, &generated); err != nil {
+		return errors.New(RhizomeConfigGenerateError)
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return errors.New(RhizomeConfigDirWriteError)
 	}
