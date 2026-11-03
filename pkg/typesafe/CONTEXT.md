@@ -29,7 +29,7 @@ See [compiled examples](example_test.go) for single-question and mixed-batch cal
 
 ## Transport and validation
 
-- Default endpoint: `https://api.typesafe.ai`; default model: `jev-latest`. Use `WithModel` or `Request.Model` to pin a model for repeatable evaluations.
+- Default endpoint: `https://api.typesafe.ai`; default model: `jev-latest`. Use `WithModel` or `Request.Model` to pin a model for repeatable evaluations. Managed mode accepts the stable alias and numeric Jev releases such as `jev-1.13.0` without requiring an exact gateway allowlist entry. It preserves the requested ID; TypeSafe decides whether the release exists. Both forms retain the gateway's reviewed billing reservation and per-person/global limits.
 - A call has a 30-second total budget, including retries. `WithTimeout` changes it, and an earlier caller context deadline wins. Cancellation interrupts both requests and retry waits.
 - Retry HTTP 408, 429, and 5xx responses, at most twice by default. Honor `retry-after-ms`, `Retry-After` seconds, and HTTP dates. Otherwise use exponential backoff with jitter. If the server delay exceeds the remaining budget, return the HTTP error immediately. `WithMaxRetries(0)` disables retries.
 - Ambiguous transport failures are not retried automatically, since replay may duplicate billed inference. Error bodies remain available on `APIError` for explicit inspection, but are excluded from its error string. The API key is redacted from the stored body. Redirects are not followed.

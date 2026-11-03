@@ -187,7 +187,7 @@ test("a Claude harness binds Claude models only, through the family alias", asyn
   const probe = async (r) => (probed.push(r), r.model === "haiku" ? "claude-haiku-5-5" : "claude-sonnet-5-5");
   const { bindings } = await resolve(mergeProfile(shipped), { providers: ["claude"], statuses: [claudeStatus, codexStatus], probe });
   assert.deepEqual([bindings.extract.model, bindings.extract.effort, bindings.extract.choice, bindings.extract.unmeasured], ["claude-haiku-5-5", "xhigh", "default", false]);
-  assert.equal(bindings.decide.model, "jev-1.13.0");
+  assert.equal(bindings.decide.model, "jev-latest");
   assert.ok(probed.every((r) => r.provider === "claude"));
 });
 

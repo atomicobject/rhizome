@@ -1,5 +1,5 @@
 // Package providerbudget contains reviewed provider prices and conservative
-// input-token bounds. Vendor price or model changes require another review.
+// input-token bounds. Vendor price or context changes require another review.
 package providerbudget
 
 import (
@@ -11,8 +11,8 @@ import (
 const (
 	Voyage                     = "voyage"
 	TypeSafe                   = "typesafe"
-	PriceVersion               = "2026-11-02-v1"
-	ReviewedAt                 = "2026-11-02"
+	PriceVersion               = "2026-11-03-v1"
+	ReviewedAt                 = "2026-11-03"
 	NanodollarsPerDollar int64 = 1_000_000_000
 )
 
@@ -28,15 +28,15 @@ const (
 )
 
 // Reserve holds a full accepted request, including Voyage's per-input prompt
-// allowance. Jev's latest alias intentionally follows the vendor's latest model;
-// its reviewed price and default context assumptions are dated above.
+// allowance. Jev releases and the latest alias share TypeSafe's reviewed input
+// price and default context bound; the assumptions are dated above.
 func Reserve(provider, model string, inputs int) (Price, int64, bool) {
 	p := Price{Provider: provider, Model: model, Version: PriceVersion, ReviewedAt: ReviewedAt}
 	switch {
 	case provider == Voyage && model == "voyage-4-lite" && inputs > 0 && inputs <= 1000:
 		p.NanodollarsPerToken = 20
 		p.MaxBillableTokens = 1_000_000 + int64(inputs)*int64(voyageInputOverhead)
-	case provider == TypeSafe && model == "jev-latest" && inputs > 0:
+	case provider == TypeSafe && IsJevModel(model) && inputs > 0:
 		p.NanodollarsPerToken = 42
 		p.MaxBillableTokens = 65_536
 	default:

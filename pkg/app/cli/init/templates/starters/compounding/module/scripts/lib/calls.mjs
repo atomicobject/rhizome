@@ -20,6 +20,7 @@ export const PRICES = {
   "gpt-6.1-sol": { input: 2, read: 0.1, output: 10 },
   "gpt-6.1-terra": { input: 1, read: 0.05, output: 5 },
   "jev-1.13.0": { input: 0.042, read: 0.042, output: 0 },
+  "jev-latest": { input: 0.042, read: 0.042, output: 0 },
 };
 
 // Claude reports uncached input, cache reads, and cache writes separately;

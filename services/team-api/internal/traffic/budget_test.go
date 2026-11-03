@@ -119,7 +119,7 @@ func TestReportedUsageAboveBoundFencesFurtherProviderCalls(t *testing.T) {
 		if event.Name == "teamapi.price_bound_exceeded" {
 			found = true
 			require.Equal(t, "voyage", event.Attributes["provider"])
-			require.Equal(t, "2026-11-02-v1", event.Attributes["price_version"])
+			require.Equal(t, "2026-11-03-v1", event.Attributes["price_version"])
 		}
 	}
 	require.True(t, found, "the pricing assumption failure needs a durable error event")
