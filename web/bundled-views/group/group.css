@@ -1423,6 +1423,12 @@
   font-size: var(--fs-sm);
 }
 
+/* Flex drops a leading space, so the faint suffix after a member name needs its own gap. */
+.gv-ov-table .gv-record > .gv-faint,
+.gv-ov-table .gv-member > .gv-sub {
+  margin-left: 0.3em;
+}
+
 .gv-ov-chev {
   width: 12px;
   color: var(--text-faint);

@@ -205,7 +205,8 @@ it("says when no member records link and keeps the Matrix, and draws a one-membe
   const library = await renderGroupView(loadOverview, { group: "Library", routes: scopeRoutes() });
 
   expect(region("Map")).toHaveTextContent("No member records link to each other.");
-  expect(map()).toHaveTextContent("No member links");
+  // With nothing linked, members spread over the map instead of a bottom row.
+  expect(map()).not.toHaveTextContent("No member links");
   expect(within(region("Map")).getByRole("radio", { name: "Matrix" })).toBeEnabled();
   library.unmount();
 

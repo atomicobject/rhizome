@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0117
 summary: "One Overview view shows the shape of All notes and of every display group: a type-level link map, a member table, and scope-only blocks. Briefing shows activity at every level, All notes gains one, and every block loads on its own so switching scopes never freezes the workspace."
 spec-status: active
-last-updated: 2026-10-07
+last-updated: 2026-11-03
 aliases:
   - SPEC-0117
 ---
@@ -59,7 +59,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 - An edge joins two members when at least one link connects their records. Its width follows the link count and its label shows the count. An edge is drawn as a relation edge when relation links are at least half its links, and as a plain edge otherwise.
 - A relation field that a member declares toward another member but no record uses is drawn as a dashed hairline with no count.
 - Types and untyped notes outside the group that link to its records appear as faded nodes on a ring at the map's edge, at most seven, each with its link count; the legend says how many more exist.
-- Members with no links to other members sit in a labeled row along the bottom of the map.
+- Members with no links to other members sit in a labeled row along the bottom of the map, below the linked members. Each row is tall enough for its largest node and clears the legend. When no member links to another, there is no row: the members spread across the whole map.
 - Hovering or focusing a node highlights its edges and shows its record count, its links to other members, and links among its own records. Hovering an edge shows its relation fields with counts and its plain-link count.
 - Activating a member node opens that type. Activating an edge with relation links between two members opens the group's Trace; Trace keeps its own row choice, because it has no contract for opening on a chosen pair. Plain-only edges and edges to outside neighbors have no action.
 - A Matrix toggle, always available, replaces the map with a table of the same counts: members as rows and columns, the diagonal showing links among a member's own records, and an Outside column summing links that leave the group. It is the accessible alternative to the map.

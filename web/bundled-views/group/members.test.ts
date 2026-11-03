@@ -255,13 +255,41 @@ it("puts members without links in a bottom row and outside neighbors on the ring
   const layout = layoutMap(LAYOUT);
 
   expect(layout.loose).toEqual(["Lonely"]);
-  expect(layout.looseTop).toBe(310);
-  expect(layout.positions.get("Lonely")?.y).toBe(325);
+  expect(layout.looseTop).toBe(300);
+  expect(layout.positions.get("Lonely")?.y).toBe(315);
 
   for (const id of ["Area", "Work", "Release", "Checklist"])
-    expect(layout.positions.get(id)?.y).toBeLessThan(310);
+    expect(layout.positions.get(id)?.y).toBeLessThan(300);
   expect(layout.positions.has("Person")).toBe(true);
-  expect(layoutMap({ ...LAYOUT, edges: [] }).looseTop).toBe(280);
+
+  // Rows grow to fit large unlinked members, between the row line and the box's bottom.
+  const large = layoutMap({ ...LAYOUT, edges: [{ a: "Release", b: "Checklist", links: 1 }] });
+  const top = large.looseTop ?? 0;
+
+  for (const id of ["Area", "Work", "Lonely"]) {
+    const node = LAYOUT.nodes.find((candidate) => candidate.id === id);
+    const y = large.positions.get(id)?.y ?? 0;
+    expect(y - (node?.radius ?? 0)).toBeGreaterThanOrEqual(top);
+    expect(y + (node?.radius ?? 0)).toBeLessThan(LAYOUT.height);
+  }
+});
+
+it("spreads the members over the box when none links to another", () => {
+  const layout = layoutMap({ ...LAYOUT, edges: [], outside: [] });
+
+  expect(layout.looseTop).toBeNull();
+  expect(layout.loose).toEqual([]);
+
+  for (const node of LAYOUT.nodes) {
+    const point = layout.positions.get(node.id) ?? { x: 0, y: 0 };
+    expect(point.x - node.radius).toBeGreaterThanOrEqual(0);
+    expect(point.x + node.radius).toBeLessThanOrEqual(LAYOUT.width);
+    expect(point.y - node.radius).toBeGreaterThanOrEqual(0);
+    expect(point.y + node.radius).toBeLessThanOrEqual(LAYOUT.height);
+  }
+
+  const ys = LAYOUT.nodes.map((node) => layout.positions.get(node.id)?.y ?? 0);
+  expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(40);
 });
 
 it("moves an edge count off a node label along its edge, and drops it when nothing is clear", () => {
