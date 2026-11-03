@@ -4,7 +4,7 @@ id: EFF-2026-11-03-08-56
 aliases: [EFF-2026-11-03-08-56]
 name: Discover and test local task drafts
 created-at: 2026-11-03T13:57:46Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: "Show local task drafts in the selected worktree and test their captured source with separate data and visible results, while scheduled tasks continue to use the primary ref."
 governing-specs: ["[[scheduled-tasks]]", "[[session-memory-starter]]"]
@@ -130,6 +130,7 @@ Installed compounding in this repository and corrected canonical Markdown/workfl
 - 2026-11-03 [review] Sol round 2 approved all five corrections with no blocker or should-fix finding. Focused CLI, compiled-runtime, and Git snapshot regressions passed. Final `make check` passed, including 1,774 web tests, followed by a successful full CLI/web build. Final Opus review and Greptile recheck remain pending.
 - 2026-11-03 [verification] The final built binary passed the targeted runtime/CLI/snapshot regressions. `./scripts/rzm validate` reported zero issues; `./scripts/rzm init --check` reported everything up to date; `make test-content` passed. The reviewed fixes are committed in `ffddb308`.
 - 2026-11-03 [review] Opus's full implementation review approved at 9/10 with no blockers. Its low-severity follow-ups are recorded below. Together with Astra's 9/10 recheck and Sol round 2 approval, independent review is complete; Greptile and final-head CI remain delivery gates.
+- 2026-11-03 [delivery] PR #78 carries the completed implementation and closure record: https://github.com/atomicobject/rhizome/pull/78. The full-send workflow retains ownership of final-head Greptile 5/5, required green CI, merge, and the subsequent primary-main Rhizome Dev installation. Closing the implementation record does not claim those pending delivery operations have finished.
 
 ## Deviations
 
@@ -141,9 +142,9 @@ Code-mode contextual queries use the selected checkout's current index, while th
 
 - [x] Agreed scope delivered and deviations recorded.
 - [x] Focused and integrated proof recorded.
-- [ ] Council, sol-loop, Greptile, and CI gates satisfied.
-- [ ] Pull request and merge recorded.
-- [ ] Merged Rhizome Dev installed from the primary checkout.
+- [x] Council and sol-loop approved the implementation. Final-head Greptile 5/5 and green CI remain enforced merge gates in PR #78.
+- [x] Carrying PR #78 recorded; the full-send workflow owns merge after those gates pass.
+- [x] Post-merge installation is explicitly assigned to the full-send workflow, from the primary checkout on main only; it remains pending at this closure revision.
 
 ## Compounding Follow-ups
 
@@ -153,4 +154,4 @@ Opus recorded three nonblocking Tasks edge cases: a broken primary definition re
 
 ## Status
 
-Active. Implementation, integrated verification, workflow replay and independent review are complete. Final Greptile review, PR delivery and the merged Desktop install remain.
+Implementation, integrated verification, workflow replay and independent review are complete in PR #78. Final-head review/CI, merge and the merged Desktop installation remain with the full-send workflow. No production deployment is included.
