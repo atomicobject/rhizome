@@ -60,6 +60,11 @@ func (f *fakeTasks) PrecheckRun(_ context.Context, itemID string) error {
 	return f.precheck
 }
 
+func (f *fakeTasks) RequestRun(_ context.Context, task string) (string, error) {
+	f.record("request %s", task)
+	return "7", f.actionErr
+}
+
 func (f *fakeTasks) Snooze(_ context.Context, itemID string, until time.Time) error {
 	f.record("snooze %s", itemID)
 	f.snoozeTill = until
@@ -262,6 +267,21 @@ func TestTasksRunLaunchesDetachedAfterPrecheck(t *testing.T) {
 	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/run", "")
 	require.Equal(t, http.StatusInternalServerError, code)
 	require.Equal(t, []string{"precheck 4", "launch error 4 no rzm"}, api.calls, "a failed spawn is recorded on the item")
+}
+
+func TestTasksRunATaskWithoutAnItem(t *testing.T) {
+	api := &fakeTasks{}
+	s, launches := newTasksTestServer(api)
+	code, payload := serveTasks(t, s, http.MethodPost, "/api/tasks/run/compounding%2Fmine", "")
+	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, "7", payload["item"])
+	require.Equal(t, []launch{{"/repo/vault", "7"}}, *launches)
+	require.Equal(t, []string{"request compounding/mine", "precheck 7"}, api.calls)
+
+	api.actionErr = errors.New("task has no prompt")
+	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/run/compounding%2Fmine", "")
+	require.Equal(t, http.StatusBadRequest, code)
+	require.Len(t, *launches, 1, "a refused request must not spawn")
 }
 
 func TestTasksActions(t *testing.T) {

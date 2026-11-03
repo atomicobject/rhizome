@@ -24,6 +24,7 @@ The point of tasks is agent work that happens automatically or semi-automaticall
 
 - **Auto:** when the task is due and its check says it is needed, the prompt runs in the background.
 - **Notify:** the task appears in the inbox instead. **Run** does the work in the background now. **Start** opens the person's harness interactively in a new worktree. The person can also snooze or skip it.
+- **Run now:** a task with no open inbox item can be run on request from its page or with `rzm tasks run <task>`. Rhizome adds a due item and runs it as Run would, check first.
 
 The repository sets the default mode for its tasks, and each person can override it per task, including turning a task off. Cost is the task author's responsibility: a task should be well structured, use its check to avoid unneeded work, and keep its prompt efficient. A task that costs too much is a problem with the task, to be fixed or turned off, not something Rhizome meters.
 

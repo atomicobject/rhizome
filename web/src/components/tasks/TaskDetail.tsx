@@ -452,11 +452,17 @@ export function TaskHeader({
   modePending,
   onMode,
   onBack,
+  onRun,
+  runBlocked,
 }: {
   task: TaskStatus;
   modePending: boolean;
   onMode: (mode: TaskModeChoice) => void;
   onBack: () => void;
+  /** Runs the task now; absent when it has an inbox item, whose Run applies instead. */
+  onRun?: () => void;
+  /** Why Run now is unavailable right now. */
+  runBlocked?: string;
 }) {
   return (
     <header className="task-head">
@@ -479,6 +485,17 @@ export function TaskHeader({
           )}
         </p>
       </div>
+      {onRun ? (
+        <button
+          type="button"
+          className="task-button task-button--primary"
+          disabled={Boolean(runBlocked)}
+          title={runBlocked ?? "Run the task's check now, then its work if the check finds any"}
+          onClick={onRun}
+        >
+          Run now
+        </button>
+      ) : null}
       {task.scheduled ? <ModeSelector task={task} pending={modePending} onChange={onMode} /> : null}
     </header>
   );
@@ -522,7 +539,7 @@ export function TaskHistory({
       ) : runs.length === 0 ? (
         <p className="task-empty">
           {task.scheduled
-            ? `No runs yet. The first run is recorded when this task is next due (${formatDue(task.nextDue, task.due).toLowerCase()}).`
+            ? `No runs yet. It runs when next due (${formatDue(task.nextDue, task.due).toLowerCase()})${task.checkOnly ? "" : ", or choose Run now"}.`
             : "No tests yet. Test once runs this checkout's version and records it here."}
         </p>
       ) : (

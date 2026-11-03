@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 const checkingTask = `name: Tidy
@@ -126,6 +128,23 @@ func TestNotifyModeSpendsNothingUntilRun(t *testing.T) {
 	if err != nil || outcome.Outcome != OutcomeReady || agent.calls() != 1 {
 		t.Fatalf("Run should do the work now: %+v %v", outcome, err)
 	}
+}
+
+func TestRequestRunRunsATaskWithNoItemYet(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
+	agent := editingAgent()
+	svc := newService(t, dir, agent, "")
+	id, err := svc.RequestRun(context.Background(), "look")
+	require.NoError(t, err)
+	again, err := svc.RequestRun(context.Background(), "look")
+	require.NoError(t, err)
+	require.Equal(t, id, again, "an open due item is reused")
+	outcome, err := svc.Run(context.Background(), id)
+	require.NoError(t, err)
+	require.Equal(t, OutcomeReady, outcome.Outcome)
+	require.Equal(t, 1, agent.calls())
+	_, err = svc.RequestRun(context.Background(), "look")
+	require.ErrorContains(t, err, "finish or discard it first")
 }
 
 func TestStatusMarksTasksWithoutAPrompt(t *testing.T) {
