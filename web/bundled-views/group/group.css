@@ -1616,11 +1616,10 @@
   stroke: var(--link);
 }
 
-/* Plain links are dashed, so the two kinds differ by pattern as well as color. */
+/* Plain links are a plain neutral solid at 3:1 (lighter than the teal
+   relation links), with no heavy dash competing with the nodes. */
 .gv-map-edge[data-kind="plain"] line:first-child {
   stroke: var(--type-8);
-  stroke-dasharray: 10 3;
-  stroke-linecap: butt;
 }
 
 .gv-map .gv-map-hit {
@@ -1632,9 +1631,15 @@
   cursor: pointer;
 }
 
-/* A count sits on a surface halo 2px wider than its digits, covering the stroke. */
+/* A count sits on a surface pill centered on its own edge, outlined in that edge's color. */
 .gv-map .gv-map-count-halo {
   fill: var(--surface);
+  stroke: var(--link);
+  stroke-width: 1;
+}
+
+.gv-map-count-wrap[data-kind="plain"] .gv-map-count-halo {
+  stroke: var(--type-8);
 }
 
 .gv-map .gv-map-count {
@@ -1645,7 +1650,7 @@
   text-anchor: middle;
 }
 
-.gv-map .gv-map-count[data-kind="plain"] {
+.gv-map-count-wrap[data-kind="plain"] .gv-map-count {
   fill: var(--text-muted);
 }
 
@@ -1784,12 +1789,42 @@
   width: 18px;
   height: 0;
   margin-right: 5px;
-  border-top: 3px solid var(--link);
+  border-top: 2.5px solid var(--link);
   vertical-align: 3px;
 }
 
 .gv-legend s[data-kind="plain"] {
-  border-top: 3px dashed var(--type-8);
+  border-top-color: var(--type-8);
+}
+
+/* The map's key: Types, Links, and Outside the group, one labelled row each, 8px apart. */
+.gv-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.gv-map-legend-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.gv-map-legend dt {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.gv-map-legend dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
 }
 
 /* An interface's ring, keyed segment by segment. */

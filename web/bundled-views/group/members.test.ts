@@ -344,7 +344,7 @@ it("spreads the members over the box when none links to another", () => {
   expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(40);
 });
 
-it("moves an edge count off a node label along its edge, and drops it when nothing is clear", () => {
+it("places edge counts at the midpoint and omits obstructed counts", () => {
   const positions = new Map([
     ["A", { x: 0, y: 100 }],
     ["B", { x: 200, y: 100 }],
@@ -356,8 +356,8 @@ it("moves an edge count off a node label along its edge, and drops it when nothi
 
   // 38% and 62% along still touch it; 28% clears it.
   const moved = placeEdgeLabels(positions, [edge], [middle]).get("A|B");
-  expect(moved?.x).toBeCloseTo(56);
-  expect(moved?.y).toBe(97);
+  expect(moved).toBeUndefined();
+  expect(placeEdgeLabels(positions, [edge], []).get("A|B")).toEqual({ x: 100, y: 100 });
 
   const covered = { x: 0, y: 80, w: 200, h: 30 };
   expect(placeEdgeLabels(positions, [edge], [covered]).has("A|B")).toBe(false);

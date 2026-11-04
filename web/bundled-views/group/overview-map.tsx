@@ -25,15 +25,18 @@ export const OUTSIDE_RING = 7;
 /** The layout width before the canvas is measured, and where it cannot be measured. */
 const WIDTH = 760;
 
-/** The map's height: with its title and legend the block stays within about 320px. */
-const HEIGHT = 216;
+/** The map's height: with its title and three-row legend the block stays within about 360px. */
+const HEIGHT = 236;
 
-/** A count's halo: 2px of surface around its digits, wide enough to cover the stroke under it. */
+/** A count's pill: 5px of surface beside its digits, on the edge it counts. */
 const COUNT_PAD = 2;
 
 const COUNT_DIGIT = 7;
 
-const COUNT_HEIGHT = 12;
+const COUNT_HEIGHT = 17;
+
+/** Edge strokes run from 1px to this many, by link count, so no edge outweighs the nodes it joins. */
+const MAX_STROKE = 3.5;
 
 /** The canvas's width in CSS pixels, so the map fills its column and labels draw at their real size. */
 function useCanvasWidth() {
@@ -246,8 +249,6 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
   const layout = useMemo(() => {
     const size = nodeRadius(model);
-    // A group labels every edge; All notes only edges carrying a visible share of links.
-    const showCount = (edge: MapEdge) => group !== null || edge.links >= maxLinks * 0.03;
 
     return layoutMap({
       width,
@@ -259,7 +260,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
       })),
       edges: links.edges.map((edge) => ({
         ...edge,
-        label: showCount(edge) ? { key: edge.key, text: fmt(edge.links) } : undefined,
+        label: { key: edge.key, text: fmt(edge.links) },
       })),
       outside: links.outside.slice(0, OUTSIDE_RING).map((neighbor) => ({
         ...neighbor,
@@ -270,7 +271,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
   const at = (id: string): Point => layout.positions.get(id) ?? { x: 0, y: 0 };
 
-  const stroke = (count: number) => 1 + 7 * Math.sqrt(count / maxLinks);
+  const stroke = (count: number) => 1 + (MAX_STROKE - 1) * Math.sqrt(count / maxLinks);
   const label = (id: string) => model.nodeIndex.get(id)?.label ?? id;
   const traceable = (edge: MapEdge) => group !== null && edge.relationLinks > 0;
 
@@ -370,7 +371,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 y1={at(member).y}
                 x2={at(neighbor.id).x}
                 y2={at(neighbor.id).y}
-                strokeWidth={Math.max(1.5, stroke(count) * 0.55)}
+                strokeWidth={Math.max(1.25, stroke(count) * 0.6)}
               />
             )),
           )}
@@ -488,21 +489,21 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
               return (
                 spot && (
-                  <g key={edge.key} data-hot={on(edge.key)} className="gv-map-count-wrap">
+                  <g
+                    key={edge.key}
+                    data-hot={on(edge.key)}
+                    data-kind={edge.relation ? "relation" : "plain"}
+                    className="gv-map-count-wrap"
+                  >
                     <rect
                       className="gv-map-count-halo"
                       x={spot.x - w / 2}
-                      y={spot.y - COUNT_HEIGHT + 1 - COUNT_PAD}
+                      y={spot.y - COUNT_HEIGHT / 2}
                       width={w}
-                      height={COUNT_HEIGHT + 2 * COUNT_PAD}
-                      rx={3}
+                      height={COUNT_HEIGHT}
+                      rx={COUNT_HEIGHT / 2}
                     />
-                    <text
-                      className="gv-map-count"
-                      data-kind={edge.relation ? "relation" : "plain"}
-                      x={spot.x}
-                      y={spot.y}
-                    >
+                    <text className="gv-map-count" x={spot.x} y={spot.y + 4}>
                       {text}
                     </text>
                   </g>
@@ -615,87 +616,112 @@ function MapLegend({
   const rings = drawn.filter((node) => node.kind === "interface");
   const label = (name: string) => summaries.get(name)?.label ?? name;
 
-  return (
-    <>
-      <p className="gv-legend">
-        {drawn.some((node) => node.kind === "group") && (
-          <span>
-            <i className="gv-legend-composite" />
-            ring shows the group's types
-          </span>
-        )}
-        {rings.map((node) => (
-          <span key={node.id} className="gv-legend-ring">
-            <i className="gv-legend-composite" />
-            {node.label} ring:
-            {compositionArcs(node, summaries, color).map((arc) => (
-              <span key={arc.name}>
-                <i style={{ background: arc.color }} />
-                {label(arc.name)}
-              </span>
-            ))}
+  const types = [
+    drawn.some((node) => node.kind === "group") && (
+      <span key="group-ring">
+        <i className="gv-legend-composite" />
+        ring shows the group's types
+      </span>
+    ),
+    ...rings.map((node) => (
+      <span key={node.id} className="gv-legend-ring">
+        <i className="gv-legend-composite" />
+        {node.label} ring:
+        {compositionArcs(node, summaries, color).map((arc) => (
+          <span key={arc.name}>
+            <i style={{ background: arc.color }} />
+            {label(arc.name)}
           </span>
         ))}
-        {drawn.some((node) => node.kind === "untyped") && (
-          <span>
-            <i className="gv-legend-untyped" />
-            untyped
-          </span>
-        )}
-        {model.groupNames.flatMap((name) =>
-          expanded.has(name)
-            ? [
-                <span key={name}>
-                  {name}{" "}
-                  <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
-                    collapse
-                  </button>
-                </span>,
-              ]
-            : [],
-        )}
-        {links.edges.some((edge) => edge.relation) && (
-          <span>
-            <s data-kind="relation" />
-            mostly relation links
-          </span>
-        )}
-        {links.edges.some((edge) => !edge.relation) && (
-          <span>
-            <s data-kind="plain" />
-            mostly plain links
-          </span>
-        )}
-        {unused && (
-          <span>
-            <s data-kind="unused" />
-            declared, unused
-          </span>
-        )}
-        {links.outside.length > 0 && (
-          <span>
-            <i className="gv-legend-outside" />
-            outside the group
-            {links.outside.length > shown ? ` (top ${shown} of ${links.outside.length})` : ""}
-          </span>
-        )}
-        {loose.length > 0 && (
-          <span className="gv-legend-loose">
-            No member links:
-            {loose.map((node) => (
-              <button
-                key={node.id}
-                type="button"
-                className="gv-link"
-                aria-label={nodeName(model, links, node)}
-                onClick={() => onOpen(node)}
-              >
-                {node.label} <span className="gv-map-n">{fmt(node.count)}</span>
+      </span>
+    )),
+    drawn.some((node) => node.kind === "untyped") && (
+      <span key="untyped">
+        <i className="gv-legend-untyped" />
+        untyped
+      </span>
+    ),
+    ...model.groupNames.flatMap((name) =>
+      expanded.has(name)
+        ? [
+            <span key={`expanded:${name}`}>
+              {name}{" "}
+              <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
+                collapse
               </button>
-            ))}
-          </span>
-        )}
-      </p>
+            </span>,
+          ]
+        : [],
+    ),
+    loose.length > 0 && (
+      <span key="loose" className="gv-legend-loose">
+        No member links:
+        {loose.map((node) => (
+          <button
+            key={node.id}
+            type="button"
+            className="gv-link"
+            aria-label={nodeName(model, links, node)}
+            onClick={() => onOpen(node)}
+          >
+            {node.label} <span className="gv-map-n">{fmt(node.count)}</span>
+          </button>
+        ))}
+      </span>
+    ),
+  ].filter(Boolean);
+
+  const kinds = [
+    links.edges.some((edge) => edge.relation) && (
+      <span key="relation">
+        <s data-kind="relation" />
+        mostly relation links
+      </span>
+    ),
+    links.edges.some((edge) => !edge.relation) && (
+      <span key="plain">
+        <s data-kind="plain" />
+        mostly plain links
+      </span>
+    ),
+    unused && (
+      <span key="unused">
+        <s data-kind="unused" />
+        declared, unused
+      </span>
+    ),
+  ].filter(Boolean);
+
+  // Three labelled rows, each shown only when the map draws something it keys.
+  const groups = [
+    { title: "Types", items: types },
+    { title: "Links", items: kinds },
+    {
+      title: "Outside the group",
+      items:
+        links.outside.length > 0
+          ? [
+              <span key="outside">
+                <i className="gv-legend-outside" />
+                {links.outside.length > shown
+                  ? `top ${shown} of ${links.outside.length} notes linking in`
+                  : "notes linking in"}
+              </span>,
+            ]
+          : [],
+    },
+  ].filter((group) => group.items.length > 0);
+
+  return (
+    <>
+      <dl className="gv-legend gv-map-legend">
+        {groups.map((group) => (
+          <div key={group.title} className="gv-map-legend-row">
+            <dt>{group.title}</dt>
+            <dd>{group.items}</dd>
+          </div>
+        ))}
+      </dl>
       {model.scope.kind === "group" && links.edges.length === 0 && (
         <p className="gv-quiet">No member records link to each other.</p>
       )}

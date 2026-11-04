@@ -248,6 +248,16 @@ function crosses(box: Box, a: Point, b: Point) {
   return true;
 }
 
+/** The least gap between a label and any other node or label. */
+const LABEL_CLEARANCE = 4;
+
+const grow = (box: Box, by: number): Box => ({
+  x: box.x - by,
+  y: box.y - by,
+  w: box.w + 2 * by,
+  h: box.h + 2 * by,
+});
+
 /** Label text height plus its halo. */
 const LABEL_HEIGHT = 15;
 
@@ -265,6 +275,7 @@ function placeLabels(
   segments: readonly [Point, Point][],
   width: number,
   height: number,
+  reserved: readonly Box[] = [],
 ) {
   const boxes: Box[] = items.flatMap((item) => {
     const point = positions.get(item.id);
@@ -281,6 +292,7 @@ function placeLabels(
       : [];
   });
 
+  boxes.push(...reserved);
   const labels = new Map<string, LabelPlacement>();
 
   for (const item of [...items].sort((a, b) => b.radius - a.radius || a.id.localeCompare(b.id))) {
@@ -342,57 +354,60 @@ function placeLabels(
 
     const candidates = [
       ...outward,
-      ...[item.radius + (item.outward ? OUTSIDE_LABEL_GAP : 7), item.radius + LABEL_GUTTER].flatMap(
-        (r) => {
-          const d = r * Math.SQRT1_2;
+      ...[
+        item.radius + (item.outward ? OUTSIDE_LABEL_GAP : 7),
+        item.radius + LABEL_GUTTER,
+        ...Array.from({ length: 12 }, (_, i) => item.radius + 40 + i * 18),
+      ].flatMap((r) => {
+        const d = r * Math.SQRT1_2;
 
-          return [
-            { x, y: y + r + 11, anchor: "middle" as const, box: { x: x - w / 2, y: y + r, w, h } },
-            {
-              x,
-              y: y - r - 4,
-              anchor: "middle" as const,
-              box: { x: x - w / 2, y: y - r - h, w, h },
-            },
-            { x: x + r, y: y + 4, anchor: "start" as const, box: { x: x + r, y: y - 8, w, h } },
-            { x: x - r, y: y + 4, anchor: "end" as const, box: { x: x - r - w, y: y - 8, w, h } },
-            {
-              x: x + d,
-              y: y + d + 11,
-              anchor: "start" as const,
-              box: { x: x + d, y: y + d, w, h },
-            },
-            {
-              x: x + d,
-              y: y - d - 4,
-              anchor: "start" as const,
-              box: { x: x + d, y: y - d - h, w, h },
-            },
-            {
-              x: x - d,
-              y: y + d + 11,
-              anchor: "end" as const,
-              box: { x: x - d - w, y: y + d, w, h },
-            },
-            {
-              x: x - d,
-              y: y - d - 4,
-              anchor: "end" as const,
-              box: { x: x - d - w, y: y - d - h, w, h },
-            },
-          ];
-        },
-      ),
+        return [
+          { x, y: y + r + 11, anchor: "middle" as const, box: { x: x - w / 2, y: y + r, w, h } },
+          {
+            x,
+            y: y - r - 4,
+            anchor: "middle" as const,
+            box: { x: x - w / 2, y: y - r - h, w, h },
+          },
+          { x: x + r, y: y + 4, anchor: "start" as const, box: { x: x + r, y: y - 8, w, h } },
+          { x: x - r, y: y + 4, anchor: "end" as const, box: { x: x - r - w, y: y - 8, w, h } },
+          {
+            x: x + d,
+            y: y + d + 11,
+            anchor: "start" as const,
+            box: { x: x + d, y: y + d, w, h },
+          },
+          {
+            x: x + d,
+            y: y - d - 4,
+            anchor: "start" as const,
+            box: { x: x + d, y: y - d - h, w, h },
+          },
+          {
+            x: x - d,
+            y: y + d + 11,
+            anchor: "end" as const,
+            box: { x: x - d - w, y: y + d, w, h },
+          },
+          {
+            x: x - d,
+            y: y - d - 4,
+            anchor: "end" as const,
+            box: { x: x - d - w, y: y - d - h, w, h },
+          },
+        ];
+      }),
     ].filter(
       ({ box }) =>
         box.x > 2 && box.x + box.w < width - 2 && box.y > 2 && box.y + box.h < height - 2,
     );
 
-    const clear = (box: Box) => !boxes.some((other) => overlaps(other, box));
+    // A label keeps LABEL_CLEARANCE from every node and label, so two never read as one stacked block.
+    const clear = (box: Box) => !boxes.some((other) => overlaps(other, grow(box, LABEL_CLEARANCE)));
     const crossings = (box: Box) => segments.filter(([a, b]) => crosses(box, a, b)).length;
     // Clear of nodes and labels first, then crossing the fewest edges, then the earliest side.
     const open = candidates.filter(({ box }) => clear(box));
-    const pool = open.length ? open : candidates;
+    const pool = open;
     const scored = pool.map((candidate) => ({ candidate, cost: crossings(candidate.box) }));
 
     const best = scored.reduce<(typeof scored)[number] | undefined>(
@@ -411,11 +426,11 @@ function placeLabels(
     labels.set(item.id, { x: chosen.x, y: chosen.y, anchor: chosen.anchor });
   }
 
-  return { labels, boxes };
+  return { labels, boxes: boxes.filter((box) => !reserved.includes(box)) };
 }
 
 /** Where along an edge its label may sit, nearest the middle first. */
-const EDGE_STOPS = [0.5, 0.38, 0.62, 0.28, 0.72];
+const EDGE_STOPS = [0.5];
 
 /**
  * Each labeled edge's label at the first stop along it whose box clears
@@ -438,13 +453,13 @@ export function placeEdgeLabels(
     const b = positions.get(edge.b);
 
     if (!a || !b || !edge.label) continue;
-    // The count's box covers its 2px halo (overview-map.tsx draws it).
-    const w = edge.label.text.length * GLYPH + 6;
+    // The count's box covers the pill overview-map.tsx draws, centered on the edge.
+    const w = edge.label.text.length * GLYPH + 10;
 
     const spots = EDGE_STOPS.flatMap((t) => {
       const x = a.x + (b.x - a.x) * t;
-      const y = a.y + (b.y - a.y) * t - 3;
-      const box = { x: x - w / 2, y: y - 13, w, h: 16 };
+      const y = a.y + (b.y - a.y) * t;
+      const box = { x: x - w / 2, y: y - 9, w, h: 18 };
 
       return boxes.some((other) => overlaps(other, box)) ? [] : [{ x, y, box }];
     });
@@ -454,7 +469,7 @@ export function placeEdgeLabels(
 
     const spot =
       spots.find((candidate) => !others.some(([from, to]) => crosses(candidate.box, from, to))) ??
-      spots[0];
+      undefined;
 
     if (!spot) continue;
     boxes.push(spot.box);
@@ -462,6 +477,19 @@ export function placeEdgeLabels(
   }
 
   return placed;
+}
+
+/** The share of the box the drawing, labels included, should fill. */
+const FILL = 0.85;
+
+function union(boxes: readonly Box[]): Box | undefined {
+  if (!boxes.length) return undefined;
+  const x = Math.min(...boxes.map((box) => box.x));
+  const y = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.w));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.h));
+
+  return { x, y, w: right - x, h: bottom - y };
 }
 
 /** Keep every node at least INSET inside the box. */
@@ -493,51 +521,120 @@ export function layoutMap(input: LayoutInput): MapLayout {
   const ring = input.outside.length > 0;
 
   if (positions.size)
-    fit(positions, width, height, ring ? 200 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
+    fit(positions, width, height, ring ? 140 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
 
   inset(positions, drawn, width, height);
 
   if (ring) placeRing(positions, input.outside, width, height);
 
-  const segments: [Point, Point][] = [];
+  const segments = () => {
+    const list: [Point, Point][] = [];
 
-  const segment = (a: string, b: string) => {
-    const from = positions.get(a);
-    const to = positions.get(b);
+    const segment = (a: string, b: string) => {
+      const from = positions.get(a);
+      const to = positions.get(b);
 
-    if (from && to) segments.push([from, to]);
+      if (from && to) list.push([from, to]);
+    };
+
+    for (const edge of input.edges) segment(edge.a, edge.b);
+
+    for (const neighbor of input.outside)
+      for (const member of neighbor.byMember.keys()) segment(member, neighbor.id);
+
+    return list;
   };
 
-  for (const edge of input.edges) segment(edge.a, edge.b);
+  const place = () => {
+    for (let pass = 0; pass < 10; pass++) {
+      for (const edge of input.edges) {
+        const a = positions.get(edge.a);
+        const b = positions.get(edge.b);
 
-  for (const neighbor of input.outside)
-    for (const member of neighbor.byMember.keys()) segment(member, neighbor.id);
+        if (!a || !b || !edge.label || edge.a === edge.b) continue;
 
-  const { labels, boxes } = placeLabels(
-    positions,
-    [
-      ...drawn,
-      ...input.outside.map((neighbor) => {
-        const point = positions.get(neighbor.id) ?? { x: width / 2, y: height / 2 };
+        const radius = Math.max(
+          ...drawn
+            .filter((node) => node.id === edge.a || node.id === edge.b)
+            .map((node) => node.radius),
+        );
 
-        return {
-          id: neighbor.id,
-          radius: OUTSIDE_RADIUS,
-          label: neighbor.label,
-          outward: { x: point.x - width / 2, y: point.y - height / 2 },
-        };
+        const distance = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const extra = (2 * radius + edge.label.text.length * GLYPH + 24 - distance) / 2;
+
+        if (extra <= 0) continue;
+
+        const dx = ((b.x - a.x) / distance) * extra;
+        const dy = ((b.y - a.y) / distance) * extra;
+        a.x -= dx;
+        a.y -= dy;
+        b.x += dx;
+        b.y += dy;
+      }
+    }
+
+    return placeLabels(
+      positions,
+      [
+        ...drawn,
+        ...input.outside.map((neighbor) => {
+          const point = positions.get(neighbor.id) ?? { x: width / 2, y: height / 2 };
+
+          return {
+            id: neighbor.id,
+            radius: OUTSIDE_RADIUS,
+            label: neighbor.label,
+            outward: { x: point.x - width / 2, y: point.y - height / 2 },
+          };
+        }),
+      ],
+      segments(),
+      width,
+      height,
+      input.edges.flatMap((edge) => {
+        const a = positions.get(edge.a);
+        const b = positions.get(edge.b);
+
+        if (!a || !b || !edge.label) return [];
+        const w = edge.label.text.length * GLYPH + 4;
+
+        return [{ x: (a.x + b.x - w) / 2, y: (a.y + b.y) / 2 - 9, w, h: 18 }];
       }),
-    ],
-    segments,
-    width,
-    height,
-  );
+    );
+  };
+
+  // The drawing, labels included, fills about FILL of the box: spread the
+  // positions until it does, re-placing labels each pass.
+  let placed = place();
+
+  for (let pass = 0; pass < 4; pass++) {
+    const bounds = union(placed.boxes);
+
+    if (!bounds) break;
+    let sx = Math.min((FILL * width) / Math.max(bounds.w, 1), 2.5);
+    let sy = Math.min((FILL * height) / Math.max(bounds.h, 1), 2.5);
+    [sx, sy] = [Math.min(sx, sy * 3), Math.min(sy, sx * 3)];
+
+    if (Math.abs(sx - 1) < 0.03 && Math.abs(sy - 1) < 0.03) break;
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+
+    for (const point of positions.values()) {
+      point.x = width / 2 + (point.x - cx) * sx;
+      point.y = height / 2 + (point.y - cy) * sy;
+    }
+
+    inset(positions, drawn, width, height);
+    placed = place();
+  }
+
+  const { labels, boxes } = placed;
 
   return {
     height,
     positions,
     labels,
     loose: loose.map((node) => node.id),
-    edgeLabels: placeEdgeLabels(positions, input.edges, boxes, segments),
+    edgeLabels: placeEdgeLabels(positions, input.edges, boxes, segments()),
   };
 }
