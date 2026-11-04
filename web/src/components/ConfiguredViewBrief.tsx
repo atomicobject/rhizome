@@ -346,7 +346,7 @@ function RelationLink({
 
   return (
     // A link inside a draggable card must not start the card's drag.
-    <span data-configured-relation-link>
+    <span className="link-secondary" data-configured-relation-link>
       {status}
       <NoteLinkPreview
         target={target}

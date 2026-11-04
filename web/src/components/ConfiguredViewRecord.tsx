@@ -21,6 +21,7 @@ import {
   columnLabel,
   fieldCapability,
 } from "./ConfiguredViewModel";
+import { DisclosureChevron } from "./DisclosureChevron";
 import { StatusMark } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
@@ -190,7 +191,7 @@ function CopyPath({ path }: { path: string }) {
   );
 }
 
-/** The summary clamped to three lines, with More to read the rest in place. */
+/** The summary clamped to six lines, with a disclosure to read the rest in place. */
 function RecordSummary({ text }: { text: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [open, setOpen] = useState(false);
@@ -210,11 +211,12 @@ function RecordSummary({ text }: { text: string }) {
       {(clamped || open) && (
         <button
           type="button"
-          className="view-record__more-toggle"
+          className="view-record__more-toggle list-more"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
         >
-          {open ? "Less" : "More"}
+          <DisclosureChevron open={open} />
+          {open ? "Show less summary" : "Show full summary"}
         </button>
       )}
     </div>
@@ -338,7 +340,7 @@ function ReverseRecords({
                 )}
                 <button
                   type="button"
-                  className="view-record__link"
+                  className="view-record__link link-secondary"
                   title={stage ? `${item.title} · ${stage}` : item.title}
                   onClick={() => onOpenRow(item.open)}
                 >

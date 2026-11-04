@@ -43,9 +43,11 @@ export function FieldLinkValues({
       <Fragment key={`${link.value}:${index}`}>
         {index > 0 && ", "}
         {target && open ? (
-          <NoteLinkPreview target={target} from={from} open={open}>
-            {label}
-          </NoteLinkPreview>
+          <span className="link-secondary">
+            <NoteLinkPreview target={target} from={from} open={open}>
+              {label}
+            </NoteLinkPreview>
+          </span>
         ) : (
           label
         )}
