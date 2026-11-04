@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 
+import { DisclosureChevron } from "./DisclosureChevron";
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
 import { flattenRailNodes, label, type RailGroup, type RailNode } from "./noteRailGroups";
 import { useValidationQuery } from "./useNotesQueries";
@@ -62,7 +63,6 @@ const ICONS = {
   view: "M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6",
   atlas:
     "M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM2 8h12M8 2c1.7 1.6 2.5 3.6 2.5 6S9.7 12.4 8 14M8 2C6.3 3.6 5.5 5.6 5.5 8s.8 4.4 2.5 6",
-  caret: "M6 4l4 4-4 4",
 } as const;
 
 export type RailIconName = keyof typeof ICONS;
@@ -229,7 +229,7 @@ function RailCaret({
         if (!asRow) event.currentTarget.parentElement?.querySelector<HTMLElement>(ROW)?.focus();
       }}
     >
-      <RailIcon name="caret" />
+      <DisclosureChevron open={open} />
     </button>
   );
 }
@@ -254,7 +254,7 @@ export function RailSectionHeader({
         onClick={onToggle}
       >
         <span className="ontology-type-row__collapse" aria-hidden="true">
-          <RailIcon name="caret" />
+          <DisclosureChevron open={open} />
         </span>
         {children}
       </button>
