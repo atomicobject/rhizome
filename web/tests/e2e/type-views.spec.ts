@@ -218,10 +218,10 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
 
   const connections = frame.getByRole("region", { name: "Connections" });
   await expect(connections.getByRole("listitem").filter({ hasText: /^Project/ })).toContainText(
-    "9/10",
+    "9 of 10 work items linked",
   );
   await expect(connections.getByRole("listitem").filter({ hasText: /^Meetings/ })).toContainText(
-    "8/10",
+    "8 of 10 work items linked",
   );
   await expect(frame.getByRole("region", { name: "Linked from outside" })).toContainText(
     "review meeting",
