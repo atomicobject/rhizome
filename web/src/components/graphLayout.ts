@@ -17,7 +17,7 @@ export type LayoutInput = {
 export type LayoutPositions = Map<string, { x: number; y: number }>;
 
 // Barnes-Hut approximates repulsion in O(n log n); ForceAtlas2 only turns it on
-// above 2,000 nodes, which is exactly the global graph's cap.
+// above 1,000 nodes.
 const BARNES_HUT_ORDER = 1000;
 
 // Up to this many nodes, the layout keeps node discs apart.
