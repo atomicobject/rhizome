@@ -91,7 +91,12 @@ function SignalRecords({
               )}
               {group.records.map((record) => (
                 <li key={record.key} className="gv-sig-row">
-                  <button type="button" className="gv-inline" onClick={() => openRecord(record)}>
+                  <button
+                    type="button"
+                    className="gv-inline"
+                    title={record.title}
+                    onClick={() => openRecord(record)}
+                  >
                     {record.title}
                   </button>
                   {unlinked && (

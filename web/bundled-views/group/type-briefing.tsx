@@ -239,6 +239,7 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
                 <button
                   type="button"
                   className="gv-inline link-secondary"
+                  title={note.title}
                   onClick={() => openNote(note.path)}
                 >
                   {note.title}

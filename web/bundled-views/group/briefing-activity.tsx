@@ -170,7 +170,12 @@ export function ChangeRow({
       <span className="gv-change-main">
         <span className="gv-change-heading">
           {mark}
-          <button type="button" className="gv-inline gv-change-title" onClick={line.onOpen}>
+          <button
+            type="button"
+            className="gv-inline gv-change-title"
+            title={line.title}
+            onClick={line.onOpen}
+          >
             {line.title}
           </button>
         </span>
@@ -179,7 +184,9 @@ export function ChangeRow({
           {line.folder && (
             <>
               {" · "}
-              <span className="gv-path">{line.folder}/</span>
+              <span className="gv-path" title={`${line.folder}/`}>
+                {line.folder}/
+              </span>
             </>
           )}
         </span>

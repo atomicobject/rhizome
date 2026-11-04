@@ -234,7 +234,8 @@ export function repeatedColumnFields(
     for (const row of execution.rows) {
       const value = fieldValue(row, field);
 
-      counts.set(value, (counts.get(value) ?? 0) + 1);
+      // Blanks are not a repeated value: a sparse column still carries data.
+      if (value !== "") counts.set(value, (counts.get(value) ?? 0) + 1);
     }
 
     return repeated(counts.values()) ? [field] : [];

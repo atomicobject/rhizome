@@ -45,6 +45,12 @@ describe("repeatedColumnFields", () => {
     expect(repeatedColumnFields(columns, execution(rows.slice(0, 5), [5]), "status")).toEqual([]);
     expect(repeatedColumnFields(columns, execution(rows, [10, 10], 40), "status")).toEqual([]);
   });
+
+  it("keeps a sparse column whose blanks fill most rows", () => {
+    const sparse = Array.from({ length: 20 }, (_, index) => row(index, index < 2 ? "Ann" : ""));
+
+    expect(repeatedColumnFields(columns, execution(sparse, [12, 8]), "status")).toEqual([]);
+  });
 });
 
 it("names the value that fills a repeated column and how many rows it fills", () => {
