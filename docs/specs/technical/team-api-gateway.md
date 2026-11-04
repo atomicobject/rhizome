@@ -6,7 +6,7 @@ aliases:
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
 spec-status: proposed
-last-updated: 2026-11-03
+last-updated: 2026-11-04
 ---
 
 # Team API gateway
@@ -183,7 +183,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 - MUST take the gateway origin only from an interactive `rzm auth login`: a compiled-in default for internal builds, or `--server` with a root URL that is HTTPS, or plain HTTP only on a loopback host (`127.0.0.1`, `localhost`, `[::1]`) for local development. Repository configuration, dotenv files, and tool input cannot set or read it.
 - MUST send session tokens only to the session's origin, over HTTPS except for a loopback origin, refuse redirects, and take proxy and TLS settings from trusted user or OS configuration, not repository dotenv. In session mode, a custom Voyage endpoint fails with `team_session_endpoint_conflict`.
-- MUST record the signed-in origin in one non-secret, user-global selector file (`team-session.json` beside the session lock), written by login and cleared by logout under the session lock, and resolve every consumer's origin from it: an explicit `--server`, then (development builds only) `RHIZOME_TEAM_API_ORIGIN` naming an origin that already has a stored session, then the selector, then the default origin.
+- MUST record the signed-in origin in one non-secret, user-global selector file (`team-session.json` beside the session lock), written by login under the session lock and kept by logout so the next sign-in returns to the same server, and resolve every consumer's origin from it: an explicit `--server`, then (development builds only) `RHIZOME_TEAM_API_ORIGIN` naming an origin that already has a stored session, then the selector, then the default origin.
 - MUST refuse to route provider calls to a loopback gateway that reports fake upstreams unless `RHIZOME_TEAM_API_ORIGIN` names it explicitly, so a selector left pointing at a fake stack cannot put fake vectors in a real index.
 - MUST run `rzm auth` on the invoked executable, bypassing repository delegation, pin installation, and dotenv loading.
 - MUST respect an explicit user-global `provider_access` choice independently for Voyage and TypeSafe. `server` uses only the team session, overriding caller-supplied, environment and saved keys; an unavailable session fails without trying another billing source. `key` uses caller-supplied, environment and saved keys in that order, without a team-session or legacy-bundle fallback. Repository configuration cannot supply this preference.
