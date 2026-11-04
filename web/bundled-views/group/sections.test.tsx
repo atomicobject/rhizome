@@ -155,7 +155,8 @@ it("bounds each table and shows the rest in place", async () => {
   expect(rowTitles(region)[0]).toBe("Person 10");
   const more = within(region).getByRole("button", { name: "Show 3 more" });
   expect(more).toBeVisible();
-  expect(within(region).getByText("· newest first", { exact: false })).toBeVisible();
+  // The sort order is an info tip on the heading, not text after the expander.
+  expect(within(region).getByLabelText("Newest first")).toBeInTheDocument();
 
   fireEvent.click(more);
   await waitFor(() => expect(rowTitles(region)).toHaveLength(SECTION_ROWS + 3));
