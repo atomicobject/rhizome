@@ -372,7 +372,7 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.queryByRole("button", { name: /more|Hide details/ })).not.toBeInTheDocument();
   });
 
-  it("collapses empty fields behind one remembered toggle while reading", () => {
+  it("collapses empty fields behind one remembered toggle in read and edit mode", () => {
     const fields = [
       makeField("summary", ["Filled in"]),
       // Links alone are a value, so the field still shows.
@@ -410,9 +410,10 @@ describe("OntologyPropertyPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide 2 empty fields" }));
     expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
 
+    // Editing keeps read mode's geometry: empty fields stay behind the toggle.
     rerender(panel(true));
-    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
-    expect(screen.queryByRole("button", { name: /empty field/ })).not.toBeInTheDocument();
+    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+    expect(screen.getByRole("button", { name: "Show 2 empty fields" })).toBeVisible();
   });
 
   it("stages DateTime edits as RFC3339 instead of dropping time", () => {

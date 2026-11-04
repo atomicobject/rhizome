@@ -1001,6 +1001,8 @@ export function OntologyNotePane({
   const canonicalWorkspace = workspace;
   const locator = useMemo(() => focusedNodeLocator(canonicalWorkspace), [canonicalWorkspace]);
   const [copyLinkMessage, setCopyLinkMessage] = useState<string | null>(null);
+  // An HTML preview's Refresh and Open sit in its compact head row.
+  const [htmlActions, setHTMLActions] = useState<HTMLElement | null>(null);
   const content = canonicalWorkspace?.content || null;
   const renderedBase = content?.rendered || renderedProp || null;
 
@@ -1512,6 +1514,20 @@ export function OntologyNotePane({
       />
     );
 
+  // A previewed HTML note keeps its host header to one compact row (title,
+  // identity, metadata disclosure, and the viewer's actions): the page below
+  // carries its own heading.
+  const wrapHTMLHead = (identity: ReactNode, metadata: ReactNode) =>
+    isActiveHTML ? (
+      <div className="ontology-pane__html-head">
+        {identity}
+        {metadata}
+        <div className="ontology-pane__html-actions" ref={setHTMLActions} />
+      </div>
+    ) : (
+      identity
+    );
+
   return (
     <article className="ontology-pane" ref={paneRef}>
       <header className="ontology-pane__header">
@@ -1590,6 +1606,16 @@ export function OntologyNotePane({
               }}
               title={locatorDiagnostic(locator)}
             >
+              <svg
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 0 1 4.5 9l1-1" />
+              </svg>
               {locator.status === "requires_fix" ? "Make linkable" : "Copy link"}
             </button>
           )}
@@ -1647,42 +1673,44 @@ export function OntologyNotePane({
             {(renderPresentation ?? ((body) => body))(
               <>
                 {viewMode === "read" &&
-                  (canonicalWorkspace ? (
-                    <OntologyIdentityStrip
-                      workspace={canonicalWorkspace}
-                      identity={identityPartition}
-                      editing={editing}
-                      changedFieldNames={changedFieldNames}
-                      issueCount={validationIssueCount}
-                      validationHealth={validationHealth}
-                      onOpenIssues={onOpenIssues}
-                      dirty={effectiveStatus.dirty}
-                      onStageOps={onStageOps}
-                      vaultKey={vaultKey}
-                    />
-                  ) : (
-                    <div className="ontology-identity ontology-identity--placeholder">
-                      <h2 className="ontology-identity__title">
-                        {displayTitle(rendered.title) || "Untitled"}
-                      </h2>
-                    </div>
-                  ))}
+                  wrapHTMLHead(
+                    canonicalWorkspace ? (
+                      <OntologyIdentityStrip
+                        workspace={canonicalWorkspace}
+                        identity={identityPartition}
+                        editing={editing}
+                        changedFieldNames={changedFieldNames}
+                        issueCount={validationIssueCount}
+                        validationHealth={validationHealth}
+                        onOpenIssues={onOpenIssues}
+                        dirty={effectiveStatus.dirty}
+                        onStageOps={onStageOps}
+                        vaultKey={vaultKey}
+                      />
+                    ) : (
+                      <div className="ontology-identity ontology-identity--placeholder">
+                        <h2 className="ontology-identity__title">
+                          {displayTitle(rendered.title) || "Untitled"}
+                        </h2>
+                      </div>
+                    ),
+                    isActiveHTML && (
+                      <HTMLRootMetadataPanel
+                        path={toolbarPath}
+                        fallbackTitle={content?.title || rendered.title || ""}
+                        frontmatter={rendered.frontmatter}
+                        existingFields={new Set(workspaceFieldNodes.map((node) => node.field.name))}
+                        editing={editing}
+                        dirtyFields={changedFieldNames}
+                        vaultKey={vaultKey}
+                        sourceRevision={canonicalWorkspace?.sourceRevision}
+                        onStageOps={onStageOps}
+                      >
+                        {propertyPanel}
+                      </HTMLRootMetadataPanel>
+                    ),
+                  )}
                 {viewMode === "read" && !isActiveHTML && propertyPanel}
-                {viewMode === "read" && isActiveHTML && rendered && (
-                  <HTMLRootMetadataPanel
-                    path={toolbarPath}
-                    fallbackTitle={content?.title || rendered.title || ""}
-                    frontmatter={rendered.frontmatter}
-                    existingFields={new Set(workspaceFieldNodes.map((node) => node.field.name))}
-                    editing={editing}
-                    dirtyFields={changedFieldNames}
-                    vaultKey={vaultKey}
-                    sourceRevision={canonicalWorkspace?.sourceRevision}
-                    onStageOps={onStageOps}
-                  >
-                    {propertyPanel}
-                  </HTMLRootMetadataPanel>
-                )}
                 {viewMode === "read" && issueCount > 0 && issueSections.length > 0 && (
                   <details className="ontology-issues">
                     <summary className="ontology-issues__summary">
@@ -1833,6 +1861,7 @@ export function OntologyNotePane({
                       generation={canonicalWorkspace?.version}
                       visible={viewMode === "read"}
                       applicationHref={applicationHref || buildNoteWebHref(toolbarPath)}
+                      actionsSlot={viewMode === "read" ? htmlActions : null}
                       onNavigate={(target, beside, authored) =>
                         onOpen(
                           resolveKnownRenderedLinkTarget(authored, rendered) || target,

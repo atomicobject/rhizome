@@ -100,11 +100,15 @@ export function OntologyPropertyPanel({
     ...(editing || detailsOpen || forceDetailsOpen ? detailFields : []),
   ];
 
-  // Reading, a field with nothing to say waits behind one toggle; editing
-  // shows every field so it can be filled. Fields with issues stay visible.
-  const emptyFields = editing
-    ? []
-    : shown.filter((node) => isEmptyField(node) && !detailFieldMustStayVisible(node));
+  // A field with nothing to say waits behind one toggle, in edit mode too, so
+  // entering edit mode keeps read mode's geometry. Fields with issues or
+  // staged changes stay visible.
+  const emptyFields = shown.filter(
+    (node) =>
+      isEmptyField(node) &&
+      !detailFieldMustStayVisible(node) &&
+      !changedFieldNames.has(node.field.name),
+  );
 
   const emptyCount = emptyFields.length;
   const displayable = emptyOpen ? shown : shown.filter((node) => !emptyFields.includes(node));
@@ -361,10 +365,12 @@ function PropertyRow({
   const value = values[0] || "";
   const isLocator = name === "locator";
   const relation = effectiveFieldCapability(node).valueKind === "relation";
+  // Long text runs full width under its label, in read and edit mode alike.
+  const long = !relation && values.join(", ").length > LONG_TEXT;
 
   return (
     <div
-      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}`}
+      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}${long ? " is-long" : ""}`}
       data-field={name}
     >
       <dt className="ontology-properties__key" title={name}>
@@ -407,6 +413,8 @@ function PropertyRow({
     </div>
   );
 }
+
+const LONG_TEXT = 60;
 
 type PropertyLinks = {
   rendered: RenderedFile | null;
