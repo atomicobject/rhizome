@@ -1,3 +1,4 @@
+import { DisclosureChevron } from "./DisclosureChevron";
 import { ChevronRight } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -118,7 +119,7 @@ export function OntologyPropertyPanel({
   const parentPath = parentRef ? publicWorkspaceRef(parentRef) : "";
 
   // A property named like a body section ("Summary" over "## Summary") reads
-  // as a duplicate, so its long text previews on one line until opened.
+  // as a duplicate, so its long text previews on two lines until opened.
   const sectionTitles = new Set(
     (workspace.nodes || []).flatMap((node) =>
       node.kind === "section" && node.data.title ? [node.data.title.trim().toLowerCase()] : [],
@@ -396,15 +397,7 @@ function PropertyRow({
       </dt>
       <dd className="ontology-properties__value">
         {preview ? (
-          <button
-            type="button"
-            className="ontology-properties__preview"
-            aria-expanded={false}
-            onClick={() => setOpened(true)}
-          >
-            <span className="ontology-properties__preview-text">{values.join(", ")}</span>
-            <span className="ontology-properties__preview-more">More</span>
-          </button>
+          <span className="ontology-properties__preview-text">{values.join(", ")}</span>
         ) : links && !editing && relation && values.length > 0 ? (
           <span className={`widget-text${dirty ? " is-dirty" : ""}`}>
             <FieldLinkValues
@@ -436,6 +429,17 @@ function PropertyRow({
             expected={fieldExpectedFromNode(node, sourceHash, sourceContent)}
             onStage={onStage}
           />
+        )}
+        {long && echoesSection && !dirty && (
+          <button
+            type="button"
+            className="list-more ontology-properties__preview-more"
+            aria-expanded={opened}
+            onClick={() => setOpened((value) => !value)}
+          >
+            <DisclosureChevron open={opened} />
+            {opened ? "Show less" : `Show full ${humanizeName(name).toLowerCase()}`}
+          </button>
         )}
       </dd>
     </div>
