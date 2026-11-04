@@ -119,13 +119,24 @@ export function ConfiguredViewTable({
   );
 
   // Inside a group every row holds the group's value, so its column says nothing.
+  // Dates stay: a month group holds rows with different days.
   const tableColumns = useMemo(() => {
     const grouped = groupedFields(groups);
 
     if (grouped.size === 0) return allColumns;
 
     const keyOf = (field: string) => capabilityFor(capabilities, field)?.key ?? field;
-    const groupedKeys = new Set([...grouped].map(keyOf));
+
+    const isDate = (field: string) => {
+      const kind = capabilityFor(capabilities, field)?.valueKind;
+
+      return kind === "date" || kind === "datetime";
+    };
+
+    const groupedKeys = new Set(
+      [...grouped].flatMap((field) => (isDate(field) ? [] : [keyOf(field)])),
+    );
+
     const titleIndex = primaryColumn(allColumns, capabilities);
 
     return allColumns.filter(

@@ -4,7 +4,7 @@ import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { execution, firstRow, rendererProps } from "./ConfiguredView.testFixtures";
 
-function table(sorted: boolean, { totalCount = 3, status = "active" } = {}) {
+function table(sorted: boolean, { totalCount = 3, status = "active", groupField = "done" } = {}) {
   const rows = ["a", "b", "c"].map((id, index) => ({
     ...firstRow,
     ref: { notePath: `${id}.md`, kind: "NOTE" },
@@ -39,7 +39,7 @@ function table(sorted: boolean, { totalCount = 3, status = "active" } = {}) {
     ],
     groups: [
       {
-        field: "done",
+        field: groupField,
         key: "open",
         value: "false",
         label: "Open",
@@ -82,6 +82,11 @@ describe("sorted table repetitions", () => {
     render(table(true, { status: "complete" }));
     expect(screen.getByRole("button", { name: "Open 3 · 1 overdue" })).toBeVisible();
     expect(screen.getAllByText("Overdue")).toHaveLength(1);
+  });
+
+  it("keeps a grouped date column, since a month group holds different days", () => {
+    render(table(true, { groupField: "due" }));
+    expect(screen.getByRole("columnheader", { name: /Due/ })).toBeVisible();
   });
 
   it("keeps equal values at normal emphasis when their column is not sorted", () => {
