@@ -138,12 +138,8 @@ function nodeRadius(model: ScopeModel) {
   return (node: ScopeNode) => 5 + 25 * Math.sqrt(node.count / max);
 }
 
-const typeCount = (node: ScopeNode) =>
-  node.kind === "group"
-    ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}`
-    : "";
-
-const nodeText = (node: ScopeNode) => `${node.label}${typeCount(node)} ${fmt(node.count)}`;
+const nodeText = (node: ScopeNode) =>
+  `${node.label}\n${fmt(node.count)} ${plural(node.count, "note", "notes")}${node.kind === "group" ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}` : ""}`;
 
 const memberLinks = (links: LinkModel, id: string) =>
   links.edges.reduce((sum, edge) => sum + (edge.a === id || edge.b === id ? edge.links : 0), 0);
@@ -523,7 +519,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                     y={place.y}
                     textAnchor={place.anchor}
                   >
-                    {neighbor.label} <tspan className="gv-map-n">{fmt(neighbor.links)} links</tspan>
+                    {neighbor.label}{" "}
+                    <tspan className="gv-map-n" x={place.x} dy={17}>
+                      {fmt(neighbor.links)} links
+                    </tspan>
                   </text>
                 )
               );
@@ -541,11 +540,13 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                     y={place.y}
                     textAnchor={place.anchor}
                   >
-                    {node.label}
-                    {node.kind === "group" && (
-                      <tspan className="gv-map-n">{typeCount(node)}</tspan>
-                    )}{" "}
-                    <tspan className="gv-map-n">{fmt(node.count)}</tspan>
+                    {node.label}{" "}
+                    <tspan className="gv-map-n" x={place.x} dy={17}>
+                      {fmt(node.count)} {plural(node.count, "note", "notes")}
+                      {node.kind === "group"
+                        ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}`
+                        : ""}
+                    </tspan>
                   </text>
                 )
               );
@@ -613,16 +614,20 @@ function MapLegend({
 }) {
   const shown = Math.min(OUTSIDE_RING, links.outside.length);
   // An interface's ring names its segments; a collapsed group's ring stays one key.
-  const rings = drawn.filter((node) => node.kind === "interface");
+  const rings = drawn.filter((node) => node.kind === "interface" || node.kind === "group");
   const label = (name: string) => summaries.get(name)?.label ?? name;
 
   const types = [
-    drawn.some((node) => node.kind === "group") && (
-      <span key="group-ring">
-        <i className="gv-legend-composite" />
-        ring shows the group's types
-      </span>
-    ),
+    ...drawn
+      .filter(
+        (node) => node.kind !== "group" && node.kind !== "interface" && node.kind !== "untyped",
+      )
+      .map((node) => (
+        <span key={node.id}>
+          <i style={{ background: nodeHue(node, color) }} />
+          {node.label}
+        </span>
+      )),
     ...rings.map((node) => (
       <span key={node.id} className="gv-legend-ring">
         <i className="gv-legend-composite" />
@@ -692,24 +697,19 @@ function MapLegend({
     ),
   ].filter(Boolean);
 
-  // Three labelled rows, each shown only when the map draws something it keys.
+  if (links.outside.length > 0)
+    kinds.push(
+      <span key="outside">
+        <s data-kind="outside" />
+        {links.outside.length > shown
+          ? `top ${shown} of ${links.outside.length} outside links`
+          : "outside links"}
+      </span>,
+    );
+
   const groups = [
     { title: "Types", items: types },
     { title: "Links", items: kinds },
-    {
-      title: "Outside the group",
-      items:
-        links.outside.length > 0
-          ? [
-              <span key="outside">
-                <i className="gv-legend-outside" />
-                {links.outside.length > shown
-                  ? `top ${shown} of ${links.outside.length} notes linking in`
-                  : "notes linking in"}
-              </span>,
-            ]
-          : [],
-    },
   ].filter((group) => group.items.length > 0);
 
   return (

@@ -259,7 +259,7 @@ const grow = (box: Box, by: number): Box => ({
 });
 
 /** Label text height plus its halo. */
-const LABEL_HEIGHT = 15;
+const LABEL_HEIGHT = 34;
 
 /** How far out a label may step from its node to clear the edges there. */
 const LABEL_GUTTER = 24;
@@ -300,7 +300,7 @@ function placeLabels(
 
     if (!point) continue;
     const { x, y } = point;
-    const w = item.label.length * GLYPH;
+    const w = Math.max(...item.label.split("\n").map((line) => line.length)) * GLYPH;
     const h = LABEL_HEIGHT;
 
     // Beside the node first, then a label gutter further out, so a label can

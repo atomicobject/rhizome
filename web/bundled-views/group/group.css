@@ -1574,7 +1574,7 @@
 /* Every label, counts included, sits on an opaque surface-colored halo. */
 .gv-map text {
   fill: var(--text);
-  font: var(--fs-sm) var(--font-sans);
+  font: 14px var(--font-sans);
   paint-order: stroke;
   stroke: var(--surface);
   stroke-width: 6px;
@@ -1588,7 +1588,7 @@
 
 .gv-map .gv-map-n {
   fill: var(--text-muted);
-  font: var(--fs-sm) var(--font-sans);
+  font: 13px var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1634,12 +1634,7 @@
 /* A count sits on a surface pill centered on its own edge, outlined in that edge's color. */
 .gv-map .gv-map-count-halo {
   fill: var(--surface);
-  stroke: var(--link);
-  stroke-width: 1;
-}
-
-.gv-map-count-wrap[data-kind="plain"] .gv-map-count-halo {
-  stroke: var(--type-8);
+  stroke: none;
 }
 
 .gv-map .gv-map-count {
@@ -1800,21 +1795,21 @@
 /* The map's key: Types, Links, and Outside the group, one labelled row each, 8px apart. */
 .gv-map-legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
   margin: 8px 0 0;
 }
 
 .gv-map-legend-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
 }
 
 .gv-map-legend dt {
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1824,7 +1819,7 @@
   gap: 4px 14px;
   margin: 0;
   color: var(--text);
-  font-size: var(--fs-sm);
+  font-size: 13px;
 }
 
 /* An interface's ring, keyed segment by segment. */
@@ -2121,4 +2116,13 @@
   margin-right: var(--sp-3, 12px);
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.gv-map-legend s[data-kind="outside"] {
+  border: 0;
+  height: 3px;
+  background: radial-gradient(circle, var(--type-8) 1px, transparent 1px) 0 0 / 4px 3px repeat-x;
+}
+.gv-map-legend s[data-kind="unused"] {
+  border-top: 1.5px dashed var(--text-faint);
 }
