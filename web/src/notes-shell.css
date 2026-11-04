@@ -2556,15 +2556,15 @@
 }
 
 /* Problems, clean: the checks that ran, listed in place of an empty panel.
-   Every row passed, so each shows its outcome, check, and summary; the zero
-   issue count is already in the strip. */
+   Each row leads with the check's name, then a compact success mark and what
+   the check found; the zero issue count is already in the strip. */
 .validation-checks {
   padding: var(--sp-2) 0;
 }
 
 .validation-checks__list {
   display: grid;
-  grid-template-columns: max-content minmax(140px, max-content) minmax(0, 1fr);
+  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2583,32 +2583,19 @@
   font-size: var(--fs-base);
 }
 
-.validation-checks__list li > :nth-child(3) {
-  display: none;
-}
-
-.validation-checks__list .validation-disclosure__outcome {
-  gap: var(--sp-2);
-  color: var(--text-muted);
-  font: 500 var(--fs-sm) / 1.3 var(--font-sans);
-}
-
-.validation-checks__list .validation-disclosure__outcome--completed {
-  color: var(--success-ink);
-}
-
-.validation-checks__list .validation-disclosure__outcome--completed::before {
-  content: "✓";
-  font-weight: 700;
-}
-
 .validation-checks__list strong {
-  font-weight: 600;
+  font-weight: 500;
 }
 
-.validation-checks__list li > :nth-child(4) {
+.validation-checks__result {
+  gap: var(--sp-2);
   overflow: hidden;
   color: var(--text-muted);
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.validation-checks__mark {
+  flex: none;
+  color: var(--success);
+  font-weight: 700;
 }
