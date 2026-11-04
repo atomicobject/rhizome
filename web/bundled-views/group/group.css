@@ -834,15 +834,18 @@
 }
 
 /* About 40% for the rows, the rest shared by the linked columns; a column
-   few rows fill keeps a fifth (220px at least). */
+   few rows fill keeps a fifth. Plain percentages: Chrome treats a calc() or
+   max() width on a table column as auto.
+   ponytail: in a frame near the page's minimum width (matrixWidth) a sparse
+   column can drop below 220px; size columns in JS if that matters. */
 .gv-col-spine,
 .gv-trace thead th.gv-trace-spine {
-  width: max(340px, 40%);
+  width: 40%;
 }
 
 .gv-col-sparse,
 .gv-trace thead th.gv-col-sparse {
-  width: max(220px, 20%);
+  width: 20%;
 }
 
 /* Linked titles are 14px teal quiet links, like every record link. */
