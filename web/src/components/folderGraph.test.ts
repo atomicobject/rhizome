@@ -39,14 +39,40 @@ describe("aggregateByFolder", () => {
     const graph = aggregateByFolder({ nodes, edges }, (type) => `var(--${type})`);
     const byPath = new Map(graph.nodes.map((node) => [node.path, node]));
 
-    expect([...byPath.keys()].sort()).toEqual(["", "docs/specs", "pkg", "pkg/app", "pkg/store"]);
+    expect(graph.nodes.map((node) => node.id.slice("folder:".length)).sort()).toEqual([
+      "",
+      "docs",
+      "docs/specs",
+      "pkg",
+      "pkg/(smaller folders)",
+      "pkg/app",
+      "pkg/store",
+    ]);
     expect(byPath.get("docs/specs")?.fill).toBe("var(--Spec)");
     expect(byPath.get("pkg/app")?.fill).toBe("var(--graph-code)");
     expect(byPath.get("docs/specs")?.fillKey).toBe("Spec");
-    expect(byPath.get("pkg")?.label).toBe("pkg · 1 smaller folders  1 file");
-    expect(byPath.get("")?.label).toBe("Top-level files  1 note");
+    expect(graph.nodes.find((node) => node.id === "folder:pkg/(smaller folders)")?.label).toBe(
+      "1 smaller folders  1 file",
+    );
+    expect(byPath.get("")?.label).toBe("Vault  41 notes, 61 files");
+    expect(
+      graph.edges
+        .filter((edge) => edge.kind === "folder-containment")
+        .map(({ source, target }) => [source, target]),
+    ).toEqual(
+      expect.arrayContaining([
+        ["folder:", "folder:docs"],
+        ["folder:docs", "folder:docs/specs"],
+        ["folder:", "folder:pkg"],
+        ["folder:pkg", "folder:pkg/app"],
+        ["folder:pkg", "folder:pkg/(smaller folders)"],
+      ]),
+    );
+    expect(aggregateByFolder({ nodes, edges: [] }, () => "red").edges).toEqual(
+      graph.edges.filter((edge) => edge.kind === "folder-containment"),
+    );
     // Links inside one folder are not drawn; links between folders add up.
-    expect(graph.edges).toEqual([
+    expect(graph.edges.filter((edge) => edge.kind === "folder-minor")).toEqual([
       expect.objectContaining({ source: "folder:docs/specs", target: "folder:pkg/app", weight: 2 }),
     ]);
   });
@@ -81,10 +107,14 @@ describe("aggregateByFolder", () => {
 
     // Thirty embedded criteria neither size nor color the folder.
     expect(specs).toMatchObject({ label: "docs/specs  2 notes", fillKey: "TechnicalSpec" });
-    expect(graph.edges.map((edge) => [edge.source, edge.target, edge.kind])).toEqual([
+    expect(
+      graph.edges
+        .filter((edge) => edge.kind === "folder-minor")
+        .map((edge) => [edge.source, edge.target, edge.kind]),
+    ).toEqual([
       ["folder:cmd", "folder:docs/specs", "folder-minor"],
-      ["folder:cmd", "folder:pkg", "folder"],
-      ["folder:docs/specs", "folder:pkg", "folder"],
+      ["folder:cmd", "folder:pkg", "folder-minor"],
+      ["folder:docs/specs", "folder:pkg", "folder-minor"],
     ]);
   });
 });

@@ -712,7 +712,7 @@ export function useSigmaGraph({
 
     if (!sigma || needsIndex || empty) return;
 
-    const graph: SigmaGraph = new Graph();
+    const graph: SigmaGraph = new Graph({ multi: true });
 
     // A folder that summarizes its contents ranks by what it holds, and every
     // one is named; anything else ranks by its links.
@@ -791,7 +791,7 @@ export function useSigmaGraph({
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) return;
       const a = e.source <= e.target ? e.source : e.target;
       const b = e.source <= e.target ? e.target : e.source;
-      const key = `${a}|${b}`;
+      const key = `${a}|${b}|${e.kind === "folder-containment" ? "containment" : "links"}`;
       const current = edgeAgg.get(key);
 
       if (!current) {

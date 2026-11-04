@@ -172,7 +172,7 @@ describe("ExplorerWorkspace", () => {
     const explorer = renderExplorer();
     const renderer = await explorer.renderer();
     await waitFor(() =>
-      expect(renderer.getGraph().nodes().sort()).toEqual(["folder:docs", "folder:pkg"]),
+      expect(renderer.getGraph().nodes().sort()).toEqual(["folder:", "folder:docs", "folder:pkg"]),
     );
 
     act(() => {
@@ -192,6 +192,29 @@ describe("ExplorerWorkspace", () => {
     await waitFor(() =>
       expect(http.requests("GET", "/api/v1/graphs/expand").at(-1)?.query.get("module")).toBe("pkg"),
     );
+    expect(document.querySelector(".explorer-pane")).toBeNull();
+    expect(document.querySelector(".explorer-grid--with-pane")).toBeNull();
+  });
+
+  it("keeps containment separate from links between a parent folder and its child", async () => {
+    http.json("GET", "/api/v1/graphs/global", {
+      nodes: [
+        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+        { id: "b", label: "b", kind: "note", path: "docs/specs/b.md" },
+      ],
+      edges: [{ source: "a", target: "b", kind: "mentions" }],
+      truncated: false,
+    });
+    const explorer = renderExplorer();
+    const graph = await explorer.graph();
+
+    await waitFor(() => expect(graph.edges("folder:docs", "folder:docs/specs")).toHaveLength(2));
+    expect(
+      graph
+        .edges("folder:docs", "folder:docs/specs")
+        .map((edge) => graph.getEdgeAttribute(edge, "kind"))
+        .sort(),
+    ).toEqual(["folder-containment", "folder-minor"]);
   });
 
   it("opens an embedded graph node at its canonical target", async () => {
@@ -369,11 +392,13 @@ describe("ExplorerWorkspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^.*old$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^.*current$/i }));
     currentChildren.resolve({ path: "current", entries: [] });
-    expect(await screen.findByRole("heading", { name: "current" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "current" })).toHaveAttribute("aria-current", "page");
+    expect(document.querySelector(".explorer-pane")).toBeNull();
 
     oldChildren.resolve({ path: "old", entries: [] });
     await waitFor(() => expect(http.count("GET", "/api/v1/files/tree")).toBe(3));
-    expect(screen.getByRole("heading", { name: "current" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "current" })).toHaveAttribute("aria-current", "page");
+    expect(document.querySelector(".explorer-pane")).toBeNull();
   });
 
   it("shows suggestions only for the latest debounced query", async () => {

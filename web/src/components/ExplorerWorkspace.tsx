@@ -182,19 +182,6 @@ export function ExplorerWorkspace({
 
   const file: FileView | null = selection.kind === "file" ? (fileQuery.data ?? null) : null;
 
-  const selectedModulePath = selection.kind === "module" ? selection.path : "";
-
-  const moduleQuery = useQuery({
-    queryKey: queryKeys.files.tree(selectedModulePath, 200),
-    queryFn: ({ signal }) => getTree(selectedModulePath, 200, { signal }),
-    enabled: selection.kind === "module",
-  });
-
-  const moduleFocus =
-    selection.kind === "module"
-      ? { path: selection.path, entries: moduleQuery.data?.entries ?? [] }
-      : null;
-
   const graphQuery = useQuery({
     queryKey:
       selection.kind === "root"
@@ -313,7 +300,14 @@ export function ExplorerWorkspace({
 
   const focusModule = useCallback(
     (path: string) => {
-      setExpandedPaths((previous) => new Set(previous).add(path));
+      setExpandedPaths((previous) => {
+        const next = new Set(previous);
+        const parts = path.split("/");
+
+        parts.forEach((_, index) => next.add(parts.slice(0, index + 1).join("/")));
+
+        return next;
+      });
       select({ kind: "module", path });
     },
     [select],
@@ -373,7 +367,7 @@ export function ExplorerWorkspace({
     setSubmittedSearch(q);
   }, [query, clearSearch]);
 
-  const hasPanel = selection.kind !== "root";
+  const hasPanel = selection.kind === "file";
   const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
   const searchModuleSet = useMemo(() => new Set(searchModules), [searchModules]);
 
@@ -441,7 +435,7 @@ export function ExplorerWorkspace({
             <TreeList
               entries={tree}
               expanded={expanded}
-              selectedPath={moduleFocus?.path || file?.path || null}
+              selectedPath={selection.kind === "root" ? null : selection.path}
               onSelect={(entry) => onSelectFile(entry.path, entry.kind)}
               onToggle={onToggleDir}
             />
@@ -589,7 +583,7 @@ export function ExplorerWorkspace({
                     }
                     edgeCaption={
                       folders
-                        ? "Main links between folders, thicker means more; hover a folder for all of them"
+                        ? "Lines follow folder containment; hover a folder for cross-folder link counts"
                         : undefined
                     }
                     displaySlot={displaySlot}
@@ -612,8 +606,7 @@ export function ExplorerWorkspace({
           </section>
 
           {hasPanel &&
-            ((selection.kind === "file" && fileQuery.isPending && !fileQuery.data) ||
-            (selection.kind === "module" && moduleQuery.isPending && !moduleQuery.data) ? (
+            (fileQuery.isPending && !fileQuery.data ? (
               <section className="explorer-pane" role="status">
                 <div className="explorer-pane__header">
                   <div className="explorer-pane__head-main">
@@ -622,8 +615,7 @@ export function ExplorerWorkspace({
                   </div>
                 </div>
               </section>
-            ) : (selection.kind === "file" && fileQuery.isError && !fileQuery.data) ||
-              (selection.kind === "module" && moduleQuery.isError && !moduleQuery.data) ? (
+            ) : fileQuery.isError && !fileQuery.data ? (
               <section className="explorer-pane" role="alert">
                 <div className="explorer-pane__header">
                   <div className="explorer-pane__head-main">
@@ -633,8 +625,7 @@ export function ExplorerWorkspace({
                   <button
                     type="button"
                     onClick={() => {
-                      if (selection.kind === "file") void fileQuery.refetch();
-                      else void moduleQuery.refetch();
+                      void fileQuery.refetch();
                     }}
                   >
                     Retry
@@ -657,10 +648,8 @@ export function ExplorerWorkspace({
                 <FilePanel
                   file={file}
                   line={selectedLine}
-                  moduleFocus={moduleFocus}
                   onClose={closePanel}
                   onSelectFile={onSelectFile}
-                  onFocusModule={focusModule}
                 />
               </Suspense>
             ))}

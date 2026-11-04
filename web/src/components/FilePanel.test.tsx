@@ -14,13 +14,7 @@ describe("FilePanel", () => {
     };
 
     const { container } = render(
-      <FilePanel
-        file={file}
-        moduleFocus={null}
-        onClose={vi.fn()}
-        onSelectFile={vi.fn()}
-        onFocusModule={vi.fn()}
-      />,
+      <FilePanel file={file} onClose={vi.fn()} onSelectFile={vi.fn()} />,
     );
 
     expect(screen.getByText(/onerror=alert/)).toBeInTheDocument();
@@ -37,10 +31,8 @@ describe("FilePanel", () => {
 
     const props = {
       file,
-      moduleFocus: null,
       onClose: vi.fn(),
       onSelectFile: vi.fn(),
-      onFocusModule: vi.fn(),
     };
 
     const { container, rerender } = render(<FilePanel {...props} line={2} />);
@@ -53,40 +45,12 @@ describe("FilePanel", () => {
     expect(screen.queryByText(/line 99/)).toBeNull();
   });
 
-  it("passes each folder entry's server kind when selecting it", () => {
-    const onSelectFile = vi.fn();
-
-    render(
-      <FilePanel
-        file={null}
-        moduleFocus={{
-          path: "mixed",
-          entries: [
-            { path: "mixed/note.html", name: "note.html", kind: "note", hasChildren: false },
-            { path: "mixed/source.html", name: "source.html", kind: "code", hasChildren: false },
-          ],
-        }}
-        onClose={vi.fn()}
-        onSelectFile={onSelectFile}
-        onFocusModule={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /note\.html/i }));
-    fireEvent.click(screen.getByRole("button", { name: /source\.html/i }));
-
-    expect(onSelectFile).toHaveBeenNthCalledWith(1, "mixed/note.html", "note");
-    expect(onSelectFile).toHaveBeenNthCalledWith(2, "mixed/source.html", "code");
-  });
-
   it("lets authored links resolve source targets while identifying related notes", () => {
     const onSelectFile = vi.fn();
 
     const props = {
-      moduleFocus: null,
       onClose: vi.fn(),
       onSelectFile,
-      onFocusModule: vi.fn(),
     };
 
     const { rerender } = render(
@@ -116,7 +80,10 @@ describe("FilePanel", () => {
         }}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Guide/ }));
+    const guide = screen.getByRole("button", { name: /Guide/ });
+
+    expect(guide.querySelector("svg.lucide-file-text")).not.toBeNull();
+    fireEvent.click(guide);
     expect(onSelectFile).toHaveBeenLastCalledWith("docs/guide.md", "note");
   });
 });
