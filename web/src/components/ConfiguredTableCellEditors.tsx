@@ -16,6 +16,7 @@ import {
   cellValues,
   editPathForRow,
   firstScalar,
+  markCutTitle,
   stringifyCell,
   workspaceFieldNodeForTableCell,
 } from "./ConfiguredTableCellHelpers";
@@ -392,7 +393,13 @@ export function ScalarEditableCell({
           } else if (onOpenRow) gestures.onKeyDown(event);
         }}
       >
-        {renderReadOnlyCell(row, field, columnIndex, displayValue, capability)}
+        {renderReadOnlyCell(
+          row,
+          field,
+          columnIndex,
+          onOpenRow ? markCutTitle(row, displayValue) : displayValue,
+          capability,
+        )}
       </button>
       {onOpenRow ? previewTrigger.preview : null}
     </>

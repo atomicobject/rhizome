@@ -190,13 +190,14 @@ describe("ConfiguredView states and controls", () => {
 
     const headers = screen.getAllByRole("columnheader").map((header) => header.textContent?.trim());
     // The first column holds the row selection checkboxes.
-    expect(headers).toEqual(["", "Title", "Status", "ID", "Updated"]);
+    // The table groups by Status, so its column would only repeat the group.
+    expect(headers).toEqual(["", "Title", "ID", "Updated"]);
 
     const first = screen.getByRole("button", { name: /Open Alpha Spec/ });
     const firstTableRow = first.closest("tr");
     expect(first).toHaveTextContent("Alpha Spec");
     expect(firstTableRow).toHaveTextContent("Alpha Spec");
-    expect(firstTableRow).toHaveTextContent("active");
+    expect(firstTableRow).not.toHaveTextContent("active");
     expect(firstTableRow).toHaveTextContent("SPEC-0001");
     expect(firstTableRow).not.toHaveTextContent("docs/specs/alpha.md");
 
@@ -725,7 +726,7 @@ describe("ConfiguredView states and controls", () => {
 
     renderView({ execution: grouped });
 
-    expect(screen.getByRole("button", { name: "Done: no 1" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Done: yes 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Open 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Done 1" })).toBeVisible();
   });
 });

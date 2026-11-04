@@ -20,6 +20,9 @@ type DraggedCard = { row: ViewTableRow; columnKey: string };
 /** Columns holding more cards than this show compact cards. */
 const COMPACT_ABOVE = 24;
 
+/** An empty or collapsed value keeps a compact column: its header names it, horizontally. */
+const STRIP_WIDTH = 140;
+
 export function ConfiguredViewBoard(props: Props) {
   const { execution, onCollapsedGroupCountChange, capabilities } = props;
   const board = execution.board;
@@ -42,8 +45,10 @@ export function ConfiguredViewBoard(props: Props) {
     board?.laneField ?? "",
   );
 
-  const columnCollapsed = (column: BoardColumn) =>
-    !columnExpansion.isExpanded(column.key, !column.collapsedByDefault);
+  // Every value starts open, whatever the view's group defaults say: a board
+  // shows its records, and an empty value is a compact strip anyway. The
+  // reader may still collapse one.
+  const columnCollapsed = (column: BoardColumn) => !columnExpansion.isExpanded(column.key, true);
 
   const [dragged, setDragged] = useState<DraggedCard | null>(null);
   const [dropCellKey, setDropCellKey] = useState<string | null>(null);
@@ -212,7 +217,7 @@ export function ConfiguredViewBoard(props: Props) {
   function toggleColumn(key: string) {
     const column = board?.columns.find((item) => item.key === key);
 
-    if (column) columnExpansion.toggle(key, !column.collapsedByDefault);
+    if (column) columnExpansion.toggle(key, true);
   }
 
   /** Drop handlers for one cell: a column, or a column within a lane. */
@@ -260,7 +265,10 @@ export function ConfiguredViewBoard(props: Props) {
   }
 
   // Columns stay 260–360px (SPEC-0126 US7): a wider window shows more of them, not wider ones.
-  const template = columns.map((item) => (item.strip ? "34px" : "minmax(260px, 360px)")).join(" ");
+  const template = columns
+    .map((item) => (item.strip ? `${STRIP_WIDTH}px` : "minmax(260px, 360px)"))
+    .join(" ");
+
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
   function renderCard(row: ViewTableRow, item: (typeof columns)[number], lane: BoardLane | null) {
@@ -366,11 +374,7 @@ export function ConfiguredViewBoard(props: Props) {
           className={`configured-view__board-strip-cell${item.collapsed ? "" : " is-empty"}${isDropTarget ? " is-drop-target" : ""}`}
           aria-label={cellLabel}
           {...dropProps(column, lane, cellKey)}
-        >
-          <span className="configured-view__board-strip-label" aria-hidden>
-            {label}
-          </span>
-        </div>
+        ></div>
       );
     }
 

@@ -24,6 +24,7 @@ import { useViewHeaderSlots, ViewHeader } from "./ConfiguredViewHeader";
 import {
   activeViewVariant,
   availableViewColumns,
+  columnLabel,
   configuredColumns,
   filterPresets,
   stagedChangeCount,
@@ -123,7 +124,7 @@ export function ConfiguredView({
     preferenceSlot,
   );
 
-  const { visibleFields, emptyFields, density } = layout;
+  const { visibleFields, emptyFields, repeatedFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
   const [movedColumns, setMovedColumns] = useState<string[]>([]);
@@ -317,6 +318,7 @@ export function ConfiguredView({
         sort={execution ? effectiveSort(state, execution.state) : (state.sort ?? [])}
         onToggleColumn={layout.toggleColumn}
         emptyFields={emptyFields}
+        repeatedFields={repeatedFields}
         density={summaryField ? density : undefined}
         onDensityChange={layout.setDensity}
         onResetPage={resetPage}
@@ -393,11 +395,20 @@ export function ConfiguredView({
           loadingMore={loadingMore}
           collapsed={
             collapsedGroupCount > 0
-              ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "columns" : "groups"} collapsed`
+              ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "column" : "group"}${collapsedGroupCount === 1 ? "" : "s"} collapsed`
               : ""
           }
           stagedCount={stagedCount}
           moved={activeVariant === "table" ? movedColumns : []}
+          hidden={
+            activeVariant === "table"
+              ? columns.flatMap((column) =>
+                  repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
+                    ? [columnLabel(column, capabilities)]
+                    : [],
+                )
+              : []
+          }
           pager={
             paged && !scrolls
               ? { offset, first, hasMore: pageInfo ? pageInfo.hasMore : true }

@@ -70,7 +70,8 @@ describe("table column overflow", () => {
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
       expect(screen.queryByText(/in the Record pane/)).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
-      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "766px" });
+      // The table groups by Status, so that column leaves: 766 less its 136.
+      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "630px" });
     });
   });
 });

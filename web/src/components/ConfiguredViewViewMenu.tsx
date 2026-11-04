@@ -37,6 +37,7 @@ type Props = {
   onToggleColumn: (field: string) => void;
   onResetPage: (patch: ViewExecuteRequest) => void;
   emptyFields: string[];
+  repeatedFields?: string[];
   density?: Density;
   onDensityChange?: (density: Density) => void;
   /** Save view and refresh. */
@@ -68,6 +69,7 @@ export function ConfiguredViewViewMenu({
   onToggleColumn,
   onResetPage,
   emptyFields,
+  repeatedFields = [],
   density,
   onDensityChange,
   viewActions,
@@ -124,6 +126,7 @@ export function ConfiguredViewViewMenu({
     "";
 
   const hiddenEmpty = emptyFields.filter((field) => !visibleFields.includes(field));
+  const hiddenRepeated = repeatedFields.filter((field) => !visibleFields.includes(field));
 
   return (
     <div className="configured-view__options" ref={rootRef}>
@@ -242,6 +245,7 @@ export function ConfiguredViewViewMenu({
               <small>
                 {visibleFields.length}/{columns.length}
                 {hiddenEmpty.length > 0 && ` · ${hiddenEmpty.length} hidden empty`}
+                {hiddenRepeated.length > 0 && ` · ${hiddenRepeated.length} hidden, one value`}
               </small>
             </legend>
             {columnOptions.map((column) => (
@@ -254,6 +258,9 @@ export function ConfiguredViewViewMenu({
                 <span>{columnLabel(column, capabilities)}</span>
                 {hiddenEmpty.includes(column.field) && (
                   <small className="configured-view__column-note">hidden empty</small>
+                )}
+                {hiddenRepeated.includes(column.field) && (
+                  <small className="configured-view__column-note">one value</small>
                 )}
               </label>
             ))}

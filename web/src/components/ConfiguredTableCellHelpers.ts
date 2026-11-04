@@ -39,9 +39,24 @@ export function fieldValue(row: ViewTableRow, field: string) {
       return row.hasIssues ? "Issues" : "";
     case "tags":
       return row.tags?.join(", ") ?? "";
+    case "notePath":
+      // An embedded record's source note lives on its ref, not in its fields.
+      return stringifyCell(nestedFieldValue(row.fields, field)) || row.ref.notePath;
     default:
       return stringifyCell(nestedFieldValue(row.fields, field));
   }
+}
+
+/**
+ * Marks an embedded record's title that the index cut short. The index keeps
+ * the first 80 bytes of the record's line, mid-word and with no mark
+ * (`firstLineTitle` in pkg/ontology), so a title that long gets an ellipsis.
+ */
+// ponytail: byte-length guess; a line of exactly 78–80 bytes gets a stray "…" until the index marks cuts itself.
+export function markCutTitle(row: ViewTableRow, title: string) {
+  if (row.ref.kind !== "EMBEDDED" || /[.!?…)]$/.test(title)) return title;
+
+  return new TextEncoder().encode(title).length >= 78 ? `${title}…` : title;
 }
 
 export function rawFieldValue(row: ViewTableRow, field: string) {
@@ -58,6 +73,8 @@ export function rawFieldValue(row: ViewTableRow, field: string) {
       return row.hasIssues;
     case "tags":
       return row.tags;
+    case "notePath":
+      return nestedFieldValue(row.fields, field) ?? row.ref.notePath;
     default:
       return nestedFieldValue(row.fields, field);
   }

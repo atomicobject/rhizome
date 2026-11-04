@@ -13,7 +13,7 @@ import { displayTitle, enumLabel } from "../lib/labels";
 import { publicWorkspaceRef } from "../api/client";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { relationDisplayValue, relationTargetRow } from "./ConfiguredTableCellReadOnly";
-import { cellValues, fieldValue, rawFieldValue } from "./ConfiguredTableCellHelpers";
+import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
 import {
   capabilityFor,
   capabilityLabel,
@@ -66,7 +66,7 @@ export function ConfiguredViewRecord({
   onOpenRow,
 }: Props) {
   const typeLabel = useTypeLabel();
-  const title = displayTitle(row.title) || row.path || row.ref.notePath;
+  const title = markCutTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
 
   const fields = useMemo(() => recordFields(profile, capabilities), [capabilities, profile]);
@@ -80,9 +80,6 @@ export function ConfiguredViewRecord({
     <article className="view-record" aria-label={`Selected record ${title}`}>
       <header className="view-record__head">
         <span className="type-chip">{typeLabel(row.resolvedType || row.ref.typeName)}</span>
-        <span className="view-record__path" title={row.path || row.ref.notePath}>
-          {(row.path || row.ref.notePath).replace(/^.*\//, "")}
-        </span>
         <button
           type="button"
           className="configured-view__tool-button"
@@ -94,6 +91,9 @@ export function ConfiguredViewRecord({
         </button>
       </header>
       <h3 className="view-record__title">{title}</h3>
+      <p className="view-record__path" title={row.path || row.ref.notePath}>
+        {(row.path || row.ref.notePath).replace(/^.*\//, "")}
+      </p>
       {summary && <p className="view-record__summary">{summary}</p>}
       {fields.length + moved.length > 0 && (
         <dl className="view-record__fields">

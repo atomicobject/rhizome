@@ -81,7 +81,8 @@ describe("ConfiguredViewCards record briefs", () => {
     const bravo = brief("Bravo");
 
     expect(within(bravo).getByText("IP idea")).toBeVisible();
-    expect(within(bravo).getByText("Pursuing")).toBeVisible();
+    // Its section names the status, so the brief leaves it out.
+    expect(within(bravo).queryByText("Pursuing")).toBeNull();
     expect(within(bravo).getByText("Low")).toBeVisible();
     expect(within(bravo).getByTitle("Drew Colthorp")).toHaveTextContent("DC");
     expect(within(bravo).getByText("3d")).toBeVisible();

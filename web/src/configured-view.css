@@ -798,9 +798,11 @@
   background: var(--surface-sunk);
 }
 
-/* Selection takes the chrome tint, so a selected row never reads as an error. */
-.configured-view__row.is-selected td {
-  background: var(--selection);
+/* Selection takes the chrome tint, so a selected row never reads as an error.
+   It sits a step deeper than hover, so the two never read alike. */
+.configured-view__row.is-selected td,
+.configured-view__row.is-selected:hover td {
+  background: color-mix(in srgb, var(--selection-edge) 12%, var(--surface));
 }
 
 .configured-view__row.is-selected td:first-child {
@@ -852,6 +854,12 @@
   transform: rotate(90deg);
 }
 
+.configured-view__group-toggle .status-mark,
+.configured-view__group-toggle .configured-view__group-label,
+.configured-view__card-section-header .status-mark {
+  font-weight: inherit;
+}
+
 .configured-view__group-count {
   color: var(--text-muted);
   font-weight: 400;
@@ -889,7 +897,15 @@
   cursor: pointer;
 }
 
-.configured-view__title-button {
+/* A source path keeps its file name and cuts from the left, where every path
+   in a folder reads the same. */
+.configured-view__table td.configured-view__cell--source {
+  direction: rtl;
+  text-align: left;
+}
+
+.configured-view__title-button,
+.configured-view__table [data-row-title] {
   font-weight: 500;
 }
 
@@ -1316,12 +1332,23 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font: 500 var(--fs-xs) var(--font-mono);
 }
 
-.configured-view__board-stale {
-  padding: 0 4px;
-  border-radius: var(--r-sm);
-  background: var(--warning-soft);
-  color: var(--warning-ink);
-  font: 500 var(--fs-xs) var(--font-mono);
+/* Unchanged records are a quiet fact, not a warning: muted text with a clock. */
+.configured-view__board-stale,
+.configured-brief__stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font: 500 var(--fs-xs) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.configured-view__board-stale svg,
+.configured-brief__stale svg {
+  flex: none;
 }
 
 .configured-view__board-stale + .configured-view__board-count {
@@ -1339,20 +1366,21 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   padding: var(--sp-2);
 }
 
-/* A strip is a value narrowed to its mark: collapsed with a count, or empty. */
+/* A strip is a value narrowed to a compact horizontal header: its mark and
+   label, its count, and a chevron when collapsed. Nothing is rotated. */
 .configured-view__board-strip {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  align-self: end;
-  gap: 2px;
-  width: 34px;
-  margin-bottom: 4px;
-  padding: 3px 0;
+  align-self: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 var(--sp-2);
   border: 1px solid var(--border);
-  border-radius: var(--r);
+  border-radius: var(--r-md);
   background: var(--surface-sunk);
   color: var(--text);
+  font: 600 var(--fs-sm) var(--font-sans);
   cursor: pointer;
   transition:
     border-color 180ms var(--ease),
@@ -1370,40 +1398,27 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   background: var(--bg-tint);
 }
 
-/* The strip cell below names the value; the header keeps its mark and count. */
+.configured-view__board-strip .status-mark {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: inherit;
+}
+
 .configured-view__board-strip .status-mark__label {
-  display: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.configured-view__board-strip > span:last-child {
+.configured-view__board-strip svg {
+  flex: none;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
 }
 
+/* Below a strip, an empty drop zone; it outlines only while a card drags over it. */
 .configured-view__board-strip-cell {
   min-height: 48px;
-  padding: 8px 0;
-  border: 1px solid var(--border-faint);
+  border: 1px dashed transparent;
   border-radius: var(--r-md);
-  background: var(--surface-sunk);
-}
-
-.configured-view__board-strip-cell.is-empty {
-  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--border-faint) 5px 6px);
-}
-
-.configured-view__board-strip-label {
-  display: block;
-  margin: 0 auto;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  writing-mode: vertical-rl;
-}
-
-/* Only the first lane names its strips. */
-.configured-view__board-lane:not(.configured-view__board-columns + .configured-view__board-lane)
-  .configured-view__board-strip-label {
-  display: none;
 }
 
 .configured-view__board-drop-slot {
@@ -1539,7 +1554,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border: 0;
   background: transparent;
   color: var(--text);
-  font: 700 var(--fs-base)/1.2 var(--font-sans);
+  font: 600 var(--fs-base)/1.2 var(--font-sans);
   text-align: left;
   cursor: pointer;
 }
@@ -1559,10 +1574,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   transform: none;
 }
 
+/* The count follows its label, as in table group headers ("Active 14"). */
 .configured-view__card-section-count {
-  margin-left: auto;
-  color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  color: var(--text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-view__card-subheader {
@@ -1874,7 +1890,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-brief__summary--brief {
   font-size: var(--fs-base);
-  -webkit-line-clamp: 6;
+  -webkit-line-clamp: 3;
 }
 
 .configured-brief__key-text {
@@ -1926,14 +1942,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font: 500 var(--fs-xs) var(--font-mono);
 }
 
-.configured-brief__stale {
-  padding: 0 4px;
-  border-radius: var(--r-sm);
-  background: var(--warning-soft);
-  color: var(--warning-ink);
-  font: 500 var(--fs-xs) var(--font-mono);
-}
-
 .configured-brief__person {
   display: inline-grid;
   place-items: center;
@@ -1954,13 +1962,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-width: 0;
 }
 
+/* Relations read as plain teal note links, not boxed chips. */
 .configured-brief__chip {
   max-width: 18em;
   overflow: hidden;
-  padding: 0 5px;
-  border-radius: var(--r-sm);
-  background: var(--surface-sunk);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2050,15 +2056,10 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font-size: var(--fs-xs);
 }
 
-.configured-view__card-grid--briefs {
-  display: block;
-  columns: 320px;
-  column-gap: var(--sp-3);
-}
-
+/* Briefs sit in aligned rows, like plain cards: tops line up across a row
+   and a clamped summary keeps rows even. */
 .configured-view__card-grid--briefs > .configured-card {
-  margin-bottom: var(--sp-3);
-  break-inside: avoid;
+  align-content: start;
 }
 
 .configured-card--brief {
@@ -2340,9 +2341,10 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   cursor: pointer;
 }
 
+/* Every row reveals its checkbox the same way: on hover or keyboard focus, or
+   for all rows once any is checked. Selection alone never shows it. */
 .configured-view__row:hover .configured-view__check-cell input,
-.configured-view__row:focus-within .configured-view__check-cell input,
-.configured-view__row.is-selected .configured-view__check-cell input,
+.configured-view__row:focus-visible .configured-view__check-cell input,
 .configured-view__table thead:hover .configured-view__check-cell input,
 .configured-view__table-wrap.has-checked .configured-view__check-cell input,
 .configured-view__check-cell input:focus-visible {
@@ -2454,16 +2456,17 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .view-record__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
   min-width: 0;
 }
 
+/* The record's id: its own 12px mono line under the title. */
 .view-record__path {
-  flex: 1;
-  min-width: 0;
+  margin: 2px 0 0;
   overflow: hidden;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) / 1.4 var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2486,9 +2489,12 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   margin: var(--sp-4) 0 0;
 }
 
-.view-record__fields > div {
+/* 120px labels fit two-word names such as "Governing specs" on one line. The
+   rail-scoped selector outranks the shell's older 104px column. */
+.view-record__fields > div,
+.notes-right-rail article.view-record .view-record__fields > div {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
   align-items: center;
   gap: var(--sp-3);
   min-height: 30px;
@@ -2508,16 +2514,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   white-space: nowrap;
 }
 
-/* An empty field still says so, and shows its edit affordance without a hover. */
-.view-record__fields
-  dd:has(.configured-view__relation-display:empty)
-  .configured-view__relation-edit {
-  opacity: 1;
-}
-
+/* An empty field says "Not set"; its edit affordance waits for hover or focus. */
+.view-record__fields .configured-view__relation-display:empty::before,
 .view-record__fields dd:empty::before {
   color: var(--text-faint);
-  content: "—";
+  content: "Not set";
 }
 
 .view-record__reverse {
