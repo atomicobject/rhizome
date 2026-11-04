@@ -306,7 +306,7 @@ export function GroupFacts({
             {withIssues} {withIssues === 1 ? "record" : "records"} with issues
           </span>
         ) : (
-          <span className="gv-ok">✓ no issues</span>
+          <span className="gv-ok">✓ No issues</span>
         )}
         {latest > 0 && (
           <span>

@@ -10,7 +10,7 @@ import {
   useViewPreference,
   type ViewModuleProps,
 } from "@rhizome/kit";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 
 import { isString } from "./api.ts";
 import { GroupFacts, GroupPage, MemberHeading } from "./components.tsx";
@@ -40,10 +40,13 @@ const RELATION: Record<Extract<MatrixColumn, { kind: "member" }>["relation"], st
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
-function columnLabel(model: GroupModel, column: MatrixColumn) {
-  return column.kind === "member"
-    ? memberLabel(model, column.member, { plural: true })
-    : fieldLabel(column.link.field);
+function columnLabel(model: GroupModel, column: MatrixColumn, joining = 1) {
+  if (column.kind !== "member") return fieldLabel(column.link.field);
+
+  const label = memberLabel(model, column.member, { plural: true });
+
+  // Records joined by several fields (plans and work logs) are related, not one kind.
+  return joining > 1 ? `Related ${inSentence(label)}` : label;
 }
 
 const openColumn = (column: MatrixColumn) =>
@@ -54,18 +57,35 @@ const openColumn = (column: MatrixColumn) =>
  * the rows' own field for a column they link to, the column's field for one
  * that links to them. A column reached through others has none.
  */
-function relationField(matrix: TraceMatrix, column: MatrixColumn) {
-  if (column.kind === "outside") return null;
+function relationFields(matrix: TraceMatrix, column: MatrixColumn) {
+  if (column.kind === "outside") return [];
   const { spine } = matrix;
 
-  const link =
+  const links =
     column.relation === "linked-from-rows"
-      ? spine.links.find((item) => item.target === column.member.name)
+      ? spine.links.filter((item) => item.target === column.member.name)
       : column.relation === "links-to-rows"
-        ? column.member.links.find((item) => item.target === spine.name)
-        : undefined;
+        ? column.member.links.filter((item) => item.target === spine.name)
+        : [];
 
-  return link ? fieldLabel(link.field) : null;
+  return [...new Set(links.map((link) => fieldLabel(link.field)))];
+}
+
+/** What the marks in a linked column mean, under its heading. */
+function ColumnLegend({ member }: { member: Member }) {
+  return (
+    <div className="gv-col-legend" aria-label={`${member.pluralLabel} status marks`}>
+      {member.lifecycle ? (
+        orderedEnumValues(member.lifecycle.values).map((value) => (
+          <StatusMark key={value.name} value={value.name} values={member.lifecycle?.values ?? []} />
+        ))
+      ) : (
+        <span>
+          <span className="gv-square" aria-hidden="true" /> No status
+        </span>
+      )}
+    </div>
+  );
 }
 
 function ColumnHead({
@@ -77,12 +97,14 @@ function ColumnHead({
   matrix: TraceMatrix;
   column: MatrixColumn;
 }) {
-  const label = columnLabel(model, column);
-  const field = relationField(matrix, column);
+  const fields = relationFields(matrix, column);
+  const label = columnLabel(model, column, fields.length);
 
   const where =
     column.kind === "member"
-      ? (field ?? RELATION[column.relation])
+      ? fields.length
+        ? fields.join(" · ")
+        : RELATION[column.relation]
       : column.link.targetGroup
         ? `in ${column.link.targetGroup}`
         : "outside the group";
@@ -116,6 +138,7 @@ function ColumnHead({
       >
         {where}
       </div>
+      {column.kind === "member" && <ColumnLegend member={column.member} />}
     </th>
   );
 }
@@ -145,7 +168,7 @@ function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }
   );
 }
 
-/** Columns with nothing to show, named once in the toolbar instead of as empty columns. */
+/** Columns with nothing to show, named once in the footer instead of as empty columns. */
 function EmptyColumns({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
   const empty = matrix.columns.filter((column) => column.collapsed);
 
@@ -171,7 +194,16 @@ function EmptyColumns({ model, matrix }: { model: GroupModel; matrix: TraceMatri
   );
 }
 
-function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+function Footer({
+  model,
+  matrix,
+  defaultNote,
+}: {
+  model: GroupModel;
+  matrix: TraceMatrix;
+  /** Why the dotted row choice is the default. */
+  defaultNote?: string;
+}) {
   const label = (member: Member, count?: number) =>
     inSentence(memberLabel(model, member, count === undefined ? { plural: true } : { count }));
 
@@ -196,46 +228,17 @@ function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
           {list.format(matrix.unreached.map((member) => label(member)))}.
         </span>
       )}
+      <EmptyColumns model={model} matrix={matrix} />
+      {defaultNote && (
+        <span>
+          <span className="gv-default-dot" aria-hidden="true" /> {defaultNote}
+        </span>
+      )}
       <span>
         Lighter italic titles were reached through another record in the row. Point at or focus a
         record to light every row it appears in.
       </span>
     </footer>
-  );
-}
-
-/**
- * What the marks in the linked columns mean: each linked type's lifecycle
- * values in order, and the plain square of a type without one.
- */
-function StatusLegend({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
-  const members = shownColumns(matrix).flatMap((column) =>
-    column.kind === "member" ? [column.member] : [],
-  );
-
-  if (!members.length) return null;
-
-  return (
-    <span className="gv-legend" aria-label="Status marks">
-      {members.map((member) => (
-        <span key={member.name} className="gv-legend-group">
-          <span className="gv-faint">{memberLabel(model, member, { plural: true })}</span>
-          {member.lifecycle ? (
-            orderedEnumValues(member.lifecycle.values).map((value) => (
-              <StatusMark
-                key={value.name}
-                value={value.name}
-                values={member.lifecycle?.values ?? []}
-              />
-            ))
-          ) : (
-            <span>
-              <span className="gv-square" aria-hidden="true" /> no status
-            </span>
-          )}
-        </span>
-      ))}
-    </span>
   );
 }
 
@@ -250,7 +253,15 @@ function matrixWidth(matrix: TraceMatrix) {
 /** A column few rows fill is held to a fifth of the width, so dense columns get the room. */
 const sparse = (matrix: TraceMatrix, column: MatrixColumn) => column.covered < matrix.rowCount / 4;
 
-function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+function Matrix({
+  model,
+  matrix,
+  defaultNote,
+}: {
+  model: GroupModel;
+  matrix: TraceMatrix;
+  defaultNote?: string;
+}) {
   const open = matrix.bands.some((band) => !band.closed);
 
   return (
@@ -285,32 +296,36 @@ function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
           ))}
         </table>
       </HighlightProvider>
-      <Footer model={model} matrix={matrix} />
+      <Footer model={model} matrix={matrix} defaultNote={defaultNote} />
     </>
   );
 }
 
-function SpineSwitcher({
-  model,
-  graph,
-  choices,
-  spine,
-  onChoose,
-  children,
-}: {
-  model: GroupModel;
-  graph: LinkGraph;
-  choices: readonly string[];
-  spine: string;
-  onChoose: (spine: string) => void;
-  /** Notes for the matrix below, such as the columns it leaves out. */
-  children?: ReactNode;
-}) {
+/** Why the first row choice is the default, for the footer. */
+function defaultRowsNote(model: GroupModel, graph: LinkGraph, choices: readonly string[]) {
   const fallback = choices[0];
   const member = model.memberIndex.get(fallback);
 
+  if (!member || choices.length < 2) return undefined;
+
   const tree =
-    (member?.parentField ?? null) !== null && (graph.incoming.get(fallback)?.size ?? 0) > 0;
+    (member.parentField ?? null) !== null && (graph.incoming.get(fallback)?.size ?? 0) > 0;
+
+  return `${memberLabel(model, member, { plural: true })} are the default rows: ${tree ? "the tree other types link to" : "the type linked with the most others"}. Columns follow link direction.`;
+}
+
+function SpineSwitcher({
+  model,
+  choices,
+  spine,
+  onChoose,
+}: {
+  model: GroupModel;
+  choices: readonly string[];
+  spine: string;
+  onChoose: (spine: string) => void;
+}) {
+  const fallback = choices[0];
 
   return (
     <div className="gv-toolbar">
@@ -339,13 +354,6 @@ function SpineSwitcher({
           ];
         })}
       />
-      <span
-        className="gv-faint"
-        title={`Default rows: ${tree ? "the tree other types link to" : "the type linked with the most others"}. Columns follow link direction.`}
-      >
-        <span className="gv-default-dot" aria-hidden="true" /> Default
-      </span>
-      {children}
     </div>
   );
 }
@@ -383,11 +391,13 @@ function TraceBody({ model }: { model: GroupModel }) {
   return (
     <div className="gv-trace-page" style={{ minWidth: matrixWidth(matrix) }}>
       <GroupFacts model={model} />
-      <SpineSwitcher model={model} graph={graph} choices={choices} spine={spine} onChoose={choose}>
-        <EmptyColumns model={model} matrix={matrix} />
-        <StatusLegend model={model} matrix={matrix} />
-      </SpineSwitcher>
-      <Matrix key={spine} model={model} matrix={matrix} />
+      <SpineSwitcher model={model} choices={choices} spine={spine} onChoose={choose} />
+      <Matrix
+        key={spine}
+        model={model}
+        matrix={matrix}
+        defaultNote={defaultRowsNote(model, graph, choices)}
+      />
     </div>
   );
 }

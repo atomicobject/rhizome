@@ -79,30 +79,34 @@ export function StageHints({
 
   const stageless = [...byEnum.values()].flat();
 
-  // One plain line for readers; the schema instruction waits behind the disclosure.
+  // Setup notes are for whoever maintains the schema: a labelled disclosure
+  // beside the block heading, so readers see the work, not the configuration.
   return (
     <details className="gv-hint">
-      <summary>
-        {[
-          stageless.length > 0 && `${stageless.join(", ")} have no active stage configured.`,
-          unstatused.length > 0 && `${unstatused.join(", ")} have no lifecycle.`,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      </summary>
-      {byEnum.size > 0 && (
-        <p>
-          To list them here, mark a value of{" "}
-          {[...byEnum.keys()].map((name, index) => (
-            <Fragment key={name}>
-              {index > 0 && " or "}
-              <code>{name}</code>
-            </Fragment>
-          ))}{" "}
-          with <code>@view(stage: active)</code> in the schema.
+      <summary>Configuration</summary>
+      <div className="gv-hint-panel">
+        <p className="gv-hint-lead">
+          {[
+            stageless.length > 0 && `${stageless.join(", ")} have no active stage configured.`,
+            unstatused.length > 0 && `${unstatused.join(", ")} have no lifecycle.`,
+          ]
+            .filter(Boolean)
+            .join(" ")}
         </p>
-      )}
-      {unstatused.length > 0 && <p>Records without a lifecycle field cannot be in motion.</p>}
+        {byEnum.size > 0 && (
+          <p>
+            To list them here, mark a value of{" "}
+            {[...byEnum.keys()].map((name, index) => (
+              <Fragment key={name}>
+                {index > 0 && " or "}
+                <code>{name}</code>
+              </Fragment>
+            ))}{" "}
+            with <code>@view(stage: active)</code> in the schema.
+          </p>
+        )}
+        {unstatused.length > 0 && <p>Records without a lifecycle field cannot be in motion.</p>}
+      </div>
     </details>
   );
 }

@@ -140,8 +140,8 @@ it("compares members in one table, nesting an interface's implementors", async (
 
   expect(work).toHaveAttribute("title", "Planned work.");
   expect(work).toHaveTextContent("Work items6");
-  expect(work).toHaveTextContent("4 active");
-  // The stage bar reads as a text breakdown.
+  // The stage bar has a visible key: each held stage and its count.
+  expect(work).toHaveTextContent("Backlog 1 · Doing 3 · Blocked 1 · Done 1");
   expect(within(work).getByRole("img", { name: /^Stages: .+ \d+/ })).toBeInTheDocument();
   expect(work).toHaveTextContent("Next step 3/6");
   expect(work).toHaveTextContent("67%");
@@ -164,9 +164,10 @@ it("lists relations declared between members that no record uses", async () => {
   const unused = region("Declared, unused");
 
   expect(within(unused).getByText("1")).toBeVisible();
-  expect(unused).toHaveTextContent("Releasesarea → Areas");
+  // Fields read by their display labels, not schema names.
+  expect(unused).toHaveTextContent("ReleasesArea → Areas");
   // A long list truncates beside the name; the full list is its title.
-  expect(within(unused).getByTitle("area → Areas")).toBeVisible();
+  expect(within(unused).getByTitle("Area → Areas")).toBeVisible();
 });
 
 it("lists the notes outside the group most connected first, then the guide and views", async () => {

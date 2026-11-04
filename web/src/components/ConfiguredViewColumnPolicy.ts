@@ -11,6 +11,7 @@ export type ColumnKind =
   | "id"
   | "enum"
   | "date"
+  | "age"
   | "number"
   | "flag"
   | "boolean"
@@ -21,13 +22,14 @@ export const COLUMN_WIDTHS: Record<Exclude<ColumnKind, "title">, number> = {
   id: 176,
   enum: 136,
   date: 112,
+  age: 92,
   number: 72,
   flag: 72,
   boolean: 72,
-  relation: 180,
+  relation: 220,
 };
 
-export const TITLE_MIN_ONE_LINE = 240;
+export const TITLE_MIN_ONE_LINE = 320;
 
 export const TITLE_MIN_TWO_LINE = 320;
 
@@ -35,7 +37,7 @@ export const TITLE_MIN_TWO_LINE = 320;
 export const CHECK_CELL_WIDTH = 30;
 
 /** Kinds that leave a narrow table, first to last. */
-const OVERFLOW_ORDER: ColumnKind[] = ["relation", "id", "date"];
+const OVERFLOW_ORDER: ColumnKind[] = ["relation", "id", "date", "age"];
 
 /** A column's kind, read from the cell classes `columnClassName` assigns. */
 export function columnKind(className: string, isTitle: boolean): ColumnKind {
@@ -48,6 +50,8 @@ export function columnKind(className: string, isTitle: boolean): ColumnKind {
   if (has("numeric")) return "number";
 
   if (has("identifier")) return "id";
+
+  if (has("age")) return "age";
 
   if (has("date")) return "date";
 

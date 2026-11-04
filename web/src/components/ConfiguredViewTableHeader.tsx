@@ -157,7 +157,9 @@ export function ConfiguredViewTableHeader({
                   {direction && (
                     <span className="configured-view__sort-arrow" aria-hidden="true">
                       {direction === "asc" ? "↑" : "↓"}
-                      {sort.length > 1 && <sub>{ordinal(sortIndex + 1)}</sub>}
+                      {sort.length > 1 && (
+                        <span className="configured-view__sort-rank">{sortIndex + 1}</span>
+                      )}
                     </span>
                   )}
                 </button>

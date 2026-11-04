@@ -21,9 +21,6 @@ type DraggedCard = { row: ViewTableRow; columnKey: string };
 /** Columns holding more cards than this show compact cards. */
 const COMPACT_ABOVE = 24;
 
-/** An empty or collapsed value keeps a compact column: its header names it, horizontally. */
-const STRIP_WIDTH = 140;
-
 export function ConfiguredViewBoard(props: Props) {
   const { execution, onCollapsedGroupCountChange, capabilities } = props;
   const board = execution.board;
@@ -267,9 +264,10 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Open columns share the panel width with a 260px minimum; a narrow window scrolls.
+  // Open columns share the panel width with a 260px minimum; an empty or
+  // collapsed value takes only its header's width. A narrow window scrolls.
   const template = columns
-    .map((item) => (item.strip ? `${STRIP_WIDTH}px` : "minmax(260px, 1fr)"))
+    .map((item) => (item.strip ? "max-content" : "minmax(260px, 1fr)"))
     .join(" ");
 
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];

@@ -60,7 +60,7 @@ export function leafReorderGroups(
 }
 
 export const FIXED_WIDTH_CELL =
-  /configured-view__cell--(id|date|numeric|flag|boolean|enum|relation)\b/;
+  /configured-view__cell--(id|date|age|numeric|flag|boolean|enum|relation)\b/;
 
 export function columnClassName(column: ViewTableColumn, capabilities: ViewFieldCapability[]) {
   const capability = capabilityFor(capabilities, column.field);
@@ -82,6 +82,9 @@ export function columnClassName(column: ViewTableColumn, capabilities: ViewField
   if (kind === "date" || kind === "datetime" || column.field === "updatedAt") {
     classes.push("configured-view__cell--date");
   }
+
+  // The change time renders as a relative age, so it needs less room than a date.
+  if (column.field === "updatedAt") classes.push("configured-view__cell--age");
 
   if (
     kind === "number" ||

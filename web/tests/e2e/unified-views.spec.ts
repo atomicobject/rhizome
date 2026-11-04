@@ -76,7 +76,9 @@ test("configured collection default shares native rows and retains every built-i
     workspaceView(page).getByRole("button", { name: "Overview", exact: true }),
   ).toHaveCount(0);
   await chooseView(page, "Briefing");
-  await expect(frame.getByRole("region", { name: "Validation" })).toBeVisible();
+  // A clean type shows "✓ No issues" in its status strip, not a Validation block.
+  await expect(frame.getByRole("region", { name: "Recent changes" })).toBeVisible();
+  await expect(frame.getByRole("region", { name: "Validation" })).toHaveCount(0);
   await expect(frame.getByLabel("View context")).toHaveCount(0);
   await chooseView(page, "Table");
   await expect(page.locator(".configured-view__table tbody tr[data-row-key]")).toHaveCount(2);

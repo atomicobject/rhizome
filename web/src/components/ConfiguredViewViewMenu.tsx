@@ -125,6 +125,17 @@ export function ConfiguredViewViewMenu({
     sortKey?.field ??
     "";
 
+  const sortLabel = (field: string) => {
+    const capability = sortable.find(
+      (candidate) =>
+        candidate.key === field ||
+        candidate.canonicalField === field ||
+        candidate.sourceKeys?.includes(field),
+    );
+
+    return capability ? capabilityLabel(capability) : field;
+  };
+
   const hiddenEmpty = emptyFields.filter((field) => !visibleFields.includes(field));
   const hiddenRepeated = repeatedFields.filter((field) => !visibleFields.includes(field));
 
@@ -219,6 +230,15 @@ export function ConfiguredViewViewMenu({
                 </button>
               </span>
             </div>
+          )}
+          {sort.length > 1 && (
+            <p className="configured-view__sort-then">
+              Then by{" "}
+              {sort
+                .slice(1)
+                .map((key) => `${sortLabel(key.field)} ${key.direction === "desc" ? "↓" : "↑"}`)
+                .join(", then ")}
+            </p>
           )}
           {activeVariant === "table" && density && (
             <div className="configured-view__select">

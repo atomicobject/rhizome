@@ -114,11 +114,12 @@ it("names a bounded number of records per signal and reveals the rest in place",
 
 it("says there are no validation issues, and skips unlinked records in a group without links", async () => {
   await renderGroupView(loadBriefing, { group: "Library" });
-  const attention = await screen.findByRole("region", { name: "Validation" });
+  await screen.findByRole("region", { name: "Review suggested" });
 
-  // A healthy block is one status row: the heading and its verdict.
-  expect(attention).toHaveTextContent("No issues");
-  expect(within(attention).queryByRole("listitem")).toBeNull();
+  // The status strip says "✓ No issues" once; the body adds no Validation row.
+  expect(screen.getByText("✓ No issues")).toBeVisible();
+  expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
   expect(region("Review suggested")).toHaveTextContent("Term empty on 1 of 3 glossaries");
   expect(screen.queryByRole("region", { name: "Connections" })).toBeNull();
 });
@@ -136,7 +137,9 @@ it("lists active-stage records newest first with their key text, whatever their 
     expect.stringMatching(/Tax rounding.*Next stepWait for finance$/),
     expect.stringMatching(/Saved carts.*Keep carts across sessions\.$/),
   ]);
-  expect(within(motion).getByText("Areas, Checklists have no lifecycle.")).toBeVisible();
+  expect(motion.querySelector(".gv-hint-lead")).toHaveTextContent(
+    "Areas, Checklists have no lifecycle.",
+  );
 });
 
 it("names lifecycles without an active stage", async () => {
@@ -144,13 +147,14 @@ it("names lifecycles without an active stage", async () => {
   const motion = await screen.findByRole("region", { name: "In motion" });
 
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
-  // One plain line; the schema instruction waits behind the disclosure.
-  expect(
-    within(motion).getByText(
-      "Memos have no active stage configured. Glossaries have no lifecycle.",
-    ),
-  ).toBeVisible();
-  expect(motion.querySelector("details")).toHaveTextContent(
+  // Setup notes wait behind a labelled Configuration disclosure in the heading row.
+  const config = motion.querySelector("details")!;
+  expect(within(motion).getByText("Configuration")).toBeVisible();
+  expect(config).not.toHaveAttribute("open");
+  expect(config.querySelector(".gv-hint-lead")).toHaveTextContent(
+    "Memos have no active stage configured. Glossaries have no lifecycle.",
+  );
+  expect(config).toHaveTextContent(
     "mark a value of memoStatusEnum with @view(stage: active) in the schema.",
   );
 });
@@ -177,8 +181,8 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
-  ).toEqual(["Validation", "In motion", "Recent changes"]);
-  expect(within(region("Validation")).getByText("No issues")).toBeVisible();
+  ).toEqual(["In motion", "Recent changes"]);
+  expect(screen.getByText("✓ No issues")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
   ).toBeVisible();
@@ -316,10 +320,14 @@ it("refreshes when records change", async () => {
   });
 
   await screen.findByRole("region", { name: "Needs attention" });
+  expect(within(region("Needs attention")).getByText("Validation issues")).toBeVisible();
   data = { ...RECORDS_DATA, Story: [], Bug: [] };
   await view.emit("node.changed");
 
-  expect(await within(region("Needs attention")).findByText("No validation issues")).toBeVisible();
+  // The issues signal leaves; the strip, not the block, says "✓ No issues".
+  await waitFor(() =>
+    expect(within(region("Needs attention")).queryByText("Validation issues")).toBeNull(),
+  );
 });
 
 it("keeps an optional priority with a user-only policy out of Needs attention", async () => {
