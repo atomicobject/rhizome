@@ -1,6 +1,6 @@
 // The Overview map (SPEC-0117 US1, US3): one node per member, sized by its
 // records, edges counting the record links between members, faded outside
-// neighbors on a ring, and members without links in a bottom row. Nodes take
+// neighbors on a ring, and members without links listed in the legend. Nodes take
 // keyboard focus most records first; hovering or focusing one highlights its
 // edges and shows its figures. The Matrix is the text alternative.
 import { openCollection, openView } from "@rhizome/kit";
@@ -25,8 +25,8 @@ export const OUTSIDE_RING = 7;
 /** The layout width before the canvas is measured, and where it cannot be measured. */
 const WIDTH = 760;
 
-/** The map's height; the layout grows it when unlinked rows need the room. */
-const HEIGHT = 400;
+/** The map's height, small enough that the Members table starts above the fold. */
+const HEIGHT = 280;
 
 /** The canvas's width in CSS pixels, so the map fills its column and labels draw at their real size. */
 function useCanvasWidth() {
@@ -62,9 +62,9 @@ const HUES = [2, 3, 4, 5, 6, 7].map((n) => `var(--type-${n})`);
 
 const fmt = (count: number) => count.toLocaleString("en-US");
 
-/** A node's color: its named group's hue, blue without one, light gray for untyped notes. */
+/** A node's color: its named group's hue, blue without one, neutral gray for untyped notes. */
 export function nodeHue(model: ScopeModel, node: Pick<ScopeNode, "kind" | "group">) {
-  if (node.kind === "untyped") return "var(--border-strong)";
+  if (node.kind === "untyped") return "var(--type-8)";
   const index = node.group === null ? -1 : model.groupNames.indexOf(node.group);
 
   return index < 0 ? "var(--type-1)" : HUES[index % HUES.length];
@@ -103,8 +103,12 @@ function nodeRadius(model: ScopeModel) {
   return (node: ScopeNode) => 5 + 25 * Math.sqrt(node.count / max);
 }
 
-const nodeText = (node: ScopeNode) =>
-  `${node.label}${node.kind === "group" ? ` · ${node.members.length} types` : ""} ${fmt(node.count)}`;
+const typeCount = (node: ScopeNode) =>
+  node.kind === "group"
+    ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}`
+    : "";
+
+const nodeText = (node: ScopeNode) => `${node.label}${typeCount(node)} ${fmt(node.count)}`;
 
 const memberLinks = (links: LinkModel, id: string) =>
   links.edges.reduce((sum, edge) => sum + (edge.a === id || edge.b === id ? edge.links : 0), 0);
@@ -289,10 +293,18 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
     else if (node.kind !== "untyped") openCollection(node.name);
   };
 
-  const ordered = [...model.nodes].sort(
-    (a, b) => b.count - a.count || a.label.localeCompare(b.label),
+  const looseIds = new Set(layout.loose);
+
+  // A declared relation to a member listed in the legend has no line to draw.
+  const drawnUnused = unused.filter(
+    (pair) => layout.positions.has(pair.a) && layout.positions.has(pair.b),
   );
 
+  const ordered = [...model.nodes]
+    .filter((node) => !looseIds.has(node.id))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+  const loose = model.nodes.filter((node) => looseIds.has(node.id));
   const countAt = (edge: MapEdge) => layout.edgeLabels.get(edge.key);
 
   return (
@@ -305,15 +317,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
           aria-label={`${group ?? "All notes"} map`}
           data-dim={hot ? "true" : undefined}
         >
-          {layout.looseTop !== null && (
-            <g className="gv-map-row">
-              <line x1={0} x2={width} y1={layout.looseTop} y2={layout.looseTop} />
-              <text x={0} y={at(layout.loose[layout.loose.length - 1]).y + 4}>
-                No member links
-              </text>
-            </g>
-          )}
-          {unused.map((pair) => (
+          {drawnUnused.map((pair) => (
             <line
               key={`unused:${edgeKey(pair.a, pair.b)}`}
               className="gv-map-unused"
@@ -333,7 +337,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 y1={at(member).y}
                 x2={at(neighbor.id).x}
                 y2={at(neighbor.id).y}
-                strokeWidth={Math.max(1, stroke(count) * 0.55)}
+                strokeWidth={Math.max(1.5, stroke(count) * 0.55)}
               />
             )),
           )}
@@ -365,16 +369,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                     openView("group.trace", { kind: "group", group });
                 }}
               />
-              {countAt(edge) && (
-                <text className="gv-map-count" x={countAt(edge)?.x} y={countAt(edge)?.y}>
-                  {fmt(edge.links)}
-                </text>
-              )}
             </g>
           ))}
           {ring.map((neighbor) => {
             const point = at(neighbor.id);
-            const place = layout.labels.get(neighbor.id);
 
             return (
               <g
@@ -387,17 +385,11 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
               >
                 <title>{`${neighbor.label}, ${fmt(neighbor.links)} links, outside the group`}</title>
                 <circle cx={point.x} cy={point.y} r={OUTSIDE_RADIUS} />
-                {place && (
-                  <text x={place.x} y={place.y} textAnchor={place.anchor}>
-                    {neighbor.label} <tspan className="gv-map-n">{fmt(neighbor.links)} links</tspan>
-                  </text>
-                )}
               </g>
             );
           })}
           {ordered.map((node) => {
             const point = at(node.id);
-            const place = layout.labels.get(node.id);
             const r = radius(node);
             const hue = nodeHue(model, node);
 
@@ -406,6 +398,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 key={node.id}
                 className="gv-map-node"
                 data-node={node.id}
+                data-kind={node.kind}
                 data-hot={on(node.id)}
                 tabIndex={0}
                 role={node.kind === "untyped" ? "img" : "button"}
@@ -437,23 +430,70 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                   fill={node.count === 0 ? "var(--surface)" : hue}
                   stroke={node.count === 0 ? hue : "var(--surface)"}
                 />
-                {place && (
-                  <text
-                    x={place.x}
-                    y={place.y}
-                    textAnchor={place.anchor}
-                    data-group={node.kind === "group" ? "true" : undefined}
-                  >
-                    {node.label}
-                    {node.kind === "group" && (
-                      <tspan className="gv-map-n"> · {node.members.length} types</tspan>
-                    )}{" "}
-                    <tspan className="gv-map-n">{fmt(node.count)}</tspan>
-                  </text>
-                )}
               </g>
             );
           })}
+          {/* Text sits above every node and edge, on a halo of the surface color. */}
+          <g className="gv-map-labels" aria-hidden="true">
+            {links.edges.map((edge) => {
+              const spot = countAt(edge);
+
+              return (
+                spot && (
+                  <text
+                    key={edge.key}
+                    className="gv-map-count"
+                    data-kind={edge.relation ? "relation" : "plain"}
+                    data-hot={on(edge.key)}
+                    x={spot.x}
+                    y={spot.y}
+                  >
+                    {fmt(edge.links)}
+                  </text>
+                )
+              );
+            })}
+            {ring.map((neighbor) => {
+              const place = layout.labels.get(neighbor.id);
+
+              return (
+                place && (
+                  <text
+                    key={neighbor.id}
+                    data-outside="true"
+                    data-hot={on(neighbor.id)}
+                    x={place.x}
+                    y={place.y}
+                    textAnchor={place.anchor}
+                  >
+                    {neighbor.label} <tspan className="gv-map-n">{fmt(neighbor.links)} links</tspan>
+                  </text>
+                )
+              );
+            })}
+            {ordered.map((node) => {
+              const place = layout.labels.get(node.id);
+
+              return (
+                place && (
+                  <text
+                    key={node.id}
+                    data-hot={on(node.id)}
+                    data-group={node.kind === "group" ? "true" : undefined}
+                    x={place.x}
+                    y={place.y}
+                    textAnchor={place.anchor}
+                  >
+                    {node.label}
+                    {node.kind === "group" && (
+                      <tspan className="gv-map-n">{typeCount(node)}</tspan>
+                    )}{" "}
+                    <tspan className="gv-map-n">{fmt(node.count)}</tspan>
+                  </text>
+                )
+              );
+            })}
+          </g>
         </svg>
         {tipAt && (hotNode || hotEdge || hotOutside) && (
           <div
@@ -477,9 +517,11 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
       <MapLegend
         model={model}
         links={links}
-        unused={unused.length > 0}
+        loose={loose}
+        unused={drawnUnused.length > 0}
         expanded={expanded}
         onExpand={onExpand}
+        onOpen={activate}
       />
     </div>
   );
@@ -488,17 +530,22 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 function MapLegend({
   model,
   links,
+  loose,
   unused,
   expanded,
   onExpand,
+  onOpen,
 }: {
   model: ScopeModel;
   links: LinkModel;
+  loose: readonly ScopeNode[];
   unused: boolean;
   expanded: ReadonlySet<string>;
   onExpand: (group: string, open: boolean) => void;
+  onOpen: (node: ScopeNode) => void;
 }) {
   const shown = Math.min(OUTSIDE_RING, links.outside.length);
+  const collapsed = model.groupNames.filter((name) => !expanded.has(name));
 
   return (
     <>
@@ -508,13 +555,14 @@ function MapLegend({
             {model.groupNames.map((name) => (
               <span key={name}>
                 <i style={{ background: nodeHue(model, { kind: "group", group: name }) }} />
-                {name}{" "}
-                {expanded.has(name) ? (
-                  <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
-                    collapse
-                  </button>
-                ) : (
-                  <span className="gv-faint">(activate to expand)</span>
+                {name}
+                {expanded.has(name) && (
+                  <>
+                    {" "}
+                    <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
+                      collapse
+                    </button>
+                  </>
                 )}
               </span>
             ))}
@@ -548,6 +596,25 @@ function MapLegend({
             outside the group
             {links.outside.length > shown ? ` (top ${shown} of ${links.outside.length})` : ""}
           </span>
+        )}
+        {loose.length > 0 && (
+          <span className="gv-legend-loose">
+            No member links:
+            {loose.map((node) => (
+              <button
+                key={node.id}
+                type="button"
+                className="gv-link"
+                aria-label={nodeName(model, links, node)}
+                onClick={() => onOpen(node)}
+              >
+                {node.label} <span className="gv-map-n">{fmt(node.count)}</span>
+              </button>
+            ))}
+          </span>
+        )}
+        {model.scope.kind === "workspace" && collapsed.length > 0 && (
+          <span className="gv-faint">Activate a group to expand it.</span>
         )}
       </p>
       {model.scope.kind === "group" && links.edges.length === 0 && (

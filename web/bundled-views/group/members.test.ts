@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 
 import { AGGREGATE, SCOPE_GROUPS, SUMMARIES } from "./__fixtures__/aggregate.ts";
 import { TYPE_DOCS } from "./__fixtures__/groups.ts";
-import { layoutMap, placeEdgeLabels, type LayoutInput } from "./map-layout.ts";
+import { INSET, layoutMap, placeEdgeLabels, type LayoutInput } from "./map-layout.ts";
 import {
   coverage,
   folderLines,
@@ -259,89 +259,58 @@ it("keeps linked members apart in a canvas narrower than the ring's padding", ()
   expect(distinct.size).toBe(points.length);
 });
 
-it("puts members without links in a bottom row and outside neighbors on the ring", () => {
+it("leaves members without links out of the drawing and puts outside neighbors on the ring", () => {
   const layout = layoutMap(LAYOUT);
 
   expect(layout.loose).toEqual(["Lonely"]);
-  expect(layout.looseTop).toBe(300);
-  expect(layout.positions.get("Lonely")?.y).toBe(315);
-
-  for (const id of ["Area", "Work", "Release", "Checklist"])
-    expect(layout.positions.get(id)?.y).toBeLessThan(300);
+  expect(layout.positions.has("Lonely")).toBe(false);
+  expect(layout.labels.has("Lonely")).toBe(false);
   expect(layout.positions.has("Person")).toBe(true);
-
-  // Rows grow to fit large unlinked members, between the row line and the box's bottom.
-  const large = layoutMap({ ...LAYOUT, edges: [{ a: "Release", b: "Checklist", links: 1 }] });
-  const top = large.looseTop ?? 0;
-
-  for (const id of ["Area", "Work", "Lonely"]) {
-    const node = LAYOUT.nodes.find((candidate) => candidate.id === id);
-    const y = large.positions.get(id)?.y ?? 0;
-    expect(y - (node?.radius ?? 0)).toBeGreaterThanOrEqual(top);
-    expect(y + (node?.radius ?? 0)).toBeLessThan(LAYOUT.height);
-  }
+  expect(layout.height).toBe(LAYOUT.height);
 });
 
-it("keeps linked members placed when unlinked rows would fill the box", () => {
-  const crowd = Array.from({ length: 13 }, (_, n) => ({
-    id: `Loose${n}`,
-    radius: 30,
-    label: "A long member name 9",
-  }));
+it("keeps every node at least 24px inside the box", () => {
+  const layout = layoutMap(LAYOUT);
 
-  const layout = layoutMap({ ...LAYOUT, nodes: [...LAYOUT.nodes, ...crowd] });
-
-  for (const point of layout.positions.values()) {
-    expect(Number.isFinite(point.x)).toBe(true);
-    expect(Number.isFinite(point.y)).toBe(true);
-  }
-});
-
-it("grows the box when unlinked rows would rise above it", () => {
-  const crowd = Array.from({ length: 7 }, (_, n) => ({
-    id: `Loose${n}`,
-    radius: 30,
-    label: "A member name",
-  }));
-
-  const layout = layoutMap({
-    ...LAYOUT,
-    width: 380,
-    height: 400,
-    nodes: [...LAYOUT.nodes, ...crowd],
-  });
-
-  expect(layout.height).toBeGreaterThan(400);
-
-  for (const node of crowd) {
+  for (const node of LAYOUT.nodes) {
     const point = layout.positions.get(node.id);
-    expect(point?.y ?? -1).toBeGreaterThanOrEqual(node.radius);
-    expect(point?.y ?? Infinity).toBeLessThanOrEqual(layout.height);
-  }
 
-  expect(layoutMap(LAYOUT).height).toBe(LAYOUT.height);
+    if (!point) continue;
+    expect(point.x - node.radius).toBeGreaterThanOrEqual(INSET);
+    expect(point.x + node.radius).toBeLessThanOrEqual(LAYOUT.width - INSET);
+    expect(point.y - node.radius).toBeGreaterThanOrEqual(INSET);
+    expect(point.y + node.radius).toBeLessThanOrEqual(LAYOUT.height - INSET);
+  }
 });
 
-it("draws the row line at the top of the unlinked rows", () => {
-  const crowd = Array.from({ length: 10 }, (_, n) => ({
-    id: `Loose${n}`,
-    radius: 30,
-    label: "A long member name 9",
-  }));
+it("keeps node labels off other nodes", () => {
+  const layout = layoutMap(LAYOUT);
+  const drawn = LAYOUT.nodes.filter((node) => layout.positions.has(node.id));
 
-  const layout = layoutMap({ ...LAYOUT, nodes: [...LAYOUT.nodes, ...crowd] });
-  const top = layout.looseTop ?? 0;
+  for (const node of drawn) {
+    const label = layout.labels.get(node.id);
 
-  for (const id of layout.loose) {
-    const node = [...LAYOUT.nodes, ...crowd].find((candidate) => candidate.id === id);
-    expect((layout.positions.get(id)?.y ?? 0) - (node?.radius ?? 0)).toBeGreaterThanOrEqual(top);
+    if (!label) throw new Error(`no label for ${node.id}`);
+    const w = node.label.length * 7;
+
+    const left =
+      label.anchor === "start" ? label.x : label.anchor === "end" ? label.x - w : label.x - w / 2;
+
+    for (const other of drawn) {
+      const point = layout.positions.get(other.id) ?? { x: 0, y: 0 };
+      const nearestX = Math.min(Math.max(point.x, left), left + w);
+      const nearestY = Math.min(Math.max(point.y, label.y - 11), label.y + 3);
+      expect(
+        Math.hypot(point.x - nearestX, point.y - nearestY),
+        `${node.id} label on ${other.id}`,
+      ).toBeGreaterThan(other.radius);
+    }
   }
 });
 
 it("spreads the members over the box when none links to another", () => {
   const layout = layoutMap({ ...LAYOUT, edges: [], outside: [] });
 
-  expect(layout.looseTop).toBeNull();
   expect(layout.loose).toEqual([]);
 
   for (const node of LAYOUT.nodes) {

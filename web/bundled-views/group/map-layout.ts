@@ -2,11 +2,13 @@
 // same input always yields the same positions, with no randomness.
 //
 // Linked members get a small force layout seeded on a golden-angle spiral and
-// stretched to the box. Members with no links to other members sit in labeled
-// rows along the bottom, or spread over the whole box when no member is linked. Outside neighbors sit on an ellipse at the edge, each
-// at the angle of the members it links to, spread so none overlap. Each label
-// goes below, above, right, or left of its node, whichever first clears the
-// labels and nodes already placed, largest nodes first.
+// stretched to the box, every node at least INSET inside it. Members with no
+// links to other members are left out of the drawing (the legend lists them),
+// unless no member is linked, when they spread over the whole box. Outside
+// neighbors sit on an ellipse at the edge, each at the angle of the members it
+// links to, spread so none overlap. Each label goes on the first of eight
+// sides of its node that clears the nodes, labels, and edges already placed,
+// largest nodes first.
 
 export type LayoutNode = { id: string; radius: number; label: string };
 
@@ -33,14 +35,11 @@ export type Point = { x: number; y: number };
 export type LabelPlacement = Point & { anchor: "start" | "middle" | "end" };
 
 export type MapLayout = {
-  /** The box's height: the input height, or taller when unlinked rows need the room. */
   height: number;
   positions: ReadonlyMap<string, Point>;
   labels: ReadonlyMap<string, LabelPlacement>;
-  /** Members with no links to other members, in the bottom rows. */
+  /** Members with no links to other members, not drawn; empty when no member is linked. */
   loose: readonly string[];
-  /** The top of the bottom rows, or null when every member is linked. */
-  looseTop: number | null;
   /** Where each edge label sits; an edge whose label would cover a node or its label has none. */
   edgeLabels: ReadonlyMap<string, Point>;
 };
@@ -49,16 +48,11 @@ export const OUTSIDE_RADIUS = 6;
 
 const ITERATIONS = 400;
 
-const ROW_HEIGHT = 30;
+/** Average label glyph width at the map's 12px font, generous so boxes cover the drawn text. */
+const GLYPH = 7;
 
-/** Space below the bottom row, so it clears the legend under the map. */
-const ROW_BOTTOM_GAP = 10;
-
-/** The row label's width, before the first loose member. */
-const ROW_START = 104;
-
-/** Average label glyph width at the map's font size. */
-const GLYPH = 6;
+/** The least gap between a node's edge and the box's edge. */
+export const INSET = 24;
 
 function forceLayout(
   nodes: readonly LayoutNode[],
@@ -164,41 +158,6 @@ function fit(
   }
 }
 
-/** Loose members left to right in rows from the bottom up, each row as tall as its largest node; returns the rows' total height. */
-function placeLoose(
-  positions: Map<string, Point>,
-  loose: readonly LayoutNode[],
-  width: number,
-  height: number,
-) {
-  const rows: { node: LayoutNode; x: number }[][] = [];
-  let x = ROW_START;
-
-  for (const node of loose) {
-    const span = 2 * node.radius + 10 + node.label.length * GLYPH + 24;
-
-    if (!rows.length || (x > ROW_START && x + span > width)) {
-      rows.push([]);
-      x = ROW_START;
-    }
-
-    rows[rows.length - 1].push({ node, x: x + node.radius });
-    x += span;
-  }
-
-  if (!rows.length) return 0;
-  let bottom = height - ROW_BOTTOM_GAP;
-
-  for (const row of rows) {
-    const rowHeight = Math.max(ROW_HEIGHT, ...row.map(({ node }) => 2 * node.radius + 8));
-
-    for (const { node, x: cx } of row) positions.set(node.id, { x: cx, y: bottom - rowHeight / 2 });
-    bottom -= rowHeight;
-  }
-
-  return height - bottom;
-}
-
 /** Outside neighbors on an ellipse, each toward the members it links to, at least 0.6 rad apart. */
 function placeRing(
   positions: Map<string, Point>,
@@ -241,8 +200,8 @@ function placeRing(
 
   for (const { id, angle } of angles) {
     positions.set(id, {
-      x: cx + (width / 2 - 40) * Math.cos(angle),
-      y: cy + (height / 2 - 16) * Math.sin(angle),
+      x: cx + (width / 2 - INSET - 16) * Math.cos(angle),
+      y: cy + (height / 2 - INSET - OUTSIDE_RADIUS) * Math.sin(angle),
     });
   }
 }
@@ -252,9 +211,43 @@ export type Box = { x: number; y: number; w: number; h: number };
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
+/** Whether the segment from `a` to `b` passes through the box. */
+function crosses(box: Box, a: Point, b: Point) {
+  // Liang–Barsky clipping: the segment meets the box when some t in [0, 1] lies inside it.
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+
+  for (const [p, q] of [
+    [-dx, a.x - box.x],
+    [dx, box.x + box.w - a.x],
+    [-dy, a.y - box.y],
+    [dy, box.y + box.h - a.y],
+  ]) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+
+    const t = q / p;
+
+    if (p < 0) t0 = Math.max(t0, t);
+    else t1 = Math.min(t1, t);
+
+    if (t0 > t1) return false;
+  }
+
+  return true;
+}
+
+/** Label text height plus its halo. */
+const LABEL_HEIGHT = 15;
+
 function placeLabels(
   positions: ReadonlyMap<string, Point>,
-  items: readonly { id: string; radius: number; label: string; loose: boolean }[],
+  items: readonly { id: string; radius: number; label: string }[],
+  segments: readonly [Point, Point][],
   width: number,
   height: number,
 ) {
@@ -280,28 +273,44 @@ function placeLabels(
 
     if (!point) continue;
     const { x, y } = point;
-    const r = item.radius;
+    const r = item.radius + 7;
     const w = item.label.length * GLYPH;
-    const h = 13;
+    const h = LABEL_HEIGHT;
+    const d = r * Math.SQRT1_2;
 
+    // Below, above, right, left, then the four diagonals; `y` is the text baseline.
     const candidates = [
-      { x, y: y + r + 12, anchor: "middle" as const, box: { x: x - w / 2, y: y + r + 2, w, h } },
-      { x, y: y - r - 5, anchor: "middle" as const, box: { x: x - w / 2, y: y - r - 16, w, h } },
-      { x: x + r + 5, y: y + 4, anchor: "start" as const, box: { x: x + r + 4, y: y - 7, w, h } },
-      { x: x - r - 5, y: y + 4, anchor: "end" as const, box: { x: x - r - 4 - w, y: y - 7, w, h } },
+      { x, y: y + r + 11, anchor: "middle" as const, box: { x: x - w / 2, y: y + r, w, h } },
+      { x, y: y - r - 4, anchor: "middle" as const, box: { x: x - w / 2, y: y - r - h, w, h } },
+      { x: x + r, y: y + 4, anchor: "start" as const, box: { x: x + r, y: y - 8, w, h } },
+      { x: x - r, y: y + 4, anchor: "end" as const, box: { x: x - r - w, y: y - 8, w, h } },
+      { x: x + d, y: y + d + 11, anchor: "start" as const, box: { x: x + d, y: y + d, w, h } },
+      { x: x + d, y: y - d - 4, anchor: "start" as const, box: { x: x + d, y: y - d - h, w, h } },
+      { x: x - d, y: y + d + 11, anchor: "end" as const, box: { x: x - d - w, y: y + d, w, h } },
+      { x: x - d, y: y - d - 4, anchor: "end" as const, box: { x: x - d - w, y: y - d - h, w, h } },
     ].filter(
       ({ box }) =>
         box.x > 2 && box.x + box.w < width - 2 && box.y > 2 && box.y + box.h < height - 2,
     );
 
-    // A loose member's label reads along its row.
-    if (item.loose)
-      candidates.sort((a, b) => Number(b.anchor === "start") - Number(a.anchor === "start"));
+    const clear = (box: Box) => !boxes.some((other) => overlaps(other, box));
+    const crossings = (box: Box) => segments.filter(([a, b]) => crosses(box, a, b)).length;
+    // Clear of nodes and labels first, then crossing the fewest edges, then the earliest side.
+    const open = candidates.filter(({ box }) => clear(box));
+    const pool = open.length ? open : candidates;
+    const scored = pool.map((candidate) => ({ candidate, cost: crossings(candidate.box) }));
 
-    const chosen = candidates.find(
-      (candidate) => !boxes.some((box) => overlaps(box, candidate.box)),
-    ) ??
-      candidates[0] ?? { x, y: y + r + 12, anchor: "middle" as const, box: { x, y, w: 0, h: 0 } };
+    const best = scored.reduce<(typeof scored)[number] | undefined>(
+      (min, next) => (!min || next.cost < min.cost ? next : min),
+      undefined,
+    );
+
+    const chosen = best?.candidate ?? {
+      x,
+      y: y + r + 11,
+      anchor: "middle" as const,
+      box: { x, y, w: 0, h: 0 },
+    };
 
     boxes.push(chosen.box);
     labels.set(item.id, { x: chosen.x, y: chosen.y, anchor: chosen.anchor });
@@ -349,41 +358,66 @@ export function placeEdgeLabels(
   return placed;
 }
 
+/** Keep every node at least INSET inside the box. */
+function inset(
+  positions: Map<string, Point>,
+  nodes: readonly LayoutNode[],
+  width: number,
+  height: number,
+) {
+  for (const node of nodes) {
+    const point = positions.get(node.id);
+
+    if (!point) continue;
+    const pad = node.radius + INSET;
+    point.x = Math.min(Math.max(point.x, pad), Math.max(pad, width - pad));
+    point.y = Math.min(Math.max(point.y, pad), Math.max(pad, height - pad));
+  }
+}
+
 export function layoutMap(input: LayoutInput): MapLayout {
-  const { width } = input;
+  const { width, height } = input;
   const linked = new Set(input.edges.flatMap((edge) => [edge.a, edge.b]));
   const core = input.nodes.filter((node) => linked.has(node.id));
   // With no linked members there is nothing to set the unlinked ones apart from.
   const spread = core.length === 0;
+  const drawn = spread ? input.nodes : core;
   const loose = spread ? [] : input.nodes.filter((node) => !linked.has(node.id));
-  const looseOnly = new Map<string, Point>();
-  // Unlinked rows take at most two thirds of the box; a taller box keeps every row inside it.
-  const rowsHeight = placeLoose(new Map(), loose, width, input.height);
-  const height = Math.max(input.height, Math.ceil(rowsHeight * 1.5));
-  const looseHeight = placeLoose(looseOnly, loose, width, height);
-  const top = height - looseHeight;
-  const coreHeight = Math.max(top, height / 3);
-  const positions = forceLayout(spread ? input.nodes : core, input.edges, width, coreHeight);
+  const positions = forceLayout(drawn, input.edges, width, height);
   const ring = input.outside.length > 0;
 
   if (positions.size)
-    fit(positions, width, coreHeight, ring ? 190 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
+    fit(positions, width, height, ring ? 190 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
 
-  for (const [id, point] of looseOnly) positions.set(id, point);
+  inset(positions, drawn, width, height);
 
-  if (ring) placeRing(positions, input.outside, width, coreHeight);
+  if (ring) placeRing(positions, input.outside, width, height);
+
+  const segments: [Point, Point][] = [];
+
+  const segment = (a: string, b: string) => {
+    const from = positions.get(a);
+    const to = positions.get(b);
+
+    if (from && to) segments.push([from, to]);
+  };
+
+  for (const edge of input.edges) segment(edge.a, edge.b);
+
+  for (const neighbor of input.outside)
+    for (const member of neighbor.byMember.keys()) segment(member, neighbor.id);
 
   const { labels, boxes } = placeLabels(
     positions,
     [
-      ...input.nodes.map((node) => ({ ...node, loose: looseOnly.has(node.id) })),
+      ...drawn,
       ...input.outside.map((neighbor) => ({
         id: neighbor.id,
         radius: OUTSIDE_RADIUS,
         label: neighbor.label,
-        loose: false,
       })),
     ],
+    segments,
     width,
     height,
   );
@@ -393,7 +427,6 @@ export function layoutMap(input: LayoutInput): MapLayout {
     positions,
     labels,
     loose: loose.map((node) => node.id),
-    looseTop: loose.length ? top : null,
     edgeLabels: placeEdgeLabels(positions, input.edges, boxes),
   };
 }
