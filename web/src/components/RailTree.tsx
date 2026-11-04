@@ -23,6 +23,27 @@ import { useValidationScopeSummaries, validationScopeKey } from "./useValidation
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
 
+/** Hide only empty type rows duplicated by a saved view in their own group. */
+export function withoutEmptyViewDuplicates(
+  groups: RailGroup[],
+  viewNames: Map<string, Set<string>>,
+): RailGroup[] {
+  return groups.map((group) => {
+    const names = viewNames.get(group.name);
+
+    const visible = (nodes: RailNode[]): RailNode[] =>
+      nodes.flatMap((node) => {
+        const children = visible(node.children);
+
+        return node.kind === "type" && node.type.count === 0 && names?.has(label(node.type))
+          ? children
+          : [{ ...node, children }];
+      });
+
+    return { ...group, children: visible(group.children) };
+  });
+}
+
 type RailDepthStyle = CSSProperties & { "--ontology-type-depth": number };
 
 function isExpandedMap(value: unknown): value is Record<string, boolean> {
