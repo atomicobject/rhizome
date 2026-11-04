@@ -118,14 +118,6 @@ export function OntologyPropertyPanel({
   const parentRef = workspace.node.parentRef;
   const parentPath = parentRef ? publicWorkspaceRef(parentRef) : "";
 
-  // A property named like a body section ("Summary" over "## Summary") reads
-  // as a duplicate, so its long text previews on two lines until opened.
-  const sectionTitles = new Set(
-    (workspace.nodes || []).flatMap((node) =>
-      node.kind === "section" && node.data.title ? [node.data.title.trim().toLowerCase()] : [],
-    ),
-  );
-
   if (orderedFields.length === 0 && !parentPath) return null;
 
   const path = nodeRefPath(workspace.node.ref) || workspace.node.notePath || workspace.content.path;
@@ -212,7 +204,6 @@ export function OntologyPropertyPanel({
             sourceHash={workspace.sourceRevision?.contentFingerprint}
             sourceContent={workspace.sourceRevision?.content}
             onStage={(values, expected) => stageFieldOp(node, values, expected)}
-            echoesSection={sectionTitles.has(humanizeName(node.field.name).toLowerCase())}
             links={
               onOpen
                 ? { rendered, from: linkFrom || path, open: (target, mode) => onOpen(target, mode) }
@@ -361,12 +352,10 @@ function PropertyRow({
   sourceContent,
   onStage,
   links,
-  echoesSection = false,
 }: {
   node: WorkspaceFieldNode;
   editing: boolean;
   dirty: boolean;
-  echoesSection?: boolean;
   vaultKey: string | null;
   operationTarget: string;
   sourceHash?: string;
@@ -384,8 +373,23 @@ function PropertyRow({
   // Long text runs full width under its label, in read and edit mode alike.
   const long = !relation && values.join(", ").length > LONG_TEXT;
   const [opened, setOpened] = useState(false);
-  // Collapsed in both modes, so entering edit mode keeps the geometry.
-  const preview = long && echoesSection && !opened && !dirty;
+  // Keep the full field editor available while editing.
+  const preview = long && !opened && !dirty && !editing;
+  const previewRef = useRef<HTMLSpanElement>(null);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const element = previewRef.current;
+
+    if (!element || !preview) return;
+
+    const measure = () => setOverflows(element.scrollHeight > element.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [preview, values]);
 
   return (
     <div
@@ -397,7 +401,9 @@ function PropertyRow({
       </dt>
       <dd className="ontology-properties__value">
         {preview ? (
-          <span className="ontology-properties__preview-text">{values.join(", ")}</span>
+          <span ref={previewRef} className="ontology-properties__preview-text">
+            {links ? linkedText(values.join(", "), links) : values.join(", ")}
+          </span>
         ) : links && !editing && relation && values.length > 0 ? (
           <span className={`widget-text${dirty ? " is-dirty" : ""}`}>
             <FieldLinkValues
@@ -430,7 +436,7 @@ function PropertyRow({
             onStage={onStage}
           />
         )}
-        {long && echoesSection && !dirty && (
+        {long && (overflows || opened) && !dirty && !editing && (
           <button
             type="button"
             className="list-more ontology-properties__preview-more"

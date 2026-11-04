@@ -156,6 +156,34 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.getByText("A short note")).toBeInTheDocument();
   });
 
+  it.each([false, true])("only offers full summary when six lines overflow: %s", (overflow) => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(120);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(overflow ? 160 : 100);
+
+    const summary =
+      "A canonical summary that is long enough to wrap across several lines in the property panel.";
+
+    render(
+      <OntologyPropertyPanel
+        workspace={makeWorkspace()}
+        fields={[makeField("summary", [summary])]}
+        editing={false}
+        changedFieldNames={new Set()}
+      />,
+    );
+    expect(screen.getByText(summary)).toBeInTheDocument();
+
+    if (overflow) {
+      fireEvent.click(screen.getByRole("button", { name: "Show full summary" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+      expect(screen.getByRole("button", { name: "Show full summary" })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("button", { name: "Show full summary" })).not.toBeInTheDocument();
+    }
+
+    vi.restoreAllMocks();
+  });
+
   it("opens wikilinks in read-only field values", () => {
     const onOpen = vi.fn();
     renderWithQueryClient(
