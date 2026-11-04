@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-// DefaultOrigin is the gateway origin internal releases and desktop dev builds compile in:
+// DefaultOrigin is the gateway origin release builds and desktop dev builds compile in:
 // -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://...
-// Public builds leave it empty.
+// Plain CLI dev builds leave it empty.
 var DefaultOrigin = ""
 
 // DevelopmentOrigin is the default for development builds (version "dev").

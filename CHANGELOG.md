@@ -4,6 +4,8 @@
 
 - Signing out of the team server (`rzm auth logout`, or Sign out in Rhizome Desktop) keeps the server you used, so signing in again returns to it instead of the built-in default.
 
+- Published Rhizome builds, including the desktop app, know the Atomic Object team server, so staff can choose **Sign in with Atomic Object** or run `rzm auth login` without passing `--server`.
+
 - Desktop Settings now groups provider access: choose the Atomic Object server or your own key for Voyage and Jev, enter or import keys from 1Password, and inspect the connections running repositories actually use. Explicit server selection overrides local keys; older runtimes report unknown routing, and Voyage changes show when a restart is needed.
 
 - Desktop development builds default to the deployed team API for Google sign-in, while retaining explicit local server testing.
