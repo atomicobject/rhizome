@@ -85,6 +85,7 @@ export function GraphView({
   displaySlot,
   legendNodes,
   folderCaption,
+  sizeCaption,
   edgeCaption,
 }: {
   /** Nodes to draw; a summarized view may give each its own `fill`. */
@@ -115,8 +116,10 @@ export function GraphView({
   displaySlot?: HTMLElement | null;
   /** The nodes the legend counts when the drawn nodes summarize them (Explorer's folder view). */
   legendNodes?: GraphNode[];
-  /** A note on what folder colors mean, when folders summarize their contents. */
+  /** What the folder view's counts cover, under its key. */
   folderCaption?: string;
+  /** What a folder's size means, keyed beside its colors. */
+  sizeCaption?: string;
   /** What a drawn line means, keyed beside the folders it joins. */
   edgeCaption?: string;
 }) {
@@ -450,54 +453,122 @@ export function GraphView({
           </div>
         )}
       </div>
-      {showTypeLegend && (
-        <aside className="graph-type-legend" aria-label="Graph type legend">
-          <div className="graph-type-legend__caption">{nodeCaption}</div>
-          {LEGEND_GROUPS.map((group) => {
-            const entries = typeEntries.filter((entry) => legendGroup(entry.name) === group.key);
+      {showTypeLegend &&
+        (legendNodes ? (
+          <FolderLegend
+            entries={typeEntries}
+            shown={new Set(nodes.flatMap((node) => (node.fillKey ? [node.fillKey] : [])))}
+            caption={folderCaption}
+            sizeCaption={sizeCaption}
+            edgeCaption={edgeCaption}
+          />
+        ) : (
+          <aside className="graph-type-legend" aria-label="Graph type legend">
+            <div className="graph-type-legend__caption">{nodeCaption}</div>
+            {LEGEND_GROUPS.map((group) => {
+              const entries = typeEntries.filter((entry) => legendGroup(entry.name) === group.key);
 
-            if (entries.length === 0) return null;
+              if (entries.length === 0) return null;
 
-            const item = (entry: GraphTypeEntry) => (
-              <li
-                key={entry.name}
-                className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
-                data-type={entry.name}
-              >
-                <span
-                  className="graph-type-legend__swatch"
-                  style={group.key === "folder" ? undefined : { backgroundColor: entry.color }}
-                  aria-hidden="true"
-                />
-                <span className="graph-type-legend__label">{entry.label}</span>
-                <span className="graph-type-legend__count num">
-                  {entry.count.toLocaleString("en-US")}
-                </span>
-              </li>
-            );
-
-            return (
-              <section key={group.key} className="graph-type-legend__group" data-group={group.key}>
-                <h3 className="graph-type-legend__title">{group.title}</h3>
-                <ul className="graph-type-legend__list">
-                  {entries.map(item)}
-                  {group.key === "folder" && folderCaption && (
-                    <li className="graph-type-legend__note">{folderCaption}</li>
-                  )}
-                  {group.key === "folder" && edgeCaption && (
-                    <li className="graph-type-legend__item graph-type-legend__links">
-                      <span className="graph-type-legend__line" aria-hidden="true" />
-                      <span className="graph-type-legend__label">{edgeCaption}</span>
-                    </li>
-                  )}
-                </ul>
-              </section>
-            );
-          })}
-        </aside>
-      )}
+              return (
+                <section
+                  key={group.key}
+                  className="graph-type-legend__group"
+                  data-group={group.key}
+                >
+                  <h3 className="graph-type-legend__title">{group.title}</h3>
+                  <ul className="graph-type-legend__list">{entries.map(legendItem)}</ul>
+                </section>
+              );
+            })}
+          </aside>
+        ))}
       {displaySlot && createPortal(displayMenu, displaySlot)}
     </div>
+  );
+}
+
+function legendItem(entry: GraphTypeEntry) {
+  return (
+    <li
+      key={entry.name}
+      className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
+      data-type={entry.name}
+    >
+      <span
+        className="graph-type-legend__swatch"
+        style={entry.name === FOLDER_NODE_TYPE ? undefined : { backgroundColor: entry.color }}
+        aria-hidden="true"
+      />
+      <span className="graph-type-legend__label">{entry.label}</span>
+      <span className="graph-type-legend__count num">{entry.count.toLocaleString("en-US")}</span>
+    </li>
+  );
+}
+
+/**
+ * The folder view's key: the hues its folders actually take first, then what
+ * size and lines mean; every type in the graph waits behind "All types".
+ */
+function FolderLegend({
+  entries,
+  shown,
+  caption,
+  sizeCaption,
+  edgeCaption,
+}: {
+  entries: readonly GraphTypeEntry[];
+  /** The fill keys the drawn folders use. */
+  shown: ReadonlySet<string>;
+  caption?: string;
+  sizeCaption?: string;
+  edgeCaption?: string;
+}) {
+  const [all, setAll] = useState(false);
+  const inventory = entries.filter((entry) => entry.name !== FOLDER_NODE_TYPE);
+
+  return (
+    <aside className="graph-type-legend graph-type-legend--folders" aria-label="Graph type legend">
+      <div className="graph-type-legend__row">
+        <h3 className="graph-type-legend__title">Folder colors</h3>
+        <ul className="graph-type-legend__list">
+          {inventory.filter((entry) => shown.has(entry.name)).map(legendItem)}
+        </ul>
+        <button
+          type="button"
+          className="graph-type-legend__more"
+          aria-expanded={all}
+          aria-controls="graph-type-legend-all"
+          onClick={() => setAll((open) => !open)}
+        >
+          <span className="graph-type-legend__chevron" aria-hidden="true">
+            <ChevronDown size={16} strokeWidth={1.75} />
+          </span>
+          All types
+        </button>
+      </div>
+      <div className="graph-type-legend__row graph-type-legend__keys">
+        {sizeCaption && (
+          <span className="graph-type-legend__key">
+            <span className="graph-type-legend__size" aria-hidden="true" />
+            {sizeCaption}
+          </span>
+        )}
+        {edgeCaption && (
+          <span className="graph-type-legend__key">
+            <span className="graph-type-legend__line" aria-hidden="true" />
+            {edgeCaption}
+          </span>
+        )}
+      </div>
+      {caption && <p className="graph-type-legend__caption">{caption}</p>}
+      {all && (
+        <section id="graph-type-legend-all" className="graph-type-legend__all">
+          <h3 className="graph-type-legend__title">Everything in the graph</h3>
+          <ul className="graph-type-legend__list">{inventory.map(legendItem)}</ul>
+        </section>
+      )}
+    </aside>
   );
 }
 

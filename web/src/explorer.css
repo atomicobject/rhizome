@@ -799,7 +799,8 @@
   text-align: left;
 }
 
-.graph-type-legend__group {
+.graph-type-legend__group,
+.graph-type-legend--folders .graph-type-legend__all {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -810,17 +811,20 @@
   flex: 1 1 100%;
 }
 
-.graph-type-legend__group .graph-type-legend__title {
+.graph-type-legend__group .graph-type-legend__title,
+.graph-type-legend--folders .graph-type-legend__title {
   margin: 0;
   color: var(--label-color);
   font: var(--label-font);
 }
 
-.graph-type-legend__group .graph-type-legend__list {
+.graph-type-legend__group .graph-type-legend__list,
+.graph-type-legend--folders .graph-type-legend__list {
   gap: 0 var(--sp-5);
 }
 
-.graph-type-legend__group .graph-type-legend__item {
+.graph-type-legend__group .graph-type-legend__item,
+.graph-type-legend--folders .graph-type-legend__item {
   grid-template-columns: 10px minmax(0, auto) auto;
   gap: 6px;
   min-height: 24px;
@@ -829,7 +833,8 @@
   font-size: var(--fs-sm);
 }
 
-.graph-type-legend__group .graph-type-legend__swatch {
+.graph-type-legend__group .graph-type-legend__swatch,
+.graph-type-legend--folders .graph-type-legend__swatch {
   width: 10px;
   height: 10px;
 }
@@ -856,7 +861,8 @@
   margin-left: var(--sp-4);
 }
 
-.graph-type-legend__group .graph-type-legend__count {
+.graph-type-legend__group .graph-type-legend__count,
+.graph-type-legend--folders .graph-type-legend__count {
   color: var(--text-muted);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
@@ -867,4 +873,85 @@
   align-self: center;
   color: var(--text-muted);
   font-size: var(--fs-sm);
+}
+
+/* The folder view's key: the colors its folders take, what size and lines
+   mean, and what the counts cover. Every type waits behind "All types". */
+.graph-container .graph-type-legend--folders {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+
+.graph-type-legend__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--sp-5);
+}
+
+.graph-type-legend--folders .graph-type-legend__list {
+  flex: 0 1 auto;
+}
+
+.graph-type-legend__more {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.graph-type-legend__more:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.graph-type-legend__chevron {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+}
+
+.graph-type-legend__more[aria-expanded="true"] .graph-type-legend__chevron svg {
+  transform: rotate(180deg);
+}
+
+.graph-type-legend__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* A folder: an outlined disc, since its fill is one of the colors above. */
+.graph-type-legend__size {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--type-8);
+  border-radius: 50%;
+}
+
+.graph-type-legend--folders .graph-type-legend__caption {
+  flex: none;
+  margin: 0;
+  overflow: visible;
+  text-align: left;
+  white-space: normal;
+}
+
+.graph-type-legend--folders .graph-type-legend__all {
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
 }

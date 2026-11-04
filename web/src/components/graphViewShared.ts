@@ -11,6 +11,8 @@ export type GraphViewNode = GraphNode & {
   center?: boolean;
   /** A color the view chose itself, such as a folder summary's; it wins over the node's kind and type. */
   fill?: string;
+  /** What `fill` stands for in the legend: a type name, or the code or untyped-notes key. */
+  fillKey?: string;
 };
 
 export type HoverInfo = {

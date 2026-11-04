@@ -5,17 +5,27 @@ import { CODE_COLOR, type GraphViewNode, UNTYPED_COLOR } from "./graphViewShared
 /** A folder holding more than this share of the graph opens into its subfolders. */
 const SPLIT_SHARE = 0.15;
 
-/** Subfolders smaller than this share of the graph fold back into one node for their parent. */
+/** Subfolders below this share of the graph and of its notes fold back into one node for their parent. */
 const MERGE_SHARE = 0.015;
 
 /**
- * Each folder keeps its single heaviest link, and the heaviest links overall
- * stay too, so the overview shows its main roads rather than every path.
+ * Notes are few beside code files, so their shares are larger: a folder
+ * holding a fifth of the notes opens, and a subfolder below a twentieth of
+ * them folds back.
  */
-const LINKS_PER_FOLDER = 1;
+const NOTE_SPLIT_SHARE = 0.2;
 
-/** Links kept for their weight alone, beyond each folder's heaviest. */
-const HEAVIEST_LINKS = 8;
+const NOTE_MERGE_SHARE = 0.05;
+
+/**
+ * Beside the spanning tree, a link carrying at least this share of the
+ * heaviest one is drawn by default. The rest are minor links, drawn only while
+ * one of their folders is hovered.
+ */
+const MAJOR_SHARE = 0.2;
+
+/** The edge kind of a minor link; the renderer hides it until one of its folders is hovered. */
+export const MINOR_FOLDER_LINK = "folder-minor";
 
 function nodePath(node: GraphNode) {
   return (node.notePath || node.path || "").replace(/^\/+/, "");
@@ -28,12 +38,29 @@ function folderSegments(node: GraphNode) {
   return node.kind === "module" ? parts : parts.slice(0, -1);
 }
 
+/**
+ * What a folder holds: its notes and code files. Embedded items (acceptance
+ * criteria, user stories) live inside notes, so they neither size nor color it.
+ */
 const weightOf = (node: GraphNode) =>
-  node.kind === "module" ? Math.max(1, node.childCount ?? 1) : 1;
+  node.kind === "module" ? Math.max(1, node.childCount ?? 1) : node.kind === "embedded" ? 0 : 1;
+
+const isNote = (node: GraphNode) => node.kind === "note";
 
 const fmt = (count: number) => count.toLocaleString("en-US");
 
 type Folder = { path: string; weight: number; members: GraphNode[]; merged: number };
+
+/** What a folder's count counts: "76 notes", "1,295 files", or both. */
+function contents(members: readonly GraphNode[]) {
+  const notes = members.filter(isNote).length;
+  const files = members.reduce((sum, node) => sum + (isNote(node) ? 0 : weightOf(node)), 0);
+  const noun = (n: number, one: string) => `${fmt(n)} ${n === 1 ? one : `${one}s`}`;
+
+  if (notes && files) return `${noun(notes, "note")}, ${noun(files, "file")}`;
+
+  return notes ? noun(notes, "note") : noun(files, "file");
+}
 
 export type FolderGraph = { nodes: GraphViewNode[]; edges: GraphEdge[]; truncated: false };
 
@@ -50,6 +77,7 @@ export function aggregateByFolder(
   typeColor: (type: string) => string | undefined,
 ): FolderGraph {
   const total = graph.nodes.reduce((sum, node) => sum + weightOf(node), 0);
+  const totalNotes = graph.nodes.filter(isNote).length;
   const split = new Set<string>();
 
   // The deepest folder prefix not marked for splitting.
@@ -63,18 +91,23 @@ export function aggregateByFolder(
   };
 
   for (;;) {
-    const weights = new Map<string, { weight: number; deeper: boolean }>();
+    const weights = new Map<string, { weight: number; notes: number; deeper: boolean }>();
 
     for (const node of graph.nodes) {
       const path = leafFor(node);
-      const entry = weights.get(path) ?? { weight: 0, deeper: false };
+      const entry = weights.get(path) ?? { weight: 0, notes: 0, deeper: false };
       entry.weight += weightOf(node);
+      entry.notes += isNote(node) ? 1 : 0;
       entry.deeper ||= folderSegments(node).length > (path ? path.split("/").length : 0);
       weights.set(path, entry);
     }
 
     const next = [...weights].filter(
-      ([path, entry]) => path && entry.deeper && entry.weight > total * SPLIT_SHARE,
+      // A folder opens when it holds a large share of everything, or of the notes alone.
+      ([path, entry]) =>
+        path &&
+        entry.deeper &&
+        (entry.weight > total * SPLIT_SHARE || entry.notes > totalNotes * NOTE_SPLIT_SHARE),
     );
 
     if (next.length === 0) break;
@@ -98,7 +131,14 @@ export function aggregateByFolder(
 
   for (const leaf of leaves.values()) {
     const parent = leaf.path.split("/").slice(0, -1).join("/");
-    const merge = parent !== "" && split.has(parent) && leaf.weight < total * MERGE_SHARE;
+    const notes = leaf.members.filter(isNote).length;
+
+    const merge =
+      parent !== "" &&
+      split.has(parent) &&
+      leaf.weight < total * MERGE_SHARE &&
+      notes < totalNotes * NOTE_MERGE_SHARE;
+
     const path = merge ? parent : leaf.path;
     const folder = folders.get(path) ?? { path, weight: 0, members: [], merged: 0 };
     folder.weight += leaf.weight;
@@ -113,13 +153,16 @@ export function aggregateByFolder(
     const name = folder.path || "Top-level files";
     const label = folder.merged > 0 ? `${name} · ${folder.merged} smaller folders` : name;
 
+    const fill = folderFill(folder.members);
+
     return {
       id: `folder:${folder.path}`,
       kind: "module",
       path: folder.path,
-      label: `${label}  ${fmt(folder.weight)}`,
-      childCount: folder.weight,
-      fill: folderFill(folder.members, typeColor),
+      label: `${label}  ${contents(folder.members)}`,
+      childCount: Math.max(1, folder.weight),
+      fill: fill.type ? (typeColor(fill.type) ?? UNTYPED_COLOR) : fill.color,
+      fillKey: fill.key,
     };
   });
 
@@ -137,38 +180,39 @@ export function aggregateByFolder(
     weights.set(key, entry);
   }
 
-  // Keep a link when it is one of the heaviest for either of its folders.
-  const byFolder = new Map<string, { key: string; weight: number }[]>();
+  // The main roads: a maximum spanning tree, so every folder stays attached
+  // by its strongest links with no cycle to cross, plus any heavy link.
+  const ranked = [...weights].sort((a, b) => b[1].weight - a[1].weight || a[0].localeCompare(b[0]));
+  const root = new Map<string, string>();
 
-  for (const [key, entry] of weights) {
-    for (const end of [entry.source, entry.target]) {
-      const list = byFolder.get(end) ?? [];
-      list.push({ key, weight: entry.weight });
-      byFolder.set(end, list);
-    }
+  const find = (path: string): string => {
+    const parent = root.get(path) ?? path;
+
+    if (parent === path) return path;
+    const top = find(parent);
+    root.set(path, top);
+
+    return top;
+  };
+
+  const max = ranked[0]?.[1].weight ?? 0;
+  const major = new Set<string>();
+
+  for (const [key, entry] of ranked) {
+    const [a, b] = [find(entry.source), find(entry.target)];
+
+    if (a !== b) root.set(a, b);
+
+    if (a !== b || entry.weight >= max * MAJOR_SHARE) major.add(key);
   }
 
-  const kept = new Set<string>();
-
-  for (const list of byFolder.values()) {
-    list.sort((a, b) => b.weight - a.weight || a.key.localeCompare(b.key));
-
-    for (const { key } of list.slice(0, LINKS_PER_FOLDER)) kept.add(key);
-  }
-
-  const heaviest = [...weights].sort(
-    (a, b) => b[1].weight - a[1].weight || a[0].localeCompare(b[0]),
-  );
-
-  for (const [key] of heaviest.slice(0, HEAVIEST_LINKS)) kept.add(key);
-
-  const edges: GraphEdge[] = [...kept].sort().map((key) => {
+  const edges: GraphEdge[] = [...weights.keys()].sort().map((key) => {
     const entry = weights.get(key)!;
 
     return {
       source: `folder:${entry.source}`,
       target: `folder:${entry.target}`,
-      kind: "folder",
+      kind: major.has(key) ? "folder" : MINOR_FOLDER_LINK,
       weight: entry.weight,
       relationLabel: `${fmt(entry.weight)} links`,
     };
@@ -177,27 +221,44 @@ export function aggregateByFolder(
   return { nodes, edges, truncated: false };
 }
 
-/** A folder's color: its most common note type, or code or untyped notes when they outnumber every type. */
-function folderFill(
-  members: readonly GraphNode[],
-  typeColor: (type: string) => string | undefined,
-) {
+/** Legend keys for folders colored by code or untyped notes rather than a note type. */
+export const CODE_FILL_KEY = "__code__";
+
+export const UNTYPED_FILL_KEY = "__untyped__";
+
+type FolderFill = {
+  /** The legend key: a type name, CODE_FILL_KEY, or UNTYPED_FILL_KEY. */
+  key: string;
+  /** The note type whose palette color the folder takes. */
+  type?: string;
+  /** The color when no type sets it. */
+  color: string;
+};
+
+/**
+ * A folder's color: its most common note type, or code or untyped notes when
+ * they outnumber every type. `key` names it in the legend: the type, or one of
+ * the fill keys above. Embedded items count for nothing here.
+ */
+function folderFill(members: readonly GraphNode[]): FolderFill {
   const counts = new Map<string, number>();
   let code = 0;
   let untyped = 0;
 
   for (const node of members) {
-    const note = node.kind === "note" || node.kind === "embedded";
-    const type = note ? publicTypeName(node.resolvedType) : "";
+    const type = isNote(node) ? publicTypeName(node.resolvedType) : "";
 
     if (type) counts.set(type, (counts.get(type) ?? 0) + 1);
-    else if (note) untyped += 1;
+    else if (isNote(node)) untyped += 1;
     else code += weightOf(node);
   }
 
   const [best] = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 
-  if (best && best[1] >= code && best[1] >= untyped) return typeColor(best[0]) ?? UNTYPED_COLOR;
+  if (best && best[1] >= code && best[1] >= untyped)
+    return { key: best[0], type: best[0], color: UNTYPED_COLOR };
 
-  return code >= untyped ? CODE_COLOR : UNTYPED_COLOR;
+  return code >= untyped
+    ? { key: CODE_FILL_KEY, color: CODE_COLOR }
+    : { key: UNTYPED_FILL_KEY, color: UNTYPED_COLOR };
 }
