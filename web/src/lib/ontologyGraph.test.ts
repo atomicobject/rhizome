@@ -215,13 +215,51 @@ describe("buildOntologyGraph", () => {
         y: expect.any(Number),
       });
       expect(routedEdge?.points?.[0]?.y).toBeCloseTo(
-        (sourceNode?.position.y ?? 0) + (sourceNode?.height ?? 0) / 2,
+        (sourceNode?.position.y ?? 0) +
+          (sourceNode?.height ?? 0) / 2 +
+          (routedEdge?.sourceOffset ?? 0),
         3,
       );
     }
   });
 
-  it("keeps cyclic relations orthogonal from the card's middle, and self relations as a hook below it", async () => {
+  it("keeps an inbound neighbor echo from reversing the visible relation chain", async () => {
+    const graph = await layoutOntologyGraph(
+      buildOntologyGraph({
+        schemaPresent: true,
+        types: [
+          {
+            type: { name: "Alpha", fields: [{ name: "next", kind: "link", typeName: "Beta" }] },
+            count: 1,
+          },
+          {
+            type: { name: "Beta", fields: [{ name: "next", kind: "link", typeName: "Gamma" }] },
+            count: 1,
+          },
+          {
+            type: {
+              name: "Gamma",
+              fields: [{ name: "back", kind: "neighbor", typeName: "Alpha" }],
+            },
+            count: 1,
+          },
+        ],
+      }),
+    );
+
+    const alpha = graph.nodes.find((node) => node.id === "Alpha")!;
+    const beta = graph.nodes.find((node) => node.id === "Beta")!;
+    const gamma = graph.nodes.find((node) => node.id === "Gamma")!;
+    expect(alpha.position.x).toBeLessThan(beta.position.x);
+    expect(beta.position.x).toBeLessThan(gamma.position.x);
+    const back = graph.edges.find((edge) => edge.kind === "neighbor")!;
+    expect(back.source).toBe("Gamma");
+    expect(back.target).toBe("Alpha");
+    expect(back.points?.[0]?.x).toBe(gamma.position.x + gamma.width);
+    expect(back.points?.at(-1)?.x).toBe(alpha.position.x);
+  });
+
+  it("keeps cyclic relations orthogonal and self relations on their card", async () => {
     const { nodes, edges } = await layoutOntologyGraph(
       buildOntologyGraph({
         schemaPresent: true,
@@ -250,7 +288,8 @@ describe("buildOntologyGraph", () => {
       }),
     );
 
-    expect(edges).toHaveLength(3);
+    expect(edges).toHaveLength(2);
+    expect(nodes.find((node) => node.id === "Beta")?.data.selfRelations).toEqual(["self"]);
 
     for (const edge of edges) {
       const source = nodes.find((node) => node.id === edge.source)!;
@@ -258,28 +297,13 @@ describe("buildOntologyGraph", () => {
 
       const points = edge.points!;
 
-      if (edge.source === edge.target) {
-        // A self relation hooks down from the card's bottom edge and back up.
-        const bottom = source.position.y + source.height;
-        expect(points[0].y).toBe(bottom);
-        expect(points.at(-1)!.y).toBe(bottom);
-        expect(Math.max(...points.map((point) => point.y))).toBeGreaterThan(bottom);
-
-        for (const point of points) {
-          expect(point.x).toBeGreaterThan(source.position.x);
-          expect(point.x).toBeLessThan(source.position.x + source.width);
-        }
-
-        continue;
-      }
-
       expect(points[0]).toEqual({
         x: source.position.x + source.width,
-        y: source.position.y + source.height / 2,
+        y: source.position.y + source.height / 2 + (edge.sourceOffset ?? 0),
       });
       expect(points.at(-1)).toEqual({
         x: target.position.x,
-        y: target.position.y + target.height / 2,
+        y: target.position.y + target.height / 2 + (edge.targetOffset ?? 0),
       });
       expect(edge.sourceHandle).toBe(relationSourceHandle(edge.data!.fieldName, "right"));
       expect(edge.targetHandle).toBe(TYPE_TARGET_LEFT_HANDLE);

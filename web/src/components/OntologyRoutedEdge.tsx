@@ -72,8 +72,6 @@ function midpoint(points: RoutedPoint[]): { x: number; y: number } | undefined {
 
 export function OntologyRoutedEdge({
   id,
-  source,
-  target,
   data,
   label,
   labelStyle,
@@ -90,18 +88,15 @@ export function OntologyRoutedEdge({
   interactionWidth,
 }: EdgeProps) {
   const points = data?.routedPoints;
-  // A card with two kinds of line sends them out a few units apart (see sourceOffset).
-  const offset = isFiniteNumber(data?.sourceOffset) ? data.sourceOffset : 0;
+  // Every line leaves and arrives in its own lane beside the card's middle (see laneOffsets).
+  const sourceOffset = isFiniteNumber(data?.sourceOffset) ? data.sourceOffset : 0;
+  const targetOffset = isFiniteNumber(data?.targetOffset) ? data.targetOffset : 0;
 
-  // A relation to its own type keeps its laid-out hook under the card (see selfLoopPoints).
-  const routedPoints =
-    source === target && isRoutedPointList(points) && points.length > 1
-      ? points
-      : normalizedRoutePoints(
-          isRoutedPointList(points) ? points : [],
-          { x: sourceX, y: sourceY + offset },
-          { x: targetX, y: targetY },
-        );
+  const routedPoints = normalizedRoutePoints(
+    isRoutedPointList(points) ? points : [],
+    { x: sourceX, y: sourceY + sourceOffset },
+    { x: targetX, y: targetY + targetOffset },
+  );
 
   const path = edgePath(routedPoints);
   const labelPoint = midpoint(routedPoints);

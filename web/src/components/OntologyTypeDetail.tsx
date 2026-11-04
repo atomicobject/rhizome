@@ -940,7 +940,8 @@ function TypeDetailBody({
               {relationFields.map((f) => (
                 <tr key={f.name}>
                   <td>
-                    <code>{f.name}</code>
+                    <span>{humanizeName(f.name)}</span>{" "}
+                    <code className="ontology-type-detail__ident-secondary">{f.name}</code>
                   </td>
                   <td>
                     {f.typeName ? (
@@ -1144,7 +1145,8 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
         {fields.map((f) => (
           <tr key={f.name}>
             <td>
-              <code>{f.name}</code>
+              <span>{humanizeName(f.name)}</span>{" "}
+              <code className="ontology-type-detail__ident-secondary">{f.name}</code>
             </td>
             <td>
               {f.typeName || f.kind || "string"}

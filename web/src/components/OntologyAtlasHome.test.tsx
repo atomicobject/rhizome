@@ -61,7 +61,7 @@ describe("OntologyAtlasHome", () => {
     fireEvent.change(await screen.findByRole("searchbox", { name: "Find a type" }), {
       target: { value: "type" },
     });
-    fireEvent.click(await screen.findByRole("button", { name: "Focus OldType" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Focus Old type" }));
     expect(screen.getByRole("button", { name: "Show all types" })).toBeVisible();
     rerender(
       <OntologyAtlasHome
@@ -75,8 +75,8 @@ describe("OntologyAtlasHome", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Find a type" }), {
       target: { value: "type" },
     });
-    expect(screen.queryByRole("button", { name: "Focus OldType" })).toBeNull();
-    expect(await screen.findByRole("button", { name: "Focus NewType" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Focus Old type" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Focus New type" })).toBeVisible();
     // The removed focus resets, so nothing is traced.
     expect(screen.queryByRole("button", { name: "Show all types" })).toBeNull();
     expect(container.querySelector(".atlas-node--dimmed")).toBeNull();

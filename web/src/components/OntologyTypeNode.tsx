@@ -1,4 +1,5 @@
 import { Handle, type NodeProps, Position } from "@xyflow/react";
+import { Repeat2 } from "lucide-react";
 import { Fragment } from "react";
 import {
   IMPL_SOURCE_LEFT_HANDLE,
@@ -11,6 +12,7 @@ import {
 } from "../lib/ontologyGraph";
 import { typeAccentColor } from "../lib/typeAccent";
 import { buildOntologyPath } from "./ontologyRoute";
+import { useTypeLabel } from "./typeLabels";
 
 type Props = NodeProps & { data: OntologyNodeData };
 
@@ -32,6 +34,9 @@ function cardTitle(data: OntologyNodeData) {
 }
 
 export function OntologyTypeNode({ data }: Props) {
+  const typeLabel = useTypeLabel();
+  const self = data.selfRelations ?? [];
+
   const accentStyle: AccentStyle = {
     "--type-accent": typeAccentColor(data.name),
   };
@@ -94,10 +99,19 @@ export function OntologyTypeNode({ data }: Props) {
         title={cardTitle(data)}
       >
         <span className="ontology-node__name">
-          {nameLines(data.name).map((line, index) =>
+          {nameLines(typeLabel(data.name)).map((line, index) =>
             line ? <span key={index}>{line}</span> : null,
           )}
         </span>
+        {self.length > 0 ? (
+          <span
+            className="ontology-node__self"
+            title={`Relates to its own type through ${self.join(", ")}`}
+          >
+            <Repeat2 size={16} strokeWidth={2} aria-hidden="true" />
+            {self.length}
+          </span>
+        ) : null}
         <span className="ontology-node__meta">
           {data.role === "interface"
             ? "Interface"

@@ -17,6 +17,7 @@ import { buildOntologyGraph, layoutOntologyGraph } from "../lib/ontologyGraph";
 import { typeAccentColor } from "../lib/typeAccent";
 import { OntologyRoutedEdge } from "./OntologyRoutedEdge";
 import { OntologyTypeNode } from "./OntologyTypeNode";
+import { useTypeLabel } from "./typeLabels";
 
 const nodeTypes = { ontologyType: OntologyTypeNode };
 
@@ -27,6 +28,7 @@ type Props = { atlas: OntologyAtlasResponse };
 type AtlasEdgeData = {
   routedPoints?: { x: number; y: number }[];
   sourceOffset?: number;
+  targetOffset?: number;
   kind: EdgeKind;
   accent: string;
 };
@@ -83,6 +85,7 @@ function FocusViewport({ ids, selected }: { ids: string[]; selected: string | nu
 }
 
 export function OntologyGraph({ atlas }: Props) {
+  const typeLabel = useTypeLabel();
   const [selection, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -140,6 +143,7 @@ export function OntologyGraph({ atlas }: Props) {
               data: {
                 routedPoints: e.points,
                 sourceOffset: e.sourceOffset,
+                targetOffset: e.targetOffset,
                 kind,
                 accent: typeAccentColor(e.source),
               },
@@ -214,7 +218,8 @@ export function OntologyGraph({ atlas }: Props) {
           strokeLinecap: kind === "neighbor" ? ("round" as const) : undefined,
           opacity: traced === null || lit ? 1 : 0.16,
         },
-        markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+        // Arrowheads read at the fit zoom: 20 units, about 14px.
+        markerEnd: { type: MarkerType.ArrowClosed, color, width: 20, height: 20 },
         zIndex: lit ? 1 : 0,
       },
     ];
@@ -224,8 +229,10 @@ export function OntologyGraph({ atlas }: Props) {
 
   const listed = query
     ? graph.nodes
-        .filter((node) => node.id.toLowerCase().includes(query))
-        .sort((a, b) => a.id.localeCompare(b.id))
+        .filter((node) =>
+          [node.id, typeLabel(node.id)].some((name) => name.toLowerCase().includes(query)),
+        )
+        .sort((a, b) => typeLabel(a.id).localeCompare(typeLabel(b.id)))
     : [];
 
   const focus = (id: string | null) => {
@@ -299,11 +306,11 @@ export function OntologyGraph({ atlas }: Props) {
                 <button
                   type="button"
                   key={node.id}
-                  aria-label={`Focus ${node.id}`}
+                  aria-label={`Focus ${typeLabel(node.id)}`}
                   aria-pressed={selected === node.id}
                   onClick={() => focus(node.id)}
                 >
-                  <span className="atlas-find__name">{node.id}</span>
+                  <span className="atlas-find__name">{typeLabel(node.id)}</span>
                   <span className="atlas-find__count">
                     {node.data.role === "interface" ? "interface" : String(node.data.count ?? 0)}
                   </span>
@@ -315,7 +322,7 @@ export function OntologyGraph({ atlas }: Props) {
           {selected ? (
             <p className="atlas-find__focus">
               <span>
-                Tracing <strong>{selected}</strong>
+                Tracing <strong>{typeLabel(selected)}</strong>
               </span>
               <button type="button" onClick={() => focus(null)}>
                 Show all types

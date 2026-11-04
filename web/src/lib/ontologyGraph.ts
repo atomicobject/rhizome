@@ -25,6 +25,8 @@ export type OntologyNodeData = {
   scalarFieldCount: number;
   relationCount: number;
   sectionCount: number;
+  /** Relations from the type to itself, drawn as a badge on the card rather than a line. */
+  selfRelations?: string[];
 };
 
 export type OntologyNode = {
@@ -48,11 +50,12 @@ export type OntologyEdge = {
   data?: { fieldName: string; list: boolean };
   points?: ElkPoint[];
   /**
-   * How far the line leaves above or below the card's middle. A card with both
-   * relations and implements lines sends them out 10 units apart, so a solid
-   * and a dashed trunk never draw over each other.
+   * How far the line leaves above or below its source card's middle, and
+   * arrives above or below its target's. Every line at a card side gets its
+   * own lane, at least LANE_GAP apart, so no two share a trunk.
    */
   sourceOffset?: number;
+  targetOffset?: number;
 };
 
 // WHY: the atlas endpoint also returns section docs, which the generated
@@ -89,11 +92,11 @@ const NAME_SIZE = 20;
 
 const NAME_LINE = NAME_SIZE * 1.25;
 
-/** A type name's two display lines: everything before its last word, then the last word. */
-export function nameLines(name: string): [string, string] {
-  const words = name.split(/(?<=[a-z0-9])(?=[A-Z])/);
+/** A type label's two display lines: everything before its last word, then the last word. */
+export function nameLines(label: string): [string, string] {
+  const words = label.split(" ");
 
-  return words.length > 1 ? [words.slice(0, -1).join(""), words.at(-1) ?? ""] : [name, ""];
+  return words.length > 1 ? [words.slice(0, -1).join(" "), words.at(-1) ?? ""] : [label, ""];
 }
 
 /** Padding, the gap below the name, and the counts line. */
@@ -101,8 +104,11 @@ const CARD_CHROME = 16 + 4 + 18 * 1.3;
 
 const NODE_BORDER_WIDTH = 1;
 
-/** Half the gap between a card's relation and implements trunks, in card units (12px apart at fit zoom). */
-const SPLIT_TRUNK = 9;
+/** The gap between lanes at one side of a card, in card units (about 9px at the Atlas's fit zoom). */
+const LANE_GAP = 18;
+
+/** Lanes stay this far inside a card's top and bottom edges. */
+const LANE_INSET = 10;
 
 export const TYPE_TARGET_LEFT_HANDLE = "type-target-left";
 
@@ -570,26 +576,74 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
   return { nodes, edges };
 }
 
-/** A self-relation's hook under its card's right end, in card units. */
-const LOOP = { inset: 52, width: 30, depth: 16 };
+/**
+ * Each line's lane at its card: the lines leaving a card's right side, and
+ * those arriving at a card's left side, spread LANE_GAP apart around its
+ * middle (closer when a card has more lines than room), ordered by where the
+ * other end sits so neighboring lanes do not cross. `order` gives each card's
+ * position from an earlier pass; without one, lines keep model order.
+ */
+function laneOffsets(
+  nodes: readonly OntologyNode[],
+  edges: readonly OntologyEdge[],
+  order?: ReadonlyMap<string, number>,
+) {
+  const height = new Map(nodes.map((node) => [node.id, node.height]));
+  const rank = (id: string) => order?.get(id) ?? 0;
+  const source = new Map<string, number>();
+  const target = new Map<string, number>();
 
-/** A relation to the card's own type: a short hook down from its bottom edge and back up. */
-function selfLoopPoints(node: OntologyNode | undefined): ElkPoint[] {
-  if (!node) return [];
-  const bottom = node.position.y + node.height;
-  const start = node.position.x + node.width - LOOP.inset;
-  const end = start + LOOP.width;
+  const spread = (
+    lines: OntologyEdge[],
+    card: string,
+    other: (edge: OntologyEdge) => string,
+    into: Map<string, number>,
+  ) => {
+    const room = (height.get(card) ?? 0) - 2 * LANE_INSET;
+    const gap = lines.length > 1 ? Math.min(LANE_GAP, room / (lines.length - 1)) : 0;
 
-  return [
-    { x: start, y: bottom },
-    { x: start, y: bottom + LOOP.depth },
-    { x: end, y: bottom + LOOP.depth },
-    { x: end, y: bottom },
-  ];
+    [...lines]
+      .sort((a, b) => rank(other(a)) - rank(other(b)))
+      .forEach((edge, index) => into.set(edge.id, (index - (lines.length - 1) / 2) * gap));
+  };
+
+  const group = (key: (edge: OntologyEdge) => string) => {
+    const groups = new Map<string, OntologyEdge[]>();
+
+    for (const edge of edges) groups.set(key(edge), [...(groups.get(key(edge)) ?? []), edge]);
+
+    return groups;
+  };
+
+  for (const [card, lines] of group((edge) => edge.source))
+    spread(lines, card, (edge) => edge.target, source);
+
+  for (const [card, lines] of group((edge) => edge.target))
+    spread(lines, card, (edge) => edge.source, target);
+
+  return { source, target };
 }
 
-export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<OntologyGraphModel> {
-  const { children = [], edges: laidOutEdges = [] } = await elk.layout({
+async function elkLayout(
+  graph: OntologyGraphModel,
+  routed: readonly OntologyEdge[],
+  lanes: ReturnType<typeof laneOffsets>,
+) {
+  // Inbound neighbor fields echo a forward relation. Reverse only their
+  // layout constraint so these hidden back-links do not turn the schema around.
+  const reaches = (from: string, to: string, seen = new Set<string>()): boolean => {
+    if (from === to) return true;
+
+    if (seen.has(from)) return false;
+
+    seen.add(from);
+
+    return routed.some(
+      (edge) => edge.kind !== "neighbor" && edge.source === from && reaches(edge.target, to, seen),
+    );
+  };
+
+  return elk.layout({
     id: "ontology",
     layoutOptions: {
       "elk.algorithm": "layered",
@@ -602,90 +656,79 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
       "elk.layered.spacing.nodeNodeBetweenLayers": "44",
       "elk.aspectRatio": "1.7",
       "elk.spacing.nodeNode": "28",
-      // Parallel lanes stay at least 12px apart at the Atlas's fit zoom.
-      "elk.spacing.edgeEdge": "18",
-      "elk.layered.spacing.edgeEdgeBetweenLayers": "18",
+      // Parallel lanes stay at least LANE_GAP apart in the channels between layers too.
+      "elk.spacing.edgeEdge": String(LANE_GAP),
+      "elk.layered.spacing.edgeEdgeBetweenLayers": String(LANE_GAP),
       "elk.padding": "[top=20,left=20,bottom=20,right=20]",
     },
-    children: graph.nodes.map((n) => {
-      return {
-        id: n.id,
-        width: n.width,
-        height: n.height,
-        layoutOptions: {
-          "elk.portConstraints": "FIXED_POS",
-        },
-        ports: [
-          {
-            id: `${n.id}:${TYPE_TARGET_LEFT_HANDLE}`,
-            x: 0,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          {
-            id: `${n.id}:${TYPE_TARGET_RIGHT_HANDLE}`,
-            x: n.width,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          {
-            id: `${n.id}:${IMPL_SOURCE_LEFT_HANDLE}`,
-            x: 0,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          {
-            id: `${n.id}:${IMPL_SOURCE_RIGHT_HANDLE}`,
-            x: n.width,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          ...n.data.fields.flatMap((f) => {
-            if (!f.isSchemaEdge) return [];
-            // Every field's relation leaves from the card's middle.
-            const y = nodeMidpointY(n);
-
-            return [
+    children: graph.nodes.map((n) => ({
+      id: n.id,
+      width: n.width,
+      height: n.height,
+      layoutOptions: { "elk.portConstraints": "FIXED_POS" },
+      // One port per line end, at its lane, so ELK routes every line on its own.
+      ports: routed.flatMap((edge) => [
+        ...(edge.source === n.id
+          ? [
               {
-                id: `${n.id}:${relationSourceHandle(f.name, "left")}`,
-                x: 0,
-                y,
-                width: 0,
-                height: 0,
-              },
-              {
-                id: `${n.id}:${relationSourceHandle(f.name, "right")}`,
+                id: `${edge.id}:out`,
                 x: n.width,
-                y,
+                y: nodeMidpointY(n) + (lanes.source.get(edge.id) ?? 0),
                 width: 0,
                 height: 0,
               },
-            ];
-          }),
-        ],
+            ]
+          : []),
+        ...(edge.target === n.id
+          ? [
+              {
+                id: `${edge.id}:in`,
+                x: 0,
+                y: nodeMidpointY(n) + (lanes.target.get(edge.id) ?? 0),
+                width: 0,
+                height: 0,
+              },
+            ]
+          : []),
+      ]),
+    })),
+    edges: routed.map((e) => {
+      const reverse = e.kind === "neighbor" && reaches(e.target, e.source);
+
+      return {
+        id: e.id,
+        sources: [reverse ? `${e.id}:in` : `${e.id}:out`],
+        targets: [reverse ? `${e.id}:out` : `${e.id}:in`],
       };
     }),
-    // A self-relation is drawn as a short hook on its card (OntologyRoutedEdge), not routed around it.
-    edges: graph.edges
-      .filter((e) => e.source !== e.target)
-      .map((e) => {
-        return {
-          id: e.id,
-          sources: [`${e.source}:${e.sourceHandle ?? implSourceHandle("right")}`],
-          targets: [`${e.target}:${e.targetHandle ?? typeTargetHandle("left")}`],
-        };
-      }),
   });
+}
+
+export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<OntologyGraphModel> {
+  // A relation to the card's own type is a badge on the card (OntologyTypeNode), not a line.
+  const routed = graph.edges.filter((edge) => edge.source !== edge.target);
+  const selfRelations = new Map<string, string[]>();
+
+  for (const edge of graph.edges)
+    if (edge.source === edge.target && edge.data)
+      selfRelations.set(edge.source, [
+        ...(selfRelations.get(edge.source) ?? []),
+        edge.data.fieldName,
+      ]);
+
+  // Two passes order lanes by where their other ends landed.
+  const first = await elkLayout(graph, routed, laneOffsets(graph.nodes, routed));
+  const order = new Map((first.children ?? []).map((child) => [child.id, child.y ?? 0]));
+  const lanes = laneOffsets(graph.nodes, routed, order);
+  const { children = [], edges: laidOutEdges = [] } = await elkLayout(graph, routed, lanes);
 
   const positioned = graph.nodes.map((n) => {
     const laidOut = children.find((child) => child.id === n.id);
+    const own = selfRelations.get(n.id);
 
     return {
       ...n,
+      data: own ? { ...n.data, selfRelations: own } : n.data,
       position: {
         x: laidOut?.x ?? 0,
         y: laidOut?.y ?? 0,
@@ -706,26 +749,13 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
     }));
   }
 
-  const implementing = new Set(
-    graph.edges.flatMap((edge) => (edge.type === "implements" ? [edge.source] : [])),
-  );
-
-  const relating = new Set(
-    graph.edges.flatMap((edge) => (edge.type === "implements" ? [] : [edge.source])),
-  );
-
-  const routedEdges = graph.edges.map((edge) => ({
+  const routedEdges = routed.map((edge) => ({
     ...edge,
-    points:
-      edge.source === edge.target
-        ? selfLoopPoints(positioned.find((node) => node.id === edge.source))
-        : edgeRoutePoints(laidOutEdgesById.get(edge.id)),
-    sourceOffset:
-      implementing.has(edge.source) && relating.has(edge.source)
-        ? edge.type === "implements"
-          ? SPLIT_TRUNK
-          : -SPLIT_TRUNK
-        : 0,
+    points: laidOutEdgesById.get(edge.id)?.sources[0]?.endsWith(":in")
+      ? edgeRoutePoints(laidOutEdgesById.get(edge.id)).reverse()
+      : edgeRoutePoints(laidOutEdgesById.get(edge.id)),
+    sourceOffset: lanes.source.get(edge.id) ?? 0,
+    targetOffset: lanes.target.get(edge.id) ?? 0,
   }));
 
   return packComponents({ nodes: positioned, edges: routedEdges });
