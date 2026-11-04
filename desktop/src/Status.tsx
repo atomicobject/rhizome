@@ -20,7 +20,8 @@ function useElapsedPast(started: number, delay: number) {
   // Re-arm until a render sees the deadline: a timer can fire a millisecond
   // early, and the deadline can pass between a render and its effect.
   useEffect(() => {
-    if (past) return;
+    // Progress without a start time has no deadline to wait for.
+    if (past || !Number.isFinite(started)) return;
     const timer = window.setTimeout(rerender, Math.max(0, started + delay - Date.now()));
     return () => window.clearTimeout(timer);
   }, [started, delay, tick, past]);
