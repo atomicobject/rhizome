@@ -143,8 +143,12 @@ const LANDMARKS = 20;
 
 // WHY: Sigma's default label has no backing, so it disappears over dense edges
 // and nodes. This draws the same label on a halo of the surface color.
+// Sigma's label grid ignores forced (landmark) labels, so hubs packed together
+// would stack their labels; `placed` holds this frame's drawn label boxes and a
+// label that would overlap one is skipped. The caller empties it before each render.
 function haloLabel(
   colors: () => ThemeColors,
+  placed: [number, number, number, number][],
 ): NodeLabelDrawingFunction<SigmaNodeAttrs, SigmaEdgeAttrs> {
   return (context, data, settings) => {
     if (!data.label) return;
@@ -152,6 +156,16 @@ function haloLabel(
     const x = data.x + data.size + 3;
     const y = data.y + size / 3;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
+
+    const box: [number, number, number, number] = [
+      x - 2,
+      y - size,
+      x + context.measureText(data.label).width + 2,
+      y + 4,
+    ];
+
+    if (placed.some(([l, t, r, b]) => box[0] < r && box[2] > l && box[1] < b && box[3] > t)) return;
+    placed.push(box);
     context.lineJoin = "round";
     context.lineWidth = 4;
     context.strokeStyle = colors().surface;
@@ -423,6 +437,8 @@ export function useSigmaGraph({
     if (!container || needsIndex || empty) return;
     container.style.cursor = "grab";
 
+    const placedLabels: [number, number, number, number][] = [];
+
     // WHY: allowInvalidContainer keeps Sigma from throwing when its container
     // has zero width at mount time — this can happen on the first commit
     // before flex layout has resolved cross-axis sizing. Sigma resizes itself
@@ -440,7 +456,7 @@ export function useSigmaGraph({
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
-      defaultDrawNodeLabel: haloLabel(() => colorsRef.current ?? readThemeColors()),
+      defaultDrawNodeLabel: haloLabel(() => colorsRef.current ?? readThemeColors(), placedLabels),
       minCameraRatio: CAMERA.minRatio,
       maxCameraRatio: CAMERA.maxRatio,
       zIndex: true,
@@ -453,6 +469,9 @@ export function useSigmaGraph({
     });
 
     sigmaRef.current = sigma;
+    sigma.on("beforeRender", () => {
+      placedLabels.length = 0;
+    });
     const camera = sigma.getCamera();
     stateRef.current.cameraRatio = camera.getState().ratio;
 
