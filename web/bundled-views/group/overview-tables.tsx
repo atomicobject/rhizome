@@ -1,7 +1,7 @@
 // The Overview's tables (SPEC-0117 US1-US3): the Matrix, a complete text
 // alternative to the map, and the member table comparing every member's size,
 // progress, completeness, and connection.
-import { RelativeTime, openCollection, openIssues } from "@rhizome/kit";
+import { RelativeTime, openCollection, openIssues, useTypeColors } from "@rhizome/kit";
 
 import { plural } from "./briefing-parts.tsx";
 import { Dash } from "./components.tsx";
@@ -156,8 +156,8 @@ function ShareCell({ share }: { share: number | null }) {
   );
 }
 
-function Dot({ model, node }: { model: ScopeModel; node: ScopeNode }) {
-  const hue = nodeHue(model, node);
+function Dot({ node }: { model: ScopeModel; node: ScopeNode }) {
+  const hue = nodeHue(node, useTypeColors());
 
   return (
     <i

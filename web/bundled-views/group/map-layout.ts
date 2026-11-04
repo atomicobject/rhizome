@@ -254,9 +254,14 @@ const LABEL_HEIGHT = 15;
 /** How far out a label may step from its node to clear the edges there. */
 const LABEL_GUTTER = 24;
 
+/** The gap between an outside neighbor and its name, on the side facing away from the members. */
+const OUTSIDE_LABEL_GAP = 12;
+
+type LabelItem = { id: string; radius: number; label: string; outward?: Point };
+
 function placeLabels(
   positions: ReadonlyMap<string, Point>,
-  items: readonly { id: string; radius: number; label: string }[],
+  items: readonly LabelItem[],
   segments: readonly [Point, Point][],
   width: number,
   height: number,
@@ -289,45 +294,99 @@ function placeLabels(
     // Beside the node first, then a label gutter further out, so a label can
     // step clear of the edges bundled at its node. On each ring: below,
     // above, right, left, then the four diagonals; `y` is the text baseline.
-    const candidates = [item.radius + 7, item.radius + LABEL_GUTTER]
-      .flatMap((r) => {
-        const d = r * Math.SQRT1_2;
+    // An outside neighbor's name goes on its own side, away from the spokes
+    // running in from the members, 12px clear of the node.
+    const outward = item.outward
+      ? (() => {
+          const r = item.radius + OUTSIDE_LABEL_GAP;
+          const { x: ox, y: oy } = item.outward;
 
-        return [
-          { x, y: y + r + 11, anchor: "middle" as const, box: { x: x - w / 2, y: y + r, w, h } },
-          {
-            x,
-            y: y - r - 4,
-            anchor: "middle" as const,
-            box: { x: x - w / 2, y: y - r - h, w, h },
-          },
-          { x: x + r, y: y + 4, anchor: "start" as const, box: { x: x + r, y: y - 8, w, h } },
-          { x: x - r, y: y + 4, anchor: "end" as const, box: { x: x - r - w, y: y - 8, w, h } },
-          { x: x + d, y: y + d + 11, anchor: "start" as const, box: { x: x + d, y: y + d, w, h } },
-          {
-            x: x + d,
-            y: y - d - 4,
-            anchor: "start" as const,
-            box: { x: x + d, y: y - d - h, w, h },
-          },
-          {
-            x: x - d,
-            y: y + d + 11,
-            anchor: "end" as const,
-            box: { x: x - d - w, y: y + d, w, h },
-          },
-          {
-            x: x - d,
-            y: y - d - 4,
-            anchor: "end" as const,
-            box: { x: x - d - w, y: y - d - h, w, h },
-          },
-        ];
-      })
-      .filter(
-        ({ box }) =>
-          box.x > 2 && box.x + box.w < width - 2 && box.y > 2 && box.y + box.h < height - 2,
-      );
+          if (Math.abs(ox) >= Math.abs(oy) * 0.25)
+            return ox >= 0
+              ? [
+                  {
+                    x: x + r,
+                    y: y + 4,
+                    anchor: "start" as const,
+                    box: { x: x + r, y: y - 8, w, h },
+                  },
+                ]
+              : [
+                  {
+                    x: x - r,
+                    y: y + 4,
+                    anchor: "end" as const,
+                    box: { x: x - r - w, y: y - 8, w, h },
+                  },
+                ];
+
+          return oy >= 0
+            ? [
+                {
+                  x,
+                  y: y + r + 11,
+                  anchor: "middle" as const,
+                  box: { x: x - w / 2, y: y + r, w, h },
+                },
+              ]
+            : [
+                {
+                  x,
+                  y: y - r - 4,
+                  anchor: "middle" as const,
+                  box: { x: x - w / 2, y: y - r - h, w, h },
+                },
+              ];
+        })()
+      : [];
+
+    const candidates = [
+      ...outward,
+      ...[item.radius + (item.outward ? OUTSIDE_LABEL_GAP : 7), item.radius + LABEL_GUTTER].flatMap(
+        (r) => {
+          const d = r * Math.SQRT1_2;
+
+          return [
+            { x, y: y + r + 11, anchor: "middle" as const, box: { x: x - w / 2, y: y + r, w, h } },
+            {
+              x,
+              y: y - r - 4,
+              anchor: "middle" as const,
+              box: { x: x - w / 2, y: y - r - h, w, h },
+            },
+            { x: x + r, y: y + 4, anchor: "start" as const, box: { x: x + r, y: y - 8, w, h } },
+            { x: x - r, y: y + 4, anchor: "end" as const, box: { x: x - r - w, y: y - 8, w, h } },
+            {
+              x: x + d,
+              y: y + d + 11,
+              anchor: "start" as const,
+              box: { x: x + d, y: y + d, w, h },
+            },
+            {
+              x: x + d,
+              y: y - d - 4,
+              anchor: "start" as const,
+              box: { x: x + d, y: y - d - h, w, h },
+            },
+            {
+              x: x - d,
+              y: y + d + 11,
+              anchor: "end" as const,
+              box: { x: x - d - w, y: y + d, w, h },
+            },
+            {
+              x: x - d,
+              y: y - d - 4,
+              anchor: "end" as const,
+              box: { x: x - d - w, y: y - d - h, w, h },
+            },
+          ];
+        },
+      ),
+    ].filter(
+      ({ box }) =>
+        box.x > 2 && box.x + box.w < width - 2 && box.y > 2 && box.y + box.h < height - 2,
+    );
 
     const clear = (box: Box) => !boxes.some((other) => overlaps(other, box));
     const crossings = (box: Box) => segments.filter(([a, b]) => crosses(box, a, b)).length;
@@ -457,11 +516,16 @@ export function layoutMap(input: LayoutInput): MapLayout {
     positions,
     [
       ...drawn,
-      ...input.outside.map((neighbor) => ({
-        id: neighbor.id,
-        radius: OUTSIDE_RADIUS,
-        label: neighbor.label,
-      })),
+      ...input.outside.map((neighbor) => {
+        const point = positions.get(neighbor.id) ?? { x: width / 2, y: height / 2 };
+
+        return {
+          id: neighbor.id,
+          radius: OUTSIDE_RADIUS,
+          label: neighbor.label,
+          outward: { x: point.x - width / 2, y: point.y - height / 2 },
+        };
+      }),
     ],
     segments,
     width,

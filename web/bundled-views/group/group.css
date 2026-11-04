@@ -1450,8 +1450,10 @@
   stroke-width: 1.5;
 }
 
+/* Outside names sit on a wider 6px halo, so the spokes beside them stay clear. */
 .gv-map-labels text[data-outside="true"] {
   fill: var(--text-muted);
+  stroke-width: 12px;
 }
 
 /* Untyped notes: a neutral wash with a 3:1 outline, so the node reads without its fill. */
@@ -1464,9 +1466,15 @@
   stroke-width: 1.5;
 }
 
-.gv-map-node .gv-map-ring {
+/* An interface or collapsed group: a neutral core ringed by its member types' hues. */
+.gv-map-node circle[data-composite="true"] {
+  fill: color-mix(in srgb, var(--type-8) 16%, var(--surface));
+  stroke: var(--surface);
+}
+
+.gv-map-node .gv-map-arc {
   fill: none;
-  stroke-dasharray: 2 3;
+  pointer-events: none;
 }
 
 .gv-map-node:focus-visible circle:last-of-type {
@@ -1531,6 +1539,20 @@
   border: 1.5px solid var(--type-8);
 }
 
+.gv-legend .gv-legend-untyped {
+  box-sizing: border-box;
+  border: 1.5px solid var(--type-8);
+  background: color-mix(in srgb, var(--type-8) 28%, var(--surface));
+}
+
+.gv-legend .gv-legend-composite {
+  box-sizing: border-box;
+  border: 2.5px solid transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--type-8) 16%, var(--surface))) padding-box,
+    conic-gradient(var(--type-1) 0 40%, var(--type-6) 0 65%, var(--type-5) 0) border-box;
+}
+
 .gv-legend-loose {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1539,7 +1561,7 @@
 
 .gv-legend .gv-map-n {
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .gv-legend s {
