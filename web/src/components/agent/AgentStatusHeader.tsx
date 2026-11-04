@@ -38,18 +38,22 @@ export function AgentStatusHeader({
     if (!status.installed) {
       state = installHint(harness);
     } else if (status.lastError) {
-      const version =
-        status.version && !status.lastError.includes(status.version) ? status.version : "";
-
-      state = [status.lastError, version].filter(Boolean).join(" · ");
+      state = status.lastError;
     } else if (!status.loggedIn) {
       state = "Login required";
     } else {
-      state = ["Ready", status.version, status.account].filter(Boolean).join(" · ");
+      state = "Ready";
     }
   } else if (!harness) {
     state = resolutionReason;
   }
+
+  // The version and account are diagnostics: behind a disclosure, and the
+  // version only when the state line does not already name it.
+  const version =
+    status?.version && !(status.lastError ?? "").includes(status.version) ? status.version : "";
+
+  const details = session?.readOnly ? [] : [version, status?.account].filter(Boolean);
 
   return (
     <header className="view-header agent-thread__head">
@@ -63,6 +67,29 @@ export function AgentStatusHeader({
         <span className="view-header__about">
           <strong>{harnessName(session?.harness || harness)}</strong> · {state}
         </span>
+        {details.length ? (
+          <div className="view-header__actions">
+            <details className="agent-harness-details">
+              <summary className="button button--ghost">Details</summary>
+              <dl>
+                {version ? (
+                  <>
+                    <dt>Version</dt>
+                    <dd>
+                      <code>{version}</code>
+                    </dd>
+                  </>
+                ) : null}
+                {status?.account ? (
+                  <>
+                    <dt>Account</dt>
+                    <dd>{status.account}</dd>
+                  </>
+                ) : null}
+              </dl>
+            </details>
+          </div>
+        ) : null}
       </div>
     </header>
   );

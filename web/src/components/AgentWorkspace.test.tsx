@@ -176,7 +176,7 @@ describe("AgentWorkspace", () => {
       },
       "codex 0.149.0 is older than minimum 0.150.0",
     ],
-    ["ready", readyStatus, "Ready · 1.2.3 · drew@example.com"],
+    ["ready", readyStatus, "Codex · Ready"],
     [
       "degraded",
       {
@@ -191,6 +191,13 @@ describe("AgentWorkspace", () => {
 
     const heading = await screen.findByRole("heading", { name: "Rhizome agent" });
     await waitFor(() => expect(heading.closest("header")).toHaveTextContent(expected));
+
+    // The version and account sit behind Details, not on the state line.
+    if (status.account) {
+      expect(screen.getByText(status.account)).not.toBeVisible();
+      expect(screen.getByText("Details")).toBeVisible();
+    }
+
     expect(screen.getAllByText("Codex").length).toBeGreaterThan(0);
 
     if (status.loginHint && !status.lastError) {
@@ -228,7 +235,9 @@ describe("AgentWorkspace", () => {
 
     render(<AgentWorkspace />);
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/^No messages yet\./);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Ask a question about this repository.",
+    );
     expect(screen.queryByRole("heading", { name: /Ask against the vault/ })).toBeNull();
   });
 

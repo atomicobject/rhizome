@@ -63,3 +63,42 @@
   grid-column: 1 / -1;
   margin-left: 6px;
 }
+
+/* Selects on the sidebar take the chrome tint, like the top bar's search
+   field, rather than a bright surface box. The chevron is light chrome ink;
+   the open list keeps the content surface so its options stay legible. */
+.workbench-sidebar select:not([multiple]):not([size]) {
+  border-color: transparent;
+  background-color: var(--chrome-raised);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23cbc7c1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 6.5 3 3 3-3'/%3E%3C/svg%3E");
+  color: var(--chrome-text);
+}
+
+.workbench-sidebar select:not([multiple]):not([size]):hover:enabled {
+  border-color: transparent;
+  background-color: var(--chrome-active);
+}
+
+.workbench-sidebar select:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: 1px;
+}
+
+.workbench-sidebar select:disabled {
+  opacity: 0.6;
+}
+
+.workbench-sidebar select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* "Views" and "Types" inside a sidebar group that holds both. */
+.notes-left-rail__subhead {
+  display: flex;
+  align-items: flex-end;
+  height: 24px;
+  padding: 0 0 3px 8px;
+  color: var(--chrome-muted);
+  font: var(--label-font);
+}

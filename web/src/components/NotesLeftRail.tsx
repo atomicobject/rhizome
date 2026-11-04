@@ -173,10 +173,20 @@ export const NotesLeftRail = memo(function NotesLeftRail({
             groupContent={(group) => {
               const groupViews = viewsByGroup.get(group);
 
+              // A group holding saved views and types names each set, since a
+              // view is often named after the type it shows.
               return groupViews ? (
-                <nav className="notes-left-rail__nested-views" aria-label={`${group} views`}>
-                  {groupViews.map(renderView)}
-                </nav>
+                <>
+                  <nav className="notes-left-rail__nested-views" aria-label={`${group} views`}>
+                    <span className="notes-left-rail__subhead" aria-hidden="true">
+                      Views
+                    </span>
+                    {groupViews.map(renderView)}
+                  </nav>
+                  <span className="notes-left-rail__subhead" aria-hidden="true">
+                    Types
+                  </span>
+                </>
               ) : null;
             }}
           />

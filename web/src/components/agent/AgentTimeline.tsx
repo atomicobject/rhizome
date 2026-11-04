@@ -325,14 +325,13 @@ export function AgentTimeline({
     return mapped;
   }, [events]);
 
+  // An empty thread that can take a turn says so beside the composer.
   if (groups.length === 0) {
-    return (
+    return available ? null : (
       <div className="agent-empty" role="status">
         <p>
-          <b>No messages yet.</b>{" "}
-          {available
-            ? "Ask about this vault below; Rhizome sends each turn through the selected harness."
-            : "Chat needs a coding harness; the note beside Send says how to set one up."}
+          <b>No messages yet.</b> Chat needs a coding harness; the note beside Send says how to set
+          one up.
         </p>
       </div>
     );

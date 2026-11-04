@@ -480,6 +480,14 @@ export function AgentWorkspace({
             submitText(draft);
           }}
         >
+          {messages.length === 0 &&
+          events.length === 0 &&
+          !blocked &&
+          !selectedSession?.readOnly ? (
+            <p className="agent-composer__hint" role="status">
+              Ask a question about this repository.
+            </p>
+          ) : null}
           <div className="agent-composer__frame">
             <textarea
               value={draft}

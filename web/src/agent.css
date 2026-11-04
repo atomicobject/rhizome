@@ -29,6 +29,51 @@
   font-weight: 600;
 }
 
+/* Harness version and account: a quiet popover from the header. */
+.agent-harness-details {
+  position: relative;
+}
+
+.agent-harness-details > summary {
+  list-style: none;
+}
+
+.agent-harness-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-harness-details[open] > summary {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.agent-harness-details dl {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-5);
+  min-width: 240px;
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: var(--fs-sm);
+}
+
+.agent-harness-details dt {
+  color: var(--text-muted);
+}
+
+.agent-harness-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .agent-muted,
 .agent-session small {
   margin: 0;
@@ -72,8 +117,7 @@
 
 /* Controls keep their own ink on the chrome; status text takes the chrome's. */
 .agent-workspace__rail button:not(.agent-session__open),
-.agent-workspace__rail input,
-.agent-workspace__rail select {
+.agent-workspace__rail input {
   color: var(--text);
 }
 
@@ -306,6 +350,13 @@
    send hint or availability note at the left and Send at the right. */
 .agent-composer {
   padding: var(--sp-3) var(--gutter) var(--sp-5);
+}
+
+/* An empty thread's one instruction, just above the field it points at. */
+.agent-composer__hint {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-base);
 }
 
 .agent-composer__frame {
