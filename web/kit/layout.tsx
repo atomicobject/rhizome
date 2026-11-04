@@ -95,18 +95,16 @@ export function Section({
                 strokeLinecap="round"
               />
             </svg>
-            <span id={infoId} className="sr-only">
-              {help}
-            </span>
-          </span>
-        )}
-        {!showInfo && help && (
-          <span id={infoId} className="sr-only">
-            {help}
           </span>
         )}
         {controls && <span className="rz-section-controls">{controls}</span>}
       </h2>
+      {/* Outside the heading, so the heading's name stays its title. */}
+      {help && (
+        <span id={infoId} className="sr-only">
+          {help}
+        </span>
+      )}
       {caption && <p className="rz-caption">{caption}</p>}
       <SectionBody status={status} what={what} empty={empty}>
         {children}
@@ -221,7 +219,7 @@ export function Dash() {
   );
 }
 
-/** "+N more" while the rest is hidden, "Show fewer" once revealed in place. */
+/** "Show N more" while the rest is hidden, "Show fewer" once revealed in place. */
 export function MoreToggle({
   hidden,
   open,

@@ -2,10 +2,17 @@
 # Frozen vault for design-loop screenshots: this repository at a pinned commit, so content never moves the scores.
 #   snapshot.sh setup <dir> [commit]          create, index (no embeddings), restore file times from Git
 #   snapshot.sh serve <dir> <port> <rzm-bin>  wipe saved view state, then serve with the given build
+# serve refuses any directory setup did not create, or one with embeddings enabled.
 # Run serve outside the sandbox; the server listens on 127.0.0.1 only.
 set -euo pipefail
 cmd=$1 dir=$2
+marker=.rhizome/design-loop-snapshot
 clean_env=(env -u VOYAGE_API_KEY -u OPENAI_API_KEY -u ATOMIC_RHIZOME_KEY -u TYPESAFE_API_KEY RZM_SKIP_REPO_DELEGATE=1)
+
+# An absent `enabled` key means disabled; look only inside the two embeddings blocks.
+embeddings_on() {
+  awk '/^[^ #]/ { inside = /^(note|code)Embeddings:/ } inside && /^ +enabled: *true/ { found = 1 } END { exit !found }' .rhizome/config.yml
+}
 
 case $cmd in
 setup)
@@ -14,8 +21,10 @@ setup)
   git -C "$repo" worktree add --detach "$dir" "$commit"
   cd "$dir"
   # Never send note text to an embedding provider for a throwaway index.
-  sed -i.bak -E '/^(note|code)Embeddings:/,/enabled:/ s/enabled: true/enabled: false/' .rhizome/config.yml && rm .rhizome/config.yml.bak
+  sed -i.bak -E '/^(note|code)Embeddings:/,/enabled:/ s/enabled: true/enabled: false/' .rhizome/config.yml && trash .rhizome/config.yml.bak
+  if embeddings_on; then echo "snapshot.sh: could not disable embeddings in $dir" >&2; exit 1; fi
   git update-index --skip-worktree .rhizome/config.yml
+  touch "$marker"
   # Checkout stamps every file "now"; restore last-commit times so recency views look real.
   git log --format='T%ct' --name-only HEAD | python3 -I -c '
 import os, sys
@@ -31,7 +40,14 @@ for line in sys.stdin:
 serve)
   port=$3 rzm=$4
   cd "$dir"
-  rm -f .rhizome/user-state.sqlite .rhizome/user-state.sqlite-shm .rhizome/user-state.sqlite-wal
+  [ -f "$marker" ] || { echo "snapshot.sh: $dir was not created by setup; refusing to wipe its view state" >&2; exit 1; }
+  if embeddings_on; then
+    echo "snapshot.sh: embeddings are enabled in $dir/.rhizome/config.yml; refusing to serve" >&2
+    exit 1
+  fi
+  for f in .rhizome/user-state.sqlite .rhizome/user-state.sqlite-shm .rhizome/user-state.sqlite-wal; do
+    [ -e "$f" ] && trash "$f"
+  done
   exec "${clean_env[@]}" "$rzm" serve --port "$port" --reuse-discovery-port=false
   ;;
 *) echo "usage: snapshot.sh setup <dir> [commit] | serve <dir> <port> <rzm-bin>" >&2; exit 2 ;;

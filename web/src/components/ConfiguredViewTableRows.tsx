@@ -103,9 +103,15 @@ export function ConfiguredViewTableGroup({
     isDeadlineField(field.canonicalField ?? field.key),
   );
 
-  const overdue = groupRows.filter((row) =>
-    deadlines.some((field) => isOverdue(row, fieldValue(row, field.key))),
-  ).length;
+  // Count only once every row is loaded; a partial count would undercount the group.
+  const overdue =
+    groupRows.length < group.count
+      ? 0
+      : groupRows.filter((row) =>
+          deadlines.some((field) =>
+            isOverdue(row, fieldValue(row, field.key), rowProps.capabilities),
+          ),
+        ).length;
 
   const capability = capabilityFor(rowProps.capabilities, group.field);
   const label = groupValueLabel(capability, group.value, group.label);
@@ -208,6 +214,7 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   pending,
   dropClass,
   changedFields,
+  capabilities,
 }: TableRowProps &
   TableRowState & { row: ViewTableRow; previousRow?: ViewTableRow; groupId: string }) {
   const rowKey = configuredTableRowKey(row);
@@ -406,7 +413,8 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
             className={`${className}${capability?.semanticRole === "count" && value === "0" ? " is-zero" : ""}${categoryFields.has(column.field) ? " is-category" : ""}`}
             title={value || undefined}
           >
-            {className.includes("configured-view__cell--deadline") && isOverdue(row, value) ? (
+            {className.includes("configured-view__cell--deadline") &&
+            isOverdue(row, value, capabilities) ? (
               // Overdue is a warning beside the date, in words and with a mark.
               <span className="configured-view__cell-line">
                 {cellContent}

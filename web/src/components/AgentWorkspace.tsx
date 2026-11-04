@@ -549,7 +549,7 @@ export function AgentWorkspace({
             <div className="agent-composer__bar">
               {disabledReason ? (
                 <p className="agent-muted">{disabledReason}</p>
-              ) : blocked ? (
+              ) : blocked || status?.loggedIn === false ? (
                 <AgentAvailability harness={harness} status={status} />
               ) : (
                 <p className="agent-muted">

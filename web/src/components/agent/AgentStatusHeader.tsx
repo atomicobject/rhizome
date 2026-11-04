@@ -16,12 +16,14 @@ const harnessName = (kind?: AgentHarnessKind) =>
 const installHint = (kind?: AgentHarnessKind) =>
   kind === "claude" ? "Install Claude Code to use chat." : "Install the Codex CLI to use chat.";
 
-/** True when no turn can be sent until the user installs or logs in to a harness. */
+/** True when no turn can be sent until the user picks or installs a harness. */
 export function harnessBlocked(
   harness: AgentHarnessKind | undefined,
   status: AgentHarnessStatus | undefined,
 ) {
-  return !harness || (status !== undefined && (!status.installed || !status.loggedIn));
+  // The server runs a configured harness without checking login (an API key
+  // or a timed-out probe reads as logged out), so login is a hint, not a block.
+  return !harness || (status !== undefined && !status.installed);
 }
 
 export function AgentStatusHeader({

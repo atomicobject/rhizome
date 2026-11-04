@@ -5,6 +5,7 @@ import type {
   ViewTableColumn,
   ViewTableRow,
 } from "../api/types";
+import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { capabilityFor, groupValueLabel } from "./ConfiguredViewModel";
 import type { ReorderGroup } from "./useViewReorder";
 import { viewFieldControl } from "./viewFieldControls";
@@ -118,13 +119,28 @@ export function isDeadlineField(field: string) {
 }
 
 /**
- * True when an open row's due date is before today. A row is open unless its
- * `done` flag is set; a date-only value compares by calendar day.
+ * True when an open row's due date is before today. A row is closed when its
+ * `done` flag is set or a staged field, such as its lifecycle, is at a done or
+ * dropped stage; a date-only value compares by calendar day.
  */
-export function isOverdue(row: ViewTableRow, value: string, today = localDay(new Date())) {
+export function isOverdue(
+  row: ViewTableRow,
+  value: string,
+  capabilities: ViewFieldCapability[],
+  today = localDay(new Date()),
+) {
   const done = row.fields?.done;
 
   if (done === true || done === "true") return false;
+
+  const closed = capabilities.some((capability) => {
+    const current = fieldValue(row, capability.key);
+    const stage = capability.enumValues?.find((option) => option.value === current)?.stage;
+
+    return stage === "done" || stage === "dropped";
+  });
+
+  if (closed) return false;
 
   return /^\d{4}-\d{2}-\d{2}/.test(value) && value.slice(0, 10) < today;
 }

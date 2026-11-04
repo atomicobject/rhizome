@@ -4,13 +4,17 @@ import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { execution, firstRow, rendererProps } from "./ConfiguredView.testFixtures";
 
-function table(sorted: boolean) {
+function table(sorted: boolean, { totalCount = 3, status = "active" } = {}) {
   const rows = ["a", "b", "c"].map((id, index) => ({
     ...firstRow,
     ref: { notePath: `${id}.md`, kind: "NOTE" },
     path: `${id}.md`,
     title: id,
-    fields: { due: index < 2 ? "2000-01-01" : "", done: false },
+    fields: {
+      due: index < 2 ? "2000-01-01" : "",
+      done: false,
+      status: index === 0 ? status : "active",
+    },
   }));
 
   const result = {
@@ -21,6 +25,17 @@ function table(sorted: boolean) {
     ],
     capabilities: [
       { key: "due", valueKind: "date", sortable: true, groupable: false, filterOps: [] },
+      {
+        key: "status",
+        valueKind: "enum",
+        sortable: true,
+        groupable: true,
+        filterOps: [],
+        enumValues: [
+          { value: "active", stage: "active" as const },
+          { value: "complete", stage: "done" as const },
+        ],
+      },
     ],
     groups: [
       {
@@ -29,6 +44,7 @@ function table(sorted: boolean) {
         value: "false",
         label: "Open",
         count: 3,
+        totalCount,
         depth: 0,
         rowStart: 0,
         rowEnd: 3,
@@ -55,6 +71,17 @@ describe("sorted table repetitions", () => {
     expect(within(repeats[0]).getByText("Overdue")).toBeVisible();
     expect(screen.getByRole("button", { name: "Open 3 · 2 overdue" })).toBeVisible();
     expect(screen.getAllByText("Overdue")).toHaveLength(2);
+  });
+
+  it("leaves the overdue count off a group whose rows are not all loaded", () => {
+    render(table(true, { totalCount: 40 }));
+    expect(screen.getByRole("button", { name: "Open 40" })).toBeVisible();
+  });
+
+  it("does not mark a past due date overdue once the record's lifecycle is done", () => {
+    render(table(true, { status: "complete" }));
+    expect(screen.getByRole("button", { name: "Open 3 · 1 overdue" })).toBeVisible();
+    expect(screen.getAllByText("Overdue")).toHaveLength(1);
   });
 
   it("keeps equal values at normal emphasis when their column is not sorted", () => {
