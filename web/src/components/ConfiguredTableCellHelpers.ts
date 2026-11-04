@@ -56,7 +56,11 @@ export function fieldValue(row: ViewTableRow, field: string) {
 export function markCutTitle(row: ViewTableRow, title: string) {
   if (row.ref.kind !== "EMBEDDED" || /[.!?…)]$/.test(title)) return title;
 
-  return new TextEncoder().encode(title).length >= 78 ? `${title}…` : title;
+  if (new TextEncoder().encode(title).length < 78) return title;
+  // The cut lands mid-word, so drop the fragment and end at a word boundary.
+  const space = title.lastIndexOf(" ");
+
+  return `${(space > title.length / 2 ? title.slice(0, space) : title).replace(/[\s,;:—–-]+$/, "")}…`;
 }
 
 export function rawFieldValue(row: ViewTableRow, field: string) {

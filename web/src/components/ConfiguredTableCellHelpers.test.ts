@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { type EditCandidate, candidateForInput } from "./ConfiguredTableCellHelpers";
+import type { ViewTableRow } from "../api/types";
+import { type EditCandidate, candidateForInput, markCutTitle } from "./ConfiguredTableCellHelpers";
 
 function candidate(path: string, label: string): EditCandidate {
   return { ref: { notePath: path, kind: "NOTE" }, value: `[[${path}|${label}]]`, label, path };
@@ -25,5 +26,21 @@ describe("candidateForInput", () => {
     const second = candidate("b/task.md", "Second");
 
     expect(candidateForInput([first, second], "[[task]]")).toBeUndefined();
+  });
+});
+
+describe("markCutTitle", () => {
+  // SAFETY: markCutTitle reads only `ref.kind`.
+  const embedded = { ref: { kind: "EMBEDDED" } } as ViewTableRow;
+
+  it("ends a cut title at a word boundary", () => {
+    const title = "Walk through Rhizome Desktop's native menus, keyboard shortcuts, ⌘W session re";
+    expect(markCutTitle(embedded, title)).toBe(
+      "Walk through Rhizome Desktop's native menus, keyboard shortcuts, ⌘W session…",
+    );
+  });
+
+  it("leaves a short title alone", () => {
+    expect(markCutTitle(embedded, "Buy ice")).toBe("Buy ice");
   });
 });
