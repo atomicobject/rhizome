@@ -2075,52 +2075,19 @@
   padding-top: 0;
 }
 
-/* A long property that echoes a body section previews two lines, full
-   width under its label, with a quiet More at the end of the second line. */
-.notes-shell .ontology-pane .ontology-properties__preview {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-3);
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
+/* Long properties share a two-line preview and an own-row disclosure. */
 .notes-shell .ontology-pane .ontology-properties__preview-text {
   display: -webkit-box;
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+  color: var(--text-muted);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
 
 .notes-shell .ontology-pane .ontology-properties__preview-more {
-  flex: none;
-  color: var(--link);
-  font-size: var(--fs-sm);
-}
-
-.notes-shell .ontology-pane .ontology-properties__preview:hover .ontology-properties__preview-more,
-.notes-shell
-  .ontology-pane
-  .ontology-properties__preview:focus-visible
-  .ontology-properties__preview-more {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.notes-shell .ontology-pane .ontology-properties__preview:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--r-sm);
+  margin-top: var(--sp-2);
 }
 
 /* Field labels stay roman; an empty field reads faint, not italic. */
@@ -2134,15 +2101,11 @@
   padding: 1px 3px;
 }
 
-/* ---- Info rail ----
-   Three steps of hierarchy: 12px muted section labels (Relations, Linked
-   notes), 13px semibold ink group labels (a relation or a type), and 14px
-   teal links, with 8px between groups. Relation targets are quiet links
-   (.link-quiet): underlined only on hover and keyboard focus. Direction marks
-   are faint glyphs, named once by a legend, so the teal stays on the links. */
+/* Info sections outrank their muted type groups and 14px links. */
 .notes-right-rail .ontology-sidebar-context__group h3 {
-  font: var(--label-font);
-  color: var(--label-color);
+  margin-bottom: var(--section-gap);
+  font: var(--section-font);
+  color: var(--section-color);
 }
 
 .notes-right-rail .rail-bucket + .rail-bucket {
@@ -2154,9 +2117,7 @@
   color: var(--text-faint);
 }
 
-/* A row's type (or folder) sits on its right when the title fits beside it
-   and wraps to a muted second line, under the title, when it would truncate
-   the title. */
+/* Type metadata consistently starts below its linked title. */
 .notes-right-rail .rail-row:has(> :is(.rail-row__type, .rail-row__path)) {
   flex-wrap: wrap;
   row-gap: 0;
@@ -2181,6 +2142,12 @@
 
 .notes-right-rail .rail-row > :is(.rail-row__type, .rail-row__path) {
   max-width: 100%;
+}
+
+.notes-right-rail .rail-row > .rail-row__type {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
 }
 .notes-right-rail .rail-row > button {
   color: var(--link);
@@ -2301,8 +2268,8 @@
 }
 
 .notes-right-rail .rail-bucket__head {
-  color: var(--text);
-  font-weight: 600;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 /* ---- Field editor ----
