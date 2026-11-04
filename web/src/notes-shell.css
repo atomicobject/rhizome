@@ -1847,18 +1847,18 @@
 }
 
 .notes-right-rail .view-record__fields dt,
-.notes-right-rail .view-record__reverse h4,
-.notes-right-rail .ontology-sidebar-context__group h3 {
+.notes-right-rail .view-record__reverse h4 {
   font-size: var(--fs-sm);
   font-weight: 500;
 }
 
 /* ---- Note reader measure ----
-   The note reads in a centred 680px column, and its controls align with
-   that column rather than the panel edge. Percentages resolve against the
-   pane's width. HTML notes keep running edge to edge. */
+   The note reads in a 540px column centred in the panel (65–75 characters of
+   15px Inter), and its controls align with that column rather than the panel
+   edge. Percentages resolve against the pane's width. HTML notes keep running
+   edge to edge. */
 .notes-shell .ontology-pane {
-  --note-gutter: max(var(--sp-6), calc((100% - 680px) / 2));
+  --note-gutter: max(var(--sp-6), calc((100% - 540px) / 2));
 }
 
 .notes-shell .ontology-pane__controls,
@@ -1870,10 +1870,8 @@
   max-width: none;
 }
 
-/* The column is the note's width, which tables, code, and properties may
-   fill. Prose keeps a 65–75 character measure inside it (about 540px of 15px
-   Inter), and the editor's lines wrap at the same width, so editing keeps
-   read mode's line breaks. */
+/* Prose and the editor's lines share the column's 540px measure, so editing
+   keeps read mode's line breaks even where the column could grow. */
 .notes-shell .body-narrative :is(p, ul, ol, blockquote),
 .notes-shell .body-narrative--editor .cm-line {
   max-width: 540px;
@@ -2002,11 +2000,11 @@
   padding-top: 0;
 }
 
-/* A long property that echoes a body section previews on one line, in the
-   value column, with a quiet More that opens the full text. */
+/* A long property that echoes a body section previews two lines, full
+   width under its label, with a quiet More at the end of the second line. */
 .notes-shell .ontology-pane .ontology-properties__preview {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   gap: var(--sp-3);
   width: 100%;
   min-width: 0;
@@ -2020,11 +2018,13 @@
 }
 
 .notes-shell .ontology-pane .ontology-properties__preview-text {
+  display: -webkit-box;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .notes-shell .ontology-pane .ontology-properties__preview-more {
@@ -2060,9 +2060,53 @@
 }
 
 /* ---- Info rail ----
-   Relation targets are quiet links (.link-quiet): teal ink, underlined only
-   on hover and keyboard focus. Direction marks are readable glyphs, named
-   once by a legend. */
+   Three steps of hierarchy: 12px muted section labels (Relations, Linked
+   notes), 13px semibold ink group labels (a relation or a type), and 14px
+   teal links, with 8px between groups. Relation targets are quiet links
+   (.link-quiet): underlined only on hover and keyboard focus. Direction marks
+   are faint glyphs, named once by a legend, so the teal stays on the links. */
+.notes-right-rail .ontology-sidebar-context__group h3 {
+  font: var(--label-font);
+  color: var(--label-color);
+}
+
+.notes-right-rail .rail-bucket + .rail-bucket {
+  margin-top: var(--sp-3);
+}
+
+.notes-right-rail
+  :is(.rail-row__dir--incoming, .rail-row__dir--both, .rail-bucket__dir, .rail-direction__dir) {
+  color: var(--text-faint);
+}
+
+/* A row's type (or folder) sits on its right when the title fits beside it
+   and wraps to a muted second line, under the title, when it would truncate
+   the title. */
+.notes-right-rail .rail-row:has(> :is(.rail-row__type, .rail-row__path)) {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.notes-right-rail .rail-row:has(> .rail-row__dir) {
+  position: relative;
+  padding-left: 20px;
+}
+
+.notes-right-rail .rail-row > .rail-row__dir {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  line-height: 19px;
+}
+
+.notes-right-rail .rail-row:has(> :is(.rail-row__type, .rail-row__path)) > button {
+  flex: 1 0 auto;
+  max-width: 100%;
+}
+
+.notes-right-rail .rail-row > :is(.rail-row__type, .rail-row__path) {
+  max-width: 100%;
+}
 .notes-right-rail .rail-row > button {
   color: var(--link);
   text-decoration: none;
@@ -2178,7 +2222,6 @@
 }
 
 .notes-right-rail .rail-direction__dir {
-  color: var(--link);
   text-align: center;
 }
 
@@ -2187,6 +2230,7 @@
 }
 
 .notes-right-rail .rail-bucket__head {
+  color: var(--text);
   font-weight: 600;
 }
 

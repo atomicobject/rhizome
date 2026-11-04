@@ -384,7 +384,7 @@ function PropertyRow({
 
   return (
     <div
-      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}${long && !preview ? " is-long" : ""}`}
+      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}${long ? " is-long" : ""}`}
       data-field={name}
     >
       <dt className="ontology-properties__key" title={name}>
