@@ -1504,17 +1504,37 @@
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   cursor: pointer;
+}
+
+/* One disclosure control everywhere: a 16px chevron that turns down when
+   its control is expanded. */
+.disclosure-chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  transition: transform 120ms var(--ease);
+}
+
+[aria-expanded="true"] > .disclosure-chevron,
+details[open] > summary .disclosure-chevron {
+  transform: rotate(90deg);
 }
 
 .ontology-properties__details-toggle {
   margin-left: auto;
 }
 
-/* Sits under the label column, where the hidden rows would start. */
+/* The chevron hangs in the gutter, so the label starts on the label
+   column, where the hidden rows would. */
 .ontology-properties__empty-toggle {
-  margin: var(--sp-1) 0 0 calc(-1 * var(--sp-2));
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 24px;
+  margin: var(--sp-1) 0 0 calc(-1 * (16px + var(--sp-1) + 4px));
+  padding-left: 4px;
 }
 
 .ontology-properties__details-toggle:hover,

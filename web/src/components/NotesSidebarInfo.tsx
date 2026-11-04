@@ -2,6 +2,7 @@ import { sessionStateLabel } from "../staging/stagedState";
 import { publicWorkspaceRef } from "../api/client";
 import { displayTitle } from "../lib/labels";
 import { publicTypeName } from "../lib/typeNames";
+import { ChevronRight } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import type {
   NodeWorkspace,
@@ -557,19 +558,24 @@ export function NotesSidebarInfo({
         <section className="ontology-sidebar-context" aria-label="Focused note context">
           {/* A workspace's own navigation often repeats the page's, so it waits
               behind a disclosure. An effort's materials (overview, plan, log)
-              are the rail's most useful group there, so they start open. */}
+              are the rail's most useful group on a Markdown note, so they start
+              open there; an HTML page links them itself, so they stay closed. */}
           {navigationGroups.map((group) => (
             <details
               key={group.key}
               className="ontology-sidebar-context__group rail-materials"
-              open={group.label === "In this effort"}
+              open={group.label === "In this effort" && workspace.content?.format !== "html"}
             >
               <summary>
                 <h3>
                   {materialsLabel(group.label)}
                   <span className="ontology-sidebar-context__count">
                     {group.items?.length ?? 0}
+                    <span className="rail-materials__unit">
+                      {group.items?.length === 1 ? " material" : " materials"}
+                    </span>
                   </span>
+                  <ChevronRight className="disclosure-chevron" size={16} aria-hidden="true" />
                 </h3>
               </summary>
               {group.ownerTitle && (

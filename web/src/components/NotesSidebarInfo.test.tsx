@@ -241,7 +241,9 @@ function workspaceWithSectionsAndNearby(): NodeWorkspace {
 
 function groupSection(title: string): HTMLElement {
   const section = screen
-    .getByRole("heading", { name: (name) => name.replace(/\d+$/, "") === title })
+    .getByRole("heading", {
+      name: (name) => name.replace(/\d+\s*(materials?)?$/, "").trim() === title,
+    })
     .closest<HTMLElement>("section, details");
 
   if (!section) throw new Error(`no sidebar section rendered for ${title}`);
@@ -397,6 +399,17 @@ describe("NotesSidebarInfo", () => {
 
     fireEvent.click(within(navigation).getByRole("button", { name: "Work log" }));
     expect(onOpen).toHaveBeenCalledWith("docs/efforts/example/work-log.md", "stack");
+  });
+
+  it("keeps an HTML page's effort materials closed, since the page links them", () => {
+    const workspace = workspaceWithNavigation();
+    workspace.content.format = "html";
+    render(<NotesSidebarInfo workspace={workspace} onOpen={vi.fn()} />);
+
+    const navigation = groupSection("Effort materials");
+    expect(navigation).not.toHaveAttribute("open");
+    expect(navigation.querySelector("summary")).toHaveTextContent(/materials?$/);
+    expect(groupSection("Relations")).toBeVisible();
   });
 });
 

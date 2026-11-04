@@ -1200,9 +1200,24 @@
   max-width: none;
 }
 
+/* "Metadata" is the shared ghost disclosure: label, then the chevron. */
 .ontology-properties__html-summary {
-  display: list-item;
-  cursor: pointer;
+  gap: 2px;
+  padding: 0 4px 0 8px;
+  list-style: none;
+}
+
+.ontology-properties__html-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ontology-properties__html-summary:hover {
+  color: var(--text);
+}
+
+.ontology-properties__html-summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .html-note-viewer {
@@ -2188,7 +2203,8 @@
   text-underline-offset: 2px;
 }
 
-/* Workspace materials open from their heading row; the chevron turns. */
+/* Workspace materials open from their heading row; the shared chevron
+   follows the count and turns. Closed, the count names its unit. */
 .notes-right-rail .rail-materials > summary {
   display: block;
   list-style: none;
@@ -2202,6 +2218,7 @@
 .notes-right-rail .rail-materials > summary > h3 {
   justify-content: flex-start;
   gap: var(--sp-2);
+  min-height: 24px;
   margin: 0;
 }
 
@@ -2209,19 +2226,13 @@
   margin-left: auto;
 }
 
-.notes-right-rail .rail-materials > summary > h3::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  margin-right: 2px;
-  border-right: 1.5px solid currentcolor;
-  border-bottom: 1.5px solid currentcolor;
-  transform: translateY(-2px) rotate(-45deg);
-  transition: transform 120ms var(--ease);
+.notes-right-rail .rail-materials > summary .disclosure-chevron {
+  margin-right: -4px;
+  color: var(--text-muted);
 }
 
-.notes-right-rail .rail-materials[open] > summary > h3::before {
-  transform: translateY(-3px) rotate(45deg);
+.notes-right-rail .rail-materials[open] .rail-materials__unit {
+  display: none;
 }
 
 .notes-right-rail .rail-materials > summary:hover > h3 {
@@ -2549,8 +2560,10 @@
   border: 0;
 }
 
+/* The ghost button's padding bleeds into the row gap, so the ID keeps its
+   room. */
 .notes-shell .ontology-pane__html-head .ontology-properties__html-summary {
-  margin: 0;
+  margin: 0 0 0 -8px;
   color: var(--text-muted);
 }
 

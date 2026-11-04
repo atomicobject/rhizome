@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
   NodeCapabilities,
@@ -210,8 +211,9 @@ export function HTMLRootMetadataPanel({
 
   return (
     <details key={path} className="ontology-properties ontology-properties--html-root">
-      <summary className="ontology-properties__header ontology-properties__html-summary">
-        <span className="ontology-properties__label">Metadata</span>
+      <summary className="button button--ghost ontology-properties__html-summary">
+        Metadata
+        <ChevronRight className="disclosure-chevron" size={16} aria-hidden="true" />
       </summary>
       <div className="ontology-properties__html-body">
         {children}

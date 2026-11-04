@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -231,6 +232,7 @@ export function OntologyPropertyPanel({
             setEmptyOpen(next);
           }}
         >
+          <ChevronRight className="disclosure-chevron" size={16} aria-hidden="true" />
           {emptyOpen
             ? `Hide ${emptyCount} empty field${emptyCount === 1 ? "" : "s"}`
             : `Show ${emptyCount} empty field${emptyCount === 1 ? "" : "s"}`}
