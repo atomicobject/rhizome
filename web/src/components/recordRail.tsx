@@ -49,6 +49,37 @@ export function useRecordRailState() {
 }
 
 /**
+ * The width the record pane covers while it overlays the content (below
+ * 1200px), else 0, so a view can lay itself out for the width the pane leaves.
+ */
+export function useRecordOverlayWidth(open: boolean) {
+  const slot = useContext(RecordRailContext)?.slot;
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const pane = open ? slot?.closest<HTMLElement>(".notes-right-rail") : null;
+
+    if (!pane) {
+      setWidth(0);
+
+      return;
+    }
+
+    const measure = () =>
+      setWidth(pane.classList.contains("is-overlay") ? pane.getBoundingClientRect().width : 0);
+
+    const observer = new ResizeObserver(measure);
+
+    measure();
+    observer.observe(pane);
+
+    return () => observer.disconnect();
+  }, [open, slot]);
+
+  return width;
+}
+
+/**
  * Renders a selected record into the workspace's right pane while `show` is
  * true. Pass `selected={false}` while nothing is selected so the pane closes.
  */

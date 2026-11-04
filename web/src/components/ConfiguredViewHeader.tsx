@@ -38,6 +38,8 @@ type Props = {
   /** A count the page knows; without one the header offers a slot the view fills. */
   count?: ReactNode;
   countRef?: (element: HTMLElement | null) => void;
+  /** Shown in the count slot until a view below fills it, such as a type's record count on its Briefing. */
+  countFallback?: string;
   description?: string | null;
   /** Quiet title-row facts after the description, such as a validation badge. */
   facts?: ReactNode;
@@ -57,6 +59,7 @@ export function ViewHeader({
   titleHint,
   count,
   countRef,
+  countFallback,
   description,
   facts,
   toolsRef,
@@ -71,17 +74,51 @@ export function ViewHeader({
         {count !== undefined && count !== null ? (
           <span className="view-header__count">{count}</span>
         ) : (
-          <span className="view-header__count" ref={countRef} />
+          <span className="view-header__count" ref={countRef} data-fallback={countFallback} />
         )}
-        {description && (
-          <span className="view-header__about" title={description}>
-            {description}
-          </span>
-        )}
+        {description && <HeaderDescription description={description} />}
         {facts}
         <div className="view-header__tools" ref={toolsRef} />
       </div>
       {tabs && <div className="view-header__tabs">{tabs}</div>}
     </header>
+  );
+}
+
+/** The first sentence of a description; null when it is the whole of it. */
+export function leadSentence(text: string) {
+  const match = /^.+?[.!?](?=\s+\S)/s.exec(text.trim());
+
+  return match ? match[0] : null;
+}
+
+/** One line of description: its first sentence, with the rest behind an info mark. */
+function HeaderDescription({ description }: { description: string }) {
+  const lead = leadSentence(description);
+
+  return (
+    <>
+      <span className="view-header__about" title={description}>
+        {lead ?? description}
+      </span>
+      {lead && (
+        <button
+          type="button"
+          className="view-header__about-info"
+          title={description}
+          aria-label={`Full description: ${description}`}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+            <path
+              d="M8 7.2v3.8M8 5.1v.1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      )}
+    </>
   );
 }

@@ -50,8 +50,36 @@
   font-variant-numeric: tabular-nums;
 }
 
-.view-header__count:empty {
+.view-header__count:empty:not([data-fallback]) {
   display: none;
+}
+
+.view-header__count[data-fallback]:empty::before {
+  content: attr(data-fallback);
+}
+
+.view-header__about-info {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: help;
+}
+
+.view-header__about-info:hover {
+  color: var(--text-muted);
+}
+
+.view-header__about-info:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .view-header__about {
@@ -190,6 +218,7 @@
 /* A narrow header drops its least useful text before anything wraps or scrolls. */
 @container view-header (max-width: 760px) {
   .view-header__about,
+  .view-header__about-info,
   .view-header__fact:not(.view-header__issues),
   .configured-view__find kbd {
     display: none;
@@ -805,8 +834,24 @@
   background: color-mix(in srgb, var(--selection-edge) 12%, var(--surface));
 }
 
+/* The edge sits 2px inside the panel so it never merges with the dark
+   sidebar beside it; chrome ink on the tinted fill clears 3:1 in both themes. */
 .configured-view__row.is-selected td:first-child {
-  box-shadow: inset 3px 0 0 var(--selection-edge);
+  box-shadow:
+    inset 2px 0 0 color-mix(in srgb, var(--selection-edge) 12%, var(--surface)),
+    inset 5px 0 0 var(--selection-edge);
+}
+
+/* The footer's notices stay clear of an overlaid record pane. */
+.notes-shell__frame:has(.notes-right-rail.is-overlay) .configured-view__footer {
+  padding-right: calc(min(var(--pane-width), 100%) + var(--sp-5));
+}
+
+/* The overlaid record pane lifts off the table it covers. */
+.notes-shell__frame:has(.configured-view) .notes-right-rail.is-overlay {
+  box-shadow:
+    -1px 0 0 var(--border-strong),
+    -12px 0 28px -6px light-dark(rgba(42, 39, 36, 0.22), rgba(0, 0, 0, 0.6));
 }
 
 /* One ring around the row, not a box around every cell. */
@@ -899,7 +944,7 @@
 
 /* A source column names the note by title; its path is the tooltip. */
 .configured-view__table th.configured-view__cell--source {
-  width: 180px;
+  width: 220px;
 }
 
 .configured-view__table td.configured-view__cell--source {
@@ -956,8 +1001,15 @@
   width: 176px;
 }
 
+/* A full ISO date is about 90px of tabular figures, plus 20px of padding. */
 .configured-view__table th.configured-view__cell--date {
   width: 112px;
+}
+
+/* A relative age ("3h", "30d") needs only a short column; 92px keeps
+   "Changed" and its sort arrow whole. */
+.configured-view__table th.configured-view__cell--age {
+  width: 92px;
 }
 
 .configured-view__table th.configured-view__cell--numeric,
@@ -967,7 +1019,7 @@
 }
 
 .configured-view__table th.configured-view__cell--relation {
-  width: 180px;
+  width: 220px;
 }
 
 .configured-view__table thead th.configured-view__cell--primary {
@@ -1136,6 +1188,7 @@
 /* An empty cell says so with a muted dash rather than a blank. */
 .configured-view__table
   td:not(.configured-view__check-cell, .configured-view__issue-cell):empty::before,
+.configured-view__table .configured-view__scalar-cell:empty::before,
 .configured-view__table .configured-view__relation-display:empty::before {
   color: var(--text-faint);
   content: "—";
@@ -1151,6 +1204,15 @@
 :is(.configured-view, .view-record) [data-configured-relation-link] a:is(:hover, :focus-visible) {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* People are names, not records to browse: ink, still openable on hover. */
+.configured-view__relation-value--person,
+:is(.configured-view, .view-record)
+  .configured-view__relation-value--person
+  [data-configured-relation-link]
+  a {
+  color: var(--text);
 }
 
 .configured-view__relation-edit {
@@ -1253,9 +1315,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   gap: var(--sp-3);
 }
 
+/* Headers top-align, and every expanded header reserves the same two lines
+   (title, then staleness), so titles share one baseline across columns. */
 .configured-view__board-columns {
   position: sticky;
-  align-items: end;
+  align-items: start;
   z-index: 2;
   top: 0;
   padding-top: var(--sp-3);
@@ -1333,9 +1397,9 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  grid-template-rows: 20px 18px;
   column-gap: var(--sp-2);
   min-width: 0;
-  min-height: 30px;
   padding: 4px 2px 6px;
   background: var(--bg);
   font-size: var(--fs-sm);
@@ -1419,10 +1483,10 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__board-strip {
   display: flex;
   align-items: center;
-  align-self: center;
+  align-self: start;
   gap: var(--sp-2);
   min-width: 0;
-  min-height: 30px;
+  min-height: 28px;
   padding: 0 var(--sp-2);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -1438,6 +1502,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__board-strip.is-empty {
   border-color: transparent;
   background: transparent;
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -1589,7 +1654,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 .configured-view__card-section-header {
-  margin: 0 0 var(--sp-3);
+  margin: 0 0 12px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1806,6 +1871,21 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-view__footer-status {
   gap: var(--sp-5);
+  min-width: 0;
+}
+
+/* Notices stay one line each; when the footer is short of room (an overlaid
+   record pane), the longer ones cut with an ellipsis instead of wrapping. */
+.configured-view__footer-status > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.configured-view__footer-status > span:first-child {
+  flex: none;
 }
 
 .configured-view__staged-count {
@@ -1914,13 +1994,19 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 /* Profile-driven record content: board cards and record briefs (SPEC-0112). */
 
+/* A compact card is the same card without its summary and facts: the same
+   title, with its muted meta (type, age) beside it instead of below. */
 .configured-card--compact {
-  gap: 2px;
-  padding: 4px 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--sp-3);
+}
+
+.configured-card--compact > :not(.configured-card__title, .configured-brief__meta) {
+  grid-column: 1 / -1;
 }
 
 .configured-card--compact .configured-card__title {
-  font-size: var(--fs-sm);
   white-space: normal;
 }
 
@@ -2126,13 +2212,14 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   white-space: normal;
 }
 
-/* Grid briefs lead with the title (14/600, two lines reserved so summaries
-   line up across a row), then type and age on one muted 13px line. */
+/* Grid briefs lead with the title (14/600, up to two lines), then one muted
+   13px row with the type at left and the age at right, 8px below. Cards in a
+   grid row share its height, so no blank title block is reserved. */
 .configured-card--cards.configured-card--brief .configured-card__title {
   display: grid;
   align-content: start;
   order: -1;
-  min-height: calc(2 * 1.3em);
+  margin-bottom: 3px;
   font-size: var(--fs-base);
 }
 
@@ -2151,10 +2238,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card--cards.configured-card--brief .configured-brief__type {
   color: var(--text-muted);
-}
-
-.configured-card--cards.configured-card--brief .configured-brief__end {
-  margin-left: 0;
 }
 
 /* Save view (SPEC-0112) */
@@ -2449,11 +2532,27 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   color: var(--text-faint);
 }
 
-.configured-view__sort-arrow sub {
-  margin-left: 2px;
-  font: 500 var(--fs-xs) var(--font-sans);
+/* A multi-key sort numbers each key; Display lists the full order. */
+.configured-view__sort-rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--surface-sunk);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text-muted);
+  font: 600 11px/1 var(--font-sans);
   font-variant-numeric: tabular-nums;
-  vertical-align: baseline;
+  vertical-align: 1px;
+}
+
+.configured-view__sort-then {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .configured-view__column-resize {

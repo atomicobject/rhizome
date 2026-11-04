@@ -58,6 +58,8 @@ export function TypeWorkspaceHeader({
       // shows the vault's note count, since its Briefing reports none.
       count={showStats ? (totalNotes ?? "—") : !typeName ? (totalNotes ?? undefined) : undefined}
       countRef={countRef}
+      // A type's Briefing has no rows to count; it shows the type's record count.
+      countFallback={typeName && totalNotes !== null ? String(totalNotes) : undefined}
       description={description}
       facts={
         <>

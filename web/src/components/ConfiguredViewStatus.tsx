@@ -54,7 +54,10 @@ export function ConfiguredViewFooter({
         {loadingMore && <span role="status">Loading more rows…</span>}
         {collapsed && <span>{collapsed}</span>}
         {moved.length > 0 && (
-          <span className="configured-view__moved-columns">
+          <span
+            className="configured-view__moved-columns"
+            title={`${moved.join(", ")} ${moved.length === 1 ? "shows" : "show"} in the Record pane`}
+          >
             {moved.join(", ")} {moved.length === 1 ? "shows" : "show"} in the Record pane
           </span>
         )}

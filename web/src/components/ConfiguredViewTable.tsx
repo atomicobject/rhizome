@@ -40,7 +40,7 @@ import {
 import { capabilityFor, columnLabel } from "./ConfiguredViewModel";
 import { changedFields, changedFieldsByKey } from "../staging/stagedState";
 import { groupIdentity } from "./ConfiguredViewSave";
-import { RecordRailPortal } from "./recordRail";
+import { RecordRailPortal, useRecordOverlayWidth } from "./recordRail";
 import { useRememberedExpansion } from "./useRememberedExpansion";
 import { useViewReorder } from "./useViewReorder";
 import { useRowSelection } from "./useRowSelection";
@@ -108,7 +108,9 @@ export function ConfiguredViewTable({
   onMovedColumnsChange,
 }: Props) {
   const scroll = useLoadOnScroll(onLoadMore);
-  const available = useElementWidth(scroll.ref);
+  // An overlaid record pane covers the table's right side; lay out for what it leaves.
+  const covered = useRecordOverlayWidth(active);
+  const available = useElementWidth(scroll.ref) - covered;
   const twoLine = density === "two-line" && Boolean(profile?.summaryField);
 
   const groups = useMemo(
@@ -359,7 +361,10 @@ export function ConfiguredViewTable({
       <table
         className={`configured-view__table${summaryField ? " configured-view__table--two-line" : ""}`}
         // The title takes the slack; this keeps it at its minimum when nothing is left.
-        style={{ minWidth: allocation.minWidth }}
+        style={{
+          minWidth: allocation.minWidth,
+          width: covered > 0 ? `calc(100% - ${covered}px)` : undefined,
+        }}
       >
         <ConfiguredViewTableHeader
           columns={columns}

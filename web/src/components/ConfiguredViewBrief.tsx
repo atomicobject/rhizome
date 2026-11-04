@@ -39,7 +39,7 @@ type OpenRow = (row: ViewTableRow, mode?: OpenMode) => void;
 
 const BRIEF_REVERSE_LIMIT = 4;
 
-/** The middle of a board card under its title; compact cards show only the implementing type. */
+/** The middle of a board card under its title; compact cards drop the summary and facts but keep the meta row. */
 export function BoardCardBody({
   row,
   profile,
@@ -65,22 +65,25 @@ export function BoardCardBody({
   const typeLabel = useTypeLabel();
   const shown = (field: string) => !hiddenFields.includes(field);
   const markers = <CardMarkers row={row} stale={stale} otherLanes={otherLanes} />;
+  // A stale card's clock already carries its age.
+  const age = stale ? null : changedAge(row);
 
   if (compact) {
-    return showType || stale || otherLanes > 0 ? (
+    return (
       <div className="configured-brief__meta">
         {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
-        {markers}
+        <span className="configured-brief__end">
+          {markers}
+          {age}
+        </span>
       </div>
-    ) : null;
+    );
   }
 
   const facts = recordFacts(row, profile, capabilities);
   const keyText = facts.keyTexts[0];
   const relation = facts.relations.find((fact) => shown(fact.field));
   const tags = facts.orderedTags.filter((tag) => shown(tag.field));
-  // A stale card's clock label already carries its age.
-  const age = stale ? null : changedAge(row);
 
   return (
     <>
@@ -125,7 +128,8 @@ function CardMarkers({
       {stale && (
         <span className="configured-brief__stale" title={`Unchanged for ${STALE_DAYS}+ days`}>
           <Clock size={12} aria-hidden="true" />
-          Unchanged {row.updatedAt ? <ChangedCell value={row.updatedAt} /> : `${STALE_DAYS}+ days`}
+          <span className="sr-only">Unchanged </span>
+          {row.updatedAt ? <ChangedCell value={row.updatedAt} /> : `${STALE_DAYS}+ days`}
         </span>
       )}
       {otherLanes > 0 && (

@@ -80,8 +80,8 @@ describe("ConfiguredViewCards record briefs", () => {
     render(<ConfiguredViewCards {...rendererProps({ execution: ideaBriefs() })} />);
     const bravo = brief("Bravo");
 
-    // Every brief in the section is an IP idea, so none repeats the type.
-    expect(within(bravo).queryByText("IP idea")).toBeNull();
+    // Every grid card carries the same metadata row, type first.
+    expect(within(bravo).getByText("IP idea")).toBeVisible();
     // Its section names the status, so the brief leaves it out.
     expect(within(bravo).queryByText("Pursuing")).toBeNull();
     expect(within(bravo).getByText("Low")).toBeVisible();

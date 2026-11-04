@@ -30,12 +30,17 @@ export function renderReadOnlyCell(
   const control = viewFieldControl(capability);
   const displayValue = control.kind === "relation" ? relationDisplayValue(value) : value;
 
+  // People read as names in ink; teal stays for records you navigate to.
+  const relationClass = `configured-view__relation-value${
+    capability?.edit?.targetType === "Person" ? " configured-view__relation-value--person" : ""
+  }`;
+
   if (control.kind === "relation") {
     const relationValues = relationValuesForField(row, field, capability);
 
     if (relationValues.length > 0) {
       return (
-        <span className="configured-view__relation-value">
+        <span className={relationClass}>
           {relationValues.map((relation, index) => {
             const target = relation.ref ? publicWorkspaceRef(relation.ref) : "";
             const text = displayTitle(relation.title) || relationDisplayValue(relation.value);
@@ -116,7 +121,7 @@ export function renderReadOnlyCell(
   }
 
   if (control.kind === "relation" && value) {
-    return <span className="configured-view__relation-value">{displayValue}</span>;
+    return <span className={relationClass}>{displayValue}</span>;
   }
 
   // Staged reads can return a date as a midnight timestamp.
