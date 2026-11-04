@@ -386,10 +386,12 @@ function NotesIssuesHomeContent({
               ? `${totalIssues} ${totalIssues === 1 ? "issue" : "issues"} in ${affectedFiles} ${affectedFiles === 1 ? "file" : "files"}`
               : "Validation results for this vault"}
             {scope?.kind !== "global" && scope?.key ? (
-              <span className="problems-workspace__scope">
+              <>
                 {" · "}
-                {scope.kind} · {scope.key}
-              </span>
+                <span className="problems-workspace__scope">
+                  {scope.kind} · {scope.key}
+                </span>
+              </>
             ) : null}
           </span>
           {pendingChangeCount > 0 && onReviewChanges ? (
