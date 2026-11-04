@@ -941,7 +941,9 @@ function TypeDetailBody({
                 <tr key={f.name}>
                   <td>
                     <span>{humanizeName(f.name)}</span>{" "}
-                    <code className="ontology-type-detail__ident-secondary">{f.name}</code>
+                    {humanizeName(f.name).toLowerCase() !== (f.name ?? "").toLowerCase() ? (
+                      <code className="ontology-type-detail__ident-secondary">{f.name}</code>
+                    ) : null}
                   </td>
                   <td>
                     {f.typeName ? (
@@ -1146,10 +1148,15 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
           <tr key={f.name}>
             <td>
               <span>{humanizeName(f.name)}</span>{" "}
-              <code className="ontology-type-detail__ident-secondary">{f.name}</code>
+              {humanizeName(f.name).toLowerCase() !== (f.name ?? "").toLowerCase() ? (
+                <code className="ontology-type-detail__ident-secondary">{f.name}</code>
+              ) : null}
             </td>
             <td>
-              {f.typeName || f.kind || "string"}
+              <span>{humanizeName(f.typeName || f.kind || "string")}</span>
+              {f.typeName && humanizeName(f.typeName).toLowerCase() !== f.typeName.toLowerCase() ? (
+                <code className="ontology-type-detail__ident-secondary">{f.typeName}</code>
+              ) : null}
               {f.list ? "[]" : ""}
               {f.enumValues?.length ? (
                 <span className="ontology-type-detail__enum-chips">
@@ -1164,7 +1171,11 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
             <td>{f.required ? "yes" : "no"}</td>
             {renamed ? (
               <td className="ontology-type-detail__nowrap">
-                {f.source && f.source !== f.name ? <code>{f.source}</code> : null}
+                {f.source && f.source !== f.name ? (
+                  <code>{f.source}</code>
+                ) : (
+                  <span className="empty-dash">—</span>
+                )}
               </td>
             ) : null}
             <td>
