@@ -438,12 +438,13 @@ export function placeEdgeLabels(
     const b = positions.get(edge.b);
 
     if (!a || !b || !edge.label) continue;
-    const w = edge.label.text.length * GLYPH + 4;
+    // The count's box covers its 2px halo (overview-map.tsx draws it).
+    const w = edge.label.text.length * GLYPH + 6;
 
     const spots = EDGE_STOPS.flatMap((t) => {
       const x = a.x + (b.x - a.x) * t;
       const y = a.y + (b.y - a.y) * t - 3;
-      const box = { x: x - w / 2, y: y - 9, w, h: 11 };
+      const box = { x: x - w / 2, y: y - 13, w, h: 16 };
 
       return boxes.some((other) => overlaps(other, box)) ? [] : [{ x, y, box }];
     });

@@ -1397,7 +1397,7 @@
 
 /* Space reserved for each Overview block, so blocks fill in without shifting the page. */
 .gv-slot-map {
-  min-height: 400px;
+  min-height: 300px;
 }
 
 .gv-slot-members {
@@ -1519,8 +1519,11 @@
   stroke: var(--link);
 }
 
+/* Plain links are dashed, so the two kinds differ by pattern as well as color. */
 .gv-map-edge[data-kind="plain"] line:first-child {
   stroke: var(--type-8);
+  stroke-dasharray: 10 3;
+  stroke-linecap: butt;
 }
 
 .gv-map .gv-map-hit {
@@ -1532,7 +1535,13 @@
   cursor: pointer;
 }
 
+/* A count sits on a surface halo 2px wider than its digits, covering the stroke. */
+.gv-map .gv-map-count-halo {
+  fill: var(--surface);
+}
+
 .gv-map .gv-map-count {
+  stroke-width: 0;
   fill: var(--link);
   font: 600 var(--fs-xs) var(--font-sans);
   font-variant-numeric: tabular-nums;
@@ -1594,7 +1603,8 @@
 .gv-map[data-dim="true"] .gv-map-node,
 .gv-map[data-dim="true"] .gv-map-spoke,
 .gv-map[data-dim="true"] .gv-map-unused,
-.gv-map[data-dim="true"] .gv-map-labels text {
+.gv-map[data-dim="true"] .gv-map-labels > text,
+.gv-map[data-dim="true"] .gv-map-labels > .gv-map-count-wrap {
   opacity: 0.15;
 }
 
@@ -1682,7 +1692,25 @@
 }
 
 .gv-legend s[data-kind="plain"] {
-  border-top-color: var(--type-8);
+  border-top: 3px dashed var(--type-8);
+}
+
+/* An interface's ring, keyed segment by segment. */
+.gv-legend-ring {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.gv-legend-ring > span {
+  white-space: nowrap;
+}
+
+.gv-legend-ring > span i {
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
 }
 
 .gv-legend s[data-kind="unused"] {
