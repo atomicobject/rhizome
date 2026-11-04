@@ -530,9 +530,11 @@ function FolderLegend({
   return (
     <aside className="graph-type-legend graph-type-legend--folders" aria-label="Graph type legend">
       <div className="graph-type-legend__row">
-        <h3 className="graph-type-legend__title">Folder colors</h3>
+        <h3 className="graph-type-legend__title">Types</h3>
         <ul className="graph-type-legend__list">
-          {inventory.filter((entry) => shown.has(entry.name)).map(legendItem)}
+          {inventory
+            .filter((entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code")
+            .map(legendItem)}
         </ul>
         <button
           type="button"
@@ -548,6 +550,10 @@ function FolderLegend({
         </button>
       </div>
       <div className="graph-type-legend__row graph-type-legend__keys">
+        <h3 className="graph-type-legend__title">Graph</h3>
+        <ul className="graph-type-legend__list">
+          {inventory.filter((entry) => legendGroup(entry.name) === "code").map(legendItem)}
+        </ul>
         {sizeCaption && (
           <span className="graph-type-legend__key">
             <span className="graph-type-legend__size" aria-hidden="true" />
