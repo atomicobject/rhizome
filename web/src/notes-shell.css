@@ -644,9 +644,10 @@
   white-space: pre;
 }
 
-/* Note excerpts read as prose: soft-wrapped, inline code as code. */
+/* Note excerpts read as prose: soft-wrapped at about 75 characters a line,
+   inline code as code. */
 .search-workspace__result p {
-  max-width: 78ch;
+  max-width: 62ch;
   margin: var(--sp-2) 0 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
@@ -667,7 +668,8 @@
   font-style: italic;
 }
 
-/* Code evidence keeps its whitespace in mono on the tint. */
+/* Code evidence keeps its source lines in mono on the tint: long lines
+   scroll sideways instead of breaking into fragments. */
 .search-workspace__code {
   max-height: 14lh;
   margin: var(--sp-2) 0 0;
@@ -678,8 +680,7 @@
   color: var(--text);
   font: 400 var(--fs-sm) / 1.5 var(--font-mono);
   tab-size: 4;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: pre;
 }
 
 /* A match is a neutral selection tint with a heavier weight, never the
@@ -1091,9 +1092,11 @@
   flex: none;
 }
 
+/* The path takes the row's free width and truncates in the middle, so the
+   filename survives (MiddleTruncate). */
 .ontology-pane__toolbar-path {
+  flex: 0 1 auto;
   min-width: 80px;
-  max-width: min(34vw, 420px);
   overflow: hidden;
   color: var(--text-faint);
   font-family: var(--font-mono);
@@ -1889,16 +1892,20 @@
 
 /* ---- Note reader measure ----
    The note reads in a 540px column centred in the panel (65–75 characters of
-   15px Inter), and its controls align with that column rather than the panel
-   edge. Percentages resolve against the pane's width. HTML notes keep running
+   15px Inter). Percentages resolve against the pane's width. HTML notes run
    edge to edge. */
 .notes-shell .ontology-pane {
   --note-gutter: max(var(--sp-6), calc((100% - 540px) / 2));
 }
 
-.notes-shell .ontology-pane__controls,
 .notes-shell .ontology-pane__main:not(.ontology-pane__main--html) {
   padding-inline: var(--note-gutter);
+}
+
+/* The control row is pane chrome, not prose: it runs edge to edge as an HTML
+   note's does, so the path has the free width. */
+.notes-shell .ontology-pane__controls {
+  padding-inline: var(--sp-6);
 }
 
 .notes-shell .ontology-pane__main:not(.ontology-pane__main--html) .ontology-markdown {
@@ -1944,10 +1951,11 @@
   content: none;
 }
 
-/* Editing is a mode, so the note says so where the eye starts: a 2px AO red
-   rule under the control row, matching the red Save it leads to. */
+/* Editing is a mode, cued by a neutral border-strong rule under the control
+   row and the quiet "Editing" label. Red stays for errors and the focused
+   field; gold for staged changes. */
 .notes-shell .ontology-pane.is-editing > .ontology-pane__header > .ontology-pane__controls {
-  border-bottom: 2px solid var(--accent);
+  border-bottom: 2px solid var(--border-strong);
 }
 
 /* The controls row is only as wide as the column: the path gives way, never
@@ -1966,31 +1974,31 @@
    a ghost button, not a second bordered control. */
 .ontology-pane__controls .view-tabs {
   flex: none;
-  gap: 0;
+  gap: 2px;
   align-items: stretch;
+  padding: 2px;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
 }
 
+/* The chosen presentation is the shared raised segment (base.css .segmented):
+   a surface fill with a border-strong edge on the tinted track, in both
+   themes. Never a solid ink fill. */
 .ontology-pane__controls .view-tabs > button {
-  height: 24px;
-  padding: 0 10px;
-  font: 600 var(--fs-sm) / 1 var(--font-sans);
-}
-
-.ontology-pane__controls .view-tabs > button + button {
-  border-left: 1px solid var(--border);
-}
-
-.ontology-pane__controls .view-tabs > button:hover {
-  background: var(--bg-tint);
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
 }
 
 .ontology-pane__controls .view-tabs > button[aria-pressed="true"] {
-  background: var(--text);
-  color: var(--surface);
+  border-color: var(--border-strong);
+  background: light-dark(var(--surface), var(--surface-strong));
+  color: var(--text);
+  font-weight: 600;
 }
 
 .ontology-pane__controls .view-tabs > button[aria-pressed="true"]::after,
@@ -2440,12 +2448,6 @@
   overflow: visible;
 }
 
-/* An HTML page runs edge to edge, so its control row does too, in Preview
-   and Source alike. */
-.notes-shell .ontology-pane__controls--html {
-  padding-inline: var(--sp-6);
-}
-
 .notes-shell .ontology-pane__controls > .ontology-pane__html-head {
   display: flex;
   flex: 0 1 auto;
@@ -2477,14 +2479,24 @@
 }
 
 .notes-shell .ontology-pane__html-head .ontology-identity__row {
-  flex: none;
+  flex: 0 1 auto;
   flex-wrap: nowrap;
+  min-width: 0;
 }
 
-/* The row has room for the title and status, not the long identifier: the
-   title's tooltip names it, and the authored page shows it. */
+/* With the title hidden, the short ID names the document beside its type
+   and status. It is the one part that gives way, before the actions do. */
 .notes-shell .ontology-pane__html-head .ontology-identity__slot--id {
-  display: none;
+  flex: 0 1 auto;
+  min-width: 6ch;
+  overflow: hidden;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--id * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notes-shell .ontology-pane__html-head .ontology-identity__flex {
