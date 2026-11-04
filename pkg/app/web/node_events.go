@@ -312,6 +312,10 @@ func (s *Server) handleWatchHubEvents(_ context.Context, events []watchhub.Watch
 				fresh := projection.Ref
 				canonical = &fresh
 			}
+			// Advance before publishing, so a handler that runs as soon as the
+			// subscriber sees this event already compares against the new version
+			// and cannot announce the same update twice.
+			s.nodeEvents.Advance(state.Ref, projection.Ref, workspace.Version)
 			s.nodeEvents.Publish(ontology.NodeEvent{
 				ID:           nextNodeEventID(&s.nodeEvents.seq),
 				Kind:         "node.updated",
@@ -321,7 +325,6 @@ func (s *Server) handleWatchHubEvents(_ context.Context, events []watchhub.Watch
 				Cause:        "filesystem",
 				Changed:      []string{"content"},
 			})
-			s.nodeEvents.Advance(state.Ref, projection.Ref, workspace.Version)
 		}
 		s.nodeEvents.PublishStaleExceptNotePath(notePath, "filesystem", "relations")
 	}
