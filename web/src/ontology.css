@@ -82,7 +82,7 @@
   color: var(--text-faint);
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -1176,6 +1176,18 @@
   font-size: var(--fs-sm);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.ontology-edit-bar.is-idle .ontology-edit-bar__label {
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.ontology-edit-bar.is-idle .ontology-edit-bar__dot {
+  display: none;
 }
 
 .ontology-edit-bar.is-dirty .ontology-edit-bar__label {
