@@ -2671,6 +2671,7 @@
 }
 .atlas-workbench {
   display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
 }
@@ -2690,20 +2691,19 @@
 .atlas-node--dimmed {
   opacity: 0.24;
 }
+/* The legend is a band below the canvas, never over a card. */
 .atlas-legend {
-  position: absolute;
-  bottom: var(--sp-4);
-  right: var(--sp-4);
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--sp-5);
-  padding: var(--sp-2) var(--sp-4);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
+  gap: var(--sp-2) var(--sp-5);
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-5);
+  border-top: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  pointer-events: none;
 }
 .atlas-legend s {
   display: inline-block;
@@ -2719,6 +2719,7 @@
   border-top-style: dotted;
 }
 .atlas-legend__hint {
+  margin-left: auto;
   color: var(--text-faint);
 }
 
@@ -2839,8 +2840,8 @@
   display: none;
 }
 
-/* A card's type color is its dot (and its edges while traced); text stays ink.
-   In dark mode the card sits a lightness step above the canvas. */
+/* A card's type color is a bar on its left edge (and its edges while traced);
+   text stays ink. In dark mode the card sits a lightness step above the canvas. */
 .ontology-node {
   --type-accent: var(--type-8);
   width: 100%;
@@ -2849,6 +2850,7 @@
   background: light-dark(var(--surface), var(--surface-strong));
   border: 1px solid var(--border-strong);
   border-radius: var(--r);
+  box-shadow: inset 6px 0 var(--type-accent);
   color: var(--text);
 }
 .ontology-node__card {
@@ -2858,7 +2860,7 @@
   gap: 4px;
   height: 100%;
   box-sizing: border-box;
-  padding: 8px 12px;
+  padding: 8px 12px 8px 18px;
   color: inherit;
   text-decoration: none;
   border-radius: inherit;
@@ -2867,27 +2869,22 @@
 .ontology-node--interface {
   border-style: dashed;
 }
-/* Up to two lines; long names break between their words (see the <wbr> in the card). */
+/* The type name as written, on two lines that always break before its last
+   word (nameLines in lib/ontologyGraph.ts), so every card reads the same way. */
 .ontology-node__name {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   /* Card units, matching NAME_SIZE in lib/ontologyGraph.ts; about 14px at fit. */
   font-size: 20px;
   font-weight: 600;
   line-height: 1.25;
   color: var(--text);
 }
-.ontology-node__name::before {
-  content: "";
-  display: inline-block;
-  width: 0.6em;
-  height: 0.6em;
-  margin-right: 0.4em;
-  border-radius: 50%;
-  background: var(--type-accent);
-  vertical-align: 0.05em;
+.ontology-node__name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ontology-node__card:hover .ontology-node__name,
 .ontology-node__card:focus-visible .ontology-node__name {
@@ -3140,19 +3137,27 @@
   gap: var(--sp-2);
 }
 
+/* The implementor's name is a quiet link: the card opens that type. */
 .ontology-type-detail__impl-name {
-  font-weight: 700;
-  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 600;
+  color: var(--link);
 }
 
-.ontology-type-detail__impl-name::before {
-  content: "";
-  display: inline-block;
+.ontology-type-detail__impl-dot {
+  flex: none;
   width: 8px;
   height: 8px;
-  margin-right: var(--sp-2);
   border-radius: 50%;
   background: var(--impl-accent, var(--type-8));
+}
+
+.ontology-type-detail__impl-card:is(:hover, :focus-visible) .ontology-type-detail__impl-title {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .ontology-type-detail__impl-count {
@@ -3224,6 +3229,18 @@
   white-space: nowrap;
 }
 
+/* A source that only repeats the field name. */
+.ontology-type-detail__table code[data-same="true"] {
+  color: var(--text-faint);
+}
+
+/* Identifiers and example values in prose never break mid-token. */
+.ontology-type-detail__ident {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
 .ontology-type-detail__enum-chips {
   display: flex;
   flex-wrap: wrap;
@@ -3260,14 +3277,15 @@
   color: var(--link);
   font: inherit;
   font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--link-line);
+  text-decoration: none;
   text-underline-offset: 2px;
   cursor: pointer;
 }
 
-.ontology-type-detail__target-chip:hover {
-  text-decoration-color: currentcolor;
+/* A quiet link: underlined only on hover and keyboard focus. */
+.ontology-type-detail__target-chip:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
 }
 
 .ontology-type-detail__target-dot {

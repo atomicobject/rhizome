@@ -844,6 +844,49 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Types no drawn node shows wait behind "All types", a popover over the canvas. */
+.graph-type-legend__more {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+}
+
+.graph-type-legend__more summary {
+  color: var(--link);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.graph-type-legend__more summary::-webkit-details-marker {
+  display: none;
+}
+
+.graph-type-legend__more summary .num {
+  color: var(--text-muted);
+}
+
+.graph-type-legend__more summary:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.graph-type-legend__more details > .graph-type-legend__list {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, auto));
+  gap: 0 var(--sp-5);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
 .graph-type-legend__note {
   align-self: center;
   color: var(--text-muted);

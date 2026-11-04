@@ -85,6 +85,7 @@ export * from "./types";
 export {
   useDisplayGroup,
   useDisplayGroups,
+  useTypeColors,
   useTypeDocs,
   useValidationSummaries,
   validationScopeKey,

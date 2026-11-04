@@ -88,10 +88,12 @@ export function OntologyRoutedEdge({
   interactionWidth,
 }: EdgeProps) {
   const points = data?.routedPoints;
+  // A card with two kinds of line sends them out a few units apart (see sourceOffset).
+  const offset = isFiniteNumber(data?.sourceOffset) ? data.sourceOffset : 0;
 
   const routedPoints = normalizedRoutePoints(
     isRoutedPointList(points) ? points : [],
-    { x: sourceX, y: sourceY },
+    { x: sourceX, y: sourceY + offset },
     { x: targetX, y: targetY },
   );
 

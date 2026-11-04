@@ -180,6 +180,8 @@
   --type-12-ink: light-dark(#285f3f, #96cfa9);
   --type-13: light-dark(#694124, #dbac8d);
   --type-13-ink: light-dark(#694124, #dbac8d);
+  /* Code in graphs: a mid gray lighter than the untyped neutral, so strong fills stay with notes. */
+  --graph-code: light-dark(#b3b0ab, #6e6a65);
 
   /* ---- Chart series ----
      Neutral first; no red. Teal is reserved for "linked" or "connected"

@@ -111,12 +111,16 @@ export function collectionModel(
   });
 }
 
+/** `GET /api/v1/ontology/summary`, which type colors follow; names fall back to a stable hash. */
+const ONTOLOGY_SUMMARY = { types: [], interfaces: [] };
+
 /** Routes answering a collection loader's requests from the collection fixtures. */
 export function collectionRoutes(overrides: ViewRoutes = {}): ViewRoutes {
   const routes: ViewRoutes = {
     "GET /api/v1/display-groups": () => jsonReply(COLLECTION_GROUPS),
     "GET /api/v1/views": () => jsonReply(COLLECTION_CATALOG),
     "GET /api/v1/ontology/types": () => jsonReply(COLLECTION_SUMMARIES),
+    "GET /api/v1/ontology/summary": () => jsonReply(ONTOLOGY_SUMMARY),
     "POST /api/v1/graphql": () => jsonReply({ data: COLLECTION_DATA }),
   };
 
@@ -173,6 +177,7 @@ export function groupRoutes(overrides: ViewRoutes = {}): ViewRoutes {
     "GET /api/v1/display-groups": () => jsonReply(DISPLAY_GROUPS),
     "GET /api/v1/views": () => jsonReply(VIEW_CATALOG),
     "GET /api/v1/ontology/types": () => jsonReply(TYPE_SUMMARIES),
+    "GET /api/v1/ontology/summary": () => jsonReply(ONTOLOGY_SUMMARY),
     "POST /api/v1/graphql": () => jsonReply({ data: RECORDS_DATA }),
   };
 

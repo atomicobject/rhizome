@@ -226,6 +226,50 @@ describe("GraphView", () => {
     },
   );
 
+  it("lists the types a summarized view draws and keeps the rest behind All types", () => {
+    const restoreWebGL = installFakeWebGL();
+
+    const notes: GraphNode[] = ["Spec", "Task", "Plan"].map((type) => ({
+      id: type,
+      label: type,
+      kind: "note",
+      path: `${type}.md`,
+      resolvedType: type,
+    }));
+
+    // One folder, colored by its most common type: only Spec's color is on screen.
+    const folder = { id: "folder:docs", label: "docs", kind: "module", fill: "#6366f1" };
+
+    const view = render(
+      <GraphView
+        {...baseProps}
+        nodes={[folder]}
+        legendNodes={notes}
+        typeColors={
+          new Map([
+            ["Spec", "#6366f1"],
+            ["Task", "#22c55e"],
+            ["Plan", "#f97316"],
+          ])
+        }
+        showTypeLegend
+      />,
+    );
+
+    try {
+      const legend = screen.getByRole("complementary", { name: "Graph type legend" });
+      const more = legend.querySelector(".graph-type-legend__more");
+
+      expect(legend.querySelector('[data-type="Spec"]')?.closest("details")).toBeNull();
+      expect(more).toHaveTextContent("All types +2");
+      expect(more?.querySelector('[data-type="Task"]')).not.toBeNull();
+      expect(more?.querySelector('[data-type="Plan"]')).not.toBeNull();
+    } finally {
+      view.unmount();
+      restoreWebGL();
+    }
+  });
+
   it("enables the Problems overlay without rebuilding the graph", () => {
     const restoreWebGL = installFakeWebGL();
     const sigmaOn = vi.spyOn(Sigma.prototype, "on");

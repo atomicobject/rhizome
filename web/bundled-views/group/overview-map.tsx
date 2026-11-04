@@ -3,7 +3,7 @@
 // neighbors on a ring, and members without links listed in the legend. Nodes take
 // keyboard focus most records first; hovering or focusing one highlights its
 // edges and shows its figures. The Matrix is the text alternative.
-import { openCollection, openView } from "@rhizome/kit";
+import { openCollection, openView, useTypeColors } from "@rhizome/kit";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { layoutMap, OUTSIDE_RADIUS, type Point } from "./map-layout.ts";
@@ -55,53 +55,44 @@ function useCanvasWidth() {
   return { ref, width };
 }
 
-// Categorical hues for named groups, from the shared type palette. The first
-// palette color marks types in no named group; red (risk) and teal
-// (connection) never mark a group.
-const HUES = [2, 3, 4, 5, 6, 7].map((n) => `var(--type-${n})`);
-
-// The twelve type hues in the order the app assigns them (web/src/lib/typeAccent.ts):
-// neighbors differ in hue and lightness. Slot 8 is the neutral.
-const TYPE_SLOTS = [1, 6, 7, 5, 2, 3, 4, 11, 10, 12, 13, 9];
-
 const fmt = (count: number) => count.toLocaleString("en-US");
 
+/** The neutral: interfaces, collapsed groups, and untyped notes. */
+const NEUTRAL = "var(--type-8)";
+
+/** A type's palette color, from the kit's `useTypeColors`. */
+export type TypeColor = (name: string) => string;
+
 /**
- * A node's color. Inside one group every member type has its own hue, by name
- * order among the members; at All notes a node takes its named group's hue,
- * blue without one. Untyped notes are the neutral gray.
+ * A node's color. A type keeps the hue it has in the Atlas, Explorer, and
+ * type pages; interfaces, collapsed groups, and untyped notes are neutral, and
+ * the map rings an interface or group in its member types' hues.
  */
-export function nodeHue(
-  model: ScopeModel,
-  node: Pick<ScopeNode, "kind" | "group"> & { name?: string },
-) {
-  if (node.kind === "untyped") return "var(--type-8)";
-
-  if (model.scope.kind === "group" && node.kind !== "group") {
-    const index = memberTypes(model).indexOf(node.name ?? "");
-
-    if (index >= 0) return `var(--type-${TYPE_SLOTS[index % TYPE_SLOTS.length]})`;
-  }
-
-  const index = node.group === null ? -1 : model.groupNames.indexOf(node.group);
-
-  return index < 0 ? "var(--type-1)" : HUES[index % HUES.length];
+export function nodeHue(node: Pick<ScopeNode, "kind" | "name">, color: TypeColor) {
+  return node.kind === "type" || node.kind === "interface" ? color(node.name) : NEUTRAL;
 }
 
-const membersByModel = new WeakMap<ScopeModel, string[]>();
+/** The ring around a node that stands for several types: one arc per type, sized by records. */
+function compositionArcs(
+  node: ScopeNode,
+  summaries: ReadonlyMap<string, TypeSummary>,
+  color: TypeColor,
+) {
+  if (node.kind !== "group" && node.kind !== "interface") return [];
 
-/** A group's member types and interfaces in name order, which sets their hues. */
-function memberTypes(model: ScopeModel) {
-  let names = membersByModel.get(model);
+  const parts = node.types
+    .map((name) => ({ name, count: summaries.get(name)?.count ?? 0 }))
+    .filter((part) => part.count > 0);
 
-  if (!names) {
-    names = model.nodes
-      .flatMap((node) => (node.kind === "type" || node.kind === "interface" ? [node.name] : []))
-      .sort((a, b) => a.localeCompare(b));
-    membersByModel.set(model, names);
-  }
+  const total = parts.reduce((sum, part) => sum + part.count, 0);
+  let start = 0;
 
-  return names;
+  return parts.map((part) => {
+    const arc = { name: part.name, color: color(part.name), start, share: part.count / total };
+    start += arc.share;
+
+    return arc;
+  });
 }
 
 /** Declared relations no record uses between members with no edge, one hairline per pair. */
@@ -233,6 +224,7 @@ function OutsideTip({ model, neighbor }: { model: ScopeModel; neighbor: OutsideN
 
 export function ScopeMap({ model, links, relations, summaries, expanded, onExpand }: MapProps) {
   const [hot, setHot] = useState<Hot>(null);
+  const color = useTypeColors();
   const { ref: canvas, width } = useCanvasWidth();
   const group = model.scope.kind === "group" ? model.scope.group : null;
   const ring = links.outside.slice(0, OUTSIDE_RING);
@@ -425,7 +417,8 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
           {ordered.map((node) => {
             const point = at(node.id);
             const r = radius(node);
-            const hue = nodeHue(model, node);
+            const hue = nodeHue(node, color);
+            const arcs = compositionArcs(node, summaries, color);
 
             return (
               <g
@@ -448,22 +441,33 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                   activate(node);
                 }}
               >
-                {node.kind === "group" && (
-                  <circle
-                    className="gv-map-ring"
-                    cx={point.x}
-                    cy={point.y}
-                    r={r + 4}
-                    stroke={hue}
-                  />
-                )}
                 <circle
                   cx={point.x}
                   cy={point.y}
                   r={r}
+                  data-composite={arcs.length > 0 ? "true" : undefined}
                   fill={node.count === 0 ? "var(--surface)" : hue}
                   stroke={node.count === 0 ? hue : "var(--surface)"}
                 />
+                {arcs.map((arc) => {
+                  // A donut inside the node's edge: each member type's share of the records.
+                  const band = Math.max(3.5, r * 0.32);
+
+                  return (
+                    <circle
+                      key={arc.name}
+                      className="gv-map-arc"
+                      cx={point.x}
+                      cy={point.y}
+                      r={r - band / 2}
+                      stroke={arc.color}
+                      strokeWidth={band}
+                      pathLength={100}
+                      strokeDasharray={`${arc.share * 100} ${100 - arc.share * 100}`}
+                      strokeDashoffset={25 - arc.start * 100}
+                    />
+                  );
+                })}
               </g>
             );
           })}
@@ -579,36 +583,33 @@ function MapLegend({
   onOpen: (node: ScopeNode) => void;
 }) {
   const shown = Math.min(OUTSIDE_RING, links.outside.length);
-  const collapsed = model.groupNames.filter((name) => !expanded.has(name));
 
   return (
     <>
       <p className="gv-legend">
-        {model.scope.kind === "workspace" && (
-          <>
-            {model.groupNames.map((name) => (
-              <span key={name}>
-                <i style={{ background: nodeHue(model, { kind: "group", group: name }) }} />
-                {name}
-                {expanded.has(name) && (
-                  <>
-                    {" "}
-                    <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
-                      collapse
-                    </button>
-                  </>
-                )}
-              </span>
-            ))}
-            <span>
-              <i style={{ background: nodeHue(model, { kind: "type", group: null }) }} />
-              No group
-            </span>
-            <span>
-              <i style={{ background: nodeHue(model, { kind: "untyped", group: null }) }} />
-              Untyped
-            </span>
-          </>
+        {model.nodes.some((node) => node.kind === "group" || node.kind === "interface") && (
+          <span>
+            <i className="gv-legend-composite" />
+            ring shows its types
+          </span>
+        )}
+        {model.nodes.some((node) => node.kind === "untyped") && (
+          <span>
+            <i className="gv-legend-untyped" />
+            untyped
+          </span>
+        )}
+        {model.groupNames.flatMap((name) =>
+          expanded.has(name)
+            ? [
+                <span key={name}>
+                  {name}{" "}
+                  <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
+                    collapse
+                  </button>
+                </span>,
+              ]
+            : [],
         )}
         <span>
           <s data-kind="relation" />
@@ -646,9 +647,6 @@ function MapLegend({
               </button>
             ))}
           </span>
-        )}
-        {model.scope.kind === "workspace" && collapsed.length > 0 && (
-          <span className="gv-faint">Activate a group to expand it.</span>
         )}
       </p>
       {model.scope.kind === "group" && links.edges.length === 0 && (

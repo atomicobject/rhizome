@@ -324,7 +324,7 @@ describe("buildOntologyGraph", () => {
     }
   });
 
-  it("keeps a detached pair from widening a larger branching component", async () => {
+  it("packs a detached pair into free space beside a larger branching component", async () => {
     const branches = Array.from({ length: 7 }, (_, index) => ({
       type: { name: `Branch${index}`, fields: [{ name: "next", kind: "link", typeName: "Tail" }] },
       count: 0,
@@ -369,15 +369,30 @@ describe("buildOntologyGraph", () => {
       }),
     );
 
-    const width = (nodes: typeof main.nodes) =>
-      Math.max(...nodes.map((node) => node.position.x + node.width));
+    type Laid = typeof main.nodes;
 
-    expect(width(mixed.nodes)).toBeLessThanOrEqual(width(main.nodes));
+    const extent = (nodes: Laid, axis: "x" | "y") =>
+      Math.max(
+        ...nodes.map((node) => node.position[axis] + (axis === "x" ? node.width : node.height)),
+      );
+
     const pair = mixed.nodes.filter((node) => node.id.startsWith("Separate"));
     const mainNodes = mixed.nodes.filter((node) => !node.id.startsWith("Separate"));
-    const pairBottom = Math.max(...pair.map((node) => node.position.y + node.height));
-    const mainTop = Math.min(...mainNodes.map((node) => node.position.y));
-    expect(pairBottom).toBeLessThan(mainTop);
+
+    // The pair fills space beside the main graph instead of adding a row above it.
+    expect(extent(mixed.nodes, "y")).toBe(extent(main.nodes, "y"));
+    expect(extent(mixed.nodes, "x")).toBeLessThan(extent(main.nodes, "x") + 100);
+
+    // At least 40 units clear of every card in the main graph.
+    for (const a of pair)
+      for (const b of mainNodes)
+        expect(
+          a.position.x + a.width + 40 <= b.position.x ||
+            b.position.x + b.width + 40 <= a.position.x ||
+            a.position.y + a.height + 40 <= b.position.y ||
+            b.position.y + b.height + 40 <= a.position.y,
+          `${a.id} is within 40 of ${b.id}`,
+        ).toBe(true);
   });
 
   it("renders shared section relationships on the interface instead of each implementer", () => {
