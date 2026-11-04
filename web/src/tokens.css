@@ -86,10 +86,17 @@
     color-mix(in srgb, #2fd3cc 45%, transparent)
   );
 
-  /* Section label: the one style for section heads, rail groups, column heads,
-     and fact labels. Sentence case; hierarchy comes from weight, not tracking. */
+  /* Label: the one style for rail groups, column heads, finder groups, and
+     fact labels. Sentence case; hierarchy comes from weight, not tracking. */
   --label-font: 600 var(--fs-xs) / 1.3 var(--font-sans);
   --label-color: var(--text-muted);
+
+  /* Section heading: a block or section title in a view body (Briefing
+     blocks, Overview sections, grouped lists). It outranks the 14/500 row
+     titles under it: 15/600 in full ink, with 10px below. */
+  --section-font: 600 var(--fs-md) / 1.35 var(--font-sans);
+  --section-color: var(--text);
+  --section-gap: 10px;
 
   /* ---- Typography ---- */
   --font-display: "Merriweather", Georgia, "Times New Roman", serif;
