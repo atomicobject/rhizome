@@ -282,6 +282,11 @@ export function ConfiguredViewTable({
 
   const dragActive = reorder.dragKey !== null;
 
+  const sortFields = useMemo(
+    () => new Set(effectiveSort(state, execution.state).map((sort) => sort.field)),
+    [state, execution.state],
+  );
+
   const rowProps = useMemo<TableRowProps>(
     () => ({
       columnCells,
@@ -303,6 +308,7 @@ export function ConfiguredViewTable({
       onClearSelection: clearRowSelection,
       summaryField,
       categoryFields,
+      sortFields,
     }),
     [
       capabilities,
@@ -320,6 +326,7 @@ export function ConfiguredViewTable({
       reorder.enabled,
       selection.toggle,
       summaryField,
+      sortFields,
       vaultKey,
       viewID,
     ],
@@ -392,10 +399,11 @@ export function ConfiguredViewTable({
                   onToggle={toggleGroup}
                 />
               ))
-            : (reorder.groups[0]?.rows ?? rows).map((row) => (
+            : (reorder.groups[0]?.rows ?? rows).map((row, index, groupRows) => (
                 <ConfiguredViewTableRow
                   key={configuredTableRowKey(row)}
                   row={row}
+                  previousRow={groupRows[index - 1]}
                   groupId={UNGROUPED}
                   {...rowProps}
                   {...rowState(row, UNGROUPED)}

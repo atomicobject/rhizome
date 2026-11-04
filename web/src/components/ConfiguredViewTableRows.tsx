@@ -20,7 +20,12 @@ import {
   groupValueLabel,
   isIssueColumn,
 } from "./ConfiguredViewModel";
-import { type ConfiguredTableGroup, groupTone, isOverdue } from "./ConfiguredViewTableModel";
+import {
+  type ConfiguredTableGroup,
+  groupTone,
+  isDeadlineField,
+  isOverdue,
+} from "./ConfiguredViewTableModel";
 import { moveTableFocus } from "./focusManagement";
 import { reorderDelta, type ViewReorder } from "./useViewReorder";
 import { useTypeLabel } from "./typeLabels";
@@ -60,6 +65,7 @@ export type TableRowProps = {
   summaryField?: string;
   /** Enum fields without lifecycle stages; their values read as plain labels. */
   categoryFields: ReadonlySet<string>;
+  sortFields?: ReadonlySet<string>;
 };
 
 /** What one row shows for the current selection, checks, drag, and staged edits. */
@@ -91,6 +97,15 @@ export function ConfiguredViewTableGroup({
   onToggle: (group: ConfiguredTableGroup) => void;
 }) {
   const expanded = isExpanded(group);
+  const groupRows = rowsForGroup(group);
+
+  const deadlines = rowProps.capabilities.filter((field) =>
+    isDeadlineField(field.canonicalField ?? field.key),
+  );
+
+  const overdue = groupRows.filter((row) =>
+    deadlines.some((field) => isOverdue(row, fieldValue(row, field.key))),
+  ).length;
 
   const capability = capabilityFor(rowProps.capabilities, group.field);
   const label = groupValueLabel(capability, group.value, group.label);
@@ -113,7 +128,7 @@ export function ConfiguredViewTableGroup({
           <button
             type="button"
             className="configured-view__group-toggle"
-            aria-label={`${label} ${group.count}`}
+            aria-label={`${label} ${group.count}${overdue ? ` · ${overdue} overdue` : ""}`}
             aria-expanded={expanded}
             onClick={() => onToggle(group)}
           >
@@ -124,6 +139,9 @@ export function ConfiguredViewTableGroup({
               label={label}
             />
             <span className="configured-view__group-count">{group.count}</span>
+            {overdue > 0 && (
+              <span className="configured-view__group-count">· {overdue} overdue</span>
+            )}
           </button>
         </th>
       </tr>
@@ -142,10 +160,11 @@ export function ConfiguredViewTableGroup({
           ))
         : null}
       {expanded && leaf
-        ? rowsForGroup(group).map((row) => (
+        ? groupRows.map((row, index) => (
             <ConfiguredViewTableRow
               key={configuredTableRowKey(row)}
               row={row}
+              previousRow={groupRows[index - 1]}
               groupId={group.key}
               {...rowProps}
               {...rowState(row, group.key)}
@@ -179,6 +198,8 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   onClearSelection,
   summaryField,
   categoryFields,
+  sortFields,
+  previousRow,
   groupId,
   selected,
   tabbable,
@@ -187,7 +208,8 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   pending,
   dropClass,
   changedFields,
-}: TableRowProps & TableRowState & { row: ViewTableRow; groupId: string }) {
+}: TableRowProps &
+  TableRowState & { row: ViewTableRow; previousRow?: ViewTableRow; groupId: string }) {
   const rowKey = configuredTableRowKey(row);
   const dirty = changedFields.size > 0;
   const showHandle = reorderEnabled || reorderBlockedReason !== "unsupported";
@@ -301,7 +323,17 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
           onChange={() => {}}
         />
       </td>
-      {columnCells.map(({ column, capability, className }, columnIndex) => {
+      {columnCells.map(({ column, capability, className: baseClassName }, columnIndex) => {
+        const value = fieldValue(row, column.field);
+
+        const repeat =
+          previousRow &&
+          sortFields?.has(column.field) &&
+          value !== "" &&
+          value === fieldValue(previousRow, column.field);
+
+        const className = `${baseClassName}${repeat ? " is-repeat" : ""}`;
+
         if (isIssueColumn(column.field, issueCounts)) {
           const path = row.ref.notePath || row.path || "";
           const count = issueCounts?.get(path);
@@ -325,8 +357,6 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
             </td>
           );
         }
-
-        const value = fieldValue(row, column.field);
 
         if (column.field === "updatedAt") {
           return (
