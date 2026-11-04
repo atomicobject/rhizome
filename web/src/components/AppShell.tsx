@@ -435,7 +435,13 @@ export function AppShell() {
           ) : route === "tasks" ? (
             <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
-            <Suspense fallback={<main className="graphql-explorer" />}>
+            <Suspense
+              fallback={
+                <div className="graphql-workspace">
+                  <main className="graphql-explorer" />
+                </div>
+              }
+            >
               <GraphQLExplorer vaultName={vaultName} />
             </Suspense>
           ) : (

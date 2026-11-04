@@ -95,6 +95,9 @@ function rhizomeMonacoTheme(dark: boolean) {
       focusBorder: pick("#c8313a", "#ff6b72"),
       "editorWidget.background": surface,
       "editorHoverWidget.background": surface,
+      // Line numbers take the faint-ink role; the current line, muted ink.
+      "editorLineNumber.foreground": pick("#6b6965", "#9c9994"),
+      "editorLineNumber.activeForeground": pick("#5b5955", "#b8b5b0"),
       "editorSuggestWidget.background": surface,
       "editorSuggestWidget.selectedBackground": tint,
       "editorSuggestWidget.selectedForeground": pick("#1f1e1d", "#ecebe9"),
@@ -140,20 +143,31 @@ function GraphQLExplorer({ vaultName }: { vaultName?: string | null }) {
   useRhizomeMonacoTheme(resolved);
 
   return (
-    <main className="graphql-explorer">
-      <GraphiQL
-        forcedTheme={resolved}
-        fetcher={graphQLExplorerFetcher}
-        defaultQuery={GRAPHQL_EXPLORER_QUERY}
-        initialVariables={GRAPHQL_EXPLORER_VARIABLES}
-        defaultEditorToolsVisibility={false}
-      >
-        {/* The vault this explorer queries, in place of the GraphiQL wordmark. */}
-        <GraphiQL.Logo>
-          <span className="graphql-explorer__vault">{vaultName ? vaultLabel(vaultName) : ""}</span>
-        </GraphiQL.Logo>
-      </GraphiQL>
-    </main>
+    <div className="graphql-workspace">
+      <main className="graphql-explorer" aria-labelledby="graphql-explorer-title">
+        <header className="view-header">
+          <div className="view-header__title-row">
+            <h2 id="graphql-explorer-title">GraphQL</h2>
+            <span className="view-header__about">
+              Query {vaultName ? vaultLabel(vaultName) : "this vault"} through Rhizome&rsquo;s
+              public API.
+            </span>
+          </div>
+        </header>
+        <div className="graphql-explorer__body">
+          <GraphiQL
+            forcedTheme={resolved}
+            fetcher={graphQLExplorerFetcher}
+            defaultQuery={GRAPHQL_EXPLORER_QUERY}
+            initialVariables={GRAPHQL_EXPLORER_VARIABLES}
+            defaultEditorToolsVisibility={false}
+          >
+            {/* The header names the vault, so the wordmark slot stays empty. */}
+            <GraphiQL.Logo>{null}</GraphiQL.Logo>
+          </GraphiQL>
+        </div>
+      </main>
+    </div>
   );
 }
 

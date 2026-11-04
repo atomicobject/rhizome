@@ -634,10 +634,30 @@ input:where([type="checkbox"], [type="radio"]) {
   display: none;
 }
 
-.graphql-explorer {
+/* GraphQL has no sidebar, so its inset panel spans the chrome with the
+   same 6px margins as every other section's panel (workbench.css). */
+.graphql-workspace {
+  display: flex;
   flex: 1;
   min-height: 0;
+  background: var(--chrome-bg);
+}
+
+.graphql-explorer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 6px 6px;
+  overflow: hidden;
+  border-radius: var(--r-lg);
   background: var(--surface);
+}
+
+.graphql-explorer__body {
+  flex: 1;
+  min-height: 0;
 }
 
 .app-error-boundary {
@@ -777,18 +797,114 @@ html
   --popover-border: 1px solid var(--border);
 }
 
-/* Run is the one commit action: a 28px filled primary labelled "Run ⌘↵".
-   The toolbar column widens to fit it, and its icon tools align beneath. */
+/* ---- GraphiQL inside the panel ----
+   Flat panes under the view header: GraphiQL's tool rail with a hairline
+   edge, the session tabs, then query and response split by one hairline. No
+   floating card, resting shadow, or tinted session frame. */
+.graphql-explorer .graphiql-container .graphiql-sidebar {
+  padding: var(--sp-3) var(--sp-2);
+  border-right: 1px solid var(--border);
+}
+
+.graphql-explorer .graphiql-container .graphiql-sessions {
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.graphql-explorer .graphiql-container .graphiql-session-header {
+  height: 40px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.graphql-explorer .graphiql-container #graphiql-session {
+  padding: 0;
+}
+
+.graphql-explorer .graphiql-container .graphiql-editors {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* One hairline between query and response; the drag target stays 9px. */
+.graphql-explorer .graphiql-container #graphiql-session > .graphiql-horizontal-drag-bar {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  margin: 0 -4px;
+  background: linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat;
+}
+
+.graphql-explorer .graphiql-container #graphiql-session > .graphiql-horizontal-drag-bar:hover {
+  background-image: linear-gradient(var(--border-strong), var(--border-strong));
+}
+
+.graphql-explorer .graphiql-container #graphiql-session > .graphiql-horizontal-drag-bar::after {
+  content: none;
+}
+
+/* The query pane leads with a 40px labelled toolbar, like Response opposite:
+   "Query", then Prettify, Merge fragments, and Copy as 28px icon buttons with
+   16px glyphs, then Run, the 28px primary labelled "Run ⌘↵". */
+.graphql-explorer .graphiql-container .graphiql-query-editor {
+  flex-direction: column;
+  padding: 0;
+  border-bottom-color: var(--border);
+}
+
+.graphql-explorer .graphiql-container .graphiql-query-editor > :not(.graphiql-toolbar) {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--sp-5) var(--sp-3) var(--sp-2);
+}
+
 .graphql-explorer .graphiql-container .graphiql-toolbar {
+  flex-direction: row;
+  order: -1;
+  align-items: center;
+  gap: 2px;
   width: auto;
-  align-items: flex-end;
+  height: 40px;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+}
+
+.graphql-explorer .graphiql-container .graphiql-toolbar::before {
+  content: "Query";
+  margin-right: auto;
+  color: var(--label-color);
+  font: var(--label-font);
+}
+
+.graphql-explorer button.graphiql-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+}
+
+.graphql-explorer button.graphiql-toolbar-button:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.graphql-explorer .graphiql-toolbar-icon {
+  width: 16px;
+  height: 16px;
+  color: inherit;
 }
 
 .graphql-explorer button.graphiql-execute-button {
   display: inline-flex;
+  order: 1;
   align-items: center;
   width: auto;
   height: 28px;
+  margin-left: var(--sp-2);
   padding: 0 10px;
   background-color: var(--accent-fill);
   border-radius: var(--r-md);
@@ -810,8 +926,23 @@ html
   display: none;
 }
 
+.graphql-explorer button.graphiql-execute-button:hover,
+.graphql-explorer button.graphiql-execute-button:active {
+  background-color: var(--accent-fill-hover);
+}
+
+/* Variables and Headers: the same 13/500 tab metrics as the pane tabs. */
+.graphql-explorer .graphiql-container .graphiql-editor-tools {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.graphql-explorer .graphiql-container .graphiql-editor-tools > button {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
 /* Icons and tabs in muted ink rather than GraphiQL's translucent neutral. */
-.graphql-explorer :is(.graphiql-sidebar button, .graphiql-toolbar-icon) {
+.graphql-explorer .graphiql-sidebar button {
   color: var(--text-muted);
 }
 
@@ -819,11 +950,9 @@ html
   color: var(--text);
 }
 
-/* The vault name stands where the GraphiQL wordmark was. */
+/* The view header names the vault in place of the GraphiQL wordmark. */
 .graphql-explorer .graphiql-container .graphiql-logo {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+  display: none;
 }
 
 /* The results pane names itself and says what fills it. An unrun response
@@ -835,6 +964,7 @@ html
 .graphql-explorer .graphiql-response::before {
   content: "Response";
   display: flex;
+  flex: none;
   align-items: center;
   height: 40px;
   padding: 0 var(--sp-5);
@@ -854,11 +984,6 @@ html
 
 .graphql-explorer .graphiql-response:has(.view-line ~ .view-line) .result-window::after {
   content: none;
-}
-
-.graphql-explorer button.graphiql-execute-button:hover,
-.graphql-explorer button.graphiql-execute-button:active {
-  background-color: var(--accent-fill-hover);
 }
 
 /* ==========================================================================
@@ -1041,50 +1166,72 @@ html
 }
 
 /* Segmented control: one look for every mode switch (view layout, pane mode,
-   grouping). Selection is neutral: the chosen segment fills with ink. */
+   grouping). A tinted track holds the segments; the chosen one is a raised
+   surface with a border-strong edge and ink 600 text, never a solid fill and
+   never red. In dark the raised surface steps lighter than the track. */
 .segmented {
   display: inline-flex;
   flex: none;
   align-items: stretch;
+  gap: 2px;
   min-inline-size: 0;
   margin: 0;
-  padding: 0;
+  padding: 2px;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
 }
 
 .segmented > button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 0;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
   background: transparent;
   color: var(--text-muted);
-  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
   cursor: pointer;
 }
 
-.segmented > button + button {
-  border-left: 1px solid var(--border);
-}
-
 .segmented > button:hover {
-  background: var(--bg-tint);
   color: var(--text);
 }
 
 .segmented > button:is([aria-pressed="true"], [aria-selected="true"], .is-active) {
-  background: var(--text);
-  color: var(--surface);
+  border-color: var(--border-strong);
+  background: light-dark(var(--surface), var(--surface-strong));
+  color: var(--text);
+  font-weight: 600;
 }
 
 .segmented > button:focus-visible {
   outline-offset: -2px;
+}
+
+/* Quiet link: a navigable record title in a dense list, table, rail, or
+   board. Teal ink with no underline until hover or keyboard focus. Prose
+   links keep their underline (.markdown a, note links). */
+.link-quiet {
+  color: var(--link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-quiet:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* Numbers and dates: counts, dates, ages, and stats are Inter with tabular
+   figures, never mono. Mono is for identifiers, paths, and code only. */
+.num {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 /* A note's type: one neutral chip wherever a type names a note. Red stays
