@@ -203,3 +203,15 @@ describe("hosted frames", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });
+
+it.each(["node.changed", "index.changed"])(
+  "refreshes count-dependent type colours on %s",
+  (event) => {
+    const key = queryKeys.ontology.summary();
+    client.setQueryData(key, { types: [] });
+    stop = connectFreshness(client, { hosted: false });
+    events.latest().emit("", event);
+    settle();
+    expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  },
+);

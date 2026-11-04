@@ -105,7 +105,9 @@ export function NoteTabStrip({
     onClose(id);
     window.requestAnimationFrame(() => {
       if (document.getElementById(`tab-${id}`)) return;
-      document.getElementById(`tab-${nextFocus}`)?.focus();
+
+      if (stripRef.current?.hidden) stripRef.current.closest("main")?.focus();
+      else document.getElementById(`tab-${nextFocus}`)?.focus();
     });
   };
 

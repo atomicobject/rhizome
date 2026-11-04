@@ -14,6 +14,13 @@ const note = (path: string, resolvedType?: string): GraphNode => ({
 const code = (path: string): GraphNode => ({ id: `code:${path}`, label: path, kind: "code", path });
 
 describe("aggregateByFolder", () => {
+  it("preserves a capped source graph's truncation warning", () => {
+    expect(
+      aggregateByFolder({ nodes: [note("a.md")], edges: [], truncated: true }, () => "red")
+        .truncated,
+    ).toBe(true);
+  });
+
   it("opens a dominant folder into subfolders, folds small ones back, and counts links between folders", () => {
     const nodes = [
       ...Array.from({ length: 40 }, (_, i) => note(`docs/specs/s${i}.md`, "Spec")),

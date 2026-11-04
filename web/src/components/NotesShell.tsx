@@ -793,6 +793,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     <main
       className="workspace workspace--ontology workbench notes-shell"
       aria-label="Notes workspace"
+      tabIndex={-1}
       ref={shellRef}
       style={shellStyle}
     >

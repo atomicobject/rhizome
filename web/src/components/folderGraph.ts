@@ -62,7 +62,7 @@ function contents(members: readonly GraphNode[]) {
   return notes ? noun(notes, "note") : noun(files, "file");
 }
 
-export type FolderGraph = { nodes: GraphViewNode[]; edges: GraphEdge[]; truncated: false };
+export type FolderGraph = { nodes: GraphViewNode[]; edges: GraphEdge[]; truncated: boolean };
 
 /**
  * The root Explorer view: one node per folder, sized by what it holds and
@@ -73,7 +73,7 @@ export type FolderGraph = { nodes: GraphViewNode[]; edges: GraphEdge[]; truncate
  * loads its own graph.
  */
 export function aggregateByFolder(
-  graph: { nodes: readonly GraphNode[]; edges: readonly GraphEdge[] },
+  graph: { nodes: readonly GraphNode[]; edges: readonly GraphEdge[]; truncated?: boolean },
   typeColor: (type: string) => string | undefined,
 ): FolderGraph {
   const total = graph.nodes.reduce((sum, node) => sum + weightOf(node), 0);
@@ -218,7 +218,7 @@ export function aggregateByFolder(
     };
   });
 
-  return { nodes, edges, truncated: false };
+  return { nodes, edges, truncated: graph.truncated ?? false };
 }
 
 /** Legend keys for folders colored by code or untyped notes rather than a note type. */
