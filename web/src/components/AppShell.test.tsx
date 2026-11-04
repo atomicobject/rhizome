@@ -161,7 +161,12 @@ describe("AppShell", () => {
         updatedAt: "2026-09-14T00:00:00Z",
       }),
     );
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Changes" })).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Changes", hidden: true })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
     expect(window.location.pathname).toBe("/notes/modified");
   });
 
@@ -315,7 +320,10 @@ describe("AppShell", () => {
     expect(new URLSearchParams(window.location.search).get("search")).toBe(
       "embedded node identifiers",
     );
-    expect(screen.getByRole("tab", { name: /embedded node identifiers/i })).toBeVisible();
+    // A search is a page, so it opens under the page header without the tab strip.
+    expect(
+      screen.getByRole("tab", { name: /embedded node identifiers/i, hidden: true }),
+    ).toHaveAttribute("aria-selected", "true");
   });
 
   it("focuses and selects project search with the platform shortcut", async () => {

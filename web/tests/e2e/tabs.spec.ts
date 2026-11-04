@@ -322,38 +322,41 @@ test("keeps the active tab visible beside editing controls in a crowded strip", 
   await expect.poll(visibleActiveTab).toBe(true);
 });
 
-test("returns to the configured view tab after opening, reloading, and closing a note", async ({
+test("returns to the configured view page after opening, reloading, and closing a note", async ({
   page,
 }) => {
   await page.goto("/notes?view=e2e.action-items");
   const heading = page.getByRole("heading", { name: "Action Items Editing Fixture" });
   await expect(heading).toBeVisible();
   const tabs = page.getByRole("tablist", { name: "Open notes" });
-  await expect(tabs.getByRole("tab")).toHaveCount(2);
-  await expect(tabs.getByRole("tab").nth(1)).toHaveAttribute("aria-selected", "true");
+  // A view is a page under the page header: no strip until a note opens.
+  await expect(tabs).toBeHidden();
 
   await page
     .locator(".configured-view__table")
     .getByRole("button", { name: /^Open / })
     .first()
     .dblclick();
-  await expect(tabs.getByRole("tab")).toHaveCount(3);
-  await expect(tabs.getByRole("tab").nth(2)).toHaveAttribute("aria-selected", "true");
+  // The view holds Home's place as the first tab, ahead of the note.
+  await expect(tabs.getByRole("tab")).toHaveCount(2);
+  await expect(tabs.getByRole("tab").nth(0)).toHaveText(/Action Items/);
+  await expect(tabs.getByRole("tab").nth(1)).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL((url) => url.pathname === "/notes" && url.searchParams.has("note"));
   expect(new URL(page.url()).searchParams.get("view")).toBeNull();
 
   await page.reload();
-  await expect(tabs.getByRole("tab").nth(2)).toHaveAttribute("aria-selected", "true");
-  await tabs.getByRole("tab").nth(1).click();
+  await expect(tabs.getByRole("tab").nth(1)).toHaveAttribute("aria-selected", "true");
+  await tabs.getByRole("tab").nth(0).click();
   await expect(page).toHaveURL(/\/notes\?view=e2e.action-items$/);
   await expect(heading).toBeVisible();
 
-  await tabs.getByRole("tab").nth(2).click();
+  await tabs.getByRole("tab").nth(1).click();
   await tabs
     .getByRole("tab")
-    .nth(2)
+    .nth(1)
     .getByRole("button", { name: /^Close / })
     .click();
   await expect(page).toHaveURL(/\/notes\?view=e2e.action-items$/);
   await expect(heading).toBeVisible();
+  await expect(tabs).toBeHidden();
 });

@@ -103,7 +103,7 @@
   display: none;
 }
 
-/* Only Home open: no strip. Its controls float into the right end of the view
+/* No note tabs open: no strip. Its controls float into the right end of the view
    header's 56px title row, which leaves them room, so the title sits at the
    same height as every other section's. */
 .notes-shell__frame--solo {
@@ -191,6 +191,10 @@
   font-weight: 500;
   cursor: default;
   user-select: none;
+}
+
+.notes-tab[hidden] {
+  display: none;
 }
 
 /* Hairline dividers between tabs, hidden next to the active tab. */

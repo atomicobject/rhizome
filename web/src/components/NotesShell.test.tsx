@@ -287,22 +287,27 @@ describe("NotesShell", () => {
     expect(screen.getByRole("tab", { name: /demo-plan\.md/i, hidden: true })).toBeInTheDocument();
   });
 
-  it("opens Problems in its own reusable tab from the left rail", async () => {
+  it("opens Problems in place of Home from the left rail, with no tab strip", async () => {
     http.json("GET", "/api/v1/ontology/types/__issues__", typeDetail("Issues", []));
     render(<NotesShell />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Problems" }));
-    expect(await screen.findByRole("tab", { name: "Problems" })).toHaveAttribute(
+    expect(await screen.findByRole("tab", { name: "Problems", hidden: true })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     expect(window.location.pathname).toBe("/notes/issues");
+    // Pages open under the page header; the strip shows only with a note tab open.
+    expect(screen.queryByRole("tablist", { name: "Open notes" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Home" }));
+    fireEvent.click(screen.getByRole("button", { name: /^All notes/ }));
     await waitFor(() => expect(window.location.pathname).toBe("/notes"));
-    fireEvent.click(screen.getByRole("tab", { name: "Problems" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "Problems", hidden: true })).toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Problems" }));
     await waitFor(() => expect(window.location.pathname).toBe("/notes/issues"));
-    expect(screen.getAllByRole("tab", { name: "Problems" })).toHaveLength(1);
+    expect(screen.getAllByRole("tab", { name: "Problems", hidden: true })).toHaveLength(1);
   });
 
   it("keeps the Problems scope in its retained panel while a note tab is active", async () => {
