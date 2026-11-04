@@ -107,6 +107,16 @@
   background: var(--chrome-risk);
 }
 
+.tasks-rail__failed {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.tasks-rail__row:not([aria-current="page"]) .tasks-rail__failed {
+  color: var(--chrome-risk);
+}
+
 .tasks-rail__row[aria-current="page"] .tasks-rail__aside {
   color: inherit;
   opacity: 0.8;
@@ -286,8 +296,9 @@
   padding-left: var(--gutter);
 }
 
+/* Rows hold two lines: the task name over its id. */
 .task-table tbody :is(th, td) {
-  height: 40px;
+  height: 52px;
   padding: 0 10px;
   border-bottom: 1px solid var(--border-faint);
   font-weight: 400;
@@ -299,24 +310,30 @@
   background: var(--bg-tint);
 }
 
+/* The task name is a quiet teal link; its id is a muted mono second line. */
 .task-table__open {
   display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   max-width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
 }
 
-.task-table__open:hover span {
+.task-table__open:is(:hover, :focus-visible) .link-quiet {
   text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.task-table__open code {
+  font-size: var(--fs-xs);
+  font-weight: 400;
 }
 
 .task-table__open code,
@@ -1105,6 +1122,27 @@
   .task-table :is(th, td) {
     padding-inline: 8px;
   }
+}
+
+/* The new-task notice's purpose sits behind a quiet text toggle. */
+.task-notice__more {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.task-notice__more:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+}
+
+.task-notice__purpose {
+  margin: 2px 0 0;
+  color: var(--text-muted);
 }
 
 .task-notice__sentence::first-letter {

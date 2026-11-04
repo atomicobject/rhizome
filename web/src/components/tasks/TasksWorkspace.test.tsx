@@ -91,7 +91,7 @@ describe("TasksWorkspace", () => {
       task: "changelog",
       kind: "announcement",
       state: "due",
-      summary: 'New task "Changelog draft" runs every 1d in auto mode.',
+      summary: 'New task "Changelog draft" runs every 1d in auto mode. Drafts release notes.',
     };
 
     http.json("GET", "/api/tasks/state", { ...state, items: [...state.items, announcement] });
@@ -99,7 +99,11 @@ describe("TasksWorkspace", () => {
     open("/tasks");
     render(<TasksWorkspace />);
 
-    expect(await screen.findByText(/New task "Changelog draft" runs every 1d/)).toBeVisible();
+    // One short line from the task itself; its purpose waits behind a toggle.
+    expect(await screen.findByText("Changelog draft. Runs every 1 day in Off mode.")).toBeVisible();
+    expect(screen.queryByText("Drafts release notes.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "What it does" }));
+    expect(screen.getByText("Drafts release notes.")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/12/done")).toBe(1));

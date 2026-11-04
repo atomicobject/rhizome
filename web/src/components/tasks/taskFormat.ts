@@ -53,6 +53,20 @@ export function formatDue(nextDue: string | undefined, due: boolean, now = Date.
   return new Date(nextDue).getTime() <= now ? "Due now" : formatRelative(nextDue, now);
 }
 
+const EVERY_UNITS = { m: "minute", h: "hour", d: "day", w: "week" } as const;
+
+/** A task interval in words: "7d" is "7 days", "1h" is "1 hour". */
+export function formatEvery(every: string): string {
+  const match = /^(\d+)([mhdw])$/.exec(every);
+
+  if (!match) return every;
+  const [, count, unit] = match;
+  // SAFETY: the pattern admits only the four keys of EVERY_UNITS.
+  const word = EVERY_UNITS[unit as keyof typeof EVERY_UNITS];
+
+  return `${count} ${word}${count === "1" ? "" : "s"}`;
+}
+
 export function formatDuration(from?: string, to?: string): string {
   if (!from || !to) return "";
   const ms = new Date(to).getTime() - new Date(from).getTime();

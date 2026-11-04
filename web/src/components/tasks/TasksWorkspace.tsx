@@ -16,6 +16,7 @@ import {
   type TaskStatus,
 } from "../../api/tasks";
 import { useLocationSnapshot } from "../locationStore";
+import { StatusMark } from "../StatusMark";
 import { WorkbenchSidebar } from "../WorkbenchSidebar";
 import {
   TaskHeader,
@@ -109,10 +110,20 @@ function TasksRail({ tasks, selected }: { tasks: TaskStatus[]; selected?: string
               onClick={() => navigateTasks({ task: task.id })}
             >
               <span className="tasks-rail__name">{task.name || task.id}</span>
-              <RailMark item={task.item} />
-              <span className="tasks-rail__aside">
-                {task.scheduled ? formatDue(task.nextDue, task.due) : "Local"}
-              </span>
+              {/* A failure is named in words, not only by the red mark; the
+                  due time it displaces is on the task's row and page. */}
+              {task.lastRun?.outcome === "failed" ? (
+                <span className="tasks-rail__failed">
+                  <StatusMark tone="risk" label="Failed" />
+                </span>
+              ) : (
+                <>
+                  <RailMark item={task.item} />
+                  <span className="tasks-rail__aside">
+                    {task.scheduled ? formatDue(task.nextDue, task.due) : "Local"}
+                  </span>
+                </>
+              )}
             </button>
           </li>
         ))}

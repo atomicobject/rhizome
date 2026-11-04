@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
 import { StatusMark } from "../StatusMark";
@@ -6,6 +6,7 @@ import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
   formatDue,
+  formatEvery,
   formatRelative,
   itemStatePresentation,
   localStatePresentation,
@@ -103,6 +104,71 @@ export function TasksNotices({
   );
 }
 
+function RunLink({ task }: { task: TaskStatus }) {
+  if (!task.lastRun) return null;
+
+  return (
+    <a
+      className="task-table__run-link"
+      href={tasksHref({ task: task.id, run: task.lastRun.id })}
+      onClick={(event) => {
+        event.preventDefault();
+        navigateTasks({ task: task.id, run: task.lastRun?.id });
+      }}
+    >
+      View run
+    </a>
+  );
+}
+
+/** A failed last run leads the page, above any notice about the task. */
+function FailureBanner({ task }: { task: TaskStatus }) {
+  return (
+    <div className="banner banner--risk task-notice" role="status">
+      <StatusMark tone="risk" label="Failed" />
+      <p className="banner__text">
+        {task.name || task.id}{" "}
+        <span className="banner__aside">{formatRelative(task.lastRun?.at)}</span>
+      </p>
+      <RunLink task={task} />
+    </div>
+  );
+}
+
+// The runner writes 'New task "Name" runs every 7d in notify mode. <purpose>'.
+const ANNOUNCEMENT_PREFIX = /^New task ".*?" runs every \S+ in \S+ mode\.\s*/;
+
+/** "New: Name. Runs every 7 days in Notify mode.", with the purpose on request. */
+function AnnouncementText({ item, task }: { item: TaskItem; task?: TaskStatus }) {
+  const [open, setOpen] = useState(false);
+  const summary = item.summary || item.reason || item.message || "";
+
+  if (!task || !ANNOUNCEMENT_PREFIX.test(summary)) return <p className="banner__text">{summary}</p>;
+
+  const purpose = summary.replace(ANNOUNCEMENT_PREFIX, "");
+
+  return (
+    <div className="banner__text">
+      {task.name || task.id}. Runs every {formatEvery(task.every)} in{" "}
+      {MODE_LABELS[task.mode] ?? task.mode} mode.
+      {purpose ? (
+        <>
+          {" "}
+          <button
+            type="button"
+            className="task-notice__more"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? "Less" : "What it does"}
+          </button>
+          {open ? <p className="task-notice__purpose">{purpose}</p> : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
   const last = task.lastRun ? outcomePresentation(task.lastRun.outcome) : null;
   const item = task.item ? itemStatePresentation(task.item.state) : null;
@@ -115,8 +181,8 @@ function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
     <tr>
       <th scope="row">
         <button type="button" className="task-table__open" onClick={onOpen}>
-          <span>{task.name || task.id}</span>
-          <code>{task.id}</code>
+          <span className="link-quiet">{task.name || task.id}</span>
+          {task.name ? <code>{task.id}</code> : null}
         </button>
         {local ? (
           <span className="task-table__local">
@@ -142,18 +208,7 @@ function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
           <span className="task-table__last">
             <StatusMark tone={last.tone} label={last.label} />
             <span className="task-table__aside">{formatRelative(task.lastRun.at)}</span>
-            {last.tone === "risk" ? (
-              <a
-                className="task-table__run-link"
-                href={tasksHref({ task: task.id, run: task.lastRun.id })}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigateTasks({ task: task.id, run: task.lastRun?.id });
-                }}
-              >
-                View run
-              </a>
-            ) : null}
+            {last.tone === "risk" ? <RunLink task={task} /> : null}
           </span>
         ) : (
           <span className="task-table__none">Never run</span>
@@ -224,15 +279,27 @@ export function TasksOverview({
       </header>
       <div className="tasks-overview__body">
         {error}
+        {report.tasks
+          .filter((task) => task.lastRun?.outcome === "failed")
+          .map((task) => (
+            <FailureBanner key={task.id} task={task} />
+          ))}
         <TasksNotices report={report} pausePending={pausePending} onResume={onResume} />
         {announcements.map((item) => (
           <div key={item.id} className="banner task-notice" role="status">
             {item.kind === "announcement" ? (
-              <StatusMark tone="info" label="New task" />
+              <StatusMark tone="info" label="New:" />
             ) : (
               <StatusMark tone="warning" label={`Removed task ${item.task}`} />
             )}
-            <p className="banner__text">{item.summary || item.reason || item.message}</p>
+            {item.kind === "announcement" ? (
+              <AnnouncementText
+                item={item}
+                task={report.tasks.find((candidate) => candidate.id === item.task)}
+              />
+            ) : (
+              <p className="banner__text">{item.summary || item.reason || item.message}</p>
+            )}
             {item.kind === "task" && item.worktree && onDiscard ? (
               <button type="button" className="button" onClick={() => onDiscard(item)}>
                 Discard
