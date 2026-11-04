@@ -370,8 +370,8 @@ Every screen in the content panel opens with the same header (`.view-header` and
 The classes live in `base.css`; use them rather than restyling a button per screen.
 
 - **Primary (`.button.button--primary`):** Deep Red (`--accent-fill`) with white text, 13/600, for the one commit action on a surface (Save, Run, Send, execute). Hover deepens to `--accent-fill-hover`. GraphiQL's execute button is a 28px primary labelled "Run ⌘↵".
-- **Secondary (`.button`):** 28px, white surface, 1px `border-strong`, 6px corners, 13/500 ink. Toolbar actions, Refresh validation, Pause all, Dismiss, pagers, Copy link, and the 28px icon-only refresh share these metrics. Hover tints to `surface-tint`, never red. Routine actions are never red, as text or fill.
-- **Ghost (`.button.button--ghost`):** Filter, View, the pane toggle, Copy beside a command, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
+- **Secondary (`.button`):** 28px, white surface, 1px `border-strong`, 6px corners, 13/500 ink. Toolbar actions, Refresh validation, Pause all, Dismiss, pagers, and the 28px icon-only refresh share these metrics. Hover tints to `surface-tint`, never red. Routine actions are never red, as text or fill.
+- **Ghost (`.button.button--ghost`):** Filter, View, the pane toggle, Copy link, Copy beside a command, an HTML note's Refresh and Open, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
 - **Disabled:** `surface-sunk` with `border` and faint ink, never a pale red.
 - **Edit toggle:** 13/600 muted text with a 1px border and 4px corners; in a session it becomes Editing, Review, Save, and Done.
 - **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the View popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
@@ -414,11 +414,19 @@ The pane has a 40px header with its 15/600 title or Info / Outline / Graph tabs 
 
 ### Note Reader
 
-A note opens in a centred 680px column. Above it, a tinted control bar holds the type chip, the mono path (which truncates before any control does), the note's presentations (Structure, Markdown, and any saved view) as the same text tabs a collection uses, and Copy link. The title is Merriweather 24/900. Properties sit under a 12/600 "Properties" label as a two-column grid with 13/500 muted labels and 14px values in 30px rows, without a rule on every row; empty properties wait behind a "Show N empty fields" toggle, and a `border-faint` hairline closes the block. Body headings are Inter 600 with more space above than below; a collapsible section's 14px chevron sits in the gutter and shows on hover, on focus, and while collapsed. Prose is 15/1.6 at the 540px measure. Inline code and code blocks use the tint and mono.
+A note opens in a centred 680px column. Above it, a tinted control bar holds the type chip, the mono path (which truncates before any control does), the note's presentations (Structure, Markdown, and any saved view) as a segmented control with no default-view dot (the tooltip names the default), and Copy link as a ghost button with a link icon. The title is Merriweather 24/900. Properties sit under a 12/600 "Properties" label, capped at the 540px prose measure so their edges line up with the body, as a two-column grid with a 120px column of 13/500 muted labels and 14px values in 30px rows; a long text value (such as Summary) runs full width beneath its label, without a rule on every row; empty properties wait behind a "Show N empty fields" toggle, and a `border-faint` hairline closes the block. Body headings are Inter 600 with more space above than below; a collapsible section's 14px chevron sits in the gutter and shows on hover, on focus, and while collapsed. Prose is 15/1.6 at the 540px measure. Inline code and code blocks use the tint and mono.
 
 ### Section Editor
 
-In edit mode each section body becomes an editor in the same place, with read mode's typography and measure, so toggling Edit does not move the text. It has no box at rest, takes the tint on hover, and draws the red focus ring (1px border plus 1px ring) only while focused. Its padding bleeds outward through negative margins. A changed block turns warning-soft with a gold border.
+In edit mode each section body becomes an editor in the same place, with read mode's typography and measure, so toggling Edit does not move the text. It has no box at rest, takes the tint on hover, and draws the red focus ring (1px border plus 1px ring) only while focused. Its padding bleeds outward through negative margins. A changed block turns warning-soft with a gold border. Empty properties stay behind "Show N empty fields" in edit mode too, unless a field has staged changes or an issue, and identifier guidance sits behind an info mark, so entering edit mode barely moves the body. Dates are edited as ISO text (`2026-10-26`) with a calendar button for the native picker.
+
+### HTML Notes
+
+While an HTML note's preview shows, its host header collapses to one row (title, ID, status, the metadata disclosure, and ghost Refresh and Open) on the note reader's gutter, so the page's own heading is the only large title. Metadata opens as a floating panel. The authored HTML inside the frame is vault content and is never restyled.
+
+### Search
+
+Search uses the shared view header (title, count, and the query as the muted description) with its filters on one row and scope as a segmented control. Header, banner, status line, and results share one centred 960px column. Degraded sources merge into one banner with the detail behind a disclosure. Code snippets are JetBrains Mono on the tint with whitespace preserved, and each result names what matched in muted text when the data says so.
 
 ### Editing States
 
@@ -444,7 +452,11 @@ GraphiQL takes Rhizome's tokens: its palette restates them as HSL triplets, and 
 
 ### Ontology Canvas
 
-The canvas uses neutral grid depth, typed cards, type-palette relation lines, readable field rows, and a persistent inspector. Canvas colours resolve from the tokens through a probe element and refresh on appearance changes. Graph colour must be labelled or legended; never colour alone.
+The canvas uses neutral grid depth, typed cards, type-palette relation lines, and a persistent inspector. It zooms semantically: below zoom 1 a card shows only its name and count at 12px or more on screen, and fields appear from zoom 1, where they render at 12px. Edges stay 1.5px at every zoom, beneath opaque cards, and hovering a card brings its edges forward. A floating "Find a type" box replaces a separate type index; selection uses the neutral `--selection` tint. Canvas colours resolve from the tokens through a probe element and refresh on appearance changes. Graph colour must be labelled or legended; never colour alone.
+
+### Graphs and Maps
+
+Every graph surface (the overview maps, the Atlas, and Explorer) follows the same rules. Essential edges and outlines use `--type-8` or `--link`, which clear 3:1 in both appearances. Labels sit on their own layer above nodes and edges with a 4px surface-coloured halo, placed clear of other nodes and labels, and nodes keep 24px inside the plot. Overview maps cap at 280px so the Members table stays in view, and their legend states the expand hint once. Explorer colours notes by type, legends every colour, labels the most-connected notes and folders, and shows a loading state until the first draw; a drawn graph sets `data-graph-ready="true"` on its container (also when there is nothing to draw), which the screenshot tooling waits on.
 
 ### Custom Views
 
