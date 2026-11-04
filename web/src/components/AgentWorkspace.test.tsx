@@ -262,6 +262,13 @@ describe("AgentWorkspace", () => {
     const hints = await screen.findAllByText(/Install Claude Code to use chat/);
     expect(hints).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+
+    // The keyboard shortcut is gated too: nothing posts and the draft stays.
+    const message = screen.getByLabelText("Message");
+    fireEvent.change(message, { target: { value: "hello" } });
+    fireEvent.keyDown(message, { key: "Enter", metaKey: true, ctrlKey: true });
+    expect(http.requests("POST", "/api/agent/sessions")).toHaveLength(0);
+    expect(message).toHaveValue("hello");
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {

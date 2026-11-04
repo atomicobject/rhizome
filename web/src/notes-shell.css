@@ -970,7 +970,8 @@
 /* Over a collection, the overlay starts below the view header and toolbar so
    Find, Filter, and Display stay usable while a record is open.
    ponytail: fixed offset matching the header height; measure .view-header if it starts to vary. */
-.notes-shell__frame:has(.configured-view) .notes-right-rail.is-overlay {
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view)
+  .notes-right-rail.is-overlay {
   top: var(--collection-header-height, 96px);
 }
 

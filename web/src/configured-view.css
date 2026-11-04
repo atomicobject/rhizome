@@ -911,7 +911,8 @@
 }
 
 /* The overlaid record pane lifts off the table it covers. */
-.notes-shell__frame:has(.configured-view) .notes-right-rail.is-overlay {
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view)
+  .notes-right-rail.is-overlay {
   box-shadow:
     -1px 0 0 var(--border-strong),
     -12px 0 28px -6px light-dark(rgba(42, 39, 36, 0.22), rgba(0, 0, 0, 0.6));

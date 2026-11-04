@@ -374,7 +374,14 @@ export function AgentWorkspace({
   const submitText = async (content: string) => {
     const trimmed = content.trim();
 
-    if (!trimmed || isSending || selectedSession?.turnRunning || selectedSession?.readOnly) return;
+    if (
+      !trimmed ||
+      blocked ||
+      isSending ||
+      selectedSession?.turnRunning ||
+      selectedSession?.readOnly
+    )
+      return;
     setError("");
     setIsSending(true);
     let sessionID = selectedID;
