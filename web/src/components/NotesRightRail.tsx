@@ -22,6 +22,7 @@ import { tabKeyTarget } from "./focusManagement";
 import type { NoteTabContext } from "./noteTabContext";
 import { NotesSidebarInfo } from "./NotesSidebarInfo";
 import { useFocusedWorkspaceGraphQuery } from "./useNotesQueries";
+import { DisclosureChevron } from "./DisclosureChevron";
 
 // Sigma, graphology, and ForceAtlas2 load with the Graph tab, not the Notes entry.
 const OntologyLocalGraph = lazy(() =>
@@ -224,7 +225,7 @@ function OutlineNode({
             aria-label={`${open ? "Collapse" : "Expand"} ${section.title}`}
             aria-expanded={open}
           >
-            <span aria-hidden="true">▸</span>
+            <DisclosureChevron />
           </button>
         ) : (
           <span className="ontology-outline__toggle-placeholder" aria-hidden="true" />
