@@ -3,10 +3,6 @@ import type { ValidationHealth } from "../api/types";
 import { ViewHeader } from "./ConfiguredViewHeader";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 
-function buildOntologyTypePath(typeName: string): string {
-  return `/ontology/type/${encodeURIComponent(typeName)}`;
-}
-
 export type TypeWorkspaceHeaderProps = {
   /** Resolved type or interface name. */
   typeName: string;
@@ -61,8 +57,18 @@ export function TypeWorkspaceHeader({
       // A type's Briefing has no rows to count; it shows the type's record count.
       countFallback={typeName && totalNotes !== null ? String(totalNotes) : undefined}
       description={description}
+      info={typeName ? `${eyebrow}: ${typeName}` : undefined}
+      infoLink={
+        typeName
+          ? {
+              href: `/ontology/type/${encodeURIComponent(typeName)}`,
+              label: `View ontology type ${typeName}`,
+            }
+          : undefined
+      }
       facts={
         <>
+          {!typeName && eyebrow && <span className="view-header__fact">{eyebrow}</span>}
           {(issueCount ?? 0) > 0 && (
             <span className="view-header__fact view-header__issues">
               <ValidationIssueBadge
@@ -79,18 +85,6 @@ export function TypeWorkspaceHeader({
               <span>{meanRelations ?? "—"}</span> avg links
             </span>
           )}
-          {typeName ? (
-            <a
-              href={buildOntologyTypePath(typeName)}
-              className="view-header__fact view-header__schema"
-              aria-label={`View ontology type ${typeName}`}
-              title={`${eyebrow}: view ontology type ${typeName}`}
-            >
-              {typeName}
-            </a>
-          ) : eyebrow ? (
-            <span className="view-header__fact">{eyebrow}</span>
-          ) : null}
         </>
       }
       toolsRef={toolsRef}

@@ -51,6 +51,8 @@ type Props = {
   description?: string | null;
   /** Quiet title-row facts after the description, such as a validation badge. */
   facts?: ReactNode;
+  info?: string;
+  infoLink?: { href: string; label: string };
   toolsRef?: (element: HTMLElement | null) => void;
   /** The presentations row: text tabs and their trailing controls. */
   tabs?: ReactNode;
@@ -70,6 +72,8 @@ export function ViewHeader({
   countFallback,
   description,
   facts,
+  info,
+  infoLink,
   toolsRef,
   tabs,
 }: Props) {
@@ -84,7 +88,9 @@ export function ViewHeader({
         ) : (
           <span className="view-header__count" ref={countRef} data-fallback={countFallback} />
         )}
-        {description && <HeaderDescription description={description} />}
+        {(description || info) && (
+          <HeaderDescription description={description ?? ""} info={info} infoLink={infoLink} />
+        )}
         {facts}
         <div className="view-header__tools" ref={toolsRef} />
       </div>
@@ -125,7 +131,17 @@ function descriptionRoom(about: HTMLElement) {
  * mark. When the title row leaves it under 160px, the line hides and the mark
  * alone carries the description.
  */
-function HeaderDescription({ description }: { description: string }) {
+function HeaderDescription({
+  description,
+  info,
+  infoLink,
+}: {
+  description: string;
+  info?: string;
+  infoLink?: Props["infoLink"];
+}) {
+  const tooltip = [description, info].filter(Boolean).join("\n");
+  const Info = infoLink ? "a" : "button";
   const lead = leadSentence(description);
   const aboutRef = useRef<HTMLSpanElement>(null);
   const [narrow, setNarrow] = useState(false);
@@ -147,15 +163,21 @@ function HeaderDescription({ description }: { description: string }) {
 
   return (
     <>
-      <span ref={aboutRef} className="view-header__about" title={description} hidden={narrow}>
+      <span
+        ref={aboutRef}
+        className="view-header__about"
+        title={description}
+        hidden={narrow || !description}
+      >
         {lead ?? description}
       </span>
-      {(lead || narrow) && (
-        <button
-          type="button"
+      {(lead || narrow || info) && (
+        <Info
+          type={infoLink ? undefined : "button"}
+          href={infoLink?.href}
           className="view-header__about-info"
-          title={description}
-          aria-label={`Full description: ${description}`}
+          title={tooltip}
+          aria-label={infoLink?.label ?? `Full description: ${tooltip}`}
         >
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
             <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
@@ -166,7 +188,7 @@ function HeaderDescription({ description }: { description: string }) {
               strokeLinecap="round"
             />
           </svg>
-        </button>
+        </Info>
       )}
     </>
   );
