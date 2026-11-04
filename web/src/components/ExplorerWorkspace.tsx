@@ -14,7 +14,9 @@ import { queryKeys } from "../api/queryKeys";
 import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
 import { encodeURLFragment } from "../lib/noteDeepLink";
+import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
+import { aggregateByFolder } from "./folderGraph";
 import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NOTES_ROOT_PATH } from "./notesRoute";
@@ -197,6 +199,9 @@ export function ExplorerWorkspace({
   });
 
   const graph = graphQuery.data ?? EMPTY_GRAPH;
+  // The whole vault starts at folder level; picking a folder loads its own graph.
+  const atRoot = selection.kind === "root";
+  const [displaySlot, setDisplaySlot] = useState<HTMLDivElement | null>(null);
 
   const graphScope: GraphScope =
     selection.kind === "root"
@@ -316,8 +321,9 @@ export function ExplorerWorkspace({
 
   const onNodeClick = useCallback(
     (node: GraphNode) => {
-      if (node.kind === "module" && node.path) {
-        focusModule(node.path);
+      if (node.kind === "module") {
+        // Top-level files have no folder of their own to open.
+        if (node.path) focusModule(node.path);
       } else if (node.kind === "embedded" || node.kind === "note" || node.kind === "code") {
         const target = graphNodeNavigationTarget(node);
 
@@ -358,19 +364,32 @@ export function ExplorerWorkspace({
 
   const graphScopeLabel =
     graphScope.mode === "global"
-      ? "The whole vault as files, folders, and links"
+      ? "The whole vault by folder; pick one to see its notes and code"
       : graphScope.mode === "module"
         ? `Folder ${graphScope.label}`
         : `File ${graphScope.label || "graph"}`;
 
   // Notes take their type's color, as in the Atlas, so the legend can name every color.
+  const accentKey = useTypeAccentKey();
+
   const typeColors = useMemo(
     () =>
       buildTypeColors([
         ...new Set(graph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean)),
       ]),
-    [graph.nodes],
+    // The summary decides each type's palette slot.
+    [graph.nodes, accentKey],
   );
+
+  // A search shows its matches among the vault's own nodes, not folders.
+  const byFolder = atRoot && !searchActive;
+
+  const folders = useMemo(
+    () => (byFolder ? aggregateByFolder(graph, (type) => typeColors.get(type)) : null),
+    [byFolder, graph, typeColors],
+  );
+
+  const drawn = folders ?? graph;
 
   return (
     <div className="workspace workbench">
@@ -418,8 +437,11 @@ export function ExplorerWorkspace({
         <header className="view-header explorer-header">
           <div className="view-header__title-row">
             <h2>Explorer</h2>
-            <span className="view-header__count">{graph.nodes.length || ""}</span>
+            <span className="view-header__count num">
+              {graph.nodes.length ? graph.nodes.length.toLocaleString("en-US") : ""}
+            </span>
             <span className="view-header__about">{graphScopeLabel}</span>
+            <div className="explorer-bar__display" ref={setDisplaySlot} />
             <div
               className="view-header__tools explorer-bar__search"
               onBlur={(event) => {
@@ -525,9 +547,14 @@ export function ExplorerWorkspace({
                   }
                 >
                   <GraphView
-                    nodes={graph.nodes}
-                    edges={graph.edges}
-                    truncated={graph.truncated}
+                    nodes={drawn.nodes}
+                    edges={drawn.edges}
+                    truncated={drawn.truncated}
+                    legendNodes={folders ? graph.nodes : undefined}
+                    folderCaption={
+                      folders ? "Sized by contents, colored by their most common type" : undefined
+                    }
+                    displaySlot={displaySlot}
                     needsIndex={graph.needsIndex}
                     scope={graphScope}
                     onResetScope={resetGraphScope}

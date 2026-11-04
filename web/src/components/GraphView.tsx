@@ -1,8 +1,16 @@
-import { Maximize, Minus, Plus, TriangleAlert } from "lucide-react";
+import { ChevronDown, Maximize, Minus, Plus, TriangleAlert } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useMemo, useState } from "react";
 import { publicTypeName } from "../lib/typeNames";
 import type { GraphEdge, GraphNode } from "../api/types";
-import { type GraphScope, kindLabel, truncatePath } from "./graphViewShared";
+import {
+  CODE_COLOR,
+  FOLDER_COLOR,
+  type GraphScope,
+  kindLabel,
+  truncatePath,
+  UNTYPED_COLOR,
+} from "./graphViewShared";
 import { type GraphDisplay, type GraphNodeClickOptions, useSigmaGraph } from "./useSigmaGraph";
 
 const UNTYPED_NODE_TYPE = "__untyped__";
@@ -13,10 +21,25 @@ const CODE_NODE_TYPE = "__code__";
 const FOLDER_NODE_TYPE = "__module__";
 
 const KIND_ENTRIES = new Map([
-  [UNTYPED_NODE_TYPE, { label: "Untyped notes", color: "var(--text-faint)" }],
-  [CODE_NODE_TYPE, { label: "Code", color: "var(--type-8)" }],
-  [FOLDER_NODE_TYPE, { label: "Folders", color: "var(--type-3)" }],
+  [UNTYPED_NODE_TYPE, { label: "Untyped notes", color: UNTYPED_COLOR }],
+  [CODE_NODE_TYPE, { label: "Code files", color: CODE_COLOR }],
+  [FOLDER_NODE_TYPE, { label: "Folders", color: FOLDER_COLOR }],
 ]);
+
+/** Legend groups, in order: what the colors of notes mean, then code, then folders. */
+const LEGEND_GROUPS = [
+  { key: "typed", title: "Notes by type" },
+  { key: "code", title: "Code" },
+  { key: "folder", title: "Folders" },
+] as const;
+
+function legendGroup(name: string) {
+  if (name === CODE_NODE_TYPE) return "code";
+
+  if (name === FOLDER_NODE_TYPE) return "folder";
+
+  return "typed";
+}
 
 const EMPTY_PROBLEM_COUNTS: ReadonlyMap<string, number> = new Map();
 
@@ -57,6 +80,9 @@ export function GraphView({
   problemCounts = EMPTY_PROBLEM_COUNTS,
   display,
   onDisplayChange,
+  displaySlot,
+  legendNodes,
+  folderCaption,
 }: {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -81,6 +107,12 @@ export function GraphView({
   /** Remembered display toggles; without them the toggles last as long as the graph. */
   display?: GraphDisplay;
   onDisplayChange?: (patch: Partial<GraphDisplay>) => void;
+  /** Where the Display menu renders, such as the page header; without one it floats on the graph. */
+  displaySlot?: HTMLElement | null;
+  /** The nodes the legend counts when the drawn nodes summarize them (Explorer's folder view). */
+  legendNodes?: GraphNode[];
+  /** A note on what folder colors mean, when folders summarize their contents. */
+  folderCaption?: string;
 }) {
   const [localShowProblems, setLocalShowProblems] = useState(false);
   const showProblems = display?.showProblems ?? localShowProblems;
@@ -140,10 +172,14 @@ export function GraphView({
 
   const typeEntries = useMemo<GraphTypeEntry[]>(() => {
     const counts = new Map<string, number>();
-    nodes.forEach((node) => {
+
+    const count = (node: GraphNode) => {
       const name = graphTypeName(node);
       counts.set(name, (counts.get(name) || 0) + 1);
-    });
+    };
+
+    (legendNodes ?? nodes).forEach((node) => node.kind !== "module" && count(node));
+    nodes.forEach((node) => node.kind === "module" && count(node));
 
     return (
       Array.from(counts.entries())
@@ -166,7 +202,7 @@ export function GraphView({
           return rank(left) - rank(right) || left.label.localeCompare(right.label);
         })
     );
-  }, [highlightTypes, nodes, typeColors, typeLabels]);
+  }, [highlightTypes, legendNodes, nodes, typeColors, typeLabels]);
 
   const highlightedNodeCount = useMemo(() => {
     if (!highlightTypes?.size) return nodes.length;
@@ -178,147 +214,28 @@ export function GraphView({
     }).length;
   }, [highlightTypes, nodes]);
 
+  const shownCount = (legendNodes ?? nodes).length;
+
   const nodeCaption = highlightTypes?.size
-    ? `${highlightedNodeCount} of ${nodes.length} nodes highlighted`
-    : `${nodes.length} nodes`;
+    ? `${highlightedNodeCount.toLocaleString("en-US")} of ${shownCount.toLocaleString("en-US")} nodes highlighted`
+    : `${shownCount.toLocaleString("en-US")} nodes`;
 
   const problemNodeCount = [...problemCounts.values()].filter((count) => count > 0).length;
 
-  return (
-    <div
-      className="graph-container"
-      data-graph-ready={graphReady ? "true" : undefined}
-      data-truncated={truncated ? "true" : undefined}
-    >
-      <div
-        ref={containerRef}
-        className="graph-surface"
-        role="img"
-        aria-label={`Graph of ${countLabel(nodes.length, "node")} and ${countLabel(edges.length, "link")}. Use Find to search nodes; the navigation lists the same notes.`}
-      />
-
-      <div className="graph-zoom">
-        <button
-          type="button"
-          className="zoom-btn"
-          onClick={handleZoomIn}
-          title="Zoom in"
-          aria-label="Zoom in"
-        >
-          <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="zoom-btn"
-          onClick={handleZoomOut}
-          title="Zoom out"
-          aria-label="Zoom out"
-        >
-          <Minus size={16} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="zoom-btn zoom-btn--fit"
-          onClick={handleFitToView}
-          title="Fit to view"
-          aria-label="Fit to view"
-        >
-          <Maximize size={14} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="graph-tools">
-        <div className="graph-tool">
-          <div className="graph-tool-header">
-            <div className="graph-tool-title">{showFind ? "Find" : "Graph options"}</div>
-            <button
-              type="button"
-              className="graph-expand"
-              onClick={() => setGraphExpanded((prev) => !prev)}
-            >
-              {graphExpanded ? "Less" : "More"}
-            </button>
-          </div>
-          {showFind && (
-            <input
-              className="graph-search"
-              aria-label="Search graph nodes"
-              value={graphQuery}
-              onChange={(e) => setGraphQuery(e.target.value)}
-              placeholder="Search nodes"
-            />
-          )}
-          {showFind && graphQueryValue && (
-            <div className="graph-search-meta" role="status">
-              {graphMatches.size} {graphMatches.size === 1 ? "match" : "matches"}
-            </div>
-          )}
-          {showFind && graphExpanded && (
-            <label className="graph-toggle">
-              <input
-                type="checkbox"
-                checked={graphFilter}
-                disabled={!graphQueryValue}
-                onChange={(e) => setGraphFilter(e.target.checked)}
-              />
-              Filter
-            </label>
-          )}
-          {graphExpanded && (
-            <div className="graph-scope">
-              {scope.mode === "global" && "Global graph"}
-              {scope.mode === "module" && `Folder: ${scope.label}`}
-              {scope.mode === "local" && `File: ${scope.label}`}
-            </div>
-          )}
-          {graphExpanded && scope.mode !== "global" && (
-            <button type="button" className="graph-reset" onClick={onResetScope}>
-              Back to global
-            </button>
-          )}
-        </div>
-
-        {graphExpanded && (
-          <div className="graph-tool">
-            <div className="graph-tool-title">Clusters</div>
-            {clusters.length > 0 ? (
-              <div className="graph-clusters">
-                {clusters.slice(0, 6).map((cluster) => (
-                  <button
-                    key={cluster.id}
-                    type="button"
-                    className={`cluster-item ${activeCommunity === cluster.id ? "cluster-item--active" : ""}`}
-                    onClick={() =>
-                      setActiveCommunity((prev) => (prev === cluster.id ? null : cluster.id))
-                    }
-                  >
-                    <span className="cluster-swatch" style={{ background: cluster.color }} />
-                    <span className="cluster-label">{cluster.label}</span>
-                    <span className="cluster-count">{cluster.size}</span>
-                  </button>
-                ))}
-                {clusters.length > 6 && (
-                  <div className="cluster-more">+{clusters.length - 6} more</div>
-                )}
-              </div>
-            ) : (
-              <div className="cluster-empty">No clusters yet</div>
-            )}
-            {activeCommunity && (
-              <button
-                type="button"
-                className="cluster-clear"
-                onClick={() => setActiveCommunity(null)}
-              >
-                Clear focus
-              </button>
-            )}
-          </div>
-        )}
-
-        {graphExpanded && (
-          <div className="graph-tool">
-            <div className="graph-tool-title">Display</div>
+  const displayMenu = (
+    <div className="graph-display">
+      <button
+        type="button"
+        className="graph-display__button"
+        aria-expanded={graphExpanded}
+        onClick={() => setGraphExpanded((prev) => !prev)}
+      >
+        Display
+        <ChevronDown size={14} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+      {graphExpanded && (
+        <div className="graph-display__panel">
+          <div className="graph-display__section">
             <label className="graph-toggle">
               <input
                 type="checkbox"
@@ -345,36 +262,69 @@ export function GraphView({
                 Problems ({problemNodeCount})
               </label>
             )}
-          </div>
-        )}
-      </div>
-
-      {showTypeLegend && (
-        <aside className="graph-type-legend" aria-label="Graph type legend">
-          <div className="graph-type-legend__header">
-            <span className="graph-type-legend__title">Types</span>
-            <span className="graph-type-legend__caption">{nodeCaption}</span>
-          </div>
-          <ul className="graph-type-legend__list">
-            {typeEntries.map((entry) => (
-              <li
-                key={entry.name}
-                className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
-                data-type={entry.name}
-              >
-                <span
-                  className="graph-type-legend__swatch"
-                  style={{ backgroundColor: entry.color }}
-                  aria-hidden="true"
+            {showFind && (
+              <label className="graph-toggle">
+                <input
+                  type="checkbox"
+                  checked={graphFilter}
+                  disabled={!graphQueryValue}
+                  onChange={(e) => setGraphFilter(e.target.checked)}
                 />
-                <span className="graph-type-legend__label">{entry.label}</span>
-                <span className="graph-type-legend__count">{entry.count}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
+                Only Find matches
+              </label>
+            )}
+          </div>
+          {clusters.length > 0 && (
+            <div className="graph-display__section">
+              <div className="graph-tool-title">Clusters</div>
+              <div className="graph-clusters">
+                {clusters.slice(0, 6).map((cluster) => (
+                  <button
+                    key={cluster.id}
+                    type="button"
+                    className={`cluster-item ${activeCommunity === cluster.id ? "cluster-item--active" : ""}`}
+                    onClick={() =>
+                      setActiveCommunity((prev) => (prev === cluster.id ? null : cluster.id))
+                    }
+                  >
+                    <span className="cluster-swatch" style={{ background: cluster.color }} />
+                    <span className="cluster-label">{cluster.label}</span>
+                    <span className="cluster-count num">{cluster.size}</span>
+                  </button>
+                ))}
+                {clusters.length > 6 && (
+                  <div className="cluster-more">+{clusters.length - 6} more</div>
+                )}
+              </div>
+              {activeCommunity && (
+                <button
+                  type="button"
+                  className="cluster-clear"
+                  onClick={() => setActiveCommunity(null)}
+                >
+                  Clear focus
+                </button>
+              )}
+            </div>
+          )}
+          {scope.mode !== "global" && (
+            <div className="graph-display__section">
+              <button type="button" className="graph-reset" onClick={onResetScope}>
+                Back to the whole vault
+              </button>
+            </div>
+          )}
+        </div>
       )}
+    </div>
+  );
 
+  return (
+    <div
+      className="graph-container"
+      data-graph-ready={graphReady ? "true" : undefined}
+      data-truncated={truncated ? "true" : undefined}
+    >
       {truncated && (
         <div className="graph-banner" role="status">
           <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -384,56 +334,158 @@ export function GraphView({
           </span>
         </div>
       )}
-      {!graphReady && (
-        <div className="graph-notice" role="status">
-          <div className="graph-notice-title">Laying out graph</div>
-          <div className="graph-notice-body">Arranging {countLabel(nodes.length, "node")}…</div>
-        </div>
-      )}
-      {needsIndex && (
-        <div className="graph-notice">
-          <div className="graph-notice-title">Graph unavailable</div>
-          <div className="graph-notice-body">
-            Run <code>rzm index</code> to build the graph.
-          </div>
-        </div>
-      )}
-      {showEmpty && (
-        <div className="graph-notice">
-          <div className="graph-notice-title">No graph data yet</div>
-          <div className="graph-notice-body">
-            Pick a file or folder, or rebuild the index if you expected connections here.
-          </div>
-        </div>
-      )}
+      <div className="graph-stage">
+        <div
+          ref={containerRef}
+          className="graph-surface"
+          role="img"
+          aria-label={`Graph of ${countLabel(nodes.length, "node")} and ${countLabel(edges.length, "link")}. Use Find to search nodes; the navigation lists the same notes.`}
+        />
 
-      {hover && (
-        <div className="graph-hover">
-          <div className="graph-hover-label">{hover.label}</div>
-          <div className="graph-hover-meta">
-            <span className="graph-hover-kind">
-              {publicTypeName(hover.resolvedType) || kindLabel(hover.kind)}
-            </span>
-            {hover.nodeId && (
-              <span className="graph-hover-id" title={hover.nodeId}>
-                {hover.nodeId}
-              </span>
-            )}
-            {hover.connectionCount > 0 && (
-              <span className="graph-hover-connections">
-                {hover.connectionCount} connection
-                {hover.connectionCount !== 1 ? "s" : ""}
-              </span>
-            )}
-            {(hover.problemCount ?? 0) > 0 && (
-              <span className="graph-hover-problems">
-                {hover.problemCount} {hover.problemCount === 1 ? "problem" : "problems"}
-              </span>
-            )}
-          </div>
-          {hover.path && <div className="graph-hover-path">{truncatePath(hover.path)}</div>}
+        <div className="graph-zoom">
+          <button
+            type="button"
+            className="zoom-btn"
+            onClick={handleZoomIn}
+            title="Zoom in"
+            aria-label="Zoom in"
+          >
+            <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="zoom-btn"
+            onClick={handleZoomOut}
+            title="Zoom out"
+            aria-label="Zoom out"
+          >
+            <Minus size={16} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="zoom-btn zoom-btn--fit"
+            onClick={handleFitToView}
+            title="Fit to view"
+            aria-label="Fit to view"
+          >
+            <Maximize size={14} strokeWidth={1.75} aria-hidden="true" />
+          </button>
         </div>
+
+        <div className="graph-tools">
+          {showFind && (
+            <div className="graph-find">
+              <input
+                className="graph-search"
+                aria-label="Search graph nodes"
+                value={graphQuery}
+                onChange={(e) => setGraphQuery(e.target.value)}
+                placeholder="Find in graph"
+              />
+              {graphQueryValue && (
+                <span className="graph-search-meta" role="status">
+                  {graphMatches.size} {graphMatches.size === 1 ? "match" : "matches"}
+                </span>
+              )}
+            </div>
+          )}
+          {displaySlot === undefined && displayMenu}
+        </div>
+
+        {!graphReady && (
+          <div className="graph-notice" role="status">
+            <div className="graph-notice-title">Laying out graph</div>
+            <div className="graph-notice-body">Arranging {countLabel(nodes.length, "node")}…</div>
+          </div>
+        )}
+        {needsIndex && (
+          <div className="graph-notice">
+            <div className="graph-notice-title">Graph unavailable</div>
+            <div className="graph-notice-body">
+              Run <code>rzm index</code> to build the graph.
+            </div>
+          </div>
+        )}
+        {showEmpty && (
+          <div className="graph-notice">
+            <div className="graph-notice-title">No graph data yet</div>
+            <div className="graph-notice-body">
+              Pick a file or folder, or rebuild the index if you expected connections here.
+            </div>
+          </div>
+        )}
+
+        {hover && (
+          <div className="graph-hover">
+            <div className="graph-hover-label">{hover.label}</div>
+            <div className="graph-hover-meta">
+              <span className="graph-hover-kind">
+                {publicTypeName(hover.resolvedType) || kindLabel(hover.kind)}
+              </span>
+              {hover.nodeId && (
+                <span className="graph-hover-id" title={hover.nodeId}>
+                  {hover.nodeId}
+                </span>
+              )}
+              {hover.connectionCount > 0 && (
+                <span className="graph-hover-connections">
+                  {hover.connectionCount} connection
+                  {hover.connectionCount !== 1 ? "s" : ""}
+                </span>
+              )}
+              {(hover.problemCount ?? 0) > 0 && (
+                <span className="graph-hover-problems">
+                  {hover.problemCount} {hover.problemCount === 1 ? "problem" : "problems"}
+                </span>
+              )}
+            </div>
+            {hover.path && <div className="graph-hover-path">{truncatePath(hover.path)}</div>}
+          </div>
+        )}
+      </div>
+      {showTypeLegend && (
+        <aside className="graph-type-legend" aria-label="Graph type legend">
+          <div className="graph-type-legend__caption">{nodeCaption}</div>
+          {LEGEND_GROUPS.map((group) => {
+            const entries = typeEntries.filter((entry) => legendGroup(entry.name) === group.key);
+
+            if (entries.length === 0) return null;
+
+            return (
+              <section key={group.key} className="graph-type-legend__group" data-group={group.key}>
+                <h3 className="graph-type-legend__title">{group.title}</h3>
+                <ul className="graph-type-legend__list">
+                  {entries.map((entry) => (
+                    <li
+                      key={entry.name}
+                      className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
+                      data-type={entry.name}
+                    >
+                      <span
+                        className="graph-type-legend__swatch"
+                        style={
+                          group.key === "folder"
+                            ? { borderColor: entry.color }
+                            : { backgroundColor: entry.color }
+                        }
+                        aria-hidden="true"
+                      />
+                      <span className="graph-type-legend__label">{entry.label}</span>
+                      <span className="graph-type-legend__count num">
+                        {entry.count.toLocaleString("en-US")}
+                      </span>
+                    </li>
+                  ))}
+                  {group.key === "folder" && folderCaption && (
+                    <li className="graph-type-legend__note">{folderCaption}</li>
+                  )}
+                </ul>
+              </section>
+            );
+          })}
+        </aside>
       )}
+      {displaySlot && createPortal(displayMenu, displaySlot)}
     </div>
   );
 }

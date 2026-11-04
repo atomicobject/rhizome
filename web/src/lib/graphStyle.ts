@@ -13,6 +13,8 @@ export type SigmaNodeAttrs = {
   lang?: string;
   community?: string;
   resolvedType?: string;
+  /** What a folder node summarizes. */
+  childCount?: number;
   authority?: number;
   hub?: number;
   pageRank?: number;
@@ -71,6 +73,8 @@ export type ReducerState = {
   showEdgeLabels: boolean;
   hoverCommunity: string | null;
   hoverNodeID: string | null;
+  /** The hovered node's neighbors; the rest of the graph fades while one is hovered. */
+  hoverNeighbors?: ReadonlySet<string>;
   cameraRatio: number;
   maxScore: number;
   showProblems?: boolean;
@@ -103,9 +107,9 @@ const TYPE_HIGHLIGHT_ALPHA = {
 };
 
 const NODE_SIZE = {
-  base: { normal: 6, module: 9 },
-  min: { normal: 2.8, module: 4.5 },
-  authorityBonus: 12,
+  base: { normal: 3, module: 7 },
+  min: { normal: 2, module: 4.5 },
+  authorityBonus: 6,
   iconMinScreen: { normal: 8.5, zoomed: 12.5 },
 };
 
@@ -371,6 +375,22 @@ export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
     }
   }
 
+  const outsideHover =
+    state.hoverNodeID !== null &&
+    !isHoverNode &&
+    !isPersistentFocus &&
+    !inHoverCommunity &&
+    !(state.hoverNeighbors?.has(nodeId) ?? true);
+
+  if (outsideHover) {
+    color = colorWithPremultipliedAlpha(mixColors(baseColor, neutral, 0.6), 0.35);
+    label = "";
+  } else if (state.hoverNodeID !== null && !isHoverNode && state.hoverNeighbors?.has(nodeId)) {
+    // The hovered node's neighbors keep full color and their names.
+    color = baseColor;
+    label = attrs.label;
+  }
+
   if (hasTypeHighlighting && !typeMatch && !isFocus && !inHoverCommunity) {
     color = colorWithPremultipliedAlpha(neutral, TYPE_HIGHLIGHT_ALPHA.node);
     label = "";
@@ -488,7 +508,8 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
 
   const sizeScale = lerp(1.15, 0.82, lod);
   const size = Math.max(0.35, attrs.size * sizeScale);
-  const labelVisible = state.showEdgeLabels && (lod < 0.2 || isFocus);
+  // Edge names show only for what the reader is looking at: a hovered node's or a match's links.
+  const labelVisible = state.showEdgeLabels && Boolean(isFocus);
   let label = labelVisible ? attrs.label : "";
 
   let color: string;
@@ -497,7 +518,7 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
 
   if (isFocus || isHoverEdge) {
     color = edgeStrong;
-  } else if (hasHighlighting) {
+  } else if (hasHighlighting || state.hoverNodeID !== null) {
     color = edgeFaint;
   } else {
     color = lod > 0.3 ? edgeFaint : edgeLight;

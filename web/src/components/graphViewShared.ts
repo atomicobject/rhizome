@@ -7,7 +7,11 @@ import { typeAccentColor } from "../lib/typeAccent";
  * The API never sends `center`; view code adds it before handing nodes to the
  * renderer.
  */
-export type GraphViewNode = GraphNode & { center?: boolean };
+export type GraphViewNode = GraphNode & {
+  center?: boolean;
+  /** A color the view chose itself, such as a folder summary's; it wins over the node's kind and type. */
+  fill?: string;
+};
 
 export type HoverInfo = {
   label: string;
@@ -57,7 +61,7 @@ export const CAMERA = {
 };
 
 export const NODE_SIZE = {
-  base: { normal: 6, module: 9 },
+  base: { normal: 3, module: 7 },
 };
 
 // Graph colors are CSS values on the --type-* palette; useSigmaGraph resolves
@@ -65,6 +69,16 @@ export const NODE_SIZE = {
 const MARKDOWN_COLOR = "var(--type-1)";
 
 const NEUTRAL_COLOR = "var(--type-8)";
+
+/**
+ * Beside type colors, the three neutrals step in lightness: folders in ink,
+ * code files in muted ink, untyped notes in the warm-gray neutral.
+ */
+export const FOLDER_COLOR = "var(--text)";
+
+export const CODE_COLOR = "var(--text-muted)";
+
+export const UNTYPED_COLOR = NEUTRAL_COLOR;
 
 const LANG_COLORS = new Map<string, string>([
   ["markdown", MARKDOWN_COLOR],
@@ -145,10 +159,10 @@ export function nodeColor(
     if (color) return color;
   }
 
-  if (node.kind === "module") return "var(--type-3)";
+  if (node.kind === "module") return FOLDER_COLOR;
 
   // Beside type colors, code is one neutral so the legend can name it.
-  if (typeColors && node.kind === "code") return NEUTRAL_COLOR;
+  if (typeColors && node.kind === "code") return CODE_COLOR;
 
   if (node.kind === "embedded") return "var(--type-4)";
 
@@ -165,7 +179,7 @@ export function nodeColor(
 
 /**
  * Map each resolved type to its palette color (the same slot it has in the
- * Atlas and type pages). Untyped notes use a faint neutral.
+ * Atlas and type pages). Untyped notes use the warm-gray neutral.
  */
 export function buildTypeColors(typeNames: string[]): Map<string, string> {
   const colors = new Map<string, string>();
@@ -174,7 +188,7 @@ export function buildTypeColors(typeNames: string[]): Map<string, string> {
     if (name) colors.set(name, typeAccentColor(name));
   }
 
-  colors.set("__untyped__", "var(--text-faint)");
+  colors.set("__untyped__", UNTYPED_COLOR);
 
   return colors;
 }

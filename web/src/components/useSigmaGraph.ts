@@ -141,31 +141,53 @@ function themedNodeHover(
  */
 const LANDMARKS = 20;
 
+/** Up to this many nodes, labels are placed clear of node discs as well as other labels. */
+const NODE_AVOID_ORDER = 400;
+
 // WHY: Sigma's default label has no backing, so it disappears over dense edges
 // and nodes. This draws the same label on a halo of the surface color.
 // Sigma's label grid ignores forced (landmark) labels, so hubs packed together
-// would stack their labels; `placed` holds this frame's drawn label boxes and a
-// label that would overlap one is skipped. The caller empties it before each render.
+// would stack their labels; `placed` holds this frame's drawn label boxes, and a
+// label tries four sides of its node before it is skipped. The caller empties
+// it before each render.
 function haloLabel(
   colors: () => ThemeColors,
   placed: [number, number, number, number][],
+  prepare: () => void,
 ): NodeLabelDrawingFunction<SigmaNodeAttrs, SigmaEdgeAttrs> {
   return (context, data, settings) => {
     if (!data.label) return;
+    prepare();
     const size = settings.labelSize;
-    const x = data.x + data.size + 3;
-    const y = data.y + size / 3;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
+    const width = context.measureText(data.label).width;
+    const gap = data.size + 3;
 
-    const box: [number, number, number, number] = [
+    // Right of the node first, then left, below, and above; a label with no
+    // free spot is left out rather than drawn over another.
+    const spots: [number, number][] = [
+      [data.x + gap, data.y + size / 3],
+      [data.x - gap - width, data.y + size / 3],
+      [data.x - width / 2, data.y + gap + size],
+      [data.x - width / 2, data.y - gap - 2],
+    ];
+
+    const boxOf = ([x, y]: [number, number]): [number, number, number, number] => [
       x - 2,
       y - size,
-      x + context.measureText(data.label).width + 2,
+      x + width + 2,
       y + 4,
     ];
 
-    if (placed.some(([l, t, r, b]) => box[0] < r && box[2] > l && box[1] < b && box[3] > t)) return;
-    placed.push(box);
+    const free = spots.find((spot) => {
+      const box = boxOf(spot);
+
+      return !placed.some(([l, t, r, b]) => box[0] < r && box[2] > l && box[1] < b && box[3] > t);
+    });
+
+    if (!free) return;
+    placed.push(boxOf(free));
+    const [x, y] = free;
     context.lineJoin = "round";
     context.lineWidth = 4;
     context.strokeStyle = colors().surface;
@@ -173,6 +195,21 @@ function haloLabel(
     context.fillStyle = colors().label;
     context.fillText(data.label, x, y);
   };
+}
+
+/**
+ * A node's radius before authority scaling. Notes and code start small so a
+ * dense graph reads as structure, not a mass; a folder that summarizes its
+ * contents grows with the square root of what it holds.
+ */
+function nodeBaseSize(node: GraphViewNode) {
+  const center = node.center ? 2 : 0;
+
+  if (node.kind !== "module") return NODE_SIZE.base.normal + center;
+
+  if (!node.childCount) return NODE_SIZE.base.module + center;
+
+  return Math.min(28, 4 + Math.sqrt(node.childCount) * 0.55) + center;
 }
 
 /** Rebuild the API graph node a click refers to from its renderer attributes. */
@@ -190,6 +227,7 @@ function graphNodeFromAttrs(id: string, attrs: SigmaNodeAttrs): GraphNode {
     module: attrs.module,
     community: attrs.community,
     resolvedType: attrs.resolvedType,
+    childCount: attrs.childCount,
     hub: attrs.hub,
     authority: attrs.authority,
     pageRank: attrs.pageRank,
@@ -438,6 +476,26 @@ export function useSigmaGraph({
     container.style.cursor = "grab";
 
     const placedLabels: [number, number, number, number][] = [];
+    let discsPlaced = false;
+
+    // Before the frame's first label, mark every node disc taken, so labels in
+    // a graph small enough to check keep off nodes as well as other labels.
+    // Sigma lays out the frame's nodes after "beforeRender", so this runs here.
+    const placeDiscs = () => {
+      if (discsPlaced) return;
+      discsPlaced = true;
+      const graph = sigma.getGraph();
+
+      if (graph.order > NODE_AVOID_ORDER) return;
+      graph.forEachNode((id) => {
+        const data = sigma.getNodeDisplayData(id);
+
+        if (!data || data.hidden) return;
+        const { x, y } = sigma.framedGraphToViewport(data);
+        const r = sigma.scaleSize(data.size);
+        placedLabels.push([x - r, y - r, x + r, y + r]);
+      });
+    };
 
     // WHY: allowInvalidContainer keeps Sigma from throwing when its container
     // has zero width at mount time — this can happen on the first commit
@@ -450,13 +508,19 @@ export function useSigmaGraph({
       // Wider cells keep long labels from overlapping in dense clusters.
       labelGridCellSize: 140,
       labelRenderedSizeThreshold: 10,
+      // The plotted bounds keep clear of the canvas edge and the zoom controls.
+      stagePadding: 44,
       // Canvas text cannot read CSS variables; this is --font-sans.
       labelFont: "Inter, -apple-system, system-ui, sans-serif",
       edgeLabelFont: "Inter, -apple-system, system-ui, sans-serif",
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
-      defaultDrawNodeLabel: haloLabel(() => colorsRef.current ?? readThemeColors(), placedLabels),
+      defaultDrawNodeLabel: haloLabel(
+        () => colorsRef.current ?? readThemeColors(),
+        placedLabels,
+        () => placeDiscs(),
+      ),
       minCameraRatio: CAMERA.minRatio,
       maxCameraRatio: CAMERA.maxRatio,
       zIndex: true,
@@ -471,6 +535,7 @@ export function useSigmaGraph({
     sigmaRef.current = sigma;
     sigma.on("beforeRender", () => {
       placedLabels.length = 0;
+      discsPlaced = false;
     });
     const camera = sigma.getCamera();
     stateRef.current.cameraRatio = camera.getState().ratio;
@@ -578,6 +643,7 @@ export function useSigmaGraph({
 
         if (mouseCanvas) mouseCanvas.style.cursor = "grab";
         stateRef.current.hoverNodeID = null;
+        stateRef.current.hoverNeighbors = undefined;
         stateRef.current.hoverCommunity = null;
         setHover(null);
         scheduleRefresh();
@@ -590,6 +656,7 @@ export function useSigmaGraph({
 
       if (mouseCanvas) mouseCanvas.style.cursor = "pointer";
       stateRef.current.hoverNodeID = nextNode;
+      stateRef.current.hoverNeighbors = new Set(sigma.getGraph().neighbors(nextNode));
       stateRef.current.hoverCommunity =
         attrs.kind === "code" && attrs.community ? attrs.community : null;
       setHover({
@@ -696,16 +763,18 @@ export function useSigmaGraph({
 
     const graph: SigmaGraph = new Graph();
 
+    // A folder that summarizes its contents ranks by what it holds, and every
+    // one is named; anything else ranks by its links.
+    const rank = (node: GraphViewNode) =>
+      node.kind === "module" && node.childCount
+        ? node.childCount
+        : (connectionCounts.get(node.id) ?? 0);
+
     const landmarks = new Set(
       nodes
         .filter((node) => node.kind !== "code")
-        .sort(
-          (a, b) =>
-            (connectionCounts.get(b.id) ?? 0) - (connectionCounts.get(a.id) ?? 0) ||
-            a.id.localeCompare(b.id),
-        )
-        .slice(0, LANDMARKS)
-        .filter((node) => (connectionCounts.get(node.id) ?? 0) > 0)
+        .sort((a, b) => rank(b) - rank(a) || a.id.localeCompare(b.id))
+        .filter((node, index) => rank(node) > 0 && (index < LANDMARKS || Boolean(node.fill)))
         .map((node) => node.id),
     );
 
@@ -724,10 +793,9 @@ export function useSigmaGraph({
       const x = cached ? cached.x : Math.cos(angle) * radius + jitter;
       const y = cached ? cached.y : Math.sin(angle) * radius + jitter;
 
-      const baseSize =
-        (n.kind === "module" ? NODE_SIZE.base.module : NODE_SIZE.base.normal) + (n.center ? 2 : 0);
+      const baseSize = nodeBaseSize(n);
 
-      const colorValue = nodeColor(n, communityColors, typeColors);
+      const colorValue = n.fill ?? nodeColor(n, communityColors, typeColors);
       const baseColor = resolveCssColor(colorValue);
       graph.addNode(n.id, {
         label: n.label,
@@ -738,6 +806,7 @@ export function useSigmaGraph({
         lang: n.lang,
         community: n.community,
         resolvedType: n.resolvedType,
+        childCount: n.childCount,
         authority: n.authority,
         hub: n.hub,
         pageRank: n.pageRank,
@@ -831,6 +900,7 @@ export function useSigmaGraph({
       setHover(null);
       stateRef.current.hoverCommunity = null;
       stateRef.current.hoverNodeID = null;
+      stateRef.current.hoverNeighbors = undefined;
       graphRef.current = graph;
       sigma.setGraph(graph);
       // Ready once the renderer has drawn this graph, not merely received it.
@@ -846,10 +916,21 @@ export function useSigmaGraph({
 
     const isWarmGlobal = scope.mode === "global" && globalLayoutRef.current.size > 0;
 
-    const iterations = isWarmGlobal ? 28 : graph.order > 400 ? 50 : graph.order > 200 ? 80 : 120;
+    // A small graph settles fully for a few hundred passes at no visible cost.
+    const iterations = isWarmGlobal
+      ? 28
+      : graph.order > 400
+        ? 50
+        : graph.order > 200
+          ? 80
+          : graph.order > 80
+            ? 120
+            : 600;
 
     const layoutNodes: LayoutInput["nodes"] = [];
-    graph.forEachNode((id, attrs) => layoutNodes.push({ id, x: attrs.x, y: attrs.y }));
+    graph.forEachNode((id, attrs) =>
+      layoutNodes.push({ id, x: attrs.x, y: attrs.y, size: attrs.baseSize }),
+    );
     const layoutEdges: LayoutInput["edges"] = [];
     graph.forEachEdge((_edge, attrs, source, target) =>
       layoutEdges.push({ source, target, weight: attrs.weight ?? 1 }),
@@ -929,6 +1010,7 @@ export function useSigmaGraph({
     setActiveCommunity(null);
     stateRef.current.hoverCommunity = null;
     stateRef.current.hoverNodeID = null;
+    stateRef.current.hoverNeighbors = undefined;
     // A different subject starts from the default view; a refresh of the same
     // subject keeps the reader's camera.
     sigmaRef.current?.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
