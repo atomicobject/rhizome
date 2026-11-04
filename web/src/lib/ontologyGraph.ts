@@ -101,8 +101,8 @@ const CARD_CHROME = 16 + 4 + 18 * 1.3;
 
 const NODE_BORDER_WIDTH = 1;
 
-/** Half the gap between a card's relation and implements trunks, in card units. */
-const SPLIT_TRUNK = 5;
+/** Half the gap between a card's relation and implements trunks, in card units (12px apart at fit zoom). */
+const SPLIT_TRUNK = 9;
 
 export const TYPE_TARGET_LEFT_HANDLE = "type-target-left";
 
@@ -570,6 +570,24 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
   return { nodes, edges };
 }
 
+/** A self-relation's hook under its card's right end, in card units. */
+const LOOP = { inset: 52, width: 30, depth: 16 };
+
+/** A relation to the card's own type: a short hook down from its bottom edge and back up. */
+function selfLoopPoints(node: OntologyNode | undefined): ElkPoint[] {
+  if (!node) return [];
+  const bottom = node.position.y + node.height;
+  const start = node.position.x + node.width - LOOP.inset;
+  const end = start + LOOP.width;
+
+  return [
+    { x: start, y: bottom },
+    { x: start, y: bottom + LOOP.depth },
+    { x: end, y: bottom + LOOP.depth },
+    { x: end, y: bottom },
+  ];
+}
+
 export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<OntologyGraphModel> {
   const { children = [], edges: laidOutEdges = [] } = await elk.layout({
     id: "ontology",
@@ -584,7 +602,9 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
       "elk.layered.spacing.nodeNodeBetweenLayers": "44",
       "elk.aspectRatio": "1.7",
       "elk.spacing.nodeNode": "28",
-      "elk.spacing.edgeEdge": "12",
+      // Parallel lanes stay at least 12px apart at the Atlas's fit zoom.
+      "elk.spacing.edgeEdge": "18",
+      "elk.layered.spacing.edgeEdgeBetweenLayers": "18",
       "elk.padding": "[top=20,left=20,bottom=20,right=20]",
     },
     children: graph.nodes.map((n) => {
@@ -649,13 +669,16 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
         ],
       };
     }),
-    edges: graph.edges.map((e) => {
-      return {
-        id: e.id,
-        sources: [`${e.source}:${e.sourceHandle ?? implSourceHandle("right")}`],
-        targets: [`${e.target}:${e.targetHandle ?? typeTargetHandle("left")}`],
-      };
-    }),
+    // A self-relation is drawn as a short hook on its card (OntologyRoutedEdge), not routed around it.
+    edges: graph.edges
+      .filter((e) => e.source !== e.target)
+      .map((e) => {
+        return {
+          id: e.id,
+          sources: [`${e.source}:${e.sourceHandle ?? implSourceHandle("right")}`],
+          targets: [`${e.target}:${e.targetHandle ?? typeTargetHandle("left")}`],
+        };
+      }),
   });
 
   const positioned = graph.nodes.map((n) => {
@@ -693,7 +716,10 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
 
   const routedEdges = graph.edges.map((edge) => ({
     ...edge,
-    points: edgeRoutePoints(laidOutEdgesById.get(edge.id)),
+    points:
+      edge.source === edge.target
+        ? selfLoopPoints(positioned.find((node) => node.id === edge.source))
+        : edgeRoutePoints(laidOutEdgesById.get(edge.id)),
     sourceOffset:
       implementing.has(edge.source) && relating.has(edge.source)
         ? edge.type === "implements"

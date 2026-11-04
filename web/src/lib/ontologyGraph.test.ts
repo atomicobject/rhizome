@@ -221,7 +221,7 @@ describe("buildOntologyGraph", () => {
     }
   });
 
-  it("keeps cyclic and self relations orthogonal from the card's middle", async () => {
+  it("keeps cyclic relations orthogonal from the card's middle, and self relations as a hook below it", async () => {
     const { nodes, edges } = await layoutOntologyGraph(
       buildOntologyGraph({
         schemaPresent: true,
@@ -257,6 +257,22 @@ describe("buildOntologyGraph", () => {
       const target = nodes.find((node) => node.id === edge.target)!;
 
       const points = edge.points!;
+
+      if (edge.source === edge.target) {
+        // A self relation hooks down from the card's bottom edge and back up.
+        const bottom = source.position.y + source.height;
+        expect(points[0].y).toBe(bottom);
+        expect(points.at(-1)!.y).toBe(bottom);
+        expect(Math.max(...points.map((point) => point.y))).toBeGreaterThan(bottom);
+
+        for (const point of points) {
+          expect(point.x).toBeGreaterThan(source.position.x);
+          expect(point.x).toBeLessThan(source.position.x + source.width);
+        }
+
+        continue;
+      }
+
       expect(points[0]).toEqual({
         x: source.position.x + source.width,
         y: source.position.y + source.height / 2,

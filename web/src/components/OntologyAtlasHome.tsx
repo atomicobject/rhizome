@@ -68,13 +68,17 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
 
   const types = atlas.types ?? [];
   const interfaces = atlas.interfaces ?? [];
-  const totalTyped = types.reduce((acc, entry) => acc + (entry.count ?? 0), 0);
+  // Cards tell records from items embedded in other notes, so the header does too.
+  const isEmbedded = (entry: (typeof types)[number]) => entry.type?.locator === "EMBEDDED";
+  const sum = (list: typeof types) => list.reduce((acc, entry) => acc + (entry.count ?? 0), 0);
+  const records = sum(types.filter((entry) => !isEmbedded(entry)));
+  const embedded = sum(types.filter(isEmbedded));
 
   return (
     <section className="ontology-atlas">
       <AtlasHeader
         count={types.length + interfaces.length}
-        about={`${plural(types.length, "type", "types")} and ${plural(interfaces.length, "interface", "interfaces")} · ${plural(totalTyped, "typed note", "typed notes")}`}
+        about={`${plural(types.length, "type", "types")} and ${plural(interfaces.length, "interface", "interfaces")} · ${plural(records, "record", "records")}${embedded ? ` · ${plural(embedded, "embedded item", "embedded items")}` : ""}`}
       />
 
       <div className="ontology-atlas__diagram-scroll">

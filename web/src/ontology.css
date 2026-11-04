@@ -2734,9 +2734,11 @@
   gap: var(--sp-1);
   width: 240px;
 }
-.atlas-find input {
+/* The shared find input (.configured-view__find), raised on the tinted canvas. */
+.atlas-find .configured-view__find {
   width: 100%;
-  min-width: 0;
+  margin: 0;
+  background: var(--surface);
 }
 .atlas-find__list,
 .atlas-find__focus {
@@ -2817,7 +2819,8 @@
 }
 /* React Flow reads these for its canvas, dots, and zoom controls. */
 .atlas-canvas .react-flow {
-  --xy-background-pattern-dots-color: var(--border-strong);
+  /* Dots sit a step under the edges, so lines read first. */
+  --xy-background-pattern-dots-color: var(--border);
   --xy-controls-button-background-color: var(--surface);
   --xy-controls-button-background-color-hover: var(--bg-tint);
   --xy-controls-button-color: var(--text-muted);
