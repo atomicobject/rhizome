@@ -78,9 +78,11 @@ echo "stop_app quits a copy outside the install path and the socket holder"
 open -n "$installed"
 open -n "$stray"
 nc -lU "$socket" &
+listener=$!
 wait_launched 2
 stop_app "$bundle_id" "$installed"
 assert_stopped
+! kill -0 "$listener" 2>/dev/null || fail "the socket holder is still running"
 [[ -e "$installed.quit" && -e "$stray.quit" ]] || fail "a copy was stopped without a normal quit"
 
 echo "stop_app kills a copy that refuses to quit and ignores SIGTERM"
