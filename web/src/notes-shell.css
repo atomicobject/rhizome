@@ -324,6 +324,7 @@
    its count, and the query as the muted one-line description, then the
    filters on one row. */
 .search-workspace {
+  --search-measure: 720px;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -624,11 +625,16 @@
   text-underline-offset: 2px;
 }
 
-/* The path gives way in its middle, so the file name and line stay; the
-   section heading after it gives way at its end. */
+/* Results share one reading measure: the source line, note excerpts, and
+   code all stop at about 720px. The path gives way in its middle, so the
+   file name and line stay; the section is its own Inter label after it and
+   gives way at its end. */
 .search-workspace__result-source {
   display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
   min-width: 0;
+  max-width: var(--search-measure);
   margin-top: 2px;
   color: var(--text-faint);
   font-family: var(--font-mono);
@@ -641,17 +647,23 @@
 }
 
 .search-workspace__result-heading {
-  flex: 0 1 auto;
-  min-width: 4ch;
+  flex: 0 100 auto;
+  min-width: 8ch;
   overflow: hidden;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1.4 var(--font-sans);
   text-overflow: ellipsis;
-  white-space: pre;
 }
 
-/* Note excerpts read as prose: soft-wrapped at about 75 characters a line,
-   inline code as code. */
+.search-workspace__result-heading::before {
+  content: "§";
+  margin-right: var(--sp-1);
+  color: var(--text-faint);
+}
+
+/* Note excerpts read as prose at the shared measure, inline code as code. */
 .search-workspace__result p {
-  max-width: 62ch;
+  max-width: var(--search-measure);
   margin: var(--sp-2) 0 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
@@ -675,6 +687,7 @@
 /* Code evidence keeps its source lines in mono on the tint: long lines
    scroll sideways instead of breaking into fragments. */
 .search-workspace__code {
+  max-width: var(--search-measure);
   max-height: 14lh;
   margin: var(--sp-2) 0 0;
   padding: var(--sp-2) var(--sp-3);
@@ -687,16 +700,20 @@
   white-space: pre;
 }
 
-/* A match is a neutral selection tint with a heavier weight, never the
-   warning yellow: the text keeps its own colour and its AA contrast. */
+/* A match reads as Finder's does: a heavier weight and a selection-tinted
+   underline, with no background, so it never looks like inline code. */
 .search-workspace__result mark {
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-  color: inherit;
-  font-weight: 600;
+  background: none;
+  color: var(--text);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--selection-edge) 55%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
 }
 
 .search-workspace__result-link mark {
+  color: inherit;
   font-weight: 700;
 }
 
