@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
 import { StatusMark } from "../StatusMark";
 import { PauseIcon, PlayIcon } from "./TaskIcons";
+import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
   formatDue,
   formatRelative,
@@ -17,7 +18,7 @@ export function PauseButton({
   paused,
   pending,
   onToggle,
-  className = "task-button",
+  className = "button",
 }: {
   paused: boolean;
   pending: boolean;
@@ -57,41 +58,45 @@ export function TasksNotices({
   return (
     <>
       {report.untrusted ? (
-        <div className="task-notice task-notice--risk" role="alert">
+        <div className="banner banner--risk task-notice" role="alert">
           <StatusMark tone="risk" label="Not trusted" />
           {/* The reason already says what to run; it starts lowercase. */}
-          <p className="task-notice__sentence">{report.untrusted}</p>
+          <p className="banner__text task-notice__sentence">{report.untrusted}</p>
         </div>
       ) : null}
       {report.refError ? (
-        <div className="task-notice task-notice--risk" role="alert">
+        <div className="banner banner--risk task-notice" role="alert">
           <StatusMark tone="risk" label="Primary ref unavailable" />
-          <p>No task runs until the primary ref resolves. {report.refError}</p>
+          <p className="banner__text">
+            No task runs until the primary ref resolves. {report.refError}
+          </p>
         </div>
       ) : null}
       {report.paused ? (
-        <div className="task-notice" role="status">
+        <div className="banner task-notice" role="status">
           <StatusMark tone="muted" label="Paused" />
-          <p>Background work is paused. Due tasks wait until you resume.</p>
-          <button type="button" className="task-button" disabled={pausePending} onClick={onResume}>
+          <p className="banner__text">
+            Background work is paused. Due tasks wait until you resume.
+          </p>
+          <button type="button" className="button" disabled={pausePending} onClick={onResume}>
             <PlayIcon />
             Resume all
           </button>
         </div>
       ) : null}
       {report.lastPassError && !brief ? (
-        <div className="task-notice" role="status">
+        <div className="banner task-notice" role="status">
           <StatusMark tone="warning" label="Last pass failed" />
-          <p>
+          <p className="banner__text">
             {report.lastPassError.message}{" "}
-            <span className="task-notice__aside">{formatRelative(report.lastPassError.at)}</span>
+            <span className="banner__aside">{formatRelative(report.lastPassError.at)}</span>
           </p>
         </div>
       ) : null}
       {report.mergeWarning && !brief ? (
-        <div className="task-notice" role="status">
+        <div className="banner task-notice" role="status">
           <StatusMark tone="info" label="Merge setting" />
-          <p>{report.mergeWarning}</p>
+          <p className="banner__text">{report.mergeWarning}</p>
         </div>
       ) : null}
     </>
@@ -131,12 +136,24 @@ function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
           <span className="task-table__none">—</span>
         )}
       </td>
-      <td className="task-table__mono is-optional">{task.every}</td>
+      <td className="task-table__time is-optional">{task.every}</td>
       <td>
-        {last ? (
+        {last && task.lastRun ? (
           <span className="task-table__last">
             <StatusMark tone={last.tone} label={last.label} />
-            <span className="task-table__aside">{formatRelative(task.lastRun?.at)}</span>
+            <span className="task-table__aside">{formatRelative(task.lastRun.at)}</span>
+            {last.tone === "risk" ? (
+              <a
+                className="task-table__run-link"
+                href={tasksHref({ task: task.id, run: task.lastRun.id })}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigateTasks({ task: task.id, run: task.lastRun?.id });
+                }}
+              >
+                View run
+              </a>
+            ) : null}
           </span>
         ) : (
           <span className="task-table__none">Never run</span>
@@ -186,41 +203,43 @@ export function TasksOverview({
 }) {
   return (
     <div className="tasks-overview">
-      <header className="task-head">
-        <div className="task-head__title">
-          <h2>
-            Tasks <span className="task-head__count">{report.tasks.length}</span>
-          </h2>
-          <p>
+      <header className="view-header">
+        <div className="view-header__title-row">
+          <h2>Tasks</h2>
+          <span className="view-header__count">{report.tasks.length}</span>
+          <span className="view-header__about">
             {report.ref ? (
               <code title={report.commit}>
                 {report.ref}
                 {report.commit ? ` @ ${shortCommit(report.commit)}` : ""}
               </code>
             ) : null}
-            {report.fetchedAt ? <span>Fetched {formatRelative(report.fetchedAt)}</span> : null}
-          </p>
+            {report.ref && report.fetchedAt ? " · " : null}
+            {report.fetchedAt ? <>Fetched {formatRelative(report.fetchedAt)}</> : null}
+          </span>
+          <div className="view-header__actions">
+            <PauseButton paused={report.paused} pending={pausePending} onToggle={onTogglePause} />
+          </div>
         </div>
-        <PauseButton paused={report.paused} pending={pausePending} onToggle={onTogglePause} />
       </header>
       <div className="tasks-overview__body">
         {error}
         <TasksNotices report={report} pausePending={pausePending} onResume={onResume} />
         {announcements.map((item) => (
-          <div key={item.id} className="task-notice" role="status">
+          <div key={item.id} className="banner task-notice" role="status">
             {item.kind === "announcement" ? (
               <StatusMark tone="info" label="New task" />
             ) : (
               <StatusMark tone="warning" label={`Removed task ${item.task}`} />
             )}
-            <p>{item.summary || item.reason || item.message}</p>
+            <p className="banner__text">{item.summary || item.reason || item.message}</p>
             {item.kind === "task" && item.worktree && onDiscard ? (
-              <button type="button" className="task-button" onClick={() => onDiscard(item)}>
+              <button type="button" className="button" onClick={() => onDiscard(item)}>
                 Discard
               </button>
             ) : null}
             {onDismiss ? (
-              <button type="button" className="task-button" onClick={() => onDismiss(item)}>
+              <button type="button" className="button" onClick={() => onDismiss(item)}>
                 {item.kind === "announcement" ? "Dismiss" : "Done"}
               </button>
             ) : null}
@@ -232,9 +251,9 @@ export function TasksOverview({
           </div>
         ))}
         {report.problems?.length ? (
-          <div className="task-notice task-notice--risk" role="alert">
+          <div className="banner banner--risk task-notice" role="alert">
             <StatusMark tone="risk" label={`${report.problems.length} task files did not load`} />
-            <ul>
+            <ul className="banner__text">
               {report.problems.map((problem, index) => (
                 <li key={`${problem.path}-${index}`}>
                   <code>{problem.path}</code> {problem.message}

@@ -26,7 +26,7 @@ import {
 } from "./TaskDetail";
 import { formatDue, itemStatePresentation } from "./taskFormat";
 import { TaskRunView as RunView } from "./TaskRunView";
-import { PauseButton, TasksNotices, TasksOverview } from "./TasksOverview";
+import { TasksNotices, TasksOverview } from "./TasksOverview";
 import { navigateTasks, parseTasksLocation } from "./tasksRoute";
 import { useTaskRuns, useTasksLiveState, useTasksReport } from "./useTasksData";
 
@@ -74,35 +74,19 @@ function RailMark({ item }: { item?: TaskItem }) {
       className={`status-mark status-mark--${tone} tasks-rail__mark`}
       role="img"
       aria-label={label}
+      title={label}
     >
       <span className="status-mark__shape" />
     </span>
   );
 }
 
-function TasksRail({
-  tasks,
-  selected,
-  paused,
-  pausePending,
-  onTogglePause,
-}: {
-  tasks: TaskStatus[];
-  selected?: string;
-  paused: boolean;
-  pausePending: boolean;
-  onTogglePause: () => void;
-}) {
+function TasksRail({ tasks, selected }: { tasks: TaskStatus[]; selected?: string }) {
   return (
     <nav className="tasks-rail" aria-label="Tasks">
+      {/* Pause all lives in the overview header only. */}
       <div className="tasks-rail__head">
         <h1>Tasks</h1>
-        <PauseButton
-          className="tasks-rail__pause"
-          paused={paused}
-          pending={pausePending}
-          onToggle={onTogglePause}
-        />
       </div>
       <ul className="tasks-rail__list">
         <li>
@@ -243,13 +227,7 @@ export function TasksWorkspace({
 
   const rail = (
     <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
-      <TasksRail
-        tasks={report?.tasks ?? []}
-        selected={location.task}
-        paused={paused}
-        pausePending={pending === "pause"}
-        onTogglePause={togglePause}
-      />
+      <TasksRail tasks={report?.tasks ?? []} selected={location.task} />
     </WorkbenchSidebar>
   );
 

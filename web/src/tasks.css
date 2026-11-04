@@ -37,36 +37,6 @@
   font-weight: 600;
 }
 
-.tasks-rail__pause {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--chrome-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.tasks-rail__pause:hover {
-  background: var(--chrome-raised);
-  color: var(--chrome-text);
-}
-
-.tasks-rail__pause[aria-pressed="true"] {
-  background: var(--chrome-active);
-  color: var(--chrome-text);
-}
-
-.tasks-rail__pause .task-icon {
-  width: 14px;
-  height: 14px;
-}
-
 .tasks-rail__list {
   display: flex;
   flex: 1;
@@ -130,6 +100,11 @@
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   font-weight: 400;
+}
+
+/* On the chrome, risk takes the chrome's risk ink rather than AO red. */
+.tasks-rail__row:not([aria-current="page"]) .status-mark--risk .status-mark__shape {
+  background: var(--chrome-risk);
 }
 
 .tasks-rail__row[aria-current="page"] .tasks-rail__aside {
@@ -219,8 +194,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3) var(--sp-5);
-  min-height: 60px;
-  padding: 10px 18px;
+  min-height: 56px;
+  padding: 10px var(--sp-4) 10px var(--gutter);
   border-bottom: 1px solid var(--border);
 }
 
@@ -261,37 +236,13 @@
   font-size: var(--fs-xs);
 }
 
+/* Repository conditions use the shared .banner; this only places them. */
 .task-notice {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2) var(--sp-4);
-  margin: 12px 18px 0;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--bg-tint);
-}
-
-.task-notice p,
-.task-notice ul {
-  flex: 1;
-  min-width: 240px;
-  margin: 0;
+  margin: 10px var(--gutter) 0;
 }
 
 .task-notice ul {
   padding-left: 18px;
-}
-
-.task-notice--risk {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-}
-
-.task-notice__aside {
-  color: var(--text-muted);
 }
 
 /* ---- Overview table ---- */
@@ -332,7 +283,7 @@
 }
 
 .task-table :is(th, td):first-child {
-  padding-left: 18px;
+  padding-left: var(--gutter);
 }
 
 .task-table tbody :is(th, td) {
@@ -374,10 +325,9 @@
   color: var(--text-muted);
 }
 
-.task-table__mono,
+/* Intervals and relative times are sans, like every relative time. */
+.task-table__time,
 .task-table__due {
-  font-family: var(--font-mono);
-  font-size: var(--fs-base);
   font-variant-numeric: tabular-nums;
 }
 
@@ -394,6 +344,19 @@
 
 .task-table__aside {
   font-size: var(--fs-sm);
+}
+
+.task-table__run-link {
+  color: var(--link);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 3px;
+}
+
+.task-table__run-link:hover {
+  text-decoration-color: currentColor;
 }
 
 .task-table__local {
