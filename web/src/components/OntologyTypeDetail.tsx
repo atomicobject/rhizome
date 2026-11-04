@@ -83,25 +83,24 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
       // SAFETY: React's CSSProperties omits `--*` custom properties; this object sets only one.
       style={{ "--type-accent": accent } as React.CSSProperties}
     >
-      <header className="ontology-type-detail__hero">
-        <button type="button" className="ontology-type-detail__back" onClick={onBack}>
-          ← Atlas
-        </button>
-        <div className="ontology-type-detail__hero-body">
-          <div className="ontology-type-detail__hero-title">
-            <span className="ontology-type-detail__accent-dot" aria-hidden="true" />
-            <h1>{name}</h1>
-            {data?.type?.role ? (
-              <span className="ontology-type-detail__role-pill">
-                {humanizeName(data.type.role.toLowerCase())}
-              </span>
-            ) : null}
-          </div>
-          {data?.type?.description ? (
-            <p className="ontology-type-detail__tagline">{data.type.description}</p>
+      <header className="view-header ontology-type-detail__header">
+        <div className="view-header__title-row">
+          <button type="button" className="ontology-type-detail__back" onClick={onBack}>
+            Atlas
+          </button>
+          <span className="ontology-type-detail__crumb" aria-hidden="true">
+            /
+          </span>
+          <h2>{name}</h2>
+          {data ? <span className="view-header__count">{data.count}</span> : null}
+          {data?.type?.role ? (
+            <span className="view-header__about">{humanizeName(data.type.role.toLowerCase())}</span>
           ) : null}
         </div>
       </header>
+      {data?.type?.description ? (
+        <p className="ontology-type-detail__tagline">{data.type.description}</p>
+      ) : null}
 
       {error && !data ? (
         <div className="ontology-type-detail__error" role="alert">
@@ -786,20 +785,10 @@ function TypeDetailBody({
   return (
     <>
       <dl className="ontology-type-detail__stats">
-        <div>
-          <dt>Notes</dt>
-          <dd>{data.count}</dd>
-        </div>
         {data.issueCount ? (
           <div className="ontology-type-detail__stat--warn">
             <dt>Issues</dt>
             <dd>{data.issueCount}</dd>
-          </div>
-        ) : null}
-        {type.role ? (
-          <div>
-            <dt>Role</dt>
-            <dd>{type.role}</dd>
           </div>
         ) : null}
         {type.locator ? (
@@ -1090,10 +1079,20 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
             <td>
               {f.typeName || f.kind || "string"}
               {f.list ? "[]" : ""}
-              {f.enumValues?.length ? <small> ({f.enumValues.join(" | ")})</small> : null}
+              {f.enumValues?.length ? (
+                <span className="ontology-type-detail__enum-chips">
+                  {f.enumValues.map((value) => (
+                    <code key={value} className="schema-enum-value-chip">
+                      {value}
+                    </code>
+                  ))}
+                </span>
+              ) : null}
             </td>
             <td>{f.required ? "yes" : "no"}</td>
-            <td>{f.source || ""}</td>
+            <td className="ontology-type-detail__nowrap">
+              {f.source ? <code>{f.source}</code> : null}
+            </td>
             <td>{f.description || ""}</td>
           </tr>
         ))}

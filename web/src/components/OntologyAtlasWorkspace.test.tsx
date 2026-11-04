@@ -81,7 +81,7 @@ describe("OntologyAtlasWorkspace sidebar", () => {
     fireEvent.click(within(nav).getByRole("button", { name: "Documents (3)" }));
 
     expect(window.location.pathname).toBe("/ontology/type/Document");
-    expect(await screen.findByRole("heading", { name: "Document", level: 1 })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Document", level: 2 })).toBeVisible();
     expect(within(nav).getByRole("button", { name: "Documents (3)" })).toHaveAttribute(
       "aria-current",
       "page",

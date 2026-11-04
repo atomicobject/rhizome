@@ -3049,75 +3049,46 @@
   gap: var(--sp-5, 20px);
 }
 
-.ontology-type-detail__hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  padding-bottom: var(--sp-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.ontology-type-detail__hero-body {
-  display: flex;
-  flex-direction: column;
+/* The shared view header, inside the page column: Atlas / Type, count, role. */
+.ontology-type-detail__header .view-header__title-row {
   gap: var(--sp-2);
+  padding: 0;
 }
 
-.ontology-type-detail__hero-title {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
+.ontology-type-detail__header .view-header__count {
+  margin-left: var(--sp-2);
 }
 
-.ontology-type-detail__hero-title h1 {
-  margin: 0;
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  line-height: 1.18;
-  color: var(--text);
+.ontology-type-detail__header .view-header__about {
+  margin-left: var(--sp-2);
 }
 
-.ontology-type-detail__accent-dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--type-accent, var(--type-8));
-}
-
-.ontology-type-detail__role-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface-sunk);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 600;
+.ontology-type-detail__crumb {
+  color: var(--text-faint);
 }
 
 .ontology-type-detail__tagline {
-  margin: 0;
+  margin: calc(-1 * var(--sp-2)) 0 0;
   color: var(--text-muted);
-  font-size: var(--fs-md);
-  max-width: 72ch;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  max-width: 80ch;
 }
 
 .ontology-type-detail__back {
-  align-self: flex-start;
-  padding: 2px 0;
+  flex: none;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--fs-sm);
+  color: var(--link);
+  font: 500 var(--fs-xl) / 1.2 var(--font-sans);
   cursor: pointer;
 }
 
 .ontology-type-detail__back:hover {
-  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 3px;
 }
 
 .ontology-type-detail__error {
@@ -3128,6 +3099,10 @@
 .ontology-type-detail__empty {
   color: var(--text-muted);
   font-size: var(--fs-sm);
+}
+
+.ontology-type-detail__stats:empty {
+  display: none;
 }
 
 .ontology-type-detail__stats {
@@ -3240,7 +3215,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--sp-3);
 }
 
@@ -3297,9 +3272,14 @@
 }
 
 .ontology-type-detail__impl-desc {
+  display: -webkit-box;
   margin: 0;
-  font-size: var(--fs-sm);
+  overflow: hidden;
   color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 /* Matchers */
@@ -3342,6 +3322,22 @@
 
 .ontology-type-detail__table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.ontology-type-detail__table code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.ontology-type-detail__nowrap {
+  white-space: nowrap;
+}
+
+.ontology-type-detail__enum-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
 }
 
 .ontology-type-detail__table th {
