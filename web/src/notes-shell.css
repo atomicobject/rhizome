@@ -609,20 +609,19 @@
   overflow: hidden;
   border: 0;
   background: transparent;
-  color: var(--link);
-  font: 600 var(--fs-lg) / 1.35 var(--font-sans);
+  font: 500 var(--fs-lg) / 1.35 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
 
-/* A result title is a quiet link (.link-quiet): teal, underlined on hover
+/* A result title is a quiet link (.link-title): ink, underlined on hover
    and keyboard focus. */
 .search-workspace__result-link:hover,
 .search-workspace__result-link:focus-visible {
   text-decoration: underline;
-  text-decoration-color: currentcolor;
+  text-decoration-color: var(--link-line);
   text-underline-offset: 2px;
 }
 
@@ -2140,13 +2139,12 @@
   font-size: var(--fs-xs);
 }
 .notes-right-rail .rail-row > button {
-  color: var(--link);
   text-decoration: none;
 }
 
 .notes-right-rail .rail-row > button:is(:hover, :focus-visible) {
   text-decoration: underline;
-  text-decoration-color: currentcolor;
+  text-decoration-color: var(--link-line);
   text-underline-offset: 2px;
 }
 

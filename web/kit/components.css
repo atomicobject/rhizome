@@ -388,3 +388,16 @@
     }
   }
 }
+
+/* Record titles opt into ink; prose note links and actions remain teal. */
+.link-title {
+  color: var(--text);
+  font-weight: var(--title-weight);
+  text-decoration: none;
+  cursor: pointer;
+}
+.link-title:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}

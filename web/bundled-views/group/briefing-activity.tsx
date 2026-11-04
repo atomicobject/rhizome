@@ -226,7 +226,7 @@ function Burst({ model, moment }: { model: GroupModel; moment: ChangeMoment }) {
         <span className="gv-change-main">
           <button
             type="button"
-            className="gv-inline gv-change-title"
+            className="gv-inline gv-change-title gv-link"
             aria-expanded={open}
             onClick={() => setOpen(!open)}
           >

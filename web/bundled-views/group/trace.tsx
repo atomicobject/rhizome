@@ -210,7 +210,7 @@ function EmptyColumns({ model, matrix }: { model: GroupModel; matrix: TraceMatri
           {index > 0 && ", "}
           <button
             type="button"
-            className="gv-inline"
+            className="gv-inline gv-link"
             title={column.kind === "member" ? "None recorded" : "No row links one"}
             onClick={() => openColumn(column)}
           >

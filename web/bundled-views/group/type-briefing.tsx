@@ -322,7 +322,11 @@ function Guide({ model, context }: { model: GroupModel; context: ViewContext }) 
       {guide ? (
         <>
           <p className="gv-res">
-            <button type="button" className="gv-link" onClick={() => openNote(guide.path)}>
+            <button
+              type="button"
+              className="gv-link link-title"
+              onClick={() => openNote(guide.path)}
+            >
               {guide.title}
             </button>
             <span className="gv-sub">companion doc</span>
