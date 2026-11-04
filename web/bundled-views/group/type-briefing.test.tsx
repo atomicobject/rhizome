@@ -59,10 +59,10 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
   // People, relation, then reverse fields: fill, then the most common targets.
   expect(itemTexts(connections)).toEqual([
     // Each target is a row: its name, then its count in a right-aligned column.
-    "Owner→ People1/4Ada Lovelace1",
-    "Area→ Areas3/4Payments2Wishlists1",
-    "Blocked by→ Work items1/4Checkout redesign1",
-    "Meetings← Meetings2/4Kickoff sync2Design review1",
+    "Owner→ People1 of 4 stories linkedAda Lovelace1",
+    "Area→ Areas3 of 4 stories linkedPayments2Wishlists1",
+    "Blocked by→ Work items1 of 4 stories linkedCheckout redesign1",
+    "Meetings← Meetings2 of 4 stories linkedKickoff sync2Design review1",
   ]);
 
   const linked = await region("Linked from outside");
@@ -96,7 +96,7 @@ it("briefs an interface across its implementors and flags reverse links most rec
 
   const spread = await region("Shape");
 
-  expect(within(spread).getByRole("heading", { name: "Implementing types" })).toBeVisible();
+  expect(within(spread).getByRole("heading", { name: "Work item types" })).toBeVisible();
   expect(within(spread).getByText("Story")).toBeVisible();
   expect(within(spread).getByText("Bug")).toBeVisible();
 
@@ -149,7 +149,9 @@ it("charts a dated type's primary date by month and collapses a burst of changes
 
   const connections = await region("Connections");
 
-  expect(itemTexts(connections)[0]).toBe("Attendees→ People4/5Ada Lovelace3Grace Hopper2");
+  expect(itemTexts(connections)[0]).toBe(
+    "Attendees→ People4 of 5 meetings linkedAda Lovelace3Grace Hopper2",
+  );
 });
 
 it("opens the collection's Table from a signal and notes from its targets", async () => {

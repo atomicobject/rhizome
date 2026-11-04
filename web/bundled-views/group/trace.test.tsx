@@ -165,12 +165,12 @@ it("fills cells with records linked to anything in the row, marking indirect one
   expect(within(row("Payments")).getAllByText("(indirect)")).toHaveLength(2);
 
   // Coverage beside the name; under it, the field that joins the column to the rows.
-  expect(columnHeader("Work items")).toHaveTextContent("3/6 rows");
+  expect(columnHeader("Work items")).toHaveTextContent("3 of 6 areas linked");
   // Under that, the column's own status key, naming only the statuses it holds.
-  expect(columnHeader("Work items")).toHaveTextContent(/rowsArea.*Doing.*Done/);
+  expect(columnHeader("Work items")).toHaveTextContent(/linkedArea.*Doing.*Done/);
   expect(columnHeader("Work items")).not.toHaveTextContent(/Backlog/);
-  expect(columnHeader("Releases")).toHaveTextContent("1/6 rows");
-  expect(columnHeader("Checklists")).toHaveTextContent("1/6 rowsthrough other columns");
+  expect(columnHeader("Releases")).toHaveTextContent("1 of 6 areas linked");
+  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 areas linkedthrough other columns");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();
 });
 
@@ -180,8 +180,8 @@ it("switches rows and orders columns by contract with outside links last", async
   await chooseRows("Work items");
   expect(screen.getByRole("radio", { name: /^Work items/ })).toBeChecked();
   expect(columnNames()).toEqual(["Work items", "Areas", "Releases", "Checklists", "Owner"]);
-  expect(columnHeader("Areas")).toHaveTextContent("5/6 rows");
-  expect(columnHeader("Owner")).toHaveTextContent("1/6 rowsin People");
+  expect(columnHeader("Areas")).toHaveTextContent("5 of 6 work items linked");
+  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 work items linkedin People");
   expect(cellTitles("Checkout redesign")).toEqual([
     ["Payments"],
     ["Fall release"],

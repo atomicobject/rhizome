@@ -107,7 +107,7 @@ it("names a bounded number of records per signal and reveals the rest in place",
       .map((button) => button.textContent);
 
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A"].slice(0, SIGNAL_RECORDS));
-  fireEvent.click(unlinked.getByRole("button", { name: "Show 2 more" }));
+  fireEvent.click(unlinked.getByRole("button", { name: "Show 2 more unlinked notes" }));
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A", "Loop B", "Winter release"]);
   fireEvent.click(unlinked.getByRole("button", { name: "Show fewer" }));
   expect(named()).toHaveLength(SIGNAL_RECORDS);
@@ -119,6 +119,7 @@ it("says there are no validation issues, and skips unlinked records in a group w
 
   // The status strip says "✓ No issues" once; the body adds no Validation row.
   expect(screen.getByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
   expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
   expect(region("Review suggested")).toHaveTextContent("Term empty on 1 of 3 glossaries");
@@ -184,6 +185,7 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
   ).toEqual(["In motion", "Recent changes"]);
   expect(screen.getByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
   ).toBeVisible();

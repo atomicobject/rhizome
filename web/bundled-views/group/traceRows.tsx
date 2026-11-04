@@ -37,7 +37,7 @@ function Entry({ model, entry }: { model: GroupModel; entry: MatrixEntry }) {
         title={entry.note.title}
         onOpen={() => openNote(entry.note.path)}
         wrap
-        className="gv-chip"
+        className="gv-chip link-secondary"
       >
         {entry.note.title}
       </RecordChip>
@@ -54,7 +54,7 @@ function Entry({ model, entry }: { model: GroupModel; entry: MatrixEntry }) {
       title={entry.record.title}
       onOpen={() => openRecord(entry.record)}
       wrap
-      className="gv-chip"
+      className="gv-chip link-secondary"
     >
       {entry.record.title}
     </RecordChip>

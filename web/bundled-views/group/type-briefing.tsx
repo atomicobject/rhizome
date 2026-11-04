@@ -157,7 +157,8 @@ function MonthChart({ chart }: { chart: DateMonths }) {
   return (
     <div className="gv-spread">
       <h3 className="gv-spread-head">
-        {label} <span className="gv-sub">per month{perBar && oneYear ? `, ${year}` : ""}</span>
+        {chart.field === "createdAt" ? "Created" : label} by month
+        <span className="gv-sub">{perBar && oneYear ? `${year}` : ""}</span>
       </h3>
       <div
         className="gv-hist"
@@ -215,7 +216,7 @@ function SpreadBlock({ model, member }: { model: GroupModel; member: Member }) {
     >
       {member.kind === "interface" && (
         <div className="gv-spread">
-          <h3 className="gv-spread-head">Implementing types</h3>
+          <h3 className="gv-spread-head">{member.label} types</h3>
           <Implementors model={model} member={member} />
         </div>
       )}
@@ -248,7 +249,7 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
           {direction === "forward" ? "→" : "←"} {targetLabel(model, connection.targetType)}
         </span>
         <span className="gv-num">
-          {filled}/{total}
+          {filled} of {total} {lower(model.members[0].pluralLabel)} linked
         </span>
       </div>
       <div className="gv-fill" aria-hidden="true">
@@ -259,7 +260,11 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
           <ul className="gv-list gv-tops">
             {shown.map(({ note, count }) => (
               <li key={note.path}>
-                <button type="button" className="gv-inline" onClick={() => openNote(note.path)}>
+                <button
+                  type="button"
+                  className="gv-inline link-secondary"
+                  onClick={() => openNote(note.path)}
+                >
                   {note.title}
                 </button>
                 <span className="gv-num">{count}</span>

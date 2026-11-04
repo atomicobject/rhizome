@@ -8,6 +8,7 @@ import {
 } from "@rhizome/kit";
 import type { ReactNode } from "react";
 
+import { ValidationFreshness } from "./validation-freshness.tsx";
 import type { MemberRecords } from "./activity.ts";
 import type { GroupModelState } from "./load.ts";
 import type { BlockStatus } from "./scope-load.ts";
@@ -57,9 +58,12 @@ export function HealthyAttention({ info }: { info: string }) {
       title="Validation"
       info={info}
       controls={
-        <span className="gv-healthy">
-          <span aria-hidden="true">✓</span> No issues
-        </span>
+        <>
+          <span className="gv-healthy">
+            <span aria-hidden="true">✓</span> No issues
+          </span>
+          <ValidationFreshness />
+        </>
       }
     />
   );
