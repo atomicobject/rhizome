@@ -10,7 +10,6 @@ import {
   Block,
   MoreToggle,
   countedByMember,
-  HealthyAttention,
   heldLabels,
   lower,
   memberOf,
@@ -389,25 +388,16 @@ export function NeedsAttention({
 }) {
   const attention = signals.filter(isAttention);
   const context = signals.filter((signal) => !isAttention(signal));
-  const clean = !signals.some((signal) => signal.kind === "issues");
 
   return (
     <MemberActionContext.Provider value={memberAction}>
-      {part === "review" ? null : attention.length === 0 && clean ? (
-        <HealthyAttention info={info} />
-      ) : (
+      {/* The status strip already reads "✓ No issues"; a clean scope says it once. */}
+      {part === "review" || attention.length === 0 ? null : (
         <Block title="Needs attention" count={attention.length} info={info}>
           <ul className="gv-list">
             {attention.map((signal) => (
               <Signal key={signalKey(signal)} model={model} signal={signal} />
             ))}
-            {clean && (
-              <SignalRow
-                count={<span aria-hidden="true">✓</span>}
-                severity="ok"
-                text="No validation issues"
-              />
-            )}
           </ul>
         </Block>
       )}

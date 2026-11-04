@@ -11,7 +11,7 @@ import { GuideAndViews } from "./briefing-contents.tsx";
 import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
-import type { GroupModel } from "./model.ts";
+import { fieldLabel, type GroupModel } from "./model.ts";
 import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, type DeclaredRelation, type ScopeModel } from "./scope.ts";
 import {
@@ -218,8 +218,22 @@ export function DeclaredUnused({
 
   const label = (id: string) => model?.nodeIndex.get(id)?.label ?? id;
 
+  // Field display labels by target ("Work log, Materials → Materials"); a
+  // field named for its only target reads as the target alone.
   const relationsText = (relations: readonly DeclaredRelation[]) =>
-    relations.map((relation) => `${relation.field} → ${label(relation.target)}`).join(" · ");
+    [...new Set(relations.map((relation) => relation.target))]
+      .map((id) => {
+        const target = label(id);
+
+        const fields = relations.flatMap((relation) =>
+          relation.target === id ? [fieldLabel(relation.field)] : [],
+        );
+
+        return fields.length === 1 && fields[0] === target
+          ? target
+          : `${fields.join(", ")} → ${target}`;
+      })
+      .join(" · ");
 
   const byMember = new Map<string, DeclaredRelation[]>();
 

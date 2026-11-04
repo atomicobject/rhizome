@@ -51,6 +51,13 @@ function InMotion({ model }: { model: GroupModel }) {
       title="In motion"
       count={total}
       info="Records whose lifecycle value is in the active stage, newest change first."
+      controls={
+        <StageHints
+          model={model}
+          withoutActiveStage={motion.withoutActiveStage}
+          withoutLifecycle={motion.withoutLifecycle}
+        />
+      }
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
       {motion.groups.map((group) => {
@@ -83,11 +90,6 @@ function InMotion({ model }: { model: GroupModel }) {
           </div>
         );
       })}
-      <StageHints
-        model={model}
-        withoutActiveStage={motion.withoutActiveStage}
-        withoutLifecycle={motion.withoutLifecycle}
-      />
     </Block>
   );
 }
@@ -105,7 +107,7 @@ function GroupAttention({ model, part }: { model: GroupModel; part: "attention" 
   );
 }
 
-/** Needs attention leads; the optional review signals follow work in motion. */
+/** Needs attention leads, then the optional review signals, then work in motion. */
 function AttentionBlock({ part }: { part: "attention" | "review" }) {
   const state = useGroupModel({ views: false, read: ATTENTION_READ });
 
@@ -147,8 +149,8 @@ export default function Briefing(_props: ViewModuleProps) {
         <div className="gv-brief gv-brief-two">
           <div className="gv-brief-col">
             <AttentionBlock part="attention" />
-            <MotionBlock />
             <AttentionBlock part="review" />
+            <MotionBlock />
           </div>
           <div className="gv-brief-col">
             <RecentBlock />

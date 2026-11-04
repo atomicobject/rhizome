@@ -8,6 +8,7 @@ import {
   folderLines,
   lifecycleSummary,
   memberRows,
+  pluralLabelOf,
   type MemberRow,
   type NodeRow,
 } from "./members.ts";
@@ -216,6 +217,13 @@ it("names empty, unlinked, and embedded types for the coverage line", () => {
     unlinked: [{ name: "Glossary", label: "Library glossaries", count: 3 }],
     embedded: [{ name: "Task", label: "Tasks", count: 7 }],
   });
+});
+
+it("names unlabelled types in plain English", () => {
+  expect(pluralLabelOf("AcceptanceCriterion", "AcceptanceCriterion")).toBe("Acceptance criteria");
+  expect(pluralLabelOf("UserStory", undefined)).toBe("User stories");
+  expect(pluralLabelOf("ActionItem", "ActionItem")).toBe("Action items");
+  expect(pluralLabelOf("Task", "Tasks")).toBe("Tasks");
 });
 
 const LAYOUT: LayoutInput = {

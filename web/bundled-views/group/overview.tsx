@@ -100,12 +100,9 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
         )}
         {fmt(facts.ambiguousNotes)} ambiguous
       </button>
-      {issues !== undefined && (
-        <button
-          type="button"
-          className={issues ? "gv-issues" : "gv-issues gv-zero"}
-          onClick={() => openIssues()}
-        >
+      {issues === 0 && <span className="gv-ok">✓ No issues</span>}
+      {issues !== undefined && issues > 0 && (
+        <button type="button" className="gv-issues" onClick={() => openIssues()}>
           {fmt(issues)} {plural(issues, "issue", "issues")}
         </button>
       )}
@@ -131,7 +128,7 @@ function GroupFactsList({ data }: { data: ScopeData }) {
           {fmt(issues)} {plural(issues, "issue", "issues")}
         </span>
       ) : (
-        <span className="gv-ok">✓ no issues</span>
+        <span className="gv-ok">✓ No issues</span>
       )}
     </span>
   );
@@ -303,9 +300,16 @@ function OverviewPage({ scope }: { scope: Scope }) {
       <ScopeFacts scope={scope} data={data} status={status} />
       {!data.missing && (
         <>
-          <div className="gv-ov">
+          {/* All notes keeps Members under the map and the folder table beside them,
+              so the side column's height never pushes Members below the fold. */}
+          <div className={scope.kind === "workspace" ? "gv-ov gv-ov--workspace" : "gv-ov"}>
             <div className="gv-ov-main">
               <MapBlock data={data} {...expansion} />
+              {scope.kind === "workspace" && (
+                <div className="gv-ov-members">
+                  <MembersBlock data={data} {...expansion} />
+                </div>
+              )}
             </div>
             <div className="gv-ov-side">
               {scope.kind === "workspace" ? (
@@ -321,9 +325,11 @@ function OverviewPage({ scope }: { scope: Scope }) {
               )}
             </div>
           </div>
-          <div className="gv-ov-members">
-            <MembersBlock data={data} {...expansion} />
-          </div>
+          {scope.kind !== "workspace" && (
+            <div className="gv-ov-members">
+              <MembersBlock data={data} {...expansion} />
+            </div>
+          )}
         </>
       )}
     </main>

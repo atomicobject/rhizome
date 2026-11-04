@@ -358,7 +358,7 @@ export function coverage(
   const linked = new Set(pairs.flatMap((pair) => (pair.links > 0 ? [pair.a, pair.b] : [])));
 
   const entry = (name: string, count: number) => [
-    { name, label: summaries.get(name)?.pluralLabel ?? name, count },
+    { name, label: pluralLabelOf(name, summaries.get(name)?.pluralLabel), count },
   ];
 
   const types = [...members.types.values()].filter((type) => !summaries.get(type.name)?.embedded);
@@ -375,4 +375,24 @@ export function coverage(
       .flatMap((summary) => (summary.embedded ? entry(summary.name, summary.count) : []))
       .sort(byLabel),
   };
+}
+
+/**
+ * A type's plural label for running text. A type with no authored label comes
+ * back labelled with its identifier, so `AcceptanceCriterion` reads
+ * "Acceptance criteria".
+ * ponytail: a few English plural rules, not a full inflector; an authored @display label wins.
+ */
+export function pluralLabelOf(name: string, pluralLabel: string | undefined) {
+  if (pluralLabel && pluralLabel !== name) return pluralLabel;
+
+  const words = fieldLabel(name);
+
+  if (/(criteri|phenomen)on$/i.test(words)) return words.replace(/on$/i, "a");
+
+  if (/[^aeiou]y$/i.test(words)) return words.replace(/y$/i, "ies");
+
+  if (/(s|x|z|ch|sh)$/i.test(words)) return `${words}es`;
+
+  return `${words}s`;
 }

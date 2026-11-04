@@ -133,11 +133,13 @@ function LifecycleCell({ lifecycle }: { lifecycle: LifecycleSummary | null | und
           />
         ))}
       </span>
-      {lifecycle.active > 0 && (
-        <span className="gv-num">
-          <b>{lifecycle.active}</b> {lifecycle.activeLabel}
-        </span>
-      )}
+      {/* The visible key: every held stage and its count, in lifecycle order. */}
+      <span className="gv-ov-stage-key">
+        {lifecycle.segments
+          .filter((segment) => segment.count > 0)
+          .map((segment) => `${segment.label} ${fmt(segment.count)}`)
+          .join(" · ")}
+      </span>
     </span>
   );
 }
@@ -290,7 +292,8 @@ function DataRow({
 
   return (
     <tr data-kind={row.kind} title={description}>
-      <td style={{ paddingLeft: `${20 + row.depth * 16}px` }}>
+      {/* A nested row starts 16px past its parent's name, not its dot. */}
+      <td style={{ paddingLeft: `${20 + row.depth * 31}px` }}>
         <NameCell model={model} row={row} onToggle={onToggle} />
       </td>
       <td className="gv-right gv-num">{fmt(node.count)}</td>
@@ -314,7 +317,13 @@ function DataRow({
       ) : (
         <>
           {shown.stages && (
-            <td>{node.count > 0 && !brief && <LifecycleCell lifecycle={row.lifecycle} />}</td>
+            <td>
+              {node.count > 0 && !brief && row.lifecycle !== undefined ? (
+                <LifecycleCell lifecycle={row.lifecycle} />
+              ) : (
+                <Dash />
+              )}
+            </td>
           )}
           {shown.gaps && (
             <td>
@@ -322,15 +331,22 @@ function DataRow({
             </td>
           )}
           <td>
-            {brief ? null : row.kind === "group" ? <Dash /> : <ShareCell share={row.linkedShare} />}
+            {brief || row.kind === "group" || row.linkedShare === null ? (
+              <Dash />
+            ) : (
+              <ShareCell share={row.linkedShare} />
+            )}
           </td>
         </>
       )}
-      <td className="gv-right gv-num">{brief ? "" : fmt(row.links)}</td>
-      {!workspace && <td className="gv-right gv-num">{brief ? "" : fmt(row.outside ?? 0)}</td>}
-      <td className="gv-right">{!brief && <IssuesCell node={node} />}</td>
+      {/* A nested implementor's figures roll up into its interface: a dash, not a blank. */}
+      <td className="gv-right gv-num">{brief ? <Dash /> : fmt(row.links)}</td>
+      {!workspace && (
+        <td className="gv-right gv-num">{brief ? <Dash /> : fmt(row.outside ?? 0)}</td>
+      )}
+      <td className="gv-right">{brief ? <Dash /> : <IssuesCell node={node} />}</td>
       <td className="gv-right gv-num">
-        {node.lastChanged !== null && !brief ? <RelativeTime value={node.lastChanged} /> : ""}
+        {node.lastChanged !== null && !brief ? <RelativeTime value={node.lastChanged} /> : <Dash />}
       </td>
     </tr>
   );

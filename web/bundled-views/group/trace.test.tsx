@@ -115,7 +115,10 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
     "Checklists 1",
   ]);
   expect(screen.getByRole("radio", { name: /^Areas/ })).toBeChecked();
-  expect(screen.getByTitle(/the tree other types link to/)).toBeVisible();
+  // The toolbar holds only the row choice; why the default is the default sits in the footer.
+  expect(
+    screen.getByText(/Areas are the default rows: the tree other types link to/),
+  ).toBeVisible();
 
   // Most connected subtree first; the Loop A-B parent cycle still renders, once each.
   expect(rowTitles()).toEqual([
@@ -163,7 +166,8 @@ it("fills cells with records linked to anything in the row, marking indirect one
 
   // Coverage beside the name; under it, the field that joins the column to the rows.
   expect(columnHeader("Work items")).toHaveTextContent("3/6 rows");
-  expect(columnHeader("Work items")).toHaveTextContent(/rowsArea$/);
+  // Under that, the column's own status key.
+  expect(columnHeader("Work items")).toHaveTextContent(/rowsArea.*Backlog/);
   expect(columnHeader("Releases")).toHaveTextContent("1/6 rows");
   expect(columnHeader("Checklists")).toHaveTextContent("1/6 rowsthrough other columns");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();

@@ -319,19 +319,11 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
             signals={signals}
             info="Validation issues and declared warning values."
             memberAction={openTable}
-            part="attention"
           />
           {/* A lifecycle without an active stage (a contract) has nothing in motion by design. */}
           {member.lifecycle?.values.some((value) => value.stage === "active") && (
             <InMotion model={model} member={member} />
           )}
-          <NeedsAttention
-            model={model}
-            signals={signals}
-            info="Validation issues and declared warning values."
-            memberAction={openTable}
-            part="review"
-          />
           <RecentChanges
             model={model}
             info="Newest first. Four or more records changed in the same minute collapse into one line."
