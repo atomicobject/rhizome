@@ -361,6 +361,12 @@
   width: 220px;
 }
 
+/* "Anywhere" is a hint, not a value: faint, so it never reads as a choice. */
+.search-workspace__filters input::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
 .search-workspace__clear {
   height: 26px;
   padding: 0 var(--sp-2);
@@ -579,14 +585,28 @@
   text-underline-offset: 2px;
 }
 
+/* The path gives way in its middle, so the file name and line stay; the
+   section heading after it gives way at its end. */
 .search-workspace__result-source {
+  display: flex;
+  min-width: 0;
   margin-top: 2px;
-  overflow: hidden;
   color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.search-workspace__result-source > .middle-truncate {
+  flex: 0 1 auto;
+}
+
+.search-workspace__result-heading {
+  flex: 0 1 auto;
+  min-width: 4ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
 }
 
 /* Note excerpts read as prose: soft-wrapped, inline code as code. */
@@ -621,20 +641,23 @@
   border-radius: var(--r-md);
   background: var(--bg-tint);
   color: var(--text);
-  font: 400 12.5px / 1.55 var(--font-mono);
+  font: 400 var(--fs-sm) / 1.5 var(--font-mono);
   tab-size: 4;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
+/* A match is a neutral selection tint with a heavier weight, never the
+   warning yellow: the text keeps its own colour and its AA contrast. */
 .search-workspace__result mark {
   border-radius: 2px;
-  background: var(--warning-soft);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   color: inherit;
+  font-weight: 600;
 }
 
-.search-workspace__code mark {
-  background: color-mix(in srgb, var(--warning) 35%, transparent);
+.search-workspace__result-link mark {
+  font-weight: 700;
 }
 
 .search-workspace__load-more,

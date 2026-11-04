@@ -1,4 +1,5 @@
 import { InfoTip } from "./InfoTip";
+import { MiddleTruncate } from "./MiddleTruncate";
 import { noteExcerptParts } from "./searchExcerpt";
 import { publicTypeName } from "../lib/typeNames";
 import { humanizeName } from "../lib/labels";
@@ -135,6 +136,11 @@ function SearchBanner({
 
 function resultLabel(match: WorkspaceSearchMatch): string {
   return match.title || match.symbol || match.fqn || match.path || "Untitled result";
+}
+
+/** A provenance path that gives way in the middle, keeping its file name and line. */
+function SourcePath({ path }: { path: string }) {
+  return <MiddleTruncate text={path} tail={path.length - path.lastIndexOf("/") - 1} />;
 }
 
 function sourceLabel(match: WorkspaceSearchMatch): string {
@@ -355,7 +361,9 @@ function FolderNotesWorkspace({
                 <NoteResultLink target={publicOntologyListItemRef(note)} onOpenNote={onOpenNote}>
                   {note.title || note.path}
                 </NoteResultLink>
-                <div className="search-workspace__result-source">{note.path}</div>
+                <div className="search-workspace__result-source">
+                  <SourcePath path={note.path} />
+                </div>
               </article>
             </li>
           ))}
@@ -673,9 +681,12 @@ function RankedSearchWorkspace({
                       </button>
                     )}
                     <div className="search-workspace__result-source">
-                      {sourceLabel(match)}
-                      {line ? `:${line}` : ""}
-                      {match.heading ? ` · ${match.heading}` : ""}
+                      <SourcePath path={`${sourceLabel(match)}${line ? `:${line}` : ""}`} />
+                      {match.heading ? (
+                        <span className="search-workspace__result-heading">
+                          {` · ${match.heading}`}
+                        </span>
+                      ) : null}
                     </div>
                     {excerpt && match.type === "code" ? (
                       <pre className="search-workspace__code">

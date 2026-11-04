@@ -521,7 +521,7 @@ describe("SearchWorkspace folder listing", () => {
     const links = screen.getAllByRole("button", { name: /note$/ });
     expect(links.map((link) => link.textContent)).toEqual(["New note", "Old note"]);
     expect(screen.getByText("Untyped")).toBeVisible();
-    expect(screen.getByText("Notes/old.md")).toBeVisible();
+    expect(screen.getByTitle("Notes/old.md")).toHaveTextContent("Notes/old.md");
     expect(screen.queryByText("Sibling folder note")).toBeNull();
     expect(http.count("GET", "/api/v1/search")).toBe(0);
 
