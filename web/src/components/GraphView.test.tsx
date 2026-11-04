@@ -226,7 +226,7 @@ describe("GraphView", () => {
     },
   );
 
-  it("lists every type in a summarized view, by its human label", () => {
+  it("keys the colors a summarized view shows, with every type behind All types", () => {
     const restoreWebGL = installFakeWebGL();
 
     const notes: GraphNode[] = ["Spec", "Task", "ProcessPlan"].map((type) => ({
@@ -238,7 +238,13 @@ describe("GraphView", () => {
     }));
 
     // One folder, colored by its most common type: only Spec's color is on screen.
-    const folder = { id: "folder:docs", label: "docs", kind: "module", fill: "#6366f1" };
+    const folder = {
+      id: "folder:docs",
+      label: "docs",
+      kind: "module",
+      fill: "#6366f1",
+      fillKey: "Spec",
+    };
 
     const view = render(
       <GraphView
@@ -259,11 +265,14 @@ describe("GraphView", () => {
     try {
       const legend = screen.getByRole("complementary", { name: "Graph type legend" });
 
-      // Types inside the folders are listed even when no drawn node shows their color.
-      expect(legend.querySelector("details")).toBeNull();
+      // The key names only the colors on screen; the rest wait behind All types.
+      expect(legend.querySelector('[data-type="Spec"]')).not.toBeNull();
+      expect(legend.querySelector('[data-type="Task"]')).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "All types" }));
 
       for (const type of ["Spec", "Task", "ProcessPlan"])
-        expect(legend.querySelector(`[data-type="${type}"]`)).not.toBeNull();
+        expect(legend.querySelector(`#graph-type-legend-all [data-type="${type}"]`)).not.toBeNull();
 
       expect(legend.querySelector('[data-type="ProcessPlan"]')).toHaveTextContent("Process plan");
     } finally {

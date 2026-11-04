@@ -94,6 +94,21 @@ function explorerFileFromLocation(search: string): { path: string; line?: number
   };
 }
 
+/**
+ * What the folder view's counts cover. The graph can hold only part of a large
+ * vault, so its note counts can run below Overview's; say so when it does.
+ */
+export function folderCoverage(graph: GraphResponse) {
+  const fmt = (count: number) => count.toLocaleString("en-US");
+  const notes = graph.nodes.filter((node) => node.kind === "note").length;
+  const files = graph.nodes.filter((node) => node.kind === "code").length;
+  const counts = `Counts cover the ${fmt(notes)} notes and ${fmt(files)} code files in the graph`;
+
+  return graph.truncated
+    ? `${counts}, the best-connected part of the vault, so Overview can count more notes.`
+    : `${counts}.`;
+}
+
 const EMPTY_GRAPH: GraphResponse = {
   nodes: [],
   edges: [],
@@ -559,11 +574,14 @@ export function ExplorerWorkspace({
                     edges={drawn.edges}
                     truncated={drawn.truncated}
                     legendNodes={folders ? graph.nodes : undefined}
-                    folderCaption={
-                      folders ? "Sized by contents, colored by their most common type" : undefined
+                    folderCaption={folders ? folderCoverage(graph) : undefined}
+                    sizeCaption={
+                      folders ? "Size counts the notes and code files a folder holds" : undefined
                     }
                     edgeCaption={
-                      folders ? "Links between folders, thicker means more links" : undefined
+                      folders
+                        ? "Main links between folders, thicker means more; hover a folder for all of them"
+                        : undefined
                     }
                     displaySlot={displaySlot}
                     needsIndex={graph.needsIndex}

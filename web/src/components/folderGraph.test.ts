@@ -35,11 +35,49 @@ describe("aggregateByFolder", () => {
     expect([...byPath.keys()].sort()).toEqual(["", "docs/specs", "pkg", "pkg/app", "pkg/store"]);
     expect(byPath.get("docs/specs")?.fill).toBe("var(--Spec)");
     expect(byPath.get("pkg/app")?.fill).toBe("var(--graph-code)");
-    expect(byPath.get("pkg")?.label).toBe("pkg · 1 smaller folders  1");
-    expect(byPath.get("")?.label).toBe("Top-level files  1");
+    expect(byPath.get("docs/specs")?.fillKey).toBe("Spec");
+    expect(byPath.get("pkg")?.label).toBe("pkg · 1 smaller folders  1 file");
+    expect(byPath.get("")?.label).toBe("Top-level files  1 note");
     // Links inside one folder are not drawn; links between folders add up.
     expect(graph.edges).toEqual([
       expect.objectContaining({ source: "folder:docs/specs", target: "folder:pkg/app", weight: 2 }),
+    ]);
+  });
+
+  it("counts notes, not embedded items, and keeps weak links for hover", () => {
+    const criterion = (path: string, i: number): GraphNode => ({
+      id: `embedded:${path}#c${i}`,
+      label: `c${i}`,
+      kind: "embedded",
+      notePath: path,
+      resolvedType: "AcceptanceCriterion",
+    });
+
+    const nodes = [
+      note("docs/specs/a.md", "TechnicalSpec"),
+      note("docs/specs/b.md", "TechnicalSpec"),
+      ...Array.from({ length: 30 }, (_, i) => criterion("docs/specs/a.md", i)),
+      ...Array.from({ length: 4 }, (_, i) => code(`pkg/a${i}.go`)),
+      ...Array.from({ length: 4 }, (_, i) => code(`cmd/c${i}.go`)),
+    ];
+
+    const link = (source: string, target: string) => ({ source, target, kind: "mentions" });
+
+    const edges = [
+      ...Array.from({ length: 20 }, () => link("note:docs/specs/a.md", "code:pkg/a0.go")),
+      ...Array.from({ length: 10 }, () => link("code:pkg/a1.go", "code:cmd/c0.go")),
+      link("note:docs/specs/b.md", "code:cmd/c1.go"),
+    ];
+
+    const graph = aggregateByFolder({ nodes, edges }, (type) => `var(--${type})`);
+    const specs = graph.nodes.find((node) => node.path === "docs/specs");
+
+    // Thirty embedded criteria neither size nor color the folder.
+    expect(specs).toMatchObject({ label: "docs/specs  2 notes", fillKey: "TechnicalSpec" });
+    expect(graph.edges.map((edge) => [edge.source, edge.target, edge.kind])).toEqual([
+      ["folder:cmd", "folder:docs/specs", "folder-minor"],
+      ["folder:cmd", "folder:pkg", "folder"],
+      ["folder:docs/specs", "folder:pkg", "folder"],
     ]);
   });
 });

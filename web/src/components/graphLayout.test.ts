@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runLayout } from "./graphLayout";
+import { radialSeed, runLayout } from "./graphLayout";
 
 describe("runLayout", () => {
   it("lays out a small graph inline and returns a moved position for every node", () => {
@@ -22,5 +22,23 @@ describe("runLayout", () => {
     const positions: Map<string, { x: number; y: number }> = done.mock.calls[0]?.[0];
     expect([...positions.keys()]).toEqual(["a", "b", "c"]);
     expect(positions.get("a")).not.toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe("radialSeed", () => {
+  it("rings a hub's neighbors around it and puts their own neighbors one ring out", () => {
+    const edges = [
+      { source: "hub", target: "a", weight: 9 },
+      { source: "hub", target: "b", weight: 8 },
+      { source: "a", target: "a1", weight: 3 },
+      { source: "b", target: "a1", weight: 1 },
+    ];
+
+    const seed = radialSeed(["a", "a1", "b", "hub", "alone"], edges, 100);
+    const ring = (id: string) => Math.round(Math.hypot(seed.get(id)!.x, seed.get(id)!.y));
+
+    expect(ring("hub")).toBe(0);
+    // a1 hangs off a, its heaviest link; a node with no links hangs off the hub.
+    expect(["a", "b", "alone", "a1"].map(ring)).toEqual([100, 100, 100, 200]);
   });
 });

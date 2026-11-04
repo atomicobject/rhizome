@@ -856,11 +856,16 @@ export function useSigmaGraph({
       layoutNodes.push({ id, x: attrs.x, y: attrs.y, size: attrs.baseSize }),
     );
     const layoutEdges: LayoutInput["edges"] = [];
-    graph.forEachEdge((_edge, attrs, source, target) =>
-      layoutEdges.push({ source, target, weight: attrs.weight ?? 1 }),
+    // Hidden minor folder links do not pull their folders together.
+    graph.forEachEdge(
+      (_edge, attrs, source, target) =>
+        attrs.kind !== "folder-minor" &&
+        layoutEdges.push({ source, target, weight: attrs.weight ?? 1 }),
     );
 
-    return runLayout({ nodes: layoutNodes, edges: layoutEdges, iterations }, install);
+    const radial = nodes.length > 0 && nodes.every((node) => node.kind === "module" && node.fill);
+
+    return runLayout({ nodes: layoutNodes, edges: layoutEdges, iterations, radial }, install);
   }, [
     communityColors,
     connectionCounts,
