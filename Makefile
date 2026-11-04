@@ -391,6 +391,7 @@ desktop-check:
 	cd desktop/src-tauri && cargo fmt --check
 	cd desktop/src-tauri && cargo test --locked
 	cd desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings
+	desktop/scripts/app-instances_test.sh
 
 # Build, install, and restart "Rhizome Dev" in /Applications. Main checkout only.
 desktop-install-dev:
