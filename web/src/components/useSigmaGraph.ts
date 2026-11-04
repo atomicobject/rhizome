@@ -148,7 +148,7 @@ const NODE_AVOID_ORDER = 400;
 // and nodes. This draws the same label on a halo of the surface color.
 // Sigma's label grid ignores forced (landmark) labels, so hubs packed together
 // would stack their labels; `placed` holds this frame's drawn label boxes, and a
-// label tries four sides of its node before it is skipped. The caller empties
+// label tries eight spots around its node before it is skipped. The caller empties
 // it before each render.
 function haloLabel(
   colors: () => ThemeColors,
@@ -163,13 +163,20 @@ function haloLabel(
     const width = context.measureText(data.label).width;
     const gap = data.size + 3;
 
-    // Right of the node first, then left, below, and above; a label with no
-    // free spot is left out rather than drawn over another.
+    // Right of the node first, then left, below, above, and the four
+    // diagonals; a label with no free spot is left out rather than drawn over
+    // another.
+    const d = gap * 0.85;
+
     const spots: [number, number][] = [
       [data.x + gap, data.y + size / 3],
       [data.x - gap - width, data.y + size / 3],
       [data.x - width / 2, data.y + gap + size],
       [data.x - width / 2, data.y - gap - 2],
+      [data.x + d, data.y - d - 2],
+      [data.x + d, data.y + d + size],
+      [data.x - d - width, data.y - d - 2],
+      [data.x - d - width, data.y + d + size],
     ];
 
     const boxOf = ([x, y]: [number, number]): [number, number, number, number] => [
@@ -182,7 +189,15 @@ function haloLabel(
     const free = spots.find((spot) => {
       const box = boxOf(spot);
 
-      return !placed.some(([l, t, r, b]) => box[0] < r && box[2] > l && box[1] < b && box[3] > t);
+      return !placed.some(
+        ([l, t, r, b]) =>
+          // The node's own disc never blocks its label.
+          !(Math.abs((l + r) / 2 - data.x) < 0.5 && Math.abs((t + b) / 2 - data.y) < 0.5) &&
+          box[0] < r &&
+          box[2] > l &&
+          box[1] < b &&
+          box[3] > t,
+      );
     });
 
     if (!free) return;
