@@ -80,13 +80,22 @@ const TONE_COLOR: Record<StatusTone, string> = {
 
 // The host's 9px shape set (DESIGN.md, Status Marks): a hollow ring, a
 // half-filled ring for progress, a filled dot for success, a triangle for a
-// warning, a diamond for risk, and a dashed ring for a muted value.
+// warning, a disc with an exclamation cut out for risk (never the brand
+// diamond), and a dashed ring for a muted value.
 function ToneMark({ tone }: { tone: StatusTone }) {
   switch (tone) {
     case "warning":
       return <path d="M4.5 0.5L8.8 8.3H0.2Z" fill="currentColor" />;
     case "risk":
-      return <path d="M4.5 1L8 4.5L4.5 8L1 4.5Z" fill="currentColor" />;
+      // A disc with an exclamation cut out, as the host draws it (base.css).
+      return (
+        <path
+          transform="scale(0.75)"
+          fillRule="evenodd"
+          d="M6 0a6 6 0 1 0 0 12A6 6 0 0 0 6 0ZM5.25 2.5h1.5v4.75h-1.5ZM5.25 8.25h1.5v1.5h-1.5Z"
+          fill="currentColor"
+        />
+      );
     case "success":
       return <circle cx="4.5" cy="4.5" r="4.5" fill="currentColor" />;
     case "info":
