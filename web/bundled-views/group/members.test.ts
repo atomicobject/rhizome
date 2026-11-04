@@ -251,6 +251,14 @@ it("lays the map out the same way every time, inside the box", () => {
   }
 });
 
+it("keeps linked members apart in a canvas narrower than the ring's padding", () => {
+  const layout = layoutMap({ ...LAYOUT, width: 380, height: 400 });
+  const points = ["Area", "Work", "Release", "Checklist"].map((id) => layout.positions.get(id));
+  const distinct = new Set(points.map((point) => `${point?.x},${point?.y}`));
+
+  expect(distinct.size).toBe(points.length);
+});
+
 it("puts members without links in a bottom row and outside neighbors on the ring", () => {
   const layout = layoutMap(LAYOUT);
 
@@ -287,6 +295,31 @@ it("keeps linked members placed when unlinked rows would fill the box", () => {
     expect(Number.isFinite(point.x)).toBe(true);
     expect(Number.isFinite(point.y)).toBe(true);
   }
+});
+
+it("grows the box when unlinked rows would rise above it", () => {
+  const crowd = Array.from({ length: 7 }, (_, n) => ({
+    id: `Loose${n}`,
+    radius: 30,
+    label: "A member name",
+  }));
+
+  const layout = layoutMap({
+    ...LAYOUT,
+    width: 380,
+    height: 400,
+    nodes: [...LAYOUT.nodes, ...crowd],
+  });
+
+  expect(layout.height).toBeGreaterThan(400);
+
+  for (const node of crowd) {
+    const point = layout.positions.get(node.id);
+    expect(point?.y ?? -1).toBeGreaterThanOrEqual(node.radius);
+    expect(point?.y ?? Infinity).toBeLessThanOrEqual(layout.height);
+  }
+
+  expect(layoutMap(LAYOUT).height).toBe(LAYOUT.height);
 });
 
 it("draws the row line at the top of the unlinked rows", () => {
