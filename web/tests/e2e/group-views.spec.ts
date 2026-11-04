@@ -283,6 +283,8 @@ for (const { time, heading } of [
     const recent = customFrame(page).getByRole("region", { name: "Recent changes" });
     // One list on every scope: no day headings, the age in its own column.
     await expect(recent.getByRole("heading")).toHaveText(["Recent changes"]);
+    // The heading also matches the outgoing All notes frame; wait for the group's one change.
+    await expect(recent.locator("time")).toHaveCount(1);
     await expect(recent.locator("time")).toHaveAttribute("datetime", "2026-10-06T03:58:00.000Z");
     await expect(recent.locator("time span[aria-hidden]")).toHaveText(heading);
   });
