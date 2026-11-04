@@ -375,9 +375,8 @@ describe("NotesSidebarInfo", () => {
     const onOpen = vi.fn();
     render(<NotesSidebarInfo workspace={workspaceWithNavigation()} onOpen={onOpen} />);
 
+    // An effort's materials start open.
     const navigation = groupSection("Effort materials");
-    expect(navigation).not.toHaveAttribute("open");
-    fireEvent.click(within(navigation).getByText("Effort materials"));
     expect(navigation).toHaveAttribute("open");
     expect(navigation).toHaveTextContent("Schema-driven navigation");
     expect(within(navigation).getByRole("button", { name: "Implementation plan" })).toHaveAttribute(

@@ -555,10 +555,15 @@ export function NotesSidebarInfo({
         </header>
 
         <section className="ontology-sidebar-context" aria-label="Focused note context">
-          {/* A workspace's own navigation (an effort's overview, plan, and log)
-              often repeats the page's, so it waits behind a closed disclosure. */}
+          {/* A workspace's own navigation often repeats the page's, so it waits
+              behind a disclosure. An effort's materials (overview, plan, log)
+              are the rail's most useful group there, so they start open. */}
           {navigationGroups.map((group) => (
-            <details key={group.key} className="ontology-sidebar-context__group rail-materials">
+            <details
+              key={group.key}
+              className="ontology-sidebar-context__group rail-materials"
+              open={group.label === "In this effort"}
+            >
               <summary>
                 <h3>
                   {materialsLabel(group.label)}
