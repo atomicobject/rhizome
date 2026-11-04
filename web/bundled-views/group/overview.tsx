@@ -27,6 +27,7 @@ import { CoverageLine, DeclaredUnused, FolderBlock, GroupRecordsBlocks } from ".
 import { MemberTable, ScopeMatrix } from "./overview-tables.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, linkModel, scopeOf, type Scope } from "./scope.ts";
+import { NoIssues } from "./validation-freshness.tsx";
 import {
   blockStatus,
   useAggregatePart,
@@ -103,8 +104,7 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
       </button>
       {issues === 0 && (
         <span>
-          <span className="gv-fact-scope">Validation:</span>{" "}
-          <span className="gv-ok">✓ No issues</span>
+          <span className="gv-fact-scope">Validation:</span> <NoIssues />
         </span>
       )}
       {issues !== undefined && issues > 0 && (
@@ -135,7 +135,7 @@ function GroupFactsList({ data }: { data: ScopeData }) {
           {fmt(issues)} {plural(issues, "issue", "issues")}
         </span>
       ) : (
-        <span className="gv-ok">✓ No issues</span>
+        <NoIssues />
       )}
     </span>
   );

@@ -54,3 +54,18 @@ export function ValidationFreshness() {
 
   return time ? <span className="gv-sub">Checked {checkedAge(time)}</span> : null;
 }
+
+/**
+ * "✓ No issues" for a scope with none, but only when the last validation run
+ * is current; a stale, running, or failed run would make an old zero look clean.
+ */
+export function NoIssues() {
+  const { health } = useValidationSummaries(NO_SCOPES);
+
+  if (health === null) return null;
+
+  if (health === "current_clean" || health === "current_issues")
+    return <span className="gv-ok">✓ No issues</span>;
+
+  return <span className="gv-sub">Validation out of date</span>;
+}

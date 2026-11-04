@@ -8,6 +8,7 @@ import {
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
 import { NOW, PATHS, RECORDS_DATA, TYPE_DOCS } from "./__fixtures__/groups.ts";
+import { VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { groupRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
 import { isJsonObject } from "./api.ts";
 import { SIGNAL_RECORDS } from "./briefing-attention.tsx";
@@ -177,13 +178,25 @@ it("lists recent changes newest first with type, folder, and age, collapsing a b
   expect(burst).toHaveAttribute("aria-expanded", "true");
 });
 
+it("does not call an out-of-date validation run clean", async () => {
+  await renderGroupView(loadBriefing, {
+    group: "People",
+    routes: groupRoutes({
+      "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health: "stale" }),
+    }),
+  });
+
+  expect(await screen.findByText("Validation out of date")).toBeVisible();
+  expect(screen.queryByText("✓ No issues")).toBeNull();
+});
+
 it("shows only activity: Needs attention, In motion, and Recent changes", async () => {
   await renderGroupView(loadBriefing, { group: "People" });
 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
   ).toEqual(["In motion", "Recent changes"]);
-  expect(screen.getByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("✓ No issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),

@@ -22,7 +22,7 @@ import {
 import { createContext, useContext, type ReactNode } from "react";
 
 import "./group.css";
-import { ValidationFreshness } from "./validation-freshness.tsx";
+import { NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { RECORD_CAP } from "./api.ts";
 import type { GroupModelState } from "./load.ts";
 import {
@@ -325,7 +325,7 @@ export function GroupFacts({
           </span>
         ) : (
           <>
-            <span className="gv-ok">✓ No issues</span>
+            <NoIssues />
             <ValidationFreshness />
           </>
         )}
