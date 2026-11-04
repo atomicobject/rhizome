@@ -7,6 +7,7 @@ import {
   CODE_COLOR,
   FOLDER_COLOR,
   type GraphScope,
+  type GraphViewNode,
   kindLabel,
   truncatePath,
   UNTYPED_COLOR,
@@ -49,6 +50,8 @@ type GraphTypeEntry = {
   count: number;
   color: string;
   selected: boolean;
+  /** Whether a drawn node shows this color; the rest wait behind "All types". */
+  present: boolean;
 };
 
 function graphTypeName(node: GraphNode): string {
@@ -84,7 +87,8 @@ export function GraphView({
   legendNodes,
   folderCaption,
 }: {
-  nodes: GraphNode[];
+  /** Nodes to draw; a summarized view may give each its own `fill`. */
+  nodes: GraphViewNode[];
   edges: GraphEdge[];
   truncated?: boolean;
   needsIndex?: boolean;
@@ -181,17 +185,27 @@ export function GraphView({
     (legendNodes ?? nodes).forEach((node) => node.kind !== "module" && count(node));
     nodes.forEach((node) => node.kind === "module" && count(node));
 
+    // A summarized view draws folders in their most common type's color, so
+    // only those colors and the drawn nodes' own types are on screen.
+    const drawn = new Set<string>();
+
+    for (const node of nodes) {
+      drawn.add(node.fill ?? graphTypeName(node));
+    }
+
     return (
       Array.from(counts.entries())
         .map(([name, count]) => {
           const kind = KIND_ENTRIES.get(name);
+          const color = kind?.color ?? (typeColors?.get(name) || "var(--text-faint)");
 
           return {
             name,
             label: kind?.label ?? (typeLabels?.get(name) || name),
             count,
-            color: kind?.color ?? (typeColors?.get(name) || "var(--text-faint)"),
+            color,
             selected: Boolean(highlightTypes?.size && highlightTypes.has(name)),
+            present: name === FOLDER_NODE_TYPE || drawn.has(name) || drawn.has(color),
           };
         })
         // Types alphabetically, then untyped notes, code, and folders.
@@ -450,32 +464,46 @@ export function GraphView({
             const entries = typeEntries.filter((entry) => legendGroup(entry.name) === group.key);
 
             if (entries.length === 0) return null;
+            const shown = entries.filter((entry) => entry.present || entry.selected);
+            const rest = entries.filter((entry) => !entry.present && !entry.selected);
+
+            const item = (entry: GraphTypeEntry) => (
+              <li
+                key={entry.name}
+                className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
+                data-type={entry.name}
+              >
+                <span
+                  className="graph-type-legend__swatch"
+                  style={
+                    group.key === "folder"
+                      ? { borderColor: entry.color }
+                      : { backgroundColor: entry.color }
+                  }
+                  aria-hidden="true"
+                />
+                <span className="graph-type-legend__label">{entry.label}</span>
+                <span className="graph-type-legend__count num">
+                  {entry.count.toLocaleString("en-US")}
+                </span>
+              </li>
+            );
 
             return (
               <section key={group.key} className="graph-type-legend__group" data-group={group.key}>
                 <h3 className="graph-type-legend__title">{group.title}</h3>
                 <ul className="graph-type-legend__list">
-                  {entries.map((entry) => (
-                    <li
-                      key={entry.name}
-                      className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
-                      data-type={entry.name}
-                    >
-                      <span
-                        className="graph-type-legend__swatch"
-                        style={
-                          group.key === "folder"
-                            ? { borderColor: entry.color }
-                            : { backgroundColor: entry.color }
-                        }
-                        aria-hidden="true"
-                      />
-                      <span className="graph-type-legend__label">{entry.label}</span>
-                      <span className="graph-type-legend__count num">
-                        {entry.count.toLocaleString("en-US")}
-                      </span>
+                  {shown.map(item)}
+                  {rest.length > 0 && (
+                    <li className="graph-type-legend__more">
+                      <details>
+                        <summary>
+                          All types <span className="num">+{rest.length}</span>
+                        </summary>
+                        <ul className="graph-type-legend__list">{rest.map(item)}</ul>
+                      </details>
                     </li>
-                  ))}
+                  )}
                   {group.key === "folder" && folderCaption && (
                     <li className="graph-type-legend__note">{folderCaption}</li>
                   )}

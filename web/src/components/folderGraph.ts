@@ -8,8 +8,14 @@ const SPLIT_SHARE = 0.15;
 /** Subfolders smaller than this share of the graph fold back into one node for their parent. */
 const MERGE_SHARE = 0.015;
 
-/** Each folder keeps its heaviest links to this many other folders, so the overview shows its main roads. */
-const LINKS_PER_FOLDER = 2;
+/**
+ * Each folder keeps its single heaviest link, and the heaviest links overall
+ * stay too, so the overview shows its main roads rather than every path.
+ */
+const LINKS_PER_FOLDER = 1;
+
+/** Links kept for their weight alone, beyond each folder's heaviest. */
+const HEAVIEST_LINKS = 8;
 
 function nodePath(node: GraphNode) {
   return (node.notePath || node.path || "").replace(/^\/+/, "");
@@ -149,6 +155,12 @@ export function aggregateByFolder(
 
     for (const { key } of list.slice(0, LINKS_PER_FOLDER)) kept.add(key);
   }
+
+  const heaviest = [...weights].sort(
+    (a, b) => b[1].weight - a[1].weight || a[0].localeCompare(b[0]),
+  );
+
+  for (const [key] of heaviest.slice(0, HEAVIEST_LINKS)) kept.add(key);
 
   const edges: GraphEdge[] = [...kept].sort().map((key) => {
     const entry = weights.get(key)!;

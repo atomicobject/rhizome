@@ -529,6 +529,19 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
     label = "";
   }
 
+  // The folder overview draws few links, so each is essential: opaque in the
+  // 3:1 neutral at 1–2px, fading only when the reader points at another folder.
+  if (attrs.kind === "folder") {
+    const faded = (hasHighlighting || state.hoverNodeID !== null) && !isFocus;
+
+    return {
+      hidden: false,
+      color: faded ? edgeFaint : state.colors.neutral,
+      size: clamp(attrs.size * 0.5, 1, 2),
+      label,
+    };
+  }
+
   return {
     hidden: false,
     color,

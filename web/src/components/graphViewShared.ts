@@ -71,12 +71,13 @@ const MARKDOWN_COLOR = "var(--type-1)";
 const NEUTRAL_COLOR = "var(--type-8)";
 
 /**
- * Beside type colors, the three neutrals step in lightness: folders in ink,
- * code files in muted ink, untyped notes in the warm-gray neutral.
+ * Beside type colors, the neutrals step in lightness: folders in ink, untyped
+ * notes in the warm-gray neutral, and code in a lighter gray, so strong fills
+ * stay with notes and code folders never dominate the picture.
  */
 export const FOLDER_COLOR = "var(--text)";
 
-export const CODE_COLOR = "var(--text-muted)";
+export const CODE_COLOR = "var(--graph-code)";
 
 export const UNTYPED_COLOR = NEUTRAL_COLOR;
 

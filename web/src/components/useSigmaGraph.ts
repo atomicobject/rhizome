@@ -179,11 +179,12 @@ function haloLabel(
       [data.x - d - width, data.y + d + size],
     ];
 
+    // Each box keeps a few pixels' clearance, so neighboring labels never touch.
     const boxOf = ([x, y]: [number, number]): [number, number, number, number] => [
-      x - 2,
-      y - size,
-      x + width + 2,
-      y + 4,
+      x - 4,
+      y - size - 2,
+      x + width + 4,
+      y + 6,
     ];
 
     const free = spots.find((spot) => {

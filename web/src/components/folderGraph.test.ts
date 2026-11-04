@@ -34,7 +34,7 @@ describe("aggregateByFolder", () => {
 
     expect([...byPath.keys()].sort()).toEqual(["", "docs/specs", "pkg", "pkg/app", "pkg/store"]);
     expect(byPath.get("docs/specs")?.fill).toBe("var(--Spec)");
-    expect(byPath.get("pkg/app")?.fill).toBe("var(--text-muted)");
+    expect(byPath.get("pkg/app")?.fill).toBe("var(--graph-code)");
     expect(byPath.get("pkg")?.label).toBe("pkg · 1 smaller folders  1");
     expect(byPath.get("")?.label).toBe("Top-level files  1");
     // Links inside one folder are not drawn; links between folders add up.
