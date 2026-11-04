@@ -105,6 +105,8 @@ type RailRow = {
   direction: Direction;
   current?: boolean;
   openable: boolean;
+  /** Folder shown beside an untyped note, in place of a type. */
+  folder?: string;
 };
 
 type RailBucket = {
@@ -161,14 +163,18 @@ function relationBuckets(items: NoteWorkspaceLink[], typeLabel: TypeLabelFn): Ra
   });
 }
 
+// The folder that holds a note, shown beside an untyped link ("pkg/app/").
 function folderOf(target: string): string {
-  const slash = target.indexOf("/");
+  const path = target.split("#", 1)[0];
+  const slash = path.lastIndexOf("/");
 
-  return slash > 0 ? `${target.slice(0, slash)}/` : "Notes";
+  return slash > 0 ? path.slice(0, slash + 1) : "";
 }
 
+const UNTYPED_BUCKET_LABEL = "Other notes";
+
 // Body links and backlinks, one row per note with its direction, bucketed by
-// type; untyped notes fall back to their top folder ("Log/").
+// type; untyped notes share one bucket and show their folder instead.
 function linkedBuckets(
   items: NoteWorkspaceLink[],
   exclude: ReadonlySet<string>,
@@ -193,10 +199,10 @@ function linkedBuckets(
 
   for (const row of rows.values()) {
     const typed = Boolean(row.typeName);
-    const label = row.typeName || folderOf(row.target);
-    const key = `${typed ? "type" : "folder"}:${label}`;
+    const label = row.typeName || UNTYPED_BUCKET_LABEL;
+    const key = `${typed ? "type" : "untyped"}:${label}`;
     const bucket = buckets.get(key) ?? { key, label, typed, rows: [] };
-    bucket.rows.push({ ...row, typeName: "" });
+    bucket.rows.push({ ...row, typeName: "", folder: typed ? undefined : folderOf(row.target) });
     buckets.set(key, bucket);
   }
 
@@ -266,6 +272,7 @@ function SidebarPreviewButton({
       <button
         {...previewTrigger.triggerProps}
         type="button"
+        className="link-quiet"
         title={title || target}
         aria-current={current ? "page" : undefined}
         onClick={(event) => {
@@ -320,6 +327,13 @@ function RailRowItem({
         </span>
       )}
       {row.typeName && <span className="rail-row__type">{row.typeName}</span>}
+      {row.folder && (
+        // Truncates from the start (CSS rtl) so the deepest folder stays; the
+        // marks keep the path itself in left-to-right order.
+        <span className="rail-row__path" title={row.folder}>
+          {`\u200e${row.folder}\u200e`}
+        </span>
+      )}
     </li>
   );
 }
@@ -372,6 +386,35 @@ function RailBucketList({
         </button>
       )}
     </div>
+  );
+}
+
+// "In this effort" names its members as "Effort materials".
+function materialsLabel(label: string): string {
+  const owner = /^In this (.+)$/.exec(label)?.[1];
+
+  return owner ? `${owner[0].toUpperCase()}${owner.slice(1)} materials` : label;
+}
+
+// Names the arrows that appear in a list, once, above it.
+function DirectionLegend({ buckets }: { buckets: RailBucket[] }) {
+  const present = new Set(buckets.flatMap((bucket) => bucket.rows.map((row) => row.direction)));
+
+  return (
+    <p className="rail-legend">
+      {(["incoming", "outgoing", "both"] as const).flatMap((direction) =>
+        present.has(direction)
+          ? [
+              <span key={direction}>
+                <span className={`rail-legend__dir rail-row__dir--${direction}`} aria-hidden="true">
+                  {DIRECTION_GLYPH[direction]}
+                </span>
+                {DIRECTION_LABEL[direction]}
+              </span>,
+            ]
+          : [],
+      )}
+    </p>
   );
 }
 
@@ -512,8 +555,18 @@ export function NotesSidebarInfo({
         </header>
 
         <section className="ontology-sidebar-context" aria-label="Focused note context">
+          {/* A workspace's own navigation (an effort's overview, plan, and log)
+              often repeats the page's, so it waits behind a closed disclosure. */}
           {navigationGroups.map((group) => (
-            <SidebarContextGroup key={group.key} title={group.label}>
+            <details key={group.key} className="ontology-sidebar-context__group rail-materials">
+              <summary>
+                <h3>
+                  {materialsLabel(group.label)}
+                  <span className="ontology-sidebar-context__count">
+                    {group.items?.length ?? 0}
+                  </span>
+                </h3>
+              </summary>
               {group.ownerTitle && (
                 <div className="ontology-sidebar-context__owner">{group.ownerTitle}</div>
               )}
@@ -528,7 +581,7 @@ export function NotesSidebarInfo({
                   />
                 ))}
               </ul>
-            </SidebarContextGroup>
+            </details>
           ))}
           <SidebarContextGroup title="Relations" count={rowCount(relations)}>
             {relations.length > 0 &&
@@ -559,6 +612,7 @@ export function NotesSidebarInfo({
               })}
           </SidebarContextGroup>
           <SidebarContextGroup title="Linked notes" count={rowCount(linked)}>
+            {linked.length > 0 && <DirectionLegend buckets={linked} />}
             {linked.length > 0 &&
               linked.map((bucket) => (
                 <RailBucketList

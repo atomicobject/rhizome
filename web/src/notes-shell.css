@@ -143,11 +143,6 @@
   padding: 0 var(--sp-3);
 }
 
-.notes-shell__session .ontology-edit-toggle {
-  min-height: 26px;
-  padding-block: 3px;
-}
-
 .notes-tab {
   position: relative;
   display: inline-flex;
@@ -328,19 +323,12 @@
   letter-spacing: -0.01em;
 }
 
-.search-workspace__count {
-  flex: none;
-  color: var(--text-muted);
-  font-size: var(--fs-base);
-  font-variant-numeric: tabular-nums;
-}
-
 .search-workspace__query {
   min-width: 0;
   margin: 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -475,17 +463,30 @@
   gap: var(--sp-3);
 }
 
+/* One plain line: "Showing 40 of 100 results · Medium confidence ⓘ", with
+   figures in tabular Inter. It wraps rather than clipping the info tip. */
 .search-workspace__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-workspace__status > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .search-workspace__status > span:not(:first-child)::before {
   content: "·";
   margin: 0 var(--sp-2);
   color: var(--text-faint);
+}
+
+.search-workspace__status .field-editor__info-tip {
+  color: var(--text);
 }
 
 .search-workspace__state {
@@ -561,7 +562,7 @@
   overflow: hidden;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--link);
   font: 600 var(--fs-lg) / 1.35 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
@@ -569,11 +570,12 @@
   cursor: pointer;
 }
 
+/* A result title is a quiet link (.link-quiet): teal, underlined on hover
+   and keyboard focus. */
 .search-workspace__result-link:hover,
 .search-workspace__result-link:focus-visible {
-  color: var(--link);
   text-decoration: underline;
-  text-decoration-color: var(--link-line);
+  text-decoration-color: currentcolor;
   text-underline-offset: 2px;
 }
 
@@ -587,13 +589,22 @@
   white-space: nowrap;
 }
 
+/* Note excerpts read as prose: soft-wrapped, inline code as code. */
 .search-workspace__result p {
   max-width: 78ch;
   margin: var(--sp-2) 0 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
   line-height: 1.5;
-  white-space: pre-wrap;
+}
+
+.search-workspace__result p code {
+  padding: 1px 3px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
 .search-workspace__result p.is-missing {
@@ -1838,6 +1849,38 @@
   max-width: 540px;
 }
 
+/* One vertical rhythm in both modes. A blank source line is the paragraph
+   gap (0.75em), list items sit on the 24px line grid, and a list that follows
+   its lead-in line directly keeps no gap, as the editor shows it. */
+.notes-shell .body-narrative--editor .cm-line:has(> br:only-child) {
+  line-height: 0.75em;
+}
+
+.notes-shell .body-narrative li {
+  margin: 0;
+}
+
+.notes-shell .body-narrative :is(ul, ol) {
+  margin: 0 0 0.75em;
+  padding-left: 2em;
+}
+
+.notes-shell .body-narrative p:has(+ :is(ul, ol)) {
+  margin-bottom: 0;
+}
+
+/* A wiki link in the editor takes read mode's metrics: the same hairline
+   underline and no trailing glyph, so a line wraps where it did in read mode. */
+.notes-shell .body-narrative--editor .cm-atomic-wiki-link {
+  text-decoration-color: var(--link-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.notes-shell .body-narrative--editor .cm-atomic-wiki-link .cm-atomic-link::after {
+  content: none;
+}
+
 /* The controls row is only as wide as the column: the path gives way, never
    the controls. */
 .notes-shell
@@ -1929,6 +1972,52 @@
   padding-top: 0;
 }
 
+/* A long property that echoes a body section previews on one line, in the
+   value column, with a quiet More that opens the full text. */
+.notes-shell .ontology-pane .ontology-properties__preview {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-shell .ontology-pane .ontology-properties__preview-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-shell .ontology-pane .ontology-properties__preview-more {
+  flex: none;
+  color: var(--link);
+  font-size: var(--fs-sm);
+}
+
+.notes-shell .ontology-pane .ontology-properties__preview:hover .ontology-properties__preview-more,
+.notes-shell
+  .ontology-pane
+  .ontology-properties__preview:focus-visible
+  .ontology-properties__preview-more {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.notes-shell .ontology-pane .ontology-properties__preview:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
 /* Field labels stay roman; an empty field reads faint, not italic. */
 .notes-shell .ontology-pane .ontology-properties__row.is-missing .ontology-properties__key {
   font-style: normal;
@@ -1941,17 +2030,96 @@
 }
 
 /* ---- Info rail ----
-   Relation targets are note links in the shared teal treatment, and the
-   direction marks are readable glyphs rather than 12px arrows. */
+   Relation targets are quiet links (.link-quiet): teal ink, underlined only
+   on hover and keyboard focus. Direction marks are readable glyphs, named
+   once by a legend. */
 .notes-right-rail .rail-row > button {
   color: var(--link);
+  text-decoration: none;
+}
+
+.notes-right-rail .rail-row > button:is(:hover, :focus-visible) {
   text-decoration: underline;
-  text-decoration-color: var(--link-line);
+  text-decoration-color: currentcolor;
   text-underline-offset: 2px;
 }
 
-.notes-right-rail .rail-row > button:hover {
-  text-decoration-color: currentcolor;
+/* Workspace materials open from their heading row; the chevron turns. */
+.notes-right-rail .rail-materials > summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+
+.notes-right-rail .rail-materials > summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-right-rail .rail-materials > summary > h3 {
+  justify-content: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.notes-right-rail .rail-materials > summary .ontology-sidebar-context__count {
+  margin-left: auto;
+}
+
+.notes-right-rail .rail-materials > summary > h3::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  transform: translateY(-2px) rotate(-45deg);
+  transition: transform 120ms var(--ease);
+}
+
+.notes-right-rail .rail-materials[open] > summary > h3::before {
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.notes-right-rail .rail-materials > summary:hover > h3 {
+  color: var(--text);
+}
+
+.notes-right-rail .rail-materials > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.notes-right-rail .rail-materials[open] > summary {
+  margin-bottom: var(--sp-1);
+}
+
+.notes-right-rail .rail-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--sp-4);
+  margin: 0 0 var(--sp-2);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.notes-right-rail .rail-legend__dir {
+  margin-right: 3px;
+  font-weight: 600;
+}
+
+/* An untyped note names its folder where a typed one names its type. */
+.notes-right-rail .rail-row__path {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  direction: rtl;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notes-right-rail :is(.rail-row__dir, .rail-bucket__dir, .rail-direction__dir) {
@@ -2090,83 +2258,122 @@
   pointer-events: none;
 }
 
+/* A date reads as a number, not code: Inter with tabular figures. */
 .widget-date--input[type="text"] {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
 
-/* Editing with nothing staged is neutral: Done and Review never take the
-   warning gold on hover; gold stays for real unsaved changes. */
-.notes-shell__session .ontology-edit-bar__btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
+/* In the note head an inline editor is the value itself at rest: no box
+   until hover or focus, like the body editor. Its padding and border bleed
+   outward, so the text keeps read mode's position and line breaks. */
+.notes-shell .ontology-pane :is(.ontology-identity, .ontology-properties) .widget-date--input,
+.notes-shell .ontology-pane .ontology-properties .widget-text--input {
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+}
+
+.notes-shell .ontology-pane .ontology-properties .widget-text--input {
+  width: calc(100% + 14px);
+  max-width: none;
+  margin: -3px -7px;
+}
+
+.notes-shell .ontology-pane :is(.ontology-identity, .ontology-properties) .widget-date--input {
+  margin: -3px -7px;
+}
+
+/* Ten tabular digits and hyphens: a YYYY-MM-DD value never clips in Inter.
+   The field and its picker fit the 20px metadata line. */
+.notes-shell .ontology-pane .widget-date--input[type="text"] {
+  box-sizing: content-box;
+  width: 11ch;
+  height: 20px;
+  padding-block: 0;
+  line-height: 20px;
+}
+
+.notes-shell .ontology-pane .ontology-identity .widget-date--input {
+  margin-block: -1px;
+}
+
+.notes-shell .ontology-pane .ontology-identity .widget-date-editor__pick {
+  width: 20px;
+  height: 20px;
+}
+
+.notes-shell .ontology-pane :is(.ontology-identity, .ontology-properties) .widget-date--input:hover,
+.notes-shell .ontology-pane .ontology-properties .widget-text--input:hover {
   background: var(--bg-tint);
 }
 
-.notes-shell__session .ontology-edit-bar__btn--save:hover:not(:disabled) {
-  border-color: var(--accent-fill-hover);
-  background: var(--accent-fill-hover);
-}
-
-/* A long text field's editor bleeds outward by its padding and border, so its
-   text keeps read mode's left edge and line breaks. */
-.notes-shell .ontology-pane .ontology-properties__row.is-long .widget-text--input {
-  width: calc(100% + 14px);
-  max-width: none;
-  margin-inline: -7px;
+.notes-shell .ontology-pane :is(.ontology-identity, .ontology-properties) .widget-date--input:focus,
+.notes-shell .ontology-pane .ontology-properties .widget-text--input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 /* ---- HTML note head ----
-   With a preview showing, the host header is one compact row on the note
-   gutter: the title, its identity, the metadata disclosure, and the viewer's
-   Refresh and Open. The page below carries its own heading. */
-.notes-shell .ontology-pane__html-head {
+   With a preview showing, the host header lives in the 40px control row:
+   the type, a 14/600 title, its identity, the metadata disclosure, then the
+   presentation switch and the viewer's Refresh and Open. The authored page
+   starts right below and carries its own heading. */
+.notes-shell .ontology-pane__controls:has(> .ontology-pane__html-head) {
+  overflow: visible;
+}
+
+/* An HTML page runs edge to edge, so its control row does too, in Preview
+   and Source alike. */
+.notes-shell .ontology-pane__controls--html {
+  padding-inline: var(--sp-6);
+}
+
+.notes-shell .ontology-pane__controls > .ontology-pane__html-head {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 1 auto;
   align-items: center;
-  gap: var(--sp-2) var(--sp-4);
-  min-height: 48px;
-  margin: calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6)) 0;
-  /* The gutter resolves against the padded main, so add the padding back. */
-  padding: var(--sp-2) var(--sp-5) var(--sp-2) calc(var(--note-gutter) + var(--sp-6));
-  border-bottom: 1px solid var(--border);
+  gap: var(--sp-4);
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .notes-shell .ontology-pane__html-head > .ontology-identity {
-  flex: 1 1 320px;
+  flex: 0 1 auto;
   flex-flow: row nowrap;
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
   padding: 0;
+  background: transparent;
 }
 
 .notes-shell .ontology-pane__html-head .ontology-identity__title {
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: 120px;
   overflow: hidden;
-  font-size: var(--fs-xl);
+  color: var(--text);
+  font: 600 var(--fs-base) / 20px var(--font-sans);
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .notes-shell .ontology-pane__html-head .ontology-identity__row {
   flex: none;
+  flex-wrap: nowrap;
 }
 
-/* Editing adds the status picker's own row, so the identity wraps under a
-   full-width title. */
-.notes-shell
-  .ontology-pane__html-head
-  > .ontology-identity:has(> .ontology-identity__row + .ontology-identity__row) {
-  flex-wrap: wrap;
-  row-gap: var(--sp-2);
+/* The row has room for the title and status, not the long identifier: the
+   title's tooltip names it, and the authored page shows it. */
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--id {
+  display: none;
 }
 
-.notes-shell
-  .ontology-pane__html-head
-  > .ontology-identity:has(> .ontology-identity__row + .ontology-identity__row)
-  > .ontology-identity__title {
-  flex-basis: 100%;
+.notes-shell .ontology-pane__html-head .ontology-identity__flex {
+  display: none;
 }
 
 /* The metadata opens as a panel over the page instead of pushing it down. */
@@ -2220,8 +2427,9 @@
   display: none;
 }
 
-.notes-shell .ontology-pane__html-head + * {
-  margin-top: 0;
+/* The page starts directly under the control row. */
+.notes-shell .ontology-pane__main--html {
+  padding-top: 0;
 }
 
 .notes-shell .ontology-pane__main--html > .ontology-markdown--html {

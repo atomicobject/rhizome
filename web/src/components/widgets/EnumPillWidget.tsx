@@ -1,3 +1,5 @@
+import { ChevronDown } from "lucide-react";
+
 import type { NodeFieldEnumOption } from "../../api/types";
 import { enumLabel } from "../../lib/labels";
 import { StatusMark } from "../StatusMark";
@@ -19,6 +21,8 @@ type Props = {
   ariaLabel?: string;
   /** Allow an optional enum field to be removed. */
   clearable?: boolean;
+  /** "menu" edits through a chip that looks like the read-mode badge. */
+  variant?: "segmented" | "menu";
 };
 
 /**
@@ -36,6 +40,7 @@ export function EnumPillWidget({
   onStage,
   ariaLabel,
   clearable = false,
+  variant = "segmented",
 }: Props) {
   const trimmed = value.trim();
   const known = options.includes(trimmed);
@@ -62,6 +67,46 @@ export function EnumPillWidget({
         ) : (
           trimmed
         )}
+      </span>
+    );
+  }
+
+  if (variant === "menu") {
+    const tone = known ? optionFor(trimmed)?.tone : undefined;
+
+    // A native select under the chip: the chip keeps read mode's geometry and
+    // the platform menu supplies keyboard and screen-reader behaviour.
+    return (
+      <span
+        className={`widget-enum widget-enum--badge widget-enum--menu${dirty ? " is-dirty" : ""}`}
+        data-value={trimmed}
+      >
+        {tone ? (
+          <StatusMark tone={tone} label={labelFor(trimmed)} />
+        ) : (
+          <span>{trimmed ? (known ? labelFor(trimmed) : trimmed) : "No value"}</span>
+        )}
+        <ChevronDown className="widget-enum__chevron" aria-hidden="true" />
+        <select
+          className="widget-enum__select"
+          aria-label={ariaLabel}
+          value={trimmed}
+          onChange={(event) => {
+            if (event.target.value !== trimmed) onStage?.(event.target.value);
+          }}
+        >
+          {(!trimmed || clearable) && <option value="">No value</option>}
+          {trimmed && !known && (
+            <option value={trimmed} disabled>
+              {trimmed}
+            </option>
+          )}
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {labelFor(option)}
+            </option>
+          ))}
+        </select>
       </span>
     );
   }

@@ -108,7 +108,7 @@ test("uses the indexed backend for search, filtering, pagination, and source ope
   const result = page.getByRole("button", { name: "Stable typed retrieval", exact: true });
   await expect(result).toBeVisible();
   await expect(page.getByLabel("Search status")).toBeVisible();
-  await expect(page.getByLabel("Search status")).toContainText("ranked");
+  await expect(page.getByLabel("Search status")).toContainText("Showing");
 
   const filteredRequest = page.waitForRequest(
     (request) =>
@@ -142,11 +142,11 @@ test("searches from shared chrome in a retained full-width workspace", async ({
   await expect(page).toHaveURL(/\/notes\?search=typed\+retrieval/);
   await expect(page.getByRole("heading", { name: "Search results" })).toBeVisible();
   await expect(
-    page.getByLabel("Search results for typed retrieval").getByText("typed retrieval", {
+    page.getByLabel("Search results for typed retrieval").getByText("for “typed retrieval”", {
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByLabel("Search status")).toContainText("Confidence high");
+  await expect(page.getByLabel("Search status")).toContainText("High confidence");
   // The sidebar stays where the user left it (SPEC-0128).
   await expect(page.locator(".notes-left-rail")).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Note context" })).toBeHidden();

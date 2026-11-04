@@ -85,12 +85,18 @@ export function OntologyIdentityStrip({
       sourceHash={workspace.sourceRevision?.contentFingerprint}
       sourceContent={workspace.sourceRevision?.content}
       onStage={(values, expected) => stageFieldOp(identity.status!, values, expected)}
+      enumVariant="menu"
     />
   );
 
   return (
     <header className="ontology-identity">
-      <h2 className="ontology-identity__title">{title || "Untitled"}</h2>
+      <h2
+        className="ontology-identity__title"
+        title={[title, identity.identifier?.field.values?.[0]].filter(Boolean).join(" · ")}
+      >
+        {title || "Untitled"}
+      </h2>
       <div className="ontology-identity__row">
         {identity.identifier && (
           <FieldSlot
@@ -117,7 +123,7 @@ export function OntologyIdentityStrip({
             prefix="v"
           />
         )}
-        {!editing && status}
+        {status}
         {identity.lastUpdated && (
           <FieldSlot
             node={identity.lastUpdated}
@@ -147,8 +153,6 @@ export function OntologyIdentityStrip({
           <span className="ontology-identity__chip ontology-identity__chip--dirty">Staged</span>
         )}
       </div>
-      {/* Editing, the status picker is a full segmented control on its own row. */}
-      {editing && status && <div className="ontology-identity__row">{status}</div>}
     </header>
   );
 }
@@ -170,6 +174,7 @@ function FieldSlot({
   onStage,
   prefix = "",
   labelPrefix,
+  enumVariant,
 }: {
   node: WorkspaceFieldNode;
   editing: boolean;
@@ -186,6 +191,7 @@ function FieldSlot({
   prefix?: string;
   /** Label shown as a faint prefix tag ("Updated · 2026-04-12"). */
   labelPrefix?: string;
+  enumVariant?: "segmented" | "menu";
 }) {
   const { name } = node.field;
   const values = node.field.values || [];
@@ -206,6 +212,7 @@ function FieldSlot({
         operationTarget={operationTarget}
         expected={fieldExpectedFromNode(node, sourceHash, sourceContent)}
         onStage={onStage}
+        enumVariant={enumVariant}
       />
     </span>
   );

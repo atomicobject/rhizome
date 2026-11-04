@@ -80,7 +80,8 @@
 .ontology-sidebar-context__count,
 .rail-bucket__count {
   color: var(--text-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0;
@@ -1125,33 +1126,8 @@
 
 /* ---- Edit toggle button (read-only mode) ---- */
 
-.ontology-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  padding: 4px 10px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: var(--r);
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-  white-space: nowrap;
-}
-
-.ontology-edit-toggle:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: var(--bg-tint);
-}
-
-.ontology-edit-toggle__icon {
+/* The toggle is the shared 28px .button; only its icon is set here. */
+.button .ontology-edit-toggle__icon {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
@@ -1165,7 +1141,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 26px;
+  min-height: 28px;
   padding: 0 1px 0 var(--sp-2);
   border-radius: var(--r);
   border: 1px solid transparent;
@@ -1202,8 +1178,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 700;
-  font-size: var(--fs-xs);
+  font-weight: 500;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -1253,59 +1229,14 @@
 .ontology-edit-bar__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-3);
   margin-left: auto;
 }
 
-.ontology-edit-bar__btn {
-  height: 22px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  padding: 0 10px;
-  font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-}
-
-.ontology-edit-bar__btn:hover:not(:disabled) {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--warning) 60%, var(--border));
-}
-
-.ontology-edit-bar__btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.ontology-edit-bar__btn--save {
-  background: var(--accent-fill);
-  color: var(--on-accent);
-  border-color: var(--accent-fill);
-}
-
-.ontology-edit-bar__btn--save:hover:not(:disabled) {
-  background: var(--accent-fill-hover);
-  border-color: var(--accent-fill-hover);
-  color: var(--on-accent);
-}
-
-/* Nothing to save reads as unavailable, never as a pale red error tint. */
-.ontology-edit-bar__btn--save:disabled {
-  background: var(--surface-sunk);
-  border-color: var(--border);
-  color: var(--text-faint);
-  opacity: 1;
-}
-
+/* Session actions are the shared 28px .button; Done stands apart from
+   Review and Save so the exit is never mistaken for a commit. */
 .ontology-edit-bar__btn--discard {
-  color: var(--text-faint);
+  margin-left: var(--sp-1);
 }
 
 /* Errors, conflicts, and warnings float below the bar so the fixed-height
@@ -1498,9 +1429,15 @@
   gap: var(--sp-1);
 }
 
+/* The metadata line is one quiet Inter run: label and value share 13px
+   muted type, and dates use tabular figures. */
 .ontology-identity__slot-label {
-  font: var(--label-font);
-  color: var(--label-color);
+  font: 400 var(--fs-sm) / 1.45 var(--font-sans);
+  color: var(--text-muted);
+}
+
+.ontology-identity__row .widget-date {
+  color: var(--text-muted);
 }
 
 .ontology-identity__slot-prefix {
@@ -1720,15 +1657,16 @@
   text-decoration: line-through wavy;
 }
 
-/* Matches .segmented in base.css: one look for every mode or value switch. */
+/* Matches .segmented in base.css: a tinted track whose chosen value is a
+   raised surface, never a solid ink fill. */
 .widget-enum--segmented {
   display: inline-flex;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  overflow: hidden;
-  background: var(--surface);
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
   margin: 0;
-  padding: 0;
+  padding: 2px;
   min-width: 0;
 }
 
@@ -1745,32 +1683,65 @@
 
 .widget-enum__segment {
   appearance: none;
-  height: 24px;
-  border: none;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
   background: transparent;
   padding: 0 10px;
-  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
   color: var(--text-muted);
   cursor: pointer;
   transition:
     background 0.1s,
     color 0.1s;
-  border-right: 1px solid var(--border);
-}
-
-.widget-enum__segment:last-child {
-  border-right: none;
 }
 
 .widget-enum__segment:hover {
-  background: var(--bg-tint);
   color: var(--text);
 }
 
-/* The chosen value is a selection, not an alert: neutral, never the accent. */
 .widget-enum__segment.is-active {
-  background: var(--text);
-  color: var(--surface);
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The identity strip's status edits through a chip that keeps read mode's
+   badge geometry; an invisible native select over it opens the menu. */
+.widget-enum--menu {
+  position: relative;
+  gap: var(--sp-1);
+  padding-right: var(--sp-2);
+  cursor: pointer;
+}
+
+.widget-enum--menu:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.widget-enum--menu:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.widget-enum__chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.widget-enum__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
 .widget-enum__segment--unknown {
