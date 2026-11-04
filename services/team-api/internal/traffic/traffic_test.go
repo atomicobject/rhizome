@@ -239,9 +239,9 @@ func TestResponseCutOffAtTheCapIsUnknownOutcome(t *testing.T) {
 	require.Equal(t, wire.CodeOutcomeUnknown, h.voyage("alice", key(1), voyageBody("x")).code())
 }
 
-// A model list cut off mid-body resets the connection rather than ending as
-// if it were whole.
-func TestCutOffModelListResetsTheConnection(t *testing.T) {
+// A model list cut off mid-body is an error rather than a list that looks
+// whole.
+func TestCutOffModelListIsNotServedWhole(t *testing.T) {
 	ts := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "1000")
 		_, _ = io.WriteString(w, `{"models":[]}`)
@@ -249,6 +249,7 @@ func TestCutOffModelListResetsTheConnection(t *testing.T) {
 	h := newHarness(t, opts{typesafe: ts})
 	r := h.do(t.Context(), http.MethodGet, wire.RouteTypeSafeModel, "alice", "", nil)
 	require.False(t, r.status == http.StatusOK && r.body == `{"models":[]}`, "a cut-off list looked complete")
+	require.Equal(t, wire.CodeUpstreamDown, r.code())
 }
 
 func TestConnectionRefusedReleasesReservation(t *testing.T) {

@@ -81,14 +81,14 @@ func relay(w http.ResponseWriter, resp *http.Response, key string) (*relayResult
 		if key != "" {
 			data = bytes.ReplaceAll(data, []byte(key), []byte("[REDACTED]"))
 		}
-		copyHeaders(w, resp)
+		copyHeaders(w.Header(), resp)
 		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 		w.WriteHeader(resp.StatusCode)
 		n, err := w.Write(data)
 		res.bytesOut, res.complete = int64(n), err == nil
 		return res, nil
 	}
-	copyHeaders(w, resp)
+	copyHeaders(w.Header(), resp)
 	w.WriteHeader(resp.StatusCode)
 	var scan usageScanner
 	defer scan.close()
@@ -108,10 +108,10 @@ func relay(w http.ResponseWriter, resp *http.Response, key string) (*relayResult
 	return res, nil
 }
 
-func copyHeaders(w http.ResponseWriter, resp *http.Response) {
+func copyHeaders(dst http.Header, resp *http.Response) {
 	for _, name := range passHeaders {
 		if v := resp.Header.Values(name); len(v) > 0 {
-			w.Header()[http.CanonicalHeaderKey(name)] = v
+			dst[http.CanonicalHeaderKey(name)] = v
 		}
 	}
 }
