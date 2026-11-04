@@ -230,15 +230,22 @@ function SidebarRow({
   );
 }
 
-/** One of GraphiQL's toolbar buttons with the app's outline icon in place of its own. */
-function withIcon(button: ReactNode, Icon: LucideIcon) {
-  return isValidElement(button)
-    ? cloneElement(
-        button,
-        undefined,
-        <Icon aria-hidden="true" size={16} strokeWidth={1.5} className="graphiql-toolbar-icon" />,
-      )
-    : button;
+/**
+ * One of GraphiQL's toolbar buttons with the app's outline icon in place of
+ * its own, and a short visible label where the icon alone is unclear.
+ */
+function withIcon(button: ReactNode, Icon: LucideIcon, label?: string) {
+  if (!isValidElement<{ label?: string }>(button)) return button;
+
+  // The accessible name and tooltip start with the visible label (WCAG 2.5.3).
+  const named = label ? { label: (button.props.label ?? "").replace(/^\S+/, label) } : undefined;
+
+  return cloneElement(
+    button,
+    named,
+    <Icon aria-hidden="true" size={16} strokeWidth={1.5} className="graphiql-toolbar-icon" />,
+    label ? <span className="graphiql-toolbar-label">{label}</span> : null,
+  );
 }
 
 function GraphQLExplorer({
@@ -328,8 +335,8 @@ function GraphQLExplorer({
             <GraphiQL.Toolbar>
               {({ prettify, merge, copy }) => (
                 <>
-                  {withIcon(prettify, WandSparkles)}
-                  {withIcon(merge, Merge)}
+                  {withIcon(prettify, WandSparkles, "Format")}
+                  {withIcon(merge, Merge, "Merge")}
                   {withIcon(copy, Copy)}
                 </>
               )}

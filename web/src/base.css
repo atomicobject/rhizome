@@ -850,6 +850,48 @@ html
   padding: 0;
 }
 
+/* Session tabs are text tabs with the shared underline (.view-tabs): muted
+   ink, and the active session in full ink over a 2px bar on the hairline. */
+.graphql-explorer .graphiql-container .graphiql-session-header .graphiql-tabs {
+  align-self: stretch;
+  gap: var(--sp-5);
+  padding: 0;
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab {
+  align-items: center;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab .graphiql-tab-button {
+  padding: 0;
+  color: inherit;
+  font: 500 var(--fs-base) / 1 var(--font-sans);
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab:has(.graphiql-tab-close) .graphiql-tab-button {
+  padding-right: 24px;
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab:hover,
+.graphql-explorer .graphiql-container .graphiql-tab.graphiql-tab-active {
+  background: transparent;
+  color: var(--text);
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab.graphiql-tab-active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+}
+
 .graphql-explorer .graphiql-container .graphiql-editors {
   border-radius: 0;
   box-shadow: none;
@@ -873,8 +915,9 @@ html
 }
 
 /* The query pane leads with a 40px labelled toolbar, like Response opposite:
-   "Query", then Prettify, Merge fragments, and Copy as 28px icon buttons with
-   16px glyphs, then Run, the 28px primary labelled "Run ⌘↵". */
+   "Query", then Format and Merge as 28px ghost buttons with a glyph and a
+   short label, Copy as a 28px icon button, then Run, the 28px primary
+   labelled "Run ⌘↵". */
 .graphql-explorer .graphiql-container .graphiql-query-editor {
   flex-direction: column;
   padding: 0;
@@ -913,6 +956,14 @@ html
   padding: 0;
   border-radius: var(--r-md);
   color: var(--text-muted);
+}
+
+.graphql-explorer button.graphiql-toolbar-button:has(.graphiql-toolbar-label) {
+  gap: 6px;
+  width: auto;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 .graphql-explorer button.graphiql-toolbar-button:hover {
