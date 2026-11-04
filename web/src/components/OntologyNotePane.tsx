@@ -22,6 +22,7 @@ import {
 } from "../lib/content";
 import { displayTitle } from "../lib/labels";
 import { BodyWalker } from "./body/BodyWalker";
+import { MiddleTruncate } from "./MiddleTruncate";
 import { EmptyNarrativeEditor, SourceEditor } from "./editing/SourceEditor";
 import type { BodyRenderContext } from "./body/registry";
 import type { NoteTabContext, NoteViewMode } from "./noteTabContext";
@@ -1569,7 +1570,13 @@ export function OntologyNotePane({
             {resolvedType ? typeLabel(resolvedType) : "Untyped"}
           </span>
           {htmlHead ||
-            (toolbarPath && <span className="ontology-pane__toolbar-path">{toolbarPath}</span>)}
+            (toolbarPath && (
+              <MiddleTruncate
+                className="ontology-pane__toolbar-path"
+                text={toolbarPath}
+                tail={toolbarPath.length - toolbarPath.lastIndexOf("/")}
+              />
+            ))}
           {structuralTabs.length > 0 && onOpenNode ? (
             <div
               className="ontology-pane__section-tabs segmented"

@@ -162,9 +162,11 @@ export function OntologyPropertyPanel({
 
   return (
     <section className="ontology-properties">
-      <div className="ontology-properties__header">
-        <h3 className="ontology-properties__label">Properties</h3>
-        {!editing && !forceDetailsOpen && detailFields.length > 0 && (
+      {/* The divider above already frames the fields, so a visible label would
+          stack on the first field's label. */}
+      <h3 className="sr-only">Properties</h3>
+      {!editing && !forceDetailsOpen && detailFields.length > 0 && (
+        <div className="ontology-properties__header">
           <button
             type="button"
             className="ontology-properties__details-toggle"
@@ -181,8 +183,8 @@ export function OntologyPropertyPanel({
           >
             {detailsOpen ? "Hide details" : `${detailFields.length} more`}
           </button>
-        )}
-      </div>
+        </div>
+      )}
       <dl className="ontology-properties__grid">
         {parentRef && parentPath && (
           <div className="ontology-properties__row">
