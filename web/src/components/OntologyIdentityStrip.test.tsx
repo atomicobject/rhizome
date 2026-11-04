@@ -205,7 +205,8 @@ describe("OntologyIdentityStrip", () => {
         onStageOps={onStageOps}
       />,
     );
-    fireEvent.click(screen.getByText("Active"));
+    // The status editor is a chip over a native select.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "active" } });
     expect(onStageOps).toHaveBeenCalledTimes(1);
     const ops = onStageOps.mock.calls[0][0];
     expect(ops).toEqual([
