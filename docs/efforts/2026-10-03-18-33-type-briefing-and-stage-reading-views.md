@@ -78,6 +78,8 @@ Not yet delivered.
 
 ## Deviations
 
+- 2026-11-04: frozen-scope-drift acknowledged for [[docs/specs/technical/group-views-and-view-platform|SPEC-0111]]. The later [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]] changes clean-validation wording, repeated row status marks, and in-place overflow disclosure. This follow-on presentation change leaves this effort's frozen profile/stage derivations, original plan, and delivery history intact.
+
 - 2026-10-04: (frozen-scope-drift acknowledged via EFF-2026-10-04-10-01) SPEC-0112 now delegates personal view persistence to [[view-preferences|SPEC-0114]]. [[2026-10-04-10-01-view-preferences]] owns instance-scoped storage, remembered Briefing expansion, and explicit shared configuration saves. This supersedes browser-only persistence guidance without changing this effort's Briefing content or stage derivations.
 
 - 2026-10-03T23:24:50Z: The plan put the type Briefing in a new `web/bundled-views/type/` folder. It ships in `web/bundled-views/group/` instead, beside the group views, because eject copies one bundled folder and the type Briefing imports the group Briefing's loader and blocks: from a separate folder, an ejected type Briefing would still import the bundled modules it does not own, or need its own copy of them. One folder keeps one module set, and ejecting any of the five views copies all of them.
