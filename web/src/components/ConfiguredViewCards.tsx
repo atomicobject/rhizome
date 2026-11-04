@@ -82,13 +82,14 @@ export function ConfiguredViewCards(props: Props) {
   // An authored card layout wins; generated cards become record briefs (SPEC-0112).
   const briefFor =
     profile && (view.generated || !view.variants.card)
-      ? (row: ViewTableRow) => ({
+      ? (row: ViewTableRow, omitField?: string) => ({
           className: " configured-card--brief",
           header: (
             <RecordBriefHeader
               row={row}
               profile={profile}
               capabilities={props.capabilities}
+              omitField={omitField}
               editSession={props.editSession}
               onStageOps={props.onStageOps}
             />
@@ -226,6 +227,7 @@ function CardGrid({
   cardProps: CardGridProps;
   briefFor?: (
     row: ViewTableRow,
+    omitField?: string,
   ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body">;
 }) {
   return (
@@ -236,7 +238,8 @@ function CardGrid({
       {rows.map((row) => {
         const rowKey = configuredTableRowKey(row);
         const source = reorder.dragSource(row);
-        const brief = briefFor?.(row);
+        // The section header already names the grouped value.
+        const brief = briefFor?.(row, cardProps.omitField);
 
         return (
           <ConfiguredViewCard

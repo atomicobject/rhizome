@@ -260,13 +260,27 @@ function GapsCell({ row }: { row: NodeRow }) {
   );
 }
 
+/** Which optional columns hold anything in these rows; an empty column hides. */
+type Shown = { stages: boolean; gaps: boolean };
+
+const hasStages = (row: NodeRow) =>
+  row.node.count > 0 && row.kind !== "implementor" && Boolean(row.lifecycle);
+
+const hasGaps = (row: NodeRow) =>
+  row.node.count > 0 &&
+  row.kind !== "implementor" &&
+  row.kind !== "group" &&
+  Boolean(row.gaps.length || row.node.stats?.gaps.length);
+
 function DataRow({
   model,
   row,
+  shown,
   onToggle,
 }: {
   model: ScopeModel;
   row: NodeRow;
+  shown: Shown;
   onToggle: (group: string, open: boolean) => void;
 }) {
   const { node } = row;
@@ -281,15 +295,19 @@ function DataRow({
       </td>
       <td className="gv-right gv-num">{fmt(node.count)}</td>
       {node.kind === "untyped" ? (
-        <td colSpan={3} className="gv-faint">
-          Not records: no lifecycle or gaps by type.
+        <td colSpan={1 + Number(shown.stages) + Number(shown.gaps)} className="gv-faint">
+          Not records{shown.stages || shown.gaps ? ": no lifecycle or gaps by type." : "."}
         </td>
       ) : (
         <>
-          <td>{node.count > 0 && !brief && <LifecycleCell lifecycle={row.lifecycle} />}</td>
-          <td>
-            <GapsCell row={row} />
-          </td>
+          {shown.stages && (
+            <td>{node.count > 0 && !brief && <LifecycleCell lifecycle={row.lifecycle} />}</td>
+          )}
+          {shown.gaps && (
+            <td>
+              <GapsCell row={row} />
+            </td>
+          )}
           <td>{!brief && row.kind !== "group" && <ShareCell share={row.linkedShare} />}</td>
         </>
       )}
@@ -314,7 +332,9 @@ export function MemberTable({
   onToggle: (group: string, open: boolean) => void;
 }) {
   const workspace = model.scope.kind === "workspace";
-  const columns = workspace ? 8 : 9;
+  const dataRows = rows.flatMap((row) => (row.kind === "heading" ? [] : [row]));
+  const shown = { stages: dataRows.some(hasStages), gaps: dataRows.some(hasGaps) };
+  const columns = (workspace ? 6 : 7) + Number(shown.stages) + Number(shown.gaps);
 
   return (
     <table className="gv-table gv-ov-table">
@@ -324,8 +344,8 @@ export function MemberTable({
           <th scope="col" className="gv-right">
             Records
           </th>
-          <th scope="col">Stages</th>
-          <th scope="col">Gaps (empty / records)</th>
+          {shown.stages && <th scope="col">Stages</th>}
+          {shown.gaps && <th scope="col">Gaps (empty / records)</th>}
           <th scope="col">{workspace ? "Linked" : "Linked in group"}</th>
           <th scope="col" className="gv-right">
             {workspace ? "Links" : "Links in group"}
@@ -359,6 +379,7 @@ export function MemberTable({
               key={`${row.kind}:${row.node.id}`}
               model={model}
               row={row}
+              shown={shown}
               onToggle={onToggle}
             />
           ),

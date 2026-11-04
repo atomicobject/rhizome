@@ -61,7 +61,8 @@ export type ViewSelectionStatus = {
 /**
  * Switches a workspace between its views: standard presentations as segments,
  * one custom view as a segment of its own, and several behind a menu. The
- * target's default view carries a dot.
+ * default view says so in its tooltip and, in the menu, with a quiet label;
+ * tabs carry no unexplained marks.
  */
 export function ViewSelector({
   target,
@@ -134,7 +135,6 @@ export function ViewSelector({
     <>
       {choice.custom && <CustomViewIcon />}
       <span className="view-selector__label">{choice.name}</span>
-      {choice.id === defaultChoiceId && <span className="view-selector__default" />}
     </>
   );
 
@@ -261,7 +261,11 @@ export function ViewSelector({
                 <path d="m3.5 8.5 3 3 6-7" />
               </svg>
               <span className="view-selector__label">{choice.name}</span>
-              {choice.id === defaultChoiceId && <span className="view-selector__default" />}
+              {choice.id === defaultChoiceId && (
+                <span className="view-selector__default" aria-hidden="true">
+                  Default
+                </span>
+              )}
             </button>
           ))}
         </div>

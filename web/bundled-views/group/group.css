@@ -77,11 +77,20 @@
   text-underline-offset: 2px;
 }
 
+/* Record titles read like the native table's: 14/500. */
 .gv-record {
   color: var(--text);
-  font-weight: 600;
-  font-size: var(--fs-sm);
-  line-height: 1.3;
+  font-weight: 500;
+  font-size: var(--fs-base);
+  line-height: 1.35;
+}
+
+/* Relative times are sans with tabular figures; mono is for evidence. */
+.gv-age {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .gv-member {
@@ -112,24 +121,25 @@
   border-radius: var(--r-sm);
 }
 
-/* Marks: an 11px slot so titles align whether or not a record has a lifecycle. */
+/* Marks: a 9px slot, centred on a 14px title line, so titles align whether
+   or not a record has a lifecycle. */
 .gv-mark,
 .gv-square,
 .gv-mark-slot {
   flex: none;
-  margin-top: 2px;
+  margin-top: 5px;
 }
 
 .gv-mark-slot {
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
 }
 
 /* A record bullet for members without a lifecycle, drawn small and solid so
    it never reads as a checkbox. */
 .gv-square {
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
   background: linear-gradient(var(--border-strong), var(--border-strong)) center / 6px 6px no-repeat;
 }
 
@@ -249,10 +259,11 @@
 }
 
 .gv-table td {
-  padding: 5px 10px;
+  padding: 7px 10px;
   border-bottom: 1px solid var(--border-faint);
   color: var(--text);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-base);
+  line-height: 1.35;
   vertical-align: top;
 }
 
@@ -271,8 +282,8 @@
   width: 1%;
 }
 
-.gv-table .gv-num {
-  padding-top: 6px;
+.gv-table .gv-age {
+  padding-top: 9px;
 }
 
 .gv-title {
@@ -300,7 +311,8 @@
   margin-top: 1px;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
@@ -517,46 +529,53 @@
   font-size: var(--fs-xs);
 }
 
-/* Recent changes */
-.gv-day-head {
-  margin: 12px 0 3px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-
-.gv-day:first-of-type .gv-day-head {
-  margin-top: 4px;
-}
-
-.gv-evt {
+/* Recent changes: one list on every scope. A title line, a secondary line
+   with the type and the folder in mono, and the age in a fixed right column. */
+.gv-change {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 8px;
-  padding: 4px 0;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 0 12px;
+  align-items: baseline;
+  padding: 6px 0;
   border-top: 1px solid var(--border-faint);
-  font-size: var(--fs-xs);
 }
 
-.gv-evt .gv-num {
-  padding-top: 1px;
-}
-
-.gv-chips {
+.gv-change-main {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  margin-left: -6px;
+  min-width: 0;
 }
 
-.gv-burst {
-  color: var(--text-faint);
+.gv-change-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-change-meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-path {
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
 }
 
-.gv-burst b {
-  color: var(--text);
-  font-weight: 600;
+.gv-change-age {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* Outside the group */
@@ -759,11 +778,7 @@
 }
 
 .gv-col-spine {
-  width: 26%;
-}
-
-.gv-col-narrow {
-  width: 30px;
+  width: max(340px, 26%);
 }
 
 .gv-trace th,
@@ -779,11 +794,14 @@
   overflow-wrap: anywhere;
 }
 
+/* A compact header band: the column's name, count, and coverage on one line,
+   the relation that joins it on the next. */
 .gv-trace thead th {
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 7px 10px 6px;
+  padding: 8px 10px 7px;
+  vertical-align: bottom;
   border-bottom-color: var(--border-strong);
   background: var(--surface);
 }
@@ -805,43 +823,48 @@
   background: color-mix(in srgb, var(--success-soft) 22%, var(--surface));
 }
 
-.gv-head .gv-num {
-  margin-left: 2px;
-}
-
-.gv-trace .gv-member {
-  font-size: var(--fs-sm);
-}
-
-.gv-cov {
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
-}
-
-.gv-cov b {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-weight: 600;
-}
-
-.gv-cov .gv-thin {
-  color: var(--warning-ink);
-}
-
-.gv-trace .gv-narrow {
-  padding: 8px 0;
-  text-align: center;
-}
-
-.gv-vertical {
-  writing-mode: vertical-rl;
-  color: var(--text-faint);
-  font: 700 var(--fs-xs) var(--font-sans);
+.gv-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
   white-space: nowrap;
 }
 
-.gv-trace .gv-vertical .gv-num {
+.gv-head > .gv-member,
+.gv-head > .gv-record {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gv-trace .gv-member {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.gv-cov-count {
+  margin-left: auto;
+  color: var(--text-faint);
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.gv-cov-count b {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.gv-cov {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-cov-count .gv-thin {
+  color: var(--warning-ink);
 }
 
 .gv-band th {
@@ -1042,20 +1065,38 @@
   margin-top: 3px;
 }
 
+/* Counts by month in the neutral series: teal means connection, not volume.
+   Each bar carries its count above it when the months fit. */
 .gv-hist {
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 64px;
+  align-items: stretch;
+  gap: 3px;
+  height: 80px;
   margin-top: 6px;
   border-bottom: 1px solid var(--border);
 }
 
-.gv-hist i {
+.gv-hist > span {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.gv-hist b {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: center;
+}
+
+.gv-hist i {
   min-height: 1px;
-  background: var(--link);
-  opacity: 0.75;
+  background: var(--series-1);
 }
 
 .gv-hist-axis {
@@ -1107,13 +1148,24 @@
   background: var(--warning-ink);
 }
 
-.gv-tops {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  margin: 0;
-  color: var(--text);
-  font-size: var(--fs-xs);
+/* A field's most common targets: name, then its count right-aligned. */
+.gv-tops li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 2px 0;
+  font-size: var(--fs-sm);
+}
+
+.gv-tops .gv-inline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-tops-more {
+  margin: 2px 0 0;
 }
 
 .gv-rel-none {
@@ -1585,4 +1637,30 @@
 
 .gv-ov-kv dd {
   margin: 0;
+}
+
+/* A healthy Needs attention is one status row: the heading and its verdict. */
+.gv-healthy {
+  margin-left: 6px;
+  color: var(--link);
+  font-weight: 400;
+}
+
+.gv-healthy-block .rz-section-head {
+  margin-bottom: 0;
+}
+
+/* The verdict follows the heading instead of sitting at the far right. */
+.gv-healthy-block .rz-section-controls {
+  order: 1;
+  margin-left: 0;
+}
+
+.gv-healthy-block .rz-info {
+  order: 2;
+}
+
+/* A zero problem count is a fact, not a risk: muted ink, still a way in. */
+.gv-issues.gv-zero {
+  color: var(--text-muted);
 }

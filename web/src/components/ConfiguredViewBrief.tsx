@@ -1,3 +1,4 @@
+import { Clock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
@@ -113,11 +114,9 @@ function CardMarkers({ stale, otherLanes }: { stale: boolean; otherLanes: number
   return (
     <>
       {stale && (
-        <span
-          className="configured-brief__stale"
-          title={`Active and unchanged for ${STALE_DAYS} days`}
-        >
-          stale
+        <span className="configured-brief__stale">
+          <Clock size={12} aria-hidden="true" />
+          Unchanged {STALE_DAYS}+ days
         </span>
       )}
       {otherLanes > 0 && (
@@ -139,17 +138,25 @@ export function RecordBriefHeader({
   capabilities,
   editSession,
   onStageOps,
+  omitField,
 }: {
   row: ViewTableRow;
   profile: TypeProfile;
   capabilities: ViewFieldCapability[];
   editSession?: OntologyEditSessionResponse | null;
   onStageOps?: (ops: OntologyEditOp[]) => Promise<void> | undefined;
+  /** A field the surrounding group already names, such as a card section's status. */
+  omitField?: string;
 }) {
   const typeLabel = useTypeLabel();
   const facts = recordFacts(row, profile, capabilities);
   const lifecycle = lifecycleTag(row, profile, capabilities);
-  const tags = lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags;
+
+  const tags = (lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags).filter(
+    (tag) =>
+      !omitField ||
+      ![tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField),
+  );
 
   return (
     <span className="configured-brief__header">

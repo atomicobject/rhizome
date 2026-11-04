@@ -229,7 +229,7 @@ export function openEnumEditor(index = 0) {
 
 /** Opens the header's View popover, where grouping, sort, density, columns, reset, Save view, and refresh live. */
 export function openViewOptions() {
-  const button = screen.getByRole("button", { name: /^View options/ });
+  const button = screen.getByRole("button", { name: /^Display options/ });
 
   if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }

@@ -9,6 +9,7 @@ import {
   candidateForInput,
   cellValues,
   fieldValue,
+  markCutTitle,
   rawFieldValue,
 } from "./ConfiguredTableCellHelpers";
 import { NoteLinkPreview, useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
@@ -81,7 +82,9 @@ export function renderReadOnlyCell(
 
   if (onOpenRow) {
     const path = row.path || row.ref.notePath;
-    const display = displayTitle(displayValue || row.title) || path || "Untitled";
+
+    const display =
+      markCutTitle(row, displayTitle(displayValue || row.title)) || path || "Untitled";
 
     return <PrimaryReadOnlyCell row={row} path={path} display={display} onOpenRow={onOpenRow} />;
   }
@@ -317,7 +320,7 @@ export function ChangedCell({
   const date = new Date(value < 1e12 ? value * 1000 : value);
 
   return (
-    <time dateTime={date.toISOString()} title={formatLocalTime(date)}>
+    <time className="relative-age" dateTime={date.toISOString()} title={formatLocalTime(date)}>
       {relativeAge(date.getTime(), now)}
     </time>
   );

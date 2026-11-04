@@ -82,7 +82,7 @@ describe("type collection table columns", () => {
 describe("type collection table rows", () => {
   it("opens a row on a double-click of its title or a plain cell, not of its controls", () => {
     const onOpenRow = vi.fn();
-    render(view({ onOpenRow, onStageOps: vi.fn() }));
+    render(view({ onOpenRow, onStageOps: vi.fn(), execution: typeExecution({ groups: [] }) }));
     const alphaRow = screen.getByRole("button", { name: "Open Alpha Spec" }).closest("tr")!;
 
     fireEvent.doubleClick(within(alphaRow).getByRole("button", { name: "Edit Status" }));
@@ -356,7 +356,8 @@ describe("type collection column resizing", () => {
   }
 
   it("sizes the column while dragging and keeps the width on release", () => {
-    render(view({ vaultKey: "vault" }));
+    // Ungrouped, so the Status column shows.
+    render(view({ vaultKey: "vault", execution: typeExecution({ groups: [] }) }));
     const header = statusHeader();
 
     drag(screen.getByRole("separator", { name: "Resize Status" }), 160);
@@ -371,7 +372,8 @@ describe("type collection column resizing", () => {
   });
 
   it("puts the width back when the pointer is canceled", () => {
-    render(view({ vaultKey: "vault" }));
+    // Ungrouped, so the Status column shows.
+    render(view({ vaultKey: "vault", execution: typeExecution({ groups: [] }) }));
     const header = statusHeader();
 
     drag(screen.getByRole("separator", { name: "Resize Status" }), 160);
@@ -385,7 +387,8 @@ describe("type collection column resizing", () => {
   });
 
   it("resizes from the keyboard with the arrow keys on the focused handle", () => {
-    render(view({ vaultKey: "vault" }));
+    // Ungrouped, so the Status column shows.
+    render(view({ vaultKey: "vault", execution: typeExecution({ groups: [] }) }));
     const header = statusHeader();
     const handle = screen.getByRole("separator", { name: "Resize Status" });
 

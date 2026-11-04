@@ -102,7 +102,7 @@ test("Sections renders member tables from metadata and navigates to records, col
   const frame = customFrame(page);
 
   const work = frame.getByRole("region", { name: "Work items" });
-  await expect(work.getByRole("columnheader")).toHaveText(["Title", "Type", "Stage", "Changed"]);
+  await expect(work.getByRole("columnheader")).toHaveText(["Title", "Type", "Status", "Changed"]);
 
   const indexing = work
     .getByRole("row")
@@ -193,9 +193,8 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   ).toHaveCount(1);
 
   const recent = frame.getByRole("region", { name: "Recent changes" });
-  await expect(recent.getByRole("heading", { name: "Today" })).toBeVisible();
   await recent
-    .getByRole("button", { name: /^Expand the \d+ records changed at/ })
+    .getByRole("button", { name: /^\d+ records changed together$/ })
     .first()
     .click();
   await expect(recent.getByRole("button", { name: "Autumn release" })).toBeVisible();
@@ -270,19 +269,22 @@ test("All notes opens on its Briefing and offers the Overview", async ({ page })
 });
 
 for (const { time, heading } of [
-  { time: "2026-10-05T23:59:00-04:00", heading: "Today" },
-  { time: "2026-10-06T00:01:00-04:00", heading: "Yesterday, Oct 5" },
+  { time: "2026-10-05T23:59:00-04:00", heading: "1m" },
+  { time: "2026-10-06T00:01:00-04:00", heading: "3m" },
 ]) {
-  test(`Briefing groups recent changes as ${heading} across midnight`, async ({ page }) => {
+  test(`Briefing dates a recent change by its age (${heading}) across midnight`, async ({
+    page,
+  }) => {
     await page.clock.setFixedTime(new Date(time));
     await page.goto("/notes");
     await openGroup(page, "E2E Planning");
     await expectView(page, "Briefing");
 
     const recent = customFrame(page).getByRole("region", { name: "Recent changes" });
-    await expect(recent.getByRole("heading")).toHaveText(["Recent changes", heading]);
+    // One list on every scope: no day headings, the age in its own column.
+    await expect(recent.getByRole("heading")).toHaveText(["Recent changes"]);
     await expect(recent.locator("time")).toHaveAttribute("datetime", "2026-10-06T03:58:00.000Z");
-    await expect(recent.locator("time")).toHaveText("23:58");
+    await expect(recent.locator("time span[aria-hidden]")).toHaveText(heading);
   });
 }
 
@@ -334,7 +336,7 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
     /^Releases/,
     /^Owner.*in E2E Contacts/,
   ]);
-  await expect(row("Doing Faster indexing").getByRole("cell")).toHaveText([
+  await expect(row("Faster indexing").getByRole("cell")).toHaveText([
     "Search",
     "Autumn release",
     "Ada Example",

@@ -39,13 +39,23 @@ import {
   type MemberField,
 } from "./model.ts";
 
+/** True when one concrete type holds more than 90% of the member's records. */
+function oneTypeDominates(member: Member) {
+  const counts = new Map<string, number>();
+
+  for (const record of member.records) counts.set(record.type, (counts.get(record.type) ?? 0) + 1);
+
+  return Math.max(0, ...counts.values()) > member.records.length * 0.9;
+}
+
 /** Rows shown per member before "Show all". */
 export const SECTION_ROWS = 8;
 
 function columnLabel(member: Member, column: SectionColumn) {
   if (column.kind === "type") return "Type";
 
-  return column.kind === "lifecycle" ? fieldLabel(column.field) : column.label;
+  // Every lifecycle reads as "Status", whatever its field is called ("Spec status").
+  return column.kind === "lifecycle" ? "Status" : column.label;
 }
 
 function FieldCell({ record, field }: { record: GroupRecord; field: MemberField }) {
@@ -100,19 +110,24 @@ function Row({
   columns: readonly SectionColumn[];
 }) {
   const { record, depth, parent } = node;
+  const lifecycleShown = columns.some((column) => column.kind === "lifecycle");
 
   return (
     <tr data-record-key={record.key} data-depth={depth || undefined}>
       <td>
         <div className="gv-title" style={{ paddingLeft: depth * 16 }}>
           {depth > 0 && <span className="gv-branch" aria-hidden="true" />}
-          <RecordMark member={member} record={record} />
+          {/* The Status column already names the lifecycle value. */}
+          {!lifecycleShown && <RecordMark member={member} record={record} />}
           <RecordTitle record={record} />
           {parent && <span className="sr-only">, under {parent.title}</span>}
           <IssueCount record={record} />
         </div>
         {record.summary && (
-          <div className="gv-summary" style={{ marginLeft: depth * 16 + 18 }}>
+          <div
+            className="gv-summary"
+            style={{ marginLeft: depth * 16 + (lifecycleShown ? 0 : 16) }}
+          >
             {record.summary}
           </div>
         )}
@@ -122,7 +137,7 @@ function Row({
           <Cell model={model} member={member} record={record} column={column} />
         </td>
       ))}
-      <td className="gv-num gv-right">
+      <td className="gv-age gv-right">
         {record.updatedAt === null ? <Dash /> : <RelativeTime value={record.updatedAt} />}
       </td>
     </tr>
@@ -133,10 +148,11 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
   const rows = useMemo(() => sectionRows(member), [member]);
   const shown = rows.slice(0, SECTION_ROWS);
 
+  // An interface's Type column says nothing when one type holds nearly every record.
   const columns = sectionColumns(
     member,
     shown.map((node) => node.record),
-  );
+  ).filter((column) => column.kind !== "type" || !oneTypeDominates(member));
 
   const label = memberLabel(model, member, { plural: true });
   const total = Math.max(member.count, rows.length);

@@ -111,25 +111,45 @@ export function ConfiguredViewTable({
   const available = useElementWidth(scroll.ref);
   const twoLine = density === "two-line" && Boolean(profile?.summaryField);
 
-  const allocation = useMemo(() => {
+  const groups = useMemo(
+    () => normalizeTableGroups(execution.groups ?? [], rows),
+    [execution.groups, rows],
+  );
+
+  // Inside a group every row holds the group's value, so its column says nothing.
+  const tableColumns = useMemo(() => {
+    const grouped = groupedFields(groups);
+
+    if (grouped.size === 0) return allColumns;
+
+    const keyOf = (field: string) => capabilityFor(capabilities, field)?.key ?? field;
+    const groupedKeys = new Set([...grouped].map(keyOf));
     const titleIndex = primaryColumn(allColumns, capabilities);
 
-    const kinds = allColumns.map((column, index) => ({
+    return allColumns.filter(
+      (column, index) => index === titleIndex || !groupedKeys.has(keyOf(column.field)),
+    );
+  }, [allColumns, capabilities, groups]);
+
+  const allocation = useMemo(() => {
+    const titleIndex = primaryColumn(tableColumns, capabilities);
+
+    const kinds = tableColumns.map((column, index) => ({
       field: column.field,
       kind: columnKind(columnClassName(column, capabilities), index === titleIndex),
     }));
 
     return allocateColumns(kinds, available, twoLine, columnWidths ?? {});
-  }, [allColumns, available, capabilities, columnWidths, twoLine]);
+  }, [tableColumns, available, capabilities, columnWidths, twoLine]);
 
   const columns = useMemo(
-    () => allColumns.filter((column) => allocation.shown.includes(column.field)),
-    [allColumns, allocation.shown],
+    () => tableColumns.filter((column) => allocation.shown.includes(column.field)),
+    [tableColumns, allocation.shown],
   );
 
   const movedColumns = useMemo(
-    () => allColumns.filter((column) => allocation.moved.includes(column.field)),
-    [allColumns, allocation.moved],
+    () => tableColumns.filter((column) => allocation.moved.includes(column.field)),
+    [tableColumns, allocation.moved],
   );
 
   const movedLabels = movedColumns.map((column) => columnLabel(column, capabilities)).join("\n");
@@ -137,11 +157,6 @@ export function ConfiguredViewTable({
   useEffect(() => {
     onMovedColumnsChange?.(movedLabels ? movedLabels.split("\n") : []);
   }, [movedLabels, onMovedColumnsChange]);
-
-  const groups = useMemo(
-    () => normalizeTableGroups(execution.groups ?? [], rows),
-    [execution.groups, rows],
-  );
 
   const reorderGroups = useMemo(
     () => leafReorderGroups(groups, rows, capabilities),
@@ -424,6 +439,16 @@ export function ConfiguredViewTable({
       </RecordRailPortal>
     </div>
   );
+}
+
+/** Every field the groups nest by, at any depth. */
+function groupedFields(groups: ConfiguredTableGroup[], fields = new Set<string>()) {
+  for (const group of groups) {
+    fields.add(group.field);
+    groupedFields(group.children, fields);
+  }
+
+  return fields;
 }
 
 /** The element's content width, or Infinity until it is measured. */

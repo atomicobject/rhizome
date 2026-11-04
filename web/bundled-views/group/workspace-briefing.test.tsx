@@ -168,9 +168,10 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   expect(within(motion).queryByText("Story 6")).toBeNull();
 
   const recent = region("Recent changes");
+  // A title line, then the type and folder.
   expect(
     [...recent.querySelectorAll("li")].map((entry) => entry.querySelector("span")?.textContent),
-  ).toEqual(["Loose thought untyped · inbox/", "Checkout redesign Story · work/", "Top untyped"]);
+  ).toEqual(["Loose thoughtuntyped · inbox/", "Checkout redesignStory · work/", "Topuntyped"]);
 
   fireEvent.click(within(attention).getAllByRole("button", { name: "Open issues" })[0]);
   fireEvent.click(within(motion).getByRole("button", { name: "More in stories" }));

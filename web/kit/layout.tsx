@@ -42,6 +42,7 @@ export function Section({
   title,
   count,
   caption,
+  info,
   controls,
   status,
   what,
@@ -52,6 +53,12 @@ export function Section({
   title: ReactNode;
   count?: ReactNode;
   caption?: ReactNode;
+  /**
+   * What the block shows, for a reader new to it: an info mark beside the
+   * title that shows it on hover and names it to assistive technology,
+   * instead of a caption line every visit.
+   */
+  info?: string;
   controls?: ReactNode;
   status?: SectionStatus;
   /** Names the data in state lines: "Loading {what}…". */
@@ -62,12 +69,33 @@ export function Section({
   children?: ReactNode | (() => ReactNode);
 }) {
   const id = useId();
+  const infoId = useId();
 
   return (
-    <section className={cn("rz-section", className)} aria-labelledby={id}>
+    <section
+      className={cn("rz-section", className)}
+      aria-labelledby={id}
+      aria-describedby={info ? infoId : undefined}
+    >
       <h2 className="rz-section-head">
         <span id={id}>{title}</span>
         {count !== undefined && count !== null && <Count>{count}</Count>}
+        {info && (
+          <span className="rz-info" title={info}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+              <path
+                d="M8 7.2v3.8M8 5.1v.1"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span id={infoId} className="sr-only">
+              {info}
+            </span>
+          </span>
+        )}
         {controls && <span className="rz-section-controls">{controls}</span>}
       </h2>
       {caption && <p className="rz-caption">{caption}</p>}

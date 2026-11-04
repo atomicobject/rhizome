@@ -104,5 +104,5 @@ test("saves a generated view and opens it as the type's default after reload", a
   await openCollection(page, /^Lane projects \(\d+\)$/);
   await expect(rows).toHaveCount(3);
   await expect.poll(titles).toEqual([...ascending].reverse());
-  await expect(page.getByRole("button", { name: "View options", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Display options", exact: true })).toBeVisible();
 });

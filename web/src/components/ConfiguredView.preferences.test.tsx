@@ -184,7 +184,7 @@ describe("Save view shared configuration", () => {
   }
 
   const openReview = async () => {
-    await screen.findByRole("button", { name: /^View options/ });
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
     fireEvent.click(await screen.findByRole("button", { name: "Save view, unsaved changes" }));
 

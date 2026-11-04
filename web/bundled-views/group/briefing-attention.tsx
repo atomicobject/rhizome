@@ -10,6 +10,7 @@ import {
   Block,
   MoreToggle,
   countedByMember,
+  HealthyAttention,
   heldLabels,
   lower,
   memberOf,
@@ -94,7 +95,7 @@ function SignalRecords({
                 {withTime && record.updatedAt !== null && (
                   <>
                     {" "}
-                    <RelativeTime value={record.updatedAt} className="gv-num" />
+                    <RelativeTime value={record.updatedAt} className="gv-age" />
                   </>
                 )}
               </Fragment>
@@ -368,19 +369,19 @@ function signalKey(signal: AttentionSignal) {
 }
 
 /**
- * The block for `signals`, worded by `caption`. A signal whose records all
+ * The block for `signals`, explained by `info`. A signal whose records all
  * belong to one member offers `memberAction`, which by default opens that
  * member's collection.
  */
 export function NeedsAttention({
   model,
   signals,
-  caption,
+  info,
   memberAction = OPEN_COLLECTION,
 }: {
   model: GroupModel;
   signals: readonly AttentionSignal[];
-  caption: string;
+  info: string;
   memberAction?: MemberAction;
 }) {
   const attention = signals.filter(isAttention);
@@ -389,25 +390,29 @@ export function NeedsAttention({
 
   return (
     <MemberActionContext.Provider value={memberAction}>
-      <Block title="Needs attention" count={attention.length} caption={caption}>
-        <ul className="gv-list">
-          {attention.map((signal) => (
-            <Signal key={signalKey(signal)} model={model} signal={signal} />
-          ))}
-          {clean && (
-            <SignalRow
-              count={<span aria-hidden="true">✓</span>}
-              severity="ok"
-              text="No validation issues"
-            />
-          )}
-        </ul>
-      </Block>
+      {attention.length === 0 && clean ? (
+        <HealthyAttention info={info} />
+      ) : (
+        <Block title="Needs attention" count={attention.length} info={info}>
+          <ul className="gv-list">
+            {attention.map((signal) => (
+              <Signal key={signalKey(signal)} model={model} signal={signal} />
+            ))}
+            {clean && (
+              <SignalRow
+                count={<span aria-hidden="true">✓</span>}
+                severity="ok"
+                text="No validation issues"
+              />
+            )}
+          </ul>
+        </Block>
+      )}
       {context.length > 0 && (
         <Block
           title="Context"
           count={context.length}
-          caption="Optional fields, connections, and update age. These observations do not imply required work."
+          info="Optional fields, connections, and update age. These observations do not imply required work."
         >
           <ul className="gv-list">
             {context.map((signal) => (

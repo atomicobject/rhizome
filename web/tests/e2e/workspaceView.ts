@@ -30,7 +30,7 @@ export async function expectViewSettled(page: Page) {
 
 /** Opens the view header's View popover (grouping, sort, density, columns, Save view, refresh). */
 export async function openViewOptions(scope: Page | Locator) {
-  const button = scope.getByRole("button", { name: /^View options/ });
+  const button = scope.getByRole("button", { name: /^Display options/ });
 
   if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
 }

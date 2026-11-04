@@ -115,7 +115,7 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
     "Checklists 1",
   ]);
   expect(screen.getByRole("radio", { name: /^Areas/ })).toBeChecked();
-  expect(screen.getByText(/the tree other types link to/)).toBeVisible();
+  expect(screen.getByTitle(/the tree other types link to/)).toBeVisible();
 
   // Most connected subtree first; the Loop A-B parent cycle still renders, once each.
   expect(rowTitles()).toEqual([
@@ -161,9 +161,11 @@ it("fills cells with records linked to anything in the row, marking indirect one
   ]);
   expect(within(row("Payments")).getAllByText("(indirect)")).toHaveLength(2);
 
-  expect(columnHeader("Work items")).toHaveTextContent("3/6 rows · link to rows");
-  expect(columnHeader("Releases")).toHaveTextContent("1/6 rows · link to rows");
-  expect(columnHeader("Checklists")).toHaveTextContent("1/6 rows · through other columns");
+  // Coverage beside the name; under it, the field that joins the column to the rows.
+  expect(columnHeader("Work items")).toHaveTextContent("3/6 rows");
+  expect(columnHeader("Work items")).toHaveTextContent(/rowsArea$/);
+  expect(columnHeader("Releases")).toHaveTextContent("1/6 rows");
+  expect(columnHeader("Checklists")).toHaveTextContent("1/6 rowsthrough other columns");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();
 });
 
@@ -173,8 +175,8 @@ it("switches rows and orders columns by contract with outside links last", async
   await chooseRows("Work items");
   expect(screen.getByRole("radio", { name: /^Work items/ })).toBeChecked();
   expect(columnNames()).toEqual(["Work items", "Areas", "Releases", "Checklists", "Owner"]);
-  expect(columnHeader("Areas")).toHaveTextContent("5/6 rows · linked from rows");
-  expect(columnHeader("Owner")).toHaveTextContent("1/6 rows · in People");
+  expect(columnHeader("Areas")).toHaveTextContent("5/6 rows");
+  expect(columnHeader("Owner")).toHaveTextContent("1/6 rowsin People");
   expect(cellTitles("Checkout redesign")).toEqual([
     ["Payments"],
     ["Fall release"],
@@ -196,7 +198,7 @@ it("bands rows by lifecycle, most advanced first and closed values last, naming 
 
   expect(bands()).toEqual(["Blocked1", "Doing2", "Done2", "No stage1"]);
   expect(columnHeader("Work items")).toHaveTextContent("by stage, most advanced first");
-  expect(columnHeader("Work items")).toHaveTextContent("Empty: Backlog, Dropped");
+  expect(columnHeader("Work items")).toHaveTextContent("none Backlog, Dropped");
   expect(rowTitles().map(([title]) => title)).toEqual([
     "Tax rounding",
     "Checkout redesign",
@@ -258,15 +260,21 @@ it("collapses columns for members without records and outside links no row uses"
   await renderGroupView(loadTrace, { routes: withData(data) });
   await chooseRows("Work items");
 
-  expect(screen.getByRole("button", { name: "Checklists 0, none recorded" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Owner 0, no row links one" })).toBeVisible();
+  // Empty columns leave the matrix and are named once in the toolbar.
+  expect(screen.getByText(/^No links:/)).toHaveTextContent("No links: Checklists, Owner");
+  expect(screen.getByRole("button", { name: "Checklists" })).toHaveAttribute(
+    "title",
+    "None recorded",
+  );
+  expect(screen.getByRole("button", { name: "Owner" })).toHaveAttribute(
+    "title",
+    "No row links one",
+  );
 
   const cells = within(row("Checkout redesign")).getAllByRole("cell");
   expect(cells.map((cell) => cell.textContent)).toEqual([
     expect.stringContaining("Payments"),
     expect.stringContaining("Fall release"),
-    "",
-    "",
   ]);
 });
 

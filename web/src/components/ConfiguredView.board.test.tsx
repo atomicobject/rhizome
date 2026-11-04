@@ -13,7 +13,7 @@ import {
 } from "./ConfiguredView.testFixtures";
 
 describe("ConfiguredViewBoard", () => {
-  it("renders ordered columns, an empty strip, collapsed strip, and remaining count", () => {
+  it("renders ordered columns, an empty strip, and remaining count, every value expanded", () => {
     const { container } = render(
       <ConfiguredViewBoard {...rendererProps({ onStageOps: vi.fn(async () => {}) })} />,
     );
@@ -28,15 +28,17 @@ describe("ConfiguredViewBoard", () => {
     expect(screen.getByLabelText("(empty) column")).toHaveClass("is-empty");
     expect(screen.getByText("2 more")).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand Active column, 1 items" }));
+    // A value the view collapses by default still starts open on a board.
     expect(screen.getByLabelText("Active column")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Active column" }));
+    expect(screen.getByRole("button", { name: "Expand Active column, 1 items" })).toBeVisible();
   });
 
   it("collapses and re-expands a column that starts expanded", () => {
     render(<ConfiguredViewBoard {...rendererProps()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse Planned column" }));
-    expect(screen.queryByRole("article")).toBeNull();
+    expect(within(screen.getByLabelText("Planned column")).queryByRole("article")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand Planned column, 3 items" }));
     expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toBeVisible();
@@ -47,13 +49,13 @@ describe("ConfiguredViewBoard", () => {
     render(<ConfiguredViewBoard {...props} rows={[]} />);
 
     expect(screen.queryByText("2 more")).toBeNull();
-    expect(screen.getByRole("button", { name: "Expand Active column, 0 items" })).toBeVisible();
+    expect(screen.getByLabelText("Active column")).toHaveClass("is-empty");
   });
 
   it("stages one setField operation when dropped on another column", async () => {
     const onStageOps = vi.fn(async () => {});
     render(<ConfiguredViewBoard {...rendererProps({ onStageOps })} />);
-    const card = screen.getByRole("article", { name: "" });
+    const card = within(screen.getByLabelText("Planned column")).getByRole("article");
     const dataTransfer = dragDataTransfer();
 
     fireEvent.dragStart(card, { dataTransfer });
@@ -127,7 +129,6 @@ describe("ConfiguredViewBoard", () => {
     render(
       <ConfiguredViewBoard {...rendererProps({ execution: result, editSession, loading: true })} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Expand Active column, 2 items" }));
 
     const titles = within(screen.getByLabelText("Active column"))
       .getAllByRole("article")
@@ -142,7 +143,7 @@ describe("ConfiguredViewBoard", () => {
   it("does not stage a same-column drop", () => {
     const onStageOps = vi.fn(async () => {});
     render(<ConfiguredViewBoard {...rendererProps({ onStageOps })} />);
-    const card = screen.getByRole("article", { name: "" });
+    const card = within(screen.getByLabelText("Planned column")).getByRole("article");
     const dataTransfer = dragDataTransfer();
 
     fireEvent.dragStart(card, { dataTransfer });
@@ -154,7 +155,7 @@ describe("ConfiguredViewBoard", () => {
   it("opens the keyboard move menu and stages the target value", async () => {
     const onStageOps = vi.fn(async () => {});
     render(<ConfiguredViewBoard {...rendererProps({ onStageOps })} />);
-    const card = screen.getByRole("article", { name: "" });
+    const card = within(screen.getByLabelText("Planned column")).getByRole("article");
 
     card.focus();
     fireEvent.keyDown(card, { key: "m" });
@@ -183,7 +184,7 @@ describe("ConfiguredViewBoard", () => {
     render(
       <ConfiguredViewBoard {...rendererProps({ onStageOps, execution: { ...result, rows } })} />,
     );
-    const card = screen.getByRole("article", { name: "" });
+    const card = within(screen.getByLabelText("Planned column")).getByRole("article");
 
     card.focus();
     fireEvent.keyDown(card, { key: "m" });
@@ -201,7 +202,7 @@ describe("ConfiguredViewBoard", () => {
     });
 
     render(<ConfiguredViewBoard {...rendererProps({ onStageOps })} />);
-    const card = screen.getByRole("article", { name: "" });
+    const card = within(screen.getByLabelText("Planned column")).getByRole("article");
 
     card.focus();
     fireEvent.keyDown(card, { key: "m" });
@@ -220,15 +221,20 @@ describe("ConfiguredViewBoard", () => {
       <ConfiguredViewBoard {...rendererProps({ execution: result, onStageOps })} />,
     );
 
-    const card = screen.getByRole("article", { name: "" });
+    const card = within(screen.getByLabelText("Planned column")).getByRole("article");
     expect(card).toHaveAttribute("draggable", "true");
-    expect(screen.getByRole("button", { name: /^Move / })).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /^Move / })[0]).toBeVisible();
 
     if (result.board) result.board.editable = false;
     rerender(<ConfiguredViewBoard {...rendererProps({ execution: result, onStageOps })} />);
-    expect(screen.getByRole("article", { name: "" })).toHaveAttribute("draggable", "false");
+    expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toHaveAttribute(
+      "draggable",
+      "false",
+    );
     expect(screen.queryByRole("button", { name: /^Move / })).not.toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("article", { name: "" }), { key: "m" });
+    fireEvent.keyDown(within(screen.getByLabelText("Planned column")).getByRole("article"), {
+      key: "m",
+    });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(onStageOps).not.toHaveBeenCalled();
   });

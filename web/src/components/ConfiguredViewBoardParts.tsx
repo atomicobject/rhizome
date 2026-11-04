@@ -1,3 +1,4 @@
+import { ChevronRight, Clock } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { TypeProfile, ViewExecuteRequest, ViewFieldCapability } from "../api/types";
@@ -195,11 +196,13 @@ export function BoardColumnHeaders({
           key={column.key}
           className="configured-view__board-strip"
           aria-label={`Expand ${label} column, ${count} items`}
+          aria-expanded={false}
           title={`Expand ${label}`}
           onClick={() => onToggle(column.key)}
         >
           {mark}
-          <span>{count}</span>
+          <span className="configured-view__board-count">{count}</span>
+          <ChevronRight size={14} aria-hidden="true" />
         </button>
       );
     }
@@ -212,7 +215,7 @@ export function BoardColumnHeaders({
           title={`${label}: no records`}
         >
           {mark}
-          <span>0</span>
+          <span className="configured-view__board-count">0</span>
         </div>
       );
     }
@@ -223,9 +226,10 @@ export function BoardColumnHeaders({
         {item.stale > 0 && (
           <span
             className="configured-view__board-stale"
-            title={`Active and unchanged for ${STALE_DAYS} days`}
+            title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
           >
-            {item.stale} stale
+            <Clock size={12} aria-hidden="true" />
+            {item.stale} unchanged {STALE_DAYS}+ days
           </span>
         )}
         <span className="configured-view__board-count">{count}</span>

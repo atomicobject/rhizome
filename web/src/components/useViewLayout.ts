@@ -7,6 +7,7 @@ import type {
   ViewExecuteResponse,
   ViewTableColumn,
 } from "../api/types";
+import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { useStoredViewChoice } from "./useViewState";
 import type { ViewContext } from "../views/context";
 import { useViewPreferences } from "../viewPreferences/hooks";
@@ -102,6 +103,18 @@ export function useViewLayout(
     [defaultColumns, filters, profile?.lifecycleField, stats],
   );
 
+  const repeatedFields = useMemo(
+    () =>
+      repeatedColumnFields(defaultColumns, execution, profile?.lifecycleField).filter(
+        (field) => !emptyFields.includes(field) && !filters?.some((item) => item.field === field),
+      ),
+    [defaultColumns, emptyFields, execution, filters, profile?.lifecycleField],
+  );
+
+  // Columns that hide until the reader shows them again: empty ones, and ones
+  // where a single value covers nearly every row.
+  const autoHidden = [...emptyFields, ...repeatedFields];
+
   const reshown = reshownChoice ?? [];
   const availableFields = columns.map((column) => column.field);
   const chosen = chosenFields?.filter((field) => availableFields.includes(field)) ?? [];
@@ -114,11 +127,11 @@ export function useViewLayout(
       : defaultColumns.flatMap(({ field }) => (field === "validationIssues" ? [] : [field]));
 
   const visibleFields = baseFields.filter(
-    (field) => !emptyFields.includes(field) || reshown.includes(field),
+    (field) => !autoHidden.includes(field) || reshown.includes(field),
   );
 
   const toggleColumn = (field: string) => {
-    const empty = emptyFields.includes(field);
+    const empty = autoHidden.includes(field);
 
     if (!visibleFields.includes(field)) {
       if (!baseFields.includes(field)) setChosenFields([...baseFields, field]);
@@ -139,6 +152,7 @@ export function useViewLayout(
     visibleFields,
     toggleColumn,
     emptyFields,
+    repeatedFields,
     /** The reader's column set; empty while they keep the view's. Save writes it. */
     chosenFields: chosen,
     /** Forgets the column choices once the saved columns come from the view file. */
@@ -180,4 +194,49 @@ function emptyColumnFields(
       ? [column.field]
       : [],
   );
+}
+
+/** A column hides by default when one value fills more than this share of rows. */
+const REPEATED_SHARE = 0.9;
+
+/** Fewer rows than this never count as repetitive. */
+const REPEATED_MIN_ROWS = 10;
+
+/**
+ * Generated columns where one value covers more than 90% of the matching
+ * rows, such as an interface's implementing type. The type column reads the
+ * server's type counts; other columns count only once every row has loaded.
+ * The title and lifecycle always show.
+ */
+export function repeatedColumnFields(
+  columns: ViewTableColumn[],
+  execution: Pick<ViewExecuteResponse, "rows" | "stats"> | null,
+  lifecycleField: string | undefined,
+) {
+  const total = execution?.stats?.total ?? 0;
+
+  if (!execution || total < REPEATED_MIN_ROWS) return [];
+
+  const allLoaded = execution.rows.length >= total;
+
+  const repeated = (counts: Iterable<number>) => Math.max(0, ...counts) > total * REPEATED_SHARE;
+
+  return columns.flatMap(({ field }) => {
+    if (field === "title" || field === "validationIssues" || field === lifecycleField) return [];
+
+    if (field === "resolvedType" && execution.stats?.kinds?.length)
+      return repeated(execution.stats.kinds.map((kind) => kind.count)) ? [field] : [];
+
+    if (!allLoaded) return [];
+
+    const counts = new Map<string, number>();
+
+    for (const row of execution.rows) {
+      const value = fieldValue(row, field);
+
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+
+    return repeated(counts.values()) ? [field] : [];
+  });
 }
