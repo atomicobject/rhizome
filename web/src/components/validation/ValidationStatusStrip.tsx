@@ -33,6 +33,8 @@ export function ValidationStatusStrip({
         )}
         {busy && <span className="validation-status-strip__activity">Checking…</span>}
       </div>
+      {/* Details belong to the result they explain, beside "Checked …". */}
+      <ValidationIssueDisclosure snapshot={envelope?.snapshot} />
       {/* A clean result says it all in its label; other states explain themselves. */}
       {presentation.message && presentation.health !== "current_clean" && (
         <p className="validation-status-strip__message">{presentation.message}</p>
@@ -48,7 +50,6 @@ export function ValidationStatusStrip({
         </button>
       )}
       {refreshError && <p role="alert">{refreshError.message}</p>}
-      <ValidationIssueDisclosure snapshot={envelope?.snapshot} />
     </div>
   );
 }

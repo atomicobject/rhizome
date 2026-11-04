@@ -246,7 +246,11 @@ export function FinderPalette<T extends FinderPaletteItem>({
                 <span className="finder__title">
                   <Highlighted text={item.title} ranges={item.titleMatches} />
                 </span>
-                {detail && <span className="finder__detail">{detail}</span>}
+                {detail && (
+                  <span className="finder__detail" title={detail}>
+                    {detail}
+                  </span>
+                )}
                 <span className="finder__path" title={item.path}>
                   <Highlighted text={item.path} ranges={item.pathMatches} max={PATH_CHARS} />
                 </span>

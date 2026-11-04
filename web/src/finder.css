@@ -34,7 +34,10 @@
   border: 1px solid var(--border-strong);
   border-radius: calc(var(--r-lg) + 4px);
   background: var(--surface);
-  box-shadow: var(--shadow-lg);
+  /* A lift that still reads on a dark page. */
+  box-shadow:
+    var(--shadow-lg),
+    0 24px 64px light-dark(rgba(42, 39, 36, 0.12), rgba(0, 0, 0, 0.6));
   animation: finder-in 140ms var(--ease);
 }
 
@@ -113,9 +116,11 @@
   display: none;
 }
 
+/* The type label has a fixed column after a 16px gutter, so a long title
+   truncates before it reaches the label and every label aligns. */
 .finder__row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) 136px;
   grid-template-rows: auto auto;
   column-gap: var(--sp-4);
   align-items: center;
@@ -143,9 +148,13 @@
 }
 
 .finder__detail {
+  overflow: hidden;
+  margin-left: 6px;
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 500;
+  text-align: right;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -174,6 +183,12 @@
   color: var(--text-muted);
 }
 
+.finder__foot kbd {
+  border-color: var(--border-strong);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+}
+
 .finder__foot {
   display: flex;
   flex: none;
@@ -183,7 +198,7 @@
   padding: var(--sp-4) var(--sp-5);
   border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .finder__foot span {

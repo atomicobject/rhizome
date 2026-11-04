@@ -4175,13 +4175,10 @@
   margin-left: auto;
 }
 
-.validation-status-strip__refresh ~ .validation-disclosure {
-  margin-left: 0;
-}
-
+/* Check details sits beside "Checked …"; Refresh stays at the right. */
 .validation-disclosure {
   position: relative;
-  margin-left: auto;
+  margin-left: var(--sp-3);
 }
 
 .validation-disclosure summary {
@@ -4199,7 +4196,7 @@
   position: absolute;
   z-index: 15;
   top: calc(100% + 6px);
-  right: 0;
+  left: 0;
   width: min(440px, 75vw);
   padding: var(--sp-4);
   border: 1px solid var(--border-strong);
