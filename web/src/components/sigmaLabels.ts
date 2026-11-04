@@ -148,20 +148,43 @@ export function createLabelPainter(
         ({ box }) => box[0] >= 0 && box[2] <= viewWidth && box[1] >= 0 && box[3] <= viewHeight,
       );
 
-      const blockers = discs.flatMap((disc) => (disc.id === node.id ? [] : [disc.box]));
+      if (!candidates.length) {
+        spots.set(at(node.x, node.y), null);
+        continue;
+      }
 
-      const clear = candidates.filter(
-        ({ box }) => ![...blockers, ...placed].some((other) => overlaps(other, box)),
+      // Only discs, labels and edges near this node's candidate spots can collide with them.
+      const region: Box = [
+        Math.min(...candidates.map(({ box }) => box[0])),
+        Math.min(...candidates.map(({ box }) => box[1])),
+        Math.max(...candidates.map(({ box }) => box[2])),
+        Math.max(...candidates.map(({ box }) => box[3])),
+      ];
+
+      const blockers = [
+        ...discs.flatMap((disc) =>
+          disc.id === node.id || !overlaps(region, disc.box) ? [] : [disc.box],
+        ),
+        ...placed.filter((box) => overlaps(region, box)),
+      ];
+
+      const nearby = segments.filter(([x1, y1, x2, y2]) =>
+        overlaps(region, [Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2)]),
       );
-
-      const crossings = (spot: Spot) =>
-        segments.filter(([x1, y1, x2, y2]) => crosses(spot.box, x1, y1, x2, y2)).length;
 
       // Clear spots first, then the one crossing the fewest edges, then the earliest side.
-      const chosen = clear.reduce<Spot | null>(
-        (best, spot) => (!best || crossings(spot) < crossings(best) ? spot : best),
-        null,
-      );
+      let chosen: Spot | null = null;
+      let fewest = Infinity;
+
+      for (const spot of candidates) {
+        if (blockers.some((other) => overlaps(other, spot.box))) continue;
+        const count = nearby.filter(([x1, y1, x2, y2]) => crosses(spot.box, x1, y1, x2, y2)).length;
+
+        if (count < fewest) {
+          chosen = spot;
+          fewest = count;
+        }
+      }
 
       if (chosen) placed.push(chosen.box);
       spots.set(at(node.x, node.y), chosen);

@@ -3,7 +3,7 @@
 //
 // Linked members get a small force layout seeded on a golden-angle spiral and
 // stretched to the box, every node at least INSET inside it. Members with no
-// links to other members are left out of the drawing (the legend lists them),
+// links at all, inside or outside the group, are left out of the drawing (the legend lists them),
 // unless no member is linked, when they spread over the whole box. Outside
 // neighbors sit on an ellipse at the edge, each at the angle of the members it
 // links to, spread so none overlap. Each label goes on the first of eight
@@ -511,7 +511,13 @@ function inset(
 
 export function layoutMap(input: LayoutInput): MapLayout {
   const { width, height } = input;
-  const linked = new Set(input.edges.flatMap((edge) => [edge.a, edge.b]));
+
+  // A member with only outside links still needs a position for its spokes.
+  const linked = new Set([
+    ...input.edges.flatMap((edge) => [edge.a, edge.b]),
+    ...input.outside.flatMap((neighbor) => [...neighbor.byMember.keys()]),
+  ]);
+
   const core = input.nodes.filter((node) => linked.has(node.id));
   // With no linked members there is nothing to set the unlinked ones apart from.
   const spread = core.length === 0;

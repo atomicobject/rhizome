@@ -1,3 +1,4 @@
+import { useValidationSummaries } from "@rhizome/kit";
 import { useQuery } from "@tanstack/react-query";
 import { isJsonObject, isNumber, isString, type JsonValue } from "./api.ts";
 import { getJSON } from "./load.ts";
@@ -37,9 +38,15 @@ export function checkedAge(date: Date, now = Date.now()): string {
   });
 }
 
+const NO_SCOPES: Parameters<typeof useValidationSummaries>[0] = [];
+
 export function ValidationFreshness() {
+  // The kit's envelope follows validation events; its published generation
+  // keys this read so a new run refreshes the time.
+  const { generation } = useValidationSummaries(NO_SCOPES);
+
   const { data } = useQuery({
-    queryKey: ["group-views", "validation-freshness"],
+    queryKey: ["group-views", "validation-freshness", generation],
     queryFn: ({ signal }) => getJSON("/api/v2/validate", signal),
   });
 

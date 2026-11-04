@@ -288,6 +288,14 @@ it("leaves members without links out of the drawing and puts outside neighbors o
   expect(layout.height).toBe(LAYOUT.height);
 });
 
+it("draws a member whose only links go outside the group, so its spokes have a start", () => {
+  const outside = [{ id: "Person", label: "People 1 link", byMember: new Map([["Lonely", 1]]) }];
+  const layout = layoutMap({ ...LAYOUT, outside });
+
+  expect(layout.loose).toEqual([]);
+  expect(layout.positions.has("Lonely")).toBe(true);
+});
+
 it("keeps every node at least 24px inside the box", () => {
   const layout = layoutMap(LAYOUT);
 
