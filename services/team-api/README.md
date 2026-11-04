@@ -95,6 +95,14 @@ The image builds with Go 1.26.10 and runs the pinned `govulncheck` 1.9.0 against
 
 `team-api serve` also accepts the full JSON configuration in `RHIZOME_TEAM_API_CONFIG`, injected from SSM by ECS. An explicit `--config` takes precedence. Environment configuration defaults diagnostics to JSON lines on stdout; set `diagnostics_output: "stdout"` explicitly in production. Provider keys and the Google client secret are separate ECS secret injections from Secrets Manager. `trusted_proxy_cidrs` identifies the ALB subnet CIDRs; only the final ALB-appended address is trusted, and task ingress must allow only the ALB security group. `/healthz` becomes ready after store initialization and recovery, checks no providers, and reports unavailable during shutdown.
 
+`session_lookup_limits` bounds the session-store reads that unrecognized tokens can cause. Each authentication cache miss, logout, and refresh takes a token from a bucket for the client address and then from a process-wide bucket; an empty bucket returns `rate_limited` with `Retry-After` before the store is read. Cache hits are free, so a session's steady traffic costs at most one lookup per 30 seconds plus one after each refresh. The defaults below suit a few hundred people behind one office address; raise the per-address values if a larger office shares one address.
+
+```json
+"session_lookup_limits": {"per_ip_burst": 300, "per_ip_per_second": 20, "global_burst": 1000, "global_per_second": 100}
+```
+
+The TypeSafe model list is cached for 60 seconds, concurrent misses share one upstream request, and each person may make 10 requests at once, refilling one every 6 seconds. Errors are never cached.
+
 Select DynamoDB for `serve` by adding this to the production configuration. The table must already exist with string keys `pk` (partition) and `sk` (sort). The gateway never provisions AWS resources.
 
 ```json

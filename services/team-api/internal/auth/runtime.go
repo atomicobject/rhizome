@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"maps"
-	"net"
 	"net/http"
 	"slices"
 	"strconv"
@@ -96,59 +95,11 @@ func eligible(p store.Person, c core.Runtime) bool {
 		(c.EligibilityMode == wire.EligibilityAllowlist && slices.Contains(c.Allowlist, p.Email))
 }
 
-// limiter is a token bucket per remote address for the auth endpoints.
-// The server normalizes RemoteAddr only for configured trusted ALB peers.
-type limiter struct {
-	burst float64
-	rate  float64 // tokens per second
-	now   func() time.Time
-
-	mu      sync.Mutex
-	buckets map[string]*bucket
-}
-
-type bucket struct {
-	tokens float64
-	last   time.Time
-}
-
-func newLimiter(burst, perSecond float64, now func() time.Time) *limiter {
-	return &limiter{burst: burst, rate: perSecond, now: now, buckets: map[string]*bucket{}}
-}
-
-func (l *limiter) allow(key string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	now := l.now()
-	if len(l.buckets) > 10000 {
-		for k, b := range l.buckets {
-			if now.Sub(b.last) > time.Hour {
-				delete(l.buckets, k)
-			}
-		}
-	}
-	b, ok := l.buckets[key]
-	if !ok {
-		b = &bucket{tokens: l.burst, last: now}
-		l.buckets[key] = b
-	}
-	b.tokens = min(l.burst, b.tokens+now.Sub(b.last).Seconds()*l.rate)
-	b.last = now
-	if b.tokens < 1 {
-		return false
-	}
-	b.tokens--
-	return true
-}
-
-func (l *limiter) wrap(next http.HandlerFunc) http.HandlerFunc {
+// wrapLimited applies the per-address sign-in and refresh limit.
+func wrapLimited(l *core.Limiter, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			host = r.RemoteAddr
-		}
-		if !l.allow(host) {
-			w.Header().Set("Retry-After", strconv.Itoa(int(1/l.rate)+1))
+		if !l.Allow(core.ClientHost(r)) {
+			w.Header().Set("Retry-After", strconv.Itoa(l.RetryAfter()))
 			WriteError(w, wire.CodeRateLimited, "too many sign-in or refresh requests")
 			return
 		}

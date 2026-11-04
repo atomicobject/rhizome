@@ -200,6 +200,8 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Deviations
 
+- 2026-11-04: SPEC-0129 gains two abuse-control requirements found by the pre-release adversarial review. Session-store reads caused by unproven tokens (authentication cache misses, logout, and refresh) are now limited per client address and in total before the store is read, and the TypeSafe model list is cached for 60 seconds with coalesced misses and a per-person rate. frozen-scope-drift acknowledged for SPEC-0129.
+
 - 2026-11-02: Drew approved explicit desktop provider-access settings, including server selection that overrides every local key and actual running-repository reports. This revises US5 and the automatic-only precedence requirement in SPEC-0129; unset preferences retain the prior behavior. The spec set is refrozen for this increment, delivered separately by [[2026-11-02-17-54-provider-access-settings|EFF-2026-11-02-17-54]]. This does not claim completion of this gateway effort's remaining rollout or key-retirement work.
 
 - 2026-11-02: The approved provider-budget addendum extends SPEC-0129 with independent daily currency accounting and an explicit migration/rollback boundary. `jev-latest` remains supported as Drew requested; there is no model-pinning or request-rewrite exception. The spec set is refrozen at this revision. Actual provider allowance values remain in AWS/private operations records.
