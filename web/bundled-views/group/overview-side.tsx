@@ -290,7 +290,7 @@ const OUTSIDE_READ: GroupRead = {
 };
 
 /** Outside notes the Overview lists before "Show N more", so Members stays above the fold. */
-const OVERVIEW_OUTSIDE_NOTES = 4;
+const OVERVIEW_OUTSIDE_NOTES = 3;
 
 /** Only the guide note. */
 const GUIDE_READ: GroupRead = { records: false };

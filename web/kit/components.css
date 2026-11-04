@@ -190,7 +190,8 @@
     opacity: 0.55;
   }
 
-  /* Segmented: the chosen segment fills with ink; selection is never red. */
+  /* Segmented: a tinted track whose chosen segment is a raised surface, the
+     same recipe as the host's .segmented; selection is never red or solid ink. */
   .rz-segmented-wrap {
     display: inline-flex;
     align-items: center;
@@ -201,36 +202,37 @@
     display: inline-flex;
     flex: none;
     align-items: stretch;
+    gap: 2px;
+    padding: 2px;
     overflow: hidden;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r);
-    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md, var(--r));
+    background: var(--surface-sunk);
   }
 
   .rz-segment {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 24px;
-    padding: 0 10px;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid transparent;
+    border-radius: var(--r);
     color: var(--text-muted);
-    font: 600 var(--fs-sm) / 1 var(--font-sans);
+    font: 500 var(--fs-sm) / 1 var(--font-sans);
     white-space: nowrap;
     cursor: pointer;
   }
 
-  .rz-segment + .rz-segment {
-    border-left: 1px solid var(--border);
-  }
-
   .rz-segment:hover {
-    background: var(--bg-tint);
     color: var(--text);
   }
 
   .rz-segment:has(:checked) {
-    background: var(--text);
-    color: var(--surface);
+    border-color: var(--border-strong);
+    background: light-dark(var(--surface), var(--surface-strong));
+    color: var(--text);
+    font-weight: 600;
   }
 
   .rz-segment:has(:checked) .rz-count {

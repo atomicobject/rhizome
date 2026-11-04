@@ -187,7 +187,6 @@ it("lists the notes outside the group most connected first, then the guide and v
     "Ada LovelacePerson · people/2 linked records",
     "KickoffUntyped note · notes/2 linked records",
     "Release guideUntyped note · docs/1 linked record",
-    "ScratchUntyped note · notes/1 linked record",
   ]);
 
   fireEvent.click(within(outside).getByRole("button", { name: "Kickoff" }));
