@@ -16,7 +16,7 @@ import {
 } from "./desktopHost";
 import { useDesktopTasks } from "./desktopTasks";
 import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
-import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
+import { SidebarToggle, useSidebarShortcut, WorkbenchSidebar } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { FinderQuickOpen } from "./FinderQuickOpen";
@@ -276,8 +276,7 @@ export function AppShell() {
     }
   });
 
-  // GraphQL has no sidebar (SPEC-0128).
-  useSidebarShortcut({ desktop, disabled: route === "graphql" });
+  useSidebarShortcut({ desktop, disabled: false });
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
@@ -344,7 +343,7 @@ export function AppShell() {
                 header, so the shell's positions never move between sections. */}
             {statusQuery.isError ? <small>Status unavailable</small> : null}
           </div>
-          <SidebarToggle disabled={route === "graphql"} />
+          <SidebarToggle />
           <nav aria-label="Primary">
             <button
               type="button"
@@ -437,12 +436,19 @@ export function AppShell() {
           ) : route === "graphql" ? (
             <Suspense
               fallback={
-                <div className="graphql-workspace">
-                  <main className="graphql-explorer" />
+                <div className="workspace workbench graphql-workspace">
+                  <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
+                    {null}
+                  </WorkbenchSidebar>
+                  <main className="workbench__panel graphql-explorer" />
                 </div>
               }
             >
-              <GraphQLExplorer vaultName={vaultName} />
+              <GraphQLExplorer
+                vaultName={vaultName}
+                sidebarTitle={sidebarTitle}
+                sidebarHint={sidebarHint}
+              />
             </Suspense>
           ) : (
             <ExplorerWorkspace
