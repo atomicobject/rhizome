@@ -354,7 +354,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **Collections.** A configured view's header is two rows: a 56px title row (title, count, a truncating description, the schema link, Find in view, Filter, and View) and a 40px row of presentation tabs. The table's 34px column heads begin directly under them. With other tabs open, under the content panel's 36px tab strip, the first data row of an ungrouped table sits 166px below the panel's top edge, and a grouped table adds its 44px group header. Below a 760px header width, the description, facts, and kbd hint drop out before anything wraps.
 
-**Table column policy.** Every column except the title has a fixed width and never takes a share of extra space: ids 176px, enums and short text 136px, relations 180px, dates 104px, numbers and flags 72px, plus a 30px select cell. The title takes all remaining width and never drops below 240px in one-line rows or 320px in two-line rows. When the columns cannot fit at those minimums, relation columns leave first, then ids, then dates; they show in the Record pane, and the footer names them. Rows are 36px in one-line density and 56px in two-line density with the summary.
+**Table column policy.** Every column except the title has a fixed width and never takes a share of extra space: ids 176px, enums and short text 136px, relations 220px, people 160px, dates 116px, due dates 188px (room for an Overdue label), ages 92px, numbers and flags 72px, plus a 30px select cell. The title takes all remaining width and never drops below 320px. When the columns cannot fit at those minimums, relation columns leave first, then ids, then dates; they show in the Record pane, and the footer names them. Rows are 36px in one-line density and 56px in two-line density with the summary.
 
 **Reading and data surfaces.** A note is a capped reading surface: a centred 540px column for prose, properties, and body blocks, while the note's control row runs edge to edge with the panel gutter, as an HTML note's does. The built-in views are capped and centred on wide screens: Briefing in one centred column of about 1320px and Overview in one of about 1520px, shared by the header, tabs, status line, and body so all four start on the same edge. Data surfaces fill the width with bounded columns: tables stretch, and board columns are fixed tracks of 260–360px shared by header and cards, so a wider window shows more columns rather than wider ones. Empty board values are 140px strips above dashed drop lanes; populated columns keep their tracks when switching card density. Cards fill an auto-fill grid with a 260px minimum.
 
@@ -516,7 +516,7 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 ### Do:
 
 - **Do** keep the shell's model: themed chrome around a white inset panel, one right pane, and finders for navigation.
-- **Do** keep supporting table columns fixed and let the title take the slack, with a 240px minimum (320px in two-line rows).
+- **Do** keep supporting table columns fixed and let the title take the slack, with a 320px minimum.
 - **Do** cap note prose (540px in a 680px note column), cap and centre Briefing (about 1320px) and Overview (about 1520px) as one column with their header and tabs, and let tables, boards, and cards fill the panel.
 - **Do** use Merriweather only for document and workspace titles, Inter for UI, prose, numbers, and dates, and JetBrains Mono only for identifiers, paths, and code.
 - **Do** read semantic tokens so every surface follows appearance and theme.

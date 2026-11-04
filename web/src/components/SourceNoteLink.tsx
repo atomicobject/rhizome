@@ -8,9 +8,10 @@ import { useActiveEditSession } from "./useOntologyEditSession";
 import type { OpenMode } from "./useNoteTabs";
 
 /**
- * The note an embedded record lives in, named by the note's title as a quiet
- * link; the path stays in the tooltip. It reads the title through the hover
- * preview's query, so hovering after it costs nothing.
+ * The note an embedded record lives in, named as a quiet link; the path stays
+ * in the tooltip. It names the note from its file and never fetches: a table
+ * can hold hundreds of source notes. Once the hover preview has loaded a note,
+ * its title replaces the file name.
  */
 export function SourceNoteLink({
   path,
@@ -25,7 +26,8 @@ export function SourceNoteLink({
     queryFn: ({ signal, editSession }) => getNodePreview(path, undefined, { editSession, signal }),
     staleTime: 30_000,
     retry: false,
-    enabled: Boolean(path),
+    // Read only what the hover preview cached; one request per row would flood the server.
+    enabled: false,
   });
 
   if (!path) return null;

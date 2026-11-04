@@ -99,8 +99,8 @@
   --section-color: var(--text);
   --section-gap: 10px;
 
-  /* Navigable record titles: quiet teal links at 500, never 600, so a table
-     of titles never reads as a heavy teal wall. */
+  /* Navigable record titles: ink at 500, never 600, with a teal underline
+     only on hover or focus, so a table of titles stays calm. */
   --title-weight: 500;
 
   /* One disclosure control: a 16px chevron inside a 24px hit target. */

@@ -333,7 +333,9 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
       {columnCells.map(({ column, capability, className: baseClassName }, columnIndex) => {
         const value = fieldValue(row, column.field);
 
+        // The title names the row, so it never dims.
         const repeat =
+          columnIndex !== primaryColumnIndex &&
           previousRow &&
           sortFields?.has(column.field) &&
           value !== "" &&
