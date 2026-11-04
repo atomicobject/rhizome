@@ -223,7 +223,13 @@ function SidebarRow({
         aria-current={current ? "true" : undefined}
         onClick={onClick}
       >
-        <Icon aria-hidden="true" size={16} strokeWidth={1.5} className="sidebar-nav__icon" />
+        <Icon
+          aria-hidden="true"
+          size={16}
+          strokeWidth={1.5}
+          absoluteStrokeWidth
+          className="sidebar-nav__icon"
+        />
         <span className="sidebar-nav__name">{label}</span>
       </button>
     </li>
@@ -243,7 +249,13 @@ function withIcon(button: ReactNode, Icon: LucideIcon, label?: string) {
   return cloneElement(
     button,
     named,
-    <Icon aria-hidden="true" size={16} strokeWidth={1.5} className="graphiql-toolbar-icon" />,
+    <Icon
+      aria-hidden="true"
+      size={16}
+      strokeWidth={1.5}
+      absoluteStrokeWidth
+      className="graphiql-toolbar-icon"
+    />,
     label ? <span className="graphiql-toolbar-label">{label}</span> : null,
   );
 }
