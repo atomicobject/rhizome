@@ -93,6 +93,17 @@
   color: var(--text);
 }
 
+/* Buttons on the sidebar take the same chrome tint as its selects. */
+.workbench-sidebar .button:not(.button--primary) {
+  border-color: transparent;
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+
+.workbench-sidebar .button:not(.button--primary):hover:enabled {
+  background: var(--chrome-active);
+}
+
 /* "Views" and "Types" inside a sidebar group that holds both. */
 .notes-left-rail__subhead {
   display: flex;
@@ -101,4 +112,117 @@
   padding: 0 0 3px 8px;
   color: var(--chrome-muted);
   font: var(--label-font);
+}
+
+/* ---- Sidebar navigation ----
+   The plain list a section's sidebar holds (Tasks, GraphQL): a 14px heading,
+   then 30px rows. The current row is the light chrome pill, like the Notes
+   rail's active collection. */
+.sidebar-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-nav__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 6px 8px 4px 18px;
+  color: var(--chrome-text);
+}
+
+.sidebar-nav__head h1 {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.sidebar-nav__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 8px var(--sp-4);
+  overflow: auto;
+  list-style: none;
+  scrollbar-color: var(--chrome-raised) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-nav__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--chrome-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s var(--ease);
+}
+
+.sidebar-nav__row:hover {
+  background: var(--chrome-raised);
+}
+
+.sidebar-nav__row:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+
+.sidebar-nav__row[aria-current] {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+  font-weight: 600;
+}
+
+.sidebar-nav__row[aria-current]:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
+.sidebar-nav__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav__aside {
+  flex: none;
+  color: var(--chrome-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.sidebar-nav__row[aria-current] .sidebar-nav__aside {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.sidebar-nav__icon {
+  flex: none;
+  color: var(--chrome-muted);
+}
+
+.sidebar-nav__row[aria-current] .sidebar-nav__icon {
+  color: inherit;
+}
+
+/* Secondary actions (refetch, shortcuts, settings) sit at the sidebar's foot. */
+.sidebar-nav__list--foot {
+  flex: none;
+  margin-top: auto;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--chrome-raised);
 }

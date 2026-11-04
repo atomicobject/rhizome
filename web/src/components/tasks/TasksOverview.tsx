@@ -104,19 +104,26 @@ export function TasksNotices({
   );
 }
 
-function RunLink({ task }: { task: TaskStatus }) {
-  if (!task.lastRun) return null;
+function RunLink({ task, children = "View run" }: { task: TaskStatus; children?: ReactNode }) {
+  const run = task.item?.run ?? task.lastRun?.id;
 
+  if (!run) return null;
+
+  return <TaskLink task={task} run={run} label={children} />;
+}
+
+/** A quiet link to a task's page, or to one of its runs. */
+function TaskLink({ task, run, label }: { task: TaskStatus; run?: string; label: ReactNode }) {
   return (
     <a
-      className="task-table__run-link"
-      href={tasksHref({ task: task.id, run: task.lastRun.id })}
+      className="link-quiet task-table__run-link"
+      href={tasksHref({ task: task.id, run })}
       onClick={(event) => {
         event.preventDefault();
-        navigateTasks({ task: task.id, run: task.lastRun?.id });
+        navigateTasks({ task: task.id, run });
       }}
     >
-      View run
+      {label}
     </a>
   );
 }
@@ -138,93 +145,147 @@ function FailureBanner({ task }: { task: TaskStatus }) {
 // The runner writes 'New task "Name" runs every 7d in notify mode. <purpose>'.
 const ANNOUNCEMENT_PREFIX = /^New task ".*?" runs every \S+ in \S+ mode\.\s*/;
 
-/** "New: Name. Runs every 7 days in Notify mode.", with the purpose on request. */
-function AnnouncementText({ item, task }: { item: TaskItem; task?: TaskStatus }) {
-  const [open, setOpen] = useState(false);
-  const summary = item.summary || item.reason || item.message || "";
+function announcementText(item: TaskItem) {
+  return item.summary || item.reason || item.message || "";
+}
 
-  if (!task || !ANNOUNCEMENT_PREFIX.test(summary)) return <p className="banner__text">{summary}</p>;
-
-  const purpose = summary.replace(ANNOUNCEMENT_PREFIX, "");
-
+/** A new task's notice belongs on its row when the row exists and the notice has the runner's shape. */
+function rowAnnouncement(item: TaskItem, tasks: TaskStatus[]) {
   return (
-    <div className="banner__text">
-      {task.name || task.id}. Runs every {formatEvery(task.every)} in{" "}
-      {MODE_LABELS[task.mode] ?? task.mode} mode.
-      {purpose ? (
-        <>
-          {" "}
-          <button
-            type="button"
-            className="task-notice__more"
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-          >
-            {open ? "Less" : "What it does"}
-          </button>
-          {open ? <p className="task-notice__purpose">{purpose}</p> : null}
-        </>
-      ) : null}
-    </div>
+    item.kind === "announcement" &&
+    tasks.some((task) => task.id === item.task) &&
+    ANNOUNCEMENT_PREFIX.test(announcementText(item))
   );
 }
 
-function TaskRow({ task, onOpen }: { task: TaskStatus; onOpen: () => void }) {
-  const last = task.lastRun ? outcomePresentation(task.lastRun.outcome) : null;
+/** The Inbox cell: an open item that needs a person is one action, not another red state. */
+function InboxCell({ task }: { task: TaskStatus }) {
   const item = task.item ? itemStatePresentation(task.item.state) : null;
+
+  if (!item) return <span className="task-table__none">—</span>;
+
+  if (task.item?.state === "needs-attention") {
+    // Without a run id the task's page, which lists its runs, is the place to review.
+    const run = task.item.run ?? task.lastRun?.id;
+
+    return (
+      <TaskLink
+        task={task}
+        run={run}
+        label={task.lastRun?.outcome === "failed" ? "Review failed run" : "Review"}
+      />
+    );
+  }
+
+  return <StatusMark tone={item.tone} label={item.label} />;
+}
+
+function TaskRow({
+  task,
+  announcement,
+  onOpen,
+  onDismiss,
+  itemError,
+}: {
+  task: TaskStatus;
+  /** The new-task notice, folded into this row's "What it does". */
+  announcement?: TaskItem;
+  onOpen: () => void;
+  onDismiss?: (item: TaskItem) => void;
+  itemError?: { scope: string; text: string } | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const last = task.lastRun ? outcomePresentation(task.lastRun.outcome) : null;
+
+  const purpose = announcement
+    ? announcementText(announcement).replace(ANNOUNCEMENT_PREFIX, "")
+    : "";
+
+  const purposeId = `task-purpose-${task.id}`;
 
   // A local copy that matches the primary ref needs no mark.
   const local =
     task.local && task.local.state !== "same" ? localStatePresentation(task.local.state) : null;
 
   return (
-    <tr>
-      <th scope="row">
-        <button type="button" className="task-table__open" onClick={onOpen}>
-          <span className="link-quiet">{task.name || task.id}</span>
-          {task.name ? <code>{task.id}</code> : null}
-        </button>
-        {local ? (
-          <span className="task-table__local">
-            <StatusMark tone={local.tone} label={local.label} />
-          </span>
-        ) : null}
-      </th>
-      <td>
-        {task.scheduled ? (
-          <>
-            {MODE_LABELS[task.mode] ?? task.mode}
-            {task.modeSource === "override" ? null : (
-              <span className="task-table__aside"> · default</span>
-            )}
-          </>
-        ) : (
-          <span className="task-table__none">—</span>
-        )}
-      </td>
-      <td className="task-table__time is-optional">{task.every}</td>
-      <td>
-        {last && task.lastRun ? (
-          <span className="task-table__last">
-            <StatusMark tone={last.tone} label={last.label} />
-            <span className="task-table__aside">{formatRelative(task.lastRun.at)}</span>
-            {last.tone === "risk" ? <RunLink task={task} /> : null}
-          </span>
-        ) : (
-          <span className="task-table__none">Never run</span>
-        )}
-      </td>
-      <td className={task.due ? "task-table__due is-due" : "task-table__due"}>
-        <time dateTime={task.nextDue}>{formatDue(task.nextDue, task.due)}</time>
-      </td>
-      <td>
-        {item ? (
-          <StatusMark tone={item.tone} label={item.label} />
-        ) : (
-          <span className="task-table__none">—</span>
-        )}
-      </td>
-    </tr>
+    <>
+      <tr className={open ? "is-expanded" : undefined}>
+        <th scope="row">
+          <button type="button" className="task-table__open" onClick={onOpen}>
+            <span className="link-quiet">{task.name || task.id}</span>
+            {task.name ? <code>{task.id}</code> : null}
+          </button>
+          {local ? (
+            <span className="task-table__local">
+              <StatusMark tone={local.tone} label={local.label} />
+            </span>
+          ) : null}
+          {announcement ? (
+            <span className="task-table__new">
+              <span className="task-table__new-tag">New</span>
+              <button
+                type="button"
+                className="link-quiet task-notice__more"
+                aria-expanded={open}
+                aria-controls={purposeId}
+                onClick={() => setOpen(!open)}
+              >
+                What it does
+              </button>
+            </span>
+          ) : null}
+        </th>
+        <td>
+          {task.scheduled ? (
+            <>
+              {MODE_LABELS[task.mode] ?? task.mode}
+              {task.modeSource === "override" ? null : (
+                <span className="task-table__aside"> · default</span>
+              )}
+            </>
+          ) : (
+            <span className="task-table__none">—</span>
+          )}
+        </td>
+        <td className="task-table__time is-optional">{task.every}</td>
+        <td>
+          {last && task.lastRun ? (
+            <span className="task-table__last">
+              <StatusMark tone={last.tone} label={last.label} />
+              <span className="task-table__aside">{formatRelative(task.lastRun.at)}</span>
+            </span>
+          ) : (
+            <span className="task-table__none">Never run</span>
+          )}
+        </td>
+        <td className={task.due ? "task-table__due is-due" : "task-table__due"}>
+          <time dateTime={task.nextDue}>{formatDue(task.nextDue, task.due)}</time>
+        </td>
+        <td>
+          <InboxCell task={task} />
+        </td>
+      </tr>
+      {announcement && open ? (
+        <tr className="task-table__purpose" id={purposeId}>
+          <td colSpan={6}>
+            <p>
+              Runs every {formatEvery(task.every)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
+              {purpose ? ` ${purpose}` : ""}
+            </p>
+            {onDismiss ? (
+              <button type="button" className="button" onClick={() => onDismiss(announcement)}>
+                Dismiss
+              </button>
+            ) : null}
+            {itemError?.scope === announcement.id ? (
+              <p className="task-inline-error" role="alert">
+                {itemError.text}
+              </p>
+            ) : null}
+          </td>
+        </tr>
+      ) : null}
+    </>
   );
 }
 
@@ -256,6 +317,8 @@ export function TasksOverview({
   /** The last failed action; shown beside the item it names. */
   itemError?: { scope: string; text: string } | null;
 }) {
+  const bannerItems = announcements.filter((item) => !rowAnnouncement(item, report.tasks));
+
   return (
     <div className="tasks-overview">
       <header className="view-header">
@@ -285,21 +348,14 @@ export function TasksOverview({
             <FailureBanner key={task.id} task={task} />
           ))}
         <TasksNotices report={report} pausePending={pausePending} onResume={onResume} />
-        {announcements.map((item) => (
+        {bannerItems.map((item) => (
           <div key={item.id} className="banner task-notice" role="status">
             {item.kind === "announcement" ? (
               <StatusMark tone="info" label="New:" />
             ) : (
               <StatusMark tone="warning" label={`Removed task ${item.task}`} />
             )}
-            {item.kind === "announcement" ? (
-              <AnnouncementText
-                item={item}
-                task={report.tasks.find((candidate) => candidate.id === item.task)}
-              />
-            ) : (
-              <p className="banner__text">{item.summary || item.reason || item.message}</p>
-            )}
+            <p className="banner__text">{announcementText(item)}</p>
             {item.kind === "task" && item.worktree && onDiscard ? (
               <button type="button" className="button" onClick={() => onDiscard(item)}>
                 Discard
@@ -360,7 +416,16 @@ export function TasksOverview({
             </thead>
             <tbody>
               {report.tasks.map((task) => (
-                <TaskRow key={task.id} task={task} onOpen={() => onOpen(task.id)} />
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  announcement={announcements.find(
+                    (item) => item.task === task.id && rowAnnouncement(item, report.tasks),
+                  )}
+                  onOpen={() => onOpen(task.id)}
+                  onDismiss={onDismiss}
+                  itemError={itemError}
+                />
               ))}
             </tbody>
           </table>

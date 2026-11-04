@@ -84,32 +84,32 @@ function RailMark({ item }: { item?: TaskItem }) {
 
 function TasksRail({ tasks, selected }: { tasks: TaskStatus[]; selected?: string }) {
   return (
-    <nav className="tasks-rail" aria-label="Tasks">
+    <nav className="sidebar-nav" aria-label="Tasks">
       {/* Pause all lives in the overview header only. */}
-      <div className="tasks-rail__head">
+      <div className="sidebar-nav__head">
         <h1>Tasks</h1>
       </div>
-      <ul className="tasks-rail__list">
+      <ul className="sidebar-nav__list">
         <li>
           <button
             type="button"
-            className="tasks-rail__row"
+            className="sidebar-nav__row"
             aria-current={selected ? undefined : "page"}
             onClick={() => navigateTasks({})}
           >
-            <span className="tasks-rail__name">All tasks</span>
-            <span className="tasks-rail__aside">{tasks.length}</span>
+            <span className="sidebar-nav__name">All tasks</span>
+            <span className="sidebar-nav__aside">{tasks.length}</span>
           </button>
         </li>
         {tasks.map((task) => (
           <li key={task.id}>
             <button
               type="button"
-              className="tasks-rail__row"
+              className="sidebar-nav__row"
               aria-current={selected === task.id ? "page" : undefined}
               onClick={() => navigateTasks({ task: task.id })}
             >
-              <span className="tasks-rail__name">{task.name || task.id}</span>
+              <span className="sidebar-nav__name">{task.name || task.id}</span>
               {/* A failure is named in words, not only by the red mark; the
                   due time it displaces is on the task's row and page. */}
               {task.lastRun?.outcome === "failed" ? (
@@ -119,7 +119,7 @@ function TasksRail({ tasks, selected }: { tasks: TaskStatus[]; selected?: string
               ) : (
                 <>
                   <RailMark item={task.item} />
-                  <span className="tasks-rail__aside">
+                  <span className="sidebar-nav__aside">
                     {task.scheduled ? formatDue(task.nextDue, task.due) : "Local"}
                   </span>
                 </>
