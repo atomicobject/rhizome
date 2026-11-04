@@ -172,35 +172,36 @@
      Categorical colors for ontology types in graphs, atlas cards, and type
      dots. Never red (risk) or teal (connection). Slots 1-7 and 9-13 are the
      twelve type hues, each 3:1 on every surface of its theme; slots 4 and
-     9-13 sit a lightness step away from their hue neighbors. Slot 8 is the
+     9-13 vary in lightness as well as hue. Dark values are brighter and
+     saturated independently of light values. Slot 8 is the
      warm-gray neutral for code, untyped notes, and essential edges. Each -ink
      variant is the text color for that slot and clears 4.5:1. */
-  --type-1: light-dark(#226bc0, #458ce3);
-  --type-1-ink: light-dark(#226bc0, #458ce3);
-  --type-2: light-dark(#cb58a6, #da66b4);
-  --type-2-ink: light-dark(#a15487, #da66b4);
-  --type-3: light-dark(#aa7906, #bf8f34);
-  --type-3-ink: light-dark(#91680a, #bf8f34);
-  --type-4: light-dark(#2f448b, #9dbbff);
-  --type-4-ink: light-dark(#2f448b, #9dbbff);
-  --type-5: light-dark(#3f9446, #479c4d);
-  --type-5-ink: light-dark(#367c3c, #559a58);
-  --type-6: light-dark(#d36125, #dc692e);
-  --type-6-ink: light-dark(#aa5830, #dc692e);
-  --type-7: light-dark(#956eda, #a27cea);
-  --type-7-ink: light-dark(#7b60ae, #a27cea);
+  --type-1: light-dark(#1264df, #63a6ff);
+  --type-1-ink: light-dark(#1453b8, #63a6ff);
+  --type-2: light-dark(#c32ca4, #f16cce);
+  --type-2-ink: light-dark(#a31c89, #f16cce);
+  --type-3: light-dark(#aa7400, #f5bd27);
+  --type-3-ink: light-dark(#885c00, #f5bd27);
+  --type-4: light-dark(#3238ae, #a1a0ff);
+  --type-4-ink: light-dark(#3238ae, #a1a0ff);
+  --type-5: light-dark(#278b19, #70d54b);
+  --type-5-ink: light-dark(#226d16, #70d54b);
+  --type-6: light-dark(#d05200, #ff9848);
+  --type-6-ink: light-dark(#aa4200, #ff9848);
+  --type-7: light-dark(#853de0, #bd88ff);
+  --type-7-ink: light-dark(#7130bf, #bd88ff);
   --type-8: light-dark(#8a8682, #a29d97);
   --type-8-ink: light-dark(#5c5853, #c9c4bd);
-  --type-9: light-dark(#2b8cad, #66c2e4);
-  --type-9-ink: light-dark(#067999, #66c2e4);
-  --type-10: light-dark(#774785, #d7a2e7);
-  --type-10-ink: light-dark(#774785, #d7a2e7);
-  --type-11: light-dark(#696901, #bfc16a);
-  --type-11-ink: light-dark(#696901, #bfc16a);
-  --type-12: light-dark(#285f3f, #96cfa9);
-  --type-12-ink: light-dark(#285f3f, #96cfa9);
-  --type-13: light-dark(#694124, #dbac8d);
-  --type-13-ink: light-dark(#694124, #dbac8d);
+  --type-9: light-dark(#007eae, #49c8ff);
+  --type-9-ink: light-dark(#006b94, #49c8ff);
+  --type-10: light-dark(#9c168e, #ef9de4);
+  --type-10-ink: light-dark(#921584, #ef9de4);
+  --type-11: light-dark(#697900, #c4da36);
+  --type-11-ink: light-dark(#566400, #c4da36);
+  --type-12: light-dark(#00652e, #38bc78);
+  --type-12-ink: light-dark(#00652e, #38bc78);
+  --type-13: light-dark(#98420a, #df8746);
+  --type-13-ink: light-dark(#98420a, #df8746);
   /* Code in graphs: a mid gray lighter than the untyped neutral, so strong fills stay with notes. */
   --graph-code: light-dark(#b3b0ab, #6e6a65);
 
@@ -208,13 +209,13 @@
      Neutral first; no red. Teal is reserved for "linked" or "connected"
      series (--series-link). */
   --series-1: light-dark(#5c5853, #c9c4bd);
-  --series-2: light-dark(#3295bd, #5fb3d6);
-  --series-3: light-dark(#a87720, #dcad66);
-  --series-4: light-dark(#a29d97, #7d7872);
-  --series-5: light-dark(#a5488b, #c873b0);
-  --series-6: light-dark(#6f8f3a, #9cbc63);
-  --series-7: light-dark(#a0663c, #c98c5f);
-  --series-8: light-dark(#5b7a99, #8aa5c2);
+  --series-2: light-dark(#007eae, #49c8ff);
+  --series-3: light-dark(#aa7400, #f5bd27);
+  --series-4: light-dark(#85817b, #96918a);
+  --series-5: light-dark(#c32ca4, #f16cce);
+  --series-6: light-dark(#697900, #c4da36);
+  --series-7: light-dark(#d05200, #ff9848);
+  --series-8: light-dark(#1264df, #63a6ff);
   --series-link: light-dark(#16cbc4, #2fd3cc);
 
   /* ---- Code syntax ---- */
