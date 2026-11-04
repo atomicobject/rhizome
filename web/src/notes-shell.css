@@ -323,19 +323,12 @@
   letter-spacing: -0.01em;
 }
 
-.search-workspace__count {
-  flex: none;
-  color: var(--text-muted);
-  font-size: var(--fs-base);
-  font-variant-numeric: tabular-nums;
-}
-
 .search-workspace__query {
   min-width: 0;
   margin: 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -470,17 +463,30 @@
   gap: var(--sp-3);
 }
 
+/* One plain line: "Showing 40 of 100 results · Medium confidence ⓘ", with
+   figures in tabular Inter. It wraps rather than clipping the info tip. */
 .search-workspace__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-workspace__status > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .search-workspace__status > span:not(:first-child)::before {
   content: "·";
   margin: 0 var(--sp-2);
   color: var(--text-faint);
+}
+
+.search-workspace__status .field-editor__info-tip {
+  color: var(--text);
 }
 
 .search-workspace__state {
@@ -556,7 +562,7 @@
   overflow: hidden;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--link);
   font: 600 var(--fs-lg) / 1.35 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
@@ -564,11 +570,12 @@
   cursor: pointer;
 }
 
+/* A result title is a quiet link (.link-quiet): teal, underlined on hover
+   and keyboard focus. */
 .search-workspace__result-link:hover,
 .search-workspace__result-link:focus-visible {
-  color: var(--link);
   text-decoration: underline;
-  text-decoration-color: var(--link-line);
+  text-decoration-color: currentcolor;
   text-underline-offset: 2px;
 }
 
@@ -582,13 +589,22 @@
   white-space: nowrap;
 }
 
+/* Note excerpts read as prose: soft-wrapped, inline code as code. */
 .search-workspace__result p {
   max-width: 78ch;
   margin: var(--sp-2) 0 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
   line-height: 1.5;
-  white-space: pre-wrap;
+}
+
+.search-workspace__result p code {
+  padding: 1px 3px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
 .search-workspace__result p.is-missing {

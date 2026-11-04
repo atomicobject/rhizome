@@ -16,6 +16,7 @@ import {
 import { BooleanEditor, ListEditor, NumberEditor } from "./FieldValueEditors";
 import { RelationEditor, displayValues, fieldValueFromScalar } from "./RelationEditor";
 import { FieldLinkValues, fieldLinksForValues } from "../FieldLinkValues";
+import { InfoTip } from "../InfoTip";
 
 type Props = {
   node: WorkspaceFieldNode;
@@ -384,27 +385,7 @@ export function FieldEditor({
 
 /** Why a field cannot be edited, behind an info mark that shows it on hover or focus. */
 function ReadOnlyReason({ reason }: { reason: string }) {
-  const id = useId();
-
-  return (
-    <span className="field-editor__info">
-      <button
-        type="button"
-        className="field-editor__info-button"
-        aria-label="Why this field is read-only"
-        aria-describedby={id}
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor">
-          <circle cx="8" cy="8" r="6.25" strokeWidth="1.3" />
-          <path d="M8 7.25v4" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="8" cy="4.9" r="0.4" fill="currentColor" strokeWidth="0.9" />
-        </svg>
-      </button>
-      <span id={id} role="tooltip" className="field-editor__info-tip">
-        {reason}
-      </span>
-    </span>
-  );
+  return <InfoTip label="Why this field is read-only">{reason}</InfoTip>;
 }
 
 /** Read-only values; relation values show their targets' titles. */

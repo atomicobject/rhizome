@@ -1,3 +1,5 @@
+import { InfoTip } from "./InfoTip";
+import { noteExcerptParts } from "./searchExcerpt";
 import { publicTypeName } from "../lib/typeNames";
 import { humanizeName } from "../lib/labels";
 import {
@@ -433,9 +435,19 @@ function RankedSearchWorkspace({
 
   // One banner: a summary line when sources are missing, with each source's
   // own message behind its disclosure.
+  // A single missing source is named by its warning's first clause ("Code
+  // embeddings are unavailable"); the full message stays behind Details.
+  const missingSources = availabilityWarnings.flatMap((warning) =>
+    warning.message ? [warning.message.split(/[;.]/, 1)[0].trim()] : [],
+  );
+
   const notices = [
     ...(incomplete && results.length > 0
-      ? ["Some search sources are unavailable. Showing the usable results."]
+      ? [
+          missingSources.length === 1 && degradedLanes.length === 0
+            ? `${missingSources[0]}. Showing the usable results.`
+            : "Some search sources are unavailable. Showing the usable results.",
+        ]
       : []),
     ...displayWarnings.flatMap((warning) => (warning.message ? [warning.message] : [])),
   ];
@@ -450,11 +462,11 @@ function RankedSearchWorkspace({
   // first page rather than whichever continuation page happens to be loaded last.
   const firstPage = pages[0];
 
-  const statusSegments: { text: string; title?: string }[] = [
+  const statusSegments: { text: string; info?: string }[] = [
     {
       text:
         total !== null
-          ? `${results.length} of ${total} ranked`
+          ? `Showing ${results.length} of ${total} results`
           : `${results.length} results loaded`,
     },
   ];
@@ -465,9 +477,11 @@ function RankedSearchWorkspace({
   const confidenceLevel = firstPage?.confidence?.level;
 
   if (confidenceLevel) {
+    const reason = firstPage?.confidence?.reason;
+
     statusSegments.push({
-      text: `Confidence ${confidenceLevel}`,
-      title: firstPage?.confidence?.reason || undefined,
+      text: `${confidenceLevel[0].toUpperCase()}${confidenceLevel.slice(1)} confidence`,
+      info: `Confidence is how much independent evidence supports the top results.${reason ? ` Here: ${reason}.` : ""}`,
     });
   }
 
@@ -497,9 +511,8 @@ function RankedSearchWorkspace({
       <header className="search-workspace__header">
         <div className="search-workspace__title-row">
           <h1>Search results</h1>
-          {total !== null ? <span className="search-workspace__count">{total}</span> : null}
           <p className="search-workspace__query" title={tab.query}>
-            {tab.query}
+            for “{tab.query}”
           </p>
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
@@ -619,8 +632,11 @@ function RankedSearchWorkspace({
           <div className="search-workspace__meta">
             <span className="search-workspace__status" aria-label="Search status">
               {statusSegments.map((segment) => (
-                <span key={segment.text} title={segment.title}>
+                <span key={segment.text}>
                   {segment.text}
+                  {segment.info ? (
+                    <InfoTip label="About search confidence">{segment.info}</InfoTip>
+                  ) : null}
                 </span>
               ))}
             </span>
@@ -667,7 +683,18 @@ function RankedSearchWorkspace({
                       </pre>
                     ) : (
                       <p className={excerpt ? undefined : "is-missing"}>
-                        {excerpt ? highlightLiteral(excerpt, tab.query) : "Excerpt unavailable."}
+                        {excerpt
+                          ? noteExcerptParts(excerpt).map((part, partIndex) =>
+                              part.code ? (
+                                // oxlint-disable-next-line react/no-array-index-key -- parts have no identity beyond order
+                                <code key={partIndex}>
+                                  {highlightLiteral(part.text, tab.query)}
+                                </code>
+                              ) : (
+                                highlightLiteral(part.text, tab.query)
+                              ),
+                            )
+                          : "Excerpt unavailable."}
                       </p>
                     )}
                   </article>
