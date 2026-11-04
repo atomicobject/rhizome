@@ -26,9 +26,12 @@
   min-width: 0;
 }
 
-.explorer-bar__search input[type="search"] {
+/* The shared find input (.configured-view__find), widened to the search column. */
+.explorer-bar__search .explorer-bar__find {
   flex: 1;
+  width: auto;
   min-width: 160px;
+  margin-right: 0;
 }
 
 .explorer-bar__matches {
@@ -804,7 +807,7 @@
 }
 
 .graph-type-legend__group[data-group="typed"] {
-  flex: 1 1 520px;
+  flex: 1 1 100%;
 }
 
 .graph-type-legend__group .graph-type-legend__title {
@@ -831,10 +834,26 @@
   height: 10px;
 }
 
-/* Folders are the large ringed nodes; the swatch says so. */
+/* Folders are the large filled nodes, in their most common type's color. */
 .graph-type-legend__group[data-group="folder"] .graph-type-legend__swatch {
-  box-sizing: border-box;
-  border: 2px solid;
+  width: 12px;
+  height: 12px;
+  background: var(--type-8);
+}
+
+/* A drawn link: the folder graph's neutral line, heavier where more links run. */
+.graph-type-legend__line {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--type-8);
+  border-radius: 1px;
+}
+
+.graph-type-legend__group .graph-type-legend__links {
+  grid-template-columns: 18px auto;
+  max-width: none;
+  margin-left: var(--sp-4);
 }
 
 .graph-type-legend__group .graph-type-legend__count {
@@ -842,49 +861,6 @@
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-}
-
-/* Types no drawn node shows wait behind "All types", a popover over the canvas. */
-.graph-type-legend__more {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 24px;
-}
-
-.graph-type-legend__more summary {
-  color: var(--link);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-  list-style: none;
-}
-
-.graph-type-legend__more summary::-webkit-details-marker {
-  display: none;
-}
-
-.graph-type-legend__more summary .num {
-  color: var(--text-muted);
-}
-
-.graph-type-legend__more summary:is(:hover, :focus-visible) {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.graph-type-legend__more details > .graph-type-legend__list {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 0;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(160px, auto));
-  gap: 0 var(--sp-5);
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-lg);
 }
 
 .graph-type-legend__note {

@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import {
   Background,
   Controls,
@@ -273,21 +274,25 @@ export function OntologyGraph({ atlas }: Props) {
           <Controls showInteractive={false} />
         </ReactFlow>
         <div className="atlas-find" role="search" aria-label="Atlas types">
-          <input
-            type="search"
-            aria-label="Find a type"
-            placeholder="Find a type…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && listed[0]) {
-                event.preventDefault();
-                focus(listed[0].id);
-              }
+          <label className="configured-view__find">
+            <Search className="configured-view__tool-icon" aria-hidden="true" strokeWidth={1.75} />
+            <input
+              className="configured-view__search"
+              type="search"
+              aria-label="Find a type"
+              placeholder="Find a type…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && listed[0]) {
+                  event.preventDefault();
+                  focus(listed[0].id);
+                }
 
-              if (event.key === "Escape") setSearch("");
-            }}
-          />
+                if (event.key === "Escape") setSearch("");
+              }}
+            />
+          </label>
           {query ? (
             <div className="atlas-find__list">
               {listed.map((node) => (

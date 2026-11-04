@@ -1,6 +1,7 @@
 import { ChevronDown, Maximize, Minus, Plus, TriangleAlert } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useMemo, useState } from "react";
+import { humanizeName } from "../lib/labels";
 import { publicTypeName } from "../lib/typeNames";
 import type { GraphEdge, GraphNode } from "../api/types";
 import {
@@ -50,8 +51,6 @@ type GraphTypeEntry = {
   count: number;
   color: string;
   selected: boolean;
-  /** Whether a drawn node shows this color; the rest wait behind "All types". */
-  present: boolean;
 };
 
 function graphTypeName(node: GraphNode): string {
@@ -86,6 +85,7 @@ export function GraphView({
   displaySlot,
   legendNodes,
   folderCaption,
+  edgeCaption,
 }: {
   /** Nodes to draw; a summarized view may give each its own `fill`. */
   nodes: GraphViewNode[];
@@ -117,6 +117,8 @@ export function GraphView({
   legendNodes?: GraphNode[];
   /** A note on what folder colors mean, when folders summarize their contents. */
   folderCaption?: string;
+  /** What a drawn line means, keyed beside the folders it joins. */
+  edgeCaption?: string;
 }) {
   const [localShowProblems, setLocalShowProblems] = useState(false);
   const showProblems = display?.showProblems ?? localShowProblems;
@@ -185,14 +187,6 @@ export function GraphView({
     (legendNodes ?? nodes).forEach((node) => node.kind !== "module" && count(node));
     nodes.forEach((node) => node.kind === "module" && count(node));
 
-    // A summarized view draws folders in their most common type's color, so
-    // only those colors and the drawn nodes' own types are on screen.
-    const drawn = new Set<string>();
-
-    for (const node of nodes) {
-      drawn.add(node.fill ?? graphTypeName(node));
-    }
-
     return (
       Array.from(counts.entries())
         .map(([name, count]) => {
@@ -201,11 +195,10 @@ export function GraphView({
 
           return {
             name,
-            label: kind?.label ?? (typeLabels?.get(name) || name),
+            label: kind?.label ?? (typeLabels?.get(name) || humanizeName(name)),
             count,
             color,
             selected: Boolean(highlightTypes?.size && highlightTypes.has(name)),
-            present: name === FOLDER_NODE_TYPE || drawn.has(name) || drawn.has(color),
           };
         })
         // Types alphabetically, then untyped notes, code, and folders.
@@ -464,8 +457,6 @@ export function GraphView({
             const entries = typeEntries.filter((entry) => legendGroup(entry.name) === group.key);
 
             if (entries.length === 0) return null;
-            const shown = entries.filter((entry) => entry.present || entry.selected);
-            const rest = entries.filter((entry) => !entry.present && !entry.selected);
 
             const item = (entry: GraphTypeEntry) => (
               <li
@@ -475,11 +466,7 @@ export function GraphView({
               >
                 <span
                   className="graph-type-legend__swatch"
-                  style={
-                    group.key === "folder"
-                      ? { borderColor: entry.color }
-                      : { backgroundColor: entry.color }
-                  }
+                  style={group.key === "folder" ? undefined : { backgroundColor: entry.color }}
                   aria-hidden="true"
                 />
                 <span className="graph-type-legend__label">{entry.label}</span>
@@ -493,19 +480,15 @@ export function GraphView({
               <section key={group.key} className="graph-type-legend__group" data-group={group.key}>
                 <h3 className="graph-type-legend__title">{group.title}</h3>
                 <ul className="graph-type-legend__list">
-                  {shown.map(item)}
-                  {rest.length > 0 && (
-                    <li className="graph-type-legend__more">
-                      <details>
-                        <summary>
-                          All types <span className="num">+{rest.length}</span>
-                        </summary>
-                        <ul className="graph-type-legend__list">{rest.map(item)}</ul>
-                      </details>
-                    </li>
-                  )}
+                  {entries.map(item)}
                   {group.key === "folder" && folderCaption && (
                     <li className="graph-type-legend__note">{folderCaption}</li>
+                  )}
+                  {group.key === "folder" && edgeCaption && (
+                    <li className="graph-type-legend__item graph-type-legend__links">
+                      <span className="graph-type-legend__line" aria-hidden="true" />
+                      <span className="graph-type-legend__label">{edgeCaption}</span>
+                    </li>
                   )}
                 </ul>
               </section>

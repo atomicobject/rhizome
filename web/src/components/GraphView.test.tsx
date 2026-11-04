@@ -226,10 +226,10 @@ describe("GraphView", () => {
     },
   );
 
-  it("lists the types a summarized view draws and keeps the rest behind All types", () => {
+  it("lists every type in a summarized view, by its human label", () => {
     const restoreWebGL = installFakeWebGL();
 
-    const notes: GraphNode[] = ["Spec", "Task", "Plan"].map((type) => ({
+    const notes: GraphNode[] = ["Spec", "Task", "ProcessPlan"].map((type) => ({
       id: type,
       label: type,
       kind: "note",
@@ -249,7 +249,7 @@ describe("GraphView", () => {
           new Map([
             ["Spec", "#6366f1"],
             ["Task", "#22c55e"],
-            ["Plan", "#f97316"],
+            ["ProcessPlan", "#f97316"],
           ])
         }
         showTypeLegend
@@ -258,12 +258,14 @@ describe("GraphView", () => {
 
     try {
       const legend = screen.getByRole("complementary", { name: "Graph type legend" });
-      const more = legend.querySelector(".graph-type-legend__more");
 
-      expect(legend.querySelector('[data-type="Spec"]')?.closest("details")).toBeNull();
-      expect(more).toHaveTextContent("All types +2");
-      expect(more?.querySelector('[data-type="Task"]')).not.toBeNull();
-      expect(more?.querySelector('[data-type="Plan"]')).not.toBeNull();
+      // Types inside the folders are listed even when no drawn node shows their color.
+      expect(legend.querySelector("details")).toBeNull();
+
+      for (const type of ["Spec", "Task", "ProcessPlan"])
+        expect(legend.querySelector(`[data-type="${type}"]`)).not.toBeNull();
+
+      expect(legend.querySelector('[data-type="ProcessPlan"]')).toHaveTextContent("Process plan");
     } finally {
       view.unmount();
       restoreWebGL();

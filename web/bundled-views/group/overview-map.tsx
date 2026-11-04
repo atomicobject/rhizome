@@ -25,8 +25,15 @@ export const OUTSIDE_RING = 7;
 /** The layout width before the canvas is measured, and where it cannot be measured. */
 const WIDTH = 760;
 
-/** The map's height, small enough that the Members table starts above the fold. */
-const HEIGHT = 280;
+/** The map's height: with its title and legend the block stays within about 320px. */
+const HEIGHT = 216;
+
+/** A count's halo: 2px of surface around its digits, wide enough to cover the stroke under it. */
+const COUNT_PAD = 2;
+
+const COUNT_DIGIT = 7;
+
+const COUNT_HEIGHT = 12;
 
 /** The canvas's width in CSS pixels, so the map fills its column and labels draw at their real size. */
 function useCanvasWidth() {
@@ -476,18 +483,29 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
             {links.edges.map((edge) => {
               const spot = countAt(edge);
 
+              const text = fmt(edge.links);
+              const w = text.length * COUNT_DIGIT + 2 * COUNT_PAD;
+
               return (
                 spot && (
-                  <text
-                    key={edge.key}
-                    className="gv-map-count"
-                    data-kind={edge.relation ? "relation" : "plain"}
-                    data-hot={on(edge.key)}
-                    x={spot.x}
-                    y={spot.y}
-                  >
-                    {fmt(edge.links)}
-                  </text>
+                  <g key={edge.key} data-hot={on(edge.key)} className="gv-map-count-wrap">
+                    <rect
+                      className="gv-map-count-halo"
+                      x={spot.x - w / 2}
+                      y={spot.y - COUNT_HEIGHT + 1 - COUNT_PAD}
+                      width={w}
+                      height={COUNT_HEIGHT + 2 * COUNT_PAD}
+                      rx={3}
+                    />
+                    <text
+                      className="gv-map-count"
+                      data-kind={edge.relation ? "relation" : "plain"}
+                      x={spot.x}
+                      y={spot.y}
+                    >
+                      {text}
+                    </text>
+                  </g>
                 )
               );
             })}
@@ -555,6 +573,9 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
       <MapLegend
         model={model}
         links={links}
+        drawn={ordered}
+        summaries={summaries}
+        color={color}
         loose={loose}
         unused={drawnUnused.length > 0}
         expanded={expanded}
@@ -568,6 +589,9 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 function MapLegend({
   model,
   links,
+  drawn,
+  summaries,
+  color,
   loose,
   unused,
   expanded,
@@ -576,6 +600,10 @@ function MapLegend({
 }: {
   model: ScopeModel;
   links: LinkModel;
+  /** The members drawn on the map; the legend keys only what they show. */
+  drawn: readonly ScopeNode[];
+  summaries: ReadonlyMap<string, TypeSummary>;
+  color: TypeColor;
   loose: readonly ScopeNode[];
   unused: boolean;
   expanded: ReadonlySet<string>;
@@ -583,17 +611,32 @@ function MapLegend({
   onOpen: (node: ScopeNode) => void;
 }) {
   const shown = Math.min(OUTSIDE_RING, links.outside.length);
+  // An interface's ring names its segments; a collapsed group's ring stays one key.
+  const rings = drawn.filter((node) => node.kind === "interface");
+  const label = (name: string) => summaries.get(name)?.label ?? name;
 
   return (
     <>
       <p className="gv-legend">
-        {model.nodes.some((node) => node.kind === "group" || node.kind === "interface") && (
+        {drawn.some((node) => node.kind === "group") && (
           <span>
             <i className="gv-legend-composite" />
-            ring shows its types
+            ring shows the group's types
           </span>
         )}
-        {model.nodes.some((node) => node.kind === "untyped") && (
+        {rings.map((node) => (
+          <span key={node.id} className="gv-legend-ring">
+            <i className="gv-legend-composite" />
+            {node.label} ring:
+            {compositionArcs(node, summaries, color).map((arc) => (
+              <span key={arc.name}>
+                <i style={{ background: arc.color }} />
+                {label(arc.name)}
+              </span>
+            ))}
+          </span>
+        ))}
+        {drawn.some((node) => node.kind === "untyped") && (
           <span>
             <i className="gv-legend-untyped" />
             untyped
@@ -611,14 +654,18 @@ function MapLegend({
               ]
             : [],
         )}
-        <span>
-          <s data-kind="relation" />
-          mostly relation links
-        </span>
-        <span>
-          <s data-kind="plain" />
-          mostly plain links
-        </span>
+        {links.edges.some((edge) => edge.relation) && (
+          <span>
+            <s data-kind="relation" />
+            mostly relation links
+          </span>
+        )}
+        {links.edges.some((edge) => !edge.relation) && (
+          <span>
+            <s data-kind="plain" />
+            mostly plain links
+          </span>
+        )}
         {unused && (
           <span>
             <s data-kind="unused" />
