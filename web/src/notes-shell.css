@@ -120,6 +120,12 @@
   border-bottom: 0;
 }
 
+/* With the right pane open, the floating controls sit left of it so they
+   never cover the pane's own header and close button. */
+.notes-shell__frame--solo.has-pane:not(:has(.notes-right-rail.is-overlay)) .notes-shell__tabs-row {
+  right: calc(min(var(--pane-width), 100%) + var(--sp-4));
+}
+
 .notes-shell__frame--solo .notes-shell__session {
   padding: 0 0 0 var(--sp-3);
 }

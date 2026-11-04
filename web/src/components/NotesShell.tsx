@@ -829,7 +829,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       </WorkbenchSidebar>
       <div
         ref={setFrame}
-        className={`workbench__panel notes-shell__frame${soloHome ? " notes-shell__frame--solo" : ""}`}
+        className={`workbench__panel notes-shell__frame${soloHome ? " notes-shell__frame--solo" : ""}${soloHome && paneOpen ? " has-pane" : ""}`}
       >
         <div ref={setTabsRow} className="notes-shell__tabs-row">
           <NoteTabStrip
