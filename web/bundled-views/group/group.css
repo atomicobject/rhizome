@@ -1251,12 +1251,14 @@
   height: 100%;
 }
 
+/* Every label, counts included, sits on an opaque surface-colored halo. */
 .gv-map text {
   fill: var(--text);
-  font: var(--fs-xs) var(--font-sans);
+  font: var(--fs-sm) var(--font-sans);
   paint-order: stroke;
   stroke: var(--surface);
-  stroke-width: 4px;
+  stroke-width: 6px;
+  stroke-opacity: 1;
   stroke-linejoin: round;
 }
 
@@ -1266,7 +1268,8 @@
 
 .gv-map .gv-map-n {
   fill: var(--text-muted);
-  font: var(--fs-xs) var(--font-mono);
+  font: var(--fs-sm) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .gv-map text[data-group="true"] {
@@ -1308,7 +1311,8 @@
 
 .gv-map .gv-map-count {
   fill: var(--link);
-  font: var(--fs-xs) var(--font-mono);
+  font: 600 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   text-anchor: middle;
 }
 
