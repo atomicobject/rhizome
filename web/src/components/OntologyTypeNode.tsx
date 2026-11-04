@@ -17,6 +17,12 @@ import { buildOntologyPath } from "./ontologyRoute";
 
 type Props = NodeProps & { data: OntologyNodeData };
 
+/**
+ * Semantic zoom: below this zoom a card's 12px field text would render under
+ * 12px, so the card shows only its name and count, scaled to stay legible.
+ */
+const OVERVIEW_BELOW = 1;
+
 /** The accent is consumed by the stylesheet via `var(--type-accent)`. */
 type AccentStyle = React.CSSProperties & { [key: `--${string}`]: string };
 
@@ -55,7 +61,7 @@ export function OntologyTypeNode({ data }: Props) {
 
   return (
     <div
-      className={`ontology-node${data.role !== "note" ? " ontology-node--interface" : ""}${zoom < 0.65 ? " ontology-node--overview" : ""}`}
+      className={`ontology-node${data.role !== "note" ? " ontology-node--interface" : ""}${zoom < OVERVIEW_BELOW ? " ontology-node--overview" : ""}`}
       style={accentStyle}
     >
       <Handle

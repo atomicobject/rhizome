@@ -2679,17 +2679,6 @@
   display: flex;
   flex-direction: column;
 }
-.ontology-atlas h1 {
-  margin: 0;
-  font-size: var(--fs-xl);
-  font-weight: 700;
-}
-
-.ontology-atlas h2 {
-  margin: 0 0 var(--sp-3);
-  font-size: var(--fs-xl);
-}
-
 .ontology-atlas__zero,
 .ontology-atlas__error,
 .ontology-atlas__loading {
@@ -2703,35 +2692,6 @@
   color: var(--accent-ink);
 }
 
-.ontology-atlas__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-5);
-  padding: var(--sp-4) var(--sp-5);
-  border-bottom: 1px solid var(--border);
-}
-.ontology-atlas__stats {
-  display: flex;
-  gap: var(--sp-6);
-  margin: 0;
-}
-.ontology-atlas__stats > div {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-.ontology-atlas__stats dt {
-  font: var(--label-font);
-  color: var(--label-color);
-}
-.ontology-atlas__stats dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
 .ontology-atlas__diagram-scroll {
   flex: 1;
   min-height: 0;
@@ -2742,86 +2702,6 @@
   display: flex;
   height: 100%;
   min-height: 0;
-}
-.atlas-index {
-  width: 208px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-}
-.atlas-index__search {
-  padding: var(--sp-4);
-}
-.atlas-index__search input {
-  width: 100%;
-  min-width: 0;
-  height: 26px;
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-}
-.atlas-index button {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text);
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  min-height: 28px;
-  padding: var(--sp-1) var(--sp-4);
-  text-align: left;
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.atlas-index button:hover {
-  background: var(--bg-tint);
-}
-.atlas-index button:focus-visible {
-  outline-offset: -2px;
-}
-.atlas-index button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  box-shadow: inset 2px 0 var(--accent);
-}
-.atlas-index button.atlas-index__all {
-  font-weight: 600;
-}
-.atlas-index__list {
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
-}
-.atlas-index__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.atlas-index__count {
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-}
-.atlas-index__hint,
-.atlas-index__empty {
-  padding: var(--sp-4);
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  line-height: 1.5;
-}
-.atlas-index__hint {
-  border-top: 1px solid var(--border);
 }
 .atlas-canvas {
   flex: 1;
@@ -2844,14 +2724,121 @@
   bottom: var(--sp-4);
   right: var(--sp-4);
   display: flex;
+  align-items: center;
   gap: var(--sp-5);
   padding: var(--sp-2) var(--sp-4);
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   pointer-events: none;
+}
+.atlas-legend s {
+  display: inline-block;
+  width: 18px;
+  margin-right: 4px;
+  border-top: 1.5px solid var(--text-muted);
+  vertical-align: 0.3em;
+}
+.atlas-legend s[data-kind="inherit"] {
+  border-top-style: dashed;
+}
+.atlas-legend__hint {
+  color: var(--text-faint);
+}
+
+/* The type finder floats over the canvas's top-left corner. */
+.atlas-find {
+  position: absolute;
+  top: var(--sp-4);
+  left: var(--sp-4);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  width: 240px;
+}
+.atlas-find input {
+  width: 100%;
+  min-width: 0;
+}
+.atlas-find__list,
+.atlas-find__focus {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.atlas-find__list {
+  max-height: 320px;
+  overflow: auto;
+}
+.atlas-find__list button,
+.atlas-find__focus button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+}
+.atlas-find__list button:hover,
+.atlas-find__list button:focus-visible {
+  background: var(--bg-tint);
+}
+.atlas-find__list button[aria-pressed="true"] {
+  background: var(--selection);
+  box-shadow: inset 2px 0 var(--selection-edge);
+}
+.atlas-find__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.atlas-find__count {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.atlas-find__empty {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.atlas-find__focus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0 0 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.atlas-find__focus strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.atlas-find__focus button {
+  width: auto;
+  color: var(--link);
+  font-size: var(--fs-sm);
+}
+
+/* Edges keep a 1.5px screen stroke at every zoom, so they hold 3:1 at fit scale. */
+.atlas-canvas .react-flow__edge-path {
+  vector-effect: non-scaling-stroke;
 }
 /* React Flow reads these for its canvas, dots, and zoom controls. */
 .atlas-canvas .react-flow {
@@ -2869,18 +2856,8 @@
   border: 1px solid var(--border);
 }
 @media (max-width: 760px) {
-  .ontology-atlas__header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .atlas-index {
-    width: 164px;
-  }
   .atlas-legend {
     display: none;
-  }
-  .ontology-atlas__stats {
-    gap: 12px;
   }
 }
 
@@ -4054,7 +4031,11 @@
   padding: var(--sp-3) var(--sp-4);
 }
 
-.ontology-node--overview .ontology-node__description {
+/* Semantic zoom: under zoom 1 a card shows its name and count at a legible
+   scaled size; fields stay laid out (their rows anchor the edges) but hidden. */
+.ontology-node--overview .ontology-node__description,
+.ontology-node--overview .ontology-node__stats,
+.ontology-node--overview .ontology-node__impl {
   display: none;
 }
 .ontology-node--overview .ontology-node__title-row {
@@ -4064,9 +4045,19 @@
 .ontology-node--overview .ontology-node__name {
   flex-basis: 100%;
 }
-
-.ontology-node--overview .ontology-node__stats {
-  display: none;
+.ontology-node--overview .ontology-node__count,
+.ontology-node--overview .ontology-node__badge {
+  font-size: var(--atlas-label-size);
+}
+.ontology-node--overview .ontology-node__badge {
+  border: 0;
+  padding: 0;
+}
+.ontology-node--overview .ontology-node__fields {
+  visibility: hidden;
+}
+.ontology-node--overview .ontology-node__header {
+  border-bottom: 0;
 }
 .atlas-node--focused .ontology-node {
   border-color: var(--text);
