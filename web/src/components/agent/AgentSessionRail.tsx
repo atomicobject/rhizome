@@ -39,7 +39,7 @@ export function AgentSessionRail({
     <aside className="agent-workspace__rail" aria-label="Agent sessions and settings">
       <div className="agent-workspace__rail-head">
         <h1>Agent</h1>
-        <button type="button" onClick={onNew}>
+        <button type="button" className="button" onClick={onNew}>
           New
         </button>
       </div>

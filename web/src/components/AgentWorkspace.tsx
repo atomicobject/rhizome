@@ -26,7 +26,7 @@ import type {
   AgentSettingsResponse,
 } from "../api/types";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
-import { AgentStatusHeader } from "./agent/AgentStatusHeader";
+import { AgentAvailability, AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
 import { AgentTimeline } from "./agent/AgentTimeline";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
 
@@ -386,6 +386,10 @@ export function AgentWorkspace({
   const status = settingsResponse.harnesses.find((item) => item.kind === harness)?.status;
   const busy = isSending || Boolean(selectedSession?.turnRunning);
 
+  // Until settings load, the harness is unknown rather than missing.
+  const blocked =
+    !selectedSession?.readOnly && settingsQuery.isSuccess && harnessBlocked(harness, status);
+
   const disabledReason = selectedSession?.readOnly
     ? "This pre-harness session is read-only."
     : busy
@@ -437,6 +441,7 @@ export function AgentWorkspace({
         ) : null}
         <div className="agent-thread__body" ref={threadRef}>
           <AgentTimeline
+            available={!blocked}
             messages={messages}
             events={events}
             onApproval={async (requestID, decision: AgentApprovalDecision) => {
@@ -475,7 +480,7 @@ export function AgentWorkspace({
             submitText(draft);
           }}
         >
-          <div>
+          <div className="agent-composer__frame">
             <textarea
               value={draft}
               aria-label="Message"
@@ -490,14 +495,25 @@ export function AgentWorkspace({
                 }
               }}
             />
-            {disabledReason ? <p className="agent-muted">{disabledReason}</p> : null}
+            <div className="agent-composer__bar">
+              {disabledReason ? (
+                <p className="agent-muted">{disabledReason}</p>
+              ) : blocked ? (
+                <AgentAvailability harness={harness} status={status} />
+              ) : (
+                <p className="agent-muted">
+                  <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends
+                </p>
+              )}
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={busy || blocked || !draft.trim() || Boolean(selectedSession?.readOnly)}
+              >
+                Send
+              </button>
+            </div>
           </div>
-          <button
-            type="submit"
-            disabled={busy || !draft.trim() || Boolean(selectedSession?.readOnly)}
-          >
-            Send
-          </button>
         </form>
       </section>
     </main>

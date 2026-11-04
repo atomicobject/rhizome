@@ -15,6 +15,14 @@ const harnessName = (kind?: AgentHarnessKind) =>
 const installHint = (kind?: AgentHarnessKind) =>
   kind === "claude" ? "Install Claude Code to use chat." : "Install the Codex CLI to use chat.";
 
+/** True when no turn can be sent until the user installs or logs in to a harness. */
+export function harnessBlocked(
+  harness: AgentHarnessKind | undefined,
+  status: AgentHarnessStatus | undefined,
+) {
+  return !harness || (status !== undefined && (!status.installed || !status.loggedIn));
+}
+
 export function AgentStatusHeader({
   session,
   harness,
@@ -22,14 +30,6 @@ export function AgentStatusHeader({
   resolutionReason,
   messageCount,
 }: Props) {
-  const [copied, setCopied] = useState(false);
-
-  const copyLoginHint = async () => {
-    if (!status?.loginHint) return;
-    await navigator.clipboard?.writeText(status.loginHint);
-    setCopied(true);
-  };
-
   let state = "Checking harness status…";
 
   if (session?.readOnly) {
@@ -52,31 +52,74 @@ export function AgentStatusHeader({
   }
 
   return (
-    <header className="agent-thread__head">
-      <div className="agent-thread__title">
-        <div>
-          <h2>{session?.title || "Rhizome agent"}</h2>
-          <p>
-            <strong>{harnessName(session?.harness || harness)}</strong> · {state}
-          </p>
-          {!session?.readOnly && status && !status.installed && status.lastError ? (
-            <p className="agent-muted">{status.lastError}</p>
-          ) : null}
-          {!session?.readOnly &&
-          status?.installed &&
-          !status.loggedIn &&
-          !status.lastError &&
-          status.loginHint ? (
-            <p>
-              <code>{status.loginHint}</code>{" "}
-              <button type="button" onClick={copyLoginHint}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </p>
-          ) : null}
-        </div>
+    <header className="view-header agent-thread__head">
+      <div className="view-header__title-row">
+        <h2>{session?.title || "Rhizome agent"}</h2>
+        {session ? (
+          <span className="view-header__count">
+            {messageCount} {messageCount === 1 ? "message" : "messages"}
+          </span>
+        ) : null}
+        <span className="view-header__about">
+          <strong>{harnessName(session?.harness || harness)}</strong> · {state}
+        </span>
       </div>
-      <span className="agent-pill">{messageCount} messages</span>
     </header>
   );
+}
+
+/**
+ * Why chat is unavailable and what to do next, beside the composer. Renders
+ * nothing while the harness is ready or its status is still loading.
+ */
+export function AgentAvailability({
+  harness,
+  status,
+}: {
+  harness: AgentHarnessKind | undefined;
+  status: AgentHarnessStatus | undefined;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  if (!harness)
+    return (
+      <span className="agent-availability">
+        No coding harness is available. Install Claude Code or the Codex CLI, then reload.
+      </span>
+    );
+
+  if (!status) return null;
+
+  if (!status.installed)
+    return (
+      <span className="agent-availability">
+        {installHint(harness)}
+        {status.lastError ? <span className="agent-muted"> {status.lastError}</span> : null}
+      </span>
+    );
+
+  if (!status.loggedIn && !status.lastError && status.loginHint) {
+    const hint = status.loginHint;
+
+    return (
+      <span className="agent-availability">
+        Log in to {harnessName(harness)}: <code>{hint}</code>{" "}
+        <button
+          type="button"
+          className="button button--ghost"
+          onClick={async () => {
+            await navigator.clipboard?.writeText(hint);
+            setCopied(true);
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </span>
+    );
+  }
+
+  if (!status.loggedIn)
+    return <span className="agent-availability">Log in to {harnessName(harness)} to chat.</span>;
+
+  return null;
 }

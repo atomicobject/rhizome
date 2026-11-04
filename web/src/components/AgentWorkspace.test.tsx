@@ -244,7 +244,10 @@ describe("AgentWorkspace", () => {
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
-    expect(await screen.findByText(/Install Claude Code to use chat/)).toBeVisible();
+    // The header names the state, and the note beside Send repeats the next step.
+    const hints = await screen.findAllByText(/Install Claude Code to use chat/);
+    expect(hints).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {
@@ -408,9 +411,11 @@ describe("AgentWorkspace", () => {
 
     // Switching models never invents an effort: the vendor default stays selected
     // until the user picks one, and only that model's efforts are offered.
-    await waitFor(() => expect(screen.getByLabelText("Effort")).toHaveValue(""));
-    expect(within(screen.getByLabelText("Effort")).getAllByRole("option")).toHaveLength(2);
-    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "low" } });
+    await waitFor(() => expect(screen.getByLabelText("Reasoning effort")).toHaveValue(""));
+    expect(within(screen.getByLabelText("Reasoning effort")).getAllByRole("option")).toHaveLength(
+      2,
+    );
+    fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "low" } });
     await waitFor(() => {
       // SAFETY: this is the request produced by the typed settings client above.
       const body = JSON.parse(String(http.requests("PUT", "/api/agent/settings").at(-1)?.body)) as {

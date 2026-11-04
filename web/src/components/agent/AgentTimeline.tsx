@@ -290,10 +290,13 @@ function EventItem({
 }
 
 export function AgentTimeline({
+  available = true,
   messages,
   events,
   onApproval,
 }: {
+  /** False while no harness can take a turn, so the empty state does not invite one. */
+  available?: boolean;
   messages: AgentMessage[];
   events: AgentEvent[];
   onApproval: (requestID: string, decision: AgentApprovalDecision) => Promise<void>;
@@ -326,8 +329,10 @@ export function AgentTimeline({
     return (
       <div className="agent-empty" role="status">
         <p>
-          <b>No messages yet.</b> Ask about this vault below; Rhizome sends each turn through the
-          selected harness. <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends.
+          <b>No messages yet.</b>{" "}
+          {available
+            ? "Ask about this vault below; Rhizome sends each turn through the selected harness."
+            : "Chat needs a coding harness; the note beside Send says how to set one up."}
         </p>
       </div>
     );

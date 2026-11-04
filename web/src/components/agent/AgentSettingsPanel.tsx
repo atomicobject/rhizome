@@ -1,4 +1,5 @@
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSettings } from "../../api/types";
+import { humanizeName } from "../../lib/labels";
 
 type StatusEntry = { kind: AgentHarnessKind; status: AgentHarnessStatus };
 
@@ -40,6 +41,8 @@ export function AgentSettingsPanel({
   const model = models.find((option) => option.id === selectedModel);
   const efforts = model?.efforts ?? [];
   const permissionModes = status?.capabilities.permissionModes ?? [];
+  // A harness that reports no modes still shows the configured one, not an empty box.
+  const modeOptions = permissionModes.length ? permissionModes : [configured.permissionMode];
 
   const updateHarnessSettings = (
     kind: AgentHarnessKind,
@@ -77,7 +80,7 @@ export function AgentSettingsPanel({
             ))}
           </select>
         </label>
-        <label className="agent-model-controls__model">
+        <label>
           Model
           <select
             aria-label="Model"
@@ -92,7 +95,7 @@ export function AgentSettingsPanel({
               });
             }}
           >
-            {models.length === 0 ? <option value="">No models reported</option> : null}
+            {models.length === 0 ? <option value="">None reported</option> : null}
             {models.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName || option.id}
@@ -102,9 +105,9 @@ export function AgentSettingsPanel({
           </select>
         </label>
         <label>
-          Effort
+          Reasoning effort
           <select
-            aria-label="Effort"
+            aria-label="Reasoning effort"
             value={efforts.includes(configured.effort || "") ? configured.effort : ""}
             disabled={saving || efforts.length === 0}
             onChange={(event) => updateHarnessSettings(harness, { effort: event.target.value })}
@@ -112,12 +115,12 @@ export function AgentSettingsPanel({
             <option value="">Default</option>
             {efforts.map((effort) => (
               <option key={effort} value={effort}>
-                {effort}
+                {humanizeName(effort)}
               </option>
             ))}
           </select>
         </label>
-        <label className="agent-model-controls__wide">
+        <label>
           Permission mode
           <select
             aria-label="Permission mode"
@@ -131,9 +134,9 @@ export function AgentSettingsPanel({
               })
             }
           >
-            {permissionModes.map((mode) => (
+            {modeOptions.map((mode) => (
               <option key={mode} value={mode}>
-                {mode}
+                {humanizeName(mode)}
               </option>
             ))}
           </select>
