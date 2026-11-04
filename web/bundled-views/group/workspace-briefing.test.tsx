@@ -1,11 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 
-import {
-  OPEN_COLLECTION_MESSAGE,
-  OPEN_ISSUES_MESSAGE,
-  OPEN_NODE_MESSAGE,
-} from "../../src/lib/customViewMessages";
+import { OPEN_ISSUES_MESSAGE, OPEN_NODE_MESSAGE } from "../../src/lib/customViewMessages";
 import { jsonReply, type FakeFetchRequest } from "../../src/test/fakeFetch";
 import { AGGREGATE, AGGREGATE_PARTS, VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { NOW, TYPE_DOCS } from "./__fixtures__/groups.ts";
@@ -13,6 +9,7 @@ import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 import type { JsonObject } from "./api.ts";
 import {
   MOTION_PER_TYPE,
+  MOTION_READ,
   activeRecordsQuery,
   motionTypes,
   parseIssueGroups,
@@ -129,7 +126,7 @@ it("decodes issue groups by variant and recent notes, untyped included", () => {
   ]);
 });
 
-it("reads only active-stage records, capped per type", () => {
+it("reads only active-stage records, up to a cap per type", () => {
   const types = motionTypes(AGGREGATE.members!, TYPE_DOCS);
 
   expect(types.map((entry) => [entry.type, entry.field, entry.active])).toEqual([
@@ -140,7 +137,7 @@ it("reads only active-stage records, capped per type", () => {
 
   const query = activeRecordsQuery(types);
   expect(query).toContain(
-    `Story: story(first: ${MOTION_PER_TYPE + 1}, filters: [{ field: "stage", op: in, values: ["doing","blocked"] }]`,
+    `Story: story(first: ${MOTION_READ}, filters: [{ field: "stage", op: in, values: ["doing","blocked"] }]`,
   );
   expect(query).toContain("path title updatedAt issueCount releaseStatus");
   expect(activeRecordsQuery([])).toBe("");
@@ -162,24 +159,26 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
 
   const motion = region("In motion");
   expect([...motion.querySelectorAll("h3")].map((heading) => heading.textContent)).toEqual([
-    "Stories 10 shown",
-    "Releases 1",
+    `Stories · Doing ${MOTION_PER_TYPE + 1}`,
+    "Releases · Shipping 1",
   ]);
+  // One shared status sits in the heading, so its rows carry no marks.
+  expect(motion.querySelector(".gv-mark")).toBeNull();
   expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
+  fireEvent.click(within(motion).getByRole("button", { name: "Show 1 more" }));
+  expect(await within(motion).findByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeVisible();
 
   const recent = region("Recent changes");
   // A title line, then the type and folder.
   expect(
     [...recent.querySelectorAll("li")].map((entry) => entry.querySelector("span")?.textContent),
-  ).toEqual(["Loose thoughtuntyped · inbox/", "Checkout redesignStory · work/", "Topuntyped"]);
+  ).toEqual(["Loose thoughtUntyped · inbox/", "Checkout redesignStory · work/", "TopUntyped"]);
 
   fireEvent.click(within(attention).getAllByRole("button", { name: "Open issues" })[0]);
-  fireEvent.click(within(motion).getByRole("button", { name: "View active stories" }));
   fireEvent.click(within(recent).getByRole("button", { name: "Loose thought" }));
 
   expect(posted.filter((message) => message.type.startsWith("rhizome:open-"))).toEqual([
     { type: OPEN_ISSUES_MESSAGE },
-    { type: OPEN_COLLECTION_MESSAGE, name: "Story" },
     { type: OPEN_NODE_MESSAGE, ref: { notePath: "inbox/loose-thought.md", kind: "NOTE" } },
   ]);
 });

@@ -71,7 +71,7 @@ function relationFields(matrix: TraceMatrix, column: MatrixColumn) {
   return [...new Set(links.map((link) => fieldLabel(link.field)))];
 }
 
-/** What the marks in a linked column mean, under its heading. */
+/** What the marks in a linked column mean, behind the heading's Key disclosure. */
 function ColumnLegend({ member }: { member: Member }) {
   return (
     <div className="gv-col-legend" aria-label={`${member.pluralLabel} status marks`}>
@@ -132,13 +132,24 @@ function ColumnHead({
           <b className={thin ? "gv-thin" : undefined}>{column.covered}</b>/{matrix.rowCount} rows
         </span>
       </div>
-      <div
-        className="gv-cov"
-        title={column.kind === "member" ? RELATION[column.relation] : undefined}
-      >
-        {where}
+      {/* Two lines: the name and coverage, then the relation, with the status
+          key behind a disclosure so the band stays about 64px. */}
+      <div className="gv-cov-row">
+        <div
+          className="gv-cov"
+          title={column.kind === "member" ? `${where}: ${RELATION[column.relation]}` : where}
+        >
+          {where}
+        </div>
+        {column.kind === "member" && (
+          <details className="gv-hint gv-col-key">
+            <summary>Key</summary>
+            <div className="gv-hint-panel">
+              <ColumnLegend member={column.member} />
+            </div>
+          </details>
+        )}
       </div>
-      {column.kind === "member" && <ColumnLegend member={column.member} />}
     </th>
   );
 }

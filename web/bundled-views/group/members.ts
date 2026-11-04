@@ -57,8 +57,10 @@ export type NodeRow = {
   /** Null when the member has no lifecycle; undefined for rows that show none. */
   lifecycle?: LifecycleSummary | null;
   gaps: readonly GapCell[];
-  /** A group row's expansion. */
+  /** A group row's or an interface row's expansion. */
   expanded?: boolean;
+  /** The remembered key an interface row's chevron toggles; groups toggle by name. */
+  toggle?: string;
 };
 
 export type RowInput = {
@@ -257,12 +259,27 @@ function implementorRows(model: ScopeModel, node: ScopeNode, input: RowInput, de
     .map((type) => row(model, type, input, "implementor", depth));
 }
 
-const memberWithImplementors = (
+/** The remembered expansion key of an interface row; interfaces start collapsed. */
+export const interfaceKey = (node: ScopeNode) => `interface:${node.name}`;
+
+/** A member, then its implementing types while an interface row is open. */
+function memberWithImplementors(
   model: ScopeModel,
   node: ScopeNode,
   input: RowInput,
   depth: number,
-) => [row(model, node, input, "member", depth), ...implementorRows(model, node, input, depth + 1)];
+) {
+  const base = row(model, node, input, "member", depth);
+
+  if (node.kind !== "interface" || node.types.length === 0) return [base];
+  const toggle = interfaceKey(node);
+  const expanded = input.expanded.has(toggle);
+
+  return [
+    { ...base, expanded, toggle },
+    ...(expanded ? implementorRows(model, node, input, depth + 1) : []),
+  ];
+}
 
 /**
  * The member table's rows. On a group: each member, most records first, an

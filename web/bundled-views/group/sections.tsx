@@ -24,13 +24,15 @@ import {
   type SectionColumn,
   type TreeNode,
 } from "./graph.ts";
-import { lower } from "./briefing-parts.tsx";
+import { MoreToggle, lower } from "./briefing-parts.tsx";
 import { useGroupModel } from "./load.ts";
+import { useRememberedOpen } from "./remembered.ts";
 import {
   fieldLabel,
   fieldValue,
   firstSentence,
   isEmptyValue,
+  lifecycleValue,
   linkTargets,
   memberLabel,
   valueText,
@@ -49,7 +51,7 @@ function oneTypeDominates(member: Member) {
   return Math.max(0, ...counts.values()) > member.records.length * 0.9;
 }
 
-/** Rows shown per member before "Show all". */
+/** Rows shown per member before "Show N more". */
 export const SECTION_ROWS = 8;
 
 function columnLabel(member: Member, column: SectionColumn) {
@@ -104,14 +106,17 @@ function Row({
   member,
   node,
   columns,
+  marked,
 }: {
   model: GroupModel;
   member: Member;
   node: TreeNode;
   columns: readonly SectionColumn[];
+  /** False when the section's rows share one status, which the heading already counts. */
+  marked: boolean;
 }) {
   const { record, depth, parent } = node;
-  const lifecycleShown = columns.some((column) => column.kind === "lifecycle");
+  const lifecycleShown = !marked || columns.some((column) => column.kind === "lifecycle");
 
   return (
     <tr data-record-key={record.key} data-depth={depth || undefined}>
@@ -147,13 +152,24 @@ function Row({
 
 function Section({ model, member }: { model: GroupModel; member: Member }) {
   const rows = useMemo(() => sectionRows(member), [member]);
-  const shown = rows.slice(0, SECTION_ROWS);
+  const expanded = useRememberedOpen("sections.expanded");
+  const open = expanded.isOpen(member.name, false);
+  const shown = open ? rows : rows.slice(0, SECTION_ROWS);
+
+  // Rows that share one status omit it: the heading's counts already say it.
+  const oneStatus =
+    Boolean(member.lifecycle) &&
+    new Set(shown.map((node) => lifecycleValue(member, node.record))).size <= 1;
 
   // An interface's Type column says nothing when one type holds nearly every record.
   const columns = sectionColumns(
     member,
     shown.map((node) => node.record),
-  ).filter((column) => column.kind !== "type" || !oneTypeDominates(member));
+  ).filter(
+    (column) =>
+      (column.kind !== "type" || !oneTypeDominates(member)) &&
+      (column.kind !== "lifecycle" || !oneStatus),
+  );
 
   const label = memberLabel(model, member, { plural: true });
   const total = Math.max(member.count, rows.length);
@@ -198,20 +214,34 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
                 member={member}
                 node={node}
                 columns={columns}
+                marked={!oneStatus}
               />
             ))}
           </tbody>
         </table>
       )}
-      {total > shown.length && (
+      {rows.length > SECTION_ROWS && (
         <p className="gv-foot">
-          <button type="button" className="gv-link" onClick={() => openCollection(member.name)}>
-            Show all {total} {lower(label)}
-          </button>
+          <MoreToggle
+            hidden={rows.length - SECTION_ROWS}
+            open={open}
+            onToggle={() => expanded.setOpen(member.name, !open)}
+          />
           <span className="gv-faint">
             {" "}
             · {member.lifecycle ? "most advanced first, then newest" : "newest first"}
           </span>
+        </p>
+      )}
+      {open && total > rows.length && (
+        <p className="gv-foot">
+          <button
+            type="button"
+            className="gv-link gv-more"
+            onClick={() => openCollection(member.name)}
+          >
+            Open {lower(label)}
+          </button>
         </p>
       )}
     </section>

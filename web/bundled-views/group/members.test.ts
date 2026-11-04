@@ -50,12 +50,23 @@ function rowOf(list: readonly MemberRow[], label: string): NodeRow {
   return found;
 }
 
-it("lists a group's members most records first, an interface followed by its implementors", () => {
-  const planning = rows({ kind: "group", group: "Planning" });
+it("lists a group's members most records first, an interface folded until opened", () => {
+  const layout = (list: MemberRow[]) =>
+    list.map((row) => (isNode(row) ? [row.kind, row.node.label, row.depth] : row.kind));
 
-  expect(
-    planning.map((row) => (isNode(row) ? [row.kind, row.node.label, row.depth] : row.kind)),
-  ).toEqual([
+  const folded = rows({ kind: "group", group: "Planning" });
+
+  expect(layout(folded)).toEqual([
+    ["member", "Areas", 0],
+    ["member", "Work items", 0],
+    ["member", "Releases", 0],
+    ["member", "Checklists", 0],
+  ]);
+  expect(rowOf(folded, "Work items")).toMatchObject({ expanded: false, toggle: "interface:Work" });
+
+  const planning = rows({ kind: "group", group: "Planning" }, ["interface:Work"]);
+
+  expect(layout(planning)).toEqual([
     ["member", "Areas", 0],
     ["member", "Work items", 0],
     ["implementor", "Stories", 1],
@@ -147,7 +158,7 @@ it("lists named groups, then ungrouped types under a heading, then untyped notes
 });
 
 it("expands a named group's row into its members", () => {
-  const all = rows({ kind: "workspace" }, ["Planning"]);
+  const all = rows({ kind: "workspace" }, ["Planning", "interface:Work"]);
   const index = all.findIndex((row) => isNode(row) && row.node.label === "Planning");
 
   expect(rowOf(all, "Planning").expanded).toBe(true);
@@ -171,7 +182,7 @@ it("counts an expanded interface's links between its own implementors in linked 
     ]),
   };
 
-  const set = new Set(["Planning"]);
+  const set = new Set(["Planning", "interface:Work"]);
 
   const model = scopeModel({
     scope: { kind: "workspace" },
