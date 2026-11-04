@@ -302,14 +302,9 @@ describe("NotesShell restored edit sessions", () => {
     expect(noteTab).not.toHaveClass("notes-tab--preview");
     expect(http.count("POST", "/api/v1/edit-sessions")).toBe(0);
 
-    fireEvent.click(notePanel.getAllByRole("button", { name: "Staged done" })[0]);
-    await waitFor(() =>
-      expect(
-        notePanel
-          .getAllByRole("button", { name: "Staged done" })
-          .every((button) => button.getAttribute("aria-pressed") === "true"),
-      ).toBe(true),
-    );
+    const statusMenu = () => notePanel.getByRole("combobox", { name: "specStatus" });
+    fireEvent.change(statusMenu(), { target: { value: "staged-done" } });
+    await waitFor(() => expect(statusMenu()).toHaveValue("staged-done"));
     await waitFor(() =>
       expect(notePanel.getByRole("textbox", { name: "Narrative markdown" })).toHaveTextContent(
         "Staged body.",
@@ -378,14 +373,15 @@ describe("NotesShell restored edit sessions", () => {
     const notePanel = within(await screen.findByRole("tabpanel", { name: /Alpha/ }));
     await notePanel.findByText("Disk body.");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    fireEvent.click(notePanel.getAllByRole("button", { name: "Staged done" })[0]);
+    const statusMenu = () => notePanel.getByRole("combobox", { name: "specStatus" });
+    fireEvent.change(statusMenu(), { target: { value: "staged-done" } });
     await waitFor(() =>
       expect(notePanel.getByRole("textbox", { name: "Narrative markdown" })).toHaveTextContent(
         "Staged body.",
       ),
     );
 
-    fireEvent.click(notePanel.getAllByRole("button", { name: "Server ready" })[0]);
+    fireEvent.change(statusMenu(), { target: { value: "server-ready" } });
     await waitFor(() =>
       expect(notePanel.getByRole("textbox", { name: "Narrative markdown" })).toHaveTextContent(
         "Disk body.",

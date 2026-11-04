@@ -77,7 +77,7 @@ export function OntologyEditSessionPanel({
         ) : null}
         <button
           type="button"
-          className="ontology-edit-toggle"
+          className="button ontology-edit-toggle"
           onClick={onStartEditing}
           title="Start editing session (Ctrl/Command+Shift+E)"
         >
@@ -126,18 +126,20 @@ export function OntologyEditSessionPanel({
         </div>
       )}
       <div className="ontology-edit-bar__actions">
+        {/* Review appears once there is something staged to review. */}
+        {hasStagedChanges && (
+          <button
+            type="button"
+            className="button ontology-edit-bar__btn"
+            onClick={onReview}
+            title="Open the Modified home (Ctrl/Command+Shift+Enter)"
+          >
+            Review
+          </button>
+        )}
         <button
           type="button"
-          className="ontology-edit-bar__btn"
-          onClick={onReview}
-          disabled={!hasStagedChanges}
-          title="Open the Modified home (Ctrl/Command+Shift+Enter)"
-        >
-          Review
-        </button>
-        <button
-          type="button"
-          className="ontology-edit-bar__btn ontology-edit-bar__btn--save"
+          className="button button--primary ontology-edit-bar__btn ontology-edit-bar__btn--save"
           onMouseDown={(event) => event.preventDefault()}
           onClick={onCommit}
           disabled={!hasChanges || busy || conflicted}
@@ -151,7 +153,7 @@ export function OntologyEditSessionPanel({
         </button>
         <button
           type="button"
-          className="ontology-edit-bar__btn ontology-edit-bar__btn--discard"
+          className="button ontology-edit-bar__btn ontology-edit-bar__btn--discard"
           onMouseDown={(event) => event.preventDefault()}
           onClick={onDiscard}
           disabled={busy}

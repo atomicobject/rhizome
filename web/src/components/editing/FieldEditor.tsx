@@ -25,6 +25,8 @@ type Props = {
   vaultKey?: string | null;
   operationTarget?: string;
   expected?: OntologyEditExpected;
+  /** How an enum edits; the identity strip uses the compact menu. */
+  enumVariant?: "segmented" | "menu";
 };
 
 export function FieldEditor({
@@ -35,6 +37,7 @@ export function FieldEditor({
   vaultKey = null,
   operationTarget = fieldOperationTarget(node.notePath, node.ref.nodeId, node.field.name),
   expected,
+  enumVariant,
 }: Props) {
   const capability = node.field.capability ? effectiveFieldCapability(node) : null;
   const values = node.field.values || [];
@@ -250,6 +253,7 @@ export function FieldEditor({
             editing={editing}
             dirty={dirty}
             clearable={!capability.required}
+            variant={enumVariant}
             onStage={(next) => {
               const nextValue = fieldValueFromScalar(next);
               const nextExpected = captureExpected(nextValue, true);

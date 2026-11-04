@@ -64,4 +64,23 @@ describe("EnumPillWidget", () => {
     const badge = screen.getByText("legacy");
     expect(badge.className).toContain("widget-enum--unknown");
   });
+
+  it("edits through a menu chip that keeps the badge and stages a new value", () => {
+    const onStage = vi.fn();
+    render(
+      <EnumPillWidget
+        value="active"
+        options={OPTIONS}
+        editing
+        variant="menu"
+        ariaLabel="status"
+        onStage={onStage}
+      />,
+    );
+    const menu = screen.getByRole("combobox", { name: "status" });
+    expect(menu).toHaveValue("active");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    fireEvent.change(menu, { target: { value: "archived" } });
+    expect(onStage).toHaveBeenCalledWith("archived");
+  });
 });

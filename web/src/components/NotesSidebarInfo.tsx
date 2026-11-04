@@ -105,6 +105,8 @@ type RailRow = {
   direction: Direction;
   current?: boolean;
   openable: boolean;
+  /** Folder shown beside an untyped note, in place of a type. */
+  folder?: string;
 };
 
 type RailBucket = {
@@ -161,14 +163,18 @@ function relationBuckets(items: NoteWorkspaceLink[], typeLabel: TypeLabelFn): Ra
   });
 }
 
+// The folder that holds a note, shown beside an untyped link ("pkg/app/").
 function folderOf(target: string): string {
-  const slash = target.indexOf("/");
+  const path = target.split("#", 1)[0];
+  const slash = path.lastIndexOf("/");
 
-  return slash > 0 ? `${target.slice(0, slash)}/` : "Notes";
+  return slash > 0 ? path.slice(0, slash + 1) : "";
 }
 
+const UNTYPED_BUCKET_LABEL = "Other notes";
+
 // Body links and backlinks, one row per note with its direction, bucketed by
-// type; untyped notes fall back to their top folder ("Log/").
+// type; untyped notes share one bucket and show their folder instead.
 function linkedBuckets(
   items: NoteWorkspaceLink[],
   exclude: ReadonlySet<string>,
@@ -193,10 +199,10 @@ function linkedBuckets(
 
   for (const row of rows.values()) {
     const typed = Boolean(row.typeName);
-    const label = row.typeName || folderOf(row.target);
-    const key = `${typed ? "type" : "folder"}:${label}`;
+    const label = row.typeName || UNTYPED_BUCKET_LABEL;
+    const key = `${typed ? "type" : "untyped"}:${label}`;
     const bucket = buckets.get(key) ?? { key, label, typed, rows: [] };
-    bucket.rows.push({ ...row, typeName: "" });
+    bucket.rows.push({ ...row, typeName: "", folder: typed ? undefined : folderOf(row.target) });
     buckets.set(key, bucket);
   }
 
@@ -266,6 +272,7 @@ function SidebarPreviewButton({
       <button
         {...previewTrigger.triggerProps}
         type="button"
+        className="link-quiet"
         title={title || target}
         aria-current={current ? "page" : undefined}
         onClick={(event) => {
@@ -320,6 +327,13 @@ function RailRowItem({
         </span>
       )}
       {row.typeName && <span className="rail-row__type">{row.typeName}</span>}
+      {row.folder && (
+        // Truncates from the start (CSS rtl) so the deepest folder stays; the
+        // marks keep the path itself in left-to-right order.
+        <span className="rail-row__path" title={row.folder}>
+          {`\u200e${row.folder}\u200e`}
+        </span>
+      )}
     </li>
   );
 }
@@ -372,6 +386,28 @@ function RailBucketList({
         </button>
       )}
     </div>
+  );
+}
+
+// Names the arrows that appear in a list, once, above it.
+function DirectionLegend({ buckets }: { buckets: RailBucket[] }) {
+  const present = new Set(buckets.flatMap((bucket) => bucket.rows.map((row) => row.direction)));
+
+  return (
+    <p className="rail-legend">
+      {(["incoming", "outgoing", "both"] as const).flatMap((direction) =>
+        present.has(direction)
+          ? [
+              <span key={direction}>
+                <span className={`rail-legend__dir rail-row__dir--${direction}`} aria-hidden="true">
+                  {DIRECTION_GLYPH[direction]}
+                </span>
+                {DIRECTION_LABEL[direction]}
+              </span>,
+            ]
+          : [],
+      )}
+    </p>
   );
 }
 
@@ -559,6 +595,7 @@ export function NotesSidebarInfo({
               })}
           </SidebarContextGroup>
           <SidebarContextGroup title="Linked notes" count={rowCount(linked)}>
+            {linked.length > 0 && <DirectionLegend buckets={linked} />}
             {linked.length > 0 &&
               linked.map((bucket) => (
                 <RailBucketList

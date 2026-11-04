@@ -116,6 +116,14 @@ export function OntologyPropertyPanel({
   const parentRef = workspace.node.parentRef;
   const parentPath = parentRef ? publicWorkspaceRef(parentRef) : "";
 
+  // A property named like a body section ("Summary" over "## Summary") reads
+  // as a duplicate, so its long text previews on one line until opened.
+  const sectionTitles = new Set(
+    (workspace.nodes || []).flatMap((node) =>
+      node.kind === "section" && node.data.title ? [node.data.title.trim().toLowerCase()] : [],
+    ),
+  );
+
   if (orderedFields.length === 0 && !parentPath) return null;
 
   const path = nodeRefPath(workspace.node.ref) || workspace.node.notePath || workspace.content.path;
@@ -200,6 +208,7 @@ export function OntologyPropertyPanel({
             sourceHash={workspace.sourceRevision?.contentFingerprint}
             sourceContent={workspace.sourceRevision?.content}
             onStage={(values, expected) => stageFieldOp(node, values, expected)}
+            echoesSection={sectionTitles.has(humanizeName(node.field.name).toLowerCase())}
             links={
               onOpen
                 ? { rendered, from: linkFrom || path, open: (target, mode) => onOpen(target, mode) }
@@ -347,10 +356,12 @@ function PropertyRow({
   sourceContent,
   onStage,
   links,
+  echoesSection = false,
 }: {
   node: WorkspaceFieldNode;
   editing: boolean;
   dirty: boolean;
+  echoesSection?: boolean;
   vaultKey: string | null;
   operationTarget: string;
   sourceHash?: string;
@@ -367,17 +378,30 @@ function PropertyRow({
   const relation = effectiveFieldCapability(node).valueKind === "relation";
   // Long text runs full width under its label, in read and edit mode alike.
   const long = !relation && values.join(", ").length > LONG_TEXT;
+  const [opened, setOpened] = useState(false);
+  // Collapsed in both modes, so entering edit mode keeps the geometry.
+  const preview = long && echoesSection && !opened && !dirty;
 
   return (
     <div
-      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}${long ? " is-long" : ""}`}
+      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}${long && !preview ? " is-long" : ""}`}
       data-field={name}
     >
       <dt className="ontology-properties__key" title={name}>
         {humanizeName(name)}
       </dt>
       <dd className="ontology-properties__value">
-        {links && !editing && relation && values.length > 0 ? (
+        {preview ? (
+          <button
+            type="button"
+            className="ontology-properties__preview"
+            aria-expanded={false}
+            onClick={() => setOpened(true)}
+          >
+            <span className="ontology-properties__preview-text">{values.join(", ")}</span>
+            <span className="ontology-properties__preview-more">More</span>
+          </button>
+        ) : links && !editing && relation && values.length > 0 ? (
           <span className={`widget-text${dirty ? " is-dirty" : ""}`}>
             <FieldLinkValues
               links={fieldLinksForValues(values, node.field.links)}
