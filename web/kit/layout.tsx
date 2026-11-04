@@ -229,7 +229,7 @@ export function MoreToggle({
       aria-expanded={open}
       onClick={onToggle}
     >
-      {open ? "Show fewer" : `+${hidden} more`}
+      {open ? "Show fewer" : `Show ${hidden} more`}
     </button>
   );
 }
