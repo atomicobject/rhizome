@@ -2430,14 +2430,14 @@
   background: transparent;
 }
 
+/* The tab and the authored page already carry the title, and Metadata lists
+   it in full, so the row keeps it for assistive tech only. */
 .notes-shell .ontology-pane__html-head .ontology-identity__title {
-  flex: 0 1 auto;
-  min-width: 120px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  color: var(--text);
-  font: 600 var(--fs-base) / 20px var(--font-sans);
-  letter-spacing: 0;
-  text-overflow: ellipsis;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
