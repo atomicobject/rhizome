@@ -147,7 +147,14 @@ it("compares members in one table, nesting an interface's implementors", async (
   expect(work).toHaveTextContent("67%");
   // Optional gaps stay neutral.
   expect(work.querySelector("[data-required='true']")).toBeNull();
-  expect(rowNamed(table, "Stories")).toHaveAttribute("data-kind", "implementor");
+  // An interface starts folded; its chevron shows the implementing types.
+  expect(within(table).queryByText("Stories")).toBeNull();
+  fireEvent.click(
+    within(work).getByRole("button", { name: "Show the types implementing Work items" }),
+  );
+  await waitFor(() =>
+    expect(rowNamed(table, "Stories")).toHaveAttribute("data-kind", "implementor"),
+  );
   expect(rowNamed(table, "Areas")).toHaveTextContent("no lifecycle");
 
   fireEvent.click(within(rowNamed(table, "Areas")).getByRole("button", { name: /Areas/ }));
@@ -177,10 +184,10 @@ it("lists the notes outside the group most connected first, then the guide and v
   expect(within(outside).getByText("4 notes")).toBeVisible();
   expect(outside.querySelector(".gv-outsum")).toHaveTextContent("1 person3 untyped notes");
   expect([...outside.querySelectorAll("li")].map((entry) => entry.textContent)).toEqual([
-    "Ada Lovelaceperson · people/2 linked records",
-    "Kickoffuntyped note · notes/2 linked records",
-    "Release guideuntyped note · docs/1 linked record",
-    "Scratchuntyped note · notes/1 linked record",
+    "Ada LovelacePerson · people/2 linked records",
+    "KickoffUntyped note · notes/2 linked records",
+    "Release guideUntyped note · docs/1 linked record",
+    "ScratchUntyped note · notes/1 linked record",
   ]);
 
   fireEvent.click(within(outside).getByRole("button", { name: "Kickoff" }));
@@ -234,7 +241,7 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
 
   await waitFor(() => expect(screen.getByRole("button", { name: "5 issues" })).toBeVisible());
   expect(document.querySelector(".gv-facts-list")).toHaveTextContent(
-    "49 notes59% typed10 note types3 ambiguous5 issues",
+    "49 notes59% typed10 note types3 ambiguous notes5 issues",
   );
   expect(nodeNames()).toEqual([
     "Untyped notes, 20 notes, 11 links",
@@ -248,7 +255,7 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     within(region("Map")).getByRole("button", { name: "Notices, 0 records, 0 links" }),
   ).toBeVisible();
 
-  fireEvent.click(screen.getByRole("button", { name: "3 ambiguous" }));
+  fireEvent.click(screen.getByRole("button", { name: "3 ambiguous notes" }));
   expect(opened(posted)).toEqual([{ type: OPEN_ISSUES_MESSAGE }]);
 });
 

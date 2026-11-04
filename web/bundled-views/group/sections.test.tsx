@@ -136,7 +136,7 @@ it("orders an unlinked group by size, drops the shared label prefix, and says wh
   expect(within(section("Memos")).getByText("None recorded yet.")).toBeVisible();
 });
 
-it("bounds each table and links the rest to the collection", async () => {
+it("bounds each table and shows the rest in place", async () => {
   const people = Array.from({ length: SECTION_ROWS + 3 }, (_, index) => ({
     path: `people/${index}.md`,
     title: `Person ${String(index).padStart(2, "0")}`,
@@ -153,10 +153,12 @@ it("bounds each table and links the rest to the collection", async () => {
   // Without a lifecycle, newest first.
   expect(rowTitles(region)).toHaveLength(SECTION_ROWS);
   expect(rowTitles(region)[0]).toBe("Person 10");
-  expect(
-    within(region).getByRole("button", { name: new RegExp(`^Show all ${SECTION_ROWS + 3} `) }),
-  ).toBeVisible();
+  const more = within(region).getByRole("button", { name: "Show 3 more" });
+  expect(more).toBeVisible();
   expect(within(region).getByText("· newest first", { exact: false })).toBeVisible();
+
+  fireEvent.click(more);
+  await waitFor(() => expect(rowTitles(region)).toHaveLength(SECTION_ROWS + 3));
 });
 
 it("opens records, collections, and scoped issues through the workspace", async () => {

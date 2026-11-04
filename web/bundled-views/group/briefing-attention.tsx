@@ -404,7 +404,8 @@ export function NeedsAttention({
       {part !== "attention" && context.length > 0 && (
         <Block
           title="Review suggested"
-          count={context.length}
+          // The rows count records, so the heading names what it counts: checks.
+          count={`${context.length} ${plural(context.length, "check", "checks")}`}
           info="Optional fields, connections, and update age. These observations do not imply required work."
         >
           <ul className="gv-list">

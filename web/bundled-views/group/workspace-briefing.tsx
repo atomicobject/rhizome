@@ -24,18 +24,26 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
-import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
+import {
+  isString,
+  parseRecords,
+  type JsonObject,
+  type JsonValue,
+  type ParsedRecord,
+} from "./api.ts";
 import { ChangeRow } from "./briefing-activity.tsx";
 import {
   Block,
   BlockBody,
   HealthyAttention,
+  MoreToggle,
   Rebuilding,
   lower,
   plural,
 } from "./briefing-parts.tsx";
 import "./components.tsx";
 import { getJSON, refetchFailedTypeDocs } from "./load.ts";
+import { useRememberedOpen } from "./remembered.ts";
 import {
   blockStatus,
   readOf,
@@ -48,6 +56,7 @@ import {
   RECENT_NOTES,
   activeRecordsQuery,
   motionTypes,
+  type MotionType,
   parseIssueGroups,
   parseRecentNotes,
 } from "./workspace-activity.ts";
@@ -181,8 +190,90 @@ function NeedsAttention() {
   );
 }
 
+/**
+ * One type's records in motion: its label, the status they share when there
+ * is one, and the total; eight rows, then "Show N more" in place. A shared
+ * status sits in the heading, so the rows omit their marks.
+ */
+function MotionTypeGroup({
+  entry,
+  label,
+  expanded,
+}: {
+  entry: MotionType & { records: readonly ParsedRecord[] };
+  label: string;
+  expanded: ReturnType<typeof useRememberedOpen>;
+}) {
+  const key = `in-motion:${entry.type}`;
+  const open = expanded.isOpen(key, false);
+  const total = Math.max(entry.total, entry.records.length);
+  const shown = open ? entry.records : entry.records.slice(0, MOTION_PER_TYPE);
+  const held = new Set(entry.records.map((record) => record.values.get(entry.field)));
+
+  const heldLabels = entry.values.flatMap((value) =>
+    held.has(value.name) ? [value.label ?? value.name] : [],
+  );
+
+  const mark = held.size > 1;
+
+  return (
+    <div className="gv-mo-group">
+      <h3 className="gv-mo-type">
+        {label}
+        {heldLabels.length > 0 && ` · ${heldLabels.join(", ")}`}{" "}
+        <span className="gv-num">{total}</span>
+      </h3>
+      <ul className="gv-list">
+        {shown.map((record) => {
+          const value = record.values.get(entry.field);
+
+          return (
+            <li key={record.key} className="gv-mo">
+              <div className="gv-title">
+                {mark &&
+                  (isString(value) ? (
+                    <StatusMark value={value} values={entry.values} hideLabel className="gv-mark" />
+                  ) : (
+                    <span className="gv-mark-slot" aria-hidden="true" />
+                  ))}
+                <button type="button" className="gv-record" onClick={() => openNode(record.ref)}>
+                  {record.title}
+                </button>
+                {record.updatedAt !== null && (
+                  <RelativeTime value={record.updatedAt} className="gv-age gv-mo-time" />
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {entry.records.length > MOTION_PER_TYPE && (
+        <div className="gv-mo-more">
+          <MoreToggle
+            hidden={entry.records.length - MOTION_PER_TYPE}
+            open={open}
+            onToggle={() => expanded.setOpen(key, !open)}
+          />
+        </div>
+      )}
+      {open && total > entry.records.length && (
+        <div className="gv-mo-more">
+          <button
+            type="button"
+            className="gv-link gv-more"
+            onClick={() => openCollection(entry.type)}
+          >
+            Open {lower(label)}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InMotion() {
   const queryClient = useQueryClient();
+  const expanded = useRememberedOpen("briefing.expanded");
   const members = useAggregatePart("members");
   const summaries = useTypeSummaries();
   // While the index rebuilds, its figures are empty: read nothing until it finishes.
@@ -259,61 +350,14 @@ function InMotion() {
 
           if (!moving.length) return <p className="gv-quiet">Nothing in an active stage.</p>;
 
-          return moving.map((entry) => {
-            const more = entry.records.length > MOTION_PER_TYPE;
-
-            return (
-              <div key={entry.type} className="gv-mo-group">
-                <h3 className="gv-mo-type">
-                  {label(entry.type, true)}{" "}
-                  <span className="gv-num">
-                    {more ? `${MOTION_PER_TYPE} shown` : entry.records.length}
-                  </span>
-                </h3>
-                <ul className="gv-list">
-                  {entry.records.slice(0, MOTION_PER_TYPE).map((record) => {
-                    const value = record.values.get(entry.field);
-
-                    return (
-                      <li key={record.key} className="gv-mo">
-                        <div className="gv-title">
-                          {isString(value) ? (
-                            <StatusMark
-                              value={value}
-                              values={entry.values}
-                              hideLabel
-                              className="gv-mark"
-                            />
-                          ) : (
-                            <span className="gv-mark-slot" aria-hidden="true" />
-                          )}
-                          <button
-                            type="button"
-                            className="gv-record"
-                            onClick={() => openNode(record.ref)}
-                          >
-                            {record.title}
-                          </button>
-                          {record.updatedAt !== null && (
-                            <RelativeTime value={record.updatedAt} className="gv-age gv-mo-time" />
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {more && (
-                  <button
-                    type="button"
-                    className="gv-link gv-more gv-mo-more"
-                    onClick={() => openCollection(entry.type)}
-                  >
-                    View active {lower(label(entry.type, true))}
-                  </button>
-                )}
-              </div>
-            );
-          });
+          return moving.map((entry) => (
+            <MotionTypeGroup
+              key={entry.type}
+              entry={entry}
+              label={label(entry.type, true)}
+              expanded={expanded}
+            />
+          ));
         }}
       </BlockBody>
     </Block>
@@ -346,7 +390,7 @@ function RecentChanges() {
                     title: note.title,
                     type: note.type
                       ? (summaries.data?.get(note.type)?.label ?? note.type)
-                      : "untyped",
+                      : "Untyped",
                     folder: note.folder,
                     time: note.updatedAt,
                     onOpen: () => openNode(note.ref),

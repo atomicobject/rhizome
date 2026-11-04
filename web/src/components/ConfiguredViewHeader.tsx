@@ -1,4 +1,12 @@
-import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 /**
  * Where a page's view header takes the view's own controls. A type
@@ -92,16 +100,57 @@ export function leadSentence(text: string) {
   return match ? match[0] : null;
 }
 
-/** One line of description: its first sentence, with the rest behind an info mark. */
+/** Below this much room the description is a fragment, so only its info mark shows. */
+const DESCRIPTION_MIN_WIDTH = 160;
+
+/**
+ * The room the title row leaves the description: the row's width less every
+ * other item and the gaps between them.
+ */
+function descriptionRoom(about: HTMLElement) {
+  const row = about.parentElement;
+
+  if (!row) return Infinity;
+  const items = [...row.children].filter((child) => child !== about);
+  const style = getComputedStyle(row);
+  const px = (value: string) => Number.parseFloat(value) || 0;
+  const others = items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0);
+  const padding = px(style.paddingLeft) + px(style.paddingRight);
+
+  return row.clientWidth - padding - others - px(style.columnGap) * items.length;
+}
+
+/**
+ * One line of description: its first sentence, with the rest behind an info
+ * mark. When the title row leaves it under 160px, the line hides and the mark
+ * alone carries the description.
+ */
 function HeaderDescription({ description }: { description: string }) {
   const lead = leadSentence(description);
+  const aboutRef = useRef<HTMLSpanElement>(null);
+  const [narrow, setNarrow] = useState(false);
+
+  useLayoutEffect(() => {
+    const about = aboutRef.current;
+    const row = about?.parentElement;
+
+    if (!about || !row || typeof ResizeObserver === "undefined") return;
+    const measure = () => setNarrow(descriptionRoom(about) < DESCRIPTION_MIN_WIDTH);
+    const observer = new ResizeObserver(measure);
+
+    // The row, and each item in it: the tools fill in after the header paints.
+    for (const element of [row, ...row.children]) observer.observe(element);
+    measure();
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
-      <span className="view-header__about" title={description}>
+      <span ref={aboutRef} className="view-header__about" title={description} hidden={narrow}>
         {lead ?? description}
       </span>
-      {lead && (
+      {(lead || narrow) && (
         <button
           type="button"
           className="view-header__about-info"

@@ -214,10 +214,29 @@ function NameCell({
 
   if (node.kind === "untyped") return <span className="gv-ov-name">{name}</span>;
 
-  return (
+  const open = (
     <button type="button" className="gv-record" onClick={() => openNode(node)}>
       {name}
     </button>
+  );
+
+  // An interface folds its implementing types under a chevron of its own.
+  if (row.toggle === undefined) return open;
+  const { toggle } = row;
+
+  return (
+    <span className="gv-ov-name">
+      <button
+        type="button"
+        className="gv-ov-chev gv-ov-chev-button"
+        aria-expanded={row.expanded}
+        aria-label={`${row.expanded ? "Hide" : "Show"} the types implementing ${node.label}`}
+        onClick={() => onToggle(toggle, !row.expanded)}
+      >
+        <span aria-hidden="true">{row.expanded ? "▾" : "▸"}</span>
+      </button>
+      {open}
+    </span>
   );
 }
 
@@ -263,7 +282,13 @@ function GapsCell({ row }: { row: NodeRow }) {
 }
 
 /** Which optional columns hold anything in these rows; an empty column hides. */
-type Shown = { stages: boolean; gaps: boolean };
+type Shown = { stages: boolean; gaps: boolean; linked: boolean };
+
+const hasLinked = (row: NodeRow) =>
+  row.node.kind !== "untyped" &&
+  row.kind !== "implementor" &&
+  row.kind !== "group" &&
+  row.linkedShare !== null;
 
 const hasStages = (row: NodeRow) =>
   row.node.count > 0 && row.kind !== "implementor" && Boolean(row.lifecycle);
@@ -310,9 +335,11 @@ function DataRow({
               <Dash />
             </td>
           )}
-          <td>
-            <Dash />
-          </td>
+          {shown.linked && (
+            <td>
+              <Dash />
+            </td>
+          )}
         </>
       ) : (
         <>
@@ -330,13 +357,15 @@ function DataRow({
               <GapsCell row={row} />
             </td>
           )}
-          <td>
-            {brief || row.kind === "group" || row.linkedShare === null ? (
-              <Dash />
-            ) : (
-              <ShareCell share={row.linkedShare} />
-            )}
-          </td>
+          {shown.linked && (
+            <td>
+              {brief || row.kind === "group" || row.linkedShare === null ? (
+                <Dash />
+              ) : (
+                <ShareCell share={row.linkedShare} />
+              )}
+            </td>
+          )}
         </>
       )}
       {/* A nested implementor's figures roll up into its interface: a dash, not a blank. */}
@@ -364,8 +393,15 @@ export function MemberTable({
 }) {
   const workspace = model.scope.kind === "workspace";
   const dataRows = rows.flatMap((row) => (row.kind === "heading" ? [] : [row]));
-  const shown = { stages: dataRows.some(hasStages), gaps: dataRows.some(hasGaps) };
-  const columns = (workspace ? 6 : 7) + Number(shown.stages) + Number(shown.gaps);
+
+  const shown = {
+    stages: dataRows.some(hasStages),
+    gaps: dataRows.some(hasGaps),
+    linked: dataRows.some(hasLinked),
+  };
+
+  const columns =
+    (workspace ? 5 : 6) + Number(shown.stages) + Number(shown.gaps) + Number(shown.linked);
 
   return (
     <table className="gv-table gv-ov-table">
@@ -377,7 +413,7 @@ export function MemberTable({
           </th>
           {shown.stages && <th scope="col">Stages</th>}
           {shown.gaps && <th scope="col">Gaps (empty / records)</th>}
-          <th scope="col">{workspace ? "Linked" : "Linked in group"}</th>
+          {shown.linked && <th scope="col">{workspace ? "Linked" : "Linked in group"}</th>}
           <th scope="col" className="gv-right">
             {workspace ? "Links" : "Links in group"}
           </th>

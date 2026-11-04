@@ -87,12 +87,18 @@ export function FolderBlock() {
                         <td
                           title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
                         >
-                          <span className="gv-ov-share">
-                            <span className="gv-num">{percent}%</span>
-                            <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
-                              <i style={{ width: `${percent}%` }} />
+                          {/* A whole folder untyped is the common case: the share recedes,
+                              and only a partial share draws its bar. */}
+                          {percent >= 100 ? (
+                            <span className="gv-num gv-faint">100%</span>
+                          ) : (
+                            <span className="gv-ov-share">
+                              <span className="gv-num">{percent}%</span>
+                              <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
+                                <i style={{ width: `${percent}%` }} />
+                              </span>
                             </span>
-                          </span>
+                          )}
                         </td>
                         <td className="gv-ov-links" title={linksText(line.linksTo)}>
                           {line.linksTo.length ? (

@@ -4,20 +4,21 @@
 // every block's heading paint at once. The facts strip and each block read
 // only the record fields they show, each in its own request, so each block
 // fills in when its read arrives and fails on its own with a retry.
-import { HighlightProvider, openCollection, type ViewModuleProps } from "@rhizome/kit";
+import { HighlightProvider, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
-import { inMotion, needsAttention } from "./activity.ts";
-import { MotionRow, RecentChanges, StageHints } from "./briefing-activity.tsx";
+import { inMotion, needsAttention, type MotionEntry } from "./activity.ts";
+import { MotionRow, RecentChanges, StageHints, oneStatus } from "./briefing-activity.tsx";
 import { NeedsAttention } from "./briefing-attention.tsx";
-import { Block, ModelBlock, heldLabels, lower, memberOf } from "./briefing-parts.tsx";
+import { Block, ModelBlock, MoreToggle, heldLabels, memberOf } from "./briefing-parts.tsx";
 import { GroupFrame } from "./components.tsx";
 import { linkGraph } from "./graph.ts";
 import { useGroupModel, type GroupRead } from "./load.ts";
-import { memberLabel, type GroupModel } from "./model.ts";
+import { memberLabel, type GroupModel, type Member } from "./model.ts";
+import { useRememberedOpen } from "./remembered.ts";
 
-/** In-motion records listed per member before the rest link to the collection. */
-export const MOTION_RECORDS = 4;
+/** In-motion records listed per member before "Show N more". */
+export const MOTION_RECORDS = 8;
 
 /**
  * Records of each type Recent changes reads, newest first.
@@ -42,6 +43,47 @@ const RECENT_READ: GroupRead = {
   perType: RECENT_RECORDS,
 };
 
+function MotionGroup({
+  model,
+  member,
+  entries,
+}: {
+  model: GroupModel;
+  member: Member;
+  entries: readonly MotionEntry[];
+}) {
+  const expanded = useRememberedOpen("briefing.expanded");
+  const key = `in-motion:${member.name}`;
+  const open = expanded.isOpen(key, false);
+  const shown = open ? entries : entries.slice(0, MOTION_RECORDS);
+  const records = entries.map((entry) => entry.record);
+  // The heading names the one status the rows share, so each row omits its mark.
+  const mark = !oneStatus(member, entries);
+
+  return (
+    <div className="gv-mo-group">
+      <h3 className="gv-mo-type">
+        {memberLabel(model, member, { plural: true })} · {heldLabels(member, records)}{" "}
+        <span className="gv-num">{entries.length}</span>
+      </h3>
+      <ul className="gv-list">
+        {shown.map((entry) => (
+          <MotionRow key={entry.record.key} member={member} entry={entry} mark={mark} />
+        ))}
+      </ul>
+      {entries.length > MOTION_RECORDS && (
+        <div className="gv-mo-more">
+          <MoreToggle
+            hidden={entries.length - MOTION_RECORDS}
+            open={open}
+            onToggle={() => expanded.setOpen(key, !open)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InMotion({ model }: { model: GroupModel }) {
   const motion = useMemo(() => inMotion(model), [model]);
   const total = motion.groups.reduce((sum, group) => sum + group.entries.length, 0);
@@ -63,32 +105,9 @@ function InMotion({ model }: { model: GroupModel }) {
       {motion.groups.map((group) => {
         const member = memberOf(model, group.member);
 
-        if (!member) return null;
-        const records = group.entries.map((entry) => entry.record);
-        const hidden = group.entries.length - MOTION_RECORDS;
-
-        return (
-          <div key={group.member} className="gv-mo-group">
-            <h3 className="gv-mo-type">
-              {memberLabel(model, member, { plural: true })} · {heldLabels(member, records)}{" "}
-              <span className="gv-num">{group.entries.length}</span>
-            </h3>
-            <ul className="gv-list">
-              {group.entries.slice(0, MOTION_RECORDS).map((entry) => (
-                <MotionRow key={entry.record.key} member={member} entry={entry} />
-              ))}
-            </ul>
-            {hidden > 0 && (
-              <button
-                type="button"
-                className="gv-link gv-more gv-mo-more"
-                onClick={() => openCollection(member.name)}
-              >
-                Show {hidden} more in {lower(memberLabel(model, member, { plural: true }))}
-              </button>
-            )}
-          </div>
-        );
+        return member ? (
+          <MotionGroup key={group.member} model={model} member={member} entries={group.entries} />
+        ) : null;
       })}
     </Block>
   );

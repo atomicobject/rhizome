@@ -21,7 +21,7 @@ export type ColumnKind =
 export const COLUMN_WIDTHS: Record<Exclude<ColumnKind, "title">, number> = {
   id: 176,
   enum: 136,
-  date: 112,
+  date: 116,
   age: 92,
   number: 72,
   flag: 72,

@@ -659,8 +659,66 @@
   text-decoration: underline;
 }
 
-.configured-view__moved-columns {
+/* Columns the table leaves out: a compact summary that opens upward into a
+   short list naming each column and why. */
+.configured-view__column-notes {
+  position: relative;
+  flex: none;
+}
+
+.configured-view__column-notes > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+
+.configured-view__column-notes > summary::-webkit-details-marker {
+  display: none;
+}
+
+.configured-view__column-notes > summary::after {
+  display: inline-block;
+  color: var(--text-faint);
+  content: "›";
+  transform: rotate(-90deg);
+}
+
+.configured-view__column-notes[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+.configured-view__column-notes > summary:hover {
+  color: var(--text);
+}
+
+.configured-view__column-notes-body {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 8px);
+  left: -10px;
+  width: max-content;
+  max-width: 360px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.configured-view__column-notes-body p {
+  margin: 0;
+}
+
+.configured-view__column-notes-body p + p {
+  margin-top: 6px;
 }
 
 .configured-view__status {
@@ -953,13 +1011,27 @@
   white-space: nowrap;
 }
 
+/* A record title is a quiet link: teal ink, underlined on hover and focus. */
 .configured-view__title-button,
 .configured-view__table [data-row-title] {
+  color: var(--link);
   font-weight: 500;
 }
 
+.configured-view__table [data-row-title]:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
 /* A one-line table lets a long title wrap to a second line before it cuts,
-   so the row grows to 56px instead of hiding the end of the title. */
+   so the row grows to 56px instead of hiding the end of the title: 8px above
+   and below two 20px lines, the same 8px that centres a 36px one-line row. */
+.configured-view__table:not(.configured-view__table--two-line) .configured-view__row td {
+  padding-block: 8px;
+  line-height: 20px;
+}
+
 .configured-view__table:not(.configured-view__table--two-line) [data-row-title] {
   display: -webkit-box;
   /* A button ignores -webkit-box, so the height caps it at two lines too. */
@@ -1001,9 +1073,10 @@
   width: 176px;
 }
 
-/* A full ISO date is about 90px of tabular figures, plus 20px of padding. */
+/* A medium date ("May 31, 2026") is about 94px of tabular figures, plus 20px
+   of padding. */
 .configured-view__table th.configured-view__cell--date {
-  width: 112px;
+  width: 116px;
 }
 
 /* A relative age ("3h", "30d") needs only a short column; 92px keeps
@@ -1192,6 +1265,7 @@
 .configured-view__table .configured-view__relation-display:empty::before {
   color: var(--text-faint);
   content: "—";
+  opacity: 0.55;
 }
 
 /* Relation titles in dense layouts are quiet links: teal ink, underlined only
@@ -1391,14 +1465,12 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   background: var(--bg-tint);
 }
 
-/* A column header reads "Active 14" as one unit, with the collapse control at
-   the end and any staleness on its own muted line below. */
+/* A column header reads "Active 14 ‹" as one unit, the collapse chevron right
+   after the count, with any staleness on its own muted line below. */
 .configured-view__board-column-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
   grid-template-rows: 20px 18px;
-  column-gap: var(--sp-2);
+  align-items: center;
   min-width: 0;
   padding: 4px 2px 6px;
   background: var(--bg);
@@ -1408,7 +1480,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-view__board-column-title {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-width: 0;
 }
@@ -1419,25 +1491,24 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font-size: var(--fs-sm);
 }
 
-.configured-view__board-column-header > .configured-view__board-stale {
-  grid-column: 1;
-  grid-row: 2;
-}
-
-.configured-view__board-column-header > button {
-  grid-column: 2;
-  grid-row: 1;
+.configured-view__board-column-title > button {
+  flex: none;
   width: 20px;
   height: 20px;
-  margin-left: 2px;
+  padding: 0;
   overflow: hidden;
   border: 0;
+  border-radius: var(--r);
   background: transparent;
   color: transparent;
   cursor: pointer;
 }
 
-.configured-view__board-column-header > button::before {
+.configured-view__board-column-title > button:hover {
+  background: var(--bg-tint);
+}
+
+.configured-view__board-column-title > button::before {
   content: "‹";
   display: block;
   color: var(--text-faint);
@@ -1520,6 +1591,12 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__board-strip .status-mark__label {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.configured-view__board-strip .configured-view__board-count {
+  margin-left: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .configured-view__board-strip svg {
@@ -1783,7 +1860,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--link);
   font: 600 var(--fs-base)/1.3 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
@@ -1791,8 +1868,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   cursor: pointer;
 }
 
-.configured-card__title:hover {
-  color: var(--link);
+/* A card title is a quiet link: teal ink, underlined on hover and focus. */
+.configured-card__title:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .configured-card__preview {
@@ -1869,9 +1949,17 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   align-items: center;
 }
 
+/* Footer facts read as one strip: "52 rows · 1 group collapsed · 2 columns in Record". */
 .configured-view__footer-status {
-  gap: var(--sp-5);
+  gap: var(--sp-2);
   min-width: 0;
+}
+
+.configured-view__footer-status > span + span::before,
+.configured-view__footer-status > * + .configured-view__column-notes > summary::before {
+  margin-right: var(--sp-2);
+  color: var(--text-faint);
+  content: "·";
 }
 
 /* Notices stay one line each; when the footer is short of room (an overlaid

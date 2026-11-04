@@ -1,4 +1,3 @@
-import { Clock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
@@ -127,7 +126,6 @@ function CardMarkers({
     <>
       {stale && (
         <span className="configured-brief__stale" title={`Unchanged for ${STALE_DAYS}+ days`}>
-          <Clock size={12} aria-hidden="true" />
           <span className="sr-only">Unchanged </span>
           {row.updatedAt ? <ChangedCell value={row.updatedAt} /> : `${STALE_DAYS}+ days`}
         </span>

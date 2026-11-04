@@ -72,7 +72,7 @@ const TONE_COLOR: Record<StatusTone, string> = {
   neutral: "var(--text-faint)",
   info: "var(--info)",
   progress: "var(--info)",
-  success: "var(--success-ink)",
+  success: "var(--success)",
   warning: "var(--warning)",
   risk: "var(--accent)",
   muted: "var(--text-faint)",

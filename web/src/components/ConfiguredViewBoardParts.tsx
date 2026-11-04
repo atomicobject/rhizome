@@ -1,4 +1,4 @@
-import { ChevronRight, Clock } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { TypeProfile, ViewExecuteRequest, ViewFieldCapability } from "../api/types";
@@ -225,24 +225,23 @@ export function BoardColumnHeaders({
         <span className="configured-view__board-column-title">
           {mark}
           <span className="configured-view__board-count">{count}</span>
+          <button
+            type="button"
+            aria-label={`Collapse ${label} column`}
+            title="Collapse column"
+            onClick={() => onToggle(column.key)}
+          >
+            Collapse
+          </button>
         </span>
         {item.stale > 0 && (
           <span
             className="configured-view__board-stale"
             title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
           >
-            <Clock size={12} aria-hidden="true" />
             {item.stale} unchanged {STALE_DAYS}+ days
           </span>
         )}
-        <button
-          type="button"
-          aria-label={`Collapse ${label} column`}
-          title="Collapse column"
-          onClick={() => onToggle(column.key)}
-        >
-          Collapse
-        </button>
       </header>
     );
   });

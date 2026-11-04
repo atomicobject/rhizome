@@ -10,6 +10,7 @@ import { IssueCount, RecordMark, RecordTitle, openRecord } from "./components.ts
 import { useRememberedOpen } from "./remembered.ts";
 import {
   fieldLabel,
+  lifecycleValue,
   memberLabel,
   type GroupModel,
   type GroupRecord,
@@ -22,13 +23,27 @@ export const CHANGE_LINES = 18;
 /** Notes listed outside the records before "+N more". */
 export const OUTSIDE_NOTES = 8;
 
-export function MotionRow({ member, entry }: { member: Member; entry: MotionEntry }) {
+/** True when the entries hold one lifecycle value, so a mark on each row only repeats it. */
+export function oneStatus(member: Member, entries: readonly MotionEntry[]) {
+  return new Set(entries.map((entry) => lifecycleValue(member, entry.record))).size <= 1;
+}
+
+/** One in-motion record; `mark` is off when the list around it states the one status. */
+export function MotionRow({
+  member,
+  entry,
+  mark = true,
+}: {
+  member: Member;
+  entry: MotionEntry;
+  mark?: boolean;
+}) {
   const { record, note } = entry;
 
   return (
     <li className="gv-mo">
       <div className="gv-title">
-        <RecordMark member={member} record={record} />
+        {mark && <RecordMark member={member} record={record} />}
         <RecordTitle record={record} />
         <IssueCount record={record} />
         {record.updatedAt !== null && (
@@ -115,7 +130,7 @@ export function StageHints({
 export type ChangeLine = {
   key: string;
   title: string;
-  /** The note's type label, or "untyped". */
+  /** The note's type label, or "Untyped". */
   type: string;
   /** The folder holding the note, without a trailing slash. */
   folder: string;
@@ -244,6 +259,9 @@ function typeName(model: GroupModel, type: string, count: number) {
   return lower(labels ? typeLabel(labels, { count }) : fieldLabel(type));
 }
 
+/** A label at the start of a line, in sentence case: "Technical spec". */
+const sentence = (label: string) => label.charAt(0).toUpperCase() + label.slice(1);
+
 /** A note type's label outside the records, or "untyped note". */
 function outsideLabel(model: GroupModel, type: string | null, count: number) {
   return type === null
@@ -313,7 +331,7 @@ export function OutsideNotes({
                   {readable ?? note.title}
                 </button>
                 <span className="gv-change-meta">
-                  {outsideLabel(model, note.type, 1)}
+                  {sentence(outsideLabel(model, note.type, 1))}
                   {(readable || folderOf(note.path)) && (
                     <>
                       {" · "}

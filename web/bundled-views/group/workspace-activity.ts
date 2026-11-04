@@ -5,7 +5,7 @@
 // - motionTypes(members, docs): each note type whose lifecycle has active
 //   values, with those values.
 // - activeRecordsQuery(types): one GraphQL query for the newest records of
-//   each type in an active value, capped per type.
+//   each type in an active value, up to MOTION_READ per type.
 // - parseRecentNotes(json): the newest notes from
 //   `GET /api/v1/ontology/types/__all__?limit=N`, untyped notes included.
 import type { EnumValueDoc, TypeDoc } from "@rhizome/kit";
@@ -16,8 +16,11 @@ import { isJsonObject, isNumber, isString, type JsonValue, type RecordRef } from
 /** Recent changes listed at All notes. */
 export const RECENT_NOTES = 12;
 
-/** In-motion records listed per type; one more is read to know there are more. */
-export const MOTION_PER_TYPE = 10;
+/** In-motion records listed per type before "Show N more". */
+export const MOTION_PER_TYPE = 8;
+
+/** In-motion records read per type, so "Show N more" opens in place. */
+export const MOTION_READ = 50;
 
 export type IssueGroup = {
   key: string;
@@ -66,6 +69,8 @@ export type MotionType = {
   /** The lifecycle's values, for marks; `active` names the ones in motion. */
   values: readonly EnumValueDoc[];
   active: readonly string[];
+  /** Records in an active value, from the type's lifecycle counts. */
+  total: number;
 };
 
 /** Note types whose lifecycle declares active values, most records first. */
@@ -81,8 +86,12 @@ export function motionTypes(
       const values = declared?.enum?.values ?? [];
       const active = values.flatMap((value) => (value.stage === "active" ? [value.name] : []));
 
+      const total = (figures.lifecycle?.values ?? [])
+        .filter((value) => active.includes(value.name))
+        .reduce((sum, value) => sum + value.count, 0);
+
       return field && figures.count > 0 && active.length
-        ? [{ type: figures.name, field, values, active }]
+        ? [{ type: figures.name, field, values, active, total }]
         : [];
     });
 }
@@ -96,7 +105,7 @@ const lowerFirst = (name: string) => name.charAt(0).toLowerCase() + name.slice(1
 export function activeRecordsQuery(types: readonly MotionType[]) {
   const selections = types.map(
     ({ type, field, active }) =>
-      `  ${type}: ${lowerFirst(type)}(first: ${MOTION_PER_TYPE + 1}, filters: [{ field: ${JSON.stringify(field)}, op: in, values: ${JSON.stringify(active)} }], sort: [{ field: "updatedAt", direction: desc }]) {\n` +
+      `  ${type}: ${lowerFirst(type)}(first: ${MOTION_READ}, filters: [{ field: ${JSON.stringify(field)}, op: in, values: ${JSON.stringify(active)} }], sort: [{ field: "updatedAt", direction: desc }]) {\n` +
       `    ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }\n` +
       `    path title updatedAt issueCount ${field}\n  }`,
   );

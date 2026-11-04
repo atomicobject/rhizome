@@ -17,7 +17,7 @@ import { useMemo } from "react";
 
 import { boundary, inMotion, needsAttention, reverseGaps } from "./activity.ts";
 import { REVERSE_SAMPLE } from "./api.ts";
-import { MotionRow, OutsideNotes, RecentChanges } from "./briefing-activity.tsx";
+import { MotionRow, OutsideNotes, RecentChanges, oneStatus } from "./briefing-activity.tsx";
 import { NeedsAttention, type MemberAction } from "./briefing-attention.tsx";
 import { Implementors } from "./briefing-contents.tsx";
 import { Block, MoreToggle, lower, plural } from "./briefing-parts.tsx";
@@ -55,7 +55,12 @@ function InMotion({ model, member }: { model: GroupModel; member: Member }) {
       {entries.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
       <ul className="gv-list">
         {shown.map((entry) => (
-          <MotionRow key={entry.record.key} member={member} entry={entry} />
+          <MotionRow
+            key={entry.record.key}
+            member={member}
+            entry={entry}
+            mark={!oneStatus(member, entries)}
+          />
         ))}
       </ul>
       {entries.length > MOTION_RECORDS && (
@@ -196,8 +201,11 @@ function targetLabel(model: GroupModel, type: string) {
 }
 
 function ConnectionRow({ model, connection }: { model: GroupModel; connection: FieldConnection }) {
-  const { field, direction, filled, total, top, distinct, sampled } = connection;
+  const { field, direction, filled, total, top, targets, sampled } = connection;
   const share = total ? filled / total : 0;
+  const expanded = useRememberedOpen("briefing.expanded");
+  const open = expanded.isOpen(`connection:${field}`, false);
+  const shown = open ? targets : top;
 
   return (
     <li className="gv-rel">
@@ -216,7 +224,7 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
       {top.length > 0 ? (
         <>
           <ul className="gv-list gv-tops">
-            {top.map(({ note, count }) => (
+            {shown.map(({ note, count }) => (
               <li key={note.path}>
                 <button type="button" className="gv-inline" onClick={() => openNote(note.path)}>
                   {note.title}
@@ -225,10 +233,16 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
               </li>
             ))}
           </ul>
-          {(distinct > top.length || sampled) && (
+          {(targets.length > top.length || sampled) && (
             <p className="gv-sub gv-tops-more">
-              {distinct > top.length && `${distinct - top.length} more`}
-              {distinct > top.length && sampled && " · "}
+              {targets.length > top.length && (
+                <MoreToggle
+                  hidden={targets.length - top.length}
+                  open={open}
+                  onToggle={() => expanded.setOpen(`connection:${field}`, !open)}
+                />
+              )}
+              {targets.length > top.length && sampled && " · "}
               {sampled && `counted from the first ${REVERSE_SAMPLE} of each record`}
             </p>
           )}

@@ -98,7 +98,7 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
             />
           </svg>
         )}
-        {fmt(facts.ambiguousNotes)} ambiguous
+        {fmt(facts.ambiguousNotes)} ambiguous {plural(facts.ambiguousNotes, "note", "notes")}
       </button>
       {issues === 0 && <span className="gv-ok">✓ No issues</span>}
       {issues !== undefined && issues > 0 && (

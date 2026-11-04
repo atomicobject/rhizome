@@ -208,6 +208,8 @@ export type FieldConnection = {
   distinct: number;
   /** The targets most records share, most first, then by title; at most `TOP_TARGETS`. */
   top: readonly { note: LinkedNote; count: number }[];
+  /** Every target in the same order, for "Show N more". */
+  targets: readonly { note: LinkedNote; count: number }[];
   /**
    * Some record has more reverse links than its sample holds, so `distinct`
    * and the top counts are lower bounds; `filled` counts every record.
@@ -259,6 +261,7 @@ function connection(
     total,
     distinct: counts.size,
     top: top.slice(0, TOP_TARGETS),
+    targets: top,
     sampled,
   };
 }
