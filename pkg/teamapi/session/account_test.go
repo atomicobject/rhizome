@@ -213,9 +213,11 @@ func TestLogoutRacingLateRefreshCannotResurrect(t *testing.T) {
 	_, ok := loadRecord(t, store, g.origin())
 	require.False(t, ok)
 	require.Equal(t, "rzt_a_s1.a1", g.logouts[len(g.logouts)-1], "logout revoked the rotated session")
-	_, found, err := ReadSelector(selector)
+	// The selector still names the server, so the next sign-in returns there.
+	kept, found, err := ReadSelector(selector)
 	require.NoError(t, err)
-	require.False(t, found)
+	require.True(t, found)
+	require.Equal(t, g.origin(), kept)
 
 	// A process that read the record before logout cannot write it back.
 	g.mu.Lock()
@@ -232,8 +234,6 @@ func TestLogoutRacingLateRefreshCannotResurrect(t *testing.T) {
 	require.ErrorIs(t, err, ErrSuperseded)
 	_, ok = loadRecord(t, store, g.origin())
 	require.False(t, ok)
-	_, found, _ = ReadSelector(selector)
-	require.False(t, found)
 }
 
 func TestOfflineLogoutDeletesAndReportsIncompleteRevocation(t *testing.T) {
@@ -274,13 +274,16 @@ func TestPublishWritesSelectorAndStatusHidesTokens(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, g.origin(), origin)
 
-	// Logging out of a different origin leaves the selector alone.
-	b, err := Open(Options{Origin: other, Store: store, LockPath: a.lockPath, SelectorPath: selector})
-	require.NoError(t, err)
-	_, err = b.Logout(context.Background())
-	require.NoError(t, err)
-	_, found, _ = ReadSelector(selector)
-	require.True(t, found)
+	// Logging out, of this origin or another, leaves the selector alone.
+	for _, o := range []string{other, g.origin()} {
+		b, err := Open(Options{Origin: o, Store: store, LockPath: a.lockPath, SelectorPath: selector})
+		require.NoError(t, err)
+		_, err = b.Logout(context.Background())
+		require.NoError(t, err)
+		origin, found, _ = ReadSelector(selector)
+		require.True(t, found)
+		require.Equal(t, g.origin(), origin)
+	}
 }
 
 func TestResolveOrigin(t *testing.T) {

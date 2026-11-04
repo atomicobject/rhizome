@@ -200,6 +200,8 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Deviations
 
+- 2026-11-04: Drew asked that sign-out not send people back to the built-in server. Logout now keeps the selector and deletes only the session, so a later sign-in without `--server` returns to the last server; signing in elsewhere still replaces it. SPEC-0129's selector requirement is revised. frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
+
 - 2026-11-04: SPEC-0129 gains two abuse-control requirements found by the pre-release adversarial review. Session-store reads caused by unproven tokens (authentication cache misses, logout, and refresh) are now limited per client address and in total before the store is read, and the TypeSafe model list is cached for 60 seconds with coalesced misses and a per-person rate. frozen-scope-drift acknowledged for SPEC-0129.
 
 - 2026-11-04: Drew decided public release builds also compile in the deployed gateway origin, so staff can sign in from the published desktop app and CLI. SPEC-0129's origin requirement now names release builds, public and internal; the origin lives in `.goreleaser.yml` and `RZM_INTERNAL_TEAM_API_ORIGIN` is removed. frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision. Rollout gates and key retirement are unchanged.
