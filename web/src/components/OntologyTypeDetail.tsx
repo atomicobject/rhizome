@@ -98,10 +98,6 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
           ) : null}
         </div>
       </header>
-      {data?.type?.description ? (
-        <p className="ontology-type-detail__tagline">{data.type.description}</p>
-      ) : null}
-
       {error && !data ? (
         <div className="ontology-type-detail__error" role="alert">
           Failed to load type: {error}{" "}
@@ -787,6 +783,11 @@ function TypeDetailBody({
 
   return (
     <>
+      {type.description ? (
+        <p className="ontology-type-detail__tagline">
+          <Prose text={type.description} />
+        </p>
+      ) : null}
       <dl className="ontology-type-detail__stats">
         {data.issueCount ? (
           <div className="ontology-type-detail__stat--warn">
@@ -855,11 +856,16 @@ function TypeDetailBody({
                       onClick={() => onSelectType(implName)}
                     >
                       <div className="ontology-type-detail__impl-head">
-                        <span className="ontology-type-detail__impl-name">{implType.name}</span>
+                        <span className="ontology-type-detail__impl-name">
+                          <span className="ontology-type-detail__impl-dot" aria-hidden="true" />
+                          <span className="ontology-type-detail__impl-title">{implType.name}</span>
+                        </span>
                         <span className="ontology-type-detail__impl-count">{entry.count ?? 0}</span>
                       </div>
                       {implType.description ? (
-                        <p className="ontology-type-detail__impl-desc">{implType.description}</p>
+                        <p className="ontology-type-detail__impl-desc">
+                          <Prose text={implType.description} />
+                        </p>
                       ) : null}
                     </button>
                   </li>
@@ -939,7 +945,9 @@ function TypeDetailBody({
                     )}
                   </td>
                   {relationDirections ? <td>{f.direction || "—"}</td> : null}
-                  <td>{f.description || ""}</td>
+                  <td>
+                    <Prose text={f.description} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -977,7 +985,9 @@ function TypeDetailBody({
                     </code>
                   </td>
                   {inboundDirections ? <td>{ref.direction || "—"}</td> : null}
-                  <td>{ref.description || ""}</td>
+                  <td>
+                    <Prose text={ref.description} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1061,6 +1071,37 @@ function TargetChip({
   );
 }
 
+/**
+ * Identifiers and example values inside schema prose: IDs such as
+ * EFF-2026-08-05-14-32, file names, paths, camelCase names, and backticked
+ * code. Each renders as one unbreakable mono span, so a column never splits
+ * one mid-token.
+ */
+const IDENTIFIER =
+  /`[^`]+`|\b[A-Z][A-Z0-9]*-[\w-]*\d[\w-]*|[\w./-]*\.(?:html|md|ya?ml|json|go|tsx?)\b|\b[a-z]+[A-Z]\w*/g;
+
+function Prose({ text }: { text?: string }) {
+  if (!text) return null;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+
+  for (const match of text.matchAll(IDENTIFIER)) {
+    const index = match.index ?? 0;
+
+    if (index > last) parts.push(text.slice(last, index));
+    parts.push(
+      <code key={index} className="ontology-type-detail__ident">
+        {match[0].replace(/^`|`$/g, "")}
+      </code>,
+    );
+    last = index + match[0].length;
+  }
+
+  if (last < text.length) parts.push(text.slice(last));
+
+  return <>{parts}</>;
+}
+
 function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
   return (
     <table className="ontology-type-detail__table">
@@ -1094,9 +1135,14 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
             </td>
             <td>{f.required ? "yes" : "no"}</td>
             <td className="ontology-type-detail__nowrap">
-              {f.source ? <code>{f.source}</code> : null}
+              {f.source ? (
+                // A source that only repeats the field's name is muted, so a renamed source stands out.
+                <code data-same={f.source === f.name ? "true" : undefined}>{f.source}</code>
+              ) : null}
             </td>
-            <td>{f.description || ""}</td>
+            <td>
+              <Prose text={f.description} />
+            </td>
           </tr>
         ))}
       </tbody>

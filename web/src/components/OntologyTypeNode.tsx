@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import {
   IMPL_SOURCE_LEFT_HANDLE,
   IMPL_SOURCE_RIGHT_HANDLE,
+  nameLines,
   type OntologyNodeData,
   relationSourceHandle,
   TYPE_TARGET_LEFT_HANDLE,
@@ -15,16 +16,6 @@ type Props = NodeProps & { data: OntologyNodeData };
 
 /** The accent is consumed by the stylesheet via `var(--type-accent)`. */
 type AccentStyle = React.CSSProperties & { [key: `--${string}`]: string };
-
-/** A type name with line-break chances between its words, so "AcceptanceCriterion" wraps whole. */
-function nameWithBreaks(name: string) {
-  return name.split(/(?<=[a-z0-9])(?=[A-Z])/).map((word, index) => (
-    <Fragment key={`${index}:${word}`}>
-      {index > 0 && <wbr />}
-      {word}
-    </Fragment>
-  ));
-}
 
 /** The card's tooltip: its description and schema survey, which the compact card leaves out. */
 function cardTitle(data: OntologyNodeData) {
@@ -102,7 +93,11 @@ export function OntologyTypeNode({ data }: Props) {
         onClick={handleTypeLinkClick}
         title={cardTitle(data)}
       >
-        <span className="ontology-node__name">{nameWithBreaks(data.name)}</span>
+        <span className="ontology-node__name">
+          {nameLines(data.name).map((line, index) =>
+            line ? <span key={index}>{line}</span> : null,
+          )}
+        </span>
         <span className="ontology-node__meta">
           {data.role === "interface"
             ? "Interface"

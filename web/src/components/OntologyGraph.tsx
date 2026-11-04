@@ -25,6 +25,7 @@ type Props = { atlas: OntologyAtlasResponse };
 
 type AtlasEdgeData = {
   routedPoints?: { x: number; y: number }[];
+  sourceOffset?: number;
   kind: EdgeKind;
   accent: string;
 };
@@ -33,8 +34,8 @@ type AtlasEdge = Edge<AtlasEdgeData>;
 
 type GraphState = { nodes: Node[]; edges: AtlasEdge[] };
 
-/** Fit padding that keeps cards clear of the finder (top left) and the legend (bottom). */
-const FIT_PADDING = { top: "64px", right: "24px", bottom: "56px", left: "24px" } as const;
+/** Fit padding: cards keep 24px from every edge and clear the finder in the top left. */
+const FIT_PADDING = { top: "64px", right: "24px", bottom: "24px", left: "24px" } as const;
 
 const EMPTY_GRAPH: GraphState = { nodes: [], edges: [] };
 
@@ -135,7 +136,12 @@ export function OntologyGraph({ atlas }: Props) {
               targetHandle: e.targetHandle,
               type: "ontologyRouted",
               animated: false,
-              data: { routedPoints: e.points, kind, accent: typeAccentColor(e.source) },
+              data: {
+                routedPoints: e.points,
+                sourceOffset: e.sourceOffset,
+                kind,
+                accent: typeAccentColor(e.source),
+              },
             };
           });
 
@@ -312,18 +318,18 @@ export function OntologyGraph({ atlas }: Props) {
             </p>
           ) : null}
         </div>
-        <div className="atlas-legend" aria-label="Connection legend">
-          <span>
-            <s data-kind="relation" /> Relation
-          </span>
-          <span>
-            <s data-kind="implements" /> Implements
-          </span>
-          <span>
-            <s data-kind="neighbor" /> Neighbor, shown while tracing
-          </span>
-          <span className="atlas-legend__hint">Hover a card to trace it in its color</span>
-        </div>
+      </div>
+      <div className="atlas-legend" aria-label="Connection legend">
+        <span>
+          <s data-kind="relation" /> Relation
+        </span>
+        <span>
+          <s data-kind="implements" /> Implements
+        </span>
+        <span>
+          <s data-kind="neighbor" /> Neighbor, shown while tracing
+        </span>
+        <span className="atlas-legend__hint">Hover a card to trace it in its color</span>
       </div>
     </div>
   );
