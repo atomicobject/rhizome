@@ -16,15 +16,15 @@ const QUIET_MS = 800;
  * first render rather than by the previous one's elapsed time. */
 function useElapsedPast(started: number, delay: number) {
   const [tick, rerender] = useReducer((count: number) => count + 1, 0);
-  // Re-arm after each tick: a timer can fire a millisecond before Date.now()
-  // reaches the deadline, and a single timer would then never show progress.
+  const past = Date.now() - started >= delay;
+  // Re-arm until a render sees the deadline: a timer can fire a millisecond
+  // early, and the deadline can pass between a render and its effect.
   useEffect(() => {
-    const wait = started + delay - Date.now();
-    if (wait <= 0) return;
-    const timer = window.setTimeout(rerender, wait);
+    if (past) return;
+    const timer = window.setTimeout(rerender, Math.max(0, started + delay - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [started, delay, tick]);
-  return Date.now() - started >= delay;
+  }, [started, delay, tick, past]);
+  return past;
 }
 
 export function Elapsed({ started }: { started: number }) {
