@@ -139,7 +139,7 @@ export function OntologyEditSessionPanel({
         )}
         <button
           type="button"
-          className="button button--primary ontology-edit-bar__btn ontology-edit-bar__btn--save"
+          className={`button${hasChanges ? " button--primary" : ""} ontology-edit-bar__btn ontology-edit-bar__btn--save`}
           onMouseDown={(event) => event.preventDefault()}
           onClick={onCommit}
           disabled={!hasChanges || busy || conflicted}
@@ -153,7 +153,7 @@ export function OntologyEditSessionPanel({
         </button>
         <button
           type="button"
-          className="button ontology-edit-bar__btn ontology-edit-bar__btn--discard"
+          className="button button--ghost ontology-edit-bar__btn ontology-edit-bar__btn--discard"
           onMouseDown={(event) => event.preventDefault()}
           onClick={onDiscard}
           disabled={busy}
