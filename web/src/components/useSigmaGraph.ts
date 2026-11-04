@@ -2,12 +2,9 @@ import { createNodeImageProgram } from "@sigma/node-image";
 import Graph from "graphology";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
-import {
-  drawDiscNodeLabel,
-  type NodeHoverDrawingFunction,
-  type NodeLabelDrawingFunction,
-} from "sigma/rendering";
+import { drawDiscNodeLabel, type NodeHoverDrawingFunction } from "sigma/rendering";
 import type { GraphEdge, GraphNode } from "../api/types";
+import { createLabelPainter } from "./sigmaLabels";
 import {
   computeEdgeStyle,
   computeNodeStyle,
@@ -70,7 +67,13 @@ const NodeImageProgram = createNodeImageProgram<SigmaNodeAttrs, SigmaEdgeAttrs>(
 // back to enterNode/leaveNode events if a future Sigma drops it.
 type NodePicker = (position: { x: number; y: number }) => string | null;
 
-type ThemeColors = GraphColors & { label: string; edgeLabel: string; surface: string };
+type ThemeColors = GraphColors & {
+  label: string;
+  edgeLabel: string;
+  surface: string;
+  /** The graph canvas behind node labels. */
+  canvas: string;
+};
 
 /** Read the renderer colors from the current theme's tokens. */
 function readThemeColors(): ThemeColors {
@@ -86,6 +89,7 @@ function readThemeColors(): ThemeColors {
     label: resolveCssColor("var(--text)"),
     edgeLabel: faint,
     surface: resolveCssColor("var(--surface)"),
+    canvas: resolveCssColor("var(--surface-alt)"),
   };
 }
 
@@ -140,78 +144,6 @@ function themedNodeHover(
  * short names ("types", "handle") do not say where the reader is.
  */
 const LANDMARKS = 20;
-
-/** Up to this many nodes, labels are placed clear of node discs as well as other labels. */
-const NODE_AVOID_ORDER = 400;
-
-// WHY: Sigma's default label has no backing, so it disappears over dense edges
-// and nodes. This draws the same label on a halo of the surface color.
-// Sigma's label grid ignores forced (landmark) labels, so hubs packed together
-// would stack their labels; `placed` holds this frame's drawn label boxes, and a
-// label tries eight spots around its node before it is skipped. The caller empties
-// it before each render.
-function haloLabel(
-  colors: () => ThemeColors,
-  placed: [number, number, number, number][],
-  prepare: () => void,
-): NodeLabelDrawingFunction<SigmaNodeAttrs, SigmaEdgeAttrs> {
-  return (context, data, settings) => {
-    if (!data.label) return;
-    prepare();
-    const size = settings.labelSize;
-    context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
-    const width = context.measureText(data.label).width;
-    const gap = data.size + 3;
-
-    // Right of the node first, then left, below, above, and the four
-    // diagonals; a label with no free spot is left out rather than drawn over
-    // another.
-    const d = gap * 0.85;
-
-    const spots: [number, number][] = [
-      [data.x + gap, data.y + size / 3],
-      [data.x - gap - width, data.y + size / 3],
-      [data.x - width / 2, data.y + gap + size],
-      [data.x - width / 2, data.y - gap - 2],
-      [data.x + d, data.y - d - 2],
-      [data.x + d, data.y + d + size],
-      [data.x - d - width, data.y - d - 2],
-      [data.x - d - width, data.y + d + size],
-    ];
-
-    // Each box keeps a few pixels' clearance, so neighboring labels never touch.
-    const boxOf = ([x, y]: [number, number]): [number, number, number, number] => [
-      x - 4,
-      y - size - 2,
-      x + width + 4,
-      y + 6,
-    ];
-
-    const free = spots.find((spot) => {
-      const box = boxOf(spot);
-
-      return !placed.some(
-        ([l, t, r, b]) =>
-          // The node's own disc never blocks its label.
-          !(Math.abs((l + r) / 2 - data.x) < 0.5 && Math.abs((t + b) / 2 - data.y) < 0.5) &&
-          box[0] < r &&
-          box[2] > l &&
-          box[1] < b &&
-          box[3] > t,
-      );
-    });
-
-    if (!free) return;
-    placed.push(boxOf(free));
-    const [x, y] = free;
-    context.lineJoin = "round";
-    context.lineWidth = 4;
-    context.strokeStyle = colors().surface;
-    context.strokeText(data.label, x, y);
-    context.fillStyle = colors().label;
-    context.fillText(data.label, x, y);
-  };
-}
 
 /**
  * A node's radius before authority scaling. Notes and code start small so a
@@ -491,27 +423,10 @@ export function useSigmaGraph({
     if (!container || needsIndex || empty) return;
     container.style.cursor = "grab";
 
-    const placedLabels: [number, number, number, number][] = [];
-    let discsPlaced = false;
-
-    // Before the frame's first label, mark every node disc taken, so labels in
-    // a graph small enough to check keep off nodes as well as other labels.
-    // Sigma lays out the frame's nodes after "beforeRender", so this runs here.
-    const placeDiscs = () => {
-      if (discsPlaced) return;
-      discsPlaced = true;
-      const graph = sigma.getGraph();
-
-      if (graph.order > NODE_AVOID_ORDER) return;
-      graph.forEachNode((id) => {
-        const data = sigma.getNodeDisplayData(id);
-
-        if (!data || data.hidden) return;
-        const { x, y } = sigma.framedGraphToViewport(data);
-        const r = sigma.scaleSize(data.size);
-        placedLabels.push([x - r, y - r, x + r, y + r]);
-      });
-    };
+    const labels = createLabelPainter(
+      () => sigmaRef.current,
+      () => colorsRef.current ?? readThemeColors(),
+    );
 
     // WHY: allowInvalidContainer keeps Sigma from throwing when its container
     // has zero width at mount time — this can happen on the first commit
@@ -532,11 +447,7 @@ export function useSigmaGraph({
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
-      defaultDrawNodeLabel: haloLabel(
-        () => colorsRef.current ?? readThemeColors(),
-        placedLabels,
-        () => placeDiscs(),
-      ),
+      defaultDrawNodeLabel: labels.draw,
       minCameraRatio: CAMERA.minRatio,
       maxCameraRatio: CAMERA.maxRatio,
       zIndex: true,
@@ -549,10 +460,7 @@ export function useSigmaGraph({
     });
 
     sigmaRef.current = sigma;
-    sigma.on("beforeRender", () => {
-      placedLabels.length = 0;
-      discsPlaced = false;
-    });
+    sigma.on("beforeRender", labels.beginFrame);
     const camera = sigma.getCamera();
     stateRef.current.cameraRatio = camera.getState().ratio;
 

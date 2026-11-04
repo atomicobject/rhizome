@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Search } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getExpandedModuleGraph,
@@ -463,34 +463,42 @@ export function ExplorerWorkspace({
                   Only matches
                 </label>
               ) : null}
-              <input
-                type="search"
-                aria-label="Search notes and code"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
+              <label className="configured-view__find explorer-bar__find">
+                <Search
+                  className="configured-view__tool-icon"
+                  aria-hidden="true"
+                  strokeWidth={1.75}
+                />
+                <input
+                  className="configured-view__search"
+                  type="search"
+                  aria-label="Search notes and code"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
 
-                  if (e.target.value.trim() === "") {
-                    clearSearch();
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    runSearch();
-                    setShowSuggestions(false);
-                  }
+                    if (e.target.value.trim() === "") {
+                      clearSearch();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      runSearch();
+                      setShowSuggestions(false);
+                    }
 
-                  if (e.key === "Escape") {
-                    setQuery("");
-                    setShowSuggestions(false);
-                    clearSearch();
-                  }
-                }}
-                onFocus={() => {
-                  setShowSuggestions(true);
-                }}
-                placeholder={searching ? "Searching…" : "Search notes and code"}
-              />
+                    if (e.key === "Escape") {
+                      setQuery("");
+                      setShowSuggestions(false);
+                      clearSearch();
+                    }
+                  }}
+                  onFocus={() => {
+                    setShowSuggestions(true);
+                  }}
+                  placeholder={searching ? "Searching…" : "Search notes and code"}
+                />
+              </label>
               {showSuggestions && suggestions.length > 0 && (
                 <div className="explorer-suggestions">
                   {suggestions.map((suggestion) => (
@@ -553,6 +561,9 @@ export function ExplorerWorkspace({
                     legendNodes={folders ? graph.nodes : undefined}
                     folderCaption={
                       folders ? "Sized by contents, colored by their most common type" : undefined
+                    }
+                    edgeCaption={
+                      folders ? "Links between folders, thicker means more links" : undefined
                     }
                     displaySlot={displaySlot}
                     needsIndex={graph.needsIndex}
