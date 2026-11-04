@@ -209,9 +209,9 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
   await expect(context).toContainText("No review meetings link to 2 of 10 work items");
 
   // Doing and In review are the active stages.
-  await expect(frame.getByRole("region", { name: "In motion" }).locator(".gv-record")).toHaveCount(
-    5,
-  );
+  await expect(
+    frame.getByRole("region", { name: "In motion" }).locator(".gv-change-title"),
+  ).toHaveCount(5);
   await expect(
     frame.getByRole("region", { name: "Shape" }).getByRole("heading", { name: "Stage lifecycle" }),
   ).toBeVisible();

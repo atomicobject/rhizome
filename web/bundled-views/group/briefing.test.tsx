@@ -126,19 +126,18 @@ it("says there are no validation issues, and skips unlinked records in a group w
   expect(screen.queryByRole("region", { name: "Connections" })).toBeNull();
 });
 
-it("lists active-stage records newest first with their key text, whatever their tone", async () => {
+it("lists active-stage records newest first in flat rows with type metadata", async () => {
   await renderGroupView(loadBriefing);
   const motion = await screen.findByRole("region", { name: "In motion" });
 
-  // Blocked is warning-toned but declares the active stage.
-  expect(within(motion).getByRole("heading", { level: 3 })).toHaveTextContent(
-    "Work items · Doing, Blocked 3",
-  );
-  expect(items(motion).map((entry) => entry.textContent)).toEqual([
-    expect.stringMatching(/Checkout redesign.*Next stepReview the payment step$/),
-    expect.stringMatching(/Tax rounding.*Next stepWait for finance$/),
-    expect.stringMatching(/Saved carts.*Keep carts across sessions\.$/),
+  expect(within(motion).queryByRole("heading", { level: 3 })).toBeNull();
+  expect(items(motion).map((entry) => within(entry).getByRole("button").textContent)).toEqual([
+    "Checkout redesign",
+    "Tax rounding",
+    "Saved carts",
   ]);
+  expect(items(motion).every((entry) => entry.querySelector(".gv-change-meta"))).toBe(true);
+  expect(motion.querySelectorAll(".gv-mark").length).toBeGreaterThan(0);
   expect(motion.querySelector(".gv-hint-lead")).toHaveTextContent(
     "Areas, Checklists have no lifecycle.",
   );

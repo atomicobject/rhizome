@@ -6,7 +6,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 
 import { recentChanges, type Boundary, type ChangeMoment, type MotionEntry } from "./activity.ts";
 import { Block, MoreToggle, counted, lower, memberOf, plural } from "./briefing-parts.tsx";
-import { IssueCount, RecordMark, RecordTitle, openRecord } from "./components.tsx";
+import { RecordMark, openRecord } from "./components.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import {
   fieldLabel,
@@ -23,53 +23,50 @@ export const CHANGE_LINES = 18;
 /** Notes listed outside the records before "+N more". */
 export const OUTSIDE_NOTES = 8;
 
-/** True when the entries hold one lifecycle value, so a mark on each row only repeats it. */
-export function oneStatus(member: Member, entries: readonly MotionEntry[]) {
-  return new Set(entries.map((entry) => lifecycleValue(member, entry.record))).size <= 1;
-}
-
-/** One in-motion record; `mark` is off when the list around it states the one status. */
-export function MotionRow({
-  member,
-  entry,
-  mark = true,
+/** One flat activity list, shared by all, group, and type Briefings. */
+export function MotionList({
+  model,
+  entries,
 }: {
-  member: Member;
-  entry: MotionEntry;
-  mark?: boolean;
+  model: GroupModel;
+  entries: readonly MotionEntry[];
 }) {
-  const { record, note } = entry;
+  const expanded = useRememberedOpen("briefing.expanded");
+  const open = expanded.isOpen("in-motion", false);
+  const shown = open ? entries : entries.slice(0, 8);
+
+  const mixed =
+    new Set(
+      entries.map(({ record }) => {
+        const member = memberOf(model, record.member);
+
+        return member ? lifecycleValue(member, record) : null;
+      }),
+    ).size > 1;
 
   return (
-    <li className="gv-mo">
-      <div className="gv-title">
-        {mark && <RecordMark member={member} record={record} />}
-        <RecordTitle record={record} />
-        <IssueCount record={record} />
-        {record.updatedAt !== null && (
-          <RelativeTime value={record.updatedAt} className="gv-age gv-mo-time" />
-        )}
-      </div>
-      {note && (
-        <div className="gv-mo-note">
-          {note.label && <em>{note.label}</em>}
-          {note.text}
-        </div>
+    <>
+      <ul className="gv-list gv-changes">
+        {shown.map(({ record }) => {
+          const member = memberOf(model, record.member);
+
+          return (
+            <ChangeRow
+              key={record.key}
+              line={recordLine(model, record)}
+              mark={mixed && member ? <RecordMark member={member} record={record} /> : undefined}
+            />
+          );
+        })}
+      </ul>
+      {entries.length > 8 && (
+        <MoreToggle
+          hidden={entries.length - 8}
+          open={open}
+          onToggle={() => expanded.setOpen("in-motion", !open)}
+        />
       )}
-    </li>
-  );
-}
-
-/**
- * The line over a list of in-motion rows: the group's heading, if any, and a
- * "Changed" label over the age column so a bare "30d" says what it measures.
- */
-export function MotionHead({ children }: { children?: ReactNode }) {
-  return (
-    <div className="gv-mo-head">
-      {children}
-      <span className="gv-mo-col">Changed</span>
-    </div>
+    </>
   );
 }
 
@@ -159,13 +156,24 @@ export type ChangeLine = {
  * line with the type and the folder in mono, and the age in a fixed column
  * at the right, so ages align down the list.
  */
-export function ChangeRow({ line, children }: { line: ChangeLine; children?: ReactNode }) {
+export function ChangeRow({
+  line,
+  children,
+  mark,
+}: {
+  line: ChangeLine;
+  children?: ReactNode;
+  mark?: ReactNode;
+}) {
   return (
     <li className="gv-change">
       <span className="gv-change-main">
-        <button type="button" className="gv-inline gv-change-title" onClick={line.onOpen}>
-          {line.title}
-        </button>
+        <span className="gv-change-heading">
+          {mark}
+          <button type="button" className="gv-inline gv-change-title" onClick={line.onOpen}>
+            {line.title}
+          </button>
+        </span>
         <span className="gv-change-meta">
           {line.type}
           {line.folder && (
@@ -251,7 +259,7 @@ export function RecentChanges({ model, info }: { model: GroupModel; info?: strin
   );
 
   return (
-    <Block title="Recent changes" info={info}>
+    <Block title="Recent changes" info={info ? { text: info, display: "title" } : undefined}>
       {moments.length === 0 && <p className="gv-quiet">No change times recorded.</p>}
       <ul className="gv-list gv-changes">
         {moments.map((moment) =>
@@ -314,11 +322,14 @@ export function OutsideNotes({
     <Block
       title={title}
       count={`${outside.incomplete ? "at least " : ""}${outside.notes.length} ${plural(outside.notes.length, "note", "notes")}`}
-      info={`${info}${
-        outside.incomplete
-          ? " Some records have more links than were read, so this list is incomplete."
-          : ""
-      }`}
+      info={{
+        text: `${info}${
+          outside.incomplete
+            ? " Some records have more links than were read, so this list is incomplete."
+            : ""
+        }`,
+        display: "title",
+      }}
     >
       {outside.byType.length > 0 && (
         <p className="gv-outsum">

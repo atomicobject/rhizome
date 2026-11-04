@@ -7,24 +7,14 @@
 import { HighlightProvider, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
-import { inMotion, needsAttention, type MotionEntry } from "./activity.ts";
-import {
-  MotionHead,
-  MotionRow,
-  RecentChanges,
-  StageHints,
-  oneStatus,
-} from "./briefing-activity.tsx";
+import { inMotion, needsAttention } from "./activity.ts";
+import { MotionList, RecentChanges, StageHints } from "./briefing-activity.tsx";
 import { NeedsAttention } from "./briefing-attention.tsx";
-import { Block, ModelBlock, MoreToggle, heldLabels, memberOf } from "./briefing-parts.tsx";
+import { Block, ModelBlock } from "./briefing-parts.tsx";
 import { GroupFrame } from "./components.tsx";
 import { linkGraph } from "./graph.ts";
 import { useGroupModel, type GroupRead } from "./load.ts";
-import { memberLabel, type GroupModel, type Member } from "./model.ts";
-import { useRememberedOpen } from "./remembered.ts";
-
-/** In-motion records listed per member before "Show N more". */
-export const MOTION_RECORDS = 8;
+import { type GroupModel } from "./model.ts";
 
 /**
  * Records of each type Recent changes reads, newest first.
@@ -49,58 +39,21 @@ const RECENT_READ: GroupRead = {
   perType: RECENT_RECORDS,
 };
 
-function MotionGroup({
-  model,
-  member,
-  entries,
-}: {
-  model: GroupModel;
-  member: Member;
-  entries: readonly MotionEntry[];
-}) {
-  const expanded = useRememberedOpen("briefing.expanded");
-  const key = `in-motion:${member.name}`;
-  const open = expanded.isOpen(key, false);
-  const shown = open ? entries : entries.slice(0, MOTION_RECORDS);
-  const records = entries.map((entry) => entry.record);
-  // The heading names the one status the rows share, so each row omits its mark.
-  const mark = !oneStatus(member, entries);
-
-  return (
-    <div className="gv-mo-group">
-      <MotionHead>
-        <h3 className="gv-mo-type">
-          {memberLabel(model, member, { plural: true })} · {heldLabels(member, records)}{" "}
-          <span className="gv-num">{entries.length}</span>
-        </h3>
-      </MotionHead>
-      <ul className="gv-list">
-        {shown.map((entry) => (
-          <MotionRow key={entry.record.key} member={member} entry={entry} mark={mark} />
-        ))}
-      </ul>
-      {entries.length > MOTION_RECORDS && (
-        <div className="gv-mo-more">
-          <MoreToggle
-            hidden={entries.length - MOTION_RECORDS}
-            open={open}
-            onToggle={() => expanded.setOpen(key, !open)}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 function InMotion({ model }: { model: GroupModel }) {
   const motion = useMemo(() => inMotion(model), [model]);
-  const total = motion.groups.reduce((sum, group) => sum + group.entries.length, 0);
+
+  const entries = motion.groups
+    .flatMap((group) => group.entries)
+    .sort((a, b) => (b.record.updatedAt ?? 0) - (a.record.updatedAt ?? 0));
 
   return (
     <Block
       title="In motion"
-      count={total}
-      info="Records whose lifecycle value is in the active stage, newest change first."
+      count={entries.length}
+      info={{
+        text: "Records whose lifecycle value is in the active stage, newest change first.",
+        display: "title",
+      }}
       controls={
         <StageHints
           model={model}
@@ -110,13 +63,7 @@ function InMotion({ model }: { model: GroupModel }) {
       }
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
-      {motion.groups.map((group) => {
-        const member = memberOf(model, group.member);
-
-        return member ? (
-          <MotionGroup key={group.member} model={model} member={member} entries={group.entries} />
-        ) : null;
-      })}
+      <MotionList model={model} entries={entries} />
     </Block>
   );
 }

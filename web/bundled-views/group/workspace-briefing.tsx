@@ -11,7 +11,6 @@
 //   for each type's newest records in an active lifecycle value;
 // - `GET /api/v1/ontology/types/__all__?limit=N` for the newest notes.
 import {
-  RelativeTime,
   StatusMark,
   openCollection,
   openIssues,
@@ -24,14 +23,8 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
-import {
-  isString,
-  parseRecords,
-  type JsonObject,
-  type JsonValue,
-  type ParsedRecord,
-} from "./api.ts";
-import { ChangeRow, MotionHead } from "./briefing-activity.tsx";
+import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
+import { ChangeRow } from "./briefing-activity.tsx";
 import {
   Block,
   BlockBody,
@@ -56,7 +49,6 @@ import {
   RECENT_NOTES,
   activeRecordsQuery,
   motionTypes,
-  type MotionType,
   parseIssueGroups,
   parseRecentNotes,
 } from "./workspace-activity.ts";
@@ -190,89 +182,6 @@ function NeedsAttention() {
   );
 }
 
-/**
- * One type's records in motion: its label, the status they share when there
- * is one, and the total; eight rows, then "Show N more" in place. A shared
- * status sits in the heading, so the rows omit their marks.
- */
-function MotionTypeGroup({
-  entry,
-  label,
-  expanded,
-}: {
-  entry: MotionType & { records: readonly ParsedRecord[] };
-  label: string;
-  expanded: ReturnType<typeof useRememberedOpen>;
-}) {
-  const key = `in-motion:${entry.type}`;
-  const open = expanded.isOpen(key, false);
-  const total = Math.max(entry.total, entry.records.length);
-  const shown = open ? entry.records : entry.records.slice(0, MOTION_PER_TYPE);
-  const held = new Set(entry.records.map((record) => record.values.get(entry.field)));
-
-  const heldLabels = entry.values.flatMap((value) =>
-    held.has(value.name) ? [value.label ?? value.name] : [],
-  );
-
-  const mark = held.size > 1;
-
-  return (
-    <div className="gv-mo-group">
-      <MotionHead>
-        <h3 className="gv-mo-type">
-          {label}
-          {heldLabels.length > 0 && ` · ${heldLabels.join(", ")}`}{" "}
-          <span className="gv-num">{total}</span>
-        </h3>
-      </MotionHead>
-      <ul className="gv-list">
-        {shown.map((record) => {
-          const value = record.values.get(entry.field);
-
-          return (
-            <li key={record.key} className="gv-mo">
-              <div className="gv-title">
-                {mark &&
-                  (isString(value) ? (
-                    <StatusMark value={value} values={entry.values} hideLabel className="gv-mark" />
-                  ) : (
-                    <span className="gv-mark-slot" aria-hidden="true" />
-                  ))}
-                <button type="button" className="gv-record" onClick={() => openNode(record.ref)}>
-                  {record.title}
-                </button>
-                {record.updatedAt !== null && (
-                  <RelativeTime value={record.updatedAt} className="gv-age gv-mo-time" />
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      {entry.records.length > MOTION_PER_TYPE && (
-        <div className="gv-mo-more">
-          <MoreToggle
-            hidden={entry.records.length - MOTION_PER_TYPE}
-            open={open}
-            onToggle={() => expanded.setOpen(key, !open)}
-          />
-        </div>
-      )}
-      {open && total > entry.records.length && (
-        <div className="gv-mo-more">
-          <button
-            type="button"
-            className="gv-link gv-more"
-            onClick={() => openCollection(entry.type)}
-          >
-            Open {lower(label)}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function InMotion() {
   const queryClient = useQueryClient();
   const expanded = useRememberedOpen("briefing.expanded");
@@ -338,7 +247,10 @@ function InMotion() {
   return (
     <Block
       title="In motion"
-      info="Records in an active lifecycle stage, any type, newest change first."
+      info={{
+        text: "Records in an active lifecycle stage, any type, newest change first.",
+        display: "title",
+      }}
     >
       <BlockBody status={status} what="work in motion">
         {() => {
@@ -352,14 +264,70 @@ function InMotion() {
 
           if (!moving.length) return <p className="gv-quiet">Nothing in an active stage.</p>;
 
-          return moving.map((entry) => (
-            <MotionTypeGroup
-              key={entry.type}
-              entry={entry}
-              label={label(entry.type, true)}
-              expanded={expanded}
-            />
-          ));
+          const entries = moving
+            .flatMap((entry) => entry.records.map((record) => ({ entry, record })))
+            .sort((a, b) => (b.record.updatedAt ?? 0) - (a.record.updatedAt ?? 0));
+
+          const open = expanded.isOpen("in-motion", false);
+          const shown = open ? entries : entries.slice(0, MOTION_PER_TYPE);
+
+          const mixed =
+            new Set(entries.map(({ entry, record }) => record.values.get(entry.field))).size > 1;
+
+          return (
+            <>
+              <ul className="gv-list gv-changes">
+                {shown.map(({ entry, record }) => {
+                  const value = record.values.get(entry.field);
+
+                  return (
+                    <ChangeRow
+                      key={record.key}
+                      line={{
+                        key: record.key,
+                        title: record.title,
+                        type: label(entry.type, false),
+                        folder: record.path.split("/").slice(0, -1).join("/"),
+                        time: record.updatedAt,
+                        onOpen: () => openNode(record.ref),
+                      }}
+                      mark={
+                        mixed && isString(value) ? (
+                          <StatusMark
+                            value={value}
+                            values={entry.values}
+                            hideLabel
+                            className="gv-mark"
+                          />
+                        ) : undefined
+                      }
+                    />
+                  );
+                })}
+              </ul>
+              {entries.length > MOTION_PER_TYPE && (
+                <MoreToggle
+                  hidden={entries.length - MOTION_PER_TYPE}
+                  open={open}
+                  onToggle={() => expanded.setOpen("in-motion", !open)}
+                />
+              )}
+              {open &&
+                moving
+                  .filter((entry) => entry.total > entry.records.length)
+                  .map((entry) => (
+                    <div key={entry.type} className="gv-mo-more">
+                      <button
+                        type="button"
+                        className="gv-link gv-more"
+                        onClick={() => openCollection(entry.type)}
+                      >
+                        Open {lower(label(entry.type, true))}
+                      </button>
+                    </div>
+                  ))}
+            </>
+          );
         }}
       </BlockBody>
     </Block>
@@ -379,7 +347,10 @@ function RecentChanges() {
   const status = blockStatus([readOf(recent), summaries.read]);
 
   return (
-    <Block title="Recent changes" info="Every note, untyped included, newest first.">
+    <Block
+      title="Recent changes"
+      info={{ text: "Every note, untyped included, newest first.", display: "title" }}
+    >
       <BlockBody status={status} what="recent changes">
         {() =>
           recent.data?.length ? (
