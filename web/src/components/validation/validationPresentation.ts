@@ -33,7 +33,7 @@ export function validationPresentation(envelope: ValidateEnvelope | null): Valid
       return {
         health,
         tone: "success",
-        label: "No issues found",
+        label: "No issues",
         message: "Validation completed successfully.",
         hasPublishedResult,
       };

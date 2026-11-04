@@ -72,7 +72,9 @@
   --accent-ink: light-dark(#9c1d24, #ff9096);
 
   --info: light-dark(#3295bd, #5fb3d6);
-  --success: light-dark(#16cbc4, #2fd3cc);
+  /* Success is green, never teal: teal means a link. --success is the mark
+     (3:1 on every surface), --success-ink the text (4.5:1). */
+  --success: light-dark(#2f8a50, #4cb873);
   --warning: #dcad66;
   --warning-soft: light-dark(#fbefd4, #362b19);
   --warning-ink: light-dark(#8a5a0f, #e8c27e);
@@ -142,8 +144,8 @@
   --focus-ring: light-dark(#c8313a, #ff6b72);
 
   /* ---- Status roles ---- */
-  --success-soft: light-dark(#d8f7f5, #15302e);
-  --success-ink: light-dark(#0b6a66, #5fe0da);
+  --success-soft: light-dark(#e4f3e8, #17301f);
+  --success-ink: light-dark(#1e6b3b, #7fd69c);
   --info-soft: light-dark(#e1f0f7, #1b2c34);
   --info-ink: light-dark(#1f6f91, #8ccbe6);
 
