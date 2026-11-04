@@ -50,7 +50,7 @@ function InMotion({ model, member }: { model: GroupModel; member: Member }) {
     <Block
       title="In motion"
       count={entries.length}
-      caption="Records whose lifecycle value is in the active stage, newest change first."
+      info="Records whose lifecycle value is in the active stage, newest change first."
     >
       {entries.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
       <ul className="gv-list">
@@ -141,11 +141,10 @@ function MonthChart({ chart }: { chart: DateMonths }) {
         aria-label={`${label} per month, ${first} to ${last}: busiest ${monthLabel(busiest.month)} with ${busiest.count}`}
       >
         {months.map((entry) => (
-          <i
-            key={entry.month}
-            style={{ height: `${(entry.count / busiest.count) * 100}%` }}
-            title={`${monthLabel(entry.month)}: ${entry.count}`}
-          />
+          <span key={entry.month} title={`${monthLabel(entry.month)}: ${entry.count}`}>
+            {months.length <= 12 && entry.count > 0 && <b>{entry.count}</b>}
+            <i style={{ height: `calc((100% - 16px) * ${entry.count / busiest.count})` }} />
+          </span>
         ))}
       </div>
       <p className="gv-hist-axis">
@@ -174,7 +173,7 @@ function SpreadBlock({ model, member }: { model: GroupModel; member: Member }) {
   return (
     <Block
       title="Shape"
-      caption={`How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`}
+      info={`How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`}
     >
       {member.kind === "interface" && (
         <div className="gv-spread">
@@ -215,20 +214,25 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
         <i data-thin={share < 0.5 || undefined} style={{ width: `${share * 100}%` }} />
       </div>
       {top.length > 0 ? (
-        <p className="gv-tops">
-          {top.map(({ note, count }) => (
-            <span key={note.path}>
-              <button type="button" className="gv-inline" onClick={() => openNote(note.path)}>
-                {note.title}
-              </button>{" "}
-              <span className="gv-num">{count}</span>
-            </span>
-          ))}
-          {distinct > top.length && <span className="gv-sub">+{distinct - top.length} more</span>}
-          {sampled && (
-            <span className="gv-sub">counted from the first {REVERSE_SAMPLE} of each record</span>
+        <>
+          <ul className="gv-list gv-tops">
+            {top.map(({ note, count }) => (
+              <li key={note.path}>
+                <button type="button" className="gv-inline" onClick={() => openNote(note.path)}>
+                  {note.title}
+                </button>
+                <span className="gv-num">{count}</span>
+              </li>
+            ))}
+          </ul>
+          {(distinct > top.length || sampled) && (
+            <p className="gv-sub gv-tops-more">
+              {distinct > top.length && `+${distinct - top.length} more`}
+              {distinct > top.length && sampled && " · "}
+              {sampled && `counted from the first ${REVERSE_SAMPLE} of each record`}
+            </p>
           )}
-        </p>
+        </>
       ) : (
         <p className="gv-rel-none">
           {direction === "forward"
@@ -246,7 +250,7 @@ function Connections({ model, member }: { model: GroupModel; member: Member }) {
   return (
     <Block
       title="Connections"
-      caption="Each people, relation, and reverse field: how many records fill it, and its most common targets."
+      info="Each people, relation, and reverse field: how many records fill it, and its most common targets."
     >
       {connections.length === 0 && <p className="gv-quiet">No relation or reverse fields.</p>}
       <ul className="gv-list">
@@ -313,7 +317,7 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
           <NeedsAttention
             model={model}
             signals={signals}
-            caption="Validation issues and declared warning values."
+            info="Validation issues and declared warning values."
             memberAction={openTable}
           />
           {/* A lifecycle without an active stage (a contract) has nothing in motion by design. */}
@@ -322,7 +326,7 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
           )}
           <RecentChanges
             model={model}
-            caption="Newest first. Four or more records changed in the same minute collapse into one line."
+            info="Newest first. Four or more records changed in the same minute collapse into one line."
           />
         </div>
         <div className="gv-brief-col">
@@ -331,7 +335,7 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
             model={model}
             outside={linkedIn}
             title="Linked from outside"
-            caption={`Notes of other types that link to these ${lower(member.pluralLabel)}, most connected first.`}
+            info={`Notes of other types that link to these ${lower(member.pluralLabel)}, most connected first.`}
             empty="No notes of other types link here."
           />
         </div>

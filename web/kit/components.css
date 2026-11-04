@@ -35,6 +35,23 @@
     font: 700 var(--fs-sm) / 1.3 var(--font-sans);
   }
 
+  /* The info mark: the block's explanation on hover, for screen readers always. */
+  .rz-info {
+    display: inline-flex;
+    align-self: center;
+    color: var(--text-faint);
+    cursor: help;
+  }
+
+  .rz-info svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .rz-info:hover {
+    color: var(--text-muted);
+  }
+
   .rz-section-controls {
     display: inline-flex;
     align-items: center;

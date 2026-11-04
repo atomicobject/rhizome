@@ -8,7 +8,7 @@ import {
   useViewPreference,
   type ViewModuleProps,
 } from "@rhizome/kit";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { isString } from "./api.ts";
 import { GroupFacts, GroupPage, MemberHeading } from "./components.tsx";
@@ -47,6 +47,25 @@ function columnLabel(model: GroupModel, column: MatrixColumn) {
 const openColumn = (column: MatrixColumn) =>
   openCollection(column.kind === "member" ? column.member.name : column.link.targetType);
 
+/**
+ * The link field that joins a column to the rows, such as "Governing specs":
+ * the rows' own field for a column they link to, the column's field for one
+ * that links to them. A column reached through others has none.
+ */
+function relationField(matrix: TraceMatrix, column: MatrixColumn) {
+  if (column.kind === "outside") return null;
+  const { spine } = matrix;
+
+  const link =
+    column.relation === "linked-from-rows"
+      ? spine.links.find((item) => item.target === column.member.name)
+      : column.relation === "links-to-rows"
+        ? column.member.links.find((item) => item.target === spine.name)
+        : undefined;
+
+  return link ? fieldLabel(link.field) : null;
+}
+
 function ColumnHead({
   model,
   matrix,
@@ -57,23 +76,11 @@ function ColumnHead({
   column: MatrixColumn;
 }) {
   const label = columnLabel(model, column);
-
-  if (column.collapsed) {
-    const why = column.kind === "member" ? "none recorded" : "no row links one";
-
-    return (
-      <th scope="col" className="gv-narrow" title={`${label}: ${why}`}>
-        <button type="button" className="gv-member gv-vertical" onClick={() => openColumn(column)}>
-          {label} <span className="gv-num">0</span>
-          <span className="sr-only">, {why}</span>
-        </button>
-      </th>
-    );
-  }
+  const field = relationField(matrix, column);
 
   const where =
     column.kind === "member"
-      ? RELATION[column.relation]
+      ? (field ?? RELATION[column.relation])
       : column.link.targetGroup
         ? `in ${column.link.targetGroup}`
         : "outside the group";
@@ -83,22 +90,22 @@ function ColumnHead({
   return (
     <th scope="col" className={column.kind === "outside" ? "gv-outcol" : undefined}>
       <div className="gv-head">
-        {/* The count sits inside the button so it wraps with the label's last word. */}
         <button type="button" className="gv-member" onClick={() => openColumn(column)}>
           {label}
-          {column.kind === "member" && (
-            <>
-              {"\u00a0"}
-              <span className="gv-num">{column.member.count}</span>
-            </>
-          )}
         </button>
+        {column.kind === "member" && <span className="gv-num">{column.member.count}</span>}
+        <span
+          className="gv-cov-count"
+          title={`${column.covered} of ${matrix.rowCount} rows hold one`}
+        >
+          <b className={thin ? "gv-thin" : undefined}>{column.covered}</b>/{matrix.rowCount} rows
+        </span>
       </div>
-      <div className="gv-cov">
-        <b className={thin ? "gv-thin" : undefined}>
-          {column.covered}/{matrix.rowCount}
-        </b>{" "}
-        rows · {where}
+      <div
+        className="gv-cov"
+        title={column.kind === "member" ? RELATION[column.relation] : undefined}
+      >
+        {where}
       </div>
     </th>
   );
@@ -112,23 +119,46 @@ function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }
     ? `by ${fieldLabel(lifecycle.field).toLowerCase()}, most advanced first`
     : "most connected first";
 
+  const empty = matrix.emptyValues.map((value) => value.label ?? value.name).join(", ");
+
   return (
     <th scope="col" className="gv-trace-spine">
       <div className="gv-head">
         <MemberHeading model={model} member={spine} />
-        {"\u00a0"}
         <span className="gv-num">{spine.count}</span>
       </div>
       <div className="gv-cov">
         {order}
         {matrix.hierarchical && ", nested under parents"}
+        {empty && ` · none ${empty}`}
       </div>
-      {matrix.emptyValues.length > 0 && (
-        <div className="gv-cov">
-          Empty: {matrix.emptyValues.map((value) => value.label ?? value.name).join(", ")}
-        </div>
-      )}
     </th>
+  );
+}
+
+/** Columns with nothing to show, named once in the toolbar instead of as empty columns. */
+function EmptyColumns({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+  const empty = matrix.columns.filter((column) => column.collapsed);
+
+  if (!empty.length) return null;
+
+  return (
+    <span className="gv-faint">
+      No links:{" "}
+      {empty.map((column, index) => (
+        <span key={column.id}>
+          {index > 0 && ", "}
+          <button
+            type="button"
+            className="gv-inline"
+            title={column.kind === "member" ? "None recorded" : "No row links one"}
+            onClick={() => openColumn(column)}
+          >
+            {columnLabel(model, column)}
+          </button>
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -165,11 +195,12 @@ function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
   );
 }
 
-/** The matrix's narrowest readable width, in pixels. */
-function matrixWidth(matrix: TraceMatrix) {
-  const wide = matrix.columns.filter((column) => !column.collapsed).length;
+/** Columns that show; an empty column is named in the toolbar instead. */
+const shownColumns = (matrix: TraceMatrix) => matrix.columns.filter((column) => !column.collapsed);
 
-  return 280 + wide * 120 + (matrix.columns.length - wide) * 30;
+/** The matrix's narrowest readable width, in pixels: a 340px spine and 160px columns. */
+function matrixWidth(matrix: TraceMatrix) {
+  return 340 + shownColumns(matrix).length * 160;
 }
 
 function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
@@ -181,14 +212,14 @@ function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
         <table className="gv-trace">
           <colgroup>
             <col className="gv-col-spine" />
-            {matrix.columns.map((column) => (
-              <col key={column.id} className={column.collapsed ? "gv-col-narrow" : undefined} />
+            {shownColumns(matrix).map((column) => (
+              <col key={column.id} />
             ))}
           </colgroup>
           <thead>
             <tr>
               <SpineHead model={model} matrix={matrix} />
-              {matrix.columns.map((column) => (
+              {shownColumns(matrix).map((column) => (
                 <ColumnHead key={column.id} model={model} matrix={matrix} column={column} />
               ))}
             </tr>
@@ -215,12 +246,15 @@ function SpineSwitcher({
   choices,
   spine,
   onChoose,
+  children,
 }: {
   model: GroupModel;
   graph: LinkGraph;
   choices: readonly string[];
   spine: string;
   onChoose: (spine: string) => void;
+  /** Notes for the matrix below, such as the columns it leaves out. */
+  children?: ReactNode;
 }) {
   const fallback = choices[0];
   const member = model.memberIndex.get(fallback);
@@ -255,11 +289,13 @@ function SpineSwitcher({
           ];
         })}
       />
-      <span className="gv-faint">
-        <span className="gv-default-dot" aria-hidden="true" /> Default:{" "}
-        {tree ? "the tree other types link to" : "the type linked with the most others"}. Columns
-        follow link direction.
+      <span
+        className="gv-faint"
+        title={`Default rows: ${tree ? "the tree other types link to" : "the type linked with the most others"}. Columns follow link direction.`}
+      >
+        <span className="gv-default-dot" aria-hidden="true" /> Default
       </span>
+      {children}
     </div>
   );
 }
@@ -297,13 +333,9 @@ function TraceBody({ model }: { model: GroupModel }) {
   return (
     <div className="gv-trace-page" style={{ minWidth: matrixWidth(matrix) }}>
       <GroupFacts model={model} />
-      <SpineSwitcher
-        model={model}
-        graph={graph}
-        choices={choices}
-        spine={spine}
-        onChoose={choose}
-      />
+      <SpineSwitcher model={model} graph={graph} choices={choices} spine={spine} onChoose={choose}>
+        <EmptyColumns model={model} matrix={matrix} />
+      </SpineSwitcher>
       <Matrix key={spine} model={model} matrix={matrix} />
     </div>
   );

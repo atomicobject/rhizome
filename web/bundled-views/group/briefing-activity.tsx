@@ -1,8 +1,8 @@
 // Activity blocks both Briefings share: an in-motion row, the hints for
 // lifecycles that cannot list work in motion, Recent changes, and the notes
 // outside the records that link with them.
-import { RecordChip, RelativeTime, openNote, typeLabel } from "@rhizome/kit";
-import { Fragment, useMemo, useState } from "react";
+import { RelativeTime, openNote, typeLabel } from "@rhizome/kit";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 
 import { recentChanges, type Boundary, type ChangeMoment, type MotionEntry } from "./activity.ts";
 import { Block, MoreToggle, counted, lower, memberOf, plural } from "./briefing-parts.tsx";
@@ -32,7 +32,7 @@ export function MotionRow({ member, entry }: { member: Member; entry: MotionEntr
         <RecordTitle record={record} />
         <IssueCount record={record} />
         {record.updatedAt !== null && (
-          <RelativeTime value={record.updatedAt} className="gv-num gv-mo-time" />
+          <RelativeTime value={record.updatedAt} className="gv-age gv-mo-time" />
         )}
       </div>
       {note && (
@@ -97,59 +97,67 @@ export function StageHints({
   );
 }
 
-const DAY = 24 * 60 * 60 * 1000;
+/** One line in Recent changes: what changed, its type and folder, and how long ago. */
+export type ChangeLine = {
+  key: string;
+  title: string;
+  /** The note's type label, or "untyped". */
+  type: string;
+  /** The folder holding the note, without a trailing slash. */
+  folder: string;
+  time: number | null;
+  onOpen: () => void;
+};
 
-function startOfDay(time: number) {
-  const date = new Date(time);
-  date.setHours(0, 0, 0, 0);
-
-  return date.getTime();
-}
-
-/** "Today", "Yesterday, Oct 2", or "Thu, Oct 1". */
-function dayLabel(time: number, now: number) {
-  const days = Math.round((startOfDay(now) - startOfDay(time)) / DAY);
-  const date = new Date(time);
-
-  if (days === 0) return "Today";
-
-  if (days === 1)
-    return `Yesterday, ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
-
-  return date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() === new Date(now).getFullYear() ? undefined : "numeric",
-  });
-}
-
-const clockTime = (time: number) =>
-  new Date(time).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-
-function ChangeChips({ model, records }: { model: GroupModel; records: readonly GroupRecord[] }) {
+/**
+ * The one Recent changes list every scope uses: a title line, a secondary
+ * line with the type and the folder in mono, and the age in a fixed column
+ * at the right, so ages align down the list.
+ */
+export function ChangeRow({ line, children }: { line: ChangeLine; children?: ReactNode }) {
   return (
-    <span className="gv-chips">
-      {records.map((record) => {
-        const member = memberOf(model, record.member);
-
-        return (
-          <RecordChip
-            key={record.key}
-            recordKey={record.key}
-            mark={member && <RecordMark member={member} record={record} />}
-            onOpen={() => openRecord(record)}
-          >
-            {record.title}
-          </RecordChip>
-        );
-      })}
-    </span>
+    <li className="gv-change">
+      <span className="gv-change-main">
+        <button type="button" className="gv-inline gv-change-title" onClick={line.onOpen}>
+          {line.title}
+        </button>
+        <span className="gv-change-meta">
+          {line.type}
+          {line.folder && (
+            <>
+              {" · "}
+              <span className="gv-path">{line.folder}/</span>
+            </>
+          )}
+        </span>
+        {children}
+      </span>
+      {line.time !== null && <RelativeTime value={line.time} className="gv-change-age" />}
+    </li>
   );
+}
+
+const folderOf = (path: string) => path.split("/").slice(0, -1).join("/");
+
+function recordLine(model: GroupModel, record: GroupRecord): ChangeLine {
+  return {
+    key: record.key,
+    title: record.title,
+    type: typeLabelOf(model, record),
+    folder: folderOf(record.path),
+    time: record.updatedAt,
+    onOpen: () => openRecord(record),
+  };
+}
+
+/** A record's type label: its concrete type's, else its member's. */
+function typeLabelOf(model: GroupModel, record: GroupRecord) {
+  const labels = model.typeLabels.get(record.type);
+
+  if (labels) return typeLabel(labels, { count: 1 });
+  const member = memberOf(model, record.member);
+
+  return member ? memberLabel(model, member, { count: 1 }) : fieldLabel(record.type);
 }
 
 /** A burst's counts by member, or by implementing type when the one member is an interface. */
@@ -162,52 +170,55 @@ function burstCounts(model: GroupModel, moment: ChangeMoment) {
   return moment.byMember.map((entry) => counted(model, entry.member, entry.count)).join(", ");
 }
 
-function Moment({ model, moment }: { model: GroupModel; moment: ChangeMoment }) {
+/** Records changed in the same minute: one line that expands to the records. */
+function Burst({ model, moment }: { model: GroupModel; moment: ChangeMoment }) {
   const [open, setOpen] = useState(false);
+  const count = moment.records.length;
 
   return (
-    <li className="gv-evt">
-      <time className="gv-num" dateTime={new Date(moment.time).toISOString()}>
-        {clockTime(moment.time)}
-      </time>
-      <div>
-        {moment.burst && (
-          <span className="gv-burst">
-            <b>{moment.records.length} records</b> changed together: {burstCounts(model, moment)}.{" "}
-            <button
-              type="button"
-              className="gv-link"
-              aria-expanded={open}
-              aria-label={`${open ? "Collapse" : "Expand"} the ${moment.records.length} records changed at ${clockTime(moment.time)}`}
-              onClick={() => setOpen(!open)}
-            >
-              {open ? "Collapse" : "Expand"}
-            </button>
-          </span>
-        )}
-        {(!moment.burst || open) && <ChangeChips model={model} records={moment.records} />}
-      </div>
-    </li>
+    <>
+      <li className="gv-change">
+        <span className="gv-change-main">
+          <button
+            type="button"
+            className="gv-inline gv-change-title"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {count} records changed together
+          </button>
+          <span className="gv-change-meta">{burstCounts(model, moment)}</span>
+        </span>
+        <RelativeTime value={moment.time} className="gv-change-age" />
+      </li>
+      {open &&
+        moment.records.map((record) => (
+          <ChangeRow key={record.key} line={recordLine(model, record)} />
+        ))}
+    </>
   );
 }
 
-export function RecentChanges({ model, caption }: { model: GroupModel; caption?: string }) {
-  const days = useMemo(() => recentChanges(model, CHANGE_LINES), [model]);
-  const now = Date.now();
+export function RecentChanges({ model, info }: { model: GroupModel; info?: string }) {
+  const moments = useMemo(
+    () => recentChanges(model, CHANGE_LINES).flatMap((day) => day.moments),
+    [model],
+  );
 
   return (
-    <Block title="Recent changes" caption={caption}>
-      {days.length === 0 && <p className="gv-quiet">No change times recorded.</p>}
-      {days.map((day) => (
-        <div key={day.day} className="gv-day">
-          <h3 className="gv-day-head">{dayLabel(day.moments[0]?.time ?? now, now)}</h3>
-          <ul className="gv-list">
-            {day.moments.map((moment) => (
-              <Moment key={moment.time} model={model} moment={moment} />
-            ))}
-          </ul>
-        </div>
-      ))}
+    <Block title="Recent changes" info={info}>
+      {moments.length === 0 && <p className="gv-quiet">No change times recorded.</p>}
+      <ul className="gv-list gv-changes">
+        {moments.map((moment) =>
+          moment.burst ? (
+            <Burst key={moment.time} model={model} moment={moment} />
+          ) : (
+            moment.records.map((record) => (
+              <ChangeRow key={record.key} line={recordLine(model, record)} />
+            ))
+          ),
+        )}
+      </ul>
     </Block>
   );
 }
@@ -234,13 +245,13 @@ export function OutsideNotes({
   model,
   outside,
   title,
-  caption,
+  info,
   empty,
 }: {
   model: GroupModel;
   outside: Boundary;
   title: string;
-  caption: string;
+  info: string;
   empty: string;
 }) {
   const expanded = useRememberedOpen("briefing.expanded");
@@ -252,7 +263,7 @@ export function OutsideNotes({
     <Block
       title={title}
       count={`${outside.incomplete ? "at least " : ""}${outside.notes.length} ${plural(outside.notes.length, "note", "notes")}`}
-      caption={`${caption}${
+      info={`${info}${
         outside.incomplete
           ? " Some records have more links than were read, so this list is incomplete."
           : ""
@@ -268,16 +279,29 @@ export function OutsideNotes({
         </p>
       )}
       {outside.notes.length === 0 && <p className="gv-quiet">{empty}</p>}
-      <ul className="gv-list">
+      <ul className="gv-list gv-changes">
         {shown.map((note) => (
-          <li key={note.path} className="gv-out">
-            <span>
-              <button type="button" className="gv-inline" onClick={() => openNote(note.path)}>
+          <li key={note.path} className="gv-change">
+            <span className="gv-change-main">
+              <button
+                type="button"
+                className="gv-inline gv-change-title"
+                title={note.path}
+                onClick={() => openNote(note.path)}
+              >
                 {note.title}
-              </button>{" "}
-              <span className="gv-sub">{outsideLabel(model, note.type, 1)}</span>
+              </button>
+              <span className="gv-change-meta">
+                {outsideLabel(model, note.type, 1)}
+                {folderOf(note.path) && (
+                  <>
+                    {" · "}
+                    <span className="gv-path">{folderOf(note.path)}/</span>
+                  </>
+                )}
+              </span>
             </span>
-            <span className="gv-num">
+            <span className="gv-change-age">
               {note.touches.length}
               <span className="sr-only">
                 {" "}

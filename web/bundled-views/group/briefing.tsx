@@ -50,7 +50,7 @@ function InMotion({ model }: { model: GroupModel }) {
     <Block
       title="In motion"
       count={total}
-      caption="Records whose lifecycle value is in the active stage, newest change first."
+      info="Records whose lifecycle value is in the active stage, newest change first."
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
       {motion.groups.map((group) => {
@@ -99,7 +99,7 @@ function GroupAttention({ model }: { model: GroupModel }) {
     <NeedsAttention
       model={model}
       signals={signals}
-      caption="Validation issues and declared warning values."
+      info="Validation issues and declared warning values."
     />
   );
 }

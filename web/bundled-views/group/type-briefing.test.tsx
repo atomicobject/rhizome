@@ -58,10 +58,11 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
 
   // People, relation, then reverse fields: fill, then the most common targets.
   expect(itemTexts(connections)).toEqual([
-    "Owner→ People1/4Ada Lovelace 1",
-    "Area→ Areas3/4Payments 2Wishlists 1",
-    "Blocked by→ Work items1/4Checkout redesign 1",
-    "Meetings← Meetings2/4Kickoff sync 2Design review 1",
+    // Each target is a row: its name, then its count in a right-aligned column.
+    "Owner→ People1/4Ada Lovelace1",
+    "Area→ Areas3/4Payments2Wishlists1",
+    "Blocked by→ Work items1/4Checkout redesign1",
+    "Meetings← Meetings2/4Kickoff sync2Design review1",
   ]);
 
   const linked = await region("Linked from outside");
@@ -139,14 +140,14 @@ it("charts a dated type's primary date by month and collapses a burst of changes
 
   const changes = await region("Recent changes");
 
-  expect(within(changes).getByText("4 records")).toBeVisible();
-  expect(within(changes).getByText(/changed together: 4 meetings/)).toBeVisible();
-  fireEvent.click(within(changes).getByRole("button", { name: /^Expand the 4 records/ }));
+  const burst = within(changes).getByRole("button", { name: "4 records changed together" });
+  expect(burst.closest("li")).toHaveTextContent("4 meetings");
+  fireEvent.click(burst);
   expect(within(changes).getByText("Planning")).toBeVisible();
 
   const connections = await region("Connections");
 
-  expect(itemTexts(connections)[0]).toBe("Attendees→ People4/5Ada Lovelace 3Grace Hopper 2");
+  expect(itemTexts(connections)[0]).toBe("Attendees→ People4/5Ada Lovelace3Grace Hopper2");
 });
 
 it("opens the collection's Table from a signal and notes from its targets", async () => {

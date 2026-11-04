@@ -116,9 +116,9 @@ it("says there are no validation issues, and skips unlinked records in a group w
   await renderGroupView(loadBriefing, { group: "Library" });
   const attention = await screen.findByRole("region", { name: "Needs attention" });
 
-  expect(items(attention).map((entry) => entry.textContent)).toEqual([
-    expect.stringContaining("No validation issues"),
-  ]);
+  // A healthy block is one status row: the heading and its verdict.
+  expect(attention).toHaveTextContent("No validation issues");
+  expect(within(attention).queryByRole("listitem")).toBeNull();
   expect(region("Context")).toHaveTextContent("Term empty on 1 of 3 glossaries");
   expect(screen.queryByRole("region", { name: "Connections" })).toBeNull();
 });
@@ -151,32 +151,21 @@ it("names lifecycles without an active stage", async () => {
   expect(motion).toHaveTextContent("No lifecycle: Glossaries.");
 });
 
-it("lists recent changes by day and time, collapsing a burst until expanded", async () => {
+it("lists recent changes newest first with type, folder, and age, collapsing a burst", async () => {
   await renderGroupView(loadBriefing);
   const changes = await screen.findByRole("region", { name: "Recent changes" });
-  const days = within(changes).getAllByRole("heading", { level: 3 });
+  const lines = within(changes).getAllByRole("listitem");
 
-  expect(days[0]).toHaveTextContent("Today");
-  expect(days[1]).toHaveTextContent(/^Yesterday, /);
+  expect(lines[0]).toHaveTextContent(/^Checkout redesign/);
+  expect(lines[1]).toHaveTextContent(/^Tax rounding/);
 
-  const today = within(days[0].parentElement ?? changes);
-  expect(today.getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
-    expect.stringMatching(/^11:00.*Checkout redesign$/),
-    expect.stringMatching(/^10:00.*Tax rounding$/),
-  ]);
-
-  const burst = within(changes).getByText("changed together:", { exact: false });
-  expect(burst).toHaveTextContent("4 records changed together: 2 areas, 2 releases.");
+  const burst = within(changes).getByRole("button", { name: "4 records changed together" });
+  expect(burst.closest("li")).toHaveTextContent("2 areas, 2 releases");
   expect(within(changes).queryByRole("button", { name: /Loop A/ })).toBeNull();
 
-  fireEvent.click(
-    within(changes).getByRole("button", { name: /^Expand the 4 records changed at 10:00/ }),
-  );
+  fireEvent.click(burst);
   expect(within(changes).getByRole("button", { name: /Loop A/ })).toBeVisible();
-  expect(within(changes).getByRole("button", { name: /^Collapse/ })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
+  expect(burst).toHaveAttribute("aria-expanded", "true");
 });
 
 it("shows only activity: Needs attention, In motion, and Recent changes", async () => {

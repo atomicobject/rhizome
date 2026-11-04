@@ -45,7 +45,7 @@ it("renders each member as a table in Trace column order, most advanced first", 
   expect(headers(work)).toEqual([
     "Title",
     "Type",
-    "Stage",
+    "Status",
     "Kind",
     "Next step",
     "Area",
@@ -67,8 +67,8 @@ it("renders each member as a table in Trace column order, most advanced first", 
   const cells = within(tax).getAllByRole("cell");
 
   expect(cells.map((cell) => cell.textContent)).toEqual([
-    // The mark's label is read before the title.
-    "BlockedTax rounding" + "Totals round tax per line instead of per order.",
+    // The Status column names the lifecycle, so the title carries no mark.
+    "Tax rounding" + "Totals round tax per line instead of per order.",
     "Bug",
     "Blocked",
     "—None",
@@ -112,7 +112,7 @@ it("keeps the lifecycle column and drops other columns empty on every shown row"
 
   expect(headers(await screen.findByRole("region", { name: "Releases" }))).toEqual([
     "Title",
-    "Release status",
+    "Status",
     "Date",
     "Notes",
     "Changed",

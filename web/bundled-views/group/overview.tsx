@@ -74,11 +74,20 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
       <span>
         <b>{data.model.types.size}</b> note {plural(data.model.types.size, "type", "types")}
       </span>
-      <button type="button" className="gv-issues" onClick={() => openIssues()}>
+      {/* Red only for a nonzero count; zero reads as muted ink. */}
+      <button
+        type="button"
+        className={facts.ambiguousNotes ? "gv-issues" : "gv-issues gv-zero"}
+        onClick={() => openIssues()}
+      >
         {fmt(facts.ambiguousNotes)} ambiguous
       </button>
       {issues !== undefined && (
-        <button type="button" className="gv-issues" onClick={() => openIssues()}>
+        <button
+          type="button"
+          className={issues ? "gv-issues" : "gv-issues gv-zero"}
+          onClick={() => openIssues()}
+        >
           {fmt(issues)} {plural(issues, "issue", "issues")}
         </button>
       )}

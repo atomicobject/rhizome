@@ -25,7 +25,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
-import { Block, BlockBody, Rebuilding, lower, plural } from "./briefing-parts.tsx";
+import { ChangeRow } from "./briefing-activity.tsx";
+import {
+  Block,
+  BlockBody,
+  HealthyAttention,
+  Rebuilding,
+  lower,
+  plural,
+} from "./briefing-parts.tsx";
 import "./components.tsx";
 import { getJSON, refetchFailedTypeDocs } from "./load.ts";
 import {
@@ -120,12 +128,16 @@ function NeedsAttention() {
 
   const status = blockStatus(reads);
   const total = (groups.data ?? []).reduce((sum, group) => sum + group.issueCount, 0);
+  const info = "Validation issues by variant, untyped and ambiguous notes included.";
+
+  if (status.status === "ready" && generation > 0 && groups.data?.length === 0)
+    return <HealthyAttention info={info} />;
 
   return (
     <Block
       title="Needs attention"
       count={status.status === "ready" ? fmt(total) : undefined}
-      caption="Validation issues by variant, untyped and ambiguous notes included."
+      info={info}
     >
       <BlockBody status={status} what="what needs attention">
         {() => {
@@ -233,7 +245,7 @@ function InMotion() {
   return (
     <Block
       title="In motion"
-      caption="Records in an active lifecycle stage, any type, newest change first."
+      info="Records in an active lifecycle stage, any type, newest change first."
     >
       <BlockBody status={status} what="work in motion">
         {() => {
@@ -284,7 +296,7 @@ function InMotion() {
                             {record.title}
                           </button>
                           {record.updatedAt !== null && (
-                            <RelativeTime value={record.updatedAt} className="gv-num gv-mo-time" />
+                            <RelativeTime value={record.updatedAt} className="gv-age gv-mo-time" />
                           )}
                         </div>
                       </li>
@@ -322,26 +334,25 @@ function RecentChanges() {
   const status = blockStatus([readOf(recent), summaries.read]);
 
   return (
-    <Block title="Recent changes" caption="Every note, untyped included, newest first.">
+    <Block title="Recent changes" info="Every note, untyped included, newest first.">
       <BlockBody status={status} what="recent changes">
         {() =>
           recent.data?.length ? (
-            <ul className="gv-list">
+            <ul className="gv-list gv-changes">
               {recent.data.map((note) => (
-                <li key={note.path} className="gv-out">
-                  <span>
-                    <button type="button" className="gv-inline" onClick={() => openNode(note.ref)}>
-                      {note.title}
-                    </button>{" "}
-                    <span className="gv-sub">
-                      {note.type ? (summaries.data?.get(note.type)?.label ?? note.type) : "untyped"}
-                      {note.folder && ` · ${note.folder}/`}
-                    </span>
-                  </span>
-                  {note.updatedAt !== null && (
-                    <RelativeTime value={note.updatedAt} className="gv-num" />
-                  )}
-                </li>
+                <ChangeRow
+                  key={note.path}
+                  line={{
+                    key: note.path,
+                    title: note.title,
+                    type: note.type
+                      ? (summaries.data?.get(note.type)?.label ?? note.type)
+                      : "untyped",
+                    folder: note.folder,
+                    time: note.updatedAt,
+                    onOpen: () => openNode(note.ref),
+                  }}
+                />
               ))}
             </ul>
           ) : (

@@ -49,6 +49,22 @@ export function countedByMember(model: GroupModel, groups: readonly MemberRecord
 // primitives; the names stay for the views written against them.
 export { Block, BlockBody, MoreToggle };
 
+/** Needs attention with nothing to attend to: one status row, not a block. */
+export function HealthyAttention({ info }: { info: string }) {
+  return (
+    <Block
+      className="gv-healthy-block"
+      title="Needs attention"
+      info={info}
+      controls={
+        <span className="gv-healthy">
+          <span aria-hidden="true">✓</span> No validation issues
+        </span>
+      }
+    />
+  );
+}
+
 /** Distinct labels of the lifecycle values the records hold, in lifecycle order. */
 export function heldLabels(member: Member, records: readonly GroupRecord[]) {
   const held = new Set(records.map((record) => lifecycleValue(member, record)));

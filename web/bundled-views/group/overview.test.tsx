@@ -176,10 +176,10 @@ it("lists the notes outside the group most connected first, then the guide and v
   expect(within(outside).getByText("4 notes")).toBeVisible();
   expect(outside.querySelector(".gv-outsum")).toHaveTextContent("1 person3 untyped notes");
   expect([...outside.querySelectorAll("li")].map((entry) => entry.textContent)).toEqual([
-    "Ada Lovelace person2 linked records",
-    "Kickoff untyped note2 linked records",
-    "Release guide untyped note1 linked record",
-    "Scratch untyped note1 linked record",
+    "Ada Lovelaceperson · people/2 linked records",
+    "Kickoffuntyped note · notes/2 linked records",
+    "Release guideuntyped note · docs/1 linked record",
+    "Scratchuntyped note · notes/1 linked record",
   ]);
 
   fireEvent.click(within(outside).getByRole("button", { name: "Kickoff" }));

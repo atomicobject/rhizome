@@ -43,7 +43,7 @@ export function FolderBlock() {
     <Block
       title="Untyped notes by folder"
       count={facts && !facts.rebuilding ? `${fmt(facts.untypedNotes)} notes` : undefined}
-      caption="Top-level folders by untyped notes. Activate one to search it."
+      info="Top-level folders by untyped notes. Activate one to search it."
       className="gv-slot-side"
     >
       <BlockBody status={status} what="folders">
@@ -228,7 +228,7 @@ export function DeclaredUnused({
     <Block
       title="Declared, unused"
       count={status.status === "ready" ? unused.length : undefined}
-      caption="Relations the schema allows between members that no record uses."
+      info="Relations the schema allows between members that no record uses."
     >
       <BlockBody status={status} what="relations">
         {() =>
@@ -283,7 +283,7 @@ function GroupOutside({ model }: { model: GroupModel }) {
       title="Outside the group"
       outside={outside}
       model={model}
-      caption={`Notes that link to or from ${model.name} records, most connected first.`}
+      info={`Notes that link to or from ${model.name} records, most connected first.`}
       empty="No notes outside the group link to or from its records."
     />
   );
