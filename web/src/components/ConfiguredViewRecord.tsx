@@ -231,7 +231,14 @@ function RecordSummary({ text }: { text: string }) {
   useLayoutEffect(() => {
     const element = ref.current;
 
-    if (element && !open) setClamped(element.scrollHeight > element.clientHeight + 1);
+    if (!element || open) return;
+
+    const measure = () => setClamped(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+
+    return () => observer.disconnect();
   }, [open, text]);
 
   return (

@@ -591,14 +591,7 @@
   color: var(--text-muted);
 }
 
-.gv-sep {
-  color: var(--border-strong);
-}
-
 /* In motion */
-.gv-mo-group + .gv-mo-group {
-  margin-top: 4px;
-}
 
 .gv-mo-head {
   display: flex;
@@ -614,47 +607,9 @@
   font: 500 13px / 1.4 var(--font-sans);
 }
 
-.gv-mo-type {
-  display: flex;
-  gap: 6px;
-  margin: 0;
-  color: var(--text-faint);
-  font: 500 13px / 1.4 var(--font-sans);
-}
-
-/* "Effort notes 10 shown": the count is a quiet aside to its label. */
-.gv-mo-type .gv-num {
-  color: var(--text-faint);
-  font-weight: 400;
-}
-
 .gv-mo {
   padding: 7px 0;
   border-top: 1px solid var(--border-faint);
-}
-
-.gv-mo-time {
-  margin-left: auto;
-  padding-left: 8px;
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-}
-
-.gv-mo-note {
-  display: -webkit-box;
-  margin: 2px 0 0 18px;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-}
-
-.gv-mo-note em {
-  margin-right: 5px;
-  color: var(--text-faint);
-  font-style: normal;
-  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-mo-more {
@@ -663,9 +618,6 @@
 
 /* A list whose heading states its one status drops the marks, so its notes
    and "Show N more" align to the title at the left edge. */
-.gv-list:not(:has(.gv-mark, .gv-mark-slot, .gv-square)) .gv-mo-note {
-  margin-left: 0;
-}
 
 .gv-list:not(:has(.gv-mark, .gv-mark-slot, .gv-square)) ~ .gv-mo-more {
   padding-left: 0;
@@ -1747,11 +1699,6 @@
   margin-right: 5px;
   border-radius: 50%;
   vertical-align: -1px;
-}
-
-.gv-legend .gv-legend-outside {
-  box-sizing: border-box;
-  border: 1.5px solid var(--type-8);
 }
 
 .gv-legend .gv-legend-untyped {

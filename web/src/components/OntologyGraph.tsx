@@ -68,7 +68,7 @@ function FocusViewport({ ids, selected }: { ids: string[]; selected: string | nu
       void setCenter(
         node.position.x + (node.width ?? 280) / 2,
         node.position.y + (node.height ?? 104) / 2,
-        // At zoom 1 a card's fields render at 12px, the least the card shows them at.
+        // Center the selected card at a readable zoom.
         { zoom: 1 },
       );
     } else {

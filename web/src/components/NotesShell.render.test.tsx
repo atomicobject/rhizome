@@ -88,6 +88,22 @@ describe("NotesShell render boundaries", () => {
       });
   });
 
+  it("focuses visible workspace content after closing the last note", async () => {
+    render(<NotesShell />);
+    await screen.findByRole("button", { name: "All notes (2)" });
+    act(() => {
+      window.history.pushState({}, "", "/notes?note=a.md");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    const tab = await screen.findByRole("tab", { name: /a\.md/i });
+    tab.focus();
+    fireEvent.keyDown(tab, { key: "Delete" });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("main", { name: "Notes workspace" })),
+    );
+    expect(document.activeElement).toBeVisible();
+  });
+
   it("does not re-render or re-parse an inactive note tab when shell state changes", async () => {
     render(<NotesShell />);
 

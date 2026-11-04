@@ -54,7 +54,9 @@ function eventClass(event: string): EventClass | null {
 const startsWith = (query: Query, prefix: readonly string[]) =>
   prefix.every((part, index) => query.queryKey[index] === part);
 
-const isSchemaQuery = (query: Query) => startsWith(query, kitQueryKeys.schema());
+// The ontology summary includes record counts that also change after indexing.
+const isSchemaQuery = (query: Query) =>
+  startsWith(query, kitQueryKeys.schema()) && !startsWith(query, queryKeys.ontology.summary());
 
 const isValidationQuery = (query: Query) => startsWith(query, kitQueryKeys.validation());
 
