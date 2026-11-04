@@ -30,8 +30,7 @@ def public_environment(environment: Mapping[str, str]) -> dict[str, str]:
     if not re.search(r'^var encryptedKeys = ""\s*$', source.read_text(), re.MULTILINE):
         raise ValueError("the checked-in credential bundle must be empty")
     result = {key: value for key, value in environment.items()
-              if key not in BUNDLE_INPUTS and not key.startswith("RZM_INTERNAL_S3_")
-              and key != "RZM_INTERNAL_TEAM_API_ORIGIN"}
+              if key not in BUNDLE_INPUTS and not key.startswith("RZM_INTERNAL_S3_")}
     # Persisted `go env -w GOFLAGS=...` must not inject an overlay either.
     result["GOENV"] = "off"
     return result
