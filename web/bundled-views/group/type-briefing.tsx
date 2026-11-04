@@ -149,10 +149,10 @@ function MonthChart({ chart }: { chart: DateMonths }) {
       </div>
       <p className="gv-hist-axis">
         <span>{first}</span>
-        <span>
-          busiest {monthLabel(busiest.month)} · {busiest.count}
-        </span>
         <span>{last}</span>
+      </p>
+      <p className="gv-cap gv-hist-peak">
+        Busiest {monthLabel(busiest.month)} · <span className="gv-num">{busiest.count}</span>
       </p>
       {(earlier > 0 || undated > 0) && (
         <p className="gv-cap">
@@ -227,7 +227,7 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
           </ul>
           {(distinct > top.length || sampled) && (
             <p className="gv-sub gv-tops-more">
-              {distinct > top.length && `+${distinct - top.length} more`}
+              {distinct > top.length && `${distinct - top.length} more`}
               {distinct > top.length && sampled && " · "}
               {sampled && `counted from the first ${REVERSE_SAMPLE} of each record`}
             </p>
@@ -312,25 +312,35 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
   return (
     <HighlightProvider>
       <GroupFacts model={model} collection />
-      <div className="gv-brief">
+      <div className="gv-brief gv-brief-split">
         <div className="gv-brief-col">
           <NeedsAttention
             model={model}
             signals={signals}
             info="Validation issues and declared warning values."
             memberAction={openTable}
+            part="attention"
           />
           {/* A lifecycle without an active stage (a contract) has nothing in motion by design. */}
           {member.lifecycle?.values.some((value) => value.stage === "active") && (
             <InMotion model={model} member={member} />
           )}
+          <NeedsAttention
+            model={model}
+            signals={signals}
+            info="Validation issues and declared warning values."
+            memberAction={openTable}
+            part="review"
+          />
           <RecentChanges
             model={model}
             info="Newest first. Four or more records changed in the same minute collapse into one line."
           />
         </div>
-        <div className="gv-brief-col">
+        {/* Current work takes about 60%; the collection's shape and links stack beside it. */}
+        <div className="gv-brief-col gv-brief-side">
           <SpreadBlock model={model} member={member} />
+          <Connections model={model} member={member} />
           <OutsideNotes
             model={model}
             outside={linkedIn}
@@ -338,9 +348,6 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
             info={`Notes of other types that link to these ${lower(member.pluralLabel)}, most connected first.`}
             empty="No notes of other types link here."
           />
-        </div>
-        <div className="gv-brief-col gv-brief-side">
-          <Connections model={model} member={member} />
           <Guide model={model} context={context} />
         </div>
       </div>

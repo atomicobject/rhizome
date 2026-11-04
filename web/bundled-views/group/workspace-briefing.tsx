@@ -267,8 +267,7 @@ function InMotion() {
                 <h3 className="gv-mo-type">
                   {label(entry.type, true)}{" "}
                   <span className="gv-num">
-                    {Math.min(entry.records.length, MOTION_PER_TYPE)}
-                    {more ? "+" : ""}
+                    {more ? `${MOTION_PER_TYPE} shown` : entry.records.length}
                   </span>
                 </h3>
                 <ul className="gv-list">
@@ -309,7 +308,7 @@ function InMotion() {
                     className="gv-link gv-more gv-mo-more"
                     onClick={() => openCollection(entry.type)}
                   >
-                    More in {lower(label(entry.type, true))}
+                    View active {lower(label(entry.type, true))}
                   </button>
                 )}
               </div>

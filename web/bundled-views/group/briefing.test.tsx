@@ -49,15 +49,15 @@ it("lists what needs attention with counts, records, and policy reasons", async 
   );
   expect(within(attention).getByText("4")).toBeVisible();
 
-  const nextStep = item(region("Context"), "Next step empty");
+  const nextStep = item(region("Review suggested"), "Next step empty");
   expect(nextStep.getByText("3/6")).toBeVisible();
   expect(nextStep.getByText("Name the next concrete step so the work can move.")).toBeVisible();
 
-  expect(region("Context")).toHaveTextContent("Area empty on 1 of 6 work items");
-  expect(region("Context").querySelector('[data-severity="warning"]')).toBeNull();
+  expect(region("Review suggested")).toHaveTextContent("Area empty on 1 of 6 work items");
+  expect(region("Review suggested").querySelector('[data-severity="warning"]')).toBeNull();
   expect(attention).not.toHaveTextContent("Area empty");
   // Update age is context, not evidence of an obligation.
-  expect(item(region("Context"), "unchanged for").getByText("40d")).toBeVisible();
+  expect(item(region("Review suggested"), "unchanged for").getByText("40d")).toBeVisible();
 
   // No clean line while a record has issues.
   expect(within(attention).queryByText("No validation issues")).toBeNull();
@@ -96,8 +96,8 @@ it("names a bounded number of records per signal and reveals the rest in place",
       "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Area: areas } }),
     }),
   });
-  await screen.findByRole("region", { name: "Context" });
-  const unlinked = item(region("Context"), "Not linked");
+  await screen.findByRole("region", { name: "Review suggested" });
+  const unlinked = item(region("Review suggested"), "Not linked");
 
   const named = () =>
     unlinked
@@ -106,7 +106,7 @@ it("names a bounded number of records per signal and reveals the rest in place",
       .map((button) => button.textContent);
 
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A"].slice(0, SIGNAL_RECORDS));
-  fireEvent.click(unlinked.getByRole("button", { name: "+2 more" }));
+  fireEvent.click(unlinked.getByRole("button", { name: "Show 2 more" }));
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A", "Loop B", "Winter release"]);
   fireEvent.click(unlinked.getByRole("button", { name: "Show fewer" }));
   expect(named()).toHaveLength(SIGNAL_RECORDS);
@@ -114,12 +114,12 @@ it("names a bounded number of records per signal and reveals the rest in place",
 
 it("says there are no validation issues, and skips unlinked records in a group without links", async () => {
   await renderGroupView(loadBriefing, { group: "Library" });
-  const attention = await screen.findByRole("region", { name: "Needs attention" });
+  const attention = await screen.findByRole("region", { name: "Validation" });
 
   // A healthy block is one status row: the heading and its verdict.
-  expect(attention).toHaveTextContent("No validation issues");
+  expect(attention).toHaveTextContent("No issues");
   expect(within(attention).queryByRole("listitem")).toBeNull();
-  expect(region("Context")).toHaveTextContent("Term empty on 1 of 3 glossaries");
+  expect(region("Review suggested")).toHaveTextContent("Term empty on 1 of 3 glossaries");
   expect(screen.queryByRole("region", { name: "Connections" })).toBeNull();
 });
 
@@ -136,7 +136,7 @@ it("lists active-stage records newest first with their key text, whatever their 
     expect.stringMatching(/Tax rounding.*Next stepWait for finance$/),
     expect.stringMatching(/Saved carts.*Keep carts across sessions\.$/),
   ]);
-  expect(within(motion).getByText("No lifecycle: Areas, Checklists.")).toBeVisible();
+  expect(within(motion).getByText("Areas, Checklists have no lifecycle.")).toBeVisible();
 });
 
 it("names lifecycles without an active stage", async () => {
@@ -144,11 +144,15 @@ it("names lifecycles without an active stage", async () => {
   const motion = await screen.findByRole("region", { name: "In motion" });
 
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
-  expect(motion).toHaveTextContent(
-    "memoStatusEnum (Memos) has no active stage; declare an active stage with @view(stage: active) on a value to list its records here.",
+  // One plain line; the schema instruction waits behind the disclosure.
+  expect(
+    within(motion).getByText(
+      "Memos have no active stage configured. Glossaries have no lifecycle.",
+    ),
+  ).toBeVisible();
+  expect(motion.querySelector("details")).toHaveTextContent(
+    "mark a value of memoStatusEnum with @view(stage: active) in the schema.",
   );
-  // Glossary's status enum has @view order but no stages, so it is no lifecycle.
-  expect(motion).toHaveTextContent("No lifecycle: Glossaries.");
 });
 
 it("lists recent changes newest first with type, folder, and age, collapsing a burst", async () => {
@@ -173,8 +177,8 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
-  ).toEqual(["Needs attention", "In motion", "Recent changes"]);
-  expect(within(region("Needs attention")).getByText("No validation issues")).toBeVisible();
+  ).toEqual(["Validation", "In motion", "Recent changes"]);
+  expect(within(region("Validation")).getByText("No issues")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
   ).toBeVisible();
@@ -288,7 +292,9 @@ it("opens records, collections, and scoped issues through the workspace", async 
   fireEvent.click(item(attention, "Validation issues").getByRole("button", { name: "Gift cards" }));
   fireEvent.click(item(attention, "Degraded").getByRole("button", { name: "Releases" }));
   fireEvent.click(
-    item(region("Context"), "Next step empty").getByRole("button", { name: "Open work items" }),
+    item(region("Review suggested"), "Next step empty").getByRole("button", {
+      name: "Open work items",
+    }),
   );
 
   expect(opened(posted)).toEqual([
@@ -354,8 +360,8 @@ it("keeps an optional priority with a user-only policy out of Needs attention", 
   const attention = await screen.findByRole("region", { name: "Needs attention" });
 
   expect(attention).not.toHaveTextContent("Priority empty");
-  expect(region("Context")).toHaveTextContent("Priority empty");
-  expect(region("Context")).toHaveTextContent(reason);
+  expect(region("Review suggested")).toHaveTextContent("Priority empty");
+  expect(region("Review suggested")).toHaveTextContent(reason);
 });
 
 it("retries type documentation that failed to load", async () => {

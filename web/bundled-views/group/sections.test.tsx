@@ -39,7 +39,7 @@ it("renders each member as a table in Trace column order, most advanced first", 
     "Releases",
     "Checklists",
   ]);
-  expect(screen.getByText("Ordered like Trace columns.", { exact: false })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
 
   const work = section("Work items");
   expect(headers(work)).toEqual([
@@ -132,7 +132,7 @@ it("orders an unlinked group by size, drops the shared label prefix, and says wh
     "Glossaries",
     "Memos",
   ]);
-  expect(screen.getByText("Ordered by size.", { exact: false })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
   expect(within(section("Memos")).getByText("None recorded yet.")).toBeVisible();
 });
 
@@ -154,7 +154,7 @@ it("bounds each table and links the rest to the collection", async () => {
   expect(rowTitles(region)).toHaveLength(SECTION_ROWS);
   expect(rowTitles(region)[0]).toBe("Person 10");
   expect(
-    within(region).getByRole("button", { name: `Show all ${SECTION_ROWS + 3}` }),
+    within(region).getByRole("button", { name: new RegExp(`^Show all ${SECTION_ROWS + 3} `) }),
   ).toBeVisible();
   expect(within(region).getByText("· newest first", { exact: false })).toBeVisible();
 });

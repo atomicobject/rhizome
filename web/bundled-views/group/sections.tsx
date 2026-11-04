@@ -24,6 +24,7 @@ import {
   type SectionColumn,
   type TreeNode,
 } from "./graph.ts";
+import { lower } from "./briefing-parts.tsx";
 import { useGroupModel } from "./load.ts";
 import {
   fieldLabel,
@@ -158,7 +159,7 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
   const total = Math.max(member.count, rows.length);
 
   return (
-    <section className="gv-section" aria-label={label}>
+    <section className="gv-section" id={sectionId(member)} aria-label={label}>
       <header className="gv-section-head">
         <h2>
           <MemberHeading model={model} member={member} />
@@ -205,7 +206,7 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
       {total > shown.length && (
         <p className="gv-foot">
           <button type="button" className="gv-link" onClick={() => openCollection(member.name)}>
-            Show all {total}
+            Show all {total} {lower(label)}
           </button>
           <span className="gv-faint">
             {" "}
@@ -224,11 +225,25 @@ function SectionsBody({ model }: { model: GroupModel }) {
   return (
     <>
       <GroupFacts model={model}>
-        {graph.linked
-          ? "Ordered like Trace columns."
-          : members.length > 1
-            ? "Ordered by size."
-            : null}
+        {members.length > 1 && (
+          <nav className="gv-jump" aria-label="Jump to section">
+            {members.map((member) => (
+              <button
+                key={member.name}
+                type="button"
+                className="gv-link"
+                onClick={() =>
+                  document
+                    .getElementById(sectionId(member))
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                {memberLabel(model, member, { plural: true })}{" "}
+                <span className="gv-num">{member.count}</span>
+              </button>
+            ))}
+          </nav>
+        )}
       </GroupFacts>
       {members.map((member) => (
         <Section key={member.name} model={model} member={member} />
@@ -236,6 +251,8 @@ function SectionsBody({ model }: { model: GroupModel }) {
     </>
   );
 }
+
+const sectionId = (member: Member) => `section-${member.name}`;
 
 export default function Sections(_props: ViewModuleProps) {
   const state = useGroupModel();

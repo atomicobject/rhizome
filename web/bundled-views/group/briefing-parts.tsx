@@ -54,11 +54,11 @@ export function HealthyAttention({ info }: { info: string }) {
   return (
     <Block
       className="gv-healthy-block"
-      title="Needs attention"
+      title="Validation"
       info={info}
       controls={
         <span className="gv-healthy">
-          <span aria-hidden="true">✓</span> No validation issues
+          <span aria-hidden="true">✓</span> No issues
         </span>
       }
     />

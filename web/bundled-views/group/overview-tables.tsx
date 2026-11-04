@@ -295,9 +295,22 @@ function DataRow({
       </td>
       <td className="gv-right gv-num">{fmt(node.count)}</td>
       {node.kind === "untyped" ? (
-        <td colSpan={1 + Number(shown.stages) + Number(shown.gaps)} className="gv-faint">
-          Not records{shown.stages || shown.gaps ? ": no lifecycle or gaps by type." : "."}
-        </td>
+        // Untyped notes are not records: no lifecycle, gaps, or linked share.
+        <>
+          {shown.stages && (
+            <td>
+              <Dash />
+            </td>
+          )}
+          {shown.gaps && (
+            <td>
+              <Dash />
+            </td>
+          )}
+          <td>
+            <Dash />
+          </td>
+        </>
       ) : (
         <>
           {shown.stages && (
@@ -308,7 +321,9 @@ function DataRow({
               <GapsCell row={row} />
             </td>
           )}
-          <td>{!brief && row.kind !== "group" && <ShareCell share={row.linkedShare} />}</td>
+          <td>
+            {brief ? null : row.kind === "group" ? <Dash /> : <ShareCell share={row.linkedShare} />}
+          </td>
         </>
       )}
       <td className="gv-right gv-num">{brief ? "" : fmt(row.links)}</td>

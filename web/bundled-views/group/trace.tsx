@@ -4,6 +4,8 @@
 import {
   Segmented,
   HighlightProvider,
+  StatusMark,
+  orderedEnumValues,
   openCollection,
   useViewPreference,
   type ViewModuleProps,
@@ -88,7 +90,14 @@ function ColumnHead({
   const thin = column.covered < matrix.rowCount / 3;
 
   return (
-    <th scope="col" className={column.kind === "outside" ? "gv-outcol" : undefined}>
+    <th
+      scope="col"
+      className={
+        [column.kind === "outside" && "gv-outcol", sparse(matrix, column) && "gv-col-sparse"]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
+    >
       <div className="gv-head">
         <button type="button" className="gv-member" onClick={() => openColumn(column)}>
           {label}
@@ -195,13 +204,51 @@ function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
   );
 }
 
+/**
+ * What the marks in the linked columns mean: each linked type's lifecycle
+ * values in order, and the plain square of a type without one.
+ */
+function StatusLegend({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+  const members = shownColumns(matrix).flatMap((column) =>
+    column.kind === "member" ? [column.member] : [],
+  );
+
+  if (!members.length) return null;
+
+  return (
+    <span className="gv-legend" aria-label="Status marks">
+      {members.map((member) => (
+        <span key={member.name} className="gv-legend-group">
+          <span className="gv-faint">{memberLabel(model, member, { plural: true })}</span>
+          {member.lifecycle ? (
+            orderedEnumValues(member.lifecycle.values).map((value) => (
+              <StatusMark
+                key={value.name}
+                value={value.name}
+                values={member.lifecycle?.values ?? []}
+              />
+            ))
+          ) : (
+            <span>
+              <span className="gv-square" aria-hidden="true" /> no status
+            </span>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** Columns that show; an empty column is named in the toolbar instead. */
 const shownColumns = (matrix: TraceMatrix) => matrix.columns.filter((column) => !column.collapsed);
 
-/** The matrix's narrowest readable width, in pixels: a 340px spine and 160px columns. */
+/** The matrix's narrowest readable width, in pixels: a 340px spine and 220px columns. */
 function matrixWidth(matrix: TraceMatrix) {
-  return 340 + shownColumns(matrix).length * 160;
+  return 340 + shownColumns(matrix).length * 220;
 }
+
+/** A column few rows fill is held to a fifth of the width, so dense columns get the room. */
+const sparse = (matrix: TraceMatrix, column: MatrixColumn) => column.covered < matrix.rowCount / 4;
 
 function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
   const open = matrix.bands.some((band) => !band.closed);
@@ -213,7 +260,10 @@ function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
           <colgroup>
             <col className="gv-col-spine" />
             {shownColumns(matrix).map((column) => (
-              <col key={column.id} />
+              <col
+                key={column.id}
+                className={sparse(matrix, column) ? "gv-col-sparse" : undefined}
+              />
             ))}
           </colgroup>
           <thead>
@@ -335,6 +385,7 @@ function TraceBody({ model }: { model: GroupModel }) {
       <GroupFacts model={model} />
       <SpineSwitcher model={model} graph={graph} choices={choices} spine={spine} onChoose={choose}>
         <EmptyColumns model={model} matrix={matrix} />
+        <StatusLegend model={model} matrix={matrix} />
       </SpineSwitcher>
       <Matrix key={spine} model={model} matrix={matrix} />
     </div>

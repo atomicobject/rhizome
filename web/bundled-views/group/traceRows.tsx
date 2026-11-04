@@ -88,7 +88,7 @@ function Cell({
       ))}
       {shown.length < entries.length && (
         <button type="button" className="gv-trace-more" onClick={() => setAll(true)}>
-          +{entries.length - shown.length} more
+          Show {entries.length - shown.length} more
         </button>
       )}
       {rolled && (

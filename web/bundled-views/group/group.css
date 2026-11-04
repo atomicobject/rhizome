@@ -24,7 +24,7 @@
 }
 
 .gv-num {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
@@ -102,8 +102,8 @@
 .gv-issues,
 .gv-bad {
   color: var(--accent-active);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -168,11 +168,32 @@
 
 .gv-facts-list {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
+}
+
+/* Facts read as one sentence-like strip: Inter, separated by middle dots. */
+.gv-facts-list > * + *::before {
+  margin-right: 8px;
+  color: var(--text-faint);
+  content: "·";
+}
+
+/* Section jump links: each member's name and count, near the tabs. */
+.gv-jump {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-right: 18px;
+  font-size: var(--fs-sm);
+}
+
+.gv-jump .gv-num {
+  margin-left: 2px;
 }
 
 .gv-facts-list b {
@@ -239,6 +260,29 @@
 
 .gv-foot {
   padding-top: 6px;
+}
+
+/* A section's title takes the slack; Status and other fields hold 136px,
+   Changed 72px, so short values do not stretch across the page. */
+.gv-section .gv-table {
+  table-layout: fixed;
+}
+
+.gv-section .gv-table th {
+  width: 136px;
+}
+
+.gv-section .gv-table th:first-child {
+  width: auto;
+}
+
+.gv-section .gv-table th.gv-changed {
+  width: 72px;
+}
+
+.gv-section .gv-table td:not(:first-child) {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gv-table {
@@ -382,8 +426,9 @@
   font-size: var(--fs-xs);
 }
 
+/* Every "Show N more" reads the same: a quiet 13px teal link. */
 .gv-more {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 /* Titles inside running text: open a record or note without reading as a link. */
@@ -519,6 +564,17 @@
   margin: 8px 0 0;
   padding-top: 6px;
   border-top: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.gv-hint summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.gv-hint p {
+  margin: 4px 0 0 14px;
   color: var(--text-faint);
   font-size: var(--fs-xs);
 }
@@ -777,8 +833,44 @@
   table-layout: fixed;
 }
 
-.gv-col-spine {
-  width: max(340px, 26%);
+/* About 40% for the rows, the rest shared by the linked columns; a column
+   few rows fill keeps a fifth (220px at least). */
+.gv-col-spine,
+.gv-trace thead th.gv-trace-spine {
+  width: max(340px, 40%);
+}
+
+.gv-col-sparse,
+.gv-trace thead th.gv-col-sparse {
+  width: max(220px, 20%);
+}
+
+/* Linked titles are 14px teal quiet links, like every record link. */
+.gv-trace td .gv-chip {
+  font-size: var(--fs-base);
+}
+
+.gv-trace td .gv-chip:not([data-indirect]) {
+  color: var(--link);
+}
+
+.gv-trace td .gv-chip:is(:hover, :focus-visible) > span:not(.sr-only) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gv-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-left: auto;
+}
+
+.gv-legend-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
 }
 
 .gv-trace th,
@@ -851,7 +943,7 @@
 }
 
 .gv-cov-count b {
-  color: var(--text-muted);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -864,7 +956,7 @@
 }
 
 .gv-cov-count .gv-thin {
-  color: var(--warning-ink);
+  color: var(--text);
 }
 
 .gv-band th {
@@ -925,12 +1017,12 @@
 }
 
 .gv-trace .gv-record {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
 }
 
 .gv-nested {
   color: var(--text-faint);
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -976,14 +1068,15 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--text-faint);
+  color: var(--link);
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   cursor: pointer;
 }
 
 .gv-trace-more:hover {
-  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .gv-rollup {
@@ -1000,7 +1093,7 @@
 
 .gv-rollup b {
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
@@ -1067,11 +1160,12 @@
 
 /* Counts by month in the neutral series: teal means connection, not volume.
    Each bar carries its count above it when the months fit. */
+/* A quiet histogram: 56px tall, so the collection's shape reads before its peaks. */
 .gv-hist {
   display: flex;
   align-items: stretch;
   gap: 3px;
-  height: 80px;
+  height: 56px;
   margin-top: 6px;
   border-bottom: 1px solid var(--border);
 }
@@ -1104,8 +1198,12 @@
   justify-content: space-between;
   margin: 3px 0 0;
   color: var(--text-faint);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.gv-hist-peak {
+  margin-top: 2px;
 }
 
 .gv-rel {
@@ -1174,13 +1272,20 @@
   font-size: var(--fs-xs);
 }
 
-/* Briefing with two columns: activity only (SPEC-0117 US6). */
+/* Briefing with two columns: activity only (SPEC-0117 US6). The type
+   Briefing splits about 60/40: current work, then the collection's shape and
+   connections stacked beside it. */
 @media (min-width: 960px) {
   .gv-brief.gv-brief-two {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   }
 
-  .gv-brief-two .gv-brief-col:last-child {
+  .gv-brief.gv-brief-split {
+    grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+  }
+
+  .gv-brief-two .gv-brief-col:last-child,
+  .gv-brief-split .gv-brief-col:last-child {
     border-right: 0;
   }
 }
@@ -1215,6 +1320,13 @@
 .gv-ov-side {
   border-top: 1px solid var(--border);
   background: var(--surface-alt);
+}
+
+/* An expanded outside list scrolls inside the side column instead of pushing
+   Members below the fold. */
+.gv-ov-side .gv-changes {
+  max-height: 260px;
+  overflow: auto;
 }
 
 .gv-ov-members {
@@ -1606,6 +1718,20 @@
   text-overflow: ellipsis;
 }
 
+/* The targets wrap to two 13px lines before they cut. */
+.gv-ov-folders td.gv-ov-links {
+  white-space: normal;
+}
+
+.gv-ov-links-text {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .gv-ov-folder {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -1661,6 +1787,18 @@
 }
 
 /* A zero problem count is a fact, not a risk: muted ink, still a way in. */
+.gv-issues.gv-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--warning-ink);
+}
+
+.gv-warn-mark {
+  width: 13px;
+  height: 13px;
+}
+
 .gv-issues.gv-zero {
   color: var(--text-muted);
 }

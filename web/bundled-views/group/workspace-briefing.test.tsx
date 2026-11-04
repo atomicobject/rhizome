@@ -162,10 +162,10 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
 
   const motion = region("In motion");
   expect([...motion.querySelectorAll("h3")].map((heading) => heading.textContent)).toEqual([
-    "Stories 5+",
+    "Stories 10 shown",
     "Releases 1",
   ]);
-  expect(within(motion).queryByText("Story 6")).toBeNull();
+  expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
 
   const recent = region("Recent changes");
   // A title line, then the type and folder.
@@ -174,7 +174,7 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   ).toEqual(["Loose thoughtuntyped · inbox/", "Checkout redesignStory · work/", "Topuntyped"]);
 
   fireEvent.click(within(attention).getAllByRole("button", { name: "Open issues" })[0]);
-  fireEvent.click(within(motion).getByRole("button", { name: "More in stories" }));
+  fireEvent.click(within(motion).getByRole("button", { name: "View active stories" }));
   fireEvent.click(within(recent).getByRole("button", { name: "Loose thought" }));
 
   expect(posted.filter((message) => message.type.startsWith("rhizome:open-"))).toEqual([
