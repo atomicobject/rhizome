@@ -18,10 +18,7 @@ type Spot = { x: number; y: number; box: Box };
 type LabelColors = { label: string; canvas: string };
 
 /** Up to this many nodes, labels are placed clear of node discs and edges as well as other labels. */
-export const NODE_AVOID_ORDER = 400;
-
-/** A node at least this many pixels across keeps a label even where every spot is crowded. */
-const ALWAYS_LABELED = 16;
+export const NODE_AVOID_ORDER = 10000;
 
 /** Padding of the label's backing around its text. */
 const PAD_X = 4;
@@ -31,11 +28,8 @@ const PAD_Y = 2;
 /** A planned label's key: its node's center on screen, which the draw call receives too. */
 const at = (x: number, y: number) => `${Math.round(x)}:${Math.round(y)}`;
 
-const overlaps = (a: Box, b: Box) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
-
-const overlapArea = (a: Box, b: Box) =>
-  Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) *
-  Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+const overlaps = (a: Box, b: Box) =>
+  a[0] < b[2] + 8 && a[2] + 8 > b[0] && a[1] < b[3] + 8 && a[3] + 8 > b[1];
 
 /** Whether the segment from (x1, y1) to (x2, y2) passes through the box (Liang–Barsky). */
 function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
@@ -72,7 +66,7 @@ function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
  * where the text starts and its baseline.
  */
 function spotsAround(x: number, y: number, r: number, width: number, size: number): Spot[] {
-  const gap = r + 5;
+  const gap = r + 12;
   const middle = y + size * 0.35;
   const corner = r * 0.75;
 
@@ -82,16 +76,16 @@ function spotsAround(x: number, y: number, r: number, width: number, size: numbe
     box: [sx - PAD_X, sy - size - PAD_Y + 1, sx + width + PAD_X, sy + PAD_Y + 3],
   });
 
-  return [
-    at(x + gap, middle),
-    at(x - gap - width, middle),
-    at(x - width / 2, y + gap + size - 2),
-    at(x - width / 2, y - gap - 2),
-    at(x + gap - 2, y - corner - 2),
-    at(x + gap - 2, y + corner + size),
-    at(x - gap + 2 - width, y - corner - 2),
-    at(x - gap + 2 - width, y + corner + size),
-  ];
+  return [0, 16, 32, 48, 64, 80, 96].flatMap((offset) => [
+    at(x + gap + offset, middle),
+    at(x - gap - offset - width, middle),
+    at(x - width / 2, y + gap + offset + size - 2),
+    at(x - width / 2, y - gap - offset - 2),
+    at(x + gap + offset - 2, y - corner - offset - 2),
+    at(x + gap + offset - 2, y + corner + offset + size),
+    at(x - gap - offset + 2 - width, y - corner - offset - 2),
+    at(x - gap - offset + 2 - width, y + corner + offset + size),
+  ]);
 }
 
 /**
@@ -164,18 +158,10 @@ export function createLabelPainter(
         segments.filter(([x1, y1, x2, y2]) => crosses(spot.box, x1, y1, x2, y2)).length;
 
       // Clear spots first, then the one crossing the fewest edges, then the earliest side.
-      let chosen = clear.reduce<Spot | null>(
+      const chosen = clear.reduce<Spot | null>(
         (best, spot) => (!best || crossings(spot) < crossings(best) ? spot : best),
         null,
       );
-
-      // A large node keeps its label at the least crowded spot rather than going unnamed.
-      if (!chosen && node.r * 2 >= ALWAYS_LABELED && candidates.length) {
-        const crowd = (spot: Spot) =>
-          [...blockers, ...placed].reduce((sum, other) => sum + overlapArea(other, spot.box), 0);
-
-        chosen = candidates.reduce((best, spot) => (crowd(spot) < crowd(best) ? spot : best));
-      }
 
       if (chosen) placed.push(chosen.box);
       spots.set(at(node.x, node.y), chosen);
@@ -218,6 +204,22 @@ export function createLabelPainter(
     if (!spot) return;
     const [left, top, right, bottom] = spot.box;
     const { label, canvas } = colors();
+    const endX = Math.max(left, Math.min(data.x, right));
+    const endY = Math.max(top, Math.min(data.y, bottom));
+    const distance = Math.hypot(endX - data.x, endY - data.y);
+
+    if (distance > data.size + 4) {
+      context.strokeStyle = label;
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(
+        data.x + ((endX - data.x) * data.size) / distance,
+        data.y + ((endY - data.y) * data.size) / distance,
+      );
+      context.lineTo(endX, endY);
+      context.stroke();
+    }
+
     context.fillStyle = canvas;
     context.fillRect(left, top, right - left, bottom - top);
     context.fillStyle = label;

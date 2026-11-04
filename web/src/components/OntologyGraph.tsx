@@ -51,7 +51,7 @@ const EDGE_DASH: Record<EdgeKind, string | undefined> = {
   neighbor: "1.5 4",
 };
 
-const NEUTRAL_EDGE = "var(--type-8)";
+const NEUTRAL_EDGE = "var(--text)";
 
 /** A traced connector's color: the source type's, or ink for an interface's implements line. */
 function edgeAccent(edge: AtlasEdge) {
@@ -213,7 +213,7 @@ export function OntologyGraph({ atlas }: Props) {
         ...edge,
         style: {
           stroke: color,
-          strokeWidth: lit ? 2 : 1.5,
+          strokeWidth: 1.5,
           strokeDasharray: EDGE_DASH[kind],
           strokeLinecap: kind === "neighbor" ? ("round" as const) : undefined,
           opacity: traced === null || lit ? 1 : 0.16,

@@ -2984,7 +2984,7 @@
 }
 
 .ontology-type-detail__tagline {
-  max-width: 1100px;
+  max-width: 760px;
   margin: 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
@@ -5331,4 +5331,15 @@ button.validation-issue-badge:hover {
 /* Rows without a direction mark line up under their bucket label. */
 .rail-bucket .rail-row:not(:has(.rail-row__dir)) {
   padding-left: 18px;
+}
+
+.ontology-node__self-label {
+  display: none;
+}
+.react-flow__node:is(:hover, .selected, .atlas-node--focused) .ontology-node__self-label,
+.ontology-node:focus-within .ontology-node__self-label {
+  display: inline;
+}
+.ontology-type-detail__table td > .ontology-type-detail__ident-secondary {
+  display: block;
 }

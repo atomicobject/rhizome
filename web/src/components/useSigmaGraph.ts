@@ -461,6 +461,33 @@ export function useSigmaGraph({
 
     sigmaRef.current = sigma;
     sigma.on("beforeRender", labels.beginFrame);
+    const outlines = sigma.createCanvas("outlines", { beforeLayer: "labels" });
+    sigma.on("afterRender", () => {
+      const context = outlines.getContext("2d");
+
+      if (!context) return;
+      const { width, height } = sigma.getDimensions();
+      const ratio = window.devicePixelRatio || 1;
+      outlines.width = width * ratio;
+      outlines.height = height * ratio;
+      outlines.style.width = `${width}px`;
+      outlines.style.height = `${height}px`;
+      context.save();
+      context.scale(outlines.width / width, outlines.height / height);
+      context.clearRect(0, 0, width, height);
+      context.strokeStyle = (colorsRef.current ?? readThemeColors()).label;
+      context.lineWidth = 1.5;
+      sigma.getGraph().forEachNode((id) => {
+        const node = sigma.getNodeDisplayData(id);
+
+        if (!node || node.hidden) return;
+        const point = sigma.framedGraphToViewport(node);
+        context.beginPath();
+        context.arc(point.x, point.y, sigma.scaleSize(node.size), 0, 2 * Math.PI);
+        context.stroke();
+      });
+      context.restore();
+    });
     const camera = sigma.getCamera();
     stateRef.current.cameraRatio = camera.getState().ratio;
 

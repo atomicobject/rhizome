@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { FolderOpen, Search } from "lucide-react";
+import { FolderOpen, Info, Search } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getExpandedModuleGraph,
@@ -379,7 +379,7 @@ export function ExplorerWorkspace({
 
   const graphScopeLabel =
     graphScope.mode === "global"
-      ? "The whole vault by folder; pick one to see its notes and code"
+      ? "By folder; pick one to see its notes and code"
       : graphScope.mode === "module"
         ? `Folder ${graphScope.label}`
         : `File ${graphScope.label || "graph"}`;
@@ -453,9 +453,18 @@ export function ExplorerWorkspace({
           <div className="view-header__title-row">
             <h2>Explorer</h2>
             <span className="view-header__count num">
-              {graph.nodes.length ? graph.nodes.length.toLocaleString("en-US") : ""}
+              {graph.nodes.length
+                ? `${graph.nodes.filter((node) => node.kind === "note").length.toLocaleString("en-US")} notes · ${graph.nodes.filter((node) => node.kind === "code").length.toLocaleString("en-US")} files shown of ${graph.nodes.length.toLocaleString("en-US")} nodes`
+                : ""}
             </span>
-            <span className="view-header__about">{graphScopeLabel}</span>
+            <button
+              type="button"
+              className="explorer-count-info"
+              aria-label="About the displayed graph"
+              title={`${graphScopeLabel}. ${folderCoverage(graph)}`}
+            >
+              <Info size={16} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" />
+            </button>
             <div className="explorer-bar__display" ref={setDisplaySlot} />
             <div
               className="view-header__tools explorer-bar__search"
@@ -574,7 +583,7 @@ export function ExplorerWorkspace({
                     edges={drawn.edges}
                     truncated={drawn.truncated}
                     legendNodes={folders ? graph.nodes : undefined}
-                    folderCaption={folders ? folderCoverage(graph) : undefined}
+                    folderCaption={undefined}
                     sizeCaption={
                       folders ? "Size counts the notes and code files a folder holds" : undefined
                     }

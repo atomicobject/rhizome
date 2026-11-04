@@ -951,3 +951,14 @@
   padding-top: var(--sp-2);
   border-top: 1px solid var(--border);
 }
+
+.explorer-count-info {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: help;
+  padding: 4px;
+}
+.graph-type-legend__keys .graph-type-legend__title {
+  min-width: 36px;
+}

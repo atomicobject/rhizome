@@ -443,7 +443,7 @@ Column heads are sticky, 34px, 13/500 muted, with an ink sort arrow. Rows are 36
 
 ### Board and Cards
 
-Board columns are tinted bands with a hairline border and 6px corners holding flat white cards, in schema enum order with every non-empty column open by default; empty or collapsed values are 140px horizontal headers with mark, label, count, and chevron, never rotated text. Staleness is a muted header line ("12 unchanged 30+ days") and a plain age on each card, never a gold pill or a clock on ages, and relation values on cards are plain teal links. A move stages an edit until commit or discard, and every drag has a keyboard equivalent. Cards are for low-cardinality types: dense hairline cards in aligned rows of a 260px auto-fill grid, with summaries clamped to three lines. A group header everywhere is the label followed by its count ("Proposed 16").
+Board columns are tinted bands without a border (6px corners) holding flat white bordered cards, in schema enum order with every non-empty column open by default; empty or collapsed values are 140px horizontal headers with mark, label, count, and chevron, never rotated text. Staleness is a muted header line ("12 unchanged 30+ days") and a plain age on each card, never a gold pill or a clock on ages, and relation values on cards are muted secondary links (`.link-secondary`), so card titles lead. A move stages an edit until commit or discard, and every drag has a keyboard equivalent. Cards are for low-cardinality types: dense hairline cards in aligned rows of a 260px auto-fill grid, with summaries clamped to three lines. A group header everywhere is the label followed by its count ("Proposed 16").
 
 ### Status Marks
 
@@ -552,3 +552,5 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 - **Overflow expands in place.** "Show N more" expands the list where it is; "Open <view>" appears only once everything loaded is shown.
 - **Kit sections and segmented controls.** The kit's `Section` heading follows the section-heading rule (15/600), and the kit's `Segmented` uses the same raised selected segment as the host's `.segmented`.
 - **Graphs.** Overview maps draw relation links solid and plain links dashed, each in the legend, and show a legend entry only when the map draws it. Explorer labels sit on a canvas-coloured backing placed clear of every node and label, and large nodes always keep their labels. Ontology type pages use the shared header tab bar and human type labels, with identifiers as secondary mono.
+- **Inspector hierarchy.** In the Info rail, parent headings (Relations, Linked notes) use the section heading (15/600 ink); type group labels are 13/500 muted; links are 14px with type labels on a muted second line.
+- **Long property previews** end in a standalone "Show full summary" / "Show less" row with the shared chevron, never an inline "More".

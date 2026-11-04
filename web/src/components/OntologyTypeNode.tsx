@@ -106,10 +106,14 @@ export function OntologyTypeNode({ data }: Props) {
         {self.length > 0 ? (
           <span
             className="ontology-node__self"
-            title={`Relates to its own type through ${self.join(", ")}`}
+            title={`${self.length} self-link${self.length === 1 ? "" : "s"}`}
           >
             <Repeat2 size={16} strokeWidth={2} aria-hidden="true" />
             {self.length}
+            <span className="ontology-node__self-label">
+              {" "}
+              self-link{self.length === 1 ? "" : "s"}
+            </span>
           </span>
         ) : null}
         <span className="ontology-node__meta">
