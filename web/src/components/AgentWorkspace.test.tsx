@@ -118,7 +118,7 @@ describe("AgentWorkspace", () => {
       fireEvent.click(screen.getByRole("button", { name: `Confirm delete ${deleted.title}` }));
 
       if (action === "create another") {
-        fireEvent.click(screen.getByRole("button", { name: "New" }));
+        fireEvent.click(screen.getByRole("button", { name: "New session" }));
         await screen.findByRole("heading", { name: created.title });
       } else {
         const next = action === "select another" ? third : second;
@@ -228,17 +228,22 @@ describe("AgentWorkspace", () => {
     expect(await screen.findByText("Resolved: first available")).toBeVisible();
   });
 
-  it("shows a compact empty state for a session without messages", async () => {
+  it("offers example questions in an empty thread that fill the composer", async () => {
     http
       .json("GET", "/api/agent/settings", settingsWith(readyStatus))
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Ask a question about this repository.",
+    const example = await screen.findByRole("button", {
+      name: "What changed in this repository this week?",
+    });
+
+    fireEvent.click(example);
+    expect(screen.getByLabelText("Message")).toHaveValue(
+      "What changed in this repository this week?",
     );
-    expect(screen.queryByRole("heading", { name: /Ask against the vault/ })).toBeNull();
+    expect(screen.getByLabelText("Message")).toHaveFocus();
   });
 
   it("uses the Claude Code install hint", async () => {

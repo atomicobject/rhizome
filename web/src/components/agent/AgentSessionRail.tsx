@@ -40,7 +40,7 @@ export function AgentSessionRail({
       <div className="agent-workspace__rail-head">
         <h1>Agent</h1>
         <button type="button" className="button" onClick={onNew}>
-          New
+          New session
         </button>
       </div>
       <div className="agent-session-list">

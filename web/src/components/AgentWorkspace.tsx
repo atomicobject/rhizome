@@ -117,6 +117,30 @@ function completedAssistant(events: AgentEvent[], completed: AgentEvent): AgentM
   };
 }
 
+const EXAMPLE_PROMPTS = [
+  "What changed in this repository this week?",
+  "Which notes explain how search ranks results?",
+  "List the open action items and who owns them.",
+];
+
+/** An empty thread offers a few starting questions; picking one fills the composer. */
+function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
+  return (
+    <div className="agent-examples">
+      <h2 className="agent-examples__head">Try asking</h2>
+      <ul>
+        {EXAMPLE_PROMPTS.map((prompt) => (
+          <li key={prompt}>
+            <button type="button" onClick={() => onPick(prompt)}>
+              {prompt}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function AgentWorkspace({
   sidebarTitle,
   sidebarHint,
@@ -138,6 +162,7 @@ export function AgentWorkspace({
   const [error, setError] = useState("");
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const latestEventIDRef = useRef(0);
 
   const sessionsQuery = useQuery({
@@ -440,6 +465,17 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <div className="agent-thread__body" ref={threadRef}>
+          {messages.length === 0 &&
+          events.length === 0 &&
+          !blocked &&
+          !selectedSession?.readOnly ? (
+            <ExamplePrompts
+              onPick={(text) => {
+                setDraft(text);
+                composerRef.current?.focus();
+              }}
+            />
+          ) : null}
           <AgentTimeline
             available={!blocked}
             messages={messages}
@@ -480,16 +516,9 @@ export function AgentWorkspace({
             submitText(draft);
           }}
         >
-          {messages.length === 0 &&
-          events.length === 0 &&
-          !blocked &&
-          !selectedSession?.readOnly ? (
-            <p className="agent-composer__hint" role="status">
-              Ask a question about this repository.
-            </p>
-          ) : null}
           <div className="agent-composer__frame">
             <textarea
+              ref={composerRef}
               value={draft}
               aria-label="Message"
               placeholder="Ask Rhizome…"
