@@ -154,7 +154,8 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
         ? row.item.lang
         : row.item.type
           ? typeLabel(row.item.type)
-          : undefined,
+          : // Every note row names its type, so the column never reads ragged.
+            "Untyped",
     [typeLabel],
   );
 
