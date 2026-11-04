@@ -293,8 +293,17 @@ export function GroupFacts({
         )}
       </span>
       <span className="gv-facts-list">
-        <span>
-          <b>{records.length}</b> {records.length === 1 ? "record" : "records"}
+        {/* A group counts every note its member types hold, ambiguous notes
+            included; Overview counts only typed records, so each names its scope. */}
+        <span
+          title={
+            collection
+              ? undefined
+              : "Every note of the group's types, notes with an ambiguous type included"
+          }
+        >
+          <b>{records.length}</b> {collection ? "record" : "note"}
+          {records.length === 1 ? "" : "s"}
         </span>
         {!collection && (
           <span>

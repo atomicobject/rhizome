@@ -37,22 +37,21 @@ const OPEN_COLLECTION: MemberAction = {
 const MemberActionContext = createContext<MemberAction>(OPEN_COLLECTION);
 
 /**
- * The records behind a signal, grouped by member when several members hold
- * them. A member's label runs `onMember`; titles open the records.
+ * The records behind a signal as rows, title left and age right, grouped
+ * under their member's label when several members hold them. A member's label
+ * runs `onMember`; titles open the records. "Show N more" sits on its own line.
  */
 function SignalRecords({
   id,
   model,
   groups,
   onMember,
-  withTime = false,
 }: {
   /** The signal's stable key, under which its expansion is remembered. */
   id: string;
   model: GroupModel;
   groups: readonly MemberRecords[];
   onMember: (member: Member) => void;
-  withTime?: boolean;
 }) {
   const expanded = useRememberedOpen("briefing.expanded");
   const open = expanded.isOpen(`signal:${id}`, false);
@@ -70,45 +69,40 @@ function SignalRecords({
   const hidden = total - Math.min(total, SIGNAL_RECORDS);
 
   return (
-    <span className="gv-sig-records">
-      {shown.map((group, index) => {
-        const member = memberOf(model, group.member);
+    <>
+      <ul className="gv-sig-rows">
+        {shown.map((group) => {
+          const member = memberOf(model, group.member);
 
-        return (
-          <span key={group.member}>
-            {index > 0 && <span className="gv-sep"> · </span>}
-            {groups.length > 1 && member && (
-              <>
-                <button type="button" className="gv-link" onClick={() => onMember(member)}>
-                  {memberLabel(model, member, { plural: true })}
-                </button>
-                :{" "}
-              </>
-            )}
-            {group.records.map((record, at) => (
-              <Fragment key={record.key}>
-                {at > 0 && ", "}
-                <button type="button" className="gv-inline" onClick={() => openRecord(record)}>
-                  {record.title}
-                </button>
-                {withTime && record.updatedAt !== null && (
-                  <>
-                    {" "}
+          return (
+            <Fragment key={group.member}>
+              {groups.length > 1 && member && (
+                <li className="gv-sig-member">
+                  <button type="button" className="gv-link" onClick={() => onMember(member)}>
+                    {memberLabel(model, member, { plural: true })}
+                  </button>
+                </li>
+              )}
+              {group.records.map((record) => (
+                <li key={record.key} className="gv-sig-row">
+                  <button type="button" className="gv-inline" onClick={() => openRecord(record)}>
+                    {record.title}
+                  </button>
+                  {record.updatedAt !== null && (
                     <RelativeTime value={record.updatedAt} className="gv-age" />
-                  </>
-                )}
-              </Fragment>
-            ))}
-          </span>
-        );
-      })}
+                  )}
+                </li>
+              ))}
+            </Fragment>
+          );
+        })}
+      </ul>
       {hidden > 0 && (
-        <>
-          {" "}
+        <div className="gv-sig-more">
           <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
-        </>
+        </div>
       )}
-    </span>
+    </>
   );
 }
 
@@ -138,7 +132,7 @@ function SignalRow({
       ) : (
         <span />
       )}
-      {children && <span className="gv-sig-detail">{children}</span>}
+      {children && <div className="gv-sig-detail">{children}</div>}
     </li>
   );
 }
@@ -246,7 +240,6 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
             model={model}
             groups={groups}
             onMember={openMember}
-            withTime
           />
         </SignalRow>
       );
@@ -275,7 +268,7 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
           }
           action={action}
         >
-          {signal.policyReason && <span className="gv-why">{signal.policyReason} </span>}
+          {signal.policyReason && <p className="gv-why">{signal.policyReason}</p>}
           <SignalRecords
             id={signalKey(signal)}
             model={model}
@@ -387,7 +380,10 @@ export function NeedsAttention({
   part?: "attention" | "review" | "both";
 }) {
   const attention = signals.filter(isAttention);
-  const context = signals.filter((signal) => !isAttention(signal));
+  // Unlinked records are a coverage fact, not a prompt to act, so they get
+  // their own heading instead of sharing Review suggested's urgency.
+  const context = signals.filter((signal) => !isAttention(signal) && signal.kind !== "unlinked");
+  const coverage = signals.filter((signal) => signal.kind === "unlinked");
 
   return (
     <MemberActionContext.Provider value={memberAction}>
@@ -410,6 +406,18 @@ export function NeedsAttention({
         >
           <ul className="gv-list">
             {context.map((signal) => (
+              <Signal key={signalKey(signal)} model={model} signal={signal} />
+            ))}
+          </ul>
+        </Block>
+      )}
+      {part !== "attention" && coverage.length > 0 && (
+        <Block
+          title="Link coverage"
+          info="Records with no link to another record in the group. Often expected for standalone notes."
+        >
+          <ul className="gv-list">
+            {coverage.map((signal) => (
               <Signal key={signalKey(signal)} model={model} signal={signal} />
             ))}
           </ul>

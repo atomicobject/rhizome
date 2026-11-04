@@ -1,6 +1,6 @@
 // Trace's row groups: a lifecycle band of rows, each row's spine cell with its
 // nesting controls, and the record chips in its cells.
-import { RecordChip, StatusMark, openNote } from "@rhizome/kit";
+import { DisclosureIcon, RecordChip, StatusMark, openNote } from "@rhizome/kit";
 import { useMemo, useState } from "react";
 
 import { Dash, IssueCount, RecordMark, RecordTitle, openRecord } from "./components.tsx";
@@ -130,12 +130,12 @@ function Row({
           {row.children.length > 0 ? (
             <button
               type="button"
-              className="gv-twisty"
+              className="rz-disclosure gv-twisty"
               aria-expanded={!collapsed}
               aria-label={`Rows under ${record.title}`}
               onClick={() => onToggle(record.key)}
             >
-              <span aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
+              <DisclosureIcon open={!collapsed} />
             </button>
           ) : (
             matrix.hierarchical && <span className="gv-twisty-slot" aria-hidden="true" />
@@ -221,9 +221,7 @@ export function Band({
               aria-expanded={open}
               onClick={() => setOpen(!open)}
             >
-              <span className="gv-caret" aria-hidden="true">
-                {open ? "▾" : "▸"}
-              </span>
+              <DisclosureIcon open={open} className="gv-caret" />
               <BandLabel matrix={matrix} band={band} />
               <span className="gv-num">{band.size}</span>
             </button>

@@ -234,6 +234,31 @@ export function MoreToggle({
   );
 }
 
+/**
+ * The one disclosure chevron: a 16px right-pointing chevron that turns down
+ * when `open`. Put it inside a control with an accessible name; on its own as
+ * a button, use `rz-disclosure` for the 24px hit target.
+ */
+export function DisclosureIcon({ open, className }: { open: boolean; className?: string }) {
+  return (
+    <svg
+      className={cn("rz-disclosure-icon", className)}
+      data-open={open || undefined}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 3.5 10.5 8 6 12.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export type SegmentedOption<T extends string> = {
   value: T;
   label: ReactNode;

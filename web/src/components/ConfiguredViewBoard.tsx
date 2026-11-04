@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { type ComponentProps, type DragEvent, useEffect, useState } from "react";
 
 import type { OntologyEditOp, ViewTableRow } from "../api/types";
@@ -435,7 +436,11 @@ export function ConfiguredViewBoard(props: Props) {
                     aria-expanded={!collapsed}
                     onClick={() => laneExpansion.toggle(lane.key, true)}
                   >
-                    <span className="configured-view__card-section-caret" aria-hidden />
+                    <ChevronRight
+                      size={16}
+                      className="configured-view__disclosure-icon"
+                      aria-hidden
+                    />
                     <LaneMark lane={lane} />
                     <span className="configured-view__board-count">
                       {locallyFiltered

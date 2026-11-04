@@ -36,7 +36,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.emulateMedia({ reducedMotion });
     await page.goto("/notes/tv-guide");
     const group = page.getByRole("button", { name: "Howto 2", exact: true });
-    const caret = group.locator(".configured-view__group-caret");
+    const caret = group.locator(".configured-view__disclosure-icon");
     await expect(group).toHaveAttribute("aria-expanded", "true");
 
     // A sidebar row's hover tint, on a row that is not the current one.

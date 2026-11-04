@@ -31,7 +31,7 @@ import {
   type JsonValue,
   type ParsedRecord,
 } from "./api.ts";
-import { ChangeRow } from "./briefing-activity.tsx";
+import { ChangeRow, MotionHead } from "./briefing-activity.tsx";
 import {
   Block,
   BlockBody,
@@ -218,11 +218,13 @@ function MotionTypeGroup({
 
   return (
     <div className="gv-mo-group">
-      <h3 className="gv-mo-type">
-        {label}
-        {heldLabels.length > 0 && ` · ${heldLabels.join(", ")}`}{" "}
-        <span className="gv-num">{total}</span>
-      </h3>
+      <MotionHead>
+        <h3 className="gv-mo-type">
+          {label}
+          {heldLabels.length > 0 && ` · ${heldLabels.join(", ")}`}{" "}
+          <span className="gv-num">{total}</span>
+        </h3>
+      </MotionHead>
       <ul className="gv-list">
         {shown.map((record) => {
           const value = record.values.get(entry.field);

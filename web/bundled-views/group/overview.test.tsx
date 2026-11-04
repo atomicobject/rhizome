@@ -238,9 +238,11 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     embedded: true,
   });
 
-  await waitFor(() => expect(screen.getByRole("button", { name: "5 issues" })).toBeVisible());
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Validation: 5 issues" })).toBeVisible(),
+  );
   expect(document.querySelector(".gv-facts-list")).toHaveTextContent(
-    "49 notes59% typed10 note types3 ambiguous notes5 issues",
+    "49 notes59% typed10 note typesTyping: 3 ambiguous notesValidation: 5 issues",
   );
   expect(nodeNames()).toEqual([
     "Untyped notes, 20 notes, 11 links",
@@ -254,7 +256,7 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     within(region("Map")).getByRole("button", { name: "Notices, 0 records, 0 links" }),
   ).toBeVisible();
 
-  fireEvent.click(screen.getByRole("button", { name: "3 ambiguous notes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Typing: 3 ambiguous notes" }));
   expect(opened(posted)).toEqual([{ type: OPEN_ISSUES_MESSAGE }]);
 });
 

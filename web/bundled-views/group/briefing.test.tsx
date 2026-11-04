@@ -96,8 +96,9 @@ it("names a bounded number of records per signal and reveals the rest in place",
       "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Area: areas } }),
     }),
   });
-  await screen.findByRole("region", { name: "Review suggested" });
-  const unlinked = item(region("Review suggested"), "Not linked");
+  // Unlinked records are a coverage fact under their own heading, not a review prompt.
+  await screen.findByRole("region", { name: "Link coverage" });
+  const unlinked = item(region("Link coverage"), "Not linked");
 
   const named = () =>
     unlinked

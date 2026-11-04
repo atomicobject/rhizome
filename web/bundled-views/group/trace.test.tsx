@@ -166,8 +166,9 @@ it("fills cells with records linked to anything in the row, marking indirect one
 
   // Coverage beside the name; under it, the field that joins the column to the rows.
   expect(columnHeader("Work items")).toHaveTextContent("3/6 rows");
-  // Under that, the column's own status key.
-  expect(columnHeader("Work items")).toHaveTextContent(/rowsArea.*Backlog/);
+  // Under that, the column's own status key, naming only the statuses it holds.
+  expect(columnHeader("Work items")).toHaveTextContent(/rowsArea.*Doing.*Done/);
+  expect(columnHeader("Work items")).not.toHaveTextContent(/Backlog/);
   expect(columnHeader("Releases")).toHaveTextContent("1/6 rows");
   expect(columnHeader("Checklists")).toHaveTextContent("1/6 rowsthrough other columns");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();

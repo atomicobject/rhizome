@@ -17,7 +17,7 @@ import { GroupFacts, GroupPage, MemberHeading } from "./components.tsx";
 import { linkGraph, spineChoices, type LinkGraph } from "./graph.ts";
 import { useGroupModel } from "./load.ts";
 import { traceMatrix, type MatrixColumn, type TraceMatrix } from "./matrix.ts";
-import { fieldLabel, memberLabel, type GroupModel, type Member } from "./model.ts";
+import { fieldLabel, lifecycleValue, memberLabel, type GroupModel, type Member } from "./model.ts";
 import { Band, inSentence } from "./traceRows.tsx";
 
 /** A closed band with more rows than this starts folded while other bands are open. */
@@ -71,19 +71,42 @@ function relationFields(matrix: TraceMatrix, column: MatrixColumn) {
   return [...new Set(links.map((link) => fieldLabel(link.field)))];
 }
 
-/** What the marks in a linked column mean, behind the heading's Key disclosure. */
-function ColumnLegend({ member }: { member: Member }) {
+/** Lifecycle values the column's records hold, so the key names only marks on screen. */
+function heldValues(matrix: TraceMatrix, column: MatrixColumn & { kind: "member" }) {
+  const held = new Set<string>();
+
+  const visit = (row: TraceMatrix["bands"][number]["roots"][number]) => {
+    for (const entry of row.cells.get(column.id) ?? []) {
+      const value = entry.kind === "record" ? lifecycleValue(column.member, entry.record) : null;
+
+      if (value) held.add(value);
+    }
+
+    row.children.forEach(visit);
+  };
+
+  for (const band of matrix.bands) band.roots.forEach(visit);
+
+  return held;
+}
+
+/**
+ * What the marks in a linked column mean, always on screen under its heading:
+ * each status its records hold, mark and word ("● Active · ○ Proposed").
+ */
+function ColumnLegend({ matrix, column }: { matrix: TraceMatrix; column: MatrixColumn }) {
+  if (column.kind !== "member" || !column.member.lifecycle) return null;
+  const values = column.member.lifecycle.values;
+  const held = heldValues(matrix, column);
+  const shown = orderedEnumValues(values).filter((value) => held.has(value.name));
+
+  if (shown.length === 0) return null;
+
   return (
-    <div className="gv-col-legend" aria-label={`${member.pluralLabel} status marks`}>
-      {member.lifecycle ? (
-        orderedEnumValues(member.lifecycle.values).map((value) => (
-          <StatusMark key={value.name} value={value.name} values={member.lifecycle?.values ?? []} />
-        ))
-      ) : (
-        <span>
-          <span className="gv-square" aria-hidden="true" /> No status
-        </span>
-      )}
+    <div className="gv-col-legend" aria-label={`${column.member.pluralLabel} status marks`}>
+      {shown.map((value) => (
+        <StatusMark key={value.name} value={value.name} values={values} />
+      ))}
     </div>
   );
 }
@@ -132,8 +155,8 @@ function ColumnHead({
           <b className={thin ? "gv-thin" : undefined}>{column.covered}</b>/{matrix.rowCount} rows
         </span>
       </div>
-      {/* Two lines: the name and coverage, then the relation, with the status
-          key behind a disclosure so the band stays about 64px. */}
+      {/* The name and coverage, the relation, then a persistent status key in
+          words, so filled and hollow marks never need a lookup. */}
       <div className="gv-cov-row">
         <div
           className="gv-cov"
@@ -141,15 +164,8 @@ function ColumnHead({
         >
           {where}
         </div>
-        {column.kind === "member" && (
-          <details className="gv-hint gv-col-key">
-            <summary>Key</summary>
-            <div className="gv-hint-panel">
-              <ColumnLegend member={column.member} />
-            </div>
-          </details>
-        )}
       </div>
+      <ColumnLegend matrix={matrix} column={column} />
     </th>
   );
 }

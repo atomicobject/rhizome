@@ -202,7 +202,7 @@ export function BoardColumnHeaders({
         >
           {mark}
           <span className="configured-view__board-count">{count}</span>
-          <ChevronRight size={14} aria-hidden="true" />
+          <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
         </button>
       );
     }
@@ -227,11 +227,13 @@ export function BoardColumnHeaders({
           <span className="configured-view__board-count">{count}</span>
           <button
             type="button"
+            className="configured-view__disclosure"
             aria-label={`Collapse ${label} column`}
-            title="Collapse column"
+            aria-expanded
+            title={`Collapse ${label}`}
             onClick={() => onToggle(column.key)}
           >
-            Collapse
+            <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
           </button>
         </span>
         {item.stale > 0 && (

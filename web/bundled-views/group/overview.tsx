@@ -81,6 +81,7 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
         title="Notes whose type could not be decided"
         onClick={() => openIssues()}
       >
+        <span className="gv-fact-scope">Typing:</span>{" "}
         {facts.ambiguousNotes > 0 && (
           <svg className="gv-warn-mark" viewBox="0 0 16 16" aria-hidden="true">
             <path
@@ -100,10 +101,16 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
         )}
         {fmt(facts.ambiguousNotes)} ambiguous {plural(facts.ambiguousNotes, "note", "notes")}
       </button>
-      {issues === 0 && <span className="gv-ok">✓ No issues</span>}
+      {issues === 0 && (
+        <span>
+          <span className="gv-fact-scope">Validation:</span>{" "}
+          <span className="gv-ok">✓ No issues</span>
+        </span>
+      )}
       {issues !== undefined && issues > 0 && (
         <button type="button" className="gv-issues" onClick={() => openIssues()}>
-          {fmt(issues)} {plural(issues, "issue", "issues")}
+          <span className="gv-fact-scope">Validation:</span> {fmt(issues)}{" "}
+          {plural(issues, "issue", "issues")}
         </button>
       )}
     </span>
@@ -117,8 +124,8 @@ function GroupFactsList({ data }: { data: ScopeData }) {
 
   return (
     <span className="gv-facts-list">
-      <span>
-        <b>{fmt(records)}</b> {plural(records, "record", "records")}
+      <span title="Records with one decided type; a note with an ambiguous type counts as untyped">
+        <b>{fmt(records)}</b> typed {plural(records, "record", "records")}
       </span>
       <span>
         <b>{data.model.nodes.length}</b> {plural(data.model.nodes.length, "type", "types")}
@@ -214,7 +221,9 @@ function MapBlock({ data, expanded, onToggle }: { data: ScopeData } & Expansion)
       controls={
         <>
           {mode.value === "map" && (
-            <span className="gv-map-hint">Activate a group to expand it.</span>
+            <span className="gv-map-hint">
+              {group ? "Select a type to expand it." : "Select a group to expand it."}
+            </span>
           )}
           <Segmented
             label="Map or matrix"

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { Copy } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type {
   OntologyEditOp,
@@ -20,7 +21,6 @@ import {
   columnLabel,
   fieldCapability,
 } from "./ConfiguredViewModel";
-import { MiddleTruncate } from "./MiddleTruncate";
 import { StatusMark } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
@@ -69,6 +69,8 @@ export function ConfiguredViewRecord({
   const typeLabel = useTypeLabel();
   const title = markCutTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
+  const path = row.path || row.ref.notePath;
+  const identifier = recordIdentifier(row, capabilities);
 
   const fields = useMemo(() => recordFields(profile, capabilities), [capabilities, profile]);
 
@@ -92,11 +94,13 @@ export function ConfiguredViewRecord({
         </button>
       </header>
       <h3 className="view-record__title">{title}</h3>
-      <MiddleTruncate
-        className="view-record__path"
-        text={(row.path || row.ref.notePath).replace(/^.*\//, "")}
-      />
-      {summary && <p className="view-record__summary">{summary}</p>}
+      {/* The stable ID tells records apart; the file path, rarely needed, sits
+          behind a copy control that names it on hover. */}
+      <div className="view-record__id">
+        {identifier && <code>{identifier}</code>}
+        <CopyPath path={path} />
+      </div>
+      {summary && <RecordSummary key={configuredTableRowKey(row)} text={summary} />}
       {fields.length + moved.length > 0 && (
         <dl className="view-record__fields">
           {fields.map((capability) => (
@@ -150,6 +154,70 @@ export function ConfiguredViewRecord({
         />
       ))}
     </article>
+  );
+}
+
+/** The record's stable identifier, such as an effort or spec ID, when its type declares one. */
+function recordIdentifier(row: ViewTableRow, capabilities: ViewFieldCapability[]) {
+  const field = capabilities.find(
+    (capability) =>
+      capability.semanticRole === "identifier" && capability.sourceKind !== "frontmatter",
+  );
+
+  return field ? fieldValue(row, field.key) : "";
+}
+
+/** Copies the record's file path; the path itself shows on hover and to assistive technology. */
+function CopyPath({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      className="view-record__copy"
+      title={copied ? "Copied" : path}
+      aria-label={`Copy path ${path}`}
+      onClick={() => {
+        void navigator.clipboard?.writeText(path).then(
+          () => setCopied(true),
+          () => {},
+        );
+      }}
+    >
+      <Copy size={13} aria-hidden />
+      {copied ? "Copied" : "Path"}
+    </button>
+  );
+}
+
+/** The summary clamped to three lines, with More to read the rest in place. */
+function RecordSummary({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+
+    if (element && !open) setClamped(element.scrollHeight > element.clientHeight + 1);
+  }, [open, text]);
+
+  return (
+    <div className="view-record__summary-wrap">
+      <p ref={ref} className={`view-record__summary${open ? "" : " is-clamped"}`}>
+        {text}
+      </p>
+      {(clamped || open) && (
+        <button
+          type="button"
+          className="view-record__more-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? "Less" : "More"}
+        </button>
+      )}
+    </div>
   );
 }
 
