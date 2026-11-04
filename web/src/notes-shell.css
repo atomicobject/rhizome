@@ -2447,6 +2447,21 @@
   height: 20px;
 }
 
+/* The note head's date is its value at rest; the calendar button appears
+   only while the slot is hovered or focused. */
+.notes-shell .ontology-pane .ontology-identity .widget-date-editor__picker {
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+}
+
+.notes-shell
+  .ontology-pane
+  .ontology-identity
+  .ontology-identity__slot:is(:hover, :focus-within)
+  .widget-date-editor__picker {
+  opacity: 1;
+}
+
 .notes-shell .ontology-pane :is(.ontology-identity, .ontology-properties) .widget-date--input:hover,
 .notes-shell .ontology-pane .ontology-properties .widget-text--input:hover {
   background: var(--bg-tint);
