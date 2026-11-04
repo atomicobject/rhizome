@@ -23,11 +23,12 @@ function scheduleSummary(report: TasksReport): string {
   const scheduled = report.tasks.filter((task) => task.scheduled);
 
   if (scheduled.some((task) => task.due)) return "A task is due now";
-  const next = scheduled
-    .flatMap((task) => (task.nextDue ? [new Date(task.nextDue).getTime()] : []))
-    .sort((a, b) => a - b)[0];
 
-  return next === undefined ? "" : `Next run ${formatRelative(new Date(next).toISOString())}`;
+  const next = scheduled
+    .flatMap((task) => (task.nextDue ? [task.nextDue] : []))
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+
+  return next ? `Next run ${formatRelative(next)}` : "";
 }
 
 /** Where tasks are read from, behind Details: diagnostics, not the page's message. */
