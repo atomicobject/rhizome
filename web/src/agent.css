@@ -29,51 +29,6 @@
   font-weight: 600;
 }
 
-/* Harness version and account: a quiet popover from the header. */
-.agent-harness-details {
-  position: relative;
-}
-
-.agent-harness-details > summary {
-  list-style: none;
-}
-
-.agent-harness-details > summary::-webkit-details-marker {
-  display: none;
-}
-
-.agent-harness-details[open] > summary {
-  background: var(--bg-tint);
-  color: var(--text);
-}
-
-.agent-harness-details dl {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 4px);
-  right: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--sp-2) var(--sp-5);
-  min-width: 240px;
-  margin: 0;
-  padding: var(--sp-4) var(--sp-5);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  font-size: var(--fs-sm);
-}
-
-.agent-harness-details dt {
-  color: var(--text-muted);
-}
-
-.agent-harness-details dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 .agent-muted,
 .agent-session small {
   margin: 0;
@@ -267,11 +222,17 @@
   min-width: 0;
 }
 
+/* The conversation and the composer share one centred reading column. */
+.agent-thread {
+  --agent-column: 760px;
+  --agent-inline: max(var(--gutter), calc((100% - var(--agent-column)) / 2));
+}
+
 .agent-thread__body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--sp-6) var(--gutter);
+  padding: var(--sp-6) var(--agent-inline);
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
@@ -281,9 +242,10 @@
   max-width: 78ch;
 }
 
-/* Starting questions in an empty thread: quiet rows that fill the composer. */
+/* Starting questions in an empty thread: quiet action rows that sit just
+   above the composer they fill. */
 .agent-examples {
-  max-width: 78ch;
+  margin-top: auto;
 }
 
 .agent-examples__head {
@@ -301,10 +263,12 @@
 }
 
 .agent-workspace .agent-examples button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   width: 100%;
   min-height: 32px;
-  padding: var(--sp-2) var(--sp-3);
+  padding: 0 var(--sp-3);
   border: 0;
   border-radius: var(--r-md);
   background: transparent;
@@ -314,9 +278,23 @@
   cursor: pointer;
 }
 
+.agent-workspace .agent-examples button > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-examples__arrow {
+  flex: none;
+  color: var(--text-faint);
+}
+
 .agent-workspace .agent-examples button:hover {
   border: 0;
   background: var(--surface-sunk);
+}
+
+.agent-workspace .agent-examples button:hover .agent-examples__arrow {
+  color: var(--text-muted);
 }
 
 .agent-empty p {
@@ -387,7 +365,7 @@
 /* The composer is one framed field: the message, then a bar with the
    send hint or availability note at the left and Send at the right. */
 .agent-composer {
-  padding: var(--sp-3) var(--gutter) var(--sp-5);
+  padding: var(--sp-3) var(--agent-inline) var(--sp-5);
 }
 
 /* An empty thread's one instruction, just above the field it points at. */
@@ -415,8 +393,9 @@
   border: 0;
   background: transparent;
   outline: none;
+  max-height: 240px;
   font-size: var(--fs-base);
-  resize: vertical;
+  resize: none;
 }
 
 .agent-composer__bar {
@@ -516,6 +495,6 @@
 
 @media (max-width: 980px) {
   .agent-thread__body {
-    padding: var(--sp-4);
+    padding: var(--sp-4) var(--agent-inline);
   }
 }

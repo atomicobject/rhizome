@@ -59,6 +59,10 @@ export function NoteTabStrip({
   hidden?: boolean;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
+  // A view, Problems, or a search takes Home's place as the first tab; Home
+  // stays in the DOM, hidden, so its panel keeps an accessible name.
+  const pageShown = tabs.some((tab) => tab.kind !== "home" && tab.kind !== "note");
+  const shown = pageShown ? tabs.filter((tab) => tab.kind !== "home") : tabs;
   useEffect(() => {
     const strip = stripRef.current;
 
@@ -88,7 +92,7 @@ export function NoteTabStrip({
   }, [activeId, tabs]);
 
   const activateAt = (index: number, elements: HTMLElement[]) => {
-    const tab = tabs[index];
+    const tab = shown[index];
 
     if (!tab) return;
     onActivate(tab.id);
@@ -96,8 +100,8 @@ export function NoteTabStrip({
   };
 
   const closeAndRestoreFocus = (id: string) => {
-    const index = tabs.findIndex((tab) => tab.id === id);
-    const nextFocus = tabs[index + 1]?.id || tabs[index - 1]?.id || "home";
+    const index = shown.findIndex((tab) => tab.id === id);
+    const nextFocus = shown[index + 1]?.id || shown[index - 1]?.id || "home";
     onClose(id);
     window.requestAnimationFrame(() => {
       if (document.getElementById(`tab-${id}`)) return;
@@ -109,21 +113,24 @@ export function NoteTabStrip({
     const target = event.target;
 
     if (!(target instanceof HTMLElement) || target.getAttribute("role") !== "tab") return;
-    const index = tabs.findIndex((tab) => tab.id === target.dataset.tabId);
+    const index = shown.findIndex((tab) => tab.id === target.dataset.tabId);
 
     if (index < 0) return;
-    const elements = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[role='tab']"));
 
-    if (event.key === "ArrowRight") activateAt((index + 1) % tabs.length, elements);
+    const elements = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>("[role='tab']:not([hidden])"),
+    );
+
+    if (event.key === "ArrowRight") activateAt((index + 1) % shown.length, elements);
     else if (event.key === "ArrowLeft")
-      activateAt((index - 1 + tabs.length) % tabs.length, elements);
+      activateAt((index - 1 + shown.length) % shown.length, elements);
     else if (event.key === "Home") activateAt(0, elements);
-    else if (event.key === "End") activateAt(tabs.length - 1, elements);
+    else if (event.key === "End") activateAt(shown.length - 1, elements);
     else if (
       (event.key === "Delete" || event.key === "Backspace") &&
-      tabs[index]?.kind !== "home"
+      shown[index]?.kind !== "home"
     ) {
-      closeAndRestoreFocus(tabs[index].id);
+      closeAndRestoreFocus(shown[index].id);
     } else return;
     event.preventDefault();
   };
@@ -158,6 +165,7 @@ export function NoteTabStrip({
             tabIndex={active ? 0 : -1}
             className={tabClass(tab, active)}
             title={tab.kind === "home" ? "Home" : undefined}
+            hidden={pageShown && tab.kind === "home"}
             onClick={() => onActivate(tab.id)}
           >
             {tab.kind === "home" ? (

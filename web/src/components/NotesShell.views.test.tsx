@@ -205,7 +205,7 @@ describe("NotesShell configured views", () => {
     window.sessionStorage.clear();
   });
 
-  it("opens a standalone configured view as its own retained tab", async () => {
+  it("opens a standalone configured view in place of Home", async () => {
     const backlog = viewEntry("planning.backlog", "Planning backlog", {
       kind: "standalone",
       group: "Planning",
@@ -224,7 +224,7 @@ describe("NotesShell configured views", () => {
     fireEvent.click(railRow);
 
     await waitFor(() => expect(window.location.search).toBe("?view=planning.backlog"));
-    const tab = screen.getByRole("tab", { name: "Planning backlog" });
+    const tab = screen.getByRole("tab", { name: "Planning backlog", hidden: true });
     expect(tab).toHaveAttribute("aria-selected", "true");
 
     const panel = screen.getByRole("tabpanel", { name: "Planning backlog" });
@@ -446,13 +446,19 @@ describe("NotesShell configured views", () => {
       expect(new URLSearchParams(window.location.search).get("folder")).toBe("Notes"),
     );
     expect(new URLSearchParams(window.location.search).get("search")).toBe("plan");
-    expect(screen.getByRole("tab", { name: /plan/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /plan/, hidden: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
-    fireEvent.click(screen.getByRole("tab", { name: /Home/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^All notes/ }));
     await waitFor(() => expect(frame("Briefing")).not.toBeNull());
     post("Briefing", { type: OPEN_SEARCH_MESSAGE, folder: "notes" });
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: /notes\// })).toHaveAttribute("aria-selected", "true"),
+      expect(screen.getByRole("tab", { name: /notes\//, hidden: true })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
     );
     const params = new URLSearchParams(window.location.search);
     expect(params.get("search")).toBe("");
@@ -461,7 +467,7 @@ describe("NotesShell configured views", () => {
     expect(await screen.findByRole("button", { name: "Alpha Spec" })).toBeInTheDocument();
 
     // The vault root's own notes sit in no folder; "/" names the root.
-    fireEvent.click(screen.getByRole("tab", { name: /Home/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^All notes/ }));
     await waitFor(() => expect(frame("Briefing")).not.toBeNull());
     post("Briefing", { type: OPEN_SEARCH_MESSAGE, folder: "/" });
     expect(await screen.findByRole("heading", { name: "Notes in /" })).toBeInTheDocument();
@@ -519,7 +525,7 @@ describe("NotesShell configured views", () => {
     );
 
     await waitFor(() => expect(window.location.search).toBe("?view=ws.item&item=proposal%3Ak-1"));
-    expect(await screen.findByRole("tab", { name: "Item" })).toHaveAttribute(
+    expect(await screen.findByRole("tab", { name: "Item", hidden: true })).toHaveAttribute(
       "aria-selected",
       "true",
     );

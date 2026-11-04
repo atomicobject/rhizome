@@ -378,9 +378,8 @@ function NotesIssuesHomeContent({
       <header className="view-header problems-workspace__header">
         <div className="view-header__title-row">
           <h2>Problems</h2>
-          <span className={hasAnyIssues ? "view-header__count is-risk" : "view-header__count"}>
-            {hasAnyIssues ? totalIssues : 0}
-          </span>
+          {/* With no issues, the strip's "No issues" says it; a 0 here would repeat it. */}
+          {hasAnyIssues ? <span className="view-header__count is-risk">{totalIssues}</span> : null}
           <span className="view-header__about">
             {hasAnyIssues
               ? `${totalIssues} ${totalIssues === 1 ? "issue" : "issues"} in ${affectedFiles} ${affectedFiles === 1 ? "file" : "files"}`

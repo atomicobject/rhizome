@@ -34,6 +34,14 @@ function span(ms: number): string {
   return `${Math.round(hours / 24)}d`;
 }
 
+/** A past event: "2m ago", or "just now" within a minute or when the clock runs ahead. */
+export function formatAgo(value: string | undefined, now = Date.now()): string {
+  if (!value) return "";
+  const delta = now - new Date(value).getTime();
+
+  return delta < 60_000 ? "just now" : `${span(delta)} ago`;
+}
+
 /** "3h ago" or "in 3h". */
 export function formatRelative(value: string | undefined, now = Date.now()): string {
   if (!value) return "";

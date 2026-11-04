@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   createAgentSession,
   deleteAgentSession,
@@ -132,7 +133,8 @@ function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
         {EXAMPLE_PROMPTS.map((prompt) => (
           <li key={prompt}>
             <button type="button" onClick={() => onPick(prompt)}>
-              {prompt}
+              <span>{prompt}</span>
+              <ArrowRight size={16} aria-hidden="true" className="agent-examples__arrow" />
             </button>
           </li>
         ))}
@@ -163,6 +165,15 @@ export function AgentWorkspace({
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // The composer grows with its message; CSS caps it, then it scrolls.
+  useLayoutEffect(() => {
+    const field = composerRef.current;
+
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
+  }, [draft]);
   const latestEventIDRef = useRef(0);
 
   const sessionsQuery = useQuery({

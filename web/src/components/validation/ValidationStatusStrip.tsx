@@ -1,7 +1,7 @@
 import type { ValidateEnvelope } from "../../api/types";
 import {
+  CleanCheckList,
   formatDuration,
-  ValidationCheckList,
   ValidationIssueDisclosure,
 } from "./ValidationIssueDisclosure";
 import { formatCheckedAt, snapshotTime, validationPresentation } from "./validationPresentation";
@@ -76,7 +76,7 @@ export function ValidationStatusStrip({
     <>
       {strip}
       <section className="validation-checks" aria-label="Checks that ran">
-        <ValidationCheckList checks={snapshot.checks} className="validation-checks__list" />
+        <CleanCheckList checks={snapshot.checks} />
       </section>
     </>
   );

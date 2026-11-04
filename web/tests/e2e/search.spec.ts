@@ -129,9 +129,7 @@ test("uses the indexed backend for search, filtering, pagination, and source ope
   ).toBeVisible();
 });
 
-test("searches from shared chrome in a retained full-width workspace", async ({
-  page,
-}, testInfo) => {
+test("searches from shared chrome in a full-width page", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/explorer");
 
@@ -172,7 +170,8 @@ test("searches from shared chrome in a retained full-width workspace", async ({
 
   await page.goBack();
   await expect(page.getByLabel("Search note type")).toHaveValue("");
-  await expect(page.getByRole("tablist", { name: "Open notes" }).getByRole("tab")).toHaveCount(2);
+  // A search is a page under the page header: no tab strip without a note tab.
+  await expect(page.getByRole("tablist", { name: "Open notes" })).toBeHidden();
   expect(new URL(page.url()).searchParams.get("searchTab")).toBe(searchTabID);
 
   await page.getByRole("button", { name: "Load more results" }).click();
@@ -183,24 +182,18 @@ test("searches from shared chrome in a retained full-width workspace", async ({
 
   await page.goBack();
   await expect(page.getByRole("button", { name: "main", exact: true })).toBeVisible();
-  await expect(page.getByRole("tab", { name: /typed retrieval/i })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  expect(new URL(page.url()).searchParams.get("searchTab")).toBe(searchTabID);
 
-  await page.getByRole("tab", { name: "Home", exact: true }).click();
+  // A sidebar collection replaces the search page; Back brings the search again.
   await page.getByRole("button", { name: "Expand Other" }).click();
   const specRow = page.getByRole("button", { name: /^Spec \(1\)/ });
   await specRow.click();
   await expect(specRow).toHaveAttribute("aria-current", "page");
-  await page.getByRole("tab", { name: /typed retrieval/i }).click();
-  await page.getByRole("button", { name: "main", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Search results" })).toBeHidden();
   await page.goBack();
-  await page.getByRole("tab", { name: "Home", exact: true }).click();
-  // Home keeps its collection while the search tab comes and goes.
-  await expect(specRow).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "Search results" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "main", exact: true })).toBeVisible();
 
-  await page.getByRole("tab", { name: /typed retrieval/i }).click();
   await page.setViewportSize({ width: 1440, height: 900 });
   // The sidebar stays where the user left it (SPEC-0128).
   await expect(page.locator(".notes-left-rail")).toBeVisible();
@@ -240,8 +233,11 @@ test("scrolls smoothly after returning to search and restores its position on re
   await expect.poll(top).toBeGreaterThan(300);
   const saved = await top();
 
-  await page.getByRole("tab", { name: "Home", exact: true }).click();
-  await page.getByRole("tab", { name: /scrolling/i }).click();
+  // Opening a result keeps the search as the page behind the note tab.
+  await results.getByRole("button", { name: "Result 10", exact: true }).click();
+  const tabs = page.getByRole("tablist", { name: "Open notes" });
+  await expect(tabs.getByRole("tab")).toHaveCount(2);
+  await tabs.getByRole("tab", { name: /scrolling/i }).click();
   await expect.poll(top).toBe(saved);
   await results.hover();
   await page.mouse.wheel(0, 400);
@@ -252,29 +248,26 @@ test("scrolls smoothly after returning to search and restores its position on re
   await expect.poll(async () => Math.abs((await top()) - advanced)).toBeLessThan(16);
 });
 
-test("keeps independent searches and restores them after reload", async ({ page }) => {
+test("replaces the search page with a new search and restores it after reload", async ({
+  page,
+}) => {
   await page.goto("/notes?search=typed+retrieval");
   const tabs = page.getByRole("tablist", { name: "Open notes" });
-  await expect(tabs.getByRole("tab", { name: /typed retrieval/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Search Rewrite" })).toBeVisible();
+  await expect(tabs).toBeHidden();
 
   const search = page.getByRole("searchbox", { name: "Search this project" });
   await search.fill("second search");
   await search.press("Enter");
-  await expect(tabs.getByRole("tab", { name: /second search/i })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(tabs.getByRole("tab")).toHaveCount(3);
+  await expect(page).toHaveURL(/search=second\+search/);
+  await expect(page.getByLabel("Search results for second search")).toBeVisible();
+  await expect(tabs).toBeHidden();
 
-  await tabs.getByRole("tab", { name: /typed retrieval/i }).click();
+  await page.goBack();
   await expect(page.getByRole("button", { name: "Search Rewrite" })).toBeVisible();
   await page.reload();
-  await expect(tabs.getByRole("tab")).toHaveCount(3);
-  await expect(tabs.getByRole("tab", { name: /typed retrieval/i })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(page.getByRole("button", { name: "Search Rewrite" })).toBeVisible();
+  await expect(tabs).toBeHidden();
 });
 
 test("keeps note context tabs fixed while removing redundant outline identity", async ({

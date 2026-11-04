@@ -239,12 +239,22 @@
   text-underline-offset: 2px;
 }
 
-.task-table__open code {
+/* The row's secondary line: the task id, then a new task's quiet "What it
+   does" disclosure, so the row's prominent action stays the inbox one. */
+.task-table__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 1px;
+  font-size: var(--fs-sm);
+}
+
+.task-table__meta code {
   font-size: var(--fs-xs);
   font-weight: 400;
 }
 
-.task-table__open code,
+.task-table__meta code,
 .task-table__aside,
 .task-table__none {
   color: var(--text-muted);
@@ -1010,7 +1020,7 @@
 
   .task-run__id,
   .task-table .is-optional,
-  .task-table__open code,
+  .task-table__meta code,
   .task-table td .task-table__aside {
     display: none;
   }
@@ -1026,15 +1036,6 @@
 
 /* A new task's row carries its notice: a "New" tag and a quiet "What it
    does" toggle that opens the purpose in a full-width row below. */
-.task-table__new {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  margin-left: var(--sp-4);
-  vertical-align: top;
-  font-size: var(--fs-sm);
-}
-
 .task-table__new-tag {
   padding: 0 5px;
   border-radius: var(--r-sm);
@@ -1046,11 +1047,27 @@
 }
 
 .task-notice__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   padding: 0;
   border: 0;
   background: transparent;
+  color: var(--text-muted);
   font: inherit;
-  font-weight: 500;
+  cursor: pointer;
+}
+
+.task-notice__more:is(:hover, :focus-visible) {
+  color: var(--text);
+}
+
+.task-notice__more svg {
+  transition: transform 120ms ease;
+}
+
+.task-notice__more[aria-expanded="true"] svg {
+  transform: rotate(180deg);
 }
 
 .task-table tr.is-expanded > * {

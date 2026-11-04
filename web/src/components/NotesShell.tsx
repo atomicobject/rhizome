@@ -781,9 +781,10 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     (noteActive || showsCollection || editSession.editing || Boolean(editSession.session));
 
   const paneApplies = !searchActive && (noteActive || recordRail.showing);
-  // With only Home open, the strip has nothing to switch between: it hides and
-  // its controls sit in the view header's title row, level with other sections.
-  const soloHome = tabs.tabs.length === 1 && tabs.activeTab.kind === "home";
+  // The strip holds note tabs. With none open it has nothing to switch between:
+  // it hides, and its controls sit in the page header's title row, so every
+  // page (Home, a view, Problems, a search) puts its title at the same height.
+  const soloHome = !tabs.tabs.some((tab) => tab.kind === "note");
   const [tabsRow, setTabsRow] = useState<HTMLDivElement | null>(null);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   useWidthVariable(soloHome ? tabsRow : null, frame, "--shell-actions-pad");

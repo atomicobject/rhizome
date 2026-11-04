@@ -305,7 +305,7 @@ function viewTabID(viewId: string): string {
   return `view:${viewId}`;
 }
 
-function openViewInto(tabs: Tab[], viewId: string, title?: string): OpenIntoResult {
+function addViewTab(tabs: Tab[], viewId: string, title?: string): OpenIntoResult {
   const id = viewTabID(viewId);
   const existing = tabs.find((tab) => tab.id === id);
 
@@ -323,6 +323,48 @@ function openViewInto(tabs: Tab[], viewId: string, title?: string): OpenIntoResu
   const next: ViewTab = { id, kind: "view", viewId, title: title || viewId };
 
   return { tabs: [...tabs, next], activeId: id };
+}
+
+/** A view, Problems, Changes, or a search: what shows under the page header. */
+function isPageTab(tab: Tab): tab is CollectionTab | SearchTab | ViewTab {
+  return tab.kind === "collection" || tab.kind === "view" || tab.kind === "search";
+}
+
+/**
+ * One page at a time. Opening a view, Problems, or a search replaces the page
+ * before it instead of adding a tab, and the page sits ahead of the note tabs.
+ */
+function withPage(tabs: Tab[], page: Tab | null): Tab[] {
+  const next = [HOME_TAB, ...(page && isPageTab(page) ? [page] : []), ...tabs.filter(isNoteTab)];
+
+  return sameTabs(next, tabs) ? tabs : next;
+}
+
+/** The page the location shows, or with a note open, the page that note opened from. */
+function onePage(tabs: Tab[], location: NotesLocation): Tab[] {
+  const pages = tabs.filter(isPageTab);
+  const activeId = activeIdForLocation(tabs, location);
+
+  return withPage(
+    tabs,
+    (location.note ? pages.at(-1) : pages.find((tab) => tab.id === activeId)) ?? null,
+  );
+}
+
+function asPage({ tabs, activeId }: OpenIntoResult): OpenIntoResult {
+  return { tabs: withPage(tabs, tabs.find((tab) => tab.id === activeId) ?? null), activeId };
+}
+
+function openViewInto(...args: Parameters<typeof addViewTab>): OpenIntoResult {
+  return asPage(addViewTab(...args));
+}
+
+function openCollectionInto(...args: Parameters<typeof addCollectionTab>): OpenIntoResult {
+  return asPage(addCollectionTab(...args));
+}
+
+function openSearchInto(...args: Parameters<typeof addSearchTab>): OpenIntoResult {
+  return asPage(addSearchTab(...args));
 }
 
 function viewLocation(tab: ViewTab): string {
@@ -380,7 +422,7 @@ function activeIdForLocation(tabs: Tab[], location: NotesLocation): string {
   return HOME_TAB.id;
 }
 
-function openCollectionInto(
+function addCollectionTab(
   tabs: Tab[],
   collection: CollectionKind,
   problems?: ProblemsState,
@@ -479,20 +521,23 @@ function tabsForLocation(
   const withView = location.view ? openViewInto(restored, location.view).tabs : restored;
 
   if (location.note)
-    return openInto(
-      withView,
-      HOME_TAB.id,
-      targetString(location.note, location.query, location.fragment),
-      "activate",
-      locationNodeRef(location),
-    ).tabs;
+    return onePage(
+      openInto(
+        withView,
+        HOME_TAB.id,
+        targetString(location.note, location.query, location.fragment),
+        "activate",
+        locationNodeRef(location),
+      ).tabs,
+      location,
+    );
 
   if (location.search != null) {
     return openSearchInto(withView, location.search, location.searchFilters, location.searchTabID)
       .tabs;
   }
 
-  return withView;
+  return onePage(withView, location);
 }
 
 function sameTabs(left: Tab[], right: Tab[]): boolean {
@@ -680,7 +725,7 @@ function openInto(
   return { tabs: [...tabs, nextTab], activeId: nextTab.id };
 }
 
-function openSearchInto(
+function addSearchTab(
   tabs: Tab[],
   query: string,
   filters?: Partial<SearchFilters>,
@@ -965,17 +1010,18 @@ export function useNoteTabs(
     preHydrationClosedPathsRef.current.clear();
     preHydrationClosedTabIDsRef.current.clear();
     preHydrationClosedSearchIdentitiesRef.current.clear();
+    const pagedTabs = onePage(hydratedTabs, location);
     commitTabs(
       location.note
         ? withTarget(
-            hydratedTabs,
+            pagedTabs,
             normalizeNotePath(location.note),
             location.query,
             location.fragment,
             false,
             noteTabID(normalizeNotePath(location.note), locationNodeRef(location)),
           )
-        : hydratedTabs,
+        : pagedTabs,
     );
     setHydratedVault(vaultName);
   }, [changesAvailable, commitTabs, location, vaultName]);
@@ -1105,6 +1151,20 @@ export function useNoteTabs(
     location.nodeKind,
     location.structural,
   ]);
+
+  // Going back to Home (All notes, a type, or a group) closes the page it replaces.
+  const homeShown =
+    !location.note &&
+    location.search == null &&
+    !location.view &&
+    !collectionForSelection(location.selection);
+
+  useEffect(() => {
+    if (!homeShown) return;
+    const next = withPage(tabsRef.current, null);
+
+    if (next !== tabsRef.current) commitTabs(next);
+  }, [commitTabs, homeShown, location.selection]);
 
   useEffect(() => {
     if (!location.view) return;

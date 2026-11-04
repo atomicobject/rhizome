@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
@@ -5,6 +6,7 @@ import { StatusMark } from "../StatusMark";
 import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
+  formatAgo,
   formatDue,
   formatEvery,
   formatRelative,
@@ -14,6 +16,55 @@ import {
   outcomePresentation,
   shortCommit,
 } from "./taskFormat";
+
+/** The header's one plain line: when work next happens. */
+function scheduleSummary(report: TasksReport): string {
+  if (report.paused) return "Paused";
+  const scheduled = report.tasks.filter((task) => task.scheduled);
+
+  if (scheduled.some((task) => task.due)) return "A task is due now";
+
+  const next = scheduled
+    .flatMap((task) => (task.nextDue ? [task.nextDue] : []))
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+
+  return next ? `Next run ${formatRelative(next)}` : "";
+}
+
+/** Where tasks are read from, behind Details: diagnostics, not the page's message. */
+function SourceDetails({ report }: { report: TasksReport }) {
+  if (!report.ref && !report.fetchedAt) return null;
+
+  return (
+    <details className="header-details">
+      <summary className="button button--ghost">Details</summary>
+      <dl>
+        {report.ref ? (
+          <>
+            <dt>Primary ref</dt>
+            <dd>
+              <code>{report.ref}</code>
+            </dd>
+          </>
+        ) : null}
+        {report.commit ? (
+          <>
+            <dt>Commit</dt>
+            <dd>
+              <code title={report.commit}>{shortCommit(report.commit)}</code>
+            </dd>
+          </>
+        ) : null}
+        {report.fetchedAt ? (
+          <>
+            <dt>Fetched</dt>
+            <dd className="num">{formatAgo(report.fetchedAt)}</dd>
+          </>
+        ) : null}
+      </dl>
+    </details>
+  );
+}
 
 export function PauseButton({
   paused,
@@ -213,25 +264,30 @@ function TaskRow({
         <th scope="row">
           <button type="button" className="task-table__open" onClick={onOpen}>
             <span className="link-quiet">{task.name || task.id}</span>
-            {task.name ? <code>{task.id}</code> : null}
           </button>
           {local ? (
             <span className="task-table__local">
               <StatusMark tone={local.tone} label={local.label} />
             </span>
           ) : null}
-          {announcement ? (
-            <span className="task-table__new">
-              <span className="task-table__new-tag">New</span>
-              <button
-                type="button"
-                className="link-quiet task-notice__more"
-                aria-expanded={open}
-                aria-controls={purposeId}
-                onClick={() => setOpen(!open)}
-              >
-                What it does
-              </button>
+          {task.name || announcement ? (
+            <span className="task-table__meta">
+              {task.name ? <code>{task.id}</code> : null}
+              {announcement ? (
+                <>
+                  <span className="task-table__new-tag">New</span>
+                  <button
+                    type="button"
+                    className="task-notice__more"
+                    aria-expanded={open}
+                    aria-controls={purposeId}
+                    onClick={() => setOpen(!open)}
+                  >
+                    What it does
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                </>
+              ) : null}
             </span>
           ) : null}
         </th>
@@ -325,17 +381,9 @@ export function TasksOverview({
         <div className="view-header__title-row">
           <h2>Tasks</h2>
           <span className="view-header__count">{report.tasks.length}</span>
-          <span className="view-header__about">
-            {report.ref ? (
-              <code title={report.commit}>
-                {report.ref}
-                {report.commit ? ` @ ${shortCommit(report.commit)}` : ""}
-              </code>
-            ) : null}
-            {report.ref && report.fetchedAt ? " · " : null}
-            {report.fetchedAt ? <>Fetched {formatRelative(report.fetchedAt)}</> : null}
-          </span>
+          <span className="view-header__about">{scheduleSummary(report)}</span>
           <div className="view-header__actions">
+            <SourceDetails report={report} />
             <PauseButton paused={report.paused} pending={pausePending} onToggle={onTogglePause} />
           </div>
         </div>

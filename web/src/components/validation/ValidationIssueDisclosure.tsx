@@ -62,6 +62,28 @@ export function ValidationCheckList({
   );
 }
 
+/**
+ * A clean run's checks: each row leads with the check's name, then a compact
+ * success mark and what it found. The strip above already says "No issues".
+ */
+export function CleanCheckList({ checks }: { checks: ValidationCheckSnapshot[] }) {
+  return (
+    <ul className="validation-checks__list">
+      {checks.map((check) => (
+        <li key={check.check}>
+          <strong>{humanizeName(check.check)}</strong>
+          <span className="validation-checks__result">
+            <span className="validation-checks__mark" aria-hidden="true">
+              ✓
+            </span>
+            {check.summary ? sentence(check.summary) : "Passed"}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Check summaries arrive lowercase ("no broken links"); they read as sentences here. */
 function sentence(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
