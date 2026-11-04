@@ -165,15 +165,6 @@ function NeedsAttention() {
                   </button>
                 </li>
               ))}
-              {!list.length && (
-                <li className="gv-sig" data-severity="ok">
-                  <span className="gv-sig-count">
-                    <span aria-hidden="true">✓</span>
-                  </span>
-                  <span className="gv-sig-text">No validation issues</span>
-                  <span />
-                </li>
-              )}
             </ul>
           );
         }}
