@@ -60,9 +60,9 @@ clean-all:
 
 lint:
 	@printf '\n==> lint\n'
-	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +)" ]; then \
+	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +)" ]; then \
 		echo "Run 'go fmt ./...' to fix formatting"; \
-		find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +; \
+		find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +; \
 		exit 1; \
 	fi
 	@printf '<== lint\n'
