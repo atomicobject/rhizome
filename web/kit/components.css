@@ -316,6 +316,49 @@
     background: var(--series-link);
   }
 
+  /* The one disclosure control: a 16px chevron in a 24px hit target,
+     pointing right when closed and down when open. */
+  .rz-disclosure {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .rz-disclosure:hover {
+    background: var(--surface-sunk);
+    color: var(--text);
+  }
+
+  .rz-disclosure:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+
+  .rz-disclosure-icon {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    transition: transform 120ms ease;
+  }
+
+  .rz-disclosure-icon[data-open] {
+    transform: rotate(90deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rz-disclosure-icon {
+      transition: none;
+    }
+  }
+
   /* Loading placeholders: neutral, shaped like what they stand in for, and
      shown only after 150ms so fast loads never flash. */
   .rz-placeholder {

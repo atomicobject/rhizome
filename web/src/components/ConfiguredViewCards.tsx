@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { type ComponentProps, Fragment, useEffect, useMemo } from "react";
 
 import type { ViewExecuteResponse, ViewTableRow } from "../api/types";
@@ -146,7 +147,11 @@ export function ConfiguredViewCards(props: Props) {
             <section className="configured-view__card-section" key={group.key}>
               <h3 className="configured-view__card-section-header">
                 <button type="button" aria-expanded={!collapsed} onClick={() => toggleGroup(group)}>
-                  <span className="configured-view__card-section-caret" aria-hidden />
+                  <ChevronRight
+                    size={16}
+                    className="configured-view__disclosure-icon"
+                    aria-hidden
+                  />
                   {tone ? <StatusMark tone={tone} label={label} /> : <span>{label}</span>}
                   <span className="configured-view__card-section-count">
                     {group.totalCount ?? group.count}

@@ -11,22 +11,28 @@ export type ColumnKind =
   | "id"
   | "enum"
   | "date"
+  | "deadline"
   | "age"
   | "number"
   | "flag"
   | "boolean"
-  | "relation";
+  | "relation"
+  | "person";
 
 /** Fixed widths, padding included; short unclassed text sizes like an enum. */
 export const COLUMN_WIDTHS: Record<Exclude<ColumnKind, "title">, number> = {
   id: 176,
   enum: 136,
   date: 116,
+  // A due date with room for an "Overdue" label beside it.
+  deadline: 188,
   age: 92,
   number: 72,
   flag: 72,
   boolean: 72,
   relation: 220,
+  // One person's name, such as an assignee.
+  person: 160,
 };
 
 export const TITLE_MIN_ONE_LINE = 320;
@@ -38,6 +44,7 @@ export const CHECK_CELL_WIDTH = 30;
 
 /** Kinds that leave a narrow table, first to last. */
 const OVERFLOW_ORDER: ColumnKind[] = ["relation", "id", "date", "age"];
+// People and due dates are what a task list is for, so they never leave it.
 
 /** A column's kind, read from the cell classes `columnClassName` assigns. */
 export function columnKind(className: string, isTitle: boolean): ColumnKind {
@@ -53,9 +60,13 @@ export function columnKind(className: string, isTitle: boolean): ColumnKind {
 
   if (has("age")) return "age";
 
+  if (has("deadline")) return "deadline";
+
   if (has("date")) return "date";
 
   if (has("boolean")) return "boolean";
+
+  if (has("person")) return "person";
 
   // A source note reads as a link to it, like a relation.
   if (has("relation") || has("source")) return "relation";

@@ -107,6 +107,7 @@ export {
   BarList,
   Count,
   Dash,
+  DisclosureIcon,
   Fact,
   Facts,
   MoreToggle,

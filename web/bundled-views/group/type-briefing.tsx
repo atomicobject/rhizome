@@ -17,7 +17,13 @@ import { useMemo } from "react";
 
 import { boundary, inMotion, needsAttention, reverseGaps } from "./activity.ts";
 import { REVERSE_SAMPLE } from "./api.ts";
-import { MotionRow, OutsideNotes, RecentChanges, oneStatus } from "./briefing-activity.tsx";
+import {
+  MotionHead,
+  MotionRow,
+  OutsideNotes,
+  RecentChanges,
+  oneStatus,
+} from "./briefing-activity.tsx";
 import { NeedsAttention, type MemberAction } from "./briefing-attention.tsx";
 import { Implementors } from "./briefing-contents.tsx";
 import { Block, MoreToggle, lower, plural } from "./briefing-parts.tsx";
@@ -53,6 +59,7 @@ function InMotion({ model, member }: { model: GroupModel; member: Member }) {
       info="Records whose lifecycle value is in the active stage, newest change first."
     >
       {entries.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
+      {entries.length > 0 && <MotionHead />}
       <ul className="gv-list">
         {shown.map((entry) => (
           <MotionRow
@@ -127,6 +134,15 @@ const monthLabel = (month: string) =>
     { month: "short", year: "numeric" },
   );
 
+const shortMonth = (month: string, withYear: boolean) =>
+  new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleDateString(
+    undefined,
+    withYear ? { month: "short", year: "2-digit" } : { month: "short" },
+  );
+
+/** Months a chart labels bar by bar; longer spans label only the ends. */
+const LABELLED_MONTHS = 12;
+
 /** Records per month of the primary date, as bars from the first month to the last. */
 function MonthChart({ chart }: { chart: DateMonths }) {
   const { months, earlier, undated } = chart;
@@ -134,11 +150,14 @@ function MonthChart({ chart }: { chart: DateMonths }) {
   const label = fieldLabel(chart.field);
   const first = monthLabel(months[0].month);
   const last = monthLabel(months[months.length - 1].month);
+  const perBar = months.length <= LABELLED_MONTHS;
+  const year = months[0].month.slice(0, 4);
+  const oneYear = months.every((entry) => entry.month.startsWith(year));
 
   return (
     <div className="gv-spread">
       <h3 className="gv-spread-head">
-        {label} <span className="gv-sub">per month</span>
+        {label} <span className="gv-sub">per month{perBar && oneYear ? `, ${year}` : ""}</span>
       </h3>
       <div
         className="gv-hist"
@@ -147,15 +166,29 @@ function MonthChart({ chart }: { chart: DateMonths }) {
       >
         {months.map((entry) => (
           <span key={entry.month} title={`${monthLabel(entry.month)}: ${entry.count}`}>
-            {months.length <= 12 && entry.count > 0 && <b>{entry.count}</b>}
-            <i style={{ height: `calc((100% - 16px) * ${entry.count / busiest.count})` }} />
+            {/* An empty month draws no bar and no count; a month with records
+                always shows a visible bar under its count. */}
+            {perBar && entry.count > 0 && <b>{entry.count}</b>}
+            {entry.count > 0 && (
+              <i style={{ height: `calc((100% - 16px) * ${entry.count / busiest.count})` }} />
+            )}
           </span>
         ))}
       </div>
-      <p className="gv-hist-axis">
-        <span>{first}</span>
-        <span>{last}</span>
-      </p>
+      {perBar ? (
+        <p className="gv-hist-axis gv-hist-months" aria-hidden="true">
+          {months.map((entry, index) => (
+            <span key={entry.month}>
+              {shortMonth(entry.month, !oneYear && (index === 0 || entry.month.endsWith("-01")))}
+            </span>
+          ))}
+        </p>
+      ) : (
+        <p className="gv-hist-axis">
+          <span>{first}</span>
+          <span>{last}</span>
+        </p>
+      )}
       <p className="gv-cap gv-hist-peak">
         Busiest {monthLabel(busiest.month)} · <span className="gv-num">{busiest.count}</span>
       </p>

@@ -176,9 +176,9 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(signal("Strained health: 1 area")).toContainText("Billing");
   await expect(signal("Blocked stage: 1 work item")).toContainText("Crash on empty vault");
   const context = frame.getByRole("region", { name: "Review suggested", exact: true });
-  await expect(
-    context.getByRole("listitem").filter({ hasText: "Lead empty on 2 of 3 areas" }),
-  ).toContainText("Billing, Search");
+  // Example records are rows (title and age), not a comma list.
+  const leadEmpty = context.locator(".gv-sig").filter({ hasText: "Lead empty on 2 of 3 areas" });
+  await expect(leadEmpty.locator(".gv-sig-row")).toHaveText([/^Billing/, /^Search/]);
   await expect(signal("Lead empty")).toHaveCount(0);
 
   const motion = frame.getByRole("region", { name: "In motion" });

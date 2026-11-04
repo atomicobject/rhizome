@@ -83,9 +83,17 @@ export function BoardCardBody({
   const keyText = facts.keyTexts[0];
   const relation = facts.relations.find((fact) => shown(fact.field));
   const tags = facts.orderedTags.filter((tag) => shown(tag.field));
+  const people = facts.people.length > 0;
+  const meta = tags.length > 0 || facts.reverse.length > 0 || people || otherLanes > 0;
 
   return (
     <>
+      {/* The age, or a stale card's clock, holds the card's top-right corner,
+          beside the title, the same on every card. */}
+      <span className="configured-brief__corner">
+        <CardMarkers row={row} stale={stale} otherLanes={0} />
+        {age}
+      </span>
       {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
       {facts.summary && <p className="configured-brief__summary">{facts.summary}</p>}
       {keyText && (
@@ -93,22 +101,29 @@ export function BoardCardBody({
           <span className="configured-brief__label">{keyText.label}</span> {keyText.value}
         </p>
       )}
-      <div className="configured-brief__meta">
-        {tags.map((tag) => (
-          <StatusMark key={tag.field} tone={tag.tone} label={tag.label} />
-        ))}
-        {relation && <RelationChips row={row} fact={relation} onOpenRow={onOpenRow} limit={2} />}
-        {facts.reverse.map((fact) => (
-          <span key={fact.field} className="configured-brief__count">
-            <b>{fact.count}</b> {fact.label.toLowerCase()}
+      {/* Named, so a linked record's status marks never read as this card's own status. */}
+      {relation && (
+        <div className="configured-brief__relation">
+          <span className="configured-brief__relation-label">{relation.label}</span>
+          <RelationChips row={row} fact={relation} onOpenRow={onOpenRow} limit={2} />
+        </div>
+      )}
+      {meta && (
+        <div className="configured-brief__meta">
+          {tags.map((tag) => (
+            <StatusMark key={tag.field} tone={tag.tone} label={tag.label} />
+          ))}
+          {facts.reverse.map((fact) => (
+            <span key={fact.field} className="configured-brief__count">
+              <b>{fact.count}</b> {fact.label.toLowerCase()}
+            </span>
+          ))}
+          <span className="configured-brief__end">
+            <CardMarkers row={row} stale={false} otherLanes={otherLanes} />
+            <People facts={facts.people} />
           </span>
-        ))}
-        <span className="configured-brief__end">
-          {markers}
-          <People facts={facts.people} />
-          {age}
-        </span>
-      </div>
+        </div>
+      )}
     </>
   );
 }

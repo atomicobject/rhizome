@@ -81,6 +81,10 @@ export function columnClassName(column: ViewTableColumn, capabilities: ViewField
 
   if (kind === "date" || kind === "datetime" || column.field === "updatedAt") {
     classes.push("configured-view__cell--date");
+
+    // A due date can be overdue, so it gets room for that label.
+    if (isDeadlineField(capability?.canonicalField ?? column.field))
+      classes.push("configured-view__cell--deadline");
   }
 
   // The change time renders as a relative age, so it needs less room than a date.
@@ -99,9 +103,36 @@ export function columnClassName(column: ViewTableColumn, capabilities: ViewField
     classes.push(`configured-view__cell--${kind}`);
   }
 
+  // One person's name needs less room than a linked record's title.
+  if (kind === "relation" && capability?.edit?.targetType === "Person" && !capability.edit.list)
+    classes.push("configured-view__cell--person");
+
   if (column.field === "hasIssues") classes.push("configured-view__cell--flag");
 
   return classes.join(" ");
+}
+
+/** A date field that names when something is due, such as `due` or `deadline`. */
+export function isDeadlineField(field: string) {
+  return /^(due|due[-_]?date|deadline)$/i.test(field.replace(/^.*\./, ""));
+}
+
+/**
+ * True when an open row's due date is before today. A row is open unless its
+ * `done` flag is set; a date-only value compares by calendar day.
+ */
+export function isOverdue(row: ViewTableRow, value: string, today = localDay(new Date())) {
+  const done = row.fields?.done;
+
+  if (done === true || done === "true") return false;
+
+  return /^\d{4}-\d{2}-\d{2}/.test(value) && value.slice(0, 10) < today;
+}
+
+function localDay(date: Date) {
+  const pad = (part: number) => String(part).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 export function primaryColumn(columns: ViewTableColumn[], capabilities: ViewFieldCapability[]) {

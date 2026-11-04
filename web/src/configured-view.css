@@ -936,7 +936,7 @@
   gap: var(--sp-2);
   width: 100%;
   height: 36px;
-  padding: 0 10px 0 calc(13px + (var(--group-depth, 0) * var(--sp-5)));
+  padding: 0 10px 0 calc(8px + (var(--group-depth, 0) * var(--sp-5)));
   border: 0;
   background: transparent;
   color: var(--text);
@@ -944,17 +944,48 @@
   cursor: pointer;
 }
 
-.configured-view__group-caret {
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--text-faint);
+/* The one disclosure chevron: 16px, right when closed, down when open. Its
+   control is the whole group header, or a 24px button where it stands alone. */
+.configured-view__disclosure-icon {
+  flex: none;
+  color: var(--text-muted);
   transition: transform 180ms var(--ease);
 }
 
-.configured-view__group-toggle[aria-expanded="true"] .configured-view__group-caret {
+[aria-expanded="true"] > .configured-view__disclosure-icon {
   transform: rotate(90deg);
+}
+
+.configured-view__disclosure {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.configured-view__disclosure:hover {
+  background: var(--bg-tint);
+}
+
+.configured-view__disclosure:hover > .configured-view__disclosure-icon {
+  color: var(--text);
+}
+
+.configured-view__disclosure:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .configured-view__disclosure-icon {
+    transition: none;
+  }
 }
 
 .configured-view__group-toggle .status-mark,
@@ -998,6 +1029,30 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+/* Overdue: warning ink with a mark, beside the due date. */
+.configured-view__overdue {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: var(--sp-2);
+  color: var(--warning-ink);
+  font: 500 var(--fs-xs) var(--font-sans);
+}
+
+/* A source note is a secondary link column: muted ink, underlined on hover,
+   so the title stays the table's one teal column. */
+.configured-view__table .configured-view__source-link a.markdown-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.configured-view__table .configured-view__source-link a.markdown-link:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: currentColor;
 }
 
 /* A source column names the note by title; its path is the tooltip. */
@@ -1093,6 +1148,16 @@
 
 .configured-view__table th.configured-view__cell--relation {
   width: 220px;
+}
+
+/* One person's name, such as an assignee: narrower than a linked title. */
+.configured-view__table th.configured-view__cell--person {
+  width: 160px;
+}
+
+/* A due date keeps room for the "Overdue" label beside it. */
+.configured-view__table th.configured-view__cell--deadline {
+  width: 188px;
 }
 
 .configured-view__table thead th.configured-view__cell--primary {
@@ -1437,12 +1502,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   cursor: pointer;
 }
 
-.configured-view__board-lane-header
-  button[aria-expanded="false"]
-  .configured-view__card-section-caret {
-  transform: none;
-}
-
 .configured-view__board-lane-header .configured-view__board-count {
   margin-left: var(--sp-1);
 }
@@ -1489,31 +1548,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   margin-left: 0;
   color: var(--text-muted);
   font-size: var(--fs-sm);
-}
-
-.configured-view__board-column-title > button {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: var(--r);
-  background: transparent;
-  color: transparent;
-  cursor: pointer;
-}
-
-.configured-view__board-column-title > button:hover {
-  background: var(--bg-tint);
-}
-
-.configured-view__board-column-title > button::before {
-  content: "‹";
-  display: block;
-  color: var(--text-faint);
-  font-size: 17px;
-  line-height: 18px;
 }
 
 .configured-view__board-count {
@@ -1640,6 +1674,50 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   padding: 7px 9px 8px;
 }
 
+/* Every board card keeps its age in the top-right corner, beside the title:
+   compact cards through their meta, full cards through the corner slot. */
+.configured-card--board:has(> .configured-brief__corner) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--sp-3);
+}
+
+.configured-card--board:has(> .configured-brief__corner) > * {
+  grid-column: 1 / -1;
+}
+
+.configured-card--board:has(> .configured-brief__corner) > .configured-card__title {
+  grid-column: 1;
+  white-space: normal;
+}
+
+.configured-card--board > .configured-brief__corner {
+  display: inline-flex;
+  grid-column: 2;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.configured-brief__corner:empty {
+  display: none;
+}
+
+/* "Governing specs" names the linked records, so their status marks never
+   read as the card's own status. */
+.configured-brief__relation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.configured-brief__relation-label {
+  color: var(--text-faint);
+  font: 500 var(--fs-xs) var(--font-sans);
+  white-space: nowrap;
+}
+
 .configured-card--board .configured-card__preview {
   -webkit-line-clamp: 2;
 }
@@ -1750,21 +1828,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   cursor: pointer;
 }
 
-.configured-view__card-section-caret {
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--text-faint);
-  transform: rotate(90deg);
-}
-
-.configured-view__card-section-header
-  button[aria-expanded="false"]
-  .configured-view__card-section-caret {
-  transform: none;
-}
-
 /* The count follows its label, as in table group headers ("Active 14"). */
 .configured-view__card-section-count {
   color: var(--text-muted);
@@ -1861,7 +1924,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border: 0;
   background: transparent;
   color: var(--link);
-  font: 600 var(--fs-base)/1.3 var(--font-sans);
+  font: 500 var(--fs-base)/1.3 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2300,13 +2363,15 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   white-space: normal;
 }
 
-/* Grid briefs lead with the title (14/600, up to two lines), then one muted
-   13px row with the type at left and the age at right, 8px below. Cards in a
-   grid row share its height, so no blank title block is reserved. */
+/* Grid briefs lead with the title (14/500, up to two lines), then one muted
+   13px row with the type at left and the age at right. Every title reserves
+   two lines, so type rows and summaries share baselines across a grid row
+   whether or not a title wraps. */
 .configured-card--cards.configured-card--brief .configured-card__title {
   display: grid;
   align-content: start;
   order: -1;
+  min-height: calc(2 * 1.3em);
   margin-bottom: 3px;
   font-size: var(--fs-base);
 }
@@ -2607,6 +2672,18 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   opacity: 1;
 }
 
+/* A selected row shows only its edge and tint: the record pane already
+   describes it, so hover chrome (checkbox, edit pencil, drag handle) stays
+   hidden unless a check is in progress or the control has keyboard focus. */
+.configured-view__table-wrap:not(.has-checked)
+  .configured-view__row.is-selected:hover
+  .configured-view__check-cell
+  input:not(:focus-visible),
+.configured-view__row.is-selected:hover .configured-view__relation-edit:not(:focus-visible),
+.configured-view__row.is-selected .configured-view__drag-handle:not(:focus-visible) {
+  opacity: 0;
+}
+
 .configured-view__row.is-checked td {
   background: color-mix(in srgb, var(--success-soft) 55%, var(--surface));
 }
@@ -2735,12 +2812,48 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-width: 0;
 }
 
-/* The record's id: its own 12px mono line under the title, cut in the middle
-   so the slug that tells records apart survives. */
-.view-record__path {
+/* The record's stable ID in 12px mono under the title, with the file path
+   behind a compact copy control at the line's end. */
+.view-record__id {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 22px;
   margin: 2px 0 0;
-  color: var(--text-faint);
+}
+
+.view-record__id code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
   font: 500 var(--fs-xs) / 1.4 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.view-record__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-xs) var(--font-sans);
+  cursor: pointer;
+}
+
+.view-record__copy:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.view-record__copy:focus-visible,
+.view-record__more-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .middle-truncate {
@@ -2765,6 +2878,28 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font-size: var(--fs-lg);
   font-weight: 700;
   line-height: 1.25;
+}
+
+/* Three lines, then More, so status and fields stay near the title. */
+.view-record__summary.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.view-record__more-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.view-record__more-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .view-record__summary {

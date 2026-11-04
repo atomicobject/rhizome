@@ -1,7 +1,13 @@
 // The Overview's tables (SPEC-0117 US1-US3): the Matrix, a complete text
 // alternative to the map, and the member table comparing every member's size,
 // progress, completeness, and connection.
-import { RelativeTime, openCollection, openIssues, useTypeColors } from "@rhizome/kit";
+import {
+  DisclosureIcon,
+  RelativeTime,
+  openCollection,
+  openIssues,
+  useTypeColors,
+} from "@rhizome/kit";
 
 import { plural } from "./briefing-parts.tsx";
 import { Dash } from "./components.tsx";
@@ -193,9 +199,7 @@ function NameCell({
         aria-expanded={row.expanded}
         onClick={() => onToggle(node.name, !row.expanded)}
       >
-        <span className="gv-ov-chev" aria-hidden="true">
-          {row.expanded ? "▾" : "▸"}
-        </span>
+        <DisclosureIcon open={Boolean(row.expanded)} className="gv-ov-chev" />
         <Dot model={model} node={node} />
         {node.label}{" "}
         <span className="gv-sub">
@@ -228,12 +232,12 @@ function NameCell({
     <span className="gv-ov-name">
       <button
         type="button"
-        className="gv-ov-chev gv-ov-chev-button"
+        className="rz-disclosure gv-ov-chev-button"
         aria-expanded={row.expanded}
         aria-label={`${row.expanded ? "Hide" : "Show"} the types implementing ${node.label}`}
         onClick={() => onToggle(toggle, !row.expanded)}
       >
-        <span aria-hidden="true">{row.expanded ? "▾" : "▸"}</span>
+        <DisclosureIcon open={Boolean(row.expanded)} />
       </button>
       {open}
     </span>

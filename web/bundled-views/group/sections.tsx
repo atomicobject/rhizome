@@ -139,7 +139,10 @@ function Row({
         )}
       </td>
       {columns.map((column) => (
-        <td key={column.kind === "field" ? column.id : column.kind}>
+        <td
+          key={column.kind === "field" ? column.id : column.kind}
+          className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+        >
           <Cell model={model} member={member} record={record} column={column} />
         </td>
       ))}
@@ -156,10 +159,12 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
   const open = expanded.isOpen(member.name, false);
   const shown = open ? rows : rows.slice(0, SECTION_ROWS);
 
-  // Rows that share one status omit it: the heading's counts already say it.
+  // A section whose records all share one status omits it: the heading's
+  // counts already say it. Judged over every row, not just the shown ones, so
+  // a section mixing Active and Complete always says which row is which.
   const oneStatus =
     Boolean(member.lifecycle) &&
-    new Set(shown.map((node) => lifecycleValue(member, node.record))).size <= 1;
+    new Set(rows.map((node) => lifecycleValue(member, node.record))).size <= 1;
 
   // An interface's Type column says nothing when one type holds nearly every record.
   const columns = sectionColumns(
@@ -197,7 +202,11 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
             <tr>
               <th scope="col">Title</th>
               {columns.map((column) => (
-                <th scope="col" key={column.kind === "field" ? column.id : column.kind}>
+                <th
+                  scope="col"
+                  key={column.kind === "field" ? column.id : column.kind}
+                  className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+                >
                   {columnLabel(member, column)}
                 </th>
               ))}

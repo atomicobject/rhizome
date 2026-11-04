@@ -8,7 +8,13 @@ import { HighlightProvider, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
 import { inMotion, needsAttention, type MotionEntry } from "./activity.ts";
-import { MotionRow, RecentChanges, StageHints, oneStatus } from "./briefing-activity.tsx";
+import {
+  MotionHead,
+  MotionRow,
+  RecentChanges,
+  StageHints,
+  oneStatus,
+} from "./briefing-activity.tsx";
 import { NeedsAttention } from "./briefing-attention.tsx";
 import { Block, ModelBlock, MoreToggle, heldLabels, memberOf } from "./briefing-parts.tsx";
 import { GroupFrame } from "./components.tsx";
@@ -62,10 +68,12 @@ function MotionGroup({
 
   return (
     <div className="gv-mo-group">
-      <h3 className="gv-mo-type">
-        {memberLabel(model, member, { plural: true })} · {heldLabels(member, records)}{" "}
-        <span className="gv-num">{entries.length}</span>
-      </h3>
+      <MotionHead>
+        <h3 className="gv-mo-type">
+          {memberLabel(model, member, { plural: true })} · {heldLabels(member, records)}{" "}
+          <span className="gv-num">{entries.length}</span>
+        </h3>
+      </MotionHead>
       <ul className="gv-list">
         {shown.map((entry) => (
           <MotionRow key={entry.record.key} member={member} entry={entry} mark={mark} />

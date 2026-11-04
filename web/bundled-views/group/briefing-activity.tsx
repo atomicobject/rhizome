@@ -1,7 +1,7 @@
 // Activity blocks both Briefings share: an in-motion row, the hints for
 // lifecycles that cannot list work in motion, Recent changes, and the notes
 // outside the records that link with them.
-import { RelativeTime, openNote, typeLabel } from "@rhizome/kit";
+import { DisclosureIcon, RelativeTime, openNote, typeLabel } from "@rhizome/kit";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 
 import { recentChanges, type Boundary, type ChangeMoment, type MotionEntry } from "./activity.ts";
@@ -60,6 +60,19 @@ export function MotionRow({
   );
 }
 
+/**
+ * The line over a list of in-motion rows: the group's heading, if any, and a
+ * "Changed" label over the age column so a bare "30d" says what it measures.
+ */
+export function MotionHead({ children }: { children?: ReactNode }) {
+  return (
+    <div className="gv-mo-head">
+      {children}
+      <span className="gv-mo-col">Changed</span>
+    </div>
+  );
+}
+
 function enumName(member: Member) {
   const field = member.fields.find((candidate) => candidate.name === member.lifecycle?.field);
 
@@ -98,7 +111,10 @@ export function StageHints({
   // beside the block heading, so readers see the work, not the configuration.
   return (
     <details className="gv-hint">
-      <summary>Configuration</summary>
+      <summary>
+        Configuration
+        <DisclosureIcon open={false} />
+      </summary>
       <div className="gv-hint-panel">
         <p className="gv-hint-lead">
           {[

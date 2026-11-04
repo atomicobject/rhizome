@@ -1,3 +1,4 @@
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import { type CSSProperties, type DragEvent, Fragment, memo, type RefObject } from "react";
 
 import type {
@@ -19,7 +20,7 @@ import {
   groupValueLabel,
   isIssueColumn,
 } from "./ConfiguredViewModel";
-import { type ConfiguredTableGroup, groupTone } from "./ConfiguredViewTableModel";
+import { type ConfiguredTableGroup, groupTone, isOverdue } from "./ConfiguredViewTableModel";
 import { moveTableFocus } from "./focusManagement";
 import { reorderDelta, type ViewReorder } from "./useViewReorder";
 import { useTypeLabel } from "./typeLabels";
@@ -116,7 +117,7 @@ export function ConfiguredViewTableGroup({
             aria-expanded={expanded}
             onClick={() => onToggle(group)}
           >
-            <span className="configured-view__group-caret" aria-hidden="true" />
+            <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
             <GroupValueMark
               capability={capability}
               tone={group.tone ?? groupTone(rowProps.capabilities, group)}
@@ -375,7 +376,16 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
             className={`${className}${capability?.semanticRole === "count" && value === "0" ? " is-zero" : ""}${categoryFields.has(column.field) ? " is-category" : ""}`}
             title={value || undefined}
           >
-            {columnIndex === primaryColumnIndex && dirty ? (
+            {className.includes("configured-view__cell--deadline") && isOverdue(row, value) ? (
+              // Overdue is a warning beside the date, in words and with a mark.
+              <span className="configured-view__cell-line">
+                {cellContent}
+                <span className="configured-view__overdue">
+                  <TriangleAlert size={13} aria-hidden />
+                  Overdue
+                </span>
+              </span>
+            ) : columnIndex === primaryColumnIndex && dirty ? (
               // The line keeps the dot beside the truncated title, not past it.
               <span className="configured-view__cell-line">
                 {cellContent}

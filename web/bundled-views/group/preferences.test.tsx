@@ -121,7 +121,7 @@ it("keeps a Briefing signal's records revealed after a reload", async () => {
   });
 
   const unlinked = async () => {
-    const context = await screen.findByRole("region", { name: "Review suggested" });
+    const context = await screen.findByRole("region", { name: "Link coverage" });
 
     const found = [...context.querySelectorAll("li")].find((entry) =>
       entry.textContent?.includes("Not linked"),
