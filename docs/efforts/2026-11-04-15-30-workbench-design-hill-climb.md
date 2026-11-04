@@ -6,7 +6,7 @@ name: "Workbench design hill-climb"
 created-at: "2026-11-04T20:35:33Z"
 status: complete
 plan-approved-by: "[[docs/people/Drew Colthorp|Drew Colthorp]]"
-summary: "Retroactive closure of the 2026-11-04 workbench design loop: baseline plus seven rounds, with round 6 banked at a 7.80 three-reviewer mean and round-7 scores pending integration."
+summary: "Retroactive closure of the 2026-11-04 workbench design loop: baseline plus seven rounds, banked at a 7.93 three-reviewer mean after round 7."
 governing-specs:
   - "[[docs/specs/experience/workbench-sidebar]]"
   - "[[docs/specs/experience/workbench-redesign]]"
@@ -98,7 +98,7 @@ Reach 9 or more from every reviewer in every category, both for the app overall 
 
 **Round 7, approved for shipping by Drew on 2026-11-04:** after independent judge Fable 5.1 selected the strictest reviewer's recurring findings, the final round implemented a 13px/500 structural-label floor; aligned sidebar leading slots and hidden same-group empty type duplicates; heading-title help for descriptive sections; flat In motion lists on all three Briefings; Relations and Linked notes below Record fields; schema identity in the type-header info tooltip; dimmed exact repeats in sorted Action Items columns and overdue counts in group headers; dashed empty Board lanes and labelled card-density controls; a warning-soft Editing chip; six-line summary previews with disclosure only on overflow; and gutter-aligned search. Note and Agent columns remain centred, and the 1100px Record overlay remains below the toolbar. Record titles stay ink at weight 500, as Drew prefers. Delivery evidence: `0271b918..abce840a`.
 
-Round 7 scores: <!-- Integrator to fill in. -->
+Round 7 scored a 7.93 mean (Sol 8.20, Astra 8.00, Opus 7.60), up 0.13. Opus, the strictest reviewer, gained the most, at 0.30.
 
 The three-reviewer app-overall means were:
 
@@ -111,8 +111,9 @@ The three-reviewer app-overall means were:
 | 4 | 7.80 | 8.10 | 7.10 | 7.67 |
 | 5 | 8.00 | 8.00 | 7.30 | 7.77 |
 | 6 | 8.10 | 8.00 | 7.30 | 7.80 |
+| 7 | 8.20 | 8.00 | 7.60 | 7.93 |
 
-The mean gained 1.20 points, with only 0.03 in the final round. No category reached the 9 target; round 6 records 0 of 576 per-screen category cells at 9 or above (24 screens × eight categories × three reviewers). Graphs remained weakest: group Overview 7.23, Explorer 7.27, All notes Overview 7.30, and Atlas 7.47. Drew chose to bank these gains and pursue the graph redesign separately.
+The mean gained 1.33 points over seven rounds. The universal 9 target was not reached: round 7 has 2 of 576 per-screen category cells at 9 or above (24 screens × eight categories × three reviewers). The graph screens remain weakest: All notes Overview 7.40, group Overview 7.40 and Explorer 7.43. Drew chose to bank these gains and pursue the graph redesign separately.
 
 Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, with two Sol runs averaged into one vote. The consistent Sol/Astra/Opus comparison above uses the three-vote 6.60 baseline, as the round-1 ledger does. These are screenshot judgments, not a usability-study result.
 
@@ -133,7 +134,7 @@ Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, w
 ## Deviations
 
 1. **Opened retroactively.** The effort and frozen links were created at closure, not before the work. Drew explicitly requested this honest retrospective record; no fictional execution timeline or prior freeze is asserted.
-2. **Score target not reached.** The original universal 9 target is preserved. Drew directed banking the work at 7.80 after the sixth round and pursuing graphs separately.
+2. **Score target not reached.** The original universal 9 target is preserved. Drew directed banking the work after the sixth round (7.80), adding the approved round-7 changes (7.93), and pursuing graphs separately.
 3. **Implementer switch.** Implementers changed from Opus 5.5 high to GPT-6.1 Sol high in round 5, per the owner's execution account.
 4. **GraphQL sidebar decision reversed.** On 2026-11-04 Drew approved the standard sidebar, reversing SPEC-0128's 2026-10-26 exclusion. The browser control works; Desktop still disables its toolbar and View-menu toggle on GraphQL (`desktop/src/App.tsx` and `desktop/src-tauri/src/page.rs`). That remaining integration gap is recorded as follow-up rather than described as delivered.
 5. **Banked slice, with PR gates carried forward.** This task closes the completed design iteration with recorded limitations and the requested local documentation checks. Full integrated tests, independent final code review, Greptile, CI, and PR identity remain with the integrating PR owner; no unrun gate is claimed as passed. The backend issues and stale sidecar below are unresolved.
@@ -141,7 +142,7 @@ Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, w
 ## Closure Checklist
 
 - [x] Required closure checks passed: `make build`, Rhizome default validation (ontology, identifiers, broken-links) on changed notes, `frozen-scope-drift`, and `make check-fast`. The two introduced drift findings were resolved by follow-on acknowledgments.
-- [x] Alignment and actual outcomes checked against integrated code, DESIGN.md, the seven score ledgers, and six lane briefs; target shortfall and Desktop gap are explicit.
+- [x] Alignment and actual outcomes checked against integrated code, DESIGN.md, the eight score ledgers, and seven lane briefs; target shortfall and Desktop gap are explicit.
 - [x] Contradicted spec statements and owning web guidance reconciled; unchanged backend contracts remain intact.
 - [x] Follow-ups triaged and assigned below, including the optional calibration.
 - [x] PR handoff recorded: pending PR number, to be added once the integrating PR exists and before merge. Design delivery is `1f1d0c9b..d91cd828`; closure documentation travels with that work, not in a closure-only PR.
