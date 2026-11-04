@@ -183,7 +183,7 @@ describe("NotesIssuesHome", () => {
       <NotesIssuesHome validationEnvelope={cleanEnvelope()} onOpenNote={vi.fn()} />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("No issues found");
+    expect(screen.getByRole("status")).toHaveTextContent("No issues");
     expect(screen.getByRole("heading", { name: "Problems" })).toBeVisible();
     expect(screen.queryByLabelText("Problem filters")).toBeNull();
     expect(screen.queryByText(/needs attention/i)).toBeNull();
@@ -626,7 +626,7 @@ describe("NotesIssuesHome", () => {
     });
     await waitFor(() => expect(screen.getByText("No issues match these filters.")).toBeVisible());
     expect(screen.getByText("2 issues exist in the current validation result.")).toBeVisible();
-    expect(screen.queryByText("No issues found")).toBeNull();
+    expect(screen.queryByText("No issues")).toBeNull();
     expect(screen.getAllByRole("button", { name: "Clear filters" })).toHaveLength(1);
   });
 });
@@ -642,7 +642,7 @@ describe("validation refresh", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("No issues found");
+    expect(screen.getByRole("status")).toHaveTextContent("No issues");
     expect(screen.getByRole("status")).toHaveTextContent("Checking…");
     expect(screen.getByRole("button", { name: "Refreshing validation…" })).toBeDisabled();
     expect(http.count("POST", "/api/v2/validate/refresh")).toBe(0);

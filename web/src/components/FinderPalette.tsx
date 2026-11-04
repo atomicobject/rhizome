@@ -29,6 +29,8 @@ export type FinderPaletteProps<T extends FinderPaletteItem> = {
    * change (type labels loading) relabels rows without searching again.
    */
   describe?: (item: T) => string | undefined;
+  /** A note row's type hue (a CSS color); the row shows it as a dot in place of the file icon. */
+  hue?: (item: T) => string | undefined;
 };
 
 type Results<T> = { query: string; items: T[] } | null;
@@ -56,6 +58,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
   emptyText,
   recentHeading,
   describe,
+  hue,
 }: FinderPaletteProps<T>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -227,6 +230,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
             const selected = item === current;
             const detail = describe?.(item) ?? item.detail;
             const Icon = item.kind === "code" ? FileCode2 : FileText;
+            const color = item.kind === "code" ? undefined : hue?.(item);
 
             return (
               <li
@@ -242,7 +246,15 @@ export function FinderPalette<T extends FinderPaletteItem>({
                   if (!stale) choose(item, event.metaKey || event.ctrlKey);
                 }}
               >
-                <Icon aria-hidden="true" size={16} strokeWidth={1.75} className="finder__icon" />
+                {color ? (
+                  <span
+                    aria-hidden="true"
+                    className="finder__icon finder__dot"
+                    style={{ background: color }}
+                  />
+                ) : (
+                  <Icon aria-hidden="true" size={16} strokeWidth={1.75} className="finder__icon" />
+                )}
                 <span className="finder__title">
                   <Highlighted text={item.title} ranges={item.titleMatches} />
                 </span>

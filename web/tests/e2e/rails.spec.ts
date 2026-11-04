@@ -109,11 +109,11 @@ test("persists the right pane and panel widths, and closes the pane on Home", as
     .poll(() => page.getByRole("complementary", { name: "Note context" }).boundingBox())
     .toMatchObject({ width: 560 });
 
-  // Home has nothing for the pane to show.
+  // Home has nothing for the pane to show, so it offers no pane toggle.
   const tabs = page.getByRole("tablist", { name: "Open notes" });
   await tabs.getByRole("tab", { name: "Home", exact: true }).click();
   await expect(contextTabs).toBeHidden();
-  await expect(page.getByRole("button", { name: "Show right pane" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Show right pane" })).toHaveCount(0);
   await tabs.getByRole("tab", { name: /Search Rewrite/ }).click();
   await expect(contextTabs).toBeVisible();
 });

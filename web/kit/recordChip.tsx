@@ -109,7 +109,7 @@ export function RecordChip({
         "cursor-pointer border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]",
       indirect && "text-[var(--text-faint)] italic",
       highlighted &&
-        "bg-[var(--success-soft)] text-[var(--link)] shadow-[inset_0_0_0_1px_var(--link-line)]",
+        "bg-[color-mix(in_srgb,var(--link)_10%,transparent)] text-[var(--link)] shadow-[inset_0_0_0_1px_var(--link-line)]",
       className,
     ),
   };

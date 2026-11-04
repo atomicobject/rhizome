@@ -49,11 +49,14 @@ export function NoteTabStrip({
   activeId,
   onActivate,
   onClose,
+  hidden = false,
 }: {
   tabs: Tab[];
   activeId: string;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  /** Hidden but kept, so each panel's accessible name still comes from its tab. */
+  hidden?: boolean;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -136,6 +139,7 @@ export function NoteTabStrip({
       className="notes-tabs"
       role="tablist"
       aria-label="Open notes"
+      hidden={hidden}
       onKeyDown={handleKeyDown}
     >
       {tabs.map((tab) => {

@@ -60,15 +60,16 @@ for (const activation of ["click", "Enter", "middle"]) {
       });
       await link.click();
     } else if (activation === "middle") {
-      const tabs = page.getByRole("tablist", { name: "Open notes" });
-      const before = await tabs.getByRole("tab").count();
+      // The strip hides while Home is the only tab, so count tabs in the DOM.
+      const allTabs = page.locator('.notes-tabs [role="tab"]');
+      const before = await allTabs.count();
       const popups: string[] = [];
       page.on("popup", (popup) => popups.push(popup.url()));
       await link.click({ button: "middle" });
-      await expect(tabs.getByRole("tab")).toHaveCount(before + 1);
+      await expect(allTabs).toHaveCount(before + 1);
       await expect(diagram).toBeVisible();
       expect(popups).toHaveLength(0);
-      const openedTab = tabs.getByRole("tab").nth(before);
+      const openedTab = allTabs.nth(before);
 
       await expect(openedTab).toHaveAttribute("aria-selected", "false");
       await openedTab.click();

@@ -132,12 +132,19 @@
 
 .finder__row[aria-selected="true"] {
   background: var(--selection);
-  box-shadow: inset 3px 0 0 var(--selection-edge);
 }
 
 .finder__icon {
   grid-row: 1 / span 2;
   color: var(--text-muted);
+}
+
+/* A note's type hue, the same slot it has in the Atlas and graphs. */
+.finder__dot {
+  justify-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 .finder__title {

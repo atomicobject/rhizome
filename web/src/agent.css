@@ -281,6 +281,44 @@
   max-width: 78ch;
 }
 
+/* Starting questions in an empty thread: quiet rows that fill the composer. */
+.agent-examples {
+  max-width: 78ch;
+}
+
+.agent-examples__head {
+  margin: 0 0 var(--sp-2);
+  font: var(--label-font);
+  color: var(--label-color);
+}
+
+.agent-examples ul {
+  display: grid;
+  gap: 2px;
+  margin: 0 calc(-1 * var(--sp-3));
+  padding: 0;
+  list-style: none;
+}
+
+.agent-workspace .agent-examples button {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-workspace .agent-examples button:hover {
+  border: 0;
+  background: var(--surface-sunk);
+}
+
 .agent-empty p {
   margin: 0;
   color: var(--muted);

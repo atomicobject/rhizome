@@ -634,27 +634,8 @@ input:where([type="checkbox"], [type="radio"]) {
   display: none;
 }
 
-/* GraphQL has no sidebar, so its inset panel spans the chrome with the
-   same 6px margins as every other section's panel (workbench.css). */
-.graphql-workspace {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  background: var(--chrome-bg);
-}
-
-.graphql-explorer {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  margin: 0 6px 6px;
-  overflow: hidden;
-  border-radius: var(--r-lg);
-  background: var(--surface);
-}
-
+/* GraphQL sits in the standard workbench (workbench.css): the section
+   sidebar holds GraphiQL's docs, history, and dialogs. */
 .graphql-explorer__body {
   flex: 1;
   min-height: 0;
@@ -735,7 +716,7 @@ input:where([type="checkbox"], [type="radio"]) {
 }
 
 /* GraphiQL reads HSL triplets, not colors, so its palette restates the
-   tokens: ink neutral, surface base, deeper red primary, teal success. Its
+   tokens: ink neutral, surface base, deeper red primary, green success. Its
    dialogs and tooltips render outside the explorer, hence the body scope. */
 .graphql-explorer .graphiql-container {
   height: 100%;
@@ -765,7 +746,7 @@ body
   --color-secondary: 256, 29%, 41%;
   --color-tertiary: 177, 81%, 23%;
   --color-info: 198, 65%, 35%;
-  --color-success: 177, 81%, 23%;
+  --color-success: 142, 56%, 27%;
   --color-warning: 37, 80%, 30%;
   --color-error: 357, 69%, 36%;
   --color-neutral: 30, 8%, 15%;
@@ -788,7 +769,7 @@ html
   --color-secondary: 257, 43%, 81%;
   --color-tertiary: 177, 59%, 61%;
   --color-info: 198, 64%, 73%;
-  --color-success: 177, 68%, 63%;
+  --color-success: 140, 50%, 67%;
   --color-warning: 38, 70%, 70%;
   --color-error: 357, 100%, 78%;
   --color-neutral: 37, 17%, 91%;
@@ -798,12 +779,12 @@ html
 }
 
 /* ---- GraphiQL inside the panel ----
-   Flat panes under the view header: GraphiQL's tool rail with a hairline
-   edge, the session tabs, then query and response split by one hairline. No
-   floating card, resting shadow, or tinted session frame. */
+   Flat panes under the view header: the session tabs, then query and
+   response split by one hairline. GraphiQL's tool rail is hidden; the
+   section sidebar presses its buttons. No floating card, resting shadow, or
+   tinted session frame. */
 .graphql-explorer .graphiql-container .graphiql-sidebar {
-  padding: var(--sp-3) var(--sp-2);
-  border-right: 1px solid var(--border);
+  display: none;
 }
 
 .graphql-explorer .graphiql-container .graphiql-sessions {
@@ -941,12 +922,21 @@ html
   font-weight: 500;
 }
 
-/* Icons and tabs in muted ink rather than GraphiQL's translucent neutral. */
-.graphql-explorer .graphiql-sidebar button {
-  color: var(--text-muted);
+/* Docs uses the editor's syntax roles: types in type ink, root operations
+   as keywords, arguments as properties, fields in plain ink. */
+.graphql-explorer a.graphiql-doc-explorer-type-name {
+  color: var(--syntax-type);
 }
 
-.graphql-explorer .graphiql-sidebar button:hover {
+.graphql-explorer .graphiql-doc-explorer-root-type {
+  color: var(--syntax-keyword);
+}
+
+.graphql-explorer .graphiql-doc-explorer-argument-name {
+  color: var(--syntax-property);
+}
+
+.graphql-explorer a.graphiql-doc-explorer-field-name {
   color: var(--text);
 }
 

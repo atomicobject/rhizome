@@ -255,13 +255,12 @@ describe("AppShell", () => {
     fireEvent.keyDown(window, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
     expect(sidebar()).toBeVisible();
 
-    // GraphQL has no sidebar, and its toggle and shortcuts do nothing there.
+    // GraphQL has the same sidebar, so its toggle and shortcuts work there too.
     fireEvent.click(screen.getByRole("button", { name: "GraphQL" }));
     const toggle = await screen.findByRole("button", { name: "Hide sidebar" });
-    expect(toggle).toBeDisabled();
-    expect(toggle).toHaveAttribute("title", "This section has no sidebar");
+    expect(toggle).toBeEnabled();
     fireEvent.keyDown(window, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
-    expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}").collapsed).toBe(false);
+    expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}").collapsed).toBe(true);
   });
 
   it("follows the sidebar choice another tab makes", async () => {

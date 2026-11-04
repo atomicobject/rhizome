@@ -70,7 +70,11 @@ describe("TasksWorkspace", () => {
     expect(docs.getByText("Ready")).toBeInTheDocument();
     expect(docs.getByText("Ready for review")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("Due now")).toBeInTheDocument();
-    expect(within(rows[2]!).getByText("Needs attention")).toBeInTheDocument();
+    // An item that needs a person is one action, not a second red state.
+    expect(within(rows[2]!).getByRole("link", { name: "Review failed run" })).toHaveAttribute(
+      "href",
+      "/tasks/flaky-tests",
+    );
     expect(within(rows[3]!).getByText("Not needed")).toBeInTheDocument();
 
     const rail = screen.getByRole("navigation", { name: "Tasks" });
@@ -99,11 +103,12 @@ describe("TasksWorkspace", () => {
     open("/tasks");
     render(<TasksWorkspace />);
 
-    // One short line from the task itself; its purpose waits behind a toggle.
-    expect(await screen.findByText("Changelog draft. Runs every 1 day in Off mode.")).toBeVisible();
-    expect(screen.queryByText("Drafts release notes.")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "What it does" }));
-    expect(screen.getByText("Drafts release notes.")).toBeVisible();
+    // The notice folds into the task's row: a New tag, with schedule and purpose behind a toggle.
+    const row = (await screen.findByRole("rowheader", { name: /Changelog draft/ })).closest("tr")!;
+    expect(within(row).getByText("New")).toBeVisible();
+    expect(screen.queryByText(/Drafts release notes/)).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "What it does" }));
+    expect(screen.getByText("Runs every 1 day in Off mode. Drafts release notes.")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/12/done")).toBe(1));
