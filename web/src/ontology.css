@@ -4088,38 +4088,20 @@
   container-type: inline-size;
   height: 100%;
   min-height: 0;
-  padding: var(--sp-4) var(--sp-5) 0;
+  padding: 0 var(--sp-5) 0 var(--gutter);
   color: var(--text);
   font-size: var(--fs-base);
 }
 
-.problems-workspace__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  padding-bottom: var(--sp-3);
-}
-
-.problems-workspace__meta {
-  margin: 0 0 2px;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+/* The shared view header, on the workspace's own gutter. */
+.problems-workspace__header .view-header__title-row {
+  padding: 0;
 }
 
 .problems-workspace__scope {
   color: var(--text);
 }
 
-.problems-workspace__header h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-2xl);
-  line-height: 1.2;
-}
-
-.problems-workspace__review,
 .problems-toolbar__clear,
 .problems-browser__more,
 .problems-filter-empty button,
@@ -4136,7 +4118,6 @@
   cursor: pointer;
 }
 
-.problems-workspace__review:hover,
 .problems-toolbar__clear:hover,
 .problems-browser__more:hover:not(:disabled),
 .problems-filter-empty button:hover,
@@ -4151,9 +4132,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--sp-1) var(--sp-3);
-  min-height: 30px;
+  min-height: 40px;
   padding: var(--sp-1) 0;
-  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border-faint);
   font-size: var(--fs-sm);
 }
@@ -5093,7 +5073,7 @@ button.validation-issue-badge:hover {
 
 @media (max-width: 880px) {
   .problems-workspace {
-    padding: var(--sp-4);
+    padding: 0 var(--sp-4);
   }
 
   .problems-toolbar {

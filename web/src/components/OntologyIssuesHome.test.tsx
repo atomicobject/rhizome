@@ -264,7 +264,8 @@ describe("NotesIssuesHome", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Checking vault");
     expect(screen.getByText("Showing the last published result while checks run.")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "2 issues in 2 files" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Problems" })).toBeVisible();
+    expect(screen.getByText("2 issues in 2 files")).toBeVisible();
 
     rerender(
       <NotesIssuesHome
@@ -279,7 +280,8 @@ describe("NotesIssuesHome", () => {
     );
     expect(screen.getByRole("status")).toHaveTextContent("Refresh failed");
     expect(screen.getByText("Network unavailable")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "2 issues in 2 files" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Problems" })).toBeVisible();
+    expect(screen.getByText("2 issues in 2 files")).toBeVisible();
   });
 
   it("lists kinds from the grouped read, filters, switches to files, and opens detail", async () => {

@@ -33,13 +33,14 @@ export function ValidationStatusStrip({
         )}
         {busy && <span className="validation-status-strip__activity">Checking…</span>}
       </div>
-      {presentation.message && (presentation.health !== "current_clean" || envelope?.snapshot) && (
+      {/* A clean result says it all in its label; other states explain themselves. */}
+      {presentation.message && presentation.health !== "current_clean" && (
         <p className="validation-status-strip__message">{presentation.message}</p>
       )}
       {onRefresh && (
         <button
           type="button"
-          className="problems-workspace__review validation-status-strip__refresh"
+          className="button validation-status-strip__refresh"
           onClick={onRefresh}
           disabled={refreshing}
         >

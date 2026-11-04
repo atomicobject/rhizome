@@ -375,30 +375,31 @@ function NotesIssuesHomeContent({
 
   return (
     <section className="problems-workspace" aria-label="Problems">
-      <header className="problems-workspace__header">
-        <div>
-          <p className="problems-workspace__meta">
-            validation
-            {scope?.kind !== "global" && scope?.key && (
-              <>
-                {" · "}
-                <span className="problems-workspace__scope">
-                  {scope.kind} · {scope.key}
-                </span>
-              </>
-            )}
-          </p>
-          <h2>
+      <header className="view-header problems-workspace__header">
+        <div className="view-header__title-row">
+          <h2>Problems</h2>
+          <span className={hasAnyIssues ? "view-header__count is-risk" : "view-header__count"}>
+            {hasAnyIssues ? totalIssues : 0}
+          </span>
+          <span className="view-header__about">
             {hasAnyIssues
               ? `${totalIssues} ${totalIssues === 1 ? "issue" : "issues"} in ${affectedFiles} ${affectedFiles === 1 ? "file" : "files"}`
-              : "Problems"}
-          </h2>
+              : "Validation results for this vault"}
+            {scope?.kind !== "global" && scope?.key ? (
+              <span className="problems-workspace__scope">
+                {" · "}
+                {scope.kind} · {scope.key}
+              </span>
+            ) : null}
+          </span>
+          {pendingChangeCount > 0 && onReviewChanges ? (
+            <div className="view-header__actions">
+              <button type="button" className="button" onClick={onReviewChanges}>
+                Review {pendingChangeCount} staged {pendingChangeCount === 1 ? "change" : "changes"}
+              </button>
+            </div>
+          ) : null}
         </div>
-        {pendingChangeCount > 0 && onReviewChanges && (
-          <button type="button" className="problems-workspace__review" onClick={onReviewChanges}>
-            Review {pendingChangeCount} staged {pendingChangeCount === 1 ? "change" : "changes"}
-          </button>
-        )}
       </header>
 
       <ValidationStatusStrip
