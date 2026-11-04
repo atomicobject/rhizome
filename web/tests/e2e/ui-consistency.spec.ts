@@ -129,7 +129,7 @@ test("keeps focused note previews open and returns focus after Escape", async ({
 
 test("keeps Explorer suggestions available for keyboard activation", async ({ page }) => {
   await page.goto("/explorer");
-  await page.getByPlaceholder("Search notes + code").fill("task-flow");
+  await page.getByRole("searchbox", { name: "Search notes and code" }).fill("task-flow");
   const suggestion = page.locator(".explorer-suggestions button").first();
   await expect(suggestion).toBeVisible();
   await suggestion.focus();

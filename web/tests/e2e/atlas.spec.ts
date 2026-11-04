@@ -177,9 +177,10 @@ test("Atlas pans on scroll and supports pinch zoom, drag pan, and zoom controls"
   const rect = await pane.boundingBox();
 
   if (!rect) throw new Error("Atlas pane has no bounds");
-  await page.mouse.move(rect.x + 10, rect.y + 10);
+  // The top right of the pane is clear of the finder, zoom controls, and legend.
+  await page.mouse.move(rect.x + rect.width - 80, rect.y + 20);
   await page.mouse.down();
-  await page.mouse.move(rect.x + 60, rect.y + 60, { steps: 5 });
+  await page.mouse.move(rect.x + rect.width - 130, rect.y + 70, { steps: 5 });
   await page.mouse.up();
   await expect.poll(transform).not.toBe(pinched);
   await expect(page.getByRole("button", { name: "Zoom In", exact: true })).toBeVisible();
