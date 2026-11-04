@@ -4,7 +4,8 @@ id: SPEC-0112
 aliases: [SPEC-0112, Type collection views]
 summary: "Every type and interface collection gets Table, Board, and Cards views whose defaults come from a schema-derived profile, enum values declare lifecycle stages that drive behavior while tone stays presentation, and a type Briefing replaces Overview."
 spec-status: active
-last-updated: 2026-10-07
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 ---
 
 # Type collection views
@@ -107,15 +108,15 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US3):
 
 ### Board
 
-- Lifecycle values with no records that are not collapsed MUST render as narrow labeled strips that still accept drops. Collapsed values MUST render as narrow strips with counts.
+- Board values MUST start expanded regardless of table grouping defaults, unless the user has remembered a collapsed choice. Empty and collapsed values MUST use 140px labelled strips, with counts and a chevron for collapsed values; empty cells still accept drops. Open tracks remain 260–360px and align headers with cards in every lane.
 - A Lanes control MUST offer ordered fields, people fields, and relation fields. The default lane field MUST be the first KEY ordered field with values, else the first KEY relation field with values whose filled records average at most 1.25 targets, else none. A record whose lane field holds several targets MUST appear in each of those lanes and say how many others. Lanes for a relation MUST be ordered by the target's rank, ranked targets first, then by its lifecycle stage and then record count; enum lanes by enum order; the lane for records without a value comes last.
 - A card MUST show the title, a two-line summary, the first filled key text field with its label, ordered-field tags, the first filled relation field other than the lane field, reverse fields as labeled counts, people as initials, and Changed. A card in an `active` value unchanged for 30 days MUST show a stale marker, and the column header MUST count them.
-- A column holding more than 24 cards MUST render compact cards showing the title and, for an interface, the implementing type.
+- A column holding more than 24 cards MUST render compact cards showing the title, Changed, and any stale or multi-lane markers. Interface boards name the implementing type only for cards outside the dominant type.
 - The board's column field MUST be switchable among the lifecycle and ordered fields.
 
 ### Cards
 
-- Cards MUST render record briefs grouped into sections by lifecycle value in the generated grouping order. A brief shows: the type or implementing-type label, ordered-field tags, people, Changed, the title, the summary clamped at six lines, each filled key text field as a labeled callout, each filled relation field as labeled chips, and each filled reverse field as a list of up to four records with status marks and a count of the rest.
+- Cards MUST render record briefs grouped into sections by lifecycle value in the generated grouping order. A brief shows: the type or implementing-type label, ordered-field tags, people, Changed, the title, the summary clamped at six lines, each filled key text field as a labeled callout, each filled relation field as labeled chips, and each filled reverse field as a list initially showing up to four records. A separate "Show N more" row expands in place; an Open action appears when all loaded records are visible. A group or section stating a single lifecycle value omits repeated row status marks.
 - Lifecycle and ordered-field tags on a brief MUST be editable through the edit session.
 
 ### Save view
@@ -164,3 +165,7 @@ None. Drew accepted on 2026-10-03 that Save view writes YAML directly and that s
 - Starter READMEs where they describe status enums.
 - CHANGELOG.
 - Reconcile SPEC-0110 and SPEC-0058 so they cite this spec where it changes generated defaults and view configuration.
+
+## Change record
+
+2026-11-04: Reconciled board expansion and track widths, compact-card metadata, and in-place overflow disclosure on record briefs. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

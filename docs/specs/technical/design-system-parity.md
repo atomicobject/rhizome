@@ -4,7 +4,8 @@ id: SPEC-0125
 aliases: [SPEC-0125, Design system parity]
 summary: "One design system across the host web UI, the custom-view kit, bundled views, and agent guidance: shared tokens with a dark theme, kit defaults and primitives that match DESIGN.md, AA contrast, calmer collection toolbars, designed loading states, and render performance on large vaults."
 spec-status: active
-last-updated: 2026-10-25
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 ---
 
 # Design system parity
@@ -17,7 +18,7 @@ This spec makes one token source and one component grammar serve the host and th
 
 ## Goals
 
-- A view an agent writes with the kit's defaults looks like the bundled views: Barlow on white, label-style section heads, mono counts, neutral controls, teal note links, and one focus style.
+- A view an agent writes with the kit's defaults looks like the bundled views: Barlow on white, 15px semibold section heads, Inter counts with tabular figures, neutral controls, teal note links, and one focus style.
 - Host and kit read every color, type size, and status shape from `web/src/base.css` tokens; light and dark themes switch with the operating system.
 - Text and focus indicators meet WCAG 2.1 AA in both themes; status never relies on color alone.
 - Loading, empty, and error states are designed: neutral, layout-stable, and never flashing a color that means something else.
@@ -40,7 +41,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 - `web/src/base.css` remains the single token source. The kit build includes every theme block from it, not only the first `:root`.
 - Dark values live beside light ones and apply under `@media (prefers-color-scheme: dark)`; `color-scheme: light dark` is declared. The desktop shell (`desktop/src`) and GraphiQL follow the same tokens.
 - Add semantic tokens the audit found missing: filled primary (`#c8313a` light, AA with white text), text on ink, success and info soft/ink, overlay scrim, and syntax-highlight roles. Define or remove the 11 undefined tokens (`--line`, `--r-full`, `--ink`, `--accent-danger`, `--accent-warning`, `--warning-line`, `--text-default`, `--surface-1`, `--surface-2`, `--radius` in host CSS, and similar) and delete Tailwind fallbacks that hide undefined tokens.
-- A categorical type palette `--type-1..8` (each with an ink variant that meets 4.5:1 for text) replaces the hashed hue in `web/src/lib/typeAccent.ts` and the graph palettes in `graphViewShared.ts`. It excludes AO red and connection teal. A chart series palette `--series-1..8` is neutral-first, excludes red, and reserves teal for "linked/connected".
+- A shared twelve-hue categorical palette uses `--type-1..13`, reserving `--type-8` for neutral interfaces, code, collapsed groups, and untyped notes. Concrete types are assigned in name order with types having records first; unknown names use a hash fallback. Host and kit use the same assignment, and hues repeat after twelve types. Ink variants retain the 4.5:1 text-contrast requirement. It excludes AO red and connection teal. A chart series palette `--series-1..8` is neutral-first, excludes red, and reserves teal for "linked/connected".
 - The kit's shadcn variable names must not collide with host tokens (`--muted` becomes a kit-private name).
 - Fonts are self-hosted woff2 with `font-display: swap`, served by the binary for the host and every custom-view frame; all currently requested weights remain available. License notices are generated.
 
@@ -54,10 +55,10 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 ### Kit defaults (`@rhizome/ui`, `@rhizome/kit`)
 
 - `theme.css` pins Tailwind's `text-xs/sm/base/lg` to 11/12/13/15px; the 14px root stays so spacing utilities remain compact. The view page background is `--surface`. The shared `:focus-visible` outline from `base.css` applies inside frames; components do not draw their own translucent rings.
-- Existing component names and props keep working, restyled: `Button` defaults to the 26px neutral secondary with `variant="default"` mapping to it and a red `primary` variant opt-in; `Badge` defaults neutral like `.type-chip`; `Card` is flat (1px border, no resting shadow, 10–14px padding); `Tabs` renders like `.segmented`; `Table` uses 28px rows, label-style heads, and mono numbers; shadcn `accent` (hover, select focus) maps to a neutral tint; `Skeleton` uses a neutral sunk fill.
+- Existing component names and props keep working, restyled: `Button` defaults to the 26px neutral secondary with `variant="default"` mapping to it and a red `primary` variant opt-in; `Badge` defaults neutral like `.type-chip`; `Card` is flat (1px border, no resting shadow, 10–14px padding); `Tabs` renders like `.segmented`; `Table` uses 28px rows, label-style heads, and Inter numbers with tabular figures; shadcn `accent` (hover, select focus) maps to a neutral tint; `Skeleton` uses a neutral sunk fill.
 - `NoteLink` renders the teal note-link style by default; `className` extends it.
 - `StatusMark` uses the host's tone shapes (ring, half, filled, triangle, diamond, dashed) so one enum value looks the same in native and custom views.
-- New public primitives, promoted from the bundled group views so both use one implementation: `Section`, `SectionBody`, and `sectionStatus` (block head, mono count, caption, controls, and a body that renders loading, error-with-retry, and one-line empty states), `Facts`/`Fact` (one-line facts strip), `Count`, `Dash` (empty value with screen-reader text), `MoreToggle`, `Segmented`, `BarList` (proportional HTML bars with linkable labels and series tokens), and `NodeLink` (the note-link style for canonical nodes). Their CSS ships in the kit theme. Exports are additive under `/kit/v1`.
+- New public primitives, promoted from the bundled group views so both use one implementation: `Section`, `SectionBody`, and `sectionStatus` (15px semibold block head, Inter count, caption, controls, and a body that renders loading, error-with-retry, and one-line empty states), `Facts`/`Fact` (one-line facts strip), `Count`, `Dash` (empty value with screen-reader text), `MoreToggle`, `Segmented`, `BarList` (proportional HTML bars with linkable labels and series tokens), and `NodeLink` (the note-link style for canonical nodes). Their CSS ships in the kit theme. Exports are additive under `/kit/v1`.
 - `Diagram` lays charts (xychart) out at its container's width; other diagram types keep their natural size and shrink to fit.
 
 ### Loading and empty states
@@ -68,9 +69,9 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 ### Host chrome
 
 - "Reset to shared" renders only when the view family has personal overrides, and sits in the view-selector row instead of its own row. A host preference snapshot reports `familyOverrides` (any widget slot holds a value), so a custom view whose choices live in widget slots still offers the reset.
-- Collection toolbars (configured views) show search, filter, and grouping by default; density, column choice, saved-view publishing, and refresh move into one "View options" disclosure. The toolbar does not wrap at a 1280px window with both rails open. "Problems on this page" merges into the facet line's Issues toggle.
+- Collection toolbars (configured views) show search, filter, and grouping by default; density, column choice, saved-view publishing, and refresh move into one "Display" disclosure. The toolbar does not wrap at a 1280px window with both rails open. "Problems on this page" merges into the facet line's Issues toggle.
 - The header's validation count and the facet line's issue count use distinct labels so they never contradict ("N validation issues" for the type versus "N records with issues").
-- Edit mode: a disabled primary button reads as disabled, not as an error tint; long text fields edit in a growing textarea; empty values read "Empty" everywhere.
+- Edit mode: a disabled primary button reads as disabled, not as an error tint; long text fields edit in a growing textarea; scattered empty cells read as a muted dash, and an unset Record value reads "Not set" with its edit control on hover or focus.
 - Ontology Atlas and Type Detail use the shared tokens, label style, and focus outline; their accent color marks dots and borders only, never text.
 
 ### Accessibility
@@ -97,3 +98,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 - `make verify` and `make web-e2e` pass; desktop changes pass `make desktop-check`.
 - Screenshots of every route and bundled view in light and dark at 1280 and 1440 widths, with WCAG contrast computed for text and focus tokens in both themes, and the Impeccable detector run on changed sources.
 - The graph layout benchmark at 2,000 nodes and the retained-tab re-render count are measured before and after.
+
+## Change record
+
+2026-11-04: Reconciled twelve shared type hues, Inter counts, section hierarchy, empty-value labels, and Display controls. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

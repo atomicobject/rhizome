@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-11-03
+last-verified: 2026-11-04
 code-paths:
   - pkg/app/web
 tags: [subsystem/web]
@@ -18,6 +18,8 @@ code-anchors:
 `pkg/app/web.NewServer` composes explorer, public query, configured view, edit-session, and event routes around an explicit vault, metadata provider runtime, and available live capabilities. It owns HTTP admission and response behavior. Domain reads, query execution, source mutation, and persistence retain their existing owners.
 
 ## Design constraints
+
+- Browser navigation retains note tabs beside one replaceable collection, view, Problems, Changes, or search page; the tab strip appears only while a note is open. GraphQL uses the shared workbench sidebar and inset panel. Its browser toggle works; Desktop's remaining GraphQL toggle exclusion is tracked in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]]. These 2026-11-04 presentation changes preserve the HTTP, query, and mutation ownership below.
 
 - Typed node and relation reads use request-scoped `noderead` services. GraphQL uses the shared application query engine and recipe registry. Counts and public type summaries use their bounded read contracts; handlers do not rebuild ontology projections or scan the catalog per result.
 - Readiness follows the selected provider and complete publication proof. Raw-only exact reads may use their admitted immutable provider-current fact bundle. Broad, fragmented, workspace, relation, and semantic reads wait for their required publication. Old ready flags alone do not certify current data.

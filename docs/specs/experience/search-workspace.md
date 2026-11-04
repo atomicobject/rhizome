@@ -1,9 +1,10 @@
 ---
 type: ExperienceSpec
 id: SPEC-0098
-summary: "Defines project-wide ranked search in a retained workspace tab, with note/code, type, and folder filters, no right pane, and stable note-context navigation when returning to a note."
+summary: "Defines project-wide ranked search on the current workspace page, with note/code, type, and folder filters, no right pane, and stable note-context navigation when returning to a note."
 spec-status: active
-last-updated: 2026-10-26
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 aliases:
   - SPEC-0098
 ---
@@ -14,7 +15,7 @@ aliases:
 
 Rhizome users need to find relevant notes and code without confusing project search with filtering a note list. Today the top-bar search control focuses a second search input in the Notes sidebar, while a third input filters the list below. The server-side sidebar query produces alphabetized note matches; it does not provide the ranked project search experience.
 
-The global header becomes the entry point for Rhizome's existing retrieval engine. Submitting a query opens a retained search-results tab. Search occupies the workspace below the tab strip, without a right pane. The workbench sidebar stays as the user left it ([[workbench-sidebar|SPEC-0128]]). Results have useful excerpts and explicit scope filters. The note browser retains one local note-list filter. Returning to a note restores its context, whose Info, Outline, and Graph tabs keep the same position.
+The global header becomes the entry point for Rhizome's existing retrieval engine. Submitting a query replaces the current page with search results while preserving open note tabs. Search has no right pane; the note-tab strip appears only while a note is open. The workbench sidebar stays as the user left it ([[workbench-sidebar|SPEC-0128]]). Results have useful excerpts and explicit scope filters. The note browser retains one local note-list filter. Returning to a note restores its context, whose Info, Outline, and Graph tabs keep the same position.
 
 This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes [Frontend data lifecycle](../technical/frontend-data-lifecycle.md). Once approved, it replaces SPEC-0090's requirement for a separate sidebar search and makes search tabs an explicit exception to its every-tab left-rail rule. It does not supersede the rest of the Notes-shell contract. Search behavior follows [Search subsystem guidance](../../reference/subsystems/search.md).
 
@@ -48,8 +49,8 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 
 - The global header contains an editable field labelled "Search this project" with placeholder "Search this project…". Cmd/Ctrl+K focuses and selects its text from the app's existing routes.
 - Enter submits a nonempty trimmed query. Typing alone does not run the full engine, and whitespace-only submission creates no tab or request.
-- A new submitted query opens and activates a search tab labelled with that query, preserving Home and existing note/search tabs. Repeating the same normalized query with its initial filters reuses the matching tab.
-- While a search tab is active, results occupy the workspace below the global header and tab strip. The right pane, note-edit toolbar, and note-context title are not present. Home remains reachable in the tab strip.
+- A new submitted query replaces the current collection, view, Problems, Changes, or search page and preserves every open note tab. Repeating the same normalized query with its initial filters reuses the current search identity.
+- While search is active, its header, filters, status, and results share one centred column up to 960px wide. The note-tab strip is shown only if notes are open; the right pane, note-edit toolbar, and note-context title are absent. Sidebar scopes return to Home.
 - Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26: the workbench sidebar stays visible on a search tab unless the user collapsed it.
 - The header is the only editable query field on the search page. The result heading and submitted query are read-only text. Submitting another query from the header starts from All, Any type, and Anywhere, independently of the current note collection.
 
@@ -63,7 +64,7 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 
 - Results use the existing unified Rhizome search engine and retain its relevance order. Each row identifies a note or code result, its title or symbol, its vault-relative path, and available type and section/location metadata.
 - Each result provides an available source-backed excerpt, with unobtrusive literal query-term highlighting. Missing or omitted excerpts are represented honestly; generated prose, filenames, and titles are not presented as matching source excerpts.
-- Clicking a note result creates or activates its existing file tab. A section or embedded-node match opens the canonical target in that tab. Cmd/Ctrl-click opens or reuses the note tab without activating it. The search tab remains available.
+- Clicking a note result creates or activates its existing file tab. A section or embedded-node match opens the canonical target in that tab. Cmd/Ctrl-click opens or reuses the note tab without activating it. The search page remains available until another page replaces it.
 - Clicking a code result opens the existing source/Explorer surface for that file and its available location. The UI does not claim to jump to a symbol or line when that location is absent; returning to search restores its state.
 - "Load more results" appends the next page for the same query and filters, preserving relevance order and earlier rows. End-of-results, retryable pagination failure, and a continuation that needs a fresh search are distinguishable.
 
@@ -90,9 +91,9 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 
 #### Acceptance Criteria
 
-- Switching away and back preserves a search tab's query, filters, loaded result pages, and scroll position. Each search tab retains its own state; new input in the header does not relabel older results before submission.
-- A shareable URL represents the active search and effective filters. Reload restores the vault-scoped tab set and active search, re-executing against the current index as needed. Browser Back/Forward restores the corresponding search state without duplicating tabs.
-- Existing note URLs, open note tabs, fragments, dirty-state protection, and the Home collection selection survive the introduction of search tabs and any tab-storage migration. Closing a search tab activates an adjacent retained tab or Home.
+- Switching between the current search page and a note preserves the search query, filters, loaded pages, and scroll position. Another collection, view, or search replaces that page; header input does not relabel existing results before submission.
+- A shareable URL represents the active search and effective filters. Reload restores the vault-scoped note tabs and current search page, re-executing against the current index as needed. Browser Back/Forward restores the corresponding search state without duplicating tabs.
+- Existing note URLs, open note tabs, fragments, dirty-state protection, and the Home collection selection survive the introduction of search tabs and any tab-storage migration. Closing the search page activates an adjacent retained note or Home.
 - Initial loading, no matches, retryable failure, loading another page, and background refresh are distinct states. Failed requests retain the query and filters; an empty result offers a clear way to remove restrictive filters.
 - A late response cannot replace results for a newer query/filter identity or reopen a closed tab. Same-query cached results may remain during refresh with a refresh indicator; different-query results cannot masquerade as the new response.
 - When semantic retrieval is unavailable or the index is incomplete, the page presents any usable fallback results with a concise capability/availability message. It does not turn a search failure or incomplete search into an unqualified "No results" message.
@@ -125,12 +126,12 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 
 ## Requirements
 
-- MUST use the existing global header, tab strip, location adapter, server-state lifecycle, and note-open contract. Search is a tab kind, not a separate application shell or replacement routing framework.
+- MUST use the existing global header, tab strip, location adapter, server-state lifecycle, and note-open contract. Search retains its existing internal tab identity within the single replaceable page; it shares the application shell and routing framework.
 - MUST keep eligibility, rank order, counts, continuations, canonical targets, and capability warnings consistent across the engine, HTTP adapter, and UI. Folder and type restrictions cannot be simulated by post-filtering a bounded HTTP page.
 - MUST preserve vault include/exclude rules, path normalization, request cancellation, safe rendering, and existing node/edit-session boundaries. Display source excerpts as text; a search read does not mutate notes or repair anchors.
 - MUST scope cached results by vault, submitted query, effective filters, and page identity. Preserve the index-invalidation contract in SPEC-0074.
-- MUST remain usable at desktop widths of 1280px and 1440px without horizontal page overflow. Results use the available workspace width with readable excerpt lengths and aligned compact metadata.
-- MUST use the existing `DESIGN.md` typography and color tokens: dark warm-ink result titles, coral emphasis for hover/focus/selection, and mono paths. Use an underline or other clear interaction cue; saturated blue result links from the concept image are not part of the approved direction.
+- MUST remain usable at desktop widths of 1280px and 1440px without horizontal page overflow. Results share the centred 960px measure with their header and filters, with readable excerpts and aligned compact metadata.
+- MUST use the existing `DESIGN.md` typography and color tokens: quiet teal navigable titles, neutral selection and match treatment, and mono paths; source previews use bounded mono excerpts. Use an underline or other clear interaction cue; saturated blue result links from the concept image are not part of the approved direction.
 - MUST support keyboard submission, tab navigation, filter controls, source links, pagination, and retries with accessible names and visible focus. Status and match highlighting cannot depend on color alone.
 - SHOULD use dense rows separated by hairlines, a compact scope toolbar, and short excerpts. Do not add decorative cards or make raw ranking scores part of the normal user flow.
 
@@ -147,3 +148,7 @@ The [search workspace concept](assets/search-workspace-concept.png) is the gener
 ## Documentation plan
 
 During implementation, reconcile SPEC-0090's search placement and rail-visibility rules without rewriting closed effort history. Update `web/CONTEXT.md` for tab and rail ownership, `pkg/app/web/CONTEXT.md` and the OpenAPI contract for search inputs/results, and any owning subsystem guidance whose invariant changes. Keep the implementation plan, decisions, validation evidence, and delivery status in the linked effort rather than appending execution history to this spec.
+
+## Change record
+
+2026-11-04: Reconciled replacement-page search navigation, the conditional note-tab strip, centred results, and quiet link/match treatment. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.
