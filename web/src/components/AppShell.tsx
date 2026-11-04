@@ -184,7 +184,7 @@ function GlobalSearch({ route }: { route: Route }) {
   );
 }
 
-function NotesNavTools() {
+function VaultTools() {
   const summaryQuery = useOntologySummaryQuery();
   const validationQuery = useValidationQuery();
   const summary = summaryQuery.data;
@@ -195,15 +195,17 @@ function NotesNavTools() {
     <div className="app-shell__notes-tools">
       {/* Unknown counts stay hidden rather than reading as zero, as while the
           first index after a start is still rebuilding. */}
+      {/* Each figure names its scope: typed notes, and note types (the types
+          Overview counts; embedded types such as user stories are not notes). */}
       {summary && summaryCountsKnown(summary) && (
-        <>
-          <span>
-            <b>{summary.typedNotes}</b> typed
-          </span>
-          <span>
-            <b>{summary.types?.length ?? 0}</b> types
-          </span>
-        </>
+        <span className="app-shell__vault-counts">
+          <b className="num">{summary.typedNotes}</b> typed notes
+          <span aria-hidden="true"> · </span>
+          <b className="num">
+            {summary.types?.filter((type) => type.role !== "embedded").length ?? 0}
+          </b>{" "}
+          note types
+        </span>
       )}
       <ValidationIssueBadge
         count={issueCount}
@@ -396,7 +398,7 @@ export function AppShell() {
           </nav>
           <GlobalSearch route={route} />
           <div className="app-shell__header-tools">
-            {route === "notes" ? <NotesNavTools /> : null}
+            <VaultTools />
             <AppearanceMenu />
             <KeyboardShortcuts />
           </div>
