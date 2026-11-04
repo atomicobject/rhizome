@@ -1,10 +1,22 @@
-import { publicTypeName } from "../lib/typeNames";
+import { Maximize, Minus, Plus, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
+import { publicTypeName } from "../lib/typeNames";
 import type { GraphEdge, GraphNode } from "../api/types";
 import { type GraphScope, kindLabel, truncatePath } from "./graphViewShared";
 import { type GraphDisplay, type GraphNodeClickOptions, useSigmaGraph } from "./useSigmaGraph";
 
 const UNTYPED_NODE_TYPE = "__untyped__";
+
+/** Legend keys for nodes that are not notes; their colors match `nodeColor` under a type-color map. */
+const CODE_NODE_TYPE = "__code__";
+
+const FOLDER_NODE_TYPE = "__module__";
+
+const KIND_ENTRIES = new Map([
+  [UNTYPED_NODE_TYPE, { label: "Untyped notes", color: "var(--text-faint)" }],
+  [CODE_NODE_TYPE, { label: "Code", color: "var(--type-8)" }],
+  [FOLDER_NODE_TYPE, { label: "Folders", color: "var(--type-3)" }],
+]);
 
 const EMPTY_PROBLEM_COUNTS: ReadonlyMap<string, number> = new Map();
 
@@ -17,6 +29,10 @@ type GraphTypeEntry = {
 };
 
 function graphTypeName(node: GraphNode): string {
+  if (node.kind === "code") return CODE_NODE_TYPE;
+
+  if (node.kind === "module") return FOLDER_NODE_TYPE;
+
   return publicTypeName(node.resolvedType) || UNTYPED_NODE_TYPE;
 }
 
@@ -34,6 +50,7 @@ export function GraphView({
   searchOnlyMatches,
   highlightTypes,
   showTypeLegend = false,
+  showFind = true,
   typeColors,
   typeLabels,
   zoomKey,
@@ -54,6 +71,8 @@ export function GraphView({
   searchOnlyMatches: boolean;
   highlightTypes?: ReadonlySet<string>;
   showTypeLegend?: boolean;
+  /** The Find box; a page with its own search turns it off so there is one search control. */
+  showFind?: boolean;
   typeColors?: Map<string, string>;
   /** Display labels for type names in the legend; raw names are the fallback. */
   typeLabels?: ReadonlyMap<string, string>;
@@ -75,6 +94,7 @@ export function GraphView({
     graphMatches,
     graphQuery,
     graphQueryValue,
+    graphReady,
     handleFitToView,
     handleZoomIn,
     handleZoomOut,
@@ -125,21 +145,27 @@ export function GraphView({
       counts.set(name, (counts.get(name) || 0) + 1);
     });
 
-    return Array.from(counts.entries())
-      .map(([name, count]) => ({
-        name,
-        label: name === UNTYPED_NODE_TYPE ? "Untyped" : typeLabels?.get(name) || name,
-        count,
-        color: typeColors?.get(name) || "var(--text-faint)",
-        selected: Boolean(highlightTypes?.size && highlightTypes.has(name)),
-      }))
-      .sort((left, right) => {
-        if (left.name === UNTYPED_NODE_TYPE) return 1;
+    return (
+      Array.from(counts.entries())
+        .map(([name, count]) => {
+          const kind = KIND_ENTRIES.get(name);
 
-        if (right.name === UNTYPED_NODE_TYPE) return -1;
+          return {
+            name,
+            label: kind?.label ?? (typeLabels?.get(name) || name),
+            count,
+            color: kind?.color ?? (typeColors?.get(name) || "var(--text-faint)"),
+            selected: Boolean(highlightTypes?.size && highlightTypes.has(name)),
+          };
+        })
+        // Types alphabetically, then untyped notes, code, and folders.
+        .sort((left, right) => {
+          const rank = (entry: GraphTypeEntry) =>
+            [UNTYPED_NODE_TYPE, CODE_NODE_TYPE, FOLDER_NODE_TYPE].indexOf(entry.name);
 
-        return left.label.localeCompare(right.label);
-      });
+          return rank(left) - rank(right) || left.label.localeCompare(right.label);
+        })
+    );
   }, [highlightTypes, nodes, typeColors, typeLabels]);
 
   const highlightedNodeCount = useMemo(() => {
@@ -159,7 +185,11 @@ export function GraphView({
   const problemNodeCount = [...problemCounts.values()].filter((count) => count > 0).length;
 
   return (
-    <div className="graph-container">
+    <div
+      className="graph-container"
+      data-graph-ready={graphReady ? "true" : undefined}
+      data-truncated={truncated ? "true" : undefined}
+    >
       <div
         ref={containerRef}
         className="graph-surface"
@@ -175,7 +205,7 @@ export function GraphView({
           title="Zoom in"
           aria-label="Zoom in"
         >
-          +
+          <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -184,7 +214,7 @@ export function GraphView({
           title="Zoom out"
           aria-label="Zoom out"
         >
-          -
+          <Minus size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -193,14 +223,14 @@ export function GraphView({
           title="Fit to view"
           aria-label="Fit to view"
         >
-          ⊙
+          <Maximize size={14} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
 
       <div className="graph-tools">
         <div className="graph-tool">
           <div className="graph-tool-header">
-            <div className="graph-tool-title">Find</div>
+            <div className="graph-tool-title">{showFind ? "Find" : "Graph options"}</div>
             <button
               type="button"
               className="graph-expand"
@@ -209,19 +239,21 @@ export function GraphView({
               {graphExpanded ? "Less" : "More"}
             </button>
           </div>
-          <input
-            className="graph-search"
-            aria-label="Search graph nodes"
-            value={graphQuery}
-            onChange={(e) => setGraphQuery(e.target.value)}
-            placeholder="Search nodes"
-          />
-          {graphQueryValue && (
+          {showFind && (
+            <input
+              className="graph-search"
+              aria-label="Search graph nodes"
+              value={graphQuery}
+              onChange={(e) => setGraphQuery(e.target.value)}
+              placeholder="Search nodes"
+            />
+          )}
+          {showFind && graphQueryValue && (
             <div className="graph-search-meta" role="status">
               {graphMatches.size} {graphMatches.size === 1 ? "match" : "matches"}
             </div>
           )}
-          {graphExpanded && (
+          {showFind && graphExpanded && (
             <label className="graph-toggle">
               <input
                 type="checkbox"
@@ -343,7 +375,21 @@ export function GraphView({
         </aside>
       )}
 
-      {truncated && <div className="graph-banner">Graph truncated for performance.</div>}
+      {truncated && (
+        <div className="graph-banner" role="status">
+          <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span>
+            Part of the graph is hidden for performance. Pick a folder or file to see all of its
+            links.
+          </span>
+        </div>
+      )}
+      {!graphReady && (
+        <div className="graph-notice" role="status">
+          <div className="graph-notice-title">Laying out graph</div>
+          <div className="graph-notice-body">Arranging {countLabel(nodes.length, "node")}…</div>
+        </div>
+      )}
       {needsIndex && (
         <div className="graph-notice">
           <div className="graph-notice-title">Graph unavailable</div>

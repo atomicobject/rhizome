@@ -82,7 +82,7 @@ describe("ExplorerWorkspace", () => {
     const utils = render(<ExplorerWorkspace vaultName="rhizome" />);
 
     async function renderer() {
-      await screen.findByPlaceholderText("Search nodes");
+      await screen.findByRole("img", { name: /^Graph of / });
       const sigma = sigmaOn.mock.contexts.at(-1);
 
       if (!(sigma instanceof Sigma)) throw new Error("graph pane never mounted a renderer");
@@ -387,7 +387,7 @@ describe("ExplorerWorkspace", () => {
     const pushState = vi.spyOn(window.history, "pushState");
 
     renderExplorer();
-    const search = screen.getByPlaceholderText("Search notes + code");
+    const search = screen.getByRole("searchbox", { name: "Search notes and code" });
     fireEvent.focus(search);
     fireEvent.change(search, { target: { value: "guide" } });
     const suggestion = await screen.findByRole("button", { name: /src\/guide\.html/i });
@@ -409,7 +409,7 @@ describe("ExplorerWorkspace", () => {
     const explorer = renderExplorer();
     const sigma = await explorer.renderer();
     const displayHidden = (id: string) => sigma.getNodeDisplayData(id)?.hidden;
-    const search = screen.getByPlaceholderText("Search notes + code");
+    const search = screen.getByRole("searchbox", { name: "Search notes and code" });
     fireEvent.change(search, { target: { value: "old" } });
     fireEvent.keyDown(search, { key: "Enter" });
     fireEvent.change(search, { target: { value: "current" } });

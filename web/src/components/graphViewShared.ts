@@ -147,6 +147,9 @@ export function nodeColor(
 
   if (node.kind === "module") return "var(--type-3)";
 
+  // Beside type colors, code is one neutral so the legend can name it.
+  if (typeColors && node.kind === "code") return NEUTRAL_COLOR;
+
   if (node.kind === "embedded") return "var(--type-4)";
 
   if (node.community && communityColors.has(node.community)) {

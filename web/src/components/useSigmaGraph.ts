@@ -2,7 +2,11 @@ import { createNodeImageProgram } from "@sigma/node-image";
 import Graph from "graphology";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
-import { drawDiscNodeLabel, type NodeHoverDrawingFunction } from "sigma/rendering";
+import {
+  drawDiscNodeLabel,
+  type NodeHoverDrawingFunction,
+  type NodeLabelDrawingFunction,
+} from "sigma/rendering";
 import type { GraphEdge, GraphNode } from "../api/types";
 import {
   computeEdgeStyle,
@@ -130,6 +134,33 @@ function themedNodeHover(
   };
 }
 
+/**
+ * How many of the most-connected notes and folders keep a label at every zoom,
+ * so the default view orients the reader. Code symbols are left out: their
+ * short names ("types", "handle") do not say where the reader is.
+ */
+const LANDMARKS = 20;
+
+// WHY: Sigma's default label has no backing, so it disappears over dense edges
+// and nodes. This draws the same label on a halo of the surface color.
+function haloLabel(
+  colors: () => ThemeColors,
+): NodeLabelDrawingFunction<SigmaNodeAttrs, SigmaEdgeAttrs> {
+  return (context, data, settings) => {
+    if (!data.label) return;
+    const size = settings.labelSize;
+    const x = data.x + data.size + 3;
+    const y = data.y + size / 3;
+    context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
+    context.lineJoin = "round";
+    context.lineWidth = 4;
+    context.strokeStyle = colors().surface;
+    context.strokeText(data.label, x, y);
+    context.fillStyle = colors().label;
+    context.fillText(data.label, x, y);
+  };
+}
+
 /** Rebuild the API graph node a click refers to from its renderer attributes. */
 function graphNodeFromAttrs(id: string, attrs: SigmaNodeAttrs): GraphNode {
   return {
@@ -222,6 +253,8 @@ export function useSigmaGraph({
   const refreshRef = useRef<number | null>(null);
 
   const [hover, setHover] = useState<GraphHoverInfo | null>(null);
+  // The data the renderer last drew; the graph is ready when it matches the current data.
+  const [drawn, setDrawn] = useState<readonly GraphNode[] | null>(null);
   const [graphQuery, setGraphQuery] = useState("");
   const [graphFilter, setGraphFilter] = useState(false);
   const [graphExpanded, setGraphExpanded] = useState(false);
@@ -407,6 +440,7 @@ export function useSigmaGraph({
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
+      defaultDrawNodeLabel: haloLabel(() => colorsRef.current ?? readThemeColors()),
       minCameraRatio: CAMERA.minRatio,
       maxCameraRatio: CAMERA.maxRatio,
       zIndex: true,
@@ -440,6 +474,7 @@ export function useSigmaGraph({
         size: result.size,
         color: result.color,
         label: result.label,
+        forceLabel: Boolean(attrs.landmark && result.label),
       };
     });
 
@@ -642,6 +677,19 @@ export function useSigmaGraph({
 
     const graph: SigmaGraph = new Graph();
 
+    const landmarks = new Set(
+      nodes
+        .filter((node) => node.kind !== "code")
+        .sort(
+          (a, b) =>
+            (connectionCounts.get(b.id) ?? 0) - (connectionCounts.get(a.id) ?? 0) ||
+            a.id.localeCompare(b.id),
+        )
+        .slice(0, LANDMARKS)
+        .filter((node) => (connectionCounts.get(node.id) ?? 0) > 0)
+        .map((node) => node.id),
+    );
+
     const total = Math.max(1, nodes.length);
     const radius = Math.max(80, Math.sqrt(total) * 28);
 
@@ -676,6 +724,7 @@ export function useSigmaGraph({
         pageRank: n.pageRank,
         score: n.score,
         problemCount: problemCountsRef.current.get(n.id) ?? 0,
+        landmark: landmarks.has(n.id),
         baseSize,
         colorValue,
         baseColor,
@@ -765,6 +814,8 @@ export function useSigmaGraph({
       stateRef.current.hoverNodeID = null;
       graphRef.current = graph;
       sigma.setGraph(graph);
+      // Ready once the renderer has drawn this graph, not merely received it.
+      sigma.once("afterRender", () => setDrawn(nodes));
       scheduleRefresh();
     };
 
@@ -786,7 +837,17 @@ export function useSigmaGraph({
     );
 
     return runLayout({ nodes: layoutNodes, edges: layoutEdges, iterations }, install);
-  }, [communityColors, edges, empty, needsIndex, nodes, scheduleRefresh, scope.mode, typeColors]);
+  }, [
+    communityColors,
+    connectionCounts,
+    edges,
+    empty,
+    needsIndex,
+    nodes,
+    scheduleRefresh,
+    scope.mode,
+    typeColors,
+  ]);
 
   // A theme switch re-reads the token colors and repaints in place: no new
   // renderer, no layout run, and the camera stays where it was.
@@ -889,6 +950,8 @@ export function useSigmaGraph({
     graphMatches,
     graphQuery,
     graphQueryValue,
+    // Nothing to draw counts as settled, so a caller waiting on readiness never hangs.
+    graphReady: empty || Boolean(needsIndex) || drawn === nodes,
     handleFitToView,
     handleZoomIn,
     handleZoomOut,
