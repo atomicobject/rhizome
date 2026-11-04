@@ -1850,6 +1850,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-items: start;
   gap: var(--sp-3);
 }
 
@@ -2369,14 +2370,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 /* Grid briefs lead with the title (14/500, up to two lines), then one muted
-   13px row with the type at left and the age at right. Every title reserves
-   two lines, so type rows and summaries share baselines across a grid row
-   whether or not a title wraps. */
+   13px row with the type at left and the age at right. */
 .configured-card--cards.configured-card--brief .configured-card__title {
   display: grid;
   align-content: start;
   order: -1;
-  min-height: calc(2 * 1.3em);
   margin-bottom: 3px;
   font-size: var(--fs-base);
 }
