@@ -105,9 +105,9 @@ typography:
     letterSpacing: "0"
   label:
     fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "12px"
-    fontWeight: 600
-    lineHeight: 1.3
+    fontSize: "13px"
+    fontWeight: 500
+    lineHeight: 1.35
     letterSpacing: "0"
   mono:
     fontFamily: "JetBrains Mono, ui-monospace, Menlo, Consolas, monospace"
@@ -315,7 +315,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 - **Prose** (Inter 400, 15px, 1.6): note body text, held to a 540px measure (65–75 characters).
 - **Body** (Inter 400, 14px, 1.45): the UI base: table cells, sidebar rows, tabs, controls, and popovers. Title cells use 500.
 - **Secondary** (Inter 500, 13px): column heads, document tabs, property and record labels, tool buttons, and the right pane's tabs.
-- **Label** (Inter 600, 12px, 1.3, `--label-font` with `--label-color`): the one style for rail group heads, column heads, the Properties heading, finder group headings, and fact labels; never a block heading over rows, which takes the section heading. Sentence case, no tracking, no uppercase eyebrows.
+- **Label** (Inter 500, 13px, 1.35, `--label-structure`, also exposed as `--label-font`, with `--label-color`): the one style for rail group heads, column heads, the Properties heading, finder group headings, and fact labels; never a block heading over rows, which takes the section heading. Sentence case, no tracking, no uppercase eyebrows.
 - **Mono** (JetBrains Mono 500, 12px): identifiers, paths, code, and kbd hints, nothing else. Counts, dates, ages, and stats strips are Inter with tabular figures (`.num`), never mono. `code`, `kbd`, `samp`, and `pre` default to JetBrains Mono globally, so mono never falls back to the browser's Courier.
 
 ### Named Rules
@@ -327,6 +327,8 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 **The Fixed Scale Rule.** Product type uses the fixed token sizes, not viewport-fluid scaling, so dense tools stay predictable at every window width.
 
 **The Human Label Rule.** Outside the Ontology Schema tab and code, show types and fields by their human display labels in sentence case ("Acceptance criteria", "Technical spec", "Effort note", "Next step"), never raw identifiers (`AcceptanceCriterion`, `featureAreas`): type `label`/`pluralLabel`, humanized field names, enum labels, and note titles with their Markdown stripped. An exact identifier appears only as secondary mono evidence where a reader inspects schema, and otherwise stays in `title` attributes. The helpers live in `web/src/lib/labels.ts` and `useTypeLabel`.
+
+**The Structural Label Floor.** Sub-group headers, sidebar sublabels, rail sections and groups, legends, and column headers are at least 13px/500. Use `--label-structure: 500 13px/1.35 var(--font-sans)`. 12px is reserved for mono paths, IDs, and data ticks such as chart axes; top-bar counts are excluded. Sidebar rows share one 16px leading slot: saved views use their table icon, types their shared palette dot, and groups their disclosure chevron. Sibling labels align in one column; nested types retain their hierarchy indentation. An empty type row is hidden only when a saved view with the same display name exists in its group.
 
 **The Section Outranks Rows Rule.** A block or section heading is 15/600 with 10px below (`--section-font`, `--section-gap`, `.section-heading`); row titles under it stay 14/500 and metadata 13px. A 12px label never heads a block of rows.
 
@@ -400,7 +402,7 @@ The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and
 
 ### Sidebar
 
-The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list; GraphQL holds Docs and History, with Refetch schema, Keyboard shortcuts, and Settings at its foot; Tasks holds All tasks and one row per registered task with its next due time, or, when its last run failed, the risk mark and the word "Failed" in `--chrome-risk`. A type group that also holds saved views names each set with a 12/600 muted "Views" and "Types" subheading (`.notes-left-rail__subhead`), since a view is often named after the type it shows. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. A section with a plain list (Tasks, GraphQL) uses the shared `.sidebar-nav` classes (`__head`, `__list`, `__row`, `__name`, `__aside`, `__icon`, `__list--foot`) from `workbench.css`. Buttons and selects on the sidebar are chrome-tinted (`--chrome-raised`, chrome text), never bright surface boxes. There is no note list; ⌘P finds notes.
+The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list; GraphQL holds Docs and History, with Refetch schema, Keyboard shortcuts, and Settings at its foot; Tasks holds All tasks and one row per registered task with its next due time, or, when its last run failed, the risk mark and the word "Failed" in `--chrome-risk`. A type group that also holds saved views names each set with a 13/500 muted "Views" and "Types" subheading (`.notes-left-rail__subhead`), since a view is often named after the type it shows. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. A section with a plain list (Tasks, GraphQL) uses the shared `.sidebar-nav` classes (`__head`, `__list`, `__row`, `__name`, `__aside`, `__icon`, `__list--foot`) from `workbench.css`. Buttons and selects on the sidebar are chrome-tinted (`--chrome-raised`, chrome text), never bright surface boxes. There is no note list; ⌘P finds notes.
 
 ### View Header
 

@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 
+import { typeAccentColor } from "../lib/typeAccent";
 import { DisclosureChevron } from "./DisclosureChevron";
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
 import { flattenRailNodes, label, type RailGroup, type RailNode } from "./noteRailGroups";
@@ -356,6 +357,12 @@ export function TypeTree({
             className={`ontology-type-row${depth > 1 ? " ontology-type-row--child" : ""}${node.kind === "interface" ? " ontology-type-row--interface" : ""}${disabled ? " ontology-type-row--embedded" : ""}${selected === item.name ? " is-selected" : ""}`}
             onClick={() => onSelect(item.name)}
           >
+            <span className="notes-left-rail__type-slot" aria-hidden="true">
+              <span
+                className="notes-left-rail__type-dot"
+                style={{ background: typeAccentColor(item.name) }}
+              />
+            </span>
             <span className="ontology-type-row__label">{label(item)}</span>
             <ValidationIssueBadge
               count={typeIssues}

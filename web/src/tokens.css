@@ -88,7 +88,8 @@
 
   /* Label: the one style for rail groups, column heads, finder groups, and
      fact labels. Sentence case; hierarchy comes from weight, not tracking. */
-  --label-font: 600 var(--fs-xs) / 1.3 var(--font-sans);
+  --label-structure: 500 13px / 1.35 var(--font-sans);
+  --label-font: var(--label-structure);
   --label-color: var(--text-muted);
 
   /* Section heading: a block or section title in a view body (Briefing

@@ -111,7 +111,7 @@
   height: 24px;
   padding: 0 0 3px 8px;
   color: var(--chrome-muted);
-  font: var(--label-font);
+  font: var(--label-structure);
 }
 
 /* ---- Sidebar navigation ----
@@ -225,4 +225,79 @@
   margin-top: auto;
   padding-top: var(--sp-3);
   border-top: 1px solid var(--chrome-raised);
+}
+
+/* One leading slot for icons, type dots, and group chevrons. */
+.workbench-sidebar .notes-left-rail .ontology-type-row-wrap {
+  position: relative;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row,
+.workbench-sidebar .notes-left-rail .ontology-view-row {
+  gap: 8px;
+  padding-left: 8px;
+}
+
+.workbench-sidebar
+  .notes-left-rail
+  .notes-left-rail__section
+  > .ontology-type-row.ontology-type-row--group {
+  padding-left: 32px;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row__collapse-spacer {
+  display: none;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row-wrap > .ontology-type-row__collapse {
+  position: absolute;
+  right: 32px;
+  width: 24px;
+  height: 24px;
+}
+
+.workbench-sidebar .notes-left-rail .notes-left-rail__section > .ontology-type-row__collapse {
+  left: 4px;
+  right: auto;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row--group > .ontology-type-row__collapse {
+  flex: 0 0 16px;
+  margin-left: -24px;
+  margin-right: 0;
+}
+
+.workbench-sidebar
+  .notes-left-rail
+  .ontology-type-row-wrap:has(> .ontology-type-row__collapse):not(.notes-left-rail__section)
+  > .ontology-type-row {
+  padding-right: 60px;
+}
+
+.notes-left-rail__type-slot {
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+}
+
+.notes-left-rail__type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.workbench-sidebar
+  .notes-left-rail
+  .ontology-type-row-wrap:has(> .ontology-type-row__collapse):not(.notes-left-rail__section)
+  .ontology-type-row__count {
+  position: absolute;
+  right: 10px;
+}
+
+/* Record-rail type groups and legends are structural labels too. */
+.workbench .notes-right-rail .rail-row > .rail-row__type,
+.workbench .notes-right-rail .rail-legend {
+  font: var(--label-structure);
 }
