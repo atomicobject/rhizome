@@ -1053,13 +1053,6 @@
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
-.status-mark--risk .status-mark__shape {
-  border: 0;
-  border-radius: 0;
-  background: var(--accent);
-  transform: rotate(45deg) scale(0.78);
-}
-
 .status-mark--muted .status-mark__shape {
   border-style: dashed;
 }
@@ -2491,8 +2484,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 /* 120px labels fit two-word names such as "Governing specs" on one line. The
    rail-scoped selector outranks the shell's older 104px column. */
-.view-record__fields > div,
-.notes-right-rail article.view-record .view-record__fields > div {
+.view-record__fields > div {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   align-items: center;
@@ -2601,16 +2593,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 /* The default view in the custom-view menu: a quiet word, not a dot. */
 .view-selector__menu .view-selector__default {
-  width: auto;
-  height: auto;
   margin-left: auto;
   padding-left: var(--sp-3);
-  border-radius: 0;
-  background: none;
   color: var(--text-faint);
   font-size: var(--fs-xs);
   font-weight: 400;
-  opacity: 1;
 }
 
 /* An age ("3h", "30d") is a reading, not evidence: sans with tabular figures. */

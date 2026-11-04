@@ -1746,17 +1746,6 @@
   margin-right: -3px;
 }
 
-/* The target's default view: a small dot in the text color, named by the
-   segment's tooltip and accessible description. */
-.view-selector__default {
-  flex: none;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.7;
-}
-
 .view-selector__menu {
   position: fixed;
   z-index: 30;
@@ -1814,10 +1803,6 @@
   font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.005em;
-}
-
-.notes-right-rail .view-record__fields > div {
-  grid-template-columns: 104px minmax(0, 1fr);
 }
 
 .notes-right-rail .view-record__fields dt,

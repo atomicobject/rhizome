@@ -371,10 +371,10 @@ The classes live in `base.css`; use them rather than restyling a button per scre
 
 - **Primary (`.button.button--primary`):** Deep Red (`--accent-fill`) with white text, 13/600, for the one commit action on a surface (Save, Run, Send, execute). Hover deepens to `--accent-fill-hover`. GraphiQL's execute button is a 28px primary labelled "Run ⌘↵".
 - **Secondary (`.button`):** 28px, white surface, 1px `border-strong`, 6px corners, 13/500 ink. Toolbar actions, Refresh validation, Pause all, Dismiss, pagers, and the 28px icon-only refresh share these metrics. Hover tints to `surface-tint`, never red. Routine actions are never red, as text or fill.
-- **Ghost (`.button.button--ghost`):** Filter, View, the pane toggle, Copy link, Copy beside a command, an HTML note's Refresh and Open, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
+- **Ghost (`.button.button--ghost`):** Filter, Display (the view's display options, distinct from the saved Views menu), the pane toggle, Copy link, Copy beside a command, an HTML note's Refresh and Open, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
 - **Disabled:** `surface-sunk` with `border` and faint ink, never a pale red.
 - **Edit toggle:** 13/600 muted text with a 1px border and 4px corners; in a session it becomes Editing, Review, Save, and Done.
-- **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the View popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
+- **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the Display popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
 
 ### Chips, Links, and Counts
 
@@ -394,15 +394,15 @@ A configured view is one result set with presentations chosen from text tabs (Br
 
 ### Tables
 
-Column heads are sticky, 34px, 13/500 muted, with an ink sort arrow. Rows are 36px with a `border-faint` hairline; two-line rows are 56px with a 13px muted summary under the 14/500 title. Group headers are sticky 44px bands with a caret, a status mark, the 14/600 group label, and a muted count. Hover tints the row; a selected row takes `--selection` with a 3px `--selection-edge` bar at its left, so it never reads as an error. Focus is one inset ring around the row. Ids, dates, and numbers are mono with tabular figures; ids are 12px muted. Relation values are teal links. Staged edits tint cells warning gold and mark the title with a dot.
+Column heads are sticky, 34px, 13/500 muted, with an ink sort arrow. Rows are 36px with a `border-faint` hairline; two-line rows are 56px with a 13px muted summary under the 14/500 title. Group headers are sticky 44px bands with a caret, a status mark, the 14/600 group label, and a muted count. Hover tints the row; a selected row takes `--selection` with a 3px `--selection-edge` bar at its left, so it never reads as an error. Focus is one inset ring around the row. Ids, dates, and numbers are mono with tabular figures; ids are 12px muted. Relation values are teal links; relative ages are sans. Staged edits tint cells warning gold and mark the title with a dot. A grouped table hides the grouped field's column, and a column hides by default when it is empty or one value fills more than 90% of at least 10 rows; the footer names hidden columns and the Display menu shows them again. Select checkboxes appear on hover or keyboard focus for every row.
 
 ### Board and Cards
 
-Board columns are tinted bands with a hairline border and 6px corners holding flat white cards, in schema enum order with empty values included and collapsed values as 34px strips. A move stages an edit until commit or discard, and every drag has a keyboard equivalent. Cards are for low-cardinality types: dense hairline cards in a 260px auto-fill grid.
+Board columns are tinted bands with a hairline border and 6px corners holding flat white cards, in schema enum order with every non-empty column open by default; empty or collapsed values are 140px horizontal headers with mark, label, count, and chevron, never rotated text. Staleness is muted text with a clock ("Unchanged 30+ days"), never a gold pill, and relation values on cards are plain teal links. A move stages an edit until commit or discard, and every drag has a keyboard equivalent. Cards are for low-cardinality types: dense hairline cards in aligned rows of a 260px auto-fill grid, with summaries clamped to three lines. A group header everywhere is the label followed by its count ("Proposed 16").
 
 ### Status Marks
 
-Status is a 9px shape plus a label driven by the schema tone: hollow ring for neutral, half-filled blue ring for in progress, filled teal dot for success, gold triangle for warning, an 11px red disc with an exclamation cut out for risk (Failed, Needs attention, errors), and a dashed ring for muted. The risk mark is never a rotated square, which reads as the brand diamond. Colour supports the shape and never stands alone; where a mark has no visible label (a sidebar row), it carries `aria-label` and `title`. On the chrome, the risk mark takes `--chrome-risk`.
+Status is a 9px shape plus a label driven by the schema tone: hollow ring for neutral, half-filled blue ring for in progress, filled teal dot for success, gold triangle for warning, an 11px red disc with an exclamation cut out for risk (Failed, Needs attention, errors), and a dashed ring for muted. The risk mark is never a rotated square, which reads as the brand diamond. The host and the kit (`web/kit/statusMark.tsx`, used by every bundled view) draw the same shapes; with no schema tone, a mark falls back to its lifecycle position (done is the success dot, dropped the muted ring, anything moving the half ring). Colour supports the shape and never stands alone; where a mark has no visible label (a sidebar row), it carries `aria-label` and `title`. On the chrome, the risk mark takes `--chrome-risk`.
 
 ### Banners
 
@@ -410,7 +410,7 @@ A condition that affects a whole screen (a new task, a paused queue, unavailable
 
 ### Right Pane
 
-The pane has a 40px header with its 15/600 title or Info / Outline / Graph tabs (13/500, ink underline when selected) and a close button. Record shows the row's 16/600 title, a muted summary, and 30px field rows with 13/500 muted labels in a 104px column.
+The pane has a 40px header with its 15/600 title or Info / Outline / Graph tabs (13/500, ink underline when selected) and a close button. Record shows the row's 16/600 title, a muted summary, and 30px field rows with 13/500 muted labels in a 120px column. The id sits on its own 12px mono line under the title with Open at the right, and an empty value reads "Not set" in muted ink with its edit control on hover or focus.
 
 ### Note Reader
 
