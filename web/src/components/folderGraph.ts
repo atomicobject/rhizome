@@ -17,14 +17,7 @@ const NOTE_SPLIT_SHARE = 0.2;
 
 const NOTE_MERGE_SHARE = 0.05;
 
-/**
- * Beside the spanning tree, a link carrying at least this share of the
- * heaviest one is drawn by default. The rest are minor links, drawn only while
- * one of their folders is hovered.
- */
-const MAJOR_SHARE = 0.2;
-
-/** The edge kind of a minor link; the renderer hides it until one of its folders is hovered. */
+/** Cross-folder links appear only while one of their folders is hovered. */
 export const MINOR_FOLDER_LINK = "folder-minor";
 
 function nodePath(node: GraphNode) {
@@ -67,7 +60,8 @@ export type FolderGraph = { nodes: GraphViewNode[]; edges: GraphEdge[]; truncate
 /**
  * The root Explorer view: one node per folder, sized by what it holds and
  * colored by what most of it is (a note type, code, or untyped notes), with
- * links counted between folders. A folder holding a large share of the vault
+ * a containment tree and secondary links counted between folders. A folder
+ * holding a large share of the vault
  * opens into its subfolders, and its small subfolders fold back into one node,
  * so no single node swallows the picture and none is noise. Selecting a folder
  * loads its own graph.
@@ -140,23 +134,53 @@ export function aggregateByFolder(
       notes < totalNotes * NOTE_MERGE_SHARE;
 
     const path = merge ? parent : leaf.path;
-    const folder = folders.get(path) ?? { path, weight: 0, members: [], merged: 0 };
+    const key = merge ? `${parent}/(smaller folders)` : path;
+    const folder = folders.get(key) ?? { path, weight: 0, members: [], merged: 0 };
     folder.weight += leaf.weight;
     folder.members.push(...leaf.members);
     folder.merged += merge ? 1 : 0;
-    folders.set(path, folder);
+    folders.set(key, folder);
 
-    for (const node of leaf.members) folderOf.set(node.id, path);
+    for (const node of leaf.members) folderOf.set(node.id, key);
   }
 
-  const nodes: GraphViewNode[] = [...folders.values()].map((folder) => {
-    const name = folder.path || "Top-level files";
-    const label = folder.merged > 0 ? `${name} · ${folder.merged} smaller folders` : name;
+  // Retain every ancestor, even when all its contents were split into children.
+  for (const folder of folders.values()) {
+    const parts = folder.path.split("/").filter(Boolean);
+
+    for (let depth = 0; depth <= parts.length; depth += 1) {
+      const path = parts.slice(0, depth).join("/");
+
+      if (!folders.has(path)) {
+        const members = graph.nodes.filter(
+          (node) =>
+            !path ||
+            folderSegments(node).join("/") === path ||
+            folderSegments(node).join("/").startsWith(`${path}/`),
+        );
+
+        folders.set(path, {
+          path,
+          members,
+          weight: members.reduce((sum, node) => sum + weightOf(node), 0),
+          merged: 0,
+        });
+      }
+    }
+  }
+
+  if (folders.has("")) {
+    folders.set("", { path: "", members: [...graph.nodes], weight: total, merged: 0 });
+  }
+
+  const nodes: GraphViewNode[] = [...folders.entries()].map(([key, folder]) => {
+    const name = folder.path || "Vault";
+    const label = folder.merged > 0 ? `${folder.merged} smaller folders` : name;
 
     const fill = folderFill(folder.members);
 
     return {
-      id: `folder:${folder.path}`,
+      id: `folder:${key}`,
       kind: "module",
       path: folder.path,
       label: `${label}  ${contents(folder.members)}`,
@@ -180,43 +204,30 @@ export function aggregateByFolder(
     weights.set(key, entry);
   }
 
-  // The main roads: a maximum spanning tree, so every folder stays attached
-  // by its strongest links with no cycle to cross, plus any heavy link.
-  const ranked = [...weights].sort((a, b) => b[1].weight - a[1].weight || a[0].localeCompare(b[0]));
-  const root = new Map<string, string>();
+  const edges: GraphEdge[] = [...folders.entries()].flatMap(([key, folder]) => {
+    if (!key) return [];
 
-  const find = (path: string): string => {
-    const parent = root.get(path) ?? path;
+    const parent = folder.merged ? folder.path : folder.path.split("/").slice(0, -1).join("/");
 
-    if (parent === path) return path;
-    const top = find(parent);
-    root.set(path, top);
+    return [
+      {
+        source: `folder:${parent}`,
+        target: `folder:${key}`,
+        kind: "folder-containment",
+        weight: 1,
+      },
+    ];
+  });
 
-    return top;
-  };
-
-  const max = ranked[0]?.[1].weight ?? 0;
-  const major = new Set<string>();
-
-  for (const [key, entry] of ranked) {
-    const [a, b] = [find(entry.source), find(entry.target)];
-
-    if (a !== b) root.set(a, b);
-
-    if (a !== b || entry.weight >= max * MAJOR_SHARE) major.add(key);
-  }
-
-  const edges: GraphEdge[] = [...weights.keys()].sort().map((key) => {
-    const entry = weights.get(key)!;
-
-    return {
+  for (const [, entry] of [...weights].sort(([a], [b]) => a.localeCompare(b))) {
+    edges.push({
       source: `folder:${entry.source}`,
       target: `folder:${entry.target}`,
-      kind: major.has(key) ? "folder" : MINOR_FOLDER_LINK,
+      kind: MINOR_FOLDER_LINK,
       weight: entry.weight,
       relationLabel: `${fmt(entry.weight)} links`,
-    };
-  });
+    });
+  }
 
   return { nodes, edges, truncated: graph.truncated ?? false };
 }

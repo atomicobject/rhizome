@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import type { FileView, TreeEntry } from "../api/types";
+import { FileText } from "lucide-react";
+import type { FileView } from "../api/types";
 import { convertWikilinks, resolveLinkTarget, stripFrontmatter } from "../lib/content";
 import { Markdown } from "./markdown/Markdown";
 
@@ -23,11 +24,6 @@ function fencedCodeMarkdown(content: string, lang?: string) {
   return `${fence}${lang || ""}\n${content}\n${fence}`;
 }
 
-type ModuleFocus = {
-  path: string;
-  entries: TreeEntry[];
-};
-
 function getFileName(path: string) {
   if (!path) return "";
   const parts = path.split("/");
@@ -48,17 +44,13 @@ function getParentPath(path: string) {
 export function FilePanel({
   file,
   line,
-  moduleFocus,
   onClose,
   onSelectFile,
-  onFocusModule,
 }: {
   file: FileView | null;
   line?: number;
-  moduleFocus: ModuleFocus | null;
   onClose: () => void;
   onSelectFile: (path: string, kind?: string) => void;
-  onFocusModule: (path: string) => void;
 }) {
   const selectedLineRef = useRef<HTMLSpanElement>(null);
 
@@ -109,31 +101,10 @@ export function FilePanel({
     selectedLineRef.current?.scrollIntoView?.({ block: "center" });
   }, [file?.path, targetLine]);
 
-  const moduleEntries = useMemo(() => {
-    if (!moduleFocus) return [];
-
-    return [...moduleFocus.entries].sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
-
-      return a.name.localeCompare(b.name);
-    });
-  }, [moduleFocus]);
-
-  if (!file && !moduleFocus) return null;
-
-  const label = moduleFocus ? "Folder" : file?.kind === "note" ? "Note" : "Code";
-
-  const name = moduleFocus
-    ? getFileName(moduleFocus.path) || moduleFocus.path
-    : file
-      ? getFileName(file.path)
-      : "";
-
-  const parent = moduleFocus
-    ? getParentPath(moduleFocus.path) || "/"
-    : file
-      ? getParentPath(file.path) || "/"
-      : "";
+  if (!file) return null;
+  const label = file.kind === "note" ? "Note" : "Code";
+  const name = getFileName(file.path);
+  const parent = getParentPath(file.path) || "/";
 
   return (
     <section className="explorer-pane">
@@ -154,36 +125,6 @@ export function FilePanel({
       </header>
 
       <div className="explorer-pane__body">
-        {moduleFocus && (
-          <section className="explorer-pane__section">
-            <h3>
-              Contents
-              <span>{moduleEntries.length}</span>
-            </h3>
-            <ul className="explorer-pane__list">
-              {moduleEntries.map((entry) => (
-                <li key={entry.path}>
-                  <button
-                    type="button"
-                    className="explorer-pane__list-link"
-                    onClick={() =>
-                      entry.kind === "dir"
-                        ? onFocusModule(entry.path)
-                        : onSelectFile(entry.path, entry.kind)
-                    }
-                    title={entry.path}
-                  >
-                    <span className="explorer-pane__list-icon">
-                      {entry.kind === "dir" ? "📁" : entry.kind === "note" ? "📄" : "💻"}
-                    </span>
-                    <span className="explorer-pane__list-name">{entry.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
         {file && topLinks.length > 0 && (
           <section className="explorer-pane__section">
             <h3>
@@ -201,7 +142,9 @@ export function FilePanel({
                     }
                     title={note.path}
                   >
-                    <span className="explorer-pane__list-icon">📄</span>
+                    <span className="explorer-pane__list-icon" aria-hidden="true">
+                      <FileText size={16} strokeWidth={1.5} absoluteStrokeWidth />
+                    </span>
                     <span className="explorer-pane__list-name">{note.label}</span>
                   </button>
                 </li>

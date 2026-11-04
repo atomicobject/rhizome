@@ -535,14 +535,14 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
   if (attrs.kind === "folder-minor" && !isFocus)
     return { hidden: true, color: edgeFaint, size: 0.5, label: "" };
 
-  if (attrs.kind === "folder" || attrs.kind === "folder-minor") {
+  if (attrs.kind === "folder-containment" || attrs.kind === "folder-minor") {
     const faded = (hasHighlighting || state.hoverNodeID !== null) && !isFocus;
 
     return {
       hidden: false,
       color: faded ? edgeFaint : state.colors.neutral,
       size: clamp(attrs.size * 0.5, 1, 2),
-      label,
+      label: attrs.kind === "folder-containment" ? "" : label,
     };
   }
 

@@ -28,8 +28,11 @@ test("focuses folders and supports search suggestions", async ({ page }) => {
   const rail = page.locator(".explorer-rail");
 
   await rail.getByRole("button", { name: /\bsrc$/i }).click();
-  await expect(page.getByRole("heading", { name: "src" })).toBeVisible();
-  await expect(page.getByText("Contents")).toBeVisible();
+  await expect(rail.getByRole("button", { name: /\bsrc$/i })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.locator(".explorer-pane")).toHaveCount(0);
 
   const search = page.getByRole("searchbox", { name: "Search notes and code" });
   await search.fill("task-flow");

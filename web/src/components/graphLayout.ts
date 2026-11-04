@@ -7,9 +7,8 @@ export type LayoutInput = {
   edges: { source: string; target: string; weight: number }[];
   iterations: number;
   /**
-   * A summary graph of a few heavy nodes (Explorer's folders): start from a
-   * radial tree of its links, so ForceAtlas2 relaxes an uncrossed picture
-   * instead of untangling a circle.
+   * Seed a radial tree. Explorer keeps its containment rings around the vault;
+   * other summary graphs relax the seed with ForceAtlas2.
    */
   radial?: boolean;
 };
@@ -28,7 +27,8 @@ const WORKER_ORDER = 400;
 
 /**
  * Starting positions for a summary graph: a radial tree around its heaviest
- * node. The tree keeps each node's heaviest link (a maximum spanning tree),
+ * node, or the vault root for Explorer. Containment edges already form a tree;
+ * other graphs keep each node's heaviest link (a maximum spanning tree),
  * every subtree takes an angular sector sized by its leaves, and each level
  * sits one ring further out, so the links that matter start uncrossed and
  * ForceAtlas2 only has to relax them. Nodes in other components hang off the
@@ -53,7 +53,7 @@ export function radialSeed(
     (a, b) => (strength.get(b) ?? 0) - (strength.get(a) ?? 0) || a.localeCompare(b),
   );
 
-  const root = byStrength[0];
+  const root = ids.includes("folder:") ? "folder:" : byStrength[0];
   const children = new Map<string, string[]>(ids.map((id) => [id, []]));
   const reached = new Set([root]);
   const heaviest = [...edges].sort((a, b) => b.weight - a.weight);
@@ -118,6 +118,9 @@ export function layoutPositions({
         edges,
       )
     : undefined;
+
+  // Folder containment keeps its root and depth rings after seeding.
+  if (seed && nodes.some((node) => node.id === "folder:")) return seed;
 
   nodes.forEach(({ id, x, y, size = 1 }) => graph.addNode(id, { x, y, size, ...seed?.get(id) }));
   edges.forEach(({ source, target, weight }) => graph.addEdge(source, target, { weight }));
