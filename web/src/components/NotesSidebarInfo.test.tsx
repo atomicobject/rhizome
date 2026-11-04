@@ -336,8 +336,8 @@ describe("NotesSidebarInfo", () => {
     render(<NotesSidebarInfo workspace={workspace} onOpen={vi.fn()} />);
 
     const relations = groupSection("Relations");
-    expect(relations).toHaveTextContent(/←\s*Opportunities\s*Links here\s*Idea\s*1\s*Idea A/);
-    expect(relations).toHaveTextContent(/Impacts\s*→\s*Links to\s*Impact\s*1\s*Impact B/);
+    expect(relations).toHaveTextContent(/←\s*Incoming\s*Opportunities\s*Idea\s*1\s*Idea A/);
+    expect(relations).toHaveTextContent(/→\s*Outgoing\s*Impacts\s*Impact\s*1\s*Impact B/);
 
     const linked = groupSection("Linked notes");
     expect(within(linked).queryByRole("button", { name: "Idea A" })).toBeNull();

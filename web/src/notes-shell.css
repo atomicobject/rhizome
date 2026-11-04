@@ -1154,21 +1154,43 @@
   flex: 1;
 }
 
-.html-note-viewer__toolbar button,
-.html-note-viewer__toolbar a,
+/* Viewer actions are neutral ghost buttons; red stays for risk. */
+.html-note-viewer__ghost,
 .html-note-viewer__action button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 26px;
+  padding: 0 var(--sp-2);
   border: 0;
+  border-radius: var(--r-md);
   background: transparent;
-  color: var(--accent-ink);
-  font: inherit;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.html-note-viewer__toolbar button:hover,
-.html-note-viewer__toolbar a:hover,
+.html-note-viewer__ghost svg {
+  width: 14px;
+  height: 14px;
+}
+
+.html-note-viewer__ghost:not(.html-note-viewer__ghost--icon) svg {
+  margin-left: 5px;
+}
+
+.html-note-viewer__ghost--icon {
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+}
+
+.html-note-viewer__ghost:hover,
 .html-note-viewer__action button:hover {
-  text-decoration: underline;
+  background: var(--bg-tint);
+  color: var(--text);
 }
 
 .html-note-viewer__problem {
@@ -1838,4 +1860,385 @@
   > :not(.ontology-pane__toolbar-path, .ontology-pane__controls-spacer) {
   flex: none;
   white-space: nowrap;
+}
+
+/* ---- Note control bar ----
+   The note's presentations (Structure | Markdown, plus saved views) read as
+   one segmented control, like every other mode switch; the default view is
+   named by the segment's tooltip, so its dot is not drawn here. Copy link is
+   a ghost button, not a second bordered control. */
+.ontology-pane__controls .view-tabs {
+  flex: none;
+  gap: 0;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.ontology-pane__controls .view-tabs > button {
+  height: 24px;
+  padding: 0 10px;
+  font: 600 var(--fs-sm) / 1 var(--font-sans);
+}
+
+.ontology-pane__controls .view-tabs > button + button {
+  border-left: 1px solid var(--border);
+}
+
+.ontology-pane__controls .view-tabs > button:hover {
+  background: var(--bg-tint);
+}
+
+.ontology-pane__controls .view-tabs > button[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.ontology-pane__controls .view-tabs > button[aria-pressed="true"]::after,
+.ontology-pane__controls .view-selector__default {
+  display: none;
+}
+
+.ontology-pane__controls .ontology-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 var(--sp-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.ontology-pane__controls .ontology-link-button:hover {
+  border-color: transparent;
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.ontology-pane__controls .ontology-link-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Note properties ----
+   Properties share the prose measure, so the block's right edge lines up with
+   the paragraphs under it. Labels take a 120px column; long text (a summary)
+   runs full width under its label instead of in a narrow value column. */
+.notes-shell .ontology-pane .ontology-properties {
+  max-width: 540px;
+}
+
+.notes-shell .ontology-pane .ontology-properties__grid {
+  grid-template-columns: 120px minmax(0, 1fr);
+  column-gap: var(--sp-4);
+}
+
+.notes-shell .ontology-pane .ontology-properties__row.is-long > :is(dt, dd) {
+  grid-column: 1 / -1;
+}
+
+.notes-shell .ontology-pane .ontology-properties__row.is-long > dd {
+  padding-top: 0;
+}
+
+/* Field labels stay roman; an empty field reads faint, not italic. */
+.notes-shell .ontology-pane .ontology-properties__row.is-missing .ontology-properties__key {
+  font-style: normal;
+}
+
+/* Inline code sits tight in its sentence: no padded gap inside parentheses. */
+.notes-shell .ontology-markdown :not(pre) > code {
+  margin: 0;
+  padding: 1px 3px;
+}
+
+/* ---- Info rail ----
+   Relation targets are note links in the shared teal treatment, and the
+   direction marks are readable glyphs rather than 12px arrows. */
+.notes-right-rail .rail-row > button {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.notes-right-rail .rail-row > button:hover {
+  text-decoration-color: currentcolor;
+}
+
+.notes-right-rail :is(.rail-row__dir, .rail-bucket__dir, .rail-direction__dir) {
+  width: 16px;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.notes-right-rail .rail-bucket .rail-row:not(:has(.rail-row__dir)) {
+  padding-left: 20px;
+}
+
+/* Relations split into compact Incoming and Outgoing groups. */
+.notes-right-rail .rail-direction {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 2px;
+  color: var(--text-faint);
+  font: var(--label-font);
+}
+
+.notes-right-rail section + section > .rail-direction {
+  margin-top: var(--sp-3);
+}
+
+.notes-right-rail .rail-direction__dir {
+  color: var(--link);
+  text-align: center;
+}
+
+.notes-right-rail .rail-direction ~ .rail-bucket .rail-bucket__head {
+  padding-left: 20px;
+}
+
+.notes-right-rail .rail-bucket__head {
+  font-weight: 600;
+}
+
+/* ---- Field editor ----
+   A read-only field explains itself behind an info mark instead of squeezing
+   a paragraph of help between its value and the next control. */
+.field-editor__info {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  vertical-align: middle;
+}
+
+.field-editor__info-button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: help;
+}
+
+.field-editor__info-button:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.field-editor__info-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.field-editor__info-tip {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: -6px;
+  z-index: 20;
+  display: none;
+  width: max-content;
+  max-width: 280px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: 400 var(--fs-sm) / 1.45 var(--font-sans);
+  white-space: normal;
+}
+
+.field-editor__info:is(:hover, :focus-within) .field-editor__info-tip {
+  display: block;
+}
+
+/* A date is typed as ISO text; the calendar button opens the native picker,
+   whose input stays invisible under the button. */
+.widget-date-editor__picker {
+  position: relative;
+  display: inline-flex;
+  margin-left: calc(-1 * var(--sp-1));
+}
+
+.widget-date-editor__pick {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.widget-date-editor__pick:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.widget-date-editor__pick svg {
+  width: 15px;
+  height: 15px;
+}
+
+.widget-date-editor__native {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.widget-date--input[type="text"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editing with nothing staged is neutral: Done and Review never take the
+   warning gold on hover; gold stays for real unsaved changes. */
+.notes-shell__session .ontology-edit-bar__btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-tint);
+}
+
+.notes-shell__session .ontology-edit-bar__btn--save:hover:not(:disabled) {
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
+}
+
+/* A long text field's editor bleeds outward by its padding and border, so its
+   text keeps read mode's left edge and line breaks. */
+.notes-shell .ontology-pane .ontology-properties__row.is-long .widget-text--input {
+  width: calc(100% + 14px);
+  max-width: none;
+  margin-inline: -7px;
+}
+
+/* ---- HTML note head ----
+   With a preview showing, the host header is one compact row on the note
+   gutter: the title, its identity, the metadata disclosure, and the viewer's
+   Refresh and Open. The page below carries its own heading. */
+.notes-shell .ontology-pane__html-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: 48px;
+  margin: calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6)) 0;
+  /* The gutter resolves against the padded main, so add the padding back. */
+  padding: var(--sp-2) var(--sp-5) var(--sp-2) calc(var(--note-gutter) + var(--sp-6));
+  border-bottom: 1px solid var(--border);
+}
+
+.notes-shell .ontology-pane__html-head > .ontology-identity {
+  flex: 1 1 320px;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  padding: 0;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__row {
+  flex: none;
+}
+
+/* Editing adds the status picker's own row, so the identity wraps under a
+   full-width title. */
+.notes-shell
+  .ontology-pane__html-head
+  > .ontology-identity:has(> .ontology-identity__row + .ontology-identity__row) {
+  flex-wrap: wrap;
+  row-gap: var(--sp-2);
+}
+
+.notes-shell
+  .ontology-pane__html-head
+  > .ontology-identity:has(> .ontology-identity__row + .ontology-identity__row)
+  > .ontology-identity__title {
+  flex-basis: 100%;
+}
+
+/* The metadata opens as a panel over the page instead of pushing it down. */
+.notes-shell .ontology-pane__html-head > .ontology-properties--html-root {
+  position: relative;
+  flex: none;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-properties__html-summary {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.notes-shell .ontology-pane__html-head .ontology-properties__html-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(520px, 80vw);
+  max-height: min(70vh, 640px);
+  padding: var(--sp-3) var(--sp-4);
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.notes-shell
+  .ontology-pane__html-head
+  .ontology-properties__html-body
+  :is(input, select, textarea) {
+  max-width: 100%;
+}
+
+.notes-shell .ontology-pane__html-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-right: calc(-1 * var(--sp-2));
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.notes-shell .ontology-pane__html-actions:empty {
+  display: none;
+}
+
+.notes-shell .ontology-pane__html-head + * {
+  margin-top: 0;
+}
+
+.notes-shell .ontology-pane__main--html > .ontology-markdown--html {
+  margin-top: 0;
 }

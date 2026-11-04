@@ -87,6 +87,15 @@ const DIRECTION_LABEL: Record<Direction, string> = {
   both: "Linked both ways",
 };
 
+// Typed relations group by direction under compact labels.
+const RELATION_DIRECTIONS: Direction[] = ["incoming", "outgoing", "both"];
+
+const RELATION_DIRECTION_LABEL: Record<Direction, string> = {
+  incoming: "Incoming",
+  outgoing: "Outgoing",
+  both: "Both ways",
+};
+
 type RailRow = {
   key: string;
   target: string;
@@ -337,18 +346,7 @@ function RailBucketList({
   return (
     <div className="rail-bucket">
       <div className="rail-bucket__head">
-        {bucket.direction && bucket.direction !== "outgoing" && (
-          <span className="rail-bucket__dir" aria-hidden="true">
-            {DIRECTION_GLYPH[bucket.direction]}
-          </span>
-        )}
         <span className="rail-bucket__label">{bucket.label}</span>
-        {bucket.direction === "outgoing" && (
-          <span className="rail-bucket__dir" aria-hidden="true">
-            {DIRECTION_GLYPH.outgoing}
-          </span>
-        )}
-        {bucket.direction && <span className="sr-only">{DIRECTION_LABEL[bucket.direction]}</span>}
         {bucket.hint && <span className="rail-bucket__hint">{bucket.hint}</span>}
         <span className="rail-bucket__count">{bucket.rows.length}</span>
       </div>
@@ -534,15 +532,31 @@ export function NotesSidebarInfo({
           ))}
           <SidebarContextGroup title="Relations" count={rowCount(relations)}>
             {relations.length > 0 &&
-              relations.map((bucket) => (
-                <RailBucketList
-                  key={bucket.key}
-                  bucket={bucket}
-                  showDirection={false}
-                  from={path}
-                  onOpen={onOpen}
-                />
-              ))}
+              RELATION_DIRECTIONS.map((direction) => {
+                const buckets = relations.filter((bucket) => bucket.direction === direction);
+
+                if (buckets.length === 0) return null;
+
+                return (
+                  <section key={direction} aria-label={RELATION_DIRECTION_LABEL[direction]}>
+                    <h4 className="rail-direction">
+                      <span className="rail-direction__dir" aria-hidden="true">
+                        {DIRECTION_GLYPH[direction]}
+                      </span>
+                      {RELATION_DIRECTION_LABEL[direction]}
+                    </h4>
+                    {buckets.map((bucket) => (
+                      <RailBucketList
+                        key={bucket.key}
+                        bucket={bucket}
+                        showDirection={false}
+                        from={path}
+                        onOpen={onOpen}
+                      />
+                    ))}
+                  </section>
+                );
+              })}
           </SidebarContextGroup>
           <SidebarContextGroup title="Linked notes" count={rowCount(linked)}>
             {linked.length > 0 &&

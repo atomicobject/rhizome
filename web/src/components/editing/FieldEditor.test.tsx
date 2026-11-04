@@ -271,9 +271,11 @@ describe("FieldEditor", () => {
       />,
     );
 
-    expect(screen.getByText("This relation is computed from neighboring nodes.")).toBeVisible();
+    // The reason sits behind an info mark that describes it.
+    expect(
+      screen.getByRole("button", { name: "Why this field is read-only" }),
+    ).toHaveAccessibleDescription("This relation is computed from neighboring nodes.");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 

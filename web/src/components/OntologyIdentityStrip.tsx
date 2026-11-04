@@ -75,6 +75,19 @@ export function OntologyIdentityStrip({
     ]);
   };
 
+  const status = identity.status && (
+    <FieldSlot
+      node={identity.status}
+      editing={editing}
+      changedFieldNames={changedFieldNames}
+      vaultKey={vaultKey}
+      operationTarget={fieldOperationTarget(path, nodeId, identity.status.field.name)}
+      sourceHash={workspace.sourceRevision?.contentFingerprint}
+      sourceContent={workspace.sourceRevision?.content}
+      onStage={(values, expected) => stageFieldOp(identity.status!, values, expected)}
+    />
+  );
+
   return (
     <header className="ontology-identity">
       <h2 className="ontology-identity__title">{title || "Untitled"}</h2>
@@ -104,18 +117,7 @@ export function OntologyIdentityStrip({
             prefix="v"
           />
         )}
-        {identity.status && (
-          <FieldSlot
-            node={identity.status}
-            editing={editing}
-            changedFieldNames={changedFieldNames}
-            vaultKey={vaultKey}
-            operationTarget={fieldOperationTarget(path, nodeId, identity.status.field.name)}
-            sourceHash={workspace.sourceRevision?.contentFingerprint}
-            sourceContent={workspace.sourceRevision?.content}
-            onStage={(values, expected) => stageFieldOp(identity.status!, values, expected)}
-          />
-        )}
+        {!editing && status}
         {identity.lastUpdated && (
           <FieldSlot
             node={identity.lastUpdated}
@@ -145,6 +147,8 @@ export function OntologyIdentityStrip({
           <span className="ontology-identity__chip ontology-identity__chip--dirty">Staged</span>
         )}
       </div>
+      {/* Editing, the status picker is a full segmented control on its own row. */}
+      {editing && status && <div className="ontology-identity__row">{status}</div>}
     </header>
   );
 }

@@ -213,57 +213,59 @@ export function HTMLRootMetadataPanel({
       <summary className="ontology-properties__header ontology-properties__html-summary">
         <span className="ontology-properties__label">HTML metadata</span>
       </summary>
-      {children}
-      <dl className="ontology-properties__grid">
-        {fields.map((field) => {
-          const node = htmlRootFieldNode(path, field.key, field.values, field.present);
+      <div className="ontology-properties__html-body">
+        {children}
+        <dl className="ontology-properties__grid">
+          {fields.map((field) => {
+            const node = htmlRootFieldNode(path, field.key, field.values, field.present);
 
-          const expected = fieldExpectedFromNode(
-            node,
-            sourceRevision?.contentFingerprint,
-            sourceRevision?.content,
-          );
+            const expected = fieldExpectedFromNode(
+              node,
+              sourceRevision?.contentFingerprint,
+              sourceRevision?.content,
+            );
 
-          // The fallback title is derived from the file name and is not an
-          // authored witness. A changed title therefore inserts metadata.
-          if (field.key === "title" && !metadata.title.present) {
-            expected.field = { kind: "unset" };
-          }
+            // The fallback title is derived from the file name and is not an
+            // authored witness. A changed title therefore inserts metadata.
+            if (field.key === "title" && !metadata.title.present) {
+              expected.field = { kind: "unset" };
+            }
 
-          const dirty = dirtyFields.has(field.key);
-          const operationTarget = fieldOperationTarget(path, undefined, field.key);
+            const dirty = dirtyFields.has(field.key);
+            const operationTarget = fieldOperationTarget(path, undefined, field.key);
 
-          return (
-            <div
-              key={field.key}
-              data-field={field.key}
-              className={`ontology-properties__row${dirty ? " is-dirty" : ""}${field.present ? "" : " is-missing"}`}
-            >
-              <dt className="ontology-properties__key">{field.key}</dt>
-              <dd className="ontology-properties__value">
-                <FieldEditor
-                  node={node}
-                  editing={editing}
-                  dirty={dirty}
-                  vaultKey={vaultKey}
-                  operationTarget={operationTarget}
-                  expected={expected}
-                  onStage={(value, stagedExpected) =>
-                    stageHTMLRootField(
-                      path,
-                      node,
-                      value,
-                      sourceRevision,
-                      stagedExpected,
-                      onStageOps,
-                    )
-                  }
-                />
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
+            return (
+              <div
+                key={field.key}
+                data-field={field.key}
+                className={`ontology-properties__row${dirty ? " is-dirty" : ""}${field.present ? "" : " is-missing"}`}
+              >
+                <dt className="ontology-properties__key">{field.key}</dt>
+                <dd className="ontology-properties__value">
+                  <FieldEditor
+                    node={node}
+                    editing={editing}
+                    dirty={dirty}
+                    vaultKey={vaultKey}
+                    operationTarget={operationTarget}
+                    expected={expected}
+                    onStage={(value, stagedExpected) =>
+                      stageHTMLRootField(
+                        path,
+                        node,
+                        value,
+                        sourceRevision,
+                        stagedExpected,
+                        onStageOps,
+                      )
+                    }
+                  />
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      </div>
     </details>
   );
 }

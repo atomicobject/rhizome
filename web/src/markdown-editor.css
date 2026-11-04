@@ -187,6 +187,11 @@
   color: var(--text);
 }
 
+/* Read mode's tight inline-code chip, so code in parentheses has no gap. */
+.markdown-editor--atomic .cm-atomic-inline-code {
+  padding: 1px 3px;
+}
+
 .markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete {
   max-width: 480px;
   border: 1px solid var(--border);
