@@ -1508,20 +1508,6 @@
   cursor: pointer;
 }
 
-/* One disclosure control everywhere: a 16px chevron that turns down when
-   its control is expanded. */
-.disclosure-chevron {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  transition: transform 120ms var(--ease);
-}
-
-[aria-expanded="true"] > .disclosure-chevron,
-details[open] > summary .disclosure-chevron {
-  transform: rotate(90deg);
-}
-
 .ontology-properties__details-toggle {
   margin-left: auto;
 }
