@@ -23,7 +23,7 @@ written:
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .agents/skills/compounding/SKILL.md: f4d5105bed19d018
+  .agents/skills/compounding/SKILL.md: 365b1ba0e8741ce9
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
@@ -77,7 +77,7 @@ written:
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .claude/skills/compounding/SKILL.md: f4d5105bed19d018
+  .claude/skills/compounding/SKILL.md: 365b1ba0e8741ce9
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
@@ -138,34 +138,36 @@ written:
   .rhizome/modules/compounding/scripts/lib/calibration-score.mjs: 56b8330db4ad1099
   .rhizome/modules/compounding/scripts/lib/calls.mjs: e43c954d88f347d7
   .rhizome/modules/compounding/scripts/lib/episodes.mjs: 192fa78eda45082b
-  .rhizome/modules/compounding/scripts/lib/estimate.mjs: 8d558e42ffc15125
+  .rhizome/modules/compounding/scripts/lib/estimate.mjs: 2a1caa922f7295f2
   .rhizome/modules/compounding/scripts/lib/extract.mjs: b7e8d59f161d707b
   .rhizome/modules/compounding/scripts/lib/findings.mjs: 6e6bc518645f53aa
   .rhizome/modules/compounding/scripts/lib/models.mjs: 189a5584719e4766
   .rhizome/modules/compounding/scripts/lib/paths.mjs: 53c2c47fbf39919f
   .rhizome/modules/compounding/scripts/lib/prompts.mjs: 7c7211509f4afbf8
   .rhizome/modules/compounding/scripts/lib/redact.mjs: 25824a33e2267332
-  .rhizome/modules/compounding/scripts/lib/reduce.mjs: 1bc75694c3e883a5
+  .rhizome/modules/compounding/scripts/lib/reduce.mjs: ef7a1ce7e22b6c7a
   .rhizome/modules/compounding/scripts/lib/screen.mjs: 8fbe8b03cc74e283
   .rhizome/modules/compounding/scripts/lib/shards.mjs: 9f2421c70deb8172
   .rhizome/modules/compounding/scripts/lib/state.mjs: aade14a5df62f2c4
   .rhizome/modules/compounding/scripts/lib/store.mjs: 8ec498437289cfbc
   .rhizome/modules/compounding/scripts/lib/transcripts.mjs: d63ee8f3cd1b89e7
+  .rhizome/modules/compounding/scripts/lib/verification-queue.mjs: 57a8a20bb10f875b
   .rhizome/modules/compounding/scripts/lib/verify.mjs: 0ac53b2adbc79f41
   .rhizome/modules/compounding/scripts/lookup.mjs: a0e82c9ced433250
-  .rhizome/modules/compounding/scripts/mine.mjs: 423c089019766739
-  .rhizome/modules/compounding/scripts/report.mjs: 8e1e95f77fb45ea2
+  .rhizome/modules/compounding/scripts/mine.mjs: f422ef47434689df
+  .rhizome/modules/compounding/scripts/report.mjs: 14bf0256850597d1
   .rhizome/modules/compounding/scripts/sessions.mjs: 4cf33f17d765ff00
   .rhizome/modules/compounding/scripts/shards.mjs: e1ca24687fe3a6f5
-  .rhizome/modules/compounding/scripts/task-check.mjs: 017e481284cd6a76
-  .rhizome/modules/compounding/scripts/workspace.mjs: 9e9e9d9dd382d1ff
-  .rhizome/modules/compounding/tasks/mine.yml: 025b33525840426c
+  .rhizome/modules/compounding/scripts/task-check.mjs: 408193037f713169
+  .rhizome/modules/compounding/scripts/workspace.mjs: 64a41e0e5bc39826
+  .rhizome/modules/compounding/tasks/mine.yml: 9542f649f119cb9e
   .rhizome/modules/compounding/views/agent-findings.yaml: f9149a8753a64840
   .rhizome/modules/compounding/views/context-shards.yaml: 83368ad10a4f2745
   .rhizome/modules/compounding/views/workspace/compounding-item.yaml: 11445f67f5b303ac
   .rhizome/modules/compounding/views/workspace/item.tsx: 0a57b7ef78e9ad7e
+  .rhizome/modules/compounding/views/workspace/mining.tsx: 655ae7d424684988
   .rhizome/modules/compounding/views/workspace/parts.tsx: 7e5b43475eabc38a
-  .rhizome/modules/compounding/views/workspace/workspace.tsx: 5c78fe273c6d8bd6
+  .rhizome/modules/compounding/views/workspace/workspace.tsx: 92ca9714db149971
   .rhizome/modules/compounding/views/workspace/workspace.yaml: fa91cd2fe3751911
   .rhizome/modules/core/ontology/core.graphql: 157ef7679ea0bec5
   .rhizome/modules/core/recipes/core.yaml: b827188339002edb

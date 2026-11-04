@@ -28,6 +28,7 @@ import {
   errorText,
   type Recommendation,
 } from "./parts.tsx";
+import { MiningStatus, type MiningData } from "./mining.tsx";
 
 const TABS = ["recommendations", "health", "memory"];
 
@@ -43,6 +44,7 @@ export default function Workspace() {
   return (
     <main className="px-5 py-3 text-base">
       <h1 className="mb-2 text-xl font-bold">Compounding</h1>
+      <MiningStatus />
       <Tabs value={tab} onValueChange={(next) => setViewParams({ tab: next })}>
         <TabsList>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
@@ -134,7 +136,9 @@ function Recommendations({
       status={sectionStatus(query)}
       what="recommendations"
       empty={
-        items.length ? undefined : "Nothing to review. The weekly mining task adds proposals here."
+        items.length
+          ? undefined
+          : "No recommendations to review. Health shows what mining examined and what still awaits verification."
       }
       controls={
         <Button
@@ -246,17 +250,9 @@ type HealthRow = {
   status?: string;
   completedOn?: string | null;
 };
-type HealthData = {
+type HealthData = MiningData & {
   open: HealthRow[];
   completed: HealthRow[];
-  lastRun: {
-    run: string;
-    status: string;
-    spend: { usd: number } | null;
-    stoppedReason: string | null;
-    stoppedMessage: string | null;
-    finishedAt: string | null;
-  } | null;
 };
 
 const openItem = (ref: string) =>
@@ -269,22 +265,15 @@ function Health() {
   const recurring = h?.completed.filter((c) => c.status === "recurring") ?? [];
   const open = h?.open ?? [];
   const shown = more ? open : open.slice(0, 10);
-  const run = h?.lastRun;
   return (
     <>
+      <MiningStatus detail />
       {h ? (
-        <Facts
-          note={
-            run
-              ? `Last mine run ${run.run}: ${run.status}${run.stoppedReason ? ` (${run.stoppedReason}: ${run.stoppedMessage})` : ""}.`
-              : "No mine run yet."
-          }
-        >
+        <Facts>
           <Fact value={open.length}>open</Fact>
           <Fact tone={recurring.length ? "risk" : undefined} value={recurring.length}>
             recurring
           </Fact>
-          <Fact value={run?.spend ? `$${run.spend.usd.toFixed(2)}` : "—"}>last run spend</Fact>
         </Facts>
       ) : null}
       <Section

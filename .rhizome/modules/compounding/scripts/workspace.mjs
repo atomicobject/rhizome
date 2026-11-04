@@ -16,7 +16,7 @@
 // touches its note or its action item, which the team shares. Run from the
 // repository root; every worktree shares one store (lib/state.mjs).
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { review, revision } from "./lib/approvals.mjs";
@@ -182,29 +182,15 @@ function hide(root, store, path) {
   }
 }
 
-// The friction report with a ref on each row, and the newest mine run's
-// outcome and spend, which the report does not carry.
+// The friction report with references the workspace can open. Mining state
+// comes from the same report/store as the CLI, including unfinished work.
 function health(root, store, state) {
   const r = report({ root, state });
   const ref = (x) => (x.proposal ? `proposal:${x.proposal}` : `finding:${x.finding}`);
-  const dir = store.path("runs");
-  const [id] = existsSync(dir) ? readdirSync(dir).sort().reverse() : [];
-  const m = id && store.read(`runs/${id}/manifest.json`, null);
-  const lastRun = m
-    ? {
-        run: m.id,
-        status: m.status,
-        startedAt: m.startedAt ?? null,
-        finishedAt: m.finishedAt ?? null,
-        spend: m.spend ?? null,
-        stoppedReason: m.stoppedReason ?? null,
-        stoppedMessage: m.stoppedMessage ?? null,
-      }
-    : null;
   return {
     open: r.open.map((x) => ({ ref: ref(x), ...x })),
     completed: r.completed.map((x) => ({ ref: ref(x), ...x })),
-    lastRun,
+    ...r.mining,
   };
 }
 

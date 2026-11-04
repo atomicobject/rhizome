@@ -57,8 +57,18 @@ export function MiningStatus({ detail = false }: { detail?: boolean }) {
   const data = query.data as MiningData | undefined;
   const run = data?.lastRun;
   const queue = data?.verification;
+  const report = run?.report;
+  const verified = report?.verification ?? report?.verified;
+  const rejected = verified?.rejected ?? {};
+  const rejectedCount = Object.values(rejected).reduce((sum, n) => sum + n, 0);
+  const held = (report?.held?.tierC ?? 0) + (report?.held?.tierBOverBudget ?? 0);
+  // Say what the run found, so an empty list reads as a result, not a failure.
+  const found =
+    report?.candidates && verified
+      ? `: ${report.candidates.extracted} candidates found, ${verified.proposed} proposed, ${rejectedCount} rejected${held ? `, ${held} held` : ""}`
+      : `: ${run?.status}`;
   const summary = run
-    ? `Latest mining run: ${run.status}${queue?.pending ? `; ${queue.pending} awaiting evidence verification` : ""}.`
+    ? `Latest mining run${found}${queue?.pending ? `; ${queue.pending} awaiting evidence verification` : ""}.`
     : "No mining run recorded in this store.";
   if (!detail)
     return (
@@ -73,14 +83,9 @@ export function MiningStatus({ detail = false }: { detail?: boolean }) {
         </button>
       </div>
     );
-  const report = run?.report;
-  const verified = report?.verification ?? report?.verified;
-  const rejected = verified?.rejected ?? {};
-  const rejectedCount = Object.values(rejected).reduce((sum, n) => sum + n, 0);
   const examined =
     report?.verification?.examined ??
     (report?.verified ? report.verified.proposed + rejectedCount : null);
-  const held = (report?.held?.tierC ?? 0) + (report?.held?.tierBOverBudget ?? 0);
   return (
     <Section title="Mining" status={sectionStatus(query)} what="mining status">
       {() =>

@@ -37,6 +37,7 @@ export async function check({ credentials, dryRun }) {
   if (stop && FIX[stop.reason]) throw new Error(`mining run ${stop.run} stopped (${stop.reason}): ${stop.message}; ${FIX[stop.reason]}`);
   if (r.status === "stopped") throw new Error(`mining stopped (${r.reason}): ${r.message}`);
   if (r.open) return { needed: true, summary: `resume mining run ${r.open.run}`, context: `Run ${r.open.run} is ${r.open.status}${r.open.stoppedReason ? ` (${r.open.stoppedReason}: ${r.open.stoppedMessage})` : ""}; mining resumes it with its frozen bindings.` };
+  if (r.verification?.pending > 0) return { needed: true, summary: `${r.verification.pending} clusters await evidence verification`, context: "Mining has unfinished verification even without new session episodes. Rerun mining with an approved budget; Health shows the store and the remaining work." };
   const n = r.episodes ?? 0;
   if (n >= MIN_EPISODES) return { needed: true, summary: `${n} new session episodes to mine`, context: `Discovery found ${r.discovery?.inWindow ?? "?"} sessions in the window; ${n} episodes are new.` };
   return { needed: false, summary: n ? `only ${n} new session episodes; waiting for ${MIN_EPISODES}` : "no new session episodes" };
