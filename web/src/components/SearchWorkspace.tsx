@@ -70,6 +70,16 @@ function excerptFor(match: WorkspaceSearchMatch): string | null {
   return value.trim() ? value.trim() : null;
 }
 
+// A code preview joins a symbol's signature and its doc comment with " — ".
+// The signature keeps its source lines; the comment reads as one paragraph.
+function codeExcerptParts(excerpt: string) {
+  const at = excerpt.indexOf(" — ");
+
+  if (at < 0) return { signature: excerpt, doc: "" };
+
+  return { signature: excerpt.slice(0, at), doc: excerpt.slice(at + 3).replace(/\s+/g, " ") };
+}
+
 // What the match is, from the result itself: a code symbol's kind or a note
 // section. The payload carries no per-match retrieval evidence.
 function matchedAs(match: WorkspaceSearchMatch): string {
@@ -689,9 +699,7 @@ function RankedSearchWorkspace({
                       ) : null}
                     </div>
                     {excerpt && match.type === "code" ? (
-                      <pre className="search-workspace__code">
-                        {highlightLiteral(excerpt, tab.query)}
-                      </pre>
+                      <CodeExcerpt excerpt={excerpt} query={tab.query} />
                     ) : (
                       <p className={excerpt ? undefined : "is-missing"}>
                         {excerpt
@@ -744,5 +752,16 @@ function RankedSearchWorkspace({
         </>
       )}
     </main>
+  );
+}
+
+function CodeExcerpt({ excerpt, query }: { excerpt: string; query: string }) {
+  const { signature, doc } = codeExcerptParts(excerpt);
+
+  return (
+    <>
+      <pre className="search-workspace__code">{highlightLiteral(signature, query)}</pre>
+      {doc && <p>{highlightLiteral(doc, query)}</p>}
+    </>
   );
 }
