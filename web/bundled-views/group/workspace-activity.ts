@@ -17,7 +17,7 @@ import { isJsonObject, isNumber, isString, type JsonValue, type RecordRef } from
 export const RECENT_NOTES = 12;
 
 /** In-motion records listed per type; one more is read to know there are more. */
-export const MOTION_PER_TYPE = 5;
+export const MOTION_PER_TYPE = 10;
 
 export type IssueGroup = {
   key: string;

@@ -67,16 +67,16 @@ export function columnClassName(column: ViewTableColumn, capabilities: ViewField
   const kind = viewFieldControl(capability).kind;
   const classes = ["configured-view__cell"];
 
-  if (
+  if (column.field === "notePath") {
+    classes.push("configured-view__cell--source");
+  } else if (
     capability?.semanticRole === "identifier" ||
     column.field === "path" ||
-    column.field === "notePath" ||
     /(^|\.)id$/i.test(column.field)
   ) {
     classes.push("configured-view__cell--identifier");
 
-    if (column.field === "notePath") classes.push("configured-view__cell--source");
-    else if (column.field !== "path") classes.push("configured-view__cell--id");
+    if (column.field !== "path") classes.push("configured-view__cell--id");
   }
 
   if (kind === "date" || kind === "datetime" || column.field === "updatedAt") {

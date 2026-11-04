@@ -222,7 +222,10 @@ export function BoardColumnHeaders({
 
     return (
       <header key={column.key} className="configured-view__board-column-header">
-        {mark}
+        <span className="configured-view__board-column-title">
+          {mark}
+          <span className="configured-view__board-count">{count}</span>
+        </span>
         {item.stale > 0 && (
           <span
             className="configured-view__board-stale"
@@ -232,7 +235,6 @@ export function BoardColumnHeaders({
             {item.stale} unchanged {STALE_DAYS}+ days
           </span>
         )}
-        <span className="configured-view__board-count">{count}</span>
         <button
           type="button"
           aria-label={`Collapse ${label} column`}

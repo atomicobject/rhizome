@@ -175,7 +175,7 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(signal("Validation issues on 1 record")).toContainText("Crash on empty vault");
   await expect(signal("Strained health: 1 area")).toContainText("Billing");
   await expect(signal("Blocked stage: 1 work item")).toContainText("Crash on empty vault");
-  const context = frame.getByRole("region", { name: "Context", exact: true });
+  const context = frame.getByRole("region", { name: "Review suggested", exact: true });
   await expect(
     context.getByRole("listitem").filter({ hasText: "Lead empty on 2 of 3 areas" }),
   ).toContainText("Billing, Search");

@@ -90,7 +90,9 @@ it("briefs an interface across its implementors and flags reverse links most rec
   const attention = await region("Needs attention");
 
   expect(signalTexts(attention)).not.toContain("No meetings link to 2 of 6 work items");
-  expect(signalTexts(await region("Context"))).toContain("No meetings link to 2 of 6 work items");
+  expect(signalTexts(await region("Review suggested"))).toContain(
+    "No meetings link to 2 of 6 work items",
+  );
 
   const spread = await region("Shape");
 
@@ -155,7 +157,7 @@ it("opens the collection's Table from a signal and notes from its targets", asyn
 
   await region("Needs attention");
 
-  const gap = [...(await region("Context")).querySelectorAll("li")].find((entry) =>
+  const gap = [...(await region("Review suggested")).querySelectorAll("li")].find((entry) =>
     entry.textContent?.includes("Next step empty"),
   );
 

@@ -77,7 +77,7 @@ function InMotion({ model }: { model: GroupModel }) {
                 className="gv-link gv-more gv-mo-more"
                 onClick={() => openCollection(member.name)}
               >
-                +{hidden} more in {lower(memberLabel(model, member, { plural: true }))}
+                Show {hidden} more in {lower(memberLabel(model, member, { plural: true }))}
               </button>
             )}
           </div>
@@ -92,7 +92,7 @@ function InMotion({ model }: { model: GroupModel }) {
   );
 }
 
-function GroupAttention({ model }: { model: GroupModel }) {
+function GroupAttention({ model, part }: { model: GroupModel; part: "attention" | "review" }) {
   const signals = useMemo(() => needsAttention(model, linkGraph(model), Date.now()), [model]);
 
   return (
@@ -100,16 +100,20 @@ function GroupAttention({ model }: { model: GroupModel }) {
       model={model}
       signals={signals}
       info="Validation issues and declared warning values."
+      part={part}
     />
   );
 }
 
-function AttentionBlock() {
+/** Needs attention leads; the optional review signals follow work in motion. */
+function AttentionBlock({ part }: { part: "attention" | "review" }) {
   const state = useGroupModel({ views: false, read: ATTENTION_READ });
+
+  if (part === "review" && state.status !== "ready") return null;
 
   return (
     <ModelBlock state={state} title="Needs attention" what="what needs attention">
-      {(model) => <GroupAttention model={model} />}
+      {(model) => <GroupAttention model={model} part={part} />}
     </ModelBlock>
   );
 }
@@ -142,8 +146,9 @@ export default function Briefing(_props: ViewModuleProps) {
       <HighlightProvider>
         <div className="gv-brief gv-brief-two">
           <div className="gv-brief-col">
-            <AttentionBlock />
+            <AttentionBlock part="attention" />
             <MotionBlock />
+            <AttentionBlock part="review" />
           </div>
           <div className="gv-brief-col">
             <RecentBlock />

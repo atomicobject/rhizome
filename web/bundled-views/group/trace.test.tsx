@@ -236,7 +236,9 @@ it("bounds rows per band and records per cell", async () => {
   // Payments now links three fixture records and every generated bug.
   const work = within(row("Payments")).getAllByRole("cell")[0];
   expect(within(work).getAllByRole("button")).toHaveLength(CELL_RECORDS + 1);
-  fireEvent.click(within(work).getByRole("button", { name: `+${extra + 3 - CELL_RECORDS} more` }));
+  fireEvent.click(
+    within(work).getByRole("button", { name: `Show ${extra + 3 - CELL_RECORDS} more` }),
+  );
   expect(within(work).getAllByRole("button")).toHaveLength(extra + 3);
 
   await chooseRows("Work items");

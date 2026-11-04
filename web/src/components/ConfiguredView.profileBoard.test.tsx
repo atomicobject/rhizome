@@ -269,8 +269,9 @@ describe("ConfiguredViewBoard with a type profile", () => {
     const bravo = screen.getByRole("button", { name: "Bravo" }).closest("article")!;
     const charlie = screen.getByRole("button", { name: "Charlie" }).closest("article")!;
 
-    expect(within(bravo).getByText("Unchanged 30+ days")).toBeVisible();
-    expect(within(charlie).queryByText("Unchanged 30+ days")).toBeNull();
+    // One clock label carries the age: "Unchanged 40d", not a label and a separate age.
+    expect(bravo.querySelector(".configured-brief__stale")).toHaveTextContent(/^Unchanged \d+d$/);
+    expect(charlie.querySelector(".configured-brief__stale")).toBeNull();
 
     const headers = [...container.querySelectorAll(".configured-view__board-column-header")];
     expect(headers.map((header) => header.textContent)).toEqual([

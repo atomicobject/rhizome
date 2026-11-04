@@ -71,29 +71,39 @@ export function StageHints({
     byEnum.set(name, [...(byEnum.get(name) ?? []), memberLabel(model, member, { plural: true })]);
   }
 
-  const unstatused = withoutLifecycle.flatMap((name) => memberOf(model, name) ?? []);
+  const unstatused = withoutLifecycle
+    .flatMap((name) => memberOf(model, name) ?? [])
+    .map((member) => memberLabel(model, member, { plural: true }));
 
+  if (byEnum.size === 0 && unstatused.length === 0) return null;
+
+  const stageless = [...byEnum.values()].flat();
+
+  // One plain line for readers; the schema instruction waits behind the disclosure.
   return (
-    <>
+    <details className="gv-hint">
+      <summary>
+        {[
+          stageless.length > 0 && `${stageless.join(", ")} have no active stage configured.`,
+          unstatused.length > 0 && `${unstatused.join(", ")} have no lifecycle.`,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      </summary>
       {byEnum.size > 0 && (
-        <p className="gv-hint">
-          {[...byEnum].map(([name, labels], index) => (
+        <p>
+          To list them here, mark a value of{" "}
+          {[...byEnum.keys()].map((name, index) => (
             <Fragment key={name}>
-              {index > 0 && " and "}
-              <code>{name}</code> ({labels.join(", ")})
+              {index > 0 && " or "}
+              <code>{name}</code>
             </Fragment>
           ))}{" "}
-          {plural(byEnum.size, "has", "have")} no active stage; declare an active stage with{" "}
-          <code>@view(stage: active)</code> on a value to list its records here.
+          with <code>@view(stage: active)</code> in the schema.
         </p>
       )}
-      {unstatused.length > 0 && (
-        <p className="gv-hint">
-          No lifecycle:{" "}
-          {unstatused.map((member) => memberLabel(model, member, { plural: true })).join(", ")}.
-        </p>
-      )}
-    </>
+      {unstatused.length > 0 && <p>Records without a lifecycle field cannot be in motion.</p>}
+    </details>
   );
 }
 
@@ -247,17 +257,20 @@ export function OutsideNotes({
   title,
   info,
   empty,
+  limit = OUTSIDE_NOTES,
 }: {
   model: GroupModel;
   outside: Boundary;
   title: string;
   info: string;
   empty: string;
+  /** Notes listed before "Show N more". */
+  limit?: number;
 }) {
   const expanded = useRememberedOpen("briefing.expanded");
   const open = expanded.isOpen("outside", false);
   const setOpen = (next: boolean) => expanded.setOpen("outside", next);
-  const shown = open ? outside.notes : outside.notes.slice(0, OUTSIDE_NOTES);
+  const shown = open ? outside.notes : outside.notes.slice(0, limit);
 
   return (
     <Block
@@ -280,44 +293,61 @@ export function OutsideNotes({
       )}
       {outside.notes.length === 0 && <p className="gv-quiet">{empty}</p>}
       <ul className="gv-list gv-changes">
-        {shown.map((note) => (
-          <li key={note.path} className="gv-change">
-            <span className="gv-change-main">
-              <button
-                type="button"
-                className="gv-inline gv-change-title"
-                title={note.path}
-                onClick={() => openNote(note.path)}
-              >
-                {note.title}
-              </button>
-              <span className="gv-change-meta">
-                {outsideLabel(model, note.type, 1)}
-                {folderOf(note.path) && (
-                  <>
-                    {" · "}
-                    <span className="gv-path">{folderOf(note.path)}/</span>
-                  </>
-                )}
+        {shown.map((note) => {
+          // A timestamped file name reads by its slug; the file name stays as evidence.
+          const readable = readableTitle(note.title);
+
+          return (
+            <li key={note.path} className="gv-change">
+              <span className="gv-change-main">
+                <button
+                  type="button"
+                  className="gv-inline gv-change-title"
+                  title={note.path}
+                  onClick={() => openNote(note.path)}
+                >
+                  {readable ?? note.title}
+                </button>
+                <span className="gv-change-meta">
+                  {outsideLabel(model, note.type, 1)}
+                  {(readable || folderOf(note.path)) && (
+                    <>
+                      {" · "}
+                      <span className="gv-path">
+                        {readable ? note.path : `${folderOf(note.path)}/`}
+                      </span>
+                    </>
+                  )}
+                </span>
               </span>
-            </span>
-            <span className="gv-change-age">
-              {note.touches.length}
-              <span className="sr-only">
-                {" "}
-                linked {plural(note.touches.length, "record", "records")}
+              <span className="gv-change-age">
+                {note.touches.length}
+                <span className="sr-only">
+                  {" "}
+                  linked {plural(note.touches.length, "record", "records")}
+                </span>
               </span>
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
-      {outside.notes.length > OUTSIDE_NOTES && (
+      {outside.notes.length > limit && (
         <MoreToggle
-          hidden={outside.notes.length - OUTSIDE_NOTES}
+          hidden={outside.notes.length - limit}
           open={open}
           onToggle={() => setOpen(!open)}
         />
       )}
     </Block>
   );
+}
+
+const STAMPED = /^\d{4}-\d{2}-\d{2}(?:[-_T]\d{2}[-:]?\d{2})?[-_ ]+(?=\S)/;
+
+/** "2026-09-05-11-42-starter-skill-consolidation" reads "Starter skill consolidation"; other titles stay. */
+export function readableTitle(title: string) {
+  if (!STAMPED.test(title)) return null;
+  const rest = title.replace(STAMPED, "").replace(/\.md$/i, "").replace(/[-_]+/g, " ").trim();
+
+  return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : null;
 }

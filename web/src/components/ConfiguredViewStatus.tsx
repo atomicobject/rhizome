@@ -42,7 +42,7 @@ export function ConfiguredViewFooter({
   stagedCount: number;
   /** Labels of table columns too narrow to show, which the Record pane shows instead. */
   moved?: string[];
-  /** Labels of columns hidden because one value fills nearly every row. */
+  /** Plain notes on columns hidden because one value fills nearly every row. */
   hidden?: string[];
   pager: (Page & { hasMore: boolean }) | null;
   onPage: (page: Page) => void;
@@ -58,11 +58,11 @@ export function ConfiguredViewFooter({
             {moved.join(", ")} {moved.length === 1 ? "shows" : "show"} in the Record pane
           </span>
         )}
-        {hidden.length > 0 && (
-          <span title="One value fills nearly every row; show it again from View › Columns">
-            {hidden.join(", ")} hidden: one value
+        {hidden.map((note) => (
+          <span key={note} title="Show it again from Display › Columns">
+            {note}
           </span>
-        )}
+        ))}
         {stagedCount > 0 && (
           <span className="configured-view__staged-count">
             {stagedCount} staged {stagedCount === 1 ? "change" : "changes"}

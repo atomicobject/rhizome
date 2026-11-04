@@ -12,6 +12,7 @@ import type { OpenMode } from "./useNoteTabs";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { ChangedCell } from "./ConfiguredTableCellReadOnly";
+import { SourceNoteLink } from "./SourceNoteLink";
 import {
   capabilityFor,
   GroupValueMark,
@@ -330,6 +331,15 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
           return (
             <td key={column.field} className={className}>
               <ChangedCell value={row.updatedAt} />
+            </td>
+          );
+        }
+
+        // An embedded record's source note reads by its title, not its path.
+        if (column.field === "notePath") {
+          return (
+            <td key={column.field} className={className}>
+              <SourceNoteLink path={value} onOpen={onOpenRow} />
             </td>
           );
         }

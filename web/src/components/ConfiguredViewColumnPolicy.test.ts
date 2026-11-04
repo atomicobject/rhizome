@@ -27,8 +27,8 @@ describe("allocateColumns", () => {
 
     expect(allocation.shown).toEqual(effortColumns.map((column) => column.field));
     expect(allocation.moved).toEqual([]);
-    // 30 check + 240 title + 176 + 136 + 180 + 104.
-    expect(allocation.minWidth).toBe(866);
+    // 30 check + 240 title + 176 + 136 + 180 + 112.
+    expect(allocation.minWidth).toBe(874);
     expect(AT_1920_WITH_PANE - allocation.minWidth + 240).toBeGreaterThan(600);
   });
 
@@ -48,7 +48,7 @@ describe("allocateColumns", () => {
 
     expect(allocation.moved).toEqual(["id", "governingSpec"]);
     expect(allocation.shown).toEqual(["title", "status", "createdAt"]);
-    expect(allocation.minWidth).toBe(30 + 240 + 136 + 104);
+    expect(allocation.minWidth).toBe(30 + 240 + 136 + 112);
   });
 
   it("moves dates last and never the title or status", () => {
@@ -66,7 +66,7 @@ describe("allocateColumns", () => {
     const twoLine = allocateColumns(effortColumns, AT_1440_WITH_PANE, true, {});
 
     expect(twoLine.moved).toEqual(["governingSpec"]);
-    expect(twoLine.minWidth).toBe(30 + 320 + 176 + 136 + 104);
+    expect(twoLine.minWidth).toBe(30 + 320 + 176 + 136 + 112);
   });
 
   it("drops the rightmost column of a kind first", () => {
@@ -85,7 +85,7 @@ describe("allocateColumns", () => {
       title: 400,
     });
 
-    expect(allocation.minWidth).toBe(30 + 400 + 176 + 220 + 180 + 104);
+    expect(allocation.minWidth).toBe(30 + 400 + 176 + 220 + 180 + 112);
   });
 });
 

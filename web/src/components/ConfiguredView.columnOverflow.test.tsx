@@ -41,7 +41,7 @@ describe("table column overflow", () => {
   afterEach(() => restore());
 
   describe("in a narrow table", () => {
-    // Two-line rows: title 320 + Status 136 + ID 176 + Updated 104 + the check cell is 766.
+    // Two-line rows: title 320 + Status 136 + ID 176 + Updated 112 + the check cell is 774.
     beforeEach(() => {
       restore = tableWidth(600);
     });
@@ -70,8 +70,8 @@ describe("table column overflow", () => {
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
       expect(screen.queryByText(/in the Record pane/)).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
-      // The table groups by Status, so that column leaves: 766 less its 136.
-      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "630px" });
+      // The table groups by Status, so that column leaves: 774 less its 136.
+      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "638px" });
     });
   });
 });

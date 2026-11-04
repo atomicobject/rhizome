@@ -240,3 +240,43 @@ export function repeatedColumnFields(
     return repeated(counts.values()) ? [field] : [];
   });
 }
+
+/** The value that fills a repeated column, and how many of the rows it fills. */
+export function dominantColumnValue(
+  field: string,
+  execution: Pick<ViewExecuteResponse, "rows" | "stats"> | null,
+) {
+  const total = execution?.stats?.total ?? execution?.rows.length ?? 0;
+  const counts = new Map<string, number>();
+
+  if (field === "resolvedType" && execution?.stats?.kinds?.length) {
+    for (const kind of execution.stats.kinds) counts.set(kind.value, kind.count);
+  } else {
+    for (const row of execution?.rows ?? []) {
+      const value = fieldValue(row, field);
+
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+  }
+
+  const [value, count] = topCount(counts) ?? ["", 0];
+
+  return { value, count, total };
+}
+
+/** The most frequent value, if any. */
+export function mostCommon(values: Iterable<string | undefined>) {
+  const counts = new Map<string, number>();
+
+  for (const value of values) if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+
+  return topCount(counts)?.[0];
+}
+
+function topCount(counts: Map<string, number>) {
+  let top: [string, number] | undefined;
+
+  for (const entry of counts) if (!top || entry[1] > top[1]) top = entry;
+
+  return top;
+}

@@ -9,6 +9,7 @@ import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { groupIdentity } from "./ConfiguredViewSave";
 import { StatusMark } from "./StatusMark";
 import { useRememberedExpansion } from "./useRememberedExpansion";
+import { mostCommon } from "./useViewLayout";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { type ReorderGroup, useViewReorder, type ViewReorder } from "./useViewReorder";
 
@@ -82,7 +83,7 @@ export function ConfiguredViewCards(props: Props) {
   // An authored card layout wins; generated cards become record briefs (SPEC-0112).
   const briefFor =
     profile && (view.generated || !view.variants.card)
-      ? (row: ViewTableRow, omitField?: string) => ({
+      ? (row: ViewTableRow, omitField?: string, dominantType?: string) => ({
           className: " configured-card--brief",
           header: (
             <RecordBriefHeader
@@ -90,6 +91,7 @@ export function ConfiguredViewCards(props: Props) {
               profile={profile}
               capabilities={props.capabilities}
               omitField={omitField}
+              showType={row.resolvedType !== dominantType}
               editSession={props.editSession}
               onStageOps={props.onStageOps}
             />
@@ -228,8 +230,12 @@ function CardGrid({
   briefFor?: (
     row: ViewTableRow,
     omitField?: string,
+    dominantType?: string,
   ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body">;
 }) {
+  // A brief names its type only when it differs from the one most cards share.
+  const dominantType = mostCommon(rows.map((row) => row.resolvedType));
+
   return (
     <div
       className={`configured-view__card-grid${briefFor ? " configured-view__card-grid--briefs" : ""}${reorder.dropClass(groupId, null)}`}
@@ -239,7 +245,7 @@ function CardGrid({
         const rowKey = configuredTableRowKey(row);
         const source = reorder.dragSource(row);
         // The section header already names the grouped value.
-        const brief = briefFor?.(row, cardProps.omitField);
+        const brief = briefFor?.(row, cardProps.omitField, dominantType);
 
         return (
           <ConfiguredViewCard

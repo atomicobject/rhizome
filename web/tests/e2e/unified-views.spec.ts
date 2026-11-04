@@ -76,7 +76,7 @@ test("configured collection default shares native rows and retains every built-i
     workspaceView(page).getByRole("button", { name: "Overview", exact: true }),
   ).toHaveCount(0);
   await chooseView(page, "Briefing");
-  await expect(frame.getByRole("region", { name: "Needs attention" })).toBeVisible();
+  await expect(frame.getByRole("region", { name: "Validation" })).toBeVisible();
   await expect(frame.getByLabel("View context")).toHaveCount(0);
   await chooseView(page, "Table");
   await expect(page.locator(".configured-view__table tbody tr[data-row-key]")).toHaveCount(2);

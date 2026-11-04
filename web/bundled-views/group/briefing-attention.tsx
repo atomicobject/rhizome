@@ -371,18 +371,21 @@ function signalKey(signal: AttentionSignal) {
 /**
  * The block for `signals`, explained by `info`. A signal whose records all
  * belong to one member offers `memberAction`, which by default opens that
- * member's collection.
+ * member's collection. `part` renders only Needs attention or only Review
+ * suggested, so a Briefing can put work in motion between them.
  */
 export function NeedsAttention({
   model,
   signals,
   info,
   memberAction = OPEN_COLLECTION,
+  part = "both",
 }: {
   model: GroupModel;
   signals: readonly AttentionSignal[];
   info: string;
   memberAction?: MemberAction;
+  part?: "attention" | "review" | "both";
 }) {
   const attention = signals.filter(isAttention);
   const context = signals.filter((signal) => !isAttention(signal));
@@ -390,7 +393,7 @@ export function NeedsAttention({
 
   return (
     <MemberActionContext.Provider value={memberAction}>
-      {attention.length === 0 && clean ? (
+      {part === "review" ? null : attention.length === 0 && clean ? (
         <HealthyAttention info={info} />
       ) : (
         <Block title="Needs attention" count={attention.length} info={info}>
@@ -408,9 +411,9 @@ export function NeedsAttention({
           </ul>
         </Block>
       )}
-      {context.length > 0 && (
+      {part !== "attention" && context.length > 0 && (
         <Block
-          title="Context"
+          title="Review suggested"
           count={context.length}
           info="Optional fields, connections, and update age. These observations do not imply required work."
         >

@@ -121,7 +121,7 @@ it("keeps a Briefing signal's records revealed after a reload", async () => {
   });
 
   const unlinked = async () => {
-    const context = await screen.findByRole("region", { name: "Context" });
+    const context = await screen.findByRole("region", { name: "Review suggested" });
 
     const found = [...context.querySelectorAll("li")].find((entry) =>
       entry.textContent?.includes("Not linked"),
@@ -133,7 +133,7 @@ it("keeps a Briefing signal's records revealed after a reload", async () => {
   };
 
   const first = await renderGroupView(loadBriefing, { routes, http });
-  fireEvent.click((await unlinked()).getByRole("button", { name: "+2 more" }));
+  fireEvent.click((await unlinked()).getByRole("button", { name: "Show 2 more" }));
   await waitFor(() => expect(server.read(SCOPE).values).toHaveProperty("briefing.expanded"));
   first.unmount();
 

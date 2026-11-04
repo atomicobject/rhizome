@@ -74,12 +74,30 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
       <span>
         <b>{data.model.types.size}</b> note {plural(data.model.types.size, "type", "types")}
       </span>
-      {/* Red only for a nonzero count; zero reads as muted ink. */}
+      {/* Ambiguous notes are a warning, not an error: warning ink with a mark; zero reads muted. */}
       <button
         type="button"
-        className={facts.ambiguousNotes ? "gv-issues" : "gv-issues gv-zero"}
+        className={facts.ambiguousNotes ? "gv-issues gv-warn" : "gv-issues gv-zero"}
+        title="Notes whose type could not be decided"
         onClick={() => openIssues()}
       >
+        {facts.ambiguousNotes > 0 && (
+          <svg className="gv-warn-mark" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 2.2 14.4 13.5H1.6Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M8 6.6v3.2M8 11.6v.1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
         {fmt(facts.ambiguousNotes)} ambiguous
       </button>
       {issues !== undefined && (

@@ -20,7 +20,7 @@ export type ColumnKind =
 export const COLUMN_WIDTHS: Record<Exclude<ColumnKind, "title">, number> = {
   id: 176,
   enum: 136,
-  date: 104,
+  date: 112,
   number: 72,
   flag: 72,
   boolean: 72,
@@ -53,7 +53,8 @@ export function columnKind(className: string, isTitle: boolean): ColumnKind {
 
   if (has("boolean")) return "boolean";
 
-  if (has("relation")) return "relation";
+  // A source note reads as a link to it, like a relation.
+  if (has("relation") || has("source")) return "relation";
 
   return "enum";
 }

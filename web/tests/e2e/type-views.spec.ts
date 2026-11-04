@@ -200,7 +200,7 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
   const frame = page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
   const attention = frame.getByRole("region", { name: "Needs attention" });
-  const context = frame.getByRole("region", { name: "Context", exact: true });
+  const context = frame.getByRole("region", { name: "Review suggested", exact: true });
   const nextStep = context.getByRole("listitem").filter({ hasText: "Next step empty" });
   await expect(attention).not.toContainText("Next step empty");
   await expect(nextStep).toContainText("Next step empty on 5 of 10 work items");

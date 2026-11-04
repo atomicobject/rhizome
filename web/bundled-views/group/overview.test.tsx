@@ -349,7 +349,7 @@ it("lists the eight largest folders before +N more", async () => {
 
   const folders = within(region("Untyped notes by folder"));
   expect(folders.getAllByRole("row")).toHaveLength(1 + 8);
-  fireEvent.click(folders.getByRole("button", { name: "+3 more" }));
+  fireEvent.click(folders.getByRole("button", { name: "Show 3 more" }));
   expect(folders.getAllByRole("row")).toHaveLength(1 + 11);
 });
 

@@ -96,12 +96,14 @@ export function FolderBlock() {
                         </td>
                         <td className="gv-ov-links" title={linksText(line.linksTo)}>
                           {line.linksTo.length ? (
-                            line.linksTo.map((target, index) => (
-                              <Fragment key={target.type}>
-                                {index > 0 && ", "}
-                                {target.label} <span className="gv-num">{fmt(target.count)}</span>
-                              </Fragment>
-                            ))
+                            <span className="gv-ov-links-text">
+                              {line.linksTo.map((target, index) => (
+                                <Fragment key={target.type}>
+                                  {index > 0 && ", "}
+                                  {target.label} <span className="gv-num">{fmt(target.count)}</span>
+                                </Fragment>
+                              ))}
+                            </span>
                           ) : (
                             <span className="gv-faint">no typed notes</span>
                           )}
@@ -267,6 +269,9 @@ const OUTSIDE_READ: GroupRead = {
   neighborCap: 10,
 };
 
+/** Outside notes the Overview lists before "Show N more", so Members stays above the fold. */
+const OVERVIEW_OUTSIDE_NOTES = 4;
+
 /** Only the guide note. */
 const GUIDE_READ: GroupRead = { records: false };
 
@@ -285,6 +290,7 @@ function GroupOutside({ model }: { model: GroupModel }) {
       model={model}
       info={`Notes that link to or from ${model.name} records, most connected first.`}
       empty="No notes outside the group link to or from its records."
+      limit={OVERVIEW_OUTSIDE_NOTES}
     />
   );
 }

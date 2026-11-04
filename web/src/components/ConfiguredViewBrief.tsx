@@ -64,7 +64,7 @@ export function BoardCardBody({
 }) {
   const typeLabel = useTypeLabel();
   const shown = (field: string) => !hiddenFields.includes(field);
-  const markers = <CardMarkers stale={stale} otherLanes={otherLanes} />;
+  const markers = <CardMarkers row={row} stale={stale} otherLanes={otherLanes} />;
 
   if (compact) {
     return showType || stale || otherLanes > 0 ? (
@@ -79,7 +79,8 @@ export function BoardCardBody({
   const keyText = facts.keyTexts[0];
   const relation = facts.relations.find((fact) => shown(fact.field));
   const tags = facts.orderedTags.filter((tag) => shown(tag.field));
-  const age = changedAge(row);
+  // A stale card's clock label already carries its age.
+  const age = stale ? null : changedAge(row);
 
   return (
     <>
@@ -110,13 +111,21 @@ export function BoardCardBody({
   );
 }
 
-function CardMarkers({ stale, otherLanes }: { stale: boolean; otherLanes: number }) {
+function CardMarkers({
+  row,
+  stale,
+  otherLanes,
+}: {
+  row: ViewTableRow;
+  stale: boolean;
+  otherLanes: number;
+}) {
   return (
     <>
       {stale && (
-        <span className="configured-brief__stale">
+        <span className="configured-brief__stale" title={`Unchanged for ${STALE_DAYS}+ days`}>
           <Clock size={12} aria-hidden="true" />
-          Unchanged {STALE_DAYS}+ days
+          Unchanged {row.updatedAt ? <ChangedCell value={row.updatedAt} /> : `${STALE_DAYS}+ days`}
         </span>
       )}
       {otherLanes > 0 && (
@@ -139,6 +148,7 @@ export function RecordBriefHeader({
   editSession,
   onStageOps,
   omitField,
+  showType = true,
 }: {
   row: ViewTableRow;
   profile: TypeProfile;
@@ -147,6 +157,8 @@ export function RecordBriefHeader({
   onStageOps?: (ops: OntologyEditOp[]) => Promise<void> | undefined;
   /** A field the surrounding group already names, such as a card section's status. */
   omitField?: string;
+  /** False when the record's type is the one most of its group shares. */
+  showType?: boolean;
 }) {
   const typeLabel = useTypeLabel();
   const facts = recordFacts(row, profile, capabilities);
@@ -160,7 +172,7 @@ export function RecordBriefHeader({
 
   return (
     <span className="configured-brief__header">
-      <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>
+      {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
       {tags.map((tag) => (
         <TagMenu
           key={tag.field}
