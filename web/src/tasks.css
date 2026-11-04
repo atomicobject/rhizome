@@ -762,16 +762,6 @@
   color: var(--text-faint);
 }
 
-.task-block__chevron .task-icon {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.15s var(--ease);
-}
-
-.task-block[open] > summary .task-block__chevron .task-icon {
-  transform: rotate(90deg);
-}
-
 .task-block__title {
   display: flex;
   align-items: baseline;
@@ -1035,15 +1025,17 @@
 }
 
 /* A new task's row carries its notice: a "New" tag and a quiet "What it
-   does" toggle that opens the purpose in a full-width row below. */
+   does" toggle that opens the purpose in a full-width row below. "New" is
+   the neutral chip (as .type-chip): a fact, not a status. */
 .task-table__new-tag {
   padding: 0 5px;
+  border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  background: var(--info-soft);
-  color: var(--info-ink);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
   font-size: var(--fs-xs);
   font-weight: 600;
-  line-height: 18px;
+  line-height: 16px;
 }
 
 .task-notice__more {
@@ -1060,14 +1052,6 @@
 
 .task-notice__more:is(:hover, :focus-visible) {
   color: var(--text);
-}
-
-.task-notice__more svg {
-  transition: transform 120ms ease;
-}
-
-.task-notice__more[aria-expanded="true"] svg {
-  transform: rotate(180deg);
 }
 
 .task-table tr.is-expanded > * {

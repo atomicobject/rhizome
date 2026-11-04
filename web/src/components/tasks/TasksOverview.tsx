@@ -1,7 +1,7 @@
-import { ChevronDown } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
+import { DisclosureChevron } from "../DisclosureChevron";
 import { StatusMark } from "../StatusMark";
 import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
@@ -35,6 +35,14 @@ function scheduleSummary(report: TasksReport): string {
 function SourceDetails({ report }: { report: TasksReport }) {
   if (!report.ref && !report.fetchedAt) return null;
 
+  // Where each scheduled task's mode comes from: its file's default, or set here.
+  const modes = report.tasks
+    .filter((task) => task.scheduled)
+    .map(
+      (task) =>
+        `${task.name || task.id}: ${task.modeSource === "override" ? "set here" : "task default"}`,
+    );
+
   return (
     <details className="header-details">
       <summary className="button button--ghost">Details</summary>
@@ -59,6 +67,12 @@ function SourceDetails({ report }: { report: TasksReport }) {
           <>
             <dt>Fetched</dt>
             <dd className="num">{formatAgo(report.fetchedAt)}</dd>
+          </>
+        ) : null}
+        {modes.length ? (
+          <>
+            <dt>Mode</dt>
+            <dd>{modes.join(", ")}</dd>
           </>
         ) : null}
       </dl>
@@ -155,14 +169,6 @@ export function TasksNotices({
   );
 }
 
-function RunLink({ task, children = "View run" }: { task: TaskStatus; children?: ReactNode }) {
-  const run = task.item?.run ?? task.lastRun?.id;
-
-  if (!run) return null;
-
-  return <TaskLink task={task} run={run} label={children} />;
-}
-
 /** A quiet link to a task's page, or to one of its runs. */
 function TaskLink({ task, run, label }: { task: TaskStatus; run?: string; label: ReactNode }) {
   return (
@@ -179,16 +185,17 @@ function TaskLink({ task, run, label }: { task: TaskStatus; run?: string; label:
   );
 }
 
-/** A failed last run leads the page, above any notice about the task. */
-function FailureBanner({ task }: { task: TaskStatus }) {
+/**
+ * Two or more failed last runs lead the page as one aggregate alert; a single
+ * failure is told by its row, which carries the "Review failed run" action.
+ */
+function FailureBanner({ tasks }: { tasks: TaskStatus[] }) {
+  if (tasks.length < 2) return null;
+
   return (
     <div className="banner banner--risk task-notice" role="status">
-      <StatusMark tone="risk" label="Failed" />
-      <p className="banner__text">
-        {task.name || task.id}{" "}
-        <span className="banner__aside">{formatRelative(task.lastRun?.at)}</span>
-      </p>
-      <RunLink task={task} />
+      <StatusMark tone="risk" label={`${tasks.length} tasks failed`} />
+      <p className="banner__text">{tasks.map((task) => task.name || task.id).join(", ")}</p>
     </div>
   );
 }
@@ -212,20 +219,21 @@ function rowAnnouncement(item: TaskItem, tasks: TaskStatus[]) {
 /** The Inbox cell: an open item that needs a person is one action, not another red state. */
 function InboxCell({ task }: { task: TaskStatus }) {
   const item = task.item ? itemStatePresentation(task.item.state) : null;
+  const failed = task.lastRun?.outcome === "failed";
 
-  if (!item) return <span className="task-table__none">—</span>;
+  if (!item) {
+    return failed && task.lastRun?.id ? (
+      <TaskLink task={task} run={task.lastRun.id} label="Review failed run" />
+    ) : (
+      <span className="task-table__none">—</span>
+    );
+  }
 
   if (task.item?.state === "needs-attention") {
     // Without a run id the task's page, which lists its runs, is the place to review.
     const run = task.item.run ?? task.lastRun?.id;
 
-    return (
-      <TaskLink
-        task={task}
-        run={run}
-        label={task.lastRun?.outcome === "failed" ? "Review failed run" : "Review"}
-      />
-    );
+    return <TaskLink task={task} run={run} label={failed ? "Review failed run" : "Review"} />;
   }
 
   return <StatusMark tone={item.tone} label={item.label} />;
@@ -284,7 +292,7 @@ function TaskRow({
                     onClick={() => setOpen(!open)}
                   >
                     What it does
-                    <ChevronDown size={14} aria-hidden="true" />
+                    <DisclosureChevron open={open} />
                   </button>
                 </>
               ) : null}
@@ -293,12 +301,7 @@ function TaskRow({
         </th>
         <td>
           {task.scheduled ? (
-            <>
-              {MODE_LABELS[task.mode] ?? task.mode}
-              {task.modeSource === "override" ? null : (
-                <span className="task-table__aside"> · default</span>
-              )}
-            </>
+            (MODE_LABELS[task.mode] ?? task.mode)
           ) : (
             <span className="task-table__none">—</span>
           )}
@@ -390,11 +393,7 @@ export function TasksOverview({
       </header>
       <div className="tasks-overview__body">
         {error}
-        {report.tasks
-          .filter((task) => task.lastRun?.outcome === "failed")
-          .map((task) => (
-            <FailureBanner key={task.id} task={task} />
-          ))}
+        <FailureBanner tasks={report.tasks.filter((task) => task.lastRun?.outcome === "failed")} />
         <TasksNotices report={report} pausePending={pausePending} onResume={onResume} />
         {bannerItems.map((item) => (
           <div key={item.id} className="banner task-notice" role="status">
