@@ -30,7 +30,7 @@ describe("view header slots", () => {
     expect(within(header).getByRole("heading", { name: "Specs" })).toBeVisible();
     expect(within(header).getByRole("searchbox", { name: "Search view" })).toBeVisible();
     expect(within(header).getByRole("button", { name: "Filter" })).toBeVisible();
-    expect(within(header).getByRole("button", { name: "View options" })).toBeVisible();
+    expect(within(header).getByRole("button", { name: "Display options" })).toBeVisible();
     // The view's own row count, beside the title.
     expect(header.querySelector(".view-header__count")).toHaveTextContent(/^\d+$/);
     expect(document.querySelector(".configured-view__toolbar")).toBeNull();

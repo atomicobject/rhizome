@@ -2598,3 +2598,17 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   color: var(--text-faint);
   font-size: var(--fs-xs);
 }
+
+/* The default view in the custom-view menu: a quiet word, not a dot. */
+.view-selector__menu .view-selector__default {
+  width: auto;
+  height: auto;
+  margin-left: auto;
+  padding-left: var(--sp-3);
+  border-radius: 0;
+  background: none;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  opacity: 1;
+}

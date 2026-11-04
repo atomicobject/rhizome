@@ -133,19 +133,19 @@ export function ConfiguredViewViewMenu({
       <button
         type="button"
         className="configured-view__tool-button configured-view__options-button"
-        aria-label={dirty ? "View options, unsaved changes" : "View options"}
+        aria-label={dirty ? "Display options, unsaved changes" : "Display options"}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
         <SlidersIcon />
-        View
+        Display
         {dirty && <span className="configured-view__unsaved-dot" aria-hidden />}
       </button>
       {/* Stays mounted while closed so a save in progress keeps its status. */}
       <div
         className="configured-view__options-panel"
         role="group"
-        aria-label="View options"
+        aria-label="Display options"
         hidden={!open}
       >
         <div className="configured-view__options-section">

@@ -33,11 +33,11 @@ describe("ConfiguredView states and controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     expect(screen.getByRole("button", { name: "Add filter" })).toBeVisible();
 
-    const options = screen.getByRole("button", { name: "View options" });
+    const options = screen.getByRole("button", { name: "Display options" });
     expect(options).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(options);
     expect(options).toHaveAttribute("aria-expanded", "true");
-    const panel = screen.getByRole("group", { name: "View options" });
+    const panel = screen.getByRole("group", { name: "Display options" });
     expect(within(panel).getByRole("combobox", { name: "Group by" })).toBeVisible();
     expect(within(panel).getByRole("group", { name: "Visible columns" })).toBeVisible();
     expect(within(panel).getByRole("button", { name: /^Save view/ })).toBeVisible();
@@ -81,10 +81,10 @@ describe("ConfiguredView states and controls", () => {
     expect(screen.getByLabelText("Sort by")).toHaveDisplayValue("Priority");
   });
 
-  it("marks View options when the shared view has unsaved changes", () => {
+  it("marks Display options when the shared view has unsaved changes", () => {
     renderView({ state: { sort: [{ field: "title", direction: "desc" }] } });
 
-    expect(screen.getByRole("button", { name: "View options, unsaved changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Display options, unsaved changes" })).toBeVisible();
   });
 
   it("renders loading, error, and empty states", () => {
@@ -430,9 +430,9 @@ describe("ConfiguredView states and controls", () => {
   it("remembers the column choice for the view after a remount", async () => {
     onTestFinished(clearPreferenceStores);
     const rendered = renderView({ vaultKey: "vault" });
-    await screen.findByRole("button", { name: /^View options/ });
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
-    await screen.findByRole("button", { name: /^View options/ });
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Visible columns" })).getByLabelText("Status"),
