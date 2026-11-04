@@ -165,7 +165,7 @@ Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, w
 - [x] Alignment and actual outcomes checked against integrated code, DESIGN.md, the eight score ledgers, and seven lane briefs; target shortfall and Desktop gap are explicit.
 - [x] Contradicted spec statements and owning web guidance reconciled; unchanged backend contracts remain intact.
 - [x] Follow-ups triaged and assigned below, including the optional calibration.
-- [x] PR handoff recorded: pending PR number, to be added once the integrating PR exists and before merge. Design delivery is `1f1d0c9b..d91cd828`; closure documentation travels with that work, not in a closure-only PR.
+- [x] PR handoff recorded: [PR #91](https://github.com/atomicobject/rhizome/pull/91) carries the design delivery (`1f1d0c9b..d91cd828`), the round-7 changes, the review fixes, and this closure record.
 - [x] Integrated review and local gates passed on the PR branch (Execution Notes); CI runs on the PR.
 
 ## Compounding Follow-ups
@@ -200,4 +200,4 @@ The rubric, fixed-vault capture, and before/after comparisons are reusable. The 
 
 ## Status
 
-Complete. Opened retroactively at closure and closed for the banked design slice. The original 9 target is unmet and covered by Drew's decision to bank the gains. PR number: pending, to be added by the integrating owner once the PR exists. The PR must carry this closure record and complete its review and CI gates before merge.
+Complete. Opened retroactively at closure and closed for the banked design slice. The original 9 target is unmet and covered by Drew's decision to bank the gains. Delivered in [PR #91](https://github.com/atomicobject/rhizome/pull/91), which carries this closure record; CI runs on the PR.
