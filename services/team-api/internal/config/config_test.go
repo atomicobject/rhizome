@@ -57,6 +57,9 @@ func TestParseDevAppliesDefaults(t *testing.T) {
 	if cfg.Concurrency.VoyageConcurrency != 4 {
 		t.Fatalf("concurrency default: %+v", cfg.Concurrency)
 	}
+	if cfg.SessionLookups != (SessionLookups{PerIPBurst: 300, PerIPPerSecond: 20, GlobalBurst: 1000, GlobalPerSecond: 100}) {
+		t.Fatalf("session lookup defaults: %+v", cfg.SessionLookups)
+	}
 }
 
 func TestParseProduction(t *testing.T) {
@@ -84,6 +87,8 @@ func TestRejectsInvalidConfigs(t *testing.T) {
 		{"unknown field", devJSON, `"mode"`, `"surprise": 1, "mode"`, "unknown field"},
 		{"missing domains", devJSON, `["AtomicObject.com"]`, `[]`, "accepted_domains"},
 		{"negative limits", devJSON, `"mode"`, `"global_limits": {"requests": -1}, "mode"`, "must not be negative"},
+		{"negative lookup rate", devJSON, `"mode"`, `"session_lookup_limits": {"global_per_second": -1}, "mode"`, "session_lookup_limits"},
+		{"fractional lookup burst", devJSON, `"mode"`, `"session_lookup_limits": {"per_ip_burst": 0.5}, "mode"`, "session_lookup_limits"},
 		{"bad duration", devJSON, `"mode"`, `"sessions": {"idle_ttl": 5}, "mode"`, "duration"},
 		{"idle beyond absolute", devJSON, `"mode"`, `"sessions": {"idle_ttl": "800h"}, "mode"`, "idle_ttl <= absolute_ttl"},
 		{"defaults above ceiling", devJSON, `"mode"`, `"max_person_limits": {"requests": 4, "input_bytes": 6, "charge_credits": 7}, "mode"`, "exceed max_person_limits"},

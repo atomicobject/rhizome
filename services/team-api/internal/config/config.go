@@ -66,12 +66,15 @@ type Config struct {
 	// enforces the same values.
 	Concurrency wire.Limits `json:"concurrency"`
 
-	Sessions          Sessions  `json:"sessions"`
-	MinClientVersion  string    `json:"min_client_version"`
-	Upstreams         Upstreams `json:"upstreams"`
-	DiagnosticsDir    string    `json:"diagnostics_dir"`
-	DiagnosticsOutput string    `json:"diagnostics_output"`
-	TrustedProxyCIDRs []string  `json:"trusted_proxy_cidrs"`
+	Sessions Sessions `json:"sessions"`
+	// SessionLookups bounds the session-store reads that unproven tokens can
+	// cause on protected routes, logout, and refresh.
+	SessionLookups    SessionLookups `json:"session_lookup_limits"`
+	MinClientVersion  string         `json:"min_client_version"`
+	Upstreams         Upstreams      `json:"upstreams"`
+	DiagnosticsDir    string         `json:"diagnostics_dir"`
+	DiagnosticsOutput string         `json:"diagnostics_output"`
+	TrustedProxyCIDRs []string       `json:"trusted_proxy_cidrs"`
 }
 
 // State selects the backend for serve. Dev always uses SQLite.
@@ -86,6 +89,18 @@ type Sessions struct {
 	IdleTTL      Duration `json:"idle_ttl"`
 	AbsoluteTTL  Duration `json:"absolute_ttl"`
 	RefreshGrace Duration `json:"refresh_grace"`
+}
+
+// SessionLookups are token buckets for session-store reads: one per client
+// address and one for the whole process. Authentication cache hits do not
+// count. The defaults admit an office of a few hundred people behind one
+// address, each session missing the 30-second cache about twice a minute,
+// while capping what invented tokens can cost.
+type SessionLookups struct {
+	PerIPBurst      float64 `json:"per_ip_burst"`
+	PerIPPerSecond  float64 `json:"per_ip_per_second"`
+	GlobalBurst     float64 `json:"global_burst"`
+	GlobalPerSecond float64 `json:"global_per_second"`
 }
 
 // Upstreams override the compiled-in provider base URLs. Development only.
@@ -182,6 +197,17 @@ func (c *Config) applyDefaults() {
 	def(&c.Sessions.IdleTTL, 14*24*time.Hour)
 	def(&c.Sessions.AbsoluteTTL, 30*24*time.Hour)
 	def(&c.Sessions.RefreshGrace, 120*time.Second)
+	for _, f := range []struct {
+		v *float64
+		d float64
+	}{
+		{&c.SessionLookups.PerIPBurst, 300}, {&c.SessionLookups.PerIPPerSecond, 20},
+		{&c.SessionLookups.GlobalBurst, 1000}, {&c.SessionLookups.GlobalPerSecond, 100},
+	} {
+		if *f.v == 0 {
+			*f.v = f.d
+		}
+	}
 	times10 := func(l wire.DailyLimits) *wire.DailyLimits {
 		return &wire.DailyLimits{Requests: l.Requests * 10, InputBytes: l.InputBytes * 10, ChargeCredits: l.ChargeCredits * 10}
 	}
@@ -261,6 +287,9 @@ func (c Config) Validate() error {
 	}
 	if s.IdleTTL > s.AbsoluteTTL || s.AccessTTL > s.IdleTTL {
 		fail("session lifetimes must satisfy access_ttl <= idle_ttl <= absolute_ttl")
+	}
+	if l := c.SessionLookups; l.PerIPBurst < 1 || l.GlobalBurst < 1 || l.PerIPPerSecond <= 0 || l.GlobalPerSecond <= 0 {
+		fail("session_lookup_limits bursts must be at least 1 and rates positive")
 	}
 
 	switch c.State.Backend {

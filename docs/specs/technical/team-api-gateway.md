@@ -6,7 +6,7 @@ aliases:
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
 spec-status: proposed
-last-updated: 2026-11-03
+last-updated: 2026-11-04
 ---
 
 # Team API gateway
@@ -163,6 +163,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST exchange the authorization code on the gateway, verify the ID token's signature against Google's keys, and check `iss`, `aud`, `exp`, `nonce`, `email_verified`, and `hd` against a server-side accepted-domain list. The `hd` request parameter is a hint only.
 - MUST NOT retain Google refresh tokens, or overwrite a disabled person's status during sign-in.
 - MUST check person and session status on every refresh and paid request, with authorization caches of at most 30 seconds.
+- MUST bound the session-store reads that an unproven token can cause. Every authentication cache miss (protected routes, including admin and provider routes), logout, and refresh takes one token from a bucket for the client address (the trusted ALB-derived address) and then one from a process-wide bucket, and gets `rate_limited` with `Retry-After` before any store read when either is empty. Cache hits take no token, so a signed-in session's steady traffic is not limited. The defaults are 300 burst and 20 per second per address, and 1,000 burst and 100 per second in total, configurable in `session_lookup_limits`. Failed lookups are not cached, because invented session IDs would never repeat.
 
 ### Sessions
 
@@ -181,7 +182,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 
 ### Trusted origin and precedence
 
-- MUST take the gateway origin only from an interactive `rzm auth login`: a compiled-in default for internal builds, or `--server` with a root URL that is HTTPS, or plain HTTP only on a loopback host (`127.0.0.1`, `localhost`, `[::1]`) for local development. Repository configuration, dotenv files, and tool input cannot set or read it.
+- MUST take the gateway origin only from an interactive `rzm auth login`: a compiled-in default for release builds, public and internal, or `--server` with a root URL that is HTTPS, or plain HTTP only on a loopback host (`127.0.0.1`, `localhost`, `[::1]`) for local development. Repository configuration, dotenv files, and tool input cannot set or read it.
 - MUST send session tokens only to the session's origin, over HTTPS except for a loopback origin, refuse redirects, and take proxy and TLS settings from trusted user or OS configuration, not repository dotenv. In session mode, a custom Voyage endpoint fails with `team_session_endpoint_conflict`.
 - MUST record the signed-in origin in one non-secret, user-global selector file (`team-session.json` beside the session lock), written by login and cleared by logout under the session lock, and resolve every consumer's origin from it: an explicit `--server`, then (development builds only) `RHIZOME_TEAM_API_ORIGIN` naming an origin that already has a stored session, then the selector, then the default origin.
 - MUST refuse to route provider calls to a loopback gateway that reports fake upstreams unless `RHIZOME_TEAM_API_ORIGIN` names it explicitly, so a selector left pointing at a fake stack cannot put fake vectors in a real index.
@@ -205,6 +206,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST reject, before admission: unknown routes and methods; disallowed models (Voyage `voyage-4-lite`; TypeSafe `jev-latest` or numeric release IDs `jev-MAJOR.MINOR.PATCH`, at most 64 characters with no leading zeroes); more than 1,000 Voyage inputs; Voyage `output_dimension` above 1,024; bodies over 32 MiB (Voyage) or 2 MiB (TypeSafe); unknown cost-affecting options; and malformed or multiple JSON documents. Jev releases such as `jev-1.13.0` do not require an exact allowlist entry or inclusion in the provider's model list. Upstream decides whether a syntactically valid release exists.
 - MUST make at most one upstream attempt per admitted idempotency key, with the receipt and reservation persisted before dispatch. A crash around dispatch is recorded as an unknown outcome, never as permission to resend.
 - MUST propagate client cancellation upstream, without claiming that cancellation refunds inference.
+- MUST bound the free TypeSafe model-list route outside paid admission: at most 10 requests per person at once, refilling one every 6 seconds; a 60-second cache of the last complete 2xx response; and one shared upstream request for concurrent misses. Upstream errors and incomplete bodies are never cached.
 
 ### Admission and budgets
 

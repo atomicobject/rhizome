@@ -65,7 +65,8 @@ export function repositoryRows(
     });
 }
 
-/** One repository's worktrees with the primary pinned first. */
+/** One repository's worktrees: the repository root first, whatever its
+ * branch, then the primary, then the rest in discovery order. */
 export function worktreeRows(
   repository: Repository,
   info: Discovery,
@@ -74,7 +75,9 @@ export function worktreeRows(
   sleeping?: boolean,
 ): FinderRow[] {
   const fresh = newWorktrees(repository, info).map((w) => w.path);
-  const rows: FinderRow[] = info.worktrees.map((w) => ({
+  const rank = (w: Worktree) => (w.main ? 0 : w.path === info.primary ? 1 : 2);
+  const ordered = [...info.worktrees].sort((a, b) => rank(a) - rank(b));
+  return ordered.map((w) => ({
     repository: repository.id,
     worktree: w.path,
     title: worktreeName(w),
@@ -84,7 +87,6 @@ export function worktreeRows(
     primary: w.path === info.primary,
     current: w.path === current,
   }));
-  return [...rows.filter((r) => r.primary), ...rows.filter((r) => !r.primary)];
 }
 
 /** The finder this window shows. Its rows stay live while it is open, and it

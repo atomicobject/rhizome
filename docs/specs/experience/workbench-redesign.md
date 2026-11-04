@@ -170,7 +170,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 #### Acceptance Criteria
 
-- The worktree finder lists only the current repository's worktrees, with the primary worktree pinned first, and fuzzy-filters by branch and path.
+- The worktree finder lists only the current repository's worktrees, with the repository root first whatever branch it has checked out, then the primary worktree, and fuzzy-filters by branch and path.
 - Rows show branch, path, the running indicator, and the new-worktree marker. Enter opens in this window and ⌘Enter opens a new window.
 - On the primary worktree the toolbar's worktree label is quiet. On any other worktree it is visibly distinct.
 
