@@ -255,8 +255,26 @@ Every colour in `web/src/tokens.css` is a `light-dark()` pair resolved by the ro
 
 - **Info Blue** (`info-blue`): the in-progress status mark and informational tints.
 - **Warning Gold** (`warning-gold`, `warning-soft`, `warning-ink`): staged (unsaved) edits everywhere, the dirty tab dot, warnings, and the connection banner. Gold means "changed, not yet saved", never "problem".
-- **Type palette** (`--type-1` … `--type-13`, each with an `-ink` text variant): twelve categorical hues for ontology types in graphs, Atlas cards, and type dots, plus `--type-8`, the warm-gray neutral that interfaces and essential edges use. Every hue clears 3:1 against every surface in its theme, and neighbouring slots differ in hue and lightness; never red or teal. Types take hues in name order, types with records first, so a vault's types collide as late as possible; a name the ontology does not list falls back to a hash. Colour is always paired with a label, legend, or shape.
-- **Series palette** (`--series-1` … `--series-8`, `--series-link`): chart colours, neutral first, no red, teal only for linked amounts.
+- **Type palette** (`--type-1` … `--type-13`, each with an `-ink` text variant): twelve saturated categorical hues, plus slot 8, the warm-gray neutral for interfaces, untyped notes, and essential edges. Code keeps its separate `--graph-code` gray. Fills and dots clear 3:1 and text variants clear 4.5:1 against all three content surfaces in each appearance. Dark mode uses its own brighter, saturated colours. Teal stays reserved for links and connections, and red for risk.
+- Keep the assignment order `1, 6, 7, 5, 2, 3, 4, 11, 10, 12, 13, 9`: name order, types with records first, with a hash fallback for unlisted names. Hue families remain stable. Grass, chartreuse, and emerald differ in hue and lightness; gold, orange, and copper replace overlapping browns. Twelve hues cannot all remain distinct under common colour-vision deficiencies: retain labels, legends, and shapes, and never encode meaning through colour alone.
+
+| Slot | Hue        | Light fill | Light ink | Dark fill / ink       |
+| ---- | ---------- | ---------- | --------- | --------------------- |
+| 1    | Blue       | `#1264df`  | `#1453b8` | `#63a6ff`             |
+| 2    | Pink       | `#c32ca4`  | `#a31c89` | `#f16cce`             |
+| 3    | Gold       | `#aa7400`  | `#885c00` | `#f5bd27`             |
+| 4    | Indigo     | `#3238ae`  | `#3238ae` | `#a1a0ff`             |
+| 5    | Grass      | `#278b19`  | `#226d16` | `#70d54b`             |
+| 6    | Orange     | `#d05200`  | `#aa4200` | `#ff9848`             |
+| 7    | Violet     | `#853de0`  | `#7130bf` | `#bd88ff`             |
+| 8    | Neutral    | `#8a8682`  | `#5c5853` | `#a29d97` / `#c9c4bd` |
+| 9    | Sky        | `#007eae`  | `#006b94` | `#49c8ff`             |
+| 10   | Orchid     | `#9c168e`  | `#921584` | `#ef9de4`             |
+| 11   | Chartreuse | `#697900`  | `#566400` | `#c4da36`             |
+| 12   | Emerald    | `#00652e`  | `#00652e` | `#38bc78`             |
+| 13   | Copper     | `#98420a`  | `#98420a` | `#df8746`             |
+
+- **Series palette** (`--series-1` … `--series-8`): neutral `#5c5853 / #c9c4bd`, sky `#007eae / #49c8ff`, gold `#aa7400 / #f5bd27`, secondary neutral `#85817b / #96918a`, pink `#c32ca4 / #f16cce`, chartreuse `#697900 / #c4da36`, orange `#d05200 / #ff9848`, blue `#1264df / #63a6ff` (light / dark). Keep neutral first, with saturated hues shared with the type palette. `--series-link` remains connection teal `#16cbc4 / #2fd3cc`, reserved for linked amounts.
 
 ### Neutral
 
