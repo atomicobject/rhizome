@@ -284,6 +284,11 @@
   display: none;
 }
 
+/* ---- Search ----
+   One centred column shared by the header, the banner, the status line, and
+   the results. The header follows the shared view header: an 18/700 title,
+   its count, and the query as the muted one-line description, then the
+   filters on one row. */
 .search-workspace {
   display: flex;
   flex: 1;
@@ -294,30 +299,45 @@
   background: var(--surface);
 }
 
+.search-workspace > * {
+  flex: none;
+  width: min(100% - 2 * var(--sp-6), 960px);
+  margin-inline: auto;
+}
+
 .search-workspace__header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-5);
-  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) 0 var(--sp-4);
   border-bottom: 1px solid var(--border);
-  background: var(--surface-alt);
+}
+
+.search-workspace__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
 }
 
 .search-workspace h1 {
-  max-width: 70vw;
+  flex: none;
   margin: 0;
-  overflow: hidden;
   color: var(--text);
-  font-family: var(--font-display);
-  font-size: var(--fs-2xl);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font: 700 var(--fs-xl) / 1.2 var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.search-workspace__count {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  font-variant-numeric: tabular-nums;
 }
 
 .search-workspace__query {
-  max-width: 48vw;
-  margin: 3px 0 0;
+  min-width: 0;
+  margin: 0;
   overflow: hidden;
   color: var(--text-muted);
   font-size: var(--fs-sm);
@@ -332,65 +352,121 @@
 
 .search-workspace__filters {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-}
-
-.search-workspace__filters > button,
-.search-workspace__filters select,
-.search-workspace__filters input {
-  height: 27px;
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  color: var(--text);
-  font-size: var(--fs-xs);
-}
-
-.search-workspace__filters > button {
-  cursor: pointer;
-}
-
-.search-workspace__filters > button:hover {
-  background: var(--bg-tint);
-  border-color: var(--border-strong);
-}
-
-.search-workspace__filters > button.is-active,
-.search-workspace__filters > button[aria-pressed="true"] {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--surface);
+  align-items: center;
+  gap: var(--sp-3);
 }
 
 .search-workspace__filters label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
-.search-workspace__filters label span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+.search-workspace__filters select {
+  width: 180px;
+}
+
+.search-workspace__filters input {
+  width: 220px;
+}
+
+.search-workspace__clear {
+  height: 26px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.search-workspace__clear:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+/* The banner: one 36px tinted band with a mark, text, and its action; the
+   individual source messages wait behind Details. */
+.search-workspace__warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.search-workspace__banner {
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  border-radius: var(--r-md);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  font-size: var(--fs-sm);
+}
+
+.search-workspace__banner.is-alert {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.search-workspace__banner-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 34px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+}
+
+.search-workspace__banner-mark {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.search-workspace__banner-text {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-1) 0;
+  color: var(--text);
+}
+
+.search-workspace__banner-row > button {
+  flex: none;
+  height: 24px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.search-workspace__banner-row > button:hover {
+  background: color-mix(in srgb, currentcolor 10%, transparent);
+}
+
+.search-workspace__banner-details {
+  margin: 0;
+  padding: 0 var(--sp-3) var(--sp-3) calc(var(--sp-3) + 15px + var(--sp-2));
+  color: var(--text-muted);
+  line-height: 1.45;
+  list-style: none;
+}
+
+.search-workspace__banner-details li + li {
+  margin-top: var(--sp-1);
 }
 
 .search-workspace__meta,
-.search-workspace__warning,
 .search-workspace__state,
 .search-workspace__end {
-  margin: var(--sp-4) auto 0;
-  width: min(100% - 2 * var(--sp-6), 920px);
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+  margin-top: var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .search-workspace__meta {
@@ -412,14 +488,6 @@
   color: var(--text-faint);
 }
 
-.search-workspace__warning {
-  padding: 7px 9px;
-  border: 1px solid var(--warning);
-  border-radius: var(--r-sm);
-  background: var(--warning-soft);
-  color: var(--warning-ink);
-}
-
 .search-workspace__state {
   display: flex;
   align-items: center;
@@ -432,15 +500,15 @@
 .search-workspace__state strong {
   color: var(--text);
   font-size: var(--fs-lg);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .search-workspace__state button,
 .search-workspace__load-more {
-  height: 26px;
+  height: 28px;
   padding: 0 11px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--r);
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--text);
   font-size: var(--fs-sm);
@@ -455,36 +523,46 @@
 
 .search-workspace__results {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
-  width: min(100% - 2 * var(--sp-6), 920px);
-  margin: var(--sp-3) auto 0;
+  margin-top: var(--sp-2);
   padding: 0;
   border-top: 1px solid var(--border);
   list-style: none;
 }
 
 .search-workspace__result {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  padding: var(--sp-4) 0;
+  border-bottom: 1px solid var(--border-faint);
 }
 
 .search-workspace__result-kind {
+  display: flex;
+  gap: var(--sp-2);
   font: var(--label-font);
   color: var(--label-color);
+}
+
+.search-workspace__result-why {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.search-workspace__result-why::before {
+  content: "·";
+  margin-right: var(--sp-2);
 }
 
 .search-workspace__result-link {
   display: block;
   max-width: 100%;
-  margin-top: 3px;
+  margin-top: 2px;
   padding: 0;
   overflow: hidden;
   border: 0;
   background: transparent;
   color: var(--text);
-  font-size: var(--fs-lg);
-  font-weight: 700;
+  font: 600 var(--fs-lg) / 1.35 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -511,10 +589,10 @@
 
 .search-workspace__result p {
   max-width: 78ch;
-  margin: 7px 0 0;
+  margin: var(--sp-2) 0 0;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
-  line-height: 1.45;
+  font-size: var(--fs-base);
+  line-height: 1.5;
   white-space: pre-wrap;
 }
 
@@ -523,19 +601,39 @@
   font-style: italic;
 }
 
+/* Code evidence keeps its whitespace in mono on the tint. */
+.search-workspace__code {
+  max-height: 14lh;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  overflow: auto;
+  border-radius: var(--r-md);
+  background: var(--bg-tint);
+  color: var(--text);
+  font: 400 12.5px / 1.55 var(--font-mono);
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .search-workspace__result mark {
   border-radius: 2px;
   background: var(--warning-soft);
   color: inherit;
 }
 
+.search-workspace__code mark {
+  background: color-mix(in srgb, var(--warning) 35%, transparent);
+}
+
 .search-workspace__load-more,
 .search-workspace__end {
-  margin-bottom: var(--sp-6);
-  align-self: center;
+  width: auto;
+  margin-block: var(--sp-4) var(--sp-6);
 }
 
 .search-workspace__end {
+  color: var(--text-faint);
   text-align: center;
 }
 

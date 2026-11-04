@@ -3,6 +3,7 @@ import { humanizeName } from "../lib/labels";
 import {
   useEffect,
   useEffectEvent,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -64,6 +65,70 @@ function excerptFor(match: WorkspaceSearchMatch): string | null {
   const value = match.snippet || "";
 
   return value.trim() ? value.trim() : null;
+}
+
+// What the match is, from the result itself: a code symbol's kind or a note
+// section. The payload carries no per-match retrieval evidence.
+function matchedAs(match: WorkspaceSearchMatch): string {
+  if (match.type === "code") return match.kind ? `${humanizeName(match.kind)} symbol` : "";
+
+  return match.nodeKind?.toUpperCase() === "SECTION" ? "Section" : "";
+}
+
+function SearchBanner({
+  tone = "status",
+  details = [],
+  action,
+  children,
+}: {
+  tone?: "status" | "alert";
+  details?: string[];
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
+
+  return (
+    <div className={`search-workspace__banner is-${tone}`}>
+      <div className="search-workspace__banner-row">
+        <svg
+          className="search-workspace__banner-mark"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        >
+          <path d="M8 2.5 14 13H2L8 2.5Z" />
+          <path d="M8 6.5v3" strokeLinecap="round" />
+          <circle cx="8" cy="11.25" r="0.5" fill="currentColor" stroke="none" />
+        </svg>
+        <span className="search-workspace__banner-text" role={tone}>
+          {children}
+        </span>
+        {action}
+        {details.length > 0 ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={detailsId}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? "Hide details" : "Details"}
+          </button>
+        ) : null}
+      </div>
+      {details.length > 0 ? (
+        <ul id={detailsId} className="search-workspace__banner-details" hidden={!open}>
+          {details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 function resultLabel(match: WorkspaceSearchMatch): string {
@@ -223,12 +288,12 @@ function FolderNotesWorkspace({
       }}
     >
       <header className="search-workspace__header">
-        <div>
+        <div className="search-workspace__title-row">
           <h1>Notes in {folderLabel(folder)}</h1>
           {notesQuery.data ? (
-            <p className="search-workspace__query">
+            <span className="search-workspace__count">
               {notes.length} {notes.length === 1 ? "note" : "notes"}
-            </p>
+            </span>
           ) : null}
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
@@ -365,6 +430,16 @@ function RankedSearchWorkspace({
   );
 
   const incomplete = degradedLanes.length > 0 || availabilityWarnings.length > 0;
+
+  // One banner: a summary line when sources are missing, with each source's
+  // own message behind its disclosure.
+  const notices = [
+    ...(incomplete && results.length > 0
+      ? ["Some search sources are unavailable. Showing the usable results."]
+      : []),
+    ...displayWarnings.flatMap((warning) => (warning.message ? [warning.message] : [])),
+  ];
+
   const backgroundError = query.isError && !query.isFetchNextPageError && results.length > 0;
   const noteTypes = types.filter((type) => type.role === "note");
 
@@ -420,28 +495,33 @@ function RankedSearchWorkspace({
       }}
     >
       <header className="search-workspace__header">
-        <div>
+        <div className="search-workspace__title-row">
           <h1>Search results</h1>
-          <p className="search-workspace__query">{tab.query}</p>
+          {total !== null ? <span className="search-workspace__count">{total}</span> : null}
+          <p className="search-workspace__query" title={tab.query}>
+            {tab.query}
+          </p>
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
-          {(["all", "notes", "code"] as const).map((scope) => (
-            <button
-              key={scope}
-              type="button"
-              className={tab.filters.scope === scope ? "is-active" : undefined}
-              aria-pressed={tab.filters.scope === scope}
-              onClick={() =>
-                onRefineSearch(tab.id, {
-                  ...tab.filters,
-                  scope,
-                  noteType: scope === "notes" ? tab.filters.noteType : null,
-                })
-              }
-            >
-              {scope === "all" ? "All" : scope === "notes" ? "Notes" : "Code"}
-            </button>
-          ))}
+          <div className="segmented" role="group" aria-label="Search scope">
+            {(["all", "notes", "code"] as const).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                className={tab.filters.scope === scope ? "is-active" : undefined}
+                aria-pressed={tab.filters.scope === scope}
+                onClick={() =>
+                  onRefineSearch(tab.id, {
+                    ...tab.filters,
+                    scope,
+                    noteType: scope === "notes" ? tab.filters.noteType : null,
+                  })
+                }
+              >
+                {scope === "all" ? "All" : scope === "notes" ? "Notes" : "Code"}
+              </button>
+            ))}
+          </div>
           {noteTypes.length > 0 && tab.filters.scope !== "code" ? (
             <label>
               <span>Type</span>
@@ -478,34 +558,34 @@ function RankedSearchWorkspace({
             />
           </label>
           {hasFilters ? (
-            <button type="button" onClick={() => onRefineSearch(tab.id, normalizeSearchFilters())}>
+            <button
+              type="button"
+              className="search-workspace__clear"
+              onClick={() => onRefineSearch(tab.id, normalizeSearchFilters())}
+            >
               Clear filters
             </button>
           ) : null}
         </div>
       </header>
 
-      {!query.isPending &&
-      (displayWarnings.length > 0 || (incomplete && results.length > 0) || backgroundError) ? (
+      {!query.isPending && (notices.length > 0 || backgroundError) ? (
         <div className="search-workspace__warnings" aria-label="Search warnings">
-          {incomplete && results.length > 0 ? (
-            <div className="search-workspace__warning" role="status">
-              Some search sources are unavailable. Showing the usable results.
-            </div>
-          ) : null}
           {backgroundError ? (
-            <div className="search-workspace__warning" role="alert">
+            <SearchBanner
+              tone="alert"
+              action={
+                <button type="button" onClick={() => void query.refetch()}>
+                  Retry refresh
+                </button>
+              }
+            >
               Search refresh failed. The previous results remain visible.
-              <button type="button" onClick={() => void query.refetch()}>
-                Retry refresh
-              </button>
-            </div>
+            </SearchBanner>
           ) : null}
-          {displayWarnings.map((warning) => (
-            <div className="search-workspace__warning" key={warning.code} role="status">
-              {warning.message}
-            </div>
-          ))}
+          {notices.length > 0 ? (
+            <SearchBanner details={notices.slice(1)}>{notices[0]}</SearchBanner>
+          ) : null}
         </div>
       ) : null}
       {query.isError && results.length === 0 ? (
@@ -559,6 +639,9 @@ function RankedSearchWorkspace({
                       {publicTypeName(match.noteType)
                         ? ` · ${humanizeName(publicTypeName(match.noteType))}`
                         : ""}
+                      {matchedAs(match) ? (
+                        <span className="search-workspace__result-why">{matchedAs(match)}</span>
+                      ) : null}
                     </div>
                     {isNoteMatch(match) ? (
                       <NoteResultLink target={noteTargetForMatch(match)} onOpenNote={onOpenNote}>
@@ -578,9 +661,15 @@ function RankedSearchWorkspace({
                       {line ? `:${line}` : ""}
                       {match.heading ? ` · ${match.heading}` : ""}
                     </div>
-                    <p className={excerpt ? undefined : "is-missing"}>
-                      {excerpt ? highlightLiteral(excerpt, tab.query) : "Excerpt unavailable."}
-                    </p>
+                    {excerpt && match.type === "code" ? (
+                      <pre className="search-workspace__code">
+                        {highlightLiteral(excerpt, tab.query)}
+                      </pre>
+                    ) : (
+                      <p className={excerpt ? undefined : "is-missing"}>
+                        {excerpt ? highlightLiteral(excerpt, tab.query) : "Excerpt unavailable."}
+                      </p>
+                    )}
                   </article>
                 </li>
               );
