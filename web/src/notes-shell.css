@@ -689,7 +689,6 @@
    scroll sideways instead of breaking into fragments. */
 .search-workspace__code {
   max-width: var(--search-measure);
-  max-height: 14lh;
   margin: var(--sp-2) 0 0;
   padding: var(--sp-2) var(--sp-3);
   overflow: auto;
@@ -701,21 +700,12 @@
   white-space: pre;
 }
 
-/* A match reads as Finder's does: a heavier weight and a selection-tinted
-   underline, with no background, so it never looks like inline code. */
+/* Matches share Finder's weight; only navigable Finder titles underline. */
 .search-workspace__result mark {
   background: none;
-  color: var(--text);
-  font-weight: 650;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--selection-edge) 55%, transparent);
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 3px;
-}
-
-.search-workspace__result-link mark {
   color: inherit;
-  font-weight: 700;
+  font-weight: 650;
+  text-decoration: none;
 }
 
 .search-workspace__load-more,

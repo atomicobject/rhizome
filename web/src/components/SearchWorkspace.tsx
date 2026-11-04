@@ -1,3 +1,4 @@
+import { DisclosureChevron } from "./DisclosureChevron";
 import { InfoTip } from "./InfoTip";
 import { MiddleTruncate } from "./MiddleTruncate";
 import { noteExcerptParts } from "./searchExcerpt";
@@ -757,10 +758,25 @@ function RankedSearchWorkspace({
 
 function CodeExcerpt({ excerpt, query }: { excerpt: string; query: string }) {
   const { signature, doc } = codeExcerptParts(excerpt);
+  const [expanded, setExpanded] = useState(false);
+  const lines = signature.split("\n");
+  const truncated = lines.length > 3;
+  const visible = truncated && !expanded ? lines.slice(0, 3).join("\n") : signature;
 
   return (
     <>
-      <pre className="search-workspace__code">{highlightLiteral(signature, query)}</pre>
+      <pre className="search-workspace__code">{highlightLiteral(visible, query)}</pre>
+      {truncated && (
+        <button
+          type="button"
+          className="list-more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <DisclosureChevron open={expanded} />
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
       {doc && <p>{highlightLiteral(doc, query)}</p>}
     </>
   );
