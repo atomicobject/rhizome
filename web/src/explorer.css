@@ -238,10 +238,6 @@
   justify-content: center;
 }
 
-.explorer-rail .tree-chevron--open {
-  transform: rotate(90deg);
-}
-
 .explorer-rail .tree-chevron--spacer {
   visibility: hidden;
 }

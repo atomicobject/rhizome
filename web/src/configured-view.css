@@ -681,9 +681,14 @@
 }
 
 .configured-view__column-notes > summary::after {
+  content: "";
   display: inline-block;
+  vertical-align: -3px;
   color: var(--text-faint);
-  content: "›";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   transform: rotate(-90deg);
 }
 

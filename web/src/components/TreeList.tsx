@@ -1,5 +1,6 @@
 import { FileCode2, FileText, Folder, FolderOpen } from "lucide-react";
 import type { TreeEntry } from "../api/types";
+import { DisclosureChevron } from "./DisclosureChevron";
 
 export function TreeList({
   entries,
@@ -39,11 +40,8 @@ export function TreeList({
               onClick={() => (isDir ? onToggle(entry) : onSelect(entry))}
             >
               {isDir ? (
-                <span
-                  className={`tree-chevron ${isExpanded ? "tree-chevron--open" : ""}`}
-                  aria-hidden="true"
-                >
-                  ›
+                <span className="tree-chevron" aria-hidden="true">
+                  <DisclosureChevron open={isExpanded} />
                 </span>
               ) : (
                 <span className="tree-chevron tree-chevron--spacer" aria-hidden="true" />

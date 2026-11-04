@@ -890,14 +890,15 @@
 }
 
 .typed-section-card__summary::before {
-  content: "▸";
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   flex-shrink: 0;
-  font-size: 10px;
   color: var(--text-faint);
   transition: transform 0.15s var(--ease);
   display: inline-block;
-  width: 10px;
-  text-align: center;
 }
 
 .typed-section-card__details[open] > .typed-section-card__summary::before {
@@ -1002,12 +1003,14 @@
 }
 
 .ontology-issues__summary::before {
-  content: "▸";
-  font-size: 10px;
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   color: var(--warning-ink);
   transition: transform 0.15s var(--ease);
   display: inline-block;
-  width: 10px;
 }
 
 .ontology-issues[open] > .ontology-issues__summary::before {
@@ -2612,13 +2615,19 @@
 }
 
 .changes-note__diff summary::before {
-  content: "▸";
-  font-size: 10px;
+  display: inline-block;
+  vertical-align: -3px;
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   color: var(--text-faint);
+  transition: transform 0.15s var(--ease);
 }
 
 .changes-note__diff[open] summary::before {
-  content: "▾";
+  transform: rotate(90deg);
 }
 
 .changes-note__diff summary:hover {
@@ -4496,14 +4505,18 @@
 
 .problems-group > summary::before {
   flex-shrink: 0;
-  width: 10px;
   color: var(--text-faint);
-  content: "▾";
-  font-size: 10px;
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
+  transform: rotate(90deg);
+  transition: transform 0.15s var(--ease);
 }
 
 .problems-group:not([open]) > summary::before {
-  content: "▸";
+  transform: none;
 }
 
 .problems-group > summary:hover {
