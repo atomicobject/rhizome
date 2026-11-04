@@ -98,6 +98,8 @@ Known limits: a code's variant-free findings are reachable only through the code
 
 ## Deviations
 
+- 2026-11-04: frozen-scope-drift acknowledged for [[docs/specs/experience/validation-experience|SPEC-0100]]. The later [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]] changes the clean-state presentation to one success-green "No issues" status and a quiet check list. This follow-on change does not revise this effort's frozen US6 case-grouping or repair scope, its original plan, or its delivery history.
+
 - The ontology materialization version moves from 11 to 12 so existing indexes rebuild their persisted issues with variants and `candidateTypes`. Authority: required for Decision 3 to reach existing vaults.
 - `ontology.ValidationIssue` carries `CandidateTypes` as well as the variant fields, because the conversion needs a source for the `candidateTypes` evidence.
 - The `(generation, code, variant_key)` index is created only by the v70 migration step. `ResetDomain` keeps `validation_*` tables, so a baseline index could reference columns an old table lacks.

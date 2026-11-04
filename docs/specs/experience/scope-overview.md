@@ -3,7 +3,8 @@ type: ExperienceSpec
 id: SPEC-0117
 summary: "One Overview view shows the shape of All notes and of every display group: a type-level link map, a member table, and scope-only blocks. Briefing shows activity at every level, All notes gains one, and every block loads on its own so switching scopes never freezes the workspace."
 spec-status: active
-last-updated: 2026-11-03
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 aliases:
   - SPEC-0117
 ---
@@ -88,7 +89,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 #### Acceptance Criteria
 
 - The All notes map draws each named display group as one node, collapsed by default and marked as a group, plus one node per ungrouped type and one Untyped node. Links among a collapsed group's own records appear in its hover, not as edges.
-- Activating a group node expands it in place into its member types, colored by group; the legend offers to collapse it again. Expansion is remembered and shared with the member table.
+- Activating a group node expands it in place into its member types, each using its shared type hue; the legend offers to collapse it again. Expansion is remembered and shared with the member table.
 - The member table lists each named group as a row with summed counts, expanding into its types, then ungrouped types under a "No group" heading, then Untyped.
 - The page header states total notes, typed share, note type count, ambiguous notes, and issue count, each once on the page. The ambiguous and issue counts open Problems.
 
@@ -157,7 +158,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 - MUST remember the map/matrix toggle per scope and the expanded groups at All notes through the kit's view preferences ([[view-preferences|SPEC-0114]]).
 - MUST add a kit host action, `openSearch({ folder })`, that opens a project search tab with the existing folder filter, for US4's folder action. The rail's note-list filter stays private to the rail.
 - MUST give map nodes keyboard focus in descending record-count order, activation with Enter or Space, and accessible names, and keep the Matrix a complete text alternative.
-- MUST use the kit's theme tokens and stay dense: hairline dividers, mono numbers, no cards inside cards. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
+- MUST use the kit's theme tokens and stay dense: hairline dividers, Inter numbers with tabular figures, no cards inside cards. Briefing and Overview share their centred column with the header and presentation tabs (about 1320px and 1520px respectively). Overview places Members below the compact map (capped at 280px), uses solid relation links and dashed plain links, and legends only the link kinds drawn. Unused declared relations retain their separate dashed hairline treatment. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
 - SHOULD reuse the Briefing building blocks, including the existing "Outside the group" list and the views-and-guide block, instead of duplicating them.
 - SHOULD keep Overview's modules under about 500 lines each, like the other group views.
 
@@ -204,3 +205,7 @@ A throwaway prototype drew these pages from a snapshot of a real personal vault 
 - Add the `workspace` mount to [[unified-view-contract|SPEC-0110]] and the custom-views reference.
 - Document the shape endpoint and the note-list limit in the public API contract.
 - Update `web/bundled-views/group/README.md` with the Overview modules, their data, and the moved blocks.
+
+## Change record
+
+2026-11-04: Reconciled per-type map colours, compact maps above Members, visible-link legends, centred pages, and Inter counts. Ambiguous-note counting and the outside-list read cap remain backend follow-ups; their intended contracts are unchanged. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

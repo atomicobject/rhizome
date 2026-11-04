@@ -4,7 +4,8 @@ id: SPEC-0126
 aliases: [SPEC-0126, Workbench redesign]
 summary: "Redesigns the Rhizome workbench in the browser and in Rhizome Desktop: selectable chrome themes with light and dark appearance, an Inter type scale and neutral surfaces, a calmer view header with progressive disclosure, a table column policy that keeps titles readable, resizable side panels with one right pane, and fuzzy finders for notes and files (⌘P), repositories (⌘O), and worktrees (⇧⌘O)."
 spec-status: active
-last-updated: 2026-10-26
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 ---
 
 # Workbench redesign
@@ -74,15 +75,15 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 ### US3 - Scan a collection without header clutter
 
 - id:: ^SPEC-0126-US3
-- summary:: Open a configured view or type collection and see a title row and presentation tabs first, with grouping, sorting, row density, and columns behind one View control.
+- summary:: Open a configured view or type collection and see a title row and presentation tabs first, with grouping, sorting, row density, and columns behind one Display control.
 - status:: ready
 
 #### Acceptance Criteria
 
-- The header shows the collection dot and title, its count, a short description that truncates, Find in view (⌘F), Filter, View, and the pane toggle on one row. Presentations (Table, Board, Cards, Briefing, and saved views) appear as text tabs on the row below.
-- View opens a popover holding Group by, Sort, Rows (a visible "1 line | 2 lines" segmented control), Columns, Reset to shared, and Save view.
+- The header shows the collection dot and title, its count, a short description that truncates, Find in view (⌘F), Filter, Display, saved Views, and the pane toggle on one row. Presentations (Table, Board, Cards, Briefing, and saved views) appear as text tabs on the row below.
+- Display opens a popover holding Group by, Sort, Rows (a visible "1 line | 2 lines" segmented control), Columns, Reset to shared, and Save view.
 - The separate stats band and preset pill band no longer appear. Counts appear on group headers and in the title row, and active filters appear as removable chips under the header only while a filter is active.
-- On a 900px-tall window the first data row of an ungrouped table starts no more than about 166px below the top of the content panel (the 36px tab strip, the 56px title row, the 40px presentation tabs, and the 34px column heads); a grouped table adds its 44px group header.
+- On a 900px-tall window the first data row of an ungrouped table starts no more than about 166px below the top of the content panel (the 56px title row, 40px presentation tabs, and 34px column heads, plus the 36px note-tab strip only while a note is open); a grouped table adds its 44px group header.
 
 ### US4 - Keep titles readable in tables at any width
 
@@ -109,7 +110,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - The sidebar and right pane each have a drag handle on their inner edge. The sidebar ranges from 200 to 400px and the right pane from 280 to 560px.
 - Each handle is keyboard operable (`role=separator`, arrow keys in 16px steps, Home and End for minimum and maximum) and shows a visible focus state.
 - Widths and collapsed state persist across reloads.
-- Below 1200px wide, the right pane starts collapsed and opens over the content when toggled, so the table keeps its width.
+- Below 1200px wide, the right pane starts collapsed and opens over the content when toggled, so the table keeps its width. On a collection its Record overlay starts below the collection toolbar, leaving the header and presentation controls available.
 - Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26: the sidebar's width and collapsed state are shared by every section, and its toggle is in the top bar (Rhizome Desktop: the toolbar), with ⌃⌘S and ⌘\\.
 
 ### US6 - Use one right pane for the selected thing
@@ -127,13 +128,13 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 ### US7 - Read wide-screen pages that stay composed
 
 - id:: ^SPEC-0126-US7
-- summary:: Read notes on a wide monitor without prose stretching across the whole window, while collection presentations such as Briefing and Overview use the full panel under their tabs.
+- summary:: Read notes on a wide monitor without prose stretching across the whole window, while Briefing and Overview share a centred column with their header and tabs.
 - status:: ready
 
 #### Acceptance Criteria
 
-- The note body and its header controls cap their width at a 65–75 character measure for prose and centre in the content panel. Briefing and Overview fill the content panel and align with the presentation tabs above them.
-- Data surfaces (Table, Board) fill the width. Board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones.
+- The note body, properties, and prose centre at a 540px reading measure; its control row spans the panel gutter. Briefing and Overview use centred columns of about 1320px and 1520px respectively, shared by header, presentation tabs, status line, and body.
+- Data surfaces (Table, Board) fill the width. Board headers and every lane share the same 260–360px tracks; empty or collapsed values use 140px strips. Narrow windows scroll the board horizontally.
 
 ### US8 - Jump to any note or file with ⌘P
 
@@ -209,6 +210,11 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - MUST use a 14px-class UI base, 13px secondary text and column heads, 12px labels, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
 - MUST replace hard-coded Barlow references (graph labels, mermaid, docs, skill copies) and hard-coded font sizes in bundled group views with tokens.
 
+### Workspace navigation and type colours
+
+- MUST retain note tabs while a collection, saved view, Problems, Changes, or search replaces the current page. Only one such page is retained at a time; the note-tab strip is visible only while at least one note is open.
+- MUST use one twelve-hue type palette across the finder, type dots, maps, Explorer, Atlas, and bundled views. Assign concrete types by name, types with records first; interfaces, collapsed groups, code, and untyped notes use the neutral slot. Unknown types fall back to a name hash. Hues repeat after twelve types.
+
 ### Desktop
 
 - MUST keep SPEC-0119's protocol: title-only reports from the page and fixed-name DOM events with validated, serialized details, sent only to the verified runtime origin. The page gets no new capabilities and no URL parameters.
@@ -254,12 +260,15 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
   - **What they match:** titles and file names, never full paths.
 - Resolved 2026-10-25, delivery: the View popover's Sort shows and sets the first sort key only. For a view whose YAML sorts by several keys, reversing the direction keeps the later keys, and choosing another field replaces the sort with that one key.
 - Resolved 2026-10-25, delivery: a reading measure.
-  - **Width:** the note reads in a 680px column, where tables, code, and properties may use the full width. Prose (paragraphs, lists, block quotes) caps at 540px inside it, which holds 66–79 characters (72 on average) of 15px Inter. The section editor's lines wrap at the same width.
+  - **Width (amended 2026-11-04):** the note body and properties share the centred 540px prose measure, which holds 66–79 characters (72 on average) of 15px Inter. The note control row spans the panel gutter. Section editors wrap at the same measure.
   - **Disclosure chevron:** it sits in the gutter beside a section's title.
   - **Home line:** a note's first body block reads as quiet metadata when it is a single line of a short label followed only by links.
-- Resolved 2026-10-26, delivery: "toggling Edit does not move the text" (US11) holds within a section: a section's prose keeps its position relative to its heading. The note body can still shift, because Edit reveals every property, including the empty ones read mode hides, as form controls.
+- Resolved 2026-10-26, amended 2026-11-04: section prose keeps its read-mode typography and position in Edit. Empty properties remain behind "Show N empty fields" in both modes, except fields with staged changes or issues.
 - Resolved 2026-10-26, delivery: below 1200px the narrow-window rule (US5) wins over opening on selection (US6). Selecting a row does not open the right pane there; `]` or the tab row's toggle opens it over the content.
 - Resolved 2026-10-26, delivery: column heads ship at 13px and labels at 12px, the nearest steps on the type scale, instead of 12.5px.
 - Resolved 2026-10-26, delivery: the screenshot requirement is met with reference captures in `.impeccable/references/workbench-2026-10/`, not asserted tests, because the repository has no pixel-diff layer and CI renders fonts differently. The desktop-mode shell has no capture: windows launched from this session never paint into captures.
 - Resolved 2026-10-25, delivery: a page's first paint in Rhizome Desktop uses the theme baked into its window when it opened, unless that page's origin remembers a newer theme command (a reload after a change). A first load of another runtime origin in a window opened before a theme change can still show the older theme until the page reports its title.
 
+## Change record
+
+2026-11-04: Reconciled Display/Views controls, the conditional note-tab strip and single replaceable page, collection Record overlay, centred reading/dashboard measures, board tracks, and shared type colours. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

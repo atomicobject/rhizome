@@ -1,9 +1,10 @@
 ---
 type: ExperienceSpec
-summary: "Defines the Notes workspace shell: pinned Home, note and project-search tabs, note-browser rails, Structure/Markdown modes, and a graph-dominant Home whose type selection dims rather than filters."
+summary: "Defines the Notes workspace shell: retained note tabs, one replaceable collection/view/search page, note-browser rails, Structure/Markdown modes, and a graph-dominant Home whose type selection dims rather than filters."
 id: SPEC-0090
 spec-status: active
-last-updated: 2026-10-26
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 aliases:
   - SPEC-0090
 ---
@@ -14,7 +15,7 @@ aliases:
 
 The Notes workspace is where humans read and edit typed notes. The previous workspace placed every open note in a fixed-width sheet sliding over the home page; within-note drill-down and cross-note navigation shared that horizontal stack, and at 1280px the first note collapsed to a strip as soon as a second opened.
 
-This spec replaces that model with a tabbed shell. A pinned Home tab owns every collection surface (all notes, a type or interface, problems, modified), and each configured view opens as its own retained tab. Each note file gets one tab that takes the full content width. Within a note tab, structural sections are tabs and node drill-down is in-tab with a breadcrumb, so cross-note navigation is always a tab change and never a pane push. A persistent left rail navigates Home and locally filters the current collection; a collapsible right rail carries note-scoped context. Project search opens retained search tabs without the right rail, as specified by [[search-workspace|SPEC-0098]]; the left rail stays as the user left it ([[workbench-sidebar|SPEC-0128]]). Home is dominated by the vault graph with the listings as a compact band above it.
+This spec replaces that model with a tabbed shell. Home owns the current collection surface. A configured view, Problems, Changes, or project search replaces the current page; only one such page is retained alongside the open note tabs. The tab strip appears only while at least one note is open, with the current page first (Home when no replacement page is selected). Each note file gets one tab that takes the full content width. Within a note tab, structural sections are tabs and node drill-down is in-tab with a breadcrumb, so cross-note navigation is always a tab change and never a pane push. A persistent left rail navigates Home and locally filters the current collection; a collapsible right rail carries note-scoped context. Project search replaces the current page without the right rail, as specified by [[search-workspace|SPEC-0098]]; the left rail stays as the user left it ([[workbench-sidebar|SPEC-0128]]). Home is dominated by the vault graph with the listings as a compact band above it.
 
 This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries forward SPEC-0030's structural-first reading, section tabs, and node-anchored refresh commitments and retires its right-sliding pane stack. Visual density and theming follow `PRODUCT.md` and the `DESIGN.md` tokens: hairline dividers over nested cards, one accent color, mono for identifiers and paths, usable at 1280px.
 
@@ -48,7 +49,7 @@ This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries f
 
 #### Acceptance Criteria
 
-- The tab strip always begins with a Home tab that cannot be closed or reordered. ^SPEC-0090-US1-AC1
+- The tab strip appears only while a note is open. It begins with the current page or pinned Home; Home remains an internal navigation target and cannot be closed or reordered. ^SPEC-0090-US1-AC1
 - Home renders exactly one collection surface at a time: all notes, a type or interface home or table, problems, or modified. ^SPEC-0090-US1-AC2
 - Selecting a collection while a note tab is active switches to the Home tab without closing any note tab. ^SPEC-0090-US1-AC3
 - The Home tab's selection is addressed by the existing `/notes/<selection>` path so existing links still land on the right collection. ^SPEC-0090-US1-AC4
@@ -81,7 +82,7 @@ Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26. The sidebar is the sha
 #### Acceptance Criteria
 
 - The left rail has two stacked regions: collections (views, browse entries, types with counts) and the note list for the current collection with one local filter. Project search is owned by the global header. ^SPEC-0090-US3-AC1
-- Clicking a collection entry navigates the Home tab and activates it; clicking a view entry opens or activates that view's retained tab. ^SPEC-0090-US3-AC2
+- Clicking a collection entry navigates the Home tab and activates it; clicking a view entry replaces the current page with that view and preserves open note tabs. ^SPEC-0090-US3-AC2
 - Clicking a note in the list follows the US2 open rules, and the active note is highlighted in the list. ^SPEC-0090-US3-AC3
 - The rail stays visible and scrolls independently on Home and note tabs; it is omitted from full-width project-search tabs. The collections region and note-list region each scroll on their own. ^SPEC-0090-US3-AC4
 - The rail width is fixed and the note list truncates titles rather than wrapping. ^SPEC-0090-US3-AC5
@@ -127,7 +128,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25. The right rail is the
 
 #### Acceptance Criteria
 
-- The set of open tabs, their order and the active tab are restored after reload within the same browser session and vault. ^SPEC-0090-US6-AC1
+- Open note tabs, their order, the one retained page, and the active selection are restored after reload within the same browser session and vault. ^SPEC-0090-US6-AC1
 - The URL always addresses the active tab: `/notes/<selection>` for Home, `/notes/<selection>?note=<path>[#fragment]` for a note tab, `/notes/<selection>?search=<query>` with effective filters for a search tab, and `/notes?view=<id>` for a view tab. ^SPEC-0090-US6-AC2
 - Opening a `?note=` link in a fresh session creates Home plus that one note tab. ^SPEC-0090-US6-AC3
 - Browser back and forward move between previously active tabs without creating duplicates. ^SPEC-0090-US6-AC4
@@ -166,3 +167,7 @@ Superseded for the All notes page by [[scope-overview|SPEC-0117]], which replace
 - Resolved after interactive testing: every file opens as a retained tab; there is no replaceable preview tab.
 - Does the edit session need a whole-body `setSource` op before Markdown mode can become an editor? Proposed answer: yes, and it belongs to the whole-document editor spec, not this one.
 - Should tab persistence use `sessionStorage` (per browser tab) or `localStorage` (per vault across windows)? Proposed answer: `sessionStorage`, so two windows of the same vault keep independent tab sets.
+
+## Change record
+
+2026-11-04: Reconciled one replaceable page beside retained notes and the tab strip appearing only while a note is open. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.
