@@ -191,7 +191,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
     >
       <div className="finder__panel">
         <div className="finder__input">
-          <Search aria-hidden="true" size={18} strokeWidth={1.75} />
+          <Search aria-hidden="true" size={18} strokeWidth={1.5} absoluteStrokeWidth />
           <input
             ref={inputRef}
             role="combobox"
@@ -251,7 +251,13 @@ export function FinderPalette<T extends FinderPaletteItem>({
                     style={{ background: color }}
                   />
                 ) : (
-                  <Icon aria-hidden="true" size={16} strokeWidth={1.75} className="finder__icon" />
+                  <Icon
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.5}
+                    absoluteStrokeWidth
+                    className="finder__icon"
+                  />
                 )}
                 <span className="finder__title">
                   <Highlighted text={item.title} ranges={item.titleMatches} />

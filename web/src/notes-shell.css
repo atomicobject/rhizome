@@ -16,7 +16,6 @@
 
 .app-shell__notes-tools b {
   color: var(--chrome-text);
-  font-family: var(--font-mono);
   font-weight: 600;
 }
 
@@ -25,8 +24,10 @@
   color: var(--chrome-risk);
 }
 
-@media (max-width: 1120px) {
-  .app-shell__notes-tools > span {
+/* The vault's counts show in every section and down to the narrow layout,
+   where the bar wraps the sections onto their own row. */
+@media (max-width: 760px) {
+  .app-shell__vault-counts {
     display: none;
   }
 }
@@ -851,7 +852,7 @@
 .notes-left-rail .ontology-type-row__collapse,
 .notes-left-rail .ontology-type-row__collapse-spacer {
   display: inline-flex;
-  flex: 0 0 22px;
+  flex: 0 0 var(--disclosure-target);
   align-items: center;
   justify-content: center;
   height: 100%;
@@ -864,17 +865,6 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
-}
-
-.notes-left-rail .ontology-type-row__collapse .notes-left-rail__icon {
-  width: 13px;
-  height: 13px;
-  transition: transform 0.15s var(--ease);
-}
-
-.notes-left-rail [aria-expanded="true"] > .notes-left-rail__icon--caret,
-.notes-left-rail [aria-expanded="true"] .notes-left-rail__icon--caret {
-  transform: rotate(90deg);
 }
 
 .notes-left-rail .ontology-type-row__label,

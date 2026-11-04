@@ -1,5 +1,6 @@
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSettings } from "../../api/types";
 import { humanizeName } from "../../lib/labels";
+import { DisclosureChevron } from "../DisclosureChevron";
 
 type StatusEntry = { kind: AgentHarnessKind; status: AgentHarnessStatus };
 
@@ -104,44 +105,57 @@ export function AgentSettingsPanel({
             ))}
           </select>
         </label>
-        <label>
-          Reasoning effort
-          <select
-            aria-label="Reasoning effort"
-            value={efforts.includes(configured.effort || "") ? configured.effort : ""}
-            disabled={saving || efforts.length === 0}
-            onChange={(event) => updateHarnessSettings(harness, { effort: event.target.value })}
-          >
-            <option value="">Default</option>
-            {efforts.map((effort) => (
-              <option key={effort} value={effort}>
-                {humanizeName(effort)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Permission mode
-          <select
-            aria-label="Permission mode"
-            value={configured.permissionMode}
-            disabled={saving || permissionModes.length === 0}
-            onChange={(event) =>
-              updateHarnessSettings(harness, {
-                permissionMode:
-                  permissionModes.find((mode) => mode === event.target.value) ||
-                  configured.permissionMode,
-              })
-            }
-          >
-            {modeOptions.map((mode) => (
-              <option key={mode} value={mode}>
-                {humanizeName(mode)}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
+      {/* Effort and permission are per-session tuning: behind one disclosure
+          whose summary still names the active permission. */}
+      <details className="agent-session-settings">
+        <summary>
+          <DisclosureChevron />
+          <span>Session settings</span>
+          <span className="agent-session-settings__active">
+            {humanizeName(configured.permissionMode)}
+          </span>
+        </summary>
+        <div className="agent-model-controls">
+          <label>
+            Reasoning effort
+            <select
+              aria-label="Reasoning effort"
+              value={efforts.includes(configured.effort || "") ? configured.effort : ""}
+              disabled={saving || efforts.length === 0}
+              onChange={(event) => updateHarnessSettings(harness, { effort: event.target.value })}
+            >
+              <option value="">Default</option>
+              {efforts.map((effort) => (
+                <option key={effort} value={effort}>
+                  {humanizeName(effort)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Permission mode
+            <select
+              aria-label="Permission mode"
+              value={configured.permissionMode}
+              disabled={saving || permissionModes.length === 0}
+              onChange={(event) =>
+                updateHarnessSettings(harness, {
+                  permissionMode:
+                    permissionModes.find((mode) => mode === event.target.value) ||
+                    configured.permissionMode,
+                })
+              }
+            >
+              {modeOptions.map((mode) => (
+                <option key={mode} value={mode}>
+                  {humanizeName(mode)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </details>
     </section>
   );
 }

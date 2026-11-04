@@ -116,13 +116,14 @@
   display: none;
 }
 
-/* The type label has a fixed column after a 16px gutter, so a long title
-   truncates before it reaches the label and every label aligns. */
+/* The type label has a fixed 112px column after a 12px gap, so a long path
+   gives way (directories first) before it reaches the label, and every label
+   aligns. */
 .finder__row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) 112px;
   grid-template-rows: auto auto;
-  column-gap: var(--sp-4);
+  column-gap: 12px;
   align-items: center;
   height: 46px;
   padding: var(--sp-1) var(--sp-4);
@@ -161,8 +162,6 @@
   grid-row: 2;
   grid-column: 3;
   overflow: hidden;
-  max-width: 160px;
-  margin-left: var(--sp-3);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 500;

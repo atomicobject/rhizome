@@ -437,6 +437,9 @@ export function AgentWorkspace({
   const visibleError =
     error || (readError instanceof Error ? readError.message : readError ? String(readError) : "");
 
+  const showExamples =
+    messages.length === 0 && events.length === 0 && !blocked && !selectedSession?.readOnly;
+
   return (
     <main className="workspace workbench agent-workspace">
       <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
@@ -462,7 +465,10 @@ export function AgentWorkspace({
           }}
         />
       </WorkbenchSidebar>
-      <section className="workbench__panel agent-thread" aria-label="Agent chat">
+      <section
+        className={`workbench__panel agent-thread${showExamples ? " agent-thread--empty" : ""}`}
+        aria-label="Agent chat"
+      >
         <AgentStatusHeader
           session={selectedSession}
           harness={harness}
@@ -476,10 +482,7 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <div className="agent-thread__body" ref={threadRef}>
-          {messages.length === 0 &&
-          events.length === 0 &&
-          !blocked &&
-          !selectedSession?.readOnly ? (
+          {showExamples ? (
             <ExamplePrompts
               onPick={(text) => {
                 setDraft(text);

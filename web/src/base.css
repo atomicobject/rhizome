@@ -1024,6 +1024,37 @@ html
   font-weight: 500;
 }
 
+/* The drawer toggle draws the shared disclosure chevron (16px, 1.5 stroke)
+   in a 24px target: up while Variables is closed, down while it is open. */
+.graphql-explorer .graphiql-container button.graphiql-toggle-editor-tools {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools > svg {
+  display: none;
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools::before {
+  content: "";
+  width: var(--disclosure-icon);
+  height: var(--disclosure-icon);
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 4 4 4-4 4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transform: rotate(-90deg);
+  transition: transform 0.15s var(--ease);
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools[aria-label^="Hide"]::before {
+  transform: rotate(90deg);
+}
+
 /* Docs uses the editor's syntax roles: types in type ink, root operations
    as keywords, arguments as properties, fields in plain ink. */
 .graphql-explorer a.graphiql-doc-explorer-type-name {
@@ -1319,6 +1350,69 @@ html
   text-underline-offset: 2px;
 }
 
+/* A record title that is a quiet link: teal at --title-weight (500). */
+.link-title {
+  font-weight: var(--title-weight);
+}
+
+/* A secondary link column (Source, Parent): ink-muted, underlined on hover
+   and keyboard focus, so only the record title column reads teal. */
+.link-secondary {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-secondary:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* One disclosure control for every expand, collapse, or disclosure: a 16px,
+   1.5-stroke chevron (<DisclosureChevron>) pointing right when closed and
+   down when open. As a bare icon button it sits in .disclosure-toggle, a
+   24px hit target with an accessible label; inside a larger control (a row,
+   a summary, a text button) that control is the target. Never ▸, ▾, or ‹. */
+.disclosure-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.disclosure-toggle:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.disclosure-chevron {
+  flex: none;
+  width: var(--disclosure-icon);
+  height: var(--disclosure-icon);
+  transition: transform 0.15s var(--ease);
+}
+
+.disclosure-chevron[data-open="true"],
+[aria-expanded="true"] > .disclosure-chevron,
+details[open] > summary .disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-chevron {
+    transition: none;
+  }
+}
+
 /* Section heading (--section-font): a block or section title in a view
    body. 15/600 in full ink with 10px below, so it outranks 14/500 rows. */
 .section-heading {
@@ -1335,10 +1429,14 @@ html
 }
 
 /* One overflow link: "Show N more" inside a list, in quiet teal, aligned to
-   the list's title column (set its inline start to the title inset). Leaving
-   the view is a separate "Open <view>" link. */
+   the list's title column (set its inline start to the title inset). It is
+   an expander, so it takes its own line --expander-gap below the items and
+   never runs on from inline text or a comma list. Leaving the view is a
+   separate "Open <view>" link. */
 .list-more {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
+  margin-top: var(--expander-gap);
   align-items: center;
   min-height: 30px;
   padding: 0;

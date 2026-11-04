@@ -98,6 +98,17 @@
   --section-color: var(--text);
   --section-gap: 10px;
 
+  /* Navigable record titles: quiet teal links at 500, never 600, so a table
+     of titles never reads as a heavy teal wall. */
+  --title-weight: 500;
+
+  /* One disclosure control: a 16px chevron inside a 24px hit target. */
+  --disclosure-icon: 16px;
+  --disclosure-target: 24px;
+
+  /* An expander ("Show N more") sits on its own line this far below its items. */
+  --expander-gap: 8px;
+
   /* ---- Typography ---- */
   --font-display: "Merriweather", Georgia, "Times New Roman", serif;
   --font-sans: "Inter", -apple-system, system-ui, "Segoe UI", sans-serif;
