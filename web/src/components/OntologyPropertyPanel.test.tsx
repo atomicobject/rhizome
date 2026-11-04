@@ -258,7 +258,7 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
-  it("renders a date field with ISO display", () => {
+  it("renders a date field as words", () => {
     render(
       <OntologyPropertyPanel
         workspace={makeWorkspace()}
@@ -267,7 +267,10 @@ describe("OntologyPropertyPanel", () => {
         changedFieldNames={new Set()}
       />,
     );
-    expect(screen.getByText("2026-03-15")).toBeInTheDocument();
+    expect(screen.getByText("Mar 15, 2026")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/^2026-03-15/),
+    );
   });
 
   it("orders key fields before normal fields and discloses detail fields", () => {

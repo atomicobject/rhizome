@@ -9,9 +9,12 @@ afterEach(() => {
 });
 
 describe("DateWidget", () => {
-  it("renders the literal value in browse mode", () => {
+  it("renders a calendar date as words in browse mode", () => {
     render(<DateWidget value="2026-04-12" editing={false} />);
-    expect(screen.getByText("2026-04-12")).toBeInTheDocument();
+    expect(screen.getByText("Apr 12, 2026")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/^2026-04-12/),
+    );
   });
 
   it("renders an empty placeholder when missing", () => {

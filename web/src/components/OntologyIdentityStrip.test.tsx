@@ -143,7 +143,7 @@ describe("OntologyIdentityStrip", () => {
     expect(screen.getByText("Cross-cutting search refactor")).toBeInTheDocument();
     expect(screen.getByText("SPEC-0007")).toBeInTheDocument();
     expect(screen.getByText("Proposed")).toBeInTheDocument();
-    expect(screen.getByText("2026-04-12")).toBeInTheDocument();
+    expect(screen.getByText("Apr 12, 2026")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
   });
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import type { OntologyEditFieldValue } from "../../api/types";
+import { readableDate } from "../ConfiguredTableCellReadOnly";
 
 import {
   clearPersistedEditorDraft,
@@ -38,9 +39,9 @@ type Props = {
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 /**
- * Compact date display. The on-disk literal stays the canonical value; the
- * relative phrase ("3d ago") is a tooltip, not the display, so users can copy
- * the literal with a click. Edit mode swaps in a native date input.
+ * Compact date display. A calendar date reads as words ("Oct 26, 2026"), the
+ * form collections use; the on-disk literal and the relative phrase ("3d ago")
+ * are the tooltip. Edit mode swaps in an ISO text input.
  */
 export function DateWidget({
   value,
@@ -141,7 +142,7 @@ export function DateWidget({
         className={`widget-date${dirty ? " is-dirty" : ""}`}
         title={relative ? `${trimmed} · ${relative}` : trimmed}
       >
-        {trimmed}
+        {kind === "date" && inputValue ? readableDate(inputValue) : trimmed}
       </span>
     );
   }
