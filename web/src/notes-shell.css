@@ -99,6 +99,35 @@
   min-width: 0;
 }
 
+.notes-tabs[hidden] {
+  display: none;
+}
+
+/* Only Home open: no strip. Its controls float into the right end of the view
+   header's 56px title row, which leaves them room, so the title sits at the
+   same height as every other section's. */
+.notes-shell__frame--solo {
+  position: relative;
+}
+
+.notes-shell__frame--solo .notes-shell__tabs-row {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: var(--sp-4);
+  height: 56px;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.notes-shell__frame--solo .notes-shell__session {
+  padding: 0 0 0 var(--sp-3);
+}
+
+.notes-shell__frame--solo .notes-shell__panel.is-active .view-header__title-row {
+  padding-right: var(--shell-actions-pad, var(--sp-4));
+}
+
 .notes-shell__pane-toggle {
   display: inline-flex;
   flex: none;

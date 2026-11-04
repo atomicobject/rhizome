@@ -695,8 +695,12 @@ describe("NotesShell restored edit sessions", () => {
     expect(dirtyTab).toBeInTheDocument();
     confirm.mockReturnValue(true);
     fireEvent.click(within(dirtyTab).getByRole("button", { name: "Close Alpha" }));
-    await waitFor(() => expect(tabs.getAllByRole("tab")).toHaveLength(1));
-    expect(tabs.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
+    // Home alone hides the strip, so its tab is found among hidden elements.
+    await waitFor(() => expect(tabs.getAllByRole("tab", { hidden: true })).toHaveLength(1));
+    expect(tabs.getByRole("tab", { name: "Home", hidden: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(window.location.search).toBe("");
     expect(http.count("DELETE", "/api/v1/edit-sessions/restored-1")).toBe(0);
   });

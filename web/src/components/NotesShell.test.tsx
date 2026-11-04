@@ -201,12 +201,16 @@ describe("NotesShell", () => {
     render(<NotesShell />);
     await screen.findByRole("button", { name: "All notes (2)" });
 
-    // Home has nothing to show, so the pane is closed and its toggle disabled.
-    expect(screen.getByRole("button", { name: "Show right pane" })).toBeDisabled();
+    // Home alone has no pane and nothing to edit, so the tab row offers neither.
+    expect(screen.queryByRole("button", { name: "Show right pane" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Open notes" })).toBeNull();
     expect(screen.queryByRole("complementary", { name: "Note context" })).toBeNull();
 
     openNote(planNote.path);
     expect(await screen.findByRole("complementary", { name: "Note context" })).toBeVisible();
+    expect(screen.getByRole("tablist", { name: "Open notes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
 
     fireEvent.keyDown(window, { key: "]" });
     await waitFor(() =>
@@ -262,7 +266,11 @@ describe("NotesShell", () => {
     act(() => {
       window.dispatchEvent(new CustomEvent("rhizome:close-tab"));
     });
-    expect(screen.getByRole("tab", { name: "Home" })).toBeVisible();
+    // Home is still there, with the strip hidden while it is the only tab.
+    expect(screen.getByRole("tab", { name: "Home", hidden: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("leaves note tabs alone when the desktop app asks while Notes is not on screen", async () => {

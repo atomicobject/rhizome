@@ -141,12 +141,13 @@ test("collection navigation keeps note tabs and keyboard navigation reaches pinn
     "true",
   );
   await page.keyboard.press("Delete");
-  await expect(tabs.getByRole("tab")).toHaveCount(1);
-  await expect(tabs.getByRole("tab", { name: "Home", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
+  // Home alone hides the strip; it is still the one selected tab, with no close button.
+  await expect(tabs).toBeHidden();
+  await expect(page.locator('.notes-tabs [role="tab"]')).toHaveCount(1);
+  await expect(page.locator("#tab-home")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#tab-home").getByRole("button", { includeHidden: true })).toHaveCount(
+    0,
   );
-  await expect(tabs.getByRole("button", { name: /Close Home/ })).toHaveCount(0);
 });
 
 test("gives a typed note a usable full-height reading surface", async ({ page }) => {

@@ -64,11 +64,10 @@ test("does not revive a collapsed specs folder after a delayed read", async ({ p
 test("root path redirects to notes workspace", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/notes$/);
-  await expect(
-    page
-      .getByRole("tablist", { name: "Open notes" })
-      .getByRole("tab", { name: "Home", exact: true }),
-  ).toBeVisible();
+  // Home alone hides the tab strip; its tab stays selected underneath.
+  await expect(page.getByRole("heading", { name: "All notes" })).toBeVisible();
+  await expect(page.locator("#tab-home")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tablist", { name: "Open notes" })).toBeHidden();
 });
 
 test("opens the ontology atlas at the ontology route", async ({ page }) => {
