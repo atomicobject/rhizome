@@ -131,7 +131,13 @@ function NeedsAttention() {
   const total = (groups.data ?? []).reduce((sum, group) => sum + group.issueCount, 0);
   const info = "Validation issues by variant, untyped and ambiguous notes included.";
 
-  if (status.status === "ready" && generation > 0 && groups.data?.length === 0)
+  // Green only for a current, clean run; a stale or unfinished one keeps the block.
+  if (
+    status.status === "ready" &&
+    generation > 0 &&
+    groups.data?.length === 0 &&
+    validation.health === "current_clean"
+  )
     return <HealthyAttention info={info} />;
 
   return (
@@ -144,6 +150,11 @@ function NeedsAttention() {
         {() => {
           if (generation === 0)
             return <p className="gv-quiet">Validation has not published results yet.</p>;
+
+          if (!groups.data?.length)
+            return (
+              <p className="gv-quiet">The last validation run is out of date or unfinished.</p>
+            );
 
           const list = groups.data ?? [];
 

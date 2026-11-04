@@ -278,6 +278,27 @@ it("says when validation has not published results and nothing is in motion", as
   expect(within(region("In motion")).getByText("Nothing in an active stage.")).toBeVisible();
 });
 
+it.each([
+  ["current_clean", true],
+  ["stale", false],
+] as const)("shows the clean state for a %s run: %s", async (health, clean) => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health }),
+      "POST /api/v1/validation/groups": () => jsonReply({ generation: 3, groups: [] }),
+    }),
+  });
+
+  if (clean) expect(await screen.findByText("No issues")).toBeVisible();
+  else {
+    expect(
+      await screen.findByText("The last validation run is out of date or unfinished."),
+    ).toBeVisible();
+    expect(screen.queryByText("No issues")).toBeNull();
+  }
+});
+
 it("retries the type documentation In motion failed to read", async () => {
   let fail = true;
 

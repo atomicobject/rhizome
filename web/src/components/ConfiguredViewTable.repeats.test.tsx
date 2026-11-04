@@ -22,9 +22,18 @@ function table(sorted: boolean, { totalCount = 3, status = "active", groupField 
     columns: [
       { field: "title", label: "Title" },
       { field: "due", label: "Due" },
+      { field: "tags", label: "Tags" },
     ],
     capabilities: [
       { key: "due", valueKind: "date", sortable: true, groupable: false, filterOps: [] },
+      {
+        key: "tags",
+        valueKind: "enum",
+        sortable: false,
+        groupable: true,
+        filterOps: [],
+        edit: { kind: "enum", operation: "setField", field: "tags", list: true },
+      },
       {
         key: "status",
         valueKind: "enum",
@@ -87,6 +96,11 @@ describe("sorted table repetitions", () => {
   it("keeps a grouped date column, since a month group holds different days", () => {
     render(table(true, { groupField: "due" }));
     expect(screen.getByRole("columnheader", { name: /Due/ })).toBeVisible();
+  });
+
+  it("keeps a grouped list column, since a row holds members beyond its group", () => {
+    render(table(true, { groupField: "tags" }));
+    expect(screen.getByRole("columnheader", { name: /Tags/ })).toBeVisible();
   });
 
   it("keeps equal values at normal emphasis when their column is not sorted", () => {

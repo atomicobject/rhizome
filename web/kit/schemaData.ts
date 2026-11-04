@@ -125,6 +125,8 @@ export function useValidationSummaries(scopes: ValidationScope[]) {
   return {
     summaries: summaries.summaries,
     generation,
+    /** The run's health, such as "current_clean" or "stale"; null until the envelope loads. */
+    health: envelope.data?.health ?? null,
     isLoading: envelope.isLoading || summaries.isLoading,
     error: envelope.error ?? summaries.error,
     refreshGeneration: refetch,
