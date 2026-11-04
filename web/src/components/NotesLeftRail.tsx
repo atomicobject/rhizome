@@ -7,7 +7,14 @@ import type {
   ViewCatalogEntry,
 } from "../api/types";
 import { PSEUDO_TYPE_ALL, PSEUDO_TYPE_ISSUES, PSEUDO_TYPE_MODIFIED } from "./notesRoute";
-import { RailIcon, type RailIconName, RailSectionHeader, TypeTree, useRail } from "./RailTree";
+import {
+  RailIcon,
+  type RailIconName,
+  RailSectionHeader,
+  TypeTree,
+  useRail,
+  withoutEmptyViewDuplicates,
+} from "./RailTree";
 import { summaryCountsKnown, useValidationQuery, useViewCatalogQuery } from "./useNotesQueries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
@@ -52,7 +59,21 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   const validationQuery = useValidationQuery(active);
   const catalog = catalogQuery.data?.views ?? [];
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);
-  const railGroups = useMemo(() => buildRailGroups(summary), [summary]);
+
+  const railGroups = useMemo(
+    () =>
+      withoutEmptyViewDuplicates(
+        buildRailGroups(summary),
+        new Map(
+          standaloneGroups.map((group) => [
+            group.group,
+            new Set(group.views.map((view) => view.name)),
+          ]),
+        ),
+      ),
+    [summary, standaloneGroups],
+  );
+
   const { railProps, ...expansion } = useRail(EXPANDED_KEY, railGroups, selectedType);
   const { isExpanded, toggle } = expansion;
 

@@ -1492,10 +1492,7 @@ details[open] > summary .disclosure-chevron {
   border-radius: var(--r-sm);
   background: var(--surface-sunk);
   color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  line-height: 1.35;
+  font: var(--label-structure);
   white-space: nowrap;
 }
 
@@ -1644,6 +1641,7 @@ details[open] > summary .disclosure-chevron {
 }
 
 .graph-type-legend__label {
+  font: var(--label-structure);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

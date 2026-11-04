@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 
+import { typeAccentColor } from "../lib/typeAccent";
 import { DisclosureChevron } from "./DisclosureChevron";
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
 import { flattenRailNodes, label, type RailGroup, type RailNode } from "./noteRailGroups";
@@ -21,6 +22,27 @@ import { useValidationQuery } from "./useNotesQueries";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
+
+/** Hide only empty type rows duplicated by a saved view in their own group. */
+export function withoutEmptyViewDuplicates(
+  groups: RailGroup[],
+  viewNames: Map<string, Set<string>>,
+): RailGroup[] {
+  return groups.map((group) => {
+    const names = viewNames.get(group.name);
+
+    const visible = (nodes: RailNode[]): RailNode[] =>
+      nodes.flatMap((node) => {
+        const children = visible(node.children);
+
+        return node.kind === "type" && node.type.count === 0 && names?.has(label(node.type))
+          ? children
+          : [{ ...node, children }];
+      });
+
+    return { ...group, children: visible(group.children) };
+  });
+}
 
 type RailDepthStyle = CSSProperties & { "--ontology-type-depth": number };
 
@@ -356,6 +378,12 @@ export function TypeTree({
             className={`ontology-type-row${depth > 1 ? " ontology-type-row--child" : ""}${node.kind === "interface" ? " ontology-type-row--interface" : ""}${disabled ? " ontology-type-row--embedded" : ""}${selected === item.name ? " is-selected" : ""}`}
             onClick={() => onSelect(item.name)}
           >
+            <span className="notes-left-rail__type-slot" aria-hidden="true">
+              <span
+                className="notes-left-rail__type-dot"
+                style={{ background: typeAccentColor(item.name) }}
+              />
+            </span>
             <span className="ontology-type-row__label">{label(item)}</span>
             <ValidationIssueBadge
               count={typeIssues}
