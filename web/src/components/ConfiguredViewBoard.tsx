@@ -44,11 +44,6 @@ export function ConfiguredViewBoard(props: Props) {
     board?.laneField ?? "",
   );
 
-  // Every value starts open, whatever the view's group defaults say: a board
-  // shows its records, and an empty value is a compact strip anyway. The
-  // reader may still collapse one.
-  const columnCollapsed = (column: BoardColumn) => !columnExpansion.isExpanded(column.key, true);
-
   const [dragged, setDragged] = useState<DraggedCard | null>(null);
   const [dropCellKey, setDropCellKey] = useState<string | null>(null);
   const [menuCardKey, setMenuCardKey] = useState<string | null>(null);
@@ -63,11 +58,9 @@ export function ConfiguredViewBoard(props: Props) {
     setMoveError(null);
   }, [execution.executionFingerprint, board?.columnField]);
 
-  const collapsedCount = board?.columns.filter(columnCollapsed).length ?? 0;
-
   useEffect(() => {
-    onCollapsedGroupCountChange(collapsedCount);
-  }, [collapsedCount, onCollapsedGroupCountChange]);
+    onCollapsedGroupCountChange(0);
+  }, [onCollapsedGroupCountChange]);
 
   const columnCapability = capabilityFor(capabilities, board?.columnField ?? "");
 
@@ -136,17 +129,14 @@ export function ConfiguredViewBoard(props: Props) {
       ? rows.length
       : column.count + (placement.countDelta.get(column.key) ?? 0);
 
-    const collapsed = columnCollapsed(column);
-
     return {
       column,
       rows,
       count,
-      collapsed,
-      // An uncollapsed value with no records still takes drops, as a narrow strip.
-      strip: collapsed || count === 0,
+      // Empty values retain a narrow drop track.
+      strip: count === 0,
       stale: profile ? rows.filter((row) => isStaleRow(row, profile, capabilities, now)).length : 0,
-      compact: rows.length > COMPACT_ABOVE,
+      compact: !columnExpansion.isExpanded(column.key, rows.length <= COMPACT_ABOVE),
       label: labelFor(column),
     };
   });
@@ -218,7 +208,8 @@ export function ConfiguredViewBoard(props: Props) {
   function toggleColumn(key: string) {
     const column = board?.columns.find((item) => item.key === key);
 
-    if (column) columnExpansion.toggle(key, true);
+    if (!column) return;
+    columnExpansion.toggle(key, (placement?.rows.get(key)?.length ?? 0) <= COMPACT_ABOVE);
   }
 
   /** Drop handlers for one cell: a column, or a column within a lane. */
@@ -372,7 +363,7 @@ export function ConfiguredViewBoard(props: Props) {
       return (
         <div
           key={cellKey}
-          className={`configured-view__board-strip-cell${item.collapsed ? "" : " is-empty"}${isDropTarget ? " is-drop-target" : ""}`}
+          className={`configured-view__board-strip-cell is-empty${isDropTarget ? " is-drop-target" : ""}`}
           aria-label={cellLabel}
           {...dropProps(column, lane, cellKey)}
         ></div>

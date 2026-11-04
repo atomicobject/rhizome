@@ -170,12 +170,12 @@ type HeaderItem = {
   column: BoardColumn;
   label: string;
   count: number;
-  collapsed: boolean;
   strip: boolean;
   stale: number;
+  compact: boolean;
 };
 
-/** The board's header row: a column header, an empty strip, or a collapsed strip per value. */
+/** Column headings and their card density controls; empty values use narrow tracks. */
 export function BoardColumnHeaders({
   items,
   capability,
@@ -188,24 +188,6 @@ export function BoardColumnHeaders({
   return items.map((item) => {
     const { column, label, count } = item;
     const mark = <GroupValueMark capability={capability} tone={column.tone} label={label} />;
-
-    if (item.collapsed) {
-      return (
-        <button
-          type="button"
-          key={column.key}
-          className="configured-view__board-strip"
-          aria-label={`Expand ${label} column, ${count} items`}
-          aria-expanded={false}
-          title={`Expand ${label}`}
-          onClick={() => onToggle(column.key)}
-        >
-          {mark}
-          <span className="configured-view__board-count">{count}</span>
-          <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
-        </button>
-      );
-    }
 
     if (item.strip) {
       return (
@@ -228,9 +210,9 @@ export function BoardColumnHeaders({
           <button
             type="button"
             className="configured-view__disclosure"
-            aria-label={`Collapse ${label} column`}
-            aria-expanded
-            title={`Collapse ${label}`}
+            aria-label={item.compact ? "Full cards" : "Compact cards"}
+            aria-expanded={!item.compact}
+            title={item.compact ? "Full cards" : "Compact cards"}
             onClick={() => onToggle(column.key)}
           >
             <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
