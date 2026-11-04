@@ -2612,3 +2612,9 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font-weight: 400;
   opacity: 1;
 }
+
+/* An age ("3h", "30d") is a reading, not evidence: sans with tabular figures. */
+.relative-age {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
