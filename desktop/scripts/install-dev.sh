@@ -19,6 +19,8 @@ if [[ "${RHIZOME_DEV_INSTALL_FORCE:-}" != 1 ]]; then
 fi
 
 export PATH="$HOME/.cargo/bin:$PATH"
+# shellcheck source=app-instances.sh
+source "$root/desktop/scripts/app-instances.sh"
 bundle_id="com.atomicobject.rhizome.dev"
 apps="${RHIZOME_DEV_APP_DIR:-/Applications}"
 mkdir -p "$apps"
@@ -32,15 +34,9 @@ if [[ ! -d desktop/node_modules || desktop/package-lock.json -nt desktop/node_mo
 fi
 (cd desktop && npm run tauri -- build --bundles app --config src-tauri/tauri.dev.conf.json)
 
-if pgrep -f "$installed/Contents/MacOS/" >/dev/null; then
-  echo "Quitting Rhizome Dev…"
-  osascript -e "tell application id \"$bundle_id\" to quit" >/dev/null 2>&1 || true
-  for _ in $(seq 1 50); do
-    pgrep -f "$installed/Contents/MacOS/" >/dev/null || break
-    sleep 0.2
-  done
-  pkill -TERM -f "$installed/Contents/MacOS/" 2>/dev/null || true
-fi
+# Every copy with this identifier must be gone before the relaunch: a launch
+# while any copy holds the single-instance socket hands off to that copy.
+stop_app "$bundle_id" "$installed"
 
 # Replaced bundles go to the user's Trash, never deleted outright.
 discard() {
@@ -58,3 +54,4 @@ if [[ -e "$installed" ]]; then discard "$installed"; fi
 mv "$staged" "$installed"
 echo "Installed $installed ($(git rev-parse --short HEAD))"
 open "$installed"
+verify_app "$bundle_id" "$installed"
