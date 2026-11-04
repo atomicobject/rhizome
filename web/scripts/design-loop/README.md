@@ -1,6 +1,6 @@
 # Design loop
 
-Tools for hill-climbing the web workbench's visual design: capture a fixed set of screenshots, have a council of models score them with [RUBRIC.md](RUBRIC.md), fix what they find, and capture again. Opus 5.5 makes the design changes; the reviewers only review.
+Tools for hill-climbing the web workbench's visual design: capture a fixed set of screenshots, have a council of models score them with [RUBRIC.md](RUBRIC.md), fix what they find, and capture again. Implementers make the design changes from a specific brief (Opus 5.5 in rounds 1–4, GPT-6.1 Sol from round 5); the reviewers only review.
 
 ## Set up the frozen vault once
 
@@ -24,7 +24,7 @@ node scripts/design-loop/capture.mjs --vault <vault-dir> \
 
 One command does the whole capture. It starts `rzm serve` from `bin/<os>/rzm` on 127.0.0.1:7841, with saved view state wiped and only on that address. It waits for the startup re-index to finish, takes every screenshot, and stops the server. A full run takes about 35 seconds. Use `--rzm` and `--port` to choose another binary or port, `--only id,id` and `--themes light` for a subset, and `--jobs` to change how many screens are captured at once (default 4). Keep `--now` the same for every round so relative times match. `rounds/` is ignored by Git.
 
-To iterate on one screen against a server you already run with `snapshot.sh serve`, pass `--base http://127.0.0.1:<port>` instead of `--vault`.
+To iterate on one screen against a server you already run with `snapshot.sh serve`, pass `--base http://127.0.0.1:<port>` instead of `--vault`. `serve` refuses any directory `setup` did not create and any vault with embeddings enabled, because it trashes the vault's saved view state.
 
 Two captures of the same build match byte for byte. The script gets there in these ways:
 
