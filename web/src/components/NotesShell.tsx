@@ -722,6 +722,9 @@ export function NotesShell({ active = true }: { active?: boolean }) {
 
   const vaultName = statusQuery.data?.vaultName;
 
+  // Problems has nothing to edit, so its tab hides the Edit control until a session exists.
+  const problemsActive = tabs.activeId === "collection:issues";
+
   return (
     <main
       className="workspace workspace--ontology workbench notes-shell"
@@ -769,7 +772,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
             onActivate={tabs.activate}
             onClose={closeTab}
           />
-          {!searchActive ? (
+          {!searchActive && !(problemsActive && !editSession.editing && !editSession.session) ? (
             <div className="notes-shell__session">
               <OntologyEditSessionPanel
                 session={editSession.session}
