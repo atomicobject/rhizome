@@ -113,6 +113,10 @@
   --sp-7: 24px;
   --sp-8: 32px;
 
+  /* The content gutter: every view header, tab row, status line, and first
+     column starts this far from the content panel's left edge. */
+  --gutter: 22px;
+
   /* ---- Radii (restrained, technical) ---- */
   --r-sm: 3px;
   --r: 4px;

@@ -275,19 +275,19 @@ The three families are self-hosted (`web/public/fonts`, `font-display: swap`): I
 
 The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `--fs-lg` 16, `--fs-xl` 18, `--fs-2xl` 24. Chrome uses weights 400, 500, and 600; 700 is reserved for view titles and 900 for Merriweather.
 
-- **Display** (Merriweather 900, 24px, 1.18): the note title and workspace headings such as Problems.
-- **Headline** (Inter 700, 18px, 1.2, -0.01em): a view or collection title in its header row.
+- **Display** (Merriweather 900, 24px, 1.18): the note title, and nothing else.
+- **Headline** (Inter 700, 18px, 1.2, -0.01em): every view title in its header row: collections, Problems, Agent, Tasks.
 - **Section** (Inter 600, 18px, 1.35): H2 in a note. H1 inside a body is 24px; H4–H6 drop to 15px muted.
 - **Title** (Inter 600, 16px, 1.25): H3 in a note, the right pane's record title, and the sidebar's repository or vault name.
 - **Prose** (Inter 400, 15px, 1.6): note body text, held to a 540px measure (65–75 characters).
 - **Body** (Inter 400, 14px, 1.45): the UI base: table cells, sidebar rows, tabs, controls, and popovers. Title cells use 500.
 - **Secondary** (Inter 500, 13px): column heads, document tabs, property and record labels, tool buttons, and the right pane's tabs.
 - **Label** (Inter 600, 12px, 1.3, `--label-font` with `--label-color`): the one style for section heads, the Properties heading, finder group headings, and fact labels. Sentence case, no tracking, no uppercase eyebrows.
-- **Mono** (JetBrains Mono 500, 12px): ids, paths, kbd hints, counts beside schema links, and the footer status line. Date cells use mono at the body size.
+- **Mono** (JetBrains Mono 500, 12px): ids, paths, code, kbd hints, counts beside schema links, and the footer status line. Absolute date cells use mono at the body size. `code`, `kbd`, `samp`, and `pre` default to JetBrains Mono globally, so mono never falls back to the browser's Courier.
 
 ### Named Rules
 
-**The Product Type Rule.** Inter owns the working UI and note prose. Merriweather appears only as a document or workspace title. Neither font appears in the other's role.
+**The Product Type Rule.** Inter owns the working UI and note prose. Merriweather appears only as a note's document title; view and workspace titles are Inter 18/700. Neither font appears in the other's role.
 
 **The Scoped Figures Rule.** Tabular figures (`font-variant-numeric: tabular-nums`) apply only to number-bearing elements: counts, dates, ids, and numeric cells. Never set them globally; Inter widens the hyphen under `tnum`, which breaks titles and prose.
 
@@ -295,11 +295,13 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **The Human Label Rule.** Show schema labels, never identifiers: type `label`/`pluralLabel`, humanized field names ("Next step", not `nextStep`), enum labels, and note titles with their Markdown stripped. Raw identifiers stay available in `title` attributes and in mono where they are evidence. The helpers live in `web/src/lib/labels.ts` and `useTypeLabel`.
 
-**The Mono Evidence Rule.** Use JetBrains Mono when the text is evidence: paths, ids, schema fields, commands, dates, query fragments, and code references.
+**The Mono Evidence Rule.** Use JetBrains Mono when the text is evidence: paths, ids, schema fields, commands, absolute dates, query fragments, and code references.
+
+**The Relative Time Rule.** Relative times and intervals ("3d", "in 6d", "27h ago", "every 7d") are sans with tabular figures on every surface, never mono.
 
 ## 4. Layout
 
-**Shell.** A 44px top bar on `--chrome-top` holds the brand, the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, Tasks, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section except GraphQL is the same two-column workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
+**Shell.** A 44px top bar on `--chrome-top` holds the brand (never a vault name, so nothing shifts between sections; the sidebar, or GraphQL's own header, names the vault), the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, Tasks, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section except GraphQL is the same two-column workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
 
 **Resizable panes.** The sidebar ranges from 200 to 400px (264 default) and never takes more than 45% of the window. The right pane ranges from 280 to 560px (340 default). Each has an 8px drag handle on its inner edge that shows a 2px line on hover and a red line on keyboard focus; it is a `role=separator` that moves in 16px steps with the arrow keys and jumps to its bounds with Home and End. Widths and collapsed state persist per browser; the sidebar's are shared by every section and change only when the user changes them, never on search or a section switch.
 
@@ -314,6 +316,8 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 **Reading and data surfaces.** A note is the one capped reading surface: a 680px column with prose at a 540px measure. Briefing and Overview fill the content panel and align with the presentation tabs above them, so their columns hug the header rather than float as a centred block. The note's control row aligns to the same column. Data surfaces fill the width: tables stretch, and board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones. Collapsed board values become 34px strips. Cards fill an auto-fill grid with a 260px minimum.
 
 **Note rhythm.** Sections separate by space, not rules: 28px above an H2 and 24px above an H3, 8px below any heading, and paragraphs 0.75em apart (about 11px), well under the section gap. The note's lead line of links reads as 13px muted metadata above the body.
+
+**Content gutter.** `--gutter` (22px) is the one left inset inside the content panel: every view header, tab row, status line, banner, table's first column, and composer starts there. Screens never pick their own left edge.
 
 **Spacing scale.** `--sp-1` to `--sp-8`: 4, 6, 8, 10, 14, 18, 24, 32px. Rows and controls use the small steps; section rhythm uses 24 and 28.
 
@@ -351,17 +355,24 @@ Corners are restrained and technical: 3px (`--r-sm`) for chips, kbd, and tab clo
 
 ### Brand Mark and Top Bar
 
-The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and "Rhizome" in 15/600 mono; the diamond is a temporary marker, not the identity. The sidebar toggle, a 30px panel-left icon button in muted chrome text, sits just before the section tabs; it is disabled on GraphQL, which has no sidebar. Section tabs are 30px, 14/500, muted chrome text; hover raises them to `--chrome-raised`, and the current section sits on `--chrome-active` with full chrome text. The global search is a 28px field on `--chrome-raised` with a ⌘K hint. The Appearance control (a 28px icon button) opens a 360px panel with Match system, Light, and Dark as a segmented control and the five themes as swatches that preview their chrome around a white panel.
+The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and "Rhizome" in 15/600 mono; the diamond is a temporary marker, not the identity. The sidebar toggle, a 30px panel-left icon button in muted chrome text, sits just before the section tabs; it is disabled on GraphQL, which has no sidebar. Section tabs are 30px, 14/500, muted chrome text; hover raises them to `--chrome-raised`, and the current section sits on `--chrome-active` with full chrome text. The global search is a 28px field on `--chrome-raised` with a ⌘K hint; its placeholder mixes 20% chrome text into muted chrome text to clear 4.5:1 on the raised field. The Appearance control (a 28px icon button) opens a 360px panel with Match system, Light, and Dark as a segmented control and the five themes as swatches that preview their chrome around a white panel.
 
 ### Sidebar
 
 The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list; Tasks holds All tasks and one row per registered task with its next due time. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
 
+### View Header
+
+Every screen in the content panel opens with the same header (`.view-header` and `.view-header__title-row`, from `ViewHeader` or its classes): a 56px row on the content gutter with the Inter 18/700 title (`h2`), the count (`.view-header__count`, 14px muted tabular), a one-line 13px muted description that truncates first (`.view-header__about`), and actions at the right (`.view-header__tools` for a collection's portalled tools, `.view-header__actions` for a screen's own buttons). A header without tabs closes with a `border` hairline. Never put an eyebrow, a Merriweather title, or a second line of facts above or below it; facts join the description with " · ". A nonzero problem count adds `.is-risk` (red ink, 600); a zero count stays muted.
+
 ### Buttons
 
-- **Primary:** Deep Red (`--accent-fill`) with white text, 13/600, for the one commit action on a surface (Save, Run, execute). Hover deepens to `--accent-fill-hover`.
-- **Secondary:** 28px, white surface, 1px `border-strong`, 6px corners, 13/500 ink. Toolbar actions, pagers, Copy link, and the 28px icon-only refresh share these metrics. Hover tints to `surface-tint`, never red.
-- **Ghost:** Filter, View, the pane toggle, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
+The classes live in `base.css`; use them rather than restyling a button per screen.
+
+- **Primary (`.button.button--primary`):** Deep Red (`--accent-fill`) with white text, 13/600, for the one commit action on a surface (Save, Run, Send, execute). Hover deepens to `--accent-fill-hover`. GraphiQL's execute button is a 28px primary labelled "Run ⌘↵".
+- **Secondary (`.button`):** 28px, white surface, 1px `border-strong`, 6px corners, 13/500 ink. Toolbar actions, Refresh validation, Pause all, Dismiss, pagers, Copy link, and the 28px icon-only refresh share these metrics. Hover tints to `surface-tint`, never red. Routine actions are never red, as text or fill.
+- **Ghost (`.button.button--ghost`):** Filter, View, the pane toggle, Copy beside a command, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
+- **Disabled:** `surface-sunk` with `border` and faint ink, never a pale red.
 - **Edit toggle:** 13/600 muted text with a 1px border and 4px corners; in a session it becomes Editing, Review, Save, and Done.
 - **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the View popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
 
@@ -374,7 +385,7 @@ The sidebar sits on `--chrome-bg` and is one frame for every section: it names t
 ### Inputs / Fields
 
 - **Find in view:** a 30px field, 220px wide (160px in a narrow header), `border-strong`, 7px corners, a search icon, and a ⌘F hint. Focus adds the red ring with 1px offset.
-- **Form controls:** 28px, `border-strong`, 6px corners, 13/500.
+- **Form controls:** `base.css` styles every native `select` and text, search, number, date, and URL `input` app-wide at element specificity: 28px, `border-strong`, 6px corners, `--surface` with `--text` in either appearance, 13/500, a faint-ink hover border, and `surface-sunk` with faint ink when disabled. A single-value `select` drops the native arrow for a 16px chevron (`#7d7872`, 3:1 or better on light and dark surfaces) 7px from its right edge. Checkboxes and radios are 16px with `accent-color: var(--text)`, so a checked box is neutral ink, never red. Component classes win over the base treatment, so restyle only when a control genuinely differs, and keep the chevron. Labels name the setting in human words ("Reasoning effort", "Approval required"), never an identifier.
 - **Focus:** one keyboard focus style everywhere: a 2px `--focus-ring` outline from `:focus-visible`, offset 2px, inset on rows, cells, and tabs. Components may inset or offset it, not restyle it. On the chrome the ring is `--chrome-text`.
 
 ### Collections and the View Header
@@ -391,7 +402,11 @@ Board columns are tinted bands with a hairline border and 6px corners holding fl
 
 ### Status Marks
 
-Status is a 9px shape plus a label driven by the schema tone: hollow ring for neutral, half-filled blue ring for in progress, filled teal dot for success, gold triangle for warning, red rotated square for risk, dashed ring for muted. Colour supports the shape and never stands alone.
+Status is a 9px shape plus a label driven by the schema tone: hollow ring for neutral, half-filled blue ring for in progress, filled teal dot for success, gold triangle for warning, an 11px red disc with an exclamation cut out for risk (Failed, Needs attention, errors), and a dashed ring for muted. The risk mark is never a rotated square, which reads as the brand diamond. Colour supports the shape and never stands alone; where a mark has no visible label (a sidebar row), it carries `aria-label` and `title`. On the chrome, the risk mark takes `--chrome-risk`.
+
+### Banners
+
+A condition that affects a whole screen (a new task, a paused queue, unavailable search sources, a refused ref) is one `.banner`: a 36px band on the content gutter with 6px corners, a status mark with its label, concise 13px text (`.banner__text`, `.banner__aside` for a muted time), and an optional 28px `.button` action at the right (`.banner__actions` for two). Tones: neutral tint by default, `.banner--warning` (warning-soft, gold border), and `.banner--risk` (red soft, red line). Repeated conditions merge into one banner whose details sit behind a disclosure; never stack several bands. A banner is never louder than the failure it sits above; a failed row stays inspectable with a labelled "View run" link or a 28px action.
 
 ### Right Pane
 
@@ -411,13 +426,21 @@ Every surface shows an edit's state the same way. Editing with nothing staged is
 
 ### Finders
 
-The ⌘P finder is a native `<dialog>` over the scrim: a 640px palette at most 92px from the top (12% of a short window's height), 14px corners, `border-strong`, and the command lift, entering with a 140ms fade and 6px rise that reduced motion removes. A 56px input row holds a 16px query field; a 12/600 group heading leads a listbox of 46px rows with icon, 14/500 title, type, and a middle-truncated mono path. The active row takes `--selection` with a 3px edge; matched characters are 650-weight ink with a selection-tinted underline, not a highlight fill. A footer lists the keys. Focus starts in the input, ↑ and ↓ move, Enter opens, ⌘Enter opens beside, and Esc returns focus.
+The ⌘P finder is a native `<dialog>` over the scrim: a 640px palette at most 92px from the top (12% of a short window's height), 14px corners, `border-strong`, and the command lift, entering with a 140ms fade and 6px rise that reduced motion removes. A 56px input row holds a 16px query field; a 12/600 group heading leads a listbox of fixed 46px rows with icon, 14/500 title, a 13/500 muted type label (a note with no type says "Untyped", so the column never reads ragged), and a middle-truncated mono path. The list is sized to nine whole rows so the footer never cuts one. The active row takes `--selection` with a 3px edge; matched characters are 650-weight ink with a selection-tinted underline, not a highlight fill. A footer lists the keys. Focus starts in the input, ↑ and ↓ move, Enter opens, ⌘Enter opens beside, and Esc returns focus.
 
 Rhizome Desktop's ⌘O repository and ⇧⌘O worktree finders draw the same palette in a transparent overlay webview 64px from the top, with 42px rows, a 7px runtime dot, and ⌘1–⌘9 hints on the first nine repositories.
 
 ### Desktop Toolbar
 
 Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay title bar extends behind the traffic lights (72px reserved at the left). Its first control after the traffic lights is the sidebar toggle, a 26px icon button pressed while the sidebar shows. Then it holds the repository name (600, up to 240px) and the worktree branch in mono as two click targets whose tooltips name ⌘O and ⇧⌘O; the worktree is quiet on the primary checkout and a `--chrome-pill` on any other. The section tabs are centred, 26px, with the current one on `--chrome-active`. A 26px search on `--chrome-raised` and the issue count in `--chrome-risk` sit at the right. Window and webview backgrounds take the theme, so opening or resizing never flashes white.
+
+### Agent
+
+The Agent screen uses the shared view header (the session title, its message count, and the harness state as the description). Harness settings sit at the foot of the sidebar as one labelled 28px select per row at full sidebar width. The composer is one framed field (`border-strong`, 10px corners) holding the message and a bar with the send hint, or, when no harness can take a turn, the reason and next step (install, or log in with a copyable command), beside a 28px primary Send. The empty thread never invites a question that cannot be sent.
+
+### GraphQL
+
+GraphiQL takes Rhizome's tokens: its palette restates them as HSL triplets, and its Monaco themes are redefined from the syntax tokens so comments clear 4.5:1 in both appearances. The vault name replaces the GraphiQL wordmark, the sidebar and toolbar icons are muted ink, Run is the 28px primary, the results pane carries a 12/600 "Response" label and a muted "Run the query to see results" until a result arrives, and an empty Variables editor starts as a collapsed bar.
 
 ### Ontology Canvas
 
@@ -451,4 +474,6 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 - **Don't** turn Notion or Coda inspiration into a blocky consumer document editor; Rhizome is closer to Obsidian plus Linear plus Raycast, filtered through AO identity.
 - **Don't** use thick coloured side stripes as decoration, nested cards, decorative shadows, or card grids as default scaffolding.
 - **Don't** use display fonts in labels, buttons, tables, or data.
+- **Don't** colour a routine action red; Refresh, Pause, Dismiss, and similar actions are secondary or ghost buttons.
+- **Don't** set relative times in mono, or show a raw identifier as a control's value or label.
 - **Don't** treat the temporary red diamond as the final identity.
