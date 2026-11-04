@@ -135,7 +135,11 @@ export function ConfiguredViewTableHeader({
               className={`${columnClassName(column, capabilities)}${
                 primary ? " configured-view__cell--primary" : ""
               }`}
-              title={sortable ? `${label} (Shift-click to add a sort key)` : label}
+              title={
+                sortable
+                  ? `${direction ? `${label}: ${sortDescription(direction, sortIndex, sort.length)}. ` : `${label}. `}Shift-click to add a sort key`
+                  : label
+              }
               // Cells announce this as their header; the sort button's
               // action wording would otherwise become the column name.
               aria-label={label}
@@ -147,13 +151,13 @@ export function ConfiguredViewTableHeader({
                 <button
                   type="button"
                   onClick={(event) => onSort(column, event.shiftKey)}
-                  aria-label={`Sort ${label} ${direction === "asc" ? "descending" : "ascending"}`}
+                  aria-label={`Sort ${label} ${direction === "asc" ? "descending" : "ascending"}${direction ? `; ${sortDescription(direction, sortIndex, sort.length)}` : ""}`}
                 >
                   <span className="configured-view__header-label">{label}</span>
                   {direction && (
                     <span className="configured-view__sort-arrow" aria-hidden="true">
                       {direction === "asc" ? "↑" : "↓"}
-                      {sort.length > 1 && <sub>{sortIndex + 1}</sub>}
+                      {sort.length > 1 && <sub>{ordinal(sortIndex + 1)}</sub>}
                     </span>
                   )}
                 </button>
@@ -179,4 +183,20 @@ export function ConfiguredViewTableHeader({
       </tr>
     </thead>
   );
+}
+
+function ordinal(position: number) {
+  const suffix =
+    position % 100 >= 11 && position % 100 <= 13
+      ? "th"
+      : (["th", "st", "nd", "rd"][position % 10] ?? "th");
+
+  return `${position}${suffix}`;
+}
+
+/** "sorted 2nd, ascending": where a column sits among the sort keys. */
+function sortDescription(direction: string, index: number, keys: number) {
+  const order = direction === "asc" ? "ascending" : "descending";
+
+  return keys > 1 ? `sorted ${ordinal(index + 1)}, ${order}` : `sorted ${order}`;
 }

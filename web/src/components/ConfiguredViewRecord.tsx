@@ -20,6 +20,7 @@ import {
   columnLabel,
   fieldCapability,
 } from "./ConfiguredViewModel";
+import { MiddleTruncate } from "./MiddleTruncate";
 import { StatusMark } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
@@ -91,9 +92,10 @@ export function ConfiguredViewRecord({
         </button>
       </header>
       <h3 className="view-record__title">{title}</h3>
-      <p className="view-record__path" title={row.path || row.ref.notePath}>
-        {(row.path || row.ref.notePath).replace(/^.*\//, "")}
-      </p>
+      <MiddleTruncate
+        className="view-record__path"
+        text={(row.path || row.ref.notePath).replace(/^.*\//, "")}
+      />
       {summary && <p className="view-record__summary">{summary}</p>}
       {fields.length + moved.length > 0 && (
         <dl className="view-record__fields">

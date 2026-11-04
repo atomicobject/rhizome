@@ -897,16 +897,32 @@
   cursor: pointer;
 }
 
-/* A source path keeps its file name and cuts from the left, where every path
-   in a folder reads the same. */
+/* A source column names the note by title; its path is the tooltip. */
+.configured-view__table th.configured-view__cell--source {
+  width: 180px;
+}
+
 .configured-view__table td.configured-view__cell--source {
-  direction: rtl;
-  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .configured-view__title-button,
 .configured-view__table [data-row-title] {
   font-weight: 500;
+}
+
+/* A one-line table lets a long title wrap to a second line before it cuts,
+   so the row grows to 56px instead of hiding the end of the title. */
+.configured-view__table:not(.configured-view__table--two-line) [data-row-title] {
+  display: -webkit-box;
+  /* A button ignores -webkit-box, so the height caps it at two lines too. */
+  max-height: 40px;
+  line-height: 20px;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .configured-view__linked-cell {
@@ -941,7 +957,7 @@
 }
 
 .configured-view__table th.configured-view__cell--date {
-  width: 104px;
+  width: 112px;
 }
 
 .configured-view__table th.configured-view__cell--numeric,
@@ -958,10 +974,13 @@
   width: auto;
 }
 
-.configured-view__cell--identifier,
+/* Identifiers read in mono; dates and numbers in Inter with tabular figures. */
+.configured-view__cell--identifier {
+  font-family: var(--font-mono);
+}
+
 .configured-view__cell--date,
 .configured-view__cell--numeric {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1112,6 +1131,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* An empty cell says so with a muted dash rather than a blank. */
+.configured-view__table
+  td:not(.configured-view__check-cell, .configured-view__issue-cell):empty::before,
+.configured-view__table .configured-view__relation-display:empty::before {
+  color: var(--text-faint);
+  content: "—";
+}
+
+/* Relation titles in dense layouts are quiet links: teal ink, underlined only
+   on hover and keyboard focus. */
+:is(.configured-view, .view-record) [data-configured-relation-link] a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+:is(.configured-view, .view-record) [data-configured-relation-link] a:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .configured-view__relation-edit {
@@ -1288,10 +1327,13 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   background: var(--bg-tint);
 }
 
+/* A column header reads "Active 14" as one unit, with the collapse control at
+   the end and any staleness on its own muted line below. */
 .configured-view__board-column-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--sp-2);
+  column-gap: var(--sp-2);
   min-width: 0;
   min-height: 30px;
   padding: 4px 2px 6px;
@@ -1300,7 +1342,27 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font-weight: 600;
 }
 
+.configured-view__board-column-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.configured-view__board-column-title .configured-view__board-count {
+  margin-left: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.configured-view__board-column-header > .configured-view__board-stale {
+  grid-column: 1;
+  grid-row: 2;
+}
+
 .configured-view__board-column-header > button {
+  grid-column: 2;
+  grid-row: 1;
   width: 20px;
   height: 20px;
   margin-left: 2px;
@@ -1322,7 +1384,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__board-count {
   margin-left: auto;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Unchanged records are a quiet fact, not a warning: muted text with a clock. */
@@ -1342,14 +1405,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__board-stale svg,
 .configured-brief__stale svg {
   flex: none;
-}
-
-.configured-view__board-stale + .configured-view__board-count {
-  margin-left: 0;
-}
-
-.configured-view__board-column-header .status-mark + .configured-view__board-stale {
-  margin-left: auto;
 }
 
 .configured-view__board-stack {
@@ -1431,7 +1486,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   margin: 0;
   padding: 10px;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-view__board-warning {
@@ -1646,7 +1702,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-card__staged {
   overflow: hidden;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1723,7 +1779,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border-radius: var(--r-sm);
   background: var(--warning-soft);
   color: var(--warning-ink);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 
@@ -1864,6 +1921,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card--compact .configured-card__title {
   font-size: var(--fs-sm);
+  white-space: normal;
 }
 
 .configured-brief__summary,
@@ -1927,12 +1985,14 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-brief__lanes,
 .configured-brief__more {
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-brief__count b {
   color: var(--text);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-brief__person {
@@ -1943,7 +2003,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border: 1px solid var(--border-strong);
   border-radius: 50%;
   color: var(--text-muted);
-  font: 600 var(--fs-xs) var(--font-mono);
+  font: 600 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
 
@@ -2063,6 +2124,37 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-card--brief .configured-card__title {
   font-size: var(--fs-md);
   white-space: normal;
+}
+
+/* Grid briefs lead with the title (14/600, two lines reserved so summaries
+   line up across a row), then type and age on one muted 13px line. */
+.configured-card--cards.configured-card--brief .configured-card__title {
+  display: grid;
+  align-content: start;
+  order: -1;
+  min-height: calc(2 * 1.3em);
+  font-size: var(--fs-base);
+}
+
+.configured-card--cards.configured-card--brief .configured-card__title-text,
+.configured-card--compact .configured-card__title-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.configured-card--cards.configured-card--brief .configured-brief__header,
+.configured-card--cards.configured-card--brief .configured-brief__type {
+  font-size: var(--fs-sm);
+}
+
+.configured-card--cards.configured-card--brief .configured-brief__type {
+  color: var(--text-muted);
+}
+
+.configured-card--cards.configured-card--brief .configured-brief__end {
+  margin-left: 0;
 }
 
 /* Save view (SPEC-0112) */
@@ -2358,8 +2450,9 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 .configured-view__sort-arrow sub {
-  margin-left: 1px;
-  font: 500 var(--fs-xs) var(--font-mono);
+  margin-left: 2px;
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   vertical-align: baseline;
 }
 
@@ -2403,7 +2496,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 .configured-view__bulk-count b {
-  font: 600 var(--fs-sm) var(--font-mono);
+  font: 600 var(--fs-sm) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-view__bulk-bar select,
@@ -2454,14 +2548,28 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-width: 0;
 }
 
-/* The record's id: its own 12px mono line under the title. */
+/* The record's id: its own 12px mono line under the title, cut in the middle
+   so the slug that tells records apart survives. */
 .view-record__path {
   margin: 2px 0 0;
-  overflow: hidden;
   color: var(--text-faint);
   font: 500 var(--fs-xs) / 1.4 var(--font-mono);
-  text-overflow: ellipsis;
+}
+
+.middle-truncate {
+  display: flex;
+  min-width: 0;
   white-space: nowrap;
+}
+
+.middle-truncate__head {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.middle-truncate__tail {
+  flex: none;
 }
 
 .view-record__title {
@@ -2474,7 +2582,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .view-record__summary {
   margin: var(--sp-2) 0 0;
-  color: var(--text-muted);
+  color: var(--text);
   line-height: 1.45;
 }
 
@@ -2529,7 +2637,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .view-record__count {
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .view-record__reverse ul {

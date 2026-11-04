@@ -11,6 +11,7 @@ import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { type BoardColumn, type BoardLane, boardLanes, placeStagedCards } from "./boardLayout";
 import { groupValueOp, useViewReorder } from "./useViewReorder";
 import { useRememberedExpansion } from "./useRememberedExpansion";
+import { mostCommon } from "./useViewLayout";
 import { isStaleRow } from "./viewProfile";
 
 type Props = ComponentProps<typeof ConfiguredViewTable>;
@@ -122,6 +123,8 @@ export function ConfiguredViewBoard(props: Props) {
   const profileCards = profile && (view.generated || !view.variants.kanban?.card);
   const hiddenFields = [columnField, lanes?.field ?? ""];
   const now = Date.now();
+  // An interface board names a card's type only when it differs from the one most share.
+  const dominantType = mostCommon(props.rows.map((row) => row.resolvedType));
 
   const labelFor = (column: BoardColumn) =>
     groupValueLabel(columnCapability, column.value, column.label);
@@ -264,9 +267,9 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Columns stay 260–360px (SPEC-0126 US7): a wider window shows more of them, not wider ones.
+  // Open columns share the panel width with a 260px minimum; a narrow window scrolls.
   const template = columns
-    .map((item) => (item.strip ? `${STRIP_WIDTH}px` : "minmax(260px, 360px)"))
+    .map((item) => (item.strip ? `${STRIP_WIDTH}px` : "minmax(260px, 1fr)"))
     .join(" ");
 
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
@@ -299,7 +302,7 @@ export function ConfiguredViewBoard(props: Props) {
               otherLanes={Math.max(0, memberships - 1)}
               stale={isStaleRow(row, profile, capabilities, now)}
               compact={item.compact}
-              showType={Boolean(view.source.interface)}
+              showType={Boolean(view.source.interface) && row.resolvedType !== dominantType}
               onOpenRow={props.onOpenRow}
             />
           ) : undefined

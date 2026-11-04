@@ -35,9 +35,9 @@ import { SaveViewAction, saveViewProps } from "./ConfiguredViewSave";
 import { ConfiguredViewFooter, ViewErrorStatus } from "./ConfiguredViewStatus";
 import { effectiveSort, nextSort } from "./ConfiguredViewTableModel";
 import { ConfiguredViewToolbar } from "./ConfiguredViewToolbar";
-import { useTypeLabel, viewDisplayName } from "./typeLabels";
+import { type TypeLabelFn, useTypeLabel, viewDisplayName } from "./typeLabels";
 import { growingWindow } from "./useScrollLoading";
-import { useViewLayout } from "./useViewLayout";
+import { dominantColumnValue, useViewLayout } from "./useViewLayout";
 import { ViewPreferencesStatus } from "./ViewPreferencesStatus";
 
 const EMPTY_CAPABILITIES: NonNullable<ViewExecuteResponse["capabilities"]> = [];
@@ -404,7 +404,14 @@ export function ConfiguredView({
             activeVariant === "table"
               ? columns.flatMap((column) =>
                   repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
-                    ? [columnLabel(column, capabilities)]
+                    ? [
+                        repeatedColumnNote(
+                          column.field,
+                          columnLabel(column, capabilities),
+                          execution,
+                          typeLabel,
+                        ),
+                      ]
                     : [],
                 )
               : []
@@ -419,6 +426,20 @@ export function ConfiguredView({
       )}
     </section>
   );
+}
+
+/** Says in plain words why a repeated column is hidden: "Type column hidden: 51 of 52 rows are Effort notes". */
+function repeatedColumnNote(
+  field: string,
+  label: string,
+  execution: Parameters<typeof dominantColumnValue>[1],
+  typeLabel: TypeLabelFn,
+) {
+  const { value, count, total } = dominantColumnValue(field, execution);
+  const shown = field === "resolvedType" ? typeLabel(value, count !== 1) : value;
+  const share = count >= total ? `all ${total}` : `${count} of ${total}`;
+
+  return `${label} column hidden: ${share} rows are ${shown || "empty"}`;
 }
 
 function rowCountLabel(count: number) {
