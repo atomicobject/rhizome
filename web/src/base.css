@@ -1025,7 +1025,7 @@ html
 }
 
 /* The drawer toggle draws the shared disclosure chevron (16px, 1.5 stroke)
-   in a 24px target: up while Variables is closed, down while it is open. */
+   in a 24px target: right while Variables is closed, down while it is open. */
 .graphql-explorer .graphiql-container button.graphiql-toggle-editor-tools {
   display: inline-flex;
   align-items: center;
@@ -1045,9 +1045,8 @@ html
   width: var(--disclosure-icon);
   height: var(--disclosure-icon);
   background: currentColor;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 4 4 4-4 4'/%3E%3C/svg%3E")
-    center / contain no-repeat;
-  transform: rotate(-90deg);
+  mask: var(--chevron-mask) center / contain no-repeat;
+  transform: rotate(0deg);
   transition: transform 0.15s var(--ease);
 }
 

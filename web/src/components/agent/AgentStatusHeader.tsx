@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DisclosureChevron } from "../DisclosureChevron";
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSession } from "../../api/types";
 
 type Props = {
@@ -70,7 +71,9 @@ export function AgentStatusHeader({
         {details.length ? (
           <div className="view-header__actions">
             <details className="header-details">
-              <summary className="button button--ghost">Details</summary>
+              <summary className="button button--ghost">
+                Details <DisclosureChevron />
+              </summary>
               <dl>
                 {version ? (
                   <>

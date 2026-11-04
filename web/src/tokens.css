@@ -80,10 +80,10 @@
   --warning-ink: light-dark(#8a5a0f, #e8c27e);
 
   /* Note links: teal means connection, everywhere a link points at a note. */
-  --link: light-dark(var(--ao-teal-ink), #5fd6d0);
+  --link: light-dark(var(--ao-teal-ink), #75b9b5);
   --link-line: light-dark(
     color-mix(in srgb, var(--ao-teal) 45%, transparent),
-    color-mix(in srgb, #2fd3cc 45%, transparent)
+    color-mix(in srgb, var(--link) 45%, transparent)
   );
 
   /* Label: the one style for rail groups, column heads, finder groups, and
