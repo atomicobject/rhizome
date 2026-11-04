@@ -340,16 +340,9 @@ export function AppShell() {
         <header className="app-shell__nav">
           <div className="app-shell__brand" title={status?.vaultPath || undefined}>
             <span>Rhizome</span>
-            {/* Each sidebar names the vault; GraphQL, which has none, keeps it here. */}
-            {route === "graphql" || statusQuery.isError ? (
-              <small>
-                {vaultName
-                  ? vaultLabel(vaultName)
-                  : statusQuery.isError
-                    ? "Status unavailable"
-                    : ""}
-              </small>
-            ) : null}
+            {/* Each sidebar names the vault, and GraphQL names it in its own
+                header, so the shell's positions never move between sections. */}
+            {statusQuery.isError ? <small>Status unavailable</small> : null}
           </div>
           <SidebarToggle disabled={route === "graphql"} />
           <nav aria-label="Primary">
@@ -443,7 +436,7 @@ export function AppShell() {
             <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
             <Suspense fallback={<main className="graphql-explorer" />}>
-              <GraphQLExplorer />
+              <GraphQLExplorer vaultName={vaultName} />
             </Suspense>
           ) : (
             <ExplorerWorkspace

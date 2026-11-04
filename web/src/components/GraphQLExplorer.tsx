@@ -4,7 +4,9 @@ import "graphiql/style.css";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import GraphQLWorker from "./graphql.worker?worker";
+import { useEffect } from "react";
 import { useAppearance } from "../lib/appearance";
+import { vaultLabel } from "../lib/labels";
 import { installMonacoEnvironment } from "./monacoEnvironment";
 
 installMonacoEnvironment(globalThis, {
@@ -65,9 +67,77 @@ export const graphQLExplorerFetcher: Fetcher = async (graphQLParams) => {
   return response.json();
 };
 
-function GraphQLExplorer() {
+type MonacoThemes = {
+  editor: {
+    defineTheme(name: string, data: ReturnType<typeof rhizomeMonacoTheme>): void;
+    setTheme(name: string): void;
+  };
+};
+
+// GraphiQL's Monaco themes inherit VS Code comment and widget colours, which
+// miss AA on Rhizome's dark surface and bring a pink accent. These restate
+// them from the syntax and surface tokens under GraphiQL's own theme names.
+function rhizomeMonacoTheme(dark: boolean) {
+  const pick = (light: string, darkValue: string) => (dark ? darkValue : light);
+  const surface = pick("#ffffff", "#1c1b1a");
+  const tint = pick("#f5f5f3", "#242321");
+
+  return {
+    base: dark ? "vs-dark" : "vs",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: pick("706c68", "a8a29b") },
+      { token: "argument.identifier.gql", foreground: pick("5a4a87", "c4b8e3") },
+    ],
+    colors: {
+      "editor.background": "#ffffff00",
+      "scrollbar.shadow": "#ffffff00",
+      focusBorder: pick("#c8313a", "#ff6b72"),
+      "editorWidget.background": surface,
+      "editorHoverWidget.background": surface,
+      "editorSuggestWidget.background": surface,
+      "editorSuggestWidget.selectedBackground": tint,
+      "editorSuggestWidget.selectedForeground": pick("#1f1e1d", "#ecebe9"),
+      "editorSuggestWidget.highlightForeground": pick("#1f1e1d", "#ecebe9"),
+      "list.highlightForeground": pick("#1f1e1d", "#ecebe9"),
+      "list.hoverBackground": tint,
+      "menu.background": surface,
+      "textLink.foreground": pick("#0b6a66", "#5fd6d0"),
+    },
+  };
+}
+
+/** Restyles GraphiQL's Monaco themes once GraphiQL has loaded Monaco. */
+function useRhizomeMonacoTheme(appearance: "light" | "dark") {
+  useEffect(() => {
+    let frame = 0;
+
+    const apply = () => {
+      // SAFETY: GraphiQL's Monaco store assigns the loaded monaco-editor module
+      // to globalThis.__MONACO, which exposes this editor API.
+      const monaco = (globalThis as { __MONACO?: MonacoThemes }).__MONACO;
+
+      if (!monaco) {
+        frame = requestAnimationFrame(apply);
+
+        return;
+      }
+
+      monaco.editor.defineTheme("graphiql-DARK", rhizomeMonacoTheme(true));
+      monaco.editor.defineTheme("graphiql-LIGHT", rhizomeMonacoTheme(false));
+      monaco.editor.setTheme(appearance === "dark" ? "graphiql-DARK" : "graphiql-LIGHT");
+    };
+
+    apply();
+
+    return () => cancelAnimationFrame(frame);
+  }, [appearance]);
+}
+
+function GraphQLExplorer({ vaultName }: { vaultName?: string | null }) {
   // GraphiQL's own theme toggle would disagree with the Appearance setting.
   const { resolved } = useAppearance();
+  useRhizomeMonacoTheme(resolved);
 
   return (
     <main className="graphql-explorer">
@@ -76,7 +146,13 @@ function GraphQLExplorer() {
         fetcher={graphQLExplorerFetcher}
         defaultQuery={GRAPHQL_EXPLORER_QUERY}
         initialVariables={GRAPHQL_EXPLORER_VARIABLES}
-      />
+        defaultEditorToolsVisibility={false}
+      >
+        {/* The vault this explorer queries, in place of the GraphiQL wordmark. */}
+        <GraphiQL.Logo>
+          <span className="graphql-explorer__vault">{vaultName ? vaultLabel(vaultName) : ""}</span>
+        </GraphiQL.Logo>
+      </GraphiQL>
     </main>
   );
 }
