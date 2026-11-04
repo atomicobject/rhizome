@@ -91,12 +91,17 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
           <span className="ontology-type-detail__crumb" aria-hidden="true">
             /
           </span>
-          <h2>{name}</h2>
+          <h2 title={name}>{humanizeName(name)}</h2>
           {data ? <span className="view-header__count">{data.count}</span> : null}
           {data?.type?.role ? (
             <span className="view-header__about">{humanizeName(data.type.role.toLowerCase())}</span>
           ) : null}
         </div>
+        {data ? (
+          <div className="view-header__tabs">
+            <TabBar idPrefix={tabsID} active={tab} onSelect={setTab} />
+          </div>
+        ) : null}
       </header>
       {error && !data ? (
         <div className="ontology-type-detail__error" role="alert">
@@ -117,7 +122,6 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
               </button>
             </div>
           ) : null}
-          <TabBar idPrefix={tabsID} active={tab} onSelect={setTab} />
           <div
             id={`${tabsID}-panel`}
             role="tabpanel"
@@ -821,7 +825,7 @@ function TypeDetailBody({
                     className="ontology-type-detail__chip ontology-type-detail__chip--interactive"
                     onClick={() => onSelectType(iface)}
                   >
-                    {iface}
+                    {humanizeName(iface)}
                   </button>
                 ))}
               </div>
@@ -858,7 +862,12 @@ function TypeDetailBody({
                       <div className="ontology-type-detail__impl-head">
                         <span className="ontology-type-detail__impl-name">
                           <span className="ontology-type-detail__impl-dot" aria-hidden="true" />
-                          <span className="ontology-type-detail__impl-title">{implType.name}</span>
+                          <span className="ontology-type-detail__impl-title">
+                            {humanizeName(implType.name)}
+                          </span>
+                          <code className="ontology-type-detail__ident-secondary">
+                            {implType.name}
+                          </code>
                         </span>
                         <span className="ontology-type-detail__impl-count">{entry.count ?? 0}</span>
                       </div>
@@ -944,7 +953,7 @@ function TypeDetailBody({
                       "—"
                     )}
                   </td>
-                  {relationDirections ? <td>{f.direction || "—"}</td> : null}
+                  {relationDirections ? <td>{directionLabel(f.direction)}</td> : null}
                   <td>
                     <Prose text={f.description} />
                   </td>
@@ -984,7 +993,7 @@ function TypeDetailBody({
                       {ref.list ? "[]" : ""}
                     </code>
                   </td>
-                  {inboundDirections ? <td>{ref.direction || "—"}</td> : null}
+                  {inboundDirections ? <td>{directionLabel(ref.direction)}</td> : null}
                   <td>
                     <Prose text={ref.description} />
                   </td>
@@ -1065,10 +1074,24 @@ function TargetChip({
       title={role ? `${role}: ${name}` : name}
     >
       <span className="ontology-type-detail__target-dot" aria-hidden="true" />
-      {name}
-      {list ? "[]" : ""}
+      <span className="ontology-type-detail__target-label">{humanizeName(name)}</span>
+      <code className="ontology-type-detail__ident-secondary">
+        {name}
+        {list ? "[]" : ""}
+      </code>
     </button>
   );
+}
+
+/** A relation's direction in lowercase with its arrow: "← inbound", "→ outbound". */
+function directionLabel(direction?: string) {
+  if (!direction) return <span className="ontology-type-detail__none">—</span>;
+  const value = direction.toLowerCase();
+
+  const arrow =
+    value === "inbound" ? "← " : value === "outbound" ? "→ " : value === "both" ? "↔ " : "";
+
+  return `${arrow}${value}`;
 }
 
 /**
@@ -1103,14 +1126,17 @@ function Prose({ text }: { text?: string }) {
 }
 
 function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
+  // Source shows only where it differs from the field's name.
+  const renamed = fields.some((f) => f.source && f.source !== f.name);
+
   return (
     <table className="ontology-type-detail__table">
       <thead>
         <tr>
           <th className="ontology-type-detail__col-name">Name</th>
           <th className="ontology-type-detail__col-type">Type</th>
-          <th>Required</th>
-          <th>Source</th>
+          <th className="ontology-type-detail__col-required">Required</th>
+          {renamed ? <th className="ontology-type-detail__col-source">Source</th> : null}
           <th>Description</th>
         </tr>
       </thead>
@@ -1134,12 +1160,11 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
               ) : null}
             </td>
             <td>{f.required ? "yes" : "no"}</td>
-            <td className="ontology-type-detail__nowrap">
-              {f.source ? (
-                // A source that only repeats the field's name is muted, so a renamed source stands out.
-                <code data-same={f.source === f.name ? "true" : undefined}>{f.source}</code>
-              ) : null}
-            </td>
+            {renamed ? (
+              <td className="ontology-type-detail__nowrap">
+                {f.source && f.source !== f.name ? <code>{f.source}</code> : null}
+              </td>
+            ) : null}
             <td>
               <Prose text={f.description} />
             </td>
