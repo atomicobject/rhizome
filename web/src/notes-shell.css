@@ -1909,6 +1909,12 @@
   content: none;
 }
 
+/* Editing is a mode, so the note says so where the eye starts: a 2px AO red
+   rule under the control row, matching the red Save it leads to. */
+.notes-shell .ontology-pane.is-editing > .ontology-pane__header > .ontology-pane__controls {
+  border-bottom: 2px solid var(--accent);
+}
+
 /* The controls row is only as wide as the column: the path gives way, never
    the controls. */
 .notes-shell

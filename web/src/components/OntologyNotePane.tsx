@@ -1560,7 +1560,7 @@ export function OntologyNotePane({
   );
 
   return (
-    <article className="ontology-pane" ref={paneRef}>
+    <article className={`ontology-pane${editing ? " is-editing" : ""}`} ref={paneRef}>
       <header className="ontology-pane__header">
         <div
           className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}

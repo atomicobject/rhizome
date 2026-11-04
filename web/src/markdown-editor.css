@@ -190,6 +190,32 @@
 /* Read mode's tight inline-code chip, so code in parentheses has no gap. */
 .markdown-editor--atomic .cm-atomic-inline-code {
   padding: 1px 3px;
+  border-radius: 3px;
+}
+
+/* The hidden backticks are empty widgets that CodeMirror flanks with buffer
+   images, and an image is a line-break opportunity, so "(" could wrap away
+   from the code after it. Read mode has no break there, so the editor drops
+   the buffers beside inline code. */
+.markdown-editor--atomic
+  .cm-line
+  img.cm-widgetBuffer:is(
+    :has(+ .cm-atomic-inline-code),
+    :has(+ [contenteditable="false"] + img.cm-widgetBuffer + .cm-atomic-inline-code)
+  ),
+.markdown-editor--atomic .cm-line .cm-atomic-inline-code + img.cm-widgetBuffer,
+.markdown-editor--atomic
+  .cm-line
+  .cm-atomic-inline-code
+  + img.cm-widgetBuffer
+  + [contenteditable="false"]
+  + img.cm-widgetBuffer {
+  display: none;
+}
+
+/* A bullet is read mode's plain disc, not bold with a strong item. */
+.markdown-editor--atomic .cm-atomic-bullet {
+  font-weight: 400;
 }
 
 .markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete {
