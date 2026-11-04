@@ -69,7 +69,7 @@ export function AgentStatusHeader({
         </span>
         {details.length ? (
           <div className="view-header__actions">
-            <details className="agent-harness-details">
+            <details className="header-details">
               <summary className="button button--ghost">Details</summary>
               <dl>
                 {version ? (

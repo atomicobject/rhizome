@@ -314,6 +314,53 @@ input:where([type="checkbox"], [type="radio"]) {
   margin-left: auto;
 }
 
+/* Header Details: diagnostics a reader rarely needs (versions, refs, commit
+   hashes, fetch times) sit behind one ghost "Details" button at the right of
+   the title row, as a small definition list. */
+.header-details {
+  position: relative;
+}
+
+.header-details > summary {
+  list-style: none;
+}
+
+.header-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-details[open] > summary {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.header-details dl {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-5);
+  min-width: 240px;
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: var(--fs-sm);
+}
+
+.header-details dt {
+  color: var(--text-muted);
+}
+
+.header-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ==========================================================================
    App shell — top nav + workspace wrapper
    ========================================================================== */
