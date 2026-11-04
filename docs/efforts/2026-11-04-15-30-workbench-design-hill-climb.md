@@ -131,13 +131,33 @@ Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, w
 
 - 2026-11-04, round-7 documentation reconciliation: updated DESIGN.md and eight contradicted specs against `0271b918..abce840a`; reverified the specs on the same date and left round-7 scores for the integrator. `RZM_RUNTIME_AUTOSTART=0 ./scripts/rzm agent code execute --session-id DR75y9D6dw2_y0di --timeout 5m` ran `validate default` scoped to all ten changed notes (ontology, identifiers, broken-links) and `frozen-scope-drift`: all passed, zero findings. `make check-fast` passed (exit 0) after installing the pinned web dependencies. The checkout CLI built with `make build NO_WEB=1`; the subsequent unrelated team-api build could not download dependencies in the sandbox. Rhizome retrieval and validation ran outside the sandbox because local index locking requires macOS boot identity. No code or other notes were changed.
 
+- 2026-11-04, final review and gates (`06831f3a..HEAD`): a code-review council scored the branch Opus 5.5 6/10, Fable 5.1 7/10, Astra 6/10, and GPT-6.1 Sol 6/10. Greptile scored it 4/5. The fixes addressed:
+  - overdue counting (lifecycle stages and partially loaded groups)
+  - Send gating for logged-out probes and the keyboard shortcut
+  - per-row source-note fetches
+  - Overview map spokes for outside-only members
+  - graph label planning cost
+  - validation freshness
+  - focus after closing the last note
+  - warning-mark contrast and the kit risk shape
+  - folder graph truncation
+  - Record summary resizing
+  - kit type-colour freshness
+  - grouped date columns
+  - sparse-column hiding
+  - Section heading names
+  - the downstream kit reference
+  - design-loop snapshot guards
+  - dead CSS
+  The Briefing E2E failures were a test race, not a product bug: a strict read could hit the outgoing All notes frame. The fix waits for the group frame. A sol-loop review with GPT-6.1 Sol approved in round 2. `make verify` passed, with 1,821 web unit tests and 110 of 110 E2E tests.
+
 ## Deviations
 
 1. **Opened retroactively.** The effort and frozen links were created at closure, not before the work. Drew explicitly requested this honest retrospective record; no fictional execution timeline or prior freeze is asserted.
 2. **Score target not reached.** The original universal 9 target is preserved. Drew directed banking the work after the sixth round (7.80), adding the approved round-7 changes (7.93), and pursuing graphs separately.
 3. **Implementer switch.** Implementers changed from Opus 5.5 high to GPT-6.1 Sol high in round 5, per the owner's execution account.
 4. **GraphQL sidebar decision reversed.** On 2026-11-04 Drew approved the standard sidebar, reversing SPEC-0128's 2026-10-26 exclusion. The browser control works; Desktop still disables its toolbar and View-menu toggle on GraphQL (`desktop/src/App.tsx` and `desktop/src-tauri/src/page.rs`). That remaining integration gap is recorded as follow-up rather than described as delivered.
-5. **Banked slice, with PR gates carried forward.** This task closes the completed design iteration with recorded limitations and the requested local documentation checks. Full integrated tests, independent final code review, Greptile, CI, and PR identity remain with the integrating PR owner; no unrun gate is claimed as passed. The backend issues and stale sidecar below are unresolved.
+5. **Banked slice, with PR gates carried forward.** This task closes the completed design iteration with recorded limitations and the requested local documentation checks. Full integrated tests, independent code review (a four-model council, then sol-loop) and Greptile ran on the PR branch, as Execution Notes record. CI runs on the PR. The backend issues and stale sidecar below are unresolved.
 
 ## Closure Checklist
 
@@ -146,7 +166,7 @@ Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, w
 - [x] Contradicted spec statements and owning web guidance reconciled; unchanged backend contracts remain intact.
 - [x] Follow-ups triaged and assigned below, including the optional calibration.
 - [x] PR handoff recorded: pending PR number, to be added once the integrating PR exists and before merge. Design delivery is `1f1d0c9b..d91cd828`; closure documentation travels with that work, not in a closure-only PR.
-- [x] Full integrated review/test/CI gates remain with the PR owner as disclosed in Deviations; this effort does not assert merge readiness.
+- [x] Integrated review and local gates passed on the PR branch (Execution Notes); CI runs on the PR.
 
 ## Compounding Follow-ups
 
@@ -155,7 +175,7 @@ The rubric, fixed-vault capture, and before/after comparisons are reusable. The 
 ## Follow-ups
 
 - [ ] Open a graph redesign effort for Explorer, Overview maps, and Atlas. #action-item
-  Base the redesign on mock-ups.
+  Base the redesign on mock-ups. Explorer should choose a smart initial view, expand a node on click, give an overview of everything Rhizome knows, and aggregate rather than truncate.
   assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
 - [ ] Fix the backend action-item embedded-title 80-byte cut. #action-item
   assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
@@ -173,6 +193,9 @@ The rubric, fixed-vault capture, and before/after comparisons are reusable. The 
 - [ ] Optionally calibrate council scores with reference-app screenshots. #action-item
   assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
 - [ ] Enable Desktop's GraphQL sidebar toggle in its toolbar and View menu. #action-item
+  assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
+- [ ] Split web files over the 500-line policy: GraphView, map-layout, ontologyGraph, useSigmaGraph, SearchWorkspace, overview-map. #action-item
+  The file-size ratchet checks only Go directories, so web files are not gated.
   assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
 
 ## Status
