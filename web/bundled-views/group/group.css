@@ -307,7 +307,7 @@
 }
 
 .gv-section .gv-summary {
-  max-width: 80ch;
+  max-width: none;
   margin-top: 0;
   font-size: var(--fs-sm);
   line-height: 20px;
@@ -1035,7 +1035,7 @@
 }
 
 .gv-trace td .gv-chip:not([data-indirect]) {
-  color: var(--link);
+  color: var(--text-muted);
 }
 
 .gv-trace td .gv-chip:is(:hover, :focus-visible) > span:not(.sr-only) {
@@ -1101,6 +1101,7 @@
 
 .gv-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
@@ -1408,6 +1409,7 @@
 
 .gv-rel-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 6px;
   font-size: var(--fs-sm);
@@ -2121,4 +2123,19 @@
   margin-right: var(--sp-3, 12px);
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.gv-page .link-secondary {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.gv-page .link-secondary:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gv-section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }

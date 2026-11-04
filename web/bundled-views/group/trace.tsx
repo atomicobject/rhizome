@@ -152,7 +152,8 @@ function ColumnHead({
           className="gv-cov-count"
           title={`${column.covered} of ${matrix.rowCount} rows hold one`}
         >
-          <b className={thin ? "gv-thin" : undefined}>{column.covered}</b>/{matrix.rowCount} rows
+          <b className={thin ? "gv-thin" : undefined}>{column.covered}</b> of {matrix.rowCount}{" "}
+          {inSentence(memberLabel(model, matrix.spine, { plural: true }))} linked
         </span>
       </div>
       {/* The name and coverage, the relation, then a persistent status key in

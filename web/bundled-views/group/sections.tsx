@@ -1,5 +1,6 @@
 // Sections (SPEC-0111): each member of the group as a compact table of its most
 // advanced, then newest, records. Hierarchical members render as tree tables.
+import { Info } from "lucide-react";
 import { RelativeTime, openCollection, typeLabel, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
@@ -184,6 +185,14 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
       <header className="gv-section-head">
         <h2>
           <MemberHeading model={model} member={member} />
+          <span
+            className="rz-info"
+            tabIndex={0}
+            title={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+            aria-label={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+          >
+            <Info size={14} aria-hidden="true" />
+          </span>
         </h2>
         <span className="gv-num">{member.count}</span>
         {member.issueCount > 0 && (
@@ -236,10 +245,6 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
             open={open}
             onToggle={() => expanded.setOpen(member.name, !open)}
           />
-          <span className="gv-faint">
-            {" "}
-            · {member.lifecycle ? "most advanced first, then newest" : "newest first"}
-          </span>
         </p>
       )}
       {open && total > rows.length && (

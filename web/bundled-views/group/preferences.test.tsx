@@ -133,7 +133,7 @@ it("keeps a Briefing signal's records revealed after a reload", async () => {
   };
 
   const first = await renderGroupView(loadBriefing, { routes, http });
-  fireEvent.click((await unlinked()).getByRole("button", { name: "Show 2 more" }));
+  fireEvent.click((await unlinked()).getByRole("button", { name: "Show 2 more unlinked notes" }));
   await waitFor(() => expect(server.read(SCOPE).values).toHaveProperty("briefing.expanded"));
   first.unmount();
 

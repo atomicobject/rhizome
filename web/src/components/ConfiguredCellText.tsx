@@ -64,6 +64,7 @@ function CellLink({
 
   return (
     <span
+      className="link-secondary"
       data-configured-relation-link
       onClick={(event) => event.stopPropagation()}
       onFocus={(event) => event.stopPropagation()}

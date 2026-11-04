@@ -46,9 +46,11 @@ function SignalRecords({
   model,
   groups,
   onMember,
+  unlinked = false,
 }: {
   /** The signal's stable key, under which its expansion is remembered. */
   id: string;
+  unlinked?: boolean;
   model: GroupModel;
   groups: readonly MemberRecords[];
   onMember: (member: Member) => void;
@@ -88,6 +90,11 @@ function SignalRecords({
                   <button type="button" className="gv-inline" onClick={() => openRecord(record)}>
                     {record.title}
                   </button>
+                  {unlinked && (
+                    <span className="gv-sub">
+                      {model.typeLabels.get(record.type)?.label ?? member?.label}
+                    </span>
+                  )}
                   {record.updatedAt !== null && (
                     <RelativeTime value={record.updatedAt} className="gv-age" />
                   )}
@@ -99,7 +106,18 @@ function SignalRecords({
       </ul>
       {hidden > 0 && (
         <div className="gv-sig-more">
-          <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
+          {unlinked ? (
+            <button
+              type="button"
+              className="rz-text-button rz-more"
+              aria-expanded={open}
+              onClick={() => setOpen(!open)}
+            >
+              {open ? "Show fewer" : `Show ${hidden} more unlinked notes`}
+            </button>
+          ) : (
+            <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
+          )}
         </div>
       )}
     </>
@@ -322,6 +340,7 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
         >
           <SignalRecords
             id={signalKey(signal)}
+            unlinked
             model={model}
             groups={signal.byMember}
             onMember={openMember}

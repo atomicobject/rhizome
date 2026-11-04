@@ -1515,7 +1515,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--r-md);
   background: var(--surface-sunk);
   transition:
@@ -1810,7 +1810,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 var(--sp-5) 10px;
+  padding: 0 22px 10px;
 }
 
 .configured-view__card-section-header {
@@ -2885,15 +2885,20 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   line-height: 1.25;
 }
 
-/* Three lines, then More, so status and fields stay near the title. */
+/* Six lines, then a separate disclosure row. */
 .view-record__summary.is-clamped {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 6;
 }
 
 .view-record__more-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  margin-top: 8px;
   padding: 0;
   border: 0;
   background: none;
@@ -3040,4 +3045,15 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .relative-age {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
+}
+
+/* Relation previews inherit the shared secondary-link treatment. */
+.link-secondary a.markdown-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.link-secondary a.markdown-link:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

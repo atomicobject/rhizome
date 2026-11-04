@@ -48,6 +48,7 @@ export function renderReadOnlyCell(
             return (
               <span
                 key={`${relation.value}:${target}:${index}`}
+                className="link-secondary"
                 data-configured-relation-link
                 onClick={(event) => event.stopPropagation()}
                 onFocus={(event) => event.stopPropagation()}
@@ -183,7 +184,7 @@ function PrimaryReadOnlyCell({
       <button
         {...previewTrigger.triggerProps}
         type="button"
-        className="configured-view__title-button"
+        className="configured-view__title-button link-quiet link-title"
         data-row-title
         aria-label={`Open ${display}`}
         title={display}

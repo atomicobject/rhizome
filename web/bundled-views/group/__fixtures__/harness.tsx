@@ -117,6 +117,7 @@ const ONTOLOGY_SUMMARY = { types: [], interfaces: [] };
 /** Routes answering a collection loader's requests from the collection fixtures. */
 export function collectionRoutes(overrides: ViewRoutes = {}): ViewRoutes {
   const routes: ViewRoutes = {
+    "GET /api/v2/validate": () => jsonReply(VALIDATION_ENVELOPE),
     "GET /api/v1/display-groups": () => jsonReply(COLLECTION_GROUPS),
     "GET /api/v1/views": () => jsonReply(COLLECTION_CATALOG),
     "GET /api/v1/ontology/types": () => jsonReply(COLLECTION_SUMMARIES),
@@ -138,6 +139,7 @@ export function collectionRoutes(overrides: ViewRoutes = {}): ViewRoutes {
  */
 export function scopeRoutes(overrides: ViewRoutes = {}): ViewRoutes {
   const routes: ViewRoutes = {
+    "GET /api/v2/validate": () => jsonReply(VALIDATION_ENVELOPE),
     ...groupRoutes(),
     "GET /api/v1/display-groups": () => jsonReply(SCOPE_GROUPS),
     "GET /api/v1/ontology/types": () => jsonReply(SUMMARIES_JSON),
@@ -148,7 +150,6 @@ export function scopeRoutes(overrides: ViewRoutes = {}): ViewRoutes {
         ? jsonReply(AGGREGATE_PARTS[part])
         : jsonReply({ error: `unexpected parts ${part}` }, 400);
     },
-    "GET /api/v2/validate": () => jsonReply(VALIDATION_ENVELOPE),
     "POST /api/v1/validation/summaries": (request) =>
       jsonReply({
         generation: 3,
@@ -174,6 +175,7 @@ export function scopeRoutes(overrides: ViewRoutes = {}): ViewRoutes {
 /** Routes answering the loader's requests from the fixtures; `overrides` replace any of them. */
 export function groupRoutes(overrides: ViewRoutes = {}): ViewRoutes {
   const routes: ViewRoutes = {
+    "GET /api/v2/validate": () => jsonReply(VALIDATION_ENVELOPE),
     "GET /api/v1/display-groups": () => jsonReply(DISPLAY_GROUPS),
     "GET /api/v1/views": () => jsonReply(VIEW_CATALOG),
     "GET /api/v1/ontology/types": () => jsonReply(TYPE_SUMMARIES),
