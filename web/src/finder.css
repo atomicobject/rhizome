@@ -120,7 +120,7 @@
    truncates before it reaches the label and every label aligns. */
 .finder__row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 136px;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   column-gap: var(--sp-4);
   align-items: center;
@@ -147,7 +147,10 @@
   border-radius: 50%;
 }
 
+/* The title takes the whole first line; the path and the type label share
+   the second, so a long title is never cut short for a short path. */
 .finder__title {
+  grid-column: 2 / span 2;
   overflow: hidden;
   font-weight: 500;
   white-space: nowrap;
@@ -155,8 +158,11 @@
 }
 
 .finder__detail {
+  grid-row: 2;
+  grid-column: 3;
   overflow: hidden;
-  margin-left: 6px;
+  max-width: 160px;
+  margin-left: var(--sp-3);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -166,12 +172,29 @@
 }
 
 .finder__path {
-  grid-column: 2 / span 2;
-  overflow: hidden;
+  display: flex;
+  grid-row: 2;
+  grid-column: 2;
+  min-width: 0;
   color: var(--text-muted);
   font: var(--fs-xs) / 1.4 var(--font-mono);
   white-space: nowrap;
+}
+
+/* Directories shrink far faster than the filename, so they give way first. */
+.finder__dir,
+.finder__file {
+  overflow: hidden;
+  min-width: 0;
   text-overflow: ellipsis;
+}
+
+.finder__dir {
+  flex: 0 1000 auto;
+}
+
+.finder__file {
+  flex: 0 1 auto;
 }
 
 .finder mark {
