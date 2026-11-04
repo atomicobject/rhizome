@@ -2028,6 +2028,56 @@
   text-underline-offset: 2px;
 }
 
+/* Workspace materials open from their heading row; the chevron turns. */
+.notes-right-rail .rail-materials > summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+
+.notes-right-rail .rail-materials > summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-right-rail .rail-materials > summary > h3 {
+  justify-content: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.notes-right-rail .rail-materials > summary .ontology-sidebar-context__count {
+  margin-left: auto;
+}
+
+.notes-right-rail .rail-materials > summary > h3::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  transform: translateY(-2px) rotate(-45deg);
+  transition: transform 120ms var(--ease);
+}
+
+.notes-right-rail .rail-materials[open] > summary > h3::before {
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.notes-right-rail .rail-materials > summary:hover > h3 {
+  color: var(--text);
+}
+
+.notes-right-rail .rail-materials > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.notes-right-rail .rail-materials[open] > summary {
+  margin-bottom: var(--sp-1);
+}
+
 .notes-right-rail .rail-legend {
   display: flex;
   flex-wrap: wrap;
@@ -2251,41 +2301,63 @@
 }
 
 /* ---- HTML note head ----
-   With a preview showing, the host header is one compact row on the note
-   gutter: the title, its identity, the metadata disclosure, and the viewer's
-   Refresh and Open. The page below carries its own heading. */
-.notes-shell .ontology-pane__html-head {
+   With a preview showing, the host header lives in the 40px control row:
+   the type, a 14/600 title, its identity, the metadata disclosure, then the
+   presentation switch and the viewer's Refresh and Open. The authored page
+   starts right below and carries its own heading. */
+.notes-shell .ontology-pane__controls:has(> .ontology-pane__html-head) {
+  overflow: visible;
+}
+
+/* An HTML page runs edge to edge, so its control row does too, in Preview
+   and Source alike. */
+.notes-shell .ontology-pane__controls--html {
+  padding-inline: var(--sp-6);
+}
+
+.notes-shell .ontology-pane__controls > .ontology-pane__html-head {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 1 auto;
   align-items: center;
-  gap: var(--sp-2) var(--sp-4);
-  min-height: 48px;
-  margin: calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6)) 0;
-  /* The gutter resolves against the padded main, so add the padding back. */
-  padding: var(--sp-2) var(--sp-5) var(--sp-2) calc(var(--note-gutter) + var(--sp-6));
-  border-bottom: 1px solid var(--border);
+  gap: var(--sp-4);
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .notes-shell .ontology-pane__html-head > .ontology-identity {
-  flex: 1 1 320px;
+  flex: 0 1 auto;
   flex-flow: row nowrap;
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
   padding: 0;
+  background: transparent;
 }
 
 .notes-shell .ontology-pane__html-head .ontology-identity__title {
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: 120px;
   overflow: hidden;
-  font-size: var(--fs-xl);
+  color: var(--text);
+  font: 600 var(--fs-base) / 20px var(--font-sans);
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .notes-shell .ontology-pane__html-head .ontology-identity__row {
   flex: none;
+  flex-wrap: nowrap;
+}
+
+/* The row has room for the title and status, not the long identifier: the
+   title's tooltip names it, and the authored page shows it. */
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--id {
+  display: none;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__flex {
+  display: none;
 }
 
 /* The metadata opens as a panel over the page instead of pushing it down. */
@@ -2339,8 +2411,9 @@
   display: none;
 }
 
-.notes-shell .ontology-pane__html-head + * {
-  margin-top: 0;
+/* The page starts directly under the control row. */
+.notes-shell .ontology-pane__main--html {
+  padding-top: 0;
 }
 
 .notes-shell .ontology-pane__main--html > .ontology-markdown--html {

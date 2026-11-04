@@ -211,7 +211,7 @@ export function HTMLRootMetadataPanel({
   return (
     <details key={path} className="ontology-properties ontology-properties--html-root">
       <summary className="ontology-properties__header ontology-properties__html-summary">
-        <span className="ontology-properties__label">HTML metadata</span>
+        <span className="ontology-properties__label">Metadata</span>
       </summary>
       <div className="ontology-properties__html-body">
         {children}

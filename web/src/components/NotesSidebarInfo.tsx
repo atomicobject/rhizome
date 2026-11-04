@@ -389,6 +389,13 @@ function RailBucketList({
   );
 }
 
+// "In this effort" names its members as "Effort materials".
+function materialsLabel(label: string): string {
+  const owner = /^In this (.+)$/.exec(label)?.[1];
+
+  return owner ? `${owner[0].toUpperCase()}${owner.slice(1)} materials` : label;
+}
+
 // Names the arrows that appear in a list, once, above it.
 function DirectionLegend({ buckets }: { buckets: RailBucket[] }) {
   const present = new Set(buckets.flatMap((bucket) => bucket.rows.map((row) => row.direction)));
@@ -548,8 +555,18 @@ export function NotesSidebarInfo({
         </header>
 
         <section className="ontology-sidebar-context" aria-label="Focused note context">
+          {/* A workspace's own navigation (an effort's overview, plan, and log)
+              often repeats the page's, so it waits behind a closed disclosure. */}
           {navigationGroups.map((group) => (
-            <SidebarContextGroup key={group.key} title={group.label}>
+            <details key={group.key} className="ontology-sidebar-context__group rail-materials">
+              <summary>
+                <h3>
+                  {materialsLabel(group.label)}
+                  <span className="ontology-sidebar-context__count">
+                    {group.items?.length ?? 0}
+                  </span>
+                </h3>
+              </summary>
               {group.ownerTitle && (
                 <div className="ontology-sidebar-context__owner">{group.ownerTitle}</div>
               )}
@@ -564,7 +581,7 @@ export function NotesSidebarInfo({
                   />
                 ))}
               </ul>
-            </SidebarContextGroup>
+            </details>
           ))}
           <SidebarContextGroup title="Relations" count={rowCount(relations)}>
             {relations.length > 0 &&

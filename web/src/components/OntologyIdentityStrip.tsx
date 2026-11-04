@@ -91,7 +91,12 @@ export function OntologyIdentityStrip({
 
   return (
     <header className="ontology-identity">
-      <h2 className="ontology-identity__title">{title || "Untitled"}</h2>
+      <h2
+        className="ontology-identity__title"
+        title={[title, identity.identifier?.field.values?.[0]].filter(Boolean).join(" · ")}
+      >
+        {title || "Untitled"}
+      </h2>
       <div className="ontology-identity__row">
         {identity.identifier && (
           <FieldSlot

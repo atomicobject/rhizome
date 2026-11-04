@@ -147,7 +147,7 @@ test("previews, discards, and saves root metadata without changing authored HTML
   page,
 }) => {
   await page.goto("/notes?note=reports%2Funtyped-report.htm");
-  await page.getByText("HTML metadata", { exact: true }).click();
+  await page.getByText("Metadata", { exact: true }).click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
 
   const tags = page.getByLabel("tags");

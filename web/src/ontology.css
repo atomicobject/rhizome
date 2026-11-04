@@ -80,7 +80,8 @@
 .ontology-sidebar-context__count,
 .rail-bucket__count {
   color: var(--text-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0;

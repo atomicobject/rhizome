@@ -242,7 +242,7 @@ function workspaceWithSectionsAndNearby(): NodeWorkspace {
 function groupSection(title: string): HTMLElement {
   const section = screen
     .getByRole("heading", { name: (name) => name.replace(/\d+$/, "") === title })
-    .closest("section");
+    .closest<HTMLElement>("section, details");
 
   if (!section) throw new Error(`no sidebar section rendered for ${title}`);
 
@@ -375,7 +375,10 @@ describe("NotesSidebarInfo", () => {
     const onOpen = vi.fn();
     render(<NotesSidebarInfo workspace={workspaceWithNavigation()} onOpen={onOpen} />);
 
-    const navigation = groupSection("In this effort");
+    const navigation = groupSection("Effort materials");
+    expect(navigation).not.toHaveAttribute("open");
+    fireEvent.click(within(navigation).getByText("Effort materials"));
+    expect(navigation).toHaveAttribute("open");
     expect(navigation).toHaveTextContent("Schema-driven navigation");
     expect(within(navigation).getByRole("button", { name: "Implementation plan" })).toHaveAttribute(
       "aria-current",

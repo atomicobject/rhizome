@@ -1514,28 +1514,62 @@ export function OntologyNotePane({
       />
     );
 
-  // A previewed HTML note keeps its host header to one compact row (title,
-  // identity, metadata disclosure, and the viewer's actions): the page below
-  // carries its own heading.
-  const wrapHTMLHead = (identity: ReactNode, metadata: ReactNode) =>
-    isActiveHTML ? (
-      <div className="ontology-pane__html-head">
-        {identity}
-        {metadata}
-        <div className="ontology-pane__html-actions" ref={setHTMLActions} />
-      </div>
-    ) : (
-      identity
-    );
+  const identityStrip = canonicalWorkspace ? (
+    <OntologyIdentityStrip
+      workspace={canonicalWorkspace}
+      identity={identityPartition}
+      editing={editing}
+      changedFieldNames={changedFieldNames}
+      issueCount={validationIssueCount}
+      validationHealth={validationHealth}
+      onOpenIssues={onOpenIssues}
+      dirty={effectiveStatus.dirty}
+      onStageOps={onStageOps}
+      vaultKey={vaultKey}
+    />
+  ) : (
+    <div className="ontology-identity ontology-identity--placeholder">
+      <h2 className="ontology-identity__title">
+        {displayTitle(rendered?.title || "") || "Untitled"}
+      </h2>
+    </div>
+  );
+
+  // A previewed HTML note puts its host identity, metadata disclosure, and the
+  // viewer's actions in the control row, so the authored page starts right
+  // under one 40px bar and carries its own heading.
+  const htmlHeadInControls = isActiveHTML && viewMode === "read" && Boolean(rendered);
+
+  const htmlHead = htmlHeadInControls && rendered && (
+    <div className="ontology-pane__html-head">
+      {identityStrip}
+      <HTMLRootMetadataPanel
+        path={toolbarPath}
+        fallbackTitle={content?.title || rendered.title || ""}
+        frontmatter={rendered.frontmatter}
+        existingFields={new Set(workspaceFieldNodes.map((node) => node.field.name))}
+        editing={editing}
+        dirtyFields={changedFieldNames}
+        vaultKey={vaultKey}
+        sourceRevision={canonicalWorkspace?.sourceRevision}
+        onStageOps={onStageOps}
+      >
+        {propertyPanel}
+      </HTMLRootMetadataPanel>
+    </div>
+  );
 
   return (
     <article className="ontology-pane" ref={paneRef}>
       <header className="ontology-pane__header">
-        <div className="ontology-pane__controls">
+        <div
+          className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}
+        >
           <span className={`ontology-pane__type type-chip${resolvedType ? "" : " is-untyped"}`}>
             {resolvedType ? typeLabel(resolvedType) : "Untyped"}
           </span>
-          {toolbarPath && <span className="ontology-pane__toolbar-path">{toolbarPath}</span>}
+          {htmlHead ||
+            (toolbarPath && <span className="ontology-pane__toolbar-path">{toolbarPath}</span>)}
           {structuralTabs.length > 0 && onOpenNode ? (
             <div
               className="ontology-pane__section-tabs segmented"
@@ -1588,6 +1622,9 @@ export function OntologyNotePane({
                 {isMarkdownSource ? "Markdown" : "Source"}
               </button>
             </div>
+          )}
+          {htmlHeadInControls && (
+            <div className="ontology-pane__html-actions" ref={setHTMLActions} />
           )}
           {sessionStateLabel(effectiveStatus.session.state) && (
             <span
@@ -1672,44 +1709,7 @@ export function OntologyNotePane({
             )}
             {(renderPresentation ?? ((body) => body))(
               <>
-                {viewMode === "read" &&
-                  wrapHTMLHead(
-                    canonicalWorkspace ? (
-                      <OntologyIdentityStrip
-                        workspace={canonicalWorkspace}
-                        identity={identityPartition}
-                        editing={editing}
-                        changedFieldNames={changedFieldNames}
-                        issueCount={validationIssueCount}
-                        validationHealth={validationHealth}
-                        onOpenIssues={onOpenIssues}
-                        dirty={effectiveStatus.dirty}
-                        onStageOps={onStageOps}
-                        vaultKey={vaultKey}
-                      />
-                    ) : (
-                      <div className="ontology-identity ontology-identity--placeholder">
-                        <h2 className="ontology-identity__title">
-                          {displayTitle(rendered.title) || "Untitled"}
-                        </h2>
-                      </div>
-                    ),
-                    isActiveHTML && (
-                      <HTMLRootMetadataPanel
-                        path={toolbarPath}
-                        fallbackTitle={content?.title || rendered.title || ""}
-                        frontmatter={rendered.frontmatter}
-                        existingFields={new Set(workspaceFieldNodes.map((node) => node.field.name))}
-                        editing={editing}
-                        dirtyFields={changedFieldNames}
-                        vaultKey={vaultKey}
-                        sourceRevision={canonicalWorkspace?.sourceRevision}
-                        onStageOps={onStageOps}
-                      >
-                        {propertyPanel}
-                      </HTMLRootMetadataPanel>
-                    ),
-                  )}
+                {viewMode === "read" && !isActiveHTML && identityStrip}
                 {viewMode === "read" && !isActiveHTML && propertyPanel}
                 {viewMode === "read" && issueCount > 0 && issueSections.length > 0 && (
                   <details className="ontology-issues">
