@@ -1334,9 +1334,7 @@ html
   outline-offset: -2px;
 }
 
-/* Quiet link: a navigable record title in a dense list, table, rail, or
-   board. Teal ink with no underline until hover or keyboard focus. Prose
-   links keep their underline (.markdown a, note links). */
+/* Quiet actions stay teal; record titles use .link-title in ink. */
 .link-quiet {
   color: var(--link);
   text-decoration: none;
@@ -1349,13 +1347,31 @@ html
   text-underline-offset: 2px;
 }
 
-/* A record title that is a quiet link: teal at --title-weight (500). */
-.link-title {
+/* Shared record titles, including native components and bundled views. */
+.link-title,
+.configured-view__title-button,
+.configured-card__title,
+.search-workspace__result-link,
+.ontology-type-detail__impl-name {
+  color: var(--text);
   font-weight: var(--title-weight);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+:is(
+  .link-title,
+  .configured-view__title-button,
+  .configured-card__title,
+  .search-workspace__result-link
+):is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 /* A secondary link column (Source, Parent): ink-muted, underlined on hover
-   and keyboard focus, so only the record title column reads teal. */
+   and keyboard focus, without competing with the record title. */
 .link-secondary {
   color: var(--text-muted);
   text-decoration: none;

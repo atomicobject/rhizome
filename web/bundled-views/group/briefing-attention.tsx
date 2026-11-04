@@ -80,7 +80,11 @@ function SignalRecords({
             <Fragment key={group.member}>
               {groups.length > 1 && member && (
                 <li className="gv-sig-member">
-                  <button type="button" className="gv-link" onClick={() => onMember(member)}>
+                  <button
+                    type="button"
+                    className="gv-link link-title"
+                    onClick={() => onMember(member)}
+                  >
                     {memberLabel(model, member, { plural: true })}
                   </button>
                 </li>

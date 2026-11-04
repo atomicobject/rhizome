@@ -197,7 +197,7 @@
   cursor: pointer;
 }
 
-.rail-row > button:hover {
+.rail-row > button:is(:hover, :focus-visible) {
   color: var(--link);
   text-decoration: underline;
   text-decoration-color: var(--link-line);
@@ -2422,7 +2422,7 @@
   flex: 0 1 auto;
   overflow: hidden;
   font-size: var(--fs-base);
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2430,6 +2430,9 @@
 .changes-note__title:hover .changes-note__name,
 .changes-note__title:focus-visible .changes-note__name {
   color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .changes-note__path {
@@ -3170,8 +3173,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  font-weight: 600;
-  color: var(--link);
+  font-weight: 500;
 }
 
 .ontology-type-detail__impl-dot {
@@ -3314,7 +3316,7 @@
   color: var(--label-color);
 }
 
-/* Target link (relation and inbound cells): a teal note-style link with the
+/* Target link (relation and inbound cells): a quiet record title with the
    target type's dot. */
 .ontology-type-detail__target-chip {
   display: inline-flex;
@@ -3323,9 +3325,9 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--link);
+  color: var(--text);
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -3367,11 +3369,11 @@
 .ontology-type-detail__doc-link code {
   padding: 0;
   background: transparent;
-  color: var(--link);
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 500;
 }
 
-.ontology-type-detail__doc-link:hover code {
+.ontology-type-detail__doc-link:is(:hover, :focus-visible) code {
   text-decoration: underline;
   text-decoration-color: var(--link-line);
 }
@@ -3407,12 +3409,14 @@
 }
 
 .ontology-type-detail__example-title {
-  font-weight: 700;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-weight: 500;
   text-decoration: none;
   color: var(--text);
 }
 
-.ontology-type-detail__example-title:hover {
+.ontology-type-detail__example-title:is(:hover, :focus-visible) {
   color: var(--link);
   text-decoration: underline;
   text-decoration-color: var(--link-line);

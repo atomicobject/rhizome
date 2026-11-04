@@ -273,7 +273,7 @@ function SidebarPreviewButton({
       <button
         {...previewTrigger.triggerProps}
         type="button"
-        className="link-quiet"
+        className="link-quiet link-title"
         title={title || target}
         aria-current={current ? "page" : undefined}
         onClick={(event) => {

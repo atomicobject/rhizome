@@ -273,7 +273,7 @@ function TaskRow({
       <tr className={open ? "is-expanded" : undefined}>
         <th scope="row">
           <button type="button" className="task-table__open" onClick={onOpen}>
-            <span className="link-quiet">{task.name || task.id}</span>
+            <span className="link-quiet link-title">{task.name || task.id}</span>
           </button>
           {local ? (
             <span className="task-table__local">
