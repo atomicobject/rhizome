@@ -15,14 +15,17 @@ const QUIET_MS = 800;
  * reads the clock while rendering, so a new `started` is judged on its own
  * first render rather than by the previous one's elapsed time. */
 function useElapsedPast(started: number, delay: number) {
-  const [, rerender] = useReducer((count: number) => count + 1, 0);
+  const [tick, rerender] = useReducer((count: number) => count + 1, 0);
+  const past = Date.now() - started >= delay;
+  // Re-arm until a render sees the deadline: a timer can fire a millisecond
+  // early, and the deadline can pass between a render and its effect.
   useEffect(() => {
-    const wait = started + delay - Date.now();
-    if (wait <= 0) return;
-    const timer = window.setTimeout(rerender, wait);
+    // Progress without a start time has no deadline to wait for.
+    if (past || !Number.isFinite(started)) return;
+    const timer = window.setTimeout(rerender, Math.max(0, started + delay - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [started, delay]);
-  return Date.now() - started >= delay;
+  }, [started, delay, tick, past]);
+  return past;
 }
 
 export function Elapsed({ started }: { started: number }) {
