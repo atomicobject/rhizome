@@ -7,6 +7,7 @@ import type {
   ViewExecuteResponse,
   ViewTableColumn,
 } from "../api/types";
+import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { useStoredViewChoice } from "./useViewState";
 import type { ViewContext } from "../views/context";
@@ -217,7 +218,9 @@ export function repeatedColumnFields(
 
   if (!execution || total < REPEATED_MIN_ROWS) return [];
 
-  const allLoaded = execution.rows.length >= total;
+  // Grouping by a list repeats a record under each member; count each once.
+  const rows = uniqueRows(execution.rows);
+  const allLoaded = rows.length >= total;
 
   const repeated = (counts: Iterable<number>) => Math.max(0, ...counts) > total * REPEATED_SHARE;
 
@@ -231,7 +234,7 @@ export function repeatedColumnFields(
 
     const counts = new Map<string, number>();
 
-    for (const row of execution.rows) {
+    for (const row of rows) {
       const value = fieldValue(row, field);
 
       // Blanks are not a repeated value: a sparse column still carries data.
@@ -253,7 +256,7 @@ export function dominantColumnValue(
   if (field === "resolvedType" && execution?.stats?.kinds?.length) {
     for (const kind of execution.stats.kinds) counts.set(kind.value, kind.count);
   } else {
-    for (const row of execution?.rows ?? []) {
+    for (const row of uniqueRows(execution?.rows ?? [])) {
       const value = fieldValue(row, field);
 
       counts.set(value, (counts.get(value) ?? 0) + 1);
@@ -263,6 +266,10 @@ export function dominantColumnValue(
   const [value, count] = topCount(counts) ?? ["", 0];
 
   return { value, count, total };
+}
+
+function uniqueRows(rows: ViewExecuteResponse["rows"]) {
+  return [...new Map(rows.map((row) => [configuredTableRowKey(row), row])).values()];
 }
 
 /** The most frequent value, if any. */

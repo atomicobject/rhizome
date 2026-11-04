@@ -46,6 +46,15 @@ describe("repeatedColumnFields", () => {
     expect(repeatedColumnFields(columns, execution(rows, [10, 10], 40), "status")).toEqual([]);
   });
 
+  it("counts a record once when list grouping repeats it", () => {
+    // Ten records, half Ann and half Bo, each listed under two tag groups.
+    const ten = Array.from({ length: 10 }, (_, index) => row(index, index < 5 ? "Ann" : "Bo"));
+
+    expect(
+      repeatedColumnFields(columns, execution([...ten, ...ten], [5, 5], 10), "status"),
+    ).toEqual([]);
+  });
+
   it("keeps a sparse column whose blanks fill most rows", () => {
     const sparse = Array.from({ length: 20 }, (_, index) => row(index, index < 2 ? "Ann" : ""));
 
