@@ -4,7 +4,7 @@ id: SPEC-0098
 summary: "Defines project-wide ranked search on the current workspace page, with note/code, type, and folder filters, no right pane, and stable note-context navigation when returning to a note."
 spec-status: active
 last-updated: 2026-11-04
-last-verified: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 aliases:
   - SPEC-0098
 ---
@@ -50,7 +50,7 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 - The global header contains an editable field labelled "Search this project" with placeholder "Search this project…". Cmd/Ctrl+K focuses and selects its text from the app's existing routes.
 - Enter submits a nonempty trimmed query. Typing alone does not run the full engine, and whitespace-only submission creates no tab or request.
 - A new submitted query replaces the current collection, view, Problems, Changes, or search page and preserves every open note tab. Repeating the same normalized query with its initial filters reuses the current search identity.
-- While search is active, its header, filters, status, and results share one centred column up to 960px wide. The note-tab strip is shown only if notes are open; the right pane, note-edit toolbar, and note-context title are absent. Sidebar scopes return to Home.
+- While search is active, its header, filters, status, and results share one column anchored to the 22px content gutter, up to 960px wide, with excerpts capped at 720px. The note-tab strip is shown only if notes are open; the right pane, note-edit toolbar, and note-context title are absent. Sidebar scopes return to Home.
 - Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26: the workbench sidebar stays visible on a search tab unless the user collapsed it.
 - The header is the only editable query field on the search page. The result heading and submitted query are read-only text. Submitting another query from the header starts from All, Any type, and Anywhere, independently of the current note collection.
 
@@ -130,8 +130,8 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 - MUST keep eligibility, rank order, counts, continuations, canonical targets, and capability warnings consistent across the engine, HTTP adapter, and UI. Folder and type restrictions cannot be simulated by post-filtering a bounded HTTP page.
 - MUST preserve vault include/exclude rules, path normalization, request cancellation, safe rendering, and existing node/edit-session boundaries. Display source excerpts as text; a search read does not mutate notes or repair anchors.
 - MUST scope cached results by vault, submitted query, effective filters, and page identity. Preserve the index-invalidation contract in SPEC-0074.
-- MUST remain usable at desktop widths of 1280px and 1440px without horizontal page overflow. Results share the centred 960px measure with their header and filters, with readable excerpts and aligned compact metadata.
-- MUST use the existing `DESIGN.md` typography and color tokens: quiet teal navigable titles, neutral selection and match treatment, and mono paths; source previews use bounded mono excerpts. Use an underline or other clear interaction cue; saturated blue result links from the concept image are not part of the approved direction.
+- MUST remain usable at desktop widths of 1280px and 1440px without horizontal page overflow. Results share the gutter-aligned 960px maximum measure with their header and filters, with excerpts capped at 720px and aligned compact metadata.
+- MUST use the existing `DESIGN.md` typography and color tokens: ink navigable record titles at weight 500 with a teal hover and keyboard-focus underline, neutral selection and match treatment, and mono paths; source previews use bounded mono excerpts. Use an underline or other clear interaction cue; saturated blue result links from the concept image are not part of the approved direction.
 - MUST support keyboard submission, tab navigation, filter controls, source links, pagination, and retries with accessible names and visible focus. Status and match highlighting cannot depend on color alone.
 - SHOULD use dense rows separated by hairlines, a compact scope toolbar, and short excerpts. Do not add decorative cards or make raw ranking scores part of the normal user flow.
 

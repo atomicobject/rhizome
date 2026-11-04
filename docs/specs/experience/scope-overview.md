@@ -4,7 +4,7 @@ id: SPEC-0117
 summary: "One Overview view shows the shape of All notes and of every display group: a type-level link map, a member table, and scope-only blocks. Briefing shows activity at every level, All notes gains one, and every block loads on its own so switching scopes never freezes the workspace."
 spec-status: active
 last-updated: 2026-11-04
-last-verified: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 aliases:
   - SPEC-0117
 ---
@@ -115,7 +115,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 #### Acceptance Criteria
 
 - All notes offers Briefing and Overview, with Briefing as the default.
-- The All notes Briefing shows Needs attention (validation issues grouped by issue variant, including issues on untyped and ambiguous notes) and In motion (records in an active lifecycle stage across all types) in one column, and Recent changes across all notes, untyped notes included, in the other.
+- The All notes Briefing shows Needs attention (validation issues grouped by issue variant, including issues on untyped and ambiguous notes) and In motion (records in an active lifecycle stage across all types) in one column, and Recent changes across all notes, untyped notes included, in the other. In motion uses one flat, newest-first list with the Recent changes two-line row template, type and folder metadata, and status marks only when statuses mix.
 - "Most linked" and the note graph no longer appear on All notes. Explorer remains the graph's home.
 
 ### US6 - Keep the group Briefing to activity
@@ -126,7 +126,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 #### Acceptance Criteria
 
-- The group Briefing shows Needs attention, In motion, and Recent changes, and drops "In this group", Connections, "Outside the group", Views, and Guide.
+- The group Briefing shows Needs attention, In motion, and Recent changes, using the same flat In motion list as All notes and type Briefings, and drops "In this group", Connections, "Outside the group", Views, and Guide.
 - The group Overview's side column shows "Declared, unused" (each member's relation fields toward other members that no record uses), "Outside the group" (the notes outside the group linking to the most of its records, without the group's guide note), and "Guide and views" (the shared guide note and the group's authored views).
 - The group default stays as [[group-views-and-view-platform|SPEC-0111]] sets it: Briefing for groups with two or more member roots, Sections for one.
 
@@ -158,7 +158,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 - MUST remember the map/matrix toggle per scope and the expanded groups at All notes through the kit's view preferences ([[view-preferences|SPEC-0114]]).
 - MUST add a kit host action, `openSearch({ folder })`, that opens a project search tab with the existing folder filter, for US4's folder action. The rail's note-list filter stays private to the rail.
 - MUST give map nodes keyboard focus in descending record-count order, activation with Enter or Space, and accessible names, and keep the Matrix a complete text alternative.
-- MUST use the kit's theme tokens and stay dense: hairline dividers, Inter numbers with tabular figures, no cards inside cards. Briefing and Overview share their centred column with the header and presentation tabs (about 1320px and 1520px respectively). Overview places Members below the compact map (capped at 280px), uses solid relation links and dashed plain links, and legends only the link kinds drawn. Unused declared relations retain their separate dashed hairline treatment. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
+- MUST use the kit's theme tokens and stay dense: hairline dividers, Inter numbers with tabular figures, no cards inside cards. Descriptive section help belongs in the heading's title and accessible description; only computed judgements such as "Review suggested" keep an info icon. Briefing and Overview share their centred column with the header and presentation tabs (about 1320px and 1520px respectively). Overview places Members below the compact map (capped at 280px), uses solid relation links and dashed plain links, and legends only the link kinds drawn. Unused declared relations retain their separate dashed hairline treatment. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
 - SHOULD reuse the Briefing building blocks, including the existing "Outside the group" list and the views-and-guide block, instead of duplicating them.
 - SHOULD keep Overview's modules under about 500 lines each, like the other group views.
 

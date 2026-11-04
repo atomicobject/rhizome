@@ -5,7 +5,7 @@ aliases: [SPEC-0128, Workbench sidebar]
 summary: "One persistent, user-toggled sidebar across Notes, Ontology, Explorer, Agent, and GraphQL: the same themed frame with section-specific contents, one remembered collapsed state and width, a toggle in the browser top bar and in Rhizome Desktop's toolbar, and ⌃⌘S or ⌘\\ to toggle it."
 spec-status: active
 last-updated: 2026-11-04
-last-verified: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 ---
 
 # Workbench sidebar
@@ -66,7 +66,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 #### Acceptance Criteria
 
 - Every section's sidebar sits on the theme's chrome colour beside the inset content panel, with the same header row naming the vault or repository, the same width range (200–400px, 264px default), and the same drag handle.
-- Notes holds Views, the scopes, and the type tree. A group containing both saved views and types gives them separate Views and Types subheadings.
+- Notes holds Views, the scopes, and the type tree. A group containing both saved views and types gives them separate Views and Types subheadings at 13px/500. Saved-view icons, type dots, and group chevrons occupy one 16px leading slot so sibling labels align. A zero-record type is hidden only when a saved view with the same display name exists in that group; nested children retain their navigation.
 - Ontology holds an Atlas row followed by the display groups with their types and interfaces, like the Notes type tree. Choosing a type or interface opens its Ontology detail, and the current one is selected.
 - Explorer holds the vault tree, with the current folder or note selected.
 - Agent holds the session list. Its narrow-window drawer and hamburger button are replaced by the shared toggle.

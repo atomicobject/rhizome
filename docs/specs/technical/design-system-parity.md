@@ -5,7 +5,7 @@ aliases: [SPEC-0125, Design system parity]
 summary: "One design system across the host web UI, the custom-view kit, bundled views, and agent guidance: shared tokens with a dark theme, kit defaults and primitives that match DESIGN.md, AA contrast, calmer collection toolbars, designed loading states, and render performance on large vaults."
 spec-status: active
 last-updated: 2026-11-04
-last-verified: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 ---
 
 # Design system parity
@@ -49,16 +49,16 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 
 - Primary filled controls use the filled-primary token. `#fd4f57` is used as text nowhere; red text uses `--accent-ink`. Note links use `--link`/`--link-line` on every surface, including Explorer and typed-section previews.
 - Red is not decoration: no red side stripes on blockquotes, frontmatter, or the error boundary, no red hover on ordinary controls, and no red-soft confirmation chips.
-- No uppercase eyebrows; section, rail, and dialog heads use `--label-font`. Merriweather is limited to document titles and the page title of a view host.
+- No uppercase eyebrows; structural rail, column, finder, and fact labels use `--label-structure` (500 13px), also exposed as `--label-font`; block section heads use the 15px/600 section token. Merriweather is limited to document titles and the page title of a view host.
 - Product font sizes come from the fixed scale tokens.
 
 ### Kit defaults (`@rhizome/ui`, `@rhizome/kit`)
 
 - `theme.css` pins Tailwind's `text-xs/sm/base/lg` to 11/12/13/15px; the 14px root stays so spacing utilities remain compact. The view page background is `--surface`. The shared `:focus-visible` outline from `base.css` applies inside frames; components do not draw their own translucent rings.
 - Existing component names and props keep working, restyled: `Button` defaults to the 26px neutral secondary with `variant="default"` mapping to it and a red `primary` variant opt-in; `Badge` defaults neutral like `.type-chip`; `Card` is flat (1px border, no resting shadow, 10–14px padding); `Tabs` renders like `.segmented`; `Table` uses 28px rows, label-style heads, and Inter numbers with tabular figures; shadcn `accent` (hover, select focus) maps to a neutral tint; `Skeleton` uses a neutral sunk fill.
-- `NoteLink` renders the teal note-link style by default; `className` extends it.
+- `NoteLink` renders the teal prose-link style by default; `className` extends it. Navigable record titles use ink at weight 500 with a teal underline on hover and keyboard focus.
 - `StatusMark` uses the host's tone shapes (ring, half, filled, triangle, diamond, dashed) so one enum value looks the same in native and custom views.
-- New public primitives, promoted from the bundled group views so both use one implementation: `Section`, `SectionBody`, and `sectionStatus` (15px semibold block head, Inter count, caption, controls, and a body that renders loading, error-with-retry, and one-line empty states), `Facts`/`Fact` (one-line facts strip), `Count`, `Dash` (empty value with screen-reader text), `MoreToggle`, `Segmented`, `BarList` (proportional HTML bars with linkable labels and series tokens), and `NodeLink` (the note-link style for canonical nodes). Their CSS ships in the kit theme. Exports are additive under `/kit/v1`.
+- New public primitives, promoted from the bundled group views so both use one implementation: `Section`, `SectionBody`, and `sectionStatus` (15px semibold block head, Inter count, caption, controls, help on the heading's title for descriptive sections and an info icon for computed judgements, and a body that renders loading, error-with-retry, and one-line empty states), `Facts`/`Fact` (one-line facts strip), `Count`, `Dash` (empty value with screen-reader text), `MoreToggle`, `Segmented`, `BarList` (proportional HTML bars with linkable labels and series tokens), and `NodeLink` (the note-link style for canonical nodes). Their CSS ships in the kit theme. Exports are additive under `/kit/v1`.
 - `Diagram` lays charts (xychart) out at its container's width; other diagram types keep their natural size and shrink to fit.
 
 ### Loading and empty states

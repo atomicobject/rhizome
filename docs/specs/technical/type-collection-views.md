@@ -5,7 +5,7 @@ aliases: [SPEC-0112, Type collection views]
 summary: "Every type and interface collection gets Table, Board, and Cards views whose defaults come from a schema-derived profile, enum values declare lifecycle stages that drive behavior while tone stays presentation, and a type Briefing replaces Overview."
 spec-status: active
 last-updated: 2026-11-04
-last-verified: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 ---
 
 # Type collection views
@@ -101,17 +101,17 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US3):
 - Columns whose field is empty on every matching row MUST be hidden, except title and lifecycle, and listed as hidden-empty in the Columns menu, from which the reader can show them.
 - Reverse fields MUST render as counts under a header named by the target's plural label. Changed MUST render as a relative age with the absolute time on hover.
 - Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US6): the record shows in the workspace's one right pane, which opens when a row is selected (unless the reader closed it) and stays closed while none is.
-- Activating a row MUST show that record in the workspace's right rail: title, summary, editable lifecycle, ordered, category, and relation fields, its reverse relations with status marks, and an Open action. Enter or double-click MUST open the note in a tab.
+- Activating a row MUST show that record in the workspace's right rail: title, summary, editable lifecycle, ordered, category, and relation fields, Relations and Linked notes using the note Info rail's blocks below the fields without repeating note identity, its reverse relations with status marks, and an Open action. Enter or double-click MUST open the note in a tab.
 - The reader MUST be able to select several rows (checkbox, shift-range, `x`) and set an enum field or add a link value on all of them. Bulk edits MUST stage through the edit session exactly like single-cell edits. Escape clears the selection.
 - The Table MUST load further pages as the reader scrolls instead of showing a pager. Grouped tables keep group headers and counts across loaded pages.
 - The Table SHOULD support column resizing and multi-key sort with shift-activation, persisted with the view state.
 
 ### Board
 
-- Board values MUST start expanded regardless of table grouping defaults, unless the user has remembered a collapsed choice. Empty and collapsed values MUST use 140px labelled strips, with counts and a chevron for collapsed values; empty cells still accept drops. Open tracks remain 260–360px and align headers with cards in every lane.
+- Populated Board columns MUST remain open regardless of table grouping defaults. Their chevron MUST switch card density with the label "Compact cards" or "Full cards", remembering the choice. Empty values MUST use 140px labelled strips above visible dashed drop lanes at least 160px tall; empty cells still accept drops. Open tracks remain 260–360px and align headers with cards in every lane.
 - A Lanes control MUST offer ordered fields, people fields, and relation fields. The default lane field MUST be the first KEY ordered field with values, else the first KEY relation field with values whose filled records average at most 1.25 targets, else none. A record whose lane field holds several targets MUST appear in each of those lanes and say how many others. Lanes for a relation MUST be ordered by the target's rank, ranked targets first, then by its lifecycle stage and then record count; enum lanes by enum order; the lane for records without a value comes last.
 - A card MUST show the title, a two-line summary, the first filled key text field with its label, ordered-field tags, the first filled relation field other than the lane field, reverse fields as labeled counts, people as initials, and Changed. A card in an `active` value unchanged for 30 days MUST show a stale marker, and the column header MUST count them.
-- A column holding more than 24 cards MUST render compact cards showing the title, Changed, and any stale or multi-lane markers. Interface boards name the implementing type only for cards outside the dominant type.
+- A column holding more than 24 cards MUST default to compact cards showing the title, Changed, and any stale or multi-lane markers. Interface boards name the implementing type only for cards outside the dominant type.
 - The board's column field MUST be switchable among the lifecycle and ordered fields.
 
 ### Cards
@@ -128,7 +128,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US3):
 ### Briefing (delivered after SPEC-0111 lands)
 
 - A type Briefing MUST replace Overview as a selectable view for every type and interface, built as a bundled kit view mounted on `type: "*"` and `interface: "*"` that shares modules with SPEC-0111's group Briefing.
-- It MUST show: needs attention (validation issues; warning and risk enum values; stale records; KEY fields empty on some records with policy reasons; reverse fields that more than half the records fill but some do not); in motion (`active` lifecycle values, newest first, with the first key text field); recent changes with bursts of four or more same-minute changes collapsed; a distribution bar per lifecycle, ordered, and category field; a per-month chart of the primary date; per relation and reverse field, how many records fill it and its most common targets; notes of other types that link in; and the type's companion guide.
+- It MUST show: needs attention (validation issues; warning and risk enum values; stale records; KEY fields empty on some records with policy reasons; reverse fields that more than half the records fill but some do not); in motion (`active` lifecycle values, newest first in one flat list using the Recent changes two-line row template with type and folder metadata, with status marks only when statuses mix); recent changes with bursts of four or more same-minute changes collapsed; a distribution bar per lifecycle, ordered, and category field; a per-month chart of the primary date; per relation and reverse field, how many records fill it and its most common targets; notes of other types that link in; and the type's companion guide.
 - Overview MUST remain selectable until the Briefing ships.
 
 ### Starters

@@ -5,7 +5,7 @@ aliases: [SPEC-0126, Workbench redesign]
 summary: "Redesigns the Rhizome workbench in the browser and in Rhizome Desktop: selectable chrome themes with light and dark appearance, an Inter type scale and neutral surfaces, a calmer view header with progressive disclosure, a table column policy that keeps titles readable, resizable side panels with one right pane, and fuzzy finders for notes and files (⌘P), repositories (⌘O), and worktrees (⇧⌘O)."
 spec-status: active
 last-updated: 2026-11-04
-last-verified: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 ---
 
 # Workbench redesign
@@ -82,7 +82,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 - The header shows the collection dot and title, its count, a short description that truncates, Find in view (⌘F), Filter, Display, saved Views, and the pane toggle on one row. Presentations (Table, Board, Cards, Briefing, and saved views) appear as text tabs on the row below.
 - Display opens a popover holding Group by, Sort, Rows (a visible "1 line | 2 lines" segmented control), Columns, Reset to shared, and Save view.
-- The separate stats band and preset pill band no longer appear. Counts appear on group headers and in the title row, and active filters appear as removable chips under the header only while a filter is active.
+- The separate stats band and preset pill band no longer appear. Type and interface identities (such as "Interface: Effort") appear in the header info tooltip, which links to Ontology detail. Counts appear on group headers and in the title row, and active filters appear as removable chips under the header only while a filter is active.
 - On a 900px-tall window the first data row of an ungrouped table starts no more than about 166px below the top of the content panel (the 56px title row, 40px presentation tabs, and 34px column heads, plus the 36px note-tab strip only while a note is open); a grouped table adds its 44px group header.
 
 ### US4 - Keep titles readable in tables at any width
@@ -97,7 +97,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - ID, status and enum, date, number, flag, and relation columns have fixed widths and never take a share of extra width. Short-text columns are sized like enums.
 - When the table can't fit all columns at those minimums, the lowest-priority columns leave the table and show in the right pane for the selected row, with a footer note that names them. The order is relation, then ID, then date.
 - At 1920px no supporting column is wider than its fixed width plus its user-resized width.
-- The density toggle switches between one-line rows (about 36px) and two-line rows (about 56px) showing the summary.
+- The density toggle switches between one-line rows (about 36px) and two-line rows (about 56px) showing the summary. Exact nonempty repeats of the previous row's value in sorted columns are dimmed within each group. Action Items group headers include nonzero overdue counts ("Open 21 · 12 overdue").
 
 ### US5 - Resize and collapse side panels
 
@@ -121,7 +121,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 #### Acceptance Criteria
 
-- One right pane hosts Record for the selected table or board item, and Info, Outline, and Graph for the active note. It replaces the separate Record rail and note context rail, with one width, one toggle, and one collapsed state.
+- One right pane hosts Record for the selected table or board item, and Info, Outline, and Graph for the active note. It replaces the separate Record rail and note context rail, with one width, one toggle, and one collapsed state. Below its fields, Record shows the same Relations and Linked notes blocks as the note Info rail, without repeating note identity.
 - With nothing selected on a collection, the pane is closed. Selecting a row opens it unless the user closed it explicitly, and ] toggles it.
 - The pane title, field labels, and values use the new type scale: 15–17px semibold title, 13px labels, no 700 weights.
 
@@ -134,7 +134,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 #### Acceptance Criteria
 
 - The note body, properties, and prose centre at a 540px reading measure; its control row spans the panel gutter. Briefing and Overview use centred columns of about 1320px and 1520px respectively, shared by header, presentation tabs, status line, and body.
-- Data surfaces (Table, Board) fill the width. Board headers and every lane share the same 260–360px tracks; empty or collapsed values use 140px strips. Narrow windows scroll the board horizontally.
+- Data surfaces (Table, Board) fill the width. Board headers and every lane share the same 260–360px tracks; empty values use 140px strips above visible dashed drop lanes. Populated columns remain open; their chevron switches between "Compact cards" and "Full cards". Narrow windows scroll the board horizontally.
 
 ### US8 - Jump to any note or file with ⌘P
 
@@ -207,7 +207,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 - MUST replace Barlow with Inter as the UI face, self-hosted as variable woff2 (Latin and Latin Extended) under SIL OFL, with license notices generated through `scripts/licenses/generate.py`. Merriweather stays for document titles and JetBrains Mono for evidence.
 - MUST apply tabular figures only to number-bearing elements (counts, dates, numeric cells), because Inter widens the hyphen under `tnum`.
-- MUST use a 14px-class UI base, 13px secondary text and column heads, 12px labels, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
+- MUST use a 14px-class UI base, 13px secondary text, column heads, and structural labels (500 weight), with 12px reserved for mono paths, IDs, and chart ticks, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
 - MUST replace hard-coded Barlow references (graph labels, mermaid, docs, skill copies) and hard-coded font sizes in bundled group views with tokens.
 
 ### Workspace navigation and type colours
@@ -265,7 +265,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
   - **Home line:** a note's first body block reads as quiet metadata when it is a single line of a short label followed only by links.
 - Resolved 2026-10-26, amended 2026-11-04: section prose keeps its read-mode typography and position in Edit. Empty properties remain behind "Show N empty fields" in both modes, except fields with staged changes or issues.
 - Resolved 2026-10-26, delivery: below 1200px the narrow-window rule (US5) wins over opening on selection (US6). Selecting a row does not open the right pane there; `]` or the tab row's toggle opens it over the content.
-- Resolved 2026-10-26, delivery: column heads ship at 13px and labels at 12px, the nearest steps on the type scale, instead of 12.5px.
+- Resolved 2026-10-26, delivery: column heads and structural labels now ship at 13px/500; round 7 raised the former 12px labels.
 - Resolved 2026-10-26, delivery: the screenshot requirement is met with reference captures in `.impeccable/references/workbench-2026-10/`, not asserted tests, because the repository has no pixel-diff layer and CI renders fonts differently. The desktop-mode shell has no capture: windows launched from this session never paint into captures.
 - Resolved 2026-10-25, delivery: a page's first paint in Rhizome Desktop uses the theme baked into its window when it opened, unless that page's origin remembers a newer theme command (a reload after a change). A first load of another runtime origin in a window opened before a theme change can still show the older theme until the page reports its title.
 
