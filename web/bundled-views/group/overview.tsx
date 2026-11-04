@@ -212,15 +212,20 @@ function MapBlock({ data, expanded, onToggle }: { data: ScopeData } & Expansion)
       title="Map"
       className="gv-slot-map"
       controls={
-        <Segmented
-          label="Map or matrix"
-          value={mode.value}
-          options={[
-            { value: "map", label: "Map" },
-            { value: "matrix", label: "Matrix" },
-          ]}
-          onChange={choose}
-        />
+        <>
+          {mode.value === "map" && (
+            <span className="gv-map-hint">Activate a group to expand it.</span>
+          )}
+          <Segmented
+            label="Map or matrix"
+            value={mode.value}
+            options={[
+              { value: "map", label: "Map" },
+              { value: "matrix", label: "Matrix" },
+            ]}
+            onChange={choose}
+          />
+        </>
       }
     >
       <BlockBody status={status} what="the map">

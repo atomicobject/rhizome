@@ -1949,3 +1949,10 @@
 .gv-issues.gv-zero {
   color: var(--text-muted);
 }
+
+/* The map's one interaction hint, beside the Map/Matrix control. */
+.gv-map-hint {
+  margin-right: var(--sp-3, 12px);
+  color: var(--text-muted);
+  font-size: 13px;
+}

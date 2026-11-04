@@ -1113,8 +1113,8 @@
 }
 
 .status-mark--success .status-mark__shape {
-  border-color: var(--success-ink);
-  background: var(--success-ink);
+  border-color: var(--success);
+  background: var(--success);
 }
 
 .status-mark--warning .status-mark__shape {
