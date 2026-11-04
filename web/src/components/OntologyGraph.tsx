@@ -25,6 +25,9 @@ type Props = { atlas: OntologyAtlasResponse };
 
 type GraphState = { nodes: Node[]; edges: Edge[] };
 
+/** Fit padding that keeps cards clear of the finder (top left) and the legend (bottom). */
+const FIT_PADDING = { top: "64px", right: "24px", bottom: "56px", left: "24px" } as const;
+
 const EMPTY_GRAPH: GraphState = { nodes: [], edges: [] };
 
 function FocusViewport({ ids, selected }: { ids: string[]; selected: string | null }) {
@@ -37,10 +40,16 @@ function FocusViewport({ ids, selected }: { ids: string[]; selected: string | nu
       void setCenter(
         node.position.x + (node.width ?? 280) / 2,
         node.position.y + (node.height ?? 104) / 2,
-        { zoom: 0.9 },
+        // At zoom 1 a card's fields render at 12px, the least the card shows them at.
+        { zoom: 1 },
       );
     } else {
-      void fitView({ nodes: ids.map((id) => ({ id })), padding: 0.06, maxZoom: 1, minZoom: 0.15 });
+      void fitView({
+        nodes: ids.map((id) => ({ id })),
+        padding: FIT_PADDING,
+        maxZoom: 1,
+        minZoom: 0.15,
+      });
     }
   }, [viewportInitialized, ids, selected, fitView, getNode, setCenter]);
 
@@ -49,6 +58,7 @@ function FocusViewport({ ids, selected }: { ids: string[]; selected: string | nu
 
 export function OntologyGraph({ atlas }: Props) {
   const [selection, setSelected] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +109,7 @@ export function OntologyGraph({ atlas }: Props) {
                 style: {
                   stroke: "var(--text-muted)",
                   strokeDasharray: "4 4",
-                  strokeWidth: 1,
+                  strokeWidth: 1.5,
                 },
                 markerEnd: {
                   type: MarkerType.ArrowClosed,
@@ -173,6 +183,11 @@ export function OntologyGraph({ atlas }: Props) {
   }, [graph, selected]);
 
   const focused = new Set(focusedIds);
+  // Hovering a card traces its relations without moving the viewport; otherwise the focused type does.
+  const traced = hovered ?? selected;
+
+  const touches = (edge: Edge) =>
+    traced !== null && (edge.source === traced || edge.target === traced);
 
   const nodes = graph.nodes.map((node) => ({
     ...node,
@@ -184,62 +199,28 @@ export function OntologyGraph({ atlas }: Props) {
           : undefined,
   }));
 
+  // Every edge draws at full strength (3:1 or better) under the opaque cards; tracing a type fades the rest.
   const edges = graph.edges.map((edge) => ({
     ...edge,
-    style: {
-      ...edge.style,
-      opacity: selected ? (edge.source === selected || edge.target === selected ? 1 : 0.08) : 0.45,
-    },
-    zIndex: selected && (edge.source === selected || edge.target === selected) ? 2 : 0,
+    style: { ...edge.style, opacity: traced === null || touches(edge) ? 1 : 0.12 },
+    zIndex: 0,
   }));
 
-  const listed = graph.nodes
-    .filter((node) => node.id.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const query = search.trim().toLowerCase();
+
+  const listed = query
+    ? graph.nodes
+        .filter((node) => node.id.toLowerCase().includes(query))
+        .sort((a, b) => a.id.localeCompare(b.id))
+    : [];
+
+  const focus = (id: string | null) => {
+    setSelected(id);
+    setSearch("");
+  };
 
   return (
     <div className="atlas-workbench">
-      <aside className="atlas-index" aria-label="Atlas types">
-        <label className="atlas-index__search">
-          <span>Find a type</span>
-          <input
-            type="search"
-            placeholder="Find a type…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className="atlas-index__all"
-          aria-pressed={selected === null}
-          onClick={() => setSelected(null)}
-        >
-          All types <span>{graph.nodes.length}</span>
-        </button>
-        <div className="atlas-index__list">
-          {listed.map((node) => (
-            <button
-              type="button"
-              key={node.id}
-              aria-label={`Focus ${node.id}`}
-              aria-pressed={selected === node.id}
-              onClick={() => setSelected(node.id)}
-            >
-              <span className="atlas-index__name">{node.id}</span>
-              <span className="atlas-index__count">
-                {String(node.data.role === "interface" ? "interface" : (node.data.count ?? 0))}
-              </span>
-            </button>
-          ))}
-          {search && listed.length === 0 ? (
-            <p className="atlas-index__empty">No matching types.</p>
-          ) : null}
-        </div>
-        <p className="atlas-index__hint">
-          Focus a type to trace its connections. Open a card to explore its notes.
-        </p>
-      </aside>
       <div className="atlas-canvas">
         {error ? (
           <p role="alert" className="atlas-canvas__status">
@@ -261,7 +242,7 @@ export function OntologyGraph({ atlas }: Props) {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
-          fitViewOptions={{ padding: 0.15 }}
+          fitViewOptions={{ padding: FIT_PADDING }}
           minZoom={0.15}
           maxZoom={1.5}
           nodesDraggable={false}
@@ -271,14 +252,67 @@ export function OntologyGraph({ atlas }: Props) {
           zoomOnScroll={false}
           zoomOnPinch
           proOptions={{ hideAttribution: true }}
+          onNodeMouseEnter={(_, node) => setHovered(node.id)}
+          onNodeMouseLeave={() => setHovered(null)}
         >
           <FocusViewport ids={focusedIds} selected={selected} />
           <Background gap={24} size={1} />
           <Controls showInteractive={false} />
         </ReactFlow>
+        <div className="atlas-find" role="search" aria-label="Atlas types">
+          <input
+            type="search"
+            aria-label="Find a type"
+            placeholder="Find a type…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && listed[0]) {
+                event.preventDefault();
+                focus(listed[0].id);
+              }
+
+              if (event.key === "Escape") setSearch("");
+            }}
+          />
+          {query ? (
+            <div className="atlas-find__list">
+              {listed.map((node) => (
+                <button
+                  type="button"
+                  key={node.id}
+                  aria-label={`Focus ${node.id}`}
+                  aria-pressed={selected === node.id}
+                  onClick={() => focus(node.id)}
+                >
+                  <span className="atlas-find__name">{node.id}</span>
+                  <span className="atlas-find__count">
+                    {node.data.role === "interface" ? "interface" : String(node.data.count ?? 0)}
+                  </span>
+                </button>
+              ))}
+              {listed.length === 0 ? <p className="atlas-find__empty">No matching types.</p> : null}
+            </div>
+          ) : null}
+          {selected ? (
+            <p className="atlas-find__focus">
+              <span>
+                Tracing <strong>{selected}</strong>
+              </span>
+              <button type="button" onClick={() => focus(null)}>
+                Show all types
+              </button>
+            </p>
+          ) : null}
+        </div>
         <div className="atlas-legend" aria-label="Connection legend">
-          <span>— Relation</span>
-          <span>┄ Inheritance / neighbor</span>
+          <span>
+            <s data-kind="relation" /> Relation
+          </span>
+          <span>
+            <s data-kind="inherit" /> Implements or neighbor
+          </span>
+          <span className="atlas-legend__hint">Hover a card to trace it</span>
         </div>
       </div>
     </div>

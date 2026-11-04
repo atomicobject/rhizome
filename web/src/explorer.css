@@ -13,114 +13,40 @@
   background: var(--surface);
 }
 
-/* ---- Slim status strip ---- */
+/* ---- Header: the shared view header, with one search at the right ---- */
 
-.explorer-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  padding: 8px 20px;
-  background: var(--surface);
+.explorer-header .view-header__title-row {
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  min-height: 44px;
 }
 
-.explorer-bar__title {
-  display: flex;
-  align-items: baseline;
+.explorer-header .explorer-bar__search {
+  position: relative;
+  flex: 0 1 440px;
   gap: var(--sp-3);
   min-width: 0;
 }
 
-.explorer-bar__title h1 {
-  font-size: var(--fs-xl);
-  font-weight: 700;
-  margin: 0;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.explorer-bar__title p {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.explorer-bar__search {
-  position: relative;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  max-width: 560px;
-  min-width: 0;
-  margin-left: var(--sp-5);
-}
-
-.explorer-bar__search input[type="search"],
-.explorer-bar__search input[type="text"] {
+.explorer-bar__search input[type="search"] {
   flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  border-radius: var(--r);
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  font-size: var(--fs-base);
-  font-family: var(--font-sans);
-  transition: border-color 0.15s var(--ease);
+  min-width: 160px;
 }
 
-.explorer-bar__search-btn {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+.explorer-bar__matches {
   color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: var(--r);
-  font: inherit;
   font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-}
-
-.explorer-bar__search-btn:hover {
-  background: var(--bg-tint);
-  color: var(--text);
-}
-
-.explorer-bar__search-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 .explorer-bar__filter {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: var(--fs-xs);
+  gap: 6px;
   color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.explorer-bar__filter--disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.explorer-bar__filter input[type="checkbox"] {
-  accent-color: var(--accent-fill);
-  cursor: pointer;
 }
 
 /* ---- Search suggestions popover ---- */
@@ -140,7 +66,9 @@
 }
 
 .explorer-suggestions button {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
   width: 100%;
   padding: 8px 12px;
   background: transparent;
@@ -151,6 +79,20 @@
   font: inherit;
   color: inherit;
   font-size: var(--fs-base);
+}
+
+.explorer-suggestions__path {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-suggestions__kind {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .explorer-suggestions button:last-child {
@@ -262,7 +204,8 @@
 }
 
 .explorer-rail__root-icon {
-  font-size: 13px;
+  flex: none;
+  color: var(--chrome-muted, var(--text-muted));
 }
 
 .explorer-rail .tree-list {
@@ -303,10 +246,10 @@
 .explorer-rail .tree-icon {
   flex-shrink: 0;
   width: 18px;
-  font-size: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--chrome-muted, var(--text-muted));
 }
 
 .explorer-rail .tree-name {
@@ -324,34 +267,6 @@
   flex-direction: column;
   min-height: 0;
   background: var(--surface);
-}
-
-.explorer-focus__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-5);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
-}
-
-.explorer-focus__header h2 {
-  margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  color: var(--text);
-}
-
-.explorer-focus__scope {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 50%;
 }
 
 .explorer-focus__body {
@@ -693,4 +608,55 @@
     margin-left: 0;
     max-width: 100%;
   }
+}
+
+/* ---- Graph canvas chrome (shared by every GraphView) ---- */
+
+/* Zoom: one stacked icon-button group, as on the Atlas canvas. */
+.graph-container .graph-zoom {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.graph-container .zoom-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  backdrop-filter: none;
+}
+
+.graph-container .zoom-btn + .zoom-btn {
+  border-top: 1px solid var(--border);
+}
+
+/* The banner: one 36px tinted band across the canvas top, with a mark and text. */
+.graph-container .graph-banner {
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 36px;
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  transform: none;
+}
+
+.graph-container .graph-banner svg {
+  flex: none;
+}
+
+.graph-container[data-truncated="true"] .graph-zoom,
+.graph-container[data-truncated="true"] .graph-tools {
+  top: calc(36px + var(--sp-3));
 }

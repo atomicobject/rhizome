@@ -62,27 +62,26 @@ async function expectAtlasGeometry(page: Page) {
   }
 }
 
-test("Atlas index focuses types, searches without removing graph nodes, and opens type cards", async ({
+test("Atlas finder focuses types, searches without removing graph nodes, and opens type cards", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/ontology");
-  const index = page.getByRole("complementary", { name: "Atlas types" });
+  const index = page.getByRole("search", { name: "Atlas types" });
+  const search = index.getByRole("searchbox", { name: "Find a type" });
   const person = page.locator('.react-flow__node[data-id="Person"]');
   const graphNodes = page.locator(".react-flow__node-ontologyType");
 
   const nodeIds = () =>
     graphNodes.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-id")).sort());
 
-  await expect(index.getByRole("button", { name: "Focus Person", exact: true })).toBeVisible();
   await expect(person).toBeVisible();
+  await search.fill("person");
+  await expect(index.getByRole("button", { name: "Focus Person", exact: true })).toBeVisible();
   const originalIds = await nodeIds();
   expect(originalIds).toContain("Spec");
   await index.getByRole("button", { name: "Focus Person", exact: true }).click();
-  await expect(index.getByRole("button", { name: "Focus Person", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(index.getByText("Tracing Person")).toBeVisible();
   await expect(person).toHaveClass(/atlas-node--focused/);
   await expect(page.locator('.react-flow__node[data-id="Spec"]')).toHaveClass(/atlas-node--dimmed/);
   await expect
@@ -101,7 +100,6 @@ test("Atlas index focuses types, searches without removing graph nodes, and open
     )
     .toBeLessThan(2);
 
-  const search = index.getByRole("searchbox", { name: "Find a type" });
   await search.fill("person");
   await expect(index.getByRole("button", { name: /^Focus / })).toHaveCount(1);
   expect(await nodeIds()).toEqual(originalIds);
@@ -109,10 +107,11 @@ test("Atlas index focuses types, searches without removing graph nodes, and open
   await expect(index.getByText("No matching types.")).toBeVisible();
   expect(await nodeIds()).toEqual(originalIds);
   await search.clear();
-  await index.getByRole("button", { name: /^All types/ }).click();
+  await index.getByRole("button", { name: "Show all types" }).click();
   await expect(page.locator(".atlas-node--dimmed, .atlas-node--focused")).toHaveCount(0);
   expect(await nodeIds()).toEqual(originalIds);
-  await index.getByRole("button", { name: "Focus Person", exact: true }).click();
+  await search.fill("Person");
+  await search.press("Enter");
   await person.locator(".ontology-node__card").click();
   await expect(page).toHaveURL(/\/ontology\/type\/Person$/);
   await expect(page.getByRole("heading", { name: "Person", exact: true })).toBeVisible();
@@ -123,6 +122,7 @@ test("Atlas rendered cards match layout dimensions and relation handles meet the
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/ontology");
+  await page.getByRole("searchbox", { name: "Find a type" }).fill("project");
   const focus = page.getByRole("button", { name: "Focus Project", exact: true });
   await expect(focus).toBeVisible();
   await expect(page.locator('.react-flow__node[data-id="Project"]')).toBeVisible();
@@ -177,9 +177,10 @@ test("Atlas pans on scroll and supports pinch zoom, drag pan, and zoom controls"
   const rect = await pane.boundingBox();
 
   if (!rect) throw new Error("Atlas pane has no bounds");
-  await page.mouse.move(rect.x + 10, rect.y + 10);
+  // The top right of the pane is clear of the finder, zoom controls, and legend.
+  await page.mouse.move(rect.x + rect.width - 80, rect.y + 20);
   await page.mouse.down();
-  await page.mouse.move(rect.x + 60, rect.y + 60, { steps: 5 });
+  await page.mouse.move(rect.x + rect.width - 130, rect.y + 70, { steps: 5 });
   await page.mouse.up();
   await expect.poll(transform).not.toBe(pinched);
   await expect(page.getByRole("button", { name: "Zoom In", exact: true })).toBeVisible();

@@ -1,4 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { FolderOpen } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getExpandedModuleGraph,
@@ -13,7 +14,8 @@ import { queryKeys } from "../api/queryKeys";
 import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
 import { encodeURLFragment } from "../lib/noteDeepLink";
-import { graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
+import { publicTypeName } from "../lib/typeNames";
+import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NOTES_ROOT_PATH } from "./notesRoute";
 import { TreeList } from "./TreeList";
@@ -355,7 +357,20 @@ export function ExplorerWorkspace({
   const searchModuleSet = useMemo(() => new Set(searchModules), [searchModules]);
 
   const graphScopeLabel =
-    graphScope.mode === "global" ? "Global scope" : graphScope.label || "Local scope";
+    graphScope.mode === "global"
+      ? "The whole vault as files, folders, and links"
+      : graphScope.mode === "module"
+        ? `Folder ${graphScope.label}`
+        : `File ${graphScope.label || "graph"}`;
+
+  // Notes take their type's color, as in the Atlas, so the legend can name every color.
+  const typeColors = useMemo(
+    () =>
+      buildTypeColors([
+        ...new Set(graph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean)),
+      ]),
+    [graph.nodes],
+  );
 
   return (
     <div className="workspace workbench">
@@ -381,7 +396,12 @@ export function ExplorerWorkspace({
               onClick={onVaultRootClick}
               title="View full graph"
             >
-              <span className="explorer-rail__root-icon">📂</span>
+              <FolderOpen
+                className="explorer-rail__root-icon"
+                size={16}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
               <span className="tree-name">{vaultName ? vaultLabel(vaultName) : "Vault"}</span>
             </button>
             <TreeList
@@ -395,102 +415,93 @@ export function ExplorerWorkspace({
         </aside>
       </WorkbenchSidebar>
       <div className="workbench__panel workspace--explorer">
-        <header className="explorer-bar">
-          <div className="explorer-bar__title">
-            <h1>Explorer</h1>
-            <p>Navigate the vault as files, folders, and a live graph.</p>
-          </div>
-          <div
-            className="explorer-bar__search"
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
-            }}
-          >
-            <input
-              type="search"
-              aria-label="Search notes and code"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-
-                if (e.target.value.trim() === "") {
-                  clearSearch();
-                }
+        <header className="view-header explorer-header">
+          <div className="view-header__title-row">
+            <h2>Explorer</h2>
+            <span className="view-header__count">{graph.nodes.length || ""}</span>
+            <span className="view-header__about">{graphScopeLabel}</span>
+            <div
+              className="view-header__tools explorer-bar__search"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  runSearch();
-                  setShowSuggestions(false);
-                }
-              }}
-              onFocus={() => {
-                setShowSuggestions(true);
-              }}
-              placeholder="Search notes + code"
-            />
-            <button
-              type="button"
-              className="explorer-bar__search-btn"
-              onClick={() => {
-                if (query.trim() !== "" || searchActive) {
-                  setQuery("");
-                  setShowSuggestions(false);
-                  clearSearch();
-                } else {
-                  runSearch();
-                }
-              }}
-              disabled={searching}
-              title={query.trim() !== "" || searchActive ? "Clear search" : "Search"}
             >
-              {query.trim() !== "" || searchActive ? "Clear" : searching ? "Searching…" : "Search"}
-            </button>
-            <label
-              className={`explorer-bar__filter ${searchActive ? "" : "explorer-bar__filter--disabled"}`}
-            >
+              {searchActive && !searching && !searchQuery.isError ? (
+                <span className="explorer-bar__matches" role="status">
+                  {searchPathSet.size} {searchPathSet.size === 1 ? "match" : "matches"}
+                </span>
+              ) : null}
+              {searchActive ? (
+                <label className="explorer-bar__filter">
+                  <input
+                    type="checkbox"
+                    checked={searchOnlyMatches}
+                    onChange={(e) => setSearchOnlyMatches(e.target.checked)}
+                  />
+                  Only matches
+                </label>
+              ) : null}
               <input
-                type="checkbox"
-                checked={searchOnlyMatches}
-                disabled={!searchActive}
-                onChange={(e) => setSearchOnlyMatches(e.target.checked)}
+                type="search"
+                aria-label="Search notes and code"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+
+                  if (e.target.value.trim() === "") {
+                    clearSearch();
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    runSearch();
+                    setShowSuggestions(false);
+                  }
+
+                  if (e.key === "Escape") {
+                    setQuery("");
+                    setShowSuggestions(false);
+                    clearSearch();
+                  }
+                }}
+                onFocus={() => {
+                  setShowSuggestions(true);
+                }}
+                placeholder={searching ? "Searching…" : "Search notes and code"}
               />
-              Only matches
-            </label>
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="explorer-suggestions">
-                {suggestions.map((suggestion) => (
-                  <button
-                    type="button"
-                    key={suggestion.path}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                    }}
-                    onClick={() => {
-                      onSelectFile(suggestion.path, suggestion.kind);
-                      setShowSuggestions(false);
-                    }}
-                  >
-                    {suggestion.path} ({suggestion.kind})
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="explorer-suggestions">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      type="button"
+                      key={suggestion.path}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={() => {
+                        onSelectFile(suggestion.path, suggestion.kind);
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      <span className="explorer-suggestions__path">{suggestion.path}</span>
+                      <span className="explorer-suggestions__kind">{suggestion.kind}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {searchQuery.isError ? (
+                <div className="explorer-bar__search-error" role="alert">
+                  Search unavailable.{" "}
+                  <button type="button" onClick={() => searchQuery.refetch()}>
+                    Retry
                   </button>
-                ))}
-              </div>
-            )}
-            {searchQuery.isError ? (
-              <div className="explorer-bar__search-error" role="alert">
-                Search unavailable.{" "}
-                <button type="button" onClick={() => searchQuery.refetch()}>
-                  Retry
-                </button>
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
         <div className={`explorer-grid ${hasPanel ? "explorer-grid--with-pane" : ""}`}>
-          <section className="explorer-focus">
-            <div className="explorer-focus__header">
-              <h2>Graph</h2>
-              <span className="explorer-focus__scope">{graphScopeLabel}</span>
-            </div>
+          <section className="explorer-focus" aria-label="Graph">
             <div className="explorer-focus__body">
               {graphQuery.isPending && !graphQuery.data ? (
                 <div className="graph-notice" role="status">
@@ -525,6 +536,9 @@ export function ExplorerWorkspace({
                     searchPaths={searchPathSet}
                     searchModules={searchModuleSet}
                     searchOnlyMatches={searchOnlyMatches}
+                    typeColors={typeColors}
+                    showTypeLegend
+                    showFind={false}
                     zoomKey={graphZoomKey}
                   />
                 </Suspense>

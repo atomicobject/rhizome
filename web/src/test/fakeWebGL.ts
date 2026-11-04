@@ -118,6 +118,7 @@ export function installFakeWebGL(size: ContextSize = { width: 800, height: 600 }
           clearRect: () => undefined,
           fillRect: () => undefined,
           fillText: () => undefined,
+          strokeText: () => undefined,
           measureText: () => ({ width: 0 }),
           beginPath: () => undefined,
           closePath: () => undefined,

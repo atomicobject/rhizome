@@ -197,7 +197,7 @@ describe("GraphView", () => {
         expect(screen.getByText("1 of 3 nodes highlighted")).toBeInTheDocument();
         expect(within(legend).getByText("Spec")).toBeInTheDocument();
         expect(within(legend).getByText("Task")).toBeInTheDocument();
-        expect(within(legend).getByText("Untyped")).toBeInTheDocument();
+        expect(within(legend).getByText("Untyped notes")).toBeInTheDocument();
         const specEntry = legend.querySelector('[data-type="Spec"]');
         const taskEntry = legend.querySelector('[data-type="Task"]');
         const untypedEntry = legend.querySelector('[data-type="__untyped__"]');
@@ -205,7 +205,7 @@ describe("GraphView", () => {
         expect(specEntry).toHaveTextContent("1");
         expect(taskEntry).not.toHaveClass("is-highlighted");
         expect(taskEntry).toHaveTextContent("1");
-        expect(untypedEntry).toHaveTextContent("Untyped");
+        expect(untypedEntry).toHaveTextContent("Untyped notes");
         expect(untypedEntry).toHaveTextContent("1");
 
         const renderer = renderers().at(-1);

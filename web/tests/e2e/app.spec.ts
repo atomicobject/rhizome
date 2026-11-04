@@ -6,7 +6,7 @@ test("loads the graph and navigates notes/code from the tree", async ({ page }) 
   const rail = page.locator(".explorer-rail");
 
   await expect(page.getByText("Graph unavailable")).toHaveCount(0);
-  await expect(page.locator(".explorer-bar__title h1")).toHaveText("Explorer");
+  await expect(page.getByRole("heading", { name: "Explorer", exact: true })).toBeVisible();
 
   await rail.getByRole("button", { name: /notes/i }).click();
   await rail.getByRole("button", { name: /task-flow\.md/i }).click();
@@ -14,7 +14,7 @@ test("loads the graph and navigates notes/code from the tree", async ({ page }) 
   await expect(page.locator(".ontology-identity__title")).toHaveText("Task Flow");
 
   await page.goto("/explorer");
-  await expect(page.locator(".explorer-bar__title h1")).toHaveText("Explorer");
+  await expect(page.getByRole("heading", { name: "Explorer", exact: true })).toBeVisible();
 
   await rail.getByRole("button", { name: /\bsrc$/i }).click();
   await rail.getByRole("button", { name: /todoapp/i }).click();
@@ -31,7 +31,7 @@ test("focuses folders and supports search suggestions", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "src" })).toBeVisible();
   await expect(page.getByText("Contents")).toBeVisible();
 
-  const search = page.getByPlaceholder("Search notes + code");
+  const search = page.getByRole("searchbox", { name: "Search notes and code" });
   await search.fill("task-flow");
   await search.focus();
   await expect(page.locator(".explorer-suggestions")).toBeVisible();

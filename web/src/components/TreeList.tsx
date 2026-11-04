@@ -1,3 +1,4 @@
+import { FileCode2, FileText, Folder, FolderOpen } from "lucide-react";
 import type { TreeEntry } from "../api/types";
 
 export function TreeList({
@@ -19,6 +20,14 @@ export function TreeList({
         const isDir = entry.kind === "dir";
         const isExpanded = !!expanded[entry.path];
         const isSelected = selectedPath === entry.path;
+
+        const Icon = isDir
+          ? isExpanded
+            ? FolderOpen
+            : Folder
+          : entry.kind === "note"
+            ? FileText
+            : FileCode2;
 
         return (
           <li key={entry.path} className="tree-item">
@@ -43,7 +52,7 @@ export function TreeList({
                 className={`tree-icon ${isDir ? "tree-icon--dir" : "tree-icon--file"}`}
                 aria-hidden="true"
               >
-                {isDir ? (isExpanded ? "📂" : "📁") : entry.kind === "note" ? "📄" : "📝"}
+                <Icon size={16} strokeWidth={1.5} />
               </span>
               <span className="tree-name">{entry.name}</span>
             </button>

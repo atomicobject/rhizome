@@ -54,7 +54,7 @@ it("draws a group's members most records first, with keyboard focus in that orde
     "Checklists, 1 record, 1 link to other members",
   ]);
   // Outside neighbors sit on the ring with their link counts, and the unused relation is a hairline.
-  expect(map().querySelectorAll("[data-outside='true']")).toHaveLength(2);
+  expect(map().querySelectorAll("g[data-outside='true']")).toHaveLength(2);
   expect(map()).toHaveTextContent("Untyped notes 3 links");
   expect(map().querySelectorAll(".gv-map-unused")).toHaveLength(1);
   expect(region("Map")).toHaveTextContent("declared, unused");
@@ -241,8 +241,11 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     "Library, 5 records, 2 links, collapsed group of 2 types",
     "Meetings, 5 records, 10 links",
     "People, 2 records, 6 links, collapsed group of 1 type",
-    "Notices, 0 records, 0 links",
   ]);
+  // A member with no links is listed in the legend, not drawn.
+  expect(
+    within(region("Map")).getByRole("button", { name: "Notices, 0 records, 0 links" }),
+  ).toBeVisible();
 
   fireEvent.click(screen.getByRole("button", { name: "3 ambiguous" }));
   expect(opened(posted)).toEqual([{ type: OPEN_ISSUES_MESSAGE }]);

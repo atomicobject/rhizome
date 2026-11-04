@@ -18,6 +18,8 @@ export type SigmaNodeAttrs = {
   pageRank?: number;
   score?: number;
   problemCount?: number;
+  /** One of the most-connected nodes, labeled at every zoom. */
+  landmark?: boolean;
   baseSize: number;
   /** The node's color as a CSS value (often a token); baseColor is its resolved form. */
   colorValue?: string;
@@ -362,7 +364,7 @@ export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
     color = colorWithAlpha(deemphColor, Math.min(alpha, deemphAlpha));
     label = "";
   } else {
-    const showLabel = isFocus || isHoverNode || lod < LOD.showLabels;
+    const showLabel = isFocus || isHoverNode || Boolean(attrs.landmark) || lod < LOD.showLabels;
 
     if (!showLabel) {
       label = "";
