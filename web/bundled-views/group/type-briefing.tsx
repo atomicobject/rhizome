@@ -17,13 +17,7 @@ import { useMemo } from "react";
 
 import { boundary, inMotion, needsAttention, reverseGaps } from "./activity.ts";
 import { REVERSE_SAMPLE } from "./api.ts";
-import {
-  MotionHead,
-  MotionRow,
-  OutsideNotes,
-  RecentChanges,
-  oneStatus,
-} from "./briefing-activity.tsx";
+import { MotionList, OutsideNotes, RecentChanges } from "./briefing-activity.tsx";
 import { NeedsAttention, type MemberAction } from "./briefing-attention.tsx";
 import { Implementors } from "./briefing-contents.tsx";
 import { Block, MoreToggle, lower, plural } from "./briefing-parts.tsx";
@@ -41,42 +35,21 @@ import { useCollectionModel } from "./load.ts";
 import { fieldLabel, type GroupModel, type Member } from "./model.ts";
 import { useRememberedOpen } from "./remembered.ts";
 
-/** In-motion records listed before "+N more". */
-export const MOTION_RECORDS = 8;
-
-function InMotion({ model, member }: { model: GroupModel; member: Member }) {
+function InMotion({ model }: { model: GroupModel }) {
   const motion = useMemo(() => inMotion(model), [model]);
   const entries = motion.groups[0]?.entries ?? [];
-  const expanded = useRememberedOpen("briefing.expanded");
-  const open = expanded.isOpen("in-motion", false);
-  const setOpen = (next: boolean) => expanded.setOpen("in-motion", next);
-  const shown = open ? entries : entries.slice(0, MOTION_RECORDS);
 
   return (
     <Block
       title="In motion"
       count={entries.length}
-      info="Records whose lifecycle value is in the active stage, newest change first."
+      info={{
+        text: "Records whose lifecycle value is in the active stage, newest change first.",
+        display: "title",
+      }}
     >
       {entries.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
-      {entries.length > 0 && <MotionHead />}
-      <ul className="gv-list">
-        {shown.map((entry) => (
-          <MotionRow
-            key={entry.record.key}
-            member={member}
-            entry={entry}
-            mark={!oneStatus(member, entries)}
-          />
-        ))}
-      </ul>
-      {entries.length > MOTION_RECORDS && (
-        <MoreToggle
-          hidden={entries.length - MOTION_RECORDS}
-          open={open}
-          onToggle={() => setOpen(!open)}
-        />
-      )}
+      <MotionList model={model} entries={entries} />
     </Block>
   );
 }
@@ -212,7 +185,10 @@ function SpreadBlock({ model, member }: { model: GroupModel; member: Member }) {
   return (
     <Block
       title="Shape"
-      info={`How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`}
+      info={{
+        text: `How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`,
+        display: "title",
+      }}
     >
       {member.kind === "interface" && (
         <div className="gv-spread">
@@ -302,7 +278,10 @@ function Connections({ model, member }: { model: GroupModel; member: Member }) {
   return (
     <Block
       title="Connections"
-      info="Each people, relation, and reverse field: how many records fill it, and its most common targets."
+      info={{
+        text: "Each people, relation, and reverse field: how many records fill it, and its most common targets.",
+        display: "title",
+      }}
     >
       {connections.length === 0 && <p className="gv-quiet">No relation or reverse fields.</p>}
       <ul className="gv-list">
@@ -378,7 +357,7 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
           />
           {/* A lifecycle without an active stage (a contract) has nothing in motion by design. */}
           {member.lifecycle?.values.some((value) => value.stage === "active") && (
-            <InMotion model={model} member={member} />
+            <InMotion model={model} />
           )}
           <RecentChanges
             model={model}

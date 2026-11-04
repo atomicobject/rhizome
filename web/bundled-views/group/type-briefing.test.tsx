@@ -24,7 +24,7 @@ const itemTexts = (block: HTMLElement) =>
 
 /** The record titles a block lists, in order. */
 const recordTitles = (block: HTMLElement) =>
-  [...block.querySelectorAll(".gv-record")].map((entry) => entry.textContent);
+  [...block.querySelectorAll(".gv-change-title")].map((entry) => entry.textContent);
 
 const signalTexts = (block: HTMLElement) =>
   [...block.querySelectorAll(".gv-sig-text")].map((entry) => entry.textContent);
@@ -39,11 +39,17 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
     "Degraded health: 1 story",
   ]);
 
-  // Newest first, each with its first key text field.
+  // Newest first, using the same two-line template as Recent changes.
   const motion = await region("In motion");
 
   expect(recordTitles(motion)).toEqual(["Checkout redesign", "Saved carts"]);
-  expect(motion.querySelector(".gv-mo-note")?.textContent).toBe("Next stepReview the payment step");
+  expect(motion.querySelector(".gv-change-meta")).toHaveTextContent("Story");
+  expect(motion.querySelector(".gv-mark")).toBeNull();
+  expect(motion.querySelector(".rz-info")).toBeNull();
+  expect(within(motion).getByRole("heading")).toHaveAttribute(
+    "title",
+    expect.stringContaining("active stage"),
+  );
 
   expect(within(await region("Recent changes")).getByText("Checkout redesign")).toBeVisible();
 

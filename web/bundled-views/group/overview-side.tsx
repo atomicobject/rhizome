@@ -43,7 +43,10 @@ export function FolderBlock() {
     <Block
       title="Untyped notes by folder"
       count={facts && !facts.rebuilding ? `${fmt(facts.untypedNotes)} notes` : undefined}
-      info="Top-level folders by untyped notes. Activate one to search it."
+      info={{
+        text: "Top-level folders by untyped notes. Activate one to search it.",
+        display: "title",
+      }}
       className="gv-slot-side"
     >
       <BlockBody status={status} what="folders">

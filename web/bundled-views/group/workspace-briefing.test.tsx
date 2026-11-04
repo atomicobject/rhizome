@@ -158,14 +158,12 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   );
 
   const motion = region("In motion");
-  expect([...motion.querySelectorAll("h3")].map((heading) => heading.textContent)).toEqual([
-    `Stories · Doing ${MOTION_PER_TYPE + 1}`,
-    "Releases · Shipping 1",
-  ]);
-  // One shared status sits in the heading, so its rows carry no marks.
-  expect(motion.querySelector(".gv-mark")).toBeNull();
+  expect(motion.querySelector("h3")).toBeNull();
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
+  // Doing and Shipping mix in this list, so each row carries its status.
+  expect(motion.querySelector(".gv-mark")).not.toBeNull();
   expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
-  fireEvent.click(within(motion).getByRole("button", { name: "Show 1 more" }));
+  fireEvent.click(within(motion).getByRole("button", { name: "Show 2 more" }));
   expect(await within(motion).findByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeVisible();
 
   const recent = region("Recent changes");
@@ -197,7 +195,9 @@ it("fails one block without the others", async () => {
 
   const alert = await within(region("Recent changes")).findByRole("alert");
   expect(alert).toHaveTextContent("Could not load recent changes");
-  await waitFor(() => expect(region("In motion").querySelectorAll("h3")).toHaveLength(2));
+  await waitFor(() =>
+    expect(region("In motion").querySelectorAll(".gv-change")).toHaveLength(MOTION_PER_TYPE),
+  );
   expect(within(region("Needs attention")).queryByRole("alert")).toBeNull();
 
   fail = false;
@@ -295,7 +295,9 @@ it("retries the type documentation In motion failed to read", async () => {
   fail = false;
   fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
 
-  await waitFor(() => expect(region("In motion").querySelectorAll("h3")).toHaveLength(2));
+  await waitFor(() =>
+    expect(region("In motion").querySelectorAll(".gv-change")).toHaveLength(MOTION_PER_TYPE),
+  );
 });
 
 it("says In motion waits while the index rebuilds, reading no records", async () => {

@@ -182,9 +182,9 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(signal("Lead empty")).toHaveCount(0);
 
   const motion = frame.getByRole("region", { name: "In motion" });
-  await expect(
-    motion.getByRole("heading", { name: "Work items · Doing, Blocked 2" }),
-  ).toBeVisible();
+  await expect(motion.getByRole("heading", { level: 3 })).toHaveCount(0);
+  await expect(motion.locator(".gv-change-meta")).toHaveCount(2);
+  await expect(motion.locator(".gv-mark")).toHaveCount(2);
   await expect(motion.getByRole("listitem")).toHaveCount(2);
   // The fixture's records share one change time, so their order is not fixed.
   await expect(motion.getByRole("listitem").filter({ hasText: "Faster indexing" })).toHaveCount(1);

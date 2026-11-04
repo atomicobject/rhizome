@@ -437,7 +437,10 @@ export function NeedsAttention({
       {part !== "attention" && coverage.length > 0 && (
         <Block
           title="Link coverage"
-          info="Records with no link to another record in the group. Often expected for standalone notes."
+          info={{
+            text: "Records with no link to another record in the group. Often expected for standalone notes.",
+            display: "title",
+          }}
         >
           <ul className="gv-list">
             {coverage.map((signal) => (
