@@ -264,11 +264,10 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Open columns share the panel width with a 260px minimum; an empty or
-  // collapsed value takes only its header's width. A narrow window scrolls.
-  const template = columns
-    .map((item) => (item.strip ? "max-content" : "minmax(260px, 1fr)"))
-    .join(" ");
+  // Fixed tracks, shared by the header row and every lane, keep headers over
+  // their cards: open columns run 260–360px, an empty or collapsed value a
+  // compact 140px strip. A narrow window scrolls.
+  const template = columns.map((item) => (item.strip ? "140px" : "minmax(260px, 360px)")).join(" ");
 
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
