@@ -692,9 +692,9 @@ function RankedSearchWorkspace({
                     )}
                     <div className="search-workspace__result-source">
                       <SourcePath path={`${sourceLabel(match)}${line ? `:${line}` : ""}`} />
-                      {match.heading ? (
-                        <span className="search-workspace__result-heading">
-                          {` · ${match.heading}`}
+                      {match.heading && match.heading !== resultLabel(match) ? (
+                        <span className="search-workspace__result-heading" title={match.heading}>
+                          {match.heading}
                         </span>
                       ) : null}
                     </div>
