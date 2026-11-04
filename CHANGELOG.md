@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Signing out of the team server (`rzm auth logout`, or Sign out in Rhizome Desktop) keeps the server you used, so signing in again returns to it instead of the built-in default.
+
 - The team API gateway now limits session-store lookups from unrecognized tokens per client address and in total, and caches the Jev model list with one shared upstream request and a per-person rate, so unauthenticated floods and stolen sessions cannot drive unbounded store reads or provider requests.
 
 - Published Rhizome builds, including the desktop app, know the Atomic Object team server, so staff can choose **Sign in with Atomic Object** or run `rzm auth login` without passing `--server`.

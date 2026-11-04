@@ -93,18 +93,6 @@ func writeSelector(path, origin string) error {
 	return os.Rename(tmp.Name(), path)
 }
 
-// clearSelector removes the selector only if it still names origin.
-func clearSelector(path, origin string) error {
-	current, ok, err := ReadSelector(path)
-	if err != nil || !ok || current != origin {
-		return err
-	}
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
-}
-
 // ResolveOptions are the inputs to ResolveOrigin.
 type ResolveOptions struct {
 	// Server is an explicit --server value from an interactive rzm auth command.

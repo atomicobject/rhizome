@@ -144,7 +144,8 @@ func TestAuthJSONContract(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []map[string]any{{"signed_out": true, "remote_revoked": true}}, jsonLines(t, out))
 
-	out, err = runAuth(t, deps, "status", "--json", "--server", gateway.URL)
+	// Signing out keeps the server, so status and the next login need no --server.
+	out, err = runAuth(t, deps, "status", "--json")
 	require.NoError(t, err)
 	require.Equal(t, []map[string]any{{"signed_in": false, "origin": gateway.URL}}, jsonLines(t, out))
 
