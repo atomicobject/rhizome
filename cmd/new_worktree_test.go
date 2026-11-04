@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -92,6 +93,11 @@ func TestCopyRhizomeIndexThroughASymlinkedSourceNeverWritesTheSource(t *testing.
 // transactions only.
 func TestCloneIntoIsConsistentWhileTheSourceIsWrittenAndCheckpointed(t *testing.T) {
 	t.Parallel()
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		// CloneInto always fails here, so the loop would only measure lock
+		// contention against the 2 s busy timeout, which slow runners miss.
+		t.Skip("copy-on-write clones are unsupported on " + runtime.GOOS)
+	}
 
 	sourceDB := filepath.Join(t.TempDir(), ".rhizome", "db.sqlite")
 	writer := openTestNotesDB(t, sourceDB, 0)
