@@ -17,7 +17,7 @@
   }
 
   .rz-label {
-    font: var(--label-font);
+    font: 500 13px / 1.4 var(--font-sans);
     color: var(--label-color);
   }
 

@@ -3,6 +3,7 @@
 // Rhizome. Styling lives in components.css (rz-* classes), on theme tokens.
 import { useId, type ReactNode } from "react";
 
+import { isString } from "../src/api/parse";
 import { cn } from "./lib/utils";
 
 /** A block's data state: loading, failed with a retry, or ready. */
@@ -56,9 +57,10 @@ export function Section({
   /**
    * What the block shows, for a reader new to it: an info mark beside the
    * title that shows it on hover and names it to assistive technology,
-   * instead of a caption line every visit.
+   * instead of a caption line every visit. Use display: "title" for descriptive
+   * help that belongs on the heading without a separate icon.
    */
-  info?: string;
+  info?: string | { text: string; display: "title" };
   controls?: ReactNode;
   status?: SectionStatus;
   /** Names the data in state lines: "Loading {what}…". */
@@ -70,6 +72,8 @@ export function Section({
 }) {
   const id = useId();
   const infoId = useId();
+  const help = isString(info) ? info : info?.text;
+  const showInfo = isString(info);
 
   return (
     <section
@@ -77,11 +81,11 @@ export function Section({
       aria-labelledby={id}
       aria-describedby={info ? infoId : undefined}
     >
-      <h2 className="rz-section-head">
+      <h2 className="rz-section-head" title={!showInfo ? help : undefined}>
         <span id={id}>{title}</span>
         {count !== undefined && count !== null && <Count>{count}</Count>}
-        {info && (
-          <span className="rz-info" title={info}>
+        {showInfo && (
+          <span className="rz-info" title={help}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
               <path
@@ -92,8 +96,13 @@ export function Section({
               />
             </svg>
             <span id={infoId} className="sr-only">
-              {info}
+              {help}
             </span>
+          </span>
+        )}
+        {!showInfo && help && (
+          <span id={infoId} className="sr-only">
+            {help}
           </span>
         )}
         {controls && <span className="rz-section-controls">{controls}</span>}
