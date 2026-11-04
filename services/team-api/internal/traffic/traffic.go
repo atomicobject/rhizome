@@ -5,6 +5,7 @@
 package traffic
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -12,12 +13,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
@@ -97,6 +101,8 @@ type Traffic struct {
 	ledger           ledger.Ledger
 	slots            *slots
 	ingress          *gate
+	modelList        modelList
+	modelLimit       *core.Limiter
 	transport        http.RoundTripper
 	rec              *diagnostics.Recorder
 	now              func() time.Time
@@ -146,14 +152,15 @@ func New(cfg Config, l ledger.Ledger, runtime core.RuntimeSource, rec *diagnosti
 			enabled: func(rt core.Runtime) bool { return rt.TypeSafeEnabled },
 			tokens:  typesafeTokens,
 		},
-		modelsURL: typesafeBase + "/v1/models",
-		runtime:   runtime,
-		ledger:    l,
-		slots:     newSlots(or(cfg.PersonSlots, 4), or(cfg.GlobalSlots, 8), or(cfg.SlotWait, 5*time.Second)),
-		ingress:   newGate(or(cfg.BodyReaders, 8), or(cfg.SlotWait, 5*time.Second)),
-		transport: newTransport(),
-		rec:       rec,
-		now:       now,
+		modelsURL:  typesafeBase + "/v1/models",
+		runtime:    runtime,
+		ledger:     l,
+		slots:      newSlots(or(cfg.PersonSlots, 4), or(cfg.GlobalSlots, 8), or(cfg.SlotWait, 5*time.Second)),
+		ingress:    newGate(or(cfg.BodyReaders, 8), or(cfg.SlotWait, 5*time.Second)),
+		transport:  newTransport(),
+		modelLimit: core.NewLimiter(modelListBurst, modelListPerSecond, now),
+		rec:        rec,
+		now:        now,
 	}
 	return t, nil
 }
@@ -371,8 +378,9 @@ func (t *Traffic) settled(ctx context.Context, ev *event, err error) {
 	}
 }
 
-// models forwards the free TypeSafe model list. It needs a principal but no
-// idempotency key, slot, or budget.
+// models serves the free TypeSafe model list. It needs a principal but no
+// idempotency key, slot, or budget, so it is bounded separately: a per-person
+// rate, a short cache, and one shared upstream request for concurrent misses.
 func (t *Traffic) models(w http.ResponseWriter, r *http.Request) {
 	ev := begin(w, r, wire.RouteTypeSafeModel)
 	defer t.record(r.Context(), ev)
@@ -385,31 +393,112 @@ func (t *Traffic) models(w http.ResponseWriter, r *http.Request) {
 		if t.typesafe.key == "" {
 			return fail(wire.CodeServiceDisabled, "TypeSafe is not configured")
 		}
+		if !t.modelLimit.Allow(pr.Sub) {
+			return &gwError{wire.CodeRateLimited, "too many model-list requests", time.Duration(t.modelLimit.RetryAfter()) * time.Second}
+		}
 		start := time.Now()
-		defer func() { ev.upstream = time.Since(start) }()
-		ctx, cancel := context.WithTimeout(r.Context(), t.typesafe.timeout)
-		defer cancel()
-		resp, _, err := t.send(ctx, http.MethodGet, t.modelsURL, t.typesafe.key, nil)
-		if err != nil {
-			return &gwError{wire.CodeUpstreamDown, "the provider could not be reached", time.Second}
-		}
-		ev.upstreamStatus = resp.StatusCode
-		res, e := relay(w, resp, t.typesafe.key)
+		res, e := t.modelList.get(r.Context(), t.now, t.fetchModels)
+		ev.upstream = time.Since(start)
 		if e != nil {
-			return &gwError{wire.CodeUpstreamDown, "the provider response could not be read", time.Second}
+			return e
 		}
-		ev.bytesOut = res.bytesOut
-		if res.status >= 200 && res.status <= 299 && !res.complete {
-			// Reset the connection, as the paid routes do, so a cut-off list
-			// cannot look whole.
-			panic(http.ErrAbortHandler)
+		ev.upstreamStatus = res.status
+		for k, v := range res.header {
+			w.Header()[k] = slices.Clone(v)
 		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(res.body)))
+		w.WriteHeader(res.status)
+		n, _ := w.Write(res.body)
+		ev.bytesOut = int64(n)
 		return nil
 	}()
 	if e != nil {
 		ev.code = e.code
 		writeError(w, e)
 	}
+}
+
+const (
+	// modelListTTL is how long a complete 2xx model list is reused.
+	modelListTTL = time.Minute
+	// maxModelListBytes bounds the buffered upstream body.
+	maxModelListBytes = 1 << 20
+	// Each person may fetch the list 10 times at once, then once per 6 s.
+	modelListBurst, modelListPerSecond = 10, 1.0 / 6
+)
+
+// modelList caches the TypeSafe model list. Concurrent misses wait for one
+// upstream request; only a complete 2xx response is cached, so an upstream
+// error is shared with the callers already waiting and then dropped.
+type modelList struct {
+	mu      sync.Mutex
+	cached  *listResult
+	at      time.Time
+	pending *listCall
+}
+
+type listResult struct {
+	status int
+	header http.Header
+	body   []byte
+}
+
+type listCall struct {
+	done chan struct{}
+	res  *listResult
+	err  *gwError
+}
+
+func (m *modelList) get(ctx context.Context, now func() time.Time, fetch func() (*listResult, *gwError)) (*listResult, *gwError) {
+	m.mu.Lock()
+	if at := now(); m.cached != nil && at.Sub(m.at) < modelListTTL && !at.Before(m.at) {
+		res := m.cached
+		m.mu.Unlock()
+		return res, nil
+	}
+	c := m.pending
+	if c == nil {
+		c = &listCall{done: make(chan struct{})}
+		m.pending = c
+		// The fetch belongs to every waiter, so no one caller's cancellation
+		// ends it; the TypeSafe timeout does.
+		go func() {
+			c.res, c.err = fetch()
+			m.mu.Lock()
+			if c.err == nil && c.res.status >= 200 && c.res.status <= 299 {
+				m.cached, m.at = c.res, now()
+			}
+			m.pending = nil
+			m.mu.Unlock()
+			close(c.done)
+		}()
+	}
+	m.mu.Unlock()
+	select {
+	case <-c.done:
+		return c.res, c.err
+	case <-ctx.Done():
+		return nil, fail(wire.CodeUpstreamDown, "the request ended before the model list arrived")
+	}
+}
+
+// fetchModels reads the whole upstream list, bounded, with the key redacted,
+// so a cut-off or oversized body is an error rather than a partial list.
+func (t *Traffic) fetchModels() (*listResult, *gwError) {
+	ctx, cancel := context.WithTimeout(context.Background(), t.typesafe.timeout)
+	defer cancel()
+	resp, _, err := t.send(ctx, http.MethodGet, t.modelsURL, t.typesafe.key, nil)
+	if err != nil {
+		return nil, &gwError{wire.CodeUpstreamDown, "the provider could not be reached", time.Second}
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxModelListBytes+1))
+	if err != nil || len(data) > maxModelListBytes {
+		return nil, &gwError{wire.CodeUpstreamDown, "the provider response could not be read", time.Second}
+	}
+	res := &listResult{status: resp.StatusCode, header: http.Header{}, body: bytes.ReplaceAll(data, []byte(t.typesafe.key), []byte("[REDACTED]"))}
+	copyHeaders(res.header, resp)
+	return res, nil
 }
 
 func voyageTokens(usage []byte) (int64, bool) {

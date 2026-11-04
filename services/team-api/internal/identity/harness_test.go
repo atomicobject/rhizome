@@ -153,6 +153,21 @@ type env struct {
 	srv   *httptest.Server
 	id    *identity.Identity
 	ua    string
+	// remote, when set, is the client address the server sees.
+	remote string
+	// sessionReads counts store Session calls.
+	sessionReads *atomic.Int64
+}
+
+// countingStore counts session reads, to show which requests reach the store.
+type countingStore struct {
+	store.Store
+	reads atomic.Int64
+}
+
+func (c *countingStore) Session(ctx context.Context, id string, now time.Time) (store.Session, error) {
+	c.reads.Add(1)
+	return c.Store.Session(ctx, id, now)
 }
 
 type options struct {
@@ -192,7 +207,8 @@ func newEnv(t *testing.T, opts options) *env {
 	if opts.dynamodb {
 		st = store.NewDynamoDB(dynamotest.Open(t))
 	}
-	id, err := identity.New(cfg, st, opts.usage, opts.rec, c.Now)
+	counted := &countingStore{Store: st}
+	id, err := identity.New(cfg, counted, opts.usage, opts.rec, c.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,9 +219,14 @@ func newEnv(t *testing.T, opts options) *env {
 		p, _ := core.PrincipalFrom(r.Context())
 		json.NewEncoder(w).Encode(p)
 	})))
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if a := r.Header.Get("X-Test-Remote"); a != "" {
+			r.RemoteAddr = a + ":1"
+		}
+		mux.ServeHTTP(w, r)
+	}))
 	t.Cleanup(srv.Close)
-	return &env{t: t, clock: c, idp: idp, db: db, store: st, srv: srv, id: id, ua: "rzm/1.0.0"}
+	return &env{t: t, clock: c, idp: idp, db: db, store: st, srv: srv, id: id, ua: "rzm/1.0.0", sessionReads: &counted.reads}
 }
 
 type result struct {
@@ -230,6 +251,9 @@ func (e *env) do(method, path, bearer string, body any) result {
 		req.Header.Set("Authorization", "Bearer "+bearer)
 	}
 	req.Header.Set("User-Agent", e.ua)
+	if e.remote != "" {
+		req.Header.Set("X-Test-Remote", e.remote)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		e.t.Fatal(err)

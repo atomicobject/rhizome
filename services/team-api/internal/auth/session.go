@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
+	"github.com/atomicobject/rhizome/services/team-api/internal/config"
 	"github.com/atomicobject/rhizome/services/team-api/internal/core"
 	"github.com/atomicobject/rhizome/services/team-api/internal/store"
 )
@@ -23,7 +25,9 @@ const AuthCacheTTL = 30 * time.Second
 const maxRotationAttempts = 64
 
 // Refresh handles POST /v1/auth/refresh.
-func (s *Service) Refresh(w http.ResponseWriter, r *http.Request) { s.limiter.wrap(s.refresh)(w, r) }
+func (s *Service) Refresh(w http.ResponseWriter, r *http.Request) {
+	wrapLimited(s.limiter, s.refresh)(w, r)
+}
 
 func (s *Service) refresh(w http.ResponseWriter, r *http.Request) {
 	start := s.now()
@@ -38,9 +42,10 @@ func (s *Service) refresh(w http.ResponseWriter, r *http.Request) {
 		s.event(ctx, "auth.refresh", string(wire.CodeBadRequest), start)
 		return
 	}
-	grant, kind, code, sessionID := s.rotate(ctx, req.RefreshToken)
+	grant, kind, code, sessionID := s.rotate(ctx, core.ClientHost(r), req.RefreshToken)
 	if code != "" {
 		s.event(ctx, "auth.refresh", string(code), start, slog.String("session_id", sessionID))
+		s.lookups.retryAfter(w, code)
 		WriteError(w, code, refreshMessages[code])
 		return
 	}
@@ -54,16 +59,20 @@ var refreshMessages = map[wire.ErrorCode]string{
 	wire.CodeRefreshReused:  "a replaced refresh token was reused, so the session was revoked; sign in again",
 	wire.CodeNotEligible:    "this account is not eligible for the team API",
 	wire.CodeInternal:       "the session store is unavailable",
+	wire.CodeRateLimited:    lookupLimitedMessage,
 }
 
 // rotate issues a new token pair for raw. kind is "rotated" when raw was the
 // current refresh token and "recovered" when it was the predecessor within
 // its grace deadline. Recovery keeps the original predecessor and deadline,
 // so repeated recoveries never extend the grace period.
-func (s *Service) rotate(ctx context.Context, raw string) (grant wire.SessionGrant, kind string, code wire.ErrorCode, id string) {
+func (s *Service) rotate(ctx context.Context, host, raw string) (grant wire.SessionGrant, kind string, code wire.ErrorCode, id string) {
 	id, ok := parseToken(raw, wire.RefreshTokenPrefix)
 	if !ok {
 		return grant, "", wire.CodeSessionRevoked, ""
+	}
+	if !s.lookups.allow(host) {
+		return grant, "", wire.CodeRateLimited, id
 	}
 	presented := hashToken(raw)
 	sc := s.cfg.Sessions
@@ -142,6 +151,8 @@ func sessionCode(err error) wire.ErrorCode {
 		return wire.CodeSessionExpired
 	case errors.Is(err, store.ErrRevoked), errors.Is(err, store.ErrNotFound):
 		return wire.CodeSessionRevoked
+	case errors.Is(err, errLookupLimited):
+		return wire.CodeRateLimited
 	default:
 		return wire.CodeInternal
 	}
@@ -157,6 +168,12 @@ func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		s.event(ctx, "auth.logout", string(wire.CodeSessionRevoked), start)
 		WriteError(w, wire.CodeSessionRevoked, "a session access token is required")
+		return
+	}
+	if !s.lookups.allow(core.ClientHost(r)) {
+		s.event(ctx, "auth.logout", string(wire.CodeRateLimited), start, slog.String("session_id", id))
+		s.lookups.retryAfter(w, wire.CodeRateLimited)
+		WriteError(w, wire.CodeRateLimited, lookupLimitedMessage)
 		return
 	}
 	x, err := s.store.Session(ctx, id, start)
@@ -225,6 +242,7 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 			info.SessionID = p.SessionID
 		}
 		if code != "" {
+			s.lookups.retryAfter(w, code)
 			WriteError(w, code, authMessages[code])
 			return
 		}
@@ -245,6 +263,7 @@ var authMessages = map[wire.ErrorCode]string{
 	wire.CodeSessionExpired:        "the session has expired; sign in again",
 	wire.CodeNotEligible:           "this account is not eligible for the team API",
 	wire.CodeInternal:              "the session store is unavailable",
+	wire.CodeRateLimited:           lookupLimitedMessage,
 }
 
 func (s *Service) authenticate(r *http.Request) (core.Principal, wire.ErrorCode) {
@@ -257,12 +276,13 @@ func (s *Service) authenticate(r *http.Request) (core.Principal, wire.ErrorCode)
 		return core.Principal{}, wire.CodeSessionRevoked
 	}
 	ctx := r.Context()
+	host := core.ClientHost(r)
 	now := s.now()
 	presented := hashToken(raw)
-	e, err := s.cachedSession(ctx, id, now, false)
+	e, err := s.cachedSession(ctx, host, id, now, false)
 	if err == nil && !hashEqual(presented, e.session.AccessHash) {
 		// The cache may predate a rotation in this process or another one.
-		e, err = s.cachedSession(ctx, id, now, true)
+		e, err = s.cachedSession(ctx, host, id, now, true)
 	}
 	if err != nil {
 		return core.Principal{}, sessionCode(err)
@@ -310,13 +330,16 @@ func (c *sessionCache) forget(id string) {
 	c.mu.Unlock()
 }
 
-func (s *Service) cachedSession(ctx context.Context, id string, now time.Time, fresh bool) (cachedSession, error) {
+func (s *Service) cachedSession(ctx context.Context, host, id string, now time.Time, fresh bool) (cachedSession, error) {
 	c := &s.cache
 	c.mu.Lock()
 	e, ok := c.entries[id]
 	c.mu.Unlock()
 	if ok && !fresh && now.Sub(e.at) < AuthCacheTTL && !now.Before(e.at) {
 		return e, nil
+	}
+	if !s.lookups.allow(host) {
+		return cachedSession{}, errLookupLimited
 	}
 	x, err := s.store.Session(ctx, id, now)
 	if err != nil {
@@ -340,4 +363,39 @@ func (s *Service) cachedSession(ctx context.Context, id string, now time.Time, f
 	c.entries[id] = e
 	c.mu.Unlock()
 	return e, nil
+}
+
+// errLookupLimited reports that a session lookup was refused before it
+// reached the store.
+var errLookupLimited = errors.New("session lookup rate limited")
+
+const lookupLimitedMessage = "too many session lookups from this address or in total; retry shortly"
+
+// sessionLookups bounds the session-store reads a presented token can cause
+// before it has proven anything: every authentication cache miss, logout, and
+// refresh takes a token from the caller's address and from the process-wide
+// bucket. Cache hits take none, so a signed-in session's steady traffic is
+// never limited. An invented session ID misses the cache every time, which is
+// why failures are limited here rather than cached.
+type sessionLookups struct {
+	perIP, global *core.Limiter
+	retry         string
+}
+
+func newSessionLookups(c config.SessionLookups, now func() time.Time) sessionLookups {
+	perIP := core.NewLimiter(c.PerIPBurst, c.PerIPPerSecond, now)
+	global := core.NewLimiter(c.GlobalBurst, c.GlobalPerSecond, now)
+	return sessionLookups{perIP: perIP, global: global, retry: strconv.Itoa(max(perIP.RetryAfter(), global.RetryAfter()))}
+}
+
+// allow takes the address token first, so one address that is over its own
+// limit cannot drain the process-wide bucket.
+func (l sessionLookups) allow(host string) bool {
+	return l.perIP.Allow(host) && l.global.Allow("")
+}
+
+func (l sessionLookups) retryAfter(w http.ResponseWriter, code wire.ErrorCode) {
+	if code == wire.CodeRateLimited {
+		w.Header().Set("Retry-After", l.retry)
+	}
 }

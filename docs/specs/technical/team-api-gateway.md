@@ -163,6 +163,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST exchange the authorization code on the gateway, verify the ID token's signature against Google's keys, and check `iss`, `aud`, `exp`, `nonce`, `email_verified`, and `hd` against a server-side accepted-domain list. The `hd` request parameter is a hint only.
 - MUST NOT retain Google refresh tokens, or overwrite a disabled person's status during sign-in.
 - MUST check person and session status on every refresh and paid request, with authorization caches of at most 30 seconds.
+- MUST bound the session-store reads that an unproven token can cause. Every authentication cache miss (protected routes, including admin and provider routes), logout, and refresh takes one token from a bucket for the client address (the trusted ALB-derived address) and then one from a process-wide bucket, and gets `rate_limited` with `Retry-After` before any store read when either is empty. Cache hits take no token, so a signed-in session's steady traffic is not limited. The defaults are 300 burst and 20 per second per address, and 1,000 burst and 100 per second in total, configurable in `session_lookup_limits`. Failed lookups are not cached, because invented session IDs would never repeat.
 
 ### Sessions
 
@@ -205,6 +206,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 - MUST reject, before admission: unknown routes and methods; disallowed models (Voyage `voyage-4-lite`; TypeSafe `jev-latest` or numeric release IDs `jev-MAJOR.MINOR.PATCH`, at most 64 characters with no leading zeroes); more than 1,000 Voyage inputs; Voyage `output_dimension` above 1,024; bodies over 32 MiB (Voyage) or 2 MiB (TypeSafe); unknown cost-affecting options; and malformed or multiple JSON documents. Jev releases such as `jev-1.13.0` do not require an exact allowlist entry or inclusion in the provider's model list. Upstream decides whether a syntactically valid release exists.
 - MUST make at most one upstream attempt per admitted idempotency key, with the receipt and reservation persisted before dispatch. A crash around dispatch is recorded as an unknown outcome, never as permission to resend.
 - MUST propagate client cancellation upstream, without claiming that cancellation refunds inference.
+- MUST bound the free TypeSafe model-list route outside paid admission: at most 10 requests per person at once, refilling one every 6 seconds; a 60-second cache of the last complete 2xx response; and one shared upstream request for concurrent misses. Upstream errors and incomplete bodies are never cached.
 
 ### Admission and budgets
 

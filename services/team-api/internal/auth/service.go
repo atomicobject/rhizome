@@ -37,7 +37,8 @@ type Service struct {
 	rec     *diagnostics.Recorder
 	now     func() time.Time
 	client  *http.Client
-	limiter *limiter
+	limiter *core.Limiter
+	lookups sessionLookups
 	cache   sessionCache
 
 	mu       sync.Mutex
@@ -58,7 +59,8 @@ func New(cfg config.Config, st store.Store, rt *Runtime, usage core.UsageReader,
 	}
 	return &Service{
 		cfg: cfg, store: st, runtime: rt, usage: usage, rec: rec, now: now, client: client,
-		limiter: newLimiter(60, 1, now),
+		limiter: core.NewLimiter(60, 1, now),
+		lookups: newSessionLookups(cfg.SessionLookups, now),
 		cache:   sessionCache{entries: map[string]cachedSession{}},
 	}
 }
@@ -115,7 +117,9 @@ type idClaims struct {
 }
 
 // SignIn handles POST /v1/auth/google.
-func (s *Service) SignIn(w http.ResponseWriter, r *http.Request) { s.limiter.wrap(s.signIn)(w, r) }
+func (s *Service) SignIn(w http.ResponseWriter, r *http.Request) {
+	wrapLimited(s.limiter, s.signIn)(w, r)
+}
 
 func (s *Service) signIn(w http.ResponseWriter, r *http.Request) {
 	start := s.now()
