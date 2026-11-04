@@ -171,9 +171,11 @@ func TestRunDrainsBrowserDiagnosticBeforeReleasingVault(t *testing.T) {
 		}
 	})
 	t.Cleanup(unblock)
+	// Opening the browser waits for a full runtime start, which can take
+	// several seconds on a loaded Windows runner. The limit only bounds a hang.
 	select {
 	case <-opened:
-	case <-time.After(5 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Fatal("browser did not open")
 	}
 	handle.cancel()
