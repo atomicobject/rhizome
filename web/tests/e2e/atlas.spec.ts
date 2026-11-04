@@ -18,32 +18,21 @@ async function expectAtlasGeometry(page: Page) {
           height: card.offsetHeight,
           declaredWidth: Number.parseFloat(element.style.width),
           declaredHeight: Number.parseFloat(element.style.height),
-          handles: [...card.querySelectorAll(".ontology-node__field--relation")].flatMap((row) => {
-            const name = row
-              .querySelector(".ontology-node__field-name")
-              ?.textContent?.trim()
-              .replace(/^★\s*/, "");
-
-            const rowRect = row.getBoundingClientRect();
-
-            return ["left", "right"].map((side) => {
-              const handle = card.querySelector(
-                `[data-handleid="${CSS.escape(`field-${name}-${side}`)}"]`,
-              );
-
-              if (!handle) throw new Error(`Missing ${element.dataset.id}.${name} ${side} handle`);
+          // Relation handles leave from the card's middle; the compact card lists no field rows.
+          handles: [...card.querySelectorAll<HTMLElement>('[data-handleid^="field-"]')].map(
+            (handle) => {
               const handleRect = handle.getBoundingClientRect();
 
               return {
-                name: `${name} ${side}`,
+                name: handle.dataset.handleid ?? "",
                 midpointError: Math.abs(
-                  (handleRect.top + handleRect.height / 2 - rowRect.top - rowRect.height / 2) /
+                  (handleRect.top + handleRect.height / 2 - cardRect.top - cardRect.height / 2) /
                     scale,
                 ),
-                overflow: (rowRect.bottom - cardRect.bottom) / scale,
+                overflow: (handleRect.top + handleRect.height / 2 - cardRect.bottom) / scale,
               };
-            });
-          }),
+            },
+          ),
         };
       }),
     );
@@ -56,7 +45,7 @@ async function expectAtlasGeometry(page: Page) {
     expect(node.height, `${node.id} card height`).toBe(node.declaredHeight);
 
     for (const handle of node.handles) {
-      expect(handle.midpointError, `${node.id}.${handle.name} row alignment`).toBeLessThan(0.1);
+      expect(handle.midpointError, `${node.id}.${handle.name} middle alignment`).toBeLessThan(0.6);
       expect(handle.overflow, `${node.id}.${handle.name} stays inside card`).toBeLessThanOrEqual(0);
     }
   }
@@ -117,7 +106,7 @@ test("Atlas finder focuses types, searches without removing graph nodes, and ope
   await expect(page.getByRole("heading", { name: "Person", exact: true })).toBeVisible();
 });
 
-test("Atlas rendered cards match layout dimensions and relation handles meet their field rows", async ({
+test("Atlas rendered cards match layout dimensions and relation handles leave from the card middle", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

@@ -51,11 +51,12 @@ describe("OntologyTypeNode", () => {
     const link = screen.getByRole("link", { name: /Spec/ });
     expect(link).toHaveAttribute("href", "/ontology/type/Spec");
     expect(link).toHaveTextContent("Spec");
-    expect(link).toHaveTextContent("3");
-    expect(link).toHaveTextContent("A governing artifact.");
+    expect(link).toHaveTextContent("3 records");
+    // The compact card keeps its description in the tooltip.
+    expect(link.getAttribute("title")).toContain("A governing artifact.");
   });
 
-  it("renders compact survey details from the atlas cards", () => {
+  it("shows issues on the card and the schema survey in its tooltip", () => {
     renderNode({
       ...baseData,
       issueCount: 2,
@@ -67,10 +68,9 @@ describe("OntologyTypeNode", () => {
     });
 
     const link = screen.getByRole("link", { name: /Spec/ });
-    expect(link).toHaveTextContent("5 fields");
-    expect(link).toHaveTextContent("2 rel");
-    expect(link).toHaveTextContent("1 sec");
     expect(link).toHaveTextContent("2 issues");
-    expect(link).toHaveTextContent("SpecLike");
+    expect(link.getAttribute("title")).toContain(
+      "5 fields · 2 relations · 1 section · implements SpecLike",
+    );
   });
 });
