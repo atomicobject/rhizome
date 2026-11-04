@@ -178,6 +178,23 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.palette}"
     width: "640px"
+  segmented-track:
+    backgroundColor: "{colors.surface-tint}"
+    textColor: "{colors.ink-muted}"
+    typography: "{typography.secondary}"
+    rounded: "{rounded.md}"
+    padding: "2px"
+    height: "28px"
+  segmented-selected:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.secondary}"
+    rounded: "{rounded.base}"
+    padding: "0 9px"
+    height: "22px"
+  link-quiet:
+    textColor: "{colors.connection-teal-ink}"
+    typography: "{typography.body}"
 ---
 
 # Design System: Rhizome
@@ -190,7 +207,7 @@ Rhizome is a precise professional workbench for structured markdown, code contex
 
 The shipped workbench follows a Slack-like model. One soft, tinted chrome colour carries the top bar and the sidebar; the work sits on a white content panel inset from the window with a rounded corner; headers stay quiet and keep rarely used controls one click away; and fuzzy finders (⌘P, and in Rhizome Desktop ⌘O and ⇧⌘O) replace long navigation lists. Five chrome themes, each with light and dark appearance, change the chrome only. Content tokens are shared by every theme and vary only by appearance.
 
-The identity stays Atomic Object's: warm near-black ink, AO red for focus and risk, teal for connection, Merriweather for document titles, and JetBrains Mono for evidence. Inter carries the working UI. The compact red diamond in the top bar remains a temporary app-shell marker; the runner-r mark in `docs/brand/` is the reviewed identity.
+The identity stays Atomic Object's: warm near-black ink, AO red for focus and risk, teal for connection, Merriweather for document titles, and JetBrains Mono for identifiers, paths, and code. Inter carries the working UI. The compact red diamond in the top bar remains a temporary app-shell marker; the runner-r mark in `docs/brand/` is the reviewed identity.
 
 The supported product surface is desktop web and Rhizome Desktop. Optimize for 1100 to 1920px working widths; narrower windows reflow where layouts naturally allow it.
 
@@ -198,7 +215,7 @@ The supported product surface is desktop web and Rhizome Desktop. Optimize for 1
 
 - Dense but calm: a 14px UI base, 30–36px rows, and progressive disclosure instead of stacked control bands.
 - One tinted chrome layer, white work surfaces, one tinted neutral, and hairlines.
-- Typography that separates roles: Merriweather for document titles, Inter for UI and prose, JetBrains Mono for evidence.
+- Typography that separates roles: Merriweather for document titles, Inter for UI, prose, and every number, JetBrains Mono for identifiers, paths, and code.
 - Red is rare; selection is a neutral chrome tint, never red.
 - Status always pairs colour with shape, text, or position.
 
@@ -269,7 +286,7 @@ The three families are self-hosted (`web/public/fonts`, `font-display: swap`): I
 **Body Font:** Inter, -apple-system, system-ui, Segoe UI, sans-serif
 **Label/Mono Font:** JetBrains Mono, ui-monospace, Menlo, Consolas, monospace
 
-**Character:** Merriweather gives a note its editorial title; Inter carries the working UI and note prose with neutral, legible density; JetBrains Mono makes paths, ids, dates, GraphQL, and schema fields read as evidence.
+**Character:** Merriweather gives a note its editorial title; Inter carries the working UI and note prose with neutral, legible density; JetBrains Mono marks identifiers, paths, schema fields, GraphQL, and code, so evidence reads as evidence. Counts, dates, and ages are Inter.
 
 ### Hierarchy
 
@@ -283,25 +300,29 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 - **Body** (Inter 400, 14px, 1.45): the UI base: table cells, sidebar rows, tabs, controls, and popovers. Title cells use 500.
 - **Secondary** (Inter 500, 13px): column heads, document tabs, property and record labels, tool buttons, and the right pane's tabs.
 - **Label** (Inter 600, 12px, 1.3, `--label-font` with `--label-color`): the one style for section heads, the Properties heading, finder group headings, and fact labels. Sentence case, no tracking, no uppercase eyebrows.
-- **Mono** (JetBrains Mono 500, 12px): ids, paths, code, kbd hints, counts beside schema links, and the footer status line. Absolute date cells use mono at the body size. `code`, `kbd`, `samp`, and `pre` default to JetBrains Mono globally, so mono never falls back to the browser's Courier.
+- **Mono** (JetBrains Mono 500, 12px): identifiers, paths, code, and kbd hints, nothing else. Counts, dates, ages, and stats strips are Inter with tabular figures (`.num`), never mono. `code`, `kbd`, `samp`, and `pre` default to JetBrains Mono globally, so mono never falls back to the browser's Courier.
 
 ### Named Rules
 
 **The Product Type Rule.** Inter owns the working UI and note prose. Merriweather appears only as a note's document title; view and workspace titles are Inter 18/700. Neither font appears in the other's role.
 
-**The Scoped Figures Rule.** Tabular figures (`font-variant-numeric: tabular-nums`) apply only to number-bearing elements: counts, dates, ids, and numeric cells. Never set them globally; Inter widens the hyphen under `tnum`, which breaks titles and prose.
+**The Scoped Figures Rule.** Tabular figures (`font-variant-numeric: tabular-nums`) apply only to number-bearing elements: counts, dates, ages, ids, and numeric cells. `.num` (base.css) sets Inter with tabular figures for any number or date outside a styled cell. Never set them globally; Inter widens the hyphen under `tnum`, which breaks titles and prose.
 
 **The Fixed Scale Rule.** Product type uses the fixed token sizes, not viewport-fluid scaling, so dense tools stay predictable at every window width.
 
 **The Human Label Rule.** Show schema labels, never identifiers: type `label`/`pluralLabel`, humanized field names ("Next step", not `nextStep`), enum labels, and note titles with their Markdown stripped. Raw identifiers stay available in `title` attributes and in mono where they are evidence. The helpers live in `web/src/lib/labels.ts` and `useTypeLabel`.
 
-**The Mono Evidence Rule.** Use JetBrains Mono when the text is evidence: paths, ids, schema fields, commands, absolute dates, query fragments, and code references.
+**The Mono Evidence Rule.** Use JetBrains Mono only for identifiers, paths, and code: ids, file paths, schema fields, commands, query fragments, and code references.
 
-**The Relative Time Rule.** Relative times and intervals ("3d", "in 6d", "27h ago", "every 7d") are sans with tabular figures on every surface, never mono.
+**The Numbers and Dates Rule.** Counts, absolute dates, relative times, intervals ("3d", "in 6d", "27h ago", "every 7d"), and stats strips are Inter with tabular figures (`.num`) on every surface, never mono.
+
+**The Plain Reader Rule.** Readers never see developer language: schema setup hints, internal field names, and system diagnostics (versions, accounts, probe output) sit behind an info disclosure, with at most one plain sentence visible. An empty cell or value is a muted "—".
+
+**The Distinguishing Truncation Rule.** Truncation keeps the part that tells items apart: paths and ids truncate in the middle, record titles take two lines before they cut, and prose cuts at a word boundary with "…".
 
 ## 4. Layout
 
-**Shell.** A 44px top bar on `--chrome-top` holds the brand (never a vault name, so nothing shifts between sections; the sidebar, or GraphQL's own header, names the vault), the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, Tasks, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section except GraphQL is the same two-column workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
+**Shell.** A 44px top bar on `--chrome-top` holds the brand (never a vault name, so nothing shifts between sections; the sidebar, or GraphQL's view header, names the vault), the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, Tasks, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section is the same workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, and on GraphQL, which has none, the panel insets 6px on the left too.
 
 **Resizable panes.** The sidebar ranges from 200 to 400px (264 default) and never takes more than 45% of the window. The right pane ranges from 280 to 560px (340 default). Each has an 8px drag handle on its inner edge that shows a 2px line on hover and a red line on keyboard focus; it is a `role=separator` that moves in 16px steps with the arrow keys and jumps to its bounds with Home and End. Widths and collapsed state persist per browser; the sidebar's are shared by every section and change only when the user changes them, never on search or a section switch.
 
@@ -313,7 +334,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **Table column policy.** Every column except the title has a fixed width and never takes a share of extra space: ids 176px, enums and short text 136px, relations 180px, dates 104px, numbers and flags 72px, plus a 30px select cell. The title takes all remaining width and never drops below 240px in one-line rows or 320px in two-line rows. When the columns cannot fit at those minimums, relation columns leave first, then ids, then dates; they show in the Record pane, and the footer names them. Rows are 36px in one-line density and 56px in two-line density with the summary.
 
-**Reading and data surfaces.** A note is the one capped reading surface: a 680px column with prose at a 540px measure. Briefing and Overview fill the content panel and align with the presentation tabs above them, so their columns hug the header rather than float as a centred block. The note's control row aligns to the same column. Data surfaces fill the width: tables stretch, and board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones. Collapsed board values become 34px strips. Cards fill an auto-fill grid with a 260px minimum.
+**Reading and data surfaces.** A note is a capped reading surface: a 680px column with prose at a 540px measure, and the note's control row aligns to the same column. The built-in views are capped and centred on wide screens: Briefing in one centred column of about 1320px and Overview in one of about 1520px, shared by the header, tabs, status line, and body so all four start on the same edge. Data surfaces fill the width with bounded columns: tables stretch, and board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones. Collapsed board values become 34px strips. Cards fill an auto-fill grid with a 260px minimum.
 
 **Note rhythm.** Sections separate by space, not rules: 28px above an H2 and 24px above an H3, 8px below any heading, and paragraphs 0.75em apart (about 11px), well under the section gap. The note's lead line of links reads as 13px muted metadata above the body.
 
@@ -325,7 +346,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **The Title Never Yields Rule.** In a table, supporting columns leave before the title shrinks below its minimum.
 
-**The Reading Measure Rule.** Note prose caps and centres; collection presentations, Briefing and Overview included, fill the panel under their tabs. Never stretch note prose across a 1920px window.
+**The Reading Measure Rule.** Note prose caps and centres, and Briefing and Overview cap and centre their whole column (about 1320 and 1520px). Tables, boards, and cards fill the panel. Never stretch prose or a briefing across a 1920px window.
 
 ## 5. Elevation & Depth
 
@@ -359,11 +380,11 @@ The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and
 
 ### Sidebar
 
-The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list; Tasks holds All tasks and one row per registered task with its next due time. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
+The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list; Tasks holds All tasks and one row per registered task with its next due time, or, when its last run failed, the risk mark and the word "Failed" in `--chrome-risk`. A type group that also holds saved views names each set with a 12/600 muted "Views" and "Types" subheading (`.notes-left-rail__subhead`), since a view is often named after the type it shows. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
 
 ### View Header
 
-Every screen in the content panel opens with the same header (`.view-header` and `.view-header__title-row`, from `ViewHeader` or its classes): a 56px row on the content gutter with the Inter 18/700 title (`h2`), the count (`.view-header__count`, 14px muted tabular), a one-line 13px muted description that truncates first (`.view-header__about`), and actions at the right (`.view-header__tools` for a collection's portalled tools, `.view-header__actions` for a screen's own buttons). A header without tabs closes with a `border` hairline. Never put an eyebrow, a Merriweather title, or a second line of facts above or below it; facts join the description with " · ". A nonzero problem count adds `.is-risk` (red ink, 600); a zero count stays muted.
+Every screen in the content panel opens with the same header (`.view-header` and `.view-header__title-row`, from `ViewHeader` or its classes): a 56px row on the content gutter with the Inter 18/700 title (`h2`), the count (`.view-header__count`, 14px muted tabular), a one-line 13px muted description that truncates first (`.view-header__about`), and actions at the right (`.view-header__tools` for a collection's portalled tools, `.view-header__actions` for a screen's own buttons). A header without tabs closes with a `border` hairline. Never put an eyebrow, a Merriweather title, or a second line of facts above or below it; facts join the description with " · ". A nonzero problem count adds `.is-risk` (red ink, 600); a zero count stays muted. On Problems, the status line under the header reads as one phrase, mark, result, "Checked 1h ago", and the Check details disclosure, with Refresh validation alone at the right.
 
 ### Buttons
 
@@ -374,18 +395,19 @@ The classes live in `base.css`; use them rather than restyling a button per scre
 - **Ghost (`.button.button--ghost`):** Filter, Display (the view's display options, distinct from the saved Views menu), the pane toggle, Copy link, Copy beside a command, an HTML note's Refresh and Open, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
 - **Disabled:** `surface-sunk` with `border` and faint ink, never a pale red.
 - **Edit toggle:** 13/600 muted text with a 1px border and 4px corners; in a session it becomes Editing, Review, Save, and Done.
-- **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the Display popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
+- **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the Display popover's "1 line | 2 lines", a task's mode) is one tinted track (`surface-sunk`, 1px `border`, 6px corners, 2px inset) holding 22px segments in 13/500 muted text, so the control is 28px tall like a button. The chosen segment is a raised surface: the panel surface (one step lighter, `surface-strong`, in dark), 1px `border-strong`, 4px corners, and ink 600 text. Never a solid ink fill, and never red.
 
 ### Chips, Links, and Counts
 
 - **Type chip (`.type-chip`):** a note's type is one neutral chip: tint background, `border`, 12/600 muted text, 3px corners. An untyped note gets a dashed border. Types never borrow red.
-- **Note links:** teal ink text with a translucent teal underline that goes solid on hover. No chip backgrounds.
-- **Counts:** unboxed, muted, tabular. A count on a tool button sits in an 18px `surface-strong` pill. A problem count uses red ink with its label beside it, and a note with problems shows an 8px red dot in lists.
+- **Note links:** in prose, teal ink text with a translucent teal underline that goes solid on hover. No chip backgrounds.
+- **Quiet links (`.link-quiet`):** in dense lists, tables, rails, and boards, a navigable title is teal ink with no underline, underlined on hover and keyboard focus. Trace, briefings, rails, and tables all use it, so equivalent relationships look the same everywhere.
+- **Counts:** unboxed, muted, Inter with tabular figures (`.num`). A count on a tool button sits in an 18px `surface-strong` pill. A problem count uses red ink with its label beside it, and a note with problems shows an 8px red dot in lists.
 
 ### Inputs / Fields
 
 - **Find in view:** a 30px field, 220px wide (160px in a narrow header), `border-strong`, 7px corners, a search icon, and a ⌘F hint. Focus adds the red ring with 1px offset.
-- **Form controls:** `base.css` styles every native `select` and text, search, number, date, and URL `input` app-wide at element specificity: 28px, `border-strong`, 6px corners, `--surface` with `--text` in either appearance, 13/500, a faint-ink hover border, and `surface-sunk` with faint ink when disabled. A single-value `select` drops the native arrow for a 16px chevron (`#7d7872`, 3:1 or better on light and dark surfaces) 7px from its right edge. Checkboxes and radios are 16px with `accent-color: var(--text)`, so a checked box is neutral ink, never red. Component classes win over the base treatment, so restyle only when a control genuinely differs, and keep the chevron. Labels name the setting in human words ("Reasoning effort", "Approval required"), never an identifier.
+- **Form controls:** `base.css` styles every native `select` and text, search, number, date, and URL `input` app-wide at element specificity: 28px, `border-strong`, 6px corners, `--surface` with `--text` in either appearance, 13/500, a faint-ink hover border, and `surface-sunk` with faint ink when disabled. A single-value `select` drops the native arrow for a 16px chevron (`#7d7872`, 3:1 or better on light and dark surfaces) 7px from its right edge. Checkboxes and radios are 16px with `accent-color: var(--text)`, so a checked box is neutral ink, never red. Component classes win over the base treatment, so restyle only when a control genuinely differs, and keep the chevron. Labels name the setting in human words ("Reasoning effort", "Approval required"), never an identifier. On the sidebar a select takes the chrome tint of the top bar's search field (`--chrome-raised`, no border, chrome text, a light chevron, `--chrome-active` on hover), never a bright surface box; its open list keeps the content surface.
 - **Focus:** one keyboard focus style everywhere: a 2px `--focus-ring` outline from `:focus-visible`, offset 2px, inset on rows, cells, and tabs. Components may inset or offset it, not restyle it. On the chrome the ring is `--chrome-text`.
 
 ### Collections and the View Header
@@ -394,7 +416,7 @@ A configured view is one result set with presentations chosen from text tabs (Br
 
 ### Tables
 
-Column heads are sticky, 34px, 13/500 muted, with an ink sort arrow. Rows are 36px with a `border-faint` hairline; two-line rows are 56px with a 13px muted summary under the 14/500 title. Group headers are sticky 44px bands with a caret, a status mark, the 14/600 group label, and a muted count. Hover tints the row; a selected row takes `--selection` with a 3px `--selection-edge` bar at its left, so it never reads as an error. Focus is one inset ring around the row. Ids, dates, and numbers are mono with tabular figures; ids are 12px muted. Relation values are teal links; relative ages are sans. Staged edits tint cells warning gold and mark the title with a dot. A grouped table hides the grouped field's column, and a column hides by default when it is empty or one value fills more than 90% of at least 10 rows; the footer names hidden columns and the Display menu shows them again. Select checkboxes appear on hover or keyboard focus for every row.
+Column heads are sticky, 34px, 13/500 muted, with an ink sort arrow. Rows are 36px with a `border-faint` hairline; two-line rows are 56px with a 13px muted summary under the 14/500 title. Group headers are sticky 44px bands with a caret, a status mark, the 14/600 group label, and a muted count. Hover tints the row; a selected row takes `--selection` with a 3px `--selection-edge` bar at its left, so it never reads as an error. Focus is one inset ring around the row. Dates, ages, and numbers are Inter with tabular figures; ids are 12px muted mono, on a second line under the title when a row names both. A title that opens a record is a quiet link (`.link-quiet`), and relation values are teal links, so every navigable record title is teal. An empty cell is a muted "—". Staged edits tint cells warning gold and mark the title with a dot. A grouped table hides the grouped field's column, and a column hides by default when it is empty or one value fills more than 90% of at least 10 rows; the footer names hidden columns and the Display menu shows them again. Select checkboxes appear on hover or keyboard focus for every row.
 
 ### Board and Cards
 
@@ -406,7 +428,7 @@ Status is a 9px shape plus a label driven by the schema tone: hollow ring for ne
 
 ### Banners
 
-A condition that affects a whole screen (a new task, a paused queue, unavailable search sources, a refused ref) is one `.banner`: a 36px band on the content gutter with 6px corners, a status mark with its label, concise 13px text (`.banner__text`, `.banner__aside` for a muted time), and an optional 28px `.button` action at the right (`.banner__actions` for two). Tones: neutral tint by default, `.banner--warning` (warning-soft, gold border), and `.banner--risk` (red soft, red line). Repeated conditions merge into one banner whose details sit behind a disclosure; never stack several bands. A banner is never louder than the failure it sits above; a failed row stays inspectable with a labelled "View run" link or a 28px action.
+A condition that affects a whole screen (a new task, a paused queue, unavailable search sources, a refused ref) is one `.banner`: a 36px band on the content gutter with 6px corners, a status mark with its label, concise 13px text (`.banner__text`, `.banner__aside` for a muted time), and an optional 28px `.button` action at the right (`.banner__actions` for two). Tones: neutral tint by default, `.banner--warning` (warning-soft, gold border), and `.banner--risk` (red soft, red line). Repeated conditions merge into one banner whose details sit behind a disclosure; never stack several bands. A banner is never louder than the failure it sits above; a failed row stays inspectable with a labelled "View run" link or a 28px action. When a run has failed, its risk banner ("Failed", the task, the time, View run) leads, above any notice about the same task. A notice says one short thing ("New: Mine agent sessions. Runs every 7 days in Notify mode.") and keeps any purpose or explanation behind a quiet "What it does" toggle.
 
 ### Right Pane
 
@@ -434,7 +456,7 @@ Every surface shows an edit's state the same way. Editing with nothing staged is
 
 ### Finders
 
-The ⌘P finder is a native `<dialog>` over the scrim: a 640px palette at most 92px from the top (12% of a short window's height), 14px corners, `border-strong`, and the command lift, entering with a 140ms fade and 6px rise that reduced motion removes. A 56px input row holds a 16px query field; a 12/600 group heading leads a listbox of fixed 46px rows with icon, 14/500 title, a 13/500 muted type label (a note with no type says "Untyped", so the column never reads ragged), and a middle-truncated mono path. The list is sized to nine whole rows so the footer never cuts one. The active row takes `--selection` with a 3px edge; matched characters are 650-weight ink with a selection-tinted underline, not a highlight fill. A footer lists the keys. Focus starts in the input, ↑ and ↓ move, Enter opens, ⌘Enter opens beside, and Esc returns focus.
+The ⌘P finder is a native `<dialog>` over the scrim: a 640px palette at most 92px from the top (12% of a short window's height), 14px corners, `border-strong`, and the command lift plus a deep 64px shadow that still separates it from a dark page, entering with a 140ms fade and 6px rise that reduced motion removes. A 56px input row holds a 16px query field; a 12/600 group heading leads a listbox of fixed 46px rows with icon, 14/500 title, a 13/500 muted type label in a fixed 136px right-aligned column after a 16px gutter, so a long title truncates before it reaches the label (a note with no type says "Untyped", so the column never reads ragged), and a middle-truncated mono path. The list is sized to nine whole rows so the footer never cuts one. The active row takes `--selection` with a 3px edge; matched characters are 650-weight ink with a selection-tinted underline, not a highlight fill. A 13px muted footer lists the keys as keycaps with a `border-strong` edge on `surface-sunk`. Focus starts in the input, ↑ and ↓ move, Enter opens, ⌘Enter opens beside, and Esc returns focus.
 
 Rhizome Desktop's ⌘O repository and ⇧⌘O worktree finders draw the same palette in a transparent overlay webview 64px from the top, with 42px rows, a 7px runtime dot, and ⌘1–⌘9 hints on the first nine repositories.
 
@@ -444,11 +466,11 @@ Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay 
 
 ### Agent
 
-The Agent screen uses the shared view header (the session title, its message count, and the harness state as the description). Harness settings sit at the foot of the sidebar as one labelled 28px select per row at full sidebar width. The composer is one framed field (`border-strong`, 10px corners) holding the message and a bar with the send hint, or, when no harness can take a turn, the reason and next step (install, or log in with a copyable command), beside a 28px primary Send. The empty thread never invites a question that cannot be sent.
+The Agent screen uses the shared view header: the session title, its message count, and the harness and its state ("Claude · Ready") as the description. The harness version and account are diagnostics behind a ghost "Details" disclosure at the right of the title row. Harness settings sit at the foot of the sidebar as one labelled 28px chrome-tinted select per row at full sidebar width. The composer is one framed field (`border-strong`, 10px corners) holding the message and a bar with the send hint, or, when no harness can take a turn, the reason and next step (install, or log in with a copyable command), beside a 28px primary Send. An empty thread that can take a turn shows one muted 14px line just above the composer, "Ask a question about this repository."; the empty thread never invites a question that cannot be sent.
 
 ### GraphQL
 
-GraphiQL takes Rhizome's tokens: its palette restates them as HSL triplets, and its Monaco themes are redefined from the syntax tokens so comments clear 4.5:1 in both appearances. The vault name replaces the GraphiQL wordmark, the sidebar and toolbar icons are muted ink, Run is the 28px primary, the results pane carries a 12/600 "Response" label and a muted "Run the query to see results" until a result arrives, and an empty Variables editor starts as a collapsed bar.
+GraphQL shares the shell: an inset content panel (6px on every side but the top, since it has no sidebar) opening with the shared view header, "GraphQL" and a one-line description naming the vault, in place of the GraphiQL wordmark. GraphiQL inside it is flat: its tool rail with a hairline right edge, a 40px session tab row, then the query and response panes split by one hairline (a 9px drag target), with no floating card, resting shadow, or tinted frame. The query pane leads with a 40px toolbar labelled "Query" (12/600) holding Prettify, Merge fragments, and Copy as 28px ghost icon buttons with 16px glyphs, then Run, the 28px primary labelled "Run ⌘↵"; the response pane opposite carries the "Response" label and a muted "Run the query to see results" until a result arrives. GraphiQL's palette restates the tokens as HSL triplets, and its Monaco themes are redefined from the syntax tokens so comments clear 4.5:1 and line numbers take the faint-ink role (the current line, muted ink) in both appearances. An empty Variables editor starts as a collapsed bar.
 
 ### Ontology Canvas
 
@@ -468,8 +490,8 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 
 - **Do** keep the shell's model: themed chrome around a white inset panel, one right pane, and finders for navigation.
 - **Do** keep supporting table columns fixed and let the title take the slack, with a 240px minimum (320px in two-line rows).
-- **Do** cap note prose (540px in a 680px note column) and let collection presentations, Briefing and Overview included, fill the panel under their tabs.
-- **Do** use Merriweather only for document and workspace titles, Inter for UI and prose, and JetBrains Mono for paths, ids, dates, GraphQL, and schema evidence.
+- **Do** cap note prose (540px in a 680px note column), cap and centre Briefing (about 1320px) and Overview (about 1520px) as one column with their header and tabs, and let tables, boards, and cards fill the panel.
+- **Do** use Merriweather only for document and workspace titles, Inter for UI, prose, numbers, and dates, and JetBrains Mono only for identifiers, paths, and code.
 - **Do** read semantic tokens so every surface follows appearance and theme.
 - **Do** pair colour with labels, icons, shape, or position for validation, graph state, risk, and status.
 - **Do** target WCAG AA in all five themes and both appearances, keep visible focus, and respect reduced motion.
@@ -487,5 +509,6 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 - **Don't** use thick coloured side stripes as decoration, nested cards, decorative shadows, or card grids as default scaffolding.
 - **Don't** use display fonts in labels, buttons, tables, or data.
 - **Don't** colour a routine action red; Refresh, Pause, Dismiss, and similar actions are secondary or ghost buttons.
-- **Don't** set relative times in mono, or show a raw identifier as a control's value or label.
+- **Don't** set counts, dates, or times in mono, or show a raw identifier as a control's value or label.
+- **Don't** show readers schema hints, internal field names, or diagnostics outside an info disclosure.
 - **Don't** treat the temporary red diamond as the final identity.
