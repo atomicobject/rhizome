@@ -29,14 +29,17 @@ fail() {
   exit 1
 }
 
-# A windowless app; --stubborn refuses to quit and ignores SIGTERM.
+# A windowless app that writes <bundle>.quit when it quits normally;
+# --stubborn refuses to quit and ignores SIGTERM.
 cat >"$tmp/fake.swift" <<'SWIFT'
 import AppKit
 let stubborn = CommandLine.arguments.contains("--stubborn")
 if stubborn { signal(SIGTERM, SIG_IGN) }
 final class Delegate: NSObject, NSApplicationDelegate {
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    stubborn ? .terminateCancel : .terminateNow
+    if stubborn { return .terminateCancel }
+    FileManager.default.createFile(atPath: Bundle.main.bundlePath + ".quit", contents: nil)
+    return .terminateNow
   }
 }
 let delegate = Delegate()
@@ -78,6 +81,7 @@ nc -lU "$socket" &
 wait_launched 2
 stop_app "$bundle_id" "$installed"
 assert_stopped
+[[ -e "$installed.quit" && -e "$stray.quit" ]] || fail "a copy was stopped without a normal quit"
 
 echo "stop_app kills a copy that refuses to quit and ignores SIGTERM"
 open -n "$stray" --args --stubborn
