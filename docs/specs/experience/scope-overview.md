@@ -128,6 +128,9 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - The group Briefing shows Needs attention, In motion, and Recent changes, using the same flat In motion list as All notes and type Briefings, and drops "In this group", Connections, "Outside the group", Views, and Guide.
 - The group Overview's side column shows "Declared, unused" (each member's relation fields toward other members that no record uses), "Outside the group" (the notes outside the group linking to the most of its records, without the group's guide note), and "Guide and views" (the shared guide note and the group's authored views).
+- Expanded Recent changes bursts indent their member rows under an ink summary with a disclosure chevron, `aria-expanded`, and a thin left guide; collapsing restores one row.
+- Outside notes expand to all loaded rows without a nested scroll area. "Show N more" counts only rows it can reveal. Incomplete reads show a visible explanation and a Search all notes action.
+- Composite map ring segments are at least 4px wide in both appearances. Legend labels use only the member name and a colon.
 - The group default stays as [[group-views-and-view-platform|SPEC-0111]] sets it: Briefing for groups with two or more member roots, Sections for one.
 
 ### US7 - Every scope opens fast and fits its data

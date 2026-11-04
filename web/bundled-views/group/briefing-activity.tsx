@@ -1,7 +1,7 @@
 // Activity blocks both Briefings share: an in-motion row, the hints for
 // lifecycles that cannot list work in motion, Recent changes, and the notes
 // outside the records that link with them.
-import { DisclosureIcon, RelativeTime, openNote, typeLabel } from "@rhizome/kit";
+import { DisclosureIcon, RelativeTime, openNote, openSearch, typeLabel } from "@rhizome/kit";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 
 import { recentChanges, type Boundary, type ChangeMoment, type MotionEntry } from "./activity.ts";
@@ -236,26 +236,30 @@ function Burst({ model, moment }: { model: GroupModel; moment: ChangeMoment }) {
   const count = moment.records.length;
 
   return (
-    <>
-      <li className="gv-change">
+    <li className="gv-burst">
+      <div className="gv-change">
         <span className="gv-change-main">
           <button
             type="button"
-            className="gv-inline gv-change-title gv-link"
+            className="gv-inline gv-change-title gv-burst-toggle"
             aria-expanded={open}
             onClick={() => setOpen(!open)}
           >
+            <DisclosureIcon open={open} />
             {count} records changed together
           </button>
           <span className="gv-change-meta">{burstCounts(model, moment)}</span>
         </span>
         <RelativeTime value={moment.time} className="gv-change-age" />
-      </li>
-      {open &&
-        moment.records.map((record) => (
-          <ChangeRow key={record.key} line={recordLine(model, record)} />
-        ))}
-    </>
+      </div>
+      {open && (
+        <ul className="gv-list gv-burst-members" aria-label="Records changed together">
+          {moment.records.map((record) => (
+            <ChangeRow key={record.key} line={recordLine(model, record)} />
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 
@@ -345,6 +349,19 @@ export function OutsideNotes({
               <b>{entry.count}</b> {outsideLabel(model, entry.type, entry.count)}
             </span>
           ))}
+        </p>
+      )}
+      {outside.incomplete && (
+        <p className="gv-quiet">
+          More notes may link to this group than are listed. Viewed records and their links are
+          limited.{" "}
+          <button
+            type="button"
+            className="gv-inline gv-link"
+            onClick={() => openSearch({ folder: "" })}
+          >
+            Search all notes
+          </button>
         </p>
       )}
       {outside.notes.length === 0 && <p className="gv-quiet">{empty}</p>}

@@ -540,6 +540,12 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 - **Don't** show readers schema hints, internal field names, or diagnostics outside an info disclosure.
 - **Don't** treat the temporary red diamond as the final identity.
 
+### Group activity and map feedback
+
+- Expanded Recent changes bursts nest beneath an ink summary with the shared disclosure chevron and a thin left guide. Collapsing restores one row.
+- Outside notes expand to show every loaded row in the page, without an internal height cap. The expander counts loaded rows only; incomplete reads show a visible notice and a Search all notes action.
+- Composite map nodes use coloured segments at least 4px wide. Legend labels use the member name followed by a colon, without "ring".
+
 ### Round-seven additions
 
 - **Help follows its purpose.** In Briefing and Overview, only computed judgements such as "Review suggested" keep an info icon. Descriptive sections carry their help in the heading's `title` and accessible description. The type header keeps its schema identity in its info tooltip.

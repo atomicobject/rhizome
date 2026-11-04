@@ -455,7 +455,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 />
                 {arcs.map((arc) => {
                   // A donut inside the node's edge: each member type's share of the records.
-                  const band = Math.max(3.5, r * 0.32);
+                  const band = Math.max(4, r * 0.32);
 
                   return (
                     <circle
@@ -631,7 +631,7 @@ function MapLegend({
     ...rings.map((node) => (
       <span key={node.id} className="gv-legend-ring">
         <i className="gv-legend-composite" />
-        {node.label} ring:
+        {node.label}:
         {compositionArcs(node, summaries, color).map((arc) => (
           <span key={arc.name}>
             <i style={{ background: arc.color }} />

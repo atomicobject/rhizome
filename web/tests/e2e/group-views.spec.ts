@@ -1,4 +1,4 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type FrameLocator, type Page } from "./fixtures";
 import { chooseView, expectView, workspaceView } from "./workspaceView";
@@ -51,6 +51,17 @@ const markFrame = (frame: FrameLocator) =>
 
 const frameMarked = (frame: FrameLocator) =>
   frame.locator("html").evaluate(() => "gvMarker" in window);
+
+async function feedbackScreenshot(page: Page, name: string) {
+  const feedbackDir = process.env.RHIZOME_FEEDBACK_DIR;
+
+  if (!feedbackDir) return;
+  await mkdir(feedbackDir, { recursive: true });
+  await page.screenshot({
+    path: `${feedbackDir}/${process.env.RHIZOME_FEEDBACK_PHASE ?? "after"}-${name}.png`,
+    fullPage: true,
+  });
+}
 
 test("a group opens the bundled view its shape calls for and remembers a choice", async ({
   page,
@@ -199,6 +210,22 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
     .click();
   await expect(recent.getByRole("button", { name: "Autumn release" })).toBeVisible();
 
+  const burst = recent.getByRole("button", { name: /^\d+ records changed together$/ }).first();
+  await expect(burst).toHaveAttribute("aria-expanded", "true");
+  await expect(burst.locator("svg")).toBeVisible();
+  const nested = recent.getByRole("list", { name: "Records changed together" });
+  await expect(nested).toHaveCSS("border-left-width", "1px");
+  await expect(burst).toHaveCSS(
+    "color",
+    await recent
+      .locator(".gv-change-title")
+      .last()
+      .evaluate((el) => getComputedStyle(el).color),
+  );
+  await feedbackScreenshot(page, "grouped-changes");
+  await burst.click();
+  await expect(nested).toHaveCount(0);
+
   // A record opens in a tab.
   await motion.getByRole("button", { name: "Faster indexing" }).click();
   await expect(page).toHaveURL(/note=notes%2Fgroup-views%2Fwork%2Fstory-indexing\.md/);
@@ -231,6 +258,21 @@ test("group Overview maps member types, lists members and outside notes, and swi
   for (const name of ["Areas", "Releases", "Work items"])
     await expect(map.getByRole("button", { name: new RegExp(`^${name}\\b`) })).toHaveCount(1);
 
+  const arcs = map.locator(".gv-map-arc");
+  expect(await arcs.count()).toBeGreaterThan(0);
+
+  for (const arc of await arcs.all()) {
+    expect(
+      Number.parseFloat(await arc.evaluate((el) => getComputedStyle(el).strokeWidth)),
+    ).toBeGreaterThanOrEqual(4);
+  }
+
+  await expect(map.locator(".gv-legend-ring")).not.toContainText(["ring:"]);
+  await feedbackScreenshot(page, "map-light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await feedbackScreenshot(page, "map-dark");
+  await page.emulateMedia({ colorScheme: "light" });
+
   const members = frame.getByRole("region", { name: "Members" });
 
   for (const name of ["Areas", "Releases", "Work items"])
@@ -241,6 +283,7 @@ test("group Overview maps member types, lists members and outside notes, and swi
   const outside = frame.getByRole("region", { name: "Outside the group" });
   await expect(outside).toContainText("Ada Example");
   await expect(outside).toContainText("Lin Example");
+  await expect(outside.locator(".gv-changes")).toHaveCSS("max-height", "none");
 
   await map.getByRole("radio", { name: "Matrix" }).locator("xpath=..").click();
 

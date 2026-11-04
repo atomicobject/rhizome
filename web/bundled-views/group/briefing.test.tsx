@@ -176,6 +176,13 @@ it("lists recent changes newest first with type, folder, and age, collapsing a b
   fireEvent.click(burst);
   expect(within(changes).getByRole("button", { name: /Loop A/ })).toBeVisible();
   expect(burst).toHaveAttribute("aria-expanded", "true");
+  expect(burst.querySelector(".rz-disclosure-icon")).not.toBeNull();
+  const members = within(changes).getByRole("list", { name: "Records changed together" });
+  expect(within(members).getAllByRole("listitem")).toHaveLength(4);
+  fireEvent.click(burst);
+  expect(burst).toHaveAttribute("aria-expanded", "false");
+  expect(within(changes).queryByRole("list", { name: "Records changed together" })).toBeNull();
+  expect(within(changes).getAllByRole("listitem")).toHaveLength(lines.length);
 });
 
 it("does not call an out-of-date validation run clean", async () => {

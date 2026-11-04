@@ -704,6 +704,18 @@
   border-top: 1px solid var(--border-faint);
 }
 
+.gv-burst-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gv-burst-members {
+  margin-left: 8px;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+
 .gv-change-main {
   display: flex;
   flex-direction: column;
@@ -1476,13 +1488,6 @@
   background: var(--surface-alt);
 }
 
-/* An expanded outside list scrolls inside the side column instead of pushing
-   Members below the fold. */
-.gv-ov-side .gv-changes {
-  max-height: 260px;
-  overflow: auto;
-}
-
 .gv-ov-members {
   padding: 12px 0 16px;
 }
@@ -1628,7 +1633,7 @@
   stroke: var(--type-8);
 }
 
-.gv-map-node circle {
+.gv-map-node circle:not(.gv-map-arc) {
   stroke-width: 1.5;
 }
 

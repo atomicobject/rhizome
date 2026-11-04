@@ -5,6 +5,7 @@ import {
   OPEN_COLLECTION_MESSAGE,
   OPEN_ISSUES_MESSAGE,
   OPEN_NOTE_MESSAGE,
+  OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
@@ -15,7 +16,7 @@ import {
   VALIDATION_ENVELOPE,
 } from "./__fixtures__/aggregate.ts";
 import { PATHS, PLANNING_GUIDE } from "./__fixtures__/groups.ts";
-import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
+import { fixtureModel, renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 
 const loadOverview = () => import("./overview.tsx");
 
@@ -188,6 +189,11 @@ it("lists the notes outside the group most connected first, then the guide and v
     "KickoffUntyped note · notes/2 linked records",
     "Release guideUntyped note · docs/1 linked record",
   ]);
+
+  fireEvent.click(within(outside).getByRole("button", { name: "Show 1 more" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(4);
+  fireEvent.click(within(outside).getByRole("button", { name: "Show fewer" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(3);
 
   fireEvent.click(within(outside).getByRole("button", { name: "Kickoff" }));
   fireEvent.click(
@@ -537,4 +543,44 @@ it("reads the members part once, with the published validation generation", asyn
     .filter((request) => request.query.get("parts") === "members");
 
   expect(members).toHaveLength(1);
+});
+
+it("reveals exactly the advertised outside notes and exposes incomplete reads", async () => {
+  const model = fixtureModel("Planning");
+
+  const notes = Array.from({ length: 21 }, (_, index) => ({
+    key: `outside-${index}`,
+    path: `outside-${index}.md`,
+    title: `Outside ${index}`,
+    type: null,
+    touches: ["record"],
+  }));
+
+  const { posted } = await renderGroupView(
+    async () => {
+      const { OutsideNotes } = await import("./briefing-activity.tsx");
+
+      return {
+        default: () => (
+          <OutsideNotes
+            model={model}
+            outside={{ notes, byType: [], incomplete: true }}
+            title="Outside the group"
+            info="Linked notes"
+            empty="None"
+            limit={3}
+          />
+        ),
+      };
+    },
+    { embedded: true },
+  );
+
+  const outside = region("Outside the group");
+  expect(outside.querySelectorAll("li")).toHaveLength(3);
+  fireEvent.click(within(outside).getByRole("button", { name: "Show 18 more" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(21);
+  expect(outside).toHaveTextContent("More notes may link to this group than are listed.");
+  fireEvent.click(within(outside).getByRole("button", { name: "Search all notes" }));
+  expect(posted).toContainEqual({ type: OPEN_SEARCH_MESSAGE, folder: "" });
 });
