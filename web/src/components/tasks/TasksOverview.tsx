@@ -45,7 +45,9 @@ function SourceDetails({ report }: { report: TasksReport }) {
 
   return (
     <details className="header-details">
-      <summary className="button button--ghost">Details</summary>
+      <summary className="button button--ghost">
+        Details <DisclosureChevron />
+      </summary>
       <dl>
         {report.ref ? (
           <>
@@ -306,7 +308,7 @@ function TaskRow({
             <span className="task-table__none">—</span>
           )}
         </td>
-        <td className="task-table__time is-optional">{task.every}</td>
+        <td className="task-table__time is-optional">{formatEvery(task.every)}</td>
         <td>
           {last && task.lastRun ? (
             <span className="task-table__last">
@@ -378,13 +380,23 @@ export function TasksOverview({
 }) {
   const bannerItems = announcements.filter((item) => !rowAnnouncement(item, report.tasks));
 
+  const failedRuns = report.tasks.filter((task) => task.lastRun?.outcome === "failed").length;
+
   return (
     <div className="tasks-overview">
       <header className="view-header">
         <div className="view-header__title-row">
           <h2>Tasks</h2>
           <span className="view-header__count">{report.tasks.length}</span>
-          <span className="view-header__about">{scheduleSummary(report)}</span>
+          <span className="view-header__about">
+            {scheduleSummary(report)}
+            {failedRuns > 0 ? (
+              <>
+                {" "}
+                · {failedRuns} failed {failedRuns === 1 ? "run" : "runs"}
+              </>
+            ) : null}
+          </span>
           <div className="view-header__actions">
             <SourceDetails report={report} />
             <PauseButton paused={report.paused} pending={pausePending} onToggle={onTogglePause} />

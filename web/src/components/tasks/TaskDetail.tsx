@@ -14,6 +14,7 @@ import { BackIcon } from "./TaskIcons";
 import {
   formatDateTime,
   formatDue,
+  formatEvery,
   formatDuration,
   formatTokens,
   itemStatePresentation,
@@ -474,7 +475,7 @@ export function TaskHeader({
         <h2>{task.name || task.id}</h2>
         <p>
           <code>{task.id}</code>
-          {task.every ? <span>Every {task.every}</span> : null}
+          {task.every ? <span>Every {formatEvery(task.every)}</span> : null}
           {task.scheduled ? (
             <>
               <span>{task.scope === "team" ? "Team clock" : "Personal clock"}</span>

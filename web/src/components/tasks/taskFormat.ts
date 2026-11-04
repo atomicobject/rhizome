@@ -42,23 +42,25 @@ export function formatAgo(value: string | undefined, now = Date.now()): string {
   return delta < 60_000 ? "just now" : `${span(delta)} ago`;
 }
 
-/** "3h ago" or "in 3h". */
+/** "3h ago" or "in 3 hours". */
 export function formatRelative(value: string | undefined, now = Date.now()): string {
   if (!value) return "";
   const delta = new Date(value).getTime() - now;
 
   if (Math.abs(delta) < 60_000) return "now";
 
-  return delta > 0 ? `in ${span(delta)}` : `${span(delta)} ago`;
+  return delta > 0 ? `in ${formatEvery(span(delta))}` : `${span(delta)} ago`;
 }
 
-/** A due time: "in 3h", or "due now" once it has passed. */
+/** A due time: "In 3 hours", or "Due now" once it has passed. */
 export function formatDue(nextDue: string | undefined, due: boolean, now = Date.now()): string {
   if (due) return "Due now";
 
   if (!nextDue) return "Not scheduled";
 
-  return new Date(nextDue).getTime() <= now ? "Due now" : formatRelative(nextDue, now);
+  return new Date(nextDue).getTime() <= now
+    ? "Due now"
+    : formatRelative(nextDue, now).replace(/^in /, "In ");
 }
 
 const EVERY_UNITS = { m: "minute", h: "hour", d: "day", w: "week" } as const;

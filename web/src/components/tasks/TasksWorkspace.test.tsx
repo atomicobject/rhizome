@@ -64,9 +64,10 @@ describe("TasksWorkspace", () => {
       "Changelog draftchangelog",
     ]);
 
+    expect(screen.getByText(/1 failed run/)).toBeVisible();
     const docs = within(rows[0]!);
     expect(docs.getByText("Auto")).toBeInTheDocument();
-    expect(docs.getByText("1d")).toBeInTheDocument();
+    expect(docs.getByText("1 day")).toBeInTheDocument();
     expect(docs.getByText("Ready")).toBeInTheDocument();
     expect(docs.getByText("Ready for review")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("Due now")).toBeInTheDocument();
@@ -84,6 +85,20 @@ describe("TasksWorkspace", () => {
     );
     fireEvent.click(within(rail).getByRole("button", { name: /Flaky test triage/ }));
     expect(window.location.pathname).toBe("/tasks/flaky-tests");
+  });
+
+  it("counts failed last runs with a plural label in the header", async () => {
+    const report = reportFixture(NOW);
+
+    http.json("GET", "/api/tasks", {
+      ...report,
+      tasks: report.tasks.map((task) =>
+        task.lastRun ? { ...task, lastRun: { ...task.lastRun, outcome: "failed" } } : task,
+      ),
+    });
+    open("/tasks");
+    render(<TasksWorkspace />);
+    expect(await screen.findByText(/4 failed runs/)).toBeVisible();
   });
 
   it("shows a new-task announcement and dismisses it", async () => {
