@@ -6,7 +6,7 @@ name: "Workbench design hill-climb"
 created-at: "2026-11-04T20:35:33Z"
 status: complete
 plan-approved-by: "[[docs/people/Drew Colthorp|Drew Colthorp]]"
-summary: "Retroactive closure of the 2026-11-04 workbench design loop: baseline plus six rounds, banked at a 7.80 three-reviewer mean with graph redesign and backend follow-ups."
+summary: "Retroactive closure of the 2026-11-04 workbench design loop: baseline plus seven rounds, with round 6 banked at a 7.80 three-reviewer mean and round-7 scores pending integration."
 governing-specs:
   - "[[docs/specs/experience/workbench-sidebar]]"
   - "[[docs/specs/experience/workbench-redesign]]"
@@ -28,7 +28,7 @@ governing-specs:
 
 Record the completed web-workbench design hill-climb directed by [[docs/people/Drew Colthorp|Drew Colthorp]] on 2026-11-04. This effort was opened at closure, after implementation, because the work grew from an in-session request. No effort or frozen spec selection existed before the loop; the sections below identify and reconcile the delivered slice retrospectively.
 
-The delivered code is `1f1d0c9b..d91cd828`, covering the shell, native collections, bundled group views, graphs and ontology, notes and search, and local design-loop tooling. Graph-screen redesign, backend counting/truncation fixes, the unexplained re-index, and refreshing the design sidecar are follow-up work. This record closes the banked design slice; it does not certify the original score target or PR merge readiness.
+The first six rounds' delivered code is `1f1d0c9b..d91cd828`, covering the shell, native collections, bundled group views, graphs and ontology, notes and search, and local design-loop tooling. Graph-screen redesign, backend counting/truncation fixes, the unexplained re-index, and refreshing the design sidecar are follow-up work. This record closes the banked design slice; it does not certify the original score target or PR merge readiness.
 
 ## Spec Set (Frozen)
 
@@ -90,11 +90,15 @@ Reach 9 or more from every reviewer in every category, both for the app overall 
 
 ## Actual Delivered
 
-- **Shell and system conventions:** shared headers, quieter buttons and banners, one disclosure chevron, Inter counts and readable dates, teal record titles with quieter secondary links, distinct green success and gold staged edits, clearer Finder rows, and calmer Agent and Tasks screens. GraphQL now uses the standard sidebar, an inset flat editor, session-tab underlines, visible query actions, and token-based syntax colours.
-- **Collections and group views:** clearer headers and display controls, bounded supporting columns with room for titles, a Record overlay below the collection toolbar, aligned 260–360px Board tracks and 140px empty/collapsed strips, quieter cards, and in-place overflow. Briefing, Overview, Trace, and Sections share hierarchy, status, count, and link conventions; Briefing/Overview use centred measures, and Members sits below the compact Overview map.
+- **Shell and system conventions:** shared headers, quieter buttons and banners, one disclosure chevron, Inter counts and readable dates, ink record titles at weight 500 with a teal hover and focus underline and quieter secondary links, distinct green success and gold staged edits, clearer Finder rows, and calmer Agent and Tasks screens. GraphQL now uses the standard sidebar, an inset flat editor, session-tab underlines, visible query actions, and token-based syntax colours.
+- **Collections and group views:** clearer headers and display controls, bounded supporting columns with room for titles, a Record overlay below the collection toolbar, aligned 260–360px Board tracks and 140px empty strips with dashed drop lanes and per-column card-density controls, quieter cards, and in-place overflow. Briefing, Overview, Trace, and Sections share hierarchy, status, count, and link conventions; Briefing/Overview use centred measures, and Members sits below the compact Overview map.
 - **Graphs and ontology:** one twelve-hue concrete-type palette across the host and kit, folder-level Explorer with simpler labels and legends, clearer Overview links and labels, and more legible Atlas cards, connector routes, and semantic zoom. Ontology detail uses human labels and shared presentation tabs. These are incremental improvements; the graph surfaces still need redesign.
-- **Notes and search:** notes retain their tabs while one collection, view, Problems, Changes, or search page replaces the previous page. The tab strip appears only while notes are open. Notes use a centred reading measure, quieter properties and inspectors, shared empty-field disclosures in Edit, and a compact HTML host header. Search uses a shared centred header/results measure, one availability banner, and bounded source excerpts.
+- **Notes and search:** notes retain their tabs while one collection, view, Problems, Changes, or search page replaces the previous page. The tab strip appears only while notes are open. Notes use a centred reading measure, quieter properties and inspectors, shared empty-field disclosures in Edit, and a compact HTML host header. Search uses a shared header/results measure anchored to the 22px gutter, capped at 960px with 720px excerpts, and one availability banner.
 - **Tooling:** `web/scripts/design-loop/` contains snapshot setup, screenshot capture, comparisons, paired before/after output, ledger generation, and the council rubric. Round outputs remain Git-ignored; their evidence is summarized here.
+
+**Round 7, approved for shipping by Drew on 2026-11-04:** after independent judge Fable 5.1 selected the strictest reviewer's recurring findings, the final round implemented a 13px/500 structural-label floor; aligned sidebar leading slots and hidden same-group empty type duplicates; heading-title help for descriptive sections; flat In motion lists on all three Briefings; Relations and Linked notes below Record fields; schema identity in the type-header info tooltip; dimmed exact repeats in sorted Action Items columns and overdue counts in group headers; dashed empty Board lanes and labelled card-density controls; a warning-soft Editing chip; six-line summary previews with disclosure only on overflow; and gutter-aligned search. Note and Agent columns remain centred, and the 1100px Record overlay remains below the toolbar. Record titles stay ink at weight 500, as Drew prefers. Delivery evidence: `0271b918..abce840a`.
+
+Round 7 scores: <!-- Integrator to fill in. -->
 
 The three-reviewer app-overall means were:
 
@@ -123,6 +127,8 @@ Round 0's ledger also includes a Fable vote and reports a four-vote 6.72 mean, w
 - 2026-11-04T20:37:37Z: The first `frozen-scope-drift` pass found two issues introduced by these spec date bumps, on EFF-2026-10-03-07-21 / SPEC-0100 and EFF-2026-10-03-18-33 / SPEC-0111. Added dated follow-on acknowledgments to those active efforts' Deviations, preserving their frozen sections, plans, lifecycle states, and delivery histories.
 
 - 2026-11-04T20:39:06Z: `RZM_SKIP_REPO_DELEGATE=1 RZM_RUNTIME_AUTOSTART=0 ./bin/darwin/rzm agent code execute --session-id ZEMqt1wnGO_uNA-Y --timeout 2m` reran scoped default validation on the repaired notes and `frozen-scope-drift`: zero findings. The `action-items-in-note` recipe returned all eight open follow-ups assigned to Drew Colthorp with complete root coverage. Its readback also reproduced the known 80-byte title cut; shortened checkbox titles retain the full task details on continuation lines. Marked the banked slice complete with PR identity pending.
+
+- 2026-11-04, round-7 documentation reconciliation: updated DESIGN.md and eight contradicted specs against `0271b918..abce840a`; reverified the specs on the same date and left round-7 scores for the integrator. `RZM_RUNTIME_AUTOSTART=0 ./scripts/rzm agent code execute --session-id DR75y9D6dw2_y0di --timeout 5m` ran `validate default` scoped to all ten changed notes (ontology, identifiers, broken-links) and `frozen-scope-drift`: all passed, zero findings. `make check-fast` passed (exit 0) after installing the pinned web dependencies. The checkout CLI built with `make build NO_WEB=1`; the subsequent unrelated team-api build could not download dependencies in the sandbox. Rhizome retrieval and validation ran outside the sandbox because local index locking requires macOS boot identity. No code or other notes were changed.
 
 ## Deviations
 
