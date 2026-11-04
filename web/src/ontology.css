@@ -4097,9 +4097,10 @@
   color: var(--text-muted);
 }
 
-/* Right-aligned in every state so the transient running message cannot move it. */
+/* Refresh follows the freshness text it renews, 16px after it (8px gap plus
+   8px), so the action and "Checked …" read as one unit. */
 .validation-status-strip__refresh {
-  margin-left: auto;
+  margin-left: var(--sp-3);
 }
 
 /* Check details sits beside "Checked …"; Refresh stays at the right. */
@@ -4664,8 +4665,8 @@
   gap: 2px;
   margin-left: auto;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -4674,8 +4675,11 @@
 }
 
 .problem-detail__navigation button {
-  width: 22px;
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);

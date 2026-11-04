@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ValidationActionSnapshot, ValidationDiagnostic } from "../../api/types";
 import type { KindRow } from "./IssueKindList";
@@ -223,7 +224,7 @@ export function DiagnosticDetail({
             aria-label="Previous issue"
             title="Previous issue (Alt+↑)"
           >
-            ‹
+            <ChevronLeft aria-hidden="true" size={16} strokeWidth={1.5} absoluteStrokeWidth />
           </button>
           <span>
             {position + 1} / {total}
@@ -235,7 +236,7 @@ export function DiagnosticDetail({
             aria-label="Next issue"
             title="Next issue (Alt+↓)"
           >
-            ›
+            <ChevronRight aria-hidden="true" size={16} strokeWidth={1.5} absoluteStrokeWidth />
           </button>
         </nav>
       </div>
