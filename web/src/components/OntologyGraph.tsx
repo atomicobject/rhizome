@@ -23,12 +23,36 @@ const edgeTypes = { ontologyRouted: OntologyRoutedEdge };
 
 type Props = { atlas: OntologyAtlasResponse };
 
-type GraphState = { nodes: Node[]; edges: Edge[] };
+type AtlasEdgeData = {
+  routedPoints?: { x: number; y: number }[];
+  kind: EdgeKind;
+  accent: string;
+};
+
+type AtlasEdge = Edge<AtlasEdgeData>;
+
+type GraphState = { nodes: Node[]; edges: AtlasEdge[] };
 
 /** Fit padding that keeps cards clear of the finder (top left) and the legend (bottom). */
 const FIT_PADDING = { top: "64px", right: "24px", bottom: "56px", left: "24px" } as const;
 
 const EMPTY_GRAPH: GraphState = { nodes: [], edges: [] };
+
+type EdgeKind = "relation" | "implements" | "neighbor";
+
+/** Each connector kind has its own line pattern, so the legend can tell them apart without color. */
+const EDGE_DASH: Record<EdgeKind, string | undefined> = {
+  relation: undefined,
+  implements: "6 4",
+  neighbor: "1.5 4",
+};
+
+const NEUTRAL_EDGE = "var(--type-8)";
+
+/** A traced connector's color: the source type's, or ink for an interface's implements line. */
+function edgeAccent(edge: AtlasEdge) {
+  return edge.data?.kind === "implements" ? "var(--text)" : (edge.data?.accent ?? NEUTRAL_EDGE);
+}
 
 function FocusViewport({ ids, selected }: { ids: string[]; selected: string | null }) {
   const { fitView, getNode, setCenter, viewportInitialized } = useReactFlow();
@@ -95,38 +119,13 @@ export function OntologyGraph({ atlas }: Props) {
             selectable: true,
           }));
 
-          const edges: Edge[] = laidOut.edges.map((e) => {
-            if (e.type === "implements") {
-              return {
-                id: e.id,
-                source: e.source,
-                target: e.target,
-                sourceHandle: e.sourceHandle,
-                targetHandle: e.targetHandle,
-                type: "ontologyRouted",
-                animated: false,
-                data: { routedPoints: e.points },
-                style: {
-                  stroke: "var(--text-muted)",
-                  strokeDasharray: "4 4",
-                  strokeWidth: 1.5,
-                },
-                markerEnd: {
-                  type: MarkerType.ArrowClosed,
-                  color: "var(--text-muted)",
-                  width: 14,
-                  height: 14,
-                },
-                zIndex: 0,
-              };
-            }
-
-            const accent =
-              e.kind === "section"
-                ? "var(--text)"
+          const edges: AtlasEdge[] = laidOut.edges.map((e) => {
+            const kind: EdgeKind =
+              e.type === "implements"
+                ? "implements"
                 : e.kind === "neighbor"
-                  ? "var(--text-muted)"
-                  : typeAccentColor(e.source);
+                  ? "neighbor"
+                  : "relation";
 
             return {
               id: e.id,
@@ -135,19 +134,8 @@ export function OntologyGraph({ atlas }: Props) {
               sourceHandle: e.sourceHandle,
               targetHandle: e.targetHandle,
               type: "ontologyRouted",
-              data: { routedPoints: e.points },
-              style: {
-                stroke: accent,
-                strokeWidth: e.kind === "section" ? 2 : 1.5,
-                strokeDasharray: e.kind === "neighbor" ? "5 3" : undefined,
-              },
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                color: accent,
-                width: 16,
-                height: 16,
-              },
-              zIndex: 1,
+              animated: false,
+              data: { routedPoints: e.points, kind, accent: typeAccentColor(e.source) },
             };
           });
 
@@ -186,7 +174,7 @@ export function OntologyGraph({ atlas }: Props) {
   // Hovering a card traces its relations without moving the viewport; otherwise the focused type does.
   const traced = hovered ?? selected;
 
-  const touches = (edge: Edge) =>
+  const touches = (edge: AtlasEdge) =>
     traced !== null && (edge.source === traced || edge.target === traced);
 
   const nodes = graph.nodes.map((node) => ({
@@ -199,12 +187,31 @@ export function OntologyGraph({ atlas }: Props) {
           : undefined,
   }));
 
-  // Every edge draws at full strength (3:1 or better) under the opaque cards; tracing a type fades the rest.
-  const edges = graph.edges.map((edge) => ({
-    ...edge,
-    style: { ...edge.style, opacity: traced === null || touches(edge) ? 1 : 0.12 },
-    zIndex: 0,
-  }));
+  // At rest every connector is the opaque neutral, 3:1 in both themes, and
+  // neighbor links stay hidden; tracing a type draws its links in its color,
+  // neighbors included, and fades the rest.
+  const edges = graph.edges.flatMap((edge) => {
+    const kind = edge.data?.kind ?? "relation";
+    const lit = touches(edge);
+
+    if (kind === "neighbor" && !lit) return [];
+    const color = lit ? edgeAccent(edge) : NEUTRAL_EDGE;
+
+    return [
+      {
+        ...edge,
+        style: {
+          stroke: color,
+          strokeWidth: lit ? 2 : 1.5,
+          strokeDasharray: EDGE_DASH[kind],
+          strokeLinecap: kind === "neighbor" ? ("round" as const) : undefined,
+          opacity: traced === null || lit ? 1 : 0.16,
+        },
+        markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+        zIndex: lit ? 1 : 0,
+      },
+    ];
+  });
 
   const query = search.trim().toLowerCase();
 
@@ -310,9 +317,12 @@ export function OntologyGraph({ atlas }: Props) {
             <s data-kind="relation" /> Relation
           </span>
           <span>
-            <s data-kind="inherit" /> Implements or neighbor
+            <s data-kind="implements" /> Implements
           </span>
-          <span className="atlas-legend__hint">Hover a card to trace it</span>
+          <span>
+            <s data-kind="neighbor" /> Neighbor, shown while tracing
+          </span>
+          <span className="atlas-legend__hint">Hover a card to trace it in its color</span>
         </div>
       </div>
     </div>

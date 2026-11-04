@@ -1,10 +1,6 @@
-import { Handle, type NodeProps, Position, useViewport } from "@xyflow/react";
+import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { Fragment } from "react";
 import {
-  fieldRowMidpointY,
-  HEADER_HEIGHT,
-  ROW_HEIGHT,
-  FIELD_LIST_TOP_PADDING,
   IMPL_SOURCE_LEFT_HANDLE,
   IMPL_SOURCE_RIGHT_HANDLE,
   type OntologyNodeData,
@@ -17,24 +13,36 @@ import { buildOntologyPath } from "./ontologyRoute";
 
 type Props = NodeProps & { data: OntologyNodeData };
 
-/**
- * Semantic zoom: below this zoom a card's 12px field text would render under
- * 12px, so the card shows only its name and count, scaled to stay legible.
- */
-const OVERVIEW_BELOW = 1;
-
 /** The accent is consumed by the stylesheet via `var(--type-accent)`. */
 type AccentStyle = React.CSSProperties & { [key: `--${string}`]: string };
 
-export function OntologyTypeNode({ data }: Props) {
-  const { zoom } = useViewport();
+/** A type name with line-break chances between its words, so "AcceptanceCriterion" wraps whole. */
+function nameWithBreaks(name: string) {
+  return name.split(/(?<=[a-z0-9])(?=[A-Z])/).map((word, index) => (
+    <Fragment key={`${index}:${word}`}>
+      {index > 0 && <wbr />}
+      {word}
+    </Fragment>
+  ));
+}
 
+/** The card's tooltip: its description and schema survey, which the compact card leaves out. */
+function cardTitle(data: OntologyNodeData) {
+  const survey = [
+    `${data.scalarFieldCount} ${data.scalarFieldCount === 1 ? "field" : "fields"}`,
+    `${data.relationCount} ${data.relationCount === 1 ? "relation" : "relations"}`,
+    data.sectionCount > 0
+      ? `${data.sectionCount} ${data.sectionCount === 1 ? "section" : "sections"}`
+      : "",
+    data.implements.length > 0 ? `implements ${data.implements.join(", ")}` : "",
+  ].filter(Boolean);
+
+  return [data.name, data.description, survey.join(" · ")].filter(Boolean).join("\n");
+}
+
+export function OntologyTypeNode({ data }: Props) {
   const accentStyle: AccentStyle = {
     "--type-accent": typeAccentColor(data.name),
-    "--atlas-label-size": `${Math.min(28, 14 / zoom)}px`,
-    "--atlas-header-height": `${HEADER_HEIGHT}px`,
-    "--atlas-row-height": `${ROW_HEIGHT}px`,
-    "--atlas-field-padding": `${FIELD_LIST_TOP_PADDING}px`,
   };
 
   const href = buildOntologyPath({ kind: "type", name: data.name });
@@ -61,7 +69,7 @@ export function OntologyTypeNode({ data }: Props) {
 
   return (
     <div
-      className={`ontology-node${data.role !== "note" ? " ontology-node--interface" : ""}${zoom < OVERVIEW_BELOW ? " ontology-node--overview" : ""}`}
+      className={`ontology-node${data.role === "interface" ? " ontology-node--interface" : ""}`}
       style={accentStyle}
     >
       <Handle
@@ -88,86 +96,44 @@ export function OntologyTypeNode({ data }: Props) {
         id={IMPL_SOURCE_RIGHT_HANDLE}
         className="ontology-node__handle ontology-node__handle--impl"
       />
-      <a href={href} className="ontology-node__card" onClick={handleTypeLinkClick}>
-        <div className="ontology-node__header">
-          <div className="ontology-node__title-row">
-            <span className="ontology-node__name" title={data.name}>
-              {data.name}
+      <a
+        href={href}
+        className="ontology-node__card"
+        onClick={handleTypeLinkClick}
+        title={cardTitle(data)}
+      >
+        <span className="ontology-node__name">{nameWithBreaks(data.name)}</span>
+        <span className="ontology-node__meta">
+          {data.role === "interface"
+            ? "Interface"
+            : `${(data.count ?? 0).toLocaleString("en-US")} ${
+                data.role === "embedded" || data.role === "section"
+                  ? (roleLabel ?? "").toLowerCase()
+                  : data.count === 1
+                    ? "record"
+                    : "records"
+              }`}
+          {data.issueCount > 0 ? (
+            <span className="ontology-node__issues">
+              {" · "}
+              {data.issueCount} issue{data.issueCount === 1 ? "" : "s"}
             </span>
-            {roleLabel ? (
-              <span className="ontology-node__badge">{roleLabel}</span>
-            ) : (
-              <span className="ontology-node__count">{data.count}</span>
-            )}
-          </div>
-          {data.implements.length > 0 ? (
-            <div className="ontology-node__impl">
-              <span aria-hidden>↳</span>
-              {data.implements.map((iface) => (
-                <span key={iface} className="ontology-node__chip">
-                  {iface}
-                </span>
-              ))}
-            </div>
           ) : null}
-          {data.description ? (
-            <p className="ontology-node__description">{data.description}</p>
-          ) : null}
-          <div className="ontology-node__stats">
-            <span title="scalar fields">
-              <strong>{data.scalarFieldCount}</strong> fields
-            </span>
-            <span title="typed relations">
-              <strong>{data.relationCount}</strong> rel
-            </span>
-            {data.sectionCount > 0 ? (
-              <span title="narrative sections">
-                <strong>{data.sectionCount}</strong> sec
-              </span>
-            ) : null}
-            {data.issueCount > 0 ? (
-              <span className="ontology-node__issues">
-                {data.issueCount} issue{data.issueCount === 1 ? "" : "s"}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <ul className="ontology-node__fields">
-          {schemaEdges.map((f) => (
-            <li key={f.name} className="ontology-node__field ontology-node__field--relation">
-              <span className="ontology-node__field-name">
-                {f.required ? "★ " : ""}
-                {f.name}
-              </span>
-              <span className="ontology-node__field-type">
-                → {f.typeName}
-                {f.list ? "[]" : ""}
-              </span>
-            </li>
-          ))}
-          {data.scalarFieldCount > 0 ? (
-            <li className="ontology-node__field ontology-node__field--summary">
-              {data.scalarFieldCount} field
-              {data.scalarFieldCount === 1 ? "" : "s"}
-            </li>
-          ) : null}
-        </ul>
+        </span>
       </a>
-      {schemaEdges.map((f, index) => (
+      {schemaEdges.map((f) => (
         <Fragment key={`handle-${f.name}`}>
           <Handle
             type="source"
             position={Position.Left}
             id={relationSourceHandle(f.name, "left")}
             className="ontology-node__handle ontology-node__handle--source"
-            style={{ top: `${fieldRowMidpointY(index)}px` }}
           />
           <Handle
             type="source"
             position={Position.Right}
             id={relationSourceHandle(f.name, "right")}
             className="ontology-node__handle ontology-node__handle--source"
-            style={{ top: `${fieldRowMidpointY(index)}px` }}
           />
         </Fragment>
       ))}

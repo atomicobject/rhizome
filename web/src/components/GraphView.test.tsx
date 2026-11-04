@@ -60,7 +60,7 @@ describe("GraphView", () => {
     try {
       expect(screen.getByRole("img", { name: /^Graph of 1 node and 0 links\./ })).toBeVisible();
       expect(screen.getByRole("textbox", { name: "Search graph nodes" })).toBeVisible();
-      fireEvent.click(screen.getByRole("button", { name: "More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Display" }));
       const labels = screen.getByRole("checkbox", { name: "Edge labels" });
       expect(labels).not.toBeChecked();
 
@@ -249,7 +249,7 @@ describe("GraphView", () => {
       const camera = renderer.getCamera();
       renderer.refresh({ schedule: false });
       expect(renderer.getNodeDisplayData("note")?.label).toBe("Note");
-      fireEvent.click(screen.getByRole("button", { name: "More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Display" }));
       fireEvent.click(screen.getByRole("checkbox", { name: "Problems (1)" }));
       renderer.refresh({ schedule: false });
       expect(renderer.getNodeDisplayData("note")?.label).toContain("2");

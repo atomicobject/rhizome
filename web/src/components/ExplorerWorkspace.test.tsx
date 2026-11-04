@@ -67,7 +67,8 @@ describe("ExplorerWorkspace", () => {
       .json("GET", "/api/v1/graphs/expand", graphWith())
       .json("GET", "/api/v1/files/view", fileView(""))
       .json("GET", "/api/v1/suggest", { count: 0, matches: [] })
-      .json("GET", "/api/v1/search", { count: 0, matches: [] });
+      .json("GET", "/api/v1/search", { count: 0, matches: [] })
+      .json("GET", "/api/v1/ontology/summary", { types: [], interfaces: [] });
   });
 
   afterEach(() => {
@@ -159,8 +160,43 @@ describe("ExplorerWorkspace", () => {
     );
   });
 
-  it("opens an embedded graph node at its canonical target", async () => {
+  it("starts the whole vault at folder level and opens a folder from its node", async () => {
     http.json("GET", "/api/v1/graphs/global", {
+      nodes: [
+        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+        { id: "b", label: "b", kind: "code", path: "pkg/b.go" },
+      ],
+      edges: [{ source: "a", target: "b", kind: "mentions" }],
+      truncated: false,
+    });
+    const explorer = renderExplorer();
+    const renderer = await explorer.renderer();
+    await waitFor(() =>
+      expect(renderer.getGraph().nodes().sort()).toEqual(["folder:docs", "folder:pkg"]),
+    );
+
+    act(() => {
+      renderer.emit("clickNode", {
+        node: "folder:pkg",
+        event: {
+          x: 0,
+          y: 0,
+          sigmaDefaultPrevented: false,
+          preventSigmaDefault: () => undefined,
+          original: new MouseEvent("click"),
+        },
+        preventSigmaDefault: () => undefined,
+      });
+    });
+
+    await waitFor(() =>
+      expect(http.requests("GET", "/api/v1/graphs/expand").at(-1)?.query.get("module")).toBe("pkg"),
+    );
+  });
+
+  it("opens an embedded graph node at its canonical target", async () => {
+    window.history.replaceState({}, "", "/explorer?file=specs%2Fdemo.md");
+    http.json("GET", "/api/v1/graphs/local", {
       nodes: [
         {
           id: "criterion",

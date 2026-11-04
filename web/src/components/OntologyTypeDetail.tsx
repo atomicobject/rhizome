@@ -780,6 +780,9 @@ function TypeDetailBody({
   const fields = type.fields ?? [];
   const scalarFields = fields.filter((f) => !isRelationField(f));
   const relationFields = fields.filter(isRelationField);
+  // A Direction column shows only when some row has one.
+  const relationDirections = relationFields.some((f) => f.direction);
+  const inboundDirections = inboundRefs.some((ref) => ref.direction);
   const examples = (data.notes ?? []).slice(0, 6);
 
   return (
@@ -912,9 +915,9 @@ function TypeDetailBody({
           <table className="ontology-type-detail__table">
             <thead>
               <tr>
-                <th>Field</th>
-                <th>Target</th>
-                <th>Direction</th>
+                <th className="ontology-type-detail__col-name">Field</th>
+                <th className="ontology-type-detail__col-type">Target</th>
+                {relationDirections ? <th>Direction</th> : null}
                 <th>Description</th>
               </tr>
             </thead>
@@ -935,7 +938,7 @@ function TypeDetailBody({
                       "—"
                     )}
                   </td>
-                  <td>{f.direction || "—"}</td>
+                  {relationDirections ? <td>{f.direction || "—"}</td> : null}
                   <td>{f.description || ""}</td>
                 </tr>
               ))}
@@ -950,9 +953,9 @@ function TypeDetailBody({
           <table className="ontology-type-detail__table">
             <thead>
               <tr>
-                <th>From type</th>
-                <th>Field</th>
-                <th>Direction</th>
+                <th className="ontology-type-detail__col-type">From type</th>
+                <th className="ontology-type-detail__col-name">Field</th>
+                {inboundDirections ? <th>Direction</th> : null}
                 <th>Description</th>
               </tr>
             </thead>
@@ -973,7 +976,7 @@ function TypeDetailBody({
                       {ref.list ? "[]" : ""}
                     </code>
                   </td>
-                  <td>{ref.direction || "—"}</td>
+                  {inboundDirections ? <td>{ref.direction || "—"}</td> : null}
                   <td>{ref.description || ""}</td>
                 </tr>
               ))}
@@ -1063,8 +1066,8 @@ function FieldTable({ fields }: { fields: TypeFieldDoc[] }) {
     <table className="ontology-type-detail__table">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Type</th>
+          <th className="ontology-type-detail__col-name">Name</th>
+          <th className="ontology-type-detail__col-type">Type</th>
           <th>Required</th>
           <th>Source</th>
           <th>Description</th>

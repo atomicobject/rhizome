@@ -634,12 +634,24 @@
   border-top: 1px solid var(--border);
 }
 
+/* The canvas is a column: the banner and the legend sit outside the plotted
+   area, so the camera fits nodes inside what is actually visible. */
+.graph-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
 /* The banner: one 36px tinted band across the canvas top, with a mark and text. */
 .graph-container .graph-banner {
-  top: 0;
-  right: 0;
-  left: 0;
+  position: static;
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--sp-2);
   height: 36px;
@@ -656,7 +668,184 @@
   flex: none;
 }
 
-.graph-container[data-truncated="true"] .graph-zoom,
-.graph-container[data-truncated="true"] .graph-tools {
-  top: calc(36px + var(--sp-3));
+/* Find and Display float at the stage's top right when the page has no header slot. */
+.graph-container .graph-tools {
+  top: var(--sp-3);
+  right: var(--sp-3);
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  width: auto;
+}
+
+.graph-find {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 200px;
+}
+
+.graph-find .graph-search {
+  height: 30px;
+  margin: 0;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-base);
+}
+
+.graph-find .graph-search-meta {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+/* ---- Display menu: a header button with a popover of graph options ---- */
+
+.graph-display {
+  position: relative;
+}
+
+.graph-display__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.graph-display__button:hover,
+.graph-display__button[aria-expanded="true"] {
+  background: var(--bg-tint);
+}
+
+.graph-display__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.graph-display__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.graph-display__section + .graph-display__section {
+  border-top: 1px solid var(--border);
+}
+
+.graph-display .graph-toggle {
+  min-height: 28px;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+
+.graph-display .cluster-item {
+  font-size: var(--fs-sm);
+}
+
+.explorer-bar__display {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+}
+
+.explorer-header .explorer-bar__search {
+  margin-left: 0;
+}
+
+/* ---- Type legend: a band below the canvas, grouped by what the colors mean ---- */
+
+.graph-container .graph-type-legend {
+  position: static;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--sp-2) var(--sp-6);
+  max-height: none;
+  padding: var(--sp-3) var(--sp-5);
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.graph-type-legend__caption {
+  flex: 0 0 100%;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.graph-type-legend__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.graph-type-legend__group[data-group="typed"] {
+  flex: 1 1 520px;
+}
+
+.graph-type-legend__group .graph-type-legend__title {
+  margin: 0;
+  color: var(--label-color);
+  font: var(--label-font);
+}
+
+.graph-type-legend__group .graph-type-legend__list {
+  gap: 0 var(--sp-5);
+}
+
+.graph-type-legend__group .graph-type-legend__item {
+  grid-template-columns: 10px minmax(0, auto) auto;
+  gap: 6px;
+  min-height: 24px;
+  max-width: 240px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.graph-type-legend__group .graph-type-legend__swatch {
+  width: 10px;
+  height: 10px;
+}
+
+/* Folders are the large ringed nodes; the swatch says so. */
+.graph-type-legend__group[data-group="folder"] .graph-type-legend__swatch {
+  box-sizing: border-box;
+  border: 2px solid;
+}
+
+.graph-type-legend__group .graph-type-legend__count {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-type-legend__note {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }

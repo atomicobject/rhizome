@@ -68,13 +68,24 @@ type VisibleSchemaField = {
   list: boolean;
 };
 
-export const NODE_WIDTH = 280;
+/**
+ * Atlas cards are compact: the name on up to two lines and one line of
+ * counts. Fields live on the type page, so a card's size follows its text,
+ * not its schema, and the whole ontology fits at a zoom where names read at
+ * about 14px. Sizes are in card units; ontology.css sets the same type sizes.
+ */
+export const NODE_WIDTH = 200;
 
-export const ROW_HEIGHT = 22;
+/** A card's name size and line height, in card units. */
+const NAME_SIZE = 20;
 
-export const HEADER_HEIGHT = 104;
+const NAME_LINE = NAME_SIZE * 1.25;
 
-export const FIELD_LIST_TOP_PADDING = 4;
+/** Characters of a bold name that fit one line beside the type dot (Inter averages 0.6em). */
+const NAME_LINE_CHARS = Math.floor((NODE_WIDTH - 24 - NAME_SIZE) / (NAME_SIZE * 0.6));
+
+/** Padding, the gap below the name, and the counts line. */
+const CARD_CHROME = 16 + 4 + 18 * 1.3;
 
 const NODE_BORDER_WIDTH = 1;
 
@@ -136,16 +147,12 @@ function dedupeNodeFields(fields: OntologyNodeField[]): OntologyNodeField[] {
   });
 }
 
-function nodeHeight(fields: OntologyNodeField[]): number {
-  const schemaEdgeRows = fields.filter((f) => f.isSchemaEdge).length;
-  const summaryRow = fields.length - schemaEdgeRows > 0 ? 1 : 0;
+/** A card's height: one name line, or two when the name will not fit one. */
+export function cardHeight(name: string): number {
+  const lines = name.length > NAME_LINE_CHARS ? 2 : 1;
 
-  return (
-    NODE_BORDER_WIDTH * 2 +
-    HEADER_HEIGHT +
-    FIELD_LIST_TOP_PADDING * 2 +
-    (schemaEdgeRows + summaryRow) * ROW_HEIGHT
-  );
+  // Even, so the middle where edges attach is a whole pixel.
+  return 2 * Math.ceil((NODE_BORDER_WIDTH * 2 + CARD_CHROME + lines * NAME_LINE) / 2);
 }
 
 function nodeSurveyData(fields: OntologyNodeField[]) {
@@ -176,16 +183,6 @@ function nodeSurveyData(fields: OntologyNodeField[]) {
 
 export function relationSourceHandle(fieldName: string, side: "left" | "right"): string {
   return `field-${fieldName}-${side}`;
-}
-
-export function fieldRowMidpointY(rowIndex: number): number {
-  return (
-    NODE_BORDER_WIDTH +
-    HEADER_HEIGHT +
-    FIELD_LIST_TOP_PADDING +
-    rowIndex * ROW_HEIGHT +
-    ROW_HEIGHT / 2
-  );
 }
 
 function nodeMidpointY(node: OntologyNode): number {
@@ -435,7 +432,7 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
       type: "ontologyType",
       position: { x: 0, y: 0 },
       width: NODE_WIDTH,
-      height: nodeHeight(fields),
+      height: cardHeight(name),
       data: {
         name,
         count: entry.count,
@@ -477,7 +474,7 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
       type: "ontologyType",
       position: { x: 0, y: 0 },
       width: NODE_WIDTH,
-      height: nodeHeight(fields),
+      height: cardHeight(name),
       data: {
         name,
         count: 0,
@@ -570,14 +567,12 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
       "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
       "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
       "elk.layered.spacing.edgeNodeBetweenLayers": "24",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "64",
-      "elk.aspectRatio": "1.5",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "44",
+      "elk.aspectRatio": "1.7",
       "elk.spacing.nodeNode": "28",
       "elk.padding": "[top=20,left=20,bottom=20,right=20]",
     },
     children: graph.nodes.map((n) => {
-      let schemaEdgeIndex = 0;
-
       return {
         id: n.id,
         width: n.width,
@@ -616,8 +611,8 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
           },
           ...n.data.fields.flatMap((f) => {
             if (!f.isSchemaEdge) return [];
-            const y = fieldRowMidpointY(schemaEdgeIndex);
-            schemaEdgeIndex += 1;
+            // Every field's relation leaves from the card's middle.
+            const y = nodeMidpointY(n);
 
             return [
               {

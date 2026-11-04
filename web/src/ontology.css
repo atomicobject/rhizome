@@ -2707,13 +2707,16 @@
 }
 .atlas-legend s {
   display: inline-block;
-  width: 18px;
-  margin-right: 4px;
-  border-top: 1.5px solid var(--text-muted);
+  width: 22px;
+  margin-right: 6px;
+  border-top: 2px solid var(--type-8);
   vertical-align: 0.3em;
 }
-.atlas-legend s[data-kind="inherit"] {
+.atlas-legend s[data-kind="implements"] {
   border-top-style: dashed;
+}
+.atlas-legend s[data-kind="neighbor"] {
+  border-top-style: dotted;
 }
 .atlas-legend__hint {
   color: var(--text-faint);
@@ -2836,21 +2839,26 @@
   display: none;
 }
 
-/* A card's type color is its dot and its outgoing edges; text stays ink. */
+/* A card's type color is its dot (and its edges while traced); text stays ink.
+   In dark mode the card sits a lightness step above the canvas. */
 .ontology-node {
   --type-accent: var(--type-8);
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  background: var(--surface);
+  background: light-dark(var(--surface), var(--surface-strong));
   border: 1px solid var(--border-strong);
   border-radius: var(--r);
-  font-size: var(--fs-sm);
   color: var(--text);
 }
 .ontology-node__card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
   height: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
   color: inherit;
   text-decoration: none;
   border-radius: inherit;
@@ -2859,142 +2867,49 @@
 .ontology-node--interface {
   border-style: dashed;
 }
-.ontology-node__header {
-  height: var(--atlas-header-height);
-  box-sizing: border-box;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow: hidden;
-}
-.ontology-node__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
+/* Up to two lines; long names break between their words (see the <wbr> in the card). */
 .ontology-node__name {
-  min-width: 0;
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  /* Card units, matching NAME_SIZE in lib/ontologyGraph.ts; about 14px at fit. */
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
   color: var(--text);
-  font-size: var(--atlas-label-size, 15px);
-  text-decoration: none;
 }
 .ontology-node__name::before {
   content: "";
   display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: var(--sp-2);
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.4em;
   border-radius: 50%;
   background: var(--type-accent);
   vertical-align: 0.05em;
 }
 .ontology-node__card:hover .ontology-node__name,
 .ontology-node__card:focus-visible .ontology-node__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-decoration: underline;
 }
-.ontology-node__count {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  font-weight: 500;
+.ontology-node__meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ontology-node__badge {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  padding: 1px 6px;
-  border-radius: var(--r-sm);
+  font-weight: 500;
 }
-.ontology-node__impl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-.ontology-node__description {
-  margin: 0;
-  color: var(--text-muted);
-  display: -webkit-box;
-  font-size: var(--fs-xs);
-  line-height: 1.35;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-.ontology-node__stats {
-  margin-top: auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
+.ontology-node__count {
   font-variant-numeric: tabular-nums;
-}
-.ontology-node__stats strong {
-  color: var(--text);
-  font-weight: 700;
 }
 .ontology-node__issues {
   color: var(--warning-ink);
   font-weight: 600;
-}
-
-.ontology-node__chip {
-  background: var(--surface-sunk);
-  border-radius: var(--r-sm);
-  padding: 1px 5px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-.ontology-node__fields {
-  list-style: none;
-  margin: 0;
-  padding: var(--atlas-field-padding) 0;
-}
-.ontology-node__field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  line-height: 18px;
-  height: var(--atlas-row-height);
-  box-sizing: border-box;
-}
-.ontology-node__field--relation .ontology-node__field-type {
-  color: var(--link);
-}
-
-.ontology-node__field-name {
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ontology-node__field-name.is-required {
-  font-weight: 600;
-}
-.ontology-node__field-type {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
 }
 .ontology-node__handle {
   opacity: 0 !important;
@@ -3004,16 +2919,23 @@
    One flat page on the shared tokens: hairline sections, label-style heads,
    mono counts, teal links. The type color marks dots only; text stays ink. */
 
+/* The page shares the workbench gutter: a 56px title row padded 22px, and
+   everything below it starts on the same 22px line, bounded for reading. */
 .ontology-type-detail {
-  width: min(100%, 1100px);
-  margin: 0 auto;
-  padding: var(--sp-6);
+  --type-detail-gutter: 22px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 var(--sp-6);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
 }
-
-/* The tab panel keeps the page's section rhythm. */
+.ontology-type-detail > :not(.ontology-type-detail__header) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(1100px + 2 * var(--type-detail-gutter));
+  padding-inline: var(--type-detail-gutter);
+}
 .ontology-type-detail__tabpanel {
   display: flex;
   flex-direction: column;
@@ -3023,7 +2945,6 @@
 /* The shared view header, inside the page column: Atlas / Type, count, role. */
 .ontology-type-detail__header .view-header__title-row {
   gap: var(--sp-2);
-  padding: 0;
 }
 
 .ontology-type-detail__header .view-header__count {
@@ -3039,11 +2960,10 @@
 }
 
 .ontology-type-detail__tagline {
-  margin: calc(-1 * var(--sp-2)) 0 0;
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
-  line-height: 1.5;
-  max-width: 80ch;
+  line-height: 1.45;
 }
 
 .ontology-type-detail__back {
@@ -3311,6 +3231,17 @@
   margin-top: var(--sp-1);
 }
 
+/* Names and types keep to bounded columns, so the description gets the room. */
+.ontology-type-detail__col-name {
+  width: 160px;
+}
+/* Wide enough for a four-value enum's chips on one line. */
+.ontology-type-detail__col-type {
+  width: 300px;
+}
+.ontology-type-detail__table .schema-enum-value-chip {
+  font-size: var(--fs-xs);
+}
 .ontology-type-detail__table th {
   border-bottom-color: var(--border);
   font: var(--label-font);
@@ -3457,10 +3388,14 @@
 
 /* ---- Tabs for type detail view: neutral underline, like the context rail ---- */
 
-.ontology-type-detail__tabs {
+/* Text tabs start on the gutter: the first label lines up with the title,
+   and the rule under them spans the content column, not the page. */
+.ontology-type-detail > .ontology-type-detail__tabs {
   display: flex;
-  gap: var(--sp-1);
-  margin: 0;
+  gap: var(--sp-5);
+  width: auto;
+  max-width: 1100px;
+  margin: 0 var(--type-detail-gutter);
   padding: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -3468,7 +3403,7 @@
 .ontology-type-detail__tab {
   appearance: none;
   margin-bottom: -1px;
-  padding: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) 0;
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
@@ -3998,34 +3933,6 @@
   padding: var(--sp-3) var(--sp-4);
 }
 
-/* Semantic zoom: under zoom 1 a card shows its name and count at a legible
-   scaled size; fields stay laid out (their rows anchor the edges) but hidden. */
-.ontology-node--overview .ontology-node__description,
-.ontology-node--overview .ontology-node__stats,
-.ontology-node--overview .ontology-node__impl {
-  display: none;
-}
-.ontology-node--overview .ontology-node__title-row {
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.ontology-node--overview .ontology-node__name {
-  flex-basis: 100%;
-}
-.ontology-node--overview .ontology-node__count,
-.ontology-node--overview .ontology-node__badge {
-  font-size: var(--atlas-label-size);
-}
-.ontology-node--overview .ontology-node__badge {
-  border: 0;
-  padding: 0;
-}
-.ontology-node--overview .ontology-node__fields {
-  visibility: hidden;
-}
-.ontology-node--overview .ontology-node__header {
-  border-bottom: 0;
-}
 .atlas-node--focused .ontology-node {
   border-color: var(--text);
   box-shadow: 0 0 0 1px var(--text);

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { OntologyAtlasResponse } from "../api/types";
 import {
   buildOntologyGraph,
-  fieldRowMidpointY,
   IMPL_SOURCE_RIGHT_HANDLE,
   layoutOntologyGraph,
   relationSourceHandle,
@@ -216,13 +215,13 @@ describe("buildOntologyGraph", () => {
         y: expect.any(Number),
       });
       expect(routedEdge?.points?.[0]?.y).toBeCloseTo(
-        (sourceNode?.position.y ?? 0) + fieldRowMidpointY(0),
+        (sourceNode?.position.y ?? 0) + (sourceNode?.height ?? 0) / 2,
         3,
       );
     }
   });
 
-  it("keeps cyclic and self relations orthogonal at the visible field rows", async () => {
+  it("keeps cyclic and self relations orthogonal from the card's middle", async () => {
     const { nodes, edges } = await layoutOntologyGraph(
       buildOntologyGraph({
         schemaPresent: true,
@@ -257,14 +256,10 @@ describe("buildOntologyGraph", () => {
       const source = nodes.find((node) => node.id === edge.source)!;
       const target = nodes.find((node) => node.id === edge.target)!;
 
-      const rowIndex = source.data.fields
-        .filter((field) => field.isSchemaEdge)
-        .findIndex((field) => field.name === edge.data?.fieldName);
-
       const points = edge.points!;
       expect(points[0]).toEqual({
         x: source.position.x + source.width,
-        y: source.position.y + fieldRowMidpointY(rowIndex),
+        y: source.position.y + source.height / 2,
       });
       expect(points.at(-1)).toEqual({
         x: target.position.x,

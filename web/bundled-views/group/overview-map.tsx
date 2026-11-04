@@ -60,14 +60,48 @@ function useCanvasWidth() {
 // (connection) never mark a group.
 const HUES = [2, 3, 4, 5, 6, 7].map((n) => `var(--type-${n})`);
 
+// The twelve type hues in the order the app assigns them (web/src/lib/typeAccent.ts):
+// neighbors differ in hue and lightness. Slot 8 is the neutral.
+const TYPE_SLOTS = [1, 6, 7, 5, 2, 3, 4, 11, 10, 12, 13, 9];
+
 const fmt = (count: number) => count.toLocaleString("en-US");
 
-/** A node's color: its named group's hue, blue without one, neutral gray for untyped notes. */
-export function nodeHue(model: ScopeModel, node: Pick<ScopeNode, "kind" | "group">) {
+/**
+ * A node's color. Inside one group every member type has its own hue, by name
+ * order among the members; at All notes a node takes its named group's hue,
+ * blue without one. Untyped notes are the neutral gray.
+ */
+export function nodeHue(
+  model: ScopeModel,
+  node: Pick<ScopeNode, "kind" | "group"> & { name?: string },
+) {
   if (node.kind === "untyped") return "var(--type-8)";
+
+  if (model.scope.kind === "group" && node.kind !== "group") {
+    const index = memberTypes(model).indexOf(node.name ?? "");
+
+    if (index >= 0) return `var(--type-${TYPE_SLOTS[index % TYPE_SLOTS.length]})`;
+  }
+
   const index = node.group === null ? -1 : model.groupNames.indexOf(node.group);
 
   return index < 0 ? "var(--type-1)" : HUES[index % HUES.length];
+}
+
+const membersByModel = new WeakMap<ScopeModel, string[]>();
+
+/** A group's member types and interfaces in name order, which sets their hues. */
+function memberTypes(model: ScopeModel) {
+  let names = membersByModel.get(model);
+
+  if (!names) {
+    names = model.nodes
+      .flatMap((node) => (node.kind === "type" || node.kind === "interface" ? [node.name] : []))
+      .sort((a, b) => a.localeCompare(b));
+    membersByModel.set(model, names);
+  }
+
+  return names;
 }
 
 /** Declared relations no record uses between members with no edge, one hairline per pair. */
