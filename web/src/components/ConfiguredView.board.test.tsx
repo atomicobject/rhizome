@@ -30,17 +30,21 @@ describe("ConfiguredViewBoard", () => {
 
     // A value the view collapses by default still starts open on a board.
     expect(screen.getByLabelText("Active column")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Collapse Active column" }));
-    expect(screen.getByRole("button", { name: "Expand Active column, 1 items" })).toBeVisible();
+    fireEvent.click(screen.getAllByRole("button", { name: "Compact cards" })[1]);
+    expect(within(screen.getByLabelText("Active column")).getByRole("article")).toHaveClass(
+      "configured-card--compact",
+    );
   });
 
-  it("collapses and re-expands a column that starts expanded", () => {
+  it("switches between compact and full cards without hiding records", () => {
     render(<ConfiguredViewBoard {...rendererProps()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Collapse Planned column" }));
-    expect(within(screen.getByLabelText("Planned column")).queryByRole("article")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "Compact cards" })[0]);
+    expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toHaveClass(
+      "configured-card--compact",
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand Planned column, 3 items" }));
+    fireEvent.click(screen.getByRole("button", { name: "Full cards" }));
     expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toBeVisible();
   });
 

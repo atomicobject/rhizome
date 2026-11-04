@@ -3056,3 +3056,19 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Empty board tracks remain visible as drop targets. */
+.configured-view__board-strip-cell.is-empty {
+  min-height: 160px;
+  border-color: var(--border);
+  background: var(--surface-sunk);
+}
+
+.configured-view__table td.is-repeat,
+.configured-view__table td.is-repeat :is(a, button, .configured-cell-text) {
+  color: var(--text-faint);
+}
+
+.view-record__context .ontology-sidebar-context__identity {
+  display: none;
+}

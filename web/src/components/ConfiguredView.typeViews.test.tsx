@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ViewTableRow } from "../api/types";
 import { jsonReply, withFakeFetch } from "../test/fakeFetch";
@@ -17,6 +17,35 @@ import {
 import { monthKey, RailHarness, STATUS, typeExecution } from "./ConfiguredView.typeFixtures";
 
 const http = withFakeFetch();
+
+beforeEach(() => {
+  http.onGraphQL("PublicNodeDetail", () =>
+    jsonReply({
+      data: {
+        node: {
+          ref: {
+            ref: "docs/alpha.md",
+            kind: "NOTE",
+            notePath: "docs/alpha.md",
+            path: "docs/alpha.md",
+          },
+          nodeId: "note:docs/alpha.md",
+          nodeKind: "NOTE",
+          path: "docs/alpha.md",
+          title: "Alpha",
+          locator: {
+            sourceLocator: "docs/alpha.md",
+            status: "linkable",
+            exists: true,
+            requiresFix: false,
+          },
+          content: "# Alpha",
+          localGraph: { nodes: [], edges: [], truncated: false },
+        },
+      },
+    }),
+  );
+});
 
 /** A choice in the View popover's "1 line | 2 lines" control. */
 function rowsChoice(name: string) {

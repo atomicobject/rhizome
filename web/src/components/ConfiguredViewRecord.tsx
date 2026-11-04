@@ -11,7 +11,7 @@ import type {
   ViewTableRow,
 } from "../api/types";
 import { displayTitle, enumLabel } from "../lib/labels";
-import { publicWorkspaceRef } from "../api/client";
+import { getNodeWorkspace, publicWorkspaceRef } from "../api/client";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { relationDisplayValue, relationTargetRow } from "./ConfiguredTableCellReadOnly";
 import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
@@ -29,6 +29,9 @@ import {
   useOntologyTypeQuery,
   useViewExecutionQuery,
 } from "./useNotesQueries";
+import { queryKeys } from "../api/queryKeys";
+import { useStagedQuery } from "../staging/stagedQuery";
+import { NotesSidebarInfo } from "./NotesSidebarInfo";
 import type { OpenMode } from "./useNoteTabs";
 
 type ViewSourceSpec = ViewCatalogEntry["source"];
@@ -142,6 +145,7 @@ export function ConfiguredViewRecord({
           ))}
         </dl>
       )}
+      {path && <RecordNoteContext path={path} editSession={editSession} onOpenRow={onOpenRow} />}
       {(profile?.reverseFields ?? []).map((field) => (
         <ReverseRecords
           key={field}
@@ -155,6 +159,33 @@ export function ConfiguredViewRecord({
         />
       ))}
     </article>
+  );
+}
+
+function RecordNoteContext({
+  path,
+  editSession,
+  onOpenRow,
+}: Pick<Props, "editSession" | "onOpenRow"> & { path: string }) {
+  const query = useStagedQuery({
+    subject: [...queryKeys.all, "nodes", "workspace", path],
+    session: editSession ?? null,
+    queryFn: ({ signal, editSession }) => getNodeWorkspace(path, { signal, editSession }),
+  });
+
+  if (query.isError) return <p role="status">Could not load note context.</p>;
+
+  if (!query.displayData) return <p role="status">Loading note context…</p>;
+
+  return (
+    <div className="view-record__context">
+      <NotesSidebarInfo
+        workspace={query.displayData}
+        onOpen={(target, mode) =>
+          onOpenRow(relationTargetRow(target), mode === "beside" ? "beside" : "activate")
+        }
+      />
+    </div>
   );
 }
 
