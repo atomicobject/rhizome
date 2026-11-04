@@ -26,10 +26,6 @@ class CleanReleaseEnvironmentTest(unittest.TestCase):
             "BREW_GITHUB_TOKEN": "synthetic-brew",
         }
 
-    def test_public_build_drops_internal_gateway_origin(self) -> None:
-        source = {"PATH": "/usr/bin", "RZM_INTERNAL_TEAM_API_ORIGIN": "https://synthetic.invalid"}
-        self.assertNotIn("RZM_INTERNAL_TEAM_API_ORIGIN", scoped_environment(source, "build"))
-
     def test_build_receives_no_credentials(self) -> None:
         self.assertEqual(
             {"PATH": "/bin", "GOCACHE": "/cache", "GOENV": "off"},

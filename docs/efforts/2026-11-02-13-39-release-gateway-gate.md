@@ -4,7 +4,7 @@ id: EFF-2026-11-02-13-39
 aliases: [EFF-2026-11-02-13-39]
 name: Release gateway deployment gate
 created-at: 2026-11-02T18:55:18Z
-status: active
+status: complete
 summary: "Deploy the exact release server source and verify it before any supported client publisher uploads artifacts."
 governing-specs: ["[[evidence-grounded-release-orchestration]]"]
 ---
@@ -26,11 +26,11 @@ Implement the approved [release deployment plan](../reference/analysis/rhizome-t
 
 ## Spec Coverage Checklist
 
-- [ ] Exact release source and private/public committed build-input agreement.
-- [ ] Trusted-main deployment, source/request correlation and resumable receipts.
-- [ ] Every supported publisher waits, then rechecks release topology before uploads.
-- [ ] Preflight/dry-run modes remain read-only.
-- [ ] Independent review, required CI and deployment-only acceptance pass.
+- [x] Exact release source and private/public committed build-input agreement.
+- [x] Trusted-main deployment, source/request correlation and resumable receipts.
+- [x] Every supported publisher waits, then rechecks release topology before uploads.
+- [x] Preflight/dry-run modes remain read-only.
+- [x] Independent review, required CI and deployment-only acceptance pass.
 
 ## Plan
 
@@ -46,7 +46,7 @@ Client publication cannot run ahead of its intended gateway source. Operators us
 
 ## Actual Delivered
 
-Implemented on `t3/rhizome-release-gateway-gate`: exact public/private committed source agreement, pinned resumable deployment receipts, trusted-main workflow separation, and gating across guided/direct GitHub, S3 and fallback publishers. Ordinary main pushes no longer trigger the new workflow. Production remains on the previously verified provider-budget image until this change lands and its deployment-only acceptance runs. No client release was cut or published.
+Implemented on `t3/rhizome-release-gateway-gate`: exact public/private committed source agreement, pinned resumable deployment receipts, trusted-main workflow separation, and gating across guided/direct GitHub, S3 and fallback publishers. Ordinary main pushes no longer trigger the new workflow. Delivered in [PR #72](https://github.com/atomicobject/rhizome/pull/72), merged as `b6bbafa5` on 2026-11-02 with required CI passing. Deployment-only acceptance ran 31 seconds later: [Deploy team API run 41524206065](https://github.com/atomicobject/rhizome/actions/runs/41524206065) deployed the pinned source `b6bbafa5` with its request ID and succeeded, and [run 41529194739](https://github.com/atomicobject/rhizome/actions/runs/41529194739) later deployed `f83bdbc4` the same way. No client release was cut or published.
 
 ## Execution Notes
 
@@ -63,15 +63,15 @@ None beyond the explicit removal of automatic main-push deployment needed to imp
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass.
+- [x] Alignment and actual outcomes are verified.
+- [x] Specs and documentation are reconciled.
+- [x] Follow-ups are triaged.
 
 ## Compounding Follow-ups
 
-None recorded yet.
+None. The first `make cut-release` is the first end-to-end run of the gate with a client publication; check its gateway receipt then.
 
 ## Status
 
-Active. Local implementation and verification are complete; current-head Greptile, CI, reviewed merge and deployment-only acceptance remain. No client publication is part of this acceptance.
+Complete. Delivered in PR #72 (`b6bbafa5`); deployment-only acceptance passed on 2026-11-02. Drew confirmed closure on 2026-11-04. The first client release will exercise the gate end to end.

@@ -89,7 +89,7 @@ describe("rows", () => {
     ]);
   });
 
-  it("pins the primary worktree first and marks new and sleeping ones", () => {
+  it("lists the repository root, then the primary, and marks new and sleeping ones", () => {
     const info: Discovery = {
       id: "r",
       root: "/w/r/.git",
@@ -97,7 +97,11 @@ describe("rows", () => {
       git: true,
       defaultPrimary: "/w/r",
       primary: "/w/r-main",
-      worktrees: [worktree("/w/r", "dev"), worktree("/w/r-main", "main"), worktree("/w/r-x", "x")],
+      worktrees: [
+        worktree("/w/r-x", "x"),
+        worktree("/w/r-main", "main"),
+        { ...worktree("/w/r", "dev"), main: true },
+      ],
     };
     const rows = worktreeRows(
       { ...repository("r"), acknowledged: ["/w/r", "/w/r-main"] },
@@ -107,8 +111,8 @@ describe("rows", () => {
       true,
     );
     expect(rows.map((r) => [r.title, r.primary, r.fresh, r.runtime])).toEqual([
-      ["main", true, false, "stopped"],
       ["dev", false, false, "running"],
+      ["main", true, false, "stopped"],
       ["x", false, true, "sleeping"],
     ]);
   });
