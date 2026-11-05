@@ -96,11 +96,6 @@
   grid-row: 1;
   text-align: right;
 }
-/* The setup hint's info mark sits beside the heading's count, like the
-   heading info marks elsewhere, and its panel opens from its left edge. */
-.rz-section-controls:has(> .gv-hint > summary.rz-info) {
-  margin-left: 0;
-}
 .gv-hint:has(> summary.rz-info) .gv-hint-panel {
   right: auto;
   left: 0;
@@ -117,4 +112,34 @@
   font-weight: 500;
   text-align: right;
   white-space: nowrap;
+}
+
+.gv-motion-metadata,
+.gv-stage-note {
+  color: var(--text-muted);
+  font: 400 13px / 1.4 var(--font-sans);
+}
+.gv-stage-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+.gv-change.gv-change-compact {
+  height: 36px;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 0;
+}
+.gv-signal-toggle.disclosure-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: 500 13px / 1.4 var(--font-sans);
+  cursor: pointer;
 }

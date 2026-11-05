@@ -39,12 +39,14 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
     "Degraded health: 1 story",
   ]);
 
-  // Newest first, using the same two-line template as Recent changes.
+  // Shared metadata moves into the heading for a homogeneous list.
   const motion = await region("In motion");
   expect(within(motion).getByText("Last changed")).toBeVisible();
 
   expect(recordTitles(motion)).toEqual(["Checkout redesign", "Saved carts"]);
-  expect(motion.querySelector(".gv-change-meta")).toHaveTextContent("Story");
+  expect(motion.querySelector(".gv-change-meta")).toBeNull();
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · work/");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(2);
   expect(motion.querySelector(".gv-mark")).toBeNull();
   expect(motion.querySelector(".rz-info")).toBeNull();
   expect(within(motion).getByRole("heading")).toHaveAttribute(

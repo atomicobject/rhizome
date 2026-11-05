@@ -7,8 +7,9 @@
 import { HighlightProvider, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
+import { MotionCount } from "./briefing-motion.tsx";
 import { inMotion, needsAttention } from "./activity.ts";
-import { MotionList, RecentChanges, StageHints } from "./briefing-activity.tsx";
+import { useMotionMetadata, MotionList, RecentChanges, StageHints } from "./briefing-activity.tsx";
 import { NeedsAttention } from "./briefing-attention.tsx";
 import { Block, ModelBlock } from "./briefing-parts.tsx";
 import { GroupFrame } from "./components.tsx";
@@ -46,28 +47,26 @@ function InMotion({ model }: { model: GroupModel }) {
     .flatMap((group) => group.entries)
     .sort((a, b) => (b.record.updatedAt ?? 0) - (a.record.updatedAt ?? 0));
 
+  const metadata = useMotionMetadata(model, entries);
+
   return (
     <Block
       title="In motion"
       className="gv-motion"
-      count={entries.length}
+      count={<MotionCount count={entries.length} metadata={metadata} />}
       info={{
         text: "Records whose lifecycle value is in the active stage, newest change first.",
         display: "title",
       }}
-      controls={
-        <>
-          <StageHints
-            model={model}
-            withoutActiveStage={motion.withoutActiveStage}
-            withoutLifecycle={motion.withoutLifecycle}
-          />
-          <span className="gv-motion-age-label">Last changed</span>
-        </>
-      }
+      controls={<span className="gv-motion-age-label">Last changed</span>}
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
       <MotionList model={model} entries={entries} />
+      <StageHints
+        model={model}
+        withoutActiveStage={motion.withoutActiveStage}
+        withoutLifecycle={motion.withoutLifecycle}
+      />
     </Block>
   );
 }

@@ -162,6 +162,7 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   expect(motion.querySelector("h3")).toBeNull();
   expect(motion.querySelector(".rz-count")).toHaveTextContent("5");
   expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
+  expect(motion.querySelector(".gv-motion-metadata")).toBeNull();
   // Doing and Shipping mix in this list, so each row carries its status.
   expect(motion.querySelector(".gv-mark")).not.toBeNull();
   expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
@@ -352,4 +353,51 @@ it("says In motion waits while the index rebuilds, reading no records", async ()
   expect(within(region("In motion")).getByText(/The index is rebuilding/)).toBeVisible();
   expect(view.http.count("POST", "/api/v1/graphql")).toBe(0);
   expect(view.http.count("GET", "/api/v1/ontology/types/Story")).toBe(0);
+});
+
+it("states shared motion metadata once and keeps Recent changes metadata", async () => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            Story: [record("Story", 1, { stage: "doing" }), record("Story", 2, { stage: "doing" })],
+            Bug: [],
+            Release: [],
+          },
+        }),
+    }),
+  });
+  const motion = region("In motion");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(2);
+  expect(motion.querySelector(".gv-change-meta")).toBeNull();
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · story/");
+  expect(region("Recent changes").querySelectorAll(".gv-change-meta")).toHaveLength(3);
+});
+
+it("restores row metadata when expanding reveals another folder", async () => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            Story: Array.from({ length: MOTION_PER_TYPE + 1 }, (_, index) =>
+              record("Story", index + 1, {
+                stage: "doing",
+                path: index === MOTION_PER_TYPE ? "archive/last.md" : `story/${index + 1}.md`,
+              }),
+            ),
+            Bug: [],
+            Release: [],
+          },
+        }),
+    }),
+  });
+  const motion = region("In motion");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(MOTION_PER_TYPE);
+  fireEvent.click(within(motion).getByRole("button", { name: "Show 1 more" }));
+  expect(motion.querySelector(".gv-motion-metadata")).toBeNull();
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE + 1);
 });

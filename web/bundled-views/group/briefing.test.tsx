@@ -63,7 +63,13 @@ it("lists what needs attention with counts, records, and policy reasons", async 
   expect(region("Review suggested").querySelector('[data-severity="warning"]')).toBeNull();
   expect(attention).not.toHaveTextContent("Area empty");
   // Update age is context, not evidence of an obligation.
-  expect(item(region("Review suggested"), "unchanged for").getByText("40d")).toBeVisible();
+  const stale = item(region("Review suggested"), "unchanged for");
+  const toggle = stale.getByRole("button", { name: /^Show \d+ / });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(stale.queryByText("40d")).toBeNull();
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(stale.getByText("40d")).toBeVisible();
 
   // No clean line while a record has issues.
   expect(within(attention).queryByText("No validation issues")).toBeNull();
@@ -176,7 +182,11 @@ it("names lifecycles without an active stage", async () => {
   const motion = await screen.findByRole("region", { name: "In motion" });
 
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
-  // Setup notes wait behind the labelled info disclosure in the heading row.
+  // Setup notes follow the list, with schema details behind the info disclosure.
+  expect(motion.querySelector("h2 .gv-hint")).toBeNull();
+  expect(motion.querySelector(".gv-stage-note")).toHaveTextContent(
+    "aren't listed: they have no active stage.",
+  );
   const config = motion.querySelector("details")!;
   const summary = within(motion).getByLabelText("Why some types are not listed");
   expect(summary).toBeVisible();
