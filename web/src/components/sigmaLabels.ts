@@ -102,10 +102,6 @@ export function outwardSpots(
   });
 }
 
-/**
- * Builds Sigma's label drawing function. `beginFrame` must be called from
- * Sigma's "beforeRender" so each frame places its labels afresh.
- */
 export function createLabelPainter(
   getSigma: () => Sigma<SigmaNodeAttrs, SigmaEdgeAttrs> | null,
   colors: () => LabelColors,
@@ -281,7 +277,10 @@ export function createLabelPainter(
           chosen =
             [...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy)]
               .map((spot) => {
-                if (detail) spot.box[3] += size + 3;
+                if (detail && spot.box[3] < node.y) {
+                  spot.y -= size + 3;
+                  spot.box[1] -= size + 3;
+                } else if (detail) spot.box[3] += size + 3;
 
                 return spot;
               })

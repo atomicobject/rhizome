@@ -63,7 +63,8 @@ it("fits every visible node and its label, including context outside the opened 
         id === "folder:" ? 1 : point.y - origin.y,
       )[0];
 
-      if (attrs.labelDetail) box[3] += sigma.getSetting("labelSize") + 3;
+      if (attrs.labelDetail && box[3] < point.y) box[1] -= sigma.getSetting("labelSize") + 3;
+      else if (attrs.labelDetail) box[3] += sigma.getSetting("labelSize") + 3;
       expect(box[0]).toBeGreaterThanOrEqual(23.9);
       expect(box[1]).toBeGreaterThanOrEqual(23.9);
       expect(box[2]).toBeLessThanOrEqual(width - 23.9);
