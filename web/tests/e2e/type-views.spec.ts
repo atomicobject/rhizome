@@ -213,7 +213,7 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
     frame.getByRole("region", { name: "In motion" }).locator(".gv-change-title"),
   ).toHaveCount(5);
   await expect(
-    frame.getByRole("region", { name: "Shape" }).getByRole("heading", { name: "Stage lifecycle" }),
+    frame.getByRole("region", { name: "Composition" }).getByRole("heading", { name: "Stage" }),
   ).toBeVisible();
 
   const connections = frame.getByRole("region", { name: "Connections" });
