@@ -143,8 +143,8 @@ it("says there are no validation issues, and skips unlinked records in a group w
   await renderGroupView(loadBriefing, { group: "Library" });
   await screen.findByRole("region", { name: "Review suggested" });
 
-  // The status strip says "✓ No issues" once; the body adds no Validation row.
-  expect(screen.getByText("✓ No issues")).toBeVisible();
+  // The status strip says "No validation issues" once; the body adds no Validation row.
+  expect(screen.getByText("No validation issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(document.querySelector(".gv-facts-list")).toHaveTextContent(/Last changed .* ago/);
   expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
@@ -170,7 +170,8 @@ it("lists active-stage records newest first in flat rows with type metadata", as
         section.getAttribute("aria-labelledby") && section.querySelector("h2 > span")?.textContent,
     ),
   ).toEqual(["Needs attention", "Review suggested", "In motion", "Link coverage"]);
-  expect(items(motion).every((entry) => entry.querySelector(".gv-change-meta"))).toBe(true);
+  expect(motion.querySelector(".gv-motion-metadata")).not.toBeNull();
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(1);
   expect(motion.querySelectorAll(".gv-mark").length).toBeGreaterThan(0);
   expect(motion.querySelector(".gv-hint-lead")).toHaveTextContent(
     "Areas, Checklists have no lifecycle.",
@@ -184,9 +185,7 @@ it("names lifecycles without an active stage", async () => {
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
   // Setup notes follow the list, with schema details behind the info disclosure.
   expect(motion.querySelector("h2 .gv-hint")).toBeNull();
-  expect(motion.querySelector(".gv-stage-note")).toHaveTextContent(
-    "In motion shows active records only.",
-  );
+  expect(motion.querySelector(".gv-stage-note")).not.toHaveTextContent("shows active");
   const config = motion.querySelector("details")!;
   const summary = within(motion).getByLabelText("Why some types are not listed");
   expect(summary).toBeVisible();
@@ -234,7 +233,7 @@ it("does not call an out-of-date validation run clean", async () => {
   });
 
   expect(await screen.findByText("Validation out of date")).toBeVisible();
-  expect(screen.queryByText("✓ No issues")).toBeNull();
+  expect(screen.queryByText("No validation issues")).toBeNull();
 });
 
 it("shows only activity: Needs attention, In motion, and Recent changes", async () => {
@@ -243,7 +242,7 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
   ).toEqual(["In motion", "Recent changes"]);
-  expect(await screen.findByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("No validation issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
@@ -386,7 +385,7 @@ it("refreshes when records change", async () => {
   data = { ...RECORDS_DATA, Story: [], Bug: [] };
   await view.emit("node.changed");
 
-  // The issues signal leaves; the strip, not the block, says "✓ No issues".
+  // The issues signal leaves; the strip, not the block, says "No validation issues".
   await waitFor(() =>
     expect(within(region("Needs attention")).queryByText("Validation issues")).toBeNull(),
   );

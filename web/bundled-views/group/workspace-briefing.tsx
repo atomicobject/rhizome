@@ -26,7 +26,7 @@ import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
 import { commonMotionMetadata, MotionCount } from "./briefing-motion.tsx";
-import { ChangeRow } from "./briefing-activity.tsx";
+import { ageKey, ChangeRow } from "./briefing-activity.tsx";
 import { Block, BlockBody, MoreToggle, Rebuilding, lower, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
 import { LastChanged, NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
@@ -300,13 +300,24 @@ function InMotion() {
           return (
             <>
               <ul className="gv-list gv-changes">
-                {shown.map(({ entry, record }) => {
+                {shown.map(({ entry, record }, index) => {
                   const value = record.values.get(entry.field);
 
                   return (
                     <ChangeRow
                       key={record.key}
-                      compact={!!metadata}
+                      compact={
+                        !!metadata &&
+                        label(entry.type, false).toLowerCase() === metadata.type.toLowerCase() &&
+                        record.path.split("/").slice(0, -1).join("/") === metadata.folder
+                      }
+                      showType={
+                        shown.filter((item) => item.record.title === record.title).length > 1
+                      }
+                      repeatAge={
+                        index > 0 &&
+                        ageKey(shown[index - 1].record.updatedAt) === ageKey(record.updatedAt)
+                      }
                       line={{
                         key: record.key,
                         title: record.title,
@@ -379,9 +390,13 @@ function RecentChanges() {
         {() =>
           recent.data?.length ? (
             <ul className="gv-list gv-changes">
-              {recent.data.map((note) => (
+              {recent.data.map((note, index) => (
                 <ChangeRow
                   key={note.path}
+                  showType={recent.data.filter((item) => item.title === note.title).length > 1}
+                  repeatAge={
+                    index > 0 && ageKey(recent.data[index - 1].updatedAt) === ageKey(note.updatedAt)
+                  }
                   line={{
                     key: note.path,
                     title: note.title,

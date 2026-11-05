@@ -436,7 +436,7 @@ export function NeedsAttention({
         <Block
           title="Review suggested"
           // The rows count records, so the heading names what it counts: checks.
-          count={`${context.length} ${plural(context.length, "check", "checks")}`}
+          count={`${context.length} ${plural(context.length, "check", "checks")}${coverage.length ? ` · ${coverage.reduce((sum, signal) => sum + (signal.kind === "unlinked" ? signal.records.length : 0), 0)} not linked` : ""}`}
           info="Optional fields, connections, and update age. These observations do not imply required work."
         >
           <ul className="gv-list">

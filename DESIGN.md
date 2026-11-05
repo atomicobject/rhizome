@@ -115,7 +115,7 @@ The supported product surface is desktop web and Rhizome Desktop. Optimize for 1
 - One tinted chrome layer, white work surfaces, one tinted neutral, and hairlines.
 - Typography that separates roles: Merriweather for document titles, Inter for UI, prose, and every number, JetBrains Mono for identifiers, paths, and code.
 - Red is rare; selection is a neutral chrome tint, never red.
-- Status always pairs colour with shape, text, or position.
+- Status always pairs colour with shape, text, or position. Each status word keeps one mark everywhere: Active is a blue half circle; Complete, Done and Success are green filled dots; unsaved changes use gold triangles; failure, Blocked and Risk use red exclamation discs; Draft, Planned and Proposed use neutral rings; Archived, Dropped and Cancelled use muted dashed rings. Schema tones and lifecycle positions cannot override these words.
 
 ## 2. Colors
 
@@ -194,7 +194,7 @@ Every theme clears 4.5:1 for chrome text and muted chrome text in both appearanc
 
 **The Teal Means Connection Rule.** Teal means a link, a relationship, or provenance. It is never decoration and never a status: success is green (`--success`), and people (assignees) are ink, not links.
 
-**The One Validation State Rule.** A clean validation result reads "✓ No issues" everywhere it appears (the Problems status line, Briefing, strips), once per screen, with the ✓ in `--success` and the words in `--success-ink` or ink. A result with problems reads as a count, "3 issues". Never "No issues found", "0 issues", "Valid", or a second clean badge on the same screen.
+**The One Validation State Rule.** Clean validation uses the shared `ValidationCheck` green check-circle. A clean validation result reads "✓ No validation issues" in Briefings and "✓ No issues" on Problems (the Problems status line, Briefing, strips), once per screen, with the ✓ in `--success` and the words in `--success-ink` or ink. A result with problems reads as a count, "3 issues". Never "No issues found", "0 issues", "Valid", or a second clean badge on the same screen.
 
 **The Chrome Owns the Theme Rule.** Themes recolour the top bar, sidebar, and selection only. Content surfaces never take a theme colour, so every theme reads the same inside the panel.
 

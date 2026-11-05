@@ -169,11 +169,10 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
   const shown = open ? rows : rows.slice(0, SECTION_ROWS);
 
   // A section whose records all share one status omits it: the heading's
-  // counts already say it. Judged over every row, not just the shown ones, so
-  // a section mixing Active and Complete always says which row is which.
+  // counts already say it. Expanding a mixed section restores the column.
   const oneStatus =
     Boolean(member.lifecycle) &&
-    new Set(rows.map((node) => lifecycleValue(member, node.record))).size <= 1;
+    new Set(shown.map((node) => lifecycleValue(member, node.record))).size <= 1;
 
   // An interface's Type column says nothing when one type holds nearly every record.
   const columns = sectionColumns(

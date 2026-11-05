@@ -53,9 +53,36 @@ function InMotion({ model }: { model: GroupModel }) {
       title="In motion"
       className="gv-motion"
       controls={<span className="gv-motion-age-label">Last changed</span>}
-      count={<MotionCount count={entries.length} metadata={metadata} />}
+      count={
+        <>
+          <MotionCount count={entries.length} metadata={metadata} />
+          {needsAttention(model, linkGraph(model), Date.now())
+            .filter((signal) => signal.kind === "stale")
+            .map(
+              (signal) =>
+                signal.kind === "stale" && (
+                  <details className="gv-stale-review" key={signal.member}>
+                    <summary>{signal.records.length} unchanged</summary>
+                    <div>
+                      Active records unchanged for 30+ days. Review whether they still reflect
+                      current work.
+                      <ul>
+                        {signal.records.map((record) => (
+                          <li key={record.key}>
+                            <button className="gv-inline" onClick={() => openNote(record.path)}>
+                              {record.title}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </details>
+                ),
+            )}
+        </>
+      }
       info={{
-        text: "Records whose lifecycle value is in the active stage, newest change first.",
+        text: "Records whose lifecycle value is in the active stage, newest change first. Unchanged records have had no update for 30 days; review whether they still reflect current work.",
         display: "title",
       }}
     >
@@ -245,6 +272,7 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
       </div>
       {top.length > 0 ? (
         <>
+          <p className="gv-cap gv-right">Linked {lower(model.members[0].pluralLabel)}</p>
           <ul className="gv-list gv-tops">
             {shown.map(({ note, count }) => (
               <li key={note.path}>
@@ -364,7 +392,7 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
         <div className="gv-brief-col">
           <NeedsAttention
             model={model}
-            signals={signals}
+            signals={signals.filter((signal) => signal.kind !== "stale")}
             info="Validation issues and declared warning values."
             memberAction={openTable}
           />

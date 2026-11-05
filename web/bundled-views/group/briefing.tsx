@@ -49,9 +49,15 @@ function InMotion({ model }: { model: GroupModel }) {
 
   const metadata = useMotionMetadata(model, entries);
 
+  const title =
+    motion.groups.length === 1 &&
+    model.memberIndex.get(motion.groups[0].member)?.pluralLabel.toLowerCase() === "efforts"
+      ? "Active efforts"
+      : "In motion";
+
   return (
     <Block
-      title="In motion"
+      title={title}
       className="gv-motion"
       count={<MotionCount count={entries.length} metadata={metadata} />}
       info={{

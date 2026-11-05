@@ -384,7 +384,7 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
   await expect(table.getByRole("columnheader").filter({ hasNot: rowsControl })).toHaveText([
     /^Areas/,
     /^Releases/,
-    /^Owner.*1 of 4 linked/,
+    /^Owner.*1 of 4 work items have owner/,
   ]);
   await expect(row("Faster indexing").getByRole("cell")).toHaveText([
     "Search",

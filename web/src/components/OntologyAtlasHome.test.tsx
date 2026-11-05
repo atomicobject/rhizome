@@ -37,7 +37,7 @@ describe("OntologyAtlasHome", () => {
     expect(screen.queryByRole("heading", { name: "Types" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Interfaces" })).toBeNull();
     // The header counts types and interfaces together, then names each.
-    expect(screen.getByText("2")).toHaveClass("view-header__count");
+    expect(document.querySelector(".view-header__count")).toBeNull();
     expect(screen.getByText("1 type and 1 interface · 3 records")).toBeVisible();
     const find = await screen.findByRole("searchbox", { name: "Find a type" });
     fireEvent.change(find, { target: { value: "spec" } });

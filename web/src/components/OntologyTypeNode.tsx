@@ -1,10 +1,10 @@
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { Repeat2 } from "lucide-react";
+import "./ontology-refinements.css";
 import { Fragment } from "react";
 import {
   IMPL_SOURCE_LEFT_HANDLE,
   IMPL_SOURCE_RIGHT_HANDLE,
-  nameLines,
   type OntologyNodeData,
   relationSourceHandle,
   TYPE_TARGET_LEFT_HANDLE,
@@ -98,11 +98,7 @@ export function OntologyTypeNode({ data }: Props) {
         onClick={handleTypeLinkClick}
         title={cardTitle(data)}
       >
-        <span className="ontology-node__name">
-          {nameLines(typeLabel(data.name)).map((line, index) =>
-            line ? <span key={index}>{line}</span> : null,
-          )}
-        </span>
+        <span className="ontology-node__name">{typeLabel(data.name)}</span>
         {self.length > 0 ? (
           <span
             className="ontology-node__self"

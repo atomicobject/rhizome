@@ -161,8 +161,8 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   expect(within(motion).getByText("Last changed")).toBeVisible();
   expect(motion.querySelector("h3")).toBeNull();
   expect(motion.querySelector(".rz-count")).toHaveTextContent("5");
-  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
-  expect(motion.querySelector(".gv-motion-metadata")).toBeNull();
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(1);
+  expect(motion.querySelector(".gv-motion-metadata")).not.toBeNull();
   // Doing and Shipping mix in this list, so each row carries its status.
   expect(motion.querySelector(".gv-mark")).not.toBeNull();
   expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
@@ -307,7 +307,7 @@ it.each([
   });
 
   if (clean) {
-    const cleanState = await screen.findByText("✓ No issues");
+    const cleanState = await screen.findByText("No validation issues");
     expect(cleanState.closest(".gv-facts")).not.toHaveTextContent("49 notes");
     expect(cleanState.closest(".gv-facts")).toHaveTextContent("Checked");
     expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
@@ -315,7 +315,7 @@ it.each([
     expect(
       await screen.findByText("The last validation run is out of date or unfinished."),
     ).toBeVisible();
-    expect(screen.queryByText("✓ No issues")).toBeNull();
+    expect(screen.queryByText("No validation issues")).toBeNull();
   }
 });
 
@@ -398,8 +398,8 @@ it("restores row metadata when expanding reveals another folder", async () => {
   const motion = region("In motion");
   expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(MOTION_PER_TYPE);
   fireEvent.click(within(motion).getByRole("button", { name: "Show 1 more" }));
-  expect(motion.querySelector(".gv-motion-metadata")).toBeNull();
-  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE + 1);
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · story/");
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(1);
 });
 
 it.each([14, 20, 23])("shows up to twenty motion rows when alone (%i records)", async (count) => {

@@ -4,10 +4,10 @@
   width: calc(34% + 80px);
 }
 
-/* Wide enough for "Related materials 2" and its coverage on one line. */
+/* Sparse materials stay narrow; coverage wraps below the heading. */
 .gv-trace .gv-trace-related {
-  width: 280px;
-  min-width: 280px;
+  width: 220px;
+  min-width: 220px;
 }
 .gv-trace .gv-trace-related .gv-head > .gv-member {
   flex: none;
@@ -85,5 +85,21 @@
   margin-top: 4px;
 }
 .gv-trace thead th.gv-trace-related {
-  width: 280px;
+  width: 220px;
+}
+
+.gv-trace .rz-dash {
+  color: var(--text-muted);
+  opacity: 1;
+}
+.gv-section .gv-summary {
+  max-width: 720px;
+}
+.gv-trace .gv-head {
+  flex-wrap: wrap;
+}
+.gv-trace .gv-cov-count {
+  white-space: normal;
+  flex: 0 1 auto;
+  max-width: 100%;
 }

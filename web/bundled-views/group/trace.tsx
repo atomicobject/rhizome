@@ -128,7 +128,8 @@ function ColumnHead({
           className="gv-cov-count num"
           title={`${column.covered} of ${matrix.rowCount} rows hold one`}
         >
-          <b>{column.covered}</b> of {matrix.rowCount} linked
+          <b>{column.covered}</b> of {matrix.rowCount}{" "}
+          {inSentence(memberLabel(model, matrix.spine, { plural: true }))} have {inSentence(label)}
         </span>
       </div>
       {shown.length > 1 && (
@@ -158,6 +159,7 @@ function SpineHead({
         <span className="gv-num num">{matrix.spine.count}</span>
       </div>
       {children}
+      <span className="gv-cov">— No link</span>
     </th>
   );
 }
