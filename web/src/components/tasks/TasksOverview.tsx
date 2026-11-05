@@ -466,7 +466,7 @@ export function TasksOverview({
                 <th scope="col">Task</th>
                 <th scope="col">Mode</th>
                 <th scope="col" className="is-optional">
-                  Every
+                  Frequency
                 </th>
                 <th scope="col">Last run</th>
                 <th scope="col">Next due</th>
