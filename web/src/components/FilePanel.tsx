@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
-import { FileText } from "lucide-react";
-import type { FileView } from "../api/types";
+import { FileText, X } from "lucide-react";
+import { FILE_NOTE_RELATIONS } from "./fileFocusGraph";
+import type { FileView, GraphResponse } from "../api/types";
 import { convertWikilinks, resolveLinkTarget, stripFrontmatter } from "../lib/content";
+import "./file-panel-preview.css";
 import { Markdown } from "./markdown/Markdown";
 
 const HIGHLIGHT_LANGS = new Map<string, string>([
@@ -43,11 +45,13 @@ function getParentPath(path: string) {
 
 export function FilePanel({
   file,
+  graph,
   line,
   onClose,
   onSelectFile,
 }: {
   file: FileView | null;
+  graph?: GraphResponse;
   line?: number;
   onClose: () => void;
   onSelectFile: (path: string, kind?: string) => void;
@@ -60,31 +64,50 @@ export function FilePanel({
     return convertWikilinks(stripFrontmatter(file.content || ""));
   }, [file]);
 
-  const topLinks = useMemo(() => {
+  const linkGroups = useMemo(() => {
     if (!file) return [];
+    const groups = new Map<string, Map<string, { label: string; path: string; count: number }>>();
+
+    const add = (relation: string, path: string, label: string) => {
+      const rows = groups.get(relation) ?? new Map();
+      const previous = rows.get(path);
+      rows.set(path, { path, label: previous?.label ?? label, count: (previous?.count ?? 0) + 1 });
+      groups.set(relation, rows);
+    };
 
     if (file.kind === "code") {
-      return (file.relatedNotes || []).map((note) => ({
-        label: note.title || note.path,
-        path: note.path,
-      }));
-    }
+      for (const note of file.relatedNotes ?? [])
+        add(
+          note.reason === "coderef"
+            ? "Documented by"
+            : note.reason === "codeanchor"
+              ? "Mentioned in"
+              : "Related in graph",
+          note.path,
+          note.title || getFileName(note.path),
+        );
+      const known = new Set((file.relatedNotes ?? []).map((note) => note.path));
 
-    if (file.kind === "note") {
-      const links = file.links || [];
-      const out: { label: string; path: string }[] = [];
-      links.forEach((link) => {
+      for (const node of graph?.nodes ?? []) {
+        const path = node.notePath || node.path;
+
+        if ((node.kind === "note" || node.kind === "embedded") && path && !known.has(path)) {
+          add("Related in graph", path, node.label || getFileName(path));
+          known.add(path);
+        }
+      }
+    } else {
+      for (const link of file.links ?? []) {
         const target = resolveLinkTarget(link.target, file);
 
-        if (!target) return;
-        out.push({ label: link.text || target, path: target });
-      });
-
-      return out;
+        if (target) add("Links to", target, link.text || getFileName(target));
+      }
     }
 
-    return [];
-  }, [file]);
+    return [...groups]
+      .sort(([a], [b]) => FILE_NOTE_RELATIONS.indexOf(a) - FILE_NOTE_RELATIONS.indexOf(b))
+      .map(([relation, rows]) => ({ relation, rows: [...rows.values()] }));
+  }, [file, graph]);
 
   const codeMarkdown = useMemo(() => {
     if (file?.kind !== "code") return "";
@@ -118,22 +141,37 @@ export function FilePanel({
           </span>
         </div>
         <div className="explorer-pane__actions">
-          <button type="button" className="explorer-pane__close" onClick={onClose}>
-            Close
+          <button
+            type="button"
+            className="notes-right-rail__close"
+            aria-label="Close file details"
+            title="Close file details"
+            onClick={onClose}
+          >
+            <X size={16} strokeWidth={1.5} aria-hidden="true" />
           </button>
         </div>
       </header>
 
       <div className="explorer-pane__body">
-        {file && topLinks.length > 0 && (
-          <section className="explorer-pane__section">
+        {linkGroups.map(({ relation, rows }) => (
+          <section className="explorer-pane__section" key={relation}>
             <h3>
-              Links
-              <span>{topLinks.length}</span>
+              {relation}
+              <span className="num">
+                {rows.length}{" "}
+                {file.kind === "code"
+                  ? rows.length === 1
+                    ? "note"
+                    : "notes"
+                  : rows.length === 1
+                    ? "destination"
+                    : "destinations"}
+              </span>
             </h3>
             <ul className="explorer-pane__list">
-              {topLinks.map((note) => (
-                <li key={`${note.path}-${note.label}`}>
+              {rows.map((note) => (
+                <li key={note.path}>
                   <button
                     type="button"
                     className="explorer-pane__list-link"
@@ -145,13 +183,29 @@ export function FilePanel({
                     <span className="explorer-pane__list-icon" aria-hidden="true">
                       <FileText size={16} strokeWidth={1.5} absoluteStrokeWidth />
                     </span>
-                    <span className="explorer-pane__list-name">{note.label}</span>
+                    <span className="explorer-pane__link-text">
+                      <span className="explorer-pane__list-name link-title">{note.label}</span>
+                      <span className="explorer-pane__link-path">
+                        {note.path.length > 54
+                          ? `${note.path.slice(0, 24)}…${note.path.slice(-29)}`
+                          : note.path}
+                      </span>
+                    </span>
+                    {note.count > 1 && (
+                      <span
+                        className="explorer-pane__multiplicity num"
+                        title={`${note.count} mentions`}
+                        aria-label={`${note.count} mentions`}
+                      >
+                        ×{note.count}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
             </ul>
           </section>
-        )}
+        ))}
 
         {file?.kind === "note" && (
           <section className="explorer-pane__section">

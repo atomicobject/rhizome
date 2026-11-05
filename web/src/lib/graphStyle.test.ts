@@ -63,7 +63,7 @@ function edgeAttrs(overrides: Partial<SigmaEdgeAttrs> = {}): SigmaEdgeAttrs {
 }
 
 describe("graph style reducers", () => {
-  it("keeps containment visible and reveals counted cross-folder links only on hover", () => {
+  it("leaves containment to the folder-link layer and reveals counted cross-folder links only on hover", () => {
     const input = {
       source: "folder:docs",
       target: "folder:pkg",
@@ -81,7 +81,7 @@ describe("graph style reducers", () => {
     ).toMatchObject({ hidden: false, label: "12 links" });
     expect(
       computeEdgeStyle({ ...input, attrs: edgeAttrs({ kind: "folder-containment" }) }),
-    ).toMatchObject({ hidden: false, label: "" });
+    ).toMatchObject({ hidden: true, label: "" }); // sigmaFolderLinks draws it, clipped to node edges
   });
 
   it("hides non-matching nodes when search-only filter is active", () => {

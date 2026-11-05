@@ -1,120 +1,289 @@
 import { describe, expect, it } from "vitest";
-
 import type { GraphNode } from "../api/types";
-import { aggregateByFolder } from "./folderGraph";
+import { buildFolderTree, initialOpenFolders } from "./folderTree";
+import { visibleFolderGraph } from "./folderGraph";
+import { layoutFolderGraph } from "./folderLayout";
 
-const note = (path: string, resolvedType?: string): GraphNode => ({
+const code = (path: string): GraphNode => ({ id: `code:${path}`, path, label: path, kind: "code" });
+
+const note = (path: string): GraphNode => ({
   id: `note:${path}`,
+  path,
   label: path,
   kind: "note",
-  path,
-  resolvedType,
+  resolvedType: "Spec",
 });
 
-const code = (path: string): GraphNode => ({ id: `code:${path}`, label: path, kind: "code", path });
+const color = () => "red";
 
-describe("aggregateByFolder", () => {
-  it("preserves a capped source graph's truncation warning", () => {
-    expect(
-      aggregateByFolder({ nodes: [note("a.md")], edges: [], truncated: true }, () => "red")
-        .truncated,
-    ).toBe(true);
-  });
+const state = (paths: string[] = [], showAll: string[] = []) => ({
+  open: new Set(["", ...paths]),
+  explicit: new Set(paths),
+  showAll: new Set(showAll),
+});
 
-  it("opens a dominant folder into subfolders, folds small ones back, and counts links between folders", () => {
-    const nodes = [
-      ...Array.from({ length: 40 }, (_, i) => note(`docs/specs/s${i}.md`, "Spec")),
-      ...Array.from({ length: 30 }, (_, i) => code(`pkg/app/a${i}.go`)),
-      ...Array.from({ length: 30 }, (_, i) => code(`pkg/store/s${i}.go`)),
-      code("pkg/tiny/t.go"),
-      note("README.md"),
-    ];
-
-    const edges = [
-      { source: "note:docs/specs/s0.md", target: "code:pkg/app/a0.go", kind: "mentions" },
-      { source: "note:docs/specs/s1.md", target: "code:pkg/app/a1.go", kind: "mentions" },
-      { source: "code:pkg/app/a0.go", target: "code:pkg/app/a1.go", kind: "calls" },
-    ];
-
-    const graph = aggregateByFolder({ nodes, edges }, (type) => `var(--${type})`);
-    const byPath = new Map(graph.nodes.map((node) => [node.path, node]));
-
-    expect(graph.nodes.map((node) => node.id.slice("folder:".length)).sort()).toEqual([
-      "",
-      "docs",
-      "docs/specs",
-      "pkg",
-      "pkg/(smaller folders)",
-      "pkg/app",
-      "pkg/store",
-    ]);
-    expect(byPath.get("docs/specs")?.fill).toBe("var(--Spec)");
-    expect(byPath.get("pkg/app")?.fill).toBe("var(--graph-code)");
-    expect(byPath.get("docs/specs")?.fillKey).toBe("Spec");
-    expect(graph.nodes.find((node) => node.id === "folder:pkg/(smaller folders)")?.label).toBe(
-      "1 smaller folders  1 file",
-    );
-    expect(byPath.get("")?.label).toBe("Vault  41 notes, 61 files");
-    expect(
-      graph.edges
-        .filter((edge) => edge.kind === "folder-containment")
-        .map(({ source, target }) => [source, target]),
-    ).toEqual(
-      expect.arrayContaining([
-        ["folder:", "folder:docs"],
-        ["folder:docs", "folder:docs/specs"],
-        ["folder:", "folder:pkg"],
-        ["folder:pkg", "folder:pkg/app"],
-        ["folder:pkg", "folder:pkg/(smaller folders)"],
-      ]),
-    );
-    expect(aggregateByFolder({ nodes, edges: [] }, () => "red").edges).toEqual(
-      graph.edges.filter((edge) => edge.kind === "folder-containment"),
-    );
-    // Links inside one folder are not drawn; links between folders add up.
-    expect(graph.edges.filter((edge) => edge.kind === "folder-minor")).toEqual([
-      expect.objectContaining({ source: "folder:docs/specs", target: "folder:pkg/app", weight: 2 }),
-    ]);
-  });
-
-  it("counts notes, not embedded items, and keeps weak links for hover", () => {
-    const criterion = (path: string, i: number): GraphNode => ({
-      id: `embedded:${path}#c${i}`,
-      label: `c${i}`,
-      kind: "embedded",
-      notePath: path,
-      resolvedType: "AcceptanceCriterion",
+describe("complete folder model", () => {
+  it("counts all files and note types, excluding embedded items, and deduplicates file pairs", () => {
+    const tree = buildFolderTree({
+      nodes: [
+        note("docs/a.md"),
+        code("src/a.ts"),
+        { id: "criterion", kind: "embedded", label: "criterion", notePath: "docs/a.md" },
+      ],
+      edges: [
+        { source: "note:docs/a.md", target: "criterion", kind: "embeds" },
+        { source: "criterion", target: "code:src/a.ts", kind: "mentions" },
+        { source: "note:docs/a.md", target: "code:src/a.ts", kind: "mentions" },
+      ],
     });
 
-    const nodes = [
-      note("docs/specs/a.md", "TechnicalSpec"),
-      note("docs/specs/b.md", "TechnicalSpec"),
-      ...Array.from({ length: 30 }, (_, i) => criterion("docs/specs/a.md", i)),
-      ...Array.from({ length: 4 }, (_, i) => code(`pkg/a${i}.go`)),
-      ...Array.from({ length: 4 }, (_, i) => code(`cmd/c${i}.go`)),
-    ];
-
-    const link = (source: string, target: string) => ({ source, target, kind: "mentions" });
-
-    const edges = [
-      ...Array.from({ length: 20 }, () => link("note:docs/specs/a.md", "code:pkg/a0.go")),
-      ...Array.from({ length: 10 }, () => link("code:pkg/a1.go", "code:cmd/c0.go")),
-      link("note:docs/specs/b.md", "code:cmd/c1.go"),
-    ];
-
-    const graph = aggregateByFolder({ nodes, edges }, (type) => `var(--${type})`);
-    const specs = graph.nodes.find((node) => node.path === "docs/specs");
-
-    // Thirty embedded criteria neither size nor color the folder.
-    expect(specs).toMatchObject({ label: "docs/specs  2 notes", fillKey: "TechnicalSpec" });
-    expect(
-      graph.edges
-        .filter((edge) => edge.kind === "folder-minor")
-        .map((edge) => [edge.source, edge.target, edge.kind]),
-    ).toEqual([
-      ["folder:cmd", "folder:docs/specs", "folder-minor"],
-      ["folder:cmd", "folder:pkg", "folder-minor"],
-      ["folder:docs/specs", "folder:pkg", "folder-minor"],
+    expect(tree.root).toMatchObject({
+      notes: 1,
+      files: 1,
+      untyped: 0,
+      types: new Map([["Spec", 1]]),
+    });
+    expect(tree.files.size).toBe(2);
+    expect(tree.links).toEqual([
+      { source: "code:src/a.ts", target: "note:docs/a.md", noteCode: 1, other: 0 },
     ]);
+    const graph = visibleFolderGraph(tree, state(), color);
+    expect(graph.edges.find((e) => e.kind === "folder-crosslink")).toMatchObject({
+      weight: 1,
+      relationLabel: "1 note–code links",
+    });
+  });
+  it("budgets children without losing any file and reveals every aggregate member", () => {
+    const tree = buildFolderTree({
+      nodes: Array.from({ length: 40 }, (_, i) => code(`src/part${i}/a.ts`)),
+      edges: [],
+      truncated: true,
+    });
+
+    const graph = visibleFolderGraph(tree, state(["src"]), color);
+    const children = graph.children.get("src") ?? [];
+    expect(children.length).toBeLessThanOrEqual(24);
+    expect(children.reduce((sum, c) => sum + c.members.length, 0)).toBe(40);
+    expect(children.find((c) => c.node.aggregate)?.node.id).toBe("more:src");
+    const all = visibleFolderGraph(tree, state(["src"], ["src"]), color);
+    expect(all.children.get("src")).toHaveLength(40);
+    expect(all.truncated).toBe(true);
+  });
+  it("makes direct files reachable even in a folder containing subfolders", () => {
+    const tree = buildFolderTree({
+      nodes: [code("src/sub/a.ts"), ...Array.from({ length: 35 }, (_, i) => code(`src/f${i}.ts`))],
+      edges: [],
+    });
+
+    const collapsed = visibleFolderGraph(tree, state(), color);
+    expect(collapsed.nodes.map((n) => n.id)).toEqual(["folder:", "folder:src"]);
+    const open = visibleFolderGraph(tree, state(["src"], ["src"]), color);
+    expect(open.nodes.filter((n) => n.kind === "code")).toHaveLength(35);
+    expect(open.children.get("src")?.reduce((sum, c) => sum + c.members.length, 0)).toBe(36);
+  });
+  it("folds root files into a labelled reachable aggregate beside folders", () => {
+    const tree = buildFolderTree({
+      nodes: [note("README.md"), ...Array.from({ length: 30 }, (_, i) => code(`part${i}/a.ts`))],
+      edges: [],
+    });
+
+    const graph = visibleFolderGraph(tree, state(), color);
+    expect(graph.nodes.find((node) => node.id === "more:")).toMatchObject({
+      label: "+1 note",
+      labelDetail: undefined,
+      childCount: 1,
+    });
+    expect(graph.children.get("")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(31);
+  });
+  it("keeps every top-level folder visible beside root files", () => {
+    const tree = buildFolderTree({
+      nodes: [note("README.md"), ...Array.from({ length: 30 }, (_, i) => code(`part${i}/a.ts`))],
+      edges: [],
+    });
+
+    const graph = visibleFolderGraph(tree, state(), color);
+    expect(graph.children.get("")?.filter((child) => child.folder)).toHaveLength(30);
+  });
+  it("auto-opens only dominant top-level folders", () => {
+    const tree = buildFolderTree({
+      nodes: [
+        ...Array.from({ length: 40 }, (_, i) => note(`docs/specs/nested/a${i}.md`)),
+        code("pkg/a.ts"),
+      ],
+      edges: [],
+    });
+
+    expect(initialOpenFolders(tree)).toEqual(new Set(["", "docs"]));
+  });
+});
+
+describe("stable radial containment", () => {
+  it("opening a folder preserves every coordinate outside its subtree and its own anchor", () => {
+    const tree = buildFolderTree({
+      nodes: [code("a/one.ts"), code("a/sub/two.ts"), note("b/readme.md"), code("c/main.ts")],
+      edges: [],
+    });
+
+    const before = layoutFolderGraph(tree, visibleFolderGraph(tree, state(), color));
+    const after = layoutFolderGraph(tree, visibleFolderGraph(tree, state(["a"]), color));
+
+    for (const node of before.nodes)
+      expect(after.nodes.find((n) => n.id === node.id)).toMatchObject({ x: node.x, y: node.y });
+    expect(after.layoutExtent).toBe(before.layoutExtent);
+    expect(after.nodes.every((n) => Math.hypot(n.x ?? 0, n.y ?? 0) <= after.layoutExtent)).toBe(
+      true,
+    );
+    expect(after.nodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))).toBe(true);
+    expect(after.edges.filter((e) => e.kind === "folder-containment")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ source: "folder:", target: "folder:b" })]),
+    );
+  });
+  it("keeps both dominant fan anchors fixed when a descendant opens", () => {
+    const tree = buildFolderTree({
+      nodes: [
+        ...Array.from({ length: 40 }, (_, i) => code(`pkg/app/p${i}/a.ts`)),
+        ...Array.from({ length: 40 }, (_, i) => note(`docs/topic${i}/a.md`)),
+      ],
+      edges: [],
+    });
+
+    const open = initialOpenFolders(tree);
+
+    const before = layoutFolderGraph(
+      tree,
+      visibleFolderGraph(tree, { open, explicit: new Set(), showAll: new Set() }, color),
+    );
+
+    const after = layoutFolderGraph(
+      tree,
+      visibleFolderGraph(
+        tree,
+        { open: new Set([...open, "pkg/app"]), explicit: new Set(["pkg/app"]), showAll: new Set() },
+        color,
+      ),
+    );
+
+    for (const node of before.nodes)
+      expect(after.nodes.find((n) => n.id === node.id)).toMatchObject({ x: node.x, y: node.y });
+    expect(before.children.get("docs")).toHaveLength(10);
+    expect(before.children.get("docs")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(
+      40,
+    );
+    const pkg = before.nodes.find((n) => n.id === "folder:pkg")!;
+    const docs = before.nodes.find((n) => n.id === "folder:docs")!;
+    expect(pkg.x! * docs.x!).toBeLessThan(0);
+  });
+  it("deep expansions add local radii instead of amplifying narrow root wedges", () => {
+    const nodes = Array.from({ length: 20 }, (_, i) => code(`large/p${i}/a.ts`));
+
+    const paths = Array.from(
+      { length: 12 },
+      (_, i) => "tiny/" + Array.from({ length: i }, () => "sub").join("/"),
+    );
+
+    nodes.push(code("tiny/" + "sub/".repeat(11) + "a.ts"));
+    const tree = buildFolderTree({ nodes, edges: [] });
+    const before = layoutFolderGraph(tree, visibleFolderGraph(tree, state(), color));
+    const after = layoutFolderGraph(tree, visibleFolderGraph(tree, state(paths), color));
+    expect(after.layoutExtent).toBe(before.layoutExtent);
+    expect(after.layoutExtent).toBeLessThan(10000);
+
+    for (const edge of after.edges.filter(
+      (e) => e.kind === "folder-containment" && e.source !== "folder:",
+    )) {
+      const parent = after.nodes.find((n) => n.id === edge.source)!;
+      const child = after.nodes.find((n) => n.id === edge.target)!;
+      expect(Math.hypot(child.x! - parent.x!, child.y! - parent.y!)).toBeLessThanOrEqual(1000);
+    }
+  });
+  it("places linked top-level siblings next to each other", () => {
+    const tree = buildFolderTree({
+      nodes: [note("docs/a.md"), code("web/a.ts"), code("pkg/a.go")],
+      edges: [{ source: "note:docs/a.md", target: "code:web/a.ts", kind: "mentions" }],
+    });
+
+    const graph = layoutFolderGraph(tree, visibleFolderGraph(tree, state(), color));
+
+    const angles = graph.nodes
+      .filter((n) => n.id !== "folder:")
+      .sort((a, b) => Math.atan2(a.y ?? 0, a.x ?? 0) - Math.atan2(b.y ?? 0, b.x ?? 0))
+      .map((n) => n.id);
+
+    expect(angles.slice(0, 2)).toEqual(["folder:docs", "folder:web"]);
+  });
+});
+
+it("bundles underlying links while keeping focused children separate", () => {
+  const tree = buildFolderTree({
+    nodes: [note("docs/a.md"), note("docs/b.md"), code("pkg/a/a.ts"), code("pkg/b/b.ts")],
+    edges: [
+      { source: "note:docs/a.md", target: "code:pkg/a/a.ts", kind: "mentions" },
+      { source: "note:docs/b.md", target: "code:pkg/a/a.ts", kind: "mentions" },
+      { source: "note:docs/b.md", target: "code:pkg/b/b.ts", kind: "mentions" },
+    ],
+  });
+
+  const open = state(["pkg", "docs"]);
+  expect(
+    visibleFolderGraph(tree, open, color).edges.filter((e) => e.kind === "folder-crosslink"),
+  ).toEqual([
+    {
+      source: "folder:docs",
+      target: "folder:pkg",
+      kind: "folder-crosslink",
+      weight: 3,
+      relationLabel: "3 note–code links",
+    },
+  ]);
+  const focused = visibleFolderGraph(tree, open, color, "pkg");
+  expect(focused.edges.filter((e) => e.kind === "folder-crosslink")).toEqual([
+    {
+      source: "folder:pkg",
+      target: "folder:docs",
+      kind: "folder-crosslink",
+      weight: 3,
+      relationLabel: "3 note–code links",
+    },
+  ]);
+  expect(focused.edges.filter((e) => e.kind === "folder-child-crosslink")).toHaveLength(2);
+  expect(focused.nodes.find((n) => n.id === "folder:pkg/a")?.labelDetail).toContain(
+    "2 links to docs",
+  );
+  expect(focused.nodes.find((n) => n.id === "folder:pkg/b")?.labelDetail).toContain(
+    "1 link to docs",
+  );
+});
+
+it("overflow gives direct counts once and labels descendant totals explicitly", () => {
+  const tree = buildFolderTree({
+    nodes: [...Array.from({ length: 12 }, (_, i) => note(`n${i}.md`)), code("a.ts")],
+    edges: [],
+  });
+
+  expect(visibleFolderGraph(tree, state(), color).nodes.find((n) => n.aggregate)).toMatchObject({
+    label: "+12 notes · 1 file",
+    labelDetail: undefined,
+  });
+
+  const nested = buildFolderTree({
+    nodes: Array.from({ length: 20 }, (_, i) => note(`docs/f${i}/n.md`)),
+    edges: [],
+  });
+
+  expect(
+    visibleFolderGraph(nested, state(["docs"]), color).nodes.find((n) => n.aggregate),
+  ).toMatchObject({ label: "+7 folders", labelDetail: "total 7 notes" });
+});
+
+it("keeps repeated folder names and parent prefixes on one line, with counts separate", () => {
+  const tree = buildFolderTree({ nodes: [code("web/a.ts"), code("pkg/web/b.ts")], edges: [] });
+  const graph = visibleFolderGraph(tree, state(["pkg"]), color);
+  expect(graph.nodes.find((node) => node.id === "folder:web")).toMatchObject({
+    label: "Vault/ web",
+    labelDetail: "1 file",
+  });
+  expect(graph.nodes.find((node) => node.id === "folder:pkg/web")).toMatchObject({
+    label: "pkg/ web",
+    labelDetail: "1 file",
   });
 });

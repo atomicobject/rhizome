@@ -5,6 +5,52 @@ import type { FileView } from "../api/types";
 import { FilePanel } from "./FilePanel";
 
 describe("FilePanel", () => {
+  it("closes details through the accessible shared pane icon", () => {
+    const onClose = vi.fn();
+    render(
+      <FilePanel
+        file={{ path: "src/main.go", kind: "code" }}
+        onClose={onClose}
+        onSelectFile={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close file details" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("groups relation kinds and collapses duplicate destinations within each relation", () => {
+    const onSelectFile = vi.fn();
+    render(
+      <FilePanel
+        onClose={vi.fn()}
+        onSelectFile={onSelectFile}
+        graph={{
+          nodes: [{ id: "related", kind: "note", path: "docs/related.md", label: "Related" }],
+          edges: [],
+        }}
+        file={{
+          path: "src/main.go",
+          kind: "code",
+          relatedNotes: [
+            { path: "docs/guide.md", title: "Guide", reason: "codeanchor", anchorLabel: "one" },
+            { path: "docs/guide.md", title: "Guide", reason: "codeanchor", anchorLabel: "two" },
+            { path: "docs/design.md", title: "Design", reason: "coderef" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Mentioned in1 note" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Documented by1 note" })).toBeVisible();
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
+    ).toEqual(["Documented by1 note", "Mentioned in1 note", "Related in graph1 note"]);
+    expect(screen.getByTitle("2 mentions")).toHaveAttribute("aria-label", "2 mentions");
+    const link = screen.getByRole("button", { name: /Guide/ });
+    expect(link).toHaveTextContent("docs/guide.md×2");
+    fireEvent.click(link);
+    expect(onSelectFile).toHaveBeenCalledWith("docs/guide.md", "note");
+  });
+
   it("renders code HTML as text instead of injecting markup", () => {
     const file: FileView = {
       path: "src/example.ts",

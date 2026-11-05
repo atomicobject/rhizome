@@ -1,6 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type FrameLocator, type Page } from "./fixtures";
+import { customFrame, feedbackScreenshot, openGroup } from "./groupViewHelpers";
 import { chooseView, expectView, workspaceView } from "./workspaceView";
 
 test.use({ timezoneId: "America/Detroit", locale: "en-US" });
@@ -16,19 +17,8 @@ test.use({ timezoneId: "America/Detroit", locale: "en-US" });
 // - E2E Contacts: one root.
 // - E2E Library: two roots with no links.
 
-const customFrame = (page: Page) =>
-  page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
-
 const viewChoice = (page: Page, name: string) =>
   workspaceView(page).getByRole("button", { name, exact: true });
-
-async function openGroup(page: Page, group: string) {
-  await page
-    .getByRole("region", { name: "Collections" })
-    .getByRole("button", { name: group, exact: true })
-    .click();
-  await expect(page.getByRole("heading", { name: group, exact: true })).toBeVisible();
-}
 
 async function vaultFile(request: APIRequestContext, ...parts: string[]) {
   const status = await (await request.get("/api/v1/status")).json();
@@ -51,17 +41,6 @@ const markFrame = (frame: FrameLocator) =>
 
 const frameMarked = (frame: FrameLocator) =>
   frame.locator("html").evaluate(() => "gvMarker" in window);
-
-async function feedbackScreenshot(page: Page, name: string) {
-  const feedbackDir = process.env.RHIZOME_FEEDBACK_DIR;
-
-  if (!feedbackDir) return;
-  await mkdir(feedbackDir, { recursive: true });
-  await page.screenshot({
-    path: `${feedbackDir}/${process.env.RHIZOME_FEEDBACK_PHASE ?? "after"}-${name}.png`,
-    fullPage: true,
-  });
-}
 
 test("a group opens the bundled view its shape calls for and remembers a choice", async ({
   page,
@@ -243,95 +222,6 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(problems.locator("[data-issue-key]")).toHaveCount(1);
   await expect(problems.locator("[data-issue-key]")).toContainText("bug-crash.md");
 });
-
-test("group Overview maps member types, lists members and outside notes, and switches to the matrix", async ({
-  page,
-}) => {
-  await page.goto("/notes");
-  await openGroup(page, "E2E Planning");
-  await chooseView(page, "Overview");
-  const frame = customFrame(page);
-
-  const map = frame.getByRole("region", { name: "Map" });
-  await expect(map.getByRole("group", { name: "E2E Planning map" })).toBeVisible();
-
-  for (const name of ["Areas", "Releases", "Work items"])
-    await expect(map.getByRole("button", { name: new RegExp(`^${name}\\b`) })).toHaveCount(1);
-
-  const arcs = map.locator(".gv-map-arc");
-  expect(await arcs.count()).toBeGreaterThan(0);
-
-  for (const arc of await arcs.all()) {
-    expect(
-      Number.parseFloat(await arc.evaluate((el) => getComputedStyle(el).strokeWidth)),
-    ).toBeGreaterThanOrEqual(4);
-  }
-
-  await expect(map.locator(".gv-legend-ring")).not.toContainText(["ring:"]);
-  await feedbackScreenshot(page, "map-light");
-  await page.emulateMedia({ colorScheme: "dark" });
-  await feedbackScreenshot(page, "map-dark");
-  await page.emulateMedia({ colorScheme: "light" });
-
-  const members = frame.getByRole("region", { name: "Members" });
-
-  for (const name of ["Areas", "Releases", "Work items"])
-    await expect(members.getByRole("button", { name, exact: true })).toBeVisible();
-
-  // Ada is the typed owner of one work item and watches another from outside;
-  // Lin is named only in a body link.
-  const outside = frame.getByRole("region", { name: "Outside the group" });
-  await expect(outside).toContainText("Ada Example");
-  await expect(outside).toContainText("Lin Example");
-  await expect(outside.locator(".gv-changes")).toHaveCSS("max-height", "none");
-
-  await map.getByRole("radio", { name: "Matrix" }).locator("xpath=..").click();
-
-  const matrix = map.getByRole("table");
-  await expect(matrix.getByRole("rowheader", { name: "Work items" })).toBeVisible();
-
-  // A member name opens its collection.
-  await members.getByRole("button", { name: "Areas", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Areas", exact: true })).toBeVisible();
-});
-
-test("All notes opens on its Briefing and offers the Overview", async ({ page }) => {
-  await page.goto("/notes");
-  await expectView(page, "Briefing");
-  const frame = customFrame(page);
-
-  for (const name of ["Needs attention", "In motion", "Recent changes"])
-    await expect(frame.getByRole("region", { name })).toBeVisible();
-
-  await expect(page.locator("canvas")).toHaveCount(0);
-
-  await chooseView(page, "Overview");
-  await expect(frame.getByRole("region", { name: "Map" })).toBeVisible();
-  await expect(frame.getByRole("region", { name: "Untyped notes by folder" })).toBeVisible();
-  await expect(frame.getByRole("region", { name: "Members" })).toBeVisible();
-});
-
-for (const { time, heading } of [
-  { time: "2026-10-05T23:59:00-04:00", heading: "1m" },
-  { time: "2026-10-06T00:01:00-04:00", heading: "3m" },
-]) {
-  test(`Briefing dates a recent change by its age (${heading}) across midnight`, async ({
-    page,
-  }) => {
-    await page.clock.setFixedTime(new Date(time));
-    await page.goto("/notes");
-    await openGroup(page, "E2E Planning");
-    await expectView(page, "Briefing");
-
-    const recent = customFrame(page).getByRole("region", { name: "Recent changes" });
-    // One list on every scope: no day headings, the age in its own column.
-    await expect(recent.getByRole("heading")).toHaveText(["Recent changes"]);
-    // The heading also matches the outgoing All notes frame; wait for the group's one change.
-    await expect(recent.locator("time")).toHaveCount(1);
-    await expect(recent.locator("time")).toHaveAttribute("datetime", "2026-10-06T03:58:00.000Z");
-    await expect(recent.locator("time span[aria-hidden]")).toHaveText(heading);
-  });
-}
 
 test("Trace defaults to the area tree, nests and rolls up rows, and switches its rows", async ({
   page,

@@ -1,63 +1,44 @@
-// Explorer node labels: placed clear of node discs, other labels, and (where
-// possible) edges, then drawn on a solid backing in the canvas color, pinned to the
-// node, so a label never reads as belonging to a line or a neighbor.
-//
-// WHY: Sigma draws labels in label-grid order, not by size, and its grid
-// ignores forced (landmark) labels. For a graph small enough to check, every
-// label that will be drawn is placed once per frame, largest node first, before
-// Sigma asks for the first one; Sigma's draw call then only paints the chosen
-// spot. Larger graphs place labels in Sigma's order against labels alone.
+import { resolveCssColor } from "../lib/themeColors";
+import { noteLabelLines, selectedNoteSpot } from "./sigmaLabelText";
+import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import type Sigma from "sigma";
 import type { NodeLabelDrawingFunction } from "sigma/rendering";
-import type { SigmaEdgeAttrs, SigmaNodeAttrs } from "../lib/graphStyle";
+import type { SigmaEdgeAttrs } from "../lib/graphStyle";
 
 type Box = [left: number, top: number, right: number, bottom: number];
 
-type Spot = { x: number; y: number; box: Box };
+type Spot = { x: number; y: number; box: Box; detail?: boolean };
 
-type LabelColors = { label: string; canvas: string };
+type LabelColors = { label: string; canvas: string; edgeLabel?: string };
 
-/** Up to this many nodes, labels are placed clear of node discs and edges as well as other labels. */
 export const NODE_AVOID_ORDER = 10000;
 
-/** Padding of the label's backing around its text. */
 const PAD_X = 4;
 
 const PAD_Y = 2;
 
-/** A planned label's key: its node's center on screen, which the draw call receives too. */
 const at = (x: number, y: number) => `${Math.round(x)}:${Math.round(y)}`;
 
-const overlaps = (a: Box, b: Box) =>
-  a[0] < b[2] + 8 && a[2] + 8 > b[0] && a[1] < b[3] + 8 && a[3] + 8 > b[1];
+const overlaps = (a: Box, b: Box, gap = 8) =>
+  a[0] < b[2] + gap && a[2] + gap > b[0] && a[1] < b[3] + gap && a[3] + gap > b[1];
 
 /** Whether the segment from (x1, y1) to (x2, y2) passes through the box (Liang–Barsky). */
 function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
-  let t0 = 0;
-  let t1 = 1;
   const dx = x2 - x1;
   const dy = y2 - y1;
 
-  for (const [p, q] of [
-    [-dx, x1 - box[0]],
-    [dx, box[2] - x1],
-    [-dy, y1 - box[1]],
-    [dy, box[3] - y1],
-  ]) {
-    if (p === 0) {
-      if (q < 0) return false;
-      continue;
-    }
+  if (dx === 0 && (x1 < box[0] || x1 > box[2])) return false;
 
-    const t = q / p;
+  if (dy === 0 && (y1 < box[1] || y1 > box[3])) return false;
+  const tx1 = dx === 0 ? -Infinity : (box[0] - x1) / dx;
+  const tx2 = dx === 0 ? Infinity : (box[2] - x1) / dx;
+  const ty1 = dy === 0 ? -Infinity : (box[1] - y1) / dy;
+  const ty2 = dy === 0 ? Infinity : (box[3] - y1) / dy;
 
-    if (p < 0) t0 = Math.max(t0, t);
-    else t1 = Math.min(t1, t);
-
-    if (t0 > t1) return false;
-  }
-
-  return true;
+  return (
+    Math.max(0, Math.min(tx1, tx2), Math.min(ty1, ty2)) <=
+    Math.min(1, Math.max(tx1, tx2), Math.max(ty1, ty2))
+  );
 }
 
 /**
@@ -65,7 +46,15 @@ function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
  * node's middle, below and above, then hugging the four corners. `x, y` is
  * where the text starts and its baseline.
  */
-function spotsAround(x: number, y: number, r: number, width: number, size: number): Spot[] {
+function spotsAround(
+  x: number,
+  y: number,
+  r: number,
+  width: number,
+  size: number,
+  left = false,
+  landmark = false,
+): Spot[] {
   const gap = r + 12;
   const middle = y + size * 0.35;
   const corner = r * 0.75;
@@ -76,9 +65,11 @@ function spotsAround(x: number, y: number, r: number, width: number, size: numbe
     box: [sx - PAD_X, sy - size - PAD_Y + 1, sx + width + PAD_X, sy + PAD_Y + 3],
   });
 
-  return [0, 16, 32, 48, 64, 80, 96].flatMap((offset) => [
-    at(x + gap + offset, middle),
-    at(x - gap - offset - width, middle),
+  return (
+    landmark ? [0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256] : [0, 16, 32, 48, 64, 80, 96]
+  ).flatMap((offset) => [
+    at(left ? x - gap - offset - width : x + gap + offset, middle),
+    at(left ? x + gap + offset : x - gap - offset - width, middle),
     at(x - width / 2, y + gap + offset + size - 2),
     at(x - width / 2, y - gap - offset - 2),
     at(x + gap + offset - 2, y - corner - offset - 2),
@@ -88,16 +79,47 @@ function spotsAround(x: number, y: number, r: number, width: number, size: numbe
   ]);
 }
 
-/**
- * Builds Sigma's label drawing function. `beginFrame` must be called from
- * Sigma's "beforeRender" so each frame places its labels afresh.
- */
+/** Fixed Explorer labels stay on the outward side, within a short leader of the disc. */
+export function outwardSpots(
+  x: number,
+  y: number,
+  r: number,
+  width: number,
+  size: number,
+  dx: number,
+  dy: number,
+): Spot[] {
+  const length = Math.hypot(dx, dy) || 1;
+  const side = dx / length;
+
+  return [0, 4, -4].map((nudge) => {
+    const sx = side >= 0.35 ? x + r + 6 : side <= -0.35 ? x - r - 6 - width : x - width / 2 + nudge;
+
+    const sy =
+      Math.abs(side) >= 0.35 ? y + size * 0.35 + nudge : dy < 0 ? y - r - 6 : y + r + 6 + size;
+
+    return { x: sx, y: sy, box: [sx - PAD_X, sy - size, sx + width + PAD_X, sy + 4] satisfies Box };
+  });
+}
+
 export function createLabelPainter(
   getSigma: () => Sigma<SigmaNodeAttrs, SigmaEdgeAttrs> | null,
   colors: () => LabelColors,
 ) {
   let planned: Map<string, Spot | null> | null = null;
   const placed: Box[] = [];
+  const widths = new Map<string, number>();
+
+  const measure = (context: CanvasRenderingContext2D, text: string) => {
+    const key = `${context.font}:${text}`;
+    const cached = widths.get(key);
+
+    if (cached !== undefined) return cached;
+    const width = context.measureText(text).width;
+    widths.set(key, width);
+
+    return width;
+  };
 
   const beginFrame = () => {
     planned = null;
@@ -112,9 +134,24 @@ export function createLabelPainter(
     if (!sigma) return spots;
     const graph = sigma.getGraph();
     const { width: viewWidth, height: viewHeight } = sigma.getDimensions();
-    const discs: { id: string; box: Box }[] = [];
+    const discs: { id: string; box: Box }[] = [{ id: "graph-controls", box: [0, 0, 44, 100] }];
     const centers = new Map<string, { x: number; y: number }>();
-    const labeled: { id: string; label: string; x: number; y: number; r: number }[] = [];
+
+    const labeled: {
+      id: string;
+      label: string;
+      x: number;
+      y: number;
+      r: number;
+      detail: string;
+      left: boolean;
+      priority: number;
+      center: boolean;
+      landmark: boolean;
+      fixed: boolean;
+      dx: number;
+      dy: number;
+    }[] = [];
 
     graph.forEachNode((id) => {
       const data = sigma.getNodeDisplayData(id);
@@ -125,8 +162,31 @@ export function createLabelPainter(
       centers.set(id, { x, y });
       discs.push({ id, box: [x - r - 2, y - r - 2, x + r + 2, y + r + 2] });
 
+      const attrs = graph.getNodeAttributes(id);
+
+      const parentPath = attrs.aggregate
+        ? attrs.path || ""
+        : (attrs.path || "").split("/").slice(0, -1).join("/");
+
+      const parent = sigma.getNodeDisplayData(`folder:${parentPath}`);
+      const origin = parent ? sigma.framedGraphToViewport(parent) : { x, y: y - 1 };
+
       if (data.label && (data.forceLabel || r >= threshold))
-        labeled.push({ id, label: data.label, x, y, r });
+        labeled.push({
+          id,
+          label: data.label,
+          x,
+          y,
+          r,
+          detail: attrs.labelDetail || "",
+          left: Boolean(attrs.fixed && attrs.x < 0),
+          priority: attrs.priority ?? 0,
+          center: Boolean(attrs.explorerLabels && attrs.center),
+          landmark: Boolean(attrs.fixed && attrs.kind === "module"),
+          fixed: Boolean(attrs.fixed),
+          dx: id === "folder:" ? 0 : x - origin.x,
+          dy: id === "folder:" ? 1 : y - origin.y,
+        });
     });
 
     const segments: [number, number, number, number][] = [];
@@ -139,12 +199,126 @@ export function createLabelPainter(
       if (display && !display.hidden && a && b) segments.push([a.x, a.y, b.x, b.y]);
     });
 
-    labeled.sort((a, b) => b.r - a.r || a.id.localeCompare(b.id));
+    labeled.sort((a, b) => b.priority - a.priority || b.r - a.r || a.id.localeCompare(b.id));
+
+    const names = labeled.flatMap((node) =>
+      node.fixed && node.landmark
+        ? [
+            {
+              id: node.id,
+              box: outwardSpots(
+                node.x,
+                node.y,
+                node.r,
+                measure(context, node.label),
+                size,
+                node.dx,
+                node.dy,
+              )[0].box,
+            },
+          ]
+        : [],
+    );
+
+    const font = context.font;
 
     for (const node of labeled) {
-      const width = context.measureText(node.label).width;
+      context.font = node.center
+        ? `600 ${size}px Inter, -apple-system, system-ui, sans-serif`
+        : font;
 
-      const candidates = spotsAround(node.x, node.y, node.r, width, size).filter(
+      const attrs = graph.getNodeAttributes(node.id);
+
+      const lines =
+        attrs.kind === "note" || attrs.kind === "embedded"
+          ? noteLabelLines(node.label, (text) => measure(context, text), attrs.selected ? 140 : 220)
+          : [node.label];
+
+      node.label = lines.reduce(
+        (longest, line) => (measure(context, line) > measure(context, longest) ? line : longest),
+        "",
+      );
+
+      if (
+        (attrs.selected && attrs.path && !(attrs.fixed && attrs.kind === "module")) ||
+        (attrs.explorerLabels && attrs.fixed && attrs.kind !== "module")
+      ) {
+        const width =
+          measure(context, node.label) + (node.detail ? 6 + measure(context, node.detail) : 0);
+
+        const chosen =
+          attrs.selected && attrs.kind === "note"
+            ? selectedNoteSpot(node.x, node.y, node.r, width, size)
+            : outwardSpots(
+                node.x,
+                node.y,
+                node.r,
+                width,
+                size,
+                attrs.kind === "note" || attrs.kind === "embedded" ? -1 : 1,
+                0,
+              )[0];
+
+        chosen.box[3] += (lines.length - 1) * (size + 3);
+        placed.push(chosen.box);
+        spots.set(at(node.x, node.y), chosen);
+        continue;
+      }
+
+      if (node.fixed) {
+        let chosen: Spot | null = null;
+
+        for (const detail of node.detail ? [true, false] : [false]) {
+          const width = Math.max(
+            measure(context, node.label),
+            detail ? measure(context, node.detail) : 0,
+          );
+
+          chosen =
+            [...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy)]
+              .map((spot) => {
+                if (detail && spot.box[3] < node.y) {
+                  spot.y -= size + 3;
+                  spot.box[1] -= size + 3;
+                } else if (detail) spot.box[3] += size + 3;
+
+                return spot;
+              })
+              .find(
+                ({ box }) =>
+                  box[0] >= 0 &&
+                  box[2] <= viewWidth &&
+                  box[1] >= 0 &&
+                  box[3] <= viewHeight &&
+                  !discs.some((disc) => disc.id !== node.id && overlaps(disc.box, box, 8)) &&
+                  !placed.some((other) => overlaps(other, box, 8)) &&
+                  (!detail ||
+                    !names.some((other) => other.id !== node.id && overlaps(other.box, box, 8))),
+              ) ?? null;
+
+          if (chosen) {
+            chosen.detail = detail;
+            break;
+          }
+        }
+
+        if (chosen) placed.push(chosen.box);
+        spots.set(at(node.x, node.y), chosen);
+        continue;
+      }
+
+      const width =
+        measure(context, node.label) + (node.detail ? 6 + measure(context, node.detail) : 0);
+
+      const candidates = spotsAround(
+        node.x,
+        node.y,
+        node.r,
+        width,
+        size,
+        node.left,
+        node.landmark,
+      ).filter(
         ({ box }) => box[0] >= 0 && box[2] <= viewWidth && box[1] >= 0 && box[3] <= viewHeight,
       );
 
@@ -178,11 +352,19 @@ export function createLabelPainter(
 
       for (const spot of candidates) {
         if (blockers.some((other) => overlaps(other, spot.box))) continue;
-        const count = nearby.filter(([x1, y1, x2, y2]) => crosses(spot.box, x1, y1, x2, y2)).length;
+        let count = 0;
+
+        for (const [x1, y1, x2, y2] of nearby) {
+          if (crosses(spot.box, x1, y1, x2, y2)) count++;
+
+          if (count >= fewest) break;
+        }
 
         if (count < fewest) {
           chosen = spot;
           fewest = count;
+
+          if (count === 0) break;
         }
       }
 
@@ -199,7 +381,8 @@ export function createLabelPainter(
     settings,
   ) => {
     if (!data.label) return;
-    const size = settings.labelSize;
+    const attrs = getSigma()?.getGraph().getNodeAttributes(data.key);
+    const size = attrs?.selected && attrs.kind === "code" ? 15 : settings.labelSize;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
     const sigma = getSigma();
     const small = sigma ? sigma.getGraph().order <= NODE_AVOID_ORDER : false;
@@ -231,8 +414,14 @@ export function createLabelPainter(
     const endY = Math.max(top, Math.min(data.y, bottom));
     const distance = Math.hypot(endX - data.x, endY - data.y);
 
-    if (distance > data.size + 4) {
-      context.strokeStyle = label;
+    if (
+      !attrs?.selected &&
+      distance > data.size + 4 &&
+      (!attrs?.explorerLabels || distance <= data.size + 24)
+    ) {
+      if (attrs?.explorerLabels) context.setLineDash([1, 3]);
+      context.strokeStyle = attrs?.fixed ? colors().edgeLabel || label : label;
+      context.globalAlpha = attrs?.fixed ? 0.4 : 1;
       context.lineWidth = 1;
       context.beginPath();
       context.moveTo(
@@ -241,13 +430,68 @@ export function createLabelPainter(
       );
       context.lineTo(endX, endY);
       context.stroke();
+      context.globalAlpha = 1;
+      context.setLineDash([]);
     }
 
     context.fillStyle = canvas;
+
     context.fillRect(left, top, right - left, bottom - top);
-    context.fillStyle = label;
-    context.fillText(data.label, spot.x, spot.y);
+    context.globalAlpha = 1;
+    context.fillStyle = data.key.startsWith("file-more:")
+      ? resolveCssColor("var(--explorer-link-strong)")
+      : attrs?.muted
+        ? colors().edgeLabel || label
+        : label;
+    context.font = `${attrs?.selected || data.key.startsWith("file-group:") ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
+
+    const lines =
+      attrs?.kind === "note" || attrs?.kind === "embedded"
+        ? noteLabelLines(
+            data.label,
+            (text) => context.measureText(text).width,
+            attrs?.selected ? 140 : 220,
+          )
+        : [data.label.replaceAll("...", "…")];
+
+    lines.forEach((line, index) => {
+      const prefix =
+        attrs?.kind === "module" && line.includes("/ ")
+          ? line.slice(0, line.lastIndexOf("/ ") + 2)
+          : "";
+
+      const labelX =
+        attrs?.fixed && attrs.kind === "module" && spot.box[2] < data.x
+          ? spot.box[2] - PAD_X - context.measureText(line).width
+          : spot.x;
+
+      if (prefix) {
+        context.fillStyle = colors().edgeLabel || label;
+        context.fillText(prefix, labelX, spot.y);
+        context.fillStyle = attrs?.muted ? colors().edgeLabel || label : label;
+      }
+
+      context.fillText(
+        line.slice(prefix.length),
+        labelX + context.measureText(prefix).width,
+        spot.y + index * (size + 3),
+      );
+    });
+
+    if (attrs?.labelDetail && spot.detail !== false) {
+      const stacked = attrs.fixed && attrs.kind === "module";
+
+      const start = stacked
+        ? spot.x
+        : spot.x + Math.max(...lines.map((line) => context.measureText(line).width)) + 6;
+
+      context.fillStyle = colors().edgeLabel || label;
+      context.font = `500 ${Math.max(13, size)}px ${settings.labelFont}`;
+      context.fillText(attrs.labelDetail, start, spot.y + (stacked ? size + 3 : 0));
+    }
+
+    context.globalAlpha = 1;
   };
 
-  return { draw, beginFrame };
+  return { draw, beginFrame, occupied: () => placed };
 }
