@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { openNote, openSearch, openView, typeLabel } from "@rhizome/kit";
 import { type Boundary } from "./activity.ts";
 import { readableTitle } from "./briefing-activity.tsx";
@@ -71,17 +72,6 @@ export function OutsideNotes({
           ))}
         </p>
       )}
-      {outside.incomplete && (
-        <p className="gv-quiet">
-          <button
-            type="button"
-            className="gv-inline gv-link"
-            onClick={() => openSearch({ folder: "" })}
-          >
-            Search all notes
-          </button>
-        </p>
-      )}
       {outside.notes.length === 0 && <p className="gv-quiet">{empty}</p>}
       <ul className="gv-list gv-changes">
         {shown.map((note) => {
@@ -122,18 +112,28 @@ export function OutsideNotes({
           );
         })}
       </ul>
-      {outside.notes.length > limit &&
-        (!open && limit === 0 ? (
-          <button type="button" className="list-more gv-link" onClick={() => setOpen(true)}>
-            Show {outside.notes.length} {plural(outside.notes.length, "note", "notes")}
-          </button>
-        ) : (
-          <MoreToggle
-            hidden={outside.notes.length - limit}
-            open={open}
-            onToggle={() => setOpen(!open)}
-          />
-        ))}
+      <div className="gv-outside-actions">
+        {outside.notes.length > limit &&
+          (!open && limit === 0 ? (
+            <button type="button" className="gv-link" onClick={() => setOpen(true)}>
+              Show {outside.notes.length} {plural(outside.notes.length, "note", "notes")}
+            </button>
+          ) : (
+            <MoreToggle
+              hidden={outside.notes.length - limit}
+              open={open}
+              onToggle={() => setOpen(!open)}
+            />
+          ))}
+        {outside.incomplete && (
+          <>
+            {outside.notes.length > limit && <span aria-hidden="true"> · </span>}
+            <button type="button" className="gv-link" onClick={() => openSearch({ folder: "" })}>
+              Search all notes
+            </button>
+          </>
+        )}
+      </div>
     </Block>
   );
 }
@@ -150,7 +150,7 @@ export function GuideAndViews({ model }: { model: GroupModel }) {
         <>
           <button
             type="button"
-            className="gv-link link-title"
+            className="gv-link"
             title={guide.summary || undefined}
             onClick={() => openNote(guide.path)}
           >
@@ -174,5 +174,54 @@ export function GuideAndViews({ model }: { model: GroupModel }) {
         </button>
       ))}
     </Block>
+  );
+}
+
+export function fitSummary(text: string, width: number, measure: (value: string) => number) {
+  if (measure(text) <= width) return text;
+  const words = text.split(" ");
+
+  while (words.length && measure(words.join(" ") + "…") > width) words.pop();
+
+  return words.join(" ") + "…";
+}
+
+/** Keep complete words visible; the full relationship summary remains in the tooltip. */
+export function LinkSummary({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [shown, setShown] = useState(text);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) return;
+
+    const measure = () => {
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
+      element.append(probe);
+
+      const next = fitSummary(text, element.clientWidth, (value) => {
+        probe.textContent = value;
+
+        return probe.getBoundingClientRect().width;
+      });
+
+      probe.remove();
+      setShown(next);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    void document.fonts?.ready.then(measure);
+
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <span ref={ref} className="gv-ov-links-text" title={text}>
+      {shown}
+    </span>
   );
 }

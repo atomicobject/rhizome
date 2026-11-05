@@ -260,7 +260,7 @@ function inset(
     if (!point) continue;
     const pad = node.radius + INSET;
     point.x = Math.min(Math.max(point.x, pad), Math.max(pad, width - pad));
-    const padY = node.radius + 58;
+    const padY = node.radius + 42;
     point.y = Math.min(Math.max(point.y, padY), Math.max(padY, height - padY));
   }
 }
@@ -281,6 +281,17 @@ function layoutAtSize(input: LayoutInput): MapLayout {
   const loose = spread ? [] : input.nodes.filter((node) => !linked.has(node.id));
   const positions = forceLayout(drawn, input.edges, width, height);
   const ring = input.outside.length > 0;
+
+  // Small maps stay convex so a pair never runs behind a third member.
+  if (!ring && drawn.length >= 3 && drawn.length <= 4) {
+    drawn.forEach((node, index) => {
+      const angle = Math.PI + (index * 2 * Math.PI) / drawn.length;
+      positions.set(node.id, {
+        x: width / 2 + width * 0.3 * Math.cos(angle),
+        y: height / 2 + height * 0.3 * Math.sin(angle),
+      });
+    });
+  }
 
   if (positions.size)
     fit(positions, width, height, ring ? 140 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);

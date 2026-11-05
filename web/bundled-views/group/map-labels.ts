@@ -93,8 +93,8 @@ export function placeLabels(
     const h = LABEL_HEIGHT;
     const angle = Math.atan2(point.y - center.y, point.x - center.x);
 
-    const candidates = [7, 13, 19, 31, 43, 55, 73, 91].flatMap((gap) =>
-      [0, -0.4, 0.4, -0.8, 0.8, -1.2, 1.2, -1.57, 1.57].map((turn) => {
+    const candidates = [10, 16, 24, 36, 52, 72].flatMap((gap) =>
+      [0, -0.4, 0.4, -0.8, 0.8, -1.2, 1.2, -1.57, 1.57, -2, 2, -2.4, 2.4, Math.PI].map((turn) => {
         const dx = Math.cos(angle + turn),
           dy = Math.sin(angle + turn);
 
@@ -128,14 +128,15 @@ export function placeLabels(
     );
 
     const open = candidates.filter((candidate) => candidate.clear);
-    const chosen = open.find((candidate) => candidate.crossings === 0) ?? open[0];
+    const near = open.filter((candidate) => distance(point, candidate.box) <= item.radius + 12);
+    const chosen = near.find((candidate) => candidate.crossings === 0) ?? near[0] ?? open[0];
 
     if (!chosen) continue;
-    const { box, gap, turn } = chosen;
+    const { box, turn } = chosen;
     boxes.push(box);
 
     const leader =
-      gap > 7 || turn !== 0
+      distance(point, box) > item.radius + 12 || turn !== 0
         ? {
             x: Math.max(box.x, Math.min(point.x, box.x + box.w)),
             y: Math.max(box.y, Math.min(point.y, box.y + box.h)),
@@ -175,17 +176,13 @@ export function placeEdgeLabels(
     // The count's box covers the pill overview-map.tsx draws, centered on the edge.
     const w = edge.label.text.length * GLYPH + 10;
 
-    const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const spots = EDGE_STOPS.flatMap((t) => {
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const box = { x: x - w / 2, y: y - 9, w, h: 18 };
 
-    const spots = EDGE_STOPS.flatMap((t) =>
-      [1, -1].flatMap((side) => {
-        const x = a.x + (b.x - a.x) * t - ((b.y - a.y) / length) * 14 * side;
-        const y = a.y + (b.y - a.y) * t + ((b.x - a.x) / length) * 14 * side;
-        const box = { x: x - w / 2, y: y - 9, w, h: 18 };
-
-        return boxes.some((other) => overlaps(other, box)) ? [] : [{ x, y, box }];
-      }),
-    );
+      return boxes.some((other) => overlaps(other, box)) ? [] : [{ x, y, box }];
+    });
 
     // Prefer a stop no other edge passes through, so a count reads as its own edge's.
     const others = segments.filter(([from, to]) => !(from === a && to === b));

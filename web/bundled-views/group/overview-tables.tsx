@@ -453,9 +453,9 @@ export function MemberTable({
           </th>
           {shown.stages && <th scope="col">Stages</th>}
           {shown.gaps && <th scope="col">Gaps (empty / records)</th>}
-          {shown.linked && <th scope="col">{workspace ? "Linked" : "Linked in group"}</th>}
+          {shown.linked && <th scope="col">Records linked</th>}
           <th scope="col" className="gv-right">
-            {workspace ? "Links" : "Links in group"}
+            Links
           </th>
           {!workspace && (
             <th scope="col" className="gv-right">
