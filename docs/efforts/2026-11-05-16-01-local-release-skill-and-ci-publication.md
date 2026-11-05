@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-05-16-01
 name: Local release skill and CI publication
 created-at: 2026-11-05T21:01:42Z
-status: active
+status: complete
 summary: Write reviewed release notes with local Codex or Claude, then build and publish approved release PRs in CI with minimal Mac work.
 aliases:
   - EFF-2026-11-05-16-01
@@ -33,12 +33,12 @@ Implement the release flow the user approved in this conversation: a local Codex
 
 ## Spec Coverage Checklist
 
-- [ ] Local Codex/Claude release skill produces source-grounded narrative notes and a reviewed release PR without a CI model API key.
-- [ ] Deterministic preparation preserves edited notes, version floor, clean/source checks and release-file ownership.
-- [ ] Ordinary, forked, unmerged, stale or malformed release PRs never reach signing, deployment or publication.
-- [ ] Linux handles common assets, Linux/Windows builds, packaging and publication; Mac handles only native macOS builds and signing/verification.
-- [ ] Approved merge SHA, source-bound assets, canonical release refs, exact gateway gate and recoverable publication are preserved.
-- [ ] Private/internal local release support and public installation/updater/Homebrew contracts remain intact.
+- [x] Local Codex/Claude release skill produces source-grounded narrative notes and a reviewed release PR without a CI model API key.
+- [x] Deterministic preparation preserves edited notes, version floor, clean/source checks and release-file ownership.
+- [x] Ordinary, forked, unmerged, stale or malformed release PRs never reach signing, deployment or publication.
+- [x] Linux handles common assets, Linux/Windows builds, packaging and publication; Mac handles only native macOS builds and signing/verification.
+- [x] Approved merge SHA, source-bound assets, canonical release refs, exact gateway gate and recoverable publication are preserved.
+- [x] Private/internal local release support and public installation/updater/Homebrew contracts remain intact.
 
 ## Plan
 
@@ -66,10 +66,21 @@ Prepare a release through a local coding-agent subscription, review its notes/ve
 
 ## Actual Delivered
 
-The local skill, deterministic five-file preparation, split Linux/Mac workflow, artifact checks and CI publisher are implemented on a separate branch. The integrated release-helper suite passed 391 tests; the final bounded-evidence revision passed its 18 focused tests and both skill validators. Independent review's two recovery findings were fixed and its follow-up reported no blocking findings. Non-publishing split-job CI acceptance remains pending. No release, release tag, gateway deployment or publication has run.
+Delivered in [PR #94](https://github.com/atomicobject/rhizome/pull/94), with implementation and acceptance at 26b9fa787c936285158f9a7f98a39491018f59ae. The repository-local Codex/Claude release skill uses the active subscription to investigate changes, draft and revise the narrative, and prepare a reviewed five-file release PR. It keeps complete source coverage while exposing 24,000-character coverage/detail pages. Committed narrative notes are published verbatim, with no model API key in CI.
+
+The CI pipeline validates approved release intent before credentials, builds shared frontends and Linux/Windows binaries on Linux, uses one standard Mac job for native Darwin/Tauri compilation and signing/notarization, and assembles/publishes on Linux. Source/version manifests, complete checksums, updater signatures, public-content checks and existing installation asset names are preserved. Public local publishers route to preparation; private internal release support remains.
+
+Publication and recovery tests cover exact canonical refs, the shared gateway gate, partial drafts, completed-release idempotence, retained original bundles/receipts, conflicting state and credential scope. Live gateway deployment and public publication were deliberately excluded from acceptance; the first authorized release remains the live publication check.
+
+All 395 release-helper tests passed in Linux CI, all 22 PR checks passed, and current implementation Greptile review scored 5/5 with zero comments. The non-publishing [split-job candidate](https://github.com/atomicobject/rhizome/actions/runs/42116493809) passed every build and verification job; the publisher was skipped. Downloaded native and final artifacts independently passed manifest/bundle verification. Temporary signing access was removed and the protected release Environment again permits only main.
 
 ## Execution Notes
 
+- 2026-11-05 [closure] Candidate 42116493809 passed at 26b9fa787c936285158f9a7f98a39491018f59ae. Linux prepared common assets, built Linux/Windows binaries and assembled the complete bundle; the single Mac job compiled native assets, signed/notarized/verified both distribution copies and cleaned up its temporary Keychain. Publication was skipped. The candidate uses source version v0.50.5 only for verification and creates no release refs or public release.
+- 2026-11-05 [verification] Downloaded the native worker output and complete 13-file verified bundle and ran the same strict source/version/hash/asset/feed/archive verifier locally. Both passed. Final release-manifest SHA-256: 9687a9d06230ff896d31ef8164994d5b31753c33c4fffc1f5aa419700ef7e049.
+- 2026-11-05 [verification] All 22 PR checks passed at the implementation commit. Greptile current-head review scored 5/5 with no comments. Default/frozen-scope validation, repository content tests, actionlint, credential checks, skill validation, focused preparation/publisher tests and actual prepared-version CLI compilation passed. The final closure commit changes only this effort record; it does not invalidate the compiled candidate evidence.
+- 2026-11-05 [security] Removed temporary Environment branch policy 65673367 after the Mac signing job completed; the verified policy list contains main only. The user's explicit access approval was scoped to non-publishing verification and is fully cleaned up.
+- 2026-11-05 [closure] Closure drift pack resolved this EffortNote and both frozen specs without query errors. Reconciled the approved chat scope, implementation, independent reviews, actual candidate and local artifact verification. No implementation work remains; PR merge and an actual product release retain their separate authorization boundaries.
 - 2026-11-05 [delivery] PR #93 merged as db91322a11310fd641002b977f4c08c08af18fe2 after all 21 applicable checks passed. Installed Rhizome Dev from that main commit, preserving unrelated generated web output in the primary checkout.
 - 2026-11-05 [verification] Local full release-helper suite passed 386 tests. Focused selection/frontend/artifact/publisher tests passed; repository content tests, workflow actionlint, default validation and frozen-scope validation passed. Validation required running outside the sandbox for the existing macOS runtime identity check.
 - 2026-11-05 [review] Independent review found that rebuilt notarized bytes cannot safely resume a partial upload. Recovery now retries the original failed publisher with its retained verified bundle, retained for 30 days, and restores its gateway receipt. A missing receipt after a started publisher blocks deployment pending reconciliation.
@@ -85,19 +96,21 @@ The local skill, deterministic five-file preparation, split Linux/Mac workflow, 
 
 ## Deviations
 
-Independent preparation started during PR #93's final CI wait to avoid blocking all progress. The implementation remains on a separate branch; no notarization or release publication is being repeated.
+Independent preparation started during PR #93's final CI wait. Public recovery was narrowed to retrying the original failed publisher using retained artifacts, because rebuilding notarized packages can produce different bytes. Original bundles and gateway receipts are retained for 30 days; lost receipts after a started publisher stop for reconciliation. This preserves the approved source and avoids overwriting partial publication.
+
+The first split-job candidate failed deterministically on missing Linux signing-test dependencies before any Mac job. The dependency ordering was fixed, then the new candidate passed. No flaky test was hidden by a rerun and no real publication or gateway deployment was used as acceptance.
 
 ## Compounding Follow-ups
 
-Assess after implementation; no reusable shard proposed yet.
+No delivery-blocking follow-ups. The maintainer guide and release tooling context record the recovery, credential and minimal Mac boundaries; no separate context shard is proposed.
 
 ## Closure Checklist
 
-- [ ] Approved local skill and deterministic release preparation verified.
-- [ ] CI eligibility, split builds, signing and publication/recovery verified without a real release.
-- [ ] Documentation and governing contracts reconciled.
-- [ ] Applicable checks and independent review complete; delivery PR recorded.
+- [x] Approved local skill and deterministic release preparation verified.
+- [x] CI eligibility, split builds, signing and publication/recovery verified without a real release.
+- [x] Documentation and governing contracts reconciled.
+- [x] Applicable checks and independent review complete; delivery PR recorded.
 
 ## Status
 
-Active. Local implementation and recovery verification are complete. Remaining: current-head Greptile/CI review and the non-publishing split-job CI candidate before delivery closure. PR #93 is merged.
+Complete on the PR branch. Implementation, independent review, ordinary CI, non-publishing split-job acceptance, artifact verification and temporary-access cleanup are complete. PR #94 carries delivery and closure; merging it is separate from authorizing a product release.
