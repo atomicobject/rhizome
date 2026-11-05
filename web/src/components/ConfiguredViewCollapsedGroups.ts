@@ -11,6 +11,7 @@ export function useCollapsedGroupNotes(
   choices: Record<string, boolean>,
   capabilities: ViewFieldCapability[],
   onChange?: (groups: CollapsedGroupNote[]) => void,
+  includeNested = true,
 ) {
   const notes = useMemo(() => {
     const result: CollapsedGroupNote[] = [];
@@ -27,14 +28,14 @@ export function useCollapsedGroupNotes(
             ),
             count: group.totalCount ?? group.count,
           });
-        } else visit(group.children ?? []);
+        } else if (includeNested) visit(group.children ?? []);
       }
     }
 
     visit(groups);
 
     return result;
-  }, [groups, choices, capabilities]);
+  }, [groups, choices, capabilities, includeNested]);
 
   const reported = useRef("");
   useEffect(() => {

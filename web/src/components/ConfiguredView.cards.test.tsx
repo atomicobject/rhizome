@@ -57,6 +57,48 @@ describe("ConfiguredViewCards", () => {
     expect(screen.queryByRole("button", { name: "Bravo Spec" })).not.toBeInTheDocument();
   });
 
+  it("reports only collapsible card sections, excluding visible nested groups", () => {
+    const result = boardExecution();
+
+    const child = {
+      field: "frontmatter.spec-status",
+      key: "nested",
+      label: "Nested",
+      value: "draft",
+      count: 1,
+      depth: 1,
+      rowStart: 0,
+      rowEnd: 1,
+      collapsedByDefault: true,
+    };
+
+    result.groups = [
+      {
+        ...child,
+        key: "parent",
+        label: "Parent",
+        value: "active",
+        depth: 0,
+        collapsedByDefault: false,
+        children: [child],
+      },
+    ];
+    const onCollapsedGroupsChange = vi.fn();
+    render(
+      <ConfiguredViewCards {...rendererProps({ execution: result, onCollapsedGroupsChange })} />,
+    );
+    expect(screen.getByRole("heading", { name: "Nested" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Alpha Spec" })).toBeVisible();
+    expect(onCollapsedGroupsChange).toHaveBeenLastCalledWith([]);
+    fireEvent.click(screen.getByRole("button", { name: /Parent/ }));
+    expect(onCollapsedGroupsChange).toHaveBeenLastCalledWith([
+      { key: "parent", label: "Parent", count: 1 },
+    ]);
+    expect(screen.queryByRole("button", { name: "Alpha Spec" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Parent/ }));
+    expect(onCollapsedGroupsChange).toHaveBeenLastCalledWith([]);
+  });
+
   it("opens a row from its title button", () => {
     const onOpenRow = vi.fn();
     render(<ConfiguredViewCards {...rendererProps({ onOpenRow })} />);

@@ -54,10 +54,11 @@ export function ConfiguredViewCards(props: Props) {
     !expansion.isExpanded(group.key, !group.collapsedByDefault);
 
   useCollapsedGroupNotes(
-    groups,
+    grouped ? groups : [],
     expansion.choices,
     props.capabilities,
     props.onCollapsedGroupsChange,
+    false,
   );
 
   const collapsedCount = groups.filter(isCollapsed).length;
