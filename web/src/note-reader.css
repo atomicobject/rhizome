@@ -231,7 +231,7 @@
   display: -webkit-box;
   min-width: 0;
   overflow: hidden;
-  color: var(--text-muted);
+  color: var(--text);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 6;
   line-clamp: 6;
@@ -422,4 +422,65 @@
 .notes-right-rail .rail-bucket__head {
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.notes-right-rail .note-info .rail-bucket__head {
+  margin-top: 14px;
+  font-weight: 500;
+}
+.notes-right-rail .note-info .rail-bucket + .rail-bucket {
+  margin-top: 0;
+}
+.notes-right-rail .note-info .rail-row {
+  min-height: 28px;
+  box-sizing: border-box;
+  row-gap: 4px;
+}
+.notes-right-rail .note-info .rail-row + .rail-row {
+  margin-top: 8px;
+}
+.notes-right-rail .note-info .rail-row:not(:has(> :is(.rail-row__type, .rail-row__path))) > button {
+  min-height: 28px;
+}
+.notes-right-rail .note-info .rail-row > .rail-row__dir {
+  top: 2px;
+}
+.notes-right-rail .note-info .rail-materials > summary > h3 {
+  margin-bottom: 10px;
+}
+.notes-right-rail .note-info .rail-materials[open] > summary {
+  margin-bottom: 0;
+}
+.notes-right-rail .note-info .rail-materials > summary .disclosure-chevron {
+  margin: 0;
+}
+/* Identity typography is local to the reader, including the HTML control row. */
+.ontology-pane .note-identity-id,
+.ontology-pane .ontology-identity__slot--id {
+  color: var(--text-muted);
+  font: 500 12px / 1.4 var(--font-mono);
+}
+.ontology-pane .ontology-identity .widget-date {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.ontology-pane .ontology-identity .widget-enum--badge {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: 500 13px / 1.35 var(--font-sans);
+}
+.notes-shell
+  .ontology-pane
+  .ontology-properties__value
+  :is(.widget-text, .ontology-properties__preview-text) {
+  color: var(--text);
+  font: 400 14px / 1.45 var(--font-sans);
+}
+.note-property-pencil {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--text-muted);
+  vertical-align: -2px;
 }
