@@ -27,6 +27,8 @@
 
 ### Fixed
 
+- Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
+
 - The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.
 
 - A compounding mining run that finds nothing to review now says why (how many candidates were rejected or held) instead of linking to an empty workspace, and the workspace's status line shows the latest run's counts.
