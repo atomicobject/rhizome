@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines the read-only GraphQL query contract generated from Rhizome ontology SDL: bounded roots, generated type surfaces, GraphQL variables, NodeRef locators, section resolution, relation semantics, batching, errors, limits, semantic fallback, and regression fixtures."
 id: SPEC-0042
 spec-status: active
-last-updated: 2026-07-16
+last-updated: 2026-11-04
 aliases:
   - SPEC-0042
   - ontology-graphql-query-contract
@@ -46,7 +46,7 @@ Related governing specs:
 
 - Adding mutations, subscriptions, named fragments, query directives, or arbitrary graph traversal.
 - Replacing `noderead.Scope`, ontology indexing, semantic search ranking, or node workspace projection.
-- Making interfaces root query fields.
+- Generating roots for runtime interfaces, empty interfaces, or interfaces with section or embedded-node implementors.
 - Treating every markdown heading as a graph-worthy node.
 - Guaranteeing semantic search availability in vaults that do not configure a semantic searcher; the `search` root degrades to lexical lanes there.
 
@@ -56,7 +56,7 @@ Related governing specs:
 
 - `note(path: String!): NoteNode` MUST require a path and return either one resolved typed note object or `null`.
 - `notes(type:, find:, property:, semantic:, first:)` MUST require at least one of `type`, `find`, `property`, or `semantic`.
-- Generated typed roots, for example `technicalSpec(path:, find:, property:, semantic:, first:)`, MUST require exactly one of `path`, `find`, `property`, or `semantic`.
+- Generated note and eligible note-interface roots MUST allow an omitted selector with bounded `first`; when supplied, `path`, `find`, `property`, and `semantic` MUST be mutually exclusive.
 - Embedded-node typed roots with a schema-level `@source(...)` MAY accept `filters` and `sort` arguments. Supported predicates and sort keys MUST push into the indexed ontology field-value read model before root pagination.
 - `FieldFilterInput.op` and `SortInput.direction` MUST use explicit GraphQL enums (`FieldFilterOperator` and `SortDirection`) so clients can introspect the supported operator vocabulary; recipe text should use enum literals such as `op: eq` and `direction: asc`.
 - `notes(...)` MUST accept at most one retrieval mode among `find`, `property`, and `semantic`; `type` is a filter, not a retrieval mode.
@@ -96,7 +96,9 @@ Related governing specs:
 - When no authored `interface Note` exists, the runtime MAY provide a compatibility `Note` interface, but callers that need stable universal semantics MUST still use `NoteNode`.
 - `Section` MUST be implemented by heading-derived section and embedded-node types and expose `id`, `notePath`, `title`, `level`, `content`, `locator`, and `children`.
 - Concrete note types MUST get singular lower-camel query roots that return typed lists, for example `TechnicalSpec` -> `technicalSpec(...)`.
-- Interface definitions MUST be emitted with their descriptions, fields, implemented interfaces, and semantics metadata, but MUST NOT get query roots.
+- Interface definitions MUST be emitted with their descriptions, fields, implemented interfaces, and semantics metadata. Authored domain interfaces with at least one transitive concrete implementor, all of note role, MUST get singular lower-camel query roots returning interface-typed lists. Runtime interfaces (including authored `Note`), empty interfaces, and interfaces with section or embedded-node implementors MUST remain rootless.
+- Note-interface roots MUST expose the concrete note-root arguments and coverage contract. `path` MUST match any implementing note, retaining the concrete record type. Runtime fields such as `path` and `resolvedType` remain selectable through `... on NoteNode`; interface roots MUST NOT require new authored runtime fields.
+- Interface root filters and sorts MUST name shared interface fields or supported runtime keys. Field bindings and capabilities MUST be resolved per concrete implementor. Equivalent plans MAY collapse into a single multi-type indexed query; otherwise filtering and coherent sorting MUST run across one bounded combined candidate set before pagination. Candidate-bound coverage MUST disclose uncertainty. Independently paginated concrete results MUST NOT be concatenated into an interface page.
 - Object type and field descriptions from SDL MUST be preserved in the generated query schema so `ontology-query-schema`, reference, authoring guide, and agent-facing docs share one semantic source.
 - Generated root names MUST be conflict-checked against built-ins and other generated roots.
 - Runtime helper object names such as `OntologyRuntime`, `CodeRuntime`, `RuntimePath`, and `RuntimeWarning` MUST be reserved so authored ontology types, interfaces, or enums cannot collide with built-in GraphQL runtime types.

@@ -17,14 +17,14 @@ Adapt the starter to the repo. Do not treat the starter as a mandatory taxonomy.
 ### Core concepts
 
 - **Typed note**: note with a single resolved ontology type. `type:` is an optional author-intent hint/disambiguator, not the only source of truth.
-- **Abstract interface**: GraphQL shared contract for concrete note types. Interfaces are not note families, do not get `@node`, and do not create query roots.
+- **Abstract interface**: GraphQL shared contract for concrete note types. Interfaces do not get `@node`. Authored domain interfaces with a nonempty set of note-only implementors get generated typed query roots.
 - **Structural relation**: declared with `@link`; backed by frontmatter or inline properties; used for validation/inverses.
 - **Ambient relation**: declared with `@neighbors` or discovered from body links/backlinks; used for exploration and query convenience, not structural validation.
 - **Section**: synthetic heading-derived node inside a note body. Use `@contains(...)` when body structure itself needs to be queried or validated.
 - **Section-local relation**: `@neighbors(direction: OUTBOUND, scope: SUBTREE)` keeps body-link traversal inside a matched section subtree. Inbound section-local neighbors are not supported yet.
 - **`contextInclude: true`**: on `@link` or `@neighbors`, marks the relation as auto-include in `file_context`. Use sparingly — every flagged edge spends context budget across all callers.
 - **`@companionDocs(paths:, purpose:)`**: attaches workflow/reference notes that `rzm ontology authoring-guide` should surface with the type or field contract.
-- **Typed query root**: generated singular root per concrete ontology type, returning a typed list, e.g. `project(path: "...") { ... }`.
+- **Typed query root**: generated singular root per concrete note or embedded type and eligible note-only interface, returning a typed list, e.g. `project(path: "...") { ... }`.
 - **Schema docs**: GraphQL descriptions plus `@semantics(kind: ...)` metadata, surfaced to query clients and docs renderers.
 - **Docstrings are the workflow contract**: each type docstring should explain what the note is, when to create it, body structure, what must be read with it, when to update it, and what agents must preserve.
 

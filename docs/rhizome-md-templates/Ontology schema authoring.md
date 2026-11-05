@@ -33,7 +33,7 @@ Ontology files live in `.rhizome/ontology/*.graphql`. They are committed to git.
   - defines shared query contracts across concrete note types.
   - use when several concrete types share the same authored fields or query shape.
   - `interface Note` is special: fields must be nullable and are injected into every file-backed note type; `NoteNode` exposes them on typed and otherwise-untyped note reads.
-  - keep interfaces abstract; they do not get `@node` or query roots.
+  - keep interfaces abstract; they do not get `@node`. Authored domain interfaces with a nonempty set of note-only implementors get typed query roots; runtime, empty and mixed/section/embedded interfaces remain rootless.
 - `@field(source:, sourceKind:)`
   - maps scalar/enum fields to frontmatter or inline properties.
 - `@identifier(preferred:, strategy:, prefix:, pad:, separator:, derivable:, derivedSuffix:, populate:)`

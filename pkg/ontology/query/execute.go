@@ -38,6 +38,7 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 	}
 	exec := executor{
 		schema:             schema,
+		rootTypes:          prepared.rootTypes,
 		deps:               deps,
 		loaders:            loaders,
 		variables:          prepared.Variables,
@@ -73,6 +74,7 @@ func ExecutePrepared(ctx context.Context, deps Deps, schema *ontoschema.Schema, 
 }
 
 type executor struct {
+	rootTypes      map[string]string
 	schema         *ontoschema.Schema
 	deps           Deps
 	loaders        *loaders
@@ -223,7 +225,7 @@ func (e *executor) resolveRootField(ctx context.Context, field *ast.Field, path 
 		if _, ok := e.depsRuntimeRoot(name); ok {
 			return e.resolveRuntimeRoot(ctx, field, path)
 		}
-		if typeName := queryRootTypeName(e.schema, name); typeName != "" {
+		if typeName := e.rootTypes[name]; typeName != "" {
 			args := e.fieldArgs(field)
 			args["__firstPresent"] = fieldHasArg(field, "first")
 			first := rootFirst(args, len(semanticArgList(args["semantic"])) > 0)

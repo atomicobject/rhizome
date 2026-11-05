@@ -148,16 +148,23 @@ func writeQueryRootsSDL(b *strings.Builder, schema *ontoschema.Schema) ([]string
 	}
 	rootTypes := make(map[string]string, len(typeNames))
 	usedRoots := map[string]string{
-		"note":  "built-in",
-		"notes": "built-in",
+		"node": "built-in", "nodes": "built-in", "note": "built-in", "notes": "built-in",
+		"resolve": "built-in", "search": "built-in", "validation": "built-in",
 	}
 	runtimeRoots := builtinRuntimeRoots()
 	for root := range runtimeRoots {
 		usedRoots[root] = "built-in runtime root"
 	}
-	for _, name := range typeNames {
+	rootNames := append([]string(nil), typeNames...)
+	for name := range schema.Interfaces {
+		if len(noteInterfaceRootTypes(schema, name)) > 0 {
+			rootNames = append(rootNames, name)
+		}
+	}
+	sort.Strings(rootNames)
+	for _, name := range rootNames {
 		noteType := schema.Types[name]
-		if noteType == nil || (noteType.Role != ontoschema.TypeRoleNote && noteType.Role != ontoschema.TypeRoleEmbeddedNode) {
+		if noteType == nil && schema.Interfaces[name] == nil || noteType != nil && noteType.Role != ontoschema.TypeRoleNote && noteType.Role != ontoschema.TypeRoleEmbeddedNode {
 			continue
 		}
 		rootName := queryRootFieldName(name)
@@ -166,7 +173,7 @@ func writeQueryRootsSDL(b *strings.Builder, schema *ontoschema.Schema) ([]string
 		}
 		usedRoots[rootName] = name
 		rootTypes[rootName] = name
-		if noteType.Role == ontoschema.TypeRoleEmbeddedNode {
+		if noteType != nil && noteType.Role == ontoschema.TypeRoleEmbeddedNode {
 			b.WriteString(fmt.Sprintf("  %s(first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [%s!]!\n", rootName, name))
 			continue
 		}

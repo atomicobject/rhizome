@@ -48,6 +48,11 @@ func (e *executor) rootNotesWithMax(ctx context.Context, args map[string]any, ma
 }
 
 func (e *executor) rootTypedNotes(ctx context.Context, typeName string, args map[string]any) (rootPage[*noteRecord], error) {
+	if e.schema.Interfaces[typeName] != nil {
+		if err := e.validateInterfaceRootConstraints(ctx, typeName, args); err != nil {
+			return rootPage[*noteRecord]{}, err
+		}
+	}
 	if err := e.validateLinkRootFilters(ctx, typeName, args["filters"]); err != nil {
 		return rootPage[*noteRecord]{}, err
 	}
@@ -67,7 +72,7 @@ func (e *executor) rootTypedNotes(ctx context.Context, typeName string, args map
 		if err != nil {
 			return rootPage[*noteRecord]{}, err
 		}
-		if record == nil || record.TypeName != typeName {
+		if record == nil || !e.typeMatchesOrImplements(record.TypeName, typeName) {
 			return rootPage[*noteRecord]{}, nil
 		}
 		records = []*noteRecord{record}
@@ -86,7 +91,7 @@ func (e *executor) rootTypedNotes(ctx context.Context, typeName string, args map
 	}
 	limited, _ := args["__selectorCandidateLimit"].(bool)
 	candidateBound := limited && len(records) >= publicRootFirstMax
-	records, err = e.applyNoteRootConstraints(ctx, records, args)
+	records, err = e.applyTypedNoteRootConstraints(ctx, typeName, records, args)
 	return rootPage[*noteRecord]{records: records, candidateBound: candidateBound}, err
 }
 
@@ -132,7 +137,7 @@ func (e *executor) validateLinkRootFilters(ctx context.Context, typeName string,
 func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, args map[string]any) (rootPage[*noteRecord], error) {
 	candidateBound := false
 	noteType := e.schema.Types[typeName]
-	if noteType == nil || noteType.Role != ontoschema.TypeRoleNote {
+	if noteType == nil && len(noteInterfaceRootTypes(e.schema, typeName)) == 0 || noteType != nil && noteType.Role != ontoschema.TypeRoleNote {
 		return rootPage[*noteRecord]{}, nil
 	}
 	rootPlan := e.indexedOntologyNodeRootPlan(ctx, typeName, args)
@@ -166,7 +171,7 @@ func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, a
 		if err != nil {
 			return rootPage[*noteRecord]{}, err
 		}
-		records, err = e.applyNoteRootConstraints(ctx, records, map[string]any{
+		records, err = e.applyTypedNoteRootConstraints(ctx, typeName, records, map[string]any{
 			"filters": residualFilters,
 			"sort":    residualSort,
 			"first":   args["first"],
@@ -193,7 +198,7 @@ func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, a
 	if plan.Offset == 0 {
 		residualArgs["offset"] = offset
 	}
-	records, err = e.applyNoteRootConstraints(ctx, records, residualArgs)
+	records, err = e.applyTypedNoteRootConstraints(ctx, typeName, records, residualArgs)
 	return rootPage[*noteRecord]{records: records, candidateBound: candidateBound}, err
 }
 
