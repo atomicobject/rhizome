@@ -274,3 +274,16 @@ it("overflow gives direct counts once and labels descendant totals explicitly", 
     visibleFolderGraph(nested, state(["docs"]), color).nodes.find((n) => n.aggregate),
   ).toMatchObject({ label: "+7 folders", labelDetail: "total 7 notes" });
 });
+
+it("keeps repeated folder names and parent prefixes on one line, with counts separate", () => {
+  const tree = buildFolderTree({ nodes: [code("web/a.ts"), code("pkg/web/b.ts")], edges: [] });
+  const graph = visibleFolderGraph(tree, state(["pkg"]), color);
+  expect(graph.nodes.find((node) => node.id === "folder:web")).toMatchObject({
+    label: "Vault/ web",
+    labelDetail: "1 file",
+  });
+  expect(graph.nodes.find((node) => node.id === "folder:pkg/web")).toMatchObject({
+    label: "pkg/ web",
+    labelDetail: "1 file",
+  });
+});

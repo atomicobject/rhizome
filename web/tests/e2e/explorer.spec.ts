@@ -57,6 +57,8 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
     )
     .toBeGreaterThan(0);
   await expect(src).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("heading", { name: "Repository totals", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lines", exact: true })).toBeVisible();
   await expect(page.locator(".explorer-header__breadcrumb")).toHaveText("src ·");
   await expect(page.locator(".explorer-header__totals")).toContainText(
     `of ${notes.toLocaleString("en-US")} notes`,
