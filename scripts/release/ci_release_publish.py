@@ -36,11 +36,11 @@ class Commands:
         if not self.github_token or not self.brew_token:
             raise PublishError("CI publication requires GitHub and Homebrew credentials")
 
-    def run(self, argv, *, payload=None, brew=False, check=True):
+    def run(self, argv, *, payload=None, brew=False, check=True, timeout=120):
         env = {**self.environment, "GH_TOKEN": self.brew_token if brew else self.github_token}
         try:
             result = self.runner(tuple(argv), cwd=self.root, env=env, capture_output=True,
-                                 text=True, input=None if payload is None else json.dumps(payload))
+                                 text=True, input=None if payload is None else json.dumps(payload), timeout=timeout)
         except (OSError, subprocess.SubprocessError) as error:
             raise PublishError("publication command failed; retain the CI run for recovery") from error
         if check and result.returncode:
@@ -276,7 +276,7 @@ def publish(root, source, assets, receipt, *, environment=None, runner=subproces
     else:
         present = checked_assets(commands, release, source, version, notes, assets)
         for name in sorted(BUNDLE_FILES - present):
-            commands.run(("gh", "release", "upload", version, str(assets / name), "--repo", REPOSITORY))
+            commands.run(("gh", "release", "upload", version, str(assets / name), "--repo", REPOSITORY), timeout=600)
         bundle_verifier(source, version, assets)
         checked_assets(commands, release, source, version, notes, assets, complete=True)
         revalidate_refs(root, source, commands)

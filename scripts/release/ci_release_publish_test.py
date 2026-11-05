@@ -227,6 +227,15 @@ class ReceiptRecoveryTests(unittest.TestCase):
         self.environment = {"GITHUB_RUN_ATTEMPT": "2", "GITHUB_RUN_ID": "123"}
         self.commands = Mock()
 
+    def test_gateway_requests_remain_bounded_and_timeout_diagnostics_are_private(self):
+        def runner(argv, **kwargs):
+            self.assertEqual(kwargs["timeout"], 120)
+            raise subprocess.TimeoutExpired(argv, 120, stderr="synthetic secret response")
+        commands = Commands(self.receipt.parent, ENV, runner)
+        with self.assertRaises(PublishError) as result:
+            commands.text(("gh", "api", "synthetic-endpoint"))
+        self.assertNotIn("synthetic secret response", str(result.exception))
+
     def test_retry_restores_original_gateway_correlation(self):
         self.commands.api.return_value = {"artifacts": [{"name": "release-gateway-receipt", "expired": False}]}
         saved = '{"attempt":{"state":"dispatch_uncertain","request_id":"saved"}}'
