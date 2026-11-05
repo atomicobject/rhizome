@@ -258,7 +258,10 @@ export function createLabelPainter(
 
       const attrs = graph.getNodeAttributes(node.id);
 
-      if (attrs.selected || (attrs.explorerLabels && attrs.fixed && attrs.kind !== "module")) {
+      if (
+        (attrs.selected && attrs.path) ||
+        (attrs.explorerLabels && attrs.fixed && attrs.kind !== "module")
+      ) {
         const width =
           measure(context, node.label) + (node.detail ? 6 + measure(context, node.detail) : 0);
 
@@ -280,7 +283,7 @@ export function createLabelPainter(
       if (node.fixed) {
         let chosen: Spot | null = null;
 
-        for (const detail of node.detail ? [true] : [false]) {
+        for (const detail of node.detail ? [true, false] : [false]) {
           const width =
             measure(context, node.label) + (detail ? 6 + measure(context, node.detail) : 0);
 
