@@ -21,6 +21,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from run_clean import sensitive_name
 from verify_desktop_signing import PUBKEY_PLACEHOLDER, DesktopSigningError, verify_archive
+from apple_signing import APPLE_SIGNING, AppleSigningError, credentials, desktop_credentials, notarizes, notarize_dmg, require_credentials, verify_distribution
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -77,12 +78,15 @@ def require_release_pubkey(root: Path) -> None:
         )
 
 
-def tauri_command(version: str, *, updater: bool) -> list[str]:
+def tauri_command(version: str, *, updater: bool, notarize: bool = False, bundle: bool = False) -> list[str]:
     command = [
-        "npm", "run", "tauri", "--", "build", "--bundles", "app,dmg",
+        "npm", "run", "tauri", "--", "bundle" if bundle else "build",
+        *(["--bundles", "app,dmg"] if bundle else ["--no-bundle"]),
         "--config", "src-tauri/tauri.release.conf.json",
         "--config", json.dumps({"version": version}),
     ]
+    if not notarize:
+        command += ["--config", '{"bundle":{"macOS":{"signingIdentity":"-"}}}']
     if not updater:
         command += ["--config", NO_UPDATER_ARTIFACTS]
     return command
@@ -129,7 +133,7 @@ def build_environment(environ: Mapping[str, str], rzm: Path, home: Path) -> dict
     """The Tauri build gets the signing key, not the publishing tokens."""
     env = {
         name: value for name, value in environ.items()
-        if not sensitive_name(name) or name in SIGNING_ENV
+        if not sensitive_name(name) or name in SIGNING_ENV or (notarizes(environ) and name in APPLE_SIGNING)
     }
     path = env.get("PATH", "")
     if shutil.which("cargo", path=path) is None:
@@ -156,9 +160,13 @@ def build(
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> list[Path]:
     """Build, verify, and stage the app; return the staged release assets."""
+    environ = desktop_credentials(environ)
     updater = signs_updater(environ)
     if environ.get("RZM_RELEASE_DESKTOP") == "1":
         require_release_pubkey(root)
+    notarize = notarizes(environ)
+    if notarize:
+        require_credentials(environ)
     host = machine or platform.machine()
     if host != "arm64":
         raise DesktopBuildError(f"the desktop app builds only on Apple Silicon, not {host}")
@@ -168,13 +176,27 @@ def build(
     version = version.removeprefix("v")
     env = build_environment(environ, rzm, home or Path.home())
     desktop = root / "desktop"
+    clean_env = {name: value for name, value in env.items() if not sensitive_name(name)}
     if not (desktop / "node_modules").is_dir():
-        runner(["make", "desktop-deps"], cwd=root, env=env, check=True)
+        runner(["make", "desktop-deps"], cwd=root, env=clean_env, check=True)
     bundle_dir = root / BUNDLE_DIR
     # Earlier builds leave differently named DMGs and stale updater archives.
     for kind in ("dmg", "macos"):
         shutil.rmtree(bundle_dir / kind, ignore_errors=True)
-    runner(tauri_command(version, updater=updater), cwd=desktop, env=env, check=True)
+    runner(tauri_command(version, updater=updater, notarize=notarize), cwd=desktop, env=clean_env, check=True)
+    command = tauri_command(version, updater=updater, notarize=notarize, bundle=True)
+    if notarize:
+        with credentials(env) as signing_env:
+            # A signer failure must not expose credentials through captured output.
+            try:
+                runner(command, cwd=desktop, env=signing_env, check=True, capture_output=True, text=True, timeout=3600)
+                outputs = bundle_outputs(bundle_dir, updater=updater)
+                notarize_dmg(outputs[DMG], runner=runner, env=signing_env)
+            except subprocess.SubprocessError as error:
+                raise DesktopBuildError("Tauri signing/notarization failed; no desktop assets staged") from error
+    else:
+        runner(command, cwd=desktop, env=env, check=True)
+    env = clean_env
     runner(
         ["codesign", "--verify", "--deep", "--strict", str(bundle_dir / "macos/Rhizome.app")],
         env=env, check=True,
@@ -192,6 +214,9 @@ def build(
             verify_archive(root, outputs[ARCHIVE], outputs[SIGNATURE], environ=env, runner=runner)
         except DesktopSigningError as error:
             raise DesktopBuildError(str(error)) from error
+    if notarize:
+        verify_distribution(bundle_dir / "macos/Rhizome.app", outputs[DMG], outputs.get(ARCHIVE),
+                            environ["APPLE_SIGNING_IDENTITY"], runner=runner, env=env)
     output_dir = root / OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     staged = []
@@ -223,7 +248,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         for path in build(Path(args.rzm), args.version, environ=os.environ):
             print(f"desktop: staged {path.relative_to(ROOT)}", file=sys.stderr)
-    except (DesktopBuildError, subprocess.CalledProcessError, OSError) as error:
+    except (DesktopBuildError, AppleSigningError, subprocess.CalledProcessError, OSError) as error:
         print(f"desktop: {error}", file=sys.stderr)
         return 1
     return 0

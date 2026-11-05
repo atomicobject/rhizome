@@ -6,6 +6,13 @@ from check import forbidden_path
 
 
 class SecretScopeTest(unittest.TestCase):
+    def test_apple_credentials_only_reach_release_profile(self):
+        source = {"APPLE_API_PRIVATE_KEY": "synthetic-key", "APPLE_API_KEY_PATH": "/synthetic/key.p8",
+                  "APPLE_SIGNING_IDENTITY": "synthetic-identity", "APPLE_CERTIFICATE": "synthetic-p12"}
+        self.assertEqual({}, scoped_environment(source, "development"))
+        self.assertEqual({key: value for key, value in source.items() if key != "APPLE_CERTIFICATE"},
+                         scoped_environment(source, "release"))
+
     def test_development_excludes_publishing_and_legacy_provider_keys(self):
         source = {key: "synthetic" for key in ("VOYAGE_API_KEY", "TYPESAFE_API_KEY", "OPENAI_API_KEY", "CEREBRAS_API_KEY", "GITHUB_TOKEN", "GH_TOKEN", "ATOMIC_RHIZOME_KEY", "OP_SERVICE_ACCOUNT_TOKEN", "BREW_GITHUB_TOKEN", "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "GOOGLE_APPLICATION_CREDENTIALS")}
         source["PATH"] = "/bin"

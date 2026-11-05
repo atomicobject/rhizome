@@ -7,6 +7,11 @@ on:
         description: Existing release tag to publish
         required: true
         type: string
+      candidate_only:
+        description: Build and notarize this workflow ref without publishing (tag input is ignored)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -14,7 +19,7 @@ permissions:
 jobs:
   probe:
     name: Validate tag and probe release
-    if: github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'
+    if: ${{ !inputs.candidate_only && github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -159,8 +164,9 @@ jobs:
   goreleaser:
     needs: [probe, test, gateway]
     if: needs.probe.outputs.release_exists == 'false'
-    # Run on macOS for native darwin builds; use zig to cross-compile Linux
-    runs-on: macos-latest
+    # macos-15 is Apple Silicon; the desktop bundle is arm64-only.
+    runs-on: macos-15
+    environment: release
     permissions:
       contents: write
     steps:
@@ -222,9 +228,93 @@ jobs:
         # newest release, which can 404 while that release is still propagating.
         env:
           GOTOOLCHAIN: go1.24.11
+      - name: Check desktop architecture
+        run: test "$(uname -m)" = arm64
+      - name: Install desktop dependencies
+        run: make desktop-deps
+      - name: Set up Python for archive verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Prepare desktop signing
+        run: python3 scripts/release/ci_desktop_signing.py prepare
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
       - name: Run GoReleaser
         run: python3 scripts/release/run_clean.py publish -- goreleaser release --clean
         env:
           GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
           GITHUB_TOKEN: ${{ github.token }}
           BREW_GITHUB_TOKEN: ${{ secrets.BREW_GITHUB_TOKEN }}
+          RZM_RELEASE_DESKTOP: "1"
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Clean up desktop signing
+        if: ${{ always() }}
+        run: python3 scripts/release/ci_desktop_signing.py cleanup
+
+  notarization_candidate:
+    name: Verify notarized desktop candidate without publishing
+    if: inputs.candidate_only && github.repository == 'atomicobject/rhizome'
+    runs-on: macos-15
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check desktop architecture
+        run: test "$(uname -m)" = arm64
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          install-only: true
+      - name: Install credential scanner
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+        working-directory: ${{ runner.temp }}
+        env:
+          GOTOOLCHAIN: go1.24.11
+      - name: Install desktop dependencies
+        run: make desktop-deps
+      - name: Set up Python for archive verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Prepare desktop signing
+        run: python3 scripts/release/ci_desktop_signing.py prepare
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+      - name: Build and verify notarized candidate
+        run: python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --single-target
+        env:
+          RZM_NOTARIZE_DESKTOP: "1"
+          RZM_RELEASE_DESKTOP: "1"
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Clean up desktop signing
+        if: ${{ always() }}
+        run: python3 scripts/release/ci_desktop_signing.py cleanup

@@ -11,6 +11,8 @@ import subprocess
 import sys
 from typing import Mapping, Sequence
 
+from apple_signing import release_credentials, SIGNING_FILE
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.teamkeys.release import public_environment, require_private_repository
 
@@ -19,15 +21,15 @@ SENSITIVE = re.compile(
     r"(?:^|_)(?:API_KEY|ACCESS_KEY(?:_ID)?|PRIVATE_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?)(?:$|_)"
 )
 PUBLISH_ALLOWED = {"GITHUB_TOKEN", "BREW_GITHUB_TOKEN"}
-# GoReleaser's desktop build hook signs the updater archive with these, so they
-# reach GoReleaser in build and publish modes and no other command.
+# The updater probe receives these directly; GoReleaser uses an owner-only file.
 DESKTOP_SIGNING = ("TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD")
 
 
 def sensitive_name(name: str) -> bool:
     return (
         name == "ATOMIC_RHIZOME_KEY"
-        or name.startswith(("AWS_", "OP_"))
+        or name == SIGNING_FILE
+        or name.startswith(("AWS_", "OP_", "APPLE_"))
         or SENSITIVE.search(name) is not None
     )
 
@@ -59,7 +61,12 @@ def run(mode: str, command: Sequence[str], source: Mapping[str, str] | None = No
     source = os.environ if source is None else source
     environment = scoped_environment(source, mode)
     if Path(command[0]).name == "goreleaser":
-        environment.update({name: source[name] for name in DESKTOP_SIGNING if name in source})
+        with release_credentials(source, environment) as signing_env:
+            return _run(mode, command, signing_env)
+    return _run(mode, command, environment)
+
+
+def _run(mode, command, environment):
     if mode == "publish":
         missing = sorted(name for name in PUBLISH_ALLOWED if not environment.get(name, "").strip())
         if missing:

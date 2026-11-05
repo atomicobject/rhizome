@@ -5,7 +5,7 @@
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/rzm"],
     "macOS": {
-      "signingIdentity": "-"
+      "hardenedRuntime": true
     }
   }
 }

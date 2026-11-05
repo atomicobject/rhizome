@@ -38,7 +38,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
     def test_read_only_probe_gates_the_write_capable_publisher(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         probe = workflow.split("\n  probe:\n", 1)[1].split("\n  test:\n", 1)[0]
-        publisher = workflow.split("\n  goreleaser:\n", 1)[1]
+        publisher = workflow.split("\n  goreleaser:\n", 1)[1].split("\n  notarization_candidate:\n", 1)[0]
 
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertIn("permissions:\n      contents: read", probe)
@@ -86,7 +86,35 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("python3 trusted/scripts/release/release_gateway.py", gate)
         self.assertIn('--repo-root "$GITHUB_WORKSPACE/source"', gate)
         self.assertIn('--release-commit "$RELEASE_COMMIT"', gate)
-        self.assertIn("if: github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'", workflow)
+        self.assertIn("!inputs.candidate_only && github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'", workflow)
+
+    def test_desktop_signing_is_protected_and_always_cleaned_up(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        for name in ("goreleaser", "notarization_candidate"):
+            job = workflow.split(f"\n  {name}:\n", 1)[1].split("\n  notarization_candidate:\n", 1)[0]
+            with self.subTest(job=name):
+                self.assertIn("runs-on: macos-15", job)
+                self.assertIn("environment: release", job)
+                self.assertIn('test "$(uname -m)" = arm64', job)
+                self.assertIn("ci_desktop_signing.py prepare", job)
+                self.assertIn('RZM_RELEASE_DESKTOP: "1"', job)
+                self.assertIn("APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}", job)
+                self.assertIn("TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}", job)
+                self.assertIn("if: ${{ always() }}\n        run: python3 scripts/release/ci_desktop_signing.py cleanup", job)
+                signing = job.split("      - name: Prepare desktop signing\n", 1)[1].split("      - name:", 1)[0]
+                self.assertIn("APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}", signing)
+                self.assertNotIn("GITHUB_TOKEN", signing)
+
+    def test_candidate_cannot_publish_or_deploy(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        candidate = workflow.split("\n  notarization_candidate:\n", 1)[1]
+        self.assertIn("if: inputs.candidate_only && github.repository == 'atomicobject/rhizome'", candidate)
+        self.assertIn("contents: read", candidate)
+        self.assertIn("persist-credentials: false", candidate)
+        self.assertIn("goreleaser build --snapshot --clean --single-target", candidate)
+        for forbidden in ("contents: write", "actions: write", "id-token: write", "goreleaser release",
+                          "release_gateway.py", "GITHUB_TOKEN:", "BREW_GITHUB_TOKEN:", "upload-artifact"):
+            self.assertNotIn(forbidden, candidate)
 
     def test_deployment_uses_trusted_main_controls_and_the_selected_source_image(self) -> None:
         workflow = DEPLOY_WORKFLOW.read_text(encoding="utf-8")

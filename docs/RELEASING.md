@@ -110,7 +110,7 @@ The existing first-publication atomic push creates a missing `release` branch be
 
 ## Desktop app
 
-Every public release publishes the macOS desktop app built from the same tag ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser's `rzm-darwin` build runs `scripts/release/build_desktop.py` as a post-build hook. For the `darwin/arm64` binary it builds the Tauri app in `desktop/` with `desktop/src-tauri/tauri.release.conf.json` and the release version, bundling that exact `rzm`. It then checks the ad-hoc signature with `codesign --verify --deep --strict` and stages these assets in `.tmp/goreleaser-extra/`:
+Every public release publishes the macOS desktop app built from the same tag ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser's `rzm-darwin` build runs `scripts/release/build_desktop.py` as a post-build hook. For the `darwin/arm64` binary it builds the Tauri app in `desktop/` with `desktop/src-tauri/tauri.release.conf.json` and the release version, bundling that exact `rzm`. It then verifies Developer ID signatures, hardened runtime, stapled notarization tickets and Gatekeeper approval in the app, mounted DMG and updater archive before staging these assets in `.tmp/goreleaser-extra/`:
 
 - `Rhizome-macos-arm64.dmg`, the installer;
 - `Rhizome-macos-arm64.app.tar.gz` and its `.sig`, the signed updater archive;
@@ -120,9 +120,37 @@ GoReleaser uploads all four and lists them in `checksums.txt`.
 
 The candidate build, a GoReleaser snapshot, runs the same hook, so a broken desktop toolchain stops the release before any repository change. Without the signing key the snapshot still builds the app and DMG but skips the updater archive and `latest.json`. Publication sets `RZM_RELEASE_DESKTOP=1`. In that mode the hook fails when the key is missing, and GoReleaser fails when any of the four assets is absent, so a public release cannot go out without the app. Apply also refuses to start a public release without the key.
 
-Public `make release` also enables desktop publication automatically and requires the signing key and desktop build tools listed in the prerequisites. Internal releases (`RZM_INTERNAL_S3_BUCKET` set) and the GitHub Actions recovery workflow publish the CLI only. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
+Public `make release` also enables desktop publication automatically and requires the signing key and desktop build tools listed in the prerequisites. Internal releases (`RZM_INTERNAL_S3_BUCKET` set) publish the CLI only. The manually dispatched GitHub Actions recovery workflow publishes the same notarized desktop assets as local publication. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
 
 If the desktop build fails during publication, GoReleaser stops in its build phase, before it creates a GitHub release. Fix the cause, such as a missing Rust toolchain or key, and rerun the printed resume command. Resume continues from the recorded checkpoint and runs GoReleaser again.
+
+### Developer ID signing and notarization
+
+Public desktop publication requires a valid Developer ID Application identity in the release Mac's login Keychain and notarization credentials. `RZM_RELEASE_DESKTOP=1` requires both notarization and updater signing. A local snapshot is ad-hoc signed unless `RZM_NOTARIZE_DESKTOP=1` explicitly requests notarization. Ordinary development requires no Apple credentials.
+
+Store the encrypted `.p12` export, its password, and the notarization `.p8` private key in a restricted 1Password vault. The `.p12` must include the certificate and private key. The public `.cer` alone cannot restore signing. Keep 1Password backups after installing the identity in a release Mac's Keychain. Never store even encrypted credential bundles in Git.
+
+Local releases load these variables from the separate release 1Password Environment through `scripts/with-secrets release`:
+
+| Variable | Value |
+| --- | --- |
+| `APPLE_SIGNING_IDENTITY` | Full Developer ID Application identity, including the Team ID in parentheses |
+| `APPLE_API_KEY` | App Store Connect team key ID |
+| `APPLE_API_ISSUER` | App Store Connect issuer ID |
+| `APPLE_API_PRIVATE_KEY` | Contents of the notarization `.p8` private key |
+
+The GoReleaser adapter writes signing credentials to an owner-only temporary file and passes only its reference through the general build environment. The desktop hook reads that file, compiles without credentials, then runs Tauri bundling with signing credentials. The desktop hook writes `APPLE_API_PRIVATE_KEY` to an owner-only temporary file for Tauri, removes its contents from the child environment, and removes the file when Tauri exits. An explicitly supplied `APPLE_API_KEY_PATH` can instead reference an existing protected local file for candidate verification. The key is never printed. Apple credentials are forwarded only through GoReleaser to the notarizing desktop build, then removed before distribution verification and public-content scanning. Tauri notarizes and staples the app before producing the updater archive; the hook separately submits and staples the outer DMG. Signing failures stop staging; there is no unsigned fallback for public publication.
+
+For CI, create a GitHub Environment named `release`, with selected-branch restrictions; add required reviewers if the team wants a separate approval for release jobs. Permit only trusted release source. Temporarily authorize the reviewed implementation branch for a premerge candidate, then remove that exception. Set these encrypted Environment secrets using protected secret input, never command literals or logs:
+
+- The four Apple variables above.
+- `APPLE_CERTIFICATE`: base64 encoding of the backed-up `.p12`, and `APPLE_CERTIFICATE_PASSWORD`: its export password. Base64 is an encoding, not encryption; treat it as a secret.
+- `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, using the existing updater key that matches the committed public key.
+- `BREW_GITHUB_TOKEN` for recovery publication; the workflow supplies GitHub publication auth separately.
+
+CI runs on Apple Silicon, imports the `.p12` and Apple's intermediate certificate into a temporary Keychain, and writes the notarization key under runner temporary storage. The cleanup step restores the Keychain search list and deletes temporary credentials even if the build fails. Temporary Keychain passwords do not appear in process arguments. These workflows never receive provider keys. Hosted runner destruction provides the final cleanup boundary if a job is forcibly terminated before cleanup.
+
+To verify a candidate, select the manual GoReleaser fallback workflow, choose the reviewed source ref, set `candidate_only=true`, and provide any tag input. Confirm the candidate job, including distribution verification, succeeds. This submits software to Apple's notary service but does not create a GitHub release, advance version refs or deploy the gateway.
 
 ### Updater signing key
 
@@ -204,7 +232,7 @@ The GitHub Actions release workflow is a manual, guarded recovery surface. Dispa
 
 `make release` is the gated lower-level publisher for an exact, clean release tag with matching canonical topology; use `make cut-release` for normal releases. Public publication also requires the desktop signing key and builds the desktop app through the same publisher.
 
-The GitHub Actions workflow never builds the desktop app: it does not set `RZM_RELEASE_DESKTOP` and has no signing key, so a release it recovers carries the CLI assets only.
+The GitHub Actions workflow requires the protected `release` Environment and all signing secrets listed below. Recovery publication still requires an existing validated release tag and a verified gateway deployment. Select `candidate_only=true` to build and notarize the selected workflow ref without deployment or publication; the required tag input is ignored in candidate mode. Candidate mode has read-only repository permissions and does not upload artifacts.
 
 ## Public migration
 
