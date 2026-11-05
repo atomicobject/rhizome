@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 )
 
 func (e *executor) rootNotesWithMax(ctx context.Context, args map[string]any, maxFirst int) ([]*noteRecord, error) {
@@ -48,6 +49,12 @@ func (e *executor) rootNotesWithMax(ctx context.Context, args map[string]any, ma
 }
 
 func (e *executor) rootTypedNotes(ctx context.Context, typeName string, args map[string]any) (rootPage[*noteRecord], error) {
+	e = e.withInterfaceLinkResolver(typeName)
+	if e.schema.Interfaces[typeName] != nil {
+		if err := e.validateInterfaceRootConstraints(ctx, typeName, args); err != nil {
+			return rootPage[*noteRecord]{}, err
+		}
+	}
 	if err := e.validateLinkRootFilters(ctx, typeName, args["filters"]); err != nil {
 		return rootPage[*noteRecord]{}, err
 	}
@@ -67,7 +74,7 @@ func (e *executor) rootTypedNotes(ctx context.Context, typeName string, args map
 		if err != nil {
 			return rootPage[*noteRecord]{}, err
 		}
-		if record == nil || record.TypeName != typeName {
+		if record == nil || !e.typeMatchesOrImplements(record.TypeName, typeName) {
 			return rootPage[*noteRecord]{}, nil
 		}
 		records = []*noteRecord{record}
@@ -91,14 +98,16 @@ func (e *executor) rootTypedNotes(ctx context.Context, typeName string, args map
 }
 
 func (e *executor) validateLinkRootFilters(ctx context.Context, typeName string, raw any) error {
-	noteType := e.schema.Types[typeName]
-	if noteType == nil {
-		return nil
+	var fields map[string]*ontoschema.Field
+	if noteType := e.schema.Types[typeName]; noteType != nil {
+		fields = noteType.ByName
+	} else if iface := e.schema.Interfaces[typeName]; iface != nil {
+		fields = iface.ByName
 	}
 	filters, _ := raw.([]any)
 	for _, item := range filters {
 		filter, _ := item.(map[string]any)
-		field := noteType.ByName[strings.TrimSpace(stringValue(filter["field"]))]
+		field := fields[strings.TrimSpace(stringValue(filter["field"]))]
 		if field == nil || field.Kind != ontoschema.FieldKindLink {
 			continue
 		}
@@ -132,7 +141,7 @@ func (e *executor) validateLinkRootFilters(ctx context.Context, typeName string,
 func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, args map[string]any) (rootPage[*noteRecord], error) {
 	candidateBound := false
 	noteType := e.schema.Types[typeName]
-	if noteType == nil || noteType.Role != ontoschema.TypeRoleNote {
+	if noteType == nil && len(noteInterfaceRootTypes(e.schema, typeName)) == 0 || noteType != nil && noteType.Role != ontoschema.TypeRoleNote {
 		return rootPage[*noteRecord]{}, nil
 	}
 	rootPlan := e.indexedOntologyNodeRootPlan(ctx, typeName, args)
@@ -144,11 +153,16 @@ func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, a
 		return rootPage[*noteRecord]{}, fmt.Errorf("%s(...) offset must be < %d for residual filters or sort; narrow the query to continue", queryRootFieldName(typeName), publicRootFirstMax)
 	}
 	if e.deps.ReadOverlay != nil && !e.deps.ReadOverlay.Empty() {
+		overlaySort := plan.Sort
+		if noteType == nil && len(plan.Predicates) == 0 && len(overlaySort) == 0 {
+			// Keep plain interface reads on the bounded indexed overlay path.
+			overlaySort = []readmodel.FieldSort{{FieldName: "path", ValueKind: "builtin"}}
+		}
 		result, err := e.loaders.scope.TypeInstances(ctx, noderead.TypeInstancesRequest{
 			TypeName:   typeName,
 			Limit:      publicRootFirstMax,
 			Predicates: plan.Predicates,
-			Sort:       plan.Sort,
+			Sort:       overlaySort,
 		})
 		if err != nil {
 			return rootPage[*noteRecord]{}, err

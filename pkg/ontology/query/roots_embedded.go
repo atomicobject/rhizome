@@ -220,6 +220,9 @@ type typedRootPlan struct {
 }
 
 func (e *executor) indexedOntologyNodeRootPlan(ctx context.Context, typeName string, args map[string]any) typedRootPlan {
+	if e.schema.Interfaces[typeName] != nil {
+		return e.indexedInterfaceRootPlan(ctx, typeName, args)
+	}
 	first := rootFirst(args, false)
 	plan := readmodel.NodeQueryPlan{TypeNames: []string{typeName}, Limit: first}
 	if plan.Limit <= 0 {

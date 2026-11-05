@@ -12,6 +12,7 @@ import (
 
 func (e *executor) ontologyQueryPlan(ctx context.Context, args map[string]any) OntologyQueryPlan {
 	typeName := strings.TrimSpace(stringValue(args["type"]))
+	e = e.withInterfaceLinkResolver(typeName)
 	first := boundedFirst(args["first"], 20, publicRootFirstMax)
 	root := ""
 	if typeName != "" {
@@ -25,11 +26,12 @@ func (e *executor) ontologyQueryPlan(ctx context.Context, args map[string]any) O
 		First:      first,
 	}
 	noteType := e.schema.Types[typeName]
-	if noteType == nil {
+	interfaceTypes := noteInterfaceRootTypes(e.schema, typeName)
+	if noteType == nil && len(interfaceTypes) == 0 {
 		plan.Warnings = append(plan.Warnings, diag.Warning{Code: "unknown_type", Message: fmt.Sprintf("ontology type %q is not defined", typeName)})
 		return plan
 	}
-	if noteType.Role != ontoschema.TypeRoleEmbeddedNode && noteType.Role != ontoschema.TypeRoleNote {
+	if noteType != nil && noteType.Role != ontoschema.TypeRoleEmbeddedNode && noteType.Role != ontoschema.TypeRoleNote {
 		plan.Warnings = append(plan.Warnings, diag.Warning{Code: "unsupported_root_role", Message: "indexed root planning applies to note and embedded-node roots"})
 		return plan
 	}
@@ -39,6 +41,12 @@ func (e *executor) ontologyQueryPlan(ctx context.Context, args map[string]any) O
 	}
 	if sortSpec, ok := args["sort"].([]any); ok {
 		queryArgs["sort"] = sortSpec
+	}
+	if len(interfaceTypes) > 0 {
+		if err := e.validateInterfaceRootConstraints(ctx, typeName, queryArgs); err != nil {
+			plan.Warnings = append(plan.Warnings, diag.Warning{Code: "unsupported_interface_constraint", Message: err.Error()})
+			return plan
+		}
 	}
 	rootPlan := e.indexedOntologyNodeRootPlan(ctx, typeName, queryArgs)
 	residualFilters, residualSort, planWarnings := graphqlFiltersFromInputs(rootPlan.residual), graphqlSortsFromInputs(rootPlan.sort), rootPlan.warnings
@@ -56,11 +64,17 @@ func (e *executor) ontologyQueryPlan(ctx context.Context, args map[string]any) O
 		plan.Warnings = append(plan.Warnings, diag.Warning{Code: "index_unavailable", Message: "indexed store is unavailable"})
 	}
 	selectionSet := selectionSetFromNames(stringListValue(args["select"]))
-	if len(selectionSet) > 0 && !e.ontologyNodeRootSelectionNeedsProjection(typeName, selectionSet) {
+	if len(selectionSet) > 0 {
+		types := rootPlan.indexed.TypeNames
 		plan.Projection = "not_required"
+		for _, name := range types {
+			if e.ontologyNodeRootSelectionNeedsProjection(name, selectionSet) {
+				plan.Projection = "required"
+			}
+		}
 	}
 	if e.deps.Store != nil {
-		rows, err := e.deps.Store.OntologyNodesByTypePlan(ctx, readmodel.NodeQueryPlan{TypeNames: []string{typeName}, Limit: 1})
+		rows, err := e.deps.Store.OntologyNodesByTypePlan(ctx, readmodel.NodeQueryPlan{TypeNames: rootPlan.indexed.TypeNames, Limit: 1})
 		if err != nil {
 			plan.Warnings = append(plan.Warnings, diag.Warning{Code: "index_probe_failed", Message: err.Error()})
 		} else if len(rows) == 0 {

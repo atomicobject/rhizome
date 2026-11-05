@@ -243,15 +243,3 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
-
-func queryRootTypeName(schema *ontoschema.Schema, root string) string {
-	for typeName, noteType := range schema.Types {
-		if noteType == nil || (noteType.Role != ontoschema.TypeRoleNote && noteType.Role != ontoschema.TypeRoleEmbeddedNode) {
-			continue
-		}
-		if queryRootFieldName(typeName) == root {
-			return typeName
-		}
-	}
-	return ""
-}

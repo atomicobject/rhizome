@@ -7,6 +7,8 @@
 - Refreshed the workbench with clearer tables and boards, calmer note and search pages, consistent type colours, and more readable graph labels.
 - GraphQL now shares the workbench sidebar and page layout.
 
+- Authored note-only ontology interfaces now get typed GraphQL roots, so a shared collection such as `meeting` can filter, sort and page across its concrete types while retaining concrete identity.
+
 - Signing out of the team server (`rzm auth logout`, or Sign out in Rhizome Desktop) keeps the server you used, so signing in again returns to it instead of the built-in default.
 
 - The team API gateway now limits session-store lookups from unrecognized tokens per client address and in total, and caches the Jev model list with one shared upstream request and a per-person rate, so unauthenticated floods and stolen sessions cannot drive unbounded store reads or provider requests.
