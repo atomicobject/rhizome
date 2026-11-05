@@ -37,7 +37,7 @@ import {
   type Distribution,
   type FieldConnection,
 } from "./collection.ts";
-import { GroupFacts, GroupPage } from "./components.tsx";
+import { GroupFacts, GroupPage, openRecord } from "./components.tsx";
 import { linkGraph } from "./graph.ts";
 import { useCollectionModel } from "./load.ts";
 import { fieldLabel, type GroupModel, type Member } from "./model.ts";
@@ -73,7 +73,7 @@ function InMotion({ model }: { model: GroupModel }) {
                       <ul>
                         {signal.records.map((record) => (
                           <li key={record.key}>
-                            <button className="gv-inline" onClick={() => openNote(record.path)}>
+                            <button className="gv-inline" onClick={() => openRecord(record)}>
                               {record.title}
                             </button>
                           </li>

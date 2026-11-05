@@ -1,7 +1,14 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 
-import { OPEN_NOTE_MESSAGE, OPEN_VIEW_MESSAGE } from "../../src/lib/customViewMessages";
+import {
+  OPEN_NODE_MESSAGE,
+  OPEN_NOTE_MESSAGE,
+  OPEN_VIEW_MESSAGE,
+} from "../../src/lib/customViewMessages";
+import { isJsonObject } from "../../src/api/parse";
+import { jsonReply } from "../../src/test/fakeFetch";
+import { COLLECTION_DATA } from "./__fixtures__/collections";
 import { PLANNING_GUIDE } from "./__fixtures__/groups.ts";
 import { collectionRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
 
@@ -197,4 +204,41 @@ it("says which type it could not find", async () => {
   await openType("Gone");
 
   expect(await screen.findByText("No type or interface named Gone in navigation.")).toBeVisible();
+});
+
+it("opens the embedded identity from an unchanged record link", async () => {
+  const ref = {
+    kind: "EMBEDDED",
+    notePath: "work/items.md",
+    nodeId: "saved-carts",
+    fragment: "^saved-carts",
+    typeName: "Story",
+  };
+
+  const stories = COLLECTION_DATA.Story;
+
+  const data = {
+    ...COLLECTION_DATA,
+    Story: Array.isArray(stories)
+      ? stories.map((row) =>
+          isJsonObject(row) && row.title === "Saved carts"
+            ? { ...row, ref, path: ref.notePath }
+            : row,
+        )
+      : [],
+  };
+
+  const { posted } = await renderGroupView(loadBriefing, {
+    context: { kind: "type", type: "Story" },
+    routes: collectionRoutes({ "POST /api/v1/graphql": () => jsonReply({ data }) }),
+    embedded: true,
+  });
+
+  const motion = await region("In motion");
+  const details = motion.querySelector("details");
+
+  if (!details) throw new Error("No unchanged records");
+  details.open = true;
+  fireEvent.click(within(details).getByRole("button", { name: "Saved carts" }));
+  expect(posted.at(-1)).toMatchObject({ type: OPEN_NODE_MESSAGE, ref });
 });
