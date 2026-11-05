@@ -284,18 +284,21 @@ export function MapLegend({
   const groups = [
     ...rings.map((node) => ({
       title: node.label,
-      items: node.types.map((name) => (
-        <span key={name}>
-          <i style={{ background: color(name) }} />
-          {familyLabel(
-            name,
-            node.kind === "group"
-              ? (node.members.find((member) => member.types.includes(name)) ?? node)
-              : node,
-          )}{" "}
-          {fmt(summaries.get(name)?.count ?? 0)}
-        </span>
-      )),
+      // Types with no records draw no segment; Coverage already names them.
+      items: node.types
+        .filter((name) => (summaries.get(name)?.count ?? 0) > 0)
+        .map((name) => (
+          <span key={name}>
+            <i style={{ background: color(name) }} />
+            {familyLabel(
+              name,
+              node.kind === "group"
+                ? (node.members.find((member) => member.types.includes(name)) ?? node)
+                : node,
+            )}{" "}
+            {fmt(summaries.get(name)?.count ?? 0)}
+          </span>
+        )),
     })),
     { title: "Types", items: types },
     {
