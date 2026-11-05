@@ -65,7 +65,7 @@ function DistributionRow({ distribution }: { distribution: Distribution }) {
   return (
     <div className="gv-spread">
       <h3 className="gv-spread-head">
-        {fieldLabel(field)} <span className="gv-sub">{role}</span>
+        {fieldLabel(field)} {role !== "lifecycle" && <span className="gv-sub">{role}</span>}
       </h3>
       <div className="gv-dist gv-dist-wide" aria-hidden="true">
         {values.map(({ value, count }) => (
@@ -184,7 +184,7 @@ function SpreadBlock({ model, member }: { model: GroupModel; member: Member }) {
 
   return (
     <Block
-      title="Shape"
+      title="Composition"
       info={{
         text: `How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`,
         display: "title",

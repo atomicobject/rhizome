@@ -11,6 +11,7 @@
 //   for each type's newest records in an active lifecycle value;
 // - `GET /api/v1/ontology/types/__all__?limit=N` for the newest notes.
 import {
+  RelativeTime,
   StatusMark,
   openCollection,
   openIssues,
@@ -18,6 +19,7 @@ import {
   useGraphQL,
   useTypeDocs,
   useValidationSummaries,
+  validationScopeKey,
   type ViewModuleProps,
 } from "@rhizome/kit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,16 +27,9 @@ import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
 import { ChangeRow } from "./briefing-activity.tsx";
-import {
-  Block,
-  BlockBody,
-  HealthyAttention,
-  MoreToggle,
-  Rebuilding,
-  lower,
-  plural,
-} from "./briefing-parts.tsx";
+import { Block, BlockBody, MoreToggle, Rebuilding, lower, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
+import { NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { getJSON, refetchFailedTypeDocs } from "./load.ts";
 import { useRememberedOpen } from "./remembered.ts";
 import {
@@ -138,7 +133,7 @@ function NeedsAttention() {
     groups.data?.length === 0 &&
     validation.health === "current_clean"
   )
-    return <HealthyAttention info={info} />;
+    return null;
 
   return (
     <Block
@@ -249,6 +244,11 @@ function InMotion() {
   return (
     <Block
       title="In motion"
+      count={
+        status.status === "ready" && !rebuilding
+          ? types.reduce((sum, type) => sum + type.total, 0)
+          : undefined
+      }
       info={{
         text: "Records in an active lifecycle stage, any type, newest change first.",
         display: "title",
@@ -382,9 +382,45 @@ function RecentChanges() {
   );
 }
 
+function WorkspaceFacts() {
+  const members = useAggregatePart("members");
+  const validation = useValidationSummaries(GLOBAL);
+
+  const recent = useQuery({
+    queryKey: ["group-views", "recent-notes", RECENT_NOTES],
+    queryFn: ({ signal }) =>
+      getJSON(`/api/v1/ontology/types/__all__?limit=${RECENT_NOTES}`, signal),
+    select: parseRecentNotes,
+  });
+
+  const latest = recent.data?.[0]?.updatedAt;
+  const issues = validation.summaries.get(validationScopeKey(GLOBAL[0]))?.issueCount;
+
+  return (
+    <div className="gv-facts">
+      <span className="gv-facts-list" title="Validation includes untyped and ambiguous notes.">
+        {members.data && !members.data.facts.rebuilding && (
+          <span>
+            <b>{fmt(members.data.facts.totalNotes)}</b> notes
+          </span>
+        )}
+        {issues !== undefined &&
+          (issues > 0 ? <span className="gv-bad">{fmt(issues)} issues</span> : <NoIssues />)}
+        <ValidationFreshness />
+        {latest && (
+          <span>
+            changed <RelativeTime value={latest} />
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export default function WorkspaceBriefing(_props: ViewModuleProps) {
   return (
     <main className="gv-page">
+      <WorkspaceFacts />
       <div className="gv-brief gv-brief-two">
         <div className="gv-brief-col">
           <NeedsAttention />

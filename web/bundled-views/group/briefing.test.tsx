@@ -10,7 +10,7 @@ import { jsonReply } from "../../src/test/fakeFetch";
 import { NOW, PATHS, RECORDS_DATA, TYPE_DOCS } from "./__fixtures__/groups.ts";
 import { VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { groupRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
-import { isJsonObject } from "./api.ts";
+import { isJsonObject, type JsonValue } from "./api.ts";
 import { SIGNAL_RECORDS } from "./briefing-attention.tsx";
 
 const loadBriefing = () => import("./briefing.tsx");
@@ -88,10 +88,17 @@ it("gives every signal an action: its member's collection or issues, or each mem
 it("names a bounded number of records per signal and reveals the rest in place", async () => {
   // Areas without parents: Commerce, Loop A, and Loop B leave the tree and
   // link with nothing else.
-  const areas = (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map((area) =>
-    isJsonObject(area) ? { ...area, parent: null } : area,
+  const areas: JsonValue[] = (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map(
+    (area) => (isJsonObject(area) ? { ...area, parent: null } : area),
   );
 
+  areas.push({
+    path: "areas/extra.md",
+    title: "Extra area",
+    parent: null,
+    updatedAt: NOW / 1000,
+    issueCount: 0,
+  });
   await renderGroupView(loadBriefing, {
     routes: groupRoutes({
       "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Area: areas } }),
@@ -107,11 +114,18 @@ it("names a bounded number of records per signal and reveals the rest in place",
       .filter((button) => button.className.includes("gv-inline"))
       .map((button) => button.textContent);
 
-  expect(named()).toEqual(["Gift cards", "Commerce", "Loop A"].slice(0, SIGNAL_RECORDS));
-  fireEvent.click(unlinked.getByRole("button", { name: "Show 2 more unlinked notes" }));
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A", "Loop B", "Winter release"]);
+  fireEvent.click(unlinked.getByRole("button", { name: "Show 1 more" }));
+  expect(named()).toEqual([
+    "Gift cards",
+    "Commerce",
+    "Loop A",
+    "Loop B",
+    "Extra area",
+    "Winter release",
+  ]);
   fireEvent.click(unlinked.getByRole("button", { name: "Show fewer" }));
-  expect(named()).toHaveLength(SIGNAL_RECORDS);
+  expect(named()).toHaveLength(SIGNAL_RECORDS + 2);
 });
 
 it("says there are no validation issues, and skips unlinked records in a group without links", async () => {
