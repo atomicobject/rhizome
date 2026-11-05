@@ -25,6 +25,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
+import { commonMotionMetadata, MotionCount } from "./briefing-motion.tsx";
 import { ChangeRow } from "./briefing-activity.tsx";
 import { Block, BlockBody, MoreToggle, Rebuilding, lower, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
@@ -240,15 +241,31 @@ function InMotion() {
     return many ? (summary?.pluralLabel ?? type) : (summary?.label ?? type);
   };
 
+  const metadata = commonMotionMetadata(
+    types
+      .flatMap((entry) =>
+        (pages?.get(entry.type)?.records ?? []).map((record) => ({
+          type: label(entry.type, false),
+          folder: record.path.split("/").slice(0, -1).join("/"),
+          time: record.updatedAt,
+        })),
+      )
+      .sort((a, b) => (b.time ?? 0) - (a.time ?? 0))
+      .slice(0, expanded.isOpen("in-motion", false) ? undefined : MOTION_PER_TYPE),
+  );
+
   return (
     <Block
       title="In motion"
       className="gv-motion"
       controls={<span className="gv-motion-age-label">Last changed</span>}
       count={
-        status.status === "ready" && !rebuilding
-          ? types.reduce((sum, type) => sum + type.total, 0)
-          : undefined
+        status.status === "ready" && !rebuilding ? (
+          <MotionCount
+            count={types.reduce((sum, type) => sum + type.total, 0)}
+            metadata={metadata}
+          />
+        ) : undefined
       }
       info={{
         text: "Records in an active lifecycle stage, any type, newest change first.",
@@ -286,6 +303,7 @@ function InMotion() {
                   return (
                     <ChangeRow
                       key={record.key}
+                      compact={!!metadata}
                       line={{
                         key: record.key,
                         title: record.title,

@@ -17,9 +17,15 @@ import { useMemo } from "react";
 
 import { boundary, inMotion, needsAttention, reverseGaps } from "./activity.ts";
 import { REVERSE_SAMPLE } from "./api.ts";
-import { MotionList, OutsideNotes, RecentChanges } from "./briefing-activity.tsx";
+import {
+  useMotionMetadata,
+  MotionList,
+  OutsideNotes,
+  RecentChanges,
+} from "./briefing-activity.tsx";
 import { NeedsAttention, type MemberAction } from "./briefing-attention.tsx";
 import { Implementors } from "./briefing-contents.tsx";
+import { MotionCount } from "./briefing-motion.tsx";
 import { Block, MoreToggle, lower, plural } from "./briefing-parts.tsx";
 import {
   dateMonths,
@@ -39,12 +45,14 @@ function InMotion({ model }: { model: GroupModel }) {
   const motion = useMemo(() => inMotion(model), [model]);
   const entries = motion.groups[0]?.entries ?? [];
 
+  const metadata = useMotionMetadata(model, entries);
+
   return (
     <Block
       title="In motion"
       className="gv-motion"
       controls={<span className="gv-motion-age-label">Last changed</span>}
-      count={entries.length}
+      count={<MotionCount count={entries.length} metadata={metadata} />}
       info={{
         text: "Records whose lifecycle value is in the active stage, newest change first.",
         display: "title",

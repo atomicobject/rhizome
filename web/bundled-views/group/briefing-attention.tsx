@@ -1,8 +1,9 @@
 import { RelativeTime, openCollection } from "@rhizome/kit";
-import { Fragment, createContext, useContext, type ReactNode } from "react";
+import { Fragment, createContext, useContext } from "react";
 
 import { STALE_DAYS, type AttentionSignal, type MemberRecords } from "./activity.ts";
 import { openMemberIssues, openRecord } from "./components.tsx";
+import { SignalExamples, SignalRow } from "./briefing-signal-examples.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import {
   Block,
@@ -173,37 +174,6 @@ function SignalRecords({
   );
 }
 
-type SignalAction = { label: string; run: () => void };
-
-function SignalRow({
-  count,
-  severity,
-  text,
-  action,
-  children,
-}: {
-  count: ReactNode;
-  severity: "risk" | "warning" | "ok" | "context";
-  text: ReactNode;
-  action?: SignalAction | null;
-  children?: ReactNode;
-}) {
-  return (
-    <li className="gv-sig" data-severity={severity}>
-      <span className="gv-sig-count">{count}</span>
-      <span className="gv-sig-text">{text}</span>
-      {action ? (
-        <button type="button" className="gv-link gv-sig-act" onClick={action.run}>
-          {action.label}
-        </button>
-      ) : (
-        <span />
-      )}
-      {children && <div className="gv-sig-detail">{children}</div>}
-    </li>
-  );
-}
-
 /** The member action, offered when every record behind a signal belongs to one member. */
 function useMemberAction(model: GroupModel, groups: readonly MemberRecords[]) {
   const action = useContext(MemberActionContext);
@@ -302,12 +272,16 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
           }
           action={action}
         >
-          <SignalRecords
-            id={signalKey(signal)}
-            model={model}
-            groups={groups}
-            onMember={openMember}
-          />
+          <SignalExamples
+            label={`${signal.records.length} ${lower(member ? memberLabel(model, member, { plural: true }) : "records")}`}
+          >
+            <SignalRecords
+              id={signalKey(signal)}
+              model={model}
+              groups={groups}
+              onMember={openMember}
+            />
+          </SignalExamples>
         </SignalRow>
       );
     }
