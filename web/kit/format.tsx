@@ -45,14 +45,14 @@ function compactAge(time: Date, now: Date) {
   const spoken = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
   const unit = (size: number, suffix: string, name: Intl.RelativeTimeFormatUnit) => {
-    const amount = Math.round(age / size);
+    const amount = size === HOUR ? Math.floor(age / size) : Math.round(age / size);
 
     return { text: `${amount}${suffix}`, long: spoken.format(-amount, name) };
   };
 
   if (age < HOUR) return unit(MINUTE, "m", "minute");
 
-  if (age < 48 * HOUR) return unit(HOUR, "h", "hour");
+  if (age < DAY) return unit(HOUR, "h", "hour");
 
   if (age < 60 * DAY) return unit(DAY, "d", "day");
 

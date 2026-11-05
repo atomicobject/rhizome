@@ -1,10 +1,10 @@
+import { RelationArrow } from "./body/RelationArrow";
 import {
   railRow,
   relationBuckets,
   linkedBuckets,
   RELATION_DIRECTIONS,
   RELATION_DIRECTION_LABEL,
-  DIRECTION_GLYPH,
   isNoteContent,
   relationTarget,
   humanizeRelationName,
@@ -309,7 +309,7 @@ export function NotesSidebarInfo({
                     <section key={direction} aria-label={RELATION_DIRECTION_LABEL[direction]}>
                       <h4 className="rail-direction">
                         <span className="rail-direction__dir" aria-hidden="true">
-                          {DIRECTION_GLYPH[direction]}
+                          <RelationArrow direction={direction} />
                         </span>
                         {RELATION_DIRECTION_LABEL[direction]}
                       </h4>

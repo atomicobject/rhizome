@@ -1,9 +1,8 @@
+import { RelationArrow } from "./RelationArrow";
 import { useState } from "react";
 import { useNotePreviewTrigger } from "../notePreview/NoteLinkPreview";
 
 type Direction = "outgoing" | "incoming" | "both";
-
-const DIRECTION_GLYPH: Record<Direction, string> = { outgoing: "→", incoming: "←", both: "↔" };
 
 const DIRECTION_LABEL: Record<Direction, string> = {
   outgoing: "Links to",
@@ -101,7 +100,7 @@ export function RailRowItem({
           aria-label={DIRECTION_LABEL[row.direction]}
           title={DIRECTION_LABEL[row.direction]}
         >
-          {DIRECTION_GLYPH[row.direction]}
+          <RelationArrow direction={row.direction} />
         </span>
       )}
       {row.openable ? (
@@ -195,7 +194,7 @@ export function DirectionLegend({ buckets }: { buckets: RailBucket[] }) {
           ? [
               <span key={direction}>
                 <span className={`rail-legend__dir rail-row__dir--${direction}`} aria-hidden="true">
-                  {DIRECTION_GLYPH[direction]}
+                  <RelationArrow direction={direction} />
                 </span>
                 {DIRECTION_LABEL[direction]}
               </span>,

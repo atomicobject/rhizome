@@ -1,0 +1,437 @@
+.segmented > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.segmented > button:hover {
+  color: var(--text);
+}
+
+.segmented > button:is([aria-pressed="true"], [aria-selected="true"], .is-active) {
+  border-color: var(--border-strong);
+  background: light-dark(var(--surface), var(--surface-strong));
+  color: var(--text);
+  font-weight: 600;
+}
+
+.segmented > button:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Quiet actions stay teal; record titles use .link-title in ink. */
+.link-quiet {
+  color: var(--link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-quiet:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* Shared record titles, including native components and bundled views. */
+.link-title,
+.configured-view__title-button,
+.configured-card__title,
+.search-workspace__result-link,
+.ontology-type-detail__impl-name {
+  color: var(--text);
+  font-weight: var(--title-weight);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+:is(
+  .link-title,
+  .configured-view__title-button,
+  .configured-card__title,
+  .search-workspace__result-link
+):is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* A secondary link column (Source, Parent): ink-muted, underlined on hover
+   and keyboard focus, without competing with the record title. */
+.link-secondary {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-secondary:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* One disclosure control for every expand, collapse, or disclosure: a 16px,
+   1.5-stroke chevron (<DisclosureChevron>) pointing right when closed and
+   down when open. As a bare icon button it sits in .disclosure-toggle, a
+   24px hit target with an accessible label; inside a larger control (a row,
+   a summary, a text button) that control is the target. Never ▸, ▾, or ‹. */
+.disclosure-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.disclosure-toggle:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+/* The shared chevron as a mask, for CSS-drawn disclosures (::before/::after
+   on <summary>). Same shape and stroke as <DisclosureChevron>. */
+:root {
+  --chevron-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 4 4 4-4 4'/%3E%3C/svg%3E");
+}
+
+.disclosure-chevron {
+  flex: none;
+  width: var(--disclosure-icon);
+  height: var(--disclosure-icon);
+  transition: transform 0.15s var(--ease);
+}
+
+.disclosure-chevron[data-open="true"],
+[aria-expanded="true"] > .disclosure-chevron,
+details[open] > summary .disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-chevron {
+    transition: none;
+  }
+}
+
+/* Section heading (--section-font): a block or section title in a view
+   body. 15/600 in full ink with 10px below, so it outranks 14/500 rows. */
+.section-heading {
+  margin: 0 0 var(--section-gap);
+  color: var(--section-color);
+  font: var(--section-font);
+}
+
+/* Empty data recedes: a scattered empty cell or value is a muted dash at
+   reduced emphasis. A column whose values are all empty is hidden instead. */
+.empty-dash {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+/* One overflow link: "Show N more" inside a list, in quiet teal, aligned to
+   the list's title column (set its inline start to the title inset). It is
+   an expander, so it takes its own line --expander-gap below the items and
+   never runs on from inline text or a comma list. Leaving the view is a
+   separate "Open <view>" link. */
+.list-more {
+  display: flex;
+  width: fit-content;
+  margin-top: var(--expander-gap);
+  align-items: center;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font: 500 var(--fs-sm) / 1.3 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.list-more:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* Numbers and dates: counts, dates, ages, and stats are Inter with tabular
+   figures, never mono. Mono is for identifiers, paths, and code only. */
+.num {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A note's type: one neutral chip wherever a type names a note. Red stays
+   reserved for problems, so types never borrow the accent. */
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font: var(--label-structure);
+  white-space: nowrap;
+}
+
+.type-chip.is-untyped {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-faint);
+}
+
+/* Note links read as text links, not chips: dense prose stays legible. */
+.markdown-link {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.12s var(--ease);
+}
+
+.markdown-link:hover {
+  text-decoration-color: currentcolor;
+}
+
+.frontmatter {
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   Graph chrome — shared sigma-powered GraphView
+   ========================================================================== */
+
+.graph-container {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.graph-surface {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+.graph-surface:active {
+  cursor: grabbing;
+}
+
+.graph-type-legend {
+  position: absolute;
+  z-index: 2;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  max-height: 82px;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.graph-type-legend__header,
+.graph-type-legend__item {
+  display: grid;
+  align-items: center;
+}
+
+.graph-type-legend__header {
+  flex: none;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-2);
+}
+
+.graph-type-legend__title {
+  font: var(--label-font);
+  color: var(--label-color);
+}
+
+.graph-type-legend__caption {
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-type-legend__list {
+  display: flex;
+  flex: 1;
+  flex-flow: row wrap;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-type-legend__item {
+  grid-template-columns: 7px minmax(0, auto) auto;
+  gap: 5px;
+  min-height: 18px;
+  max-width: 200px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.graph-type-legend__item.is-highlighted,
+.graph-type-legend__item.is-highlighted .graph-type-legend__count {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* While a type is highlighted, the legend fades the rest the way the graph does. */
+.graph-type-legend:has(.is-highlighted) .graph-type-legend__item:not(.is-highlighted) {
+  opacity: 0.55;
+}
+
+.graph-type-legend__swatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.graph-type-legend__label {
+  font: var(--label-structure);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-type-legend__count {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.graph-tools {
+  position: absolute;
+  top: var(--sp-4);
+  right: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: min(240px, 72%);
+  z-index: 2;
+}
+
+.graph-tool {
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.graph-tool-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.graph-tool-title {
+  font: var(--label-font);
+  color: var(--label-color);
+  margin-bottom: var(--sp-2);
+}
+
+.graph-tool-header .graph-tool-title {
+  margin-bottom: 0;
+}
+
+.graph-expand {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--r);
+  padding: 2px 9px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s var(--ease);
+}
+
+.graph-expand:hover {
+  background: var(--bg-tint);
+}
+
+.graph-search {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  padding: 6px 8px;
+  font-size: var(--fs-base);
+  margin-bottom: var(--sp-2);
+  background: var(--surface);
+}
+
+.graph-search-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  margin-bottom: var(--sp-2);
+}
+
+.graph-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: var(--sp-1);
+  user-select: none;
+}
+
+.graph-scope {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  word-break: break-word;
+  font-family: var(--font-mono);
+}

@@ -43,8 +43,6 @@ export const RELATION_DIRECTION_LABEL = {
   both: "Both ways",
 };
 
-export const DIRECTION_GLYPH = { incoming: "←", outgoing: "→", both: "↔" };
-
 export function railRow(item: NoteWorkspaceLink, typeLabel: TypeLabelFn): RailRow {
   const target = relationTarget(item);
   const type = publicTypeName(item.resolvedType || item.structuralNode?.typeName);

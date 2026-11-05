@@ -31,3 +31,25 @@
 .configured-card--cards .configured-card__content .configured-brief__header {
   line-height: 18px;
 }
+
+.configured-view .configured-card {
+  border-color: var(--card-border);
+}
+
+.notes-shell:has(.view-header__count)
+  .configured-view__footer-status
+  > [role="status"]:first-child {
+  display: none;
+}
+
+.notes-shell:has(.view-header__count)
+  .configured-view__footer-status
+  > [role="status"]:first-child
+  + span::before,
+.notes-shell:has(.view-header__count)
+  .configured-view__footer-status
+  > [role="status"]:first-child
+  + .configured-view__column-notes
+  > summary::before {
+  content: none;
+}

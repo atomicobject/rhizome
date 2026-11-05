@@ -111,8 +111,8 @@ export function ConfiguredViewRecord({
             <div key={capability.key}>
               <dt>{capabilityLabel(capability)}</dt>
               <dd
-                title={!fieldValue(row, capability.key) ? "Not set" : undefined}
-                aria-label={!fieldValue(row, capability.key) ? "Not set" : undefined}
+                title={!fieldValue(row, capability.key) ? "—" : undefined}
+                aria-label={!fieldValue(row, capability.key) ? "—" : undefined}
               >
                 <ConfiguredTableCellContent
                   viewID={viewID}
@@ -132,8 +132,8 @@ export function ConfiguredViewRecord({
             <div key={column.field}>
               <dt>{columnLabel(column, capabilities)}</dt>
               <dd
-                title={!fieldValue(row, column.field) ? "Not set" : undefined}
-                aria-label={!fieldValue(row, column.field) ? "Not set" : undefined}
+                title={!fieldValue(row, column.field) ? "—" : undefined}
+                aria-label={!fieldValue(row, column.field) ? "—" : undefined}
               >
                 <ConfiguredTableCellContent
                   viewID={viewID}

@@ -214,3 +214,28 @@
   flex: 0 0 100%;
   max-width: 100%;
 }
+
+.relation-arrow {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.widget-date-editor:not(:focus-within) {
+  position: relative;
+}
+.widget-date-editor:not(:focus-within) > .widget-date--input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+}
+.widget-date-editor:focus-within > .widget-date-editor__rest,
+.widget-date-editor:not(:focus-within)
+  > :is(.widget-date-editor__picker, .widget-date-editor__offset) {
+  display: none;
+}
+.widget-date-editor__rest {
+  font-variant-numeric: tabular-nums;
+}
