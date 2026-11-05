@@ -9,7 +9,7 @@ import {
   candidateForInput,
   cellValues,
   fieldValue,
-  markCutTitle,
+  recordDisplayTitle,
   rawFieldValue,
 } from "./ConfiguredTableCellHelpers";
 import { NoteLinkPreview, useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
@@ -90,7 +90,7 @@ export function renderReadOnlyCell(
     const path = row.path || row.ref.notePath;
 
     const display =
-      markCutTitle(row, displayTitle(displayValue || row.title)) || path || "Untitled";
+      recordDisplayTitle(row, displayTitle(displayValue || row.title)) || path || "Untitled";
 
     return <PrimaryReadOnlyCell row={row} path={path} display={display} onOpenRow={onOpenRow} />;
   }

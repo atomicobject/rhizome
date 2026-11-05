@@ -1,3 +1,4 @@
+import { TypeChip } from "./TypeChip";
 import { Copy } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -18,7 +19,12 @@ import {
   relationDisplayValue,
   relationTargetRow,
 } from "./ConfiguredTableCellReadOnly";
-import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
+import {
+  cellValues,
+  fieldValue,
+  recordDisplayTitle,
+  rawFieldValue,
+} from "./ConfiguredTableCellHelpers";
 import {
   capabilityFor,
   capabilityLabel,
@@ -75,7 +81,7 @@ export function ConfiguredViewRecord({
   onOpenRow,
 }: Props) {
   const typeLabel = useTypeLabel();
-  const title = markCutTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
+  const title = recordDisplayTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
   const path = row.path || row.ref.notePath;
   const identifier = recordIdentifier(row, capabilities);
@@ -90,7 +96,9 @@ export function ConfiguredViewRecord({
   return (
     <article className="view-record" aria-label={`Selected record ${title}`}>
       <header className="view-record__head">
-        <span className="type-chip">{typeLabel(row.resolvedType || row.ref.typeName)}</span>
+        <TypeChip name={row.resolvedType || row.ref.typeName || ""}>
+          {typeLabel(row.resolvedType || row.ref.typeName)}
+        </TypeChip>
         <button
           type="button"
           className="configured-view__tool-button"

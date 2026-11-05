@@ -175,8 +175,7 @@ details[open] > summary .disclosure-chevron {
   font-variant-numeric: tabular-nums;
 }
 
-/* A note's type: one neutral chip wherever a type names a note. Red stays
-   reserved for problems, so types never borrow the accent. */
+/* Type chips keep ink labels and the shared categorical dot. */
 .type-chip {
   display: inline-flex;
   align-items: center;
@@ -434,4 +433,12 @@ details[open] > summary .disclosure-chevron {
   margin-bottom: var(--sp-2);
   word-break: break-word;
   font-family: var(--font-mono);
+}
+
+.type-chip__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  margin-right: 5px;
+  border-radius: 50%;
 }

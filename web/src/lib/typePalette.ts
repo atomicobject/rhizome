@@ -7,17 +7,17 @@ import type { OntologySummaryResponse } from "../api/types";
  */
 const TYPE_SLOTS = [1, 6, 7, 5, 2, 3, 4, 11, 10, 12, 13, 9];
 
-/** The neutral slot: interfaces, code, and untyped notes. */
+/** The neutral slot for untyped notes. */
 export const NEUTRAL_TYPE_COLOR = "var(--type-8)";
 
 /** The parts of the ontology summary that type colors follow. */
 export type TypeSummaryInput = Pick<OntologySummaryResponse, "types" | "interfaces"> | undefined;
 
-type TypeOrder = { types: Map<string, number>; interfaces: Set<string> };
+type TypeOrder = { types: Map<string, number>; interfaces: Map<string, string> };
 
 const orders = new WeakMap<object, TypeOrder>();
 
-const EMPTY: TypeOrder = { types: new Map(), interfaces: new Set() };
+const EMPTY: TypeOrder = { types: new Map(), interfaces: new Map() };
 
 /**
  * Concrete types in name order with the types that have records first. Name
@@ -39,7 +39,15 @@ function typeOrder(summary: TypeSummaryInput): TypeOrder {
 
   order = {
     types: new Map(names.map((name, index) => [name, index])),
-    interfaces: new Set((summary.interfaces ?? []).map((item) => item.name)),
+    interfaces: new Map(
+      (summary.interfaces ?? []).map((item) => {
+        const representative = types
+          .filter((type) => item.implementors.includes(type.name))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))[0];
+
+        return [item.name, representative?.name ?? item.name];
+      }),
+    ),
   };
   orders.set(summary, order);
 
@@ -56,7 +64,9 @@ function hashName(name: string) {
 
 /** A type's palette slot, the same on every surface; a name the ontology does not list falls back to a hash. */
 export function typeSlot(summary: TypeSummaryInput, name: string): number {
-  const position = typeOrder(summary).types.get(name) ?? hashName(name);
+  const order = typeOrder(summary);
+  const canonical = order.interfaces.get(name) ?? name;
+  const position = order.types.get(canonical) ?? hashName(canonical);
   const lap = Math.floor(position / TYPE_SLOTS.length);
 
   // Past twelve types hues repeat, starting halfway down the list so the
@@ -64,9 +74,7 @@ export function typeSlot(summary: TypeSummaryInput, name: string): number {
   return TYPE_SLOTS[(position + lap * (TYPE_SLOTS.length / 2)) % TYPE_SLOTS.length];
 }
 
-/** A type's color as a CSS value. It marks dots, borders, and edges, never text. Interfaces take the neutral. */
+/** A type's color as a CSS value. It marks dots, borders, and edges, never text. Interfaces share their most represented implementor’s token. */
 export function typeColor(summary: TypeSummaryInput, name: string): string {
-  if (typeOrder(summary).interfaces.has(name)) return NEUTRAL_TYPE_COLOR;
-
-  return `var(--type-${typeSlot(summary, name)})`;
+  return name ? `var(--type-${typeSlot(summary, name)})` : NEUTRAL_TYPE_COLOR;
 }

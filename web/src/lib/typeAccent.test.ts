@@ -31,10 +31,21 @@ describe("typeAccent", () => {
     expect(typeAccentIndex("T01")).not.toBe(typeAccentIndex("T00"));
   });
 
-  it("draws interfaces in the neutral and falls back to a hash for unknown names", () => {
+  it("shares an interface colour with its most represented implementor", () => {
+    appQueryClient.setQueryData(queryKeys.ontology.summary(), {
+      types: [
+        { name: "EffortNote", count: 20 },
+        { name: "EffortWorkspace", count: 2 },
+      ],
+      interfaces: [{ name: "Effort", implementors: ["EffortWorkspace", "EffortNote"] }],
+    });
+    expect(typeAccentColor("Effort")).toBe(typeAccentColor("EffortNote"));
+  });
+
+  it("uses vivid colours for interfaces and falls back to a hash for unknown names", () => {
     setSummary([{ name: "Spec", count: 2 }], ["SpecLike"]);
 
-    expect(typeAccentColor("SpecLike")).toBe("var(--type-8)");
+    expect(typeAccentColor("SpecLike")).not.toBe("var(--type-8)");
     expect(typeAccentColor("Unlisted")).toMatch(/^var\(--type-(?:[1-79]|1[0-3])\)$/);
   });
 });
