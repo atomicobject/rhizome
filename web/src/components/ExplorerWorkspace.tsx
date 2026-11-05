@@ -1,8 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { FolderOpen, Info, Search } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  getExpandedModuleGraph,
   getFileView,
   getGlobalGraph,
   getLocalGraph,
@@ -13,15 +12,23 @@ import {
 import { queryKeys } from "../api/queryKeys";
 import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
-import { encodeURLFragment } from "../lib/noteDeepLink";
 import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
-import { aggregateByFolder } from "./folderGraph";
+import { useDebouncedValue, useFolderExplorer } from "./useFolderExplorer";
+import { ExplorerHeader } from "./ExplorerHeader";
 import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
-import { NOTES_ROOT_PATH } from "./notesRoute";
 import { TreeList } from "./TreeList";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
+
+import {
+  moduleKey,
+  isNoteTarget,
+  openNoteWorkspace,
+  explorerFileFromLocation,
+} from "./explorerNavigation";
+
+export { folderCoverage } from "./explorerNavigation";
 
 const FilePanel = lazy(() =>
   import("./FilePanel").then((module) => ({
@@ -35,42 +42,7 @@ const GraphView = lazy(() =>
   })),
 );
 
-function moduleKey(path: string, depth: number) {
-  const cleaned = path.replace(/^\/+/, "");
-  const parts = cleaned.split("/");
-
-  if (parts.length === 0) return "root";
-
-  if (parts.length < depth) return parts.join("/");
-
-  return parts.slice(0, depth).join("/");
-}
-
-function isNoteTarget(path: string, kind?: string): boolean {
-  if (kind) return ["note", "section", "embedded"].includes(kind.toLowerCase());
-  const barePath = path.split("#", 1)[0] || path;
-
-  return /\.(?:md|html?)$/i.test(barePath);
-}
-
-function openNoteWorkspace(path: string) {
-  const hashIndex = path.indexOf("#");
-  const notePath = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
-  const noteHash = hashIndex >= 0 ? path.slice(hashIndex) : "";
-  const params = new URLSearchParams();
-  params.set("note", notePath);
-  window.history.pushState(
-    {},
-    "",
-    `${NOTES_ROOT_PATH}?${params.toString()}${encodeURLFragment(noteHash)}`,
-  );
-  window.dispatchEvent(new PopStateEvent("popstate"));
-}
-
 type ExplorerWorkspaceProps = {
-  /** Vault name lifted from AppShell so this component avoids a redundant
-   *  `/api/v1/status` fetch. Empty string = still loading; renders the
-   *  "Vault" fallback on the tree's root row. */
   vaultName: string;
   sidebarTitle?: string | null;
   sidebarHint?: string | null;
@@ -81,50 +53,11 @@ type ExplorerSelection =
   | { kind: "file"; path: string }
   | { kind: "module"; path: string };
 
-function explorerFileFromLocation(search: string): { path: string; line?: number } | null {
-  const params = new URLSearchParams(search);
-  const path = params.get("file")?.trim();
-
-  if (!path) return null;
-  const parsedLine = Number(params.get("line"));
-
-  return {
-    path,
-    line: Number.isInteger(parsedLine) && parsedLine > 0 ? parsedLine : undefined,
-  };
-}
-
-/**
- * What the folder view's counts cover. The graph can hold only part of a large
- * vault, so its note counts can run below Overview's; say so when it does.
- */
-export function folderCoverage(graph: GraphResponse) {
-  const fmt = (count: number) => count.toLocaleString("en-US");
-  const notes = graph.nodes.filter((node) => node.kind === "note").length;
-  const files = graph.nodes.filter((node) => node.kind === "code").length;
-  const counts = `Counts cover the ${fmt(notes)} notes and ${fmt(files)} code files in the graph`;
-
-  return graph.truncated
-    ? `${counts}, the best-connected part of the vault, so Overview can count more notes.`
-    : `${counts}.`;
-}
-
 const EMPTY_GRAPH: GraphResponse = {
   nodes: [],
   edges: [],
   truncated: false,
 };
-
-function useDebouncedValue(value: string, delay: number) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay);
-
-    return () => window.clearTimeout(timer);
-  }, [delay, value]);
-
-  return debounced;
-}
 
 export function ExplorerWorkspace({
   vaultName,
@@ -184,33 +117,21 @@ export function ExplorerWorkspace({
 
   const graphQuery = useQuery({
     queryKey:
-      selection.kind === "root"
-        ? queryKeys.graph.global({})
-        : selection.kind === "file"
-          ? queryKeys.graph.local(selection.path, 200, {})
-          : queryKeys.graph.expanded(selection.path, 600),
-    queryFn: ({ signal }) => {
-      if (selection.kind === "root") return getGlobalGraph({}, { signal });
-
-      if (selection.kind === "file") {
-        return getLocalGraph(selection.path, 200, {}, { signal });
-      }
-
-      return getExpandedModuleGraph(selection.path, 600, { signal });
-    },
+      selection.kind === "file"
+        ? queryKeys.graph.local(selection.path, 200, {})
+        : queryKeys.graph.global({ limit: 200000 }),
+    queryFn: ({ signal }) =>
+      selection.kind === "file"
+        ? getLocalGraph(selection.path, 200, {}, { signal })
+        : getGlobalGraph({ limit: 200000 }, { signal }),
   });
 
   const graph = graphQuery.data ?? EMPTY_GRAPH;
-  // The whole vault starts at folder level; picking a folder loads its own graph.
-  const atRoot = selection.kind === "root";
+  const atRoot = selection.kind !== "file";
   const [displaySlot, setDisplaySlot] = useState<HTMLDivElement | null>(null);
 
   const graphScope: GraphScope =
-    selection.kind === "root"
-      ? { mode: "global" }
-      : selection.kind === "file"
-        ? { mode: "local", label: selection.path }
-        : { mode: "module", label: selection.path };
+    selection.kind === "file" ? { mode: "local", label: selection.path } : { mode: "global" };
 
   const suggestionsQuery = useQuery({
     queryKey: queryKeys.search.suggestions(debouncedQuery, 20),
@@ -271,7 +192,8 @@ export function ExplorerWorkspace({
   const select = useCallback((next: ExplorerSelection, line?: number) => {
     setSelection(next);
     setSelectedLine(line);
-    setGraphZoomKey((key) => key + 1);
+
+    if (next.kind !== "module") setGraphZoomKey((key) => key + 1);
 
     if (next.kind === "file") {
       const params = new URLSearchParams({ file: next.path });
@@ -298,6 +220,23 @@ export function ExplorerWorkspace({
     [select],
   );
 
+  const accentKey = useTypeAccentKey();
+
+  const typeColors = useMemo(
+    () =>
+      buildTypeColors([
+        ...new Set(graph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean)),
+      ]),
+    // The summary decides each type's palette slot.
+    [graph.nodes, accentKey],
+  );
+
+  const byFolder = atRoot && !searchActive;
+
+  const folderExplorer = useFolderExplorer(graph, typeColors);
+  const folders = byFolder ? folderExplorer.drawn : null;
+  const drawn = folders ?? graph;
+
   const focusModule = useCallback(
     (path: string) => {
       setExpandedPaths((previous) => {
@@ -308,19 +247,24 @@ export function ExplorerWorkspace({
 
         return next;
       });
+      folderExplorer.expand(path);
       select({ kind: "module", path });
     },
-    [select],
+    [select, folderExplorer],
   );
 
   const onToggleDir = (entry: TreeEntry) => {
     if (expandedPaths.has(entry.path)) {
       setExpandedPaths((previous) => {
         const next = new Set(previous);
-        next.delete(entry.path);
+
+        for (const path of next)
+          if (path === entry.path || path.startsWith(`${entry.path}/`)) next.delete(path);
 
         return next;
       });
+
+      folderExplorer.collapse(entry.path);
 
       return;
     }
@@ -331,15 +275,18 @@ export function ExplorerWorkspace({
   const onNodeClick = useCallback(
     (node: GraphNode) => {
       if (node.kind === "module") {
-        // Top-level files have no folder of their own to open.
-        if (node.path) focusModule(node.path);
+        const path = node.path ?? "";
+
+        if (node.id.startsWith("more:")) folderExplorer.reveal(path);
+        else if (path && folderExplorer.open.has(path)) folderExplorer.collapse(path);
+        else if (path) focusModule(path);
       } else if (node.kind === "embedded" || node.kind === "note" || node.kind === "code") {
         const target = graphNodeNavigationTarget(node);
 
         if (target) onSelectFile(target, node.kind);
       }
     },
-    [focusModule, onSelectFile],
+    [focusModule, onSelectFile, folderExplorer],
   );
 
   const closePanel = useCallback(() => {
@@ -348,8 +295,10 @@ export function ExplorerWorkspace({
 
   const onVaultRootClick = useCallback(() => {
     clearSearch();
+    folderExplorer.reset();
+    setExpandedPaths(new Set());
     select({ kind: "root" });
-  }, [clearSearch, select]);
+  }, [clearSearch, select, folderExplorer]);
 
   const resetGraphScope = useCallback(() => {
     select({ kind: "root" });
@@ -373,32 +322,10 @@ export function ExplorerWorkspace({
 
   const graphScopeLabel =
     graphScope.mode === "global"
-      ? "By folder; pick one to see its notes and code"
+      ? "By folder; click a folder to expand its contents"
       : graphScope.mode === "module"
         ? `Folder ${graphScope.label}`
         : `File ${graphScope.label || "graph"}`;
-
-  // Notes take their type's color, as in the Atlas, so the legend can name every color.
-  const accentKey = useTypeAccentKey();
-
-  const typeColors = useMemo(
-    () =>
-      buildTypeColors([
-        ...new Set(graph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean)),
-      ]),
-    // The summary decides each type's palette slot.
-    [graph.nodes, accentKey],
-  );
-
-  // A search shows its matches among the vault's own nodes, not folders.
-  const byFolder = atRoot && !searchActive;
-
-  const folders = useMemo(
-    () => (byFolder ? aggregateByFolder(graph, (type) => typeColors.get(type)) : null),
-    [byFolder, graph, typeColors],
-  );
-
-  const drawn = folders ?? graph;
 
   return (
     <div className="workspace workbench">
@@ -443,111 +370,28 @@ export function ExplorerWorkspace({
         </aside>
       </WorkbenchSidebar>
       <div className="workbench__panel workspace--explorer">
-        <header className="view-header explorer-header">
-          <div className="view-header__title-row">
-            <h2>Explorer</h2>
-            <span className="view-header__count num">
-              {graph.nodes.length
-                ? `${graph.nodes.filter((node) => node.kind === "note").length.toLocaleString("en-US")} notes · ${graph.nodes.filter((node) => node.kind === "code").length.toLocaleString("en-US")} files shown of ${graph.nodes.length.toLocaleString("en-US")} nodes`
-                : ""}
-            </span>
-            <button
-              type="button"
-              className="explorer-count-info"
-              aria-label="About the displayed graph"
-              title={`${graphScopeLabel}. ${folderCoverage(graph)}`}
-            >
-              <Info size={16} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" />
-            </button>
-            <div className="explorer-bar__display" ref={setDisplaySlot} />
-            <div
-              className="view-header__tools explorer-bar__search"
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
-              }}
-            >
-              {searchActive && !searching && !searchQuery.isError ? (
-                <span className="explorer-bar__matches" role="status">
-                  {searchPathSet.size} {searchPathSet.size === 1 ? "match" : "matches"}
-                </span>
-              ) : null}
-              {searchActive ? (
-                <label className="explorer-bar__filter">
-                  <input
-                    type="checkbox"
-                    checked={searchOnlyMatches}
-                    onChange={(e) => setSearchOnlyMatches(e.target.checked)}
-                  />
-                  Only matches
-                </label>
-              ) : null}
-              <label className="configured-view__find explorer-bar__find">
-                <Search
-                  className="configured-view__tool-icon"
-                  aria-hidden="true"
-                  strokeWidth={1.75}
-                />
-                <input
-                  className="configured-view__search"
-                  type="search"
-                  aria-label="Search notes and code"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-
-                    if (e.target.value.trim() === "") {
-                      clearSearch();
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      runSearch();
-                      setShowSuggestions(false);
-                    }
-
-                    if (e.key === "Escape") {
-                      setQuery("");
-                      setShowSuggestions(false);
-                      clearSearch();
-                    }
-                  }}
-                  onFocus={() => {
-                    setShowSuggestions(true);
-                  }}
-                  placeholder={searching ? "Searching…" : "Search notes and code"}
-                />
-              </label>
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="explorer-suggestions">
-                  {suggestions.map((suggestion) => (
-                    <button
-                      type="button"
-                      key={suggestion.path}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                      }}
-                      onClick={() => {
-                        onSelectFile(suggestion.path, suggestion.kind);
-                        setShowSuggestions(false);
-                      }}
-                    >
-                      <span className="explorer-suggestions__path">{suggestion.path}</span>
-                      <span className="explorer-suggestions__kind">{suggestion.kind}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {searchQuery.isError ? (
-                <div className="explorer-bar__search-error" role="alert">
-                  Search unavailable.{" "}
-                  <button type="button" onClick={() => searchQuery.refetch()}>
-                    Retry
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </header>
+        <ExplorerHeader
+          graph={graph}
+          graphScopeLabel={graphScopeLabel}
+          displaySlot={setDisplaySlot}
+          searchActive={searchActive}
+          searching={searching}
+          searchError={searchQuery.isError}
+          matchCount={searchPathSet.size}
+          searchOnlyMatches={searchOnlyMatches}
+          setSearchOnlyMatches={setSearchOnlyMatches}
+          query={query}
+          setQuery={setQuery}
+          clearSearch={clearSearch}
+          runSearch={runSearch}
+          showSuggestions={showSuggestions}
+          setShowSuggestions={setShowSuggestions}
+          suggestions={suggestions}
+          onSelectFile={onSelectFile}
+          retrySearch={() => {
+            void searchQuery.refetch();
+          }}
+        />
         <div className={`explorer-grid ${hasPanel ? "explorer-grid--with-pane" : ""}`}>
           <section className="explorer-focus" aria-label="Graph">
             <div className="explorer-focus__body">
@@ -581,11 +425,7 @@ export function ExplorerWorkspace({
                     sizeCaption={
                       folders ? "Size counts the notes and code files a folder holds" : undefined
                     }
-                    edgeCaption={
-                      folders
-                        ? "Lines follow folder containment; hover a folder for cross-folder link counts"
-                        : undefined
-                    }
+                    {...(folders ? { layoutExtent: folders.layoutExtent } : {})}
                     displaySlot={displaySlot}
                     needsIndex={graph.needsIndex}
                     scope={graphScope}

@@ -1,275 +1,216 @@
-import type { GraphEdge, GraphNode } from "../api/types";
-import { publicTypeName } from "../lib/typeNames";
+import type { GraphEdge } from "../api/types";
 import { CODE_COLOR, type GraphViewNode, UNTYPED_COLOR } from "./graphViewShared";
+import {
+  filePath,
+  folderWeight,
+  nodeTotals,
+  sumTotals,
+  totalsLabel,
+  type Folder,
+  type FolderTree,
+  type FolderTotals,
+} from "./folderTree";
 
-/** A folder holding more than this share of the graph opens into its subfolders. */
-const SPLIT_SHARE = 0.15;
-
-/** Subfolders below this share of the graph and of its notes fold back into one node for their parent. */
-const MERGE_SHARE = 0.015;
-
-/**
- * Notes are few beside code files, so their shares are larger: a folder
- * holding a fifth of the notes opens, and a subfolder below a twentieth of
- * them folds back.
- */
-const NOTE_SPLIT_SHARE = 0.2;
-
-const NOTE_MERGE_SHARE = 0.05;
-
-/** Cross-folder links appear only while one of their folders is hovered. */
 export const MINOR_FOLDER_LINK = "folder-minor";
 
-function nodePath(node: GraphNode) {
-  return (node.notePath || node.path || "").replace(/^\/+/, "");
-}
-
-/** The node's folder segments; a module node is its own folder. */
-function folderSegments(node: GraphNode) {
-  const parts = nodePath(node).split("/").filter(Boolean);
-
-  return node.kind === "module" ? parts : parts.slice(0, -1);
-}
-
-/**
- * What a folder holds: its notes and code files. Embedded items (acceptance
- * criteria, user stories) live inside notes, so they neither size nor color it.
- */
-const weightOf = (node: GraphNode) =>
-  node.kind === "module" ? Math.max(1, node.childCount ?? 1) : node.kind === "embedded" ? 0 : 1;
-
-const isNote = (node: GraphNode) => node.kind === "note";
-
-const fmt = (count: number) => count.toLocaleString("en-US");
-
-type Folder = { path: string; weight: number; members: GraphNode[]; merged: number };
-
-/** What a folder's count counts: "76 notes", "1,295 files", or both. */
-function contents(members: readonly GraphNode[]) {
-  const notes = members.filter(isNote).length;
-  const files = members.reduce((sum, node) => sum + (isNote(node) ? 0 : weightOf(node)), 0);
-  const noun = (n: number, one: string) => `${fmt(n)} ${n === 1 ? one : `${one}s`}`;
-
-  if (notes && files) return `${noun(notes, "note")}, ${noun(files, "file")}`;
-
-  return notes ? noun(notes, "note") : noun(files, "file");
-}
-
-export type FolderGraph = { nodes: GraphViewNode[]; edges: GraphEdge[]; truncated: boolean };
-
-/**
- * The root Explorer view: one node per folder, sized by what it holds and
- * colored by what most of it is (a note type, code, or untyped notes), with
- * a containment tree and secondary links counted between folders. A folder
- * holding a large share of the vault
- * opens into its subfolders, and its small subfolders fold back into one node,
- * so no single node swallows the picture and none is noise. Selecting a folder
- * loads its own graph.
- */
-export function aggregateByFolder(
-  graph: { nodes: readonly GraphNode[]; edges: readonly GraphEdge[]; truncated?: boolean },
-  typeColor: (type: string) => string | undefined,
-): FolderGraph {
-  const total = graph.nodes.reduce((sum, node) => sum + weightOf(node), 0);
-  const totalNotes = graph.nodes.filter(isNote).length;
-  const split = new Set<string>();
-
-  // The deepest folder prefix not marked for splitting.
-  const leafFor = (node: GraphNode) => {
-    const segments = folderSegments(node);
-    let depth = 1;
-
-    while (depth < segments.length && split.has(segments.slice(0, depth).join("/"))) depth += 1;
-
-    return segments.slice(0, depth).join("/");
-  };
-
-  for (;;) {
-    const weights = new Map<string, { weight: number; notes: number; deeper: boolean }>();
-
-    for (const node of graph.nodes) {
-      const path = leafFor(node);
-      const entry = weights.get(path) ?? { weight: 0, notes: 0, deeper: false };
-      entry.weight += weightOf(node);
-      entry.notes += isNote(node) ? 1 : 0;
-      entry.deeper ||= folderSegments(node).length > (path ? path.split("/").length : 0);
-      weights.set(path, entry);
-    }
-
-    const next = [...weights].filter(
-      // A folder opens when it holds a large share of everything, or of the notes alone.
-      ([path, entry]) =>
-        path &&
-        entry.deeper &&
-        (entry.weight > total * SPLIT_SHARE || entry.notes > totalNotes * NOTE_SPLIT_SHARE),
-    );
-
-    if (next.length === 0) break;
-
-    for (const [path] of next) split.add(path);
-  }
-
-  const leaves = new Map<string, Folder>();
-
-  for (const node of graph.nodes) {
-    const path = leafFor(node);
-    const folder = leaves.get(path) ?? { path, weight: 0, members: [], merged: 0 };
-    folder.weight += weightOf(node);
-    folder.members.push(node);
-    leaves.set(path, folder);
-  }
-
-  // Small subfolders of a split folder share one node, which opens the parent.
-  const folders = new Map<string, Folder>();
-  const folderOf = new Map<string, string>();
-
-  for (const leaf of leaves.values()) {
-    const parent = leaf.path.split("/").slice(0, -1).join("/");
-    const notes = leaf.members.filter(isNote).length;
-
-    const merge =
-      parent !== "" &&
-      split.has(parent) &&
-      leaf.weight < total * MERGE_SHARE &&
-      notes < totalNotes * NOTE_MERGE_SHARE;
-
-    const path = merge ? parent : leaf.path;
-    const key = merge ? `${parent}/(smaller folders)` : path;
-    const folder = folders.get(key) ?? { path, weight: 0, members: [], merged: 0 };
-    folder.weight += leaf.weight;
-    folder.members.push(...leaf.members);
-    folder.merged += merge ? 1 : 0;
-    folders.set(key, folder);
-
-    for (const node of leaf.members) folderOf.set(node.id, key);
-  }
-
-  // Retain every ancestor, even when all its contents were split into children.
-  for (const folder of folders.values()) {
-    const parts = folder.path.split("/").filter(Boolean);
-
-    for (let depth = 0; depth <= parts.length; depth += 1) {
-      const path = parts.slice(0, depth).join("/");
-
-      if (!folders.has(path)) {
-        const members = graph.nodes.filter(
-          (node) =>
-            !path ||
-            folderSegments(node).join("/") === path ||
-            folderSegments(node).join("/").startsWith(`${path}/`),
-        );
-
-        folders.set(path, {
-          path,
-          members,
-          weight: members.reduce((sum, node) => sum + weightOf(node), 0),
-          merged: 0,
-        });
-      }
-    }
-  }
-
-  if (folders.has("")) {
-    folders.set("", { path: "", members: [...graph.nodes], weight: total, merged: 0 });
-  }
-
-  const nodes: GraphViewNode[] = [...folders.entries()].map(([key, folder]) => {
-    const name = folder.path || "Vault";
-    const label = folder.merged > 0 ? `${folder.merged} smaller folders` : name;
-
-    const fill = folderFill(folder.members);
-
-    return {
-      id: `folder:${key}`,
-      kind: "module",
-      path: folder.path,
-      label: `${label}  ${contents(folder.members)}`,
-      childCount: Math.max(1, folder.weight),
-      fill: fill.type ? (typeColor(fill.type) ?? UNTYPED_COLOR) : fill.color,
-      fillKey: fill.key,
-    };
-  });
-
-  const weights = new Map<string, { source: string; target: string; weight: number }>();
-
-  for (const edge of graph.edges) {
-    const a = folderOf.get(edge.source);
-    const b = folderOf.get(edge.target);
-
-    if (a === undefined || b === undefined || a === b) continue;
-    const [source, target] = a < b ? [a, b] : [b, a];
-    const key = `${source}|${target}`;
-    const entry = weights.get(key) ?? { source, target, weight: 0 };
-    entry.weight += edge.weight ?? 1;
-    weights.set(key, entry);
-  }
-
-  const edges: GraphEdge[] = [...folders.entries()].flatMap(([key, folder]) => {
-    if (!key) return [];
-
-    const parent = folder.merged ? folder.path : folder.path.split("/").slice(0, -1).join("/");
-
-    return [
-      {
-        source: `folder:${parent}`,
-        target: `folder:${key}`,
-        kind: "folder-containment",
-        weight: 1,
-      },
-    ];
-  });
-
-  for (const [, entry] of [...weights].sort(([a], [b]) => a.localeCompare(b))) {
-    edges.push({
-      source: `folder:${entry.source}`,
-      target: `folder:${entry.target}`,
-      kind: MINOR_FOLDER_LINK,
-      weight: entry.weight,
-      relationLabel: `${fmt(entry.weight)} links`,
-    });
-  }
-
-  return { nodes, edges, truncated: graph.truncated ?? false };
-}
-
-/** Legend keys for folders colored by code or untyped notes rather than a note type. */
 export const CODE_FILL_KEY = "__code__";
 
 export const UNTYPED_FILL_KEY = "__untyped__";
 
-type FolderFill = {
-  /** The legend key: a type name, CODE_FILL_KEY, or UNTYPED_FILL_KEY. */
-  key: string;
-  /** The note type whose palette color the folder takes. */
-  type?: string;
-  /** The color when no type sets it. */
-  color: string;
+// Worker B owns the corresponding additive GraphViewNode fields.
+export type FolderViewNode = GraphViewNode & {
+  x?: number;
+  y?: number;
+  labelDetail?: string;
+  aggregate?: boolean;
 };
 
-/**
- * A folder's color: its most common note type, or code or untyped notes when
- * they outnumber every type. `key` names it in the legend: the type, or one of
- * the fill keys above. Embedded items count for nothing here.
- */
-function folderFill(members: readonly GraphNode[]): FolderFill {
-  const counts = new Map<string, number>();
-  let code = 0;
-  let untyped = 0;
+export type FolderChild = {
+  node: FolderViewNode;
+  totals: FolderTotals;
+  members: string[];
+  folder?: Folder;
+};
 
-  for (const node of members) {
-    const type = isNote(node) ? publicTypeName(node.resolvedType) : "";
+export type FolderGraph = {
+  nodes: FolderViewNode[];
+  edges: GraphEdge[];
+  truncated: boolean;
+  children: Map<string, FolderChild[]>;
+};
 
-    if (type) counts.set(type, (counts.get(type) ?? 0) + 1);
-    else if (isNote(node)) untyped += 1;
-    else code += weightOf(node);
+export type FolderExpansion = {
+  open: ReadonlySet<string>;
+  explicit: ReadonlySet<string>;
+  showAll: ReadonlySet<string>;
+};
+
+function fill(totals: FolderTotals, color: (type: string) => string | undefined) {
+  const [best] = [...totals.types].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  if (best && best[1] >= totals.files && best[1] >= totals.untyped)
+    return { fillKey: best[0], fill: color(best[0]) ?? UNTYPED_COLOR };
+
+  return totals.files >= totals.untyped
+    ? { fillKey: CODE_FILL_KEY, fill: CODE_COLOR }
+    : { fillKey: UNTYPED_FILL_KEY, fill: UNTYPED_COLOR };
+}
+
+function folderChild(folder: Folder, color: (type: string) => string | undefined): FolderChild {
+  return {
+    folder,
+    totals: folder,
+    members: folder.members,
+    node: {
+      id: `folder:${folder.path}`,
+      kind: "module",
+      path: folder.path,
+      label: folder.path.split("/").pop() || "Vault",
+      labelDetail: totalsLabel(folder),
+      childCount: folder.notes + folder.files,
+      ...fill(folder, color),
+    },
+  };
+}
+
+export function visibleFolderChildren(
+  tree: FolderTree,
+  folder: Folder,
+  state: FolderExpansion,
+  color: (type: string) => string | undefined,
+): FolderChild[] {
+  const score = (child: FolderChild) =>
+    folderWeight(child.totals) +
+    child.members.reduce((sum, id) => sum + (tree.linkCounts.get(id)?.noteCode ?? 0), 0);
+
+  const folders = folder.folders
+    .map((f) => folderChild(f, color))
+    .sort((a, b) => score(b) - score(a) || a.node.id.localeCompare(b.node.id));
+
+  const files: FolderChild[] = folder.direct.map((node) => ({
+    node: {
+      ...node,
+      label: filePath(node).split("/").pop() || node.label,
+      labelDetail: totalsLabel(nodeTotals(node)),
+    },
+    totals: nodeTotals(node),
+    members: [node.id],
+  }));
+
+  files.sort((a, b) => {
+    const x = tree.linkCounts.get(a.node.id),
+      y = tree.linkCounts.get(b.node.id);
+
+    return (
+      (y?.noteCode ?? 0) - (x?.noteCode ?? 0) ||
+      (y?.other ?? 0) - (x?.other ?? 0) ||
+      a.node.id.localeCompare(b.node.id)
+    );
+  });
+
+  const showFiles =
+    folder.path === "" || state.explicit.has(folder.path) || (!folders.length && files.length <= 8);
+
+  const budget = showFiles && state.explicit.has(folder.path) ? 24 : 14;
+  const fileSlots = showFiles ? Math.min(files.length, folders.length ? 8 : budget - 1) : 0;
+
+  const candidates: FolderChild[] =
+    folders.length + files.length <= budget
+      ? [...folders, ...(showFiles ? files : [])]
+      : [...folders.slice(0, budget - fileSlots - 1), ...files.slice(0, fileSlots)];
+
+  const allCount = folders.length + files.length;
+
+  const kept = state.showAll.has(folder.path)
+    ? [...folders, ...files]
+    : candidates.slice(0, allCount > budget ? budget - 1 : budget);
+
+  const keptIds = new Set(kept.map((c) => c.node.id));
+  const hidden = [...folders, ...files].filter((c) => !keptIds.has(c.node.id));
+
+  if (hidden.length) {
+    const totals = sumTotals(hidden.map((c) => c.totals));
+    const hiddenFolders = hidden.filter((c) => c.folder).length;
+
+    const label =
+      hiddenFolders === hidden.length
+        ? `${hidden.length} more folders`
+        : hiddenFolders
+          ? `${hidden.length} more items`
+          : `${hidden.length} more files`;
+
+    kept.push({
+      node: {
+        id: `more:${folder.path}`,
+        path: folder.path,
+        kind: "module",
+        label,
+        labelDetail: totalsLabel(totals),
+        aggregate: true,
+        childCount: totals.notes + totals.files,
+        ...fill(totals, color),
+      },
+      totals,
+      members: hidden.flatMap((c) => c.members),
+    });
   }
 
-  const [best] = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return kept;
+}
 
-  if (best && best[1] >= code && best[1] >= untyped)
-    return { key: best[0], type: best[0], color: UNTYPED_COLOR };
+export function visibleFolderGraph(
+  tree: FolderTree,
+  state: FolderExpansion,
+  color: (type: string) => string | undefined,
+): FolderGraph {
+  const root = folderChild(tree.root, color);
+  const nodes = [root.node];
+  const edges: GraphEdge[] = [];
+  const children = new Map<string, FolderChild[]>();
+  const representatives = new Map<string, string>();
 
-  return code >= untyped
-    ? { key: CODE_FILL_KEY, color: CODE_COLOR }
-    : { key: UNTYPED_FILL_KEY, color: UNTYPED_COLOR };
+  const visit = (child: FolderChild) => {
+    for (const id of child.members) representatives.set(id, child.node.id);
+
+    if (!child.folder || !state.open.has(child.folder.path)) return;
+    const list = visibleFolderChildren(tree, child.folder, state, color);
+    children.set(child.folder.path, list);
+
+    for (const next of list) {
+      nodes.push(next.node);
+      edges.push({
+        source: child.node.id,
+        target: next.node.id,
+        kind: "folder-containment",
+        weight: next.members.length,
+        relationLabel: totalsLabel(next.totals),
+      });
+      visit(next);
+    }
+  };
+
+  visit(root);
+  const aggregated = new Map<string, GraphEdge>();
+
+  for (const link of tree.links) {
+    const a = representatives.get(link.source),
+      b = representatives.get(link.target);
+
+    if (!a || !b || a === b) continue;
+    const [source, target] = [a, b].sort();
+
+    for (const [kind, count] of [
+      ["folder-crosslink", link.noteCode],
+      [MINOR_FOLDER_LINK, link.other],
+    ] as const) {
+      if (!count) continue;
+      const key = JSON.stringify([source, target, kind]);
+      const edge = aggregated.get(key) ?? { source, target, kind, weight: 0 };
+      edge.weight = (edge.weight ?? 0) + count;
+      edge.relationLabel = `${edge.weight.toLocaleString("en-US")} ${kind === "folder-crosslink" ? "note–code links" : "other links"}`;
+      aggregated.set(key, edge);
+    }
+  }
+
+  return { nodes, edges: [...edges, ...aggregated.values()], truncated: tree.truncated, children };
 }
