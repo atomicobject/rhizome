@@ -11,6 +11,7 @@ import sys
 from typing import Callable, Mapping, Sequence
 
 from run_clean import DESKTOP_SIGNING, scoped_environment
+from apple_signing import APPLE_SIGNING
 from release_gateway import GatewayError
 from release_publication import PublicationError, gate_direct_publication
 
@@ -57,7 +58,7 @@ def publish_github_release(
     publish_source = dict(source)
     publish_source["GITHUB_TOKEN"] = require_publish_token(source)
     publish_env = scoped_environment(publish_source, "publish")
-    publish_env.update({key: source[key] for key in (*TEAM_KEY_INPUTS, *DESKTOP_SIGNING) if key in source})
+    publish_env.update({key: source[key] for key in (*TEAM_KEY_INPUTS, *DESKTOP_SIGNING, *APPLE_SIGNING) if key in source})
     if not source.get("RZM_INTERNAL_S3_BUCKET", "").strip():
         # A public release must ship the desktop app; the build hook fails without it.
         publish_env["RZM_RELEASE_DESKTOP"] = "1"

@@ -11,6 +11,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts/release"))
+from apple_signing import APPLE_SIGNING
 DEVELOPMENT = {"VOYAGE_API_KEY", "TYPESAFE_API_KEY"}
 RELEASE = {"BREW_GITHUB_TOKEN", "RZM_RELEASE_GITHUB_TOKEN"}
 # Internal releases bundle team keys; public releases run without them.
@@ -19,14 +21,14 @@ TEAM_KEYS = {"ATOMIC_RHIZOME_KEY", "VOYAGE_API_KEY", "TYPESAFE_API_KEY"}
 AWS_RELEASE = {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"}
 # Public releases sign the desktop updater archive; run_clean.py passes these
 # only to GoReleaser.
-DESKTOP_SIGNING = {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
+DESKTOP_SIGNING = {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", *APPLE_SIGNING}
 SENSITIVE = re.compile(
     r"(?:^|_)(?:API_KEY|ACCESS_KEY(?:_ID)?|PRIVATE_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?)(?:$|_)"
 )
 
 
 def sensitive_name(name: str) -> bool:
-    return name == "ATOMIC_RHIZOME_KEY" or SENSITIVE.search(name) is not None
+    return name == "ATOMIC_RHIZOME_KEY" or name.startswith("APPLE_") or SENSITIVE.search(name) is not None
 
 
 def scoped_environment(source: dict[str, str], profile: str) -> dict[str, str]:

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Require Developer ID signing and Apple notarization for public desktop releases, with protected CI recovery and non-publishing candidate verification.
+
 - Refreshed the workbench with clearer tables and boards, calmer note and search pages, consistent type colours, and more readable graph labels.
 - GraphQL now shares the workbench sidebar and page layout.
 

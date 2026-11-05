@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from run_clean import run, scoped_environment
+from apple_signing import desktop_credentials, SIGNING_FILE
 
 
 class CleanReleaseEnvironmentTest(unittest.TestCase):
@@ -47,15 +49,29 @@ class CleanReleaseEnvironmentTest(unittest.TestCase):
     def test_desktop_signing_key_reaches_only_goreleaser(self) -> None:
         self.source["TAURI_SIGNING_PRIVATE_KEY"] = "synthetic-signing-key"
         self.source["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = "synthetic-signing-password"
+        self.source["APPLE_API_PRIVATE_KEY"] = "synthetic-apple-key"
+        self.source["APPLE_CERTIFICATE"] = "synthetic-certificate"
+        self.source["APPLE_API_KEY_PATH"] = "/synthetic/key.p8"
         for mode in ("build", "publish"):
             for command, expected in ((["goreleaser", "release"], True), (["go", "build"], False)):
                 with self.subTest(mode=mode, command=command[0]):
-                    with patch("run_clean.subprocess.run") as runner:
+                    def inspect(command, **kwargs):
+                        env = kwargs["env"]
+                        for name in ("TAURI_SIGNING_PRIVATE_KEY", "APPLE_API_PRIVATE_KEY", "APPLE_API_KEY_PATH"):
+                            self.assertNotIn(name, env)
+                        restored = desktop_credentials(env)
+                        self.assertEqual(expected, "APPLE_API_PRIVATE_KEY" in restored)
+                        self.assertEqual(expected, "TAURI_SIGNING_PRIVATE_KEY" in restored)
+                        self.assertNotIn("APPLE_CERTIFICATE", restored)
+                        if expected:
+                            self.assertEqual(0o600, Path(env[SIGNING_FILE]).stat().st_mode & 0o777)
+                        return type("Result", (), {"returncode": 0})()
+                    with patch("run_clean.subprocess.run", side_effect=inspect) as runner:
                         runner.return_value.returncode = 0
                         run(mode, command, self.source)
                     env = runner.call_args.kwargs["env"]
-                    self.assertEqual(expected, env.get("TAURI_SIGNING_PRIVATE_KEY") == "synthetic-signing-key")
-                    self.assertEqual(expected, "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in env)
+                    if expected:
+                        self.assertFalse(Path(env[SIGNING_FILE]).exists())
 
     def test_direct_wrapper_rejects_public_overlay_and_preserves_internal_overlay(self):
         self.source["GOFLAGS"] = "-overlay=/synthetic/overlay.json"

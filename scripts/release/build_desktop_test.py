@@ -25,6 +25,9 @@ from build_desktop import (
 
 
 PUBLISHED = datetime(2026, 10, 17, 18, 30, 5, tzinfo=timezone.utc)
+APPLE = {"APPLE_SIGNING_IDENTITY": "Developer ID Application: Example LLC (ABCDEFGHIJ)",
+         "APPLE_API_KEY": "synthetic-id", "APPLE_API_ISSUER": "synthetic-issuer",
+         "APPLE_API_PRIVATE_KEY": "synthetic-private-key"}
 
 
 class SkipReasonTest(unittest.TestCase):
@@ -47,7 +50,11 @@ class FakeTauri:
 
     def __call__(self, command, **kwargs):
         self.calls.append((list(command), kwargs))
+        if command[:3] == ["xcrun", "notarytool", "submit"]:
+            return subprocess.CompletedProcess(command, 0, '{"status":"Accepted"}', "")
         if command[:3] == ["npm", "run", "tauri"]:
+            if "--no-bundle" in command:
+                return
             bundle = self.root / build_desktop.BUNDLE_DIR
             (bundle / "dmg").mkdir(parents=True)
             (bundle / "dmg/Rhizome_0.51.0_aarch64.dmg").write_text("dmg")
@@ -115,12 +122,15 @@ class BuildTest(unittest.TestCase):
         stale.parent.mkdir(parents=True)
         stale.write_text("old")
 
-        staged = self.build({
-            "RZM_RELEASE_DESKTOP": "1",
-            "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
-            "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password",
-            "GITHUB_TOKEN": "synthetic-github",
-        })
+        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"):
+            staged = self.build({
+                **APPLE,
+                "RZM_RELEASE_DESKTOP": "1",
+                "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
+                "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password",
+                "GITHUB_TOKEN": "synthetic-github",
+            })
+        verify.assert_called_once()
 
         self.assertEqual(
             ["Rhizome-macos-arm64.dmg", "Rhizome-macos-arm64.app.tar.gz",
@@ -130,7 +140,10 @@ class BuildTest(unittest.TestCase):
         self.assertEqual("dmg", (self.output / "Rhizome-macos-arm64.dmg").read_text())
         feed = json.loads((self.output / "latest.json").read_text())
         self.assertEqual("c2lnbmF0dXJl", feed["platforms"]["darwin-aarch64"]["signature"])
-        tauri, kwargs = self.runner.calls[0]
+        compile_env = self.runner.calls[0][1]["env"]
+        self.assertNotIn("APPLE_API_PRIVATE_KEY", compile_env)
+        self.assertNotIn("TAURI_SIGNING_PRIVATE_KEY", compile_env)
+        tauri, kwargs = self.runner.calls[1]
         self.assertNotIn(NO_UPDATER_ARTIFACTS, tauri)
         self.assertEqual(self.root / "desktop", kwargs["cwd"])
         env = kwargs["env"]
@@ -140,10 +153,10 @@ class BuildTest(unittest.TestCase):
         self.assertEqual("synthetic-password", env["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"])
         self.assertNotIn("GITHUB_TOKEN", env)
         self.assertTrue(env["PATH"].startswith(str(self.home / ".cargo/bin")))
-        codesign = self.runner.commands()[1]
+        codesign = self.runner.commands()[2]
         self.assertEqual(["codesign", "--verify", "--deep", "--strict"], codesign[:4])
         self.assertTrue(codesign[4].endswith("bundle/macos/Rhizome.app"))
-        content_check = self.runner.commands()[2]
+        content_check = self.runner.commands()[3]
         self.assertEqual("--check-artifact", content_check[2])
         self.assertTrue(content_check[1].endswith("scripts/teamkeys/release.py"))
         self.assertTrue(content_check[3].endswith("Rhizome.app/Contents/MacOS/rhizome-desktop"))
@@ -163,6 +176,7 @@ class BuildTest(unittest.TestCase):
 
         with self.assertRaisesRegex(DesktopBuildError, "signature verification"):
             build(self.rzm, "v0.51.0", environ={"PATH": "/usr/bin", "RZM_RELEASE_DESKTOP": "1",
+                  **APPLE,
                   "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key", "VOYAGE_API_KEY": "synthetic-provider"},
                   root=self.root, runner=reject_signature, machine="arm64", home=self.home)
         self.assertFalse(self.output.exists())
