@@ -246,6 +246,9 @@ it("bundles underlying links while keeping focused children separate", () => {
     },
   ]);
   expect(focused.edges.filter((e) => e.kind === "folder-child-crosslink")).toHaveLength(2);
+  expect(focused.nodes.find((n) => n.id === "folder:pkg")?.labelDetail).toContain(
+    "3 links to docs",
+  );
   expect(focused.nodes.find((n) => n.id === "folder:pkg/a")?.labelDetail).toContain(
     "2 links to docs",
   );
