@@ -18,6 +18,10 @@
 .configured-view__table tr > :is(th, td):last-child {
   padding-right: var(--sp-5);
 }
+/* The last column's gutter widens it, so "Changed" and its arrow stay whole. */
+.configured-view__table th.configured-view__cell--age:last-child {
+  width: calc(92px + var(--sp-5));
+}
 .configured-view__table .configured-view__cell--age {
   text-align: right;
   font-variant-numeric: tabular-nums;

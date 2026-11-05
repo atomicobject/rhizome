@@ -174,7 +174,9 @@ export function ConfiguredViewTable({
 
   const groupedLabels = allColumns
     .filter((column) => !tableColumns.includes(column))
-    .map((column) => `${columnLabel(column, capabilities)} hidden (grouped)`)
+    .map(
+      (column) => `${columnLabel(column, capabilities)} column hidden: the table is grouped by it`,
+    )
     .join("\n");
 
   useEffect(() => {

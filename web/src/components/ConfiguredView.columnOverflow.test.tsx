@@ -70,7 +70,7 @@ describe("table column overflow", () => {
 
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
       expect(screen.queryByText(/in Record/)).toBeNull();
-      expect(screen.getByText("Status hidden (grouped)")).toBeVisible();
+      expect(screen.getByText("Status hidden")).toBeVisible();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
       // The table groups by Status, so that column leaves: 754 less its 136.
       expect(screen.getByRole("table")).toHaveStyle({ minWidth: "618px" });

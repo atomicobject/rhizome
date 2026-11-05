@@ -100,7 +100,7 @@ function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
       : "",
     hidden.length > 0
       ? hidden.length <= 2
-        ? hidden.map((note) => note.replace(/ column hidden: (.*)/, " hidden ($1)")).join(", ")
+        ? `${hidden.map((note) => note.replace(/ column hidden.*$/, "")).join(", ")} hidden`
         : `${plural(hidden.length, "column")} hidden`
       : "",
   ]

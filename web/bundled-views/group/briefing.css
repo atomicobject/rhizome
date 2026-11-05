@@ -16,3 +16,13 @@
   white-space: normal;
   text-align: left;
 }
+/* The Guide takes the strip's leftover width and truncates rather than
+   wrapping the strip onto a second line. */
+.gv-facts > .gv-facts-note {
+  flex: 1 1 0;
+  min-width: 160px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
