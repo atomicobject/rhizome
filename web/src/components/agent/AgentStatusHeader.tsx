@@ -9,6 +9,7 @@ type Props = {
   status: AgentHarnessStatus | undefined;
   resolutionReason: string;
   messageCount: number;
+  model: string | undefined;
 };
 
 const harnessName = (kind?: AgentHarnessKind) =>
@@ -33,6 +34,7 @@ export function AgentStatusHeader({
   status,
   resolutionReason,
   messageCount,
+  model,
 }: Props) {
   let state = "Checking harness status…";
 
@@ -69,7 +71,7 @@ export function AgentStatusHeader({
           </span>
         ) : null}
         <span className="view-header__about">
-          {harnessName(session?.harness || harness)} ·{" "}
+          {harnessName(session?.harness || harness)} · {model ? `${model} · ` : ""}
           {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
         </span>
         {details.length ? (

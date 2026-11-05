@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDue, formatEvery, formatRelative } from "./taskFormat";
+import { formatDue, formatEvery, formatRelative, formatRunAge } from "./taskFormat";
 
 const now = Date.parse("2026-11-04T18:00:00Z");
 
@@ -16,4 +16,12 @@ describe("task schedule wording", () => {
     expect(formatDue(new Date(now + day).toISOString(), false, now)).toBe("In 24 hours");
     expect(formatDue(new Date(now - day).toISOString(), false, now)).toBe("Due now");
   });
+});
+
+it("names run ages without reading as a duration", () => {
+  expect(formatRunAge(new Date(now - 27 * 3_600_000).toISOString(), now)).toBe("1d ago");
+  expect(formatRunAge(new Date(now - 13 * 3_600_000).toISOString(), now)).toBe("13h ago");
+  expect(formatRunAge(new Date(now - 3_600_000).toISOString(), now)).toBe("1h ago");
+  expect(formatRunAge(new Date(now - 10_000).toISOString(), now)).toBe("just now");
+  expect(formatRunAge(new Date(now + day).toISOString(), now)).toBe("just now");
 });

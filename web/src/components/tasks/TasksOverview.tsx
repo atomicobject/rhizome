@@ -1,4 +1,3 @@
-import { RelativeTime } from "../../../kit/format";
 import { type ReactNode, useState } from "react";
 
 import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
@@ -8,6 +7,7 @@ import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
   formatAgo,
+  formatRunAge,
   formatDue,
   formatEvery,
   formatRelative,
@@ -189,8 +189,7 @@ function TaskLink({ task, run, label }: { task: TaskStatus; run?: string; label:
 }
 
 /**
- * Two or more failed last runs lead the page as one aggregate alert; a single
- * failure is told by its row, which carries the "Review failed run" action.
+ * Multiple failures share an alert; a single failure's row offers "Review failed run".
  */
 function FailureBanner({ tasks }: { tasks: TaskStatus[] }) {
   if (tasks.length < 2) return null;
@@ -314,7 +313,10 @@ function TaskRow({
             <span className="task-table__last">
               <StatusMark tone={last.tone} label={last.label} />
               <span className="task-table__aside">
-                <RelativeTime value={task.lastRun.at} />
+                ·{" "}
+                <time dateTime={task.lastRun.at} title={task.lastRun.at}>
+                  {formatRunAge(task.lastRun.at)}
+                </time>
               </span>
             </span>
           ) : (
