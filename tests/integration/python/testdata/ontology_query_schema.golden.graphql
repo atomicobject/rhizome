@@ -588,6 +588,38 @@ interface NoteNode implements Node & Note {
 }
 
 """
+Fallback concrete type for notes without an authored ontology type.
+"""
+type UntypedNote implements Node & Note & NoteNode {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+"""
 Synthetic heading-derived section node.
 """
 interface Section implements Node {

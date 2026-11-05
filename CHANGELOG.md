@@ -35,7 +35,7 @@
 
 - Code-mode reads wait for a warming runtime to publish current data instead of starting a competing local refresh and waiting on its writer lock.
 
-- Typed GraphQL node queries now return `__typename` for concrete note, section, and code identities, including nested links and aliases.
+- GraphQL node queries now return `__typename` for concrete note, section, and code identities, including nested links, aliases, and the `UntypedNote` and `UntypedSection` fallback types.
 
 - Agent session start now reports runtime connectivity, and denied local access returns an actionable error immediately instead of waiting or opening a fallback writer. Code-mode guidance and the new `open-efforts` recipe shorten effort discovery in Claude and Codex.
 

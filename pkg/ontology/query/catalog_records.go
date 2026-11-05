@@ -203,6 +203,8 @@ func (e *executor) noteMatchesTypeCondition(node *noteRecord, typeCondition stri
 		return true
 	case "Note":
 		return true
+	case "UntypedNote":
+		return noteGraphQLTypeName(node) == "UntypedNote"
 	default:
 		return e.typeMatchesOrImplements(node.TypeName, typeCondition)
 	}
@@ -215,9 +217,27 @@ func (e *executor) sectionMatchesTypeCondition(node *sectionRecord, typeConditio
 		return true
 	case "EmbeddedNode":
 		return e.sectionNodeRef(node).Kind == ontology.NodeKindEmbedded
+	case "UntypedSection":
+		return sectionGraphQLTypeName(node) == "UntypedSection"
 	default:
 		return e.typeMatchesOrImplements(node.TypeName, typeCondition)
 	}
+}
+
+func noteGraphQLTypeName(node *noteRecord) string {
+	name := strings.TrimSpace(node.TypeName)
+	if name == "" || ontoschema.IsFallbackNoteTypeName(name) {
+		return "UntypedNote"
+	}
+	return name
+}
+
+func sectionGraphQLTypeName(node *sectionRecord) string {
+	name := strings.TrimSpace(node.TypeName)
+	if name == "" || name == "Section" || ontoschema.IsFallbackSectionTypeName(name) {
+		return "UntypedSection"
+	}
+	return name
 }
 
 func codeMatchesTypeCondition(node *codeRecord, typeCondition string) bool {

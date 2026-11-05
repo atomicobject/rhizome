@@ -39,23 +39,11 @@ func writeNodeInterfacesSDL(b *strings.Builder, schema *ontoschema.Schema) {
 	b.WriteString("interface NoteNode implements Node")
 	b.WriteString(" & Note")
 	b.WriteString(" {\n")
-	for _, line := range nodeFieldsSDL() {
-		b.WriteString("  ")
-		b.WriteString(line)
-		b.WriteByte('\n')
-	}
-	for _, line := range noteNodeFieldsSDL() {
-		b.WriteString("  ")
-		b.WriteString(line)
-		b.WriteByte('\n')
-	}
-	if schema.NoteInterfaceAuthored {
-		if iface := schema.Interfaces["Note"]; iface != nil {
-			runtimeNames := runtimeFieldNameSet(append(nodeFieldsSDL(), noteNodeFieldsSDL()...))
-			writeAuthoredFields(b, iface.Fields, runtimeNames)
-		}
-	}
-	writeSDLLines(b, noteRecordFacts)
+	writeNoteNodeFieldsSDL(b, schema, noteRecordFacts)
+	b.WriteString("}\n\n")
+	writeDescription(b, "Fallback concrete type for notes without an authored ontology type.", 0)
+	b.WriteString("type UntypedNote implements Node & Note & NoteNode {\n")
+	writeNoteNodeFieldsSDL(b, schema, noteRecordFacts)
 	b.WriteString("}\n\n")
 	writeDescription(b, "Synthetic heading-derived section node.", 0)
 	b.WriteString("interface Section implements Node {\n")
@@ -104,6 +92,26 @@ func writeNodeInterfacesSDL(b *strings.Builder, schema *ontoschema.Schema) {
 	b.WriteString("  signature: String\n")
 	b.WriteString("  docComment: String\n")
 	b.WriteString("}\n\n")
+}
+
+func writeNoteNodeFieldsSDL(b *strings.Builder, schema *ontoschema.Schema, noteRecordFacts []string) {
+	for _, line := range nodeFieldsSDL() {
+		b.WriteString("  ")
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	for _, line := range noteNodeFieldsSDL() {
+		b.WriteString("  ")
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	if schema.NoteInterfaceAuthored {
+		if iface := schema.Interfaces["Note"]; iface != nil {
+			runtimeNames := runtimeFieldNameSet(append(nodeFieldsSDL(), noteNodeFieldsSDL()...))
+			writeAuthoredFields(b, iface.Fields, runtimeNames)
+		}
+	}
+	writeSDLLines(b, noteRecordFacts)
 }
 
 func writeInterfacesSDL(b *strings.Builder, schema *ontoschema.Schema, typeNames []string) {
