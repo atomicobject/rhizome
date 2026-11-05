@@ -1,0 +1,83 @@
+.gv-page .gv-map-legend .gv-map-legend-row {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+.gv-page .gv-map-legend dd {
+  gap: 8px;
+  font-weight: 500;
+}
+.gv-map-legend dd > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.gv-page .gv-map-legend dt {
+  font-weight: 500;
+}
+.gv-map-leader {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+.gv-page .gv-ov-table td.num,
+.gv-page .gv-ov-table td.num .gv-issues {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.gv-ov-ring {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  position: relative;
+}
+.gv-ov-ring::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.gv-unused-table {
+  font-size: 13px;
+}
+.gv-unused-table th {
+  font-weight: 500;
+}
+
+.gv-page .gv-map-legend-row dt {
+  min-width: 0;
+}
+.gv-page .gv-map-legend-row dd {
+  min-width: 0;
+}
+.gv-overview-outside .gv-change-age {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.gv-unused-table {
+  table-layout: fixed;
+}
+.gv-unused-table th:first-child {
+  width: 24%;
+}
+.gv-unused-table th:nth-child(2) {
+  width: 38%;
+}
+.gv-unused-table th:nth-child(3) {
+  width: 38%;
+}
+
+.gv-overview-outside .gv-changes::before {
+  content: "Linked records";
+  display: block;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.gv-page .gv-ov-table td.num > * {
+  font-size: 14px;
+  font-weight: 500;
+}

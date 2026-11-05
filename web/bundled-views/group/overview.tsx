@@ -36,6 +36,8 @@ import {
   type BlockStatus,
 } from "./scope-load.ts";
 
+import "./overview-style.css";
+
 type Mode = "map" | "matrix";
 
 const MAP: Mode = "map";
@@ -288,7 +290,12 @@ function MembersBlock({ data, expanded, onToggle }: { data: ScopeData } & Expans
           data.facts?.rebuilding ? (
             <Rebuilding />
           ) : data.model ? (
-            <MemberTable model={data.model} rows={rows} onToggle={onToggle} />
+            <MemberTable
+              summaries={data.summaries ?? new Map()}
+              model={data.model}
+              rows={rows}
+              onToggle={onToggle}
+            />
           ) : null
         }
       </BlockBody>

@@ -352,7 +352,7 @@ it("spreads the members over the box when none links to another", () => {
   expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(40);
 });
 
-it("places edge counts at the midpoint and omits obstructed counts", () => {
+it("offsets edge counts and finds a clear stretch before omitting obstructed counts", () => {
   const positions = new Map([
     ["A", { x: 0, y: 100 }],
     ["B", { x: 200, y: 100 }],
@@ -364,10 +364,54 @@ it("places edge counts at the midpoint and omits obstructed counts", () => {
 
   // 38% and 62% along still touch it; 28% clears it.
   const moved = placeEdgeLabels(positions, [edge], [middle]).get("A|B");
-  expect(moved).toBeUndefined();
-  expect(placeEdgeLabels(positions, [edge], []).get("A|B")).toEqual({ x: 100, y: 100 });
+  expect(moved).toEqual({ x: 60, y: 114 });
+  expect(placeEdgeLabels(positions, [edge], []).get("A|B")).toEqual({ x: 100, y: 114 });
 
-  const covered = { x: 0, y: 80, w: 200, h: 30 };
+  const covered = { x: 0, y: 50, w: 200, h: 100 };
   expect(placeEdgeLabels(positions, [edge], [covered]).has("A|B")).toBe(false);
   expect(placeEdgeLabels(positions, [{ ...edge, label: undefined }], []).size).toBe(0);
+});
+
+it("anchors every label when three outside neighbors surround the largest member", () => {
+  const layout = layoutMap({
+    width: 652,
+    height: 236,
+    nodes: [
+      { id: "Specs", radius: 30, label: "Specs\n123 notes" },
+      { id: "Efforts", radius: 21.25, label: "Efforts\n52 notes" },
+      { id: "Materials", radius: 7.25, label: "Materials\n1 note" },
+    ],
+    edges: [
+      { a: "Specs", b: "Efforts", links: 127, label: { key: "se", text: "127" } },
+      { a: "Efforts", b: "Materials", links: 1, label: { key: "em", text: "1" } },
+    ],
+    outside: [
+      {
+        id: "Reference",
+        label: "Reference docs\n194 links",
+        byMember: new Map([
+          ["Specs", 170],
+          ["Efforts", 24],
+        ]),
+      },
+      {
+        id: "Untyped",
+        label: "Untyped notes\n173 links",
+        byMember: new Map([
+          ["Specs", 168],
+          ["Efforts", 5],
+        ]),
+      },
+      {
+        id: "People",
+        label: "People\n4 links",
+        byMember: new Map([
+          ["Specs", 1],
+          ["Efforts", 3],
+        ]),
+      },
+    ],
+  });
+
+  expect([...layout.labels.keys()].sort()).toEqual([...layout.positions.keys()].sort());
 });

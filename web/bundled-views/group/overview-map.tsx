@@ -1,26 +1,14 @@
 // The Overview map (SPEC-0117 US1, US3): one node per member, sized by its
 // records, edges counting the record links between members, faded outside
-// neighbors on a ring, and members without links listed in the legend. Nodes take
+// neighbors on a ring, and members without links listed in the side panel. Nodes take
 // keyboard focus most records first; hovering or focusing one highlights its
 // edges and shows its figures. The Matrix is the text alternative.
 import { openCollection, openView, useTypeColors } from "@rhizome/kit";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { layoutMap, OUTSIDE_RADIUS, type Point } from "./map-layout.ts";
+import { layoutMap, outsideOrigin, OUTSIDE_RADIUS, type Point } from "./map-layout.ts";
 import { plural } from "./briefing-parts.tsx";
-import {
-  edgeKey,
-  type DeclaredRelation,
-  type LinkModel,
-  type MapEdge,
-  type OutsideNeighbor,
-  type ScopeModel,
-  type ScopeNode,
-} from "./scope.ts";
-import type { TypeSummary } from "./aggregate.ts";
-
-/** Outside neighbors drawn on the ring; the legend counts the rest. */
-export const OUTSIDE_RING = 7;
+import { edgeKey, type MapEdge, type ScopeNode } from "./scope.ts";
 
 /** The layout width before the canvas is measured, and where it cannot be measured. */
 const WIDTH = 760;
@@ -29,7 +17,7 @@ const WIDTH = 760;
 const HEIGHT = 236;
 
 /** A count's pill: 5px of surface beside its digits, on the edge it counts. */
-const COUNT_PAD = 2;
+const COUNT_PAD = 4;
 
 const COUNT_DIGIT = 7;
 
@@ -65,168 +53,25 @@ function useCanvasWidth() {
   return { ref, width };
 }
 
+import {
+  OUTSIDE_RING,
+  compositionArcs,
+  nodeHue,
+  unusedPairs,
+  nodeRadius,
+  nodeText,
+  nodeName,
+  NodeTip,
+  EdgeTip,
+  OutsideTip,
+  MapLegend,
+  type Hot,
+  type MapProps,
+} from "./overview-map-parts.tsx";
+
+export { nodeHue, unusedPairs, OUTSIDE_RING } from "./overview-map-parts.tsx";
+
 const fmt = (count: number) => count.toLocaleString("en-US");
-
-/** The neutral: interfaces, collapsed groups, and untyped notes. */
-const NEUTRAL = "var(--type-8)";
-
-/** A type's palette color, from the kit's `useTypeColors`. */
-export type TypeColor = (name: string) => string;
-
-/**
- * A node's color. A type keeps the hue it has in the Atlas, Explorer, and
- * type pages; interfaces, collapsed groups, and untyped notes are neutral, and
- * the map rings an interface or group in its member types' hues.
- */
-export function nodeHue(node: Pick<ScopeNode, "kind" | "name">, color: TypeColor) {
-  return node.kind === "type" || node.kind === "interface" ? color(node.name) : NEUTRAL;
-}
-
-/** The ring around a node that stands for several types: one arc per type, sized by records. */
-function compositionArcs(
-  node: ScopeNode,
-  summaries: ReadonlyMap<string, TypeSummary>,
-  color: TypeColor,
-) {
-  if (node.kind !== "group" && node.kind !== "interface") return [];
-
-  const parts = node.types
-    .map((name) => ({ name, count: summaries.get(name)?.count ?? 0 }))
-    .filter((part) => part.count > 0);
-
-  const total = parts.reduce((sum, part) => sum + part.count, 0);
-  let start = 0;
-
-  return parts.map((part) => {
-    const arc = { name: part.name, color: color(part.name), start, share: part.count / total };
-    start += arc.share;
-
-    return arc;
-  });
-}
-
-/** Declared relations no record uses between members with no edge, one hairline per pair. */
-export function unusedPairs(links: LinkModel, relations: readonly DeclaredRelation[]) {
-  const pairs = new Map<string, { a: string; b: string }>();
-
-  for (const relation of relations) {
-    const key = edgeKey(relation.member, relation.target);
-
-    if (relation.count === 0 && !links.edgeIndex.has(key))
-      pairs.set(key, { a: relation.member, b: relation.target });
-  }
-
-  return [...pairs.values()];
-}
-
-type Hot = { kind: "node"; id: string } | { kind: "edge"; key: string } | null;
-
-type MapProps = {
-  model: ScopeModel;
-  links: LinkModel;
-  relations: readonly DeclaredRelation[];
-  summaries: ReadonlyMap<string, TypeSummary>;
-  /** Named groups expanded at All notes. */
-  expanded: ReadonlySet<string>;
-  onExpand: (group: string, open: boolean) => void;
-};
-
-/** Node area follows record count. */
-function nodeRadius(model: ScopeModel) {
-  const max = Math.max(1, ...model.nodes.map((node) => node.count));
-
-  return (node: ScopeNode) => 5 + 25 * Math.sqrt(node.count / max);
-}
-
-const nodeText = (node: ScopeNode) =>
-  `${node.label}\n${fmt(node.count)} ${plural(node.count, "note", "notes")}${node.kind === "group" ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}` : ""}`;
-
-const memberLinks = (links: LinkModel, id: string) =>
-  links.edges.reduce((sum, edge) => sum + (edge.a === id || edge.b === id ? edge.links : 0), 0);
-
-function nodeName(model: ScopeModel, links: LinkModel, node: ScopeNode) {
-  const unit =
-    node.kind === "untyped"
-      ? plural(node.count, "note", "notes")
-      : plural(node.count, "record", "records");
-
-  const linked = memberLinks(links, node.id);
-  const inGroup = model.scope.kind === "group" ? " to other members" : "";
-
-  const state =
-    node.kind === "group"
-      ? `, collapsed group of ${node.members.length} ${plural(node.members.length, "type", "types")}`
-      : "";
-
-  return `${node.label}, ${fmt(node.count)} ${unit}, ${fmt(linked)} ${plural(linked, "link", "links")}${inGroup}${state}`;
-}
-
-function NodeTip({ model, links, node }: { model: ScopeModel; links: LinkModel; node: ScopeNode }) {
-  const own = links.self.get(node.id) ?? 0;
-  const linked = memberLinks(links, node.id);
-
-  return (
-    <>
-      <b>{node.label}</b>
-      <span>
-        {fmt(node.count)}{" "}
-        {node.kind === "untyped"
-          ? plural(node.count, "note", "notes")
-          : plural(node.count, "record", "records")}{" "}
-        · {fmt(linked)} {plural(linked, "link", "links")}
-        {model.scope.kind === "group" ? " in the group" : ""}
-      </span>
-      {own > 0 && (
-        <span>
-          {fmt(own)} {node.kind === "group" ? "links inside the group" : "among themselves"}
-        </span>
-      )}
-      {node.kind === "group" && <span>Activate to expand</span>}
-    </>
-  );
-}
-
-function EdgeTip({
-  edge,
-  label,
-  summaries,
-  trace,
-}: {
-  edge: MapEdge;
-  label: (id: string) => string;
-  summaries: ReadonlyMap<string, TypeSummary>;
-  trace: boolean;
-}) {
-  return (
-    <>
-      <b>
-        {label(edge.a)} — {label(edge.b)}
-      </b>
-      <span>
-        {fmt(edge.links)} {plural(edge.links, "link", "links")}
-      </span>
-      {edge.fields.map((field) => (
-        <span key={`${field.type}.${field.field}`}>
-          {summaries.get(field.type)?.label ?? field.type}.{field.field} {fmt(field.count)}
-        </span>
-      ))}
-      {edge.plainLinks > 0 && <span>plain links {fmt(edge.plainLinks)}</span>}
-      {trace && <span>Activate to open Trace</span>}
-    </>
-  );
-}
-
-function OutsideTip({ model, neighbor }: { model: ScopeModel; neighbor: OutsideNeighbor }) {
-  return (
-    <>
-      <b>{neighbor.label}</b>
-      <span>
-        {fmt(neighbor.links)} {plural(neighbor.links, "link", "links")} to{" "}
-        {model.scope.kind === "group" ? model.scope.group : "the scope"} · outside the group
-      </span>
-    </>
-  );
-}
 
 export function ScopeMap({ model, links, relations, summaries, expanded, onExpand }: MapProps) {
   const [hot, setHot] = useState<Hot>(null);
@@ -260,7 +105,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
       })),
       outside: links.outside.slice(0, OUTSIDE_RING).map((neighbor) => ({
         ...neighbor,
-        label: `${neighbor.label} ${fmt(neighbor.links)} links`,
+        label: `${neighbor.label}\n${fmt(neighbor.links)} links`,
       })),
     });
   }, [model, links, group, maxLinks, width]);
@@ -334,7 +179,6 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
     .filter((node) => !looseIds.has(node.id))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
-  const loose = model.nodes.filter((node) => looseIds.has(node.id));
   const countAt = (edge: MapEdge) => layout.edgeLabels.get(edge.key);
 
   return (
@@ -357,19 +201,57 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
               y2={at(pair.b).y}
             />
           ))}
-          {ring.flatMap((neighbor) =>
-            [...neighbor.byMember].map(([member, count]) => (
-              <line
-                key={`out:${member}:${neighbor.id}`}
-                className="gv-map-spoke"
-                data-hot={on(`out:${member}:${neighbor.id}`)}
-                x1={at(member).x}
-                y1={at(member).y}
-                x2={at(neighbor.id).x}
-                y2={at(neighbor.id).y}
-                strokeWidth={Math.max(1.25, stroke(count) * 0.6)}
-              />
-            )),
+          {ring.map((neighbor) => {
+            const members = [...neighbor.byMember];
+            const from = outsideOrigin(layout.positions, neighbor.byMember);
+
+            const details =
+              hot?.kind === "node" && (hot.id === neighbor.id || neighbor.byMember.has(hot.id));
+
+            return (
+              <g key={neighbor.id}>
+                {details ? (
+                  members.map(([member, count]) => (
+                    <line
+                      key={member}
+                      className="gv-map-spoke"
+                      data-hot="true"
+                      x1={at(member).x}
+                      y1={at(member).y}
+                      x2={at(neighbor.id).x}
+                      y2={at(neighbor.id).y}
+                      strokeWidth={Math.max(1.25, stroke(count) * 0.6)}
+                    />
+                  ))
+                ) : (
+                  <line
+                    className="gv-map-spoke"
+                    x1={from.x}
+                    y1={from.y}
+                    x2={at(neighbor.id).x}
+                    y2={at(neighbor.id).y}
+                    strokeWidth={Math.max(1.25, stroke(neighbor.links) * 0.6)}
+                  >
+                    <title>
+                      {neighbor.links} links to {neighbor.label}
+                    </title>
+                  </line>
+                )}
+              </g>
+            );
+          })}
+          {[...layout.labels].map(
+            ([id, place]) =>
+              place.leader && (
+                <line
+                  key={`leader:${id}`}
+                  className="gv-map-leader"
+                  x1={at(id).x}
+                  y1={at(id).y}
+                  x2={place.leader.x}
+                  y2={place.leader.y}
+                />
+              ),
           )}
           {links.edges.map((edge) => (
             <g
@@ -414,7 +296,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 onMouseLeave={() => setHot(null)}
               >
                 <title>{`${neighbor.label}, ${fmt(neighbor.links)} links, outside the group`}</title>
-                <circle cx={point.x} cy={point.y} r={OUTSIDE_RADIUS} />
+                <circle cx={point.x} cy={point.y} r={OUTSIDE_RADIUS} strokeDasharray="3 3" />
               </g>
             );
           })}
@@ -578,153 +460,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
         drawn={ordered}
         summaries={summaries}
         color={color}
-        loose={loose}
         unused={drawnUnused.length > 0}
         expanded={expanded}
         onExpand={onExpand}
-        onOpen={activate}
       />
     </div>
-  );
-}
-
-function MapLegend({
-  model,
-  links,
-  drawn,
-  summaries,
-  color,
-  loose,
-  unused,
-  expanded,
-  onExpand,
-  onOpen,
-}: {
-  model: ScopeModel;
-  links: LinkModel;
-  /** The members drawn on the map; the legend keys only what they show. */
-  drawn: readonly ScopeNode[];
-  summaries: ReadonlyMap<string, TypeSummary>;
-  color: TypeColor;
-  loose: readonly ScopeNode[];
-  unused: boolean;
-  expanded: ReadonlySet<string>;
-  onExpand: (group: string, open: boolean) => void;
-  onOpen: (node: ScopeNode) => void;
-}) {
-  const shown = Math.min(OUTSIDE_RING, links.outside.length);
-  // An interface's ring names its segments; a collapsed group's ring stays one key.
-  const rings = drawn.filter((node) => node.kind === "interface" || node.kind === "group");
-  const label = (name: string) => summaries.get(name)?.label ?? name;
-
-  const types = [
-    ...drawn
-      .filter(
-        (node) => node.kind !== "group" && node.kind !== "interface" && node.kind !== "untyped",
-      )
-      .map((node) => (
-        <span key={node.id}>
-          <i style={{ background: nodeHue(node, color) }} />
-          {node.label}
-        </span>
-      )),
-    ...rings.map((node) => (
-      <span key={node.id} className="gv-legend-ring">
-        <i className="gv-legend-composite" />
-        {node.label}:
-        {compositionArcs(node, summaries, color).map((arc) => (
-          <span key={arc.name}>
-            <i style={{ background: arc.color }} />
-            {label(arc.name)}
-          </span>
-        ))}
-      </span>
-    )),
-    drawn.some((node) => node.kind === "untyped") && (
-      <span key="untyped">
-        <i className="gv-legend-untyped" />
-        untyped
-      </span>
-    ),
-    ...model.groupNames.flatMap((name) =>
-      expanded.has(name)
-        ? [
-            <span key={`expanded:${name}`}>
-              {name}{" "}
-              <button type="button" className="gv-link" onClick={() => onExpand(name, false)}>
-                collapse
-              </button>
-            </span>,
-          ]
-        : [],
-    ),
-    loose.length > 0 && (
-      <span key="loose" className="gv-legend-loose">
-        No member links:
-        {loose.map((node) => (
-          <button
-            key={node.id}
-            type="button"
-            className="gv-link"
-            aria-label={nodeName(model, links, node)}
-            onClick={() => onOpen(node)}
-          >
-            {node.label} <span className="gv-map-n">{fmt(node.count)}</span>
-          </button>
-        ))}
-      </span>
-    ),
-  ].filter(Boolean);
-
-  const kinds = [
-    links.edges.some((edge) => edge.relation) && (
-      <span key="relation">
-        <s data-kind="relation" />
-        mostly relation links
-      </span>
-    ),
-    links.edges.some((edge) => !edge.relation) && (
-      <span key="plain">
-        <s data-kind="plain" />
-        mostly plain links
-      </span>
-    ),
-    unused && (
-      <span key="unused">
-        <s data-kind="unused" />
-        declared, unused
-      </span>
-    ),
-  ].filter(Boolean);
-
-  if (links.outside.length > 0)
-    kinds.push(
-      <span key="outside">
-        <s data-kind="outside" />
-        {links.outside.length > shown
-          ? `top ${shown} of ${links.outside.length} outside links`
-          : "outside links"}
-      </span>,
-    );
-
-  const groups = [
-    { title: "Types", items: types },
-    { title: "Links", items: kinds },
-  ].filter((group) => group.items.length > 0);
-
-  return (
-    <>
-      <dl className="gv-legend gv-map-legend">
-        {groups.map((group) => (
-          <div key={group.title} className="gv-map-legend-row">
-            <dt>{group.title}</dt>
-            <dd>{group.items}</dd>
-          </div>
-        ))}
-      </dl>
-      {model.scope.kind === "group" && links.edges.length === 0 && (
-        <p className="gv-quiet">No member records link to each other.</p>
-      )}
-    </>
   );
 }

@@ -13,7 +13,7 @@ import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
 import { fieldLabel, type GroupModel } from "./model.ts";
 import { useRememberedOpen } from "./remembered.ts";
-import { declaredRelations, type DeclaredRelation, type ScopeModel } from "./scope.ts";
+import { declaredRelations, type ScopeModel } from "./scope.ts";
 import {
   blockStatus,
   useAggregatePart,
@@ -90,18 +90,12 @@ export function FolderBlock() {
                         <td
                           title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
                         >
-                          {/* A whole folder untyped is the common case: the share recedes,
-                              and only a partial share draws its bar. */}
-                          {percent >= 100 ? (
-                            <span className="gv-num gv-faint">100%</span>
-                          ) : (
-                            <span className="gv-ov-share">
-                              <span className="gv-num">{percent}%</span>
-                              <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
-                                <i style={{ width: `${percent}%` }} />
-                              </span>
+                          <span className="gv-ov-share">
+                            <span className="gv-num num">{percent}%</span>
+                            <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
+                              <i style={{ width: `${percent}%` }} />
                             </span>
-                          )}
+                          </span>
                         </td>
                         <td className="gv-ov-links" title={linksText(line.linksTo)}>
                           {line.linksTo.length ? (
@@ -227,52 +221,43 @@ export function DeclaredUnused({
 
   const label = (id: string) => model?.nodeIndex.get(id)?.label ?? id;
 
-  // Field display labels by target ("Work log, Materials → Materials"); a
-  // field named for its only target reads as the target alone.
-  const relationsText = (relations: readonly DeclaredRelation[]) =>
-    [...new Set(relations.map((relation) => relation.target))]
-      .map((id) => {
-        const target = label(id);
-
-        const fields = relations.flatMap((relation) =>
-          relation.target === id ? [fieldLabel(relation.field)] : [],
-        );
-
-        return fields.length === 1 && fields[0] === target
-          ? target
-          : `${fields.join(", ")} → ${target}`;
-      })
-      .join(" · ");
-
-  const byMember = new Map<string, DeclaredRelation[]>();
-
-  for (const relation of unused)
-    byMember.set(relation.member, [...(byMember.get(relation.member) ?? []), relation]);
-
   return (
     <Block
-      title="Declared, unused"
+      title="Declared relations with no links"
       count={status.status === "ready" ? unused.length : undefined}
-      info="Relations the schema allows between members that no record uses."
+      info={`Relations the schema allows between members that no record uses. Schema identifiers: ${unused.map((relation) => `${relation.member}.${relation.field} → ${relation.target}`).join("; ")}`}
     >
       <BlockBody status={status} what="relations">
         {() =>
           unused.length ? (
-            <ul className="gv-list">
-              {[...byMember].map(([member, relations]) => (
-                <li key={member} className="gv-out gv-ov-unused">
-                  <span>
-                    {label(member)}
-                    {model?.nodeIndex.get(member)?.count === 0 && (
-                      <span className="gv-faint"> (empty)</span>
-                    )}
-                  </span>
-                  <span className="gv-sub" title={relationsText(relations)}>
-                    {relationsText(relations)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <table className="gv-table gv-unused-table">
+                <thead>
+                  <tr>
+                    <th>Owner type</th>
+                    <th>Field</th>
+                    <th>Target type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unused.map((relation) => (
+                    <tr key={`${relation.member}.${relation.field}.${relation.target}`}>
+                      <td>{label(relation.member)}</td>
+                      <td>{fieldLabel(relation.field)}</td>
+                      <td>{label(relation.target)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {model &&
+                model.nodes
+                  .filter((node) => node.count === 0)
+                  .map((node) => (
+                    <p className="gv-quiet" key={node.id}>
+                      {node.label}: no records
+                    </p>
+                  ))}
+            </>
           ) : (
             <p className="gv-quiet">Records use every relation declared between members.</p>
           )
@@ -307,14 +292,16 @@ function GroupOutside({ model }: { model: GroupModel }) {
   }, [model]);
 
   return (
-    <OutsideNotes
-      title="Outside the group"
-      outside={outside}
-      model={model}
-      info={`Notes that link to or from ${model.name} records, most connected first.`}
-      empty="No notes outside the group link to or from its records."
-      limit={OVERVIEW_OUTSIDE_NOTES}
-    />
+    <div className="gv-overview-outside">
+      <OutsideNotes
+        title="Outside the group"
+        outside={outside}
+        model={model}
+        info={`Notes that link to or from ${model.name} records, most connected first.`}
+        empty="No notes outside the group link to or from its records."
+        limit={OVERVIEW_OUTSIDE_NOTES}
+      />
+    </div>
   );
 }
 

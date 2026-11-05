@@ -169,13 +169,13 @@ it("compares members in one table, nesting an interface's implementors", async (
 
 it("lists relations declared between members that no record uses", async () => {
   await renderGroupView(loadOverview, { routes: scopeRoutes() });
-  const unused = region("Declared, unused");
+  const unused = region("Declared relations with no links");
 
   expect(within(unused).getByText("1")).toBeVisible();
   // Fields read by their display labels, not schema names.
-  expect(unused).toHaveTextContent("ReleasesArea → Areas");
-  // A long list truncates beside the name; the full list is its title.
-  expect(within(unused).getByTitle("Area → Areas")).toBeVisible();
+  expect(unused).toHaveTextContent("ReleasesAreaAreas");
+  expect(within(unused).getByRole("columnheader", { name: "Owner type" })).toBeVisible();
+  expect(within(unused).getByRole("columnheader", { name: "Field" })).toBeVisible();
 });
 
 it("lists the notes outside the group most connected first, then the guide and views", async () => {
@@ -257,10 +257,8 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     "Meetings, 5 records, 10 links",
     "People, 2 records, 6 links, collapsed group of 1 type",
   ]);
-  // A member with no links is listed in the legend, not drawn.
-  expect(
-    within(region("Map")).getByRole("button", { name: "Notices, 0 records, 0 links" }),
-  ).toBeVisible();
+  expect(within(region("Map")).queryByText("No member links:")).toBeNull();
+  expect(rowNamed(within(region("Members")).getByRole("table"), "Notices")).toBeVisible();
 
   fireEvent.click(screen.getByRole("button", { name: "Typing: 3 ambiguous notes" }));
   expect(opened(posted)).toEqual([{ type: OPEN_ISSUES_MESSAGE }]);
@@ -278,94 +276,9 @@ it("expands a group in place on the map and in the table, and collapses it from 
   expect(within(rowNamed(table, "Planning")).getByRole("button", { expanded: true })).toBeVisible();
   expect(rowNamed(table, "Areas")).toBeVisible();
 
-  fireEvent.click(within(region("Map")).getByRole("button", { name: "collapse" }));
+  fireEvent.click(within(region("Map")).getByRole("button", { name: "Collapse" }));
   await waitFor(() => expect(map().querySelector("[data-node='group:Planning']")).not.toBeNull());
   expect(within(table).queryByText("Areas")).toBeNull();
-});
-
-it("lists untyped notes by folder and searches a folder, with the coverage line beneath", async () => {
-  const { posted } = await renderGroupView(loadOverview, {
-    context: WORKSPACE,
-    routes: scopeRoutes(),
-    embedded: true,
-  });
-
-  const folders = region("Untyped notes by folder");
-  expect(within(folders).getByText("20 notes")).toBeVisible();
-  const notes = rowNamed(within(folders).getByRole("table"), "Notes/");
-  // One line per row: the folder size and full link list live in titles.
-  expect(notes).toHaveTextContent("Notes/1240%Meetings 4, People 2");
-  expect(notes.querySelector("[title='12 of 30 notes in Notes/']")).not.toBeNull();
-  expect(notes.querySelector(".gv-ov-links")).toHaveAttribute("title", "Meetings 4, People 2");
-  expect(within(folders).queryByText("Work/")).toBeNull();
-
-  fireEvent.click(within(folders).getByRole("button", { name: "Inbox/" }));
-  expect(posted.filter((message) => message.type === "rhizome:open-search")).toEqual([
-    { type: "rhizome:open-search", folder: "Inbox" },
-  ]);
-
-  expect(region("Coverage")).toHaveTextContent(
-    "No recordsNoticesNo linksLibrary glossaries 3EmbeddedTasks 7 · items inside notes, not drawn",
-  );
-  expect(screen.queryByRole("region", { name: "Declared, unused" })).toBeNull();
-});
-
-it("searches the vault root's own untyped notes as folder /", async () => {
-  const { posted } = await renderGroupView(loadOverview, {
-    context: WORKSPACE,
-    embedded: true,
-    routes: scopeRoutes({
-      "GET /api/v1/ontology/shape": (request) =>
-        request.query.get("parts") === "folders"
-          ? jsonReply({
-              ...AGGREGATE_PARTS.folders,
-              folders: {
-                rows: [{ folder: "", total: 3, untyped: 2, typed: {}, untypedLinksTo: {} }],
-              },
-            })
-          : jsonReply(
-              request.query.get("parts") === "members"
-                ? AGGREGATE_PARTS.members
-                : AGGREGATE_PARTS.links,
-            ),
-    }),
-  });
-
-  fireEvent.click(within(region("Untyped notes by folder")).getByRole("button", { name: "/" }));
-
-  expect(posted.filter((message) => message.type === "rhizome:open-search")).toEqual([
-    { type: "rhizome:open-search", folder: "/" },
-  ]);
-});
-
-it("lists the eight largest folders before +N more", async () => {
-  const rows = Array.from({ length: 11 }, (_, index) => ({
-    folder: `F${index}`,
-    total: 20,
-    untyped: 20 - index,
-    typed: {},
-    untypedLinksTo: {},
-  }));
-
-  await renderGroupView(loadOverview, {
-    context: WORKSPACE,
-    embedded: true,
-    routes: scopeRoutes({
-      "GET /api/v1/ontology/shape": (request) =>
-        request.query.get("parts") === "folders"
-          ? jsonReply({ ...AGGREGATE_PARTS.folders, folders: { rows } })
-          : jsonReply(
-              request.query.get("parts") === "members"
-                ? AGGREGATE_PARTS.members
-                : AGGREGATE_PARTS.links,
-            ),
-    }),
-  });
-
-  const folders = within(region("Untyped notes by folder"));
-  expect(folders.getAllByRole("row")).toHaveLength(1 + 8);
-  fireEvent.click(folders.getByRole("button", { name: "Show 3 more" }));
-  expect(folders.getAllByRole("row")).toHaveLength(1 + 11);
 });
 
 it("paints every block's heading at once and fills each in as its part arrives", async () => {

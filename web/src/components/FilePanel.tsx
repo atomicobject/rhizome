@@ -60,30 +60,37 @@ export function FilePanel({
     return convertWikilinks(stripFrontmatter(file.content || ""));
   }, [file]);
 
-  const topLinks = useMemo(() => {
+  const linkGroups = useMemo(() => {
     if (!file) return [];
+    const groups = new Map<string, Map<string, { label: string; path: string; count: number }>>();
+
+    const add = (relation: string, path: string, label: string) => {
+      const rows = groups.get(relation) ?? new Map();
+      const previous = rows.get(path);
+      rows.set(path, { path, label: previous?.label ?? label, count: (previous?.count ?? 0) + 1 });
+      groups.set(relation, rows);
+    };
 
     if (file.kind === "code") {
-      return (file.relatedNotes || []).map((note) => ({
-        label: note.title || note.path,
-        path: note.path,
-      }));
-    }
-
-    if (file.kind === "note") {
-      const links = file.links || [];
-      const out: { label: string; path: string }[] = [];
-      links.forEach((link) => {
+      for (const note of file.relatedNotes ?? [])
+        add(
+          note.reason === "coderef"
+            ? "Documented by"
+            : note.reason === "codeanchor"
+              ? "Mentioned in"
+              : "Related notes",
+          note.path,
+          note.title || getFileName(note.path),
+        );
+    } else {
+      for (const link of file.links ?? []) {
         const target = resolveLinkTarget(link.target, file);
 
-        if (!target) return;
-        out.push({ label: link.text || target, path: target });
-      });
-
-      return out;
+        if (target) add("Links to", target, link.text || getFileName(target));
+      }
     }
 
-    return [];
+    return [...groups].map(([relation, rows]) => ({ relation, rows: [...rows.values()] }));
   }, [file]);
 
   const codeMarkdown = useMemo(() => {
@@ -125,15 +132,24 @@ export function FilePanel({
       </header>
 
       <div className="explorer-pane__body">
-        {file && topLinks.length > 0 && (
-          <section className="explorer-pane__section">
+        {linkGroups.map(({ relation, rows }) => (
+          <section className="explorer-pane__section" key={relation}>
             <h3>
-              Links
-              <span>{topLinks.length}</span>
+              {relation}
+              <span className="num">
+                {rows.length}{" "}
+                {file.kind === "code"
+                  ? rows.length === 1
+                    ? "note"
+                    : "notes"
+                  : rows.length === 1
+                    ? "destination"
+                    : "destinations"}
+              </span>
             </h3>
             <ul className="explorer-pane__list">
-              {topLinks.map((note) => (
-                <li key={`${note.path}-${note.label}`}>
+              {rows.map((note) => (
+                <li key={note.path}>
                   <button
                     type="button"
                     className="explorer-pane__list-link"
@@ -145,13 +161,23 @@ export function FilePanel({
                     <span className="explorer-pane__list-icon" aria-hidden="true">
                       <FileText size={16} strokeWidth={1.5} absoluteStrokeWidth />
                     </span>
-                    <span className="explorer-pane__list-name">{note.label}</span>
+                    <span className="explorer-pane__link-text">
+                      <span className="explorer-pane__list-name">{note.label}</span>
+                      <span className="explorer-pane__link-path">
+                        {note.path.length > 54
+                          ? `${note.path.slice(0, 24)}…${note.path.slice(-29)}`
+                          : note.path}
+                      </span>
+                    </span>
+                    {note.count > 1 && (
+                      <span className="explorer-pane__multiplicity num">×{note.count}</span>
+                    )}
                   </button>
                 </li>
               ))}
             </ul>
           </section>
-        )}
+        ))}
 
         {file?.kind === "note" && (
           <section className="explorer-pane__section">

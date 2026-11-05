@@ -18,4 +18,6 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
     .getByRole("button", { name: /main\.py/i })
     .click();
   await expect(page.locator(".explorer-pane__code")).toBeVisible();
+  await expect(page.locator(".explorer-pane__header h2")).toHaveCSS("font-size", "16px");
+  await expect(page.locator(".explorer-pane__header h2")).toHaveCSS("font-weight", "600");
 });
