@@ -79,7 +79,7 @@ describe("table column overflow", () => {
   });
 });
 
-it("compacts both column notes when their combined field count exceeds two", () => {
+it("names moved columns and counts hidden ones when both are present", () => {
   render(
     <ConfiguredViewFooter
       summary="52 rows"
@@ -92,7 +92,7 @@ it("compacts both column notes when their combined field count exceeds two", () 
       onPage={() => {}}
     />,
   );
-  const summary = screen.getByText("2 in Record · 2 hidden");
+  const summary = screen.getByText("Governing specs, Created at in Record · 2 hidden");
   expect(summary).toBeVisible();
   fireEvent.click(summary);
   expect(screen.getByText(/Governing specs, Created at show in the Record pane/)).toBeVisible();

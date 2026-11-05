@@ -85,19 +85,21 @@ export function ConfiguredViewFooter({
 }
 
 /**
- * Columns the table does not show, as one compact disclosure ("2 in
+ * Columns the table does not show, as one compact disclosure ("Governing specs in
  * Record · 1 hidden"); it opens to name each and say why, so a narrow
  * footer never cuts several explanations at once.
  */
 function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
   if (moved.length === 0 && hidden.length === 0) return null;
 
-  const compact = moved.length + hidden.length > 2;
-
+  // Moved columns are named (the reader looks for them in Record); hidden ones
+  // are named only when they are the whole note, else counted.
   const summary = [
-    moved.length > 0 ? `${compact ? moved.length : moved.join(", ")} in Record` : "",
+    moved.length > 0
+      ? `${moved.length <= 2 ? moved.join(", ") : `${moved.length} columns`} in Record`
+      : "",
     hidden.length > 0
-      ? !compact
+      ? moved.length === 0 && hidden.length <= 2
         ? `${hidden.map((note) => note.replace(/ column hidden.*$/, "")).join(", ")} hidden`
         : `${hidden.length} hidden`
       : "",
