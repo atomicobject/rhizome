@@ -9,6 +9,7 @@ Work style: direct and readable. Lead with the outcome, include only what the re
 - Use relevant skills. Delegate independent subtasks to subagents, or ask for an independent review, when that speeds the work or adds a fresh perspective; keep working while they run, then synthesize their findings
 - Keep changes focused and simple. Avoid unrelated edits, unnecessary abstractions, and low-signal tests
 - Test observable behavior, review substantial changes, and validate user-facing work in the real interface when applicable
+- When a test flakes, diagnose and fix the cause before merging. A passing rerun is evidence for diagnosis, not a fix; do not add retries or increase timeouts merely to hide the failure.
 - Preserve unrelated work and never take destructive, production, or external actions beyond what the user authorized
 - Report blockers, outcomes, and evidence. On long tasks, say briefly what you are about to do, and end with a recap that stands on its own
 

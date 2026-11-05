@@ -833,6 +833,10 @@ describe("desktop shell", () => {
   });
 
   it("opens a repository's primary worktree from the repository finder, newest first", async () => {
+    let initialOpen = () => {};
+    const restoring = new Promise<void>((resolve) => {
+      initialOpen = resolve;
+    });
     const recent: Library = {
       ...both,
       repositories: [
@@ -842,11 +846,16 @@ describe("desktop shell", () => {
     };
     start(undefined, (operation, args) => {
       if (operation === "list") return recent;
-      if (operation === "open") return { generation: ++generation, library: recent };
+      if (operation === "open") {
+        initialOpen();
+        return { generation: ++generation, library: recent };
+      }
       if (operation === "discover" && (args as { id: string }).id === other.id)
         return otherDiscovery;
     });
-    await waitFor(() => expect(opened()).toHaveLength(1));
+    await restoring;
+    // An open IPC call starts before React commits the restored selection.
+    await showFinder(/^Worktree /);
     choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
     await waitFor(() => expect(opened()).toHaveLength(2));
     act(() => emit({ type: "command", command: "repositories" }));
