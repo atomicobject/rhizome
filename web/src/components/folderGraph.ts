@@ -259,7 +259,7 @@ export function visibleFolderGraph(
 
       if (node && target)
         node.labelDetail =
-          `${node.labelDetail || ""}  ${edge.weight} links to ${target.label}`.trim();
+          `${node.labelDetail || ""}  ${edge.weight} ${edge.weight === 1 ? "link" : "links"} to ${target.label}`.trim();
 
       const bundle = bundles.get(destination) ?? {
         source: `folder:${focusedPath}`,
@@ -280,7 +280,7 @@ export function visibleFolderGraph(
 
       if (opened && target)
         opened.labelDetail =
-          `${opened.labelDetail || ""}  ${edge.weight} links to ${target.label}`.trim();
+          `${opened.labelDetail || ""}  ${edge.weight} ${edge.weight === 1 ? "link" : "links"} to ${target.label}`.trim();
     }
   }
 

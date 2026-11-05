@@ -250,7 +250,7 @@ it("bundles underlying links while keeping focused children separate", () => {
     "2 links to docs",
   );
   expect(focused.nodes.find((n) => n.id === "folder:pkg/b")?.labelDetail).toContain(
-    "1 links to docs",
+    "1 link to docs",
   );
 });
 

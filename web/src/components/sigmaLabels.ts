@@ -436,8 +436,7 @@ export function createLabelPainter(
 
     context.fillStyle = canvas;
 
-    if (!(attrs?.fixed && attrs.kind === "module"))
-      context.fillRect(left, top, right - left, bottom - top);
+    context.fillRect(left, top, right - left, bottom - top);
     context.globalAlpha = 1;
     context.fillStyle = data.key.startsWith("file-more:")
       ? resolveCssColor("var(--explorer-link-strong)")
