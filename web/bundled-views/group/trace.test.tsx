@@ -122,7 +122,7 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
   expect(
     screen.getByRole("radiogroup", { name: "Rows" }).querySelector(".gv-default-dot"),
   ).toBeNull();
-  expect(columnHeader("Areas")).toHaveTextContent("Nested under parents · Most connected first");
+  expect(columnHeader("Areas").querySelector(".gv-cov")).toBeNull();
   expect(screen.getByRole("radiogroup", { name: "Rows" }).closest("th")).toBe(
     columnHeader("Areas"),
   );
@@ -179,14 +179,14 @@ it("fills cells with records linked to anything in the row, marking indirect one
 
   // Coverage beside the name; under it, the field that joins the column to the rows.
   expect(columnHeader("Work items")).toHaveTextContent("3 of 6 linked");
-  // The relation shares its metadata line with only the statuses the column holds.
-  expect(columnHeader("Work items")).toHaveTextContent(/linkedArea.*Doing.*Done/);
+  // The second line names only the mixed statuses the column holds.
+  expect(columnHeader("Work items")).toHaveTextContent(/linkedDoing.*Done/);
   expect(columnHeader("Work items")).not.toHaveTextContent(/Backlog/);
   expect(
-    within(columnHeader("Work items")).getByTitle("Area · Doing · Blocked · Done"),
+    within(columnHeader("Work items")).getByLabelText("Work items status marks"),
   ).toBeVisible();
   expect(columnHeader("Releases")).toHaveTextContent("1 of 6 linked");
-  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 linkedthrough other columns");
+  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 linked");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();
 });
 
@@ -197,7 +197,7 @@ it("switches rows and orders columns by contract with outside links last", async
   expect(screen.getByRole("radio", { name: /^Work items/ })).toBeChecked();
   expect(columnNames()).toEqual(["Work items", "Areas", "Releases", "Checklists", "Owner"]);
   expect(columnHeader("Areas")).toHaveTextContent("5 of 6 linked");
-  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 linkedin People");
+  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 linked");
   expect(cellTitles("Checkout redesign")).toEqual([
     ["Payments"],
     ["Fall release"],
@@ -219,12 +219,7 @@ it("bands rows by lifecycle, most advanced first and closed values last, summari
 
   expect(bands()).toEqual(["Blocked1", "Doing2", "Done2", "No stage1"]);
   expect(columnHeader("Work items")).not.toHaveTextContent("most advanced first");
-  expect(
-    Array.from(
-      columnHeader("Work items").querySelectorAll(".gv-counts > span"),
-      (span) => span.textContent,
-    ),
-  ).toEqual(["Doing2", "Blocked1", "Done2"]);
+  expect(columnHeader("Work items").querySelector(".gv-counts")).toBeNull();
   expect(rowTitles().map(([title]) => title)).toEqual([
     "Tax rounding",
     "Checkout redesign",
@@ -408,9 +403,7 @@ it("gives a column joined by multiple fields room for its full relation caption"
   const related = columnHeader("Related releases");
   expect(related).toHaveClass("gv-trace-related");
   expect(related).not.toHaveClass("gv-col-sparse");
-  expect(related.querySelector(".gv-cov")).toHaveAttribute(
-    "title",
-    expect.stringContaining("Area · Other area"),
-  );
+  expect(related.querySelector(".gv-cov")).toBeNull();
+  expect(related).toHaveTextContent(/linked$/);
   expect(screen.getByRole("table").querySelector("col.gv-trace-related")).toBeInTheDocument();
 });

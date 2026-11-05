@@ -107,11 +107,16 @@ export function StageHints({
 
   const stageless = [...byEnum.values()].flat();
 
+  const active = model.members.find((member) =>
+    member.lifecycle?.values.some((value) => value.stage === "active"),
+  );
+
   // Match the section heading's info mark while keeping the native disclosure.
   return (
     <div className="gv-stage-note">
       <span>
-        {[...stageless, ...unstatused].join(" and ")} aren't listed: they have no active stage.
+        In motion shows active{" "}
+        {active ? lower(memberLabel(model, active, { plural: true })) : "records"} only.
       </span>
       <details className="gv-hint">
         <summary className="rz-info" aria-label="Why some types are not listed">

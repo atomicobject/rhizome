@@ -143,3 +143,13 @@
   font: 500 13px / 1.4 var(--font-sans);
   cursor: pointer;
 }
+
+.gv-connection-bar {
+  height: 4px;
+  margin: 5px 0 4px;
+  background: var(--border-faint);
+}
+.gv-connection-bar i {
+  display: block;
+  height: 100%;
+}
