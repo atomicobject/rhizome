@@ -73,8 +73,10 @@
   text-overflow: ellipsis;
 }
 
+/* Materials carry no lifecycle: no placeholder mark, so their titles start
+   on the cell's inset like the empty-cell dash. */
 .gv-trace td .gv-square {
-  visibility: hidden;
+  display: none;
 }
 
 .gv-jump > button:disabled,

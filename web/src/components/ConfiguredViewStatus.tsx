@@ -85,31 +85,37 @@ export function ConfiguredViewFooter({
 }
 
 /**
- * Columns the table does not show, as one compact disclosure ("Governing specs in
- * Record · 1 hidden"); it opens to name each and say why, so a narrow
+ * Columns the table does not show, as one compact disclosure ("2 in Record ·
+ * 2 hidden"); it opens to name each and say why, so a narrow
  * footer never cuts several explanations at once.
  */
 function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
   if (moved.length === 0 && hidden.length === 0) return null;
 
-  // Moved columns are named (the reader looks for them in Record); hidden ones
-  // are named only when they are the whole note, else counted.
+  // Name the fields when there are at most two in all; otherwise count them,
+  // so a narrow footer never cuts the note. The title names every field.
+  const named = moved.length + hidden.length <= 2;
+  const hiddenNames = hidden.map((note) => note.replace(/ column hidden.*$/, ""));
+
   const summary = [
-    moved.length > 0
-      ? `${moved.length <= 2 ? moved.join(", ") : `${moved.length} columns`} in Record`
-      : "",
-    hidden.length > 0
-      ? moved.length === 0 && hidden.length <= 2
-        ? `${hidden.map((note) => note.replace(/ column hidden.*$/, "")).join(", ")} hidden`
-        : `${hidden.length} hidden`
-      : "",
+    moved.length > 0 ? `${named ? moved.join(", ") : moved.length} in Record` : "",
+    hidden.length > 0 ? `${named ? hiddenNames.join(", ") : hidden.length} hidden` : "",
   ]
     .filter(Boolean)
     .join(" · ");
 
   return (
     <details className="configured-view__column-notes">
-      <summary>{summary}</summary>
+      <summary
+        title={[
+          moved.length > 0 ? `In Record: ${moved.join(", ")}` : "",
+          hidden.length > 0 ? `Hidden: ${hiddenNames.join(", ")}` : "",
+        ]
+          .filter(Boolean)
+          .join(". ")}
+      >
+        {summary}
+      </summary>
       <div className="configured-view__column-notes-body">
         {moved.length > 0 && (
           <p>

@@ -79,7 +79,7 @@ describe("table column overflow", () => {
   });
 });
 
-it("names moved columns and counts hidden ones when both are present", () => {
+it("counts column notes when they name more than two fields, naming them in the title", () => {
   render(
     <ConfiguredViewFooter
       summary="52 rows"
@@ -92,8 +92,12 @@ it("names moved columns and counts hidden ones when both are present", () => {
       onPage={() => {}}
     />,
   );
-  const summary = screen.getByText("Governing specs, Created at in Record · 2 hidden");
+  const summary = screen.getByText("2 in Record · 2 hidden");
   expect(summary).toBeVisible();
+  expect(summary).toHaveAttribute(
+    "title",
+    "In Record: Governing specs, Created at. Hidden: Status, Type",
+  );
   fireEvent.click(summary);
   expect(screen.getByText(/Governing specs, Created at show in the Record pane/)).toBeVisible();
   expect(screen.getByText(/Status column hidden/)).toBeVisible();
