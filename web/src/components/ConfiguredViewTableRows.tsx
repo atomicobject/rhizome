@@ -422,7 +422,17 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
                 {cellContent}
                 <span className="configured-view__overdue">
                   <TriangleAlert size={13} aria-hidden />
-                  Overdue
+                  <span
+                    className={
+                      previousRow &&
+                      sortFields?.has(column.field) &&
+                      isOverdue(previousRow, fieldValue(previousRow, column.field), capabilities)
+                        ? "is-repeat"
+                        : undefined
+                    }
+                  >
+                    Overdue
+                  </span>
                 </span>
               </span>
             ) : columnIndex === primaryColumnIndex && dirty ? (
