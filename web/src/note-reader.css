@@ -85,6 +85,8 @@
    note's does, so the path has the free width. */
 .notes-shell .ontology-pane__controls {
   padding-inline: var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .notes-shell .ontology-pane__main:not(.ontology-pane__main--html) .ontology-markdown {
@@ -128,13 +130,6 @@
 
 .notes-shell .body-narrative--editor .cm-atomic-wiki-link .cm-atomic-link::after {
   content: none;
-}
-
-/* Editing is a mode, cued by a neutral border-strong rule under the control
-   row. The Editing chip names the mode; staged changes keep their
-   separate labelled gold bar. */
-.notes-shell .ontology-pane.is-editing > .ontology-pane__header > .ontology-pane__controls {
-  border-bottom: 2px solid var(--border-strong);
 }
 
 /* The controls row is only as wide as the column: the path gives way, never

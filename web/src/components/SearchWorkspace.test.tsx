@@ -334,7 +334,8 @@ describe("SearchWorkspace", () => {
     });
 
     const status = await screen.findByLabelText("Search status");
-    expect(status).toHaveTextContent("Showing 1 of 3 results");
+    expect(status).toHaveTextContent("Showing 1");
+    expect(document.querySelector(".search-workspace__header .num")).toHaveTextContent("3");
     expect(status).toHaveTextContent("Exact symbol");
     expect(status).toHaveTextContent("Medium confidence");
     expect(status).toHaveTextContent("Missing: tests");
@@ -347,7 +348,7 @@ describe("SearchWorkspace", () => {
     renderSearch();
 
     const status = await screen.findByLabelText("Search status");
-    expect(status.textContent).toBe("Showing 1 of 1 results");
+    expect(status.textContent).toBe("Showing 1");
   });
 
   it.each([0, 1])(

@@ -118,14 +118,12 @@
   height: 14px;
 }
 
-.html-note-viewer__ghost:not(.html-note-viewer__ghost--icon) svg {
+a.html-note-viewer__ghost svg {
   margin-left: 5px;
 }
 
-.html-note-viewer__ghost--icon {
-  justify-content: center;
-  width: 26px;
-  padding: 0;
+button.html-note-viewer__ghost svg {
+  margin: 0 5px 0 0;
 }
 
 .html-note-viewer__ghost:hover,
@@ -204,6 +202,8 @@
    starts right below and carries its own heading. */
 .notes-shell .ontology-pane__controls:has(> .ontology-pane__html-head) {
   overflow: visible;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .notes-shell .ontology-pane__controls > .ontology-pane__html-head {
@@ -246,7 +246,7 @@
    and status. It is the one part that gives way, before the actions do. */
 .notes-shell .ontology-pane__html-head .ontology-identity__slot--id {
   flex: 0 1 auto;
-  min-width: 6ch;
+  min-width: 0;
   overflow: hidden;
 }
 

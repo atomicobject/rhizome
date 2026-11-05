@@ -137,6 +137,7 @@ export const SURFACES = [
     url: `/notes?note=${encodeURIComponent(spec)}`,
     act: async (p) => {
       await p.getByRole("button", { name: "Edit", exact: true }).first().click();
+      await p.mouse.move(5, 5);
     },
   },
   {
