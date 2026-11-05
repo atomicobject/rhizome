@@ -4,6 +4,18 @@ import { describe, expect, it, vi } from "vitest";
 import { BarList, Count, Fact, Facts, NoteLink, Section, Segmented, sectionStatus } from "./index";
 
 describe("Section", () => {
+  it("keeps descriptive help on the heading and heuristic help beside it", () => {
+    const { rerender } = render(
+      <Section title="Shape" info={{ text: "Distribution", display: "title" }} />,
+    );
+
+    expect(screen.getByRole("heading")).toHaveAttribute("title", "Distribution");
+    expect(screen.getByRole("region")).toHaveAccessibleDescription("Distribution");
+    expect(document.querySelector(".rz-info")).toBeNull();
+    rerender(<Section title="Review suggested" info="Heuristic" />);
+    expect(document.querySelector(".rz-info")).toHaveAttribute("title", "Heuristic");
+  });
+
   it("names its region by the heading and shows a count beside it", () => {
     render(
       <Section title="Opportunities" count={12} caption="Ranked by signal.">

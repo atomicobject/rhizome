@@ -85,6 +85,7 @@ export * from "./types";
 export {
   useDisplayGroup,
   useDisplayGroups,
+  useTypeColors,
   useTypeDocs,
   useValidationSummaries,
   validationScopeKey,
@@ -106,6 +107,7 @@ export {
   BarList,
   Count,
   Dash,
+  DisclosureIcon,
   Fact,
   Facts,
   MoreToggle,

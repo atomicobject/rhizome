@@ -36,7 +36,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.emulateMedia({ reducedMotion });
     await page.goto("/notes/tv-guide");
     const group = page.getByRole("button", { name: "Howto 2", exact: true });
-    const caret = group.locator(".configured-view__group-caret");
+    const caret = group.locator(".configured-view__disclosure-icon");
     await expect(group).toHaveAttribute("aria-expanded", "true");
 
     // A sidebar row's hover tint, on a row that is not the current one.
@@ -200,7 +200,7 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
   const frame = page.frameLocator("iframe.custom-view-frame:not([data-incoming])");
 
   const attention = frame.getByRole("region", { name: "Needs attention" });
-  const context = frame.getByRole("region", { name: "Context", exact: true });
+  const context = frame.getByRole("region", { name: "Review suggested", exact: true });
   const nextStep = context.getByRole("listitem").filter({ hasText: "Next step empty" });
   await expect(attention).not.toContainText("Next step empty");
   await expect(nextStep).toContainText("Next step empty on 5 of 10 work items");
@@ -209,19 +209,19 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
   await expect(context).toContainText("No review meetings link to 2 of 10 work items");
 
   // Doing and In review are the active stages.
-  await expect(frame.getByRole("region", { name: "In motion" }).locator(".gv-record")).toHaveCount(
-    5,
-  );
+  await expect(
+    frame.getByRole("region", { name: "In motion" }).locator(".gv-change-title"),
+  ).toHaveCount(5);
   await expect(
     frame.getByRole("region", { name: "Shape" }).getByRole("heading", { name: "Stage lifecycle" }),
   ).toBeVisible();
 
   const connections = frame.getByRole("region", { name: "Connections" });
   await expect(connections.getByRole("listitem").filter({ hasText: /^Project/ })).toContainText(
-    "9/10",
+    "9 of 10 work items linked",
   );
   await expect(connections.getByRole("listitem").filter({ hasText: /^Meetings/ })).toContainText(
-    "8/10",
+    "8 of 10 work items linked",
   );
   await expect(frame.getByRole("region", { name: "Linked from outside" })).toContainText(
     "review meeting",

@@ -37,6 +37,7 @@ type Props = {
   onToggleColumn: (field: string) => void;
   onResetPage: (patch: ViewExecuteRequest) => void;
   emptyFields: string[];
+  repeatedFields?: string[];
   density?: Density;
   onDensityChange?: (density: Density) => void;
   /** Save view and refresh. */
@@ -68,6 +69,7 @@ export function ConfiguredViewViewMenu({
   onToggleColumn,
   onResetPage,
   emptyFields,
+  repeatedFields = [],
   density,
   onDensityChange,
   viewActions,
@@ -123,26 +125,38 @@ export function ConfiguredViewViewMenu({
     sortKey?.field ??
     "";
 
+  const sortLabel = (field: string) => {
+    const capability = sortable.find(
+      (candidate) =>
+        candidate.key === field ||
+        candidate.canonicalField === field ||
+        candidate.sourceKeys?.includes(field),
+    );
+
+    return capability ? capabilityLabel(capability) : field;
+  };
+
   const hiddenEmpty = emptyFields.filter((field) => !visibleFields.includes(field));
+  const hiddenRepeated = repeatedFields.filter((field) => !visibleFields.includes(field));
 
   return (
     <div className="configured-view__options" ref={rootRef}>
       <button
         type="button"
         className="configured-view__tool-button configured-view__options-button"
-        aria-label={dirty ? "View options, unsaved changes" : "View options"}
+        aria-label={dirty ? "Display options, unsaved changes" : "Display options"}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
         <SlidersIcon />
-        View
+        Display
         {dirty && <span className="configured-view__unsaved-dot" aria-hidden />}
       </button>
       {/* Stays mounted while closed so a save in progress keeps its status. */}
       <div
         className="configured-view__options-panel"
         role="group"
-        aria-label="View options"
+        aria-label="Display options"
         hidden={!open}
       >
         <div className="configured-view__options-section">
@@ -217,6 +231,15 @@ export function ConfiguredViewViewMenu({
               </span>
             </div>
           )}
+          {sort.length > 1 && (
+            <p className="configured-view__sort-then">
+              Then by{" "}
+              {sort
+                .slice(1)
+                .map((key) => `${sortLabel(key.field)} ${key.direction === "desc" ? "↓" : "↑"}`)
+                .join(", then ")}
+            </p>
+          )}
           {activeVariant === "table" && density && (
             <div className="configured-view__select">
               <span>Rows</span>
@@ -242,6 +265,7 @@ export function ConfiguredViewViewMenu({
               <small>
                 {visibleFields.length}/{columns.length}
                 {hiddenEmpty.length > 0 && ` · ${hiddenEmpty.length} hidden empty`}
+                {hiddenRepeated.length > 0 && ` · ${hiddenRepeated.length} hidden, one value`}
               </small>
             </legend>
             {columnOptions.map((column) => (
@@ -254,6 +278,9 @@ export function ConfiguredViewViewMenu({
                 <span>{columnLabel(column, capabilities)}</span>
                 {hiddenEmpty.includes(column.field) && (
                   <small className="configured-view__column-note">hidden empty</small>
+                )}
+                {hiddenRepeated.includes(column.field) && (
+                  <small className="configured-view__column-note">one value</small>
                 )}
               </label>
             ))}

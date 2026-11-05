@@ -33,11 +33,11 @@ describe("ConfiguredView states and controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     expect(screen.getByRole("button", { name: "Add filter" })).toBeVisible();
 
-    const options = screen.getByRole("button", { name: "View options" });
+    const options = screen.getByRole("button", { name: "Display options" });
     expect(options).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(options);
     expect(options).toHaveAttribute("aria-expanded", "true");
-    const panel = screen.getByRole("group", { name: "View options" });
+    const panel = screen.getByRole("group", { name: "Display options" });
     expect(within(panel).getByRole("combobox", { name: "Group by" })).toBeVisible();
     expect(within(panel).getByRole("group", { name: "Visible columns" })).toBeVisible();
     expect(within(panel).getByRole("button", { name: /^Save view/ })).toBeVisible();
@@ -81,10 +81,10 @@ describe("ConfiguredView states and controls", () => {
     expect(screen.getByLabelText("Sort by")).toHaveDisplayValue("Priority");
   });
 
-  it("marks View options when the shared view has unsaved changes", () => {
+  it("marks Display options when the shared view has unsaved changes", () => {
     renderView({ state: { sort: [{ field: "title", direction: "desc" }] } });
 
-    expect(screen.getByRole("button", { name: "View options, unsaved changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Display options, unsaved changes" })).toBeVisible();
   });
 
   it("renders loading, error, and empty states", () => {
@@ -190,13 +190,14 @@ describe("ConfiguredView states and controls", () => {
 
     const headers = screen.getAllByRole("columnheader").map((header) => header.textContent?.trim());
     // The first column holds the row selection checkboxes.
-    expect(headers).toEqual(["", "Title", "Status", "ID", "Updated"]);
+    // The table groups by Status, so its column would only repeat the group.
+    expect(headers).toEqual(["", "Title", "ID", "Updated"]);
 
     const first = screen.getByRole("button", { name: /Open Alpha Spec/ });
     const firstTableRow = first.closest("tr");
     expect(first).toHaveTextContent("Alpha Spec");
     expect(firstTableRow).toHaveTextContent("Alpha Spec");
-    expect(firstTableRow).toHaveTextContent("active");
+    expect(firstTableRow).not.toHaveTextContent("active");
     expect(firstTableRow).toHaveTextContent("SPEC-0001");
     expect(firstTableRow).not.toHaveTextContent("docs/specs/alpha.md");
 
@@ -429,9 +430,9 @@ describe("ConfiguredView states and controls", () => {
   it("remembers the column choice for the view after a remount", async () => {
     onTestFinished(clearPreferenceStores);
     const rendered = renderView({ vaultKey: "vault" });
-    await screen.findByRole("button", { name: /^View options/ });
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
-    await screen.findByRole("button", { name: /^View options/ });
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Visible columns" })).getByLabelText("Status"),
@@ -725,7 +726,7 @@ describe("ConfiguredView states and controls", () => {
 
     renderView({ execution: grouped });
 
-    expect(screen.getByRole("button", { name: "Done: no 1" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Done: yes 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Open 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Done 1" })).toBeVisible();
   });
 });

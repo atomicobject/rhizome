@@ -24,7 +24,7 @@
 }
 
 .gv-num {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
@@ -65,41 +65,50 @@
   cursor: pointer;
 }
 
-.gv-link {
+.gv-link:not(.link-title) {
   color: var(--link);
 }
 
 .gv-link:hover,
-.gv-record:hover,
-.gv-member:hover {
+.gv-record:is(:hover, :focus-visible),
+.gv-member:is(:hover, :focus-visible) {
   text-decoration: underline;
   text-decoration-color: var(--link-line);
   text-underline-offset: 2px;
 }
 
+/* Record titles read like the native table's: 14/500, a quiet ink link. */
 .gv-record {
   color: var(--text);
-  font-weight: 600;
-  font-size: var(--fs-sm);
-  line-height: 1.3;
+  font-weight: 500;
+  font-size: var(--fs-base);
+  line-height: 1.35;
+}
+
+/* Relative times are sans with tabular figures; mono is for evidence. */
+.gv-age {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .gv-member {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 500;
   font-size: var(--fs-sm);
 }
 
 .gv-issues,
 .gv-bad {
   color: var(--accent-active);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .gv-ok {
-  color: var(--link);
+  color: var(--success-ink);
 }
 
 .gv-record:focus-visible,
@@ -112,24 +121,25 @@
   border-radius: var(--r-sm);
 }
 
-/* Marks: an 11px slot so titles align whether or not a record has a lifecycle. */
+/* Marks: a 9px slot, centred on a 14px title line, so titles align whether
+   or not a record has a lifecycle. */
 .gv-mark,
 .gv-square,
 .gv-mark-slot {
   flex: none;
-  margin-top: 2px;
+  margin-top: 5px;
 }
 
 .gv-mark-slot {
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
 }
 
 /* A record bullet for members without a lifecycle, drawn small and solid so
    it never reads as a checkbox. */
 .gv-square {
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
   background: linear-gradient(var(--border-strong), var(--border-strong)) center / 6px 6px no-repeat;
 }
 
@@ -158,15 +168,42 @@
 
 .gv-facts-list {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
+}
+
+/* Facts read as one sentence-like strip: Inter, separated by middle dots. */
+.gv-facts-list > * + *::before {
+  margin-right: 8px;
+  color: var(--text-faint);
+  content: "·";
+}
+
+/* Section jump links: each member's name and count, near the tabs. */
+.gv-jump {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-right: 18px;
+  font-size: var(--fs-sm);
+}
+
+.gv-jump .gv-num {
+  margin-left: 2px;
 }
 
 .gv-facts-list b {
   color: var(--text);
+}
+
+/* What a strip fact counts, when two facts could be read as one ("Typing:",
+   "Validation:"): muted ink, so the value still leads. */
+.gv-fact-scope {
+  color: var(--text-muted);
 }
 
 .gv-facts-warn {
@@ -183,13 +220,13 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 12px 20px 6px;
+  padding: 18px 20px 8px;
   min-width: 0;
 }
 
 .gv-section-head h2 {
   margin: 0;
-  font-size: inherit;
+  font: 600 var(--fs-md) / 1.3 var(--font-sans);
 }
 
 .gv-desc {
@@ -231,6 +268,63 @@
   padding-top: 6px;
 }
 
+/* A section's title takes the slack; Status and other fields hold 136px,
+   Changed 72px, so short values do not stretch across the page. */
+.gv-section .gv-table {
+  table-layout: fixed;
+}
+
+.gv-section .gv-table th {
+  width: 136px;
+}
+
+.gv-section .gv-table th:first-child {
+  width: auto;
+}
+
+/* Status, shown only when a section mixes statuses, needs just a mark and a
+   short word. */
+.gv-section .gv-table th.gv-col-status {
+  width: 104px;
+}
+
+.gv-section .gv-table td.gv-col-status {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* Border-box: 92px leaves "Changed" its 20px right gutter, like the ages below it. */
+.gv-section .gv-table th.gv-changed {
+  width: 92px;
+  text-align: right;
+}
+
+/* The shared 56px row: 8px, a 20px title line, a one-line 20px summary at an
+   80-character measure, 8px. */
+.gv-section .gv-table td {
+  padding-block: 8px;
+  line-height: 20px;
+}
+
+.gv-section .gv-summary {
+  max-width: none;
+  margin-top: 0;
+  font-size: var(--fs-sm);
+  line-height: 20px;
+  -webkit-line-clamp: 1;
+}
+
+/* The section's name reads as its heading, 15/600, not as a 13px member link. */
+.gv-section-head .gv-member {
+  font: inherit;
+  font-weight: 500;
+}
+
+.gv-section .gv-table td:not(:first-child) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .gv-table {
   width: 100%;
   border-collapse: collapse;
@@ -243,16 +337,17 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface-alt);
   color: var(--text-muted);
-  font: var(--label-font);
   text-align: left;
   white-space: nowrap;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-table td {
-  padding: 5px 10px;
+  padding: 7px 10px;
   border-bottom: 1px solid var(--border-faint);
   color: var(--text);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-base);
+  line-height: 1.35;
   vertical-align: top;
 }
 
@@ -271,8 +366,8 @@
   width: 1%;
 }
 
-.gv-table .gv-num {
-  padding-top: 6px;
+.gv-table .gv-age {
+  padding-top: 9px;
 }
 
 .gv-title {
@@ -300,7 +395,8 @@
   margin-top: 1px;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
@@ -367,26 +463,30 @@
 
 .gv-sub {
   color: var(--text-faint);
-  font-size: var(--fs-xs);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
+/* Every "Show N more" reads the same: a quiet 13px teal link. */
 .gv-more {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
-/* Titles inside running text: open a record or note without reading as a link. */
+/* Titles inside lists and running text: quiet ink links, underlined on hover. */
 .gv-inline {
+  color: var(--text);
   padding: 0;
   border: 0;
   background: none;
-  color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.gv-inline:hover {
-  color: var(--text);
+.gv-inline:not(.link-secondary, .gv-link) {
+  font-weight: 500;
+}
+
+.gv-inline:is(:hover, :focus-visible) {
   text-decoration: underline;
   text-decoration-color: var(--link-line);
   text-underline-offset: 2px;
@@ -399,20 +499,21 @@
 }
 
 /* Needs attention */
+/* A signal is three fixed columns: the count, what it means, and where to go;
+   its example records follow on a muted second line under the meaning. */
 .gv-sig {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
-  gap: 1px 8px;
+  grid-template-columns: 48px minmax(0, 1fr) 112px;
+  gap: 2px 12px;
   align-items: baseline;
-  padding: 7px 0;
+  padding: 8px 0;
   border-top: 1px solid var(--border-faint);
 }
 
 .gv-sig-count {
   color: var(--warning-ink);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: 700;
+  font: 600 var(--fs-base) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
@@ -425,11 +526,11 @@
 }
 
 .gv-sig[data-severity="ok"] .gv-sig-count {
-  color: var(--link);
+  color: var(--success-ink);
 }
 
 .gv-sig-text {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
 }
 
 .gv-sig-text b {
@@ -437,36 +538,73 @@
 }
 
 .gv-sig-act {
-  font-size: var(--fs-xs);
+  justify-self: end;
+  font-size: var(--fs-sm);
   white-space: nowrap;
 }
 
+/* Example records: rows under the meaning, title left and age right, the age
+   aligned with the action column's right edge. */
 .gv-sig-detail {
   grid-column: 2 / 4;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.gv-sig-rows {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gv-sig-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+  padding: 2px 0;
+}
+
+.gv-sig-row .gv-inline {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-sig-member {
+  padding: 6px 0 0;
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-sig-more {
+  margin-top: 8px;
 }
 
 .gv-why {
+  margin: 0;
   color: var(--text-muted);
 }
 
-.gv-sep {
-  color: var(--border-strong);
-}
-
 /* In motion */
-.gv-mo-group + .gv-mo-group {
-  margin-top: 4px;
+
+.gv-mo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 10px 0 2px;
 }
 
-.gv-mo-type {
-  display: flex;
-  gap: 6px;
-  margin: 10px 0 0;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
-  font-weight: 600;
+/* "Changed" over the age column: a 13px muted label, right-aligned like the ages. */
+.gv-mo-col {
+  margin-left: auto;
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-mo {
@@ -474,41 +612,79 @@
   border-top: 1px solid var(--border-faint);
 }
 
-.gv-mo-time {
-  margin-left: auto;
-  padding-left: 8px;
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-}
-
-.gv-mo-note {
-  display: -webkit-box;
-  margin: 2px 0 0 18px;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.gv-mo-note em {
-  margin-right: 5px;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
-  font-style: normal;
-  font-weight: 700;
-}
-
 .gv-mo-more {
   padding: 4px 0 0 18px;
 }
 
+/* A list whose heading states its one status drops the marks, so its notes
+   and "Show N more" align to the title at the left edge. */
+
+.gv-list:not(:has(.gv-mark, .gv-mark-slot, .gv-square)) ~ .gv-mo-more {
+  padding-left: 0;
+}
+
+/* Schema setup notes: a quiet "Configuration" disclosure in a block's
+   heading row that opens a small panel below it. */
 .gv-hint {
-  margin: 8px 0 0;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+  position: relative;
+  color: var(--text-muted);
+  font: 400 var(--fs-sm) / 1.3 var(--font-sans);
+}
+
+.gv-hint summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 24px;
+  padding: 0 2px 0 6px;
+  border-radius: var(--r-sm);
+  list-style: none;
+  cursor: pointer;
+}
+
+.gv-hint summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The shared disclosure chevron, turned down while the panel is open. */
+.gv-hint[open] summary .rz-disclosure-icon {
+  transform: rotate(90deg);
+}
+
+.gv-hint summary:hover,
+.gv-hint[open] summary {
+  background: var(--surface-sunk);
+  color: var(--text);
+}
+
+.gv-hint summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.gv-hint-panel {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  right: 0;
+  width: min(360px, 80vw);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.gv-hint p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.gv-hint p.gv-hint-lead {
+  margin: 0;
+  color: var(--text);
 }
 
 .gv-hint code {
@@ -517,46 +693,65 @@
   font-size: var(--fs-xs);
 }
 
-/* Recent changes */
-.gv-day-head {
-  margin: 12px 0 3px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-
-.gv-day:first-of-type .gv-day-head {
-  margin-top: 4px;
-}
-
-.gv-evt {
+/* Recent changes: one list on every scope. A title line, a secondary line
+   with the type and the folder in mono, and the age in a fixed right column. */
+.gv-change {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 8px;
-  padding: 4px 0;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 0 12px;
+  align-items: baseline;
+  padding: 6px 0;
   border-top: 1px solid var(--border-faint);
-  font-size: var(--fs-xs);
 }
 
-.gv-evt .gv-num {
-  padding-top: 1px;
+.gv-burst-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.gv-chips {
+.gv-burst-members {
+  margin-left: 8px;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+
+.gv-change-main {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  margin-left: -6px;
+  min-width: 0;
 }
 
-.gv-burst {
-  color: var(--text-faint);
+.gv-change-title {
+  color: var(--text);
+  overflow: hidden;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-change-meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-path {
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
 }
 
-.gv-burst b {
-  color: var(--text);
-  font-weight: 600;
+.gv-change-age {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* Outside the group */
@@ -611,8 +806,9 @@
   background: var(--info);
 }
 
+/* Success is the success colour in bars as in marks; teal means a link. */
 .gv-dist i[data-tone="success"] {
-  background: var(--link);
+  background: var(--success);
 }
 
 .gv-dist i[data-tone="warning"] {
@@ -634,7 +830,7 @@
   gap: 2px 10px;
   margin: 5px 0 0;
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 /* Matrix */
@@ -647,9 +843,8 @@
 .gv-mx th {
   padding: 2px 4px;
   color: var(--text-faint);
-  font-size: var(--fs-xs);
-  font-weight: 600;
   text-align: right;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-mx thead th {
@@ -738,8 +933,8 @@
 }
 
 .gv-label {
-  font: var(--label-font);
   color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-default-dot {
@@ -758,12 +953,74 @@
   table-layout: fixed;
 }
 
-.gv-col-spine {
-  width: 26%;
+/* About 40% for the rows, the rest shared by the linked columns; a column
+   few rows fill keeps a fixed 260px. Plain lengths: Chrome treats a calc() or
+   max() width on a table column as auto. */
+.gv-col-spine,
+.gv-trace thead th.gv-trace-spine {
+  width: 40%;
 }
 
-.gv-col-narrow {
-  width: 30px;
+.gv-col-sparse,
+.gv-trace thead th.gv-col-sparse {
+  width: 260px;
+}
+
+/* The heading's second line: the relation, then the Key disclosure. */
+.gv-cov-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gv-cov-row > .gv-cov {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Each linked column's status key, always shown: mark and word per status
+   its records hold, on a 13px line under the relation. */
+.gv-col-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-trace td:has(> .rz-dash) {
+  vertical-align: middle;
+}
+
+/* Linked titles are 14px teal quiet links, like every record link. */
+.gv-trace td .gv-chip {
+  font-size: var(--fs-base);
+}
+
+.gv-trace td .gv-chip:not([data-indirect]) {
+  color: var(--text-muted);
+}
+
+.gv-trace td .gv-chip:is(:hover, :focus-visible) > span:not(.sr-only) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gv-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-left: auto;
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-legend-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
 }
 
 .gv-trace th,
@@ -779,13 +1036,17 @@
   overflow-wrap: anywhere;
 }
 
+/* A compact header band: the column's name, count, and coverage on one line,
+   the relation that joins it on the next. */
 .gv-trace thead th {
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 7px 10px 6px;
+  padding: 8px 10px 7px;
+  vertical-align: top;
   border-bottom-color: var(--border-strong);
   background: var(--surface);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-trace .gv-trace-spine {
@@ -805,43 +1066,47 @@
   background: color-mix(in srgb, var(--success-soft) 22%, var(--surface));
 }
 
-.gv-head .gv-num {
-  margin-left: 2px;
-}
-
-.gv-trace .gv-member {
-  font-size: var(--fs-sm);
-}
-
-.gv-cov {
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
-}
-
-.gv-cov b {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-weight: 600;
-}
-
-.gv-cov .gv-thin {
-  color: var(--warning-ink);
-}
-
-.gv-trace .gv-narrow {
-  padding: 8px 0;
-  text-align: center;
-}
-
-.gv-vertical {
-  writing-mode: vertical-rl;
-  color: var(--text-faint);
-  font: 700 var(--fs-xs) var(--font-sans);
+.gv-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
   white-space: nowrap;
 }
 
-.gv-trace .gv-vertical .gv-num {
-  font-size: var(--fs-xs);
+.gv-head > .gv-member,
+.gv-head > .gv-record {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gv-trace .gv-member {
+  font-size: var(--fs-base);
+  font-weight: 500;
+}
+
+.gv-cov-count {
+  margin-left: auto;
+  color: var(--text-faint);
+  font: 500 13px / 1.4 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.gv-cov-count b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.gv-cov {
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+  white-space: normal;
+}
+
+.gv-cov-count .gv-thin {
+  color: var(--text);
 }
 
 .gv-band th {
@@ -860,10 +1125,8 @@
   border: 0;
   background: none;
   color: var(--text);
-  font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: 700;
   cursor: pointer;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-band-toggle .gv-num {
@@ -871,26 +1134,20 @@
 }
 
 .gv-caret {
-  width: 8px;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+  color: var(--text-muted);
 }
 
+/* A nested row's disclosure: the shared 24px control, pulled into the gutter
+   so titles keep their column. */
 .gv-twisty,
 .gv-twisty-slot {
   flex: none;
-  width: 12px;
-  margin: 0 2px 0 -2px;
+  width: 24px;
+  margin: -3px 0 -3px -6px;
 }
 
-.gv-twisty {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  line-height: 18px;
-  cursor: pointer;
+.gv-twisty-slot {
+  height: 1px;
 }
 
 .gv-band-toggle:focus-visible,
@@ -902,12 +1159,12 @@
 }
 
 .gv-trace .gv-record {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
 }
 
 .gv-nested {
   color: var(--text-faint);
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -923,9 +1180,9 @@
   flex: none;
   padding-top: 1px;
   color: var(--text-faint);
-  font: 700 var(--fs-xs) var(--font-sans);
   font-style: normal;
   text-transform: uppercase;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-kv span {
@@ -953,14 +1210,15 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--text-faint);
+  color: var(--link);
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   cursor: pointer;
 }
 
 .gv-trace-more:hover {
-  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .gv-rollup {
@@ -977,7 +1235,7 @@
 
 .gv-rollup b {
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
@@ -1010,8 +1268,7 @@
   gap: 6px;
   margin: 0;
   color: var(--text);
-  font-size: var(--fs-xs);
-  font-weight: 600;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-dist-wide {
@@ -1042,20 +1299,39 @@
   margin-top: 3px;
 }
 
+/* Counts by month in the neutral series: teal means connection, not volume.
+   Each bar carries its count above it when the months fit. */
+/* A quiet histogram: 56px tall, so the collection's shape reads before its peaks. */
 .gv-hist {
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 64px;
+  align-items: stretch;
+  gap: 3px;
+  height: 56px;
   margin-top: 6px;
   border-bottom: 1px solid var(--border);
 }
 
-.gv-hist i {
+.gv-hist > span {
+  display: flex;
   flex: 1 1 0;
-  min-height: 1px;
-  background: var(--link);
-  opacity: 0.75;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.gv-hist b {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: center;
+}
+
+.gv-hist i {
+  min-height: 3px;
+  background: var(--series-1);
 }
 
 .gv-hist-axis {
@@ -1063,8 +1339,25 @@
   justify-content: space-between;
   margin: 3px 0 0;
   color: var(--text-faint);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One abbreviated month under each bar, on the bars' own grid. */
+.gv-hist-months {
+  gap: 3px;
+}
+
+.gv-hist-months > span {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.gv-hist-peak {
+  margin-top: 2px;
 }
 
 .gv-rel {
@@ -1078,6 +1371,7 @@
 
 .gv-rel-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 6px;
   font-size: var(--fs-sm);
@@ -1107,13 +1401,24 @@
   background: var(--warning-ink);
 }
 
-.gv-tops {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  margin: 0;
-  color: var(--text);
-  font-size: var(--fs-xs);
+/* A field's most common targets: name, then its count right-aligned. */
+.gv-tops li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 2px 0;
+  font-size: var(--fs-sm);
+}
+
+.gv-tops .gv-inline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-tops-more {
+  margin: 2px 0 0;
 }
 
 .gv-rel-none {
@@ -1122,20 +1427,38 @@
   font-size: var(--fs-xs);
 }
 
-/* Briefing with two columns: activity only (SPEC-0117 US6). */
+/* Briefing with two columns: activity only (SPEC-0117 US6). The type
+   Briefing splits about 60/40: current work, then the collection's shape and
+   connections stacked beside it. */
 @media (min-width: 960px) {
   .gv-brief.gv-brief-two {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   }
 
-  .gv-brief-two .gv-brief-col:last-child {
+  .gv-brief.gv-brief-split {
+    grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+  }
+
+  .gv-brief-two .gv-brief-col:last-child,
+  .gv-brief-split .gv-brief-col:last-child {
     border-right: 0;
+  }
+
+  /* Two activity columns part by a 24px gap, not a rule that stops short of
+     the panel's bottom. */
+  .gv-brief-two .gv-brief-col:first-child {
+    padding-right: 12px;
+    border-right: 0;
+  }
+
+  .gv-brief-two .gv-brief-col:last-child {
+    padding-left: 12px;
   }
 }
 
 /* Space reserved for each Overview block, so blocks fill in without shifting the page. */
 .gv-slot-map {
-  min-height: 400px;
+  min-height: 300px;
 }
 
 .gv-slot-members {
@@ -1173,6 +1496,12 @@
   padding: 0 20px;
 }
 
+/* All notes: Members sit under the map in the main column. */
+.gv-ov--workspace .gv-ov-main .gv-ov-members {
+  margin: 4px -20px -16px;
+  border-top: 1px solid var(--border);
+}
+
 @media (min-width: 960px) {
   .gv-ov {
     grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
@@ -1184,8 +1513,9 @@
   }
 }
 
-/* The map. Its canvas takes the block's width and the layout's height (400px, or
-   more for many unlinked members), so labels draw at their real size. */
+/* The map. Its canvas takes the block's width and a 280px height, so labels draw
+   at their real size and the Members table starts above the fold. Edges and node
+   outlines clear 3:1 against the surface in both themes. */
 .gv-map-canvas {
   position: relative;
 }
@@ -1198,42 +1528,41 @@
   height: 100%;
 }
 
+/* Every label, counts included, sits on an opaque surface-colored halo. */
 .gv-map text {
   fill: var(--text);
-  font: var(--fs-xs) var(--font-sans);
+  font: 14px var(--font-sans);
   paint-order: stroke;
   stroke: var(--surface);
-  stroke-width: 3px;
+  stroke-width: 6px;
+  stroke-opacity: 1;
   stroke-linejoin: round;
+}
+
+.gv-map-labels {
+  pointer-events: none;
 }
 
 .gv-map .gv-map-n {
   fill: var(--text-muted);
-  font: var(--fs-xs) var(--font-mono);
+  font: 13px var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .gv-map text[data-group="true"] {
   font-weight: 700;
 }
 
-.gv-map-row line {
-  stroke: var(--border-faint);
-}
-
-.gv-map-row text {
-  fill: var(--text-faint);
-  font-size: var(--fs-xs);
-}
-
 .gv-map-unused {
   stroke: var(--text-faint);
-  stroke-width: 1;
+  stroke-width: 1.5;
   stroke-dasharray: 3 4;
-  opacity: 0.7;
 }
 
 .gv-map-spoke {
-  stroke: var(--border);
+  stroke: var(--type-8);
+  stroke-dasharray: 1 3;
+  stroke-linecap: round;
 }
 
 .gv-map-edge line {
@@ -1241,12 +1570,13 @@
 }
 
 .gv-map-edge[data-kind="relation"] line:first-child {
-  stroke: var(--series-link);
-  stroke-opacity: 0.85;
+  stroke: var(--link);
 }
 
+/* Plain links are a plain neutral solid at 3:1 (lighter than the teal
+   relation links), with no heavy dash competing with the nodes. */
 .gv-map-edge[data-kind="plain"] line:first-child {
-  stroke: var(--border-strong);
+  stroke: var(--type-8);
 }
 
 .gv-map .gv-map-hit {
@@ -1258,14 +1588,22 @@
   cursor: pointer;
 }
 
+/* A count sits on a surface pill centered on its own edge, outlined in that edge's color. */
+.gv-map .gv-map-count-halo {
+  fill: var(--surface);
+  stroke: none;
+}
+
 .gv-map .gv-map-count {
+  stroke-width: 0;
   fill: var(--link);
-  font: var(--fs-xs) var(--font-mono);
+  font: 600 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   text-anchor: middle;
 }
 
-.gv-map-edge[data-kind="plain"] .gv-map-count {
-  fill: var(--text-faint);
+.gv-map-count-wrap[data-kind="plain"] .gv-map-count {
+  fill: var(--text-muted);
 }
 
 .gv-map-node {
@@ -1278,22 +1616,36 @@
 }
 
 .gv-map-node[data-outside="true"] circle {
-  fill: var(--border);
+  fill: var(--surface);
+  stroke: var(--type-8);
+  stroke-width: 1.5;
+}
+
+/* Outside names sit on a wider 6px halo, so the spokes beside them stay clear. */
+.gv-map-labels text[data-outside="true"] {
+  fill: var(--text-muted);
+  stroke-width: 12px;
+}
+
+/* Untyped notes: a neutral wash with a 3:1 outline, so the node reads without its fill. */
+.gv-map-node[data-kind="untyped"] circle {
+  fill: color-mix(in srgb, var(--type-8) 28%, var(--surface));
+  stroke: var(--type-8);
+}
+
+.gv-map-node circle:not(.gv-map-arc) {
+  stroke-width: 1.5;
+}
+
+/* An interface or collapsed group: a neutral core ringed by its member types' hues. */
+.gv-map-node circle[data-composite="true"] {
+  fill: color-mix(in srgb, var(--type-8) 16%, var(--surface));
   stroke: var(--surface);
-  stroke-width: 1.5;
 }
 
-.gv-map-node[data-outside="true"] text {
-  fill: var(--text-faint);
-}
-
-.gv-map-node circle {
-  stroke-width: 1.5;
-}
-
-.gv-map-node .gv-map-ring {
+.gv-map-node .gv-map-arc {
   fill: none;
-  stroke-dasharray: 2 3;
+  pointer-events: none;
 }
 
 .gv-map-node:focus-visible circle:last-of-type {
@@ -1304,7 +1656,9 @@
 .gv-map[data-dim="true"] .gv-map-edge,
 .gv-map[data-dim="true"] .gv-map-node,
 .gv-map[data-dim="true"] .gv-map-spoke,
-.gv-map[data-dim="true"] .gv-map-unused {
+.gv-map[data-dim="true"] .gv-map-unused,
+.gv-map[data-dim="true"] .gv-map-labels > text,
+.gv-map[data-dim="true"] .gv-map-labels > .gv-map-count-wrap {
   opacity: 0.15;
 }
 
@@ -1340,7 +1694,7 @@
   gap: 4px 14px;
   margin: 4px 0 0;
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-legend i {
@@ -1352,8 +1706,29 @@
   vertical-align: -1px;
 }
 
-.gv-legend .gv-legend-outside {
-  background: var(--border);
+.gv-legend .gv-legend-untyped {
+  box-sizing: border-box;
+  border: 1.5px solid var(--type-8);
+  background: color-mix(in srgb, var(--type-8) 28%, var(--surface));
+}
+
+.gv-legend .gv-legend-composite {
+  box-sizing: border-box;
+  border: 2.5px solid transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--type-8) 16%, var(--surface))) padding-box,
+    conic-gradient(var(--type-1) 0 40%, var(--type-6) 0 65%, var(--type-5) 0) border-box;
+}
+
+.gv-legend-loose {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.gv-legend .gv-map-n {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .gv-legend s {
@@ -1361,12 +1736,60 @@
   width: 18px;
   height: 0;
   margin-right: 5px;
-  border-top: 3px solid var(--series-link);
+  border-top: 2.5px solid var(--link);
   vertical-align: 3px;
 }
 
 .gv-legend s[data-kind="plain"] {
-  border-top-color: var(--border-strong);
+  border-top-color: var(--type-8);
+}
+
+/* The map's key: Types, Links, and Outside the group, one labelled row each, 8px apart. */
+.gv-map-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.gv-map-legend-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.gv-map-legend dt {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gv-map-legend dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* An interface's ring, keyed segment by segment. */
+.gv-legend-ring {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.gv-legend-ring > span {
+  white-space: nowrap;
+}
+
+.gv-legend-ring > span i {
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
 }
 
 .gv-legend s[data-kind="unused"] {
@@ -1393,10 +1816,9 @@
 .gv-ov-mx th[scope="row"] {
   width: 1%;
   color: var(--text);
-  font-size: var(--fs-xs);
-  font-weight: 500;
   text-align: left;
   white-space: nowrap;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-mx td[data-cell="relation"] {
@@ -1442,11 +1864,18 @@
 .gv-ov-table .gv-record > .gv-faint,
 .gv-ov-table .gv-member > .gv-sub {
   margin-left: 0.3em;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-ov-chev {
-  width: 12px;
-  color: var(--text-faint);
+  margin-right: 2px;
+  color: var(--text-muted);
+}
+
+/* An interface row's chevron sits in the gutter, so its dot lines up with
+   the rows beside it. */
+.gv-ov-chev-button {
+  margin: -4px 0 -4px -22px;
 }
 
 .gv-ov-dot {
@@ -1466,9 +1895,16 @@
 }
 
 .gv-dist.gv-ov-bar {
-  width: 110px;
+  flex: none;
+  width: 72px;
   height: 7px;
   margin-top: 0;
+}
+
+.gv-ov-stage-key {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .gv-ov-share {
@@ -1539,6 +1975,20 @@
   text-overflow: ellipsis;
 }
 
+/* The targets wrap to two 13px lines before they cut. */
+.gv-ov-folders td.gv-ov-links {
+  white-space: normal;
+}
+
+.gv-ov-links-text {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .gv-ov-folder {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -1546,14 +1996,17 @@
 
 /* Declared, unused: the name sized to content, the field list truncating beside it. */
 .gv-ov-unused {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
+  font-size: var(--fs-sm);
 }
 
 .gv-ov-unused > .gv-sub {
   overflow: hidden;
-  text-align: right;
+  color: var(--text-muted);
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-ov-kv {
@@ -1566,8 +2019,85 @@
 
 .gv-ov-kv dt {
   color: var(--text-faint);
+  font: 500 13px / 1.4 var(--font-sans);
 }
 
 .gv-ov-kv dd {
   margin: 0;
+}
+
+/* A healthy Needs attention is one status row: the heading and its verdict. */
+.gv-healthy {
+  margin-left: 6px;
+  color: var(--success-ink);
+  font-weight: 400;
+}
+
+.gv-healthy-block .rz-section-head {
+  margin-bottom: 0;
+}
+
+/* The verdict follows the heading instead of sitting at the far right. */
+.gv-healthy-block .rz-section-controls {
+  order: 1;
+  margin-left: 0;
+}
+
+.gv-healthy-block .rz-info {
+  order: 2;
+}
+
+/* A zero problem count is a fact, not a risk: muted ink, still a way in. */
+.gv-issues.gv-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--warning-ink);
+}
+
+.gv-warn-mark {
+  width: 13px;
+  height: 13px;
+}
+
+.gv-issues.gv-zero {
+  color: var(--text-muted);
+}
+
+/* The map's one interaction hint, beside the Map/Matrix control. */
+.gv-map-hint {
+  margin-right: var(--sp-3, 12px);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.gv-page .link-secondary {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.gv-page .link-secondary:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gv-section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gv-map-legend s[data-kind="outside"] {
+  border: 0;
+  height: 3px;
+  background: radial-gradient(circle, var(--type-8) 1px, transparent 1px) 0 0 / 4px 3px repeat-x;
+}
+.gv-map-legend s[data-kind="unused"] {
+  border-top: 1.5px dashed var(--text-faint);
+}
+
+.gv-change-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }

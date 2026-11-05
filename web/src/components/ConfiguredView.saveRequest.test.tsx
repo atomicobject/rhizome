@@ -157,7 +157,7 @@ describe("Save view request", () => {
       state: { variant: "kanban", filterPreset: "mine" },
     });
 
-    expect(screen.getByRole("button", { name: "View options, unsaved changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Display options, unsaved changes" })).toBeVisible();
   });
 
   it("saves Group: None as an explicit no-grouping", async () => {
@@ -182,7 +182,7 @@ describe("Save view request", () => {
     });
 
     expect(screen.getByLabelText("Group by")).toHaveDisplayValue("None");
-    expect(screen.getByRole("button", { name: "View options" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Display options" })).toBeVisible();
   });
 
   it("saves no columns when only empty columns hide", async () => {

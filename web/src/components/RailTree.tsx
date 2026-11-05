@@ -14,12 +14,35 @@ import {
   useState,
 } from "react";
 
+import { typeAccentColor } from "../lib/typeAccent";
+import { DisclosureChevron } from "./DisclosureChevron";
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
 import { flattenRailNodes, label, type RailGroup, type RailNode } from "./noteRailGroups";
 import { useValidationQuery } from "./useNotesQueries";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
+
+/** Hide only empty type rows duplicated by a saved view in their own group. */
+export function withoutEmptyViewDuplicates(
+  groups: RailGroup[],
+  viewNames: Map<string, Set<string>>,
+): RailGroup[] {
+  return groups.map((group) => {
+    const names = viewNames.get(group.name);
+
+    const visible = (nodes: RailNode[]): RailNode[] =>
+      nodes.flatMap((node) => {
+        const children = visible(node.children);
+
+        return node.kind === "type" && node.type.count === 0 && names?.has(label(node.type))
+          ? children
+          : [{ ...node, children }];
+      });
+
+    return { ...group, children: visible(group.children) };
+  });
+}
 
 type RailDepthStyle = CSSProperties & { "--ontology-type-depth": number };
 
@@ -62,7 +85,6 @@ const ICONS = {
   view: "M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6",
   atlas:
     "M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM2 8h12M8 2c1.7 1.6 2.5 3.6 2.5 6S9.7 12.4 8 14M8 2C6.3 3.6 5.5 5.6 5.5 8s.8 4.4 2.5 6",
-  caret: "M6 4l4 4-4 4",
 } as const;
 
 export type RailIconName = keyof typeof ICONS;
@@ -229,7 +251,7 @@ function RailCaret({
         if (!asRow) event.currentTarget.parentElement?.querySelector<HTMLElement>(ROW)?.focus();
       }}
     >
-      <RailIcon name="caret" />
+      <DisclosureChevron open={open} />
     </button>
   );
 }
@@ -254,7 +276,7 @@ export function RailSectionHeader({
         onClick={onToggle}
       >
         <span className="ontology-type-row__collapse" aria-hidden="true">
-          <RailIcon name="caret" />
+          <DisclosureChevron open={open} />
         </span>
         {children}
       </button>
@@ -356,6 +378,12 @@ export function TypeTree({
             className={`ontology-type-row${depth > 1 ? " ontology-type-row--child" : ""}${node.kind === "interface" ? " ontology-type-row--interface" : ""}${disabled ? " ontology-type-row--embedded" : ""}${selected === item.name ? " is-selected" : ""}`}
             onClick={() => onSelect(item.name)}
           >
+            <span className="notes-left-rail__type-slot" aria-hidden="true">
+              <span
+                className="notes-left-rail__type-dot"
+                style={{ background: typeAccentColor(item.name) }}
+              />
+            </span>
             <span className="ontology-type-row__label">{label(item)}</span>
             <ValidationIssueBadge
               count={typeIssues}

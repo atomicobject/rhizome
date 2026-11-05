@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { readableTitle } from "./briefing-activity.tsx";
 
 import {
   BURST,
@@ -465,4 +466,11 @@ it("does not count records of member types beyond the record cap as outside", ()
   const model = { ...planning, records: new Map(records.map((record) => [record.key, record])) };
 
   expect(boundary(model).notes.map((note) => note.title)).not.toContain("Unread");
+});
+
+it("reads a timestamped file name by its slug and leaves other titles alone", () => {
+  expect(readableTitle("2026-09-05-11-42-starter-skill-consolidation")).toBe(
+    "Starter skill consolidation",
+  );
+  expect(readableTitle("Review and approval")).toBeNull();
 });

@@ -27,6 +27,7 @@ import { CoverageLine, DeclaredUnused, FolderBlock, GroupRecordsBlocks } from ".
 import { MemberTable, ScopeMatrix } from "./overview-tables.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, linkModel, scopeOf, type Scope } from "./scope.ts";
+import { NoIssues } from "./validation-freshness.tsx";
 import {
   blockStatus,
   useAggregatePart,
@@ -74,12 +75,42 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
       <span>
         <b>{data.model.types.size}</b> note {plural(data.model.types.size, "type", "types")}
       </span>
-      <button type="button" className="gv-issues" onClick={() => openIssues()}>
-        {fmt(facts.ambiguousNotes)} ambiguous
+      {/* Ambiguous notes are a warning, not an error: warning ink with a mark; zero reads muted. */}
+      <button
+        type="button"
+        className={facts.ambiguousNotes ? "gv-issues gv-warn" : "gv-issues gv-zero"}
+        title="Notes whose type could not be decided"
+        onClick={() => openIssues()}
+      >
+        <span className="gv-fact-scope">Typing:</span>{" "}
+        {facts.ambiguousNotes > 0 && (
+          <svg className="gv-warn-mark" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 2.2 14.4 13.5H1.6Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M8 6.6v3.2M8 11.6v.1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+        {fmt(facts.ambiguousNotes)} ambiguous {plural(facts.ambiguousNotes, "note", "notes")}
       </button>
-      {issues !== undefined && (
+      {issues === 0 && (
+        <span>
+          <span className="gv-fact-scope">Validation:</span> <NoIssues />
+        </span>
+      )}
+      {issues !== undefined && issues > 0 && (
         <button type="button" className="gv-issues" onClick={() => openIssues()}>
-          {fmt(issues)} {plural(issues, "issue", "issues")}
+          <span className="gv-fact-scope">Validation:</span> {fmt(issues)}{" "}
+          {plural(issues, "issue", "issues")}
         </button>
       )}
     </span>
@@ -93,8 +124,8 @@ function GroupFactsList({ data }: { data: ScopeData }) {
 
   return (
     <span className="gv-facts-list">
-      <span>
-        <b>{fmt(records)}</b> {plural(records, "record", "records")}
+      <span title="Records with one decided type; a note with an ambiguous type counts as untyped">
+        <b>{fmt(records)}</b> typed {plural(records, "record", "records")}
       </span>
       <span>
         <b>{data.model.nodes.length}</b> {plural(data.model.nodes.length, "type", "types")}
@@ -104,7 +135,7 @@ function GroupFactsList({ data }: { data: ScopeData }) {
           {fmt(issues)} {plural(issues, "issue", "issues")}
         </span>
       ) : (
-        <span className="gv-ok">✓ no issues</span>
+        <NoIssues />
       )}
     </span>
   );
@@ -188,15 +219,22 @@ function MapBlock({ data, expanded, onToggle }: { data: ScopeData } & Expansion)
       title="Map"
       className="gv-slot-map"
       controls={
-        <Segmented
-          label="Map or matrix"
-          value={mode.value}
-          options={[
-            { value: "map", label: "Map" },
-            { value: "matrix", label: "Matrix" },
-          ]}
-          onChange={choose}
-        />
+        <>
+          {mode.value === "map" && (
+            <span className="gv-map-hint">
+              {group ? "Select a type to expand it." : "Select a group to expand it."}
+            </span>
+          )}
+          <Segmented
+            label="Map or matrix"
+            value={mode.value}
+            options={[
+              { value: "map", label: "Map" },
+              { value: "matrix", label: "Matrix" },
+            ]}
+            onChange={choose}
+          />
+        </>
       }
     >
       <BlockBody status={status} what="the map">
@@ -276,9 +314,16 @@ function OverviewPage({ scope }: { scope: Scope }) {
       <ScopeFacts scope={scope} data={data} status={status} />
       {!data.missing && (
         <>
-          <div className="gv-ov">
+          {/* All notes keeps Members under the map and the folder table beside them,
+              so the side column's height never pushes Members below the fold. */}
+          <div className={scope.kind === "workspace" ? "gv-ov gv-ov--workspace" : "gv-ov"}>
             <div className="gv-ov-main">
               <MapBlock data={data} {...expansion} />
+              {scope.kind === "workspace" && (
+                <div className="gv-ov-members">
+                  <MembersBlock data={data} {...expansion} />
+                </div>
+              )}
             </div>
             <div className="gv-ov-side">
               {scope.kind === "workspace" ? (
@@ -294,9 +339,11 @@ function OverviewPage({ scope }: { scope: Scope }) {
               )}
             </div>
           </div>
-          <div className="gv-ov-members">
-            <MembersBlock data={data} {...expansion} />
-          </div>
+          {scope.kind !== "workspace" && (
+            <div className="gv-ov-members">
+              <MembersBlock data={data} {...expansion} />
+            </div>
+          )}
         </>
       )}
     </main>

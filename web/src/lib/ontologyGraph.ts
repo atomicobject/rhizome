@@ -25,6 +25,8 @@ export type OntologyNodeData = {
   scalarFieldCount: number;
   relationCount: number;
   sectionCount: number;
+  /** Relations from the type to itself, drawn as a badge on the card rather than a line. */
+  selfRelations?: string[];
 };
 
 export type OntologyNode = {
@@ -47,6 +49,13 @@ export type OntologyEdge = {
   label?: string;
   data?: { fieldName: string; list: boolean };
   points?: ElkPoint[];
+  /**
+   * How far the line leaves above or below its source card's middle, and
+   * arrives above or below its target's. Every line at a card side gets its
+   * own lane, at least LANE_GAP apart, so no two share a trunk.
+   */
+  sourceOffset?: number;
+  targetOffset?: number;
 };
 
 // WHY: the atlas endpoint also returns section docs, which the generated
@@ -68,15 +77,38 @@ type VisibleSchemaField = {
   list: boolean;
 };
 
-export const NODE_WIDTH = 280;
+/**
+ * Atlas cards are compact and all one size: the name on two lines (a
+ * multi-word name always breaks before its last word, see `nameLines`) and
+ * one line of counts. Fields live on the type page, so a card's size follows
+ * its text, not its schema, and the whole ontology fits at a zoom where names
+ * read at about 14px. Sizes are in card units; ontology.css sets the same type
+ * sizes.
+ */
+export const NODE_WIDTH = 200;
 
-export const ROW_HEIGHT = 22;
+/** A card's name size and line height, in card units. */
+const NAME_SIZE = 20;
 
-export const HEADER_HEIGHT = 104;
+const NAME_LINE = NAME_SIZE * 1.25;
 
-export const FIELD_LIST_TOP_PADDING = 4;
+/** A type label's two display lines: everything before its last word, then the last word. */
+export function nameLines(label: string): [string, string] {
+  const words = label.split(" ");
+
+  return words.length > 1 ? [words.slice(0, -1).join(" "), words.at(-1) ?? ""] : [label, ""];
+}
+
+/** Padding, the gap below the name, and the counts line. */
+const CARD_CHROME = 16 + 4 + 18 * 1.3;
 
 const NODE_BORDER_WIDTH = 1;
+
+/** The gap between lanes at one side of a card, in card units (about 9px at the Atlas's fit zoom). */
+const LANE_GAP = 18;
+
+/** Lanes stay this far inside a card's top and bottom edges. */
+const LANE_INSET = 10;
 
 export const TYPE_TARGET_LEFT_HANDLE = "type-target-left";
 
@@ -136,16 +168,10 @@ function dedupeNodeFields(fields: OntologyNodeField[]): OntologyNodeField[] {
   });
 }
 
-function nodeHeight(fields: OntologyNodeField[]): number {
-  const schemaEdgeRows = fields.filter((f) => f.isSchemaEdge).length;
-  const summaryRow = fields.length - schemaEdgeRows > 0 ? 1 : 0;
-
-  return (
-    NODE_BORDER_WIDTH * 2 +
-    HEADER_HEIGHT +
-    FIELD_LIST_TOP_PADDING * 2 +
-    (schemaEdgeRows + summaryRow) * ROW_HEIGHT
-  );
+/** A card's height: two name lines and the counts line, the same for every card. */
+export function cardHeight(): number {
+  // Even, so the middle where edges attach is a whole pixel.
+  return 2 * Math.ceil((NODE_BORDER_WIDTH * 2 + CARD_CHROME + 2 * NAME_LINE) / 2);
 }
 
 function nodeSurveyData(fields: OntologyNodeField[]) {
@@ -176,16 +202,6 @@ function nodeSurveyData(fields: OntologyNodeField[]) {
 
 export function relationSourceHandle(fieldName: string, side: "left" | "right"): string {
   return `field-${fieldName}-${side}`;
-}
-
-export function fieldRowMidpointY(rowIndex: number): number {
-  return (
-    NODE_BORDER_WIDTH +
-    HEADER_HEIGHT +
-    FIELD_LIST_TOP_PADDING +
-    rowIndex * ROW_HEIGHT +
-    ROW_HEIGHT / 2
-  );
 }
 
 function nodeMidpointY(node: OntologyNode): number {
@@ -277,6 +293,7 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
   for (const i of interfaces) known.add(i.name);
 
   const nodes: OntologyNode[] = [];
+  const width = NODE_WIDTH;
 
   function schemaTargets(fields: OntologyNodeField[]): string[] {
     const targets = new Set<string>();
@@ -434,8 +451,8 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
       id: name,
       type: "ontologyType",
       position: { x: 0, y: 0 },
-      width: NODE_WIDTH,
-      height: nodeHeight(fields),
+      width,
+      height: cardHeight(),
       data: {
         name,
         count: entry.count,
@@ -476,8 +493,8 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
       id: name,
       type: "ontologyType",
       position: { x: 0, y: 0 },
-      width: NODE_WIDTH,
-      height: nodeHeight(fields),
+      width,
+      height: cardHeight(),
       data: {
         name,
         count: 0,
@@ -559,8 +576,74 @@ export function buildOntologyGraph(atlas: OntologyAtlasGraphPayload): OntologyGr
   return { nodes, edges };
 }
 
-export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<OntologyGraphModel> {
-  const { children = [], edges: laidOutEdges = [] } = await elk.layout({
+/**
+ * Each line's lane at its card: the lines leaving a card's right side, and
+ * those arriving at a card's left side, spread LANE_GAP apart around its
+ * middle (closer when a card has more lines than room), ordered by where the
+ * other end sits so neighboring lanes do not cross. `order` gives each card's
+ * position from an earlier pass; without one, lines keep model order.
+ */
+function laneOffsets(
+  nodes: readonly OntologyNode[],
+  edges: readonly OntologyEdge[],
+  order?: ReadonlyMap<string, number>,
+) {
+  const height = new Map(nodes.map((node) => [node.id, node.height]));
+  const rank = (id: string) => order?.get(id) ?? 0;
+  const source = new Map<string, number>();
+  const target = new Map<string, number>();
+
+  const spread = (
+    lines: OntologyEdge[],
+    card: string,
+    other: (edge: OntologyEdge) => string,
+    into: Map<string, number>,
+  ) => {
+    const room = (height.get(card) ?? 0) - 2 * LANE_INSET;
+    const gap = lines.length > 1 ? Math.min(LANE_GAP, room / (lines.length - 1)) : 0;
+
+    [...lines]
+      .sort((a, b) => rank(other(a)) - rank(other(b)))
+      .forEach((edge, index) => into.set(edge.id, (index - (lines.length - 1) / 2) * gap));
+  };
+
+  const group = (key: (edge: OntologyEdge) => string) => {
+    const groups = new Map<string, OntologyEdge[]>();
+
+    for (const edge of edges) groups.set(key(edge), [...(groups.get(key(edge)) ?? []), edge]);
+
+    return groups;
+  };
+
+  for (const [card, lines] of group((edge) => edge.source))
+    spread(lines, card, (edge) => edge.target, source);
+
+  for (const [card, lines] of group((edge) => edge.target))
+    spread(lines, card, (edge) => edge.source, target);
+
+  return { source, target };
+}
+
+async function elkLayout(
+  graph: OntologyGraphModel,
+  routed: readonly OntologyEdge[],
+  lanes: ReturnType<typeof laneOffsets>,
+) {
+  // Inbound neighbor fields echo a forward relation. Reverse only their
+  // layout constraint so these hidden back-links do not turn the schema around.
+  const reaches = (from: string, to: string, seen = new Set<string>()): boolean => {
+    if (from === to) return true;
+
+    if (seen.has(from)) return false;
+
+    seen.add(from);
+
+    return routed.some(
+      (edge) => edge.kind !== "neighbor" && edge.source === from && reaches(edge.target, to, seen),
+    );
+  };
+
+  return elk.layout({
     id: "ontology",
     layoutOptions: {
       "elk.algorithm": "layered",
@@ -570,89 +653,82 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
       "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
       "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
       "elk.layered.spacing.edgeNodeBetweenLayers": "24",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "64",
-      "elk.aspectRatio": "1.5",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "44",
+      "elk.aspectRatio": "1.7",
       "elk.spacing.nodeNode": "28",
+      // Parallel lanes stay at least LANE_GAP apart in the channels between layers too.
+      "elk.spacing.edgeEdge": String(LANE_GAP),
+      "elk.layered.spacing.edgeEdgeBetweenLayers": String(LANE_GAP),
       "elk.padding": "[top=20,left=20,bottom=20,right=20]",
     },
-    children: graph.nodes.map((n) => {
-      let schemaEdgeIndex = 0;
-
-      return {
-        id: n.id,
-        width: n.width,
-        height: n.height,
-        layoutOptions: {
-          "elk.portConstraints": "FIXED_POS",
-        },
-        ports: [
-          {
-            id: `${n.id}:${TYPE_TARGET_LEFT_HANDLE}`,
-            x: 0,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          {
-            id: `${n.id}:${TYPE_TARGET_RIGHT_HANDLE}`,
-            x: n.width,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          {
-            id: `${n.id}:${IMPL_SOURCE_LEFT_HANDLE}`,
-            x: 0,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          {
-            id: `${n.id}:${IMPL_SOURCE_RIGHT_HANDLE}`,
-            x: n.width,
-            y: nodeMidpointY(n),
-            width: 0,
-            height: 0,
-          },
-          ...n.data.fields.flatMap((f) => {
-            if (!f.isSchemaEdge) return [];
-            const y = fieldRowMidpointY(schemaEdgeIndex);
-            schemaEdgeIndex += 1;
-
-            return [
+    children: graph.nodes.map((n) => ({
+      id: n.id,
+      width: n.width,
+      height: n.height,
+      layoutOptions: { "elk.portConstraints": "FIXED_POS" },
+      // One port per line end, at its lane, so ELK routes every line on its own.
+      ports: routed.flatMap((edge) => [
+        ...(edge.source === n.id
+          ? [
               {
-                id: `${n.id}:${relationSourceHandle(f.name, "left")}`,
-                x: 0,
-                y,
-                width: 0,
-                height: 0,
-              },
-              {
-                id: `${n.id}:${relationSourceHandle(f.name, "right")}`,
+                id: `${edge.id}:out`,
                 x: n.width,
-                y,
+                y: nodeMidpointY(n) + (lanes.source.get(edge.id) ?? 0),
                 width: 0,
                 height: 0,
               },
-            ];
-          }),
-        ],
-      };
-    }),
-    edges: graph.edges.map((e) => {
+            ]
+          : []),
+        ...(edge.target === n.id
+          ? [
+              {
+                id: `${edge.id}:in`,
+                x: 0,
+                y: nodeMidpointY(n) + (lanes.target.get(edge.id) ?? 0),
+                width: 0,
+                height: 0,
+              },
+            ]
+          : []),
+      ]),
+    })),
+    edges: routed.map((e) => {
+      const reverse = e.kind === "neighbor" && reaches(e.target, e.source);
+
       return {
         id: e.id,
-        sources: [`${e.source}:${e.sourceHandle ?? implSourceHandle("right")}`],
-        targets: [`${e.target}:${e.targetHandle ?? typeTargetHandle("left")}`],
+        sources: [reverse ? `${e.id}:in` : `${e.id}:out`],
+        targets: [reverse ? `${e.id}:out` : `${e.id}:in`],
       };
     }),
   });
+}
+
+export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<OntologyGraphModel> {
+  // A relation to the card's own type is a badge on the card (OntologyTypeNode), not a line.
+  const routed = graph.edges.filter((edge) => edge.source !== edge.target);
+  const selfRelations = new Map<string, string[]>();
+
+  for (const edge of graph.edges)
+    if (edge.source === edge.target && edge.data)
+      selfRelations.set(edge.source, [
+        ...(selfRelations.get(edge.source) ?? []),
+        edge.data.fieldName,
+      ]);
+
+  // Two passes order lanes by where their other ends landed.
+  const first = await elkLayout(graph, routed, laneOffsets(graph.nodes, routed));
+  const order = new Map((first.children ?? []).map((child) => [child.id, child.y ?? 0]));
+  const lanes = laneOffsets(graph.nodes, routed, order);
+  const { children = [], edges: laidOutEdges = [] } = await elkLayout(graph, routed, lanes);
 
   const positioned = graph.nodes.map((n) => {
     const laidOut = children.find((child) => child.id === n.id);
+    const own = selfRelations.get(n.id);
 
     return {
       ...n,
+      data: own ? { ...n.data, selfRelations: own } : n.data,
       position: {
         x: laidOut?.x ?? 0,
         y: laidOut?.y ?? 0,
@@ -673,10 +749,183 @@ export async function layoutOntologyGraph(graph: OntologyGraphModel): Promise<On
     }));
   }
 
-  const routedEdges = graph.edges.map((edge) => ({
+  const routedEdges = routed.map((edge) => ({
     ...edge,
-    points: edgeRoutePoints(laidOutEdgesById.get(edge.id)),
+    points: laidOutEdgesById.get(edge.id)?.sources[0]?.endsWith(":in")
+      ? edgeRoutePoints(laidOutEdgesById.get(edge.id)).reverse()
+      : edgeRoutePoints(laidOutEdgesById.get(edge.id)),
+    sourceOffset: lanes.source.get(edge.id) ?? 0,
+    targetOffset: lanes.target.get(edge.id) ?? 0,
   }));
 
-  return { nodes: positioned, edges: routedEdges };
+  return packComponents({ nodes: positioned, edges: routedEdges });
+}
+
+type Rect = { x: number; y: number; w: number; h: number };
+
+/** ELK's padding around the drawing, in card units. */
+const LAYOUT_PADDING = 20;
+
+/** The least gap between disconnected groups of types after packing, in card units. */
+const COMPONENT_GAP = 40;
+
+/** The packing grid, in card units. */
+const PACK_STEP = 10;
+
+/** The canvas's usual width over height; packing keeps the drawing near it, so it fits large. */
+const VIEW_ASPECT = 1.6;
+
+function boundsOf(rects: readonly Rect[]): Rect {
+  const x = Math.min(...rects.map((r) => r.x));
+  const y = Math.min(...rects.map((r) => r.y));
+
+  return {
+    x,
+    y,
+    w: Math.max(...rects.map((r) => r.x + r.w)) - x,
+    h: Math.max(...rects.map((r) => r.y + r.h)) - y,
+  };
+}
+
+const intersects = (a: Rect, b: Rect, gap: number) =>
+  a.x - gap < b.x + b.w && a.x + a.w + gap > b.x && a.y - gap < b.y + b.h && a.y + a.h + gap > b.y;
+
+/**
+ * ELK stacks disconnected groups of types in a row, which can leave a void
+ * beside the largest one. This moves each smaller group with more than one
+ * type, largest first, to the free spot at least COMPONENT_GAP clear of every
+ * card and line already placed that keeps the drawing smallest at the
+ * canvas's aspect. Lone types stay in ELK's packed grid.
+ */
+export function packComponents(graph: OntologyGraphModel): OntologyGraphModel {
+  const root = new Map(graph.nodes.map((node) => [node.id, node.id]));
+
+  const find = (id: string): string => {
+    const parent = root.get(id) ?? id;
+
+    return parent === id ? id : find(parent);
+  };
+
+  for (const edge of graph.edges)
+    if (root.has(edge.source) && root.has(edge.target))
+      root.set(find(edge.source), find(edge.target));
+
+  const groups = new Map<string, OntologyNode[]>();
+
+  for (const node of graph.nodes)
+    groups.set(find(node.id), [...(groups.get(find(node.id)) ?? []), node]);
+
+  const ordered = [...groups.values()].sort((a, b) => b.length - a.length);
+  const moving = ordered.slice(1).filter((group) => group.length > 1);
+
+  if (moving.length === 0) return graph;
+  const movingIds = new Set(moving.flat().map((node) => node.id));
+  const rect = (node: OntologyNode): Rect => ({ ...node.position, w: node.width, h: node.height });
+
+  const segments = (edge: OntologyEdge): Rect[] =>
+    (edge.points ?? []).slice(1).map((point, index) => {
+      const from = (edge.points ?? [])[index];
+
+      return {
+        x: Math.min(from.x, point.x),
+        y: Math.min(from.y, point.y),
+        w: Math.abs(point.x - from.x),
+        h: Math.abs(point.y - from.y),
+      };
+    });
+
+  const obstacles: Rect[] = [
+    ...graph.nodes.filter((node) => !movingIds.has(node.id)).map(rect),
+    ...graph.edges.filter((edge) => !movingIds.has(edge.source)).flatMap(segments),
+  ];
+
+  const shifts = new Map<string, { dx: number; dy: number }>();
+
+  for (const group of moving) {
+    const ids = new Set(group.map((node) => node.id));
+
+    const own = [
+      ...group.map(rect),
+      ...graph.edges.filter((e) => ids.has(e.source)).flatMap(segments),
+    ];
+
+    const box = boundsOf(own);
+    const placed = boundsOf(obstacles);
+
+    let best: { dx: number; dy: number; cost: number } | null = null;
+
+    // A grid over the placed drawing and its margin, plus the spots flush with its edges.
+    const span = (from: number, to: number, ...flush: number[]) => [
+      ...Array.from(
+        { length: Math.floor((to - from) / PACK_STEP) + 1 },
+        (_, i) => from + i * PACK_STEP,
+      ),
+      ...flush,
+    ];
+
+    const xs = span(
+      placed.x - box.w - COMPONENT_GAP,
+      placed.x + placed.w + COMPONENT_GAP,
+      placed.x,
+      placed.x + placed.w - box.w,
+    );
+
+    const ys = span(
+      placed.y - box.h - COMPONENT_GAP,
+      placed.y + placed.h + COMPONENT_GAP,
+      placed.y,
+      placed.y + placed.h - box.h,
+    );
+
+    for (const y of ys) {
+      for (const x of xs) {
+        const dx = x - box.x;
+        const dy = y - box.y;
+        const moved = own.map((r) => ({ ...r, x: r.x + dx, y: r.y + dy }));
+
+        if (moved.some((r) => obstacles.some((o) => intersects(r, o, COMPONENT_GAP)))) continue;
+        const all = boundsOf([placed, ...moved]);
+        // The side that limits the zoom, then the area, so ties pick the tightest spot.
+        const cost = Math.max(all.w, all.h * VIEW_ASPECT) + (all.w * all.h) / 1e6;
+
+        if (!best || cost < best.cost) best = { dx, dy, cost };
+      }
+    }
+
+    if (!best) continue;
+
+    for (const r of own) obstacles.push({ ...r, x: r.x + best.dx, y: r.y + best.dy });
+
+    for (const id of ids) shifts.set(id, best);
+  }
+
+  // Moving a group can leave the old origin empty; start the drawing at ELK's padding again.
+  const moved = graph.nodes.map((node) => {
+    const { dx, dy } = shifts.get(node.id) ?? { dx: 0, dy: 0 };
+
+    return { x: node.position.x + dx, y: node.position.y + dy };
+  });
+
+  const originX = Math.min(...moved.map((point) => point.x)) - LAYOUT_PADDING;
+  const originY = Math.min(...moved.map((point) => point.y)) - LAYOUT_PADDING;
+
+  const shift = (id: string) => {
+    const { dx, dy } = shifts.get(id) ?? { dx: 0, dy: 0 };
+
+    return { dx: dx - originX, dy: dy - originY };
+  };
+
+  return {
+    nodes: graph.nodes.map((node) => ({
+      ...node,
+      position: { x: node.position.x + shift(node.id).dx, y: node.position.y + shift(node.id).dy },
+    })),
+    edges: graph.edges.map((edge) => ({
+      ...edge,
+      points: edge.points?.map((point) => ({
+        x: point.x + shift(edge.source).dx,
+        y: point.y + shift(edge.source).dy,
+      })),
+    })),
+  };
 }

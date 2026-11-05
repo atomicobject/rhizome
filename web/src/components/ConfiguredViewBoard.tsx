@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { type ComponentProps, type DragEvent, useEffect, useState } from "react";
 
 import type { OntologyEditOp, ViewTableRow } from "../api/types";
@@ -11,6 +12,7 @@ import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { type BoardColumn, type BoardLane, boardLanes, placeStagedCards } from "./boardLayout";
 import { groupValueOp, useViewReorder } from "./useViewReorder";
 import { useRememberedExpansion } from "./useRememberedExpansion";
+import { mostCommon } from "./useViewLayout";
 import { isStaleRow } from "./viewProfile";
 
 type Props = ComponentProps<typeof ConfiguredViewTable>;
@@ -42,9 +44,6 @@ export function ConfiguredViewBoard(props: Props) {
     board?.laneField ?? "",
   );
 
-  const columnCollapsed = (column: BoardColumn) =>
-    !columnExpansion.isExpanded(column.key, !column.collapsedByDefault);
-
   const [dragged, setDragged] = useState<DraggedCard | null>(null);
   const [dropCellKey, setDropCellKey] = useState<string | null>(null);
   const [menuCardKey, setMenuCardKey] = useState<string | null>(null);
@@ -59,11 +58,9 @@ export function ConfiguredViewBoard(props: Props) {
     setMoveError(null);
   }, [execution.executionFingerprint, board?.columnField]);
 
-  const collapsedCount = board?.columns.filter(columnCollapsed).length ?? 0;
-
   useEffect(() => {
-    onCollapsedGroupCountChange(collapsedCount);
-  }, [collapsedCount, onCollapsedGroupCountChange]);
+    onCollapsedGroupCountChange(0);
+  }, [onCollapsedGroupCountChange]);
 
   const columnCapability = capabilityFor(capabilities, board?.columnField ?? "");
 
@@ -117,6 +114,8 @@ export function ConfiguredViewBoard(props: Props) {
   const profileCards = profile && (view.generated || !view.variants.kanban?.card);
   const hiddenFields = [columnField, lanes?.field ?? ""];
   const now = Date.now();
+  // An interface board names a card's type only when it differs from the one most share.
+  const dominantType = mostCommon(props.rows.map((row) => row.resolvedType));
 
   const labelFor = (column: BoardColumn) =>
     groupValueLabel(columnCapability, column.value, column.label);
@@ -130,17 +129,14 @@ export function ConfiguredViewBoard(props: Props) {
       ? rows.length
       : column.count + (placement.countDelta.get(column.key) ?? 0);
 
-    const collapsed = columnCollapsed(column);
-
     return {
       column,
       rows,
       count,
-      collapsed,
-      // An uncollapsed value with no records still takes drops, as a narrow strip.
-      strip: collapsed || count === 0,
+      // Empty values retain a narrow drop track.
+      strip: count === 0,
       stale: profile ? rows.filter((row) => isStaleRow(row, profile, capabilities, now)).length : 0,
-      compact: rows.length > COMPACT_ABOVE,
+      compact: !columnExpansion.isExpanded(column.key, rows.length <= COMPACT_ABOVE),
       label: labelFor(column),
     };
   });
@@ -212,7 +208,8 @@ export function ConfiguredViewBoard(props: Props) {
   function toggleColumn(key: string) {
     const column = board?.columns.find((item) => item.key === key);
 
-    if (column) columnExpansion.toggle(key, !column.collapsedByDefault);
+    if (!column) return;
+    columnExpansion.toggle(key, (placement?.rows.get(key)?.length ?? 0) <= COMPACT_ABOVE);
   }
 
   /** Drop handlers for one cell: a column, or a column within a lane. */
@@ -259,8 +256,11 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Columns stay 260–360px (SPEC-0126 US7): a wider window shows more of them, not wider ones.
-  const template = columns.map((item) => (item.strip ? "34px" : "minmax(260px, 360px)")).join(" ");
+  // Fixed tracks, shared by the header row and every lane, keep headers over
+  // their cards: open columns run 260–360px, an empty or collapsed value a
+  // compact 140px strip. A narrow window scrolls.
+  const template = columns.map((item) => (item.strip ? "140px" : "minmax(260px, 360px)")).join(" ");
+
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
   function renderCard(row: ViewTableRow, item: (typeof columns)[number], lane: BoardLane | null) {
@@ -291,7 +291,7 @@ export function ConfiguredViewBoard(props: Props) {
               otherLanes={Math.max(0, memberships - 1)}
               stale={isStaleRow(row, profile, capabilities, now)}
               compact={item.compact}
-              showType={Boolean(view.source.interface)}
+              showType={Boolean(view.source.interface) && row.resolvedType !== dominantType}
               onOpenRow={props.onOpenRow}
             />
           ) : undefined
@@ -363,14 +363,10 @@ export function ConfiguredViewBoard(props: Props) {
       return (
         <div
           key={cellKey}
-          className={`configured-view__board-strip-cell${item.collapsed ? "" : " is-empty"}${isDropTarget ? " is-drop-target" : ""}`}
+          className={`configured-view__board-strip-cell is-empty${isDropTarget ? " is-drop-target" : ""}`}
           aria-label={cellLabel}
           {...dropProps(column, lane, cellKey)}
-        >
-          <span className="configured-view__board-strip-label" aria-hidden>
-            {label}
-          </span>
-        </div>
+        ></div>
       );
     }
 
@@ -431,7 +427,11 @@ export function ConfiguredViewBoard(props: Props) {
                     aria-expanded={!collapsed}
                     onClick={() => laneExpansion.toggle(lane.key, true)}
                   >
-                    <span className="configured-view__card-section-caret" aria-hidden />
+                    <ChevronRight
+                      size={16}
+                      className="configured-view__disclosure-icon"
+                      aria-hidden
+                    />
                     <LaneMark lane={lane} />
                     <span className="configured-view__board-count">
                       {locallyFiltered

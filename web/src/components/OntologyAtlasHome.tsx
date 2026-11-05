@@ -6,6 +6,21 @@ const OntologyGraph = lazy(() =>
   import("./OntologyGraph").then((m) => ({ default: m.OntologyGraph })),
 );
 
+function AtlasHeader({ count, about }: { count?: number; about?: string }) {
+  return (
+    <header className="view-header">
+      <div className="view-header__title-row">
+        <h2>Ontology Atlas</h2>
+        {count !== undefined ? <span className="view-header__count">{count}</span> : null}
+        {about ? <span className="view-header__about">{about}</span> : null}
+      </div>
+    </header>
+  );
+}
+
+const plural = (count: number, one: string, many: string) =>
+  `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+
 type Props = {
   atlas: OntologyAtlasResponse | null;
   error: string | null;
@@ -16,7 +31,7 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
   if (error) {
     return (
       <section className="ontology-atlas">
-        <h1>Ontology Atlas</h1>
+        <AtlasHeader />
         <div role="alert" className="ontology-atlas__error">
           Failed to load atlas: {error}
           {onRetry ? (
@@ -32,7 +47,7 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
   if (!atlas) {
     return (
       <section className="ontology-atlas">
-        <h1>Ontology Atlas</h1>
+        <AtlasHeader />
         <p className="ontology-atlas__loading delayed-status">Loading…</p>
       </section>
     );
@@ -41,7 +56,7 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
   if (!atlas.schemaPresent) {
     return (
       <section className="ontology-atlas">
-        <h1>Ontology Atlas</h1>
+        <AtlasHeader />
         <p className="ontology-atlas__zero">
           This vault has no ontology schema yet. Add a <code>.rhizome/ontology/*.graphql</code> file
           to define typed notes, interfaces, and relations. Once present, this page will show every
@@ -53,27 +68,18 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
 
   const types = atlas.types ?? [];
   const interfaces = atlas.interfaces ?? [];
-  const totalTyped = types.reduce((acc, entry) => acc + (entry.count ?? 0), 0);
+  // Cards tell records from items embedded in other notes, so the header does too.
+  const isEmbedded = (entry: (typeof types)[number]) => entry.type?.locator === "EMBEDDED";
+  const sum = (list: typeof types) => list.reduce((acc, entry) => acc + (entry.count ?? 0), 0);
+  const records = sum(types.filter((entry) => !isEmbedded(entry)));
+  const embedded = sum(types.filter(isEmbedded));
 
   return (
     <section className="ontology-atlas">
-      <header className="ontology-atlas__header">
-        <h1>Ontology Atlas</h1>
-        <dl className="ontology-atlas__stats">
-          <div>
-            <dt>Types</dt>
-            <dd>{types.length}</dd>
-          </div>
-          <div>
-            <dt>Interfaces</dt>
-            <dd>{interfaces.length}</dd>
-          </div>
-          <div>
-            <dt>Typed nodes</dt>
-            <dd>{totalTyped}</dd>
-          </div>
-        </dl>
-      </header>
+      <AtlasHeader
+        count={types.length + interfaces.length}
+        about={`${plural(types.length, "type", "types")} and ${plural(interfaces.length, "interface", "interfaces")} · ${plural(records, "record", "records")}${embedded ? ` · ${plural(embedded, "embedded item", "embedded items")}` : ""}`}
+      />
 
       <div className="ontology-atlas__diagram-scroll">
         <Suspense fallback={<p className="delayed-status">Rendering diagram…</p>}>

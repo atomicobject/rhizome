@@ -108,7 +108,9 @@ test("clean, stale, and failed validation stay calm and distinct at both desktop
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 768 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/notes/issues");
-    await expect(page.getByText("No issues found", { exact: true })).toBeVisible();
+    await expect(
+      page.locator(".validation-status-strip").getByText("No issues", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("Needs attention", { exact: true })).toHaveCount(0);
     await expect(page.getByPlaceholder("Search issues…")).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Note list", exact: true })).toHaveCount(0);
@@ -122,7 +124,9 @@ test("clean, stale, and failed validation stay calm and distinct at both desktop
   state = { ...state, health: "stale" };
   await page.reload();
   await expect(page.getByText("Results are out of date", { exact: true })).toBeVisible();
-  await expect(page.getByText("No issues found", { exact: true })).toHaveCount(0);
+  await expect(
+    page.locator(".validation-status-strip").getByText("No issues", { exact: true }),
+  ).toHaveCount(0);
   state = { ...state, status: "error", health: "failed", error: "Fixture refresh unavailable" };
   await page.reload();
   await expect(page.getByText("Refresh failed", { exact: true })).toBeVisible();
@@ -193,7 +197,9 @@ test("501 diagnostics remain reachable and filtered-empty is not clean", async (
   await expect(page.locator('[data-issue-key="fixture-499"]')).toBeFocused();
   await page.getByPlaceholder("Search issues…").fill("no match");
   await expect(page.getByText("No issues match these filters.", { exact: true })).toBeVisible();
-  await expect(page.getByText("No issues found", { exact: true })).toHaveCount(0);
+  await expect(
+    page.locator(".validation-status-strip").getByText("No issues", { exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await expect(page.locator("[data-issue-key]")).toHaveCount(501);
 });

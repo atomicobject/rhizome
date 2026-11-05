@@ -13,114 +13,43 @@
   background: var(--surface);
 }
 
-/* ---- Slim status strip ---- */
+/* ---- Header: the shared view header, with one search at the right ---- */
 
-.explorer-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  padding: 8px 20px;
-  background: var(--surface);
+.explorer-header .view-header__title-row {
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  min-height: 44px;
 }
 
-.explorer-bar__title {
-  display: flex;
-  align-items: baseline;
+.explorer-header .explorer-bar__search {
+  position: relative;
+  flex: 0 1 440px;
   gap: var(--sp-3);
   min-width: 0;
 }
 
-.explorer-bar__title h1 {
-  font-size: var(--fs-xl);
-  font-weight: 700;
-  margin: 0;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.explorer-bar__title p {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.explorer-bar__search {
-  position: relative;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  max-width: 560px;
-  min-width: 0;
-  margin-left: var(--sp-5);
-}
-
-.explorer-bar__search input[type="search"],
-.explorer-bar__search input[type="text"] {
+/* The shared find input (.configured-view__find), widened to the search column. */
+.explorer-bar__search .explorer-bar__find {
   flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  border-radius: var(--r);
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  font-size: var(--fs-base);
-  font-family: var(--font-sans);
-  transition: border-color 0.15s var(--ease);
+  width: auto;
+  min-width: 160px;
+  margin-right: 0;
 }
 
-.explorer-bar__search-btn {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+.explorer-bar__matches {
   color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: var(--r);
-  font: inherit;
   font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-}
-
-.explorer-bar__search-btn:hover {
-  background: var(--bg-tint);
-  color: var(--text);
-}
-
-.explorer-bar__search-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 .explorer-bar__filter {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: var(--fs-xs);
+  gap: 6px;
   color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.explorer-bar__filter--disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.explorer-bar__filter input[type="checkbox"] {
-  accent-color: var(--accent-fill);
-  cursor: pointer;
 }
 
 /* ---- Search suggestions popover ---- */
@@ -140,7 +69,9 @@
 }
 
 .explorer-suggestions button {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
   width: 100%;
   padding: 8px 12px;
   background: transparent;
@@ -151,6 +82,20 @@
   font: inherit;
   color: inherit;
   font-size: var(--fs-base);
+}
+
+.explorer-suggestions__path {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-suggestions__kind {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .explorer-suggestions button:last-child {
@@ -262,7 +207,8 @@
 }
 
 .explorer-rail__root-icon {
-  font-size: 13px;
+  flex: none;
+  color: var(--chrome-muted, var(--text-muted));
 }
 
 .explorer-rail .tree-list {
@@ -292,10 +238,6 @@
   justify-content: center;
 }
 
-.explorer-rail .tree-chevron--open {
-  transform: rotate(90deg);
-}
-
 .explorer-rail .tree-chevron--spacer {
   visibility: hidden;
 }
@@ -303,10 +245,10 @@
 .explorer-rail .tree-icon {
   flex-shrink: 0;
   width: 18px;
-  font-size: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--chrome-muted, var(--text-muted));
 }
 
 .explorer-rail .tree-name {
@@ -324,34 +266,6 @@
   flex-direction: column;
   min-height: 0;
   background: var(--surface);
-}
-
-.explorer-focus__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-5);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
-}
-
-.explorer-focus__header h2 {
-  margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  color: var(--text);
-}
-
-.explorer-focus__scope {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 50%;
 }
 
 .explorer-focus__body {
@@ -693,4 +607,358 @@
     margin-left: 0;
     max-width: 100%;
   }
+}
+
+/* ---- Graph canvas chrome (shared by every GraphView) ---- */
+
+/* Zoom: one stacked icon-button group, as on the Atlas canvas. */
+.graph-container .graph-zoom {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.graph-container .zoom-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  backdrop-filter: none;
+}
+
+.graph-container .zoom-btn + .zoom-btn {
+  border-top: 1px solid var(--border);
+}
+
+/* The canvas is a column: the banner and the legend sit outside the plotted
+   area, so the camera fits nodes inside what is actually visible. */
+.graph-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The banner: one 36px tinted band across the canvas top, with a mark and text. */
+.graph-container .graph-banner {
+  position: static;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 36px;
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  transform: none;
+}
+
+.graph-container .graph-banner svg {
+  flex: none;
+}
+
+/* Find and Display float at the stage's top right when the page has no header slot. */
+.graph-container .graph-tools {
+  top: var(--sp-3);
+  right: var(--sp-3);
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  width: auto;
+}
+
+.graph-find {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 200px;
+}
+
+.graph-find .graph-search {
+  height: 30px;
+  margin: 0;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-base);
+}
+
+.graph-find .graph-search-meta {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+/* ---- Display menu: a header button with a popover of graph options ---- */
+
+.graph-display {
+  position: relative;
+}
+
+.graph-display__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.graph-display__button:hover,
+.graph-display__button[aria-expanded="true"] {
+  background: var(--bg-tint);
+}
+
+.graph-display__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.graph-display__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.graph-display__section + .graph-display__section {
+  border-top: 1px solid var(--border);
+}
+
+.graph-display .graph-toggle {
+  min-height: 28px;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+
+.graph-display .cluster-item {
+  font-size: var(--fs-sm);
+}
+
+.explorer-bar__display {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+}
+
+.explorer-header .explorer-bar__search {
+  margin-left: 0;
+}
+
+/* ---- Type legend: a band below the canvas, grouped by what the colors mean ---- */
+
+.graph-container .graph-type-legend {
+  position: static;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--sp-2) var(--sp-6);
+  max-height: none;
+  padding: var(--sp-3) var(--sp-5);
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.graph-type-legend__caption {
+  flex: 0 0 100%;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.graph-type-legend__group,
+.graph-type-legend--folders .graph-type-legend__all {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.graph-type-legend__group[data-group="typed"] {
+  flex: 1 1 100%;
+}
+
+.graph-type-legend__group .graph-type-legend__title,
+.graph-type-legend--folders .graph-type-legend__title {
+  margin: 0;
+  color: var(--label-color);
+  font: var(--label-font);
+}
+
+.graph-type-legend__group .graph-type-legend__list,
+.graph-type-legend--folders .graph-type-legend__list {
+  gap: 0 var(--sp-5);
+}
+
+.graph-type-legend__group .graph-type-legend__item,
+.graph-type-legend--folders .graph-type-legend__item {
+  grid-template-columns: 10px minmax(0, auto) auto;
+  gap: 6px;
+  min-height: 24px;
+  max-width: 240px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.graph-type-legend__group .graph-type-legend__swatch,
+.graph-type-legend--folders .graph-type-legend__swatch {
+  width: 10px;
+  height: 10px;
+}
+
+/* Folders are the large filled nodes, in their most common type's color. */
+.graph-type-legend__group[data-group="folder"] .graph-type-legend__swatch {
+  width: 12px;
+  height: 12px;
+  background: var(--type-8);
+}
+
+/* A drawn link: the folder graph's neutral line, heavier where more links run. */
+.graph-type-legend__line {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--type-8);
+  border-radius: 1px;
+}
+
+.graph-type-legend__group .graph-type-legend__links {
+  grid-template-columns: 18px auto;
+  max-width: none;
+  margin-left: var(--sp-4);
+}
+
+.graph-type-legend__group .graph-type-legend__count,
+.graph-type-legend--folders .graph-type-legend__count {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-type-legend__note {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* The folder view's key: the colors its folders take, what size and lines
+   mean, and what the counts cover. Every type waits behind "All types". */
+.graph-container .graph-type-legend--folders {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+
+.graph-type-legend__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--sp-5);
+}
+
+.graph-type-legend--folders .graph-type-legend__list {
+  flex: 0 1 auto;
+}
+
+.graph-type-legend__more {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.graph-type-legend__more:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.graph-type-legend__chevron {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+}
+
+.graph-type-legend__more[aria-expanded="true"] .graph-type-legend__chevron svg {
+  transform: rotate(180deg);
+}
+
+.graph-type-legend__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* A folder: an outlined disc, since its fill is one of the colors above. */
+.graph-type-legend__size {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--type-8);
+  border-radius: 50%;
+}
+
+.graph-type-legend--folders .graph-type-legend__caption {
+  flex: none;
+  margin: 0;
+  overflow: visible;
+  text-align: left;
+  white-space: normal;
+}
+
+.graph-type-legend--folders .graph-type-legend__all {
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+
+.explorer-count-info {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: help;
+  padding: 4px;
+}
+.graph-type-legend__keys .graph-type-legend__title {
+  min-width: 36px;
 }

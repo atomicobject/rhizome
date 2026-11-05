@@ -13,11 +13,15 @@ export type SigmaNodeAttrs = {
   lang?: string;
   community?: string;
   resolvedType?: string;
+  /** What a folder node summarizes. */
+  childCount?: number;
   authority?: number;
   hub?: number;
   pageRank?: number;
   score?: number;
   problemCount?: number;
+  /** One of the most-connected nodes, labeled at every zoom. */
+  landmark?: boolean;
   baseSize: number;
   /** The node's color as a CSS value (often a token); baseColor is its resolved form. */
   colorValue?: string;
@@ -69,6 +73,8 @@ export type ReducerState = {
   showEdgeLabels: boolean;
   hoverCommunity: string | null;
   hoverNodeID: string | null;
+  /** The hovered node's neighbors; the rest of the graph fades while one is hovered. */
+  hoverNeighbors?: ReadonlySet<string>;
   cameraRatio: number;
   maxScore: number;
   showProblems?: boolean;
@@ -101,9 +107,9 @@ const TYPE_HIGHLIGHT_ALPHA = {
 };
 
 const NODE_SIZE = {
-  base: { normal: 6, module: 9 },
-  min: { normal: 2.8, module: 4.5 },
-  authorityBonus: 12,
+  base: { normal: 3, module: 7 },
+  min: { normal: 2, module: 4.5 },
+  authorityBonus: 6,
   iconMinScreen: { normal: 8.5, zoomed: 12.5 },
 };
 
@@ -362,11 +368,27 @@ export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
     color = colorWithAlpha(deemphColor, Math.min(alpha, deemphAlpha));
     label = "";
   } else {
-    const showLabel = isFocus || isHoverNode || lod < LOD.showLabels;
+    const showLabel = isFocus || isHoverNode || Boolean(attrs.landmark) || lod < LOD.showLabels;
 
     if (!showLabel) {
       label = "";
     }
+  }
+
+  const outsideHover =
+    state.hoverNodeID !== null &&
+    !isHoverNode &&
+    !isPersistentFocus &&
+    !inHoverCommunity &&
+    !(state.hoverNeighbors?.has(nodeId) ?? true);
+
+  if (outsideHover) {
+    color = colorWithPremultipliedAlpha(mixColors(baseColor, neutral, 0.6), 0.35);
+    label = "";
+  } else if (state.hoverNodeID !== null && !isHoverNode && state.hoverNeighbors?.has(nodeId)) {
+    // The hovered node's neighbors keep full color and their names.
+    color = baseColor;
+    label = attrs.label;
   }
 
   if (hasTypeHighlighting && !typeMatch && !isFocus && !inHoverCommunity) {
@@ -486,7 +508,8 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
 
   const sizeScale = lerp(1.15, 0.82, lod);
   const size = Math.max(0.35, attrs.size * sizeScale);
-  const labelVisible = state.showEdgeLabels && (lod < 0.2 || isFocus);
+  // Edge names show only for what the reader is looking at: a hovered node's or a match's links.
+  const labelVisible = state.showEdgeLabels && Boolean(isFocus);
   let label = labelVisible ? attrs.label : "";
 
   let color: string;
@@ -495,7 +518,7 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
 
   if (isFocus || isHoverEdge) {
     color = edgeStrong;
-  } else if (hasHighlighting) {
+  } else if (hasHighlighting || state.hoverNodeID !== null) {
     color = edgeFaint;
   } else {
     color = lod > 0.3 ? edgeFaint : edgeLight;
@@ -504,6 +527,23 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
   if (hasTypeHighlighting && (!sourceTypeMatch || !targetTypeMatch) && !isFocus) {
     color = colorWithPremultipliedAlpha(edgeFaint, TYPE_HIGHLIGHT_ALPHA.edge);
     label = "";
+  }
+
+  // The folder overview draws few links, so each is essential: opaque in the
+  // 3:1 neutral at 1–2px, fading only when the reader points at another folder.
+  // Minor folder links (folderGraph's MINOR_FOLDER_LINK) wait for a hover on one of their folders.
+  if (attrs.kind === "folder-minor" && !isFocus)
+    return { hidden: true, color: edgeFaint, size: 0.5, label: "" };
+
+  if (attrs.kind === "folder-containment" || attrs.kind === "folder-minor") {
+    const faded = (hasHighlighting || state.hoverNodeID !== null) && !isFocus;
+
+    return {
+      hidden: false,
+      color: faded ? edgeFaint : state.colors.neutral,
+      size: clamp(attrs.size * 0.5, 1, 2),
+      label: attrs.kind === "folder-containment" ? "" : label,
+    };
   }
 
   return {

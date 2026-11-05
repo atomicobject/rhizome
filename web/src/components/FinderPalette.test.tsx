@@ -173,7 +173,7 @@ describe("FinderPalette", () => {
     );
   });
 
-  it("highlights matches and keeps both ends of a long path", () => {
+  it("highlights matches and splits a path into directories and its filename", async () => {
     expect(highlightParts("Schema Guide", [[0, 3]])).toEqual([
       { text: "Sch", mark: true },
       { text: "ema Guide", mark: false },
@@ -181,26 +181,28 @@ describe("FinderPalette", () => {
 
     const path = "docs/specs/experience/very/deep/folder/workbench-redesign.md";
 
-    const parts = highlightParts(
-      path,
-      [
+    const item = {
+      ...row("Workbench redesign", path),
+      pathMatches: [
         [0, 4],
         [path.length - 11, path.length - 3],
       ],
-      24,
+    };
+
+    render(<Harness search={() => Promise.resolve([item])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Find" }));
+    const option = await screen.findByRole("option", { name: /Workbench redesign/ });
+
+    // The directories truncate first (CSS); the filename stays whole.
+    expect(option.querySelector(".finder__dir")?.textContent).toBe(
+      "docs/specs/experience/very/deep/folder",
     );
-
-    const text = parts.map((part) => part.text).join("");
-
-    expect(text).toHaveLength(24);
-    expect(text.startsWith("docs/")).toBe(true);
-    expect(text.endsWith("redesign.md")).toBe(true);
-    expect(text).toContain("…");
-    expect(parts.filter((part) => part.mark).map((part) => part.text)).toEqual([
-      "docs",
-      "redesign",
-    ]);
+    expect(option.querySelector(".finder__file")?.textContent).toBe("/workbench-redesign.md");
+    expect(
+      [...option.querySelectorAll(".finder__path mark")].map((mark) => mark.textContent),
+    ).toEqual(["docs", "redesign"]);
   });
+
   it("opens the current query's first result when Enter beats its response", async () => {
     const later = deferred<FinderPaletteItem[]>();
     const onOpen = vi.fn();

@@ -24,7 +24,7 @@ const itemTexts = (block: HTMLElement) =>
 
 /** The record titles a block lists, in order. */
 const recordTitles = (block: HTMLElement) =>
-  [...block.querySelectorAll(".gv-record")].map((entry) => entry.textContent);
+  [...block.querySelectorAll(".gv-change-title")].map((entry) => entry.textContent);
 
 const signalTexts = (block: HTMLElement) =>
   [...block.querySelectorAll(".gv-sig-text")].map((entry) => entry.textContent);
@@ -39,11 +39,17 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
     "Degraded health: 1 story",
   ]);
 
-  // Newest first, each with its first key text field.
+  // Newest first, using the same two-line template as Recent changes.
   const motion = await region("In motion");
 
   expect(recordTitles(motion)).toEqual(["Checkout redesign", "Saved carts"]);
-  expect(motion.querySelector(".gv-mo-note")?.textContent).toBe("Next stepReview the payment step");
+  expect(motion.querySelector(".gv-change-meta")).toHaveTextContent("Story");
+  expect(motion.querySelector(".gv-mark")).toBeNull();
+  expect(motion.querySelector(".rz-info")).toBeNull();
+  expect(within(motion).getByRole("heading")).toHaveAttribute(
+    "title",
+    expect.stringContaining("active stage"),
+  );
 
   expect(within(await region("Recent changes")).getByText("Checkout redesign")).toBeVisible();
 
@@ -58,10 +64,11 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
 
   // People, relation, then reverse fields: fill, then the most common targets.
   expect(itemTexts(connections)).toEqual([
-    "Owner→ People1/4Ada Lovelace 1",
-    "Area→ Areas3/4Payments 2Wishlists 1",
-    "Blocked by→ Work items1/4Checkout redesign 1",
-    "Meetings← Meetings2/4Kickoff sync 2Design review 1",
+    // Each target is a row: its name, then its count in a right-aligned column.
+    "Owner→ People1 of 4 stories linkedAda Lovelace1",
+    "Area→ Areas3 of 4 stories linkedPayments2Wishlists1",
+    "Blocked by→ Work items1 of 4 stories linkedCheckout redesign1",
+    "Meetings← Meetings2 of 4 stories linkedKickoff sync2Design review1",
   ]);
 
   const linked = await region("Linked from outside");
@@ -89,11 +96,13 @@ it("briefs an interface across its implementors and flags reverse links most rec
   const attention = await region("Needs attention");
 
   expect(signalTexts(attention)).not.toContain("No meetings link to 2 of 6 work items");
-  expect(signalTexts(await region("Context"))).toContain("No meetings link to 2 of 6 work items");
+  expect(signalTexts(await region("Review suggested"))).toContain(
+    "No meetings link to 2 of 6 work items",
+  );
 
   const spread = await region("Shape");
 
-  expect(within(spread).getByRole("heading", { name: "Implementing types" })).toBeVisible();
+  expect(within(spread).getByRole("heading", { name: "Work item types" })).toBeVisible();
   expect(within(spread).getByText("Story")).toBeVisible();
   expect(within(spread).getByText("Bug")).toBeVisible();
 
@@ -139,14 +148,16 @@ it("charts a dated type's primary date by month and collapses a burst of changes
 
   const changes = await region("Recent changes");
 
-  expect(within(changes).getByText("4 records")).toBeVisible();
-  expect(within(changes).getByText(/changed together: 4 meetings/)).toBeVisible();
-  fireEvent.click(within(changes).getByRole("button", { name: /^Expand the 4 records/ }));
+  const burst = within(changes).getByRole("button", { name: "4 records changed together" });
+  expect(burst.closest("li")).toHaveTextContent("4 meetings");
+  fireEvent.click(burst);
   expect(within(changes).getByText("Planning")).toBeVisible();
 
   const connections = await region("Connections");
 
-  expect(itemTexts(connections)[0]).toBe("Attendees→ People4/5Ada Lovelace 3Grace Hopper 2");
+  expect(itemTexts(connections)[0]).toBe(
+    "Attendees→ People4 of 5 meetings linkedAda Lovelace3Grace Hopper2",
+  );
 });
 
 it("opens the collection's Table from a signal and notes from its targets", async () => {
@@ -154,7 +165,7 @@ it("opens the collection's Table from a signal and notes from its targets", asyn
 
   await region("Needs attention");
 
-  const gap = [...(await region("Context")).querySelectorAll("li")].find((entry) =>
+  const gap = [...(await region("Review suggested")).querySelectorAll("li")].find((entry) =>
     entry.textContent?.includes("Next step empty"),
   );
 

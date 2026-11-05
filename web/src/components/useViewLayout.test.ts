@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+
+import type { ViewTableRow } from "../api/types";
+import { dominantColumnValue, repeatedColumnFields } from "./useViewLayout";
+
+const columns = ["title", "resolvedType", "status", "owner"].map((field) => ({
+  field,
+  label: field,
+}));
+
+function row(index: number, owner: string): ViewTableRow {
+  return {
+    ref: { notePath: `n${index}.md`, kind: "NOTE" },
+    path: `n${index}.md`,
+    title: `Note ${index}`,
+    resolvedType: "EffortNote",
+    fields: { status: "active", owner },
+  };
+}
+
+function execution(rows: ViewTableRow[], kinds: number[], total = rows.length) {
+  return {
+    rows,
+    stats: {
+      total,
+      issueCount: 0,
+      staleCount: 0,
+      kinds: kinds.map((count, index) => ({ value: `T${index}`, count })),
+    },
+  };
+}
+
+describe("repeatedColumnFields", () => {
+  const rows = Array.from({ length: 20 }, (_, index) => row(index, index < 19 ? "Ann" : "Bo"));
+
+  it("hides a column one value fills on more than 90% of rows, never the title or lifecycle", () => {
+    expect(repeatedColumnFields(columns, execution(rows, [19, 1]), "status")).toEqual([
+      "resolvedType",
+      "owner",
+    ]);
+  });
+
+  it("keeps columns with real variety, small sets, and rows not yet loaded", () => {
+    expect(repeatedColumnFields(columns, execution(rows, [12, 8]), "status")).toEqual(["owner"]);
+    expect(repeatedColumnFields(columns, execution(rows.slice(0, 5), [5]), "status")).toEqual([]);
+    expect(repeatedColumnFields(columns, execution(rows, [10, 10], 40), "status")).toEqual([]);
+  });
+
+  it("counts a record once when list grouping repeats it", () => {
+    // Ten records, half Ann and half Bo, each listed under two tag groups.
+    const ten = Array.from({ length: 10 }, (_, index) => row(index, index < 5 ? "Ann" : "Bo"));
+
+    expect(
+      repeatedColumnFields(columns, execution([...ten, ...ten], [5, 5], 10), "status"),
+    ).toEqual([]);
+  });
+
+  it("keeps a sparse column whose blanks fill most rows", () => {
+    const sparse = Array.from({ length: 20 }, (_, index) => row(index, index < 2 ? "Ann" : ""));
+
+    expect(repeatedColumnFields(columns, execution(sparse, [12, 8]), "status")).toEqual([]);
+  });
+});
+
+it("names the value that fills a repeated column and how many rows it fills", () => {
+  const rows = Array.from({ length: 20 }, (_, index) => row(index, index < 19 ? "Ann" : "Bo"));
+
+  expect(dominantColumnValue("owner", execution(rows, [19, 1]))).toEqual({
+    value: "Ann",
+    count: 19,
+    total: 20,
+  });
+  expect(dominantColumnValue("resolvedType", execution(rows, [1, 19]))).toEqual({
+    value: "T1",
+    count: 19,
+    total: 20,
+  });
+});

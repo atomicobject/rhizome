@@ -16,6 +16,7 @@ import {
   type TaskStatus,
 } from "../../api/tasks";
 import { useLocationSnapshot } from "../locationStore";
+import { StatusMark } from "../StatusMark";
 import { WorkbenchSidebar } from "../WorkbenchSidebar";
 import {
   TaskHeader,
@@ -26,7 +27,7 @@ import {
 } from "./TaskDetail";
 import { formatDue, itemStatePresentation } from "./taskFormat";
 import { TaskRunView as RunView } from "./TaskRunView";
-import { PauseButton, TasksNotices, TasksOverview } from "./TasksOverview";
+import { TasksNotices, TasksOverview } from "./TasksOverview";
 import { navigateTasks, parseTasksLocation } from "./tasksRoute";
 import { useTaskRuns, useTasksLiveState, useTasksReport } from "./useTasksData";
 
@@ -74,61 +75,55 @@ function RailMark({ item }: { item?: TaskItem }) {
       className={`status-mark status-mark--${tone} tasks-rail__mark`}
       role="img"
       aria-label={label}
+      title={label}
     >
       <span className="status-mark__shape" />
     </span>
   );
 }
 
-function TasksRail({
-  tasks,
-  selected,
-  paused,
-  pausePending,
-  onTogglePause,
-}: {
-  tasks: TaskStatus[];
-  selected?: string;
-  paused: boolean;
-  pausePending: boolean;
-  onTogglePause: () => void;
-}) {
+function TasksRail({ tasks, selected }: { tasks: TaskStatus[]; selected?: string }) {
   return (
-    <nav className="tasks-rail" aria-label="Tasks">
-      <div className="tasks-rail__head">
+    <nav className="sidebar-nav" aria-label="Tasks">
+      {/* Pause all lives in the overview header only. */}
+      <div className="sidebar-nav__head">
         <h1>Tasks</h1>
-        <PauseButton
-          className="tasks-rail__pause"
-          paused={paused}
-          pending={pausePending}
-          onToggle={onTogglePause}
-        />
       </div>
-      <ul className="tasks-rail__list">
+      <ul className="sidebar-nav__list">
         <li>
           <button
             type="button"
-            className="tasks-rail__row"
+            className="sidebar-nav__row"
             aria-current={selected ? undefined : "page"}
             onClick={() => navigateTasks({})}
           >
-            <span className="tasks-rail__name">All tasks</span>
-            <span className="tasks-rail__aside">{tasks.length}</span>
+            <span className="sidebar-nav__name">All tasks</span>
+            <span className="sidebar-nav__aside">{tasks.length}</span>
           </button>
         </li>
         {tasks.map((task) => (
           <li key={task.id}>
             <button
               type="button"
-              className="tasks-rail__row"
+              className="sidebar-nav__row"
               aria-current={selected === task.id ? "page" : undefined}
               onClick={() => navigateTasks({ task: task.id })}
             >
-              <span className="tasks-rail__name">{task.name || task.id}</span>
-              <RailMark item={task.item} />
-              <span className="tasks-rail__aside">
-                {task.scheduled ? formatDue(task.nextDue, task.due) : "Local"}
-              </span>
+              <span className="sidebar-nav__name">{task.name || task.id}</span>
+              {/* A failure is named in words, not only by the red mark; the
+                  due time it displaces is on the task's row and page. */}
+              {task.lastRun?.outcome === "failed" ? (
+                <span className="tasks-rail__failed">
+                  <StatusMark tone="risk" label="Failed" />
+                </span>
+              ) : (
+                <>
+                  <RailMark item={task.item} />
+                  <span className="sidebar-nav__aside">
+                    {task.scheduled ? formatDue(task.nextDue, task.due) : "Local"}
+                  </span>
+                </>
+              )}
             </button>
           </li>
         ))}
@@ -243,13 +238,7 @@ export function TasksWorkspace({
 
   const rail = (
     <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
-      <TasksRail
-        tasks={report?.tasks ?? []}
-        selected={location.task}
-        paused={paused}
-        pausePending={pending === "pause"}
-        onTogglePause={togglePause}
-      />
+      <TasksRail tasks={report?.tasks ?? []} selected={location.task} />
     </WorkbenchSidebar>
   );
 

@@ -90,7 +90,8 @@ describe("ConfiguredViewBoard with a type profile", () => {
     const result = ideaBoard(undefined, { lanes: false });
     render(<ConfiguredViewBoard {...rendererProps({ execution: result, onStageOps })} />);
 
-    expect(screen.getByRole("button", { name: "Expand Parked column, 0 items" })).toBeVisible();
+    // A value the view collapses by default is still only an empty strip.
+    expect(screen.getByLabelText("Parked column")).toHaveClass("is-empty");
     const strip = screen.getByLabelText("Exploring column");
     expect(strip).toHaveClass("is-empty");
 
@@ -268,13 +269,16 @@ describe("ConfiguredViewBoard with a type profile", () => {
     const bravo = screen.getByRole("button", { name: "Bravo" }).closest("article")!;
     const charlie = screen.getByRole("button", { name: "Charlie" }).closest("article")!;
 
-    expect(within(bravo).getByText("stale")).toBeVisible();
-    expect(within(charlie).queryByText("stale")).toBeNull();
+    // A compact clock carries the age; "Unchanged" is read, not shown.
+    const stale = bravo.querySelector(".configured-brief__stale");
+    expect(stale).toHaveTextContent(/^Unchanged \d+d$/);
+    expect(stale?.querySelector(".sr-only")).toHaveTextContent("Unchanged");
+    expect(charlie.querySelector(".configured-brief__stale")).toBeNull();
 
     const headers = [...container.querySelectorAll(".configured-view__board-column-header")];
     expect(headers.map((header) => header.textContent)).toEqual([
-      expect.not.stringContaining("stale"),
-      expect.stringContaining("1 stale"),
+      expect.not.stringContaining("unchanged"),
+      expect.stringContaining("1 unchanged 30+ days"),
     ]);
   });
 

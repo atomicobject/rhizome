@@ -121,7 +121,7 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
       response.request().method() === "PATCH",
   );
 
-  // Retry sits outside View options, so pressing it closed them.
+  // Retry sits outside Display options, so pressing it closed them.
   await openViewOptions(page);
   await rowsChoice(page, "1 line").click();
   expect((await saved).ok()).toBe(true);

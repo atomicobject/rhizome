@@ -57,8 +57,10 @@ export type NodeRow = {
   /** Null when the member has no lifecycle; undefined for rows that show none. */
   lifecycle?: LifecycleSummary | null;
   gaps: readonly GapCell[];
-  /** A group row's expansion. */
+  /** A group row's or an interface row's expansion. */
   expanded?: boolean;
+  /** The remembered key an interface row's chevron toggles; groups toggle by name. */
+  toggle?: string;
 };
 
 export type RowInput = {
@@ -257,12 +259,27 @@ function implementorRows(model: ScopeModel, node: ScopeNode, input: RowInput, de
     .map((type) => row(model, type, input, "implementor", depth));
 }
 
-const memberWithImplementors = (
+/** The remembered expansion key of an interface row; interfaces start collapsed. */
+export const interfaceKey = (node: ScopeNode) => `interface:${node.name}`;
+
+/** A member, then its implementing types while an interface row is open. */
+function memberWithImplementors(
   model: ScopeModel,
   node: ScopeNode,
   input: RowInput,
   depth: number,
-) => [row(model, node, input, "member", depth), ...implementorRows(model, node, input, depth + 1)];
+) {
+  const base = row(model, node, input, "member", depth);
+
+  if (node.kind !== "interface" || node.types.length === 0) return [base];
+  const toggle = interfaceKey(node);
+  const expanded = input.expanded.has(toggle);
+
+  return [
+    { ...base, expanded, toggle },
+    ...(expanded ? implementorRows(model, node, input, depth + 1) : []),
+  ];
+}
 
 /**
  * The member table's rows. On a group: each member, most records first, an
@@ -358,7 +375,7 @@ export function coverage(
   const linked = new Set(pairs.flatMap((pair) => (pair.links > 0 ? [pair.a, pair.b] : [])));
 
   const entry = (name: string, count: number) => [
-    { name, label: summaries.get(name)?.pluralLabel ?? name, count },
+    { name, label: pluralLabelOf(name, summaries.get(name)?.pluralLabel), count },
   ];
 
   const types = [...members.types.values()].filter((type) => !summaries.get(type.name)?.embedded);
@@ -375,4 +392,24 @@ export function coverage(
       .flatMap((summary) => (summary.embedded ? entry(summary.name, summary.count) : []))
       .sort(byLabel),
   };
+}
+
+/**
+ * A type's plural label for running text. A type with no authored label comes
+ * back labelled with its identifier, so `AcceptanceCriterion` reads
+ * "Acceptance criteria".
+ * ponytail: a few English plural rules, not a full inflector; an authored @display label wins.
+ */
+export function pluralLabelOf(name: string, pluralLabel: string | undefined) {
+  if (pluralLabel && pluralLabel !== name) return pluralLabel;
+
+  const words = fieldLabel(name);
+
+  if (/(criteri|phenomen)on$/i.test(words)) return words.replace(/on$/i, "a");
+
+  if (/[^aeiou]y$/i.test(words)) return words.replace(/y$/i, "ies");
+
+  if (/(s|x|z|ch|sh)$/i.test(words)) return `${words}es`;
+
+  return `${words}s`;
 }

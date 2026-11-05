@@ -156,7 +156,8 @@ describe("ConfiguredView scalar and boolean editing", () => {
 
     fireEvent.keyDown(screen.getByRole("button", { name: /^Open / }), { key: "F2" });
     const input = screen.getByLabelText<HTMLInputElement>("Edit Due");
-    expect(input.type).toBe("date");
+    // Dates are edited as ISO text with a picker button beside the field.
+    expect(input.type).toBe("text");
     fireEvent.change(input, { target: { value: "2026-05-01" } });
     rendered.unmount();
 

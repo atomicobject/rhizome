@@ -1,11 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 
-import {
-  OPEN_COLLECTION_MESSAGE,
-  OPEN_ISSUES_MESSAGE,
-  OPEN_NODE_MESSAGE,
-} from "../../src/lib/customViewMessages";
+import { OPEN_ISSUES_MESSAGE, OPEN_NODE_MESSAGE } from "../../src/lib/customViewMessages";
 import { jsonReply, type FakeFetchRequest } from "../../src/test/fakeFetch";
 import { AGGREGATE, AGGREGATE_PARTS, VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { NOW, TYPE_DOCS } from "./__fixtures__/groups.ts";
@@ -13,6 +9,7 @@ import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 import type { JsonObject } from "./api.ts";
 import {
   MOTION_PER_TYPE,
+  MOTION_READ,
   activeRecordsQuery,
   motionTypes,
   parseIssueGroups,
@@ -129,7 +126,7 @@ it("decodes issue groups by variant and recent notes, untyped included", () => {
   ]);
 });
 
-it("reads only active-stage records, capped per type", () => {
+it("reads only active-stage records, up to a cap per type", () => {
   const types = motionTypes(AGGREGATE.members!, TYPE_DOCS);
 
   expect(types.map((entry) => [entry.type, entry.field, entry.active])).toEqual([
@@ -140,7 +137,7 @@ it("reads only active-stage records, capped per type", () => {
 
   const query = activeRecordsQuery(types);
   expect(query).toContain(
-    `Story: story(first: ${MOTION_PER_TYPE + 1}, filters: [{ field: "stage", op: in, values: ["doing","blocked"] }]`,
+    `Story: story(first: ${MOTION_READ}, filters: [{ field: "stage", op: in, values: ["doing","blocked"] }]`,
   );
   expect(query).toContain("path title updatedAt issueCount releaseStatus");
   expect(activeRecordsQuery([])).toBe("");
@@ -161,24 +158,25 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   );
 
   const motion = region("In motion");
-  expect([...motion.querySelectorAll("h3")].map((heading) => heading.textContent)).toEqual([
-    "Stories 5+",
-    "Releases 1",
-  ]);
-  expect(within(motion).queryByText("Story 6")).toBeNull();
+  expect(motion.querySelector("h3")).toBeNull();
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
+  // Doing and Shipping mix in this list, so each row carries its status.
+  expect(motion.querySelector(".gv-mark")).not.toBeNull();
+  expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
+  fireEvent.click(within(motion).getByRole("button", { name: "Show 2 more" }));
+  expect(await within(motion).findByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeVisible();
 
   const recent = region("Recent changes");
+  // A title line, then the type and folder.
   expect(
     [...recent.querySelectorAll("li")].map((entry) => entry.querySelector("span")?.textContent),
-  ).toEqual(["Loose thought untyped · inbox/", "Checkout redesign Story · work/", "Top untyped"]);
+  ).toEqual(["Loose thoughtUntyped · inbox/", "Checkout redesignStory · work/", "TopUntyped"]);
 
   fireEvent.click(within(attention).getAllByRole("button", { name: "Open issues" })[0]);
-  fireEvent.click(within(motion).getByRole("button", { name: "More in stories" }));
   fireEvent.click(within(recent).getByRole("button", { name: "Loose thought" }));
 
   expect(posted.filter((message) => message.type.startsWith("rhizome:open-"))).toEqual([
     { type: OPEN_ISSUES_MESSAGE },
-    { type: OPEN_COLLECTION_MESSAGE, name: "Story" },
     { type: OPEN_NODE_MESSAGE, ref: { notePath: "inbox/loose-thought.md", kind: "NOTE" } },
   ]);
 });
@@ -197,7 +195,9 @@ it("fails one block without the others", async () => {
 
   const alert = await within(region("Recent changes")).findByRole("alert");
   expect(alert).toHaveTextContent("Could not load recent changes");
-  await waitFor(() => expect(region("In motion").querySelectorAll("h3")).toHaveLength(2));
+  await waitFor(() =>
+    expect(region("In motion").querySelectorAll(".gv-change")).toHaveLength(MOTION_PER_TYPE),
+  );
   expect(within(region("Needs attention")).queryByRole("alert")).toBeNull();
 
   fail = false;
@@ -278,6 +278,27 @@ it("says when validation has not published results and nothing is in motion", as
   expect(within(region("In motion")).getByText("Nothing in an active stage.")).toBeVisible();
 });
 
+it.each([
+  ["current_clean", true],
+  ["stale", false],
+] as const)("shows the clean state for a %s run: %s", async (health, clean) => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health }),
+      "POST /api/v1/validation/groups": () => jsonReply({ generation: 3, groups: [] }),
+    }),
+  });
+
+  if (clean) expect(await screen.findByText("No issues")).toBeVisible();
+  else {
+    expect(
+      await screen.findByText("The last validation run is out of date or unfinished."),
+    ).toBeVisible();
+    expect(screen.queryByText("No issues")).toBeNull();
+  }
+});
+
 it("retries the type documentation In motion failed to read", async () => {
   let fail = true;
 
@@ -295,7 +316,9 @@ it("retries the type documentation In motion failed to read", async () => {
   fail = false;
   fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
 
-  await waitFor(() => expect(region("In motion").querySelectorAll("h3")).toHaveLength(2));
+  await waitFor(() =>
+    expect(region("In motion").querySelectorAll(".gv-change")).toHaveLength(MOTION_PER_TYPE),
+  );
 });
 
 it("says In motion waits while the index rebuilds, reading no records", async () => {

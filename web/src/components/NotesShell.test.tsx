@@ -201,12 +201,16 @@ describe("NotesShell", () => {
     render(<NotesShell />);
     await screen.findByRole("button", { name: "All notes (2)" });
 
-    // Home has nothing to show, so the pane is closed and its toggle disabled.
-    expect(screen.getByRole("button", { name: "Show right pane" })).toBeDisabled();
+    // Home alone has no pane and nothing to edit, so the tab row offers neither.
+    expect(screen.queryByRole("button", { name: "Show right pane" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Open notes" })).toBeNull();
     expect(screen.queryByRole("complementary", { name: "Note context" })).toBeNull();
 
     openNote(planNote.path);
     expect(await screen.findByRole("complementary", { name: "Note context" })).toBeVisible();
+    expect(screen.getByRole("tablist", { name: "Open notes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
 
     fireEvent.keyDown(window, { key: "]" });
     await waitFor(() =>
@@ -262,7 +266,11 @@ describe("NotesShell", () => {
     act(() => {
       window.dispatchEvent(new CustomEvent("rhizome:close-tab"));
     });
-    expect(screen.getByRole("tab", { name: "Home" })).toBeVisible();
+    // Home is still there, with the strip hidden while it is the only tab.
+    expect(screen.getByRole("tab", { name: "Home", hidden: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("leaves note tabs alone when the desktop app asks while Notes is not on screen", async () => {
@@ -279,22 +287,27 @@ describe("NotesShell", () => {
     expect(screen.getByRole("tab", { name: /demo-plan\.md/i, hidden: true })).toBeInTheDocument();
   });
 
-  it("opens Problems in its own reusable tab from the left rail", async () => {
+  it("opens Problems in place of Home from the left rail, with no tab strip", async () => {
     http.json("GET", "/api/v1/ontology/types/__issues__", typeDetail("Issues", []));
     render(<NotesShell />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Problems" }));
-    expect(await screen.findByRole("tab", { name: "Problems" })).toHaveAttribute(
+    expect(await screen.findByRole("tab", { name: "Problems", hidden: true })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     expect(window.location.pathname).toBe("/notes/issues");
+    // Pages open under the page header; the strip shows only with a note tab open.
+    expect(screen.queryByRole("tablist", { name: "Open notes" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Home" }));
+    fireEvent.click(screen.getByRole("button", { name: /^All notes/ }));
     await waitFor(() => expect(window.location.pathname).toBe("/notes"));
-    fireEvent.click(screen.getByRole("tab", { name: "Problems" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "Problems", hidden: true })).toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Problems" }));
     await waitFor(() => expect(window.location.pathname).toBe("/notes/issues"));
-    expect(screen.getAllByRole("tab", { name: "Problems" })).toHaveLength(1);
+    expect(screen.getAllByRole("tab", { name: "Problems", hidden: true })).toHaveLength(1);
   });
 
   it("keeps the Problems scope in its retained panel while a note tab is active", async () => {

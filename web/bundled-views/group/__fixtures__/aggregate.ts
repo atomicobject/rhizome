@@ -235,5 +235,5 @@ export const VALIDATION_ENVELOPE: JsonObject = {
   health: "current_issues",
   generation: 3,
   publishedGeneration: 3,
-  snapshot: { generation: 3 },
+  snapshot: { generation: 3, finishedAt: NOW - 2 * 60 * 60 * 1000 },
 };

@@ -138,7 +138,7 @@ export function HomeInfoBand({
       : health === "failed"
         ? "Validation unavailable."
         : issuesLoaded
-          ? "No problems in these notes."
+          ? "✓ No issues"
           : "Checking…";
 
   return (

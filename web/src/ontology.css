@@ -80,8 +80,9 @@
 .ontology-sidebar-context__count,
 .rail-bucket__count {
   color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -196,7 +197,7 @@
   cursor: pointer;
 }
 
-.rail-row > button:hover {
+.rail-row > button:is(:hover, :focus-visible) {
   color: var(--link);
   text-decoration: underline;
   text-decoration-color: var(--link-line);
@@ -419,15 +420,6 @@
   color: var(--text);
   outline: 2px solid var(--focus-ring);
   outline-offset: -1px;
-}
-
-.ontology-outline__toggle > span {
-  display: inline-block;
-  transition: transform 0.15s var(--ease);
-}
-
-.ontology-outline__toggle.is-open > span {
-  transform: rotate(90deg);
 }
 
 .ontology-outline__title {
@@ -898,14 +890,15 @@
 }
 
 .typed-section-card__summary::before {
-  content: "▸";
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   flex-shrink: 0;
-  font-size: 10px;
   color: var(--text-faint);
   transition: transform 0.15s var(--ease);
   display: inline-block;
-  width: 10px;
-  text-align: center;
 }
 
 .typed-section-card__details[open] > .typed-section-card__summary::before {
@@ -1010,12 +1003,14 @@
 }
 
 .ontology-issues__summary::before {
-  content: "▸";
-  font-size: 10px;
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   color: var(--warning-ink);
   transition: transform 0.15s var(--ease);
   display: inline-block;
-  width: 10px;
 }
 
 .ontology-issues[open] > .ontology-issues__summary::before {
@@ -1125,33 +1120,8 @@
 
 /* ---- Edit toggle button (read-only mode) ---- */
 
-.ontology-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  padding: 4px 10px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: var(--r);
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-  white-space: nowrap;
-}
-
-.ontology-edit-toggle:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: var(--bg-tint);
-}
-
-.ontology-edit-toggle__icon {
+/* The toggle is the shared 28px .button; only its icon is set here. */
+.button .ontology-edit-toggle__icon {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
@@ -1165,7 +1135,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 26px;
+  min-height: 28px;
   padding: 0 1px 0 var(--sp-2);
   border-radius: var(--r);
   border: 1px solid transparent;
@@ -1202,10 +1172,22 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 700;
-  font-size: var(--fs-xs);
+  font-weight: 500;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.ontology-edit-bar.is-idle .ontology-edit-bar__label {
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.ontology-edit-bar.is-idle .ontology-edit-bar__dot {
+  display: none;
 }
 
 .ontology-edit-bar.is-dirty .ontology-edit-bar__label {
@@ -1253,59 +1235,14 @@
 .ontology-edit-bar__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-3);
   margin-left: auto;
 }
 
-.ontology-edit-bar__btn {
-  height: 22px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  padding: 0 10px;
-  font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-}
-
-.ontology-edit-bar__btn:hover:not(:disabled) {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--warning) 60%, var(--border));
-}
-
-.ontology-edit-bar__btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.ontology-edit-bar__btn--save {
-  background: var(--accent-fill);
-  color: var(--on-accent);
-  border-color: var(--accent-fill);
-}
-
-.ontology-edit-bar__btn--save:hover:not(:disabled) {
-  background: var(--accent-fill-hover);
-  border-color: var(--accent-fill-hover);
-  color: var(--on-accent);
-}
-
-/* Nothing to save reads as unavailable, never as a pale red error tint. */
-.ontology-edit-bar__btn--save:disabled {
-  background: var(--surface-sunk);
-  border-color: var(--border);
-  color: var(--text-faint);
-  opacity: 1;
-}
-
+/* Session actions are the shared 28px .button; Done stands apart from
+   Review and Save so the exit is never mistaken for a commit. */
 .ontology-edit-bar__btn--discard {
-  color: var(--text-faint);
+  margin-left: var(--sp-1);
 }
 
 /* Errors, conflicts, and warnings float below the bar so the fixed-height
@@ -1498,9 +1435,15 @@
   gap: var(--sp-1);
 }
 
+/* The metadata line is one quiet Inter run: label and value share 13px
+   muted type, and dates use tabular figures. */
 .ontology-identity__slot-label {
-  font: var(--label-font);
-  color: var(--label-color);
+  font: 400 var(--fs-sm) / 1.45 var(--font-sans);
+  color: var(--text-muted);
+}
+
+.ontology-identity__row .widget-date {
+  color: var(--text-muted);
 }
 
 .ontology-identity__slot-prefix {
@@ -1567,7 +1510,7 @@
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   cursor: pointer;
 }
 
@@ -1575,9 +1518,15 @@
   margin-left: auto;
 }
 
-/* Sits under the label column, where the hidden rows would start. */
+/* The chevron hangs in the gutter, so the label starts on the label
+   column, where the hidden rows would. */
 .ontology-properties__empty-toggle {
-  margin: var(--sp-1) 0 0 calc(-1 * var(--sp-2));
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 24px;
+  margin: var(--sp-1) 0 0 calc(-1 * (16px + var(--sp-1) + 4px));
+  padding-left: 4px;
 }
 
 .ontology-properties__details-toggle:hover,
@@ -1720,15 +1669,16 @@
   text-decoration: line-through wavy;
 }
 
-/* Matches .segmented in base.css: one look for every mode or value switch. */
+/* Matches .segmented in base.css: a tinted track whose chosen value is a
+   raised surface, never a solid ink fill. */
 .widget-enum--segmented {
   display: inline-flex;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  overflow: hidden;
-  background: var(--surface);
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
   margin: 0;
-  padding: 0;
+  padding: 2px;
   min-width: 0;
 }
 
@@ -1745,32 +1695,65 @@
 
 .widget-enum__segment {
   appearance: none;
-  height: 24px;
-  border: none;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
   background: transparent;
   padding: 0 10px;
-  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
   color: var(--text-muted);
   cursor: pointer;
   transition:
     background 0.1s,
     color 0.1s;
-  border-right: 1px solid var(--border);
-}
-
-.widget-enum__segment:last-child {
-  border-right: none;
 }
 
 .widget-enum__segment:hover {
-  background: var(--bg-tint);
   color: var(--text);
 }
 
-/* The chosen value is a selection, not an alert: neutral, never the accent. */
 .widget-enum__segment.is-active {
-  background: var(--text);
-  color: var(--surface);
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The identity strip's status edits through a chip that keeps read mode's
+   badge geometry; an invisible native select over it opens the menu. */
+.widget-enum--menu {
+  position: relative;
+  gap: var(--sp-1);
+  padding-right: var(--sp-2);
+  cursor: pointer;
+}
+
+.widget-enum--menu:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.widget-enum--menu:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.widget-enum__chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.widget-enum__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
 .widget-enum__segment--unknown {
@@ -2451,7 +2434,7 @@
   flex: 0 1 auto;
   overflow: hidden;
   font-size: var(--fs-base);
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2459,6 +2442,9 @@
 .changes-note__title:hover .changes-note__name,
 .changes-note__title:focus-visible .changes-note__name {
   color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .changes-note__path {
@@ -2644,13 +2630,19 @@
 }
 
 .changes-note__diff summary::before {
-  content: "▸";
-  font-size: 10px;
+  display: inline-block;
+  vertical-align: -3px;
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
   color: var(--text-faint);
+  transition: transform 0.15s var(--ease);
 }
 
 .changes-note__diff[open] summary::before {
-  content: "▾";
+  transform: rotate(90deg);
 }
 
 .changes-note__diff summary:hover {
@@ -2679,17 +2671,6 @@
   display: flex;
   flex-direction: column;
 }
-.ontology-atlas h1 {
-  margin: 0;
-  font-size: var(--fs-xl);
-  font-weight: 700;
-}
-
-.ontology-atlas h2 {
-  margin: 0 0 var(--sp-3);
-  font-size: var(--fs-xl);
-}
-
 .ontology-atlas__zero,
 .ontology-atlas__error,
 .ontology-atlas__loading {
@@ -2703,35 +2684,6 @@
   color: var(--accent-ink);
 }
 
-.ontology-atlas__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-5);
-  padding: var(--sp-4) var(--sp-5);
-  border-bottom: 1px solid var(--border);
-}
-.ontology-atlas__stats {
-  display: flex;
-  gap: var(--sp-6);
-  margin: 0;
-}
-.ontology-atlas__stats > div {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-.ontology-atlas__stats dt {
-  font: var(--label-font);
-  color: var(--label-color);
-}
-.ontology-atlas__stats dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
 .ontology-atlas__diagram-scroll {
   flex: 1;
   min-height: 0;
@@ -2740,88 +2692,9 @@
 }
 .atlas-workbench {
   display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
-}
-.atlas-index {
-  width: 208px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-}
-.atlas-index__search {
-  padding: var(--sp-4);
-}
-.atlas-index__search input {
-  width: 100%;
-  min-width: 0;
-  height: 26px;
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-}
-.atlas-index button {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text);
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  min-height: 28px;
-  padding: var(--sp-1) var(--sp-4);
-  text-align: left;
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.atlas-index button:hover {
-  background: var(--bg-tint);
-}
-.atlas-index button:focus-visible {
-  outline-offset: -2px;
-}
-.atlas-index button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  box-shadow: inset 2px 0 var(--accent);
-}
-.atlas-index button.atlas-index__all {
-  font-weight: 600;
-}
-.atlas-index__list {
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
-}
-.atlas-index__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.atlas-index__count {
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-}
-.atlas-index__hint,
-.atlas-index__empty {
-  padding: var(--sp-4);
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  line-height: 1.5;
-}
-.atlas-index__hint {
-  border-top: 1px solid var(--border);
 }
 .atlas-canvas {
   flex: 1;
@@ -2839,23 +2712,136 @@
 .atlas-node--dimmed {
   opacity: 0.24;
 }
+/* The legend is a band below the canvas, never over a card. */
 .atlas-legend {
-  position: absolute;
-  bottom: var(--sp-4);
-  right: var(--sp-4);
   display: flex;
-  gap: var(--sp-5);
-  padding: var(--sp-2) var(--sp-4);
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-5);
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.atlas-legend s {
+  display: inline-block;
+  width: 22px;
+  margin-right: 6px;
+  border-top: 2px solid var(--type-8);
+  vertical-align: 0.3em;
+}
+.atlas-legend s[data-kind="implements"] {
+  border-top-style: dashed;
+}
+.atlas-legend s[data-kind="neighbor"] {
+  border-top-style: dotted;
+}
+.atlas-legend__hint {
+  margin-left: auto;
+  color: var(--text-faint);
+}
+
+/* The type finder floats over the canvas's top-left corner. */
+.atlas-find {
+  position: absolute;
+  top: var(--sp-4);
+  left: var(--sp-4);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  width: 240px;
+}
+/* The shared find input (.configured-view__find), raised on the tinted canvas. */
+.atlas-find .configured-view__find {
+  width: 100%;
+  margin: 0;
+  background: var(--surface);
+}
+.atlas-find__list,
+.atlas-find__focus {
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.atlas-find__list {
+  max-height: 320px;
+  overflow: auto;
+}
+.atlas-find__list button,
+.atlas-find__focus button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+}
+.atlas-find__list button:hover,
+.atlas-find__list button:focus-visible {
+  background: var(--bg-tint);
+}
+.atlas-find__list button[aria-pressed="true"] {
+  background: var(--selection);
+  box-shadow: inset 2px 0 var(--selection-edge);
+}
+.atlas-find__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.atlas-find__count {
   color: var(--text-muted);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-find__empty {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.atlas-find__focus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0 0 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.atlas-find__focus strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.atlas-find__focus button {
+  width: auto;
+  color: var(--link);
+  font-size: var(--fs-sm);
+}
+
+/* Edges keep a 1.5px screen stroke at every zoom, so they hold 3:1 at fit scale. */
+.atlas-canvas .react-flow__edge-path {
+  vector-effect: non-scaling-stroke;
 }
 /* React Flow reads these for its canvas, dots, and zoom controls. */
 .atlas-canvas .react-flow {
-  --xy-background-pattern-dots-color: var(--border-strong);
+  /* Dots sit a step under the edges, so lines read first. */
+  --xy-background-pattern-dots-color: var(--border);
   --xy-controls-button-background-color: var(--surface);
   --xy-controls-button-background-color-hover: var(--bg-tint);
   --xy-controls-button-color: var(--text-muted);
@@ -2869,18 +2855,8 @@
   border: 1px solid var(--border);
 }
 @media (max-width: 760px) {
-  .ontology-atlas__header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .atlas-index {
-    width: 164px;
-  }
   .atlas-legend {
     display: none;
-  }
-  .ontology-atlas__stats {
-    gap: 12px;
   }
 }
 
@@ -2888,21 +2864,28 @@
   display: none;
 }
 
-/* A card's type color is its dot and its outgoing edges; text stays ink. */
+/* A card's type color is a bar on its left edge (and its edges while traced);
+   text stays ink. In dark mode the card sits a lightness step above the canvas. */
 .ontology-node {
   --type-accent: var(--type-8);
+  position: relative;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  background: var(--surface);
+  background: light-dark(var(--surface), var(--surface-strong));
   border: 1px solid var(--border-strong);
   border-radius: var(--r);
-  font-size: var(--fs-sm);
+  box-shadow: inset 6px 0 var(--type-accent);
   color: var(--text);
 }
 .ontology-node__card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
   height: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px 8px 18px;
   color: inherit;
   text-decoration: none;
   border-radius: inherit;
@@ -2911,142 +2894,60 @@
 .ontology-node--interface {
   border-style: dashed;
 }
-.ontology-node__header {
-  height: var(--atlas-header-height);
-  box-sizing: border-box;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
+/* The type name as written, on two lines that always break before its last
+   word (nameLines in lib/ontologyGraph.ts), so every card reads the same way. */
+.ontology-node__name {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  overflow: hidden;
-}
-.ontology-node__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.ontology-node__name {
   min-width: 0;
+  /* Card units, matching NAME_SIZE in lib/ontologyGraph.ts; about 14px at fit. */
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+}
+.ontology-node__name > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 700;
-  color: var(--text);
-  font-size: var(--atlas-label-size, 15px);
-  text-decoration: none;
-}
-.ontology-node__name::before {
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: var(--sp-2);
-  border-radius: 50%;
-  background: var(--type-accent);
-  vertical-align: 0.05em;
 }
 .ontology-node__card:hover .ontology-node__name,
 .ontology-node__card:focus-visible .ontology-node__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-decoration: underline;
 }
-.ontology-node__count {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  font-weight: 500;
+/* A relation to the card's own type: a small badge in the corner, not a line. */
+.ontology-node__self {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.3;
+}
+.ontology-node__meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ontology-node__badge {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  padding: 1px 6px;
-  border-radius: var(--r-sm);
+  font-weight: 500;
 }
-.ontology-node__impl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-.ontology-node__description {
-  margin: 0;
-  color: var(--text-muted);
-  display: -webkit-box;
-  font-size: var(--fs-xs);
-  line-height: 1.35;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-.ontology-node__stats {
-  margin-top: auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
+.ontology-node__count {
   font-variant-numeric: tabular-nums;
-}
-.ontology-node__stats strong {
-  color: var(--text);
-  font-weight: 700;
 }
 .ontology-node__issues {
   color: var(--warning-ink);
   font-weight: 600;
-}
-
-.ontology-node__chip {
-  background: var(--surface-sunk);
-  border-radius: var(--r-sm);
-  padding: 1px 5px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-.ontology-node__fields {
-  list-style: none;
-  margin: 0;
-  padding: var(--atlas-field-padding) 0;
-}
-.ontology-node__field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  line-height: 18px;
-  height: var(--atlas-row-height);
-  box-sizing: border-box;
-}
-.ontology-node__field--relation .ontology-node__field-type {
-  color: var(--link);
-}
-
-.ontology-node__field-name {
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ontology-node__field-name.is-required {
-  font-weight: 600;
-}
-.ontology-node__field-type {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
 }
 .ontology-node__handle {
   opacity: 0 !important;
@@ -3056,91 +2957,69 @@
    One flat page on the shared tokens: hairline sections, label-style heads,
    mono counts, teal links. The type color marks dots only; text stays ink. */
 
+/* The page shares the workbench gutter: a 56px title row padded 22px, and
+   everything below it starts on the same 22px line, bounded for reading. */
 .ontology-type-detail {
-  width: min(100%, 1100px);
-  margin: 0 auto;
-  padding: var(--sp-6);
+  --type-detail-gutter: 22px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 var(--sp-6);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
 }
-
-/* The tab panel keeps the page's section rhythm. */
+.ontology-type-detail > :not(.ontology-type-detail__header) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(1100px + 2 * var(--type-detail-gutter));
+  padding-inline: var(--type-detail-gutter);
+}
 .ontology-type-detail__tabpanel {
+  padding-top: var(--sp-2);
   display: flex;
   flex-direction: column;
   gap: var(--sp-5, 20px);
 }
 
-.ontology-type-detail__hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  padding-bottom: var(--sp-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.ontology-type-detail__hero-body {
-  display: flex;
-  flex-direction: column;
+/* The shared view header, inside the page column: Atlas / Type, count, role. */
+.ontology-type-detail__header .view-header__title-row {
   gap: var(--sp-2);
 }
 
-.ontology-type-detail__hero-title {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
+.ontology-type-detail__header .view-header__count {
+  margin-left: var(--sp-2);
 }
 
-.ontology-type-detail__hero-title h1 {
-  margin: 0;
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  line-height: 1.18;
-  color: var(--text);
+.ontology-type-detail__header .view-header__about {
+  margin-left: var(--sp-2);
 }
 
-.ontology-type-detail__accent-dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--type-accent, var(--type-8));
-}
-
-.ontology-type-detail__role-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface-sunk);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 600;
+.ontology-type-detail__crumb {
+  color: var(--text-faint);
 }
 
 .ontology-type-detail__tagline {
+  max-width: 760px;
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--fs-md);
-  max-width: 72ch;
+  font-size: var(--fs-base);
+  line-height: 1.45;
 }
 
 .ontology-type-detail__back {
-  align-self: flex-start;
-  padding: 2px 0;
+  flex: none;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--fs-sm);
+  color: var(--link);
+  font: 500 var(--fs-xl) / 1.2 var(--font-sans);
   cursor: pointer;
 }
 
 .ontology-type-detail__back:hover {
-  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 3px;
 }
 
 .ontology-type-detail__error {
@@ -3151,6 +3030,10 @@
 .ontology-type-detail__empty {
   color: var(--text-muted);
   font-size: var(--fs-sm);
+}
+
+.ontology-type-detail__stats:empty {
+  display: none;
 }
 
 .ontology-type-detail__stats {
@@ -3222,7 +3105,7 @@
 .ontology-type-detail__section {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
   padding-top: var(--sp-4);
   border-top: 1px solid var(--border-faint);
 }
@@ -3233,8 +3116,8 @@
   justify-content: space-between;
   align-items: baseline;
   gap: var(--sp-3);
-  font-size: var(--fs-sm);
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -3263,7 +3146,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--sp-3);
 }
 
@@ -3297,19 +3180,26 @@
   gap: var(--sp-2);
 }
 
+/* The implementor's name is a quiet link: the card opens that type. */
 .ontology-type-detail__impl-name {
-  font-weight: 700;
-  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 500;
 }
 
-.ontology-type-detail__impl-name::before {
-  content: "";
-  display: inline-block;
+.ontology-type-detail__impl-dot {
+  flex: none;
   width: 8px;
   height: 8px;
-  margin-right: var(--sp-2);
   border-radius: 50%;
   background: var(--impl-accent, var(--type-8));
+}
+
+.ontology-type-detail__impl-card:is(:hover, :focus-visible) .ontology-type-detail__impl-title {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .ontology-type-detail__impl-count {
@@ -3320,9 +3210,14 @@
 }
 
 .ontology-type-detail__impl-desc {
+  display: -webkit-box;
   margin: 0;
-  font-size: var(--fs-sm);
+  overflow: hidden;
   color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 /* Matchers */
@@ -3352,7 +3247,8 @@
 .ontology-type-detail__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-sm);
+  table-layout: fixed;
+  font-size: var(--fs-base);
 }
 
 .ontology-type-detail__table th,
@@ -3367,13 +3263,72 @@
   border-bottom: none;
 }
 
+.ontology-type-detail__table code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.ontology-type-detail__nowrap {
+  white-space: nowrap;
+}
+
+/* Required keeps room for its heading, with a 16px gap before Source. */
+.ontology-type-detail__table .ontology-type-detail__col-required {
+  width: 70px;
+  min-width: 70px;
+  padding-right: 16px;
+}
+
+.ontology-type-detail__col-source {
+  width: 150px;
+}
+
+.ontology-type-detail__none {
+  color: var(--text-faint);
+}
+
+/* A type's exact identifier, secondary to its label. */
+.ontology-type-detail__ident-secondary {
+  color: var(--text-faint);
+  font: 400 var(--fs-xs) var(--font-mono);
+}
+
+.ontology-type-detail__table .ontology-type-detail__ident-secondary {
+  font-size: var(--fs-xs);
+}
+
+/* Identifiers and example values in prose never break mid-token. */
+.ontology-type-detail__ident {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+.ontology-type-detail__enum-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+}
+
+/* Names and types keep to bounded columns, so the description gets the room. */
+.ontology-type-detail__col-name {
+  width: 160px;
+}
+/* Enum chips wrap within the fixed type column. */
+.ontology-type-detail__col-type {
+  width: 220px;
+}
+.ontology-type-detail__table .schema-enum-value-chip {
+  font-size: var(--fs-xs);
+}
 .ontology-type-detail__table th {
   border-bottom-color: var(--border);
   font: var(--label-font);
   color: var(--label-color);
 }
 
-/* Target link (relation and inbound cells): a teal note-style link with the
+/* Target link (relation and inbound cells): a quiet record title with the
    target type's dot. */
 .ontology-type-detail__target-chip {
   display: inline-flex;
@@ -3382,17 +3337,18 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--link);
+  color: var(--text);
   font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--link-line);
+  font-weight: 500;
+  text-decoration: none;
   text-underline-offset: 2px;
   cursor: pointer;
 }
 
-.ontology-type-detail__target-chip:hover {
-  text-decoration-color: currentcolor;
+/* A quiet link: underlined only on hover and keyboard focus. */
+.ontology-type-detail__target-chip:is(:hover, :focus-visible) .ontology-type-detail__target-label {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
 }
 
 .ontology-type-detail__target-dot {
@@ -3425,11 +3381,11 @@
 .ontology-type-detail__doc-link code {
   padding: 0;
   background: transparent;
-  color: var(--link);
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 500;
 }
 
-.ontology-type-detail__doc-link:hover code {
+.ontology-type-detail__doc-link:is(:hover, :focus-visible) code {
   text-decoration: underline;
   text-decoration-color: var(--link-line);
 }
@@ -3465,12 +3421,14 @@
 }
 
 .ontology-type-detail__example-title {
-  font-weight: 700;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-weight: 500;
   text-decoration: none;
   color: var(--text);
 }
 
-.ontology-type-detail__example-title:hover {
+.ontology-type-detail__example-title:is(:hover, :focus-visible) {
   color: var(--link);
   text-decoration: underline;
   text-decoration-color: var(--link-line);
@@ -3513,41 +3471,51 @@
 
 /* ---- Tabs for type detail view: neutral underline, like the context rail ---- */
 
+/* The shared header tab bar (.view-header__tabs, .view-tabs): a full-bleed
+   rule under text tabs that start on the title's 22px line. */
 .ontology-type-detail__tabs {
   display: flex;
-  gap: var(--sp-1);
-  margin: 0;
-  padding: 0;
-  border-bottom: 1px solid var(--border);
+  align-items: stretch;
+  gap: var(--sp-6);
 }
 
 .ontology-type-detail__tab {
+  position: relative;
   appearance: none;
-  margin-bottom: -1px;
-  padding: var(--sp-2) var(--sp-4);
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
   border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  font: 500 var(--fs-base) / 1 var(--font-sans);
   cursor: pointer;
-  transition:
-    color 120ms var(--ease),
-    background 120ms var(--ease);
 }
 
 .ontology-type-detail__tab:hover {
   color: var(--text);
-  background: var(--bg-tint);
+}
+
+.ontology-type-detail__tab:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--r);
 }
 
 .ontology-type-detail__tab--active,
 .ontology-type-detail__tab[aria-selected="true"] {
   color: var(--text);
-  border-bottom-color: var(--text);
+}
+
+.ontology-type-detail__tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
 }
 
 /* ---- Authoring guide rendered markdown ---- */
@@ -4054,20 +4022,6 @@
   padding: var(--sp-3) var(--sp-4);
 }
 
-.ontology-node--overview .ontology-node__description {
-  display: none;
-}
-.ontology-node--overview .ontology-node__title-row {
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.ontology-node--overview .ontology-node__name {
-  flex-basis: 100%;
-}
-
-.ontology-node--overview .ontology-node__stats {
-  display: none;
-}
 .atlas-node--focused .ontology-node {
   border-color: var(--text);
   box-shadow: 0 0 0 1px var(--text);
@@ -4088,38 +4042,20 @@
   container-type: inline-size;
   height: 100%;
   min-height: 0;
-  padding: var(--sp-4) var(--sp-5) 0;
+  padding: 0 var(--sp-5) 0 var(--gutter);
   color: var(--text);
   font-size: var(--fs-base);
 }
 
-.problems-workspace__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  padding-bottom: var(--sp-3);
-}
-
-.problems-workspace__meta {
-  margin: 0 0 2px;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+/* The shared view header, on the workspace's own gutter. */
+.problems-workspace__header .view-header__title-row {
+  padding: 0;
 }
 
 .problems-workspace__scope {
   color: var(--text);
 }
 
-.problems-workspace__header h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-2xl);
-  line-height: 1.2;
-}
-
-.problems-workspace__review,
 .problems-toolbar__clear,
 .problems-browser__more,
 .problems-filter-empty button,
@@ -4136,7 +4072,6 @@
   cursor: pointer;
 }
 
-.problems-workspace__review:hover,
 .problems-toolbar__clear:hover,
 .problems-browser__more:hover:not(:disabled),
 .problems-filter-empty button:hover,
@@ -4151,9 +4086,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--sp-1) var(--sp-3);
-  min-height: 30px;
+  min-height: 40px;
   padding: var(--sp-1) 0;
-  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border-faint);
   font-size: var(--fs-sm);
 }
@@ -4203,18 +4137,16 @@
   color: var(--text-muted);
 }
 
-/* Right-aligned in every state so the transient running message cannot move it. */
+/* Refresh follows the freshness text it renews, 16px after it (8px gap plus
+   8px), so the action and "Checked …" read as one unit. */
 .validation-status-strip__refresh {
-  margin-left: auto;
+  margin-left: var(--sp-3);
 }
 
-.validation-status-strip__refresh ~ .validation-disclosure {
-  margin-left: 0;
-}
-
+/* Check details sits beside "Checked …"; Refresh stays at the right. */
 .validation-disclosure {
   position: relative;
-  margin-left: auto;
+  margin-left: var(--sp-3);
 }
 
 .validation-disclosure summary {
@@ -4232,7 +4164,7 @@
   position: absolute;
   z-index: 15;
   top: calc(100% + 6px);
-  right: 0;
+  left: 0;
   width: min(440px, 75vw);
   padding: var(--sp-4);
   border: 1px solid var(--border-strong);
@@ -4589,14 +4521,18 @@
 
 .problems-group > summary::before {
   flex-shrink: 0;
-  width: 10px;
   color: var(--text-faint);
-  content: "▾";
-  font-size: 10px;
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
+  transform: rotate(90deg);
+  transition: transform 0.15s var(--ease);
 }
 
 .problems-group:not([open]) > summary::before {
-  content: "▸";
+  transform: none;
 }
 
 .problems-group > summary:hover {
@@ -4773,8 +4709,8 @@
   gap: 2px;
   margin-left: auto;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -4783,8 +4719,11 @@
 }
 
 .problem-detail__navigation button {
-  width: 22px;
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
@@ -5093,7 +5032,7 @@ button.validation-issue-badge:hover {
 
 @media (max-width: 880px) {
   .problems-workspace {
-    padding: var(--sp-4);
+    padding: 0 var(--sp-4);
   }
 
   .problems-toolbar {
@@ -5408,4 +5347,15 @@ button.validation-issue-badge:hover {
 /* Rows without a direction mark line up under their bucket label. */
 .rail-bucket .rail-row:not(:has(.rail-row__dir)) {
   padding-left: 18px;
+}
+
+.ontology-node__self-label {
+  display: none;
+}
+.react-flow__node:is(:hover, .selected, .atlas-node--focused) .ontology-node__self-label,
+.ontology-node:focus-within .ontology-node__self-label {
+  display: inline;
+}
+.ontology-type-detail__table td > .ontology-type-detail__ident-secondary {
+  display: block;
 }

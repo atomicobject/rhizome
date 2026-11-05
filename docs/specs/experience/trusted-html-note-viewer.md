@@ -3,7 +3,8 @@ type: ExperienceSpec
 summary: "Defines the trusted HTML note reading experience in the web workspace: authored HTML, JavaScript, and external HTTPS resources render in an app-isolated iframe while Rhizome-owned navigation opens internal targets in retained note tabs."
 id: SPEC-0088
 spec-status: active
-last-updated: 2026-09-14
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 aliases:
   - SPEC-0088
   - trusted-html-note-viewer
@@ -47,7 +48,7 @@ The viewer is a reading surface, not a general-purpose HTML editor. The HTML bod
 
 ### Pane anatomy
 
-An HTML note occupies its own retained file tab in `NotesShell`, reusing the note header, Read/Source controls, and right rail. Its canonical identity is the authored vault-relative path, including its explicit `.html` or `.htm` extension and case. An HTML fragment is a location inside that tab, not an ontology section or a second tab. The pane header remains outside the iframe and stays visible while the document scrolls inside the frame. It provides the note identity, source-view control, open-original control, and any pane-scoped diagnostic. The document itself owns its layout and vertical scroll position.
+An HTML note occupies its own retained file tab in `NotesShell`, reusing the note header, Read/Source controls, and right rail. Its canonical identity is the authored vault-relative path, including its explicit `.html` or `.htm` extension and case. An HTML fragment is a location inside that tab, not an ontology section or a second tab. The pane header remains outside the iframe and stays visible while the document scrolls inside the frame. During rendered preview, the host identity is one compact row with title, ID, status, a floating Metadata disclosure, and ghost Refresh and Open controls; it avoids repeating a large document title. Source-view controls and pane-scoped diagnostics remain outside the authored document. The document itself owns its layout and vertical scroll position.
 
 ### Viewer lifecycle and states
 
@@ -261,3 +262,7 @@ An HTML note occupies its own retained file tab in `NotesShell`, reusing the not
 ## Open Questions
 
 None. The approved delivery retains authored JavaScript and external HTTPS resources, includes bounded root-metadata Save, serves eligible vault-contained assets, supports local and remote access, opens the canonical application note route in another browser tab, and includes parent-controlled generated downloads.
+
+## Change record
+
+2026-11-04: Reconciled the compact host identity row and floating metadata disclosure; authored iframe content and isolation are unchanged. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

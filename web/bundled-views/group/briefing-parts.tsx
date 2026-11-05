@@ -8,6 +8,7 @@ import {
 } from "@rhizome/kit";
 import type { ReactNode } from "react";
 
+import { ValidationFreshness } from "./validation-freshness.tsx";
 import type { MemberRecords } from "./activity.ts";
 import type { GroupModelState } from "./load.ts";
 import type { BlockStatus } from "./scope-load.ts";
@@ -48,6 +49,25 @@ export function countedByMember(model: GroupModel, groups: readonly MemberRecord
 // Blocks, their loading and failure bodies, and "+N more" are the kit's page
 // primitives; the names stay for the views written against them.
 export { Block, BlockBody, MoreToggle };
+
+/** Needs attention with nothing to attend to: one status row, not a block. */
+export function HealthyAttention({ info }: { info: string }) {
+  return (
+    <Block
+      className="gv-healthy-block"
+      title="Validation"
+      info={info}
+      controls={
+        <>
+          <span className="gv-healthy">
+            <span aria-hidden="true">✓</span> No issues
+          </span>
+          <ValidationFreshness />
+        </>
+      }
+    />
+  );
+}
 
 /** Distinct labels of the lifecycle values the records hold, in lifecycle order. */
 export function heldLabels(member: Member, records: readonly GroupRecord[]) {

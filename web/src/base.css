@@ -55,10 +55,310 @@ button {
   font-size: var(--fs-base);
 }
 
-input,
-select,
 textarea {
   font-size: var(--fs-md);
+}
+
+/* Mono is always JetBrains Mono, never the browser's Courier fallback. */
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* ---- Native form controls ----
+   One Rhizome treatment for select, text, search, and date inputs app-wide:
+   28px, border-strong, 6px corners, the surface in either appearance, and a
+   chevron that reads on light and dark surfaces (3:1 or better on both).
+   Element-level specificity, so any component class still wins. */
+select,
+input:where(
+  :not([type]),
+  [type="text"],
+  [type="search"],
+  [type="date"],
+  [type="datetime-local"],
+  [type="number"],
+  [type="email"],
+  [type="url"]
+) {
+  height: 28px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: normal;
+}
+
+/* The chevron rule outranks a component's single-class background
+   shorthand, so every single-value select keeps the design-system chevron. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237d7872' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 6.5 3 3 3-3'/%3E%3C/svg%3E");
+  background-position: right 7px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+select:where([multiple], [size]) {
+  height: auto;
+}
+
+input:where([type="search"]) {
+  appearance: none;
+}
+
+select:where(:hover:enabled),
+input:where(
+    :not([type]),
+    [type="text"],
+    [type="search"],
+    [type="date"],
+    [type="datetime-local"],
+    [type="number"],
+    [type="email"],
+    [type="url"]
+  ):where(:hover:enabled) {
+  border-color: var(--text-faint);
+}
+
+select:where(:disabled),
+input:where(
+    :not([type]),
+    [type="text"],
+    [type="search"],
+    [type="date"],
+    [type="datetime-local"],
+    [type="number"],
+    [type="email"],
+    [type="url"]
+  ):where(:disabled) {
+  background-color: var(--surface-sunk);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+select:not([multiple]):not([size]):disabled {
+  cursor: default;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+input:where([type="checkbox"], [type="radio"]) {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--text);
+}
+
+/* ---- Buttons (DESIGN.md, Buttons) ----
+   .button is the 28px secondary; --primary is the one commit action on a
+   surface; --ghost is transparent until hover. Selection is never red. */
+.button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.button:hover:enabled {
+  background: var(--bg-tint);
+}
+
+.button--primary {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.button--primary:hover:enabled {
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
+}
+
+.button--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.button--ghost:hover:enabled {
+  color: var(--text);
+}
+
+.button:disabled {
+  border-color: var(--border);
+  background: var(--surface-sunk);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.button--ghost:disabled {
+  border-color: transparent;
+  background: transparent;
+}
+
+.button svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* ---- Banner (DESIGN.md, Banners) ----
+   One 36px tinted band: a mark, concise text, and an optional action at the
+   right. Repeated conditions merge into one banner with a disclosure. */
+.banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 36px;
+  padding: 4px var(--sp-3) 4px var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-tint);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.banner--warning {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  background: var(--warning-soft);
+}
+
+.banner--risk {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.banner__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.banner__aside {
+  color: var(--text-muted);
+}
+
+.banner > .button,
+.banner__actions {
+  margin-left: auto;
+}
+
+.banner__actions {
+  display: flex;
+  flex: none;
+  gap: var(--sp-2);
+}
+
+.view-header__about code {
+  font-size: var(--fs-xs);
+}
+
+/* A nonzero problem count is the one count in red ink; zero stays muted. */
+.view-header__count.is-risk {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* ---- Risk status mark ----
+   Risk (Failed, Needs attention, errors) is an 11px red disc with an
+   exclamation cut out, so it never reads as the brand diamond. The other
+   status shapes live with .status-mark in configured-view.css; this rule
+   outranks the older rotated square there until that rule moves here. */
+.status-mark.status-mark--risk .status-mark__shape {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 0;
+  background: var(--accent);
+  transform: none;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill-rule='evenodd' d='M6 0a6 6 0 1 0 0 12A6 6 0 0 0 6 0ZM5.25 2.5h1.5v4.75h-1.5ZM5.25 8.25h1.5v1.5h-1.5Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/* ---- View header layout outside collections ----
+   Screens that are not configured views (Problems, Agent, Tasks) reuse the
+   .view-header classes from configured-view.css; this lets the title row
+   carry its own actions at the right. */
+.view-header__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+/* Header Details: diagnostics a reader rarely needs (versions, refs, commit
+   hashes, fetch times) sit behind one ghost "Details" button at the right of
+   the title row, as a small definition list. */
+.header-details {
+  position: relative;
+}
+
+.header-details > summary {
+  list-style: none;
+}
+
+.header-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-details[open] > summary {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.header-details dl {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-5);
+  min-width: 240px;
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: var(--fs-sm);
+}
+
+.header-details dt {
+  color: var(--text-muted);
+}
+
+.header-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ==========================================================================
@@ -286,8 +586,10 @@ textarea {
   font-size: var(--fs-sm);
 }
 
+/* Muted chrome text measures just under 4.5:1 on the raised field, so the
+   placeholder leans a fifth of the way toward full chrome text. */
 .app-shell__global-search input::placeholder {
-  color: var(--chrome-muted);
+  color: color-mix(in srgb, var(--chrome-muted) 80%, var(--chrome-text));
 }
 
 .app-shell__global-search input:focus-visible {
@@ -379,10 +681,11 @@ textarea {
   display: none;
 }
 
-.graphql-explorer {
+/* GraphQL sits in the standard workbench (workbench.css): the section
+   sidebar holds GraphiQL's docs, history, and dialogs. */
+.graphql-explorer__body {
   flex: 1;
   min-height: 0;
-  background: var(--surface);
 }
 
 .app-error-boundary {
@@ -460,7 +763,7 @@ textarea {
 }
 
 /* GraphiQL reads HSL triplets, not colors, so its palette restates the
-   tokens: ink neutral, surface base, deeper red primary, teal success. Its
+   tokens: ink neutral, surface base, deeper red primary, green success. Its
    dialogs and tooltips render outside the explorer, hence the body scope. */
 .graphql-explorer .graphiql-container {
   height: 100%;
@@ -490,7 +793,7 @@ body
   --color-secondary: 256, 29%, 41%;
   --color-tertiary: 177, 81%, 23%;
   --color-info: 198, 65%, 35%;
-  --color-success: 177, 81%, 23%;
+  --color-success: 142, 56%, 27%;
   --color-warning: 37, 80%, 30%;
   --color-error: 357, 69%, 36%;
   --color-neutral: 30, 8%, 15%;
@@ -513,7 +816,7 @@ html
   --color-secondary: 257, 43%, 81%;
   --color-tertiary: 177, 59%, 61%;
   --color-info: 198, 64%, 73%;
-  --color-success: 177, 68%, 63%;
+  --color-success: 140, 50%, 67%;
   --color-warning: 38, 70%, 70%;
   --color-error: 357, 100%, 78%;
   --color-neutral: 37, 17%, 91%;
@@ -522,10 +825,188 @@ html
   --popover-border: 1px solid var(--border);
 }
 
-/* Run is the one commit action: the filled primary in both themes. */
+/* ---- GraphiQL inside the panel ----
+   Flat panes under the view header: the session tabs, then query and
+   response split by one hairline. GraphiQL's tool rail is hidden; the
+   section sidebar presses its buttons. No floating card, resting shadow, or
+   tinted session frame. */
+.graphql-explorer .graphiql-container .graphiql-sidebar {
+  display: none;
+}
+
+.graphql-explorer .graphiql-container .graphiql-sessions {
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.graphql-explorer .graphiql-container .graphiql-session-header {
+  height: 40px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.graphql-explorer .graphiql-container #graphiql-session {
+  padding: 0;
+}
+
+/* Session tabs are text tabs with the shared underline (.view-tabs): muted
+   ink, and the active session in full ink over a 2px bar on the hairline. */
+.graphql-explorer .graphiql-container .graphiql-session-header .graphiql-tabs {
+  align-self: stretch;
+  align-items: stretch;
+  gap: var(--sp-5);
+  padding: 0 0 0 calc(var(--gutter) - var(--sp-3));
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab {
+  align-items: center;
+  align-self: stretch;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab .graphiql-tab-button {
+  padding: 0;
+  color: inherit;
+  font: 500 var(--fs-base) / 1 var(--font-sans);
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab:has(.graphiql-tab-close) .graphiql-tab-button {
+  padding-right: 24px;
+}
+
+.graphql-explorer .graphiql-container .graphiql-tab:hover,
+.graphql-explorer .graphiql-container .graphiql-tab.graphiql-tab-active {
+  background: transparent;
+  color: var(--text);
+}
+
+/* At the strip's foot, not over the hairline: GraphiQL's tab list scrolls,
+   so anything below it would be clipped. */
+.graphql-explorer .graphiql-container .graphiql-tab.graphiql-tab-active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+}
+
+.graphql-explorer .graphiql-container .graphiql-editors {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* One hairline between query and response; the drag target stays 9px. */
+.graphql-explorer .graphiql-container #graphiql-session > .graphiql-horizontal-drag-bar {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  margin: 0 -4px;
+  background: linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat;
+}
+
+.graphql-explorer .graphiql-container #graphiql-session > .graphiql-horizontal-drag-bar:hover {
+  background-image: linear-gradient(var(--border-strong), var(--border-strong));
+}
+
+.graphql-explorer .graphiql-container #graphiql-session > .graphiql-horizontal-drag-bar::after {
+  content: none;
+}
+
+/* The query pane leads with a 40px labelled toolbar, like Response opposite:
+   "Query", then Format and Merge as 28px ghost buttons with a glyph and a
+   short label, Copy as a 28px icon button, then Run, the 28px primary
+   labelled "Run ⌘↵". */
+.graphql-explorer .graphiql-container .graphiql-query-editor {
+  flex-direction: column;
+  padding: 0;
+  border-bottom-color: var(--border);
+}
+
+.graphql-explorer .graphiql-container .graphiql-query-editor > :not(.graphiql-toolbar) {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--sp-5) var(--sp-3) var(--sp-2);
+}
+
+.graphql-explorer .graphiql-container .graphiql-toolbar {
+  flex-direction: row;
+  order: -1;
+  align-items: center;
+  gap: 2px;
+  width: auto;
+  height: 40px;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+}
+
+.graphql-explorer .graphiql-container .graphiql-toolbar::before {
+  content: "Query";
+  margin-right: auto;
+  color: var(--label-color);
+  font: var(--label-font);
+}
+
+.graphql-explorer button.graphiql-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+}
+
+.graphql-explorer button.graphiql-toolbar-button:has(.graphiql-toolbar-label) {
+  gap: 6px;
+  width: auto;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.graphql-explorer button.graphiql-toolbar-button:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.graphql-explorer .graphiql-toolbar-icon {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+}
+
 .graphql-explorer button.graphiql-execute-button {
+  display: inline-flex;
+  order: 1;
+  align-items: center;
+  width: auto;
+  height: 28px;
+  margin-left: var(--sp-2);
+  padding: 0 10px;
   background-color: var(--accent-fill);
   border-radius: var(--r-md);
+  color: var(--on-accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.graphql-explorer button.graphiql-execute-button::after {
+  content: "Run ⌘↵";
+}
+
+.graphql-explorer button.graphiql-execute-button[aria-label^="Stop"]::after {
+  content: "Stop";
+}
+
+.graphql-explorer button.graphiql-execute-button > svg {
+  display: none;
 }
 
 .graphql-explorer button.graphiql-execute-button:hover,
@@ -533,8 +1014,98 @@ html
   background-color: var(--accent-fill-hover);
 }
 
-.graphql-explorer button.graphiql-execute-button > svg {
-  color: var(--on-accent);
+/* Variables and Headers: the same 13/500 tab metrics as the pane tabs. */
+.graphql-explorer .graphiql-container .graphiql-editor-tools {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.graphql-explorer .graphiql-container .graphiql-editor-tools > button {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* The drawer toggle draws the shared disclosure chevron (16px, 1.5 stroke)
+   in a 24px target: right while Variables is closed, down while it is open. */
+.graphql-explorer .graphiql-container button.graphiql-toggle-editor-tools {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools > svg {
+  display: none;
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools::before {
+  content: "";
+  width: var(--disclosure-icon);
+  height: var(--disclosure-icon);
+  background: currentColor;
+  mask: var(--chevron-mask) center / contain no-repeat;
+  transform: rotate(0deg);
+  transition: transform 0.15s var(--ease);
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools[aria-label^="Hide"]::before {
+  transform: rotate(90deg);
+}
+
+/* Docs uses the editor's syntax roles: types in type ink, root operations
+   as keywords, arguments as properties, fields in plain ink. */
+.graphql-explorer a.graphiql-doc-explorer-type-name {
+  color: var(--syntax-type);
+}
+
+.graphql-explorer .graphiql-doc-explorer-root-type {
+  color: var(--syntax-keyword);
+}
+
+.graphql-explorer .graphiql-doc-explorer-argument-name {
+  color: var(--syntax-property);
+}
+
+.graphql-explorer a.graphiql-doc-explorer-field-name {
+  color: var(--text);
+}
+
+/* The view header names the vault in place of the GraphiQL wordmark. */
+.graphql-explorer .graphiql-container .graphiql-logo {
+  display: none;
+}
+
+/* The results pane names itself and says what fills it. An unrun response
+   editor holds one empty line; any result spans several. */
+.graphql-explorer .graphiql-container .graphiql-response {
+  padding-top: 0;
+}
+
+.graphql-explorer .graphiql-response::before {
+  content: "Response";
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 40px;
+  padding: 0 var(--sp-5);
+  color: var(--label-color);
+  font: var(--label-font);
+}
+
+.graphql-explorer .graphiql-response .result-window::after {
+  content: "Run the query to see results";
+  position: absolute;
+  top: 4px;
+  left: var(--sp-5);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+}
+
+.graphql-explorer .graphiql-response:has(.view-line ~ .view-line) .result-window::after {
+  content: none;
 }
 
 /* ==========================================================================
@@ -717,50 +1288,198 @@ html
 }
 
 /* Segmented control: one look for every mode switch (view layout, pane mode,
-   grouping). Selection is neutral: the chosen segment fills with ink. */
+   grouping). A tinted track holds the segments; the chosen one is a raised
+   surface with a border-strong edge and ink 600 text, never a solid fill and
+   never red. In dark the raised surface steps lighter than the track. */
 .segmented {
   display: inline-flex;
   flex: none;
   align-items: stretch;
+  gap: 2px;
   min-inline-size: 0;
   margin: 0;
-  padding: 0;
+  padding: 2px;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
 }
 
 .segmented > button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 0;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
   background: transparent;
   color: var(--text-muted);
-  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
   cursor: pointer;
 }
 
-.segmented > button + button {
-  border-left: 1px solid var(--border);
-}
-
 .segmented > button:hover {
-  background: var(--bg-tint);
   color: var(--text);
 }
 
 .segmented > button:is([aria-pressed="true"], [aria-selected="true"], .is-active) {
-  background: var(--text);
-  color: var(--surface);
+  border-color: var(--border-strong);
+  background: light-dark(var(--surface), var(--surface-strong));
+  color: var(--text);
+  font-weight: 600;
 }
 
 .segmented > button:focus-visible {
   outline-offset: -2px;
+}
+
+/* Quiet actions stay teal; record titles use .link-title in ink. */
+.link-quiet {
+  color: var(--link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-quiet:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* Shared record titles, including native components and bundled views. */
+.link-title,
+.configured-view__title-button,
+.configured-card__title,
+.search-workspace__result-link,
+.ontology-type-detail__impl-name {
+  color: var(--text);
+  font-weight: var(--title-weight);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+:is(
+  .link-title,
+  .configured-view__title-button,
+  .configured-card__title,
+  .search-workspace__result-link
+):is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* A secondary link column (Source, Parent): ink-muted, underlined on hover
+   and keyboard focus, without competing with the record title. */
+.link-secondary {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-secondary:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* One disclosure control for every expand, collapse, or disclosure: a 16px,
+   1.5-stroke chevron (<DisclosureChevron>) pointing right when closed and
+   down when open. As a bare icon button it sits in .disclosure-toggle, a
+   24px hit target with an accessible label; inside a larger control (a row,
+   a summary, a text button) that control is the target. Never ▸, ▾, or ‹. */
+.disclosure-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--disclosure-target);
+  height: var(--disclosure-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.disclosure-toggle:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+/* The shared chevron as a mask, for CSS-drawn disclosures (::before/::after
+   on <summary>). Same shape and stroke as <DisclosureChevron>. */
+:root {
+  --chevron-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 4 4 4-4 4'/%3E%3C/svg%3E");
+}
+
+.disclosure-chevron {
+  flex: none;
+  width: var(--disclosure-icon);
+  height: var(--disclosure-icon);
+  transition: transform 0.15s var(--ease);
+}
+
+.disclosure-chevron[data-open="true"],
+[aria-expanded="true"] > .disclosure-chevron,
+details[open] > summary .disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-chevron {
+    transition: none;
+  }
+}
+
+/* Section heading (--section-font): a block or section title in a view
+   body. 15/600 in full ink with 10px below, so it outranks 14/500 rows. */
+.section-heading {
+  margin: 0 0 var(--section-gap);
+  color: var(--section-color);
+  font: var(--section-font);
+}
+
+/* Empty data recedes: a scattered empty cell or value is a muted dash at
+   reduced emphasis. A column whose values are all empty is hidden instead. */
+.empty-dash {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+/* One overflow link: "Show N more" inside a list, in quiet teal, aligned to
+   the list's title column (set its inline start to the title inset). It is
+   an expander, so it takes its own line --expander-gap below the items and
+   never runs on from inline text or a comma list. Leaving the view is a
+   separate "Open <view>" link. */
+.list-more {
+  display: flex;
+  width: fit-content;
+  margin-top: var(--expander-gap);
+  align-items: center;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font: 500 var(--fs-sm) / 1.3 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.list-more:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* Numbers and dates: counts, dates, ages, and stats are Inter with tabular
+   figures, never mono. Mono is for identifiers, paths, and code only. */
+.num {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 /* A note's type: one neutral chip wherever a type names a note. Red stays
@@ -773,10 +1492,7 @@ html
   border-radius: var(--r-sm);
   background: var(--surface-sunk);
   color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  line-height: 1.35;
+  font: var(--label-structure);
   white-space: nowrap;
 }
 
@@ -925,6 +1641,7 @@ html
 }
 
 .graph-type-legend__label {
+  font: var(--label-structure);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

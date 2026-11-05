@@ -41,7 +41,7 @@ describe("table column overflow", () => {
   afterEach(() => restore());
 
   describe("in a narrow table", () => {
-    // Two-line rows: title 320 + Status 136 + ID 176 + Updated 104 + the check cell is 766.
+    // Two-line rows: title 320 + Status 136 + ID 176 + Updated 116 + the check cell is 778.
     beforeEach(() => {
       restore = tableWidth(600);
     });
@@ -51,7 +51,8 @@ describe("table column overflow", () => {
 
       expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Updated" })).toBeVisible();
-      expect(screen.getByText("ID shows in the Record pane")).toBeVisible();
+      expect(screen.getByText("1 column in Record")).toBeVisible();
+      expect(screen.getByText(/ID shows in the Record pane/)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Open Alpha Spec" }));
       const record = screen.getByRole("article", { name: "Selected record Alpha Spec" });
@@ -68,9 +69,10 @@ describe("table column overflow", () => {
       render(<RailHarness>{view()}</RailHarness>);
 
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
-      expect(screen.queryByText(/in the Record pane/)).toBeNull();
+      expect(screen.queryByText(/in Record/)).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
-      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "766px" });
+      // The table groups by Status, so that column leaves: 754 less its 136.
+      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "618px" });
     });
   });
 });

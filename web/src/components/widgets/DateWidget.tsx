@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import type { OntologyEditFieldValue } from "../../api/types";
+import { readableDate } from "../ConfiguredTableCellReadOnly";
 
 import {
   clearPersistedEditorDraft,
@@ -38,9 +39,9 @@ type Props = {
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 /**
- * Compact date display. The on-disk literal stays the canonical value; the
- * relative phrase ("3d ago") is a tooltip, not the display, so users can copy
- * the literal with a click. Edit mode swaps in a native date input.
+ * Compact date display. A calendar date reads as words ("Oct 26, 2026"), the
+ * form collections use; the on-disk literal and the relative phrase ("3d ago")
+ * are the tooltip. Edit mode swaps in an ISO text input.
  */
 export function DateWidget({
   value,
@@ -65,6 +66,7 @@ export function DateWidget({
   const [requiredError, setRequiredError] = useState(false);
   const [validationError, setValidationError] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const pickerRef = useRef<HTMLInputElement | null>(null);
   const lastStaged = useRef<string | null>(null);
   const suppressBlur = useRef(false);
   const errorID = `date-widget-error-${useId()}`;
@@ -90,42 +92,45 @@ export function DateWidget({
     return () => window.removeEventListener("rhizome:discard-editor-drafts", discard);
   }, [inputValue, operationTarget, vaultKey]);
 
-  const commit = useCallback(() => {
-    const next = draft.trim();
+  const commit = useCallback(
+    (value: string = draft) => {
+      const next = value.trim();
 
-    if (!next) {
-      if (required) setRequiredError(true);
+      if (!next) {
+        if (required) setRequiredError(true);
 
-      if (required || (next === (inputValue || "") && lastStaged.current === null)) return;
+        if (required || (next === (inputValue || "") && lastStaged.current === null)) return;
+        lastStaged.current = next;
+
+        if (onStage?.("") !== false) clearPersistedEditorDraft(vaultKey, operationTarget);
+
+        return;
+      }
+
+      const valid = kind === "datetime" ? isValidDateTimeLocal(next) : isValidDate(next);
+
+      if (!valid) {
+        setValidationError(`Enter a valid ${kind === "datetime" ? "date and time" : "date"}.`);
+
+        return;
+      }
+
+      if (next === (inputValue || "") && lastStaged.current === null) {
+        clearPersistedEditorDraft(vaultKey, operationTarget);
+
+        return;
+      }
+
+      setRequiredError(false);
+      setValidationError("");
       lastStaged.current = next;
 
-      if (onStage?.("") !== false) clearPersistedEditorDraft(vaultKey, operationTarget);
-
-      return;
-    }
-
-    const valid = kind === "datetime" ? isValidDateTimeLocal(next) : isValidDate(next);
-
-    if (!valid) {
-      setValidationError(`Enter a valid ${kind === "datetime" ? "date and time" : "date"}.`);
-
-      return;
-    }
-
-    if (next === (inputValue || "") && lastStaged.current === null) {
-      clearPersistedEditorDraft(vaultKey, operationTarget);
-
-      return;
-    }
-
-    setRequiredError(false);
-    setValidationError("");
-    lastStaged.current = next;
-
-    if (onStage?.(kind === "datetime" ? toRFC3339(next, trimmed) : next) !== false) {
-      clearPersistedEditorDraft(vaultKey, operationTarget);
-    }
-  }, [draft, inputValue, kind, onStage, operationTarget, required, trimmed, vaultKey]);
+      if (onStage?.(kind === "datetime" ? toRFC3339(next, trimmed) : next) !== false) {
+        clearPersistedEditorDraft(vaultKey, operationTarget);
+      }
+    },
+    [draft, inputValue, kind, onStage, operationTarget, required, trimmed, vaultKey],
+  );
 
   if (!editing) {
     if (!trimmed) {
@@ -137,7 +142,7 @@ export function DateWidget({
         className={`widget-date${dirty ? " is-dirty" : ""}`}
         title={relative ? `${trimmed} · ${relative}` : trimmed}
       >
-        {trimmed}
+        {kind === "date" && inputValue ? readableDate(inputValue) : trimmed}
       </span>
     );
   }
@@ -154,7 +159,12 @@ export function DateWidget({
     <span className="widget-date-editor">
       <input
         ref={inputRef}
-        type={kind === "datetime" ? "datetime-local" : "date"}
+        // A date is typed as ISO text, the form read mode shows; the native
+        // date input would show the browser locale's format instead.
+        type={kind === "datetime" ? "datetime-local" : "text"}
+        inputMode={kind === "date" ? "numeric" : undefined}
+        placeholder={kind === "date" ? "YYYY-MM-DD" : undefined}
+        size={kind === "date" ? 10 : undefined}
         step={kind === "datetime" ? datetimeStep(trimmed) : undefined}
         className={`widget-date widget-date--input${dirty ? " is-dirty" : ""}`}
         value={draft}
@@ -208,6 +218,42 @@ export function DateWidget({
           }
         }}
       />
+      {kind === "date" ? (
+        <span className="widget-date-editor__picker">
+          <button
+            type="button"
+            className="widget-date-editor__pick"
+            aria-label={`Choose ${ariaLabel || "date"} from a calendar`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              const picker = pickerRef.current;
+
+              if (!picker) return;
+              picker.value = isValidDate(draft.trim()) ? draft.trim() : "";
+              picker.showPicker?.();
+            }}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor">
+              <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" strokeWidth="1.3" />
+              <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          </button>
+          <input
+            ref={pickerRef}
+            type="date"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="widget-date-editor__native"
+            onChange={(event) => {
+              const next = event.target.value;
+
+              if (!next) return;
+              setDraft(next);
+              commit(next);
+            }}
+          />
+        </span>
+      ) : null}
       {kind === "datetime" ? <small className="widget-date-editor__offset">{offset}</small> : null}
       {error ? (
         <small id={errorID} className="widget-date-editor__invalid" role="alert">

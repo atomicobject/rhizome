@@ -1,3 +1,4 @@
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import { type CSSProperties, type DragEvent, Fragment, memo, type RefObject } from "react";
 
 import type {
@@ -12,13 +13,19 @@ import type { OpenMode } from "./useNoteTabs";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { ChangedCell } from "./ConfiguredTableCellReadOnly";
+import { SourceNoteLink } from "./SourceNoteLink";
 import {
   capabilityFor,
   GroupValueMark,
   groupValueLabel,
   isIssueColumn,
 } from "./ConfiguredViewModel";
-import { type ConfiguredTableGroup, groupTone } from "./ConfiguredViewTableModel";
+import {
+  type ConfiguredTableGroup,
+  groupTone,
+  isDeadlineField,
+  isOverdue,
+} from "./ConfiguredViewTableModel";
 import { moveTableFocus } from "./focusManagement";
 import { reorderDelta, type ViewReorder } from "./useViewReorder";
 import { useTypeLabel } from "./typeLabels";
@@ -58,6 +65,7 @@ export type TableRowProps = {
   summaryField?: string;
   /** Enum fields without lifecycle stages; their values read as plain labels. */
   categoryFields: ReadonlySet<string>;
+  sortFields?: ReadonlySet<string>;
 };
 
 /** What one row shows for the current selection, checks, drag, and staged edits. */
@@ -89,6 +97,21 @@ export function ConfiguredViewTableGroup({
   onToggle: (group: ConfiguredTableGroup) => void;
 }) {
   const expanded = isExpanded(group);
+  const groupRows = rowsForGroup(group);
+
+  const deadlines = rowProps.capabilities.filter((field) =>
+    isDeadlineField(field.canonicalField ?? field.key),
+  );
+
+  // Count only once every row is loaded; a partial count would undercount the group.
+  const overdue =
+    groupRows.length < group.count
+      ? 0
+      : groupRows.filter((row) =>
+          deadlines.some((field) =>
+            isOverdue(row, fieldValue(row, field.key), rowProps.capabilities),
+          ),
+        ).length;
 
   const capability = capabilityFor(rowProps.capabilities, group.field);
   const label = groupValueLabel(capability, group.value, group.label);
@@ -111,17 +134,20 @@ export function ConfiguredViewTableGroup({
           <button
             type="button"
             className="configured-view__group-toggle"
-            aria-label={`${label} ${group.count}`}
+            aria-label={`${label} ${group.count}${overdue ? ` · ${overdue} overdue` : ""}`}
             aria-expanded={expanded}
             onClick={() => onToggle(group)}
           >
-            <span className="configured-view__group-caret" aria-hidden="true" />
+            <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
             <GroupValueMark
               capability={capability}
               tone={group.tone ?? groupTone(rowProps.capabilities, group)}
               label={label}
             />
             <span className="configured-view__group-count">{group.count}</span>
+            {overdue > 0 && (
+              <span className="configured-view__group-count">· {overdue} overdue</span>
+            )}
           </button>
         </th>
       </tr>
@@ -140,10 +166,11 @@ export function ConfiguredViewTableGroup({
           ))
         : null}
       {expanded && leaf
-        ? rowsForGroup(group).map((row) => (
+        ? groupRows.map((row, index) => (
             <ConfiguredViewTableRow
               key={configuredTableRowKey(row)}
               row={row}
+              previousRow={groupRows[index - 1]}
               groupId={group.key}
               {...rowProps}
               {...rowState(row, group.key)}
@@ -177,6 +204,8 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   onClearSelection,
   summaryField,
   categoryFields,
+  sortFields,
+  previousRow,
   groupId,
   selected,
   tabbable,
@@ -185,7 +214,9 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   pending,
   dropClass,
   changedFields,
-}: TableRowProps & TableRowState & { row: ViewTableRow; groupId: string }) {
+  capabilities,
+}: TableRowProps &
+  TableRowState & { row: ViewTableRow; previousRow?: ViewTableRow; groupId: string }) {
   const rowKey = configuredTableRowKey(row);
   const dirty = changedFields.size > 0;
   const showHandle = reorderEnabled || reorderBlockedReason !== "unsupported";
@@ -299,7 +330,19 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
           onChange={() => {}}
         />
       </td>
-      {columnCells.map(({ column, capability, className }, columnIndex) => {
+      {columnCells.map(({ column, capability, className: baseClassName }, columnIndex) => {
+        const value = fieldValue(row, column.field);
+
+        // The title names the row, so it never dims.
+        const repeat =
+          columnIndex !== primaryColumnIndex &&
+          previousRow &&
+          sortFields?.has(column.field) &&
+          value !== "" &&
+          value === fieldValue(previousRow, column.field);
+
+        const className = `${baseClassName}${repeat ? " is-repeat" : ""}`;
+
         if (isIssueColumn(column.field, issueCounts)) {
           const path = row.ref.notePath || row.path || "";
           const count = issueCounts?.get(path);
@@ -324,12 +367,19 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
           );
         }
 
-        const value = fieldValue(row, column.field);
-
         if (column.field === "updatedAt") {
           return (
             <td key={column.field} className={className}>
               <ChangedCell value={row.updatedAt} />
+            </td>
+          );
+        }
+
+        // An embedded record's source note reads by its title, not its path.
+        if (column.field === "notePath") {
+          return (
+            <td key={column.field} className={className}>
+              <SourceNoteLink path={value} onOpen={onOpenRow} />
             </td>
           );
         }
@@ -365,7 +415,17 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
             className={`${className}${capability?.semanticRole === "count" && value === "0" ? " is-zero" : ""}${categoryFields.has(column.field) ? " is-category" : ""}`}
             title={value || undefined}
           >
-            {columnIndex === primaryColumnIndex && dirty ? (
+            {className.includes("configured-view__cell--deadline") &&
+            isOverdue(row, value, capabilities) ? (
+              // Overdue is a warning beside the date, in words and with a mark.
+              <span className="configured-view__cell-line">
+                {cellContent}
+                <span className="configured-view__overdue">
+                  <TriangleAlert size={13} aria-hidden />
+                  Overdue
+                </span>
+              </span>
+            ) : columnIndex === primaryColumnIndex && dirty ? (
               // The line keeps the dot beside the truncated title, not past it.
               <span className="configured-view__cell-line">
                 {cellContent}

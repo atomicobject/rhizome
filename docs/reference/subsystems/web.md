@@ -19,6 +19,8 @@ code-anchors:
 
 ## Design constraints
 
+- Browser navigation retains note tabs beside one replaceable collection, view, Problems, Changes, or search page; the tab strip appears only while a note is open. GraphQL uses the shared workbench sidebar and inset panel. Its browser toggle works; Desktop's remaining GraphQL toggle exclusion is tracked in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]]. These 2026-11-04 presentation changes preserve the HTTP, query, and mutation ownership below.
+
 - Typed node and relation reads use request-scoped `noderead` services. GraphQL uses the shared application query engine and recipe registry. Counts and public type summaries use their bounded read contracts; handlers do not rebuild ontology projections or scan the catalog per result.
 - Readiness follows the selected provider and complete publication proof. Raw-only exact reads may use their admitted immutable provider-current fact bundle. Broad, fragmented, workspace, relation, and semantic reads wait for their required publication. Old ready flags alone do not certify current data.
 - Server construction validates and retains the explicit metadata runtime. Every read scope receives that runtime so root capabilities follow the provider, including non-Markdown formats. Missing dependencies produce structured errors or retryable readiness responses.

@@ -34,7 +34,10 @@
   border: 1px solid var(--border-strong);
   border-radius: calc(var(--r-lg) + 4px);
   background: var(--surface);
-  box-shadow: var(--shadow-lg);
+  /* A lift that still reads on a dark page. */
+  box-shadow:
+    var(--shadow-lg),
+    0 24px 64px light-dark(rgba(42, 39, 36, 0.12), rgba(0, 0, 0, 0.6));
   animation: finder-in 140ms var(--ease);
 }
 
@@ -96,9 +99,10 @@
   font: var(--label-font);
 }
 
+/* Nine whole 46px rows plus the list padding, so the footer never cuts a row. */
 .finder__list {
   flex: 1 1 auto;
-  max-height: 440px;
+  max-height: calc(46px * 9 + 2 * var(--sp-2));
   margin: 0;
   padding: var(--sp-2);
   overflow-y: auto;
@@ -112,13 +116,16 @@
   display: none;
 }
 
+/* The type label has a fixed 112px column after a 12px gap, so a long path
+   gives way (directories first) before it reaches the label, and every label
+   aligns. */
 .finder__row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) 112px;
   grid-template-rows: auto auto;
-  column-gap: var(--sp-4);
+  column-gap: 12px;
   align-items: center;
-  min-height: 46px;
+  height: 46px;
   padding: var(--sp-1) var(--sp-4);
   border-radius: calc(var(--r-md) + 3px);
   cursor: pointer;
@@ -126,7 +133,6 @@
 
 .finder__row[aria-selected="true"] {
   background: var(--selection);
-  box-shadow: inset 3px 0 0 var(--selection-edge);
 }
 
 .finder__icon {
@@ -134,7 +140,18 @@
   color: var(--text-muted);
 }
 
+/* A note's type hue, the same slot it has in the Atlas and graphs. */
+.finder__dot {
+  justify-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* The title takes the whole first line; the path and the type label share
+   the second, so a long title is never cut short for a short path. */
 .finder__title {
+  grid-column: 2 / span 2;
   overflow: hidden;
   font-weight: 500;
   white-space: nowrap;
@@ -142,18 +159,41 @@
 }
 
 .finder__detail {
+  grid-row: 2;
+  grid-column: 3;
+  overflow: hidden;
   color: var(--text-muted);
   font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: right;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .finder__path {
-  grid-column: 2 / span 2;
-  overflow: hidden;
+  display: flex;
+  grid-row: 2;
+  grid-column: 2;
+  min-width: 0;
   color: var(--text-muted);
   font: var(--fs-xs) / 1.4 var(--font-mono);
   white-space: nowrap;
+}
+
+/* Directories shrink far faster than the filename, so they give way first. */
+.finder__dir,
+.finder__file {
+  overflow: hidden;
+  min-width: 0;
   text-overflow: ellipsis;
+}
+
+.finder__dir {
+  flex: 0 1000 auto;
+}
+
+.finder__file {
+  flex: 0 1 auto;
 }
 
 .finder mark {
@@ -172,6 +212,12 @@
   color: var(--text-muted);
 }
 
+.finder__foot kbd {
+  border-color: var(--border-strong);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+}
+
 .finder__foot {
   display: flex;
   flex: none;
@@ -181,7 +227,7 @@
   padding: var(--sp-4) var(--sp-5);
   border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .finder__foot span {

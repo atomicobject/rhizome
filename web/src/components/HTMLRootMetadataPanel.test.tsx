@@ -24,10 +24,10 @@ describe("HTMLRootMetadataPanel", () => {
       />,
     );
 
-    const disclosure = screen.getByText("HTML metadata").closest("details");
+    const disclosure = screen.getByText("Metadata").closest("details");
     expect(disclosure).not.toHaveAttribute("open");
     expect(screen.getByRole("textbox", { name: "type" })).not.toBeVisible();
-    fireEvent.click(screen.getByText("HTML metadata"));
+    fireEvent.click(screen.getByText("Metadata"));
     expect(disclosure).toHaveAttribute("open");
 
     const type = screen.getByRole("textbox", { name: "type" });
@@ -99,7 +99,7 @@ describe("HTMLRootMetadataPanel", () => {
         dirtyFields={new Set()}
       />,
     );
-    fireEvent.click(screen.getByText("HTML metadata"));
+    fireEvent.click(screen.getByText("Metadata"));
     expect(screen.queryByText("title")).not.toBeInTheDocument();
     expect(screen.queryByText("tags")).not.toBeInTheDocument();
     expect(screen.getByText("Report")).toBeVisible();

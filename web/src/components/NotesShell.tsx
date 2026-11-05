@@ -112,6 +112,54 @@ function useSettledTrue(value: boolean, delay: number): boolean {
   return value && settled;
 }
 
+/**
+ * Whether the active tab's panel shows a collection view (Table, Cards, or
+ * Board), the presentations a person can edit. Briefing and Overview have
+ * nothing to edit, so the tab row offers Edit only where this is true.
+ */
+function usePanelShowsCollection(tabId: string): boolean {
+  const [shows, setShows] = useState(false);
+
+  useEffect(() => {
+    const panel = document.getElementById(`panel-${tabId}`);
+
+    if (!panel) return setShows(false);
+    const check = () => setShows(Boolean(panel.querySelector(".configured-view")));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(panel, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [tabId]);
+
+  return shows;
+}
+
+/** Publishes the room an element needs as a CSS variable on `target`, so a header can leave it free. */
+function useWidthVariable(
+  element: HTMLElement | null,
+  target: HTMLElement | null,
+  name: string,
+): void {
+  useEffect(() => {
+    if (!element || !target) return;
+
+    const observer = new ResizeObserver(() => {
+      const width = element.offsetWidth;
+
+      if (width) target.style.setProperty(name, `calc(${width}px + var(--sp-4) + var(--sp-3))`);
+      else target.style.removeProperty(name);
+    });
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      target.style.removeProperty(name);
+    };
+  }, [element, target, name]);
+}
+
 export function NotesShell({ active = true }: { active?: boolean }) {
   const queryClient = useQueryClient();
   const shellRef = useRef<HTMLElement>(null);
@@ -722,10 +770,30 @@ export function NotesShell({ active = true }: { active?: boolean }) {
 
   const vaultName = statusQuery.data?.vaultName;
 
+  // Each tab-row control shows only where it does something: Edit on notes and
+  // collection views (or while a session is open, to save or discard it), the
+  // pane toggle where the tab has a right pane.
+  const showsCollection = usePanelShowsCollection(tabs.activeId);
+  const noteActive = tabs.activeTab.kind === "note";
+
+  const editApplies =
+    !searchActive &&
+    (noteActive || showsCollection || editSession.editing || Boolean(editSession.session));
+
+  const paneApplies = !searchActive && (noteActive || recordRail.showing);
+  // The strip holds note tabs. With none open it has nothing to switch between:
+  // it hides, and its controls sit in the page header's title row, so every
+  // page (Home, a view, Problems, a search) puts its title at the same height.
+  const soloHome = !tabs.tabs.some((tab) => tab.kind === "note");
+  const [tabsRow, setTabsRow] = useState<HTMLDivElement | null>(null);
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  useWidthVariable(soloHome ? tabsRow : null, frame, "--shell-actions-pad");
+
   return (
     <main
       className="workspace workspace--ontology workbench notes-shell"
       aria-label="Notes workspace"
+      tabIndex={-1}
       ref={shellRef}
       style={shellStyle}
     >
@@ -761,15 +829,19 @@ export function NotesShell({ active = true }: { active?: boolean }) {
           />
         </DiagnosticRegion>
       </WorkbenchSidebar>
-      <div className="workbench__panel notes-shell__frame">
-        <div className="notes-shell__tabs-row">
+      <div
+        ref={setFrame}
+        className={`workbench__panel notes-shell__frame${soloHome ? " notes-shell__frame--solo" : ""}${soloHome && paneOpen ? " has-pane" : ""}`}
+      >
+        <div ref={setTabsRow} className="notes-shell__tabs-row">
           <NoteTabStrip
             tabs={tabs.tabs}
             activeId={tabs.activeId}
             onActivate={tabs.activate}
             onClose={closeTab}
+            hidden={soloHome}
           />
-          {!searchActive ? (
+          {editApplies ? (
             <div className="notes-shell__session">
               <OntologyEditSessionPanel
                 session={editSession.session}
@@ -787,7 +859,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
               />
             </div>
           ) : null}
-          {searchActive ? null : (
+          {paneApplies && (
             <button
               ref={paneToggleRef}
               type="button"

@@ -21,7 +21,7 @@ describe("OntologyEditSessionPanel", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Draft");
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Review" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Review" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Done" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onDiscard).toHaveBeenCalledOnce();

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { OntologyAtlasResponse } from "../api/types";
 import {
   buildOntologyGraph,
-  fieldRowMidpointY,
   IMPL_SOURCE_RIGHT_HANDLE,
   layoutOntologyGraph,
   relationSourceHandle,
@@ -216,13 +215,51 @@ describe("buildOntologyGraph", () => {
         y: expect.any(Number),
       });
       expect(routedEdge?.points?.[0]?.y).toBeCloseTo(
-        (sourceNode?.position.y ?? 0) + fieldRowMidpointY(0),
+        (sourceNode?.position.y ?? 0) +
+          (sourceNode?.height ?? 0) / 2 +
+          (routedEdge?.sourceOffset ?? 0),
         3,
       );
     }
   });
 
-  it("keeps cyclic and self relations orthogonal at the visible field rows", async () => {
+  it("keeps an inbound neighbor echo from reversing the visible relation chain", async () => {
+    const graph = await layoutOntologyGraph(
+      buildOntologyGraph({
+        schemaPresent: true,
+        types: [
+          {
+            type: { name: "Alpha", fields: [{ name: "next", kind: "link", typeName: "Beta" }] },
+            count: 1,
+          },
+          {
+            type: { name: "Beta", fields: [{ name: "next", kind: "link", typeName: "Gamma" }] },
+            count: 1,
+          },
+          {
+            type: {
+              name: "Gamma",
+              fields: [{ name: "back", kind: "neighbor", typeName: "Alpha" }],
+            },
+            count: 1,
+          },
+        ],
+      }),
+    );
+
+    const alpha = graph.nodes.find((node) => node.id === "Alpha")!;
+    const beta = graph.nodes.find((node) => node.id === "Beta")!;
+    const gamma = graph.nodes.find((node) => node.id === "Gamma")!;
+    expect(alpha.position.x).toBeLessThan(beta.position.x);
+    expect(beta.position.x).toBeLessThan(gamma.position.x);
+    const back = graph.edges.find((edge) => edge.kind === "neighbor")!;
+    expect(back.source).toBe("Gamma");
+    expect(back.target).toBe("Alpha");
+    expect(back.points?.[0]?.x).toBe(gamma.position.x + gamma.width);
+    expect(back.points?.at(-1)?.x).toBe(alpha.position.x);
+  });
+
+  it("keeps cyclic relations orthogonal and self relations on their card", async () => {
     const { nodes, edges } = await layoutOntologyGraph(
       buildOntologyGraph({
         schemaPresent: true,
@@ -251,24 +288,22 @@ describe("buildOntologyGraph", () => {
       }),
     );
 
-    expect(edges).toHaveLength(3);
+    expect(edges).toHaveLength(2);
+    expect(nodes.find((node) => node.id === "Beta")?.data.selfRelations).toEqual(["self"]);
 
     for (const edge of edges) {
       const source = nodes.find((node) => node.id === edge.source)!;
       const target = nodes.find((node) => node.id === edge.target)!;
 
-      const rowIndex = source.data.fields
-        .filter((field) => field.isSchemaEdge)
-        .findIndex((field) => field.name === edge.data?.fieldName);
-
       const points = edge.points!;
+
       expect(points[0]).toEqual({
         x: source.position.x + source.width,
-        y: source.position.y + fieldRowMidpointY(rowIndex),
+        y: source.position.y + source.height / 2 + (edge.sourceOffset ?? 0),
       });
       expect(points.at(-1)).toEqual({
         x: target.position.x,
-        y: target.position.y + target.height / 2,
+        y: target.position.y + target.height / 2 + (edge.targetOffset ?? 0),
       });
       expect(edge.sourceHandle).toBe(relationSourceHandle(edge.data!.fieldName, "right"));
       expect(edge.targetHandle).toBe(TYPE_TARGET_LEFT_HANDLE);
@@ -329,7 +364,7 @@ describe("buildOntologyGraph", () => {
     }
   });
 
-  it("keeps a detached pair from widening a larger branching component", async () => {
+  it("packs a detached pair into free space beside a larger branching component", async () => {
     const branches = Array.from({ length: 7 }, (_, index) => ({
       type: { name: `Branch${index}`, fields: [{ name: "next", kind: "link", typeName: "Tail" }] },
       count: 0,
@@ -374,15 +409,30 @@ describe("buildOntologyGraph", () => {
       }),
     );
 
-    const width = (nodes: typeof main.nodes) =>
-      Math.max(...nodes.map((node) => node.position.x + node.width));
+    type Laid = typeof main.nodes;
 
-    expect(width(mixed.nodes)).toBeLessThanOrEqual(width(main.nodes));
+    const extent = (nodes: Laid, axis: "x" | "y") =>
+      Math.max(
+        ...nodes.map((node) => node.position[axis] + (axis === "x" ? node.width : node.height)),
+      );
+
     const pair = mixed.nodes.filter((node) => node.id.startsWith("Separate"));
     const mainNodes = mixed.nodes.filter((node) => !node.id.startsWith("Separate"));
-    const pairBottom = Math.max(...pair.map((node) => node.position.y + node.height));
-    const mainTop = Math.min(...mainNodes.map((node) => node.position.y));
-    expect(pairBottom).toBeLessThan(mainTop);
+
+    // The pair fills space beside the main graph instead of adding a row above it.
+    expect(extent(mixed.nodes, "y")).toBe(extent(main.nodes, "y"));
+    expect(extent(mixed.nodes, "x")).toBeLessThan(extent(main.nodes, "x") + 100);
+
+    // At least 40 units clear of every card in the main graph.
+    for (const a of pair)
+      for (const b of mainNodes)
+        expect(
+          a.position.x + a.width + 40 <= b.position.x ||
+            b.position.x + b.width + 40 <= a.position.x ||
+            a.position.y + a.height + 40 <= b.position.y ||
+            b.position.y + b.height + 40 <= a.position.y,
+          `${a.id} is within 40 of ${b.id}`,
+        ).toBe(true);
   });
 
   it("renders shared section relationships on the interface instead of each implementer", () => {

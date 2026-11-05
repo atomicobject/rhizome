@@ -29,11 +29,11 @@ export type FinderPaletteProps<T extends FinderPaletteItem> = {
    * change (type labels loading) relabels rows without searching again.
    */
   describe?: (item: T) => string | undefined;
+  /** A note row's type hue (a CSS color); the row shows it as a dot in place of the file icon. */
+  hue?: (item: T) => string | undefined;
 };
 
 type Results<T> = { query: string; items: T[] } | null;
-
-const PATH_CHARS = 72;
 
 /** True on macOS, where ⌘ is the command modifier; Ctrl elsewhere. */
 export const IS_MAC =
@@ -56,6 +56,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
   emptyText,
   recentHeading,
   describe,
+  hue,
 }: FinderPaletteProps<T>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -190,7 +191,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
     >
       <div className="finder__panel">
         <div className="finder__input">
-          <Search aria-hidden="true" size={18} strokeWidth={1.75} />
+          <Search aria-hidden="true" size={18} strokeWidth={1.5} absoluteStrokeWidth />
           <input
             ref={inputRef}
             role="combobox"
@@ -227,6 +228,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
             const selected = item === current;
             const detail = describe?.(item) ?? item.detail;
             const Icon = item.kind === "code" ? FileCode2 : FileText;
+            const color = item.kind === "code" ? undefined : hue?.(item);
 
             return (
               <li
@@ -242,14 +244,30 @@ export function FinderPalette<T extends FinderPaletteItem>({
                   if (!stale) choose(item, event.metaKey || event.ctrlKey);
                 }}
               >
-                <Icon aria-hidden="true" size={16} strokeWidth={1.75} className="finder__icon" />
+                {color ? (
+                  <span
+                    aria-hidden="true"
+                    className="finder__icon finder__dot"
+                    style={{ background: color }}
+                  />
+                ) : (
+                  <Icon
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.5}
+                    absoluteStrokeWidth
+                    className="finder__icon"
+                  />
+                )}
                 <span className="finder__title">
                   <Highlighted text={item.title} ranges={item.titleMatches} />
                 </span>
-                {detail && <span className="finder__detail">{detail}</span>}
-                <span className="finder__path" title={item.path}>
-                  <Highlighted text={item.path} ranges={item.pathMatches} max={PATH_CHARS} />
-                </span>
+                {detail && (
+                  <span className="finder__detail" title={detail}>
+                    {detail}
+                  </span>
+                )}
+                <PathText path={item.path} ranges={item.pathMatches} />
               </li>
             );
           })}
@@ -283,23 +301,8 @@ export function FinderPalette<T extends FinderPaletteItem>({
 
 type Part = { text: string; mark: boolean };
 
-/**
- * Splits text into marked and unmarked parts. Over `max` characters the
- * middle is replaced with an ellipsis so both ends of a path stay readable.
- */
-export function highlightParts(text: string, ranges: number[][], max = Infinity): Part[] {
-  let spans: Array<[number, number]> = [[0, text.length]];
-
-  if (text.length > max) {
-    const tail = Math.ceil((max - 1) * 0.6);
-    const head = max - 1 - tail;
-
-    spans = [
-      [0, head],
-      [text.length - tail, text.length],
-    ];
-  }
-
+/** Splits text into marked and unmarked parts. */
+export function highlightParts(text: string, ranges: number[][]): Part[] {
   const parts: Part[] = [];
 
   const push = (value: string, mark: boolean) => {
@@ -310,28 +313,48 @@ export function highlightParts(text: string, ranges: number[][], max = Infinity)
     else parts.push({ text: value, mark });
   };
 
-  spans.forEach(([start, end], spanIndex) => {
-    if (spanIndex > 0) push("…", false);
-    let cursor = start;
+  let cursor = 0;
 
-    for (const [from, to] of ranges) {
-      const a = Math.max(from, cursor);
-      const b = Math.min(to, end);
+  for (const [from, to] of ranges) {
+    const a = Math.max(from, cursor);
+    const b = Math.min(to, text.length);
 
-      if (a >= b) continue;
-      push(text.slice(cursor, a), false);
-      push(text.slice(a, b), true);
-      cursor = b;
-    }
+    if (a >= b) continue;
+    push(text.slice(cursor, a), false);
+    push(text.slice(a, b), true);
+    cursor = b;
+  }
 
-    push(text.slice(cursor, end), false);
-  });
+  push(text.slice(cursor), false);
 
   return parts;
 }
 
-function Highlighted({ text, ranges, max }: { text: string; ranges: number[][]; max?: number }) {
-  return highlightParts(text, ranges, max).map((part, index) =>
+function Highlighted({ text, ranges }: { text: string; ranges: number[][] }) {
+  return highlightParts(text, ranges).map((part, index) =>
     part.mark ? <mark key={index}>{part.text}</mark> : part.text,
+  );
+}
+
+/**
+ * A path as its directories, then its filename. When the row is too narrow
+ * the directories give way first, ending in an ellipsis, so the filename that
+ * tells rows apart stays whole.
+ */
+function PathText({ path, ranges }: { path: string; ranges: number[][] }) {
+  const cut = Math.max(path.lastIndexOf("/"), 0);
+  const fileRanges = ranges.map(([from, to]) => [from - cut, to - cut]);
+
+  return (
+    <span className="finder__path" title={path}>
+      {cut ? (
+        <span className="finder__dir">
+          <Highlighted text={path.slice(0, cut)} ranges={ranges} />
+        </span>
+      ) : null}
+      <span className="finder__file">
+        <Highlighted text={path.slice(cut)} ranges={fileRanges} />
+      </span>
+    </span>
   );
 }

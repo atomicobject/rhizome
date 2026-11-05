@@ -154,7 +154,7 @@ describe("SearchWorkspace", () => {
 
     expect(await screen.findByRole("heading", { name: "Search results" })).toBeVisible();
     expect(screen.queryByRole("option", { name: "Acceptance criterion" })).toBeNull();
-    expect(screen.getByText("embedded identifiers")).toBeVisible();
+    expect(screen.getByText("for “embedded identifiers”")).toBeVisible();
     await screen.findByRole("button", { name: "Embedded identifiers" });
     expect(
       screen.getByText(
@@ -334,19 +334,20 @@ describe("SearchWorkspace", () => {
     });
 
     const status = await screen.findByLabelText("Search status");
-    expect(status).toHaveTextContent("1 of 3 ranked");
+    expect(status).toHaveTextContent("Showing 1 of 3 results");
     expect(status).toHaveTextContent("Exact symbol");
-    expect(status).toHaveTextContent("Confidence medium");
+    expect(status).toHaveTextContent("Medium confidence");
     expect(status).toHaveTextContent("Missing: tests");
-    expect(screen.getByText("Confidence medium")).toHaveAttribute("title", "one strong source");
+    expect(
+      screen.getByRole("button", { name: "About search confidence" }),
+    ).toHaveAccessibleDescription(/Here: one strong source\./);
   });
 
   it("shows only the ranked counts when retrieval reports no status signals", async () => {
     renderSearch();
 
     const status = await screen.findByLabelText("Search status");
-    expect(status).toHaveTextContent("1 of 1 ranked");
-    expect(status.textContent).toBe("1 of 1 ranked");
+    expect(status.textContent).toBe("Showing 1 of 1 results");
   });
 
   it.each([0, 1])(
@@ -411,6 +412,35 @@ describe("SearchWorkspace", () => {
     expect(
       await screen.findByText("Some search sources are unavailable. Showing the usable results."),
     ).toBeVisible();
+  });
+
+  it("names a single missing source in the banner and keeps its message behind Details", async () => {
+    renderSearch({
+      count: 1,
+      total: 1,
+      matches: [
+        {
+          type: "note",
+          path: "docs/spec.md",
+          title: "Search contract",
+          snippetStatus: "available",
+          snippet: "- Use `rzm index` first.\n- Then search.",
+        },
+      ],
+      warnings: [
+        {
+          code: "code_vector_off",
+          kind: "retrieval_config",
+          message: "Code embeddings are unavailable; code recall is limited to lexical evidence.",
+        },
+      ],
+    });
+
+    expect(
+      await screen.findByText("Code embeddings are unavailable. Showing the usable results."),
+    ).toBeVisible();
+    expect(screen.getByText("rzm index").tagName).toBe("CODE");
+    expect(screen.getByText(/Use\s*first\. · Then search\./)).toBeVisible();
   });
 
   it("keeps cached rows visible and offers retry after a background refresh failure", async () => {
@@ -491,7 +521,7 @@ describe("SearchWorkspace folder listing", () => {
     const links = screen.getAllByRole("button", { name: /note$/ });
     expect(links.map((link) => link.textContent)).toEqual(["New note", "Old note"]);
     expect(screen.getByText("Untyped")).toBeVisible();
-    expect(screen.getByText("Notes/old.md")).toBeVisible();
+    expect(screen.getByTitle("Notes/old.md")).toHaveTextContent("Notes/old.md");
     expect(screen.queryByText("Sibling folder note")).toBeNull();
     expect(http.count("GET", "/api/v1/search")).toBe(0);
 

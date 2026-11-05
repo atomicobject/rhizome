@@ -39,13 +39,13 @@ it("renders each member as a table in Trace column order, most advanced first", 
     "Releases",
     "Checklists",
   ]);
-  expect(screen.getByText("Ordered like Trace columns.", { exact: false })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
 
   const work = section("Work items");
   expect(headers(work)).toEqual([
     "Title",
     "Type",
-    "Stage",
+    "Status",
     "Kind",
     "Next step",
     "Area",
@@ -67,8 +67,8 @@ it("renders each member as a table in Trace column order, most advanced first", 
   const cells = within(tax).getAllByRole("cell");
 
   expect(cells.map((cell) => cell.textContent)).toEqual([
-    // The mark's label is read before the title.
-    "BlockedTax rounding" + "Totals round tax per line instead of per order.",
+    // The Status column names the lifecycle, so the title carries no mark.
+    "Tax rounding" + "Totals round tax per line instead of per order.",
     "Bug",
     "Blocked",
     "—None",
@@ -112,7 +112,7 @@ it("keeps the lifecycle column and drops other columns empty on every shown row"
 
   expect(headers(await screen.findByRole("region", { name: "Releases" }))).toEqual([
     "Title",
-    "Release status",
+    "Status",
     "Date",
     "Notes",
     "Changed",
@@ -132,11 +132,11 @@ it("orders an unlinked group by size, drops the shared label prefix, and says wh
     "Glossaries",
     "Memos",
   ]);
-  expect(screen.getByText("Ordered by size.", { exact: false })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
   expect(within(section("Memos")).getByText("None recorded yet.")).toBeVisible();
 });
 
-it("bounds each table and links the rest to the collection", async () => {
+it("bounds each table and shows the rest in place", async () => {
   const people = Array.from({ length: SECTION_ROWS + 3 }, (_, index) => ({
     path: `people/${index}.md`,
     title: `Person ${String(index).padStart(2, "0")}`,
@@ -153,10 +153,13 @@ it("bounds each table and links the rest to the collection", async () => {
   // Without a lifecycle, newest first.
   expect(rowTitles(region)).toHaveLength(SECTION_ROWS);
   expect(rowTitles(region)[0]).toBe("Person 10");
-  expect(
-    within(region).getByRole("button", { name: `Show all ${SECTION_ROWS + 3}` }),
-  ).toBeVisible();
-  expect(within(region).getByText("· newest first", { exact: false })).toBeVisible();
+  const more = within(region).getByRole("button", { name: "Show 3 more" });
+  expect(more).toBeVisible();
+  // The sort order is an info tip on the heading, not text after the expander.
+  expect(within(region).getByLabelText("Newest first")).toBeInTheDocument();
+
+  fireEvent.click(more);
+  await waitFor(() => expect(rowTitles(region)).toHaveLength(SECTION_ROWS + 3));
 });
 
 it("opens records, collections, and scoped issues through the workspace", async () => {

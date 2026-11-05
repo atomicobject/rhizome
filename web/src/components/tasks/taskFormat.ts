@@ -34,23 +34,47 @@ function span(ms: number): string {
   return `${Math.round(hours / 24)}d`;
 }
 
-/** "3h ago" or "in 3h". */
+/** A past event: "2m ago", or "just now" within a minute or when the clock runs ahead. */
+export function formatAgo(value: string | undefined, now = Date.now()): string {
+  if (!value) return "";
+  const delta = now - new Date(value).getTime();
+
+  return delta < 60_000 ? "just now" : `${span(delta)} ago`;
+}
+
+/** "3h ago" or "in 3 hours". */
 export function formatRelative(value: string | undefined, now = Date.now()): string {
   if (!value) return "";
   const delta = new Date(value).getTime() - now;
 
   if (Math.abs(delta) < 60_000) return "now";
 
-  return delta > 0 ? `in ${span(delta)}` : `${span(delta)} ago`;
+  return delta > 0 ? `in ${formatEvery(span(delta))}` : `${span(delta)} ago`;
 }
 
-/** A due time: "in 3h", or "due now" once it has passed. */
+/** A due time: "In 3 hours", or "Due now" once it has passed. */
 export function formatDue(nextDue: string | undefined, due: boolean, now = Date.now()): string {
   if (due) return "Due now";
 
   if (!nextDue) return "Not scheduled";
 
-  return new Date(nextDue).getTime() <= now ? "Due now" : formatRelative(nextDue, now);
+  return new Date(nextDue).getTime() <= now
+    ? "Due now"
+    : formatRelative(nextDue, now).replace(/^in /, "In ");
+}
+
+const EVERY_UNITS = { m: "minute", h: "hour", d: "day", w: "week" } as const;
+
+/** A task interval in words: "7d" is "7 days", "1h" is "1 hour". */
+export function formatEvery(every: string): string {
+  const match = /^(\d+)([mhdw])$/.exec(every);
+
+  if (!match) return every;
+  const [, count, unit] = match;
+  // SAFETY: the pattern admits only the four keys of EVERY_UNITS.
+  const word = EVERY_UNITS[unit as keyof typeof EVERY_UNITS];
+
+  return `${count} ${word}${count === "1" ? "" : "s"}`;
 }
 
 export function formatDuration(from?: string, to?: string): string {

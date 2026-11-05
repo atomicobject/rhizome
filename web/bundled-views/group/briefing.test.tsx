@@ -8,6 +8,7 @@ import {
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
 import { NOW, PATHS, RECORDS_DATA, TYPE_DOCS } from "./__fixtures__/groups.ts";
+import { VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { groupRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
 import { isJsonObject } from "./api.ts";
 import { SIGNAL_RECORDS } from "./briefing-attention.tsx";
@@ -49,15 +50,15 @@ it("lists what needs attention with counts, records, and policy reasons", async 
   );
   expect(within(attention).getByText("4")).toBeVisible();
 
-  const nextStep = item(region("Context"), "Next step empty");
+  const nextStep = item(region("Review suggested"), "Next step empty");
   expect(nextStep.getByText("3/6")).toBeVisible();
   expect(nextStep.getByText("Name the next concrete step so the work can move.")).toBeVisible();
 
-  expect(region("Context")).toHaveTextContent("Area empty on 1 of 6 work items");
-  expect(region("Context").querySelector('[data-severity="warning"]')).toBeNull();
+  expect(region("Review suggested")).toHaveTextContent("Area empty on 1 of 6 work items");
+  expect(region("Review suggested").querySelector('[data-severity="warning"]')).toBeNull();
   expect(attention).not.toHaveTextContent("Area empty");
   // Update age is context, not evidence of an obligation.
-  expect(item(region("Context"), "unchanged for").getByText("40d")).toBeVisible();
+  expect(item(region("Review suggested"), "unchanged for").getByText("40d")).toBeVisible();
 
   // No clean line while a record has issues.
   expect(within(attention).queryByText("No validation issues")).toBeNull();
@@ -96,8 +97,9 @@ it("names a bounded number of records per signal and reveals the rest in place",
       "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Area: areas } }),
     }),
   });
-  await screen.findByRole("region", { name: "Context" });
-  const unlinked = item(region("Context"), "Not linked");
+  // Unlinked records are a coverage fact under their own heading, not a review prompt.
+  await screen.findByRole("region", { name: "Link coverage" });
+  const unlinked = item(region("Link coverage"), "Not linked");
 
   const named = () =>
     unlinked
@@ -106,7 +108,7 @@ it("names a bounded number of records per signal and reveals the rest in place",
       .map((button) => button.textContent);
 
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A"].slice(0, SIGNAL_RECORDS));
-  fireEvent.click(unlinked.getByRole("button", { name: "+2 more" }));
+  fireEvent.click(unlinked.getByRole("button", { name: "Show 2 more unlinked notes" }));
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A", "Loop B", "Winter release"]);
   fireEvent.click(unlinked.getByRole("button", { name: "Show fewer" }));
   expect(named()).toHaveLength(SIGNAL_RECORDS);
@@ -114,29 +116,32 @@ it("names a bounded number of records per signal and reveals the rest in place",
 
 it("says there are no validation issues, and skips unlinked records in a group without links", async () => {
   await renderGroupView(loadBriefing, { group: "Library" });
-  const attention = await screen.findByRole("region", { name: "Needs attention" });
+  await screen.findByRole("region", { name: "Review suggested" });
 
-  expect(items(attention).map((entry) => entry.textContent)).toEqual([
-    expect.stringContaining("No validation issues"),
-  ]);
-  expect(region("Context")).toHaveTextContent("Term empty on 1 of 3 glossaries");
+  // The status strip says "✓ No issues" once; the body adds no Validation row.
+  expect(screen.getByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("Checked 2h ago")).toBeVisible();
+  expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
+  expect(region("Review suggested")).toHaveTextContent("Term empty on 1 of 3 glossaries");
   expect(screen.queryByRole("region", { name: "Connections" })).toBeNull();
 });
 
-it("lists active-stage records newest first with their key text, whatever their tone", async () => {
+it("lists active-stage records newest first in flat rows with type metadata", async () => {
   await renderGroupView(loadBriefing);
   const motion = await screen.findByRole("region", { name: "In motion" });
 
-  // Blocked is warning-toned but declares the active stage.
-  expect(within(motion).getByRole("heading", { level: 3 })).toHaveTextContent(
-    "Work items · Doing, Blocked 3",
-  );
-  expect(items(motion).map((entry) => entry.textContent)).toEqual([
-    expect.stringMatching(/Checkout redesign.*Next stepReview the payment step$/),
-    expect.stringMatching(/Tax rounding.*Next stepWait for finance$/),
-    expect.stringMatching(/Saved carts.*Keep carts across sessions\.$/),
+  expect(within(motion).queryByRole("heading", { level: 3 })).toBeNull();
+  expect(items(motion).map((entry) => within(entry).getByRole("button").textContent)).toEqual([
+    "Checkout redesign",
+    "Tax rounding",
+    "Saved carts",
   ]);
-  expect(within(motion).getByText("No lifecycle: Areas, Checklists.")).toBeVisible();
+  expect(items(motion).every((entry) => entry.querySelector(".gv-change-meta"))).toBe(true);
+  expect(motion.querySelectorAll(".gv-mark").length).toBeGreaterThan(0);
+  expect(motion.querySelector(".gv-hint-lead")).toHaveTextContent(
+    "Areas, Checklists have no lifecycle.",
+  );
 });
 
 it("names lifecycles without an active stage", async () => {
@@ -144,39 +149,52 @@ it("names lifecycles without an active stage", async () => {
   const motion = await screen.findByRole("region", { name: "In motion" });
 
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
-  expect(motion).toHaveTextContent(
-    "memoStatusEnum (Memos) has no active stage; declare an active stage with @view(stage: active) on a value to list its records here.",
+  // Setup notes wait behind a labelled Configuration disclosure in the heading row.
+  const config = motion.querySelector("details")!;
+  expect(within(motion).getByText("Configuration")).toBeVisible();
+  expect(config).not.toHaveAttribute("open");
+  expect(config.querySelector(".gv-hint-lead")).toHaveTextContent(
+    "Memos have no active stage configured. Glossaries have no lifecycle.",
   );
-  // Glossary's status enum has @view order but no stages, so it is no lifecycle.
-  expect(motion).toHaveTextContent("No lifecycle: Glossaries.");
+  expect(config).toHaveTextContent(
+    "mark a value of memoStatusEnum with @view(stage: active) in the schema.",
+  );
 });
 
-it("lists recent changes by day and time, collapsing a burst until expanded", async () => {
+it("lists recent changes newest first with type, folder, and age, collapsing a burst", async () => {
   await renderGroupView(loadBriefing);
   const changes = await screen.findByRole("region", { name: "Recent changes" });
-  const days = within(changes).getAllByRole("heading", { level: 3 });
+  const lines = within(changes).getAllByRole("listitem");
 
-  expect(days[0]).toHaveTextContent("Today");
-  expect(days[1]).toHaveTextContent(/^Yesterday, /);
+  expect(lines[0]).toHaveTextContent(/^Checkout redesign/);
+  expect(lines[1]).toHaveTextContent(/^Tax rounding/);
 
-  const today = within(days[0].parentElement ?? changes);
-  expect(today.getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
-    expect.stringMatching(/^11:00.*Checkout redesign$/),
-    expect.stringMatching(/^10:00.*Tax rounding$/),
-  ]);
-
-  const burst = within(changes).getByText("changed together:", { exact: false });
-  expect(burst).toHaveTextContent("4 records changed together: 2 areas, 2 releases.");
+  const burst = within(changes).getByRole("button", { name: "4 records changed together" });
+  expect(burst.closest("li")).toHaveTextContent("2 areas, 2 releases");
   expect(within(changes).queryByRole("button", { name: /Loop A/ })).toBeNull();
 
-  fireEvent.click(
-    within(changes).getByRole("button", { name: /^Expand the 4 records changed at 10:00/ }),
-  );
+  fireEvent.click(burst);
   expect(within(changes).getByRole("button", { name: /Loop A/ })).toBeVisible();
-  expect(within(changes).getByRole("button", { name: /^Collapse/ })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
+  expect(burst).toHaveAttribute("aria-expanded", "true");
+  expect(burst.querySelector(".rz-disclosure-icon")).not.toBeNull();
+  const members = within(changes).getByRole("list", { name: "Records changed together" });
+  expect(within(members).getAllByRole("listitem")).toHaveLength(4);
+  fireEvent.click(burst);
+  expect(burst).toHaveAttribute("aria-expanded", "false");
+  expect(within(changes).queryByRole("list", { name: "Records changed together" })).toBeNull();
+  expect(within(changes).getAllByRole("listitem")).toHaveLength(lines.length);
+});
+
+it("does not call an out-of-date validation run clean", async () => {
+  await renderGroupView(loadBriefing, {
+    group: "People",
+    routes: groupRoutes({
+      "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health: "stale" }),
+    }),
+  });
+
+  expect(await screen.findByText("Validation out of date")).toBeVisible();
+  expect(screen.queryByText("✓ No issues")).toBeNull();
 });
 
 it("shows only activity: Needs attention, In motion, and Recent changes", async () => {
@@ -184,8 +202,9 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
-  ).toEqual(["Needs attention", "In motion", "Recent changes"]);
-  expect(within(region("Needs attention")).getByText("No validation issues")).toBeVisible();
+  ).toEqual(["In motion", "Recent changes"]);
+  expect(await screen.findByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
   ).toBeVisible();
@@ -299,7 +318,9 @@ it("opens records, collections, and scoped issues through the workspace", async 
   fireEvent.click(item(attention, "Validation issues").getByRole("button", { name: "Gift cards" }));
   fireEvent.click(item(attention, "Degraded").getByRole("button", { name: "Releases" }));
   fireEvent.click(
-    item(region("Context"), "Next step empty").getByRole("button", { name: "Open work items" }),
+    item(region("Review suggested"), "Next step empty").getByRole("button", {
+      name: "Open work items",
+    }),
   );
 
   expect(opened(posted)).toEqual([
@@ -321,10 +342,14 @@ it("refreshes when records change", async () => {
   });
 
   await screen.findByRole("region", { name: "Needs attention" });
+  expect(within(region("Needs attention")).getByText("Validation issues")).toBeVisible();
   data = { ...RECORDS_DATA, Story: [], Bug: [] };
   await view.emit("node.changed");
 
-  expect(await within(region("Needs attention")).findByText("No validation issues")).toBeVisible();
+  // The issues signal leaves; the strip, not the block, says "✓ No issues".
+  await waitFor(() =>
+    expect(within(region("Needs attention")).queryByText("Validation issues")).toBeNull(),
+  );
 });
 
 it("keeps an optional priority with a user-only policy out of Needs attention", async () => {
@@ -365,8 +390,8 @@ it("keeps an optional priority with a user-only policy out of Needs attention", 
   const attention = await screen.findByRole("region", { name: "Needs attention" });
 
   expect(attention).not.toHaveTextContent("Priority empty");
-  expect(region("Context")).toHaveTextContent("Priority empty");
-  expect(region("Context")).toHaveTextContent(reason);
+  expect(region("Review suggested")).toHaveTextContent("Priority empty");
+  expect(region("Review suggested")).toHaveTextContent(reason);
 });
 
 it("retries type documentation that failed to load", async () => {

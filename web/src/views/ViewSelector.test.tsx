@@ -122,7 +122,10 @@ describe("ViewSelector", () => {
     const menu = screen.getByRole("menu", { name: "Custom views" });
     const items = within(menu).getAllByRole("menuitemradio");
 
-    expect(items.map((item) => item.textContent)).toEqual(["Dashboard", "Active ideas · Table"]);
+    expect(items.map((item) => item.textContent)).toEqual([
+      "DashboardDefault",
+      "Active ideas · Table",
+    ]);
     expect(items[0]).toHaveAccessibleDescription("Default view");
     fireEvent.click(items[1]);
     expect(onSelect).toHaveBeenCalledWith("active");

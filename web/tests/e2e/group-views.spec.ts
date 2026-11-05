@@ -1,4 +1,4 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type FrameLocator, type Page } from "./fixtures";
 import { chooseView, expectView, workspaceView } from "./workspaceView";
@@ -52,6 +52,17 @@ const markFrame = (frame: FrameLocator) =>
 const frameMarked = (frame: FrameLocator) =>
   frame.locator("html").evaluate(() => "gvMarker" in window);
 
+async function feedbackScreenshot(page: Page, name: string) {
+  const feedbackDir = process.env.RHIZOME_FEEDBACK_DIR;
+
+  if (!feedbackDir) return;
+  await mkdir(feedbackDir, { recursive: true });
+  await page.screenshot({
+    path: `${feedbackDir}/${process.env.RHIZOME_FEEDBACK_PHASE ?? "after"}-${name}.png`,
+    fullPage: true,
+  });
+}
+
 test("a group opens the bundled view its shape calls for and remembers a choice", async ({
   page,
 }) => {
@@ -102,7 +113,7 @@ test("Sections renders member tables from metadata and navigates to records, col
   const frame = customFrame(page);
 
   const work = frame.getByRole("region", { name: "Work items" });
-  await expect(work.getByRole("columnheader")).toHaveText(["Title", "Type", "Stage", "Changed"]);
+  await expect(work.getByRole("columnheader")).toHaveText(["Title", "Type", "Status", "Changed"]);
 
   const indexing = work
     .getByRole("row")
@@ -175,16 +186,16 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(signal("Validation issues on 1 record")).toContainText("Crash on empty vault");
   await expect(signal("Strained health: 1 area")).toContainText("Billing");
   await expect(signal("Blocked stage: 1 work item")).toContainText("Crash on empty vault");
-  const context = frame.getByRole("region", { name: "Context", exact: true });
-  await expect(
-    context.getByRole("listitem").filter({ hasText: "Lead empty on 2 of 3 areas" }),
-  ).toContainText("Billing, Search");
+  const context = frame.getByRole("region", { name: "Review suggested", exact: true });
+  // Example records are rows (title and age), not a comma list.
+  const leadEmpty = context.locator(".gv-sig").filter({ hasText: "Lead empty on 2 of 3 areas" });
+  await expect(leadEmpty.locator(".gv-sig-row")).toHaveText([/^Billing/, /^Search/]);
   await expect(signal("Lead empty")).toHaveCount(0);
 
   const motion = frame.getByRole("region", { name: "In motion" });
-  await expect(
-    motion.getByRole("heading", { name: "Work items · Doing, Blocked 2" }),
-  ).toBeVisible();
+  await expect(motion.getByRole("heading", { level: 3 })).toHaveCount(0);
+  await expect(motion.locator(".gv-change-meta")).toHaveCount(2);
+  await expect(motion.locator(".gv-mark")).toHaveCount(2);
   await expect(motion.getByRole("listitem")).toHaveCount(2);
   // The fixture's records share one change time, so their order is not fixed.
   await expect(motion.getByRole("listitem").filter({ hasText: "Faster indexing" })).toHaveCount(1);
@@ -193,12 +204,27 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   ).toHaveCount(1);
 
   const recent = frame.getByRole("region", { name: "Recent changes" });
-  await expect(recent.getByRole("heading", { name: "Today" })).toBeVisible();
   await recent
-    .getByRole("button", { name: /^Expand the \d+ records changed at/ })
+    .getByRole("button", { name: /^\d+ records changed together$/ })
     .first()
     .click();
   await expect(recent.getByRole("button", { name: "Autumn release" })).toBeVisible();
+
+  const burst = recent.getByRole("button", { name: /^\d+ records changed together$/ }).first();
+  await expect(burst).toHaveAttribute("aria-expanded", "true");
+  await expect(burst.locator("svg")).toBeVisible();
+  const nested = recent.getByRole("list", { name: "Records changed together" });
+  await expect(nested).toHaveCSS("border-left-width", "1px");
+  await expect(burst).toHaveCSS(
+    "color",
+    await recent
+      .locator(".gv-change-title")
+      .last()
+      .evaluate((el) => getComputedStyle(el).color),
+  );
+  await feedbackScreenshot(page, "grouped-changes");
+  await burst.click();
+  await expect(nested).toHaveCount(0);
 
   // A record opens in a tab.
   await motion.getByRole("button", { name: "Faster indexing" }).click();
@@ -232,6 +258,21 @@ test("group Overview maps member types, lists members and outside notes, and swi
   for (const name of ["Areas", "Releases", "Work items"])
     await expect(map.getByRole("button", { name: new RegExp(`^${name}\\b`) })).toHaveCount(1);
 
+  const arcs = map.locator(".gv-map-arc");
+  expect(await arcs.count()).toBeGreaterThan(0);
+
+  for (const arc of await arcs.all()) {
+    expect(
+      Number.parseFloat(await arc.evaluate((el) => getComputedStyle(el).strokeWidth)),
+    ).toBeGreaterThanOrEqual(4);
+  }
+
+  await expect(map.locator(".gv-legend-ring")).not.toContainText(["ring:"]);
+  await feedbackScreenshot(page, "map-light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await feedbackScreenshot(page, "map-dark");
+  await page.emulateMedia({ colorScheme: "light" });
+
   const members = frame.getByRole("region", { name: "Members" });
 
   for (const name of ["Areas", "Releases", "Work items"])
@@ -242,6 +283,7 @@ test("group Overview maps member types, lists members and outside notes, and swi
   const outside = frame.getByRole("region", { name: "Outside the group" });
   await expect(outside).toContainText("Ada Example");
   await expect(outside).toContainText("Lin Example");
+  await expect(outside.locator(".gv-changes")).toHaveCSS("max-height", "none");
 
   await map.getByRole("radio", { name: "Matrix" }).locator("xpath=..").click();
 
@@ -270,19 +312,24 @@ test("All notes opens on its Briefing and offers the Overview", async ({ page })
 });
 
 for (const { time, heading } of [
-  { time: "2026-10-05T23:59:00-04:00", heading: "Today" },
-  { time: "2026-10-06T00:01:00-04:00", heading: "Yesterday, Oct 5" },
+  { time: "2026-10-05T23:59:00-04:00", heading: "1m" },
+  { time: "2026-10-06T00:01:00-04:00", heading: "3m" },
 ]) {
-  test(`Briefing groups recent changes as ${heading} across midnight`, async ({ page }) => {
+  test(`Briefing dates a recent change by its age (${heading}) across midnight`, async ({
+    page,
+  }) => {
     await page.clock.setFixedTime(new Date(time));
     await page.goto("/notes");
     await openGroup(page, "E2E Planning");
     await expectView(page, "Briefing");
 
     const recent = customFrame(page).getByRole("region", { name: "Recent changes" });
-    await expect(recent.getByRole("heading")).toHaveText(["Recent changes", heading]);
+    // One list on every scope: no day headings, the age in its own column.
+    await expect(recent.getByRole("heading")).toHaveText(["Recent changes"]);
+    // The heading also matches the outgoing All notes frame; wait for the group's one change.
+    await expect(recent.locator("time")).toHaveCount(1);
     await expect(recent.locator("time")).toHaveAttribute("datetime", "2026-10-06T03:58:00.000Z");
-    await expect(recent.locator("time")).toHaveText("23:58");
+    await expect(recent.locator("time span[aria-hidden]")).toHaveText(heading);
   });
 }
 
@@ -334,7 +381,7 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
     /^Releases/,
     /^Owner.*in E2E Contacts/,
   ]);
-  await expect(row("Doing Faster indexing").getByRole("cell")).toHaveText([
+  await expect(row("Faster indexing").getByRole("cell")).toHaveText([
     "Search",
     "Autumn release",
     "Ada Example",

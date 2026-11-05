@@ -4,7 +4,8 @@ id: SPEC-0111
 aliases: [SPEC-0111, Group views and view platform]
 summary: "Rhizome ships Briefing, Trace, and Sections display-group views as ordinary kit views, and closes the custom-view platform gaps those views expose so a repository can build views of the same complexity."
 spec-status: active
-last-updated: 2026-10-06
+last-updated: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 ---
 
 # Group views and view platform
@@ -59,8 +60,9 @@ This extends [[unified-view-contract|SPEC-0110]], which reserved a bundled gener
   - Records in an `active`-stage lifecycle value that have not changed for 30 days.
   - The profile's gap fields left empty, per type, with a field's `@policy` reason shown when present.
   - Member records linked to nothing else in the group, when the group has links.
-  - A "No validation issues" line MUST appear when no record has issues.
-- **In motion** MUST list records whose lifecycle value is in the `active` stage, grouped by type and ordered newest first, each with its first key text field or its summary. Types whose lifecycle has no `active` stage MUST be named with a hint to declare one.
+  - A clean result MUST read "No issues" with the success mark once in the shared status strip; Needs attention MUST NOT repeat that clean state.
+- **In motion** MUST list records whose lifecycle value is in the `active` stage, in one flat newest-first list using the Recent changes two-line row template, with type and folder metadata. Status marks appear only when statuses mix. Types whose lifecycle has no `active` stage MUST be named with a hint to declare one.
+- Descriptive sections MUST carry help in the heading's title and accessible description; computed judgements such as "Review suggested" keep an info icon.
 - **Recent changes** MUST list records newest first by day and time. Four or more records changed in the same minute MUST collapse into one expandable line with counts by type.
 - [[scope-overview|SPEC-0117]] moved the structure blocks this section once listed (Outside the group, In this group, Connections, and the views and guide links) to the group Overview, so Briefing shows Needs attention, In motion, and Recent changes at every level. A bundled Overview (`group.overview`) now takes the built-in Overview's place among a group's choices.
 
@@ -77,7 +79,7 @@ This extends [[unified-view-contract|SPEC-0110]], which reserved a bundled gener
 ### Sections
 
 - Sections MUST render each member type as a compact table with the title, implementing type for interfaces, lifecycle, and `KEY` fields. Columns that are empty on every shown row MUST be omitted, except the lifecycle column.
-- Rows MUST be ordered most advanced first, then newest. A bounded number of rows MUST be shown, with a link to the type's collection view.
+- Rows MUST be ordered most advanced first, then newest. A bounded number of rows MUST be shown initially. "Show N more" expands in place on its own row; once every loaded row is visible, "Open <type>" links to the collection. Sections sharing one lifecycle value omit repeated row marks; mixed rows retain them.
 - A hierarchical type MUST render as a tree table.
 - Member types MUST be ordered like Trace columns when the group has links, otherwise by record count.
 
@@ -163,3 +165,7 @@ This extends [[unified-view-contract|SPEC-0110]], which reserved a bundled gener
 - Starter feature-areas README: parent areas.
 - CHANGELOG.
 - Reconcile SPEC-0105 and SPEC-0110 so they cite this spec where it changes their behavior.
+
+## Change record
+
+2026-11-04: Reconciled the single clean-validation state, status repetition, and in-place overflow before collection navigation. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

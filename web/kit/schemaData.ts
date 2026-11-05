@@ -1,11 +1,13 @@
 // Hooks for display-group membership, type documentation, and validation
 // summaries. Their query keys belong to the freshness classes in freshness.ts.
 import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 import { ApiError, fetchJSON, getPublicValidate } from "../src/api/client";
 import type { JsonValue } from "../src/api/parse";
-import type { ValidationScope } from "../src/api/types";
+import { queryKeys } from "../src/api/queryKeys";
+import type { OntologySummaryResponse, ValidationScope } from "../src/api/types";
+import { typeColor } from "../src/lib/typePalette";
 import { useValidationScopeSummaries } from "../src/components/useValidationScopeSummaries";
 import { kitQueryKeys } from "./freshness";
 import { parseDisplayGroups, parseTypeDocResponse } from "./schemaParse";
@@ -39,6 +41,21 @@ export function useDisplayGroup(name?: string) {
     : undefined;
 
   return { ...query, group };
+}
+
+/**
+ * A type's palette color, the same hue the Atlas, Explorer, and type pages
+ * give it: `(name) => "var(--type-N)"`, with interfaces in the neutral. Until
+ * the ontology summary loads, names fall back to a stable hash.
+ */
+export function useTypeColors() {
+  const { data } = useQuery({
+    queryKey: queryKeys.ontology.summary(),
+    queryFn: ({ signal }) =>
+      fetchJSON<OntologySummaryResponse>("/api/v1/ontology/summary", { signal }),
+  });
+
+  return useCallback((name: string) => typeColor(data, name), [data]);
 }
 
 type NamedTypeDoc = readonly [name: string, doc: TypeDoc];
@@ -108,6 +125,8 @@ export function useValidationSummaries(scopes: ValidationScope[]) {
   return {
     summaries: summaries.summaries,
     generation,
+    /** The run's health, such as "current_clean" or "stale"; null until the envelope loads. */
+    health: envelope.data?.health ?? null,
     isLoading: envelope.isLoading || summaries.isLoading,
     error: envelope.error ?? summaries.error,
     refreshGeneration: refetch,

@@ -22,6 +22,7 @@ import {
 import { createContext, useContext, type ReactNode } from "react";
 
 import "./group.css";
+import { NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { RECORD_CAP } from "./api.ts";
 import type { GroupModelState } from "./load.ts";
 import {
@@ -183,7 +184,11 @@ export function LifecycleLabel({ member, record }: { member: Member; record: Gro
 /** A record title that opens the record. */
 export function RecordTitle({ record }: { record: GroupRecord }) {
   return (
-    <button type="button" className="gv-record" onClick={() => openRecord(record)}>
+    <button
+      type="button"
+      className="gv-record link-quiet link-title"
+      onClick={() => openRecord(record)}
+    >
       {record.title}
     </button>
   );
@@ -213,7 +218,11 @@ export function LinkedTitles({ notes }: { notes: readonly LinkedNote[] }) {
       {notes.map((note, index) => (
         <span key={note.path}>
           {index > 0 && ", "}
-          <button type="button" className="gv-link" onClick={() => openNote(note.path)}>
+          <button
+            type="button"
+            className="gv-link link-secondary"
+            onClick={() => openNote(note.path)}
+          >
             {note.title}
           </button>
         </span>
@@ -293,8 +302,17 @@ export function GroupFacts({
         )}
       </span>
       <span className="gv-facts-list">
-        <span>
-          <b>{records.length}</b> {records.length === 1 ? "record" : "records"}
+        {/* A group counts every note its member types hold, ambiguous notes
+            included; Overview counts only typed records, so each names its scope. */}
+        <span
+          title={
+            collection
+              ? undefined
+              : "Every note of the group's types, notes with an ambiguous type included"
+          }
+        >
+          <b>{records.length}</b> {collection ? "record" : "note"}
+          {records.length === 1 ? "" : "s"}
         </span>
         {!collection && (
           <span>
@@ -306,7 +324,10 @@ export function GroupFacts({
             {withIssues} {withIssues === 1 ? "record" : "records"} with issues
           </span>
         ) : (
-          <span className="gv-ok">✓ no issues</span>
+          <>
+            <NoIssues />
+            <ValidationFreshness />
+          </>
         )}
         {latest > 0 && (
           <span>

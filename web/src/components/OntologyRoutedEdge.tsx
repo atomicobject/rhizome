@@ -88,11 +88,14 @@ export function OntologyRoutedEdge({
   interactionWidth,
 }: EdgeProps) {
   const points = data?.routedPoints;
+  // Every line leaves and arrives in its own lane beside the card's middle (see laneOffsets).
+  const sourceOffset = isFiniteNumber(data?.sourceOffset) ? data.sourceOffset : 0;
+  const targetOffset = isFiniteNumber(data?.targetOffset) ? data.targetOffset : 0;
 
   const routedPoints = normalizedRoutePoints(
     isRoutedPointList(points) ? points : [],
-    { x: sourceX, y: sourceY },
-    { x: targetX, y: targetY },
+    { x: sourceX, y: sourceY + sourceOffset },
+    { x: targetX, y: targetY + targetOffset },
   );
 
   const path = edgePath(routedPoints);

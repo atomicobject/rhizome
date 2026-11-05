@@ -274,6 +274,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     let shell = shell_label(&label);
     window.add_child(
         WebviewBuilder::new(&shell, WebviewUrl::App("index.html".into()))
+            .disable_drag_drop_handler()
             .auto_resize()
             // The shell paints the saved theme before it can ask for settings.
             .initialization_script(format!(

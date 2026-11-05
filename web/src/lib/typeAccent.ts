@@ -1,18 +1,30 @@
-/** Categorical type colors in tokens.css: `--type-1` … `--type-8`. */
-const TYPE_COLOR_COUNT = 8;
+import { useOntologySummaryQuery } from "../components/useNotesQueries";
+import { appQueryClient } from "../api/queryClient";
+import { queryKeys } from "../api/queryKeys";
+import type { OntologySummaryResponse } from "../api/types";
+import { typeColor, typeSlot } from "./typePalette";
 
-/** Stable palette slot (1–8) for a type name, so a type keeps one color on every surface. */
+export { NEUTRAL_TYPE_COLOR } from "./typePalette";
+
+// The palette rule lives in typePalette.ts, which the view kit re-exports, so
+// the app and bundled views give a type the same hue.
+const summary = () =>
+  appQueryClient.getQueryData<OntologySummaryResponse>(queryKeys.ontology.summary());
+
+/** A type's palette slot, the same on every surface; a name the ontology does not list falls back to a hash. */
 export function typeAccentIndex(name: string): number {
-  let hash = 0;
-
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  }
-
-  return (hash % TYPE_COLOR_COUNT) + 1;
+  return typeSlot(summary(), name);
 }
 
-/** A type's color as a CSS value. It marks dots, borders, and edges, never text. */
+/** A type's color as a CSS value. It marks dots, borders, and edges, never text. Interfaces take the neutral. */
 export function typeAccentColor(name: string): string {
-  return `var(--type-${typeAccentIndex(name)})`;
+  return typeColor(summary(), name);
+}
+
+/**
+ * The summary that type colors follow. A surface that memoizes colors lists it
+ * as a dependency, so colors settle once the summary arrives.
+ */
+export function useTypeAccentKey() {
+  return useOntologySummaryQuery().data;
 }

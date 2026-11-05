@@ -134,13 +134,15 @@ describe("remembered view preferences", () => {
       context: TYPE,
     });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Collapse Planned column" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Compact cards" }))[0]);
     await waitFor(() => expect(server.read(scope).values).toHaveProperty("native.boardColumns"));
-    expect(screen.getByRole("button", { name: /^Expand Planned column/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Full cards" })).toBeVisible();
 
     openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Reset to shared" }));
-    expect(await screen.findByRole("button", { name: "Collapse Planned column" })).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Compact cards" })).toHaveLength(2),
+    );
     await waitFor(() => expect(server.read(scope).values).toEqual({}));
     expect(screen.queryByRole("button", { name: "Reset to shared" })).toBeNull();
   });
@@ -184,7 +186,7 @@ describe("Save view shared configuration", () => {
   }
 
   const openReview = async () => {
-    await screen.findByRole("button", { name: /^View options/ });
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
     fireEvent.click(await screen.findByRole("button", { name: "Save view, unsaved changes" }));
 

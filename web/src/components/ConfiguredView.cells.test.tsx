@@ -10,8 +10,15 @@ import {
   firstRow,
   openEnumEditor,
   openViewOptions,
-  renderView,
+  renderView as renderGroupedView,
 } from "./ConfiguredView.testFixtures";
+
+// A grouped table hides its group column; these tests edit Status in its cells.
+function renderView(props: Parameters<typeof renderGroupedView>[0] = {}) {
+  const result = props.execution === undefined ? execution() : props.execution;
+
+  return renderGroupedView({ ...props, execution: result && { ...result, groups: [] } });
+}
 
 describe("ConfiguredView cell editing", () => {
   it("keeps an empty draft filter row when the last selected value is cleared", async () => {

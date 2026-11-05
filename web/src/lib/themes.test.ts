@@ -93,6 +93,36 @@ function pick(map: Map<string, Pair>, name: string, side: 0 | 1): string {
 const AA = 4.5;
 
 describe("content tokens", () => {
+  it("keeps status mark ink above 3:1 in both appearances", () => {
+    for (const side of [0, 1] as const) {
+      for (const token of ["--text-faint", "--info", "--success", "--warning-ink", "--accent"]) {
+        expect(
+          contrast(pick(content, token, side), pick(content, "--surface", side)),
+          token,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it("keeps every type fill at 3:1 and type text at AA on every content surface", () => {
+    for (const side of [0, 1] as const) {
+      for (let slot = 1; slot <= 13; slot++) {
+        for (const surface of ["--surface", "--surface-sunk", "--surface-strong"]) {
+          for (const [suffix, minimum] of [
+            ["", 3],
+            ["-ink", AA],
+          ] as const) {
+            const token = `--type-${slot}${suffix}`;
+            expect(
+              contrast(pick(content, token, side), pick(content, surface, side)),
+              `${token} on ${surface}, appearance ${side}`,
+            ).toBeGreaterThanOrEqual(minimum);
+          }
+        }
+      }
+    }
+  });
+
   for (const [side, label] of [
     [0, "light"],
     [1, "dark"],

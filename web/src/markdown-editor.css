@@ -13,6 +13,36 @@
   margin: 0;
 }
 
+/* In edit mode each editable section carries a pencil in the left gutter:
+   faint at rest, muted on hover, full ink while its editor has focus. It
+   marks what can be edited without boxing every section. */
+.notes-shell .body-narrative--editor:not(.body-narrative--meta) {
+  position: relative;
+}
+
+.notes-shell .body-narrative--editor:not(.body-narrative--meta)::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--editor-bleed-block) - 2px);
+  left: -28px;
+  width: 16px;
+  height: 16px;
+  background: currentcolor;
+  color: var(--text-faint);
+  pointer-events: none;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linejoin='round'%3E%3Cpath d='M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+  transition: color 120ms var(--ease);
+}
+
+.notes-shell .body-narrative--editor:not(.body-narrative--meta):hover::before {
+  color: var(--text-muted);
+}
+
+.notes-shell .body-narrative--editor:not(.body-narrative--meta):focus-within::before {
+  color: var(--text);
+}
+
 /* The lead metadata line keeps its quiet read-mode type while editing. */
 .body-narrative--meta .markdown-editor--atomic {
   --atomic-editor-body-size: var(--fs-sm);
@@ -185,6 +215,37 @@
 .markdown-editor--atomic .cm-atomic-inline-code,
 .markdown-editor--atomic .cm-atomic-inline-code * {
   color: var(--text);
+}
+
+/* Read mode's tight inline-code chip, so code in parentheses has no gap. */
+.markdown-editor--atomic .cm-atomic-inline-code {
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+/* The hidden backticks are empty widgets that CodeMirror flanks with buffer
+   images, and an image is a line-break opportunity, so "(" could wrap away
+   from the code after it. Read mode has no break there, so the editor drops
+   the buffers beside inline code. */
+.markdown-editor--atomic
+  .cm-line
+  img.cm-widgetBuffer:is(
+    :has(+ .cm-atomic-inline-code),
+    :has(+ [contenteditable="false"] + img.cm-widgetBuffer + .cm-atomic-inline-code)
+  ),
+.markdown-editor--atomic .cm-line .cm-atomic-inline-code + img.cm-widgetBuffer,
+.markdown-editor--atomic
+  .cm-line
+  .cm-atomic-inline-code
+  + img.cm-widgetBuffer
+  + [contenteditable="false"]
+  + img.cm-widgetBuffer {
+  display: none;
+}
+
+/* A bullet is read mode's plain disc, not bold with a strong item. */
+.markdown-editor--atomic .cm-atomic-bullet {
+  font-weight: 400;
 }
 
 .markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete {

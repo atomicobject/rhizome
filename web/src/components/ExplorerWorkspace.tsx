@@ -1,4 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { FolderOpen, Info, Search } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getExpandedModuleGraph,
@@ -13,7 +14,10 @@ import { queryKeys } from "../api/queryKeys";
 import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
 import { encodeURLFragment } from "../lib/noteDeepLink";
-import { graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
+import { useTypeAccentKey } from "../lib/typeAccent";
+import { publicTypeName } from "../lib/typeNames";
+import { aggregateByFolder } from "./folderGraph";
+import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NOTES_ROOT_PATH } from "./notesRoute";
 import { TreeList } from "./TreeList";
@@ -90,6 +94,21 @@ function explorerFileFromLocation(search: string): { path: string; line?: number
   };
 }
 
+/**
+ * What the folder view's counts cover. The graph can hold only part of a large
+ * vault, so its note counts can run below Overview's; say so when it does.
+ */
+export function folderCoverage(graph: GraphResponse) {
+  const fmt = (count: number) => count.toLocaleString("en-US");
+  const notes = graph.nodes.filter((node) => node.kind === "note").length;
+  const files = graph.nodes.filter((node) => node.kind === "code").length;
+  const counts = `Counts cover the ${fmt(notes)} notes and ${fmt(files)} code files in the graph`;
+
+  return graph.truncated
+    ? `${counts}, the best-connected part of the vault, so Overview can count more notes.`
+    : `${counts}.`;
+}
+
 const EMPTY_GRAPH: GraphResponse = {
   nodes: [],
   edges: [],
@@ -163,19 +182,6 @@ export function ExplorerWorkspace({
 
   const file: FileView | null = selection.kind === "file" ? (fileQuery.data ?? null) : null;
 
-  const selectedModulePath = selection.kind === "module" ? selection.path : "";
-
-  const moduleQuery = useQuery({
-    queryKey: queryKeys.files.tree(selectedModulePath, 200),
-    queryFn: ({ signal }) => getTree(selectedModulePath, 200, { signal }),
-    enabled: selection.kind === "module",
-  });
-
-  const moduleFocus =
-    selection.kind === "module"
-      ? { path: selection.path, entries: moduleQuery.data?.entries ?? [] }
-      : null;
-
   const graphQuery = useQuery({
     queryKey:
       selection.kind === "root"
@@ -195,6 +201,9 @@ export function ExplorerWorkspace({
   });
 
   const graph = graphQuery.data ?? EMPTY_GRAPH;
+  // The whole vault starts at folder level; picking a folder loads its own graph.
+  const atRoot = selection.kind === "root";
+  const [displaySlot, setDisplaySlot] = useState<HTMLDivElement | null>(null);
 
   const graphScope: GraphScope =
     selection.kind === "root"
@@ -291,7 +300,14 @@ export function ExplorerWorkspace({
 
   const focusModule = useCallback(
     (path: string) => {
-      setExpandedPaths((previous) => new Set(previous).add(path));
+      setExpandedPaths((previous) => {
+        const next = new Set(previous);
+        const parts = path.split("/");
+
+        parts.forEach((_, index) => next.add(parts.slice(0, index + 1).join("/")));
+
+        return next;
+      });
       select({ kind: "module", path });
     },
     [select],
@@ -314,8 +330,9 @@ export function ExplorerWorkspace({
 
   const onNodeClick = useCallback(
     (node: GraphNode) => {
-      if (node.kind === "module" && node.path) {
-        focusModule(node.path);
+      if (node.kind === "module") {
+        // Top-level files have no folder of their own to open.
+        if (node.path) focusModule(node.path);
       } else if (node.kind === "embedded" || node.kind === "note" || node.kind === "code") {
         const target = graphNodeNavigationTarget(node);
 
@@ -350,12 +367,38 @@ export function ExplorerWorkspace({
     setSubmittedSearch(q);
   }, [query, clearSearch]);
 
-  const hasPanel = selection.kind !== "root";
+  const hasPanel = selection.kind === "file";
   const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
   const searchModuleSet = useMemo(() => new Set(searchModules), [searchModules]);
 
   const graphScopeLabel =
-    graphScope.mode === "global" ? "Global scope" : graphScope.label || "Local scope";
+    graphScope.mode === "global"
+      ? "By folder; pick one to see its notes and code"
+      : graphScope.mode === "module"
+        ? `Folder ${graphScope.label}`
+        : `File ${graphScope.label || "graph"}`;
+
+  // Notes take their type's color, as in the Atlas, so the legend can name every color.
+  const accentKey = useTypeAccentKey();
+
+  const typeColors = useMemo(
+    () =>
+      buildTypeColors([
+        ...new Set(graph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean)),
+      ]),
+    // The summary decides each type's palette slot.
+    [graph.nodes, accentKey],
+  );
+
+  // A search shows its matches among the vault's own nodes, not folders.
+  const byFolder = atRoot && !searchActive;
+
+  const folders = useMemo(
+    () => (byFolder ? aggregateByFolder(graph, (type) => typeColors.get(type)) : null),
+    [byFolder, graph, typeColors],
+  );
+
+  const drawn = folders ?? graph;
 
   return (
     <div className="workspace workbench">
@@ -381,13 +424,18 @@ export function ExplorerWorkspace({
               onClick={onVaultRootClick}
               title="View full graph"
             >
-              <span className="explorer-rail__root-icon">📂</span>
+              <FolderOpen
+                className="explorer-rail__root-icon"
+                size={16}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
               <span className="tree-name">{vaultName ? vaultLabel(vaultName) : "Vault"}</span>
             </button>
             <TreeList
               entries={tree}
               expanded={expanded}
-              selectedPath={moduleFocus?.path || file?.path || null}
+              selectedPath={selection.kind === "root" ? null : selection.path}
               onSelect={(entry) => onSelectFile(entry.path, entry.kind)}
               onToggle={onToggleDir}
             />
@@ -395,102 +443,113 @@ export function ExplorerWorkspace({
         </aside>
       </WorkbenchSidebar>
       <div className="workbench__panel workspace--explorer">
-        <header className="explorer-bar">
-          <div className="explorer-bar__title">
-            <h1>Explorer</h1>
-            <p>Navigate the vault as files, folders, and a live graph.</p>
-          </div>
-          <div
-            className="explorer-bar__search"
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
-            }}
-          >
-            <input
-              type="search"
-              aria-label="Search notes and code"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-
-                if (e.target.value.trim() === "") {
-                  clearSearch();
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  runSearch();
-                  setShowSuggestions(false);
-                }
-              }}
-              onFocus={() => {
-                setShowSuggestions(true);
-              }}
-              placeholder="Search notes + code"
-            />
+        <header className="view-header explorer-header">
+          <div className="view-header__title-row">
+            <h2>Explorer</h2>
+            <span className="view-header__count num">
+              {graph.nodes.length
+                ? `${graph.nodes.filter((node) => node.kind === "note").length.toLocaleString("en-US")} notes · ${graph.nodes.filter((node) => node.kind === "code").length.toLocaleString("en-US")} files shown of ${graph.nodes.length.toLocaleString("en-US")} nodes`
+                : ""}
+            </span>
             <button
               type="button"
-              className="explorer-bar__search-btn"
-              onClick={() => {
-                if (query.trim() !== "" || searchActive) {
-                  setQuery("");
-                  setShowSuggestions(false);
-                  clearSearch();
-                } else {
-                  runSearch();
-                }
-              }}
-              disabled={searching}
-              title={query.trim() !== "" || searchActive ? "Clear search" : "Search"}
+              className="explorer-count-info"
+              aria-label="About the displayed graph"
+              title={`${graphScopeLabel}. ${folderCoverage(graph)}`}
             >
-              {query.trim() !== "" || searchActive ? "Clear" : searching ? "Searching…" : "Search"}
+              <Info size={16} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" />
             </button>
-            <label
-              className={`explorer-bar__filter ${searchActive ? "" : "explorer-bar__filter--disabled"}`}
+            <div className="explorer-bar__display" ref={setDisplaySlot} />
+            <div
+              className="view-header__tools explorer-bar__search"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
+              }}
             >
-              <input
-                type="checkbox"
-                checked={searchOnlyMatches}
-                disabled={!searchActive}
-                onChange={(e) => setSearchOnlyMatches(e.target.checked)}
-              />
-              Only matches
-            </label>
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="explorer-suggestions">
-                {suggestions.map((suggestion) => (
-                  <button
-                    type="button"
-                    key={suggestion.path}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                    }}
-                    onClick={() => {
-                      onSelectFile(suggestion.path, suggestion.kind);
+              {searchActive && !searching && !searchQuery.isError ? (
+                <span className="explorer-bar__matches" role="status">
+                  {searchPathSet.size} {searchPathSet.size === 1 ? "match" : "matches"}
+                </span>
+              ) : null}
+              {searchActive ? (
+                <label className="explorer-bar__filter">
+                  <input
+                    type="checkbox"
+                    checked={searchOnlyMatches}
+                    onChange={(e) => setSearchOnlyMatches(e.target.checked)}
+                  />
+                  Only matches
+                </label>
+              ) : null}
+              <label className="configured-view__find explorer-bar__find">
+                <Search
+                  className="configured-view__tool-icon"
+                  aria-hidden="true"
+                  strokeWidth={1.75}
+                />
+                <input
+                  className="configured-view__search"
+                  type="search"
+                  aria-label="Search notes and code"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+
+                    if (e.target.value.trim() === "") {
+                      clearSearch();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      runSearch();
                       setShowSuggestions(false);
-                    }}
-                  >
-                    {suggestion.path} ({suggestion.kind})
+                    }
+
+                    if (e.key === "Escape") {
+                      setQuery("");
+                      setShowSuggestions(false);
+                      clearSearch();
+                    }
+                  }}
+                  onFocus={() => {
+                    setShowSuggestions(true);
+                  }}
+                  placeholder={searching ? "Searching…" : "Search notes and code"}
+                />
+              </label>
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="explorer-suggestions">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      type="button"
+                      key={suggestion.path}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={() => {
+                        onSelectFile(suggestion.path, suggestion.kind);
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      <span className="explorer-suggestions__path">{suggestion.path}</span>
+                      <span className="explorer-suggestions__kind">{suggestion.kind}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {searchQuery.isError ? (
+                <div className="explorer-bar__search-error" role="alert">
+                  Search unavailable.{" "}
+                  <button type="button" onClick={() => searchQuery.refetch()}>
+                    Retry
                   </button>
-                ))}
-              </div>
-            )}
-            {searchQuery.isError ? (
-              <div className="explorer-bar__search-error" role="alert">
-                Search unavailable.{" "}
-                <button type="button" onClick={() => searchQuery.refetch()}>
-                  Retry
-                </button>
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
         <div className={`explorer-grid ${hasPanel ? "explorer-grid--with-pane" : ""}`}>
-          <section className="explorer-focus">
-            <div className="explorer-focus__header">
-              <h2>Graph</h2>
-              <span className="explorer-focus__scope">{graphScopeLabel}</span>
-            </div>
+          <section className="explorer-focus" aria-label="Graph">
             <div className="explorer-focus__body">
               {graphQuery.isPending && !graphQuery.data ? (
                 <div className="graph-notice" role="status">
@@ -514,9 +573,20 @@ export function ExplorerWorkspace({
                   }
                 >
                   <GraphView
-                    nodes={graph.nodes}
-                    edges={graph.edges}
-                    truncated={graph.truncated}
+                    nodes={drawn.nodes}
+                    edges={drawn.edges}
+                    truncated={drawn.truncated}
+                    legendNodes={folders ? graph.nodes : undefined}
+                    folderCaption={undefined}
+                    sizeCaption={
+                      folders ? "Size counts the notes and code files a folder holds" : undefined
+                    }
+                    edgeCaption={
+                      folders
+                        ? "Lines follow folder containment; hover a folder for cross-folder link counts"
+                        : undefined
+                    }
+                    displaySlot={displaySlot}
                     needsIndex={graph.needsIndex}
                     scope={graphScope}
                     onResetScope={resetGraphScope}
@@ -525,6 +595,9 @@ export function ExplorerWorkspace({
                     searchPaths={searchPathSet}
                     searchModules={searchModuleSet}
                     searchOnlyMatches={searchOnlyMatches}
+                    typeColors={typeColors}
+                    showTypeLegend
+                    showFind={false}
                     zoomKey={graphZoomKey}
                   />
                 </Suspense>
@@ -533,8 +606,7 @@ export function ExplorerWorkspace({
           </section>
 
           {hasPanel &&
-            ((selection.kind === "file" && fileQuery.isPending && !fileQuery.data) ||
-            (selection.kind === "module" && moduleQuery.isPending && !moduleQuery.data) ? (
+            (fileQuery.isPending && !fileQuery.data ? (
               <section className="explorer-pane" role="status">
                 <div className="explorer-pane__header">
                   <div className="explorer-pane__head-main">
@@ -543,8 +615,7 @@ export function ExplorerWorkspace({
                   </div>
                 </div>
               </section>
-            ) : (selection.kind === "file" && fileQuery.isError && !fileQuery.data) ||
-              (selection.kind === "module" && moduleQuery.isError && !moduleQuery.data) ? (
+            ) : fileQuery.isError && !fileQuery.data ? (
               <section className="explorer-pane" role="alert">
                 <div className="explorer-pane__header">
                   <div className="explorer-pane__head-main">
@@ -554,8 +625,7 @@ export function ExplorerWorkspace({
                   <button
                     type="button"
                     onClick={() => {
-                      if (selection.kind === "file") void fileQuery.refetch();
-                      else void moduleQuery.refetch();
+                      void fileQuery.refetch();
                     }}
                   >
                     Retry
@@ -578,10 +648,8 @@ export function ExplorerWorkspace({
                 <FilePanel
                   file={file}
                   line={selectedLine}
-                  moduleFocus={moduleFocus}
                   onClose={closePanel}
                   onSelectFile={onSelectFile}
-                  onFocusModule={focusModule}
                 />
               </Suspense>
             ))}

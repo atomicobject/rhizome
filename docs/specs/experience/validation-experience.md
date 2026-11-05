@@ -5,7 +5,8 @@ aliases:
   - SPEC-0100
 summary: "Defines trustworthy validation state, quiet contextual diagnostics, and safe repair review in the Notes workspace."
 spec-status: active
-last-updated: 2026-10-03
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 ---
 
 # Validation experience
@@ -57,7 +58,7 @@ This spec follows the Problems experience deferred by [[notes-workspace-shell|SP
 
 #### Acceptance Criteria
 
-- The clean view is a compact neutral status with optional check details. It has no alert hero, red zero, fix instructions, empty filter, or empty-list settings. ^SPEC-0100-US2-AC1
+- The clean view shows one compact success-green "No issues" status with check count, duration, and freshness. Its title omits a zero issue count, and the checks are listed as quiet rows beginning with the check name and a small success mark. It has no alert hero, red zero, fix instructions, empty filter, or empty-list settings. ^SPEC-0100-US2-AC1
 - A nonempty view shows an issue and file summary, file grouping, optional check grouping, and server-side filters for check, code, repair availability, and text. An empty filtered result offers Clear filters and never claims the vault is clean. ^SPEC-0100-US2-AC2
 - Selecting a finding reveals its explanation, source, exact location, related instances, and actions. Selection survives a refresh when the same finding remains. ^SPEC-0100-US2-AC3
 - Repair rows remain distinct from findings and show safety, affected paths, transaction membership, confirmation requirements, and a preview before apply. ^SPEC-0100-US2-AC4
@@ -140,3 +141,7 @@ This spec follows the Problems experience deferred by [[notes-workspace-shell|SP
 - Update validation, stores, indexing, GraphQL, and web subsystem notes for changed contracts.
 - Record the repair-review lifecycle and the boundary with schema-guided editing.
 - Keep implementation evidence and known limitations in the delivery effort.
+
+## Change record
+
+2026-11-04: Reconciled the single success-green clean state and the visible clean-check list. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

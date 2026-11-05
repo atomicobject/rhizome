@@ -4,7 +4,8 @@ id: SPEC-0110
 aliases: [SPEC-0110, Unified view contract]
 summary: "One registration, invocation context, configuration, lifecycle, and service contract for built-in and custom views mounted on type collections, display groups, and individual nodes."
 spec-status: active
-last-updated: 2026-11-02
+last-updated: 2026-11-04
+last-verified: 2026-11-04
 ---
 
 # Unified view contract
@@ -111,7 +112,7 @@ mount:
 - Without an authored configured default, a type or interface collection MUST open its generated view's default variant, which [[type-collection-views|SPEC-0112]] chooses from the type's shape (Table unless a workflow type's open work fits a Board), or its replacing view's default variant (else its first layout) when one replaces the generated view. Display groups fall back to a bundled view chosen by the group's shape, as [[group-views-and-view-platform|SPEC-0111]] defines, or to Overview's navigation list when no bundled view is available. Individual nodes fall back to the structured presentation. Overview remains selectable for collections.
 - An exact configured group default MUST outrank a generic group default. Remembered and explicit choices retain their higher precedence.
 - Preferences MUST be scoped to vault and subject. Collection preferences and individual-node preferences MUST be distinct.
-- The UI MUST support clearing the remembered override to use the configured default. The view switcher marks the configured default, and selecting it clears the remembered choice so later default changes apply.
+- The UI MUST support clearing the remembered override to use the configured default. Selecting the configured default clears the remembered choice so later default changes apply. Collection presentation tabs mark that default; a node's segmented presentation control names it in the tooltip without a default dot.
 - Native layout switching MUST retain the source definition's filters, sorting, and other applicable state. Invalid or removed selections MUST fall back safely; a remembered generated layout whose view was replaced MUST select the replacing view's same layout when it has one, else the configured default.
 - Existing Home/Table and native variant preferences MUST migrate once where compatible, then relinquish selection ownership to the shared mechanism.
 - Shared backend resolution MUST determine applicability and configured defaults for browser and agent callers. Clients apply valid personal overrides through the shared preferences service governed by [[view-preferences|SPEC-0114]]; the server owns durable storage.
@@ -125,7 +126,7 @@ mount:
 - Navigation MUST accept GraphQL refs whose optional identity fields are null, normalize those fields to absent before passing refs into the workspace, and preserve non-null embedded identity. This applies to open-node requests and node contexts in open-view requests and direct launches. Required fields and non-null optional values MUST retain their existing validation.
 - Rejected messages from the active same-origin custom frame MUST emit a console warning naming the message type and failed validation rule. Origin and source checks MUST precede parsing and diagnostics.
 - Direct launch URLs MUST encode the same context and configuration as embedded invocation. Existing standalone custom links MUST remain valid.
-- Routing MUST distinguish a view selected inside a node workspace from a standalone view tab. Changing presentation MUST neither commit nor discard pending edits.
+- Routing MUST distinguish a view selected inside a node workspace from a standalone view on the current page. A standalone view, collection, Problems, Changes, or search replaces that page while retaining open note tabs. Only one such page is retained, and the tab strip appears only while a note is open. Changing presentation MUST neither commit nor discard pending edits.
 - Embedded custom reads and writes MUST use the host's edit session. Standalone and explicitly immediate edit modes MUST retain their existing semantics. Frame messaging MUST retain origin and source checks.
 
 ### Agent guidance and documentation
@@ -144,3 +145,7 @@ mount:
 ## Open Questions
 
 No blocking product decisions remain. Export and route spellings may be settled during implementation within this contract; incompatible scope changes require an explicit deviation.
+
+## Change record
+
+2026-11-04: Reconciled standalone view replacement, note-only tab-strip visibility, and node presentation default markers. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

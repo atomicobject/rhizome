@@ -156,6 +156,34 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.getByText("A short note")).toBeInTheDocument();
   });
 
+  it.each([false, true])("only offers full summary when six lines overflow: %s", (overflow) => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(120);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(overflow ? 160 : 100);
+
+    const summary =
+      "A canonical summary that is long enough to wrap across several lines in the property panel.";
+
+    render(
+      <OntologyPropertyPanel
+        workspace={makeWorkspace()}
+        fields={[makeField("summary", [summary])]}
+        editing={false}
+        changedFieldNames={new Set()}
+      />,
+    );
+    expect(screen.getByText(summary)).toBeInTheDocument();
+
+    if (overflow) {
+      fireEvent.click(screen.getByRole("button", { name: "Show full summary" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+      expect(screen.getByRole("button", { name: "Show full summary" })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("button", { name: "Show full summary" })).not.toBeInTheDocument();
+    }
+
+    vi.restoreAllMocks();
+  });
+
   it("opens wikilinks in read-only field values", () => {
     const onOpen = vi.fn();
     renderWithQueryClient(
@@ -258,7 +286,7 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
-  it("renders a date field with ISO display", () => {
+  it("renders a date field as words", () => {
     render(
       <OntologyPropertyPanel
         workspace={makeWorkspace()}
@@ -267,7 +295,10 @@ describe("OntologyPropertyPanel", () => {
         changedFieldNames={new Set()}
       />,
     );
-    expect(screen.getByText("2026-03-15")).toBeInTheDocument();
+    expect(screen.getByText("Mar 15, 2026")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/^2026-03-15/),
+    );
   });
 
   it("orders key fields before normal fields and discloses detail fields", () => {
@@ -372,7 +403,7 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.queryByRole("button", { name: /more|Hide details/ })).not.toBeInTheDocument();
   });
 
-  it("collapses empty fields behind one remembered toggle while reading", () => {
+  it("collapses empty fields behind one remembered toggle in read and edit mode", () => {
     const fields = [
       makeField("summary", ["Filled in"]),
       // Links alone are a value, so the field still shows.
@@ -410,9 +441,10 @@ describe("OntologyPropertyPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide 2 empty fields" }));
     expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
 
+    // Editing keeps read mode's geometry: empty fields stay behind the toggle.
     rerender(panel(true));
-    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
-    expect(screen.queryByRole("button", { name: /empty field/ })).not.toBeInTheDocument();
+    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+    expect(screen.getByRole("button", { name: "Show 2 empty fields" })).toBeVisible();
   });
 
   it("stages DateTime edits as RFC3339 instead of dropping time", () => {

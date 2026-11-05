@@ -1,7 +1,13 @@
 // The Overview's tables (SPEC-0117 US1-US3): the Matrix, a complete text
 // alternative to the map, and the member table comparing every member's size,
 // progress, completeness, and connection.
-import { RelativeTime, openCollection, openIssues } from "@rhizome/kit";
+import {
+  DisclosureIcon,
+  RelativeTime,
+  openCollection,
+  openIssues,
+  useTypeColors,
+} from "@rhizome/kit";
 
 import { plural } from "./briefing-parts.tsx";
 import { Dash } from "./components.tsx";
@@ -133,11 +139,13 @@ function LifecycleCell({ lifecycle }: { lifecycle: LifecycleSummary | null | und
           />
         ))}
       </span>
-      {lifecycle.active > 0 && (
-        <span className="gv-num">
-          <b>{lifecycle.active}</b> {lifecycle.activeLabel}
-        </span>
-      )}
+      {/* The visible key: every held stage and its count, in lifecycle order. */}
+      <span className="gv-ov-stage-key">
+        {lifecycle.segments
+          .filter((segment) => segment.count > 0)
+          .map((segment) => `${segment.label} ${fmt(segment.count)}`)
+          .join(" · ")}
+      </span>
     </span>
   );
 }
@@ -156,8 +164,8 @@ function ShareCell({ share }: { share: number | null }) {
   );
 }
 
-function Dot({ model, node }: { model: ScopeModel; node: ScopeNode }) {
-  const hue = nodeHue(model, node);
+function Dot({ node }: { model: ScopeModel; node: ScopeNode }) {
+  const hue = nodeHue(node, useTypeColors());
 
   return (
     <i
@@ -191,9 +199,7 @@ function NameCell({
         aria-expanded={row.expanded}
         onClick={() => onToggle(node.name, !row.expanded)}
       >
-        <span className="gv-ov-chev" aria-hidden="true">
-          {row.expanded ? "▾" : "▸"}
-        </span>
+        <DisclosureIcon open={Boolean(row.expanded)} className="gv-ov-chev" />
         <Dot model={model} node={node} />
         {node.label}{" "}
         <span className="gv-sub">
@@ -212,10 +218,29 @@ function NameCell({
 
   if (node.kind === "untyped") return <span className="gv-ov-name">{name}</span>;
 
-  return (
+  const open = (
     <button type="button" className="gv-record" onClick={() => openNode(node)}>
       {name}
     </button>
+  );
+
+  // An interface folds its implementing types under a chevron of its own.
+  if (row.toggle === undefined) return open;
+  const { toggle } = row;
+
+  return (
+    <span className="gv-ov-name">
+      <button
+        type="button"
+        className="rz-disclosure gv-ov-chev-button"
+        aria-expanded={row.expanded}
+        aria-label={`${row.expanded ? "Hide" : "Show"} the types implementing ${node.label}`}
+        onClick={() => onToggle(toggle, !row.expanded)}
+      >
+        <DisclosureIcon open={Boolean(row.expanded)} />
+      </button>
+      {open}
+    </span>
   );
 }
 
@@ -260,13 +285,33 @@ function GapsCell({ row }: { row: NodeRow }) {
   );
 }
 
+/** Which optional columns hold anything in these rows; an empty column hides. */
+type Shown = { stages: boolean; gaps: boolean; linked: boolean };
+
+const hasLinked = (row: NodeRow) =>
+  row.node.kind !== "untyped" &&
+  row.kind !== "implementor" &&
+  row.kind !== "group" &&
+  row.linkedShare !== null;
+
+const hasStages = (row: NodeRow) =>
+  row.node.count > 0 && row.kind !== "implementor" && Boolean(row.lifecycle);
+
+const hasGaps = (row: NodeRow) =>
+  row.node.count > 0 &&
+  row.kind !== "implementor" &&
+  row.kind !== "group" &&
+  Boolean(row.gaps.length || row.node.stats?.gaps.length);
+
 function DataRow({
   model,
   row,
+  shown,
   onToggle,
 }: {
   model: ScopeModel;
   row: NodeRow;
+  shown: Shown;
   onToggle: (group: string, open: boolean) => void;
 }) {
   const { node } = row;
@@ -276,28 +321,65 @@ function DataRow({
 
   return (
     <tr data-kind={row.kind} title={description}>
-      <td style={{ paddingLeft: `${20 + row.depth * 16}px` }}>
+      {/* A nested row starts 16px past its parent's name, not its dot. */}
+      <td style={{ paddingLeft: `${20 + row.depth * 31}px` }}>
         <NameCell model={model} row={row} onToggle={onToggle} />
       </td>
       <td className="gv-right gv-num">{fmt(node.count)}</td>
       {node.kind === "untyped" ? (
-        <td colSpan={3} className="gv-faint">
-          Not records: no lifecycle or gaps by type.
-        </td>
+        // Untyped notes are not records: no lifecycle, gaps, or linked share.
+        <>
+          {shown.stages && (
+            <td>
+              <Dash />
+            </td>
+          )}
+          {shown.gaps && (
+            <td>
+              <Dash />
+            </td>
+          )}
+          {shown.linked && (
+            <td>
+              <Dash />
+            </td>
+          )}
+        </>
       ) : (
         <>
-          <td>{node.count > 0 && !brief && <LifecycleCell lifecycle={row.lifecycle} />}</td>
-          <td>
-            <GapsCell row={row} />
-          </td>
-          <td>{!brief && row.kind !== "group" && <ShareCell share={row.linkedShare} />}</td>
+          {shown.stages && (
+            <td>
+              {node.count > 0 && !brief && row.lifecycle !== undefined ? (
+                <LifecycleCell lifecycle={row.lifecycle} />
+              ) : (
+                <Dash />
+              )}
+            </td>
+          )}
+          {shown.gaps && (
+            <td>
+              <GapsCell row={row} />
+            </td>
+          )}
+          {shown.linked && (
+            <td>
+              {brief || row.kind === "group" || row.linkedShare === null ? (
+                <Dash />
+              ) : (
+                <ShareCell share={row.linkedShare} />
+              )}
+            </td>
+          )}
         </>
       )}
-      <td className="gv-right gv-num">{brief ? "" : fmt(row.links)}</td>
-      {!workspace && <td className="gv-right gv-num">{brief ? "" : fmt(row.outside ?? 0)}</td>}
-      <td className="gv-right">{!brief && <IssuesCell node={node} />}</td>
+      {/* A nested implementor's figures roll up into its interface: a dash, not a blank. */}
+      <td className="gv-right gv-num">{brief ? <Dash /> : fmt(row.links)}</td>
+      {!workspace && (
+        <td className="gv-right gv-num">{brief ? <Dash /> : fmt(row.outside ?? 0)}</td>
+      )}
+      <td className="gv-right">{brief ? <Dash /> : <IssuesCell node={node} />}</td>
       <td className="gv-right gv-num">
-        {node.lastChanged !== null && !brief ? <RelativeTime value={node.lastChanged} /> : ""}
+        {node.lastChanged !== null && !brief ? <RelativeTime value={node.lastChanged} /> : <Dash />}
       </td>
     </tr>
   );
@@ -314,7 +396,16 @@ export function MemberTable({
   onToggle: (group: string, open: boolean) => void;
 }) {
   const workspace = model.scope.kind === "workspace";
-  const columns = workspace ? 8 : 9;
+  const dataRows = rows.flatMap((row) => (row.kind === "heading" ? [] : [row]));
+
+  const shown = {
+    stages: dataRows.some(hasStages),
+    gaps: dataRows.some(hasGaps),
+    linked: dataRows.some(hasLinked),
+  };
+
+  const columns =
+    (workspace ? 5 : 6) + Number(shown.stages) + Number(shown.gaps) + Number(shown.linked);
 
   return (
     <table className="gv-table gv-ov-table">
@@ -324,9 +415,9 @@ export function MemberTable({
           <th scope="col" className="gv-right">
             Records
           </th>
-          <th scope="col">Stages</th>
-          <th scope="col">Gaps (empty / records)</th>
-          <th scope="col">{workspace ? "Linked" : "Linked in group"}</th>
+          {shown.stages && <th scope="col">Stages</th>}
+          {shown.gaps && <th scope="col">Gaps (empty / records)</th>}
+          {shown.linked && <th scope="col">{workspace ? "Linked" : "Linked in group"}</th>}
           <th scope="col" className="gv-right">
             {workspace ? "Links" : "Links in group"}
           </th>
@@ -359,6 +450,7 @@ export function MemberTable({
               key={`${row.kind}:${row.node.id}`}
               model={model}
               row={row}
+              shown={shown}
               onToggle={onToggle}
             />
           ),

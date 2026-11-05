@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import Sigma from "sigma";
 import { drawDiscNodeLabel, type NodeHoverDrawingFunction } from "sigma/rendering";
 import type { GraphEdge, GraphNode } from "../api/types";
+import { createLabelPainter } from "./sigmaLabels";
 import {
   computeEdgeStyle,
   computeNodeStyle,
@@ -66,7 +67,13 @@ const NodeImageProgram = createNodeImageProgram<SigmaNodeAttrs, SigmaEdgeAttrs>(
 // back to enterNode/leaveNode events if a future Sigma drops it.
 type NodePicker = (position: { x: number; y: number }) => string | null;
 
-type ThemeColors = GraphColors & { label: string; edgeLabel: string; surface: string };
+type ThemeColors = GraphColors & {
+  label: string;
+  edgeLabel: string;
+  surface: string;
+  /** The graph canvas behind node labels. */
+  canvas: string;
+};
 
 /** Read the renderer colors from the current theme's tokens. */
 function readThemeColors(): ThemeColors {
@@ -82,6 +89,7 @@ function readThemeColors(): ThemeColors {
     label: resolveCssColor("var(--text)"),
     edgeLabel: faint,
     surface: resolveCssColor("var(--surface)"),
+    canvas: resolveCssColor("var(--surface-alt)"),
   };
 }
 
@@ -130,6 +138,28 @@ function themedNodeHover(
   };
 }
 
+/**
+ * How many of the most-connected notes and folders keep a label at every zoom,
+ * so the default view orients the reader. Code symbols are left out: their
+ * short names ("types", "handle") do not say where the reader is.
+ */
+const LANDMARKS = 20;
+
+/**
+ * A node's radius before authority scaling. Notes and code start small so a
+ * dense graph reads as structure, not a mass; a folder that summarizes its
+ * contents grows with the square root of what it holds.
+ */
+function nodeBaseSize(node: GraphViewNode) {
+  const center = node.center ? 2 : 0;
+
+  if (node.kind !== "module") return NODE_SIZE.base.normal + center;
+
+  if (!node.childCount) return NODE_SIZE.base.module + center;
+
+  return Math.min(28, 4 + Math.sqrt(node.childCount) * 0.55) + center;
+}
+
 /** Rebuild the API graph node a click refers to from its renderer attributes. */
 function graphNodeFromAttrs(id: string, attrs: SigmaNodeAttrs): GraphNode {
   return {
@@ -145,6 +175,7 @@ function graphNodeFromAttrs(id: string, attrs: SigmaNodeAttrs): GraphNode {
     module: attrs.module,
     community: attrs.community,
     resolvedType: attrs.resolvedType,
+    childCount: attrs.childCount,
     hub: attrs.hub,
     authority: attrs.authority,
     pageRank: attrs.pageRank,
@@ -222,6 +253,8 @@ export function useSigmaGraph({
   const refreshRef = useRef<number | null>(null);
 
   const [hover, setHover] = useState<GraphHoverInfo | null>(null);
+  // The data the renderer last drew; the graph is ready when it matches the current data.
+  const [drawn, setDrawn] = useState<readonly GraphNode[] | null>(null);
   const [graphQuery, setGraphQuery] = useState("");
   const [graphFilter, setGraphFilter] = useState(false);
   const [graphExpanded, setGraphExpanded] = useState(false);
@@ -390,6 +423,11 @@ export function useSigmaGraph({
     if (!container || needsIndex || empty) return;
     container.style.cursor = "grab";
 
+    const labels = createLabelPainter(
+      () => sigmaRef.current,
+      () => colorsRef.current ?? readThemeColors(),
+    );
+
     // WHY: allowInvalidContainer keeps Sigma from throwing when its container
     // has zero width at mount time — this can happen on the first commit
     // before flex layout has resolved cross-axis sizing. Sigma resizes itself
@@ -401,12 +439,15 @@ export function useSigmaGraph({
       // Wider cells keep long labels from overlapping in dense clusters.
       labelGridCellSize: 140,
       labelRenderedSizeThreshold: 10,
+      // The plotted bounds keep clear of the canvas edge and the zoom controls.
+      stagePadding: 44,
       // Canvas text cannot read CSS variables; this is --font-sans.
       labelFont: "Inter, -apple-system, system-ui, sans-serif",
       edgeLabelFont: "Inter, -apple-system, system-ui, sans-serif",
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
+      defaultDrawNodeLabel: labels.draw,
       minCameraRatio: CAMERA.minRatio,
       maxCameraRatio: CAMERA.maxRatio,
       zIndex: true,
@@ -419,6 +460,34 @@ export function useSigmaGraph({
     });
 
     sigmaRef.current = sigma;
+    sigma.on("beforeRender", labels.beginFrame);
+    const outlines = sigma.createCanvas("outlines", { beforeLayer: "labels" });
+    sigma.on("afterRender", () => {
+      const context = outlines.getContext("2d");
+
+      if (!context) return;
+      const { width, height } = sigma.getDimensions();
+      const ratio = window.devicePixelRatio || 1;
+      outlines.width = width * ratio;
+      outlines.height = height * ratio;
+      outlines.style.width = `${width}px`;
+      outlines.style.height = `${height}px`;
+      context.save();
+      context.scale(outlines.width / width, outlines.height / height);
+      context.clearRect(0, 0, width, height);
+      context.strokeStyle = (colorsRef.current ?? readThemeColors()).label;
+      context.lineWidth = 1.5;
+      sigma.getGraph().forEachNode((id) => {
+        const node = sigma.getNodeDisplayData(id);
+
+        if (!node || node.hidden) return;
+        const point = sigma.framedGraphToViewport(node);
+        context.beginPath();
+        context.arc(point.x, point.y, sigma.scaleSize(node.size), 0, 2 * Math.PI);
+        context.stroke();
+      });
+      context.restore();
+    });
     const camera = sigma.getCamera();
     stateRef.current.cameraRatio = camera.getState().ratio;
 
@@ -440,6 +509,7 @@ export function useSigmaGraph({
         size: result.size,
         color: result.color,
         label: result.label,
+        forceLabel: Boolean(attrs.landmark && result.label),
       };
     });
 
@@ -524,6 +594,7 @@ export function useSigmaGraph({
 
         if (mouseCanvas) mouseCanvas.style.cursor = "grab";
         stateRef.current.hoverNodeID = null;
+        stateRef.current.hoverNeighbors = undefined;
         stateRef.current.hoverCommunity = null;
         setHover(null);
         scheduleRefresh();
@@ -536,6 +607,7 @@ export function useSigmaGraph({
 
       if (mouseCanvas) mouseCanvas.style.cursor = "pointer";
       stateRef.current.hoverNodeID = nextNode;
+      stateRef.current.hoverNeighbors = new Set(sigma.getGraph().neighbors(nextNode));
       stateRef.current.hoverCommunity =
         attrs.kind === "code" && attrs.community ? attrs.community : null;
       setHover({
@@ -640,7 +712,22 @@ export function useSigmaGraph({
 
     if (!sigma || needsIndex || empty) return;
 
-    const graph: SigmaGraph = new Graph();
+    const graph: SigmaGraph = new Graph({ multi: true });
+
+    // A folder that summarizes its contents ranks by what it holds, and every
+    // one is named; anything else ranks by its links.
+    const rank = (node: GraphViewNode) =>
+      node.kind === "module" && node.childCount
+        ? node.childCount
+        : (connectionCounts.get(node.id) ?? 0);
+
+    const landmarks = new Set(
+      nodes
+        .filter((node) => node.kind !== "code")
+        .sort((a, b) => rank(b) - rank(a) || a.id.localeCompare(b.id))
+        .filter((node, index) => rank(node) > 0 && (index < LANDMARKS || Boolean(node.fill)))
+        .map((node) => node.id),
+    );
 
     const total = Math.max(1, nodes.length);
     const radius = Math.max(80, Math.sqrt(total) * 28);
@@ -657,10 +744,9 @@ export function useSigmaGraph({
       const x = cached ? cached.x : Math.cos(angle) * radius + jitter;
       const y = cached ? cached.y : Math.sin(angle) * radius + jitter;
 
-      const baseSize =
-        (n.kind === "module" ? NODE_SIZE.base.module : NODE_SIZE.base.normal) + (n.center ? 2 : 0);
+      const baseSize = nodeBaseSize(n);
 
-      const colorValue = nodeColor(n, communityColors, typeColors);
+      const colorValue = n.fill ?? nodeColor(n, communityColors, typeColors);
       const baseColor = resolveCssColor(colorValue);
       graph.addNode(n.id, {
         label: n.label,
@@ -671,11 +757,13 @@ export function useSigmaGraph({
         lang: n.lang,
         community: n.community,
         resolvedType: n.resolvedType,
+        childCount: n.childCount,
         authority: n.authority,
         hub: n.hub,
         pageRank: n.pageRank,
         score: n.score,
         problemCount: problemCountsRef.current.get(n.id) ?? 0,
+        landmark: landmarks.has(n.id),
         baseSize,
         colorValue,
         baseColor,
@@ -703,7 +791,7 @@ export function useSigmaGraph({
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) return;
       const a = e.source <= e.target ? e.source : e.target;
       const b = e.source <= e.target ? e.target : e.source;
-      const key = `${a}|${b}`;
+      const key = `${a}|${b}|${e.kind === "folder-containment" ? "containment" : "links"}`;
       const current = edgeAgg.get(key);
 
       if (!current) {
@@ -763,8 +851,11 @@ export function useSigmaGraph({
       setHover(null);
       stateRef.current.hoverCommunity = null;
       stateRef.current.hoverNodeID = null;
+      stateRef.current.hoverNeighbors = undefined;
       graphRef.current = graph;
       sigma.setGraph(graph);
+      // Ready once the renderer has drawn this graph, not merely received it.
+      sigma.once("afterRender", () => setDrawn(nodes));
       scheduleRefresh();
     };
 
@@ -776,17 +867,43 @@ export function useSigmaGraph({
 
     const isWarmGlobal = scope.mode === "global" && globalLayoutRef.current.size > 0;
 
-    const iterations = isWarmGlobal ? 28 : graph.order > 400 ? 50 : graph.order > 200 ? 80 : 120;
+    // A small graph settles fully for a few hundred passes at no visible cost.
+    const iterations = isWarmGlobal
+      ? 28
+      : graph.order > 400
+        ? 50
+        : graph.order > 200
+          ? 80
+          : graph.order > 80
+            ? 120
+            : 600;
 
     const layoutNodes: LayoutInput["nodes"] = [];
-    graph.forEachNode((id, attrs) => layoutNodes.push({ id, x: attrs.x, y: attrs.y }));
+    graph.forEachNode((id, attrs) =>
+      layoutNodes.push({ id, x: attrs.x, y: attrs.y, size: attrs.baseSize }),
+    );
     const layoutEdges: LayoutInput["edges"] = [];
-    graph.forEachEdge((_edge, attrs, source, target) =>
-      layoutEdges.push({ source, target, weight: attrs.weight ?? 1 }),
+    // Hidden minor folder links do not pull their folders together.
+    graph.forEachEdge(
+      (_edge, attrs, source, target) =>
+        attrs.kind !== "folder-minor" &&
+        layoutEdges.push({ source, target, weight: attrs.weight ?? 1 }),
     );
 
-    return runLayout({ nodes: layoutNodes, edges: layoutEdges, iterations }, install);
-  }, [communityColors, edges, empty, needsIndex, nodes, scheduleRefresh, scope.mode, typeColors]);
+    const radial = nodes.length > 0 && nodes.every((node) => node.kind === "module" && node.fill);
+
+    return runLayout({ nodes: layoutNodes, edges: layoutEdges, iterations, radial }, install);
+  }, [
+    communityColors,
+    connectionCounts,
+    edges,
+    empty,
+    needsIndex,
+    nodes,
+    scheduleRefresh,
+    scope.mode,
+    typeColors,
+  ]);
 
   // A theme switch re-reads the token colors and repaints in place: no new
   // renderer, no layout run, and the camera stays where it was.
@@ -849,6 +966,7 @@ export function useSigmaGraph({
     setActiveCommunity(null);
     stateRef.current.hoverCommunity = null;
     stateRef.current.hoverNodeID = null;
+    stateRef.current.hoverNeighbors = undefined;
     // A different subject starts from the default view; a refresh of the same
     // subject keeps the reader's camera.
     sigmaRef.current?.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
@@ -889,6 +1007,8 @@ export function useSigmaGraph({
     graphMatches,
     graphQuery,
     graphQueryValue,
+    // Nothing to draw counts as settled, so a caller waiting on readiness never hangs.
+    graphReady: empty || Boolean(needsIndex) || drawn === nodes,
     handleFitToView,
     handleZoomIn,
     handleZoomOut,

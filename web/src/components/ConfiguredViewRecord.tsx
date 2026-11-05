@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { Copy } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type {
   OntologyEditOp,
@@ -10,16 +11,17 @@ import type {
   ViewTableRow,
 } from "../api/types";
 import { displayTitle, enumLabel } from "../lib/labels";
-import { publicWorkspaceRef } from "../api/client";
+import { getNodeWorkspace, publicWorkspaceRef } from "../api/client";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { relationDisplayValue, relationTargetRow } from "./ConfiguredTableCellReadOnly";
-import { cellValues, fieldValue, rawFieldValue } from "./ConfiguredTableCellHelpers";
+import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
 import {
   capabilityFor,
   capabilityLabel,
   columnLabel,
   fieldCapability,
 } from "./ConfiguredViewModel";
+import { DisclosureChevron } from "./DisclosureChevron";
 import { StatusMark } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
@@ -27,6 +29,9 @@ import {
   useOntologyTypeQuery,
   useViewExecutionQuery,
 } from "./useNotesQueries";
+import { queryKeys } from "../api/queryKeys";
+import { useStagedQuery } from "../staging/stagedQuery";
+import { NotesSidebarInfo } from "./NotesSidebarInfo";
 import type { OpenMode } from "./useNoteTabs";
 
 type ViewSourceSpec = ViewCatalogEntry["source"];
@@ -66,8 +71,10 @@ export function ConfiguredViewRecord({
   onOpenRow,
 }: Props) {
   const typeLabel = useTypeLabel();
-  const title = displayTitle(row.title) || row.path || row.ref.notePath;
+  const title = markCutTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
+  const path = row.path || row.ref.notePath;
+  const identifier = recordIdentifier(row, capabilities);
 
   const fields = useMemo(() => recordFields(profile, capabilities), [capabilities, profile]);
 
@@ -80,9 +87,6 @@ export function ConfiguredViewRecord({
     <article className="view-record" aria-label={`Selected record ${title}`}>
       <header className="view-record__head">
         <span className="type-chip">{typeLabel(row.resolvedType || row.ref.typeName)}</span>
-        <span className="view-record__path" title={row.path || row.ref.notePath}>
-          {(row.path || row.ref.notePath).replace(/^.*\//, "")}
-        </span>
         <button
           type="button"
           className="configured-view__tool-button"
@@ -94,7 +98,13 @@ export function ConfiguredViewRecord({
         </button>
       </header>
       <h3 className="view-record__title">{title}</h3>
-      {summary && <p className="view-record__summary">{summary}</p>}
+      {/* The stable ID tells records apart; the file path, rarely needed, sits
+          behind a copy control that names it on hover. */}
+      <div className="view-record__id">
+        {identifier && <code>{identifier}</code>}
+        <CopyPath path={path} />
+      </div>
+      {summary && <RecordSummary key={configuredTableRowKey(row)} text={summary} />}
       {fields.length + moved.length > 0 && (
         <dl className="view-record__fields">
           {fields.map((capability) => (
@@ -135,6 +145,7 @@ export function ConfiguredViewRecord({
           ))}
         </dl>
       )}
+      {path && <RecordNoteContext path={path} editSession={editSession} onOpenRow={onOpenRow} />}
       {(profile?.reverseFields ?? []).map((field) => (
         <ReverseRecords
           key={field}
@@ -148,6 +159,105 @@ export function ConfiguredViewRecord({
         />
       ))}
     </article>
+  );
+}
+
+function RecordNoteContext({
+  path,
+  editSession,
+  onOpenRow,
+}: Pick<Props, "editSession" | "onOpenRow"> & { path: string }) {
+  const query = useStagedQuery({
+    subject: [...queryKeys.all, "nodes", "workspace", path],
+    session: editSession ?? null,
+    queryFn: ({ signal, editSession }) => getNodeWorkspace(path, { signal, editSession }),
+  });
+
+  if (query.isError) return <p role="status">Could not load note context.</p>;
+
+  if (!query.displayData) return <p role="status">Loading note context…</p>;
+
+  return (
+    <div className="view-record__context">
+      <NotesSidebarInfo
+        workspace={query.displayData}
+        onOpen={(target, mode) =>
+          onOpenRow(relationTargetRow(target), mode === "beside" ? "beside" : "activate")
+        }
+      />
+    </div>
+  );
+}
+
+/** The record's stable identifier, such as an effort or spec ID, when its type declares one. */
+function recordIdentifier(row: ViewTableRow, capabilities: ViewFieldCapability[]) {
+  const field = capabilities.find(
+    (capability) =>
+      capability.semanticRole === "identifier" && capability.sourceKind !== "frontmatter",
+  );
+
+  return field ? fieldValue(row, field.key) : "";
+}
+
+/** Copies the record's file path; the path itself shows on hover and to assistive technology. */
+function CopyPath({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      className="view-record__copy"
+      title={copied ? "Copied" : path}
+      aria-label={`Copy path ${path}`}
+      onClick={() => {
+        void navigator.clipboard?.writeText(path).then(
+          () => setCopied(true),
+          () => {},
+        );
+      }}
+    >
+      <Copy size={13} aria-hidden />
+      {copied ? "Copied" : "Path"}
+    </button>
+  );
+}
+
+/** The summary clamped to six lines, with a disclosure to read the rest in place. */
+function RecordSummary({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+
+    if (!element || open) return;
+
+    const measure = () => setClamped(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [open, text]);
+
+  return (
+    <div className="view-record__summary-wrap">
+      <p ref={ref} className={`view-record__summary${open ? "" : " is-clamped"}`}>
+        {text}
+      </p>
+      {(clamped || open) && (
+        <button
+          type="button"
+          className="view-record__more-toggle list-more"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <DisclosureChevron open={open} />
+          {open ? "Show less summary" : "Show full summary"}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -268,7 +378,7 @@ function ReverseRecords({
                 )}
                 <button
                   type="button"
-                  className="view-record__link"
+                  className="view-record__link link-secondary"
                   title={stage ? `${item.title} · ${stage}` : item.title}
                   onClick={() => onOpenRow(item.open)}
                 >

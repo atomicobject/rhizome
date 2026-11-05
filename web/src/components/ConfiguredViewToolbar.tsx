@@ -42,6 +42,8 @@ type Props = {
   onResetPage: (patch: ViewExecuteRequest) => void;
   /** Generated columns no matching row fills; the menu lists them as hidden empty. */
   emptyFields?: string[];
+  /** Columns hidden because one value fills nearly every row. */
+  repeatedFields?: string[];
   /** Table row density; the Rows control shows only when it is set. */
   density?: "two-line" | "one-line";
   onDensityChange?: (density: "two-line" | "one-line") => void;
@@ -85,6 +87,7 @@ export function ConfiguredViewToolbar({
   onToggleColumn,
   onResetPage,
   emptyFields = [],
+  repeatedFields = [],
   density,
   onDensityChange,
   viewActions,
@@ -341,6 +344,7 @@ export function ConfiguredViewToolbar({
         onToggleColumn={onToggleColumn}
         onResetPage={onResetPage}
         emptyFields={emptyFields}
+        repeatedFields={repeatedFields}
         density={density}
         onDensityChange={onDensityChange}
         viewActions={viewActions}
