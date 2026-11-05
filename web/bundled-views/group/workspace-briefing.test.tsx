@@ -307,7 +307,7 @@ it.each([
   });
 
   if (clean) {
-    const cleanState = await screen.findByText("✓ No validation issues");
+    const cleanState = await screen.findByText("No validation issues");
     expect(cleanState.closest(".gv-facts")).not.toHaveTextContent("49 notes");
     expect(cleanState.closest(".gv-facts")).toHaveTextContent("Checked");
     expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
@@ -315,7 +315,7 @@ it.each([
     expect(
       await screen.findByText("The last validation run is out of date or unfinished."),
     ).toBeVisible();
-    expect(screen.queryByText("✓ No validation issues")).toBeNull();
+    expect(screen.queryByText("No validation issues")).toBeNull();
   }
 });
 

@@ -143,8 +143,8 @@ it("says there are no validation issues, and skips unlinked records in a group w
   await renderGroupView(loadBriefing, { group: "Library" });
   await screen.findByRole("region", { name: "Review suggested" });
 
-  // The status strip says "✓ No validation issues" once; the body adds no Validation row.
-  expect(screen.getByText("✓ No validation issues")).toBeVisible();
+  // The status strip says "No validation issues" once; the body adds no Validation row.
+  expect(screen.getByText("No validation issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(document.querySelector(".gv-facts-list")).toHaveTextContent(/Last changed .* ago/);
   expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
@@ -233,7 +233,7 @@ it("does not call an out-of-date validation run clean", async () => {
   });
 
   expect(await screen.findByText("Validation out of date")).toBeVisible();
-  expect(screen.queryByText("✓ No validation issues")).toBeNull();
+  expect(screen.queryByText("No validation issues")).toBeNull();
 });
 
 it("shows only activity: Needs attention, In motion, and Recent changes", async () => {
@@ -242,7 +242,7 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
   ).toEqual(["In motion", "Recent changes"]);
-  expect(await screen.findByText("✓ No validation issues")).toBeVisible();
+  expect(await screen.findByText("No validation issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
@@ -385,7 +385,7 @@ it("refreshes when records change", async () => {
   data = { ...RECORDS_DATA, Story: [], Bug: [] };
   await view.emit("node.changed");
 
-  // The issues signal leaves; the strip, not the block, says "✓ No validation issues".
+  // The issues signal leaves; the strip, not the block, says "No validation issues".
   await waitFor(() =>
     expect(within(region("Needs attention")).queryByText("Validation issues")).toBeNull(),
   );

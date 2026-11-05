@@ -14,6 +14,28 @@ export function StatusMark({ tone, label }: Props) {
   );
 }
 
+/** A clean validation result; lifecycle success keeps its filled dot. */
+export function ValidationCheck({ label }: { label: string }) {
+  return (
+    <span className="status-mark" style={{ fontWeight: "inherit" }}>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 16 16"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="var(--success)"
+        strokeWidth="1.25"
+        style={{ flexShrink: 0 }}
+      >
+        <circle cx="8" cy="8" r="6.75" />
+        <path d="m4.5 8 2.25 2.25 4.75-4.75" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="status-mark__label">{label}</span>
+    </span>
+  );
+}
+
 export function normalizeStatusTone(tone: string | undefined): StatusTone {
   switch (tone) {
     case "info":

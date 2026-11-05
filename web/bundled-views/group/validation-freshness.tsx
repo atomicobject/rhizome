@@ -1,4 +1,4 @@
-import { RelativeTime, useValidationSummaries } from "@rhizome/kit";
+import { RelativeTime, ValidationCheck, useValidationSummaries } from "@rhizome/kit";
 import { useQuery } from "@tanstack/react-query";
 import { isJsonObject, isNumber, isString, type JsonValue } from "./api.ts";
 import { getJSON } from "./load.ts";
@@ -65,7 +65,11 @@ export function NoIssues() {
   if (health === null) return null;
 
   if (health === "current_clean" || health === "current_issues")
-    return <span className="gv-ok">✓ No validation issues</span>;
+    return (
+      <span className="gv-ok">
+        <ValidationCheck label="No validation issues" />
+      </span>
+    );
 
   return <span className="gv-sub">Validation out of date</span>;
 }

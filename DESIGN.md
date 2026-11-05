@@ -194,7 +194,7 @@ Every theme clears 4.5:1 for chrome text and muted chrome text in both appearanc
 
 **The Teal Means Connection Rule.** Teal means a link, a relationship, or provenance. It is never decoration and never a status: success is green (`--success`), and people (assignees) are ink, not links.
 
-**The One Validation State Rule.** A clean validation result reads "✓ No validation issues" in Briefings and "✓ No issues" on Problems (the Problems status line, Briefing, strips), once per screen, with the ✓ in `--success` and the words in `--success-ink` or ink. A result with problems reads as a count, "3 issues". Never "No issues found", "0 issues", "Valid", or a second clean badge on the same screen.
+**The One Validation State Rule.** Clean validation uses the shared `ValidationCheck` green check-circle. A clean validation result reads "✓ No validation issues" in Briefings and "✓ No issues" on Problems (the Problems status line, Briefing, strips), once per screen, with the ✓ in `--success` and the words in `--success-ink` or ink. A result with problems reads as a count, "3 issues". Never "No issues found", "0 issues", "Valid", or a second clean badge on the same screen.
 
 **The Chrome Owns the Theme Rule.** Themes recolour the top bar, sidebar, and selection only. Content surfaces never take a theme colour, so every theme reads the same inside the panel.
 

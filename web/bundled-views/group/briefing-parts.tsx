@@ -1,6 +1,7 @@
 // Small pieces the Briefing and Overview blocks share: running-text labels,
 // the block frame and its loading body, and the "+N more" toggle.
 import {
+  ValidationCheck,
   MoreToggle,
   orderedEnumValues,
   Section as Block,
@@ -60,7 +61,7 @@ export function HealthyAttention({ info }: { info: string }) {
       controls={
         <>
           <span className="gv-healthy">
-            <span aria-hidden="true">✓</span> No validation issues
+            <ValidationCheck label="No validation issues" />
           </span>
           <ValidationFreshness />
         </>
