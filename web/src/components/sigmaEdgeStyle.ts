@@ -13,8 +13,6 @@ export function computeEdgeStyle(
 ): EdgeReducerOutput {
   const { source, target, attrs, sourceAttrs, targetAttrs, state, lod } = input;
 
-  const touchesSelection = Boolean(sourceAttrs.selected || targetAttrs.selected);
-
   if (attrs.kind === "folder-child-crosslink" || attrs.kind === "folder-crosslink")
     return { hidden: true, color: resolveCssColor("var(--explorer-link)"), size: 1, label: "" };
 
@@ -27,9 +25,9 @@ export function computeEdgeStyle(
 
   if (attrs.kind === "folder-containment")
     return {
-      hidden: false,
+      hidden: true,
       color: resolveCssColor("var(--type-8)"),
-      size: touchesSelection ? 2.25 : 1.5,
+      size: 1.5,
       label: "",
     };
 

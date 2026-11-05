@@ -246,8 +246,12 @@ it("bundles underlying links while keeping focused children separate", () => {
     },
   ]);
   expect(focused.edges.filter((e) => e.kind === "folder-child-crosslink")).toHaveLength(2);
-  expect(focused.nodes.find((n) => n.id === "folder:pkg/a")?.labelDetail).toContain("→ docs · 2");
-  expect(focused.nodes.find((n) => n.id === "folder:pkg/b")?.labelDetail).toContain("→ docs · 1");
+  expect(focused.nodes.find((n) => n.id === "folder:pkg/a")?.labelDetail).toContain(
+    "2 links to docs",
+  );
+  expect(focused.nodes.find((n) => n.id === "folder:pkg/b")?.labelDetail).toContain(
+    "1 links to docs",
+  );
 });
 
 it("overflow gives direct counts once and labels descendant totals explicitly", () => {

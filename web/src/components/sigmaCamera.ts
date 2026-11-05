@@ -6,32 +6,12 @@ import { CAMERA } from "./graphViewShared";
 import type { SigmaEdgeAttrs } from "../lib/graphStyle";
 
 /** Fit visible positions in the fixed coordinate frame, reserving room for labels. */
-export function fitFixedGraph(
-  sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>,
-  instant: boolean,
-  focusOnly = false,
-) {
-  const hasFocus = sigma
-    .getGraph()
-    .someNode((_id, attrs) => Boolean(attrs.selected && attrs.path && attrs.kind === "module"));
-
-  const include = (id: string) =>
-    !focusOnly ||
-    !hasFocus ||
-    Boolean(sigma.getGraph().getNodeAttribute(id, "branch")) ||
-    sigma
-      .getGraph()
-      .someNode(
-        (_key, attrs) =>
-          Boolean(attrs.selected && attrs.path) &&
-          (id === "folder:" || `folder:${attrs.path}`.startsWith(`${id}/`)),
-      );
-
+export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, instant: boolean) {
   const points: { x: number; y: number }[] = [];
   sigma.getGraph().forEachNode((id) => {
     const node = sigma.getNodeDisplayData(id);
 
-    if (node && !node.hidden && include(id)) points.push(node);
+    if (node && !node.hidden) points.push(node);
   });
 
   if (!points.length) return;
@@ -77,7 +57,7 @@ export function fitFixedGraph(
       sigma.getGraph().forEachNode((id, attrs) => {
         const node = sigma.getNodeDisplayData(id);
 
-        if (!node || node.hidden || !include(id)) return;
+        if (!node || node.hidden) return;
         const point = sigma.framedGraphToViewport(node, { cameraState: state });
 
         const parent = sigma.getNodeDisplayData(

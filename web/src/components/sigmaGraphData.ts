@@ -118,15 +118,7 @@ export function buildSigmaGraph({
         explorer && scope.mode === "local" && n.x === undefined
           ? (n.path || n.label).split("/").pop() || n.label
           : n.label,
-      labelDetail:
-        n.kind === "module" &&
-        n.path &&
-        nodes.some(
-          (other) => other.id !== n.id && other.label.toLowerCase() === n.label.toLowerCase(),
-        ) &&
-        !n.labelDetail?.startsWith(`${n.path.split("/").slice(0, -1).join("/")}/`)
-          ? `${n.path.split("/").slice(0, -1).join("/")}/  ${n.labelDetail || ""}`.trim()
-          : n.labelDetail,
+      labelDetail: n.labelDetail,
       selected: explorer && center,
       branch:
         Boolean(branch) &&

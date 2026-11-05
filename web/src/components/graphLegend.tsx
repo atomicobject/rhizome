@@ -50,7 +50,7 @@ export function graphTypeName(node: GraphNode): string {
   return publicTypeName(node.resolvedType) || UNTYPED_NODE_TYPE;
 }
 
-export function legendItem(entry: GraphTypeEntry) {
+export function legendItem(entry: GraphTypeEntry, folderCode = false) {
   return (
     <li
       key={entry.name}
@@ -59,10 +59,19 @@ export function legendItem(entry: GraphTypeEntry) {
     >
       <span
         className="graph-type-legend__swatch"
-        style={entry.name === FOLDER_NODE_TYPE ? undefined : { backgroundColor: entry.color }}
+        style={
+          entry.name === FOLDER_NODE_TYPE
+            ? undefined
+            : {
+                backgroundColor: entry.color,
+                borderRadius: folderCode && entry.name === CODE_NODE_TYPE ? 2 : undefined,
+              }
+        }
         aria-hidden="true"
       />
-      <span className="graph-type-legend__label">{entry.label}</span>
+      <span className="graph-type-legend__label">
+        {folderCode && entry.name === CODE_NODE_TYPE ? "Code-dominant folder" : entry.label}
+      </span>
       <span className="graph-type-legend__count num">{entry.count.toLocaleString("en-US")}</span>
     </li>
   );
@@ -105,11 +114,11 @@ export function FolderLegend({
     <aside className="graph-type-legend graph-type-legend--folders" aria-label="Graph type legend">
       {typed.length > 0 && (
         <div className="graph-type-legend__row">
-          <h3 className="graph-type-legend__title">Types</h3>
+          <h3 className="graph-type-legend__title">Repository totals</h3>
           <ul className="graph-type-legend__list">
             {inventory
               .filter((entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code")
-              .map(legendItem)}
+              .map((entry) => legendItem(entry))}
           </ul>
           <button
             type="button"
@@ -166,7 +175,9 @@ export function FolderLegend({
           </span>
         )}
         <ul className="graph-type-legend__list">
-          {inventory.filter((entry) => legendGroup(entry.name) === "code").map(legendItem)}
+          {inventory
+            .filter((entry) => legendGroup(entry.name) === "code")
+            .map((entry) => legendItem(entry, folders))}
         </ul>
         {sizeCaption && (
           <span className="graph-type-legend__key">
@@ -186,7 +197,7 @@ export function FolderLegend({
       {all && (
         <section id="graph-type-legend-all" className="graph-type-legend__all">
           <h3 className="graph-type-legend__title">Everything in the graph</h3>
-          <ul className="graph-type-legend__list">{inventory.map(legendItem)}</ul>
+          <ul className="graph-type-legend__list">{inventory.map((entry) => legendItem(entry))}</ul>
         </section>
       )}
     </aside>
@@ -210,6 +221,7 @@ export function EdgeLegend({ edges }: { edges: GraphEdge[] }) {
 
   return (
     <div className="graph-edge-legend" aria-label="Graph link legend">
+      <h3 className="graph-type-legend__title">Lines</h3>
       {[
         ["folder-containment", "Contains"],
         ["explorer-documents", "Documents / mentions"],
