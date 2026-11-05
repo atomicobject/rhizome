@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures";
 import { chooseView, expectViewSettled } from "./workspaceView";
 
-test("cards keep short and long titles on one line and align grid row heights", async ({
+test("cards place metadata immediately below one-line and two-line titles and align grid row heights", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -16,7 +16,7 @@ test("cards keep short and long titles on one line and align grid row heights", 
 
   for (const [card, lines] of [
     [short, 1],
-    [long, 1],
+    [long, 2],
   ] as const) {
     await expect(card).toBeVisible();
 

@@ -1693,7 +1693,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card--board:has(> .configured-brief__corner) > .configured-card__title {
   grid-column: 1;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .configured-card--board > .configured-brief__corner {
@@ -2366,16 +2366,16 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card--brief .configured-card__title {
   font-size: var(--fs-md);
-  white-space: nowrap;
+  white-space: normal;
 }
 
-/* Grid briefs lead with a single-line title (14/500), then one muted
+/* Grid briefs lead with the title (14/500, up to two lines), then one muted
    13px row with the type at left and the age at right. */
 .configured-card--cards.configured-card--brief .configured-card__title {
   display: grid;
   align-content: start;
   order: -1;
-  margin-bottom: 0;
+  margin-bottom: 3px;
   font-size: var(--fs-base);
 }
 
@@ -2384,7 +2384,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
 }
 
 .configured-card--cards.configured-card--brief .configured-brief__header,
