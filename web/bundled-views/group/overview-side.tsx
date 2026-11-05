@@ -6,7 +6,7 @@ import { openSearch } from "@rhizome/kit";
 import { Fragment, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 
 import { boundary } from "./activity.ts";
-import { OutsideNotes } from "./overview-side-parts.tsx";
+import { LinkSummary, OutsideNotes } from "./overview-side-parts.tsx";
 import { GuideAndViews } from "./overview-side-parts.tsx";
 import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
@@ -94,23 +94,20 @@ export function FolderBlock() {
                         <td
                           title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
                         >
-                          <span className="gv-ov-share">
-                            <span className="gv-num num">{percent}%</span>
-                            <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
-                              <i style={{ width: `${percent}%` }} />
+                          {line.share < 1 ? (
+                            <span className="gv-ov-share">
+                              <span className="gv-num num">{percent}%</span>
+                              <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
+                                <i style={{ width: `${percent}%` }} />
+                              </span>
                             </span>
-                          </span>
+                          ) : (
+                            <span className="gv-faint">—</span>
+                          )}
                         </td>
                         <td className="gv-ov-links" title={linksText(line.linksTo)}>
                           {line.linksTo.length ? (
-                            <span className="gv-ov-links-text">
-                              {line.linksTo.map((target, index) => (
-                                <Fragment key={target.type}>
-                                  {index > 0 && ", "}
-                                  {target.label} <span className="gv-num">{fmt(target.count)}</span>
-                                </Fragment>
-                              ))}
-                            </span>
+                            <LinkSummary text={linksText(line.linksTo) ?? ""} />
                           ) : (
                             <span className="gv-faint">no typed notes</span>
                           )}

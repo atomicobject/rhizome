@@ -14,7 +14,7 @@ import { edgeKey, type MapEdge, type ScopeNode } from "./scope.ts";
 const WIDTH = 760;
 
 /** The map's height: with its title and separate line-style legend the block stays within about 360px. */
-const HEIGHT = 216;
+const HEIGHT = 260;
 
 /** A count's pill: 5px of surface beside its digits, on the edge it counts. */
 const COUNT_PAD = 4;
@@ -24,7 +24,7 @@ const COUNT_DIGIT = 7;
 const COUNT_HEIGHT = 17;
 
 /** Edge strokes run from 1px to this many, by link count, so no edge outweighs the nodes it joins. */
-const MAX_STROKE = 3.5;
+const MAX_STROKE = 2.75;
 
 /** The canvas's width in CSS pixels, so the map fills its column and labels draw at their real size. */
 function useCanvasWidth() {
@@ -242,12 +242,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
           })}
           {[...layout.labels].map(
             ([id, place]) =>
-              place.leader &&
-              Math.hypot(place.leader.x - at(id).x, place.leader.y - at(id).y) >
-                (model.nodeIndex.has(id)
-                  ? radius(model.nodeIndex.get(id) ?? model.nodes[0])
-                  : OUTSIDE_RADIUS) +
-                  20 && (
+              place.leader && (
                 <line
                   key={`leader:${id}`}
                   className="gv-map-leader"

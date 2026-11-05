@@ -274,6 +274,15 @@ test("group Overview maps member types, lists members and outside notes, and swi
   await page.emulateMedia({ colorScheme: "light" });
 
   const members = frame.getByRole("region", { name: "Members" });
+  await expect(
+    members.getByRole("columnheader", { name: "Records linked", exact: true }),
+  ).toBeVisible();
+  await expect(members.getByRole("columnheader", { name: "Links", exact: true })).toBeVisible();
+
+  for (const edge of await frame.locator(".gv-map-edge").all()) {
+    await expect(edge.locator("line")).toHaveCount(1);
+    await expect(edge.locator(".gv-map-hit")).toHaveCSS("stroke", "rgba(0, 0, 0, 0)");
+  }
 
   for (const name of ["Areas", "Releases", "Work items"])
     await expect(members.getByRole("button", { name, exact: true })).toBeVisible();

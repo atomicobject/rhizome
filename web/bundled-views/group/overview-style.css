@@ -96,7 +96,8 @@
   padding-top: 8px;
 }
 .gv-map-edge[data-kind="plain"] line:first-child {
-  stroke-dasharray: 6 4;
+  stroke-dasharray: 8 5;
+  stroke-linecap: butt;
 }
 .gv-map-legend s[data-kind="plain"] {
   border-top-style: dashed;
@@ -313,6 +314,55 @@
 }
 
 .gv-overview-guide > .gv-link {
+  text-decoration: none;
+}
+
+.gv-ov .gv-link,
+.gv-ov .gv-outside-actions .list-more {
+  color: var(--link);
+  font: 400 14px/1.4 var(--font-sans);
+  text-decoration: none;
+}
+.gv-ov .gv-link:hover,
+.gv-ov .gv-link:focus-visible,
+.gv-ov .gv-outside-actions .list-more:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+.gv-outside-actions {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 8px;
+}
+.gv-ov .gv-outside-actions .list-more {
+  margin: 0;
+}
+.gv-page .gv-ov-folders {
+  table-layout: fixed;
+}
+.gv-page .gv-ov-folders th:first-child {
+  width: 60px;
+}
+.gv-page .gv-ov-folders th:nth-child(2) {
+  width: 58px;
+}
+.gv-page .gv-ov-folders th:nth-child(3) {
+  width: 100px;
+}
+.gv-page .gv-ov-folders td {
+  height: 32px;
+  box-sizing: border-box;
+  padding-block: 5px;
+}
+.gv-page .gv-ov-folders td.gv-ov-links {
+  white-space: nowrap;
+}
+.gv-ov-folders .gv-ov-links-text {
+  display: block;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.gv-ov-folders .gv-ov-mini {
+  width: 24px;
 }
