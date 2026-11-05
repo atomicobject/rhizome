@@ -118,10 +118,34 @@ export function FolderLegend({
         <span className="graph-type-legend__key">
           <span
             className="graph-type-legend__swatch"
-            style={{ background: FOLDER_COLOR, borderRadius: 2 }}
+            style={{
+              background: "transparent",
+              border: "1.5px solid currentColor",
+              borderRadius: 2,
+            }}
             aria-hidden="true"
           />
-          Folder
+          Folder (colour: what it mostly holds)
+        </span>
+        <span className="graph-type-legend__key">
+          <span
+            className="graph-type-legend__swatch"
+            style={{ background: "transparent", border: "1.5px solid currentColor" }}
+            aria-hidden="true"
+          />
+          File
+        </span>
+        <span className="graph-type-legend__key">
+          <span
+            className="graph-type-legend__swatch"
+            style={{
+              background: "transparent",
+              border: "1.5px dashed currentColor",
+              borderRadius: 2,
+            }}
+            aria-hidden="true"
+          />
+          +N more
         </span>
         <ul className="graph-type-legend__list">
           {inventory.filter((entry) => legendGroup(entry.name) === "code").map(legendItem)}

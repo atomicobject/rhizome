@@ -102,8 +102,11 @@ export function buildSigmaGraph({
     );
 
     const baseSize = fixed
-      ? Math.min(12, nodeBaseSize({ ...n, center }) / 2)
-      : nodeBaseSize({ ...n, center });
+      ? Math.min(
+          12,
+          nodeBaseSize({ ...n, center: explorer && scope.mode === "local" ? false : center }) / 2,
+        )
+      : nodeBaseSize({ ...n, center: explorer && scope.mode === "local" ? false : center });
 
     const colorValue =
       (explorer && n.kind === "code" ? CODE_COLOR : n.fill) ??

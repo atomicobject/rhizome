@@ -1,3 +1,4 @@
+import { noteLabelLines } from "./sigmaLabelText";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 // Explorer node labels: placed clear of node discs, other labels, and (where
 // possible) edges, then drawn on a solid backing in the canvas color, pinned to the
@@ -258,6 +259,16 @@ export function createLabelPainter(
 
       const attrs = graph.getNodeAttributes(node.id);
 
+      const lines =
+        attrs.kind === "note" || attrs.kind === "embedded"
+          ? noteLabelLines(node.label, (text) => measure(context, text))
+          : [node.label];
+
+      node.label = lines.reduce(
+        (longest, line) => (measure(context, line) > measure(context, longest) ? line : longest),
+        "",
+      );
+
       if (
         (attrs.selected && attrs.path) ||
         (attrs.explorerLabels && attrs.fixed && attrs.kind !== "module")
@@ -275,6 +286,7 @@ export function createLabelPainter(
           0,
         )[0];
 
+        chosen.box[3] += (lines.length - 1) * (size + 3);
         placed.push(chosen.box);
         spots.set(at(node.x, node.y), chosen);
         continue;
@@ -450,13 +462,19 @@ export function createLabelPainter(
 
     context.fillStyle = canvas;
     context.fillRect(left, top, right - left, bottom - top);
-    context.globalAlpha = attrs?.muted ? 0.4 : 1;
-    context.fillStyle = label;
+    context.globalAlpha = 1;
+    context.fillStyle = attrs?.muted ? colors().edgeLabel || label : label;
     context.font = `${attrs?.selected ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
-    context.fillText(data.label, spot.x, spot.y);
+
+    const lines =
+      attrs?.kind === "note" || attrs?.kind === "embedded"
+        ? noteLabelLines(data.label, (text) => context.measureText(text).width)
+        : [data.label.replaceAll("...", "…")];
+
+    lines.forEach((line, index) => context.fillText(line, spot.x, spot.y + index * (size + 3)));
 
     if (attrs?.labelDetail && spot.detail !== false) {
-      const start = spot.x + context.measureText(data.label).width + 6;
+      const start = spot.x + Math.max(...lines.map((line) => context.measureText(line).width)) + 6;
       context.fillStyle = colors().edgeLabel || label;
       context.font = `500 ${Math.max(13, size)}px ${settings.labelFont}`;
       context.fillText(attrs.labelDetail, start, spot.y);
@@ -465,5 +483,5 @@ export function createLabelPainter(
     context.globalAlpha = 1;
   };
 
-  return { draw, beginFrame };
+  return { draw, beginFrame, occupied: () => placed };
 }

@@ -392,3 +392,12 @@
 .explorer-focus .graph-edge-legend__line--explorer-tests {
   border-top: 1.5px dashed var(--explorer-code);
 }
+
+.explorer-header__breadcrumb,
+.explorer-header__totals {
+  color: var(--text-muted);
+}
+.explorer-header__totals {
+  display: block;
+  font-size: 13px;
+}

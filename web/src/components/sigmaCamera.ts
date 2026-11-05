@@ -1,3 +1,4 @@
+import { noteLabelLines } from "./sigmaLabelText";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import type Sigma from "sigma";
 import { outwardSpots } from "./sigmaLabels";
@@ -6,32 +7,11 @@ import type { SigmaEdgeAttrs } from "../lib/graphStyle";
 
 /** Fit visible positions in the fixed coordinate frame, reserving room for labels. */
 export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, instant: boolean) {
-  const selected = sigma
-    .getGraph()
-    .findNode((_id, attrs) => Boolean(attrs.selected && attrs.kind === "module"));
-
-  const selectedPath = selected
-    ? sigma.getGraph().getNodeAttribute(selected, "path") || undefined
-    : undefined;
-
-  const included = (id: string) => {
-    const attrs = sigma.getGraph().getNodeAttributes(id);
-    const path = attrs.path || "";
-
-    return (
-      selectedPath === undefined ||
-      !path ||
-      path === selectedPath ||
-      selectedPath.startsWith(`${path}/`) ||
-      path.split("/").slice(0, -1).join("/") === selectedPath
-    );
-  };
-
   const points: { x: number; y: number }[] = [];
   sigma.getGraph().forEachNode((id) => {
     const node = sigma.getNodeDisplayData(id);
 
-    if (node && !node.hidden && included(id)) points.push(node);
+    if (node && !node.hidden) points.push(node);
   });
 
   if (!points.length) return;
@@ -72,12 +52,12 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
   if (context) {
     context.font = "500 14px Inter, -apple-system, system-ui, sans-serif";
 
-    for (let pass = 0; pass < 4; pass++) {
+    for (let pass = 0; pass < 12; pass++) {
       const boxes: number[][] = [];
       sigma.getGraph().forEachNode((id, attrs) => {
         const node = sigma.getNodeDisplayData(id);
 
-        if (!node || node.hidden || !included(id)) return;
+        if (!node || node.hidden) return;
         const point = sigma.framedGraphToViewport(node, { cameraState: state });
 
         const parent = sigma.getNodeDisplayData(
@@ -85,25 +65,38 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
         );
 
         const origin = parent ? sigma.framedGraphToViewport(parent, { cameraState: state }) : point;
-        const text = attrs.label + (attrs.labelDetail ? "  " + attrs.labelDetail : "");
+
+        const lines =
+          attrs.kind === "note" || attrs.kind === "embedded"
+            ? noteLabelLines(attrs.label, (text) => context.measureText(text).width)
+            : [attrs.label];
+
+        const textWidth =
+          Math.max(...lines.map((text) => context.measureText(text).width)) +
+          (attrs.labelDetail ? context.measureText("  " + attrs.labelDetail).width : 0);
 
         const spot = outwardSpots(
           point.x,
           point.y,
           sigma.scaleSize(node.size),
-          context.measureText(text).width,
+          textWidth,
           14,
-          attrs.kind !== "module"
+          (attrs.selected && attrs.path) || attrs.kind !== "module"
             ? attrs.kind === "note" || attrs.kind === "embedded"
               ? -1
               : 1
             : id === "folder:"
               ? 0
               : point.x - origin.x,
-          attrs.kind !== "module" ? 0 : id === "folder:" ? 1 : point.y - origin.y,
+          (attrs.selected && attrs.path) || attrs.kind !== "module"
+            ? 0
+            : id === "folder:"
+              ? 1
+              : point.y - origin.y,
         )[0];
 
-        boxes.push(spot.box);
+        spot.box[3] += (lines.length - 1) * 17;
+        boxes.push(spot.box, [point.x - 16, point.y - 16, point.x + 16, point.y + 16]);
       });
 
       if (!boxes.length) break;
@@ -130,7 +123,7 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
     camera.setState(state);
   else {
     camera.setState(original);
-    camera.animate(state, { duration: 300 });
+    camera.animate(state, { duration: 200 });
   }
 }
 
