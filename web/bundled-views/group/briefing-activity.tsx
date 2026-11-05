@@ -36,6 +36,7 @@ export function MotionList({
   const open = expanded.isOpen("in-motion", false);
   const shown = open ? entries : entries.slice(0, 8);
   const metadata = useMotionMetadata(model, entries);
+  const lines = shown.map(({ record }) => recordLine(model, record));
 
   const mixed =
     new Set(
@@ -49,14 +50,24 @@ export function MotionList({
   return (
     <>
       <ul className="gv-list gv-changes">
-        {shown.map(({ record }) => {
+        {shown.map(({ record }, index) => {
           const member = memberOf(model, record.member);
 
           return (
             <ChangeRow
               key={record.key}
               line={recordLine(model, record)}
-              compact={!!metadata}
+              compact={
+                !!metadata &&
+                lines[index].type.toLowerCase() === metadata.type.toLowerCase() &&
+                lines[index].folder === metadata.folder
+              }
+              showType={lines.filter((line) => line.title === record.title).length > 1}
+              repeatAge={
+                index > 0 &&
+                lines[index - 1].time !== null &&
+                ageKey(lines[index - 1].time) === ageKey(record.updatedAt)
+              }
               mark={mixed && member ? <RecordMark member={member} record={record} /> : undefined}
             />
           );
@@ -107,17 +118,9 @@ export function StageHints({
 
   const stageless = [...byEnum.values()].flat();
 
-  const active = model.members.find((member) =>
-    member.lifecycle?.values.some((value) => value.stage === "active"),
-  );
-
   // Match the section heading's info mark while keeping the native disclosure.
   return (
     <div className="gv-stage-note">
-      <span>
-        In motion shows active{" "}
-        {active ? lower(memberLabel(model, active, { plural: true })) : "records"} only.
-      </span>
       <details className="gv-hint">
         <summary className="rz-info" aria-label="Why some types are not listed">
           <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -180,11 +183,15 @@ export function ChangeRow({
   children,
   mark,
   compact = false,
+  showType = false,
+  repeatAge = false,
 }: {
   line: ChangeLine;
   children?: ReactNode;
   mark?: ReactNode;
   compact?: boolean;
+  showType?: boolean;
+  repeatAge?: boolean;
 }) {
   return (
     <li className={`gv-change${compact ? " gv-change-compact" : ""}`}>
@@ -199,13 +206,14 @@ export function ChangeRow({
           >
             {line.title}
           </button>
+          {showType && <span className="gv-change-type">{line.type}</span>}
         </span>
         {!compact && (
           <span className="gv-change-meta">
-            {line.type}
+            {!showType && line.type}
             {line.folder && (
               <>
-                {" · "}
+                {!showType && " · "}
                 <span className="gv-path" title={`${line.folder}/`}>
                   {line.folder}/
                 </span>
@@ -215,9 +223,29 @@ export function ChangeRow({
         )}
         {children}
       </span>
-      {line.time !== null && <RelativeTime value={line.time} className="gv-change-age" />}
+      {line.time !== null && (
+        <RelativeTime
+          value={line.time}
+          className={`gv-change-age${repeatAge ? " gv-age-repeat" : ""}`}
+        />
+      )}
     </li>
   );
+}
+
+export function ageKey(time: number | null) {
+  if (time === null) return null;
+  const age = Math.max(0, Date.now() - time);
+
+  if (age < 60_000) return "now";
+
+  if (age < 3_600_000) return `${Math.round(age / 60_000)}m`;
+
+  if (age < 86_400_000) return `${Math.floor(age / 3_600_000)}h`;
+
+  if (age < 60 * 86_400_000) return `${Math.round(age / 86_400_000)}d`;
+
+  return new Date(time).toDateString();
 }
 
 const folderOf = (path: string) => path.split("/").slice(0, -1).join("/");
@@ -299,16 +327,23 @@ export function RecentChanges({ model, info }: { model: GroupModel; info?: strin
     [model],
   );
 
+  const records = moments.flatMap((moment) => moment.records);
+
   return (
     <Block title="Recent changes" info={info ? { text: info, display: "title" } : undefined}>
       {moments.length === 0 && <p className="gv-quiet">No change times recorded.</p>}
       <ul className="gv-list gv-changes">
-        {moments.map((moment) =>
+        {moments.map((moment, index) =>
           moment.burst ? (
             <Burst key={moment.time} model={model} moment={moment} />
           ) : (
             moment.records.map((record) => (
-              <ChangeRow key={record.key} line={recordLine(model, record)} />
+              <ChangeRow
+                key={record.key}
+                line={recordLine(model, record)}
+                showType={records.filter((item) => item.title === record.title).length > 1}
+                repeatAge={index > 0 && ageKey(moments[index - 1].time) === ageKey(moment.time)}
+              />
             ))
           ),
         )}

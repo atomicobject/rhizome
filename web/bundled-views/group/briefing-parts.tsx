@@ -60,7 +60,7 @@ export function HealthyAttention({ info }: { info: string }) {
       controls={
         <>
           <span className="gv-healthy">
-            <span aria-hidden="true">✓</span> No issues
+            <span aria-hidden="true">✓</span> No validation issues
           </span>
           <ValidationFreshness />
         </>

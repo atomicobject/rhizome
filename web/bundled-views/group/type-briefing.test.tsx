@@ -69,10 +69,10 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
   // People, relation, then reverse fields: fill, then the most common targets.
   expect(itemTexts(connections)).toEqual([
     // Each target is a row: its name, then its count in a right-aligned column.
-    "Owner→ People1 of 4 stories linkedAda Lovelace1",
-    "Area→ Areas3 of 4 stories linkedPayments2Wishlists1",
-    "Blocked by→ Work items1 of 4 stories linkedCheckout redesign1",
-    "Meetings← Meetings2 of 4 stories linkedKickoff sync2Design review1",
+    "Owner→ People1 of 4 stories linkedLinked storiesAda Lovelace1",
+    "Area→ Areas3 of 4 stories linkedLinked storiesPayments2Wishlists1",
+    "Blocked by→ Work items1 of 4 stories linkedLinked storiesCheckout redesign1",
+    "Meetings← Meetings2 of 4 stories linkedLinked storiesKickoff sync2Design review1",
   ]);
 
   const linked = await region("Linked from outside");
@@ -166,7 +166,7 @@ it("charts a dated type's primary date by month and collapses a burst of changes
   const connections = await region("Connections");
 
   expect(itemTexts(connections)[0]).toBe(
-    "Attendees→ People4 of 5 meetings linkedAda Lovelace3Grace Hopper2",
+    "Attendees→ People4 of 5 meetings linkedLinked meetingsAda Lovelace3Grace Hopper2",
   );
 });
 

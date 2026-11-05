@@ -56,7 +56,7 @@ export function ValidationFreshness() {
 }
 
 /**
- * "✓ No issues" for a scope with none, but only when the last validation run
+ * "✓ No validation issues" for a scope with none, but only when the last validation run
  * is current; a stale, running, or failed run would make an old zero look clean.
  */
 export function NoIssues() {
@@ -65,7 +65,7 @@ export function NoIssues() {
   if (health === null) return null;
 
   if (health === "current_clean" || health === "current_issues")
-    return <span className="gv-ok">✓ No issues</span>;
+    return <span className="gv-ok">✓ No validation issues</span>;
 
   return <span className="gv-sub">Validation out of date</span>;
 }
