@@ -1,261 +1,205 @@
 # Releasing Rhizome
 
-`make cut-release` remains the guided release entrypoint. It creates a bounded evidence snapshot and reviewed plan before any repository mutation, builds a release candidate, applies the version changes, publishes the canonical Git branches atomically, deploys and verifies the release gateway source, then publishes GitHub Release assets, including the macOS desktop app, and the Homebrew formula.
+Prepare public releases with the repository's `rhizome-release` skill in a local Codex or Claude session. Review and commit the narrative, changelog and version in a release PR. Merging that PR authorizes GitHub Actions to build, notarize, deploy the pinned gateway source and publish the release and Homebrew update. The active coding subscription performs the writing; CI needs no model API key.
+
+`make cut-release` points public maintainers to this preparation flow. The older local publisher remains available for private internal releases only.
 
 ## Prerequisites
 
-- A clean `main` or `release` worktree with the intended commits already present.
-- Git 2.38 or newer. Hotfix publication uses `git merge-tree --write-tree` without checking out `main`.
-- `python3`, `codex`, GoReleaser v2, `gitleaks`, and `trash` available.
-- Codex CLI authentication (`codex login status`).
-- GitHub CLI authentication plus `RZM_RELEASE_GITHUB_TOKEN` for GoReleaser publication.
-- `BREW_GITHUB_TOKEN` for publishing the Homebrew tap.
-- An Apple Silicon Mac with the Xcode command line tools, Node.js, and a Rust toolchain from rustup (`cargo` on `PATH` or in `~/.cargo/bin`). The desktop npm dependencies are installed with `make desktop-deps` when `desktop/node_modules` is missing.
-- `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for public releases, from the release 1Password Environment. See [Desktop app](#desktop-app).
+Local public preparation requires Git, Python 3, Go for the evidence contract parser, an authenticated `gh` CLI, and a Codex or Claude session with this repository's skill available. Start from a clean checkout at freshly fetched `main`. No Apple credentials, publishing token, Xcode, Rust toolchain or Mac are needed to write and commit the release files.
 
-GitHub CLI enrichment is optional during planning. If it is missing or unavailable, local Git evidence is retained and the plan is marked degraded. Applying a degraded plan requires explicit confirmation or `--accept-degraded-evidence`.
+CI requires the protected GitHub `release` Environment, the signing secrets listed under [Developer ID signing and notarization](#developer-id-signing-and-notarization), and permission for its publisher to update the canonical release refs, dispatch the gateway workflow and publish GitHub assets. The gateway workflow retains its own production environment and AWS authorization.
+
+Private internal releases retain their local toolchain and credentials; see [Internal releases](#internal-releases).
 
 ## Canonical source preflight
 
-Normal releases may start only from the exact local branch `main` or `release`. Before `cut-release` plans anything, it fetches the matching origin branch and requires:
+`prepare_release.py evidence` fetches `origin/main` and version tags, then requires a clean checkout whose `HEAD` equals fresh `origin/main`. The reviewed evidence identifies an exact source SHA and prior version tag. `prepare` repeats that check before creating `release-prep/<version>` and applying the reviewed files.
 
-- `HEAD` is attached to `main` or `release`, not detached or on another branch;
-- `HEAD` exactly equals the freshly fetched `origin/main` or `origin/release`.
+The release PR changes exactly these five files:
 
-The candidate build and first apply additionally require a clean worktree. The first apply repeats the source check before repository mutation, so an origin advance during plan review or the candidate build stops the release. Ahead, behind, and diverged worktrees are all refused; update the branch normally, inspect the resulting range, and create a new plan when necessary. `make release-plan` and `make release-dry` remain read-only inspection surfaces, but they do not authorize a later apply from a stale or non-canonical branch.
+- `CHANGELOG.md`, the concise user-facing release summary;
+- `pkg/vault/changelog/CHANGELOG.md`, its identical embedded copy;
+- `pkg/vault/version/version.go`, the compiled version;
+- `.github/release-plan.json`, the source, prior tag, version, date and schema version;
+- `docs/releases/<version>.md`, the full narrative that GitHub will publish verbatim.
+
+If main advances before the PR merges, refresh the evidence and reconcile the existing prose with the new source. Preserve edits already made to the release PR. The CI selection job verifies the reviewed head, accepted merge tree, source relationship and five-file boundary before signing starts. Stale, forked, unmerged or source-changing release PRs are refused. After approval, all jobs use the immutable accepted merge SHA even if main advances later.
 
 ### First release in a repository
 
-When the repository has no version tags, the plan has empty `base_tag` and `base_commit` fields. Its evidence includes the root commit and every later commit up to the reviewed head. No baseline tag needs to be invented. Discovery considers tags matching `v[0-9]*`; a repository with version tags but no reachable release base is an error, not an implicit first release.
+An empty prior tag means first publication in this clean repository. Evidence includes the root commit and later delivery units; do not invent a tag or assume every existing feature is new. Existing changelog history and the source version still establish the product baseline. The chosen version must exceed both the source version and the prior tag when one exists.
 
-The existing changelog through `v0.50.5` records pre-public releases whose tags are absent from this clean repository. Version selection continues from the version stored in the planned source commit, not from zero: a minor recommendation yields `v0.51.0` and a patch yields `v0.50.6`. Every selected version, including a custom command-line version, `VERSION`, or a reused stored plan, must exceed that baseline. Later releases use their previous version tag as the floor.
-
-First-release state is stored in `.release/first-release-<head>/`. The phase commands accept `RELEASE_BASE=` with the reviewed `RELEASE_HEAD`; printed Python resume commands quote the empty base as `--base ''`. Keep those reviewed inputs when resuming.
-
-A release from `main` creates `origin/release` in the same atomic, non-force push that advances `origin/main`. A hotfix still requires an existing `release` branch. If another release tag appears after a first-release plan was prepared, create a new plan instead of reusing the empty baseline.
+The existing changelog through `v0.50.5` records pre-public releases whose tags are absent from this repository. Compare that documented experience with the current product and state any historical evidence gap. If a prior release tag appears during preparation, refresh the release instead of retaining an empty baseline.
 
 ## Evidence and note generation
 
-The release range is divided by first-parent commits. Each delivery unit is synthesized once from this trust order:
+The helper collects first-parent delivery units, curated `Unreleased` entries, verified completed efforts, merged PR descriptions, commits, paths and statistics into source-bound evidence. It writes an index, bounded packets and a full audit under ignored `.release/` storage. GitHub enrichment uses the maintainer's existing `gh` login; unavailable evidence is reported as a gap.
 
-1. Curated entries under `CHANGELOG.md`'s `Unreleased` section.
-2. Verified completed-effort `Actual Delivered` content from the same delivery unit.
-3. Top-level merged PR descriptions, with commit-proven stacked PRs attached as support.
-4. Direct commit messages, changed paths, and insertion/deletion totals.
+The active Codex or Claude session reads the compact coverage overview first, then follows the relevant detail packets and sources behind important claims. For a large release, inspect the previous documented product experience and the current implementation. Organize the narrative around what users can do and how their workflow changes. A desktop app or redesigned workbench can be the headline when the evidence supports it, regardless of which smaller changes dominate commit counts.
 
-Raw diffs are never sent to the model. The full evidence audit is persisted separately from a 620,000-character maximum generation packet. Generation defaults to `gpt-5.6-luna` with medium reasoning and schema-validated output. The editorial pass clusters the whole release into at most seven user-outcome themes instead of emitting one item per delivery unit; it suppresses internal-only machinery and highlights supported migrations or default changes. Each theme carries its own source identifiers. Curated `Unreleased` entries covered by generated themes are not repeated, while omitted curated entries are retained deterministically. Failures stop before mutation and never silently fall back to another model.
-
-GitHub evidence and publication use separate credentials. Use
-`./scripts/with-secrets release make cut-release` to load them from 1Password.
-The launcher maps the Environment's `GITHUB_TOKEN` to `RZM_RELEASE_GITHUB_TOKEN`;
-only the GoReleaser publish subprocess receives it as `GITHUB_TOKEN`. The Homebrew
-token remains `BREW_GITHUB_TOKEN`. Do not store token values in `.env`.
-
-Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens. The updater signing key reaches only GoReleaser, its desktop build hook, and the public-apply Tauri signing probe; only the team-key bundler receives team keys. Set `OP_ACCOUNT`, and `RZM_OP_RELEASE_ENVIRONMENT_ID` to the release Environment (falling back to `RZM_OP_ENVIRONMENT_ID`), when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
-
-Overrides:
-
-```sh
-RZM_RELEASE_MODEL=<model> RZM_RELEASE_REASONING_EFFORT=<effort> make release-plan
-PREV_TAG=v0.49.0 VERSION=v0.50.0 FEEDBACK="Emphasize migration guidance" make release-plan
-```
+Keep the full narrative in `.release/release-notes.md` and a shorter set of changelog bullets in `.release/changelog.md`. Review the narrative and version with the maintainer and preserve their edits. The helper applies those drafts deterministically; it does not start another model or rewrite the notes. Once prepared, `docs/releases/<version>.md` is canonical and can be edited directly in the release PR.
 
 ## Normal workflow
 
-Inspect a read-only plan:
+Invoke `rhizome-release` in Codex or Claude. The skill handles evidence, editorial review and PR preparation. Its underlying commands are:
 
 ```sh
-make release-plan
+python3 scripts/release/prepare_release.py evidence
+python3 scripts/release/prepare_release.py prepare \
+  --source <reviewed-source-sha> --version vX.Y.Z \
+  --notes-file .release/release-notes.md \
+  --changelog-file .release/changelog.md
+python3 scripts/release/prepare_release.py check
 ```
 
-Run the same planning path plus a GoReleaser snapshot build, without changing files, committing, tagging, or publishing:
+Review the exact five-file diff, commit it, and open the `release-prep/<version>` PR. Editing the changelog later requires `python3 scripts/release/prepare_release.py sync`, followed by `check`. Opening or revising the PR does not authorize merging or publishing it.
 
-```sh
-make release-dry
-```
+Once the maintainer approves publication and merges the release PR, CI performs this sequence:
 
-Both dry run and cut release display the generated release notes and recommendation rationale before version selection. Without a `VERSION` override, the model's minor or patch recommendation is option 1 in the version menu. Press Enter to accept it; the other increment and a custom version remain available.
+1. Linux validates the release intent and accepted source without signing secrets.
+2. Linux builds the shared web and desktop frontend once and prepares the Mac credential scanner.
+3. Linux builds the Linux and Windows CLI binaries. One Apple Silicon runner builds the native Darwin CLI binaries, Tauri app and DMG, signs and notarizes them, verifies distribution copies and removes temporary signing credentials.
+4. Linux assembles and verifies the complete asset bundle, checksums and source/version manifest.
+5. The protected Linux publisher atomically advances `release` and the version tag without force, deploys and verifies the exact gateway source, then publishes the committed notes, assets and Homebrew formula update.
 
-Cut and publish the release:
-
-```sh
-make cut-release
-```
-
-The order is fixed:
-
-1. Fresh canonical-source preflight, plan, preview, and version selection.
-2. Candidate build, which builds the desktop app too.
-3. Three-file apply, release commit, and local version tag.
-4. Atomic, non-force publication of `origin/main` and `origin/release`.
-5. Local GoReleaser publication and exact verification of the GitHub-created remote tag.
-6. Internal releases only: private mirror publication (`make release-s3`), checkpointed as `s3_published` so resume retries only the mirror.
-7. Completion.
-
-The apply phase owns only `CHANGELOG.md`, `pkg/vault/version/version.go`, and `pkg/vault/changelog/CHANGELOG.md`.
+The Mac job performs native compilation, bundling, signing and verification. Frontend compilation, cross-platform CLI builds, final archive assembly and publication run on Linux. Pushing an ordinary feature branch, merging an ordinary PR or pushing a tag does not start this public release flow.
 
 ## Gateway deployment before publication
 
-Every supported client publisher waits for a successful gateway deployment before uploading artifacts: `make cut-release`, publish/resume, `make release`, `make release-s3`, and the manual Actions fallback. Gateway deployment no longer follows ordinary pushes to `main`. Planning, preflight and dry-run commands do not deploy anything.
+Supported client publishers wait for a successful gateway deployment before public GitHub or private S3 uploads. Ordinary pushes to main, local preparation and candidate-only CI do not deploy the gateway. Client publication is never an acceptance test to run without authorization.
 
-For a public release, the server source is the validated client release commit at `origin/release`, including the exact hotfix commit. A private internal release automatically selects the public `atomicobject/rhizome` release commit and retains that selection across retries. Its committed server Docker inputs must match the public source by mode, type and Git object hash. Missing inputs, differences, or unreviewed Docker context reads block publication. Synchronize matching public gateway changes into the private release checkout before retrying; do not substitute a different SHA manually.
+For a public release, gateway source equals the accepted release merge commit at `origin/release`. A private internal release selects the public `atomicobject/rhizome` release commit and retains that selection across retries. Its committed server Docker inputs must match the public source by mode, type and Git object hash. Missing inputs, differences or unreviewed Docker context reads block publication.
 
-The trusted workflow still runs on public `main`, preserving its production environment and OIDC restrictions. It tests and builds a separate immutable source checkout, tags the image with that source SHA, and uses the deployment verifier from trusted main. The private publisher needs `gh` authorization to dispatch and read public Actions runs; it gains no gateway AWS access. No private source, repository location, mirror setting, provider key, or publishing token is sent in dispatch inputs.
+The trusted gateway workflow runs on public main, preserving production environment and OIDC restrictions. It tests and builds a separate immutable source checkout, tags the image with that SHA and verifies the deployment from trusted main. Private publishers receive no gateway AWS permissions. Dispatch carries only the public SHA and correlation ID.
 
-The release run stores `gateway-receipt.json` beside its existing checkpoints. It contains the pinned public source and fingerprint, request ID, and matched workflow URL. The gate prints that URL promptly and waits up to four hours. Failure, cancellation, timeout, ambiguous identity or API errors prevent client uploads and preserve the existing resume command. Uncertain dispatches reconcile the saved request instead of blindly creating another deployment. Pending runs resume; an earlier terminal run requires a fresh attempt for the same saved source. Canonical release refs and the local tag are checked again after the wait.
-
-Only a live publisher process and its descendants can reuse its verified receipt during one uninterrupted publish invocation. Reusing an older receipt through a direct command starts fresh deployment verification. GoReleaser and a remaining internal S3 upload therefore share one deployment during an uninterrupted run, while S3-only resume verifies again. Receipt arguments are internal handoffs, not skip controls.
-
-The existing first-publication atomic push creates a missing `release` branch before this gate. The Actions fallback must be dispatched on public `main`; its write-capable publisher depends on the validated deployment. Do not cut or publish a client release merely to test the gate. Deployment-only acceptance can exercise a pinned public main ancestor before the first release branch exists; it does not authorize client publication.
+The gate records the pinned source, fingerprint, request ID and exact workflow identity in a receipt. Failure, cancellation, timeout, ambiguous identity or API errors prevent uploads. Uncertain dispatches reconcile the saved request. Canonical refs are checked again after the wait. Only a live publisher and its descendants reuse a verified receipt during an uninterrupted invocation; recovery performs fresh deployment verification when publication remains necessary.
 
 ## Desktop app
 
-Every public release publishes the macOS desktop app built from the same tag ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser's `rzm-darwin` build runs `scripts/release/build_desktop.py` as a post-build hook. For the `darwin/arm64` binary it builds the Tauri app in `desktop/` with `desktop/src-tauri/tauri.release.conf.json` and the release version, bundling that exact `rzm`. It then verifies Developer ID signatures, hardened runtime, stapled notarization tickets and Gatekeeper approval in the app, mounted DMG and updater archive before staging these assets in `.tmp/goreleaser-extra/`:
+Every public release includes the macOS desktop app from the same accepted source and version ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser builds the native CLI binaries; its arm64 Darwin hook, `build_desktop.py`, wraps that exact `rzm` in the Tauri app using `desktop/src-tauri/tauri.release.conf.json`.
 
-- `Rhizome-macos-arm64.dmg`, the installer;
-- `Rhizome-macos-arm64.app.tar.gz` and its `.sig`, the signed updater archive;
-- `latest.json`, the update feed the installed app reads from `releases/latest/download/latest.json`, pointing at this release's archive.
+CI restores the source-bound frontend produced on Linux and avoids compiling it again on the Mac. Native compilation receives no signing credentials. Bundling receives only the required Apple and updater credentials. Verification checks Developer ID signatures, hardened runtime, stapled notarization tickets and Gatekeeper approval for the app, mounted DMG and updater archive. The final bundle includes:
 
-GoReleaser uploads all four and lists them in `checksums.txt`.
+- `Rhizome-macos-arm64.dmg`;
+- `Rhizome-macos-arm64.app.tar.gz` and its `.sig`;
+- `latest.json`, pointing at this release's signed archive;
+- five CLI archives for Darwin arm64/amd64, Linux arm64/amd64 and Windows amd64;
+- the installer, its checksum, `checksums.txt` and `release-manifest.json`.
 
-Every release build, public and internal, compiles the deployed team API origin from `.goreleaser.yml` into `pkg/teamapi/session.DefaultOrigin`, so Atomic Object staff can sign in from the published app and CLI. See [the team API runbook](../services/team-api/RUNBOOK.md) if the gateway hostname ever changes.
-
-The candidate build, a GoReleaser snapshot, runs the same hook, so a broken desktop toolchain stops the release before any repository change. Without the signing key the snapshot still builds the app and DMG but skips the updater archive and `latest.json`. Publication sets `RZM_RELEASE_DESKTOP=1`. In that mode the hook fails when the key is missing, and GoReleaser fails when any of the four assets is absent, so a public release cannot go out without the app. Apply also refuses to start a public release without the key.
-
-Public `make release` also enables desktop publication automatically and requires the signing key and desktop build tools listed in the prerequisites. Internal releases (`RZM_INTERNAL_S3_BUCKET` set) publish the CLI only. The manually dispatched GitHub Actions recovery workflow publishes the same notarized desktop assets as local publication. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
-
-If the desktop build fails during publication, GoReleaser stops in its build phase, before it creates a GitHub release. Fix the cause, such as a missing Rust toolchain or key, and rerun the printed resume command. Resume continues from the recorded checkpoint and runs GoReleaser again.
+A missing desktop asset or failed signature, notarization or content check stops publication. All release binaries compile the deployed team API origin from `.goreleaser.yml` into `pkg/teamapi/session.DefaultOrigin`; see [the team API runbook](../services/team-api/RUNBOOK.md) if it changes. Internal releases remain CLI only.
 
 ### Developer ID signing and notarization
 
-Public desktop publication requires Python 3.12 or newer for safe updater archive extraction, a valid Developer ID Application identity in the release Mac's login Keychain and notarization credentials. `RZM_RELEASE_DESKTOP=1` requires both notarization and updater signing. A local snapshot is ad-hoc signed unless `RZM_NOTARIZE_DESKTOP=1` explicitly requests notarization. Ordinary development requires no Apple credentials.
+Keep the encrypted `.p12` backup, export password and notarization `.p8` key in a restricted 1Password vault. The `.p12` must include the private key; the public `.cer` alone cannot restore signing. A local signing identity can live in the release Mac's login Keychain. Never commit credential bundles, even encrypted ones.
 
-Store the encrypted `.p12` export, its password, and the notarization `.p8` private key in a restricted 1Password vault. The `.p12` must include the certificate and private key. The public `.cer` alone cannot restore signing. Keep 1Password backups after installing the identity in a release Mac's Keychain. Never store even encrypted credential bundles in Git.
+Configure the protected GitHub Environment named `release` to permit trusted main. Add required reviewers if the team wants a separate release-job approval. A premerge candidate needs an explicitly approved temporary branch exception; remove it after verification. Store these encrypted Environment secrets using protected input:
 
-Local releases load these variables from the separate release 1Password Environment through `scripts/with-secrets release`:
-
-| Variable | Value |
+| Secret | Purpose |
 | --- | --- |
-| `APPLE_SIGNING_IDENTITY` | Full Developer ID Application identity, including the Team ID in parentheses |
+| `APPLE_SIGNING_IDENTITY` | Full Developer ID Application identity and Team ID |
 | `APPLE_API_KEY` | App Store Connect team key ID |
 | `APPLE_API_ISSUER` | App Store Connect issuer ID |
-| `APPLE_API_PRIVATE_KEY` | Contents of the notarization `.p8` private key |
+| `APPLE_API_PRIVATE_KEY` | Notarization `.p8` contents |
+| `APPLE_CERTIFICATE` | Base64-encoded `.p12` backup |
+| `APPLE_CERTIFICATE_PASSWORD` | `.p12` export password |
+| `TAURI_SIGNING_PRIVATE_KEY` | Updater signing key matching the committed public key |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater key password |
+| `BREW_GITHUB_TOKEN` | Homebrew tap publication token |
 
-The GoReleaser adapter writes signing credentials to an owner-only temporary file and passes only its reference through the general build environment. The desktop hook reads that file, compiles without credentials, then runs Tauri bundling with signing credentials. The desktop hook writes `APPLE_API_PRIVATE_KEY` to an owner-only temporary file for Tauri, removes its contents from the child environment, and removes the file when Tauri exits. An explicitly supplied `APPLE_API_KEY_PATH` can instead reference an existing protected local file for candidate verification. The key is never printed. Apple credentials are forwarded only through GoReleaser to the notarizing desktop build, then removed before distribution verification and public-content scanning. Tauri notarizes and staples the app before producing the updater archive; the hook separately submits and staples the outer DMG. Ticket-service network failures (stapler error 68 with an NSURLErrorDomain diagnostic) retry at most three times, with 5- and 15-second delays. Invalid signatures or tickets are never retried as network errors. Signing failures stop staging; there is no unsigned fallback for public publication.
+Base64 is encoding, so `APPLE_CERTIFICATE` remains a secret. GitHub supplies the publisher's repository token separately. CI needs no provider or model keys. Routine local release preparation needs none of these release secrets and does not prompt 1Password.
 
-For CI, create a GitHub Environment named `release`, with selected-branch restrictions; add required reviewers if the team wants a separate approval for release jobs. Permit only trusted release source. Temporarily authorize the reviewed implementation branch for a premerge candidate, then remove that exception. Set these encrypted Environment secrets using protected secret input, never command literals or logs:
+CI imports the identity and Apple intermediate certificate into a temporary Keychain. Notarization keys and signing handoffs use owner-only temporary files. The general build environment contains a protected file reference, and only bundling/notarization receives the relevant credentials. Cleanup restores the Keychain search list and removes temporary files and keys even after failure; runner destruction is the final boundary after forced termination.
 
-- The four Apple variables above.
-- `APPLE_CERTIFICATE`: base64 encoding of the backed-up `.p12`, and `APPLE_CERTIFICATE_PASSWORD`: its export password. Base64 is an encoding, not encryption; treat it as a secret.
-- `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, using the existing updater key that matches the committed public key.
-- `BREW_GITHUB_TOKEN` for recovery publication; the workflow supplies GitHub publication auth separately.
+Tauri notarizes and staples the app before producing its updater archive; the hook separately submits and staples the outer DMG. Only ticket-service network failures identified as stapler error 68 with an NSURLErrorDomain diagnostic receive bounded retries. Invalid signatures or tickets fail immediately.
 
-CI runs on Apple Silicon, imports the `.p12` and Apple's intermediate certificate into a temporary Keychain, and writes the notarization key under runner temporary storage. The cleanup step restores the Keychain search list and deletes temporary credentials even if the build fails. Temporary Keychain passwords do not appear in process arguments. These workflows never receive provider keys. Hosted runner destruction provides the final cleanup boundary if a job is forcibly terminated before cleanup.
+To test the full build without publishing, manually run the **Release** workflow on the reviewed source ref with `candidate_only=true`. It submits to Apple's notary service and retains the verified bundle for 30 days, but does not change release refs, deploy the gateway, create a GitHub Release or update Homebrew. The protected Environment's branch restriction still applies.
 
-To verify a candidate, select the manual GoReleaser fallback workflow, choose the reviewed source ref, set `candidate_only=true`, and provide any tag input. Confirm the candidate job, including distribution verification, succeeds. This submits software to Apple's notary service but does not create a GitHub release, advance version refs or deploy the gateway.
+Local snapshots remain available for development. An ad-hoc snapshot needs no Apple credentials; explicit notarization uses `RZM_NOTARIZE_DESKTOP=1` and the Apple variables above, with the identity installed in the login Keychain. Optional `scripts/with-secrets release` can load a separately configured local release Environment. Configuring that local convenience is separate from CI readiness.
 
 ### Updater signing key
 
-The installed app accepts an update only when its signature verifies against the public key committed in `desktop/src-tauri/tauri.conf.json`. The private key and its password live only in the release 1Password Environment as `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. `./scripts/with-secrets release` loads them; `run_clean.py` passes them to GoReleaser and its desktop build, and public apply passes them to its Tauri signing probe. The verifier receives neither value. Never commit them, print them, or copy them into release notes or logs.
+Installed apps verify updates against the public key in `desktop/src-tauri/tauri.conf.json`. The private key and password belong in the restricted backup and protected CI Environment. The desktop hook rejects a placeholder public key and verifies the produced archive before staging it. Cargo and the pinned verifier receive no credentials; only the signing process receives the updater key.
 
-The release public key is committed in `tauri.conf.json`. The desktop hook refuses a placeholder key and verifies the generated archive's signature against that public key before staging any desktop assets. Public apply also signs a disposable probe and verifies it before changing release files or refs, catching a changed or mismatched key even if the candidate build skipped signing.
+The verifier under `scripts/release/updater-signature` builds offline with its locked dependencies into `.tmp/updater-signature`. Normal desktop dependency fetching supplies its Cargo cache.
 
-Verification uses `scripts/release/updater-signature`, a small helper pinned to the same `minisign-verify` version as the desktop updater. It builds with `cargo --offline --locked` into `.tmp/updater-signature`; the release machine therefore needs that pinned crate in its Cargo cache. A normal desktop dependency fetch supplies it. Cargo and the verifier receive no signing or provider credentials. Only the Tauri signing subprocess receives the updater key and password; subprocess output is suppressed on failure.
+To replace or recover the key before an app has shipped:
 
-To replace or recover the release key before any app has shipped:
+1. From `desktop/`, run `npx tauri signer generate -w <offline path>/rhizome-updater.key` and supply the password interactively.
+2. Save the private key and password in restricted backups, then update their protected CI secrets.
+3. Commit the corresponding public key in `tauri.conf.json`.
 
-1. From `desktop/`, run `npx tauri signer generate -w <offline path>/rhizome-updater.key` and choose a password when it asks. Do not paste the key or password into a terminal command, chat, or log.
-2. Add the key file's contents as `TAURI_SIGNING_PRIVATE_KEY` and the password as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in the release 1Password Environment.
-3. Replace the placeholder with the contents of `rhizome-updater.key.pub` (the public key, safe to commit) and commit it.
-4. Move the key file to the offline backup described below.
-
-Losing the private key strands every installed app: it can never verify another update, and each user must download a new DMG by hand. Keep an offline backup of the key file and password, stored apart from the 1Password Environment. To rotate the key, publish one release signed with the old key that embeds the new public key, then switch the Environment to the new key. A leaked key lets anyone sign an update the app accepts; rotate immediately.
+Keep an offline copy of the private key and password apart from the active release Environment. Losing the key prevents installed apps from verifying future updates. After distribution, rotation requires a release signed with the old key that embeds the new public key, followed by switching to the new private key.
 
 ## Canonical branch topology
 
-For a release cut from `main`, the release commit advances both `origin/main` and `origin/release`. The local version tag identifies that same commit.
+Public releases are prepared against fresh main and approved through a release PR. The accepted merge SHA identifies the exact release source. After all builds pass, CI advances `origin/release` and `refs/tags/<version>` to that source in one atomic, non-force push. Main already contains it through the reviewed PR. Conflicting branches or tags stop publication without replacement.
 
-For a hotfix cut from `release`, the release commit and version tag remain free of unreleased `main` work. The orchestrator fetches the latest `origin/main` and creates a merge commit without checking out `main`:
-
-- first parent: the freshly fetched `origin/main` tip;
-- second parent: the tagged release commit; and
-- tree: the conflict-free merge of those commits.
-
-It then atomically advances `origin/main` to that merge and `origin/release` to the release commit. A merge conflict or either remote branch moving before the push rejects the operation without updating either canonical branch. The release commit must remain an ancestor of the published main tip, preserving first-parent evidence and making later retry verification deterministic.
-
-Canonical branches are intentionally published before GoReleaser. That makes the release commit reachable by GitHub before the Releases API creates the remote tag. GoReleaser targets the exact release commit; after publication, the orchestrator resolves the remote tag, including an annotated tag's peeled target, and refuses to continue unless it equals the release commit. The release script never force-pushes a conflicting branch or replaces a conflicting tag.
+Private legacy hotfixes retain the local orchestrator's topology: a release cut from main advances both canonical branches; a release-branch hotfix keeps its tag on the hotfix commit and integrates it into fresh main with a synthetic merge. Git 2.38 or newer is required for that local `merge-tree --write-tree` flow.
 
 ## Phase commands and resume
 
-Reviewed artifacts live under the ignored `.release/<base>-<head>/` directory. Successful releases and successful dry runs trash that exact directory. Failures retain it and print an exact retry command. A failed dry run recommends another `dry-run` command; it never recommends `resume`, because resume may continue into apply and publication.
-
-Run a persisted phase directly with the base tag and the original planned head SHA:
+If the final public publisher fails, retry only the failed jobs in the original workflow run:
 
 ```sh
-RELEASE_BASE=v0.49.0 RELEASE_HEAD=<sha> make release-build
-RELEASE_BASE=v0.49.0 RELEASE_HEAD=<sha> make release-apply
-RELEASE_BASE=v0.49.0 RELEASE_HEAD=<sha> make release-publish
-RELEASE_BASE=v0.49.0 RELEASE_HEAD=<sha> make release-resume
+gh run rerun <original-run-id> --failed
 ```
 
-For a deliberately accepted degraded plan:
+Retain the original run and its verified artifact. The final bundle is retained for 30 days. A complete rebuild can produce different signed/archive bytes even at the same source; it cannot replace already uploaded assets or serve as publication recovery. Do not rerun all jobs to recover publication. After artifact expiry, stop for artifact recovery and reconciliation rather than rebuilding over a partial release.
+
+The publisher also retains its gateway receipt for 30 days and restores it on retry. An uncertain or pending dispatch reconciles the original request. If the previous publisher started but its receipt was lost, retry stops for deployment reconciliation before any new dispatch. A publisher that was skipped because an earlier build failed may start normally after that build is repaired.
+
+The publisher verifies existing remote notes, source, asset names and hashes against that same bundle. A matching partial draft resumes missing uploads; conflicting assets or notes fail without overwrite. A complete matching release is a no-op when the Homebrew formula also matches. If only Homebrew remains, the retry performs fresh gateway and topology verification before its update. Never edit notes or move tags to make recovery pass.
+
+The old `release-apply`, `release-publish`, `release-resume` and direct `make release` paths reject public publication. Read-only legacy planning/build commands remain available, but are not the public preparation workflow.
+
+Private releases retain `.release/<base>-<head>/` checkpoints, or `first-release-<head>` when there is no tag. Failures retain state and print an exact retry command. Dry-run failures recommend only another dry run. Private phase commands accept the original reviewed base and head:
 
 ```sh
-RELEASE_BASE=v0.49.0 RELEASE_HEAD=<sha> ACCEPT_DEGRADED_EVIDENCE=1 make release-resume
+RELEASE_BASE=vX.Y.Z RELEASE_HEAD=<sha> make release-resume
 ```
 
-Progress is checkpointed in this order: `applied`, `canonical_branches_published`, `github_published`, and `published`. If a branch push succeeds but its response or checkpoint is lost, resume queries the remote refs and accepts publication only when `origin/release` equals the release commit and that commit is contained in `origin/main`. A mismatched branch or tag stops for inspection rather than overwriting remote history.
-
-Run-state schema version 3 makes this ordering fail closed; older in-flight state files must be replaced with a new reviewed plan. Resume revalidates the local release commit/tag, canonical branch topology, and GitHub-created remote tag even when their checkpoints already exist. If the remote tag exists but the GitHub checkpoint was never written, resume stops for inspection instead of risking duplicate or partial GoReleaser publication.
-
-Resume verifies the GitHub-created tag and skips duplicate publication after a recorded successful GitHub release. A reviewed plan mismatch or moved base tag is refused. First apply requires a clean worktree; a partial apply retry accepts only release-owned files whose contents match either the planned commit or the deterministic reviewed output. The selected release date is checkpointed before file mutation and reused across retries. Use `--new-plan` only when intentionally replacing the prior plan.
+Private checkpoints remain `applied`, `canonical_branches_published`, `github_published`, mirror completion and `published`. Resume validates the original plan, local tag and remote topology; uncertain or conflicting publication stops for inspection. Older run-state schemas require a new reviewed plan.
 
 ## Internal releases
 
-Atomic Object users may continue installing and updating from a private S3 mirror while the bridge is replaced; their binaries carry encrypted team keys. The bridge code may remain in public source, but internal releases run from the private archive. A release is internal when `RZM_INTERNAL_S3_BUCKET` is set. It and the legacy suffix for the oldest installers, `RZM_INTERNAL_S3_LEGACY_SUFFIX`, live only in the release 1Password Environment, so run releases through `./scripts/with-secrets release`. Neither may appear in Git; a gitleaks rule rejects staged legacy suffix aliases. Releases from a private repository must be internal and releases from a public repository must not be, so a release started without the Environment stops before any mutation instead of silently going out public.
+Atomic Object users may continue using the private S3 mirror while its bridge is replaced. Internal releases run from the private archive and remain local through `./scripts/with-secrets release make cut-release`. They require the legacy release toolchain, authenticated Codex CLI, GoReleaser v2, gitleaks, Git 2.38 or newer, publishing tokens and AWS access.
 
-An internal release additionally:
+`RZM_INTERNAL_S3_BUCKET` selects internal publication. It and `RZM_INTERNAL_S3_LEGACY_SUFFIX` belong only in the private release Environment. Internal source and target repository visibility must agree: a private repository cannot silently publish publicly, and a public repository cannot bundle internal keys.
 
-- requires `ATOMIC_RHIZOME_KEY`, `VOYAGE_API_KEY`, and `TYPESAFE_API_KEY`. `scripts/teamkeys/release.py` encrypts the keys into a temporary Go overlay for the publishing build only and refuses to run unless the GitHub repository is private, because GoReleaser also uploads the bundled binaries there;
-- links the mirror into `rzm update` and the staged installer (`https://<bucket>.s3.amazonaws.com/releases`), in place of the GitHub API default;
-- requires AWS access to the bucket (`aws login` or the release Environment), checked before apply;
-- publishes the legacy `latest.json` and `.tbz` layout read by v0.50.x and older clients, and GitHub-release-shaped `releases/latest` and `releases/tags/<version>` documents read by current clients.
+Internal builds additionally require `ATOMIC_RHIZOME_KEY`, `VOYAGE_API_KEY` and `TYPESAFE_API_KEY`. `scripts/teamkeys/release.py` supplies the encrypted team bundle through a temporary Go overlay after verifying repository privacy. The tracked bundle source stays empty. Internal artifacts link the private mirror into the CLI and installer and retain legacy `.tbz`/`latest.json` layouts alongside current GitHub-shaped update documents. Prereleases never move root `latest` aliases.
 
-With `RZM_INTERNAL_S3_BUCKET` unset, the same commands produce a public release with no team keys and no mirror. Apply records which kind of release it is; resume refuses to continue if the setting changed. Apply also verifies AWS access, the three key inputs, and repository privacy before any repository mutation. `make release-s3` publishes only a `dist/` produced by the tagged, non-snapshot release build, and prereleases never move the root `latest` aliases. Do not use the GitHub Actions recovery workflow for internal releases: it has neither the bucket nor the keys. Resume locally instead.
+Private apply verifies repository privacy, AWS access and key inputs before mutation; resume refuses a changed internal/public setting. `make release-s3` accepts only a tagged, non-snapshot build. Do not use the public Release workflow for internal publication; resume locally.
 
-Public builds require empty tracked bundle source and reject inherited Go compiler overlays. They set `GOENV=off` to prevent persisted Go settings from supplying an overlay, and discard stale private mirror settings. GoReleaser post-build hooks check each actual binary before archiving or uploading, and installer staging checks the script before upload. These checks reject the generated internal bundle marker and S3 mirror URL and require a redacted gitleaks scan. Internal artifacts bypass the public content checks only after verifying that the target repository is private. Keep public release machines separate from the private release 1Password Environment.
+Public builds reject compiler overlays, disable persisted Go settings, remove stale mirror configuration and scan binaries and installers before upload. Public artifacts must contain neither team keys nor private mirror locations. Keep private release credentials separate from public build environments.
 
 ## Publication ownership and manual fallback
 
-The local orchestrator is the sole publisher during a normal release. Do not push a tag to start GoReleaser: an automatic tag-triggered publisher can race the local process while GitHub is creating the same release.
+GitHub Actions owns public builds and publication after release-PR approval. A version-tag push is not a release trigger. Local scripts cannot race CI by publishing the same public release. Manual dispatch is reserved for explicit candidate verification. Publication recovery retries failed jobs in the original approved run with its original verified artifact, as described above.
 
-The GitHub Actions release workflow is a manual, guarded recovery surface. Dispatch it only for an existing validated version tag when local resume cannot complete publication. Its read-only probe validates the tag and canonical topology first, and an existing GitHub release makes the write-capable GoReleaser job a no-op. API errors, invalid tags, and conflicting refs fail closed; any existing release, including a draft or partially populated release, is left untouched for maintainer inspection.
-
-`make release` is the gated lower-level publisher for an exact, clean release tag with matching canonical topology; use `make cut-release` for normal releases. Public publication also requires the desktop signing key and builds the desktop app through the same publisher.
-
-The GitHub Actions workflow requires the protected `release` Environment and all signing secrets listed below. Recovery publication still requires an existing validated release tag and a verified gateway deployment. Select `candidate_only=true` to build and notarize the selected workflow ref without deployment or publication; the required tag input is ignored in candidate mode. Candidate mode has read-only repository permissions and does not upload artifacts.
+The protected Mac job has read-only repository access. Complete bundle assembly also runs with read-only permissions. Only the final Linux publisher has repository write and gateway-dispatch permissions, and candidate mode skips that job. The Homebrew token reaches only the Homebrew operation.
 
 ## Public migration
 
-The historical repository is retained as a private archive. This clean repository's source is public. The [open-source preparation specification](specs/technical/open-source-preparation.md) records the source and artifact requirements. Source publication does not establish that release downloads or installation work. Release preparation does not authorize publishing artifacts or changing repository visibility.
+The historical repository remains a private archive. Never merge that history into this public source repository. [The open-source preparation specification](specs/technical/open-source-preparation.md) records source and artifact requirements. Source publication and release-PR preparation do not authorize an actual product release.
 
-The current configuration retains the existing Homebrew formula and requires GoReleaser v2. GoReleaser reports `brews` as deprecated; migrating to a cask later requires a coordinated tap migration, not just renaming the config key. See [GoReleaser migration guidance](https://goreleaser.com/resources/deprecations/#brews).
+GoReleaser v2 remains the compiler configuration. Public archives and the Homebrew formula are assembled and published by the CI helpers so cross-platform work can stay on Linux. The private legacy flow retains its GoReleaser publication configuration.
 
 ## Release acceptance
 
-Record the commit, tag, platform, commands, and observed result for each check. Local fixtures and CI establish preparation evidence; public downloads and installed-app updates need separate evidence. Do not mark a check complete because its implementation or test exists.
+Record the commit, version, platform, commands and observed results. Fixture tests establish helper behavior; CI establishes native build/signing evidence; public downloads and installed-app updates require separate production evidence. Never mark a check complete because its implementation exists.
 
-Before publication:
+Before authorizing publication:
 
-1. Run the required release gates in [quality gates](engineering/quality-gates.md), including `make check-full`, `make desktop-check`, and `make desktop-build`. Review the complete change set and finish the required independent review.
-2. Run the release candidate build on Apple Silicon with the actual release configuration. Verify the app and bundled `rzm` versions match, the bundle signature is valid, and the DMG, updater archive, signature, feed, and checksums are staged. Confirm signing-key access without displaying or recording private values.
-3. Install the candidate into a disposable location or account. Exercise Settings, the command-line installation prompt, login-shell resolution, repository setup, and pin advancement. Keep the normal Rhizome and Rhizome Dev installations intact.
-4. Test AO credential setup with a consenting account: import the intended providers, cancel an import, repeat after rotation, and verify a subsequent fresh process uses the saved configuration. Missing CLI, denied access, timeout, and missing-provider cases must have actionable messages without secret values. Use synthetic fixtures for automated tests.
+1. Complete required release gates in [quality gates](engineering/quality-gates.md), including `make check-full`, desktop checks and the required independent review.
+2. Run candidate-only CI on the intended implementation and verify the complete artifact set, matching app/CLI versions, Developer ID signatures, notarization tickets, updater signature, feed and checksums.
+3. Install the candidate in a disposable location or account. Exercise Settings, command-line installation and login-shell resolution, repository setup and pin advancement while preserving the normal apps.
+4. Test credential setup with a consenting account and synthetic failure fixtures. Verify import, cancellation, rotation and fresh-process use without recording secrets.
 
-After the first public release:
+After the first authorized public release:
 
-1. Fetch all desktop assets and `checksums.txt` without GitHub authentication. Verify the DMG and updater archive checksums, the feed's version and archive URL, and the archive signature against the committed public key.
-2. Download the DMG in a browser on a fresh macOS account. Record Gatekeeper behavior and complete the documented Open Anyway flow. Install the command-line tool, confirm a new login shell resolves the app's `rzm`, then verify deleting the disposable app leaves that link unable to run the app.
-3. Follow only the README from a fresh agent session. Install, initialize a disposable repository, index it, and complete an agent retrieval. Test both provider-key setup and the no-key path. Verify Homebrew installation against the newly published formula.
+1. Download assets without GitHub authentication and verify checksums, feed version/URLs and the updater archive signature.
+2. Download and install the DMG on a fresh macOS account, record Gatekeeper behavior, and verify the command-line link and behavior after deleting the disposable app.
+3. Follow only the README from a fresh agent session. Install, initialize and index a disposable repository, complete retrieval, exercise both provider-key and no-key setup, and verify Homebrew installation.
 
-After the next public release, update an installed first-release app through Settings and through `rzm update`. Confirm signature verification, restart, restored windows, the bundled CLI version, an unchanged command-line link, and independent repository pin advancement. Record whether folder-access prompts return. Until this passes, production release-to-release updating remains unverified.
+After the next release, update an installed first-release app through Settings and `rzm update`. Verify signature checking, restart, restored windows, bundled CLI version, command-line link, independent repository pins and folder-access prompts. Production release-to-release updating remains unverified until that succeeds.

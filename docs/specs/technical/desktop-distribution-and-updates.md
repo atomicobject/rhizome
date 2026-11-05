@@ -34,7 +34,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - Sparkle. Tauri's first-party updater covers the same signed-feed model without embedding an Objective-C framework.
 - Delta updates, beta or nightly update channels, and staged rollouts.
 - A Homebrew cask for the app. The formula and `install-rzm.sh` remain the CLI-only paths.
-- Desktop artifacts in internal (private S3) releases. Normal publication stays locally orchestrated; the manually dispatched Actions recovery workflow may publish the same public desktop assets.
+- Desktop artifacts in internal (private S3) releases. Normal public publication is owned by the approved release-PR CI flow; private/internal releases remain local and CLI-only.
 - A background agent that removes the PATH link when the app is deleted. The link stops working by construction; the app repairs or removes it when it runs.
 - Committing, pushing, or opening pull requests for pin changes, and rerunning `rzm init` to refresh generated files after a pin advance. Refreshing stays in the terminal per SPEC-0118.
 - Changing `install-rzm.sh`, its `/etc/paths.d/rhizome` registration, or the Homebrew formula.
@@ -44,7 +44,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 ### US1 - Every release ships the desktop app
 
 - id:: ^SPEC-0122-US1
-- summary:: A maintainer's `make cut-release` publishes the desktop app and its update feed with the same version as the CLI, or publishes nothing.
+- summary:: Merging a reviewed public release PR has CI publish the desktop app and its update feed with the same version as the CLI, or report a recoverable failure.
 - status:: draft
 
 #### Acceptance Criteria
@@ -53,7 +53,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
   verification:: release dry run lists the assets; a real release is inspected with `gh release view`
 - `checksums.txt` covers the DMG and the updater archive, and the app inside the DMG passes `codesign --verify --deep --strict` with its Developer ID signature, hardened runtime, and valid notarization ticket.
 - The app's `CFBundleShortVersionString`, its bundled `rzm --version`, and the release tag agree.
-- The candidate build builds the app, so a desktop toolchain failure stops the release before any repository change. A failure while publishing leaves no GitHub release, and resume retries it.
+- The candidate build builds the app, so a desktop toolchain failure stops release-ref mutation, gateway deployment and uploads. Preparation commits remain reviewable; publication retries preserve the approved source and complete only matching partial state.
 
 ### US2 - The installed app updates itself
 
@@ -112,16 +112,16 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 
 ### Release artifacts and orchestration
 
-- The release MUST build the desktop app on Apple Silicon for `aarch64-apple-darwin`, bundling the exact `rzm` binary GoReleaser archives for `darwin/arm64`. The candidate build MUST build the app too, so toolchain failures stop the release before any repository change. A failure during publication MUST leave no GitHub release and MUST be retried by resume.
+- The release MUST build the desktop app on Apple Silicon for `aarch64-apple-darwin`, bundling the exact `rzm` binary built for `darwin/arm64` and placed in the CLI archive. The candidate build MUST build the app too, so toolchain failures stop release refs, gateway deployment and uploads. Matching partial publication MUST be recoverable without changing approved source or notes.
 - The app version MUST come from the release version at build time. `tauri.conf.json`, `Cargo.toml`, and `package.json` MUST NOT carry an independently maintained version.
-- Public releases MUST Developer ID sign the bundle and every Mach-O in it with hardened runtime, and sign the final updater archive with the Tauri updater key. GoReleaser's `checksums.txt` MUST include the DMG and updater archive.
+- Public releases MUST Developer ID sign the bundle and every Mach-O in it with hardened runtime, and sign the final updater archive with the Tauri updater key. The final `checksums.txt` MUST include the DMG and updater archive.
 - Public release builds MUST require Apple signing and notarization credentials, notarize and staple through Tauri, and verify the signing team, hardened runtime, stapling and Gatekeeper assessment before staging. Verification MUST inspect both the DMG app and the updater archive app. Development snapshots may use ad-hoc signing; an explicitly notarized candidate MUST use the same verification as publication.
-- CI recovery MUST preserve canonical release topology checks, the existing-release no-op and the gateway deployment gate. A separately selected candidate mode MUST build the selected source without deployment or publication and with read-only repository access.
+- CI publication and recovery MUST preserve exact approved source, canonical release topology checks, completed-release idempotence and the gateway deployment gate. A separately selected candidate mode MUST build the selected source without deployment or publication and with read-only repository access.
 - Asset names MUST be stable across versions so `https://github.com/atomicobject/rhizome/releases/latest/download/<asset>` always resolves to the newest stable release.
 - `latest.json` MUST follow Tauri's static updater format with a `darwin-aarch64` entry whose URL points at the same release's updater archive.
-- Local updater and Apple signing credentials MUST come from the release 1Password Environment through `scripts/with-secrets release`. CI copies MUST come from a protected GitHub release Environment; signing backups and notarization keys remain in restricted 1Password storage. CI MUST use an isolated temporary Keychain and protected temporary key files, with cleanup after success or failure. The updater key MUST reach only the GoReleaser processes that build a release, the desktop build they run, and the public-apply Tauri signing probe. Only the desktop signing/notarization subprocess may receive the Apple credentials. The updater signing probe MUST receive only updater signing credentials; verifiers and dependency installation MUST receive no credentials. Keys MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
+- Normal local release preparation MUST need no Apple/updater credentials. Optional local signing loads explicitly scoped credentials from secure local storage. CI signing credentials MUST come from a protected GitHub release Environment; signing backups and notarization keys remain in restricted 1Password storage. CI MUST use an isolated temporary Keychain and protected temporary key files, with cleanup after success or failure. The updater key MUST reach only the protected signing adapter, desktop signing process and any explicitly requested signing probe. Only the desktop signing/notarization subprocess may receive the Apple credentials. The updater signing probe MUST receive only updater signing credentials; verifiers and dependency installation MUST receive no credentials. Keys MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
 - Every executable in the bundle MUST pass the public-artifact content checks the CLI binaries pass (`scripts/teamkeys/release.py --check-artifact`).
-- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder. The candidate archive's signature MUST verify against that public key before staging. Apply MUST verify that the current signing key matches the public key before mutating release files or refs.
+- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder. The candidate archive's signature MUST verify against that public key before staging. The signed candidate MUST verify that the signing key matches the committed public key before mutating release refs or uploading assets.
 - Losing the updater private key strands installed apps. Its custody and backup MUST be documented in `docs/RELEASING.md`.
 
 ### Updater

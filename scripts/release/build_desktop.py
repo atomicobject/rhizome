@@ -78,13 +78,15 @@ def require_release_pubkey(root: Path) -> None:
         )
 
 
-def tauri_command(version: str, *, updater: bool, notarize: bool = False, bundle: bool = False) -> list[str]:
+def tauri_command(version: str, *, updater: bool, notarize: bool = False, bundle: bool = False, prebuilt_frontend: bool = False) -> list[str]:
     command = [
         "npm", "run", "tauri", "--", "bundle" if bundle else "build",
         *(["--bundles", "app,dmg"] if bundle else ["--no-bundle"]),
         "--config", "src-tauri/tauri.release.conf.json",
         "--config", json.dumps({"version": version}),
     ]
+    if prebuilt_frontend:
+        command += ["--config", '{"build":{"beforeBuildCommand":"npm run rzm"}}']
     if not notarize:
         command += ["--config", '{"bundle":{"macOS":{"signingIdentity":"-"}}}']
     if not updater:
@@ -179,12 +181,15 @@ def build(
     clean_env = {name: value for name, value in env.items() if not sensitive_name(name)}
     if not (desktop / "node_modules").is_dir():
         runner(["make", "desktop-deps"], cwd=root, env=clean_env, check=True)
+    prebuilt_frontend = environ.get("RZM_DESKTOP_PREBUILT_FRONTEND") == "1"
+    if prebuilt_frontend and not (desktop / "dist/index.html").is_file():
+        raise DesktopBuildError("prepared desktop frontend is missing; restore the verified CI frontend artifact")
     bundle_dir = root / BUNDLE_DIR
     # Earlier builds leave differently named DMGs and stale updater archives.
     for kind in ("dmg", "macos"):
         shutil.rmtree(bundle_dir / kind, ignore_errors=True)
-    runner(tauri_command(version, updater=updater, notarize=notarize), cwd=desktop, env=clean_env, check=True)
-    command = tauri_command(version, updater=updater, notarize=notarize, bundle=True)
+    runner(tauri_command(version, updater=updater, notarize=notarize, prebuilt_frontend=prebuilt_frontend), cwd=desktop, env=clean_env, check=True)
+    command = tauri_command(version, updater=updater, notarize=notarize, bundle=True, prebuilt_frontend=prebuilt_frontend)
     if notarize:
         with credentials(env) as signing_env:
             # A signer failure must not expose credentials through captured output.

@@ -8,6 +8,17 @@ from release_publish import PublishCredentialError, publish_github_release
 
 
 class PublishGithubReleaseTest(unittest.TestCase):
+    def setUp(self):
+        visibility = patch("scripts.teamkeys.release.repo_visibility", return_value="PRIVATE")
+        visibility.start()
+        self.addCleanup(visibility.stop)
+
+    def test_public_direct_publication_stops_before_gate_or_upload(self):
+        with self.assertRaisesRegex(PublishCredentialError, "reviewed release-PR CI"):
+            publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+                gate=lambda *a, **k: self.fail("public local publisher dispatched gate"),
+                runner=lambda *a, **k: self.fail("public local publisher uploaded"))
+
     def test_release_token_is_scoped_to_goreleaser_environment(self):
         calls = []
 
@@ -19,6 +30,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
             "/repo/notes.md",
             environ={
                 "RZM_RELEASE_GITHUB_TOKEN": "release-secret",
+                "RZM_INTERNAL_S3_BUCKET": "example-bucket",
                 "GITHUB_TOKEN": "conflicting-secret",
                 "GH_TOKEN": "evidence-secret",
                 "AWS_SESSION_TOKEN": "aws-secret",
@@ -52,7 +64,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
         self.assertEqual(kwargs["env"]["TAURI_SIGNING_PRIVATE_KEY"], "signing-secret")
         self.assertEqual(kwargs["env"]["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"], "signing-password")
         self.assertEqual(kwargs["env"]["APPLE_API_PRIVATE_KEY"], "synthetic-apple-private-key")
-        self.assertEqual(kwargs["env"]["RZM_RELEASE_DESKTOP"], "1")
+        self.assertNotIn("RZM_RELEASE_DESKTOP", kwargs["env"])
 
     def test_internal_release_does_not_require_the_desktop_app(self):
         calls = []
@@ -77,7 +89,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
         def gate(*args, **kwargs):
             raise GatewayError("gateway failed")
         with self.assertRaisesRegex(GatewayError, "gateway failed"):
-            publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+            publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic", "RZM_INTERNAL_S3_BUCKET": "example-bucket"},
                                    gate=gate, runner=lambda *a, **k: calls.append(a))
         self.assertEqual(calls, [])
 
@@ -89,7 +101,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
         def runner(command, **kwargs):
             calls.append(("publish", command))
             return subprocess.CompletedProcess(command, 0, "", "")
-        publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+        publish_github_release(environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic", "RZM_INTERNAL_S3_BUCKET": "example-bucket"},
                                gate=gate, runner=runner)
         self.assertEqual([c[0] for c in calls], ["gate", "publish"])
         self.assertIsNone(calls[0][1]["receipt_path"])
@@ -99,7 +111,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
         from pathlib import Path
         received = []
         publish_github_release(gateway_receipt=Path("/tmp/receipt.json"),
-            environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic"},
+            environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic", "RZM_INTERNAL_S3_BUCKET": "example-bucket"},
             gate=lambda *a, **k: received.append(k),
             runner=lambda c, **k: subprocess.CompletedProcess(c, 0, "", ""))
         self.assertEqual(received[0]["receipt_path"], Path("/tmp/receipt.json"))
