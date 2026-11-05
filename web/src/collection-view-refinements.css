@@ -10,14 +10,20 @@
   align-content: start;
   gap: 5px;
 }
-.configured-card--cards .configured-card__content:has(.configured-card__summary) {
-  /* Two title lines, metadata, three summary lines, and the existing gaps. */
-  height: 121px;
-  overflow: hidden;
-}
 .configured-card--cards .configured-card__summary {
+  display: -webkit-box;
+  overflow: hidden;
+  padding-bottom: 2px;
   line-height: 18px;
+  -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
+}
+.configured-card--cards.configured-card--two-line-title .configured-card__summary {
+  -webkit-line-clamp: 3;
+}
+.configured-card--cards .configured-card__title {
+  min-height: 36px;
+  align-content: start;
 }
 .configured-card--cards .configured-card__title-text {
   display: -webkit-box;
@@ -52,4 +58,119 @@
   + .configured-view__column-notes
   > summary::before {
   content: none;
+}
+
+/* Subtypes sit below the title; age stays beside it. */
+.configured-card--board .configured-brief__meta {
+  display: contents;
+}
+.configured-card--board .configured-brief__meta > .configured-brief__type {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 13px;
+}
+.configured-card--board .configured-brief__meta > .configured-brief__end {
+  grid-column: 2;
+  grid-row: 1;
+}
+/* Card outlines define the cards; lanes need no second rectangle. */
+.configured-view .configured-view__board-column,
+.configured-view .configured-view__board-strip-cell.is-empty {
+  background: transparent;
+  border: 0;
+}
+.configured-view .configured-view__board-columns {
+  border-bottom: 0;
+}
+.configured-view .configured-view__board-strip {
+  align-self: stretch;
+  align-items: start;
+  padding-top: 8px;
+  padding-inline: 4px;
+  gap: 4px;
+}
+.configured-view .configured-view__column-notes > summary {
+  display: inline-flex;
+  white-space: normal;
+}
+.configured-view__column-notes > summary > svg {
+  flex: none;
+}
+.configured-view__column-notes[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.configured-view__collapsed-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.configured-view__collapsed-link:hover {
+  color: var(--link);
+}
+/* Record stays docked in the collection grid at laptop widths too. */
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view)
+  .notes-right-rail.is-overlay#notes-right-pane {
+  position: relative;
+  inset: auto;
+  grid-column: 2;
+  width: var(--pane-width);
+  box-shadow: none;
+  border-left-color: var(--border);
+}
+.notes-shell__frame--solo:has(.notes-shell__panel.is-active .configured-view):has(.notes-right-rail)
+  .notes-shell__tabs-row {
+  right: calc(var(--pane-width) + var(--sp-4));
+}
+.configured-view__table .configured-view__row--action td {
+  height: 48px;
+  padding-block: 4px;
+  vertical-align: middle;
+}
+.configured-view__row--action .configured-view__scalar-cell,
+.configured-view__row--action .configured-view__source-link a {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 20px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view):has(
+    .notes-right-rail.is-overlay
+  )
+  .configured-view__footer {
+  padding-right: var(--sp-5);
+}
+.configured-view .configured-view__footer-status {
+  flex-wrap: wrap;
+}
+.configured-view .configured-view__collapsed-link {
+  flex: none;
+  white-space: nowrap;
+}
+.configured-view .configured-view__column-notes > summary::after {
+  display: none;
+}
+.configured-view .configured-view__board-column-header {
+  padding-inline: 15px;
+}
+@container view-header (max-width: 600px) {
+  .notes-shell__frame:has(.configured-view) .view-header__title-row {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 56px;
+    padding-block: 12px;
+    row-gap: 12px;
+  }
+  .notes-shell__frame:has(.configured-view) .view-header__tools {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
 }

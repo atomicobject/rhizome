@@ -128,6 +128,11 @@ export function ConfiguredView({
   const { visibleFields, emptyFields, repeatedFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    { key: string; label: string; count: number }[]
+  >([]);
+
   const [groupedColumns, setGroupedColumns] = useState<string[]>([]);
   const [movedColumns, setMovedColumns] = useState<string[]>([]);
   const [saveActive, setSaveActive] = useState(false);
@@ -214,6 +219,7 @@ export function ConfiguredView({
             sort: nextSort(effectiveSort(state, rendererExecution.state), column.field, additive),
           }),
         onCollapsedGroupCountChange: setCollapsedGroupCount,
+        onCollapsedGroupsChange: setCollapsedGroups,
         onMovedColumnsChange: setMovedColumns,
         onGroupedColumnsChange: setGroupedColumns,
         profile,
@@ -408,6 +414,7 @@ export function ConfiguredView({
               ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "column" : "group"}${collapsedGroupCount === 1 ? "" : "s"} collapsed`
               : ""
           }
+          collapsedGroups={activeVariant === "table" ? collapsedGroups : []}
           stagedCount={stagedCount}
           moved={activeVariant === "table" ? movedColumns : []}
           hidden={

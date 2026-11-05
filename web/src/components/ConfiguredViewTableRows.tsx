@@ -133,6 +133,7 @@ export function ConfiguredViewTableGroup({
         <th colSpan={columnSpan} scope="rowgroup">
           <button
             type="button"
+            data-group-key={group.key}
             className="configured-view__group-toggle"
             aria-label={`${label} ${group.count}${overdue ? ` · ${overdue} overdue` : ""}`}
             aria-expanded={expanded}
@@ -253,7 +254,7 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
 
   return (
     <tr
-      className={`configured-view__row${selected ? " is-selected" : ""}${isChecked ? " is-checked" : ""}${dirty ? " is-dirty" : ""}${dragging ? " is-dragging" : ""}${dropClass}`}
+      className={`configured-view__row${row.resolvedType === "ActionItem" ? " configured-view__row--action" : ""}${selected ? " is-selected" : ""}${isChecked ? " is-checked" : ""}${dirty ? " is-dirty" : ""}${dragging ? " is-dragging" : ""}${dropClass}`}
       data-row-key={rowKey}
       data-group-key={groupId}
       tabIndex={tabbable ? 0 : -1}

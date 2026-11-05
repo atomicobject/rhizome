@@ -240,12 +240,11 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Headers and lanes share bounded populated tracks and 140px empty strips.
-  const template = columns.map((item) => (item.strip ? "140px" : "minmax(260px, 360px)")).join(" ");
+  // Headers and lanes share tracks, leaving most space to populated columns.
+  const template = columns.map((item) => (item.strip ? "96px" : "minmax(260px, 1fr)")).join(" ");
 
   const maxWidth =
-    columns.reduce((width, item) => width + (item.strip ? 140 : 440), 0) +
-    (columns.length - 1) * 12;
+    columns.reduce((width, item) => width + (item.strip ? 96 : 440), 0) + (columns.length - 1) * 12;
 
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 

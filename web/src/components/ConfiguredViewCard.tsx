@@ -1,5 +1,12 @@
 import "../collection-view-refinements.css";
-import type { DragEvent, KeyboardEvent, ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import type {
   OntologyEditSessionResponse,
@@ -89,6 +96,19 @@ export function ConfiguredViewCard({
   compact = false,
   summary,
 }: Props) {
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const [twoLineTitle, setTwoLineTitle] = useState(false);
+  useLayoutEffect(() => {
+    const title = titleRef.current;
+
+    if (mode !== "cards" || !title) return;
+    const measure = () => setTwoLineTitle(title.getBoundingClientRect().height > 19);
+    const observer = new ResizeObserver(measure);
+    measure();
+    observer.observe(title);
+
+    return () => observer.disconnect();
+  }, [mode]);
   const custom = header !== undefined || body !== undefined;
   // A compact card keeps its title; the layout's slots would crowd the column.
   const layoutSlots = !custom && !compact;
@@ -153,7 +173,7 @@ export function ConfiguredViewCard({
 
   return (
     <article
-      className={`configured-card configured-card--${mode}${compact ? " configured-card--compact" : ""}${dirty ? " is-staged" : ""}${dragging ? " is-dragging" : ""}${className}`}
+      className={`configured-card configured-card--${mode}${twoLineTitle ? " configured-card--two-line-title" : ""}${compact ? " configured-card--compact" : ""}${dirty ? " is-staged" : ""}${dragging ? " is-dragging" : ""}${className}`}
       data-configured-card={configuredTableRowKey(row)}
       tabIndex={busy ? -1 : 0}
       inert={busy ? true : undefined}
@@ -210,7 +230,9 @@ export function ConfiguredViewCard({
           }}
           disabled={busy}
         >
-          <span className="configured-card__title-text">{title}</span>
+          <span ref={titleRef} className="configured-card__title-text">
+            {title}
+          </span>
         </button>
         {titlePreview.preview}
         {summary && (
