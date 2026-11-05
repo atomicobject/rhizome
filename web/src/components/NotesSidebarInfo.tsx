@@ -255,12 +255,12 @@ export function NotesSidebarInfo({
             >
               <summary>
                 <h3>
+                  {materialsLabel(group.label)}
                   {noteReader && (
                     <span className="disclosure-toggle" aria-hidden="true">
                       <DisclosureChevron />
                     </span>
                   )}
-                  {materialsLabel(group.label)}
                   <span className="ontology-sidebar-context__count num">
                     {group.items?.length ?? 0}
                     {!noteReader && (
