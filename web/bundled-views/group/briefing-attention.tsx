@@ -32,11 +32,6 @@ const OPEN_COLLECTION: MemberAction = {
 
 const MemberActionContext = createContext<MemberAction>(OPEN_COLLECTION);
 
-/**
- * The records behind a signal as rows, title left and age right, grouped
- * under their member's label when several members hold them. A member's label
- * runs `onMember`; titles open the records. "Show N more" sits on its own line.
- */
 function SignalRecords({
   id,
   model,
@@ -63,15 +58,26 @@ function SignalRecords({
             const open = expanded.isOpen(key, false);
             const hidden = group.records.length - SIGNAL_RECORDS;
 
+            const subtypes = group.records.map(
+              (record) => model.typeLabels.get(record.type)?.label ?? fieldLabel(record.type),
+            );
+
+            const showSubtype =
+              new Set(subtypes).size > 1 ||
+              subtypes.some(
+                (label) => label !== member?.label && label !== `${member?.label} note`,
+              );
+
             return (
               <div key={group.member}>
                 <h3 className="gv-sig-member">
                   {member ? memberLabel(model, member, { plural: true }) : group.member}{" "}
                   <span className="gv-num">{group.records.length}</span>
                 </h3>
-                <ul className="gv-sig-rows">
+                <ul className="gv-sig-rows" data-subtypes={showSubtype || undefined}>
                   {(open ? group.records : group.records.slice(0, SIGNAL_RECORDS)).map((record) => {
-                    const specific = model.typeLabels.get(record.type)?.label;
+                    const specific =
+                      model.typeLabels.get(record.type)?.label ?? fieldLabel(record.type);
 
                     return (
                       <li key={record.key} className="gv-sig-row">
@@ -83,15 +89,8 @@ function SignalRecords({
                           >
                             {record.title}
                           </button>
-                          {specific &&
-                            specific !== member?.label &&
-                            specific !== `${member?.label} note` && (
-                              <>
-                                {" "}
-                                <span className="gv-sub">{specific}</span>
-                              </>
-                            )}
                         </span>
+                        {showSubtype && <span className="gv-coverage-subtype">{specific}</span>}
                         {record.updatedAt !== null ? (
                           <RelativeTime value={record.updatedAt} className="gv-age" />
                         ) : (
@@ -428,12 +427,6 @@ function signalKey(signal: AttentionSignal) {
   }
 }
 
-/**
- * The block for `signals`, explained by `info`. A signal whose records all
- * belong to one member offers `memberAction`, which by default opens that
- * member's collection. `part` renders only Needs attention or only Review
- * suggested, so a Briefing can put work in motion between them.
- */
 export function NeedsAttention({
   model,
   signals,

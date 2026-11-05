@@ -104,13 +104,19 @@ export function StageHints({
 
   const stageless = [...byEnum.values()].flat();
 
-  // Setup notes are for whoever maintains the schema: a labelled disclosure
-  // beside the block heading, so readers see the work, not the configuration.
+  // Match the section heading's info mark while keeping the native disclosure.
   return (
     <details className="gv-hint">
-      <summary>
-        Configuration
-        <DisclosureIcon open={false} />
+      <summary className="rz-info" aria-label="Why some types are not listed">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+          <path
+            d="M8 7.2v3.8M8 5.1v.1"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
       </summary>
       <div className="gv-hint-panel">
         <p className="gv-hint-lead">
@@ -343,10 +349,11 @@ export function OutsideNotes({
       }}
     >
       {outside.byType.length > 0 && (
-        <p className="gv-outsum">
+        <p className={`gv-outsum${title === "Linked from outside" ? " gv-outside-totals" : ""}`}>
           {outside.byType.map((entry) => (
             <span key={entry.type ?? ""}>
-              <b>{entry.count}</b> {outsideLabel(model, entry.type, entry.count)}
+              <b className="gv-num">{entry.count}</b>{" "}
+              <span>{outsideLabel(model, entry.type, entry.count)}</span>
             </span>
           ))}
         </p>

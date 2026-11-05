@@ -219,7 +219,7 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
 
   return (
     <li className="gv-rel">
-      <div className="gv-rel-top">
+      <div className="gv-rel-top gv-composition-head">
         <b>{fieldLabel(field)}</b>
         <span className="gv-sub">
           {direction === "forward" ? "→" : "←"} {targetLabel(model, connection.targetType)}
