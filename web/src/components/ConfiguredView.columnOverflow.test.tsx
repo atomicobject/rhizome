@@ -52,7 +52,7 @@ describe("table column overflow", () => {
 
       expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Updated" })).toBeVisible();
-      expect(screen.getByText(/In Record: ID/)).toBeVisible();
+      expect(screen.getAllByText(/fields? in Record/)[0]).toBeVisible();
       expect(screen.getByText(/ID shows in the Record pane/)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Open Alpha Spec" }));
@@ -70,8 +70,8 @@ describe("table column overflow", () => {
       render(<RailHarness>{view()}</RailHarness>);
 
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
-      expect(screen.queryByText(/In Record:/)).toBeNull();
-      expect(screen.getByText("1 column hidden")).toBeVisible();
+      expect(screen.queryByText(/fields? in Record/)).toBeNull();
+      expect(screen.getByText("Hidden: Status")).toBeVisible();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
       // The grouped Status leaves 480 title + 176 ID + 92 Updated + 30 selection.
       expect(screen.getByRole("table")).toHaveStyle({ minWidth: "778px" });
@@ -92,7 +92,7 @@ it("names every moved and hidden field in the visible summary", () => {
       onPage={() => {}}
     />,
   );
-  const summary = screen.getByText("In Record: Governing specs, Created at · Hidden: Status, Type");
+  const summary = screen.getByText("2 fields in Record · Hidden: Status, Type").closest("summary")!;
   expect(summary).toBeVisible();
   expect(summary).toHaveAttribute(
     "title",

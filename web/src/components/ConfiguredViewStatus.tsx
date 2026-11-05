@@ -72,7 +72,7 @@ export function ConfiguredViewFooter({
                 }}
               >
                 <ChevronRight size={16} aria-hidden />
-                {group.label} · {group.count} collapsed
+                {group.label} {group.count} collapsed
               </button>
             ))
           : collapsed && <span>{collapsed}</span>}
@@ -113,15 +113,19 @@ function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
 
   const hiddenNames = hidden.map((note) => note.replace(/ column hidden.*$/, ""));
 
-  const summary =
-    moved.length > 0
-      ? [
-          `In Record: ${moved.join(", ")}`,
-          hidden.length > 0 ? `Hidden: ${hiddenNames.join(", ")}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : `${hidden.length} ${hidden.length === 1 ? "column" : "columns"} hidden`;
+  const summary = [
+    moved.length > 0 ? `${moved.length} ${moved.length === 1 ? "field" : "fields"} in Record` : "",
+    hidden.length > 0 ? `Hidden: ${hiddenNames.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const compact = [
+    moved.length > 0 ? `${moved.length} ${moved.length === 1 ? "field" : "fields"} in Record` : "",
+    hidden.length > 0 ? `${hidden.length} hidden` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <details className="configured-view__column-notes">
@@ -133,7 +137,8 @@ function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
           .filter(Boolean)
           .join(". ")}
       >
-        {summary}
+        <span className="configured-view__column-note-full">{summary}</span>
+        <span className="configured-view__column-note-compact">{compact}</span>
         <ChevronRight size={16} aria-hidden />
       </summary>
       <div className="configured-view__column-notes-body">

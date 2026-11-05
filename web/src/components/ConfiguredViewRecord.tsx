@@ -13,7 +13,11 @@ import type {
 import { displayTitle, enumLabel } from "../lib/labels";
 import { getNodeWorkspace, publicWorkspaceRef } from "../api/client";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
-import { relationDisplayValue, relationTargetRow } from "./ConfiguredTableCellReadOnly";
+import {
+  readableDate,
+  relationDisplayValue,
+  relationTargetRow,
+} from "./ConfiguredTableCellReadOnly";
 import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
 import {
   capabilityFor,
@@ -135,17 +139,24 @@ export function ConfiguredViewRecord({
                 title={!fieldValue(row, column.field) ? "—" : undefined}
                 aria-label={!fieldValue(row, column.field) ? "—" : undefined}
               >
-                <ConfiguredTableCellContent
-                  viewID={viewID}
-                  vaultKey={vaultKey}
-                  row={row}
-                  field={column.field}
-                  columnIndex={1}
-                  capability={capabilityFor(capabilities, column.field)}
-                  editSession={editSession}
-                  onStageOps={onStageOps}
-                  onOpenRelation={onOpenRow}
-                />
+                {column.field === "updatedAt" &&
+                /^\d{4}-\d{2}-\d{2}/.test(fieldValue(row, column.field)) ? (
+                  <time dateTime={fieldValue(row, column.field)}>
+                    {readableDate(fieldValue(row, column.field))}
+                  </time>
+                ) : (
+                  <ConfiguredTableCellContent
+                    viewID={viewID}
+                    vaultKey={vaultKey}
+                    row={row}
+                    field={column.field}
+                    columnIndex={1}
+                    capability={capabilityFor(capabilities, column.field)}
+                    editSession={editSession}
+                    onStageOps={onStageOps}
+                    onOpenRelation={onOpenRow}
+                  />
+                )}
               </dd>
             </div>
           ))}

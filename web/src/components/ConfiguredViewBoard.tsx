@@ -397,6 +397,7 @@ export function ConfiguredViewBoard(props: Props) {
           }}
         >
           <BoardColumnHeaders items={columns} capability={columnCapability} />
+          <div className="configured-view__board-age-label">Last changed</div>
         </div>
         {laneList.map((lane) => {
           const collapsed = lane ? !laneExpansion.isExpanded(lane.key, true) : false;

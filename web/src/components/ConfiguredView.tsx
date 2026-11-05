@@ -414,7 +414,7 @@ export function ConfiguredView({
               ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "column" : "group"}${collapsedGroupCount === 1 ? "" : "s"} collapsed`
               : ""
           }
-          collapsedGroups={activeVariant === "table" ? collapsedGroups : []}
+          collapsedGroups={activeVariant !== "kanban" ? collapsedGroups : []}
           stagedCount={stagedCount}
           moved={activeVariant === "table" ? movedColumns : []}
           hidden={

@@ -264,6 +264,15 @@ for (const width of [1100, 1440]) {
 
     await expect(pane).toBeVisible();
 
+    if (width === 1100) {
+      await page.getByRole("button", { name: "Find in view", exact: true }).click();
+      await expect(page.getByRole("searchbox", { name: "Search view" })).toBeFocused();
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Meta+f");
+      await expect(page.getByRole("searchbox", { name: "Search view" })).toBeFocused();
+      await page.keyboard.press("Escape");
+    }
+
     const layout = await pane.evaluate((element) => ({
       position: getComputedStyle(element).position,
       shadow: getComputedStyle(element).boxShadow,
