@@ -4,9 +4,13 @@
   width: calc(34% + 80px);
 }
 
+/* Wide enough for "Related materials 2" and its coverage on one line. */
 .gv-trace .gv-trace-related {
-  width: 220px;
-  min-width: 220px;
+  width: 280px;
+  min-width: 280px;
+}
+.gv-trace .gv-trace-related .gv-head > .gv-member {
+  flex: none;
 }
 
 .gv-trace-spine > .gv-cov {
