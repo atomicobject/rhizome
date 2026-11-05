@@ -4,7 +4,7 @@ import { publicWorkspaceRef } from "../api/client";
 import { enumLabel } from "../lib/labels";
 import { relationTargetRow } from "./ConfiguredTableCellReadOnly";
 import { NoteLinkPreview } from "./notePreview/NoteLinkPreview";
-import { StatusMark } from "./StatusMark";
+import { StatusMark, statusWordTone } from "./StatusMark";
 import type { OpenMode } from "./useNoteTabs";
 import { type RelationFact, relationTitle } from "./viewProfile";
 
@@ -110,7 +110,7 @@ function RelationStatus({
 
   return (
     <span className="configured-brief__status" title={label}>
-      <StatusMark tone={status.tone} label="" />
+      <StatusMark tone={statusWordTone(label, status.tone)} label="" />
       <span className="sr-only">{label}</span>
     </span>
   );

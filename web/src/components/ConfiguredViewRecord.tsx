@@ -32,7 +32,7 @@ import {
   fieldCapability,
 } from "./ConfiguredViewModel";
 import { DisclosureChevron } from "./DisclosureChevron";
-import { StatusMark } from "./StatusMark";
+import { StatusMark, statusWordTone } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
   useOntologySummaryQuery,
@@ -397,7 +397,7 @@ function ReverseRecords({
             return (
               <li key={item.key}>
                 {item.status ? (
-                  <StatusMark tone={item.status.tone} label="" />
+                  <StatusMark tone={statusWordTone(stage, item.status.tone)} label="" />
                 ) : (
                   <span className="view-record__no-mark" aria-hidden="true" />
                 )}
