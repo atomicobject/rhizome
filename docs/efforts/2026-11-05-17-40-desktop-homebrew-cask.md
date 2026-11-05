@@ -51,7 +51,7 @@ Desktop installation through Homebrew installs both the app and its matching CLI
 
 ## Actual Delivered
 
-Implemented as a separate change based on PR #94. The public publisher now maintains both the CLI formula and Casks/rhizome-desktop.rb from verified release hashes. The cask installs the notarized app and links its bundled rzm through Homebrew, with Apple Silicon/macOS12 requirements and built-in updates. The original CLI formula remains supported for Linux, Intel Macs and headless use.
+Implemented in [PR #97](https://github.com/atomicobject/rhizome/pull/97), stacked on PR #94. The public publisher now maintains both the CLI formula and Casks/rhizome-desktop.rb from verified release hashes. The cask installs the notarized app and links its bundled rzm through Homebrew, with Apple Silicon/macOS12 requirements and built-in updates. The original CLI formula remains supported for Linux, Intel Macs and headless use.
 
 Both-recipe no-op checks, complete-tree absence detection, conditional SHA writes and gateway-gated partial recovery are implemented. README and maintainer guidance prefer the cask on supported Macs and explain migration from the CLI-only formula. No extra Mac build, signing access, live tap write or product publication was performed.
 
@@ -59,7 +59,7 @@ All 400 release tests, the 20 focused publisher tests, repository content tests,
 
 ## Execution Notes
 
-- 2026-11-05T22:51:16Z [verification] Full release suite passed 400 tests; focused publisher suite passed20. Repository content tests, file-size/whitespace checks and default/frozen-scope validation passed. Independent review reported no actionable findings.
+- 2026-11-05T22:51:16Z [verification] Full release suite passed 400 tests; focused publisher suite passed 20. Repository content tests, file-size/whitespace checks and default/frozen-scope validation passed. Independent review reported no actionable findings.
 - 2026-11-05T22:51:16Z [verification] Homebrew7's public info command rejects standalone cask paths because it requires a tap. Loaded the generated source through the installed Homebrew CaskLoader instead, without installing an app or changing any tap. The loader resolved version, checksum, URL, auto-updates, arm64/macOS12 requirements, Rhizome.app and the bundled-rzm binary artifact correctly.
 - 2026-11-05T22:51:16Z [verification] Generated a second cask using candidate26b9fa78's real DMG checksum beab1a36408256e8bd0f308986af74fd235e3affb9e50f1900488878f6599faf. Homebrew loaded it; the accepted app contains Contents/MacOS/rzm and declares LSMinimumSystemVersion12.0. The build output is unchanged, so no Mac runner or signing-secret access was repeated.
 - 2026-11-05T22:51:16Z [closure] Closure drift pack resolved this EffortNote, its plan and frozen requirement links with no query errors. Scope is implemented and independently verified. The separate PR will carry this closure; CI/Greptile and merge approval retain their normal gates.
