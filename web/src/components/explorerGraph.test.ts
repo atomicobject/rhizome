@@ -109,15 +109,19 @@ it("draws one bracket when Sigma canonicalizes code edges toward the group", () 
   graph.addNode("file-group:Tests");
   graph.addNode("code:a");
   graph.addNode("code:b");
+  graph.addNode("file-more:Tests");
   graph.addEdge("file-group:Tests", "focus", { kind: "explorer-tests" });
   graph.addEdge("code:a", "file-group:Tests", { kind: "explorer-tests" });
   graph.addEdge("code:b", "file-group:Tests", { kind: "explorer-tests" });
+
+  graph.addEdge("file-group:Tests", "file-more:Tests", { kind: "explorer-tests" });
 
   const points = new Map([
     ["focus", { x: 0, y: 0 }],
     ["file-group:Tests", { x: 100, y: 0 }],
     ["code:a", { x: 130, y: 40 }],
     ["code:b", { x: 130, y: 80 }],
+    ["file-more:Tests", { x: 130, y: 120 }],
   ]);
 
   const context = {

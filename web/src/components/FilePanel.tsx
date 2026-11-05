@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { FileText, X } from "lucide-react";
-import type { FileView } from "../api/types";
+import { FILE_NOTE_RELATIONS } from "./fileFocusGraph";
+import type { FileView, GraphResponse } from "../api/types";
 import { convertWikilinks, resolveLinkTarget, stripFrontmatter } from "../lib/content";
 import "./file-panel-preview.css";
 import { Markdown } from "./markdown/Markdown";
@@ -44,11 +45,13 @@ function getParentPath(path: string) {
 
 export function FilePanel({
   file,
+  graph,
   line,
   onClose,
   onSelectFile,
 }: {
   file: FileView | null;
+  graph?: GraphResponse;
   line?: number;
   onClose: () => void;
   onSelectFile: (path: string, kind?: string) => void;
@@ -79,10 +82,20 @@ export function FilePanel({
             ? "Documented by"
             : note.reason === "codeanchor"
               ? "Mentioned in"
-              : "Related notes",
+              : "Related in graph",
           note.path,
           note.title || getFileName(note.path),
         );
+      const known = new Set((file.relatedNotes ?? []).map((note) => note.path));
+
+      for (const node of graph?.nodes ?? []) {
+        const path = node.notePath || node.path;
+
+        if ((node.kind === "note" || node.kind === "embedded") && path && !known.has(path)) {
+          add("Related in graph", path, node.label || getFileName(path));
+          known.add(path);
+        }
+      }
     } else {
       for (const link of file.links ?? []) {
         const target = resolveLinkTarget(link.target, file);
@@ -91,8 +104,10 @@ export function FilePanel({
       }
     }
 
-    return [...groups].map(([relation, rows]) => ({ relation, rows: [...rows.values()] }));
-  }, [file]);
+    return [...groups]
+      .sort(([a], [b]) => FILE_NOTE_RELATIONS.indexOf(a) - FILE_NOTE_RELATIONS.indexOf(b))
+      .map(([relation, rows]) => ({ relation, rows: [...rows.values()] }));
+  }, [file, graph]);
 
   const codeMarkdown = useMemo(() => {
     if (file?.kind !== "code") return "";
@@ -177,7 +192,13 @@ export function FilePanel({
                       </span>
                     </span>
                     {note.count > 1 && (
-                      <span className="explorer-pane__multiplicity num">×{note.count}</span>
+                      <span
+                        className="explorer-pane__multiplicity num"
+                        title={`${note.count} mentions`}
+                        aria-label={`${note.count} mentions`}
+                      >
+                        ×{note.count}
+                      </span>
                     )}
                   </button>
                 </li>

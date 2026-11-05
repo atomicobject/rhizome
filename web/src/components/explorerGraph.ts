@@ -173,11 +173,17 @@ export function drawTestEdges(
 
       if (!position) return;
 
+      if (other.startsWith("file-more:")) return;
+
       if (graph.getNodeAttribute(other, "selected")) focused.push(position);
       else items.push(position);
     });
     context.strokeStyle =
-      kind === "explorer-documents" ? resolveCssColor("var(--explorer-link-strong)") : color;
+      kind === "explorer-documents"
+        ? resolveCssColor("var(--explorer-link-strong)")
+        : kind === "explorer-code"
+          ? resolveCssColor("var(--graph-code)")
+          : color;
     context.lineWidth = 1.5;
     context.setLineDash(kind === "explorer-tests" ? [4, 3] : []);
     context.beginPath();

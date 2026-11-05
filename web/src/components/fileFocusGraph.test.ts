@@ -28,7 +28,7 @@ describe("file neighbour groups", () => {
       labelDetail: "30 files",
     });
     expect(result.nodes.find((n) => n.id === "file-more:Calls / imports")).toMatchObject({
-      label: "+22 more",
+      label: "Show 22 more",
       childCount: 22,
     });
     expect(result.edges.filter((edge) => edge.source === "f")).toHaveLength(2);
@@ -89,6 +89,11 @@ describe("file neighbour groups", () => {
         "Related",
       ]),
     );
+    expect(
+      result.nodes
+        .filter((n) => n.id.startsWith("file-group:") && n.kind === "note")
+        .map((n) => n.label),
+    ).toEqual(["Documented by", "Mentioned in", "Related in graph"]);
     expect(mergeFileNotes(merged, file)).toEqual(merged);
   });
 });

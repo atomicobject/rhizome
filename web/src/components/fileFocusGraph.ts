@@ -38,6 +38,8 @@ export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResp
   return { ...graph, nodes, edges };
 }
 
+export const FILE_NOTE_RELATIONS = ["Documented by", "Mentioned in", "Related in graph"];
+
 const GROUP_LIMIT = 8;
 
 const GROUP_GAP = 80;
@@ -113,7 +115,9 @@ export function fileFocusGraph(
   const edges: GraphEdge[] = [];
 
   for (const side of ["notes", "code"]) {
-    const entries = [...groups].filter(([, members]) => isNote(members[0]) === (side === "notes"));
+    const entries = [...groups]
+      .filter(([, members]) => isNote(members[0]) === (side === "notes"))
+      .sort(([a], [b]) => FILE_NOTE_RELATIONS.indexOf(a) - FILE_NOTE_RELATIONS.indexOf(b));
 
     const visible = (members: GraphNode[], label: string): GraphViewNode[] =>
       expanded.has(label) || members.length <= GROUP_LIMIT
@@ -123,7 +127,7 @@ export function fileFocusGraph(
             {
               id: `file-more:${label}`,
               kind: side === "notes" ? "note" : "code",
-              label: `+${members.length - GROUP_LIMIT} more`,
+              label: `Show ${members.length - GROUP_LIMIT} more`,
               childCount: members.length - GROUP_LIMIT,
               aggregate: true,
             },

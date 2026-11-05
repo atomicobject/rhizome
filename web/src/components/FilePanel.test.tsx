@@ -24,6 +24,10 @@ describe("FilePanel", () => {
       <FilePanel
         onClose={vi.fn()}
         onSelectFile={onSelectFile}
+        graph={{
+          nodes: [{ id: "related", kind: "note", path: "docs/related.md", label: "Related" }],
+          edges: [],
+        }}
         file={{
           path: "src/main.go",
           kind: "code",
@@ -37,6 +41,10 @@ describe("FilePanel", () => {
     );
     expect(screen.getByRole("heading", { name: "Mentioned in1 note" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Documented by1 note" })).toBeVisible();
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
+    ).toEqual(["Documented by1 note", "Mentioned in1 note", "Related in graph1 note"]);
+    expect(screen.getByTitle("2 mentions")).toHaveAttribute("aria-label", "2 mentions");
     const link = screen.getByRole("button", { name: /Guide/ });
     expect(link).toHaveTextContent("docs/guide.md×2");
     fireEvent.click(link);
