@@ -397,7 +397,7 @@ export function ScalarEditableCell({
           row,
           field,
           columnIndex,
-          onOpenRow ? recordDisplayTitle(row, displayValue) : displayValue,
+          onOpenRow ? recordDisplayTitle(row, field, displayValue) : displayValue,
           capability,
         )}
       </button>

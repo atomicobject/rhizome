@@ -90,7 +90,7 @@ export function renderReadOnlyCell(
     const path = row.path || row.ref.notePath;
 
     const display =
-      recordDisplayTitle(row, displayTitle(displayValue || row.title)) || path || "Untitled";
+      recordDisplayTitle(row, field, displayTitle(displayValue || row.title)) || path || "Untitled";
 
     return <PrimaryReadOnlyCell row={row} path={path} display={display} onOpenRow={onOpenRow} />;
   }

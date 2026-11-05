@@ -44,7 +44,10 @@ describe("recordDisplayTitle", () => {
       fields: { summary },
     } satisfies ViewTableRow;
 
-    expect(recordDisplayTitle(row, summary)).toBe(title);
+    expect(recordDisplayTitle(row, "title", summary)).toBe(title);
     expect(row.fields.summary).toBe(summary);
+
+    for (const field of ["name", "identifier", "custom"])
+      expect(recordDisplayTitle(row, field, "Authored value")).toBe("Authored value");
   });
 });

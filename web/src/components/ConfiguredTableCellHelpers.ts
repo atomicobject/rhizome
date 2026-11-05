@@ -48,8 +48,10 @@ export function fieldValue(row: ViewTableRow, field: string) {
 }
 
 /** Embedded rows carry the full display label independently of their summary field. */
-export function recordDisplayTitle(row: ViewTableRow, title: string) {
-  return row.ref.kind === "EMBEDDED" ? displayTitle(row.title) || title : title;
+export function recordDisplayTitle(row: ViewTableRow, field: string, title: string) {
+  return row.ref.kind === "EMBEDDED" && field === "title"
+    ? displayTitle(row.title) || title
+    : title;
 }
 
 export function rawFieldValue(row: ViewTableRow, field: string) {

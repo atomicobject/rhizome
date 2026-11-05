@@ -81,7 +81,10 @@ export function ConfiguredViewRecord({
   onOpenRow,
 }: Props) {
   const typeLabel = useTypeLabel();
-  const title = recordDisplayTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
+
+  const title =
+    recordDisplayTitle(row, "title", displayTitle(row.title)) || row.path || row.ref.notePath;
+
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
   const path = row.path || row.ref.notePath;
   const identifier = recordIdentifier(row, capabilities);
