@@ -13,7 +13,7 @@ import {
 import { useMemo, type ReactNode } from "react";
 
 import { isString } from "./api.ts";
-import { GroupFacts, GroupPage, LifecycleCounts } from "./components.tsx";
+import { GroupFacts, GroupPage } from "./components.tsx";
 import { linkGraph, spineChoices, type LinkGraph } from "./graph.ts";
 import { useGroupModel } from "./load.ts";
 import { traceMatrix, type MatrixColumn, type TraceMatrix } from "./matrix.ts";
@@ -31,12 +31,6 @@ const isSpine = (value: unknown): value is string | null => value === null || is
 const SPINE = {
   defaultValue: DEFAULT_SPINE,
   validate: isSpine,
-};
-
-const RELATION: Record<Extract<MatrixColumn, { kind: "member" }>["relation"], string> = {
-  "linked-from-rows": "linked from rows",
-  "links-to-rows": "link to rows",
-  through: "through other columns",
 };
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
@@ -103,19 +97,9 @@ function ColumnHead({
   const fields = relationFields(matrix, column);
   const label = columnLabel(model, column, fields.length);
 
-  const where =
-    column.kind === "member"
-      ? fields.length
-        ? fields.join(" · ")
-        : RELATION[column.relation]
-      : column.link.targetGroup
-        ? `in ${column.link.targetGroup}`
-        : "outside the group";
-
   const values = column.kind === "member" ? (column.member.lifecycle?.values ?? []) : [];
   const held = column.kind === "member" ? heldValues(matrix, column) : new Set<string>();
   const shown = orderedEnumValues(values).filter((value) => held.has(value.name));
-  const metadata = [where, ...shown.map((value) => value.label ?? value.name)].join(" · ");
 
   return (
     <th
@@ -139,44 +123,41 @@ function ColumnHead({
         >
           {label}
         </button>
-        {column.kind === "member" && <span className="gv-num">{column.member.count}</span>}
+        {column.kind === "member" && <span className="gv-num num">{column.member.count}</span>}
         <span
-          className="gv-cov-count"
+          className="gv-cov-count num"
           title={`${column.covered} of ${matrix.rowCount} rows hold one`}
         >
           <b>{column.covered}</b> of {matrix.rowCount} linked
         </span>
       </div>
-      <div className="gv-cov" title={metadata}>
-        {where}
-        {shown.length > 0 && (
-          <span className="gv-col-legend" aria-label={`${label} status marks`}>
-            {" · "}
-            {shown.map((value, index) => (
-              <span key={value.name}>
-                {index > 0 && " · "}
-                <StatusMark value={value.name} values={values} />
-              </span>
-            ))}
-          </span>
-        )}
-      </div>
+      {shown.length > 1 && (
+        <div className="gv-cov gv-col-legend" aria-label={`${label} status marks`}>
+          {shown.map((value) => (
+            <StatusMark key={value.name} value={value.name} values={values} />
+          ))}
+        </div>
+      )}
     </th>
   );
 }
 
-function SpineHead({ matrix, children }: { matrix: TraceMatrix; children: ReactNode }) {
+function SpineHead({
+  model,
+  matrix,
+  children,
+}: {
+  model: GroupModel;
+  matrix: TraceMatrix;
+  children: ReactNode;
+}) {
   return (
     <th scope="col" className="gv-trace-spine">
-      {children}
-      <div className="gv-cov">
-        {matrix.hierarchical && <>Nested under parents · </>}
-        {matrix.spine.lifecycle ? (
-          <LifecycleCounts member={matrix.spine} />
-        ) : (
-          "Most connected first"
-        )}
+      <div className="gv-head">
+        <span className="gv-member">{memberLabel(model, matrix.spine, { plural: true })}</span>
+        <span className="gv-num num">{matrix.spine.count}</span>
       </div>
+      {children}
     </th>
   );
 }
@@ -300,7 +281,9 @@ function Matrix({
           </colgroup>
           <thead>
             <tr>
-              <SpineHead matrix={matrix}>{children}</SpineHead>
+              <SpineHead model={model} matrix={matrix}>
+                {children}
+              </SpineHead>
               {shownColumns(matrix).map((column) => (
                 <ColumnHead key={column.id} model={model} matrix={matrix} column={column} />
               ))}

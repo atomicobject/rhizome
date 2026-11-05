@@ -13,24 +13,6 @@
   flex: none;
 }
 
-.gv-trace-spine > .gv-cov {
-  margin-top: 4px;
-}
-
-.gv-trace-spine .gv-counts,
-.gv-trace-spine .gv-counts > span {
-  display: inline;
-  font: inherit;
-}
-
-.gv-trace-spine .gv-counts > span + span::before {
-  content: " · ";
-}
-
-.gv-trace-spine .gv-counts .gv-num {
-  margin-left: 4px;
-}
-
 .gv-jump {
   display: flex;
   align-items: center;
@@ -89,4 +71,19 @@
   color: var(--text-muted);
   font-size: 14px;
   font-weight: 400;
+}
+
+.gv-trace-rows {
+  flex-wrap: wrap;
+}
+.gv-trace-rows-label {
+  flex: none;
+}
+.gv-page .gv-trace thead th .gv-col-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.gv-trace thead th.gv-trace-related {
+  width: 280px;
 }
