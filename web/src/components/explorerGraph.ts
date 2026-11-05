@@ -19,9 +19,10 @@ export function focusFolderNodes(nodes: GraphViewNode[], path: string): GraphVie
     ...node,
     center: node.id === `folder:${path}`,
     labelDetail:
-      node.id === "folder:"
+      node.id === "folder:" && path
         ? undefined
-        : node.id === `folder:${path}` ||
+        : !path ||
+            node.id === `folder:${path}` ||
             (node.aggregate && node.path === path) ||
             (node.path || "").split("/").slice(0, -1).join("/") === path
           ? node.labelDetail

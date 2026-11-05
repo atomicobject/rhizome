@@ -116,7 +116,11 @@ export function FolderLegend({
       <div className="graph-type-legend__row graph-type-legend__keys">
         <h3 className="graph-type-legend__title">Graph</h3>
         <span className="graph-type-legend__key">
-          <span className="graph-type-legend__size" aria-hidden="true" />
+          <span
+            className="graph-type-legend__swatch"
+            style={{ background: FOLDER_COLOR, borderRadius: 2 }}
+            aria-hidden="true"
+          />
           Folder
         </span>
         <ul className="graph-type-legend__list">

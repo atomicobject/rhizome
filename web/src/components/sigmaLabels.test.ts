@@ -1,5 +1,8 @@
-import { expect, it } from "vitest";
-import { outwardSpots } from "./sigmaLabels";
+import Sigma from "sigma";
+import { buildSigmaGraph } from "./sigmaGraphData";
+import { installFakeWebGL } from "../test/fakeWebGL";
+import { expect, it, vi } from "vitest";
+import { createLabelPainter, outwardSpots } from "./sigmaLabels";
 
 it("keeps labels on the outward side with leaders no longer than 28px", () => {
   for (const [dx, dy] of [
@@ -21,5 +24,96 @@ it("keeps labels on the outward side with leaders no longer than 28px", () => {
 
       if (dy > 0) expect(box[1]).toBeGreaterThan(110);
     }
+  }
+});
+
+it("drops fixed Explorer detail before moving the label away from its node", () => {
+  const restore = installFakeWebGL();
+  const container = document.createElement("div");
+  document.body.append(container);
+
+  const { graph } = buildSigmaGraph({
+    nodes: [
+      { id: "folder:pkg", kind: "module", label: "pkg", x: 400, y: 200 },
+      { id: "blocker", kind: "module", label: "blocker", x: 120, y: 200 },
+      {
+        id: "folder:pkg/app",
+        kind: "module",
+        path: "pkg/app",
+        label: "app",
+        labelDetail: "111 notes · 1,184 files",
+        x: 300,
+        y: 200,
+      },
+    ],
+    edges: [],
+    scope: { mode: "global" },
+    fixed: true,
+    explorer: true,
+    connectionCounts: new Map(),
+    globalLayout: new Map(),
+    communityColors: new Map(),
+    problemCounts: new Map(),
+    edgeFaint: "#ccc",
+  });
+
+  const sigma = new Sigma(graph, container);
+  const context = document.createElement("canvas").getContext("2d")!;
+
+  try {
+    vi.spyOn(sigma, "getDimensions").mockReturnValue({ width: 400, height: 400 });
+    vi.spyOn(sigma, "framedGraphToViewport").mockImplementation((point) => point);
+    vi.spyOn(sigma, "scaleSize").mockImplementation((size = 10) => size);
+    vi.spyOn(sigma, "getNodeDisplayData").mockImplementation((id) => ({
+      x: id === "folder:pkg/app" ? 300 : id === "blocker" ? 120 : 400,
+      y: 200,
+      size: id === "blocker" ? 60 : 10,
+      color: "blue",
+      label: id === "folder:pkg/app" ? "app" : null,
+      forceLabel: true,
+      hidden: false,
+      highlighted: false,
+      zIndex: 0,
+      type: "circle",
+    }));
+    vi.spyOn(context, "measureText").mockImplementation((text) => ({
+      width: text.length * 8,
+      actualBoundingBoxAscent: 0,
+      actualBoundingBoxDescent: 0,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight: 0,
+      fontBoundingBoxAscent: 0,
+      fontBoundingBoxDescent: 0,
+      alphabeticBaseline: 0,
+      hangingBaseline: 0,
+      ideographicBaseline: 0,
+      emHeightAscent: 0,
+      emHeightDescent: 0,
+    }));
+    const fillText = vi.spyOn(context, "fillText");
+
+    const painter = createLabelPainter(
+      () => sigma,
+      () => ({ label: "black", canvas: "white" }),
+    );
+
+    painter.draw(
+      context,
+      {
+        key: "folder:pkg/app",
+        label: "app",
+        color: "blue",
+        x: 300,
+        y: 200,
+        size: 10,
+      },
+      sigma.getSettings(),
+    );
+    expect(fillText.mock.calls).toEqual([["app", 256, 204.9]]);
+  } finally {
+    sigma.kill();
+    container.remove();
+    vi.restoreAllMocks();
+    restore();
   }
 });

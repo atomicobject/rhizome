@@ -4,6 +4,18 @@ import { fileFocusGraph, focusFolderNodes, onBranch } from "./explorerGraph";
 import { useFolderExplorer } from "./useFolderExplorer";
 
 describe("Explorer focus", () => {
+  it("retains the Vault totals at root and hides them in an expanded branch", () => {
+    const root = {
+      id: "folder:",
+      kind: "module",
+      label: "Vault",
+      path: "",
+      labelDetail: "655 notes · 4,572 files",
+    };
+
+    expect(focusFolderNodes([root], "")[0].labelDetail).toBe(root.labelDetail);
+    expect(focusFolderNodes([root], "pkg/app")[0].labelDetail).toBeUndefined();
+  });
   it("keeps positions while selecting a branch and retaining child counts", () => {
     const nodes = [
       {
@@ -35,6 +47,7 @@ describe("Explorer focus", () => {
       },
     ];
 
+    expect(focusFolderNodes(nodes, "")).toEqual(nodes.map((node) => ({ ...node, center: false })));
     expect(focusFolderNodes(nodes, "pkg")).toEqual([
       { ...nodes[0], center: true },
       { ...nodes[1], center: false },
