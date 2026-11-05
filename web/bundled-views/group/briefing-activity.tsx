@@ -353,7 +353,11 @@ export function OutsideNotes({
           {outside.byType.map((entry) => (
             <span key={entry.type ?? ""}>
               <b className="gv-num">{entry.count}</b>{" "}
-              <span>{outsideLabel(model, entry.type, entry.count)}</span>
+              <span>
+                {title === "Linked from outside"
+                  ? sentence(outsideLabel(model, entry.type, 1))
+                  : outsideLabel(model, entry.type, entry.count)}
+              </span>
             </span>
           ))}
         </p>

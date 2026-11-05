@@ -243,6 +243,8 @@ function InMotion() {
   return (
     <Block
       title="In motion"
+      className="gv-motion"
+      controls={<span className="gv-motion-age-label">Last changed</span>}
       count={
         status.status === "ready" && !rebuilding
           ? types.reduce((sum, type) => sum + type.total, 0)

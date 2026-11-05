@@ -438,7 +438,7 @@ export function NeedsAttention({
   signals: readonly AttentionSignal[];
   info: string;
   memberAction?: MemberAction;
-  part?: "attention" | "review" | "both";
+  part?: "attention" | "review" | "coverage" | "both";
 }) {
   const attention = signals.filter(isAttention);
   // Unlinked records are a coverage fact, not a prompt to act, so they get
@@ -449,7 +449,7 @@ export function NeedsAttention({
   return (
     <MemberActionContext.Provider value={memberAction}>
       {/* The status strip already reads "✓ No issues"; a clean scope says it once. */}
-      {part === "review" || attention.length === 0 ? null : (
+      {(part !== "attention" && part !== "both") || attention.length === 0 ? null : (
         <Block title="Needs attention" count={attention.length} info={info}>
           <ul className="gv-list">
             {attention.map((signal) => (
@@ -458,7 +458,7 @@ export function NeedsAttention({
           </ul>
         </Block>
       )}
-      {part !== "attention" && context.length > 0 && (
+      {(part === "review" || part === "both") && context.length > 0 && (
         <Block
           title="Review suggested"
           // The rows count records, so the heading names what it counts: checks.
@@ -472,7 +472,7 @@ export function NeedsAttention({
           </ul>
         </Block>
       )}
-      {part !== "attention" && coverage.length > 0 && (
+      {(part === "coverage" || part === "both") && coverage.length > 0 && (
         <Block
           title="Link coverage"
           info={{

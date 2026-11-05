@@ -223,9 +223,9 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
   await expect(connections.getByRole("listitem").filter({ hasText: /^Meetings/ })).toContainText(
     "8 of 10 work items linked",
   );
-  await expect(frame.getByRole("region", { name: "Linked from outside" })).toContainText(
-    "review meeting",
-  );
+  await expect(
+    frame.getByRole("region", { name: "Linked from outside" }).locator(".gv-outside-totals"),
+  ).toHaveText("7 Review meeting");
 
   await nextStep.getByRole("button", { name: "Open table" }).click();
   await expect(selectedView(page)).toHaveText("Table");
