@@ -1,9 +1,16 @@
+export { computeEdgeStyle } from "../components/sigmaEdgeStyle";
+
 import type { GraphNode, NodeRef } from "../api/types";
 
 export type SigmaNodeAttrs = {
   label: string;
   kind: string;
   center?: boolean;
+  labelDetail?: string;
+  aggregate?: boolean;
+  fixed?: boolean;
+  explorerLabels?: boolean;
+  priority?: number;
   path?: string;
   notePath?: string;
   nodeId?: string;
@@ -101,7 +108,7 @@ const NODE_ALPHA = {
   deemphHover: { normal: 0.65, zoomed: 0.42 },
 };
 
-const TYPE_HIGHLIGHT_ALPHA = {
+export const TYPE_HIGHLIGHT_ALPHA = {
   node: 0.24,
   edge: 0.28,
 };
@@ -118,11 +125,11 @@ const DESAT = {
   hover: { normal: 0.55, zoomed: 0.8 },
 };
 
-function clamp(value: number, min: number, max: number) {
+export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function lerp(a: number, b: number, t: number) {
+export function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
@@ -229,7 +236,7 @@ function colorWithAlpha(color: string, alpha: number) {
 
 // Sigma blends with ONE, ONE_MINUS_SRC_ALPHA, so translucent colors must carry
 // their alpha in RGB as well as in the alpha channel.
-function colorWithPremultipliedAlpha(color: string, alpha: number) {
+export function colorWithPremultipliedAlpha(color: string, alpha: number) {
   const parsed = parseHexColor(color);
 
   if (!parsed) {
@@ -239,7 +246,10 @@ function colorWithPremultipliedAlpha(color: string, alpha: number) {
   return `rgba(${Math.round(parsed.r * alpha)}, ${Math.round(parsed.g * alpha)}, ${Math.round(parsed.b * alpha)}, ${alpha})`;
 }
 
-function isTypeHighlighted(resolvedType: string | undefined, highlightTypes: ReadonlySet<string>) {
+export function isTypeHighlighted(
+  resolvedType: string | undefined,
+  highlightTypes: ReadonlySet<string>,
+) {
   const typeName = resolvedType?.trim();
 
   return Boolean(typeName && highlightTypes.has(typeName));
@@ -348,7 +358,7 @@ export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
     alpha = Math.max(alpha, lerp(NODE_ALPHA.focus.normal, NODE_ALPHA.focus.zoomed, lod));
   }
 
-  let color = colorWithAlpha(mixedColor, alpha);
+  let color = attrs.explorerLabels ? baseColor : colorWithAlpha(mixedColor, alpha);
   let label = attrs.label;
 
   if (state.showProblems && attrs.problemCount) {
@@ -396,6 +406,8 @@ export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
     label = "";
   }
 
+  if (attrs.fixed && attrs.kind === "module") label = attrs.label;
+
   const dimmedByType = hasTypeHighlighting && !typeMatch && !isFocus && !inHoverCommunity;
 
   const cameraSizeRatio = Math.sqrt(Math.max(state.cameraRatio, 0.0001));
@@ -441,115 +453,3 @@ export type EdgeReducerOutput = {
   size: number;
   label: string;
 };
-
-export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
-  const { source, target, attrs, sourceAttrs, targetAttrs, state, lod } = input;
-  const hasTypeHighlighting = state.highlightTypes.size > 0;
-
-  const sourceTypeMatch =
-    !hasTypeHighlighting || isTypeHighlighted(sourceAttrs.resolvedType, state.highlightTypes);
-
-  const targetTypeMatch =
-    !hasTypeHighlighting || isTypeHighlighted(targetAttrs.resolvedType, state.highlightTypes);
-
-  const hasGraphMatches = state.graphMatches.size > 0;
-
-  const filterActive =
-    (state.searchActive && state.searchOnlyMatches) ||
-    (state.graphFilter && hasGraphMatches) ||
-    state.activeCommunity !== null;
-
-  const sSemantic = state.semanticMatches.has(source);
-  const tSemantic = state.semanticMatches.has(target);
-  const sGraph = hasGraphMatches && state.graphMatches.has(source);
-  const tGraph = hasGraphMatches && state.graphMatches.has(target);
-  const sCluster = state.activeCommunity ? sourceAttrs.community === state.activeCommunity : true;
-  const tCluster = state.activeCommunity ? targetAttrs.community === state.activeCommunity : true;
-
-  if (filterActive) {
-    let sAllowed = true;
-    let tAllowed = true;
-
-    if (state.searchActive && state.searchOnlyMatches) {
-      sAllowed = sAllowed && sSemantic;
-      tAllowed = tAllowed && tSemantic;
-    }
-
-    if (state.graphFilter && hasGraphMatches) {
-      sAllowed = sAllowed && sGraph;
-      tAllowed = tAllowed && tGraph;
-    }
-
-    if (state.activeCommunity) {
-      sAllowed = sAllowed && sCluster;
-      tAllowed = tAllowed && tCluster;
-    }
-
-    if (!sAllowed || !tAllowed) {
-      return { hidden: true, color: state.colors.edgeFaint, size: 0.5, label: "" };
-    }
-  }
-
-  const isHoverEdge =
-    state.hoverNodeID !== null && (source === state.hoverNodeID || target === state.hoverNodeID);
-
-  const isFocus =
-    sSemantic ||
-    tSemantic ||
-    sGraph ||
-    tGraph ||
-    (state.activeCommunity && (sCluster || tCluster)) ||
-    isHoverEdge;
-
-  const hasHighlighting =
-    (state.searchActive && state.semanticMatches.size > 0) ||
-    hasGraphMatches ||
-    state.activeCommunity !== null;
-
-  const sizeScale = lerp(1.15, 0.82, lod);
-  const size = Math.max(0.35, attrs.size * sizeScale);
-  // Edge names show only for what the reader is looking at: a hovered node's or a match's links.
-  const labelVisible = state.showEdgeLabels && Boolean(isFocus);
-  let label = labelVisible ? attrs.label : "";
-
-  let color: string;
-
-  const { edgeFaint, edgeLight, edgeStrong } = state.colors;
-
-  if (isFocus || isHoverEdge) {
-    color = edgeStrong;
-  } else if (hasHighlighting || state.hoverNodeID !== null) {
-    color = edgeFaint;
-  } else {
-    color = lod > 0.3 ? edgeFaint : edgeLight;
-  }
-
-  if (hasTypeHighlighting && (!sourceTypeMatch || !targetTypeMatch) && !isFocus) {
-    color = colorWithPremultipliedAlpha(edgeFaint, TYPE_HIGHLIGHT_ALPHA.edge);
-    label = "";
-  }
-
-  // The folder overview draws few links, so each is essential: opaque in the
-  // 3:1 neutral at 1–2px, fading only when the reader points at another folder.
-  // Minor folder links (folderGraph's MINOR_FOLDER_LINK) wait for a hover on one of their folders.
-  if (attrs.kind === "folder-minor" && !isFocus)
-    return { hidden: true, color: edgeFaint, size: 0.5, label: "" };
-
-  if (attrs.kind === "folder-containment" || attrs.kind === "folder-minor") {
-    const faded = (hasHighlighting || state.hoverNodeID !== null) && !isFocus;
-
-    return {
-      hidden: false,
-      color: faded ? edgeFaint : state.colors.neutral,
-      size: clamp(attrs.size * 0.5, 1, 2),
-      label: attrs.kind === "folder-containment" ? "" : label,
-    };
-  }
-
-  return {
-    hidden: false,
-    color,
-    size,
-    label,
-  };
-}

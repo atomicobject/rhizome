@@ -4,6 +4,8 @@ import Sigma from "sigma";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphEdge, GraphNode } from "../api/types";
 import { installFakeWebGL } from "../test/fakeWebGL";
+import * as layouts from "./graphLayout";
+import type { GraphViewNode } from "./graphViewShared";
 import { useSigmaGraph } from "./useSigmaGraph";
 
 const firstNode: GraphNode = {
@@ -32,8 +34,10 @@ function Harness({
   highlightTypes,
   scope = globalScope,
   problemCounts,
+  layoutExtent,
 }: {
-  nodes: GraphNode[];
+  nodes: GraphViewNode[];
+  layoutExtent?: number;
   onNodeClick: (node: GraphNode) => void;
   highlightTypes?: ReadonlySet<string>;
   scope?: { mode: "global" | "local"; label?: string };
@@ -41,6 +45,7 @@ function Harness({
 }): ReactNode {
   const { containerRef, hover } = useSigmaGraph({
     nodes,
+    layoutExtent,
     problemCounts,
     edges: emptyEdges,
     scope,
@@ -89,6 +94,37 @@ describe("useSigmaGraph renderer lifecycle", () => {
   afterEach(() => {
     restoreWebGL();
     vi.restoreAllMocks();
+  });
+
+  it("keeps fixed coordinates when expanding without running layout", () => {
+    const layout = vi.spyOn(layouts, "runLayout");
+    const onSpy = vi.spyOn(Sigma.prototype, "on");
+
+    const nodes = [
+      { ...firstNode, x: -100, y: 20 },
+      { ...secondNode, x: 80, y: -40 },
+    ];
+
+    const view = render(<Harness nodes={nodes} layoutExtent={500} onNodeClick={vi.fn()} />);
+    const renderer = Array.from(new Set(onSpy.mock.contexts)).filter(isSigma)[0];
+    const before = nodes.map((node) => renderer.getNodeDisplayData(node.id));
+    view.rerender(
+      <Harness
+        nodes={[...nodes, { id: "three", label: "Three", kind: "code", x: 200, y: 50 }]}
+        layoutExtent={500}
+        onNodeClick={vi.fn()}
+      />,
+    );
+
+    for (const node of nodes) {
+      expect(renderer.getGraph().getNodeAttribute(node.id, "x")).toBe(node.x);
+      expect(renderer.getGraph().getNodeAttribute(node.id, "y")).toBe(node.y);
+    }
+
+    expect(renderer.getCustomBBox()).toEqual({ x: [-500, 500], y: [-500, 500] });
+    expect(nodes.map((node) => renderer.getNodeDisplayData(node.id))).toEqual(before);
+    expect(layout).not.toHaveBeenCalled();
+    view.unmount();
   });
 
   it("installs problem counts that arrive while a worker lays the graph out", () => {

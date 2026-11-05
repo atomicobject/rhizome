@@ -13,6 +13,16 @@ export type GraphViewNode = GraphNode & {
   fill?: string;
   /** What `fill` stands for in the legend: a type name, or the code or untyped-notes key. */
   fillKey?: string;
+  /** A fixed position in layout units. When every node passed to GraphView has both,
+   * the renderer uses them as-is and runs no force layout. */
+  x?: number;
+  y?: number;
+  /** Secondary label text drawn after `label` in the muted label colour
+   * (for a count such as `1,295 files`). `label` is the name only. */
+  labelDetail?: string;
+  /** The node stands for several files or folders ("12 more folders"); drawn as
+   * a dashed or hollow ring in its fill colour so it reads as a group, not a file. */
+  aggregate?: boolean;
 };
 
 export type HoverInfo = {
@@ -79,7 +89,7 @@ const NEUTRAL_COLOR = "var(--type-8)";
  */
 export const FOLDER_COLOR = "var(--text)";
 
-export const CODE_COLOR = "var(--graph-code)";
+export const CODE_COLOR = "var(--explorer-code)";
 
 export const UNTYPED_COLOR = NEUTRAL_COLOR;
 
@@ -165,7 +175,7 @@ export function nodeColor(
   if (node.kind === "module") return FOLDER_COLOR;
 
   // Beside type colors, code is one neutral so the legend can name it.
-  if (typeColors && node.kind === "code") return CODE_COLOR;
+  if (typeColors && node.kind === "code") return "var(--graph-code)";
 
   if (node.kind === "embedded") return "var(--type-4)";
 
