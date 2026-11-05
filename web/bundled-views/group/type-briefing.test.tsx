@@ -41,6 +41,7 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
 
   // Newest first, using the same two-line template as Recent changes.
   const motion = await region("In motion");
+  expect(within(motion).getByText("Last changed")).toBeVisible();
 
   expect(recordTitles(motion)).toEqual(["Checkout redesign", "Saved carts"]);
   expect(motion.querySelector(".gv-change-meta")).toHaveTextContent("Story");
@@ -73,6 +74,12 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
   ]);
 
   const linked = await region("Linked from outside");
+
+  expect(
+    [...linked.querySelectorAll(".gv-outside-totals > span > span")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Person", "Area", "Untyped note"]);
 
   expect(itemTexts(linked)).toEqual([
     expect.stringMatching(/^Kickoff/),

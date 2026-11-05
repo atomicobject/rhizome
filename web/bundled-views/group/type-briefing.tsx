@@ -42,6 +42,8 @@ function InMotion({ model }: { model: GroupModel }) {
   return (
     <Block
       title="In motion"
+      className="gv-motion"
+      controls={<span className="gv-motion-age-label">Last changed</span>}
       count={entries.length}
       info={{
         text: "Records whose lifecycle value is in the active stage, newest change first.",

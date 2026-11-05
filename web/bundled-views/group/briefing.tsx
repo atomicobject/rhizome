@@ -49,17 +49,21 @@ function InMotion({ model }: { model: GroupModel }) {
   return (
     <Block
       title="In motion"
+      className="gv-motion"
       count={entries.length}
       info={{
         text: "Records whose lifecycle value is in the active stage, newest change first.",
         display: "title",
       }}
       controls={
-        <StageHints
-          model={model}
-          withoutActiveStage={motion.withoutActiveStage}
-          withoutLifecycle={motion.withoutLifecycle}
-        />
+        <>
+          <StageHints
+            model={model}
+            withoutActiveStage={motion.withoutActiveStage}
+            withoutLifecycle={motion.withoutLifecycle}
+          />
+          <span className="gv-motion-age-label">Last changed</span>
+        </>
       }
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
@@ -68,7 +72,13 @@ function InMotion({ model }: { model: GroupModel }) {
   );
 }
 
-function GroupAttention({ model, part }: { model: GroupModel; part: "attention" | "review" }) {
+function GroupAttention({
+  model,
+  part,
+}: {
+  model: GroupModel;
+  part: "attention" | "review" | "coverage";
+}) {
   const signals = useMemo(() => needsAttention(model, linkGraph(model), Date.now()), [model]);
 
   return (
@@ -82,10 +92,10 @@ function GroupAttention({ model, part }: { model: GroupModel; part: "attention" 
 }
 
 /** Needs attention leads, then the optional review signals, then work in motion. */
-function AttentionBlock({ part }: { part: "attention" | "review" }) {
+function AttentionBlock({ part }: { part: "attention" | "review" | "coverage" }) {
   const state = useGroupModel({ views: false, read: ATTENTION_READ });
 
-  if (part === "review" && state.status !== "ready") return null;
+  if (part !== "attention" && state.status !== "ready") return null;
 
   return (
     <ModelBlock state={state} title="Needs attention" what="what needs attention">
@@ -125,6 +135,7 @@ export default function Briefing(_props: ViewModuleProps) {
             <AttentionBlock part="attention" />
             <AttentionBlock part="review" />
             <MotionBlock />
+            <AttentionBlock part="coverage" />
           </div>
           <div className="gv-brief-col">
             <RecentBlock />

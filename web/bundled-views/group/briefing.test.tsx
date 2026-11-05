@@ -150,6 +150,7 @@ it("says there are no validation issues, and skips unlinked records in a group w
 it("lists active-stage records newest first in flat rows with type metadata", async () => {
   await renderGroupView(loadBriefing);
   const motion = await screen.findByRole("region", { name: "In motion" });
+  expect(within(motion).getByText("Last changed")).toBeVisible();
 
   expect(within(motion).queryByRole("heading", { level: 3 })).toBeNull();
   expect(items(motion).map((entry) => within(entry).getByRole("button").textContent)).toEqual([
@@ -157,6 +158,12 @@ it("lists active-stage records newest first in flat rows with type metadata", as
     "Tax rounding",
     "Saved carts",
   ]);
+  expect(
+    [...motion.parentElement!.querySelectorAll(":scope > section")].map(
+      (section) =>
+        section.getAttribute("aria-labelledby") && section.querySelector("h2 > span")?.textContent,
+    ),
+  ).toEqual(["Needs attention", "Review suggested", "In motion", "Link coverage"]);
   expect(items(motion).every((entry) => entry.querySelector(".gv-change-meta"))).toBe(true);
   expect(motion.querySelectorAll(".gv-mark").length).toBeGreaterThan(0);
   expect(motion.querySelector(".gv-hint-lead")).toHaveTextContent(

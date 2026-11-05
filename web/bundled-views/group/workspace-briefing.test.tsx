@@ -158,6 +158,7 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   );
 
   const motion = region("In motion");
+  expect(within(motion).getByText("Last changed")).toBeVisible();
   expect(motion.querySelector("h3")).toBeNull();
   expect(motion.querySelector(".rz-count")).toHaveTextContent("5");
   expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
