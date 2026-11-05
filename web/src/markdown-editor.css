@@ -13,34 +13,9 @@
   margin: 0;
 }
 
-/* In edit mode each editable section carries a pencil in the left gutter:
-   faint at rest, muted on hover, full ink while its editor has focus. It
-   marks what can be edited without boxing every section. */
-.notes-shell .body-narrative--editor:not(.body-narrative--meta) {
+/* Section marks align to the heading row, in the same gutter as properties. */
+.notes-shell :is(.body-section__title, .body-disclosure__heading):has(> .note-property-pencil) {
   position: relative;
-}
-
-.notes-shell .body-narrative--editor:not(.body-narrative--meta)::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--editor-bleed-block) - 2px);
-  left: -28px;
-  width: 16px;
-  height: 16px;
-  background: currentcolor;
-  color: var(--text-faint);
-  pointer-events: none;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linejoin='round'%3E%3Cpath d='M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z'/%3E%3C/svg%3E")
-    center / 16px 16px no-repeat;
-  transition: color 120ms var(--ease);
-}
-
-.notes-shell .body-narrative--editor:not(.body-narrative--meta):hover::before {
-  color: var(--text-muted);
-}
-
-.notes-shell .body-narrative--editor:not(.body-narrative--meta):focus-within::before {
-  color: var(--text);
 }
 
 /* The lead metadata line keeps its quiet read-mode type while editing. */

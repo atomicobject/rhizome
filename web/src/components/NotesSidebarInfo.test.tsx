@@ -185,6 +185,11 @@ describe("NotesSidebarInfo", () => {
     const navigation = groupSection("Effort materials");
     expect(navigation).not.toHaveAttribute("open");
     expect(navigation.querySelector("summary")).toHaveTextContent(/^Effort materials\s*3$/);
+    const heading = navigation.querySelector("summary h3");
+    expect(heading?.firstChild?.textContent).toBe("Effort materials");
+    expect(heading?.querySelector(".disclosure-toggle")?.nextElementSibling).toHaveClass(
+      "ontology-sidebar-context__count",
+    );
     expect(groupSection("Relations")).toBeVisible();
   });
 });

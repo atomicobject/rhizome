@@ -124,6 +124,11 @@ export function OntologyIdentityStrip({
           />
         )}
         {status}
+        {status && identity.lastUpdated && (
+          <span className="note-identity-separator" aria-hidden="true">
+            ·
+          </span>
+        )}
         {identity.lastUpdated && (
           <FieldSlot
             node={identity.lastUpdated}
