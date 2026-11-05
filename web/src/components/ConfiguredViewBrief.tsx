@@ -224,12 +224,14 @@ export function RecordBriefHeader({
 
 /** The brief under its title: summary, key text callouts, relation chips, reverse lists. */
 export function RecordBriefBody({
+  omitSummary = false,
   row,
   profile,
   capabilities,
   hiddenFields,
   onOpenRow,
 }: {
+  omitSummary?: boolean;
   row: ViewTableRow;
   profile: TypeProfile;
   capabilities: ViewFieldCapability[];
@@ -241,7 +243,7 @@ export function RecordBriefBody({
 
   return (
     <>
-      {facts.summary && (
+      {!omitSummary && facts.summary && (
         <p className="configured-brief__summary configured-brief__summary--brief">
           {facts.summary}
         </p>

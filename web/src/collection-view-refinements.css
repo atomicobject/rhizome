@@ -1,0 +1,33 @@
+.configured-view__table .configured-view__overdue .is-repeat {
+  color: var(--text-faint);
+}
+.configured-card__content {
+  display: contents;
+}
+.configured-card--cards .configured-card__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 5px;
+}
+.configured-card--cards .configured-card__content:has(.configured-card__summary) {
+  /* Two title lines, metadata, three summary lines, and the existing gaps. */
+  height: 121px;
+  overflow: hidden;
+}
+.configured-card--cards .configured-card__summary {
+  line-height: 18px;
+  -webkit-line-clamp: 4;
+}
+.configured-card--cards .configured-card__title-text {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 18px;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.configured-card--cards .configured-card__content .configured-brief__header {
+  line-height: 18px;
+}
