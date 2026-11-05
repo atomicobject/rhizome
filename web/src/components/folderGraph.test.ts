@@ -91,6 +91,15 @@ describe("complete folder model", () => {
     expect(graph.nodes.some((node) => node.id === "note:README.md")).toBe(true);
     expect(graph.children.get("")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(31);
   });
+  it("keeps every top-level folder visible beside root files", () => {
+    const tree = buildFolderTree({
+      nodes: [note("README.md"), ...Array.from({ length: 30 }, (_, i) => code(`part${i}/a.ts`))],
+      edges: [],
+    });
+
+    const graph = visibleFolderGraph(tree, state(), color);
+    expect(graph.children.get("")?.filter((child) => child.folder)).toHaveLength(30);
+  });
   it("auto-opens dominant folders recursively", () => {
     const tree = buildFolderTree({
       nodes: [
@@ -124,6 +133,29 @@ describe("stable radial containment", () => {
     expect(after.edges.filter((e) => e.kind === "folder-containment")).toEqual(
       expect.arrayContaining([expect.objectContaining({ source: "folder:", target: "folder:b" })]),
     );
+  });
+  it("deep expansions add local radii instead of amplifying narrow root wedges", () => {
+    const nodes = Array.from({ length: 20 }, (_, i) => code(`large/p${i}/a.ts`));
+
+    const paths = Array.from(
+      { length: 12 },
+      (_, i) => "tiny/" + Array.from({ length: i }, () => "sub").join("/"),
+    );
+
+    nodes.push(code("tiny/" + "sub/".repeat(11) + "a.ts"));
+    const tree = buildFolderTree({ nodes, edges: [] });
+    const before = layoutFolderGraph(tree, visibleFolderGraph(tree, state(), color));
+    const after = layoutFolderGraph(tree, visibleFolderGraph(tree, state(paths), color));
+    expect(after.layoutExtent).toBe(before.layoutExtent);
+    expect(after.layoutExtent).toBeLessThan(10000);
+
+    for (const edge of after.edges.filter(
+      (e) => e.kind === "folder-containment" && e.source !== "folder:",
+    )) {
+      const parent = after.nodes.find((n) => n.id === edge.source)!;
+      const child = after.nodes.find((n) => n.id === edge.target)!;
+      expect(Math.hypot(child.x! - parent.x!, child.y! - parent.y!)).toBeLessThanOrEqual(1000);
+    }
   });
   it("places linked top-level siblings next to each other", () => {
     const tree = buildFolderTree({

@@ -233,9 +233,7 @@ export function useSigmaGraph({
       showProblems,
     };
 
-    // WHY: type highlighting belongs in Sigma reducers so changing it refreshes
-    // existing node and edge attributes without rebuilding the graph, rerunning
-    // layout, or changing the camera state.
+    // Reducers refresh highlights without rebuilding the graph or moving the camera.
     if (sigmaRef.current) {
       sigmaRef.current.setSetting("renderEdgeLabels", showEdgeLabels);
       scheduleRefresh();
@@ -255,8 +253,7 @@ export function useSigmaGraph({
     showProblems,
   ]);
 
-  // One renderer per mounted container. Data refreshes swap its graph (below)
-  // instead of recreating it, so WebGL state and the camera survive a refresh.
+  // Swap graphs on one renderer to preserve the camera and WebGL state.
   const empty = nodes.length === 0;
 
   useEffect(() => {
@@ -264,7 +261,7 @@ export function useSigmaGraph({
 
     if (!container || needsIndex || empty) return;
 
-    return mountSigmaRenderer({
+    const cleanup = mountSigmaRenderer({
       container,
       sigmaRef,
       graphRef,
@@ -275,11 +272,24 @@ export function useSigmaGraph({
       setHover,
       scheduleRefresh,
     });
+
+    const sigma = sigmaRef.current;
+    const reducer = sigma?.getSetting("edgeReducer");
+
+    if (sigma && reducer)
+      sigma.setSetting("edgeReducer", (id, attrs) => {
+        const result = reducer(id, attrs);
+
+        if (!fixedRef.current || attrs.kind !== "folder-crosslink" || stateRef.current.hoverNodeID)
+          return result;
+
+        return { ...result, size: 0.6, color: stateRef.current.colors.edgeFaint };
+      });
+
+    return cleanup;
   }, [empty, needsIndex, scheduleRefresh]);
 
-  // Builds the graph for the current data and installs it on the renderer once
-  // laid out. Large layouts run in a worker; until one finishes, the renderer
-  // keeps showing the previous graph.
+  // Keep the previous graph visible until this layout is ready.
   useEffect(() => {
     const sigma = sigmaRef.current;
 
@@ -319,7 +329,6 @@ export function useSigmaGraph({
         globalLayoutRef.current = nextLayout;
       }
 
-      // Counts can arrive while a worker lays the graph out; install the latest.
       graph.forEachNode((id) => {
         graph.setNodeAttribute(id, "problemCount", problemCountsRef.current.get(id) ?? 0);
       });
@@ -347,7 +356,6 @@ export function useSigmaGraph({
         didFit.current = true;
       }
 
-      // Ready once the renderer has drawn this graph, not merely received it.
       sigma.once("afterRender", () => setDrawn(nodes));
       scheduleRefresh();
     };
@@ -374,8 +382,7 @@ export function useSigmaGraph({
     typeColors,
   ]);
 
-  // A theme switch re-reads the token colors and repaints in place: no new
-  // renderer, no layout run, and the camera stays where it was.
+  // Repaint theme colors without moving nodes or the camera.
   useEffect(
     () =>
       subscribeColorScheme(() => {
@@ -444,8 +451,6 @@ export function useSigmaGraph({
     stateRef.current.hoverNodeID = null;
     stateRef.current.hoverNeighbors = undefined;
 
-    // A different subject starts from the default view; a refresh of the same
-    // subject keeps the reader's camera.
     if (fixedRef.current) return;
     sigmaRef.current?.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
   }, [scope.label, scope.mode]);

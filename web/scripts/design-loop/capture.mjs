@@ -172,6 +172,7 @@ export const SURFACES = [
     act: async (p) => {
       const rail = p.locator(".explorer-rail");
       await rail.getByRole("button", { name: "pkg", exact: true }).click();
+      await p.locator('[data-graph-ready="true"]').waitFor();
       await rail.getByRole("button", { name: "app", exact: true }).click();
       await p.locator('[data-graph-ready="true"]').waitFor();
       await rail

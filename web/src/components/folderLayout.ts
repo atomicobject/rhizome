@@ -1,36 +1,29 @@
-import { folderWeight, type Folder, type FolderTree } from "./folderTree";
-import type { FolderChild, FolderGraph } from "./folderGraph";
+import { folderWeight, initialOpenFolders, type FolderTree } from "./folderTree";
+import { visibleFolderGraph, type FolderChild, type FolderGraph } from "./folderGraph";
 
 const extents = new WeakMap<FolderTree, number>();
 
-/** Fully expanded child lists give the narrowest wedges and bound every budgeted layout. */
+/** A stable camera frame sized for the overview, rather than every possible expansion. */
 export function folderLayoutExtent(tree: FolderTree) {
   const cached = extents.get(tree);
 
   if (cached !== undefined) return cached;
-  let extent = 1000;
+  const open = initialOpenFolders(tree);
 
-  const visit = (folder: Folder, span: number, radius: number) => {
-    const weights = [
-      ...folder.folders.map((child) => Math.max(1, Math.sqrt(folderWeight(child)))),
-      ...folder.direct.map((node) => (node.kind === "note" ? Math.sqrt(3) : 1)),
-    ];
+  const overview = positionFolderGraph(
+    tree,
+    visibleFolderGraph(
+      tree,
+      {
+        open,
+        explicit: new Set(),
+        showAll: new Set(),
+      },
+      () => undefined,
+    ),
+  );
 
-    if (!weights.length) return;
-    const total = weights.reduce((a, b) => a + b, 0);
-
-    const nextRadius = Math.max(
-      radius + 140,
-      weights.length > 1 ? 90 / ((Math.min(...weights) / total) * span) : 0,
-    );
-
-    extent = Math.max(extent, nextRadius + 300);
-    folder.folders.forEach((child, index) =>
-      visit(child, (span * weights[index]) / total, nextRadius),
-    );
-  };
-
-  visit(tree.root, Math.PI * 2, 0);
+  const extent = Math.max(640, ...overview.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0))) * 2;
   extents.set(tree, extent);
 
   return extent;
@@ -62,40 +55,53 @@ function orderedChildren(tree: FolderTree, path: string, children: FolderChild[]
   return result;
 }
 
-/** Each parent's wedge depends only on its own children, never their open state. */
+/** Child fans depend only on their parent's anchor and child list. */
+function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
+  const positions = new Map<string, { x: number; y: number }>([["folder:", { x: 0, y: 0 }]]);
+
+  const visit = (path: string, x: number, y: number, direction: number) => {
+    const children = orderedChildren(tree, path, graph.children.get(path) ?? []);
+    const n = children.length;
+
+    if (!n) return;
+    const root = path === "";
+    const width = path && !path.includes("/") ? 0.9 : Math.max(0.9, Math.min(2.4, n * 0.22));
+    const floor = root ? Math.max(1, Math.sqrt(folderWeight(tree.root)) / 5) : 1;
+    const weights = children.map((c) => Math.max(floor, Math.sqrt(folderWeight(c.totals))));
+    const total = weights.reduce((a, b) => a + b, 0);
+
+    const radius = root
+      ? Math.max(320, 90 / ((Math.min(...weights) / total) * Math.PI * 2))
+      : Math.max(160, (90 * (n - 1)) / width);
+
+    let start = -Math.PI;
+    children.forEach((child, index) => {
+      const wedge = (weights[index] / total) * Math.PI * 2;
+
+      const angle = root
+        ? start + wedge / 2
+        : direction + (n === 1 ? 0 : (index / (n - 1) - 0.5) * width);
+
+      const point = { x: x + Math.cos(angle) * radius, y: y + Math.sin(angle) * radius };
+      positions.set(child.node.id, point);
+
+      if (child.folder) visit(child.folder.path, point.x, point.y, angle);
+      start += wedge;
+    });
+  };
+
+  visit("", 0, 0, 0);
+
+  return graph.nodes.map((node) => ({ ...node, ...positions.get(node.id) }));
+}
+
 export function layoutFolderGraph(
   tree: FolderTree,
   graph: FolderGraph,
 ): FolderGraph & { layoutExtent: number } {
-  const positions = new Map<string, { x: number; y: number }>([["folder:", { x: 0, y: 0 }]]);
-
-  const visit = (path: string, start: number, span: number, radius: number) => {
-    const children = orderedChildren(tree, path, graph.children.get(path) ?? []);
-
-    if (!children.length) return;
-    const weights = children.map((c) => Math.max(1, Math.sqrt(folderWeight(c.totals))));
-    const total = weights.reduce((a, b) => a + b, 0);
-    const minSpan = (Math.min(...weights) / total) * span;
-    const nextRadius = Math.max(radius + 140, children.length > 1 ? 90 / minSpan : 0);
-    let angle = start;
-    children.forEach((child, index) => {
-      const wedge = (weights[index] / total) * span;
-      const middle = angle + wedge / 2;
-      positions.set(child.node.id, {
-        x: Math.cos(middle) * nextRadius,
-        y: Math.sin(middle) * nextRadius,
-      });
-
-      if (child.folder) visit(child.folder.path, angle, wedge, nextRadius);
-      angle += wedge;
-    });
-  };
-
-  visit("", -Math.PI, Math.PI * 2, 0);
-
   return {
     ...graph,
-    nodes: graph.nodes.map((node) => ({ ...node, ...positions.get(node.id) })),
+    nodes: positionFolderGraph(tree, graph),
     layoutExtent: folderLayoutExtent(tree),
   };
 }
