@@ -23,9 +23,9 @@ import (
 func OntologyQuerySchemaTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		_ = ctx
-		typeName, typeOK := request.GetArguments()["type"].(string)
-		if _, present := request.GetArguments()["type"]; present && !typeOK {
-			return mcp.NewToolResultError("ontology_query_schema: type must be a string"), nil
+		options, err := ontologyquery.DecodeSchemaDiscoveryOptions(request.GetArguments())
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("ontology_query_schema: %v", err)), nil
 		}
 		schema, err := ontoschema.LoadSchema(config.VaultPath)
 		if err != nil {
@@ -35,7 +35,7 @@ func OntologyQuerySchemaTool(config Config) func(context.Context, mcp.CallToolRe
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("ontology_query_schema: %v", err)), nil
 		}
-		payload, err := ontologyquery.DiscoverSchema(schema, execSchema, typeName)
+		payload, err := ontologyquery.DiscoverSchema(schema, execSchema, options)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("ontology_query_schema: %v", err)), nil
 		}

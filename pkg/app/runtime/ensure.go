@@ -50,6 +50,9 @@ func Ensure(ctx context.Context, opts EnsureOptions) (result EnsureResult, resul
 	}
 	defer func() {
 		panicked := recover()
+		if errors.Is(resultErr, os.ErrPermission) && !errors.Is(resultErr, ErrRuntimeAccessDenied) {
+			resultErr = fmt.Errorf("%w: runtime startup requires OS and filesystem permissions; rerun this Rhizome command with the required permissions: %w", ErrRuntimeAccessDenied, resultErr)
+		}
 		status, reason := "success", ""
 		if resultErr != nil {
 			status = "error"
@@ -185,6 +188,9 @@ func buildMismatch(want, got string) bool {
 // instead of spawning a competitor.
 func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any), deadline time.Time, leaseWaits *int) (bool, error) {
 	release, acquired, err := indexlock.TryAcquire(SpawnLockPath(opts.VaultPath))
+	if errors.Is(err, os.ErrPermission) {
+		return false, fmt.Errorf("%w: starting the runtime requires OS and filesystem permissions; rerun this Rhizome command with the required permissions: %w", ErrRuntimeAccessDenied, err)
+	}
 	if err != nil || !acquired {
 		(*leaseWaits)++
 		// A foreign or held lease is not an error for us: another client is
@@ -204,6 +210,8 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 	// Someone may have spawned and released between our probe and this lease.
 	if _, _, err := LiveManifest(ctx, opts.VaultPath); err == nil {
 		return false, nil
+	} else if errors.Is(err, ErrRuntimeAccessDenied) {
+		return false, err
 	}
 	if _, live := LockOwner(opts.VaultPath); live {
 		return false, nil
@@ -232,12 +240,13 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 		return false, nil
 	}
 	if err := ctx.Err(); err != nil {
-		_ = registry.ClearIntent(context.Background(), opts.VaultPath, token)
+		// Intent-gate contention must not extend the caller's deadline.
+		_ = registry.ClearIntent(ctx, opts.VaultPath, token)
 		return false, err
 	}
 	pid, err := spawnHeadlessWithToken(executable, opts.VaultPath, token)
 	if err != nil {
-		_ = registry.ClearIntent(context.Background(), opts.VaultPath, token)
+		_ = registry.ClearIntent(ctx, opts.VaultPath, token)
 		return false, fmt.Errorf("start vault runtime: %w", err)
 	}
 	logf("started vault runtime pid %d", pid)
@@ -270,11 +279,16 @@ func waitProbeReady(ctx context.Context, vaultPath string, deadline time.Time) e
 		return err
 	}
 	for time.Now().Before(deadline) {
-		if _, _, err := LiveManifest(ctx, vaultPath); err == nil {
+		if _, _, err := LiveManifest(gateCtx, vaultPath); err == nil {
 			return nil
+		} else if errors.Is(err, ErrRuntimeAccessDenied) {
+			return err
 		}
 		intent, found, err := registry.StartIntentFor(gateCtx, vaultPath)
 		if err != nil {
+			if gateCtx.Err() != nil && ctx.Err() == nil {
+				break
+			}
 			return err
 		}
 		// Another start may own the intent: an attached serve that won
@@ -284,8 +298,11 @@ func waitProbeReady(ctx context.Context, vaultPath string, deadline time.Time) e
 		if !found || intent.Cancelled {
 			return ErrStartCancelled
 		}
-		if !sleepCtx(ctx, ensurePoll) {
-			return ctx.Err()
+		if !sleepCtx(gateCtx, ensurePoll) {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			break
 		}
 	}
 	return fmt.Errorf("%w: no runtime became ready within spawn budget", ErrNoRuntime)
@@ -324,6 +341,8 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 
 func runtimeDiagnosticReason(err error) string {
 	switch {
+	case errors.Is(err, ErrRuntimeAccessDenied):
+		return "runtime_access_denied"
 	case errors.Is(err, ErrAutostartDisabled):
 		return "autostart_disabled"
 	case errors.Is(err, ErrAttachedMismatch):

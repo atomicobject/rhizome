@@ -77,6 +77,9 @@ func TestValidateCodeInputUsesSelectedContract(t *testing.T) {
 	}
 	require.ErrorContains(t, ValidateCodeInput("query_recipe", map[string]any{"op": "show"}), "list, validate, run")
 	require.NoError(t, ValidateCodeInput("ontology_query", map[string]any{"query": "query { types { name } }", "variables": map[string]any{}}))
+	require.NoError(t, ValidateCodeInput("ontology_query_schema", map[string]any{"types": []any{"Project", "Person"}, "depth": 1, "maxBytes": 8192}))
+	require.Error(t, ValidateCodeInput("ontology_query_schema", map[string]any{"types": "Project"}))
+	require.Error(t, ValidateCodeInput("ontology_query_schema", map[string]any{"type": "Project", "depth": 1.5}))
 }
 
 func TestCodeContractsDescribeDefaultsAndConditionalInputs(t *testing.T) {
@@ -93,6 +96,8 @@ func TestCodeContractsDescribeDefaultsAndConditionalInputs(t *testing.T) {
 		{"find_connections", "limit", float64(25)},
 		{"vault_health", "staleDays", float64(90)},
 		{"next_id", "count", float64(1)},
+		{"ontology_query_schema", "depth", float64(0)},
+		{"ontology_query_schema", "maxBytes", float64(0)},
 	} {
 		descriptor, ok := CodeOperationDescriptor(test.operation)
 		require.True(t, ok, test.operation)
@@ -157,6 +162,10 @@ func TestStartContractIncludesCompactCodeCatalog(t *testing.T) {
 	require.Equal(t, []any{"formatVersion", "versionHash", "operations", "examples"}, code["required"])
 	require.Contains(t, codeProperties, "operations")
 	require.Contains(t, codeProperties, "examples")
+	require.Contains(t, properties, "runtime")
+	runtimeProperties := properties["runtime"].(map[string]any)["properties"].(map[string]any)
+	require.Contains(t, runtimeProperties, "state")
+	require.Contains(t, runtimeProperties, "ready")
 	operation := codeProperties["operations"].(map[string]any)["items"].(map[string]any)
 	require.Equal(t, []any{"name", "method", "summary", "effects"}, operation["required"])
 	require.NotContains(t, operation["properties"], "inputSchema")

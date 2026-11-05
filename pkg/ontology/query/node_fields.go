@@ -30,7 +30,7 @@ func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field
 		return node.Path, true
 	case "title":
 		return node.Title, true
-	case "resolvedType":
+	case "__typename", "resolvedType":
 		return node.TypeName, true
 	case "content":
 		if node.Content == "" {
@@ -220,7 +220,7 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 				return nodeCatalogTitleFromProjection(node.Projection), true, true
 			}
 			return node.Node.Title, true, true
-		case "resolvedType":
+		case "__typename", "resolvedType":
 			return node.TypeName, true, true
 		case recordFieldUpdatedAt:
 			return e.recordUpdatedAt(node.Node.NotePath), true, true

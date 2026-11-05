@@ -88,7 +88,7 @@ func (e *executor) resolveCodeField(ctx context.Context, node *codeRecord, field
 		return node.Path, true
 	case "title":
 		return node.Title, true
-	case "resolvedType":
+	case "__typename", "resolvedType":
 		if node.Anchor != nil {
 			return "CodeSymbol", true
 		}

@@ -23,9 +23,6 @@ func (commandOptions *vaultCommandOptions) newAgentStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Initialize an agent session with vault context",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Fire-and-forget: this read-only command never waits on the
-			// runtime, it only makes sure the vault has one warming up.
-			startVaultRuntimeInBackground(cmd.Context(), commandOptions.vaultDefOrDefaultContext)
 			if !cmd.Flags().Changed("context-file") {
 				contextFiles = nil
 			}
@@ -71,6 +68,7 @@ func (commandOptions *vaultCommandOptions) executeAgentStart(ctx context.Context
 	return agentcode.Start(ctx, agentcode.StartDependencies{
 		ResolveVault: commandOptions.vaultDefOrDefaultContext,
 		Formats:      newNoteFormatRuntime,
+		CheckRuntime: checkAgentStartRuntime,
 		BuildConfig: func(ctx context.Context, budget int, requirements bootstrap.RuntimeRequirements) (agentapi.Config, func(), error) {
 			cfg, runtime, err := commandOptions.buildAgentConfigWithRequirements(ctx, budget, "start", requirements)
 			if err != nil {

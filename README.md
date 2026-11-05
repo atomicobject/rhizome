@@ -89,6 +89,8 @@ Or, for a clear fix:
 
 The skill routes the work according to its size and your team's policy. You can shape an uncertain task together or delegate a bounded task with a clear outcome. [Using the skills](docs/reference/guides/using-skills.md)
 
+Agents can discover query fields and related types in one call: `rzm agent ontology-query-schema --type Effort --depth 1`, or `rzm.ontologyQuerySchema({type: "Effort", depth: 1})` in code mode. Use your vault's type names; `--types` selects several explicitly. Responses report whole definitions, remaining references, and limits.
+
 ## Make it your team's process
 
 Start by editing the generated `docs/engineering/` documents with your team's test commands, review expectations, architecture rules, and release steps. The skills consult these documents as they work. Keep them in Git so improvements reach the whole team.

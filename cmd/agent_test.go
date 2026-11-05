@@ -491,6 +491,7 @@ func TestAgentStartCommandOutputsJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(stdout), &raw))
 	require.NotContains(t, raw, "surface")
 	require.NotContains(t, raw, "diagnostics")
+	require.Contains(t, raw, "runtime", "session start must report its connection check")
 	require.NotContains(t, string(raw["code"]), "inputSchema")
 	require.NotContains(t, string(raw["code"]), "outputSchema")
 	require.NotEmpty(t, resp.SessionID)

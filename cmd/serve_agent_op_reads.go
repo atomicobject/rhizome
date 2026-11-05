@@ -24,7 +24,13 @@ func (l liveCodeModeReads) WaitForCodeIndex(ctx context.Context) error {
 func (l liveCodeModeReads) WaitForSemantic(ctx context.Context) error {
 	return l.rt.WaitForSemantic(ctx)
 }
-func (l liveCodeModeReads) SyncSources(ctx context.Context) error { return l.rt.SyncWatcher(ctx) }
+func (l liveCodeModeReads) SyncSources(ctx context.Context) (bool, error) {
+	err := l.rt.SyncWatcher(ctx)
+	if errors.Is(err, bootstrap.ErrWatcherPending) {
+		return false, nil
+	}
+	return err == nil, err
+}
 
 func (l liveCodeModeReads) ProjectionReadiness(ctx context.Context) (semdb.OntologyReadinessState, error) {
 	store := l.rt.IntelStore()

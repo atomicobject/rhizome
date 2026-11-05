@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
@@ -64,5 +65,49 @@ func TestOntologyQuerySchemaHandlerSharesSelectedContract(t *testing.T) {
 		result := call(value)
 		require.True(t, result.IsError)
 		require.Contains(t, result.Content[0].(mcp.TextContent).Text, message)
+	}
+}
+
+func TestOntologyQuerySchemaHandlerExpandsAndValidatesOptions(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".rhizome", "ontology")
+	require.NoError(t, os.MkdirAll(dir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(`
+type Project @node(paths: ["projects/*.md"]) { owner: Person @link }
+type Person @node(paths: ["people/*.md"]) { name: String! team: Team @link }
+type Team @node(paths: ["teams/*.md"]) { name: String! }
+`), 0644))
+	handler := OntologyQuerySchemaTool(Config{VaultPath: root})
+	call := func(args map[string]any) *mcp.CallToolResult {
+		t.Helper()
+		result, err := handler(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: args}})
+		require.NoError(t, err)
+		return result
+	}
+	for _, args := range []map[string]any{
+		{"type": "Project", "depth": float64(1), "maxBytes": float64(131072)},
+		{"types": []any{"Project", "Person"}},
+	} {
+		result := call(args)
+		require.False(t, result.IsError)
+		var payload ontologyquery.SchemaDiscovery
+		require.NoError(t, json.Unmarshal([]byte(result.Content[0].(mcp.TextContent).Text), &payload))
+		require.Contains(t, payload.IncludedTypes, "Project")
+		require.Contains(t, payload.IncludedTypes, "Person")
+		require.Contains(t, payload.ReferencedTypes, "Team")
+		require.NotContains(t, payload.IncludedTypes, "Team")
+		require.Contains(t, payload.Schema, "type Person")
+	}
+	for _, args := range []map[string]any{
+		{"type": 3},
+		{"types": "Project"},
+		{"types": []any{"Project", 3}},
+		{"type": "Project", "types": []any{"Person"}},
+		{"depth": float64(1)},
+		{"type": "Project", "depth": float64(1.5)},
+		{"type": "Project", "depth": float64(3)},
+		{"type": "Project", "maxBytes": float64(-1)},
+	} {
+		require.True(t, call(args).IsError, "%v", args)
 	}
 }
