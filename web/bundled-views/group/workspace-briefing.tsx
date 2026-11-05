@@ -18,23 +18,18 @@ import {
   useGraphQL,
   useTypeDocs,
   useValidationSummaries,
+  validationScopeKey,
   type ViewModuleProps,
 } from "@rhizome/kit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
+import { commonMotionMetadata, MotionCount } from "./briefing-motion.tsx";
 import { ChangeRow } from "./briefing-activity.tsx";
-import {
-  Block,
-  BlockBody,
-  HealthyAttention,
-  MoreToggle,
-  Rebuilding,
-  lower,
-  plural,
-} from "./briefing-parts.tsx";
+import { Block, BlockBody, MoreToggle, Rebuilding, lower, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
+import { LastChanged, NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { getJSON, refetchFailedTypeDocs } from "./load.ts";
 import { useRememberedOpen } from "./remembered.ts";
 import {
@@ -138,7 +133,7 @@ function NeedsAttention() {
     groups.data?.length === 0 &&
     validation.health === "current_clean"
   )
-    return <HealthyAttention info={info} />;
+    return null;
 
   return (
     <Block
@@ -246,9 +241,32 @@ function InMotion() {
     return many ? (summary?.pluralLabel ?? type) : (summary?.label ?? type);
   };
 
+  const metadata = commonMotionMetadata(
+    types
+      .flatMap((entry) =>
+        (pages?.get(entry.type)?.records ?? []).map((record) => ({
+          type: label(entry.type, false),
+          folder: record.path.split("/").slice(0, -1).join("/"),
+          time: record.updatedAt,
+        })),
+      )
+      .sort((a, b) => (b.time ?? 0) - (a.time ?? 0))
+      .slice(0, expanded.isOpen("in-motion", false) ? undefined : MOTION_PER_TYPE),
+  );
+
   return (
     <Block
       title="In motion"
+      className="gv-motion"
+      controls={<span className="gv-motion-age-label">Last changed</span>}
+      count={
+        status.status === "ready" && !rebuilding ? (
+          <MotionCount
+            count={types.reduce((sum, type) => sum + type.total, 0)}
+            metadata={metadata}
+          />
+        ) : undefined
+      }
       info={{
         text: "Records in an active lifecycle stage, any type, newest change first.",
         display: "title",
@@ -285,6 +303,7 @@ function InMotion() {
                   return (
                     <ChangeRow
                       key={record.key}
+                      compact={!!metadata}
                       line={{
                         key: record.key,
                         title: record.title,
@@ -382,9 +401,47 @@ function RecentChanges() {
   );
 }
 
+function WorkspaceFacts() {
+  const members = useAggregatePart("members");
+  const validation = useValidationSummaries(GLOBAL);
+
+  const recent = useQuery({
+    queryKey: ["group-views", "recent-notes", RECENT_NOTES],
+    queryFn: ({ signal }) =>
+      getJSON(`/api/v1/ontology/types/__all__?limit=${RECENT_NOTES}`, signal),
+    select: parseRecentNotes,
+  });
+
+  const latest = recent.data?.[0]?.updatedAt;
+  const issues = validation.summaries.get(validationScopeKey(GLOBAL[0]))?.issueCount;
+
+  return (
+    <div className="gv-facts">
+      <span className="gv-facts-list" title="Validation includes untyped and ambiguous notes.">
+        {members.data && !members.data.facts.rebuilding && (
+          <span>
+            <b>{fmt(members.data.facts.totalNotes)}</b> notes
+          </span>
+        )}
+        {issues !== undefined &&
+          (issues > 0 ? (
+            <span className="gv-bad">
+              <b>{fmt(issues)}</b> issues
+            </span>
+          ) : (
+            <NoIssues />
+          ))}
+        <ValidationFreshness />
+        {latest && <LastChanged value={latest} />}
+      </span>
+    </div>
+  );
+}
+
 export default function WorkspaceBriefing(_props: ViewModuleProps) {
   return (
     <main className="gv-page">
+      <WorkspaceFacts />
       <div className="gv-brief gv-brief-two">
         <div className="gv-brief-col">
           <NeedsAttention />

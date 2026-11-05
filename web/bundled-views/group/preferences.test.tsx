@@ -5,7 +5,7 @@ import { FakeFetch, jsonReply } from "../../src/test/fakeFetch";
 import { preferenceServer } from "../../src/viewPreferences/testServer";
 import { DISPLAY_GROUPS, NOW, PATHS, RECORDS_DATA } from "./__fixtures__/groups.ts";
 import { groupRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
-import { isJsonObject } from "./api.ts";
+import { isJsonObject, type JsonValue } from "./api.ts";
 import { withChoice } from "./remembered.ts";
 
 const loadTrace = () => import("./trace.tsx");
@@ -112,9 +112,17 @@ it("ignores a remembered row type the group no longer has", async () => {
 
 it("keeps a Briefing signal's records revealed after a reload", async () => {
   // Areas without parents link with nothing else, so Not linked has more than it names.
-  const areas = (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map((area) =>
-    isJsonObject(area) ? { ...area, parent: null } : area,
+  const areas: JsonValue[] = (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map(
+    (area) => (isJsonObject(area) ? { ...area, parent: null } : area),
   );
+
+  areas.push({
+    path: "areas/extra.md",
+    title: "Extra area",
+    parent: null,
+    updatedAt: NOW / 1000,
+    issueCount: 0,
+  });
 
   const routes = groupRoutes({
     "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Area: areas } }),
@@ -133,7 +141,7 @@ it("keeps a Briefing signal's records revealed after a reload", async () => {
   };
 
   const first = await renderGroupView(loadBriefing, { routes, http });
-  fireEvent.click((await unlinked()).getByRole("button", { name: "Show 2 more unlinked notes" }));
+  fireEvent.click((await unlinked()).getByRole("button", { name: "Show 1 more" }));
   await waitFor(() => expect(server.read(SCOPE).values).toHaveProperty("briefing.expanded"));
   first.unmount();
 

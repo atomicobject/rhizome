@@ -256,10 +256,12 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Fixed tracks, shared by the header row and every lane, keep headers over
-  // their cards: open columns run 260–360px, an empty or collapsed value a
-  // compact 140px strip. A narrow window scrolls.
+  // Headers and lanes share bounded populated tracks and 140px empty strips.
   const template = columns.map((item) => (item.strip ? "140px" : "minmax(260px, 360px)")).join(" ");
+
+  const maxWidth =
+    columns.reduce((width, item) => width + (item.strip ? 140 : 440), 0) +
+    (columns.length - 1) * 12;
 
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
@@ -404,7 +406,13 @@ export function ConfiguredViewBoard(props: Props) {
         </div>
       )}
       <div className="configured-view__board-scroll">
-        <div className="configured-view__board-columns" style={{ gridTemplateColumns: template }}>
+        <div
+          className="configured-view__board-columns"
+          style={{
+            gridTemplateColumns: template,
+            maxWidth,
+          }}
+        >
           <BoardColumnHeaders
             items={columns}
             capability={columnCapability}
@@ -446,7 +454,10 @@ export function ConfiguredViewBoard(props: Props) {
               {!collapsed && (
                 <div
                   className="configured-view__board-cells"
-                  style={{ gridTemplateColumns: template }}
+                  style={{
+                    gridTemplateColumns: template,
+                    maxWidth,
+                  }}
                 >
                   {columns.map((item) => renderCell(item, lane))}
                 </div>

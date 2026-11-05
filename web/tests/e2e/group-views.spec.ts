@@ -348,7 +348,13 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
 
   // Areas is the hierarchical type that work items link to, so it is the default.
   await expect(rowsControl.getByRole("radio", { name: "Areas 3 (default)" })).toBeChecked();
-  await expect(table.getByRole("columnheader")).toHaveText([/^Areas/, /^Work items/, /^Releases/]);
+  await expect(
+    table.getByRole("columnheader").first().getByRole("radiogroup", { name: "Rows" }),
+  ).toBeVisible();
+  await expect(table.getByRole("columnheader").filter({ hasNot: rowsControl })).toHaveText([
+    /^Work items/,
+    /^Releases/,
+  ]);
 
   // Search nests under Platform, whose cells roll up the subtree.
   const platform = row("Rows under Platform Platform");
@@ -375,8 +381,7 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
   // Rows switch to another member; the choice lasts for the session.
   await rowsControl.getByText(/^Work items/).click();
   await expect(rowsControl.getByRole("radio", { name: "Work items 4" })).toBeChecked();
-  await expect(table.getByRole("columnheader")).toHaveText([
-    /^Work items/,
+  await expect(table.getByRole("columnheader").filter({ hasNot: rowsControl })).toHaveText([
     /^Areas/,
     /^Releases/,
     /^Owner.*in E2E Contacts/,

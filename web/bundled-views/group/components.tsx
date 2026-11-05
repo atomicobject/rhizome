@@ -11,7 +11,6 @@
 // - openRecord(record), openMemberIssues(member): navigation helpers.
 import {
   Dash,
-  RelativeTime,
   StatusMark,
   openCollection,
   openIssues,
@@ -22,7 +21,8 @@ import {
 import { createContext, useContext, type ReactNode } from "react";
 
 import "./group.css";
-import { NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
+import "./briefing.css";
+import { LastChanged, NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { RECORD_CAP } from "./api.ts";
 import type { GroupModelState } from "./load.ts";
 import {
@@ -262,17 +262,15 @@ export function LifecycleCounts({ member }: { member: Member }) {
 
 /**
  * The strip under the host's title: what the view shows, then the group's
- * facts. A `collection` strip leaves out the type count and the guide, which
+ * facts. A `collection` strip leaves out counts and the guide, which
  * the type Briefing's Guide block shows.
  */
 export function GroupFacts({
   model,
   collection = false,
-  children,
 }: {
   model: GroupModel;
   collection?: boolean;
-  children?: ReactNode;
 }) {
   const records = [...model.records.values()];
   const withIssues = records.filter((record) => record.issueCount > 0).length;
@@ -282,38 +280,15 @@ export function GroupFacts({
 
   return (
     <div className="gv-facts">
-      <span className="gv-facts-note">
-        {children}
-        {model.guide && !collection && (
-          <>
-            {children && " "}
-            Guide:{" "}
-            <button
-              type="button"
-              className="gv-link"
-              onClick={() => openNote(model.guide?.path ?? "")}
-            >
-              {model.guide.title}
-            </button>
-            {model.members.length > 1
-              ? `, shared by ${model.guide.sharedBy} of ${model.members.length} types.`
-              : "."}
-          </>
-        )}
-      </span>
       <span className="gv-facts-list">
         {/* A group counts every note its member types hold, ambiguous notes
             included; Overview counts only typed records, so each names its scope. */}
-        <span
-          title={
-            collection
-              ? undefined
-              : "Every note of the group's types, notes with an ambiguous type included"
-          }
-        >
-          <b>{records.length}</b> {collection ? "record" : "note"}
-          {records.length === 1 ? "" : "s"}
-        </span>
+        {!collection && (
+          <span title="Every note of the group's types, notes with an ambiguous type included">
+            <b>{records.length}</b> note
+            {records.length === 1 ? "" : "s"}
+          </span>
+        )}
         {!collection && (
           <span>
             <b>{model.members.length}</b> {model.members.length === 1 ? "type" : "types"}
@@ -321,7 +296,7 @@ export function GroupFacts({
         )}
         {withIssues ? (
           <span className="gv-bad">
-            {withIssues} {withIssues === 1 ? "record" : "records"} with issues
+            <b>{withIssues}</b> {withIssues === 1 ? "record" : "records"} with issues
           </span>
         ) : (
           <>
@@ -329,10 +304,30 @@ export function GroupFacts({
             <ValidationFreshness />
           </>
         )}
-        {latest > 0 && (
-          <span>
-            changed <RelativeTime value={latest} className="gv-strong" />
-          </span>
+        {latest > 0 && <LastChanged value={latest} />}
+      </span>
+      <span className="gv-facts-note">
+        {model.guide && !collection && (
+          <>
+            Guide:{" "}
+            <button
+              type="button"
+              className="gv-link"
+              title={
+                model.members.length > 1
+                  ? `Shared by ${model.guide.sharedBy} of ${model.members.length} types`
+                  : undefined
+              }
+              aria-description={
+                model.members.length > 1
+                  ? `Shared by ${model.guide.sharedBy} of ${model.members.length} types`
+                  : undefined
+              }
+              onClick={() => openNote(model.guide?.path ?? "")}
+            >
+              {model.guide.title}
+            </button>
+          </>
         )}
       </span>
       {refreshError && (

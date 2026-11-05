@@ -39,11 +39,14 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
     "Degraded health: 1 story",
   ]);
 
-  // Newest first, using the same two-line template as Recent changes.
+  // Shared metadata moves into the heading for a homogeneous list.
   const motion = await region("In motion");
+  expect(within(motion).getByText("Last changed")).toBeVisible();
 
   expect(recordTitles(motion)).toEqual(["Checkout redesign", "Saved carts"]);
-  expect(motion.querySelector(".gv-change-meta")).toHaveTextContent("Story");
+  expect(motion.querySelector(".gv-change-meta")).toBeNull();
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · work/");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(2);
   expect(motion.querySelector(".gv-mark")).toBeNull();
   expect(motion.querySelector(".rz-info")).toBeNull();
   expect(within(motion).getByRole("heading")).toHaveAttribute(
@@ -53,9 +56,10 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
 
   expect(within(await region("Recent changes")).getByText("Checkout redesign")).toBeVisible();
 
-  const spread = await region("Shape");
+  expect(document.querySelector(".gv-facts-list")).not.toHaveTextContent(/records/);
+  const spread = await region("Composition");
 
-  expect(within(spread).getByRole("heading", { name: "Stage lifecycle" })).toBeVisible();
+  expect(within(spread).getByRole("heading", { name: "Stage" })).toBeVisible();
   expect(within(spread).getByRole("heading", { name: "Health ordered" })).toBeVisible();
   expect(within(spread).getByRole("heading", { name: "Kind category" })).toBeVisible();
   expect(within(spread).getByText("Empty")).toHaveTextContent("Empty 2");
@@ -72,6 +76,12 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
   ]);
 
   const linked = await region("Linked from outside");
+
+  expect(
+    [...linked.querySelectorAll(".gv-outside-totals > span > span")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Person", "Area", "Untyped note"]);
 
   expect(itemTexts(linked)).toEqual([
     expect.stringMatching(/^Kickoff/),
@@ -100,7 +110,7 @@ it("briefs an interface across its implementors and flags reverse links most rec
     "No meetings link to 2 of 6 work items",
   );
 
-  const spread = await region("Shape");
+  const spread = await region("Composition");
 
   expect(within(spread).getByRole("heading", { name: "Work item types" })).toBeVisible();
   expect(within(spread).getByText("Story")).toBeVisible();
@@ -118,7 +128,7 @@ it("leaves out In motion for a lifecycle without an active stage", async () => {
 
   // A contract-shaped type has nothing in motion by design; no hint to change the schema.
   expect(
-    within(await region("Shape")).getByRole("heading", { name: "Memo status lifecycle" }),
+    within(await region("Composition")).getByRole("heading", { name: "Memo status" }),
   ).toBeVisible();
   expect(screen.queryByRole("region", { name: "In motion" })).toBeNull();
   expect(screen.queryByText(/has no active stage/)).toBeNull();
@@ -127,17 +137,17 @@ it("leaves out In motion for a lifecycle without an active stage", async () => {
 it("leaves out In motion for a type without a lifecycle", async () => {
   await openType("Area");
 
-  await region("Shape");
+  await region("Composition");
   expect(screen.queryByRole("region", { name: "In motion" })).toBeNull();
   expect(
-    within(await region("Shape")).getByRole("heading", { name: "Category category" }),
+    within(await region("Composition")).getByRole("heading", { name: "Category category" }),
   ).toBeVisible();
 });
 
 it("charts a dated type's primary date by month and collapses a burst of changes", async () => {
   await openType("Meeting");
 
-  const spread = await region("Shape");
+  const spread = await region("Composition");
 
   expect(
     within(spread).getByRole("img", {

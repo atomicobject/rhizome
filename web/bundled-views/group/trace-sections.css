@@ -1,0 +1,92 @@
+/* Header controls replace the separate Trace toolbar. */
+.gv-trace .gv-col-spine,
+.gv-trace thead th.gv-trace-spine {
+  width: calc(34% + 80px);
+}
+
+/* Wide enough for "Related materials 2" and its coverage on one line. */
+.gv-trace .gv-trace-related {
+  width: 280px;
+  min-width: 280px;
+}
+.gv-trace .gv-trace-related .gv-head > .gv-member {
+  flex: none;
+}
+
+.gv-trace-spine > .gv-cov {
+  margin-top: 4px;
+}
+
+.gv-trace-spine .gv-counts,
+.gv-trace-spine .gv-counts > span {
+  display: inline;
+  font: inherit;
+}
+
+.gv-trace-spine .gv-counts > span + span::before {
+  content: " · ";
+}
+
+.gv-trace-spine .gv-counts .gv-num {
+  margin-left: 4px;
+}
+
+.gv-jump {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 20px;
+  gap: 0 8px;
+  font-size: 14px;
+}
+
+.gv-jump-label {
+  margin-right: 4px;
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-jump > button + button::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--text-faint);
+}
+
+.gv-jump .num {
+  color: var(--text-muted);
+}
+
+.gv-trace-rows {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gv-trace-rows-label {
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-page .gv-trace thead th .gv-cov {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Materials carry no lifecycle: no placeholder mark, so their titles start
+   on the cell's inset like the empty-cell dash. */
+.gv-trace td .gv-square {
+  display: none;
+}
+
+.gv-jump > button:disabled,
+.gv-jump > button:disabled .num {
+  color: var(--text-faint);
+}
+
+.gv-section .gv-table td.gv-col-type,
+.gv-section .gv-table td.gv-col-type > span {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}

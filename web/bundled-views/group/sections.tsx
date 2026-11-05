@@ -43,6 +43,8 @@ import {
   type MemberField,
 } from "./model.ts";
 
+import "./trace-sections.css";
+
 /** True when one concrete type holds more than 90% of the member's records. */
 function oneTypeDominates(member: Member) {
   const counts = new Map<string, number>();
@@ -142,7 +144,13 @@ function Row({
       {columns.map((column) => (
         <td
           key={column.kind === "field" ? column.id : column.kind}
-          className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+          className={
+            column.kind === "lifecycle"
+              ? "gv-col-status"
+              : column.kind === "type"
+                ? "gv-col-type"
+                : undefined
+          }
         >
           <Cell model={model} member={member} record={record} column={column} />
         </td>
@@ -185,22 +193,22 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
       <header className="gv-section-head">
         <h2>
           <MemberHeading model={model} member={member} />
-          <span
-            className="rz-info"
-            tabIndex={0}
-            title={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
-            aria-label={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
-          >
-            <Info size={14} aria-hidden="true" />
-          </span>
         </h2>
         <span className="gv-num">{member.count}</span>
+        {member.description && <span className="gv-desc">{firstSentence(member.description)}</span>}
+        <span
+          className="rz-info"
+          tabIndex={0}
+          title={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+          aria-label={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+        >
+          <Info size={14} aria-hidden="true" />
+        </span>
         {member.issueCount > 0 && (
           <button type="button" className="gv-issues" onClick={() => openMemberIssues(member)}>
             {member.issueCount} {member.issueCount === 1 ? "issue" : "issues"}
           </button>
         )}
-        {member.description && <span className="gv-desc">{firstSentence(member.description)}</span>}
         <LifecycleCounts member={member} />
       </header>
       {rows.length === 0 ? (
@@ -214,7 +222,13 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
                 <th
                   scope="col"
                   key={column.kind === "field" ? column.id : column.kind}
-                  className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+                  className={
+                    column.kind === "lifecycle"
+                      ? "gv-col-status"
+                      : column.kind === "type"
+                        ? "gv-col-type"
+                        : undefined
+                  }
                 >
                   {columnLabel(member, column)}
                 </th>
@@ -268,27 +282,31 @@ function SectionsBody({ model }: { model: GroupModel }) {
 
   return (
     <>
-      <GroupFacts model={model}>
-        {members.length > 1 && (
-          <nav className="gv-jump" aria-label="Jump to section">
-            {members.map((member) => (
-              <button
-                key={member.name}
-                type="button"
-                className="gv-link"
-                onClick={() =>
-                  document
-                    .getElementById(sectionId(member))
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              >
-                {memberLabel(model, member, { plural: true })}{" "}
-                <span className="gv-num">{member.count}</span>
-              </button>
-            ))}
-          </nav>
-        )}
-      </GroupFacts>
+      <GroupFacts model={model} />
+      {members.length > 1 && (
+        <nav className="gv-jump" aria-label="Jump to section">
+          <span className="gv-jump-label">Jump to</span>
+          {members.map((member) => (
+            <button
+              key={member.name}
+              type="button"
+              className="gv-link"
+              disabled={member.count === 0}
+              data-empty={member.count === 0 || undefined}
+              aria-label={`${memberLabel(model, member, { plural: true })} ${member.count}`}
+              title={`${memberLabel(model, member, { plural: true })} ${member.count}`}
+              onClick={() =>
+                document
+                  .getElementById(sectionId(member))
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            >
+              {memberLabel(model, member, { plural: true })}{" "}
+              <span className="num">{member.count}</span>
+            </button>
+          ))}
+        </nav>
+      )}
       {members.map((member) => (
         <Section key={member.name} model={model} member={member} />
       ))}

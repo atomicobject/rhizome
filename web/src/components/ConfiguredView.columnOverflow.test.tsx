@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
+import { ConfiguredViewFooter } from "./ConfiguredViewStatus";
 import { RailHarness, typeView as view } from "./ConfiguredView.typeFixtures";
 
 const WRAP = "configured-view__table-wrap";
@@ -51,7 +52,7 @@ describe("table column overflow", () => {
 
       expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Updated" })).toBeVisible();
-      expect(screen.getByText("1 column in Record")).toBeVisible();
+      expect(screen.getByText(/ID in Record/)).toBeVisible();
       expect(screen.getByText(/ID shows in the Record pane/)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Open Alpha Spec" }));
@@ -70,9 +71,35 @@ describe("table column overflow", () => {
 
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
       expect(screen.queryByText(/in Record/)).toBeNull();
+      expect(screen.getByText("Status hidden")).toBeVisible();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
       // The table groups by Status, so that column leaves: 754 less its 136.
       expect(screen.getByRole("table")).toHaveStyle({ minWidth: "618px" });
     });
   });
+});
+
+it("counts column notes when they name more than two fields, naming them in the title", () => {
+  render(
+    <ConfiguredViewFooter
+      summary="52 rows"
+      collapsed="1 group collapsed"
+      loadingMore={false}
+      stagedCount={0}
+      moved={["Governing specs", "Created at"]}
+      hidden={["Status column hidden", "Type column hidden"]}
+      pager={null}
+      onPage={() => {}}
+    />,
+  );
+  const summary = screen.getByText("2 in Record · 2 hidden");
+  expect(summary).toBeVisible();
+  expect(summary).toHaveAttribute(
+    "title",
+    "In Record: Governing specs, Created at. Hidden: Status, Type",
+  );
+  fireEvent.click(summary);
+  expect(screen.getByText(/Governing specs, Created at show in the Record pane/)).toBeVisible();
+  expect(screen.getByText(/Status column hidden/)).toBeVisible();
+  expect(screen.getByText("1 group collapsed")).toBeVisible();
 });

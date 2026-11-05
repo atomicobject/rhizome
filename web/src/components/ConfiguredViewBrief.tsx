@@ -7,7 +7,6 @@ import type {
   ViewFieldCapability,
   ViewTableRow,
 } from "../api/types";
-import { publicWorkspaceRef } from "../api/client";
 import { enumLabel } from "../lib/labels";
 import { changedFields } from "../staging/stagedState";
 import type { OpenMode } from "./useNoteTabs";
@@ -17,9 +16,9 @@ import {
   editOpForCell,
   stagedTargetForRow,
 } from "./ConfiguredTableCellHelpers";
-import { ChangedCell, relationTargetRow } from "./ConfiguredTableCellReadOnly";
+import { ChangedCell } from "./ConfiguredTableCellReadOnly";
 import { moveMenuFocus, usePopoverDismiss } from "./focusManagement";
-import { NoteLinkPreview } from "./notePreview/NoteLinkPreview";
+import { RelationChips, RelationLink } from "./ConfiguredViewRelations";
 import { StatusMark } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
@@ -181,30 +180,40 @@ export function RecordBriefHeader({
   const facts = recordFacts(row, profile, capabilities);
   const lifecycle = lifecycleTag(row, profile, capabilities);
 
-  // The group already names the omitted field, but an editable one stays: it is
-  // the card's only way to change that value in place.
+  const echoes = (tag: (typeof facts.orderedTags)[number]) =>
+    Boolean(omitField) &&
+    [tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField);
+
+  // An editable echo stays (the card's only editor) but waits for hover or focus.
   const editable = (tag: (typeof facts.orderedTags)[number]) =>
     Boolean(onStageOps && tag.capability.edit && !tag.capability.edit.list);
 
   const tags = (lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags).filter(
-    (tag) =>
-      !omitField ||
-      editable(tag) ||
-      ![tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField),
+    (tag) => !echoes(tag) || editable(tag),
   );
 
   return (
     <span className="configured-brief__header">
       {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
-      {tags.map((tag) => (
-        <TagMenu
-          key={tag.field}
-          row={row}
-          tag={tag}
-          editSession={editSession}
-          onStageOps={onStageOps}
-        />
-      ))}
+      {tags.map((tag) => {
+        const menu = (
+          <TagMenu
+            key={tag.field}
+            row={row}
+            tag={tag}
+            editSession={editSession}
+            onStageOps={onStageOps}
+          />
+        );
+
+        return echoes(tag) ? (
+          <span key={tag.field} className="configured-brief__group-echo">
+            {menu}
+          </span>
+        ) : (
+          menu
+        );
+      })}
       <span className="configured-brief__end">
         <People facts={facts.people} />
         {changedAge(row)}
@@ -300,90 +309,6 @@ function People({ facts }: { facts: RelationFact[] }) {
       {initials(name)}
     </abbr>
   ));
-}
-
-function RelationChips({
-  row,
-  fact,
-  onOpenRow,
-  limit,
-}: {
-  row: ViewTableRow;
-  fact: RelationFact;
-  onOpenRow: OpenRow;
-  limit?: number;
-}) {
-  const shown = limit ? fact.values.slice(0, limit) : fact.values;
-  const rest = fact.values.length - shown.length;
-
-  return (
-    <span className="configured-brief__chips" title={limit ? fact.label : undefined}>
-      {shown.map((value, index) => (
-        <span key={`${value.value}:${index}`} className="configured-brief__chip">
-          <RelationLink row={row} value={value} onOpenRow={onOpenRow} />
-        </span>
-      ))}
-      {rest > 0 && <span className="configured-brief__more">+{rest}</span>}
-    </span>
-  );
-}
-
-function RelationLink({
-  row,
-  value,
-  onOpenRow,
-}: {
-  row: ViewTableRow;
-  value: RelationFact["values"][number];
-  onOpenRow: OpenRow;
-}) {
-  const title = relationTitle(value);
-  const target = value.ref ? publicWorkspaceRef(value.ref) : "";
-  const status = value.status && <RelationStatus status={value.status} />;
-
-  if (!target) {
-    return (
-      <span>
-        {status}
-        {title}
-      </span>
-    );
-  }
-
-  return (
-    // A link inside a draggable card must not start the card's drag.
-    <span className="link-secondary" data-configured-relation-link>
-      {status}
-      <NoteLinkPreview
-        target={target}
-        from={row.ref.notePath || row.path}
-        open={(next, mode) =>
-          onOpenRow(
-            relationTargetRow(next, next === target ? title : undefined, value.ref),
-            mode === "beside" ? "beside" : "activate",
-          )
-        }
-      >
-        {title}
-      </NoteLinkPreview>
-    </span>
-  );
-}
-
-/** A linked record's lifecycle value: its status mark, named for screen readers and on hover. */
-function RelationStatus({
-  status,
-}: {
-  status: NonNullable<RelationFact["values"][number]["status"]>;
-}) {
-  const label = enumLabel(status.value, status.label);
-
-  return (
-    <span className="configured-brief__status" title={label}>
-      <StatusMark tone={status.tone} label="" />
-      <span className="sr-only">{label}</span>
-    </span>
-  );
 }
 
 /** An enum tag that stages a new value through the edit session, like a table cell edit. */

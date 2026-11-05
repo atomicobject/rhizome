@@ -19,11 +19,12 @@ export function Implementors({ model, member }: { model: GroupModel; member: Mem
 
   return (
     <p className="gv-kinds">
-      {entries.map(([type, count]) => {
+      {entries.map(([type, count], index) => {
         const labels = model.typeLabels.get(type);
 
         return (
           <span key={type}>
+            {index > 0 && <span aria-hidden="true"> · </span>}
             {labels ? typeLabel(labels, { prefix: model.labelPrefix }) : fieldLabel(type)}{" "}
             <span className="gv-num">{count}</span>
           </span>

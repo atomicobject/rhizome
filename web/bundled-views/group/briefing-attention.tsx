@@ -1,10 +1,9 @@
-// The Briefings' Needs attention block: one row per signal, each with a count,
-// its records, and an action.
 import { RelativeTime, openCollection } from "@rhizome/kit";
-import { Fragment, createContext, useContext, type ReactNode } from "react";
+import { Fragment, createContext, useContext } from "react";
 
 import { STALE_DAYS, type AttentionSignal, type MemberRecords } from "./activity.ts";
 import { openMemberIssues, openRecord } from "./components.tsx";
+import { SignalExamples, SignalRow } from "./briefing-signal-examples.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import {
   Block,
@@ -23,10 +22,8 @@ import {
   type Member,
 } from "./model.ts";
 
-/** Records named under an attention signal before "+N more". */
 export const SIGNAL_RECORDS = 3;
 
-/** What a signal offers for its records' member: by default, opening its collection. */
 export type MemberAction = { label: (member: Member) => string; run: (member: Member) => void };
 
 const OPEN_COLLECTION: MemberAction = {
@@ -36,11 +33,6 @@ const OPEN_COLLECTION: MemberAction = {
 
 const MemberActionContext = createContext<MemberAction>(OPEN_COLLECTION);
 
-/**
- * The records behind a signal as rows, title left and age right, grouped
- * under their member's label when several members hold them. A member's label
- * runs `onMember`; titles open the records. "Show N more" sits on its own line.
- */
 function SignalRecords({
   id,
   model,
@@ -48,7 +40,6 @@ function SignalRecords({
   onMember,
   unlinked = false,
 }: {
-  /** The signal's stable key, under which its expansion is remembered. */
   id: string;
   unlinked?: boolean;
   model: GroupModel;
@@ -56,6 +47,72 @@ function SignalRecords({
   onMember: (member: Member) => void;
 }) {
   const expanded = useRememberedOpen("briefing.expanded");
+
+  if (unlinked)
+    return (
+      <div className="gv-coverage">
+        {groups
+          .filter((group) => group.records.length > 0)
+          .map((group) => {
+            const member = memberOf(model, group.member);
+            const key = `signal:${id}:${group.member}`;
+            const open = expanded.isOpen(key, false);
+            const hidden = group.records.length - SIGNAL_RECORDS;
+
+            const subtypes = group.records.map(
+              (record) => model.typeLabels.get(record.type)?.label ?? fieldLabel(record.type),
+            );
+
+            const showSubtype =
+              new Set(subtypes).size > 1 ||
+              subtypes.some(
+                (label) => label !== member?.label && label !== `${member?.label} note`,
+              );
+
+            return (
+              <div key={group.member}>
+                <h3 className="gv-sig-member">
+                  {member ? memberLabel(model, member, { plural: true }) : group.member}{" "}
+                  <span className="gv-num">{group.records.length}</span>
+                </h3>
+                <ul className="gv-sig-rows" data-subtypes={showSubtype || undefined}>
+                  {(open ? group.records : group.records.slice(0, SIGNAL_RECORDS)).map((record) => {
+                    const specific =
+                      model.typeLabels.get(record.type)?.label ?? fieldLabel(record.type);
+
+                    return (
+                      <li key={record.key} className="gv-sig-row">
+                        <span>
+                          <button
+                            type="button"
+                            className="gv-inline"
+                            onClick={() => openRecord(record)}
+                          >
+                            {record.title}
+                          </button>
+                        </span>
+                        {showSubtype && <span className="gv-coverage-subtype">{specific}</span>}
+                        {record.updatedAt !== null ? (
+                          <RelativeTime value={record.updatedAt} className="gv-age" />
+                        ) : (
+                          <span />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {hidden > 0 && (
+                  <MoreToggle
+                    hidden={hidden}
+                    open={open}
+                    onToggle={() => expanded.setOpen(key, !open)}
+                  />
+                )}
+              </div>
+            );
+          })}
+      </div>
+    );
   const open = expanded.isOpen(`signal:${id}`, false);
   const setOpen = (next: boolean) => expanded.setOpen(`signal:${id}`, next);
   const total = groups.reduce((sum, group) => sum + group.records.length, 0);
@@ -99,11 +156,6 @@ function SignalRecords({
                   >
                     {record.title}
                   </button>
-                  {unlinked && (
-                    <span className="gv-sub">
-                      {model.typeLabels.get(record.type)?.label ?? member?.label}
-                    </span>
-                  )}
                   {record.updatedAt !== null && (
                     <RelativeTime value={record.updatedAt} className="gv-age" />
                   )}
@@ -115,52 +167,10 @@ function SignalRecords({
       </ul>
       {hidden > 0 && (
         <div className="gv-sig-more">
-          {unlinked ? (
-            <button
-              type="button"
-              className="rz-text-button rz-more"
-              aria-expanded={open}
-              onClick={() => setOpen(!open)}
-            >
-              {open ? "Show fewer" : `Show ${hidden} more unlinked notes`}
-            </button>
-          ) : (
-            <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
-          )}
+          <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
         </div>
       )}
     </>
-  );
-}
-
-type SignalAction = { label: string; run: () => void };
-
-function SignalRow({
-  count,
-  severity,
-  text,
-  action,
-  children,
-}: {
-  count: ReactNode;
-  severity: "risk" | "warning" | "ok" | "context";
-  text: ReactNode;
-  action?: SignalAction | null;
-  children?: ReactNode;
-}) {
-  return (
-    <li className="gv-sig" data-severity={severity}>
-      <span className="gv-sig-count">{count}</span>
-      <span className="gv-sig-text">{text}</span>
-      {action ? (
-        <button type="button" className="gv-link gv-sig-act" onClick={action.run}>
-          {action.label}
-        </button>
-      ) : (
-        <span />
-      )}
-      {children && <div className="gv-sig-detail">{children}</div>}
-    </li>
   );
 }
 
@@ -262,12 +272,16 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
           }
           action={action}
         >
-          <SignalRecords
-            id={signalKey(signal)}
-            model={model}
-            groups={groups}
-            onMember={openMember}
-          />
+          <SignalExamples
+            label={`${signal.records.length} ${lower(member ? memberLabel(model, member, { plural: true }) : "records")}`}
+          >
+            <SignalRecords
+              id={signalKey(signal)}
+              model={model}
+              groups={groups}
+              onMember={openMember}
+            />
+          </SignalExamples>
         </SignalRow>
       );
     }
@@ -359,7 +373,6 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
   }
 }
 
-/** The records behind a signal, by member. */
 function signalGroups(model: GroupModel, signal: AttentionSignal): readonly MemberRecords[] {
   switch (signal.kind) {
     case "tone":
@@ -388,12 +401,6 @@ function signalKey(signal: AttentionSignal) {
   }
 }
 
-/**
- * The block for `signals`, explained by `info`. A signal whose records all
- * belong to one member offers `memberAction`, which by default opens that
- * member's collection. `part` renders only Needs attention or only Review
- * suggested, so a Briefing can put work in motion between them.
- */
 export function NeedsAttention({
   model,
   signals,
@@ -405,7 +412,7 @@ export function NeedsAttention({
   signals: readonly AttentionSignal[];
   info: string;
   memberAction?: MemberAction;
-  part?: "attention" | "review" | "both";
+  part?: "attention" | "review" | "coverage" | "both";
 }) {
   const attention = signals.filter(isAttention);
   // Unlinked records are a coverage fact, not a prompt to act, so they get
@@ -416,7 +423,7 @@ export function NeedsAttention({
   return (
     <MemberActionContext.Provider value={memberAction}>
       {/* The status strip already reads "✓ No issues"; a clean scope says it once. */}
-      {part === "review" || attention.length === 0 ? null : (
+      {(part !== "attention" && part !== "both") || attention.length === 0 ? null : (
         <Block title="Needs attention" count={attention.length} info={info}>
           <ul className="gv-list">
             {attention.map((signal) => (
@@ -425,7 +432,7 @@ export function NeedsAttention({
           </ul>
         </Block>
       )}
-      {part !== "attention" && context.length > 0 && (
+      {(part === "review" || part === "both") && context.length > 0 && (
         <Block
           title="Review suggested"
           // The rows count records, so the heading names what it counts: checks.
@@ -439,7 +446,7 @@ export function NeedsAttention({
           </ul>
         </Block>
       )}
-      {part !== "attention" && coverage.length > 0 && (
+      {(part === "coverage" || part === "both") && coverage.length > 0 && (
         <Block
           title="Link coverage"
           info={{

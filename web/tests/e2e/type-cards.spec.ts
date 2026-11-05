@@ -1,7 +1,9 @@
 import { expect, test } from "./fixtures";
 import { chooseView, expectViewSettled } from "./workspaceView";
 
-test("cards place metadata immediately below one-line and two-line titles", async ({ page }) => {
+test("cards place metadata immediately below one-line and two-line titles and align grid row heights", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/notes/tv-work-item");
   await chooseView(page, "Cards");
@@ -37,6 +39,11 @@ test("cards place metadata immediately below one-line and two-line titles", asyn
     expect(layout.titleHeight).toBeCloseTo(layout.textHeight, 0);
     expect(layout.gap).toBeLessThanOrEqual(8);
   }
+
+  expect(await short.evaluate((el) => el.getBoundingClientRect().height)).toBeCloseTo(
+    await long.evaluate((el) => el.getBoundingClientRect().height),
+    0,
+  );
 
   if (process.env.RHIZOME_CARDS_SCREENSHOT) {
     await page.screenshot({ path: process.env.RHIZOME_CARDS_SCREENSHOT, fullPage: true });

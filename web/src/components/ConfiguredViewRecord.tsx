@@ -110,7 +110,10 @@ export function ConfiguredViewRecord({
           {fields.map((capability) => (
             <div key={capability.key}>
               <dt>{capabilityLabel(capability)}</dt>
-              <dd>
+              <dd
+                title={!fieldValue(row, capability.key) ? "Not set" : undefined}
+                aria-label={!fieldValue(row, capability.key) ? "Not set" : undefined}
+              >
                 <ConfiguredTableCellContent
                   viewID={viewID}
                   vaultKey={vaultKey}
@@ -128,7 +131,10 @@ export function ConfiguredViewRecord({
           {moved.map((column) => (
             <div key={column.field}>
               <dt>{columnLabel(column, capabilities)}</dt>
-              <dd>
+              <dd
+                title={!fieldValue(row, column.field) ? "Not set" : undefined}
+                aria-label={!fieldValue(row, column.field) ? "Not set" : undefined}
+              >
                 <ConfiguredTableCellContent
                   viewID={viewID}
                   vaultKey={vaultKey}
@@ -217,7 +223,7 @@ function CopyPath({ path }: { path: string }) {
       }}
     >
       <Copy size={13} aria-hidden />
-      {copied ? "Copied" : "Path"}
+      {copied ? "Copied" : "Copy path"}
     </button>
   );
 }

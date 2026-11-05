@@ -102,7 +102,7 @@ export function ConfiguredViewCards(props: Props) {
               row={row}
               profile={profile}
               capabilities={props.capabilities}
-              hiddenFields={[]}
+              hiddenFields={omitField ? [omitField] : []}
               onOpenRow={props.onOpenRow}
             />
           ),
