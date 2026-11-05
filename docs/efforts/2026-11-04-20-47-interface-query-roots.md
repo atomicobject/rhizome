@@ -47,7 +47,7 @@ A shared `Meeting` root returns both general meetings and coaching sessions in o
 
 ## Actual Delivered
 
-Delivered on `investigate-interface-query-roots` by `09b23b48` and `eb010a93`. Eligible note interfaces expose the typed-note API, shared constraints, global pages and concrete identity. Nine focused regressions cover the contract; the real CLI and saved-recipe fixture verify the motivating meeting collection. The PR link is recorded below once opened.
+Delivered on `investigate-interface-query-roots` by `09b23b48` and `eb010a93`. Eligible note interfaces expose the typed-note API, shared constraints, global pages and concrete identity. Nine focused regressions cover the contract; the real CLI and saved-recipe fixture verify the motivating meeting collection. Delivery PR: [#92](https://github.com/atomicobject/rhizome/pull/92).
 
 ## Deviations
 
@@ -67,7 +67,7 @@ No additional reusable finding is proposed. The existing multi-type indexed read
 
 ## Status
 
-Complete delivery: approved behavior, local gates and independent reviews pass. PR publication and CI readiness remain release steps; the PR must stay open and unmerged.
+Complete delivery: approved behavior, local gates and independent reviews pass. PR #92 is open and unmerged. Final current-head review and CI determine merge readiness; full-stop authority excludes merge.
 
 ## Execution Notes
 
