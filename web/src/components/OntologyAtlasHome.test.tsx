@@ -1,11 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { withFakeLayout } from "../test/fakeLayout";
 import { OntologyAtlasHome } from "./OntologyAtlasHome";
 
 describe("OntologyAtlasHome", () => {
   withFakeLayout();
+
+  beforeEach(async () => {
+    // Load the real lazy dependency before assertions, regardless of test order.
+    await import("./OntologyGraph");
+  });
 
   it("uses the visualization as the atlas survey surface", async () => {
     const { container } = render(
