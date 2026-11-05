@@ -12,6 +12,7 @@ import (
 
 func (e *executor) ontologyQueryPlan(ctx context.Context, args map[string]any) OntologyQueryPlan {
 	typeName := strings.TrimSpace(stringValue(args["type"]))
+	e = e.withInterfaceLinkResolver(typeName)
 	first := boundedFirst(args["first"], 20, publicRootFirstMax)
 	root := ""
 	if typeName != "" {

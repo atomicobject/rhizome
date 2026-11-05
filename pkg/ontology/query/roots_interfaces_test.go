@@ -225,3 +225,45 @@ func (s *interfaceCappedStore) OntologyNodesByTypePlan(ctx context.Context, plan
 	}
 	return out, nil
 }
+
+func TestInterfaceRootLinkFiltersUseSharedTargetContract(t *testing.T) {
+	env := newCustomQueryTestEnv(t, `
+interface Party { name: String }
+type Person implements Party @node(paths: ["people/*.md"]) { name: String }
+type Team implements Party @node(paths: ["teams/*.md"]) { name: String }
+interface Meeting { owner: Party @link }
+type GeneralMeeting implements Meeting @node(paths: ["general/*.md"]) { owner: Team @link }
+type CoachingSession implements Meeting @node(paths: ["coaching/*.md"]) { owner: Person @link }
+`, map[string]string{
+		"people/alex.md":   "---\nname: Alex\naliases: [Shared]\n---\n",
+		"teams/example.md": "---\nname: Example\naliases: [Shared]\n---\n",
+		"general/a.md":     "---\ntitle: Meeting A\nowner: '[[teams/example]]'\n---\n",
+		"coaching/b.md":    "---\ntitle: Meeting B\nowner: '[[people/alex]]'\n---\n",
+	})
+	for _, mode := range []string{"", `sort: [{field: "title"}],`, `find: "Meeting",`, `path: "coaching/b.md",`} {
+		prepared, errs := Prepare(env.execSchema, `{
+		  person: meeting(`+mode+` filters: [{field: "owner", value: "people/alex.md"}]) { ... on NoteNode { path } }
+		  either: meeting(`+mode+` filters: [{field: "owner", op: in, values: ["people/alex.md", "teams/example.md"]}]) { ... on NoteNode { path } }
+		}`)
+		require.Empty(t, errs)
+		for _, overlay := range append([]*ReadOverlay{nil}, scalarParityOverlays(t, env)...) {
+			deps := env.deps(nil)
+			deps.ReadOverlay = overlay
+			result := Execute(context.Background(), deps, env.schema, prepared)
+			require.Empty(t, result.Errors, mode)
+			require.Equal(t, []any{map[string]any{"path": "coaching/b.md"}}, result.Data["person"], mode)
+			count := 2
+			if mode == `path: "coaching/b.md",` {
+				count = 1
+			}
+			require.Len(t, result.Data["either"].([]any), count, mode)
+		}
+	}
+	for _, value := range []string{"missing.md", "Shared"} {
+		prepared, errs := Prepare(env.execSchema, `{ meeting(filters: [{field: "owner", value: "`+value+`"}]) { ... on NoteNode { path } } }`)
+		require.Empty(t, errs)
+		result := Execute(context.Background(), env.deps(nil), env.schema, prepared)
+		require.NotEmpty(t, result.Errors, value)
+		require.Empty(t, result.Data["meeting"], value)
+	}
+}

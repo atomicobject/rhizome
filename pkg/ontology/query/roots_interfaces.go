@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
@@ -56,12 +57,7 @@ func (e *executor) validateInterfaceRootConstraints(ctx context.Context, typeNam
 			return err
 		}
 	}
-	for _, name := range noteInterfaceRootTypes(e.schema, typeName) {
-		if err := e.validateLinkRootFilters(ctx, name, args["filters"]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.validateLinkRootFilters(ctx, typeName, args["filters"])
 }
 
 func (e *executor) indexedInterfaceRootPlan(ctx context.Context, typeName string, args map[string]any) typedRootPlan {
@@ -86,30 +82,24 @@ func (e *executor) indexedInterfaceRootPlan(ctx context.Context, typeName string
 	return plan
 }
 
-func (e *executor) applyTypedNoteRootConstraints(ctx context.Context, typeName string, records []*noteRecord, args map[string]any) ([]*noteRecord, error) {
-	if e.schema.Interfaces[typeName] == nil || args["filters"] == nil {
-		return e.applyNoteRootConstraints(ctx, records, args)
+// Resolve shared links against their interface target, even when concrete fields narrow it.
+type interfaceLinkResolver struct {
+	pushdown.LinkResolver
+	fields map[string]*ontoschema.Field
+}
+
+func (r interfaceLinkResolver) ResolveLinkTarget(ctx context.Context, field *ontoschema.Field, raw string) (string, diag.Warning) {
+	if shared := r.fields[field.Name]; shared != nil && shared.Kind == ontoschema.FieldKindLink {
+		field = shared
 	}
-	// Resolve link targets against each concrete field's target type, preserving ranked input order.
-	groups := map[string][]*noteRecord{}
-	for _, record := range records {
-		groups[record.TypeName] = append(groups[record.TypeName], record)
+	return r.LinkResolver.ResolveLinkTarget(ctx, field, raw)
+}
+
+func (e *executor) withInterfaceLinkResolver(typeName string) *executor {
+	if iface := e.schema.Interfaces[typeName]; iface != nil {
+		root := *e
+		root.linkTargetResolver = interfaceLinkResolver{LinkResolver: e.linkTargetResolver, fields: iface.ByName}
+		return &root
 	}
-	matched := map[string]bool{}
-	for _, group := range groups {
-		filtered, err := e.applyNoteRootConstraints(ctx, group, map[string]any{"filters": args["filters"], "first": publicRootFirstMax})
-		if err != nil {
-			return nil, err
-		}
-		for _, record := range filtered {
-			matched[record.Path] = true
-		}
-	}
-	filtered := make([]*noteRecord, 0, len(records))
-	for _, record := range records {
-		if matched[record.Path] {
-			filtered = append(filtered, record)
-		}
-	}
-	return e.applyNoteRootConstraints(ctx, filtered, map[string]any{"sort": args["sort"], "first": args["first"], "offset": args["offset"]})
+	return e
 }

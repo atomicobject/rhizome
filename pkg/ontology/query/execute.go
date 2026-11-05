@@ -89,7 +89,7 @@ type executor struct {
 	relationCounts     map[string]map[string]int
 	reverseRelations   map[string]map[string][]ontology.NodeRef
 	typedRootCoverage  map[string]typedRootCoverage
-	linkTargetResolver *pushdown.CatalogLinkResolver
+	linkTargetResolver pushdown.LinkResolver
 
 	// Record facts resolve after the selection tree (fillRecordFacts).
 	recordFactPaths  map[string]struct{}
