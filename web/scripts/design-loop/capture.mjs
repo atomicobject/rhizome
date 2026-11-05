@@ -158,26 +158,37 @@ export const SURFACES = [
   { id: "explorer", title: "Explorer (graph)", url: "/explorer" },
   {
     id: "c-explorer-folder",
-    title: "Explorer · folder expanded (pkg)",
+    title: "Explorer · folder expanded (cmd)",
     url: "/explorer",
     act: async (p) => {
-      await p.locator(".explorer-rail").getByRole("button", { name: "pkg", exact: true }).click();
+      await p.locator(".explorer-rail").getByRole("button", { name: "cmd", exact: true }).click();
+      await p.locator('[data-graph-ready="true"]').waitFor();
     },
   },
   {
     id: "c-explorer-deep",
-    title: "Explorer · deep folder after two expansions (pkg, then pkg/app)",
+    title: "Explorer · deep folder after two expansions (pkg/app, then pkg/app/web)",
     url: "/explorer",
     act: async (p) => {
       const rail = p.locator(".explorer-rail");
       await rail.getByRole("button", { name: "pkg", exact: true }).click();
       await rail.getByRole("button", { name: "app", exact: true }).click();
+      await p.locator('[data-graph-ready="true"]').waitFor();
+      await rail
+        .getByRole("button", { name: "app", exact: true })
+        .locator("..")
+        .getByRole("button", { name: "web", exact: true })
+        .click();
+      await p.locator('[data-graph-ready="true"]').waitFor();
     },
   },
   {
     id: "c-explorer-file",
     title: "Explorer · code file focused with its neighbours",
     url: "/explorer?file=pkg%2Fsearch%2Fplanner%2Fplanner.go",
+    act: async (p) => {
+      await p.locator('[data-graph-ready="true"]').waitFor();
+    },
   },
   { id: "agent", title: "Agent workspace", url: "/agent" },
   { id: "tasks", title: "Tasks", url: "/tasks" },

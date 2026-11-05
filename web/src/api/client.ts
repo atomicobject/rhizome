@@ -376,10 +376,10 @@ function normalizeGraph(data: GraphResponse): GraphResponse {
 }
 
 export function getGlobalGraph(
-  options: { notesOnly?: boolean; diagnostics?: boolean } = {},
+  options: { notesOnly?: boolean; diagnostics?: boolean; limit?: number } = {},
   requestOptions: RequestOptions = {},
 ) {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams(options.limit ? { limit: String(options.limit) } : {});
 
   if (options.notesOnly) params.set("notesOnly", "true");
 

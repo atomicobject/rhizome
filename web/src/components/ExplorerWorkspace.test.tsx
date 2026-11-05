@@ -189,14 +189,14 @@ describe("ExplorerWorkspace", () => {
       });
     });
 
-    await waitFor(() =>
-      expect(http.requests("GET", "/api/v1/graphs/expand").at(-1)?.query.get("module")).toBe("pkg"),
-    );
+    await waitFor(() => expect(renderer.getGraph().hasNode("b")).toBe(true));
+    expect(http.count("GET", "/api/v1/graphs/expand")).toBe(0);
+    expect(http.requests("GET", "/api/v1/graphs/global")[0]?.query.get("limit")).toBe("200000");
     expect(document.querySelector(".explorer-pane")).toBeNull();
     expect(document.querySelector(".explorer-grid--with-pane")).toBeNull();
   });
 
-  it("keeps containment separate from links between a parent folder and its child", async () => {
+  it("keeps note links separate from containment edges", async () => {
     http.json("GET", "/api/v1/graphs/global", {
       nodes: [
         { id: "a", label: "a", kind: "note", path: "docs/a.md" },
@@ -208,13 +208,13 @@ describe("ExplorerWorkspace", () => {
     const explorer = renderExplorer();
     const graph = await explorer.graph();
 
-    await waitFor(() => expect(graph.edges("folder:docs", "folder:docs/specs")).toHaveLength(2));
+    await waitFor(() => expect(graph.edges("more:docs", "folder:docs/specs")).toHaveLength(1));
     expect(
       graph
-        .edges("folder:docs", "folder:docs/specs")
+        .edges("more:docs", "folder:docs/specs")
         .map((edge) => graph.getEdgeAttribute(edge, "kind"))
         .sort(),
-    ).toEqual(["folder-containment", "folder-minor"]);
+    ).toEqual(["folder-crosslink"]);
   });
 
   it("opens an embedded graph node at its canonical target", async () => {
