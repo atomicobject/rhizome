@@ -349,9 +349,10 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
   // Areas is the hierarchical type that work items link to, so it is the default.
   await expect(rowsControl.getByRole("radio", { name: "Areas 3 (default)" })).toBeChecked();
   await expect(
-    table.getByRole("columnheader").first().getByRole("radiogroup", { name: "Rows" }),
+    frame.locator(".gv-toolbar").getByRole("radiogroup", { name: "Rows" }),
   ).toBeVisible();
-  await expect(table.getByRole("columnheader").filter({ hasNot: rowsControl })).toHaveText([
+  await expect(table.getByRole("radiogroup", { name: "Rows" })).toHaveCount(0);
+  await expect(table.locator("thead th:not(.gv-trace-spine)")).toHaveText([
     /^Work items/,
     /^Releases/,
   ]);
@@ -381,7 +382,7 @@ test("Trace defaults to the area tree, nests and rolls up rows, and switches its
   // Rows switch to another member; the choice lasts for the session.
   await rowsControl.getByText(/^Work items/).click();
   await expect(rowsControl.getByRole("radio", { name: "Work items 4" })).toBeChecked();
-  await expect(table.getByRole("columnheader").filter({ hasNot: rowsControl })).toHaveText([
+  await expect(table.locator("thead th:not(.gv-trace-spine)")).toHaveText([
     /^Areas/,
     /^Releases/,
     /^Owner.*1 of 4 work items have owner/,

@@ -5,7 +5,7 @@
 }
 .ontology-type-detail__table:has(.ontology-type-detail__enum-chips)
   .ontology-type-detail__col-type {
-  width: 400px;
+  width: 300px;
 }
 .ontology-type-detail__enum-chips .schema-enum-value-chip {
   white-space: nowrap;

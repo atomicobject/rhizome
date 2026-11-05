@@ -40,15 +40,8 @@ async function chooseRows(label: string) {
   fireEvent.click(await screen.findByRole("radio", { name: new RegExp(`^${label}`) }));
 }
 
-/** A column's label: its first button's text without the record count. */
-const columnName = (header: HTMLElement) =>
-  header.querySelector('[role="radiogroup"]')
-    ? within(header)
-        .getByRole("radio", { checked: true })
-        .parentElement?.textContent?.replace(/ \d+.*$/, "")
-    : within(header)
-        .getAllByRole("button")[0]
-        .textContent?.replace(/\u00a0\d+$/, "");
+/** The visible column label, independent of toolbar controls. */
+const columnName = (header: HTMLElement) => header.querySelector(".gv-member")?.textContent;
 
 const columnNames = () => screen.getAllByRole("columnheader").map(columnName);
 
@@ -123,11 +116,10 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
     screen.getByRole("radiogroup", { name: "Rows" }).querySelector(".gv-default-dot"),
   ).toBeNull();
   expect(columnHeader("Areas")).toHaveTextContent("— No link");
-  expect(screen.getByRole("radiogroup", { name: "Rows" }).closest("th")).toBe(
-    columnHeader("Areas"),
+  expect(screen.getByRole("radiogroup", { name: "Rows" }).closest("th")).toBeNull();
+  expect(document.querySelector(".gv-toolbar")).toContainElement(
+    screen.getByRole("radiogroup", { name: "Rows" }),
   );
-  expect(within(columnHeader("Areas")).getByText("Rows", { exact: true })).toBeVisible();
-  expect(document.querySelector(".gv-toolbar")).toBeNull();
   // Why the default is the default sits in the footer.
   expect(
     screen.getByText(/Areas are the default rows: the tree other types link to/),

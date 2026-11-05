@@ -183,8 +183,8 @@ it("names lifecycles without an active stage", async () => {
   const motion = await screen.findByRole("region", { name: "In motion" });
 
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
-  // Setup notes follow the list, with schema details behind the info disclosure.
-  expect(motion.querySelector("h2 .gv-hint")).toBeNull();
+  // Setup help stays attached to the heading, behind the info disclosure.
+  expect(motion.querySelector("h2 .gv-hint")).not.toBeNull();
   expect(motion.querySelector(".gv-stage-note")).not.toHaveTextContent("shows active");
   const config = motion.querySelector("details")!;
   const summary = within(motion).getByLabelText("Why some types are not listed");

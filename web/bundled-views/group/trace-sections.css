@@ -1,13 +1,13 @@
-/* Header controls replace the separate Trace toolbar. */
+/* Keep the spine wide enough for summaries beside linked columns. */
 .gv-trace .gv-col-spine,
 .gv-trace thead th.gv-trace-spine {
   width: calc(34% + 80px);
 }
 
-/* Sparse materials stay narrow; coverage wraps below the heading. */
+/* Related titles and coverage need enough room to stay readable. */
 .gv-trace .gv-trace-related {
-  width: 220px;
-  min-width: 220px;
+  width: 280px;
+  min-width: 280px;
 }
 .gv-trace .gv-trace-related .gv-head > .gv-member {
   flex: none;
@@ -85,7 +85,7 @@
   margin-top: 4px;
 }
 .gv-trace thead th.gv-trace-related {
-  width: 220px;
+  width: 280px;
 }
 
 .gv-trace .rz-dash {
