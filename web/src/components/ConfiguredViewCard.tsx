@@ -200,7 +200,7 @@ export function ConfiguredViewCard({
       <CardContent mode={mode}>
         <div
           // Only the hover-revealed actions may float over the title.
-          className={`configured-card__topline${(custom ? header : layoutSlots && eyebrowValue) || dirty ? "" : " configured-card__topline--bare"}`}
+          className={`configured-card__topline${(custom ? header : layoutSlots && eyebrowValue) ? "" : " configured-card__topline--bare"}`}
         >
           {custom && header}
           {layoutSlots && eyebrow && eyebrowValue && (
@@ -217,7 +217,15 @@ export function ConfiguredViewCard({
               />
             </span>
           )}
-          {dirty && <span className="configured-card__staged">staged</span>}
+          {dirty && (
+            // A dot, like the table's, so staging never pushes the title down.
+            <span
+              className="configured-card__staged configured-view__staged-dot"
+              role="img"
+              aria-label="Staged changes"
+              title="Staged changes"
+            />
+          )}
           {actions}
         </div>
         <button

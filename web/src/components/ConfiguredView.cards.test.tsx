@@ -197,8 +197,9 @@ describe("ConfiguredViewCards", () => {
 
     render(<ConfiguredViewCards {...rendererProps({ editSession })} />);
 
-    expect(screen.getByText("staged")).toBeVisible();
-    expect(screen.getByText("staged").closest("article")).toHaveClass("is-staged");
+    const mark = screen.getByRole("img", { name: "Staged changes" });
+    expect(mark).toBeVisible();
+    expect(mark.closest("article")).toHaveClass("is-staged");
   });
 
   it("falls back to title-only cards without a card layout", () => {

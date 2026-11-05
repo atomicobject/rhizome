@@ -1909,8 +1909,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-height: 0;
 }
 
-.configured-card__eyebrow,
-.configured-card__staged {
+.configured-card__eyebrow {
   overflow: hidden;
   color: var(--text-faint);
   font: 500 var(--fs-xs) var(--font-sans);
@@ -1920,8 +1919,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card__staged {
   margin-left: auto;
-  color: var(--warning-ink);
-  font-size: var(--fs-xs);
 }
 
 .configured-card__title {
