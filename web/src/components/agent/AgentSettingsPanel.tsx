@@ -127,11 +127,15 @@ export function AgentSettingsPanel({
       {/* Effort and permission are per-session tuning: behind one disclosure
           whose summary still names the active permission. */}
       <details className="agent-session-settings">
-        <summary aria-label={`Settings: ${humanizeName(configured.permissionMode)}`}>
+        <summary
+          aria-label={`Settings: ${configured.permissionMode === "approval-required" ? "Tool approval: ask first" : `Tool approval: ${humanizeName(configured.permissionMode)}`}`}
+        >
           <DisclosureChevron />
           <span>Settings</span>
           <span className="agent-session-settings__active">
-            {humanizeName(configured.permissionMode)}
+            {configured.permissionMode === "approval-required"
+              ? "Tool approval: ask first"
+              : `Tool approval: ${humanizeName(configured.permissionMode)}`}
           </span>
         </summary>
         <div className="agent-model-controls">

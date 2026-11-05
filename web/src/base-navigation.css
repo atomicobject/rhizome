@@ -147,6 +147,7 @@
 
 /* Variables and Headers: the same 13/500 tab metrics as the pane tabs. */
 .graphql-explorer .graphiql-container .graphiql-editor-tools {
+  flex-wrap: wrap;
   padding: var(--sp-2) var(--sp-3);
 }
 
@@ -155,15 +156,24 @@
   font-weight: 500;
 }
 
+.graphql-explorer
+  .graphiql-editor-tools:has([aria-label^="Show"])
+  > button:not(.graphiql-toggle-editor-tools) {
+  display: none;
+}
+
 /* The drawer toggle draws the shared disclosure chevron (16px, 1.5 stroke)
    in a 24px target: right while Variables is closed, down while it is open. */
 .graphql-explorer .graphiql-container button.graphiql-toggle-editor-tools {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: var(--disclosure-target);
+  justify-content: flex-start;
+  gap: 8px;
+  flex: 0 0 100%;
+  order: -1;
+  width: 100%;
   height: var(--disclosure-target);
-  padding: 0;
+  padding: 0 var(--sp-3);
   color: var(--text-muted);
 }
 
@@ -183,6 +193,11 @@
 
 .graphql-explorer .graphiql-toggle-editor-tools[aria-label^="Hide"]::before {
   transform: rotate(90deg);
+}
+
+.graphql-explorer .graphiql-toggle-editor-tools::after {
+  content: "Variables and headers";
+  font: 500 var(--fs-base) / 1.4 var(--font-sans);
 }
 
 /* Docs uses the editor's syntax roles: types in type ink, root operations

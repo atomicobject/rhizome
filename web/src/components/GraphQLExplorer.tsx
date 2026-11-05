@@ -244,7 +244,14 @@ function withIcon(button: ReactNode, Icon: LucideIcon, label?: string) {
   if (!isValidElement<{ label?: string }>(button)) return button;
 
   // The accessible name and tooltip start with the visible label (WCAG 2.5.3).
-  const named = label ? { label: (button.props.label ?? "").replace(/^\S+/, label) } : undefined;
+  const named = label
+    ? {
+        label: (button.props.label ?? "").replace(
+          label === "Merge fragments" ? /^Merge fragments/ : /^\S+/,
+          label,
+        ),
+      }
+    : undefined;
 
   return cloneElement(
     button,
@@ -348,7 +355,7 @@ function GraphQLExplorer({
               {({ prettify, merge, copy }) => (
                 <>
                   {withIcon(prettify, WandSparkles, "Format")}
-                  {withIcon(merge, Merge, "Merge")}
+                  {withIcon(merge, Merge, "Merge fragments")}
                   {withIcon(copy, Copy)}
                 </>
               )}
