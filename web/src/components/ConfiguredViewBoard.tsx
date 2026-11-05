@@ -256,8 +256,8 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Headers and lanes share flexible populated tracks and 140px empty strips.
-  const template = columns.map((item) => (item.strip ? "140px" : "minmax(300px, 1fr)")).join(" ");
+  // Headers and lanes share bounded populated tracks and 140px empty strips.
+  const template = columns.map((item) => (item.strip ? "140px" : "minmax(260px, 360px)")).join(" ");
 
   const maxWidth =
     columns.reduce((width, item) => width + (item.strip ? 140 : 440), 0) +

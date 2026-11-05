@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
+import { ConfiguredViewFooter } from "./ConfiguredViewStatus";
 import { RailHarness, typeView as view } from "./ConfiguredView.typeFixtures";
 
 const WRAP = "configured-view__table-wrap";
@@ -76,4 +77,25 @@ describe("table column overflow", () => {
       expect(screen.getByRole("table")).toHaveStyle({ minWidth: "618px" });
     });
   });
+});
+
+it("compacts both column notes when their combined field count exceeds two", () => {
+  render(
+    <ConfiguredViewFooter
+      summary="52 rows"
+      collapsed="1 group collapsed"
+      loadingMore={false}
+      stagedCount={0}
+      moved={["Governing specs", "Created at"]}
+      hidden={["Status column hidden", "Type column hidden"]}
+      pager={null}
+      onPage={() => {}}
+    />,
+  );
+  const summary = screen.getByText("2 in Record · 2 hidden");
+  expect(summary).toBeVisible();
+  fireEvent.click(summary);
+  expect(screen.getByText(/Governing specs, Created at show in the Record pane/)).toBeVisible();
+  expect(screen.getByText(/Status column hidden/)).toBeVisible();
+  expect(screen.getByText("1 group collapsed")).toBeVisible();
 });

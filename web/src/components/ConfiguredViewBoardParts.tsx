@@ -209,12 +209,12 @@ export function BoardColumnHeaders({
           <button
             type="button"
             className="configured-view__density-button"
-            aria-label={item.compact ? "Show details" : "Hide details"}
+            aria-label={item.compact ? "Full cards" : "Compact cards"}
             aria-expanded={!item.compact}
-            title={item.compact ? "Show details" : "Hide details"}
+            title={item.compact ? "Full cards" : "Compact cards"}
             onClick={() => onToggle(column.key)}
           >
-            {item.compact ? "Show details" : "Hide details"}
+            {item.compact ? "Full cards" : "Compact cards"}
           </button>
         </span>
         {item.stale > 0 && (
