@@ -1,3 +1,4 @@
+import { TypeChip } from "../TypeChip";
 import { displayTitle } from "../../lib/labels";
 import { publicTypeName } from "../../lib/typeNames";
 import type { NodePreview, NodePreviewField } from "../../api/types";
@@ -75,11 +76,11 @@ export function NotePreviewCard({ target, open, preview, loading = false, error 
     <>
       <header className="note-preview__head">
         <div className="note-preview__meta">
-          <span className="note-preview__type type-chip">
+          <TypeChip name={publicTypeName(preview.typeName)} className="note-preview__type">
             {publicTypeName(preview.typeName)
               ? publicTypeName(preview.typeLabel) || publicTypeName(preview.typeName)
               : "Note"}
-          </span>
+          </TypeChip>
           {preview.identifier && <code className="note-preview__id">{preview.identifier}</code>}
           {keyFields.map((field) => (
             <span

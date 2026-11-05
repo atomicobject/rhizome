@@ -1,3 +1,4 @@
+import { useTypePalette } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
 import { useCallback, useMemo } from "react";
 import type {
@@ -148,9 +149,11 @@ function HoverCard({ hover }: { hover: HoverInfo }) {
 export function OntologyLocalGraph({ workspace, onOpen, onOpenNode }: Props) {
   const { nodes, edges, emptyReason } = useMemo(() => buildLocalGraph(workspace), [workspace]);
 
+  const palette = useTypePalette();
+
   const typeColors = useMemo(
     () => buildTypeColors(nodes.flatMap((node) => (node.resolvedType ? [node.resolvedType] : []))),
-    [nodes],
+    [nodes, palette],
   );
 
   const nodeMap = useMemo(

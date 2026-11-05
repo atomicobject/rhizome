@@ -14,7 +14,7 @@ import "@xyflow/react/dist/style.css";
 
 import type { OntologyAtlasResponse } from "../api/types";
 import { buildOntologyGraph, layoutOntologyGraph } from "../lib/ontologyGraph";
-import { typeAccentColor } from "../lib/typeAccent";
+import { typeAccentColor, useTypePalette } from "../lib/typeAccent";
 import { OntologyRoutedEdge } from "./OntologyRoutedEdge";
 import { OntologyTypeNode } from "./OntologyTypeNode";
 import { useTypeLabel } from "./typeLabels";
@@ -86,6 +86,7 @@ function FocusViewport({ ids, selected }: { ids: string[]; selected: string | nu
 }
 
 export function OntologyGraph({ atlas }: Props) {
+  const palette = useTypePalette();
   const typeLabel = useTypeLabel();
   const [selection, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -173,7 +174,7 @@ export function OntologyGraph({ atlas }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [atlas, attempt]);
+  }, [atlas, attempt, palette]);
 
   const focusedIds = useMemo(() => {
     if (!selected || !graph.nodes.some((node) => node.id === selected))

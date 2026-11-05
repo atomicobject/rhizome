@@ -5,7 +5,7 @@ import { type KeyboardEvent, useId, useState } from "react";
 
 import type { OntologyAtlasResponse, OntologyTypeResponse } from "../api/types";
 import { humanizeName } from "../lib/labels";
-import { typeAccentColor } from "../lib/typeAccent";
+import { useTypeAccentColor } from "../lib/typeAccent";
 
 import { tabKeyTarget } from "./focusManagement";
 import { Markdown } from "./markdown/Markdown";
@@ -53,7 +53,7 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
       : String(typeQuery.error)
     : null;
 
-  const accent = typeAccentColor(name);
+  const accent = useTypeAccentColor(name);
 
   return (
     <section

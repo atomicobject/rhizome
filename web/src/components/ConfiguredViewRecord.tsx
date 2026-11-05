@@ -1,3 +1,4 @@
+import { TypeChip } from "./TypeChip";
 import { Copy } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -90,7 +91,9 @@ export function ConfiguredViewRecord({
   return (
     <article className="view-record" aria-label={`Selected record ${title}`}>
       <header className="view-record__head">
-        <span className="type-chip">{typeLabel(row.resolvedType || row.ref.typeName)}</span>
+        <TypeChip name={row.resolvedType || row.ref.typeName || ""}>
+          {typeLabel(row.resolvedType || row.ref.typeName)}
+        </TypeChip>
         <button
           type="button"
           className="configured-view__tool-button"
