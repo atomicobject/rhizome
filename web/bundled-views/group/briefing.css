@@ -96,3 +96,12 @@
   grid-row: 1;
   text-align: right;
 }
+/* The setup hint's info mark sits beside the heading's count, like the
+   heading info marks elsewhere, and its panel opens from its left edge. */
+.rz-section-controls:has(> .gv-hint > summary.rz-info) {
+  margin-left: 0;
+}
+.gv-hint:has(> summary.rz-info) .gv-hint-panel {
+  right: auto;
+  left: 0;
+}
