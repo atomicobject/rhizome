@@ -199,7 +199,7 @@ test("searches from shared chrome in a full-width page", async ({ page }, testIn
     };
   });
 
-  expect(geometry.titleSize).toBe("13px");
+  expect(geometry.titleSize).toBe("14px");
   expect(geometry.titleFont).toContain("JetBrains Mono");
   expect(geometry.metaTop - geometry.titleBottom).toBeCloseTo(4, 0);
   expect(geometry.codeTop - geometry.metaBottom).toBeCloseTo(8, 0);
