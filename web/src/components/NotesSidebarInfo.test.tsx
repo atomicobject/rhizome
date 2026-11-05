@@ -114,8 +114,11 @@ describe("NotesSidebarInfo", () => {
     render(<NotesSidebarInfo noteReader workspace={workspace} onOpen={vi.fn()} />);
 
     const relations = groupSection("Relations");
-    expect(relations).toHaveTextContent(/Opportunities\s*1\s*←\s*Idea A\s*Idea/);
-    expect(relations).toHaveTextContent(/Impacts\s*1\s*→\s*Impact B\s*Impact/);
+    expect(relations).toHaveTextContent(/Opportunities\s*1\s*Idea A\s*Idea/);
+    expect(relations).toHaveTextContent(/Impacts\s*1\s*Impact B\s*Impact/);
+
+    expect(relations.querySelector(".lucide-arrow-left")).toBeTruthy();
+    expect(relations.querySelector(".lucide-arrow-right")).toBeTruthy();
 
     const linked = groupSection("Linked notes");
     expect(within(linked).queryByRole("button", { name: "Idea A" })).toBeNull();

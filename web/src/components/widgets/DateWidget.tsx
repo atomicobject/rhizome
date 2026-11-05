@@ -41,7 +41,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 /**
  * Compact date display. A calendar date reads as words ("Oct 26, 2026"), the
  * form collections use; the on-disk literal and the relative phrase ("3d ago")
- * are the tooltip. Edit mode swaps in an ISO text input.
+ * are the tooltip. Focus in edit mode reveals the ISO input and calendar.
  */
 export function DateWidget({
   value,
@@ -134,7 +134,7 @@ export function DateWidget({
 
   if (!editing) {
     if (!trimmed) {
-      return <span className="widget-date widget-date--empty">Empty</span>;
+      return <span className="widget-date widget-date--empty">—</span>;
     }
 
     return (
@@ -157,6 +157,9 @@ export function DateWidget({
 
   return (
     <span className="widget-date-editor">
+      <span className="widget-date-editor__rest" aria-hidden="true">
+        {kind === "date" && isValidDate(draft) ? readableDate(draft) : draft || "—"}
+      </span>
       <input
         ref={inputRef}
         // A date is typed as ISO text, the form read mode shows; the native

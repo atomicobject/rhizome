@@ -127,7 +127,7 @@ export function groupValueLabel(
   if (value && capability && viewFieldControl(capability).kind === "enum")
     return enumLabel(value, label);
 
-  return label || value || "Empty";
+  return label || value || "—";
 }
 
 /** A group's name; a link or month group names a note or a period, not a status, so it has no status marker. */

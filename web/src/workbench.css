@@ -55,6 +55,8 @@
   overflow: hidden;
   border-radius: var(--r-lg);
   background: var(--surface);
+  outline: 1px solid var(--panel-edge);
+  outline-offset: -1px;
 }
 
 /* With the sidebar hidden the panel spans both columns, so it still fills

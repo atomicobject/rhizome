@@ -8,7 +8,7 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
-  const settings = page.getByLabel("Session settings: Approval required", { exact: true });
+  const settings = page.getByLabel("Settings: Approval required", { exact: true });
   await expect(settings).toContainText("Settings");
   await expect(settings).toHaveCSS("height", "28px");
   const active = settings.locator(".agent-session-settings__active");
