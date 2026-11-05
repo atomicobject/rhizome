@@ -51,7 +51,7 @@ describe("table column overflow", () => {
 
       expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Updated" })).toBeVisible();
-      expect(screen.getByText("1 column in Record")).toBeVisible();
+      expect(screen.getByText(/ID in Record/)).toBeVisible();
       expect(screen.getByText(/ID shows in the Record pane/)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Open Alpha Spec" }));
@@ -70,6 +70,7 @@ describe("table column overflow", () => {
 
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
       expect(screen.queryByText(/in Record/)).toBeNull();
+      expect(screen.getByText("Status hidden (grouped)")).toBeVisible();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
       // The table groups by Status, so that column leaves: 754 less its 136.
       expect(screen.getByRole("table")).toHaveStyle({ minWidth: "618px" });

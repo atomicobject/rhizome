@@ -1,3 +1,4 @@
+import { type RefObject, useEffect, useState } from "react";
 import type {
   ViewExecuteRequest,
   ViewExecuteResponse,
@@ -265,4 +266,26 @@ export function groupTone(capabilities: ViewFieldCapability[], group: Configured
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+/** The element's content width, or Infinity until it is measured. */
+export function useElementWidth(ref: RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) return;
+
+    const observer = new ResizeObserver(() => {
+      // A hidden table measures zero; it keeps its columns until it shows.
+      if (element.clientWidth > 0) setWidth(element.clientWidth);
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return width;
 }
