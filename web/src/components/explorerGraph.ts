@@ -1,6 +1,6 @@
 import type Graph from "graphology";
 import { resolveCssColor } from "../lib/themeColors";
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getFileView } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
@@ -45,18 +45,22 @@ export function useRevealRail(
   path: string,
   setExpanded: Dispatch<SetStateAction<Set<string>>>,
 ) {
+  const seeded = useRef(false);
   useEffect(() => {
-    setExpanded(
-      atRoot
-        ? new Set([...initial].filter(Boolean))
-        : new Set(
-            path
-              .split("/")
-              .slice(0, -1)
-              .map((_, index, parts) => parts.slice(0, index + 1).join("/")),
-          ),
-    );
-  }, [initial, atRoot, path, setExpanded]);
+    if (seeded.current || ![...initial].some(Boolean)) return;
+    seeded.current = true;
+    setExpanded((previous) => new Set([...previous, ...[...initial].filter(Boolean)]));
+  }, [initial, setExpanded]);
+  useEffect(() => {
+    if (atRoot) return;
+
+    const ancestors = path
+      .split("/")
+      .slice(0, -1)
+      .map((_, index, parts) => parts.slice(0, index + 1).join("/"));
+
+    setExpanded((previous) => new Set([...previous, ...ancestors]));
+  }, [atRoot, path, setExpanded]);
   useEffect(() => {
     if (atRoot) return;
 

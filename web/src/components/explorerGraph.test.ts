@@ -1,7 +1,14 @@
 import Graph from "graphology";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { drawTestEdges, fileFocusGraph, focusFolderNodes, onBranch } from "./explorerGraph";
+import {
+  drawTestEdges,
+  fileFocusGraph,
+  focusFolderNodes,
+  onBranch,
+  useRevealRail,
+} from "./explorerGraph";
 import { useFolderExplorer } from "./useFolderExplorer";
 
 describe("Explorer focus", () => {
@@ -155,4 +162,26 @@ it("draws one bracket when Sigma canonicalizes code edges toward the group", () 
     [130, 40],
     [130, 80],
   ]);
+});
+
+it("seeds the rail once and merges file ancestors without closing user folders", () => {
+  const { result, rerender } = renderHook(
+    ({ initial, path }) => {
+      const [expanded, setExpanded] = useState(new Set<string>());
+      useRevealRail(initial, !path, path, setExpanded);
+
+      return { expanded, setExpanded };
+    },
+    { initialProps: { initial: new Set(["", "docs"]), path: "" } },
+  );
+
+  expect([...result.current.expanded]).toEqual(["docs"]);
+  act(() => result.current.setExpanded(new Set(["custom"])));
+  rerender({ initial: new Set(["", "docs", "new"]), path: "" });
+  expect([...result.current.expanded]).toEqual(["custom"]);
+  rerender({ initial: new Set(["docs"]), path: "pkg/app/main.go" });
+  expect([...result.current.expanded]).toEqual(["custom", "pkg", "pkg/app"]);
+  act(() => result.current.setExpanded(new Set(["custom"])));
+  rerender({ initial: new Set(["docs"]), path: "pkg/app/main.go" });
+  expect([...result.current.expanded]).toEqual(["custom"]);
 });
