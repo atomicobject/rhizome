@@ -387,10 +387,10 @@
   border-top: 1.5px solid var(--explorer-link-strong);
 }
 .explorer-focus .graph-edge-legend__line--explorer-code {
-  border-top: 1px solid var(--type-8);
+  border-top: 1.5px solid var(--explorer-code);
 }
 .explorer-focus .graph-edge-legend__line--explorer-tests {
-  border-top: 1.5px dashed var(--explorer-code);
+  border-top: 1.5px dashed var(--type-8);
 }
 
 .explorer-header__breadcrumb,

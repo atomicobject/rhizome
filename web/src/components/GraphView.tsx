@@ -450,7 +450,9 @@ export function GraphView({
                   data-group={group.key}
                 >
                   <h3 className="graph-type-legend__title">{group.title}</h3>
-                  <ul className="graph-type-legend__list">{entries.map(legendItem)}</ul>
+                  <ul className="graph-type-legend__list">
+                    {entries.map((entry) => legendItem(entry))}
+                  </ul>
                 </section>
               );
             })}

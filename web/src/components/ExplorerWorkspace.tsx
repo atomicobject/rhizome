@@ -484,6 +484,7 @@ export function ExplorerWorkspace({
               >
                 <FilePanel
                   file={file}
+                  graph={drawn.sourceGraph ?? graph}
                   line={selectedLine}
                   onClose={closePanel}
                   onSelectFile={onSelectFile}

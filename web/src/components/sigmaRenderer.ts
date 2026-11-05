@@ -1,14 +1,12 @@
+import { themedNodeHover } from "./sigmaRendererDisclosure";
+import { drawDisclosure } from "./sigmaRendererDisclosure";
 import { drawFolderLinks } from "./sigmaFolderLinks";
 import { drawTestEdges } from "./explorerGraph";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import { createNodeImageProgram } from "@sigma/node-image";
 import Graph from "graphology";
 import Sigma from "sigma";
-import {
-  drawStraightEdgeLabel,
-  drawDiscNodeLabel,
-  type NodeHoverDrawingFunction,
-} from "sigma/rendering";
+import { drawStraightEdgeLabel } from "sigma/rendering";
 import type { RefObject } from "react";
 import type { GraphNode } from "../api/types";
 import { createLabelPainter } from "./sigmaLabels";
@@ -31,8 +29,6 @@ type SigmaGraph = Graph<SigmaNodeAttrs, SigmaEdgeAttrs>;
 
 type GraphHoverInfo = HoverInfo & { nodeId?: string; resolvedType?: string; problemCount?: number };
 
-// WHY: the exported `NodeImageProgram` is typed for untyped graph attributes;
-// building it through the factory binds it to this graph's attribute types.
 const NodeImageProgram = createNodeImageProgram<SigmaNodeAttrs, SigmaEdgeAttrs>();
 
 // WHY: Sigma 3.0 keeps `getNodeAtPosition` private, and hover picking while the
@@ -73,43 +69,6 @@ export function rendererColorSettings(colors: ThemeColors) {
     defaultEdgeColor: colors.edgeFaint,
     labelColor: { color: colors.label },
     edgeLabelColor: { color: colors.edgeLabel },
-  };
-}
-
-// WHY: Sigma's default hover box is hard-coded white, which hides the light
-// label text of the dark theme. This draws the same shape on the surface token.
-function themedNodeHover(
-  colors: () => ThemeColors,
-): NodeHoverDrawingFunction<SigmaNodeAttrs, SigmaEdgeAttrs> {
-  return (context, data, settings) => {
-    const size = settings.labelSize;
-    const padding = 2;
-    context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
-    context.fillStyle = colors().surface;
-    context.shadowBlur = 8;
-    context.shadowColor = "rgba(0, 0, 0, 0.35)";
-
-    const radius = Math.max(data.size, size / 2) + padding;
-    context.beginPath();
-
-    if (data.label) {
-      const boxWidth = Math.round(context.measureText(data.label).width + 5);
-      const boxHeight = Math.round(size + 2 * padding);
-      const angle = Math.asin(boxHeight / 2 / radius);
-      const dx = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
-      context.moveTo(data.x + dx, data.y + boxHeight / 2);
-      context.lineTo(data.x + radius + boxWidth, data.y + boxHeight / 2);
-      context.lineTo(data.x + radius + boxWidth, data.y - boxHeight / 2);
-      context.lineTo(data.x + dx, data.y - boxHeight / 2);
-      context.arc(data.x, data.y, radius, angle, -angle);
-    } else {
-      context.arc(data.x, data.y, data.size + padding, 0, Math.PI * 2);
-    }
-
-    context.closePath();
-    context.fill();
-    context.shadowBlur = 0;
-    drawDiscNodeLabel(context, data, settings);
   };
 }
 
@@ -168,7 +127,7 @@ export function mountSigmaRenderer({
     () => colorsRef.current ?? readThemeColors(),
   );
 
-  // WHY: allowInvalidContainer keeps Sigma from throwing when its container
+  // allowInvalidContainer keeps Sigma from throwing when its container
   // has zero width at mount time — this can happen on the first commit
   // before flex layout has resolved cross-axis sizing. Sigma resizes itself
   // once layout settles, so the only effect is suppressing a fatal error
@@ -227,12 +186,21 @@ export function mountSigmaRenderer({
       const node = sigma.getNodeDisplayData(id);
 
       if (!node || node.hidden) return;
+
+      if (id.startsWith("file-more:")) {
+        drawDisclosure(sigma, context, id);
+
+        return;
+      }
+
       const point = sigma.framedGraphToViewport(node);
       const palette = colorsRef.current ?? readThemeColors();
       context.globalAlpha = 1;
       context.strokeStyle = attrs.aggregate
         ? attrs.baseColor
-        : (colorsRef.current ?? readThemeColors()).label;
+        : attrs.explorerLabels && (attrs.kind === "note" || attrs.kind === "embedded")
+          ? attrs.baseColor
+          : (colorsRef.current ?? readThemeColors()).label;
 
       context.beginPath();
       const r = sigma.scaleSize(node.size);
@@ -287,11 +255,17 @@ export function mountSigmaRenderer({
       image: result.image,
       size:
         attrs.explorerLabels && attrs.fixed && attrs.kind !== "module"
-          ? attrs.baseSize
+          ? nodeId.startsWith("file-more:")
+            ? 12
+            : attrs.selected
+              ? 7
+              : attrs.baseSize
           : result.size,
-      color: attrs.muted
-        ? mixColors(result.color, (colorsRef.current ?? readThemeColors()).canvas, 0.6)
-        : result.color,
+      color: nodeId.startsWith("file-more:")
+        ? "#00000000"
+        : attrs.muted
+          ? mixColors(result.color, (colorsRef.current ?? readThemeColors()).canvas, 0.6)
+          : result.color,
       label: result.label,
       forceLabel: Boolean(attrs.landmark && result.label),
     };

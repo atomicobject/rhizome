@@ -258,7 +258,8 @@ export function visibleFolderGraph(
       const target = nodes.find((node) => node.id === destination);
 
       if (node && target)
-        node.labelDetail = `${node.labelDetail || ""}  → ${target.label} · ${edge.weight}`.trim();
+        node.labelDetail =
+          `${node.labelDetail || ""}  ${edge.weight} links to ${target.label}`.trim();
 
       const bundle = bundles.get(destination) ?? {
         source: `folder:${focusedPath}`,
@@ -279,7 +280,7 @@ export function visibleFolderGraph(
 
       if (opened && target)
         opened.labelDetail =
-          `${opened.labelDetail || ""}  → ${target.label} · ${edge.weight}`.trim();
+          `${opened.labelDetail || ""}  ${edge.weight} links to ${target.label}`.trim();
     }
   }
 
@@ -299,7 +300,7 @@ export function visibleFolderGraph(
 
     if (duplicates.length > 1 && node.path) {
       const parent = node.path.split("/").slice(0, -1).join("/");
-      node.labelDetail = `${parent || "Vault"}/  ${node.labelDetail || ""}`;
+      node.label = `${parent || "Vault"}/ ${node.label}`;
     }
   }
 

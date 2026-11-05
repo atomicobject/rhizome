@@ -1,10 +1,6 @@
+import { resolveCssColor } from "../lib/themeColors";
 import { noteLabelLines, selectedNoteSpot } from "./sigmaLabelText";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
-// Explorer node labels: placed clear of node discs, other labels, and (where
-// possible) edges, then drawn on a solid backing in the canvas color, pinned to the
-// node, so a label never reads as belonging to a line or a neighbor.
-//
-// Plan labels before drawing so forced labels also join collision detection.
 import type Sigma from "sigma";
 import type { NodeLabelDrawingFunction } from "sigma/rendering";
 import type { SigmaEdgeAttrs } from "../lib/graphStyle";
@@ -15,15 +11,12 @@ type Spot = { x: number; y: number; box: Box; detail?: boolean };
 
 type LabelColors = { label: string; canvas: string; edgeLabel?: string };
 
-/** Up to this many nodes, labels are placed clear of node discs and edges as well as other labels. */
 export const NODE_AVOID_ORDER = 10000;
 
-/** Padding of the label's backing around its text. */
 const PAD_X = 4;
 
 const PAD_Y = 2;
 
-/** A planned label's key: its node's center on screen, which the draw call receives too. */
 const at = (x: number, y: number) => `${Math.round(x)}:${Math.round(y)}`;
 
 const overlaps = (a: Box, b: Box, gap = 8) =>
@@ -99,35 +92,16 @@ export function outwardSpots(
   const length = Math.hypot(dx, dy) || 1;
   const side = dx / length;
 
-  const offsets =
-    Math.abs(side) < 0.35 ? [0, 8, -8, 16, -16, 24, -24, 8, 16, 24] : [0, 8, -8, 16, -16, 24, -24];
-
-  return offsets.map((nudge, index) => {
-    const radial = index >= 7;
-    const gap = radial ? 4 + nudge : 10;
-
-    const sx =
-      side >= 0.35
-        ? x + r + 10
-        : side <= -0.35
-          ? x - r - 10 - width
-          : x - width / 2 + (radial ? 0 : nudge);
+  return [0, 4, -4].map((nudge) => {
+    const sx = side >= 0.35 ? x + r + 6 : side <= -0.35 ? x - r - 6 - width : x - width / 2 + nudge;
 
     const sy =
-      Math.abs(side) >= 0.35 ? y + size * 0.35 + nudge : dy < 0 ? y - r - gap : y + r + gap + size;
+      Math.abs(side) >= 0.35 ? y + size * 0.35 + nudge : dy < 0 ? y - r - 6 : y + r + 6 + size;
 
-    return {
-      x: sx,
-      y: sy,
-      box: [sx - PAD_X, sy - size, sx + width + PAD_X, sy + 4],
-    };
+    return { x: sx, y: sy, box: [sx - PAD_X, sy - size, sx + width + PAD_X, sy + 4] satisfies Box };
   });
 }
 
-/**
- * Builds Sigma's label drawing function. `beginFrame` must be called from
- * Sigma's "beforeRender" so each frame places its labels afresh.
- */
 export function createLabelPainter(
   getSigma: () => Sigma<SigmaNodeAttrs, SigmaEdgeAttrs> | null,
   colors: () => LabelColors,
@@ -294,19 +268,19 @@ export function createLabelPainter(
       if (node.fixed) {
         let chosen: Spot | null = null;
 
-        for (const detail of node.detail ? [true] : [false]) {
+        for (const detail of node.detail ? [true, false] : [false]) {
           const width = Math.max(
             measure(context, node.label),
             detail ? measure(context, node.detail) : 0,
           );
 
           chosen =
-            [
-              ...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy),
-              ...spotsAround(node.x, node.y, node.r, width, size, node.left, true),
-            ]
+            [...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy)]
               .map((spot) => {
-                if (detail) spot.box[3] += size + 3;
+                if (detail && spot.box[3] < node.y) {
+                  spot.y -= size + 3;
+                  spot.box[1] -= size + 3;
+                } else if (detail) spot.box[3] += size + 3;
 
                 return spot;
               })
@@ -408,7 +382,7 @@ export function createLabelPainter(
   ) => {
     if (!data.label) return;
     const attrs = getSigma()?.getGraph().getNodeAttributes(data.key);
-    const size = settings.labelSize;
+    const size = attrs?.selected && attrs.kind === "code" ? 15 : settings.labelSize;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
     const sigma = getSigma();
     const small = sigma ? sigma.getGraph().order <= NODE_AVOID_ORDER : false;
@@ -461,9 +435,15 @@ export function createLabelPainter(
     }
 
     context.fillStyle = canvas;
-    context.fillRect(left, top, right - left, bottom - top);
+
+    if (!(attrs?.fixed && attrs.kind === "module"))
+      context.fillRect(left, top, right - left, bottom - top);
     context.globalAlpha = 1;
-    context.fillStyle = attrs?.muted ? colors().edgeLabel || label : label;
+    context.fillStyle = data.key.startsWith("file-more:")
+      ? resolveCssColor("var(--explorer-link-strong)")
+      : attrs?.muted
+        ? colors().edgeLabel || label
+        : label;
     context.font = `${attrs?.selected || data.key.startsWith("file-group:") ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
 
     const lines =
@@ -475,7 +455,29 @@ export function createLabelPainter(
           )
         : [data.label.replaceAll("...", "…")];
 
-    lines.forEach((line, index) => context.fillText(line, spot.x, spot.y + index * (size + 3)));
+    lines.forEach((line, index) => {
+      const prefix =
+        attrs?.kind === "module" && line.includes("/ ")
+          ? line.slice(0, line.lastIndexOf("/ ") + 2)
+          : "";
+
+      const labelX =
+        attrs?.fixed && attrs.kind === "module" && spot.box[2] < data.x
+          ? spot.box[2] - PAD_X - context.measureText(line).width
+          : spot.x;
+
+      if (prefix) {
+        context.fillStyle = colors().edgeLabel || label;
+        context.fillText(prefix, labelX, spot.y);
+        context.fillStyle = attrs?.muted ? colors().edgeLabel || label : label;
+      }
+
+      context.fillText(
+        line.slice(prefix.length),
+        labelX + context.measureText(prefix).width,
+        spot.y + index * (size + 3),
+      );
+    });
 
     if (attrs?.labelDetail && spot.detail !== false) {
       const stacked = attrs.fixed && attrs.kind === "module";

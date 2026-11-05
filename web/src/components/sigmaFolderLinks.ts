@@ -4,10 +4,10 @@ import type { ReducerState, SigmaEdgeAttrs } from "../lib/graphStyle";
 import { resolveCssColor } from "../lib/themeColors";
 
 export function folderLinkLength(child: boolean, active: boolean, distance: number) {
-  return child && !active ? Math.min(50, distance) : distance;
+  return child && !active ? 0 : distance;
 }
 
-/** Folder links are painted in viewport pixels so local stubs stay 50px at every zoom. */
+/** Paint bundled routes at rest and child routes on hover or selection. */
 export function drawFolderLinks(
   sigma: Sigma<ExplorerNodeAttrs, SigmaEdgeAttrs>,
   context: CanvasRenderingContext2D,
@@ -23,7 +23,26 @@ export function drawFolderLinks(
   });
   context.strokeStyle = resolveCssColor("var(--explorer-link)");
   graph.forEachEdge((_id, attrs, source, target) => {
+    if (attrs.kind === "folder-containment") {
+      const a = points.get(source),
+        b = points.get(target);
+
+      if (!a || !b) return;
+      const distance = Math.hypot(b.x - a.x, b.y - a.y);
+
+      if (distance <= a.r + b.r) return;
+      context.strokeStyle = resolveCssColor("var(--type-8)");
+      context.lineWidth = 1.5;
+      context.beginPath();
+      context.moveTo(a.x + ((b.x - a.x) * a.r) / distance, a.y + ((b.y - a.y) * a.r) / distance);
+      context.lineTo(b.x - ((b.x - a.x) * b.r) / distance, b.y - ((b.y - a.y) * b.r) / distance);
+      context.stroke();
+
+      return;
+    }
+
     if (attrs.kind !== "folder-crosslink" && attrs.kind !== "folder-child-crosslink") return;
+    context.strokeStyle = resolveCssColor("var(--explorer-link)");
 
     let from = source,
       to = target;
@@ -47,6 +66,8 @@ export function drawFolderLinks(
       );
 
     const length = folderLinkLength(attrs.kind === "folder-child-crosslink", active, distance);
+
+    if (!length) return;
 
     const end = {
       x: a.x + ((b.x - a.x) * length) / distance,

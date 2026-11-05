@@ -4,7 +4,7 @@ import { installFakeWebGL } from "../test/fakeWebGL";
 import { expect, it, vi } from "vitest";
 import { createLabelPainter, outwardSpots } from "./sigmaLabels";
 
-it("keeps labels on the outward side with leaders no longer than 28px", () => {
+it("keeps labels on the outward side with labels within 8px", () => {
   for (const [dx, dy] of [
     [1, 0],
     [-1, 0],
@@ -14,7 +14,7 @@ it("keeps labels on the outward side with leaders no longer than 28px", () => {
     for (const { box } of outwardSpots(100, 100, 10, 80, 14, dx, dy)) {
       const x = Math.max(box[0], Math.min(100, box[2]));
       const y = Math.max(box[1], Math.min(100, box[3]));
-      expect(Math.hypot(x - 100, y - 100) - 10).toBeLessThanOrEqual(28);
+      expect(Math.hypot(x - 100, y - 100) - 10).toBeLessThanOrEqual(8);
 
       if (dx > 0) expect(box[0]).toBeGreaterThan(110);
 
