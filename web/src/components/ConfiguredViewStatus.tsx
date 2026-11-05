@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { isJsonValue, isString, type JsonValue } from "../api/parse";
 
 type ErrorInfo = { message: string; status?: number; code?: string; details?: unknown };
@@ -29,6 +30,7 @@ export function ConfiguredViewFooter({
   summary,
   loadingMore,
   collapsed,
+  collapsedGroups = [],
   stagedCount,
   moved = [],
   hidden = [],
@@ -39,6 +41,7 @@ export function ConfiguredViewFooter({
   loadingMore: boolean;
   /** Such as "2 columns collapsed"; empty when nothing is. */
   collapsed: string;
+  collapsedGroups?: { key: string; label: string; count: number }[];
   stagedCount: number;
   /** Labels of table columns too narrow to show, which the Record pane shows instead. */
   moved?: string[];
@@ -52,7 +55,27 @@ export function ConfiguredViewFooter({
       <div className="configured-view__footer-status">
         <span role="status">{summary}</span>
         {loadingMore && <span role="status">Loading more rows…</span>}
-        {collapsed && <span>{collapsed}</span>}
+        {collapsedGroups.length > 0
+          ? collapsedGroups.map((group) => (
+              <button
+                type="button"
+                className="configured-view__collapsed-link"
+                aria-label={`Expand ${group.label}: ${group.count} collapsed`}
+                key={group.key}
+                onClick={(event) => {
+                  event.currentTarget
+                    .closest(".configured-view")
+                    ?.querySelector<HTMLButtonElement>(
+                      `button[data-group-key="${CSS.escape(group.key)}"]`,
+                    )
+                    ?.click();
+                }}
+              >
+                <ChevronRight size={16} aria-hidden />
+                {group.label} · {group.count} collapsed
+              </button>
+            ))
+          : collapsed && <span>{collapsed}</span>}
         <ColumnNotes moved={moved} hidden={hidden} />
         {stagedCount > 0 && (
           <span className="configured-view__staged-count">
@@ -84,25 +107,21 @@ export function ConfiguredViewFooter({
   );
 }
 
-/**
- * Columns the table does not show, as one compact disclosure ("2 in Record ·
- * 2 hidden"); it opens to name each and say why, so a narrow
- * footer never cuts several explanations at once.
- */
+/** Names columns moved to Record and discloses why columns are hidden. */
 function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
   if (moved.length === 0 && hidden.length === 0) return null;
 
-  // Name the fields when there are at most two in all; otherwise count them,
-  // so a narrow footer never cuts the note. The title names every field.
-  const named = moved.length + hidden.length <= 2;
   const hiddenNames = hidden.map((note) => note.replace(/ column hidden.*$/, ""));
 
-  const summary = [
-    moved.length > 0 ? `${named ? moved.join(", ") : moved.length} in Record` : "",
-    hidden.length > 0 ? `${named ? hiddenNames.join(", ") : hidden.length} hidden` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const summary =
+    moved.length > 0
+      ? [
+          `In Record: ${moved.join(", ")}`,
+          hidden.length > 0 ? `Hidden: ${hiddenNames.join(", ")}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : `${hidden.length} ${hidden.length === 1 ? "column" : "columns"} hidden`;
 
   return (
     <details className="configured-view__column-notes">
@@ -115,6 +134,7 @@ function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
           .join(". ")}
       >
         {summary}
+        <ChevronRight size={16} aria-hidden />
       </summary>
       <div className="configured-view__column-notes-body">
         {moved.length > 0 && (

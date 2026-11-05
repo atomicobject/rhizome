@@ -42,9 +42,9 @@ describe("table column overflow", () => {
   afterEach(() => restore());
 
   describe("in a narrow table", () => {
-    // Two-line rows: title 320 + Status 136 + ID 176 + Updated 116 + the check cell is 778.
+    // Status is grouped; the title, ID, Updated, and selection need 778px.
     beforeEach(() => {
-      restore = tableWidth(600);
+      restore = tableWidth(700);
     });
 
     it("moves the ID column to the Record pane and names it in the footer", () => {
@@ -52,7 +52,7 @@ describe("table column overflow", () => {
 
       expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
       expect(screen.getByRole("columnheader", { name: "Updated" })).toBeVisible();
-      expect(screen.getByText(/ID in Record/)).toBeVisible();
+      expect(screen.getByText(/In Record: ID/)).toBeVisible();
       expect(screen.getByText(/ID shows in the Record pane/)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Open Alpha Spec" }));
@@ -70,16 +70,16 @@ describe("table column overflow", () => {
       render(<RailHarness>{view()}</RailHarness>);
 
       expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
-      expect(screen.queryByText(/in Record/)).toBeNull();
-      expect(screen.getByText("Status hidden")).toBeVisible();
+      expect(screen.queryByText(/In Record:/)).toBeNull();
+      expect(screen.getByText("1 column hidden")).toBeVisible();
       expect(screen.getByRole("columnheader", { name: "Title" }).style.width).toBe("");
-      // The table groups by Status, so that column leaves: 754 less its 136.
-      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "618px" });
+      // The grouped Status leaves 480 title + 176 ID + 92 Updated + 30 selection.
+      expect(screen.getByRole("table")).toHaveStyle({ minWidth: "778px" });
     });
   });
 });
 
-it("counts column notes when they name more than two fields, naming them in the title", () => {
+it("names every moved and hidden field in the visible summary", () => {
   render(
     <ConfiguredViewFooter
       summary="52 rows"
@@ -92,7 +92,7 @@ it("counts column notes when they name more than two fields, naming them in the 
       onPage={() => {}}
     />,
   );
-  const summary = screen.getByText("2 in Record · 2 hidden");
+  const summary = screen.getByText("In Record: Governing specs, Created at · Hidden: Status, Type");
   expect(summary).toBeVisible();
   expect(summary).toHaveAttribute(
     "title",

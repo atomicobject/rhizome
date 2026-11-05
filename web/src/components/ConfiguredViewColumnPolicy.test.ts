@@ -65,8 +65,25 @@ describe("allocateColumns", () => {
 
     const twoLine = allocateColumns(effortColumns, AT_1440_WITH_PANE, true, {});
 
-    expect(twoLine.moved).toEqual(["governingSpec"]);
-    expect(twoLine.minWidth).toBe(30 + 320 + 176 + 136 + 116);
+    expect(twoLine.moved).toEqual(["id", "governingSpec"]);
+    expect(twoLine.minWidth).toBe(30 + 480 + 136 + 116);
+  });
+
+  it("lets a docked record keep the remaining table within its container", () => {
+    const allocation = allocateColumns(
+      [
+        { field: "title", kind: "title" },
+        { field: "spec", kind: "relation" },
+        { field: "created", kind: "date" },
+        { field: "changed", kind: "age" },
+      ],
+      490,
+      true,
+      {},
+    );
+
+    expect(allocation.shown).toEqual(["title"]);
+    expect(allocation.minWidth).toBe(490);
   });
 
   it("drops the rightmost column of a kind first", () => {

@@ -236,3 +236,74 @@ test("the type Briefing reads a collection and opens its Table from a signal", a
   await expect(frame.getByRole("img", { name: /^Date per month, Aug 2026 to / })).toBeVisible();
   await expect(frame.getByRole("region", { name: "In motion" })).toHaveCount(0);
 });
+
+for (const width of [1100, 1440]) {
+  test(`Record stays docked at ${width}px and footer expands named groups`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/notes/tv-work-item");
+    await chooseView(page, "Table");
+
+    const expand = footer(page)
+      .getByRole("button", { name: /^Expand / })
+      .first();
+
+    await expect(expand).toBeVisible();
+
+    const before = await rows(page).count();
+
+    await expand.click();
+    await expect.poll(() => rows(page).count()).toBeGreaterThan(before);
+    await rows(page)
+      .filter({ hasText: "Anchor chain inspection" })
+      .getByRole("button", { name: "Open Anchor chain inspection" })
+      .click();
+
+    const pane = page.locator("#notes-right-pane");
+
+    if (width === 1100) await page.getByRole("button", { name: "Show right pane" }).click();
+
+    await expect(pane).toBeVisible();
+
+    const layout = await pane.evaluate((element) => ({
+      position: getComputedStyle(element).position,
+      shadow: getComputedStyle(element).boxShadow,
+      top: element.getBoundingClientRect().top,
+      frameTop: element.closest(".notes-shell__frame")?.getBoundingClientRect().top,
+    }));
+
+    expect(layout.position).toBe("relative");
+    expect(layout.shadow).toBe("none");
+    expect(layout.top).toBe(layout.frameTop);
+    await expect(page.getByRole("button", { name: "Display options" })).toBeVisible();
+  });
+}
+
+test("Action Items keep long action and source text within two lines", async ({ page }) => {
+  await page.goto("/notes?view=action-items");
+
+  const row = page.locator(".configured-view__row--action").first();
+
+  await expect(row).toBeVisible();
+
+  const layout = await row.evaluate((element) => {
+    const action = element.querySelector(".configured-view__scalar-cell");
+    const source = element.querySelector(".configured-view__source-link a");
+
+    if (!action || !source) throw new Error("Missing action or source");
+    action.textContent =
+      "Follow up on the harbor inspection before the next planning meeting. ".repeat(12);
+    source.textContent =
+      "Harbor planning decisions and inspection notes for the winter season".repeat(3);
+
+    return [action, source].map((cell) => ({
+      clamp: getComputedStyle(cell).webkitLineClamp,
+      height: cell.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(cell).lineHeight),
+    }));
+  });
+
+  for (const cell of layout) {
+    expect(cell.clamp).toBe("2");
+    expect(cell.height).toBeCloseTo(cell.lineHeight * 2, 0);
+  }
+});

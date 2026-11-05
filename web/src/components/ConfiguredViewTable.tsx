@@ -1,3 +1,4 @@
+import { useCollapsedGroupNotes } from "./ConfiguredViewCollapsedGroups";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
@@ -41,7 +42,7 @@ import {
 import { capabilityFor, columnLabel } from "./ConfiguredViewModel";
 import { changedFields, changedFieldsByKey } from "../staging/stagedState";
 import { groupIdentity } from "./ConfiguredViewSave";
-import { RecordRailPortal, useRecordOverlayWidth } from "./recordRail";
+import { RecordRailPortal } from "./recordRail";
 import { useRememberedExpansion } from "./useRememberedExpansion";
 import { useViewReorder } from "./useViewReorder";
 import { useRowSelection } from "./useRowSelection";
@@ -66,6 +67,7 @@ type Props = {
   /** Shift-activation adds the column as another sort key. */
   onSort: (column: ViewTableColumn, additive?: boolean) => void;
   onCollapsedGroupCountChange: (count: number) => void;
+  onCollapsedGroupsChange?: (groups: { key: string; label: string; count: number }[]) => void;
   profile?: TypeProfile;
   density?: "two-line" | "one-line";
   /** Loads the next rows; set only while more remain and nothing is loading. */
@@ -100,6 +102,7 @@ export function ConfiguredViewTable({
   onOpenIssues,
   onSort,
   onCollapsedGroupCountChange,
+  onCollapsedGroupsChange,
   profile,
   density = "one-line",
   onLoadMore,
@@ -111,9 +114,7 @@ export function ConfiguredViewTable({
   onGroupedColumnsChange,
 }: Props) {
   const scroll = useLoadOnScroll(onLoadMore);
-  // An overlaid record pane covers the table's right side; lay out for what it leaves.
-  const covered = useRecordOverlayWidth(active);
-  const available = useElementWidth(scroll.ref) - covered;
+  const available = useElementWidth(scroll.ref);
   const twoLine = density === "two-line" && Boolean(profile?.summaryField);
 
   const groups = useMemo(
@@ -251,6 +252,8 @@ export function ConfiguredViewTable({
   useEffect(() => {
     onCollapsedGroupCountChange(collapsedGroupCount);
   }, [collapsedGroupCount, onCollapsedGroupCountChange]);
+
+  useCollapsedGroupNotes(groups, expansion.choices, capabilities, onCollapsedGroupsChange);
 
   function groupIsExpanded(group: ConfiguredTableGroup) {
     return expansion.isExpanded(group.key, !group.collapsedByDefault);
@@ -399,7 +402,6 @@ export function ConfiguredViewTable({
         // The title takes the slack; this keeps it at its minimum when nothing is left.
         style={{
           minWidth: allocation.minWidth,
-          width: covered > 0 ? `calc(100% - ${covered}px)` : undefined,
         }}
       >
         <ConfiguredViewTableHeader
