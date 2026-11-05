@@ -74,8 +74,7 @@
   grid-row: 1;
 }
 /* Card outlines define the cards; lanes need no second rectangle. */
-.configured-view .configured-view__board-column,
-.configured-view .configured-view__board-strip-cell.is-empty {
+.configured-view .configured-view__board-column {
   background: transparent;
   border: 0;
 }
@@ -127,8 +126,8 @@
   .notes-shell__tabs-row {
   right: calc(var(--pane-width) + var(--sp-4));
 }
-.configured-view__table .configured-view__row--action td {
-  height: 48px;
+.configured-view .configured-view__table tr.configured-view__row--action td {
+  height: 36px;
   padding-block: 4px;
   vertical-align: middle;
 }
@@ -149,7 +148,7 @@
   padding-right: var(--sp-5);
 }
 .configured-view .configured-view__footer-status {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .configured-view .configured-view__collapsed-link {
   flex: none;
@@ -161,16 +160,59 @@
 .configured-view .configured-view__board-column-header {
   padding-inline: 15px;
 }
-@container view-header (max-width: 600px) {
-  .notes-shell__frame:has(.configured-view) .view-header__title-row {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: 56px;
-    padding-block: 12px;
-    row-gap: 12px;
+
+.configured-view .configured-view__board-strip-cell.is-empty {
+  min-height: 160px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+}
+.configured-view__board-age-label {
+  position: absolute;
+  top: 32px;
+  right: 22px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.configured-view .configured-view__column-notes > summary {
+  white-space: nowrap;
+}
+.configured-view__column-note-compact {
+  display: none;
+}
+.configured-view__find-wrap {
+  position: relative;
+}
+.configured-view__find-toggle {
+  display: none;
+}
+@container view-header (max-width: 820px) {
+  .configured-view__find-toggle {
+    display: inline-flex;
   }
-  .notes-shell__frame:has(.configured-view) .view-header__tools {
-    flex-basis: 100%;
-    margin-left: 0;
+  .configured-view__find-wrap:not(:has(input:focus)) .configured-view__find {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    padding: 0;
+    border: 0;
   }
+  .configured-view__find-wrap:has(input:focus) .configured-view__find {
+    position: absolute;
+    z-index: 5;
+    top: 0;
+    right: 0;
+    width: 220px;
+    background: var(--surface);
+  }
+}
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view):has(.notes-right-rail)
+  .configured-view__column-note-full {
+  display: none;
+}
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view):has(.notes-right-rail)
+  .configured-view__column-note-compact {
+  display: inline;
 }

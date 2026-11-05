@@ -1,3 +1,4 @@
+import { useCollapsedGroupNotes } from "./ConfiguredViewCollapsedGroups";
 import { ChevronRight } from "lucide-react";
 import { type ComponentProps, Fragment, useEffect, useMemo } from "react";
 
@@ -51,6 +52,13 @@ export function ConfiguredViewCards(props: Props) {
 
   const isCollapsed = (group: ViewGroup) =>
     !expansion.isExpanded(group.key, !group.collapsedByDefault);
+
+  useCollapsedGroupNotes(
+    groups,
+    expansion.choices,
+    props.capabilities,
+    props.onCollapsedGroupsChange,
+  );
 
   const collapsedCount = groups.filter(isCollapsed).length;
 
@@ -149,7 +157,12 @@ export function ConfiguredViewCards(props: Props) {
           return (
             <section className="configured-view__card-section" key={group.key}>
               <h3 className="configured-view__card-section-header">
-                <button type="button" aria-expanded={!collapsed} onClick={() => toggleGroup(group)}>
+                <button
+                  type="button"
+                  data-group-key={group.key}
+                  aria-expanded={!collapsed}
+                  onClick={() => toggleGroup(group)}
+                >
                   <ChevronRight
                     size={16}
                     className="configured-view__disclosure-icon"

@@ -1,3 +1,11 @@
+import {
+  initialDraftFilter,
+  draftsFromState,
+  filterSummary,
+  filterCapabilitiesForDraft,
+} from "./ConfiguredViewFilterDrafts";
+import { Filter } from "lucide-react";
+import { ConfiguredViewFind } from "./ConfiguredViewFind";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
@@ -13,10 +21,9 @@ import {
   FilterRow,
   filterSpecForDraft,
   opLabel,
-  optionLabel,
 } from "./ConfiguredViewFilterRow";
 import { usePopoverDismiss } from "./focusManagement";
-import { capabilityOptions, viewFieldControl } from "./viewFieldControls";
+import { viewFieldControl } from "./viewFieldControls";
 import {
   capabilityFor,
   dedupeCapabilitiesForControls,
@@ -67,11 +74,7 @@ type Props = {
   placeTools: (tools: ReactNode) => ReactNode;
 };
 
-type FilterSpec = NonNullable<ViewExecuteRequest["filters"]>[number];
-
 const FILTER_DEBOUNCE_MS = 300;
-
-let nextFilterID = 0;
 
 export function ConfiguredViewToolbar({
   state,
@@ -113,35 +116,9 @@ export function ConfiguredViewToolbar({
   );
 
   const filterRef = useRef<HTMLDivElement | null>(null);
-  const searchRef = useRef<HTMLInputElement | null>(null);
   const lastEmittedFiltersKeyRef = useRef<string | null>(null);
 
   usePopoverDismiss(filterOpen, filterRef, () => setFilterOpen(false));
-
-  // ⌘F (Ctrl+F elsewhere) finds in the view while it shows.
-  useEffect(() => {
-    if (!active) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const search = searchRef.current;
-
-      if (
-        event.key.toLowerCase() !== "f" ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.shiftKey ||
-        event.altKey ||
-        !search?.isConnected
-      )
-        return;
-      event.preventDefault();
-      search.focus();
-      search.select();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [active]);
 
   useEffect(() => {
     const stateFiltersKey = JSON.stringify(state.filters ?? []);
@@ -210,7 +187,12 @@ export function ConfiguredViewToolbar({
 
   function updateFilterField(index: number, field: string) {
     const capability = capabilityFor(displayCapabilities, field);
-    updateFilter(index, { field, op: defaultFilterOp(capability), value: "", values: [] });
+    updateFilter(index, {
+      field,
+      op: viewFieldControl(capability).defaultOp,
+      value: "",
+      values: [],
+    });
   }
 
   function updateFilterOperator(index: number, op: string) {
@@ -247,20 +229,11 @@ export function ConfiguredViewToolbar({
 
   const tools = (
     <>
-      <label className="configured-view__find">
-        <SearchIcon />
-        <input
-          ref={searchRef}
-          className="configured-view__search"
-          type="search"
-          aria-label="Search view"
-          aria-keyshortcuts="Meta+F Control+F"
-          placeholder="Find in view"
-          value={state.search ?? ""}
-          onChange={(event) => onResetPage({ search: event.target.value })}
-        />
-        {!state.search && <kbd aria-hidden="true">⌘F</kbd>}
-      </label>
+      <ConfiguredViewFind
+        active={active}
+        value={state.search ?? ""}
+        onChange={(search) => onResetPage({ search })}
+      />
       <div className="configured-view__options" ref={filterRef}>
         <button
           ref={filterButtonRef}
@@ -271,7 +244,7 @@ export function ConfiguredViewToolbar({
           onClick={() => setFilterOpen((open) => !open)}
           disabled={capabilities.length === 0 && presets.length === 0}
         >
-          <FilterIcon />
+          <Filter size={16} strokeWidth={1.5} absoluteStrokeWidth aria-hidden />
           Filter
           {activeCount > 0 && <span className="configured-view__tool-count">{activeCount}</span>}
         </button>
@@ -455,120 +428,4 @@ export function ConfiguredViewToolbar({
       )}
     </>
   );
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      className="configured-view__tool-icon"
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    >
-      <circle cx="7" cy="7" r="4.5" />
-      <path d="m10.5 10.5 3 3" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg
-      className="configured-view__tool-icon"
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    >
-      <path d="M2.5 3.5h11l-4.25 5v4l-2.5 1v-5z" />
-    </svg>
-  );
-}
-
-function initialDraftFilter(capabilities: ViewFieldCapability[]): DraftFilter {
-  const first = [...capabilities]
-    .filter((capability) => viewFieldControl(capability).ops.length > 0)
-    .sort((left, right) => draftFilterRank(right) - draftFilterRank(left))[0];
-
-  return {
-    id: newFilterID(),
-    field: first?.key ?? capabilities[0]?.key ?? "",
-    op: defaultFilterOp(first),
-    value: "",
-    values: [],
-  };
-}
-
-function draftFilterRank(capability: ViewFieldCapability) {
-  let rank = capabilityOptions(capability).length > 0 ? 100 : 0;
-
-  const names = [
-    capability.key,
-    capability.label,
-    capability.canonicalField,
-    capability.edit?.field,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  if (capability.semanticRole === "status" || /status/i.test(names)) rank += 80;
-
-  if (viewFieldControl(capability).ops.includes("in")) rank += 10;
-
-  if (capability.semanticRole === "identifier" || capability.key === "id") rank -= 60;
-
-  return rank;
-}
-
-function draftsFromState(filters: FilterSpec[], capabilities: ViewFieldCapability[]) {
-  return filters.map((filter) => {
-    const values = (filter.values ?? []).map((value) => String(value));
-
-    return {
-      id: newFilterID(),
-      field: filter.field,
-      op: filter.op || defaultFilterOp(capabilityFor(capabilities, filter.field)),
-      value: String(filter.value ?? values.join(", ")),
-      values,
-    };
-  });
-}
-
-function newFilterID() {
-  nextFilterID += 1;
-
-  return `filter-${nextFilterID}`;
-}
-
-function defaultFilterOp(capability: ViewFieldCapability | undefined) {
-  return viewFieldControl(capability).defaultOp;
-}
-
-function filterSummary(filter: FilterSpec, capability: ViewFieldCapability | undefined) {
-  if (filter.op === "in") {
-    return (filter.values ?? []).map((value) => optionLabel(capability, String(value))).join(", ");
-  }
-
-  if (filter.op === "exists" || filter.op === "missing") return "";
-
-  if (viewFieldControl(capability).kind === "relation")
-    return optionLabel(capability, String(filter.value ?? ""));
-
-  return String(filter.value ?? "");
-}
-
-function filterCapabilitiesForDraft(
-  display: ViewFieldCapability[],
-  all: ViewFieldCapability[],
-  field: string,
-) {
-  if (capabilityFor(display, field)) return display;
-  const selected = capabilityFor(all, field);
-
-  return selected ? [...display, selected] : display;
 }

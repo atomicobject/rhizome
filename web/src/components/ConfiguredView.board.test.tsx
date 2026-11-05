@@ -23,6 +23,7 @@ describe("ConfiguredViewBoard", () => {
       expect.stringContaining("Planned"),
       expect.stringContaining("(empty)"),
       expect.stringContaining("Active"),
+      "Last changed",
     ]);
     // A value with no records stays as a narrow strip that still takes drops.
     expect(screen.getByLabelText("(empty) column")).toHaveClass("is-empty");

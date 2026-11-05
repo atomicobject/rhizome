@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef } from "react";
-import type { ViewFieldCapability } from "../api/types";
+import type { ViewExecuteResponse, ViewFieldCapability } from "../api/types";
 import { capabilityFor, groupValueLabel } from "./ConfiguredViewModel";
-import type { ConfiguredTableGroup } from "./ConfiguredViewTableModel";
+
+type ViewGroup = NonNullable<ViewExecuteResponse["groups"]>[number];
 
 export type CollapsedGroupNote = { key: string; label: string; count: number };
 
 export function useCollapsedGroupNotes(
-  groups: ConfiguredTableGroup[],
+  groups: ViewGroup[],
   choices: Record<string, boolean>,
   capabilities: ViewFieldCapability[],
   onChange?: (groups: CollapsedGroupNote[]) => void,
@@ -14,7 +15,7 @@ export function useCollapsedGroupNotes(
   const notes = useMemo(() => {
     const result: CollapsedGroupNote[] = [];
 
-    function visit(items: ConfiguredTableGroup[]) {
+    function visit(items: ViewGroup[]) {
       for (const group of items) {
         if (!(choices[group.key] ?? !group.collapsedByDefault)) {
           result.push({
@@ -24,9 +25,9 @@ export function useCollapsedGroupNotes(
               group.value,
               group.label,
             ),
-            count: group.count,
+            count: group.totalCount ?? group.count,
           });
-        } else visit(group.children);
+        } else visit(group.children ?? []);
       }
     }
 

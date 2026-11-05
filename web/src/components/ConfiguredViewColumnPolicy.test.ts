@@ -82,7 +82,7 @@ describe("allocateColumns", () => {
       {},
     );
 
-    expect(allocation.shown).toEqual(["title"]);
+    expect(allocation.shown).toEqual(["title", "changed"]);
     expect(allocation.minWidth).toBe(490);
   });
 

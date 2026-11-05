@@ -95,7 +95,17 @@ export function allocateColumns(
   userWidths: Readonly<Record<string, number>>,
 ): ColumnAllocation {
   const titleMin = twoLine
-    ? Math.max(TITLE_MIN_ONE_LINE, Math.min(TITLE_MIN_TWO_LINE, available - CHECK_CELL_WIDTH))
+    ? Math.max(
+        TITLE_MIN_ONE_LINE,
+        Math.min(
+          TITLE_MIN_TWO_LINE,
+          available -
+            CHECK_CELL_WIDTH -
+            columns
+              .filter((column) => column.kind === "age")
+              .reduce((sum, column) => sum + (userWidths[column.field] ?? COLUMN_WIDTHS.age), 0),
+        ),
+      )
     : TITLE_MIN_ONE_LINE;
 
   const width = (column: { field: string; kind: ColumnKind }) =>
