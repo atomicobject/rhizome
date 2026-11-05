@@ -165,7 +165,10 @@ describe("ConfiguredViewCards record briefs", () => {
     render(<ConfiguredViewCards {...rendererProps({ execution: ideaBriefs(), onStageOps })} />);
     const bravo = brief("Bravo");
 
-    expect(within(bravo).queryByText("Pursuing")).toBeNull();
+    // The group already names the status, so its editor waits for hover or focus.
+    expect(
+      within(bravo).getByText("Pursuing").closest(".configured-brief__group-echo"),
+    ).not.toBeNull();
     fireEvent.click(within(bravo).getByRole("button", { name: "Edit Priority" }));
     fireEvent.click(within(bravo).getByRole("menuitemradio", { name: "High" }));
 

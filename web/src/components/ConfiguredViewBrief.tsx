@@ -181,24 +181,40 @@ export function RecordBriefHeader({
   const facts = recordFacts(row, profile, capabilities);
   const lifecycle = lifecycleTag(row, profile, capabilities);
 
+  const echoes = (tag: (typeof facts.orderedTags)[number]) =>
+    Boolean(omitField) &&
+    [tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField);
+
+  // An editable echo stays (the card's only editor) but waits for hover or focus.
+  const editable = (tag: (typeof facts.orderedTags)[number]) =>
+    Boolean(onStageOps && tag.capability.edit && !tag.capability.edit.list);
+
   const tags = (lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags).filter(
-    (tag) =>
-      !omitField ||
-      ![tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField),
+    (tag) => !echoes(tag) || editable(tag),
   );
 
   return (
     <span className="configured-brief__header">
       {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
-      {tags.map((tag) => (
-        <TagMenu
-          key={tag.field}
-          row={row}
-          tag={tag}
-          editSession={editSession}
-          onStageOps={onStageOps}
-        />
-      ))}
+      {tags.map((tag) => {
+        const menu = (
+          <TagMenu
+            key={tag.field}
+            row={row}
+            tag={tag}
+            editSession={editSession}
+            onStageOps={onStageOps}
+          />
+        );
+
+        return echoes(tag) ? (
+          <span key={tag.field} className="configured-brief__group-echo">
+            {menu}
+          </span>
+        ) : (
+          menu
+        );
+      })}
       <span className="configured-brief__end">
         <People facts={facts.people} />
         {changedAge(row)}

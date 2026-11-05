@@ -42,3 +42,11 @@
   color: var(--text-muted);
   font: 500 13px var(--font-sans);
 }
+/* An editable status the card's group already names waits for hover or focus. */
+.configured-brief__group-echo {
+  display: inline-flex;
+  opacity: 0;
+}
+.configured-card:is(:hover, :focus-within) .configured-brief__group-echo {
+  opacity: 1;
+}
