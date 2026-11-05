@@ -150,7 +150,8 @@ export function buildFolderTree(graph: {
 
   const affinity: FolderTree["affinity"] = new Map();
 
-  for (const folder of folders.values()) {
+  {
+    const folder = root;
     const childOf = new Map<string, string>();
 
     for (const child of folder.folders)

@@ -287,3 +287,21 @@ it("keeps repeated folder names and parent prefixes on one line, with counts sep
     labelDetail: "1 file",
   });
 });
+
+it("computes only root affinity and preserves the linked root ordering", () => {
+  const tree = buildFolderTree({
+    nodes: ["a/x/one.ts", "b/x/one.ts", "c/x/one.ts"].map(code),
+    edges: [{ source: "code:a/x/one.ts", target: "code:c/x/one.ts", kind: "calls" }],
+  });
+
+  expect([...tree.affinity.keys()]).toEqual([""]);
+  expect(tree.affinity.get("")).toEqual(new Map([['["folder:a","folder:c"]', 1]]));
+  const graph = layoutFolderGraph(tree, visibleFolderGraph(tree, state(), color));
+
+  const order = graph.nodes
+    .filter((n) => ["folder:a", "folder:b", "folder:c"].includes(n.id))
+    .sort((a, b) => Math.atan2(a.y ?? 0, a.x ?? 0) - Math.atan2(b.y ?? 0, b.x ?? 0))
+    .map((n) => n.id);
+
+  expect(order).toEqual(["folder:a", "folder:c", "folder:b"]);
+});
