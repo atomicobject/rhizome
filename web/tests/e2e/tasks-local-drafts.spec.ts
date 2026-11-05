@@ -88,6 +88,35 @@ async function serveTasks(page: Page) {
 test("tests a local-only task draft and reads its result", async ({ page }) => {
   await serveTasks(page);
   await page.goto("/tasks");
+  await expect(page.getByRole("columnheader", { name: "Action", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Frequency", exact: true })).toBeVisible();
+  const panel = await page.locator(".tasks-overview").boundingBox();
+  const pause = await page.getByRole("button", { name: "Pause all" }).boundingBox();
+  const table = await page.locator(".task-table").boundingBox();
+
+  expect(panel && pause && panel.x + panel.width - pause.x - pause.width).toBe(22);
+  expect(panel && table && panel.x + panel.width - table.x - table.width).toBe(0);
+
+  await expect(page.locator(".task-table thead th").first()).toHaveCSS("padding-left", "22px");
+  await expect(page.locator(".task-table thead th").last()).toHaveCSS("padding-right", "22px");
+  await expect(page.locator(".task-table tbody tr").first().locator("th")).toHaveCSS(
+    "padding-left",
+    "22px",
+  );
+  await expect(page.locator(".task-table tbody tr").first().locator("td").last()).toHaveCSS(
+    "padding-right",
+    "22px",
+  );
+
+  for (const width of [1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const title = await page.getByRole("columnheader", { name: "Task", exact: true }).boundingBox();
+
+    expect(title?.width).toBeGreaterThanOrEqual(320);
+    expect(title?.width).toBeLessThanOrEqual(480);
+  }
+
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   const row = page.getByRole("row", { name: /Session mining/ });
   await expect(row.getByText("Local only")).toBeVisible();

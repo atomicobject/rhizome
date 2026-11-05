@@ -8,6 +8,36 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
+  const settings = page.getByLabel("Session settings: Approval required", { exact: true });
+  await expect(settings).toContainText("Settings");
+  await expect(settings).toHaveCSS("height", "28px");
+  const active = settings.locator(".agent-session-settings__active");
+  await expect(active).toHaveCSS("font-size", "13px");
+  await expect(active).toHaveCSS("font-weight", "500");
+  await expect(page.getByText("No sessions yet.", { exact: true })).toHaveCSS("font-size", "13px");
+  const rows = page.locator(".agent-examples button");
+  await expect(rows).toHaveCount(3);
+
+  // The arrow follows its question by 8px, so it reads as the row's action.
+  const gaps = await page.locator(".agent-examples button").evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const text = button.querySelector("span")!.getBoundingClientRect();
+
+      const arrow = button.querySelector(".agent-examples__arrow")!.getBoundingClientRect();
+
+      return Math.round(arrow.left - text.right);
+    }),
+  );
+
+  expect(gaps).toEqual([8, 8, 8]);
+
+  await rows.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Message")).toHaveValue(
+    "What changed in this repository this week?",
+  );
+  await expect(page.getByLabel("Message")).toBeFocused();
+
   await page.getByRole("button", { name: "New session", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Rhizome agent chat" })).toBeVisible();
 

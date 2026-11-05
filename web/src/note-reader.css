@@ -1,0 +1,298 @@
+@import "./note-info.css";
+
+/* Note reader: toolbar, measure, control bar, properties, and the Info pane.
+   Moved verbatim from notes-shell.css. */
+
+.ontology-pane__type {
+  flex: none;
+}
+
+/* The path takes the row's free width and truncates in the middle, so the
+   filename survives (MiddleTruncate). */
+.ontology-pane__toolbar-path {
+  flex: 0 1 auto;
+  min-width: 80px;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Section jumps share the .segmented look; the row scrolls when crowded. */
+.ontology-pane__section-tabs.segmented {
+  flex: 0 1 auto;
+  align-self: center;
+  overflow-x: auto;
+}
+
+.ontology-pane__section-tabs > button {
+  flex: none;
+}
+
+.ontology-pane__section-tabs > button:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.ontology-source {
+  display: block;
+  margin: calc(-1 * var(--sp-6));
+  padding: var(--sp-4) 0 var(--sp-8);
+  overflow: visible;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ontology-source__line {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  min-height: 19px;
+}
+
+.ontology-source__number {
+  padding-right: var(--sp-3);
+  color: var(--border-strong);
+  text-align: right;
+  user-select: none;
+}
+
+.ontology-source__line code {
+  padding: 0 var(--sp-5);
+  color: inherit;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Note reader measure ----
+   The note reads in a 540px column centred in the panel (65–75 characters of
+   15px Inter). Percentages resolve against the pane's width. HTML notes run
+   edge to edge. */
+.notes-shell .ontology-pane {
+  --note-gutter: max(var(--sp-6), calc((100% - 540px) / 2));
+}
+
+.notes-shell .ontology-pane__main:not(.ontology-pane__main--html) {
+  padding-inline: var(--note-gutter);
+}
+
+/* The control row is pane chrome, not prose: it runs edge to edge as an HTML
+   note's does, so the path has the free width. */
+.notes-shell .ontology-pane__controls {
+  padding-inline: var(--sp-6);
+}
+
+.notes-shell .ontology-pane__main:not(.ontology-pane__main--html) .ontology-markdown {
+  max-width: none;
+}
+
+/* Prose and the editor's lines share the column's 540px measure, so editing
+   keeps read mode's line breaks even where the column could grow. */
+.notes-shell .body-narrative :is(p, ul, ol, blockquote),
+.notes-shell .body-narrative--editor .cm-line {
+  max-width: 540px;
+}
+
+/* One vertical rhythm in both modes. A blank source line is the paragraph
+   gap (0.75em), list items sit on the 24px line grid, and a list that follows
+   its lead-in line directly keeps no gap, as the editor shows it. */
+.notes-shell .body-narrative--editor .cm-line:has(> br:only-child) {
+  line-height: 0.75em;
+}
+
+.notes-shell .body-narrative li {
+  margin: 0;
+}
+
+.notes-shell .body-narrative :is(ul, ol) {
+  margin: 0 0 0.75em;
+  padding-left: 2em;
+}
+
+.notes-shell .body-narrative p:has(+ :is(ul, ol)) {
+  margin-bottom: 0;
+}
+
+/* A wiki link in the editor takes read mode's metrics: the same hairline
+   underline and no trailing glyph, so a line wraps where it did in read mode. */
+.notes-shell .body-narrative--editor .cm-atomic-wiki-link {
+  text-decoration-color: var(--link-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.notes-shell .body-narrative--editor .cm-atomic-wiki-link .cm-atomic-link::after {
+  content: none;
+}
+
+/* Editing is a mode, cued by a neutral border-strong rule under the control
+   row. The Editing chip names the mode; staged changes keep their
+   separate labelled gold bar. */
+.notes-shell .ontology-pane.is-editing > .ontology-pane__header > .ontology-pane__controls {
+  border-bottom: 2px solid var(--border-strong);
+}
+
+/* The controls row is only as wide as the column: the path gives way, never
+   the controls. */
+.notes-shell
+  .ontology-pane__controls
+  > :not(.ontology-pane__toolbar-path, .ontology-pane__controls-spacer) {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* ---- Note control bar ----
+   The note's presentations (Structure | Markdown, plus saved views) read as
+   one segmented control, like every other mode switch; the default view is
+   named by the segment's tooltip, so its dot is not drawn here. Copy link is
+   a ghost button, not a second bordered control. */
+.ontology-pane__controls .view-tabs {
+  flex: none;
+  gap: 2px;
+  align-items: stretch;
+  padding: 2px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
+}
+
+/* The chosen presentation is the shared raised segment (base.css .segmented):
+   a surface fill with a border-strong edge on the tinted track, in both
+   themes. Never a solid ink fill. */
+.ontology-pane__controls .view-tabs > button {
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+}
+
+.ontology-pane__controls .view-tabs > button[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: light-dark(var(--surface), var(--surface-strong));
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ontology-pane__controls .view-tabs > button[aria-pressed="true"]::after,
+.ontology-pane__controls .view-selector__default {
+  display: none;
+}
+
+.ontology-pane__controls .ontology-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 var(--sp-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.ontology-pane__controls .ontology-link-button:hover {
+  border-color: transparent;
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.ontology-pane__controls .ontology-link-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Note properties ----
+   Properties share the prose measure, so the block's right edge lines up with
+   the paragraphs under it. Labels take a 120px column; long text (a summary)
+   runs full width under its label instead of in a narrow value column. */
+.notes-shell .ontology-pane .ontology-properties {
+  max-width: 540px;
+}
+
+.notes-shell .ontology-pane .ontology-properties__grid {
+  grid-template-columns: 120px minmax(0, 1fr);
+  column-gap: var(--sp-4);
+}
+
+.notes-shell .ontology-pane .ontology-properties__row.is-long > :is(dt, dd) {
+  grid-column: 1 / -1;
+}
+
+.notes-shell .ontology-pane .ontology-properties__row.is-long > dd {
+  padding-top: 0;
+}
+
+/* Only properties longer than six lines need an own-row disclosure. */
+.notes-shell .ontology-pane .ontology-properties__preview-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+}
+
+.notes-shell .ontology-pane .ontology-properties__preview-more {
+  margin-top: var(--sp-2);
+}
+
+/* Field labels stay roman; an empty field reads faint, not italic. */
+.notes-shell .ontology-pane .ontology-properties__row.is-missing .ontology-properties__key {
+  font-style: normal;
+}
+
+/* Inline code sits tight in its sentence: no padded gap inside parentheses. */
+.notes-shell .ontology-markdown :not(pre) > code {
+  margin: 0;
+  padding: 1px 3px;
+}
+
+/* Identity typography is local to the reader, including the HTML control row. */
+.ontology-pane .note-identity-id,
+.ontology-pane .ontology-identity__slot--id {
+  color: var(--text-muted);
+  font: 500 12px / 1.4 var(--font-mono);
+}
+.ontology-pane .ontology-identity .widget-date {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.ontology-pane .ontology-identity .widget-enum--badge {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: 500 13px / 1.35 var(--font-sans);
+}
+.notes-shell
+  .ontology-pane
+  .ontology-properties__value
+  :is(.widget-text, .ontology-properties__preview-text) {
+  color: var(--text);
+  font: 400 14px / 1.45 var(--font-sans);
+}
+/* The label owns the gutter mark; its text keeps the same content edge. */
+.ontology-pane .ontology-properties__key:has(.note-property-pencil) {
+  position: relative;
+}
+.note-property-pencil {
+  position: absolute;
+  top: 50%;
+  left: -24px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 16px;
+  padding-inline: 4px;
+  box-sizing: border-box;
+  color: var(--text-muted);
+}
+.ontology-pane .note-identity-separator {
+  color: var(--text-faint);
+}

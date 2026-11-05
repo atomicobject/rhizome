@@ -1,0 +1,216 @@
+/* Info sections outrank their muted type groups and 14px links. */
+.notes-right-rail .ontology-sidebar-context__group h3 {
+  margin-bottom: var(--section-gap);
+  font: var(--section-font);
+  color: var(--section-color);
+}
+
+.notes-right-rail .rail-bucket + .rail-bucket {
+  margin-top: var(--sp-3);
+}
+
+.notes-right-rail
+  :is(.rail-row__dir--incoming, .rail-row__dir--both, .rail-bucket__dir, .rail-direction__dir) {
+  color: var(--text-faint);
+}
+
+/* Type metadata consistently starts below its linked title. */
+.notes-right-rail .rail-row:has(> :is(.rail-row__type, .rail-row__path)) {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.notes-right-rail .rail-row:has(> .rail-row__dir) {
+  position: relative;
+  padding-left: 20px;
+}
+
+.notes-right-rail .rail-row > .rail-row__dir {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  line-height: 19px;
+}
+
+.notes-right-rail .rail-row:has(> :is(.rail-row__type, .rail-row__path)) > button {
+  flex: 1 0 auto;
+  max-width: 100%;
+}
+
+.notes-right-rail .rail-row > :is(.rail-row__type, .rail-row__path) {
+  max-width: 100%;
+}
+
+.notes-right-rail .rail-row > .rail-row__type {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.notes-right-rail .rail-row > button {
+  text-decoration: none;
+}
+
+.notes-right-rail .rail-row > button:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* Workspace materials open from their heading row; the shared chevron
+   follows the heading and turns. Closed, the count names its unit. */
+.notes-right-rail .rail-materials > summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+
+.notes-right-rail .rail-materials > summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-right-rail .rail-materials > summary > h3 {
+  justify-content: flex-start;
+  gap: var(--sp-2);
+  min-height: 24px;
+  margin: 0;
+}
+
+.notes-right-rail .rail-materials > summary .ontology-sidebar-context__count {
+  margin-left: auto;
+}
+
+.notes-right-rail .rail-materials > summary .disclosure-chevron {
+  margin-right: -4px;
+  color: var(--text-muted);
+}
+
+.notes-right-rail .rail-materials[open] .rail-materials__unit {
+  display: none;
+}
+
+.notes-right-rail .rail-materials > summary:hover > h3 {
+  color: var(--text);
+}
+
+.notes-right-rail .rail-materials > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.notes-right-rail .rail-materials[open] > summary {
+  margin-bottom: var(--sp-1);
+}
+
+.notes-right-rail .rail-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--sp-4);
+  margin: 0 0 var(--sp-2);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.notes-right-rail .rail-legend__dir {
+  margin-right: 3px;
+  font-weight: 600;
+}
+
+/* An untyped note names its folder where a typed one names its type. */
+.notes-right-rail .rail-row__path {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  direction: rtl;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-right-rail :is(.rail-row__dir, .rail-bucket__dir, .rail-direction__dir) {
+  width: 16px;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.notes-right-rail .rail-bucket .rail-row:not(:has(.rail-row__dir)) {
+  padding-left: 20px;
+}
+
+/* Relations split into compact Incoming and Outgoing groups. */
+.notes-right-rail .rail-direction {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 2px;
+  color: var(--text-faint);
+  font: 500 var(--fs-sm) / 1.3 var(--font-sans);
+}
+
+.notes-right-rail section + section > .rail-direction {
+  margin-top: var(--sp-3);
+}
+
+.notes-right-rail .rail-direction__dir {
+  text-align: center;
+}
+
+.notes-right-rail .rail-direction ~ .rail-bucket .rail-bucket__head {
+  padding-left: 20px;
+}
+
+.notes-right-rail .rail-bucket__head {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.notes-right-rail .note-info .rail-bucket__head {
+  margin-top: 14px;
+  font-weight: 500;
+}
+.notes-right-rail .note-info .rail-bucket + .rail-bucket {
+  margin-top: 0;
+}
+.notes-right-rail .note-info .rail-row {
+  min-height: 28px;
+  box-sizing: border-box;
+  row-gap: 4px;
+}
+/* Two-line rows (title over type or folder) keep 8px apart; one-line rows
+   sit on a plain 28px pitch. */
+.notes-right-rail .note-info .rail-row:has(> :is(.rail-row__type, .rail-row__path)) + .rail-row,
+.notes-right-rail .note-info .rail-row + .rail-row:has(> :is(.rail-row__type, .rail-row__path)) {
+  margin-top: 8px;
+}
+.notes-right-rail .note-info .rail-row:not(:has(> :is(.rail-row__type, .rail-row__path))) > button {
+  min-height: 28px;
+}
+.notes-right-rail .note-info .rail-row > .rail-row__dir {
+  top: 2px;
+}
+.notes-right-rail
+  .note-info
+  .rail-row:not(:has(> :is(.rail-row__type, .rail-row__path)))
+  > .rail-row__dir {
+  top: 6px;
+}
+.notes-right-rail .note-info .rail-materials > summary > h3 {
+  margin-bottom: 10px;
+}
+.notes-right-rail .note-info .rail-materials[open] > summary {
+  margin-bottom: 0;
+}
+.notes-right-rail .note-info .rail-materials > summary .disclosure-chevron {
+  margin: 0;
+}
+
+.notes-right-rail .note-info .rail-row__path {
+  flex: 0 0 100%;
+  max-width: 100%;
+}

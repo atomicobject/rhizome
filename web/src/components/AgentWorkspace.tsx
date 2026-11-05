@@ -1,13 +1,13 @@
+import { AgentComposer } from "./agent/AgentComposer";
+import { ExamplePrompts } from "./agent/ExamplePrompts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAgentSession,
   deleteAgentSession,
   getAgentEventsUrl,
   getAgentSession,
   getAgentSettings,
-  interruptAgentSession,
   listAgentSessions,
   respondToAgentApproval,
   saveAgentSettings,
@@ -23,26 +23,12 @@ import type {
   AgentSession,
   AgentSessionResponse,
   AgentSessionsResponse,
-  AgentSettings,
-  AgentSettingsResponse,
 } from "../api/types";
+import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
-import { AgentAvailability, AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
+import { AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
 import { AgentTimeline } from "./agent/AgentTimeline";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
-
-const defaultSettings: AgentSettings = {
-  harnesses: {
-    codex: { permissionMode: "approval-required" },
-    claude: { permissionMode: "approval-required" },
-  },
-};
-
-const emptySettingsResponse: AgentSettingsResponse = {
-  settings: defaultSettings,
-  resolved: { reason: "none available" },
-  harnesses: [],
-};
 
 function mergeEvents(current: AgentEvent[], incoming: AgentEvent[]) {
   const byID = new Map<number, AgentEvent>();
@@ -118,31 +104,6 @@ function completedAssistant(events: AgentEvent[], completed: AgentEvent): AgentM
   };
 }
 
-const EXAMPLE_PROMPTS = [
-  "What changed in this repository this week?",
-  "Which notes explain how search ranks results?",
-  "List the open action items and who owns them.",
-];
-
-/** An empty thread offers a few starting questions; picking one fills the composer. */
-function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
-  return (
-    <div className="agent-examples">
-      <h2 className="agent-examples__head">Try asking</h2>
-      <ul>
-        {EXAMPLE_PROMPTS.map((prompt) => (
-          <li key={prompt}>
-            <button type="button" onClick={() => onPick(prompt)}>
-              <span>{prompt}</span>
-              <ArrowRight size={16} aria-hidden="true" className="agent-examples__arrow" />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 export function AgentWorkspace({
   sidebarTitle,
   sidebarHint,
@@ -166,14 +127,6 @@ export function AgentWorkspace({
   const threadRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // The composer grows with its message; CSS caps it, then it scrolls.
-  useLayoutEffect(() => {
-    const field = composerRef.current;
-
-    if (!field) return;
-    field.style.height = "auto";
-    field.style.height = `${field.scrollHeight}px`;
-  }, [draft]);
   const latestEventIDRef = useRef(0);
 
   const sessionsQuery = useQuery({
@@ -516,63 +469,20 @@ export function AgentWorkspace({
             {visibleError}
           </p>
         ) : null}
-        {selectedSession?.turnRunning ? (
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await interruptAgentSession(selectedSession.id);
-              } catch (cause) {
-                setError(cause instanceof Error ? cause.message : String(cause));
-              }
-            }}
-          >
-            Interrupt
-          </button>
-        ) : null}
-        <form
-          className="agent-composer"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submitText(draft);
-          }}
-        >
-          <div className="agent-composer__frame">
-            <textarea
-              ref={composerRef}
-              value={draft}
-              aria-label="Message"
-              placeholder="Ask Rhizome…"
-              rows={3}
-              disabled={busy || Boolean(selectedSession?.readOnly)}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  submitText(draft);
-                }
-              }}
-            />
-            <div className="agent-composer__bar">
-              {disabledReason ? (
-                <p className="agent-muted">{disabledReason}</p>
-              ) : blocked || status?.loggedIn === false ? (
-                <AgentAvailability harness={harness} status={status} />
-              ) : (
-                <p className="agent-muted">
-                  <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends
-                </p>
-              )}
-              <button
-                type="submit"
-                className="button button--primary"
-                disabled={busy || blocked || !draft.trim() || Boolean(selectedSession?.readOnly)}
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </form>
+        <AgentComposer
+          runningID={selectedSession?.turnRunning ? selectedSession.id : ""}
+          onError={setError}
+          draft={draft}
+          onChange={setDraft}
+          onSubmit={submitText}
+          composerRef={composerRef}
+          busy={busy}
+          blocked={blocked}
+          readOnly={Boolean(selectedSession?.readOnly)}
+          disabledReason={disabledReason}
+          harness={harness}
+          status={status}
+        />
       </section>
     </main>
   );

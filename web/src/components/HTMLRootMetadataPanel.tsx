@@ -1,3 +1,4 @@
+import { EditablePropertyMark } from "./body/EditablePropertyMark";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
@@ -242,7 +243,10 @@ export function HTMLRootMetadataPanel({
                 data-field={field.key}
                 className={`ontology-properties__row${dirty ? " is-dirty" : ""}${field.present ? "" : " is-missing"}`}
               >
-                <dt className="ontology-properties__key">{field.key}</dt>
+                <dt className="ontology-properties__key">
+                  {field.key}
+                  {editing && <EditablePropertyMark />}
+                </dt>
                 <dd className="ontology-properties__value">
                   <FieldEditor
                     node={node}
