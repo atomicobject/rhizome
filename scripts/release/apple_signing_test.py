@@ -1,9 +1,13 @@
 from pathlib import Path
 import subprocess
 import unittest
-from unittest.mock import Mock
+import plistlib
+import tarfile
+import tempfile
+import io
+from unittest.mock import Mock, patch
 
-from apple_signing import AppleSigningError, credentials, notarize_dmg, require_credentials, verify_app
+from apple_signing import AppleSigningError, credentials, notarize_dmg, require_credentials, verify_app, verify_distribution
 
 
 IDENTITY = "Developer ID Application: Example LLC (ABCDEFGHIJ)"
@@ -12,6 +16,10 @@ ENV = {"APPLE_SIGNING_IDENTITY": IDENTITY, "APPLE_API_KEY": "synthetic-id",
 
 
 class AppleSigningTest(unittest.TestCase):
+    def test_old_python_is_refused_before_signing(self):
+        with patch("apple_signing.sys.version_info", (3, 11, 0)), self.assertRaisesRegex(AppleSigningError, "Python 3.12"):
+            require_credentials(ENV)
+
     def test_dmg_rejection_or_timeout_prevents_stapling(self):
         for result in (subprocess.CompletedProcess([], 0, '{"status":"Invalid"}', ""),
                        subprocess.TimeoutExpired([], 1)):
@@ -58,6 +66,55 @@ class AppleSigningTest(unittest.TestCase):
             with self.assertRaises(AppleSigningError) as caught:
                 verify_app(Path("Rhizome.app"), IDENTITY, runner=run, env={})
             self.assertNotIn("synthetic secret", str(caught.exception))
+
+
+class DistributionTest(unittest.TestCase):
+    def test_each_distributed_copy_is_verified_and_failed_mounted_copy_is_detached(self):
+        for reject in (None, "mounted", "archive"):
+            with self.subTest(reject=reject), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                app = root / "built/Rhizome.app"
+                mounted = root / "mounted/Rhizome.app"
+                for copy in (app, mounted):
+                    (copy / "Contents/MacOS").mkdir(parents=True)
+                    (copy / "Contents/MacOS/rzm").write_text("synthetic executable")
+                archive = root / "candidate.tar.gz"
+                with tarfile.open(archive, "w:gz") as bundle:
+                    bundle.add(app, arcname="Rhizome.app")
+                checked = []
+                commands = []
+                def run(command, **kwargs):
+                    commands.append(command)
+                    stdout = ""
+                    if command[:2] == ["hdiutil", "attach"]:
+                        stdout = plistlib.dumps({"system-entities": [{"mount-point": str(mounted.parent)}]}).decode()
+                    if command[:2] == ["codesign", "--verify"]:
+                        copy = Path(command[-1])
+                        label = "built" if copy == app else "mounted" if copy == mounted else "archive"
+                        checked.append(label)
+                        self.assertTrue((copy / "Contents/MacOS/rzm").is_file())
+                        if label == reject:
+                            raise subprocess.CalledProcessError(1, command)
+                    return subprocess.CompletedProcess(command, 0, stdout, "TeamIdentifier=ABCDEFGHIJ\nflags=0x10000(runtime)\n")
+                if reject:
+                    with self.assertRaises(AppleSigningError):
+                        verify_distribution(app, root / "candidate.dmg", archive, IDENTITY, runner=run, env={})
+                else:
+                    verify_distribution(app, root / "candidate.dmg", archive, IDENTITY, runner=run, env={})
+                self.assertEqual(["built", "mounted"] + ([] if reject == "mounted" else ["archive"]), checked)
+                self.assertIn(["hdiutil", "detach", str(mounted.parent)], commands)
+
+    def test_archive_traversal_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "candidate.tar.gz"
+            with tarfile.open(archive, "w:gz") as bundle:
+                member = tarfile.TarInfo("../escape")
+                member.size = 1
+                bundle.addfile(member, io.BytesIO(b"x"))
+            runner = Mock(return_value=subprocess.CompletedProcess([], 0,
+                plistlib.dumps({"system-entities": [{"mount-point": directory}]}).decode(), ""))
+            with patch("apple_signing.verify_app"), self.assertRaises(tarfile.FilterError):
+                verify_distribution(Path("Rhizome.app"), Path("candidate.dmg"), archive, IDENTITY, runner=runner, env={})
 
 
 if __name__ == "__main__":

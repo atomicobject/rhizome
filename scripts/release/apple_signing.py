@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import re
 import subprocess
+import sys
 import tarfile
 import tempfile
 
@@ -52,6 +53,8 @@ def notarizes(environ):
 
 
 def require_credentials(environ):
+    if sys.version_info < (3, 12):
+        raise AppleSigningError("notarized desktop builds require Python 3.12 or newer for safe archive verification")
     missing = [name for name in APPLE_SIGNING[:3] if not environ.get(name, "").strip()]
     if not (environ.get("APPLE_API_PRIVATE_KEY", "").strip() or environ.get("APPLE_API_KEY_PATH", "").strip()):
         missing.append("APPLE_API_PRIVATE_KEY or APPLE_API_KEY_PATH")

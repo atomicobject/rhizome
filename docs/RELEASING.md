@@ -126,7 +126,7 @@ If the desktop build fails during publication, GoReleaser stops in its build pha
 
 ### Developer ID signing and notarization
 
-Public desktop publication requires a valid Developer ID Application identity in the release Mac's login Keychain and notarization credentials. `RZM_RELEASE_DESKTOP=1` requires both notarization and updater signing. A local snapshot is ad-hoc signed unless `RZM_NOTARIZE_DESKTOP=1` explicitly requests notarization. Ordinary development requires no Apple credentials.
+Public desktop publication requires Python 3.12 or newer for safe updater archive extraction, a valid Developer ID Application identity in the release Mac's login Keychain and notarization credentials. `RZM_RELEASE_DESKTOP=1` requires both notarization and updater signing. A local snapshot is ad-hoc signed unless `RZM_NOTARIZE_DESKTOP=1` explicitly requests notarization. Ordinary development requires no Apple credentials.
 
 Store the encrypted `.p12` export, its password, and the notarization `.p8` private key in a restricted 1Password vault. The `.p12` must include the certificate and private key. The public `.cer` alone cannot restore signing. Keep 1Password backups after installing the identity in a release Mac's Keychain. Never store even encrypted credential bundles in Git.
 
