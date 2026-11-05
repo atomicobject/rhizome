@@ -44,3 +44,8 @@
   color: var(--success);
   font-weight: 700;
 }
+
+.validation-status-strip--success,
+.validation-checks {
+  max-width: 720px;
+}

@@ -1,3 +1,5 @@
+@import "./agent-composer.css";
+
 /* The session list sits in the shared workbench sidebar (SPEC-0128) and the
    chat in its inset panel. */
 .agent-workspace__rail {
@@ -21,11 +23,6 @@
 .agent-workspace h1 {
   margin: 0;
   font-size: var(--fs-base);
-  font-weight: 600;
-}
-
-.agent-thread__head .view-header__about strong {
-  color: var(--text);
   font-weight: 600;
 }
 
@@ -207,7 +204,7 @@
    and Model, its summary naming the active permission. */
 .agent-session-settings > summary {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: var(--sp-1);
   min-height: var(--disclosure-target);
   margin-left: -4px;
@@ -225,10 +222,16 @@
   color: var(--chrome-text);
 }
 
+.agent-session-settings__label {
+  min-width: 0;
+}
+
 .agent-session-settings__active {
+  display: block;
   overflow: hidden;
-  margin-left: auto;
-  font-weight: 500;
+  color: var(--chrome-muted);
+  font-size: 13px;
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -395,141 +398,4 @@
   color: var(--accent-ink);
   background: var(--accent-soft);
   border-top: 1px solid var(--accent-line);
-}
-
-/* The composer is one framed field: the message, then a bar with the
-   send hint or availability note at the left and Send at the right. */
-.agent-composer {
-  padding: var(--sp-3) var(--agent-inline) var(--sp-5);
-}
-
-/* An empty thread's one instruction, just above the field it points at. */
-.agent-composer__hint {
-  margin: 0 0 var(--sp-3);
-  color: var(--text-muted);
-  font-size: var(--fs-base);
-}
-
-.agent-composer__frame {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-}
-
-.agent-composer__frame:focus-within {
-  border-color: var(--text-faint);
-}
-
-.agent-composer textarea {
-  display: block;
-  width: 100%;
-  min-height: 64px;
-  padding: 10px 12px 4px;
-  border: 0;
-  background: transparent;
-  outline: none;
-  max-height: 240px;
-  font-size: var(--fs-base);
-  resize: none;
-}
-
-.agent-composer__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  min-height: 40px;
-  padding: 0 6px 6px 12px;
-}
-
-.agent-composer__bar > :first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-.agent-composer__bar kbd {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-
-.agent-availability {
-  color: var(--text);
-  font-size: var(--fs-sm);
-}
-
-.agent-availability code {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-
-.agent-inline-event {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  width: min(78ch, 92%);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.agent-inline-event summary {
-  min-height: 44px;
-  cursor: pointer;
-  padding: var(--sp-3) var(--sp-4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  color: var(--muted);
-  font-size: var(--fs-sm);
-}
-
-.agent-inline-event summary span {
-  font-weight: 700;
-}
-
-.agent-inline-event summary small {
-  color: var(--text-faint);
-}
-
-.agent-inline-event__details {
-  display: grid;
-  gap: var(--sp-3);
-  border-top: 1px solid var(--border);
-  padding: var(--sp-3);
-}
-
-.agent-inline-event__details h3 {
-  margin: 0 0 var(--sp-2);
-  font: var(--label-font);
-  color: var(--label-color);
-}
-
-.agent-inline-event pre,
-.agent-inline-event p {
-  margin: 0;
-  max-height: 260px;
-}
-
-.agent-inline-event--pending {
-  border-style: dashed;
-}
-
-.agent-inline-event--done {
-  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
-}
-
-.agent-inline-event--status {
-  background: var(--surface-alt);
-  border-color: var(--border-faint);
-}
-
-.agent-inline-event--error summary {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-}
-
-@media (max-width: 980px) {
-  .agent-thread__body {
-    padding: var(--sp-4) var(--agent-inline);
-  }
 }

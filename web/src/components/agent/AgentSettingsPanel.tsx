@@ -1,6 +1,24 @@
-import type { AgentHarnessKind, AgentHarnessStatus, AgentSettings } from "../../api/types";
+import type {
+  AgentHarnessKind,
+  AgentHarnessStatus,
+  AgentSettings,
+  AgentSettingsResponse,
+} from "../../api/types";
 import { humanizeName } from "../../lib/labels";
 import { DisclosureChevron } from "../DisclosureChevron";
+
+const defaultSettings: AgentSettings = {
+  harnesses: {
+    codex: { permissionMode: "approval-required" },
+    claude: { permissionMode: "approval-required" },
+  },
+};
+
+export const emptySettingsResponse: AgentSettingsResponse = {
+  settings: defaultSettings,
+  resolved: { reason: "none available" },
+  harnesses: [],
+};
 
 type StatusEntry = { kind: AgentHarnessKind; status: AgentHarnessStatus };
 
@@ -111,9 +129,11 @@ export function AgentSettingsPanel({
       <details className="agent-session-settings">
         <summary>
           <DisclosureChevron />
-          <span>Session settings</span>
-          <span className="agent-session-settings__active">
-            {humanizeName(configured.permissionMode)}
+          <span className="agent-session-settings__label">
+            Session settings
+            <span className="agent-session-settings__active">
+              {humanizeName(configured.permissionMode)}
+            </span>
           </span>
         </summary>
         <div className="agent-model-controls">
