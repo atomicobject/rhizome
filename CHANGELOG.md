@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Install Rhizome Desktop and its matching command-line tool through the `rhizome-desktop` Homebrew cask. Public releases update the cask alongside the existing CLI-only formula.
+
 - Prepare release notes and version changes with the local `rhizome-release` skill, then merge the reviewed release PR to build and publish in CI. Shared assets, Linux/Windows builds and publication run on Linux; Mac runners handle native Mac builds and notarization.
 
 - Require Developer ID signing and Apple notarization for public desktop releases, with protected CI recovery and non-publishing candidate verification.

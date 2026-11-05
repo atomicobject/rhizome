@@ -61,7 +61,7 @@ Once the maintainer approves publication and merges the release PR, CI performs 
 2. Linux builds the shared web and desktop frontend once and prepares the Mac credential scanner.
 3. Linux builds the Linux and Windows CLI binaries. One Apple Silicon runner builds the native Darwin CLI binaries, Tauri app and DMG, signs and notarizes them, verifies distribution copies and removes temporary signing credentials.
 4. Linux assembles and verifies the complete asset bundle, checksums and source/version manifest.
-5. The protected Linux publisher atomically advances `release` and the version tag without force, deploys and verifies the exact gateway source, then publishes the committed notes, assets and Homebrew formula update.
+5. The protected Linux publisher atomically advances `release` and the version tag without force, deploys and verifies the exact gateway source, then publishes the committed notes, assets and Homebrew formula and desktop cask update.
 
 The Mac job performs native compilation, bundling, signing and verification. Frontend compilation, cross-platform CLI builds, final archive assembly and publication run on Linux. Pushing an ordinary feature branch, merging an ordinary PR or pushing a tag does not start this public release flow.
 
@@ -117,6 +117,21 @@ To test the full build without publishing, manually run the **Release** workflow
 
 Local snapshots remain available for development. An ad-hoc snapshot needs no Apple credentials; explicit notarization uses `RZM_NOTARIZE_DESKTOP=1` and the Apple variables above, with the identity installed in the login Keychain. Optional `scripts/with-secrets release` can load a separately configured local release Environment. Configuring that local convenience is separate from CI readiness.
 
+### Homebrew distribution
+
+The protected Linux publisher maintains `rhizome.rb` and `Casks/rhizome-desktop.rb` in `atomicobject/homebrew-tap`. The formula installs the CLI on supported Mac/Linux platforms. The cask installs the already verified notarized DMG on Apple Silicon Macs, links the bundled `rzm`, and leaves built-in app updates enabled. No extra Mac build or credential is needed.
+
+The cask uses the app's minimum macOS version (currently Monterey 12) and the exact release DMG checksum. The publisher proves whether each tap file exists before creating it, preserves unrelated files, and writes only changed recipes. Partial updates resume through the existing gateway-gated recovery; a complete release is a no-op only when both recipes match.
+
+Desktop users should migrate from the CLI-only formula before installing the cask:
+
+```sh
+brew uninstall --formula atomicobject/tap/rhizome
+brew install --cask atomicobject/tap/rhizome-desktop
+```
+
+Homebrew owns the cask's `rzm` link. The app's separate Settings > Install Command-Line Tool step is for direct DMG installations. The cask is created by the first successful public publication; candidate verification does not write the tap or publish an installable release URL.
+
 ### Updater signing key
 
 Installed apps verify updates against the public key in `desktop/src-tauri/tauri.conf.json`. The private key and password belong in the restricted backup and protected CI Environment. The desktop hook rejects a placeholder public key and verifies the produced archive before staging it. Cargo and the pinned verifier receive no credentials; only the signing process receives the updater key.
@@ -149,7 +164,7 @@ Retain the original run and its verified artifact. The final bundle is retained 
 
 The publisher also retains its gateway receipt for 30 days and restores it on retry. An uncertain or pending dispatch reconciles the original request. If the previous publisher started but its receipt was lost, retry stops for deployment reconciliation before any new dispatch. A publisher that was skipped because an earlier build failed may start normally after that build is repaired.
 
-The publisher verifies existing remote notes, source, asset names and hashes against that same bundle. A matching partial draft resumes missing uploads; conflicting assets or notes fail without overwrite. A complete matching release is a no-op when the Homebrew formula also matches. If only Homebrew remains, the retry performs fresh gateway and topology verification before its update. Never edit notes or move tags to make recovery pass.
+The publisher verifies existing remote notes, source, asset names and hashes against that same bundle. A matching partial draft resumes missing uploads; conflicting assets or notes fail without overwrite. A complete matching release is a no-op when both the Homebrew CLI formula and desktop cask also match. If only Homebrew remains, the retry performs fresh gateway and topology verification before its update. Never edit notes or move tags to make recovery pass.
 
 The old `release-apply`, `release-publish`, `release-resume` and direct `make release` paths reject public publication. Read-only legacy planning/build commands remain available, but are not the public preparation workflow.
 
@@ -183,7 +198,7 @@ The protected Mac job has read-only repository access. Complete bundle assembly 
 
 The historical repository remains a private archive. Never merge that history into this public source repository. [The open-source preparation specification](specs/technical/open-source-preparation.md) records source and artifact requirements. Source publication and release-PR preparation do not authorize an actual product release.
 
-GoReleaser v2 remains the compiler configuration. Public archives and the Homebrew formula are assembled and published by the CI helpers so cross-platform work can stay on Linux. The private legacy flow retains its GoReleaser publication configuration.
+GoReleaser v2 remains the compiler configuration. Public archives and both Homebrew recipes are assembled and published by the CI helpers so cross-platform work can stay on Linux. The private legacy flow retains its GoReleaser publication configuration.
 
 ## Release acceptance
 

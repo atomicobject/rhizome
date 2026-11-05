@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -8,7 +9,7 @@ from unittest.mock import Mock
 
 from ci_release_artifacts import BUNDLE_FILES, digest
 from ci_release_artifacts_test import SOURCE, VERSION, fixture
-from ci_release_publish import Commands, PublishError, formula, publish, restore_gateway_receipt
+from ci_release_publish import Commands, PublishError, publish, restore_gateway_receipt
 
 ENV = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": "atomicobject/rhizome",
        "GITHUB_TOKEN": "synthetic-github-token", "BREW_GITHUB_TOKEN": "synthetic-brew-token",
@@ -23,11 +24,26 @@ class FakeHost:
         self.local_tag = False
         self.uploaded = {}
         self.events, self.calls = [], []
-        self.formula = "old formula"
+        self.tap_files = {"rhizome.rb": "old formula"}
         self.fail_upload = None
         self.fail_brew = False
+        self.fail_brew_path = None
+        self.fail_tap_read = False
+        self.truncated_tap = False
+        self.change_tap_during_read = False
         self.move_after_gate = False
         self.download_override = {}
+
+    @property
+    def formula(self):
+        return self.tap_files["rhizome.rb"]
+
+    @formula.setter
+    def formula(self, content):
+        self.tap_files["rhizome.rb"] = content
+
+    def tap_sha(self, path):
+        return hashlib.sha1(self.tap_files[path].encode()).hexdigest()
 
     def run(self, argv, **kwargs):
         self.calls.append((argv, kwargs))
@@ -72,12 +88,27 @@ class FakeHost:
             is_brew = "homebrew-tap" in endpoint
             assert env["GH_TOKEN"] == (ENV["BREW_GITHUB_TOKEN"] if is_brew else ENV["GITHUB_TOKEN"])
             if is_brew:
-                if method == "PUT":
+                if self.fail_tap_read and method == "GET":
+                    code, value = 1, {"message": "synthetic forbidden"}
+                elif "/git/trees/" in endpoint:
+                    value = {"truncated": self.truncated_tap, "tree": [
+                        {"path": path, "type": "blob", "mode": "100644", "sha": self.tap_sha(path)}
+                        for path in self.tap_files]}
+                elif method == "PUT":
+                    path = endpoint.split("/contents/", 1)[1]
                     self.events.append("brew")
-                    if self.fail_brew: code = 1
-                    else: self.formula = base64.b64decode(payload["content"]).decode()
+                    if path in self.tap_files:
+                        assert payload["sha"] == self.tap_sha(path)
+                    else:
+                        assert "sha" not in payload
+                    if self.fail_brew or self.fail_brew_path == path: code = 1
+                    else: self.tap_files[path] = base64.b64decode(payload["content"]).decode()
                     value = {}
-                else: value = {"content": base64.b64encode(self.formula.encode()).decode(), "sha": "c" * 40}
+                else:
+                    path = endpoint.split("/contents/", 1)[1].split("?", 1)[0]
+                    value = {"content": base64.b64encode(self.tap_files[path].encode()).decode(), "sha": self.tap_sha(path)}
+                    if self.change_tap_during_read:
+                        value["sha"] = "0" * 40
             elif endpoint.endswith("/releases") and method == "POST":
                 self.events.append("create")
                 self.release = {**payload, "id": 1}
@@ -128,6 +159,15 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(set(self.host.uploaded), BUNDLE_FILES)
         self.assertIn(f"/download/{VERSION}/rhizome-darwin-arm64.tar.gz", self.host.formula)
         self.assertIn('bin.install "rzm"', self.host.formula)
+        cask = self.host.tap_files["Casks/rhizome-desktop.rb"]
+        self.assertIn(f'  version "{VERSION.removeprefix("v")}"', cask)
+        self.assertIn(f'  sha256 "{digest(self.assets / "Rhizome-macos-arm64.dmg")}"', cask)
+        self.assertIn('/releases/download/v#{version}/Rhizome-macos-arm64.dmg"', cask)
+        self.assertIn('auto_updates true', cask)
+        self.assertIn('depends_on arch: :arm64', cask)
+        self.assertIn('depends_on macos: :monterey', cask)
+        self.assertIn('app "Rhizome.app"', cask)
+        self.assertIn('binary "#{appdir}/Rhizome.app/Contents/MacOS/rzm"', cask)
         for argv, kwargs in self.host.calls:
             if argv[:2] == ("gh", "api") and "homebrew-tap" in argv[2]:
                 self.assertEqual(kwargs["env"]["GH_TOKEN"], ENV["BREW_GITHUB_TOKEN"])
@@ -170,10 +210,76 @@ class PublisherTests(unittest.TestCase):
         self.host.fail_brew = False
         self.host.events.clear()
         self.publish()
-        self.assertEqual(self.host.events, ["gate", "brew"])
+        self.assertEqual(self.host.events, ["gate", "brew", "brew"])
         self.host.events.clear()
         self.publish()
         self.assertEqual(self.host.events, [])
+
+    def test_cask_creation_and_existing_recipe_updates_use_conditional_writes(self):
+        self.publish()
+        puts = [(argv[2], json.loads(kwargs["input"])) for argv, kwargs in self.host.calls
+                if argv[:2] == ("gh", "api") and "homebrew-tap" in argv[2] and "PUT" in argv]
+        self.assertEqual(len(puts), 2)
+        self.assertIn("sha", puts[0][1])
+        self.assertTrue(puts[1][0].endswith("/Casks/rhizome-desktop.rb"))
+        self.assertNotIn("sha", puts[1][1])
+        self.host.calls.clear()
+        self.host.tap_files["Casks/rhizome-desktop.rb"] = "previous cask"
+        self.publish()
+        puts = [(argv[2], json.loads(kwargs["input"])) for argv, kwargs in self.host.calls
+                if argv[:2] == ("gh", "api") and "homebrew-tap" in argv[2] and "PUT" in argv]
+        self.assertEqual(len(puts), 1)
+        self.assertIn("sha", puts[0][1])
+
+    def test_partial_formula_success_retries_only_cask_after_fresh_gateway(self):
+        self.host.fail_brew_path = "Casks/rhizome-desktop.rb"
+        with self.assertRaises(PublishError): self.publish()
+        saved_formula = self.host.formula
+        self.assertNotEqual(saved_formula, "old formula")
+        self.assertNotIn("Casks/rhizome-desktop.rb", self.host.tap_files)
+        self.assertFalse(self.host.release["draft"])
+        self.host.fail_brew_path = None
+        self.host.events.clear()
+        self.host.calls.clear()
+        self.publish()
+        self.assertEqual(self.host.events, ["gate", "brew"])
+        self.assertEqual(self.host.formula, saved_formula)
+        self.assertIn("Casks/rhizome-desktop.rb", self.host.tap_files)
+        self.host.events.clear()
+        self.publish()
+        self.assertEqual(self.host.events, [])
+
+    def test_missing_cask_recovery_cannot_write_before_fresh_gateway(self):
+        self.publish()
+        del self.host.tap_files["Casks/rhizome-desktop.rb"]
+        self.host.events.clear()
+        def fail(*args): raise PublishError("synthetic recovery gateway failure")
+        with self.assertRaisesRegex(PublishError, "recovery gateway failure"):
+            self.publish(gate=fail)
+        self.assertNotIn("Casks/rhizome-desktop.rb", self.host.tap_files)
+        self.assertEqual(self.host.events, [])
+
+    def test_tap_auth_failure_or_incomplete_tree_never_becomes_recipe_creation(self):
+        self.publish()
+        del self.host.tap_files["Casks/rhizome-desktop.rb"]
+        for failure in ("auth", "truncated"):
+            with self.subTest(failure=failure):
+                self.host.fail_tap_read = failure == "auth"
+                self.host.truncated_tap = failure == "truncated"
+                self.host.events.clear()
+                with self.assertRaises(PublishError): self.publish()
+                self.assertEqual(self.host.events, [])
+                self.assertNotIn("Casks/rhizome-desktop.rb", self.host.tap_files)
+
+    def test_changed_tap_recipe_metadata_blocks_every_homebrew_write(self):
+        self.publish()
+        self.host.formula = "previous formula"
+        self.host.change_tap_during_read = True
+        self.host.events.clear()
+        with self.assertRaisesRegex(PublishError, "changed Homebrew recipe"):
+            self.publish()
+        self.assertEqual(self.host.events, [])
+        self.assertEqual(self.host.formula, "previous formula")
 
     def test_completed_release_brew_recovery_requires_fresh_gateway_verification(self):
         self.publish()
