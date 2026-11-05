@@ -26,6 +26,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
                 "TYPESAFE_API_KEY": "provider-secret",
                 "TAURI_SIGNING_PRIVATE_KEY": "signing-secret",
                 "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "signing-password",
+                "APPLE_API_PRIVATE_KEY": "synthetic-apple-private-key",
                 "PATH": "/bin",
             },
             runner=runner,
@@ -50,6 +51,7 @@ class PublishGithubReleaseTest(unittest.TestCase):
         # run_clean.py hands the signing key to GoReleaser's desktop build hook.
         self.assertEqual(kwargs["env"]["TAURI_SIGNING_PRIVATE_KEY"], "signing-secret")
         self.assertEqual(kwargs["env"]["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"], "signing-password")
+        self.assertEqual(kwargs["env"]["APPLE_API_PRIVATE_KEY"], "synthetic-apple-private-key")
         self.assertEqual(kwargs["env"]["RZM_RELEASE_DESKTOP"], "1")
 
     def test_internal_release_does_not_require_the_desktop_app(self):

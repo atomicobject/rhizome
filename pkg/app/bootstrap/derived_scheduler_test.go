@@ -263,7 +263,14 @@ func TestDerivedRestartRetriesActiveDebtWithoutFilesystemEvents(t *testing.T) {
 func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider(t *testing.T) {
 	rt, w, provider := liveWorkloadWatcher(t)
 	w.derived.close()
-	node := embedindex.NewSharedEmbeddingNode(rt.ctx, provider, 1, nil, embedindex.EmbedPackerOptions{MaxTexts: 1})
+	allowProviderReturn := make(chan struct{})
+	releaseProvider := shutdownRelease(t, allowProviderReturn)
+	physical := &heldShutdownProvider{Provider: provider, canceled: make(chan struct{}), allowReturn: allowProviderReturn}
+	allowResourcesClose := make(chan struct{})
+	releaseResources := shutdownRelease(t, allowResourcesClose)
+	resourcesClosing := make(chan bool, 1)
+	rt.addCloser(func() { resourcesClosing <- physical.returned.Load(); <-allowResourcesClose })
+	node := embedindex.NewSharedEmbeddingNode(rt.ctx, physical, 1, nil, embedindex.EmbedPackerOptions{MaxTexts: 1})
 	rt.addCloser(node.Close)
 	w.nodeSyncer.EmbeddingNode = node
 	w.derived = newDerivedScheduler(w)
@@ -304,11 +311,35 @@ func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider
 	rt.addCloser(w.derived.close)
 	done := make(chan error, 1)
 	go func() { done <- rt.Close() }()
+	waitForShutdown(t, physical.canceled, "runtime did not cancel its physical provider")
+	select {
+	case <-done:
+		t.Fatal("runtime closed before the physical provider returned")
+	default:
+	}
+	rows, err := rt.IntelStore().CurrentNoteMetadataRowsByPaths(t.Context(), []string{path})
+	require.NoError(t, err)
+	require.Contains(t, rows, path, "stores stay open until the physical provider drains")
+	releaseProvider()
+	select {
+	case providerReturned := <-resourcesClosing:
+		require.True(t, providerReturned, "resource cleanup must follow physical provider return")
+	case <-shutdownDeadline(t):
+		t.Fatal("runtime did not join its physical provider")
+	}
+	// Resource cleanup can take longer on a loaded Windows runner. Observe its
+	// ordering explicitly instead of timing all SQLite/cache shutdown at 3s.
+	select {
+	case <-done:
+		t.Fatal("runtime returned before resource cleanup finished")
+	default:
+	}
+	releaseResources()
 	select {
 	case err := <-done:
 		require.NoError(t, err)
-	case <-time.After(3 * time.Second):
-		t.Fatal("runtime close did not join its shared physical request")
+	case <-shutdownDeadline(t):
+		t.Fatal("runtime close did not finish after its resources were released")
 	}
 	require.Positive(t, provider.canceled.Load(), "owned shared-node shutdown must cancel dispatched provider work")
 }

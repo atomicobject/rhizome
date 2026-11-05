@@ -143,6 +143,7 @@ type PreparedQuery struct {
 	UsesSearch    bool
 	Introspection bool
 	schema        *ast.Schema
+	rootTypes     map[string]string
 }
 
 // ExactNotePaths returns candidate canonical note paths addressed by an

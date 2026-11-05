@@ -103,6 +103,7 @@ func PrepareWithOptions(execSchema *ExecutableSchema, raw string, opts PrepareOp
 		UsesSemantic: usesSemantic,
 		UsesSearch:   usesSearch,
 		schema:       execSchema.Schema,
+		rootTypes:    execSchema.RootTypes,
 	}, nil
 }
 

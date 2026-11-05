@@ -38,6 +38,7 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 	}
 	exec := executor{
 		schema:             schema,
+		rootTypes:          prepared.rootTypes,
 		deps:               deps,
 		loaders:            loaders,
 		variables:          prepared.Variables,
@@ -73,6 +74,7 @@ func ExecutePrepared(ctx context.Context, deps Deps, schema *ontoschema.Schema, 
 }
 
 type executor struct {
+	rootTypes      map[string]string
 	schema         *ontoschema.Schema
 	deps           Deps
 	loaders        *loaders
@@ -87,7 +89,7 @@ type executor struct {
 	relationCounts     map[string]map[string]int
 	reverseRelations   map[string]map[string][]ontology.NodeRef
 	typedRootCoverage  map[string]typedRootCoverage
-	linkTargetResolver *pushdown.CatalogLinkResolver
+	linkTargetResolver pushdown.LinkResolver
 
 	// Record facts resolve after the selection tree (fillRecordFacts).
 	recordFactPaths  map[string]struct{}
@@ -223,7 +225,7 @@ func (e *executor) resolveRootField(ctx context.Context, field *ast.Field, path 
 		if _, ok := e.depsRuntimeRoot(name); ok {
 			return e.resolveRuntimeRoot(ctx, field, path)
 		}
-		if typeName := queryRootTypeName(e.schema, name); typeName != "" {
+		if typeName := e.rootTypes[name]; typeName != "" {
 			args := e.fieldArgs(field)
 			args["__firstPresent"] = fieldHasArg(field, "first")
 			first := rootFirst(args, len(semanticArgList(args["semantic"])) > 0)
