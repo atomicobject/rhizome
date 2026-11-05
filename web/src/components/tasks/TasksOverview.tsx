@@ -470,7 +470,7 @@ export function TasksOverview({
                 </th>
                 <th scope="col">Last run</th>
                 <th scope="col">Next due</th>
-                <th scope="col">Inbox</th>
+                <th scope="col">Action</th>
               </tr>
             </thead>
             <tbody>

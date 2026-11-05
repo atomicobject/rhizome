@@ -88,6 +88,13 @@ async function serveTasks(page: Page) {
 test("tests a local-only task draft and reads its result", async ({ page }) => {
   await serveTasks(page);
   await page.goto("/tasks");
+  await expect(page.getByRole("columnheader", { name: "Action", exact: true })).toBeVisible();
+  const panel = await page.locator(".tasks-overview").boundingBox();
+  const pause = await page.getByRole("button", { name: "Pause all" }).boundingBox();
+  const table = await page.locator(".task-table").boundingBox();
+
+  expect(panel && pause && panel.x + panel.width - pause.x - pause.width).toBe(22);
+  expect(panel && table && panel.x + panel.width - table.x - table.width).toBe(22);
 
   const row = page.getByRole("row", { name: /Session mining/ });
   await expect(row.getByText("Local only")).toBeVisible();
