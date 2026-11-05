@@ -186,7 +186,6 @@ export function initialOpenFolders(tree: FolderTree): Set<string> {
           child.notes > tree.root.notes * 0.2)
       ) {
         open.add(child.path);
-        visit(child);
       }
     }
   };

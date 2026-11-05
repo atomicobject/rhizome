@@ -3,7 +3,6 @@ import {
   colorWithPremultipliedAlpha,
   isTypeHighlighted,
   lerp,
-  clamp,
   TYPE_HIGHLIGHT_ALPHA,
 } from "../lib/graphStyle";
 import { resolveCssColor } from "../lib/themeColors";
@@ -21,8 +20,8 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
       hidden: false,
       color: focused
         ? resolveCssColor("var(--explorer-link-strong)")
-        : resolveCssColor("var(--explorer-link)"),
-      size: Math.min(5, 0.8 + Math.sqrt(attrs.weight) * 0.6) + (focused ? 0.5 : 0),
+        : colorWithPremultipliedAlpha(resolveCssColor("var(--explorer-link)"), 0.28),
+      size: Math.min(2.5, 0.6 + Math.sqrt(attrs.weight) * 0.16) + (focused ? 0.5 : 0),
       label: focused && state.showEdgeLabels ? attrs.label : "",
     };
   }
@@ -123,8 +122,8 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
 
     return {
       hidden: false,
-      color: faded ? edgeFaint : state.colors.neutral,
-      size: clamp(attrs.size * 0.5, 1, 2),
+      color: faded ? edgeFaint : colorWithPremultipliedAlpha(state.colors.neutral, 0.35),
+      size: 1,
       label: attrs.kind === "folder-containment" ? "" : label,
     };
   }

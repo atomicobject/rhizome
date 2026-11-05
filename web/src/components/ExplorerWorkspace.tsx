@@ -20,7 +20,6 @@ import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./g
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { TreeList } from "./TreeList";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
-
 import {
   moduleKey,
   isNoteTarget,
@@ -30,17 +29,9 @@ import {
 
 export { folderCoverage } from "./explorerNavigation";
 
-const FilePanel = lazy(() =>
-  import("./FilePanel").then((module) => ({
-    default: module.FilePanel,
-  })),
-);
+const FilePanel = lazy(() => import("./FilePanel").then((m) => ({ default: m.FilePanel })));
 
-const GraphView = lazy(() =>
-  import("./GraphView").then((module) => ({
-    default: module.GraphView,
-  })),
-);
+const GraphView = lazy(() => import("./GraphView").then((m) => ({ default: m.GraphView })));
 
 type ExplorerWorkspaceProps = {
   vaultName: string;
@@ -234,6 +225,9 @@ export function ExplorerWorkspace({
   const byFolder = atRoot && !searchActive;
 
   const folderExplorer = useFolderExplorer(graph, typeColors);
+  useEffect(() => {
+    if (atRoot) setExpandedPaths(new Set([...folderExplorer.initial].filter(Boolean)));
+  }, [folderExplorer.initial, atRoot]);
   const folders = byFolder ? folderExplorer.drawn : null;
   const drawn = folders ?? graph;
 
@@ -296,7 +290,7 @@ export function ExplorerWorkspace({
   const onVaultRootClick = useCallback(() => {
     clearSearch();
     folderExplorer.reset();
-    setExpandedPaths(new Set());
+    setExpandedPaths(new Set([...folderExplorer.initial].filter(Boolean)));
     select({ kind: "root" });
   }, [clearSearch, select, folderExplorer]);
 

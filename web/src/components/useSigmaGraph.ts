@@ -273,19 +273,6 @@ export function useSigmaGraph({
       scheduleRefresh,
     });
 
-    const sigma = sigmaRef.current;
-    const reducer = sigma?.getSetting("edgeReducer");
-
-    if (sigma && reducer)
-      sigma.setSetting("edgeReducer", (id, attrs) => {
-        const result = reducer(id, attrs);
-
-        if (!fixedRef.current || attrs.kind !== "folder-crosslink" || stateRef.current.hoverNodeID)
-          return result;
-
-        return { ...result, size: 0.6, color: stateRef.current.colors.edgeFaint };
-      });
-
     return cleanup;
   }, [empty, needsIndex, scheduleRefresh]);
 

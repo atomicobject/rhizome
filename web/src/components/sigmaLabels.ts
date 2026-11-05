@@ -13,7 +13,7 @@ import type { SigmaEdgeAttrs, SigmaNodeAttrs } from "../lib/graphStyle";
 
 type Box = [left: number, top: number, right: number, bottom: number];
 
-type Spot = { x: number; y: number; box: Box };
+type Spot = { x: number; y: number; box: Box; detail?: boolean };
 
 type LabelColors = { label: string; canvas: string; edgeLabel?: string };
 
@@ -28,8 +28,8 @@ const PAD_Y = 2;
 /** A planned label's key: its node's center on screen, which the draw call receives too. */
 const at = (x: number, y: number) => `${Math.round(x)}:${Math.round(y)}`;
 
-const overlaps = (a: Box, b: Box) =>
-  a[0] < b[2] + 8 && a[2] + 8 > b[0] && a[1] < b[3] + 8 && a[3] + 8 > b[1];
+const overlaps = (a: Box, b: Box, gap = 8) =>
+  a[0] < b[2] + gap && a[2] + gap > b[0] && a[1] < b[3] + gap && a[3] + gap > b[1];
 
 /** Whether the segment from (x1, y1) to (x2, y2) passes through the box (Liang–Barsky). */
 function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
@@ -88,6 +88,44 @@ function spotsAround(
   ]);
 }
 
+/** Fixed Explorer labels stay on the outward side, within a short leader of the disc. */
+export function outwardSpots(
+  x: number,
+  y: number,
+  r: number,
+  width: number,
+  size: number,
+  dx: number,
+  dy: number,
+): Spot[] {
+  const length = Math.hypot(dx, dy) || 1;
+  const side = dx / length;
+
+  const offsets =
+    Math.abs(side) < 0.35 ? [0, 8, -8, 16, -16, 24, -24, 8, 16, 24] : [0, 8, -8, 16, -16, 24, -24];
+
+  return offsets.map((nudge, index) => {
+    const radial = index >= 7;
+    const gap = radial ? 4 + nudge : 10;
+
+    const sx =
+      side >= 0.35
+        ? x + r + 10
+        : side <= -0.35
+          ? x - r - 10 - width
+          : x - width / 2 + (radial ? 0 : nudge);
+
+    const sy =
+      Math.abs(side) >= 0.35 ? y + size * 0.35 + nudge : dy < 0 ? y - r - gap : y + r + gap + size;
+
+    return {
+      x: sx,
+      y: sy,
+      box: [sx - PAD_X, sy - size, sx + width + PAD_X, sy + 4],
+    };
+  });
+}
+
 /**
  * Builds Sigma's label drawing function. `beginFrame` must be called from
  * Sigma's "beforeRender" so each frame places its labels afresh.
@@ -138,6 +176,9 @@ export function createLabelPainter(
       priority: number;
       center: boolean;
       landmark: boolean;
+      fixed: boolean;
+      dx: number;
+      dy: number;
     }[] = [];
 
     graph.forEachNode((id) => {
@@ -151,6 +192,13 @@ export function createLabelPainter(
 
       const attrs = graph.getNodeAttributes(id);
 
+      const parentPath = attrs.aggregate
+        ? attrs.path || ""
+        : (attrs.path || "").split("/").slice(0, -1).join("/");
+
+      const parent = sigma.getNodeDisplayData(`folder:${parentPath}`);
+      const origin = parent ? sigma.framedGraphToViewport(parent) : { x, y: y - 1 };
+
       if (data.label && (data.forceLabel || r >= threshold))
         labeled.push({
           id,
@@ -163,6 +211,9 @@ export function createLabelPainter(
           priority: attrs.priority ?? 0,
           center: Boolean(attrs.explorerLabels && attrs.center),
           landmark: Boolean(attrs.fixed && attrs.kind === "module"),
+          fixed: Boolean(attrs.fixed),
+          dx: id === "folder:" ? 0 : x - origin.x,
+          dy: id === "folder:" ? 1 : y - origin.y,
         });
     });
 
@@ -178,12 +229,62 @@ export function createLabelPainter(
 
     labeled.sort((a, b) => b.priority - a.priority || b.r - a.r || a.id.localeCompare(b.id));
 
+    const names = labeled.flatMap((node) =>
+      node.fixed && node.landmark
+        ? [
+            {
+              id: node.id,
+              box: outwardSpots(
+                node.x,
+                node.y,
+                node.r,
+                measure(context, node.label),
+                size,
+                node.dx,
+                node.dy,
+              )[0].box,
+            },
+          ]
+        : [],
+    );
+
     const font = context.font;
 
     for (const node of labeled) {
       context.font = node.center
         ? `600 ${size}px Inter, -apple-system, system-ui, sans-serif`
         : font;
+
+      if (node.fixed) {
+        let chosen: Spot | null = null;
+
+        for (const detail of node.detail ? [true, false] : [false]) {
+          const width =
+            measure(context, node.label) + (detail ? 6 + measure(context, node.detail) : 0);
+
+          chosen =
+            outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy).find(
+              ({ box }) =>
+                box[0] >= 0 &&
+                box[2] <= viewWidth &&
+                box[1] >= 0 &&
+                box[3] <= viewHeight &&
+                !discs.some((disc) => disc.id !== node.id && overlaps(disc.box, box, 2)) &&
+                !placed.some((other) => overlaps(other, box, 2)) &&
+                (!detail ||
+                  !names.some((other) => other.id !== node.id && overlaps(other.box, box, 2))),
+            ) ?? null;
+
+          if (chosen) {
+            chosen.detail = detail;
+            break;
+          }
+        }
+
+        if (chosen) placed.push(chosen.box);
+        spots.set(at(node.x, node.y), chosen);
+        continue;
+      }
 
       const width =
         measure(context, node.label) + (node.detail ? 6 + measure(context, node.detail) : 0);
@@ -246,30 +347,6 @@ export function createLabelPainter(
         }
       }
 
-      if (!chosen && node.landmark) {
-        // Crowded fans still name every folder, using the nearest free row with a leader.
-        const fallback: Spot[] = [];
-
-        for (let y = size + 12; y < viewHeight - 8; y += size + 14) {
-          for (let x = 8; x + width + PAD_X < viewWidth; x += 24) {
-            const box: Box = [x - PAD_X, y - size - PAD_Y + 1, x + width + PAD_X, y + PAD_Y + 3];
-
-            if (
-              !discs.some((disc) => overlaps(disc.box, box)) &&
-              !placed.some((other) => overlaps(other, box))
-            )
-              fallback.push({ x, y, box });
-          }
-        }
-
-        fallback.sort(
-          (a, b) =>
-            Math.hypot(a.x + width / 2 - node.x, a.y - node.y) -
-            Math.hypot(b.x + width / 2 - node.x, b.y - node.y),
-        );
-        chosen = fallback[0] ?? null;
-      }
-
       if (chosen) placed.push(chosen.box);
       spots.set(at(node.x, node.y), chosen);
     }
@@ -317,7 +394,8 @@ export function createLabelPainter(
     const distance = Math.hypot(endX - data.x, endY - data.y);
 
     if (distance > data.size + 4) {
-      context.strokeStyle = label;
+      context.strokeStyle = attrs?.fixed ? colors().edgeLabel || label : label;
+      context.globalAlpha = attrs?.fixed ? 0.4 : 1;
       context.lineWidth = 1;
       context.beginPath();
       context.moveTo(
@@ -326,6 +404,7 @@ export function createLabelPainter(
       );
       context.lineTo(endX, endY);
       context.stroke();
+      context.globalAlpha = 1;
     }
 
     context.fillStyle = canvas;
@@ -334,7 +413,7 @@ export function createLabelPainter(
     context.font = `${attrs?.explorerLabels && attrs.center ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
     context.fillText(data.label, spot.x, spot.y);
 
-    if (attrs?.labelDetail) {
+    if (attrs?.labelDetail && spot.detail !== false) {
       const start = spot.x + context.measureText(data.label).width + 6;
       context.fillStyle = colors().edgeLabel || label;
       context.font = `500 ${Math.max(13, size)}px ${settings.labelFont}`;

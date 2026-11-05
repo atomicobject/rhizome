@@ -12,6 +12,16 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
     `${notes.toLocaleString("en-US")} notes · ${code.toLocaleString("en-US")} code files`,
   );
   await expect(page.getByText("Part of the graph is hidden")).toHaveCount(0);
+
+  const initialSrc = page
+    .locator(".explorer-rail__body > .tree-list > .tree-item > .tree-row")
+    .filter({ hasText: /^src$/ });
+
+  if ((await initialSrc.getAttribute("aria-expanded")) === "true") {
+    await initialSrc.click();
+    await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
+  }
+
   const before = await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label");
 
   const nodeCount = (label: string | null) =>
@@ -19,9 +29,15 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
 
   const initialNodes = nodeCount(before);
   await page.screenshot({ path: testInfo.outputPath("explorer-root.png") });
-  const src = page.locator(".explorer-rail").getByRole("button", { name: /\bsrc$/i });
+
+  const src = page
+    .locator(".explorer-rail__body > .tree-list > .tree-item > .tree-row")
+    .filter({ hasText: /^src$/ });
+
+  const started = performance.now();
   await src.click();
   await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
+  console.log(`Explorer folder click to ready: ${Math.round(performance.now() - started)} ms`);
   await expect
     .poll(async () =>
       nodeCount(await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label")),

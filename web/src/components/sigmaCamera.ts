@@ -1,4 +1,5 @@
 import type Sigma from "sigma";
+import { outwardSpots } from "./sigmaLabels";
 import { CAMERA } from "./graphViewShared";
 import type { SigmaNodeAttrs, SigmaEdgeAttrs } from "../lib/graphStyle";
 
@@ -34,8 +35,8 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
       Math.max(
         CAMERA.minRatio,
         Math.max(
-          ((right - left) * span) / Math.max(1, width - 360),
-          ((top - bottom) * span) / Math.max(1, height - 120),
+          ((right - left) * span) / Math.max(1, width - 80),
+          ((top - bottom) * span) / Math.max(1, height - 80),
         ),
       ),
     ),
@@ -43,9 +44,66 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
 
   const camera = sigma.getCamera();
 
+  const original = camera.getState();
+  const context = document.createElement("canvas").getContext("2d");
+
+  if (context) {
+    context.font = "500 14px Inter, -apple-system, system-ui, sans-serif";
+
+    for (let pass = 0; pass < 4; pass++) {
+      const boxes: number[][] = [];
+      sigma.getGraph().forEachNode((id, attrs) => {
+        const node = sigma.getNodeDisplayData(id);
+
+        if (!node || node.hidden) return;
+        const point = sigma.framedGraphToViewport(node, { cameraState: state });
+
+        const parent = sigma.getNodeDisplayData(
+          `folder:${attrs.aggregate ? attrs.path || "" : (attrs.path || "").split("/").slice(0, -1).join("/")}`,
+        );
+
+        const origin = parent ? sigma.framedGraphToViewport(parent, { cameraState: state }) : point;
+        const text = attrs.label + (attrs.labelDetail ? "  " + attrs.labelDetail : "");
+
+        const spot = outwardSpots(
+          point.x,
+          point.y,
+          sigma.scaleSize(node.size),
+          context.measureText(text).width,
+          14,
+          id === "folder:" ? 0 : point.x - origin.x,
+          id === "folder:" ? 1 : point.y - origin.y,
+        )[0];
+
+        boxes.push(spot.box);
+      });
+
+      if (!boxes.length) break;
+      const l = Math.min(...boxes.map((b) => b[0])) - 24;
+      const r = Math.max(...boxes.map((b) => b[2])) + 24;
+      const t = Math.min(...boxes.map((b) => b[1])) - 24;
+      const b = Math.max(...boxes.map((b) => b[3])) + 24;
+
+      const center = sigma.viewportToFramedGraph(
+        { x: (l + r) / 2, y: (t + b) / 2 },
+        { cameraState: state },
+      );
+
+      Object.assign(state, center, {
+        ratio: Math.max(
+          CAMERA.minRatio,
+          Math.min(CAMERA.maxRatio, state.ratio * Math.max((r - l) / width, (b - t) / height)),
+        ),
+      });
+    }
+  }
+
   if (instant || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
     camera.setState(state);
-  else camera.animate(state, { duration: 300 });
+  else {
+    camera.setState(original);
+    camera.animate(state, { duration: 300 });
+  }
 }
 
 export function zoomGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs> | null, factor: number) {

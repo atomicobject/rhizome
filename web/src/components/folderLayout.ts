@@ -65,27 +65,52 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
 
     if (!n) return;
     const root = path === "";
-    const width = path && !path.includes("/") ? 0.9 : Math.max(0.9, Math.min(2.4, n * 0.22));
-    const floor = root ? Math.max(1, Math.sqrt(folderWeight(tree.root)) / 5) : 1;
-    const weights = children.map((c) => Math.max(floor, Math.sqrt(folderWeight(c.totals))));
-    const total = weights.reduce((a, b) => a + b, 0);
+    const width = Math.max(0.9, Math.min(1.6, n * 0.22));
 
-    const radius = root
-      ? Math.max(320, 90 / ((Math.min(...weights) / total) * Math.PI * 2))
-      : Math.max(160, (90 * (n - 1)) / width);
+    const dominant = root
+      ? children.filter((c) => c.folder && initialOpenFolders(tree).has(c.folder.path))
+      : [];
+
+    const others = children.filter((c) => !dominant.includes(c));
+    const radius = root ? 600 : Math.max(220, (150 * (n - 1)) / width);
 
     let start = -Math.PI;
     children.forEach((child, index) => {
-      const wedge = (weights[index] / total) * Math.PI * 2;
+      const major = dominant.indexOf(child);
+      const minor = others.indexOf(child);
+      const wedge = (Math.PI * 2) / Math.max(1, n);
 
       const angle = root
-        ? start + wedge / 2
+        ? dominant.length === 2
+          ? major >= 0
+            ? Math.PI - major * Math.PI
+            : (minor < others.length / 2 ? -Math.PI / 2 : Math.PI / 2) +
+              ((minor % Math.ceil(others.length / 2)) /
+                Math.max(1, Math.ceil(others.length / 2) - 1) -
+                0.5) *
+                2.4
+          : start + wedge / 2
         : direction + (n === 1 ? 0 : (index / (n - 1) - 0.5) * width);
 
-      const point = { x: x + Math.cos(angle) * radius, y: y + Math.sin(angle) * radius };
+      const distance = root && dominant.length === 2 && major < 0 ? 800 : radius;
+      const local = angle - direction;
+      const depth = path.split("/").length;
+      const axial = Math.cos(local) * distance * (depth > 2 ? 3.5 : depth > 1 ? 1.3 : 0.65);
+      const lateral = Math.sin(local) * distance * 1.4;
+
+      const point = root
+        ? {
+            x: x + Math.cos(angle) * distance * (major < 0 && dominant.length === 2 ? 0.65 : 1),
+            y: y + Math.sin(angle) * distance,
+          }
+        : {
+            x: x + Math.cos(direction) * axial - Math.sin(direction) * lateral,
+            y: y + Math.sin(direction) * axial + Math.cos(direction) * lateral,
+          };
+
       positions.set(child.node.id, point);
 
-      if (child.folder) visit(child.folder.path, point.x, point.y, angle);
+      if (child.folder) visit(child.folder.path, point.x, point.y, root ? angle : direction);
       start += wedge;
     });
   };

@@ -111,7 +111,7 @@ export function visibleFolderChildren(
   const showFiles =
     folder.path === "" || state.explicit.has(folder.path) || (!folders.length && files.length <= 8);
 
-  const budget = showFiles && state.explicit.has(folder.path) ? 24 : 14;
+  const budget = showFiles && state.explicit.has(folder.path) ? 14 : 10;
   const fileSlots = showFiles ? Math.min(files.length, folders.length ? 8 : budget - 1) : 0;
 
   const candidates: FolderChild[] =

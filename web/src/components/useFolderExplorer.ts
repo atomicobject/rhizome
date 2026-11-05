@@ -36,6 +36,7 @@ export function useFolderExplorer(graph: GraphResponse, colors: Map<string, stri
 
   return {
     drawn,
+    initial,
     open,
     reveal(path: string) {
       setShowAll((previous) => new Set([...previous, path]));

@@ -100,10 +100,10 @@ describe("complete folder model", () => {
     const graph = visibleFolderGraph(tree, state(), color);
     expect(graph.children.get("")?.filter((child) => child.folder)).toHaveLength(30);
   });
-  it("auto-opens dominant folders recursively", () => {
+  it("auto-opens only dominant top-level folders", () => {
     const tree = buildFolderTree({
       nodes: [
-        ...Array.from({ length: 40 }, (_, i) => note(`docs/specs/a${i}.md`)),
+        ...Array.from({ length: 40 }, (_, i) => note(`docs/specs/nested/a${i}.md`)),
         code("pkg/a.ts"),
       ],
       edges: [],
@@ -133,6 +133,41 @@ describe("stable radial containment", () => {
     expect(after.edges.filter((e) => e.kind === "folder-containment")).toEqual(
       expect.arrayContaining([expect.objectContaining({ source: "folder:", target: "folder:b" })]),
     );
+  });
+  it("keeps both dominant fan anchors fixed when a descendant opens", () => {
+    const tree = buildFolderTree({
+      nodes: [
+        ...Array.from({ length: 40 }, (_, i) => code(`pkg/app/p${i}/a.ts`)),
+        ...Array.from({ length: 40 }, (_, i) => note(`docs/topic${i}/a.md`)),
+      ],
+      edges: [],
+    });
+
+    const open = initialOpenFolders(tree);
+
+    const before = layoutFolderGraph(
+      tree,
+      visibleFolderGraph(tree, { open, explicit: new Set(), showAll: new Set() }, color),
+    );
+
+    const after = layoutFolderGraph(
+      tree,
+      visibleFolderGraph(
+        tree,
+        { open: new Set([...open, "pkg/app"]), explicit: new Set(["pkg/app"]), showAll: new Set() },
+        color,
+      ),
+    );
+
+    for (const node of before.nodes)
+      expect(after.nodes.find((n) => n.id === node.id)).toMatchObject({ x: node.x, y: node.y });
+    expect(before.children.get("docs")).toHaveLength(10);
+    expect(before.children.get("docs")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(
+      40,
+    );
+    const pkg = before.nodes.find((n) => n.id === "folder:pkg")!;
+    const docs = before.nodes.find((n) => n.id === "folder:docs")!;
+    expect(pkg.x! * docs.x!).toBeLessThan(0);
   });
   it("deep expansions add local radii instead of amplifying narrow root wedges", () => {
     const nodes = Array.from({ length: 20 }, (_, i) => code(`large/p${i}/a.ts`));

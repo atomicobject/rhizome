@@ -67,8 +67,11 @@ describe("Explorer renderer data", () => {
     expect(style("edge-1")).toMatchObject({
       hidden: false,
       label: "",
-      size: 0.8 + Math.sqrt(34) * 0.6,
+      size: expect.any(Number),
     });
+    expect(style("edge-0").size).toBe(1);
+    expect(style("edge-1").size).toBeGreaterThan(1);
+    expect(style("edge-1").size).toBeLessThan(2.5);
     expect(style("edge-2").hidden).toBe(true);
     state.hoverNodeID = "unrelated";
     state.hoverNeighbors = new Set();

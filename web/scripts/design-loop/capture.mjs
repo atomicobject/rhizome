@@ -158,27 +158,31 @@ export const SURFACES = [
   { id: "explorer", title: "Explorer (graph)", url: "/explorer" },
   {
     id: "c-explorer-folder",
-    title: "Explorer · folder expanded (cmd)",
+    title: "Explorer · folder expanded (pkg/app)",
     url: "/explorer",
     act: async (p) => {
-      await p.locator(".explorer-rail").getByRole("button", { name: "cmd", exact: true }).click();
+      console.log(
+        "Explorer first view:",
+        await p.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label"),
+      );
+      const started = performance.now();
+      await p.locator(".explorer-rail").getByRole("button", { name: "app", exact: true }).click();
       await p.locator('[data-graph-ready="true"]').waitFor();
+      console.log("Explorer folder click to ready:", Math.round(performance.now() - started), "ms");
     },
   },
   {
     id: "c-explorer-deep",
-    title: "Explorer · deep folder after two expansions (pkg/app, then pkg/app/web)",
+    title: "Explorer · deep folder after two expansions (pkg/app, then pkg/app/cli)",
     url: "/explorer",
     act: async (p) => {
       const rail = p.locator(".explorer-rail");
-      await rail.getByRole("button", { name: "pkg", exact: true }).click();
-      await p.locator('[data-graph-ready="true"]').waitFor();
       await rail.getByRole("button", { name: "app", exact: true }).click();
       await p.locator('[data-graph-ready="true"]').waitFor();
       await rail
         .getByRole("button", { name: "app", exact: true })
         .locator("..")
-        .getByRole("button", { name: "web", exact: true })
+        .getByRole("button", { name: "cli", exact: true })
         .click();
       await p.locator('[data-graph-ready="true"]').waitFor();
     },
