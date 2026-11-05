@@ -19,6 +19,24 @@ const baseProps = {
 };
 
 describe("GraphView", () => {
+  it("keys the folder edge kinds automatically", () => {
+    render(
+      <GraphView
+        {...baseProps}
+        showTypeLegend
+        edges={[
+          { source: "a", target: "b", kind: "folder-containment", weight: 1 },
+          { source: "a", target: "b", kind: "folder-crosslink", weight: 34 },
+          { source: "a", target: "b", kind: "folder-minor", weight: 90 },
+        ]}
+      />,
+    );
+    const legend = screen.getByLabelText("Graph link legend");
+    expect(within(legend).getByText("Contains")).toBeVisible();
+    expect(within(legend).getByText("Note–code links")).toBeVisible();
+    expect(within(legend).getByText("Other links on hover")).toBeVisible();
+  });
+
   it("shows the index-needed notice without booting the graph", () => {
     const restoreWebGL = installFakeWebGL();
     const sigmaOn = vi.spyOn(Sigma.prototype, "on");

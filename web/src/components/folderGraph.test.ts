@@ -49,7 +49,7 @@ describe("aggregateByFolder", () => {
       "pkg/store",
     ]);
     expect(byPath.get("docs/specs")?.fill).toBe("var(--Spec)");
-    expect(byPath.get("pkg/app")?.fill).toBe("var(--graph-code)");
+    expect(byPath.get("pkg/app")?.fill).toBe("var(--explorer-code)");
     expect(byPath.get("docs/specs")?.fillKey).toBe("Spec");
     expect(graph.nodes.find((node) => node.id === "folder:pkg/(smaller folders)")?.label).toBe(
       "1 smaller folders  1 file",

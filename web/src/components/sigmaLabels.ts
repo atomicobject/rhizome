@@ -15,7 +15,7 @@ type Box = [left: number, top: number, right: number, bottom: number];
 
 type Spot = { x: number; y: number; box: Box };
 
-type LabelColors = { label: string; canvas: string };
+type LabelColors = { label: string; canvas: string; edgeLabel?: string };
 
 /** Up to this many nodes, labels are placed clear of node discs and edges as well as other labels. */
 export const NODE_AVOID_ORDER = 10000;
@@ -33,31 +33,21 @@ const overlaps = (a: Box, b: Box) =>
 
 /** Whether the segment from (x1, y1) to (x2, y2) passes through the box (Liang–Barsky). */
 function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
-  let t0 = 0;
-  let t1 = 1;
   const dx = x2 - x1;
   const dy = y2 - y1;
 
-  for (const [p, q] of [
-    [-dx, x1 - box[0]],
-    [dx, box[2] - x1],
-    [-dy, y1 - box[1]],
-    [dy, box[3] - y1],
-  ]) {
-    if (p === 0) {
-      if (q < 0) return false;
-      continue;
-    }
+  if (dx === 0 && (x1 < box[0] || x1 > box[2])) return false;
 
-    const t = q / p;
+  if (dy === 0 && (y1 < box[1] || y1 > box[3])) return false;
+  const tx1 = dx === 0 ? -Infinity : (box[0] - x1) / dx;
+  const tx2 = dx === 0 ? Infinity : (box[2] - x1) / dx;
+  const ty1 = dy === 0 ? -Infinity : (box[1] - y1) / dy;
+  const ty2 = dy === 0 ? Infinity : (box[3] - y1) / dy;
 
-    if (p < 0) t0 = Math.max(t0, t);
-    else t1 = Math.min(t1, t);
-
-    if (t0 > t1) return false;
-  }
-
-  return true;
+  return (
+    Math.max(0, Math.min(tx1, tx2), Math.min(ty1, ty2)) <=
+    Math.min(1, Math.max(tx1, tx2), Math.max(ty1, ty2))
+  );
 }
 
 /**
@@ -65,7 +55,15 @@ function crosses(box: Box, x1: number, y1: number, x2: number, y2: number) {
  * node's middle, below and above, then hugging the four corners. `x, y` is
  * where the text starts and its baseline.
  */
-function spotsAround(x: number, y: number, r: number, width: number, size: number): Spot[] {
+function spotsAround(
+  x: number,
+  y: number,
+  r: number,
+  width: number,
+  size: number,
+  left = false,
+  landmark = false,
+): Spot[] {
   const gap = r + 12;
   const middle = y + size * 0.35;
   const corner = r * 0.75;
@@ -76,9 +74,11 @@ function spotsAround(x: number, y: number, r: number, width: number, size: numbe
     box: [sx - PAD_X, sy - size - PAD_Y + 1, sx + width + PAD_X, sy + PAD_Y + 3],
   });
 
-  return [0, 16, 32, 48, 64, 80, 96].flatMap((offset) => [
-    at(x + gap + offset, middle),
-    at(x - gap - offset - width, middle),
+  return (
+    landmark ? [0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256] : [0, 16, 32, 48, 64, 80, 96]
+  ).flatMap((offset) => [
+    at(left ? x - gap - offset - width : x + gap + offset, middle),
+    at(left ? x + gap + offset : x - gap - offset - width, middle),
     at(x - width / 2, y + gap + offset + size - 2),
     at(x - width / 2, y - gap - offset - 2),
     at(x + gap + offset - 2, y - corner - offset - 2),
@@ -98,6 +98,18 @@ export function createLabelPainter(
 ) {
   let planned: Map<string, Spot | null> | null = null;
   const placed: Box[] = [];
+  const widths = new Map<string, number>();
+
+  const measure = (context: CanvasRenderingContext2D, text: string) => {
+    const key = `${context.font}:${text}`;
+    const cached = widths.get(key);
+
+    if (cached !== undefined) return cached;
+    const width = context.measureText(text).width;
+    widths.set(key, width);
+
+    return width;
+  };
 
   const beginFrame = () => {
     planned = null;
@@ -114,7 +126,19 @@ export function createLabelPainter(
     const { width: viewWidth, height: viewHeight } = sigma.getDimensions();
     const discs: { id: string; box: Box }[] = [];
     const centers = new Map<string, { x: number; y: number }>();
-    const labeled: { id: string; label: string; x: number; y: number; r: number }[] = [];
+
+    const labeled: {
+      id: string;
+      label: string;
+      x: number;
+      y: number;
+      r: number;
+      detail: string;
+      left: boolean;
+      priority: number;
+      center: boolean;
+      landmark: boolean;
+    }[] = [];
 
     graph.forEachNode((id) => {
       const data = sigma.getNodeDisplayData(id);
@@ -125,8 +149,21 @@ export function createLabelPainter(
       centers.set(id, { x, y });
       discs.push({ id, box: [x - r - 2, y - r - 2, x + r + 2, y + r + 2] });
 
+      const attrs = graph.getNodeAttributes(id);
+
       if (data.label && (data.forceLabel || r >= threshold))
-        labeled.push({ id, label: data.label, x, y, r });
+        labeled.push({
+          id,
+          label: data.label,
+          x,
+          y,
+          r,
+          detail: attrs.labelDetail || "",
+          left: Boolean(attrs.fixed && attrs.x < 0),
+          priority: attrs.priority ?? 0,
+          center: Boolean(attrs.explorerLabels && attrs.center),
+          landmark: Boolean(attrs.fixed && attrs.kind === "module"),
+        });
     });
 
     const segments: [number, number, number, number][] = [];
@@ -139,12 +176,27 @@ export function createLabelPainter(
       if (display && !display.hidden && a && b) segments.push([a.x, a.y, b.x, b.y]);
     });
 
-    labeled.sort((a, b) => b.r - a.r || a.id.localeCompare(b.id));
+    labeled.sort((a, b) => b.priority - a.priority || b.r - a.r || a.id.localeCompare(b.id));
+
+    const font = context.font;
 
     for (const node of labeled) {
-      const width = context.measureText(node.label).width;
+      context.font = node.center
+        ? `600 ${size}px Inter, -apple-system, system-ui, sans-serif`
+        : font;
 
-      const candidates = spotsAround(node.x, node.y, node.r, width, size).filter(
+      const width =
+        measure(context, node.label) + (node.detail ? 6 + measure(context, node.detail) : 0);
+
+      const candidates = spotsAround(
+        node.x,
+        node.y,
+        node.r,
+        width,
+        size,
+        node.left,
+        node.landmark,
+      ).filter(
         ({ box }) => box[0] >= 0 && box[2] <= viewWidth && box[1] >= 0 && box[3] <= viewHeight,
       );
 
@@ -178,11 +230,19 @@ export function createLabelPainter(
 
       for (const spot of candidates) {
         if (blockers.some((other) => overlaps(other, spot.box))) continue;
-        const count = nearby.filter(([x1, y1, x2, y2]) => crosses(spot.box, x1, y1, x2, y2)).length;
+        let count = 0;
+
+        for (const [x1, y1, x2, y2] of nearby) {
+          if (crosses(spot.box, x1, y1, x2, y2)) count++;
+
+          if (count >= fewest) break;
+        }
 
         if (count < fewest) {
           chosen = spot;
           fewest = count;
+
+          if (count === 0) break;
         }
       }
 
@@ -199,6 +259,7 @@ export function createLabelPainter(
     settings,
   ) => {
     if (!data.label) return;
+    const attrs = getSigma()?.getGraph().getNodeAttributes(data.key);
     const size = settings.labelSize;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
     const sigma = getSigma();
@@ -246,7 +307,15 @@ export function createLabelPainter(
     context.fillStyle = canvas;
     context.fillRect(left, top, right - left, bottom - top);
     context.fillStyle = label;
+    context.font = `${attrs?.explorerLabels && attrs.center ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
     context.fillText(data.label, spot.x, spot.y);
+
+    if (attrs?.labelDetail) {
+      const start = spot.x + context.measureText(data.label).width + 6;
+      context.fillStyle = colors().edgeLabel || label;
+      context.font = `500 ${Math.max(13, size)}px ${settings.labelFont}`;
+      context.fillText(attrs.labelDetail, start, spot.y);
+    }
   };
 
   return { draw, beginFrame };
