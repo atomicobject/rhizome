@@ -91,9 +91,9 @@ export function ConfiguredViewCard({
   const layoutSlots = !custom && !compact;
   const titleField = layout?.title.field ?? "title";
   const title = displayTitle(fieldValue(row, titleField) || row.title) || "Untitled";
-  const eyebrow = layout?.eyebrow;
+  const eyebrow = layout?.eyebrow?.field === omitField ? undefined : layout?.eyebrow;
   const eyebrowValue = eyebrow ? fieldValue(row, eyebrow.field) : "";
-  const preview = layout?.preview;
+  const preview = layout?.preview?.field === omitField ? undefined : layout?.preview;
   const previewValue = preview ? fieldValue(row, preview.field) : "";
   const dirty = configuredTableRowHasChanges(row, editSession);
   const titleTarget = publicWorkspaceRef(row.ref);

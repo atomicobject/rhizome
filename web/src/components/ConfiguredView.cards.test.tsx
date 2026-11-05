@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OntologyEditSessionResponse } from "../api/types";
@@ -53,6 +53,7 @@ describe("ConfiguredViewCards", () => {
       "false",
     );
     expect(screen.getByRole("button", { name: "Alpha Spec" })).toBeVisible();
+    expect(within(screen.getByRole("article")).queryByText("Active")).toBeNull();
     expect(screen.queryByRole("button", { name: "Bravo Spec" })).not.toBeInTheDocument();
   });
 

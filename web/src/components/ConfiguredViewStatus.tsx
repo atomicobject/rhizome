@@ -95,8 +95,14 @@ function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
   if (moved.length === 0 && hidden.length === 0) return null;
 
   const summary = [
-    moved.length > 0 ? `${plural(moved.length, "column")} in Record` : "",
-    hidden.length > 0 ? `${plural(hidden.length, "column")} hidden` : "",
+    moved.length > 0
+      ? `${moved.length <= 2 ? moved.join(", ") : plural(moved.length, "column")} in Record`
+      : "",
+    hidden.length > 0
+      ? hidden.length <= 2
+        ? hidden.map((note) => note.replace(/ column hidden: (.*)/, " hidden ($1)")).join(", ")
+        : `${plural(hidden.length, "column")} hidden`
+      : "",
   ]
     .filter(Boolean)
     .join(" · ");

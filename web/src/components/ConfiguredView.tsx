@@ -127,6 +127,7 @@ export function ConfiguredView({
   const { visibleFields, emptyFields, repeatedFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+  const [groupedColumns, setGroupedColumns] = useState<string[]>([]);
   const [movedColumns, setMovedColumns] = useState<string[]>([]);
   const [saveActive, setSaveActive] = useState(false);
   const [ownTools, setOwnTools] = useState<HTMLElement | null>(null);
@@ -213,6 +214,7 @@ export function ConfiguredView({
           }),
         onCollapsedGroupCountChange: setCollapsedGroupCount,
         onMovedColumnsChange: setMovedColumns,
+        onGroupedColumnsChange: setGroupedColumns,
         profile,
         density,
         onLoadMore: loadMore,
@@ -402,18 +404,21 @@ export function ConfiguredView({
           moved={activeVariant === "table" ? movedColumns : []}
           hidden={
             activeVariant === "table"
-              ? columns.flatMap((column) =>
-                  repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
-                    ? [
-                        repeatedColumnNote(
-                          column.field,
-                          columnLabel(column, capabilities),
-                          execution,
-                          typeLabel,
-                        ),
-                      ]
-                    : [],
-                )
+              ? [
+                  ...groupedColumns,
+                  ...columns.flatMap((column) =>
+                    repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
+                      ? [
+                          repeatedColumnNote(
+                            column.field,
+                            columnLabel(column, capabilities),
+                            execution,
+                            typeLabel,
+                          ),
+                        ]
+                      : [],
+                  ),
+                ]
               : []
           }
           pager={
