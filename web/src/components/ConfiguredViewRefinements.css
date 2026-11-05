@@ -54,3 +54,31 @@
 .configured-card:is(:hover, :focus-within) .configured-brief__group-echo {
   opacity: 1;
 }
+
+.configured-view__board-column-title .configured-view__density-button {
+  flex: none;
+  margin-left: auto;
+}
+.configured-view .configured-view__footer-status > span {
+  flex: none;
+}
+.configured-view .configured-view__column-notes {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.configured-view .configured-view__column-notes > summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Match the table's 8px group gutter while keeping cards inset by 22px. */
+.configured-view__cards .configured-view__card-section-header {
+  margin-left: -14px;
+}
+.configured-view .configured-view__board {
+  padding-left: 0;
+}
+.configured-view__board-columns,
+.configured-view__board-cells {
+  margin-left: var(--sp-5);
+}
