@@ -126,6 +126,7 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
   expect(screen.getByRole("radiogroup", { name: "Rows" }).closest("th")).toBe(
     columnHeader("Areas"),
   );
+  expect(within(columnHeader("Areas")).getByText("Rows", { exact: true })).toBeVisible();
   expect(document.querySelector(".gv-toolbar")).toBeNull();
   // Why the default is the default sits in the footer.
   expect(

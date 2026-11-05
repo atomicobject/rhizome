@@ -349,25 +349,28 @@ function SpineSwitcher({
   const fallback = choices[0];
 
   return (
-    <Segmented
-      label="Rows"
-      value={spine}
-      onChange={onChoose}
-      options={choices.flatMap((name) => {
-        const choice = model.memberIndex.get(name);
+    <div className="gv-trace-rows">
+      <span className="gv-trace-rows-label">Rows</span>
+      <Segmented
+        label="Rows"
+        value={spine}
+        onChange={onChoose}
+        options={choices.flatMap((name) => {
+          const choice = model.memberIndex.get(name);
 
-        if (!choice) return [];
+          if (!choice) return [];
 
-        return [
-          {
-            value: name,
-            label: memberLabel(model, choice, { plural: true }),
-            count: choice.records.length,
-            description: name === fallback ? "(default)" : undefined,
-          },
-        ];
-      })}
-    />
+          return [
+            {
+              value: name,
+              label: memberLabel(model, choice, { plural: true }),
+              count: choice.records.length,
+              description: name === fallback ? "(default)" : undefined,
+            },
+          ];
+        })}
+      />
+    </div>
   );
 }
 

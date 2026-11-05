@@ -164,6 +164,7 @@ it("orders an unlinked group by size, drops the shared label prefix, and says wh
 
   expect(emptyLink).toHaveTextContent("Memos 0");
   expect(emptyLink).toHaveAttribute("data-empty");
+  expect(emptyLink).toBeDisabled();
   expect(within(section("Memos")).getByText("None recorded yet.")).toBeVisible();
 });
 
