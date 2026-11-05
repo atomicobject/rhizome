@@ -25,7 +25,7 @@
 .search-workspace__header {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: 12px;
   padding: var(--sp-5) 0 var(--sp-4);
   border-bottom: 1px solid var(--border);
 }
@@ -261,36 +261,26 @@
 }
 
 .search-workspace__result {
-  padding: var(--sp-4) 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--border-faint);
 }
 
 .search-workspace__result-kind {
-  display: flex;
-  gap: var(--sp-2);
-  font: var(--label-font);
-  color: var(--label-color);
-}
-
-.search-workspace__result-why {
-  color: var(--text-faint);
-  font-weight: 500;
-}
-
-.search-workspace__result-why::before {
-  content: "·";
-  margin-right: var(--sp-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 400 var(--fs-sm) / 1.4 var(--font-sans);
 }
 
 .search-workspace__result-link {
   display: block;
   max-width: 100%;
-  margin-top: 2px;
   padding: 0;
   overflow: hidden;
   border: 0;
   background: transparent;
-  font: 500 var(--fs-lg) / 1.35 var(--font-sans);
+  font: 500 var(--fs-base) / 1.35 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -306,46 +296,27 @@
   text-underline-offset: 2px;
 }
 
-/* Results share one reading measure: the source line, note excerpts, and
-   code all stop at about 720px. The path gives way in its middle, so the
-   file name and line stay; the section is its own Inter label after it and
-   gives way at its end. */
+/* Metadata shares one line; only the path uses mono and gives way in its middle. */
 .search-workspace__result-source {
   display: flex;
   align-items: baseline;
-  gap: var(--sp-3);
+  gap: 4px;
   min-width: 0;
-  max-width: var(--search-measure);
-  margin-top: 2px;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  margin-top: 4px;
+  color: var(--text-muted);
+  font: 400 var(--fs-sm) / 1.4 var(--font-sans);
   white-space: nowrap;
 }
 
 .search-workspace__result-source > .middle-truncate {
   flex: 0 1 auto;
-}
-
-.search-workspace__result-heading {
-  flex: 0 100 auto;
-  min-width: 8ch;
-  overflow: hidden;
-  color: var(--text-muted);
-  font: 500 var(--fs-sm) / 1.4 var(--font-sans);
-  text-overflow: ellipsis;
-}
-
-.search-workspace__result-heading::before {
-  content: "§";
-  margin-right: var(--sp-1);
-  color: var(--text-faint);
+  font: 400 var(--fs-xs) / 1.4 var(--font-mono);
 }
 
 /* Note excerpts read as prose at the shared measure, inline code as code. */
 .search-workspace__result p {
   max-width: var(--search-measure);
-  margin: var(--sp-2) 0 0;
+  margin: 8px 0 0;
   color: var(--text-muted);
   font-size: var(--fs-base);
   line-height: 1.5;
@@ -368,8 +339,8 @@
 /* Code evidence keeps its source lines in mono on the tint: long lines
    scroll sideways instead of breaking into fragments. */
 .search-workspace__code {
-  max-width: var(--search-measure);
-  margin: var(--sp-2) 0 0;
+  max-width: 100%;
+  margin: 8px 0 0;
   padding: var(--sp-2) var(--sp-3);
   overflow: auto;
   border-radius: var(--r-md);
