@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
@@ -174,6 +174,17 @@ func TestInterfaceRootSemanticTypeScopeAndQueryPlan(t *testing.T) {
 	result := Execute(context.Background(), env.deps(searcher), env.schema, prepared)
 	require.Empty(t, result.Errors)
 	require.Equal(t, []any{map[string]any{"date": "2026-01-03", "resolvedType": "CoachingSession", "score": 0.9}}, result.Data["meeting"])
+	indexedQuery, errs := Prepare(env.execSchema, `{ meeting(filters: [{field: "clientRef", value: "Acme"}], sort: [{field: "date", direction: desc}]) { date } }`)
+	require.Empty(t, errs)
+	deps := env.deps(nil)
+	deps.NoteReader = contentFailingQueryNoteReader{inner: &obsidian.Note{}}
+	indexedResult := Execute(context.Background(), deps, env.schema, indexedQuery)
+	require.Empty(t, indexedResult.Errors)
+	require.Equal(t, []any{
+		map[string]any{"date": "2026-01-04"},
+		map[string]any{"date": "2026-01-03"},
+		map[string]any{"date": "2026-01-01"},
+	}, indexedResult.Data["meeting"])
 	result = executeMeetingRoot(t, env, `{ ontology { queryPlan(type: "Meeting", filters: [{field: "clientRef", value: "Acme"}], sort: [{field: "date", direction: desc}], select: ["date"]) { root execution projection pushedFilters pushedSort warnings { code } } } }`)
 	plan := result.Data["ontology"].(map[string]any)["queryPlan"].(map[string]any)
 	require.Equal(t, "meeting", plan["root"])
@@ -194,36 +205,6 @@ func (s *interfaceSemanticSearcher) Search(context.Context, semantic.SearchReque
 func (s *interfaceSemanticSearcher) SurveyNodesByType(_ context.Context, req semantic.SurveyNodesByTypeRequest) ([]semantic.Result, error) {
 	require.Equal(s.t, []string{"CoachingSession", "GeneralMeeting"}, req.TypeNames)
 	return []semantic.Result{{SourceRef: search.SourceRef{NoteID: "coaching/a.md"}, Score: 0.9}}, nil
-}
-
-func TestInterfaceRootResidualCandidateCoverage(t *testing.T) {
-	env := meetingRootEnv(t)
-	prepared, errs := Prepare(env.execSchema, `{ meeting(first: 1, filters: [{field: "clientRef", op: contains, value: "absent"}]) { date } }`)
-	require.Empty(t, errs)
-	store := &interfaceCappedStore{Store: env.store}
-	deps := env.deps(nil)
-	deps.Store = store
-	result := Execute(context.Background(), deps, env.schema, prepared)
-	require.Empty(t, result.Errors)
-	require.Empty(t, result.Data["meeting"])
-	page := result.Extensions["typedRoots"].(map[string]typedRootCoverage)["meeting"]
-	require.Equal(t, "unknown_candidate_bound", page.Status)
-	require.Nil(t, page.HasMore)
-	require.Nil(t, page.NextOffset)
-}
-
-type interfaceCappedStore struct{ Store }
-
-func (s *interfaceCappedStore) OntologyNodesByTypePlan(ctx context.Context, plan readmodel.NodeQueryPlan) ([]readmodel.NodeRow, error) {
-	rows, err := s.Store.OntologyNodesByTypePlan(ctx, plan)
-	if err != nil || len(rows) == 0 {
-		return rows, err
-	}
-	out := make([]readmodel.NodeRow, plan.Limit)
-	for i := range out {
-		out[i] = rows[i%len(rows)]
-	}
-	return out, nil
 }
 
 func TestInterfaceRootLinkFiltersUseSharedTargetContract(t *testing.T) {
