@@ -127,13 +127,11 @@ export function AgentSettingsPanel({
       {/* Effort and permission are per-session tuning: behind one disclosure
           whose summary still names the active permission. */}
       <details className="agent-session-settings">
-        <summary>
+        <summary aria-label={`Session settings: ${humanizeName(configured.permissionMode)}`}>
           <DisclosureChevron />
-          <span className="agent-session-settings__label">
-            Session settings
-            <span className="agent-session-settings__active">
-              {humanizeName(configured.permissionMode)}
-            </span>
+          <span>Settings</span>
+          <span className="agent-session-settings__active">
+            {humanizeName(configured.permissionMode)}
           </span>
         </summary>
         <div className="agent-model-controls">

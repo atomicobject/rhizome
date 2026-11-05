@@ -335,7 +335,7 @@ export function RankedResults({
           ) : (
             <button
               type="button"
-              className="search-workspace__result-link link-quiet link-title"
+              className="search-workspace__result-link search-workspace__result-link--code link-quiet link-title"
               onClick={() => openCodeSource(match.path || "", line)}
             >
               {highlightLiteral(resultLabel(match), query)}

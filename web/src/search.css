@@ -296,6 +296,10 @@
   text-underline-offset: 2px;
 }
 
+.search-workspace__result-link--code {
+  font: 500 var(--fs-sm) / 1.35 var(--font-mono);
+}
+
 /* Metadata shares one line; only the path uses mono and gives way in its middle. */
 .search-workspace__result-source {
   display: flex;
@@ -323,10 +327,7 @@
 }
 
 .search-workspace__result p code {
-  padding: 1px 3px;
-  border-radius: var(--r-sm);
-  background: var(--surface-sunk);
-  color: var(--text);
+  color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 0.9em;
 }
@@ -339,9 +340,9 @@
 /* Code evidence keeps its source lines in mono on the tint: long lines
    scroll sideways instead of breaking into fragments. */
 .search-workspace__code {
-  max-width: 100%;
+  max-width: var(--search-measure);
   margin: 8px 0 0;
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3);
   overflow: auto;
   border-radius: var(--r-md);
   background: var(--bg-tint);

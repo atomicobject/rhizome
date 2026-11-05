@@ -8,6 +8,37 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
+  const settings = page.getByLabel("Session settings: Approval required", { exact: true });
+  await expect(settings).toContainText("Settings");
+  await expect(settings).toHaveCSS("height", "28px");
+  const active = settings.locator(".agent-session-settings__active");
+  await expect(active).toHaveCSS("font-size", "13px");
+  await expect(active).toHaveCSS("font-weight", "500");
+  await expect(page.getByText("No sessions yet.", { exact: true })).toHaveCSS("font-size", "13px");
+  const rows = page.locator(".agent-examples button");
+  await expect(rows).toHaveCount(3);
+  const composer = await page.locator(".agent-composer__frame").boundingBox();
+
+  const arrows = await page
+    .locator(".agent-examples__arrow")
+    .evaluateAll((icons) => icons.map((icon) => icon.getBoundingClientRect().right));
+
+  expect(new Set(arrows).size).toBe(1);
+
+  for (const row of await rows.all()) {
+    const box = await row.boundingBox();
+    expect(box?.width).toBeCloseTo(composer!.width, 0);
+    expect(box?.x).toBeCloseTo(composer!.x, 0);
+    expect(box!.height).toBeGreaterThanOrEqual(32);
+  }
+
+  await rows.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Message")).toHaveValue(
+    "What changed in this repository this week?",
+  );
+  await expect(page.getByLabel("Message")).toBeFocused();
+
   await page.getByRole("button", { name: "New session", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Rhizome agent chat" })).toBeVisible();
 
