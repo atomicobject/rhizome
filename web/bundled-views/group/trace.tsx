@@ -10,15 +10,16 @@ import {
   useViewPreference,
   type ViewModuleProps,
 } from "@rhizome/kit";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { isString } from "./api.ts";
-import { GroupFacts, GroupPage, MemberHeading } from "./components.tsx";
+import { GroupFacts, GroupPage, LifecycleCounts } from "./components.tsx";
 import { linkGraph, spineChoices, type LinkGraph } from "./graph.ts";
 import { useGroupModel } from "./load.ts";
 import { traceMatrix, type MatrixColumn, type TraceMatrix } from "./matrix.ts";
 import { fieldLabel, lifecycleValue, memberLabel, type GroupModel, type Member } from "./model.ts";
 import { Band, inSentence } from "./traceRows.tsx";
+import "./trace-sections.css";
 
 /** A closed band with more rows than this starts folded while other bands are open. */
 const FOLD_CLOSED = 3;
@@ -164,30 +165,17 @@ function ColumnHead({
   );
 }
 
-function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
-  const { spine } = matrix;
-  const lifecycle = spine.lifecycle;
-
-  const empty = new Intl.ListFormat("en", { type: "disjunction" }).format(
-    matrix.emptyValues.map((value) => (value.label ?? value.name).toLowerCase()),
-  );
-
-  const metadata = [
-    !matrix.banded && "Most connected first",
-    matrix.hierarchical && "Nested under parents",
-    lifecycle && empty && `No ${empty} ${inSentence(memberLabel(model, spine, { plural: true }))}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
+function SpineHead({ matrix, children }: { matrix: TraceMatrix; children: ReactNode }) {
   return (
     <th scope="col" className="gv-trace-spine">
-      <div className="gv-head">
-        <MemberHeading model={model} member={spine} />
-        <span className="gv-num">{spine.count}</span>
-      </div>
-      <div className="gv-cov" title={metadata}>
-        {metadata}
+      {children}
+      <div className="gv-cov">
+        {matrix.hierarchical && <>Nested under parents · </>}
+        {matrix.spine.lifecycle ? (
+          <LifecycleCounts member={matrix.spine} />
+        ) : (
+          "Most connected first"
+        )}
       </div>
     </th>
   );
@@ -272,13 +260,7 @@ const shownColumns = (matrix: TraceMatrix) => matrix.columns.filter((column) => 
 
 /** Keep related materials readable alongside the spine and other linked columns. */
 function matrixWidth(matrix: TraceMatrix) {
-  return (
-    340 +
-    shownColumns(matrix).reduce(
-      (width, column) => width + (relationFields(matrix, column).length > 1 ? 300 : 220),
-      0,
-    )
-  );
+  return 420 + shownColumns(matrix).length * 220;
 }
 
 /** A column few rows fill is held to a fifth of the width, so dense columns get the room. */
@@ -288,10 +270,12 @@ function Matrix({
   model,
   matrix,
   defaultNote,
+  children,
 }: {
   model: GroupModel;
   matrix: TraceMatrix;
   defaultNote?: string;
+  children: ReactNode;
 }) {
   const open = matrix.bands.some((band) => !band.closed);
 
@@ -316,7 +300,7 @@ function Matrix({
           </colgroup>
           <thead>
             <tr>
-              <SpineHead model={model} matrix={matrix} />
+              <SpineHead matrix={matrix}>{children}</SpineHead>
               {shownColumns(matrix).map((column) => (
                 <ColumnHead key={column.id} model={model} matrix={matrix} column={column} />
               ))}
@@ -365,28 +349,25 @@ function SpineSwitcher({
   const fallback = choices[0];
 
   return (
-    <div className="gv-toolbar">
-      <Segmented
-        label="Rows"
-        showLabel
-        value={spine}
-        onChange={onChoose}
-        options={choices.flatMap((name) => {
-          const choice = model.memberIndex.get(name);
+    <Segmented
+      label="Rows"
+      value={spine}
+      onChange={onChoose}
+      options={choices.flatMap((name) => {
+        const choice = model.memberIndex.get(name);
 
-          if (!choice) return [];
+        if (!choice) return [];
 
-          return [
-            {
-              value: name,
-              label: memberLabel(model, choice, { plural: true }),
-              count: choice.records.length,
-              description: name === fallback ? "(default)" : undefined,
-            },
-          ];
-        })}
-      />
-    </div>
+        return [
+          {
+            value: name,
+            label: memberLabel(model, choice, { plural: true }),
+            count: choice.records.length,
+            description: name === fallback ? "(default)" : undefined,
+          },
+        ];
+      })}
+    />
   );
 }
 
@@ -423,13 +404,14 @@ function TraceBody({ model }: { model: GroupModel }) {
   return (
     <div className="gv-trace-page" style={{ minWidth: matrixWidth(matrix) }}>
       <GroupFacts model={model} />
-      <SpineSwitcher model={model} choices={choices} spine={spine} onChoose={choose} />
       <Matrix
         key={spine}
         model={model}
         matrix={matrix}
         defaultNote={defaultRowsNote(model, graph, choices)}
-      />
+      >
+        <SpineSwitcher model={model} choices={choices} spine={spine} onChoose={choose} />
+      </Matrix>
     </div>
   );
 }

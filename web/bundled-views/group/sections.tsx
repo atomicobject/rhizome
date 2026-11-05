@@ -43,6 +43,8 @@ import {
   type MemberField,
 } from "./model.ts";
 
+import "./trace-sections.css";
+
 /** True when one concrete type holds more than 90% of the member's records. */
 function oneTypeDominates(member: Member) {
   const counts = new Map<string, number>();
@@ -280,29 +282,30 @@ function SectionsBody({ model }: { model: GroupModel }) {
 
   return (
     <>
-      <GroupFacts model={model}>
-        {members.length > 1 && (
-          <nav className="gv-jump" aria-label="Jump to section">
-            {members.map((member) => (
-              <button
-                key={member.name}
-                type="button"
-                className="gv-link"
-                data-empty={member.count === 0 || undefined}
-                aria-label={`${memberLabel(model, member, { plural: true })} ${member.count}`}
-                title={`${memberLabel(model, member, { plural: true })} ${member.count}`}
-                onClick={() =>
-                  document
-                    .getElementById(sectionId(member))
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              >
-                {memberLabel(model, member, { plural: true })}
-              </button>
-            ))}
-          </nav>
-        )}
-      </GroupFacts>
+      <GroupFacts model={model} />
+      {members.length > 1 && (
+        <nav className="gv-jump" aria-label="Jump to section">
+          <span className="gv-jump-label">Jump to</span>
+          {members.map((member) => (
+            <button
+              key={member.name}
+              type="button"
+              className="gv-link"
+              data-empty={member.count === 0 || undefined}
+              aria-label={`${memberLabel(model, member, { plural: true })} ${member.count}`}
+              title={`${memberLabel(model, member, { plural: true })} ${member.count}`}
+              onClick={() =>
+                document
+                  .getElementById(sectionId(member))
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            >
+              {memberLabel(model, member, { plural: true })}{" "}
+              <span className="num">{member.count}</span>
+            </button>
+          ))}
+        </nav>
+      )}
       {members.map((member) => (
         <Section key={member.name} model={model} member={member} />
       ))}
