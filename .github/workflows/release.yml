@@ -230,6 +230,14 @@ jobs:
           GOTOOLCHAIN: go1.24.11
       - name: Check desktop architecture
         run: test "$(uname -m)" = arm64
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
       - name: Install desktop dependencies
         run: make desktop-deps
       - name: Set up Python for archive verification
@@ -293,6 +301,14 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           GOTOOLCHAIN: go1.24.11
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
       - name: Install desktop dependencies
         run: make desktop-deps
       - name: Set up Python for archive verification

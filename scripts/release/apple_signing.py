@@ -86,7 +86,13 @@ def run_check(command, *, runner, env):
     try:
         return runner(command, env=env, check=True, capture_output=True, text=True, timeout=120)
     except (subprocess.SubprocessError, OSError) as error:
-        raise AppleSigningError(f"Apple distribution verification failed: {Path(command[0]).name}") from error
+        # These checks run without credentials and describe only public artifacts.
+        detail = ""
+        if isinstance(error, subprocess.CalledProcessError):
+            detail = (error.stderr or error.stdout or "").strip()[-2000:]
+        step = " ".join(command[:3])
+        target = str(command[-1])
+        raise AppleSigningError(f"Apple distribution verification failed: {step} {target}; {detail}") from error
 
 
 def notarize_dmg(dmg, *, runner, env):

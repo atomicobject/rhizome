@@ -61,11 +61,11 @@ class AppleSigningTest(unittest.TestCase):
         for tool in ("spctl", "xcrun"):
             def run(command, **kwargs):
                 if command[0] == tool:
-                    raise subprocess.CalledProcessError(1, command, stderr="synthetic secret")
+                    raise subprocess.CalledProcessError(1, command, stderr="synthetic public rejection")
                 return subprocess.CompletedProcess(command, 0, "", "TeamIdentifier=ABCDEFGHIJ\nflags=0x10000(runtime)\n")
             with self.assertRaises(AppleSigningError) as caught:
                 verify_app(Path("Rhizome.app"), IDENTITY, runner=run, env={})
-            self.assertNotIn("synthetic secret", str(caught.exception))
+            self.assertIn("synthetic public rejection", str(caught.exception))
 
 
 class DistributionTest(unittest.TestCase):
