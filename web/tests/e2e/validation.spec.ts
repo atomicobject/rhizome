@@ -122,7 +122,7 @@ test("clean, stale, and failed validation stay calm and distinct at both desktop
     const strip = await page.locator(".validation-status-strip").boundingBox();
     const checks = await page.locator(".validation-checks").boundingBox();
 
-    expect(column && column.width).toBeLessThanOrEqual(960);
+    expect(column && column.width).toBeLessThanOrEqual(1320);
     expect(strip?.x).toBe(column?.x);
     expect(checks?.x).toBe(column?.x);
     expect(strip?.width).toBe(column?.width);

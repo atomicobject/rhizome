@@ -48,8 +48,8 @@
   font-weight: 700;
 }
 
-.problems-workspace:has(.validation-checks)
-  > :is(.problems-workspace__header, .validation-status-strip, .validation-checks) {
+.problems-workspace > * {
   width: 100%;
-  max-width: 960px;
+  max-width: 1320px;
+  margin-inline: auto;
 }
