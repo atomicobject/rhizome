@@ -1,3 +1,5 @@
+import { CircleCheck } from "lucide-react";
+// int-2: switch to w3's shared mark at merge
 import type { ValidateEnvelope } from "../../api/types";
 import {
   CleanCheckList,
@@ -29,10 +31,24 @@ export function ValidationStatusStrip({
   const strip = (
     <div className={`validation-status-strip validation-status-strip--${presentation.tone}`}>
       <div className="validation-status-strip__summary" role="status" aria-live="polite">
-        <span className="validation-status-strip__mark" aria-hidden="true">
-          {mark(presentation.health)}
-        </span>
-        <strong>{presentation.label}</strong>
+        {presentation.health === "current_clean" ? (
+          <>
+            <CircleCheck
+              className="validation-checks__mark"
+              size={16}
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+            <strong>{presentation.label}</strong>
+          </>
+        ) : (
+          <>
+            <span className="validation-status-strip__mark" aria-hidden="true">
+              {mark(presentation.health)}
+            </span>
+            <strong>{presentation.label}</strong>
+          </>
+        )}
         {clean && snapshot && (
           <>
             <span aria-hidden="true">·</span>

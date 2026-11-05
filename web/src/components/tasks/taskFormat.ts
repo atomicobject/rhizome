@@ -140,7 +140,7 @@ export function itemStatePresentation(state: TaskItemState): StatusPresentation 
   return { label, tone };
 }
 
-export const MODE_LABELS = { auto: "Auto", notify: "Notify", off: "Off" } as const;
+export const MODE_LABELS = { auto: "Auto", notify: "Notify before running", off: "Off" } as const;
 
 const LOCAL_STATES = {
   new: ["Local only", "info"],

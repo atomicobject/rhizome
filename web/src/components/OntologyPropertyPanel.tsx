@@ -392,7 +392,7 @@ function PropertyRow({
       data-field={name}
     >
       <dt className="ontology-properties__key" title={name}>
-        {humanizeName(name)}
+        {name === "summary" ? "Note summary" : humanizeName(name)}
         {editing &&
           (isLocator ||
             (node.field.capability?.writeOperation && !node.field.capability.readOnlyReason)) && (

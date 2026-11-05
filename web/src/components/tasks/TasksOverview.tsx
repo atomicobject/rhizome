@@ -1,3 +1,4 @@
+import { RelativeTime } from "../../../kit/format";
 import { type ReactNode, useState } from "react";
 
 import type { TaskItem, TasksReport, TaskStatus } from "../../api/tasks";
@@ -282,10 +283,9 @@ function TaskRow({
           ) : null}
           {task.name || announcement ? (
             <span className="task-table__meta">
-              {task.name ? <code>{task.id}</code> : null}
               {announcement ? (
                 <>
-                  <span className="task-table__new-tag">New</span>
+                  <span className="task-table__new-tag">New definition</span>
                   <button
                     type="button"
                     className="task-notice__more"
@@ -313,7 +313,9 @@ function TaskRow({
           {last && task.lastRun ? (
             <span className="task-table__last">
               <StatusMark tone={last.tone} label={last.label} />
-              <span className="task-table__aside">{formatRelative(task.lastRun.at)}</span>
+              <span className="task-table__aside">
+                <RelativeTime value={task.lastRun.at} />
+              </span>
             </span>
           ) : (
             <span className="task-table__none">Never run</span>
@@ -329,6 +331,7 @@ function TaskRow({
       {announcement && open ? (
         <tr className="task-table__purpose" id={purposeId}>
           <td colSpan={6}>
+            <code>{task.id}</code>
             <p>
               Runs every {formatEvery(task.every)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
               {purpose ? ` ${purpose}` : ""}

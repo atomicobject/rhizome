@@ -18,8 +18,8 @@
 
 .search-workspace > * {
   flex: none;
-  width: min(100% - 2 * var(--gutter), 960px);
-  margin-inline: var(--gutter) auto;
+  width: min(100% - 2 * var(--gutter), 1320px);
+  margin-inline: auto;
 }
 
 .search-workspace__header {
@@ -340,7 +340,8 @@
 /* Code evidence keeps its source lines in mono on the tint: long lines
    scroll sideways instead of breaking into fragments. */
 .search-workspace__code {
-  max-width: var(--search-measure);
+  box-sizing: border-box;
+  width: min(100%, var(--search-measure));
   margin: 8px 0 0;
   padding: var(--sp-3);
   overflow: auto;
