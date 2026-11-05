@@ -291,6 +291,7 @@ function SectionsBody({ model }: { model: GroupModel }) {
               key={member.name}
               type="button"
               className="gv-link"
+              disabled={member.count === 0}
               data-empty={member.count === 0 || undefined}
               aria-label={`${memberLabel(model, member, { plural: true })} ${member.count}`}
               title={`${memberLabel(model, member, { plural: true })} ${member.count}`}

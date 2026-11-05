@@ -55,3 +55,36 @@
 .gv-jump .num {
   color: var(--text-muted);
 }
+
+.gv-trace-rows {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gv-trace-rows-label {
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-page .gv-trace thead th .gv-cov {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gv-trace td .gv-square {
+  visibility: hidden;
+}
+
+.gv-jump > button:disabled,
+.gv-jump > button:disabled .num {
+  color: var(--text-faint);
+}
+
+.gv-section .gv-table td.gv-col-type,
+.gv-section .gv-table td.gv-col-type > span {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
