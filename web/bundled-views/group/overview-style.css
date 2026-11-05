@@ -189,21 +189,20 @@
 
 /* Compact, wrapping group keys keep every type beside its group label. */
 .gv-page .gv-map-legend .gv-map-legend-row {
-  display: block;
-  line-height: 1.8;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  column-gap: 8px;
+  line-height: 1.5;
 }
 .gv-page .gv-map-legend dt,
 .gv-page .gv-map-legend dd {
-  display: inline;
   margin: 0;
   font: 500 13px/1.8 var(--font-sans);
 }
 .gv-page .gv-map-legend dt {
   color: var(--text-muted);
-  margin-right: 12px;
 }
 .gv-map-legend dd > span {
-  margin-right: 14px;
   white-space: nowrap;
 }
 .gv-page .gv-ov-table {
@@ -286,4 +285,34 @@
 }
 .gv-ov-table .gv-ov-bar {
   width: 60px;
+}
+
+.gv-page .gv-map-legend dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+.gv-page .gv-ov-below {
+  padding: 0 20px;
+}
+.gv-overview-guide {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 34px;
+}
+.gv-ov-below .gv-overview-guide .rz-section-head {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.gv-overview-guide > .gv-sub {
+  margin-left: auto;
+}
+
+.gv-overview-guide > .gv-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

@@ -300,7 +300,7 @@ test("group Overview maps member types, lists members and outside notes, and swi
   // Ada is the typed owner of one work item and watches another from outside;
   // Lin is named only in a body link.
   const outside = frame.getByRole("region", { name: "Outside the group" });
-  const more = outside.getByRole("button", { name: /Show .* more/ });
+  const more = outside.getByRole("button", { name: /Show \d+ (?:more|notes?)/ });
 
   if (await more.isVisible()) await more.click();
   await expect(outside).toContainText("Ada Example");

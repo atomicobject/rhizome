@@ -1,6 +1,6 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
-import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
+import { fixtureModel, renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 
 const loadOverview = () => import("./overview.tsx");
 
@@ -63,4 +63,58 @@ it("keeps tiny nonempty ring segments at least four pixels while preserving the 
 
   for (const arc of arcs) expect(arc.share * circumference).toBeGreaterThanOrEqual(4 - 1e-9);
   expect(arcs[0].share).toBeGreaterThan(arcs[1].share);
+});
+
+it("names line keys separately and reconciles the combined untyped bucket", async () => {
+  await renderGroupView(loadOverview, { context: { kind: "workspace" }, routes: scopeRoutes() });
+  const members = screen.getByRole("region", { name: "Members" });
+
+  expect(members).toHaveTextContent("29 typed · 17 untyped + 3 ambiguous");
+  const row = within(members).getByRole("row", { name: /Untyped \+ ambiguous/ });
+
+  expect(within(row).getAllByRole("cell")[1]).toHaveTextContent("20");
+
+  const lines = within(screen.getByRole("region", { name: "Map" })).getByText("Lines", {
+    selector: "dt",
+  }).parentElement;
+
+  expect(lines).toHaveTextContent("Plain links");
+  expect(lines).not.toHaveTextContent("Untyped");
+});
+
+it("names a zero-row disclosure and puts its caveat in heading help", async () => {
+  const model = fixtureModel("Planning");
+
+  const notes = [
+    { key: "outside", path: "outside.md", title: "Outside", type: null, touches: ["record"] },
+  ];
+
+  await renderGroupView(async () => {
+    const { OutsideNotes } = await import("./overview-side-parts.tsx");
+
+    return {
+      default: () => (
+        <OutsideNotes
+          model={model}
+          outside={{ notes, byType: [], incomplete: true }}
+          title="Outside the group"
+          info="Linked notes"
+          empty="None"
+          limit={0}
+        />
+      ),
+    };
+  });
+  const outside = screen.getByRole("region", { name: "Outside the group" });
+
+  expect(outside.querySelectorAll("li")).toHaveLength(0);
+  expect(within(outside).getByRole("heading")).toHaveAttribute(
+    "title",
+    expect.stringContaining("More notes may link"),
+  );
+  expect(within(outside).getByRole("button", { name: "Search all notes" })).toBeVisible();
+  fireEvent.click(within(outside).getByRole("button", { name: "Show 1 note" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(1);
+  fireEvent.click(within(outside).getByRole("button", { name: "Show fewer" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(0);
 });

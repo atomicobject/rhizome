@@ -28,7 +28,7 @@ it("lists untyped notes by folder and searches a folder, with the coverage line 
   });
 
   const folders = region("Untyped notes by folder");
-  expect(within(folders).getByText("20 notes (includes 3 ambiguous)")).toBeVisible();
+  expect(within(folders).getByText("17 untyped + 3 ambiguous")).toBeVisible();
   const notes = rowNamed(within(folders).getByRole("table"), "Notes/");
   // One line per row: the folder size and full link list live in titles.
   expect(notes).toHaveTextContent("Notes/1240%Meetings 4, People 2");

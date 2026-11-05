@@ -78,7 +78,7 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
         <b>{fmt(facts.totalNotes)}</b> notes
       </span>
       <span>
-        <b>{typed}%</b> typed
+        <b>{typed}%</b> decided types
       </span>
       <span>
         <b>{data.model.types.size}</b> note {plural(data.model.types.size, "type", "types")}
@@ -87,7 +87,7 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
       <button
         type="button"
         className={facts.ambiguousNotes ? "gv-issues gv-warn" : "gv-issues gv-zero"}
-        title="Notes whose type could not be decided"
+        title="Ambiguous notes are counted once in Untyped + ambiguous, outside the decided typed records."
         onClick={() => openIssues()}
       >
         <span className="gv-fact-scope">Typing:</span>{" "}
@@ -290,7 +290,15 @@ function MembersBlock({ data, expanded, onToggle }: { data: ScopeData } & Expans
   );
 
   return (
-    <Block title="Members" className="gv-slot-members">
+    <Block
+      title="Members"
+      className="gv-slot-members"
+      count={
+        data.model?.scope.kind === "workspace" && data.facts?.ambiguousNotes
+          ? `${fmt(data.facts.typedNotes)} typed · ${fmt(data.facts.untypedNotes - data.facts.ambiguousNotes)} untyped + ${fmt(data.facts.ambiguousNotes)} ambiguous`
+          : undefined
+      }
+    >
       <BlockBody status={status} what="members">
         {() =>
           data.facts?.rebuilding ? (
@@ -318,7 +326,23 @@ function OverviewPage({ scope }: { scope: Scope }) {
     [remembered.choices],
   );
 
-  const data = useScopeModel(scope, expanded);
+  const source = useScopeModel(scope, expanded);
+
+  const model = useMemo(() => {
+    const original = source.model;
+
+    if (!original?.untyped || !source.facts?.ambiguousNotes) return original;
+    const untyped = { ...original.untyped, label: "Untyped + ambiguous" };
+
+    return {
+      ...original,
+      untyped,
+      nodes: original.nodes.map((node) => (node.id === untyped.id ? untyped : node)),
+      nodeIndex: new Map(original.nodeIndex).set(untyped.id, untyped),
+    };
+  }, [source.model, source.facts]);
+
+  const data = { ...source, model };
   const status = blockStatus(data.reads);
   const expansion: Expansion = { expanded, onToggle: remembered.setOpen };
 

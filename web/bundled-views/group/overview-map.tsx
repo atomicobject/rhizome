@@ -13,8 +13,8 @@ import { edgeKey, type MapEdge, type ScopeNode } from "./scope.ts";
 /** The layout width before the canvas is measured, and where it cannot be measured. */
 const WIDTH = 760;
 
-/** The map's height: with its title and three-row legend the block stays within about 360px. */
-const HEIGHT = 236;
+/** The map's height: with its title and separate line-style legend the block stays within about 360px. */
+const HEIGHT = 216;
 
 /** A count's pill: 5px of surface beside its digits, on the edge it counts. */
 const COUNT_PAD = 4;

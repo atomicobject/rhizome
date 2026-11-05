@@ -248,10 +248,10 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     expect(screen.getByRole("button", { name: "Validation: 5 issues" })).toBeVisible(),
   );
   expect(document.querySelector(".gv-facts-list")).toHaveTextContent(
-    "49 notes59% typed10 note typesTyping: 3 ambiguous notesValidation: 5 issues",
+    "49 notes59% decided types10 note typesTyping: 3 ambiguous notesValidation: 5 issues",
   );
   expect(nodeNames()).toEqual([
-    "Untyped notes, 20 notes, 11 links",
+    "Untyped + ambiguous, 20 notes, 11 links",
     "Planning, 15 records, 5 links, collapsed group of 4 types",
     "Library, 5 records, 2 links, collapsed group of 2 types",
     "Meetings, 5 records, 10 links",

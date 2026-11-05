@@ -6,8 +6,8 @@ import { openSearch } from "@rhizome/kit";
 import { Fragment, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 
 import { boundary } from "./activity.ts";
-import { OutsideNotes } from "./briefing-activity.tsx";
-import { GuideAndViews } from "./briefing-contents.tsx";
+import { OutsideNotes } from "./overview-side-parts.tsx";
+import { GuideAndViews } from "./overview-side-parts.tsx";
 import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
@@ -44,7 +44,7 @@ export function FolderBlock() {
       title="Untyped notes by folder"
       count={
         facts && !facts.rebuilding
-          ? `${fmt(facts.untypedNotes)} notes (includes ${facts.ambiguousNotes} ambiguous)`
+          ? `${fmt(facts.untypedNotes - facts.ambiguousNotes)} untyped + ${facts.ambiguousNotes} ambiguous`
           : undefined
       }
       info={{

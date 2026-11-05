@@ -307,7 +307,7 @@ export function MapLegend({
         ? [
             <span key="untyped">
               <i className="gv-legend-untyped" />
-              Untyped notes
+              {model.untyped?.label ?? "Untyped notes"}
             </span>,
           ]
         : [],
@@ -329,10 +329,7 @@ export function MapLegend({
       })),
   ].filter((group) => group.items.length > 0);
 
-  const last = groups.at(-1);
-
-  if (last) last.items.push(...kinds);
-  else if (kinds.length) groups.push({ title: "Links", items: kinds });
+  if (kinds.length) groups.push({ title: "Lines", items: kinds });
 
   return (
     <>

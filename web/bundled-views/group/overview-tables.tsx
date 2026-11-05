@@ -232,7 +232,6 @@ function NameCell({
     <>
       <Dot summaries={summaries} node={node} />
       {node.label}
-      {node.count === 0 && node.kind !== "untyped" && <span className="gv-faint"> empty</span>}
     </>
   );
 
