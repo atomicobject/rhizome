@@ -1,11 +1,9 @@
+import { onBranch } from "./explorerGraph";
+import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import { type LayoutInput, type LayoutPositions, runLayout } from "./graphLayout";
 import Graph from "graphology";
 import type { GraphEdge } from "../api/types";
-import {
-  graphNodeIdentityAttrs,
-  type SigmaNodeAttrs,
-  type SigmaEdgeAttrs,
-} from "../lib/graphStyle";
+import { graphNodeIdentityAttrs, type SigmaEdgeAttrs } from "../lib/graphStyle";
 import { resolveCssColor } from "../lib/themeColors";
 import {
   CODE_COLOR,
@@ -78,6 +76,8 @@ export function buildSigmaGraph({
   const hasCompleteGlobalLayout =
     scope.mode === "global" && nodes.length > 0 && nodes.every((node) => globalLayout.has(node.id));
 
+  const selected = explorer ? nodes.find((node) => node.center) : undefined;
+  const branch = selected?.kind === "module" ? selected.path : undefined;
   nodes.forEach((n, index) => {
     const cached = scope.mode === "global" ? globalLayout.get(n.id) : undefined;
 
@@ -112,10 +112,15 @@ export function buildSigmaGraph({
     const baseColor = resolveCssColor(colorValue);
     graph.addNode(n.id, {
       label:
-        explorer && scope.mode === "local"
+        explorer && scope.mode === "local" && n.x === undefined
           ? (n.path || n.label).split("/").pop() || n.label
           : n.label,
       labelDetail: n.labelDetail,
+      selected: explorer && center,
+      branch:
+        Boolean(branch) &&
+        (branch === "" || (n.path || "").startsWith(`${branch}/`) || n.path === branch),
+      muted: branch ? !onBranch(n.path || "", branch) : false,
       aggregate: n.aggregate,
       fixed,
       priority:
@@ -169,7 +174,7 @@ export function buildSigmaGraph({
     if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) return;
     const a = e.source <= e.target ? e.source : e.target;
     const b = e.source <= e.target ? e.target : e.source;
-    const key = `${a}|${b}|${e.kind.startsWith("folder-") ? e.kind : "links"}`;
+    const key = `${a}|${b}|${e.kind.startsWith("folder-") || e.kind.startsWith("explorer-") ? e.kind : "links"}`;
     const current = edgeAgg.get(key);
 
     if (!current) {

@@ -1,3 +1,4 @@
+import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import { graphClusters } from "./graphClusters";
 import {
   mountSigmaRenderer,
@@ -9,7 +10,7 @@ import type Graph from "graphology";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type Sigma from "sigma";
 import type { GraphEdge, GraphNode } from "../api/types";
-import { type ReducerState, type SigmaEdgeAttrs, type SigmaNodeAttrs } from "../lib/graphStyle";
+import { type ReducerState, type SigmaEdgeAttrs } from "../lib/graphStyle";
 import { resolveCssColor, subscribeColorScheme } from "../lib/themeColors";
 import {
   CAMERA,
@@ -331,7 +332,7 @@ export function useSigmaGraph({
           : null,
       );
       sigma.setSettings({
-        labelSize: 14,
+        labelSize: explorer && scope.mode === "local" ? 13 : 14,
         labelWeight: explorer || fixed ? "500" : "normal",
         edgeLabelSize: explorer || fixed ? 13 : 9,
       });

@@ -42,13 +42,21 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
     .poll(async () =>
       nodeCount(await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label")),
     )
-    .toBeGreaterThan(initialNodes);
+    .toBeGreaterThan(0);
+  await expect(src).toHaveAttribute("aria-expanded", "true");
 
   const expandedNodes = nodeCount(
     await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label"),
   );
 
   await src.click();
+  await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
+  await expect
+    .poll(async () =>
+      nodeCount(await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label")),
+    )
+    .toBeLessThan(expandedNodes);
+  await page.locator(".explorer-rail__root").click();
   await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
   await expect
     .poll(async () =>
@@ -73,6 +81,9 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
     .getByRole("button", { name: /main\.py/i })
     .click();
   await expect(page.locator(".explorer-pane__code")).toBeVisible();
+  await expect(page.locator('.explorer-rail .tree-row[aria-current="page"]')).toHaveText(
+    /main\.py/i,
+  );
   await expect(page.locator(".explorer-pane__header h2")).toHaveCSS("font-size", "16px");
   await expect(page.locator(".explorer-pane__header h2")).toHaveCSS("font-weight", "600");
 });

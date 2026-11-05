@@ -15,6 +15,7 @@ import { vaultLabel } from "../lib/labels";
 import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
 import { useDebouncedValue, useFolderExplorer } from "./useFolderExplorer";
+import { useExplorerGraph, useRevealRail } from "./explorerGraph";
 import { ExplorerHeader } from "./ExplorerHeader";
 import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
@@ -225,11 +226,9 @@ export function ExplorerWorkspace({
   const byFolder = atRoot && !searchActive;
 
   const folderExplorer = useFolderExplorer(graph, typeColors);
-  useEffect(() => {
-    if (atRoot) setExpandedPaths(new Set([...folderExplorer.initial].filter(Boolean)));
-  }, [folderExplorer.initial, atRoot]);
+  useRevealRail(folderExplorer.initial, atRoot, selectedFilePath, setExpandedPaths);
   const folders = byFolder ? folderExplorer.drawn : null;
-  const drawn = folders ?? graph;
+  const drawn = useExplorerGraph(folders, graph, selection);
 
   const focusModule = useCallback(
     (path: string) => {
@@ -272,8 +271,12 @@ export function ExplorerWorkspace({
         const path = node.path ?? "";
 
         if (node.id.startsWith("more:")) folderExplorer.reveal(path);
-        else if (path && folderExplorer.open.has(path)) folderExplorer.collapse(path);
         else if (path) focusModule(path);
+        else {
+          folderExplorer.reset();
+          setExpandedPaths(new Set([...folderExplorer.initial].filter(Boolean)));
+          select({ kind: "root" });
+        }
       } else if (node.kind === "embedded" || node.kind === "note" || node.kind === "code") {
         const target = graphNodeNavigationTarget(node);
 

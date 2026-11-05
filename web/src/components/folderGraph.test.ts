@@ -81,14 +81,17 @@ describe("complete folder model", () => {
     expect(open.nodes.filter((n) => n.kind === "code")).toHaveLength(35);
     expect(open.children.get("src")?.reduce((sum, c) => sum + c.members.length, 0)).toBe(36);
   });
-  it("reserves room for direct files beside many folders", () => {
+  it("folds root files into a labelled reachable aggregate beside folders", () => {
     const tree = buildFolderTree({
       nodes: [note("README.md"), ...Array.from({ length: 30 }, (_, i) => code(`part${i}/a.ts`))],
       edges: [],
     });
 
     const graph = visibleFolderGraph(tree, state(), color);
-    expect(graph.nodes.some((node) => node.id === "note:README.md")).toBe(true);
+    expect(graph.nodes.find((node) => node.id === "more:")).toMatchObject({
+      label: "1 more note in root",
+      childCount: 1,
+    });
     expect(graph.children.get("")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(31);
   });
   it("keeps every top-level folder visible beside root files", () => {

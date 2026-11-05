@@ -115,6 +115,10 @@ export function FolderLegend({
       </div>
       <div className="graph-type-legend__row graph-type-legend__keys">
         <h3 className="graph-type-legend__title">Graph</h3>
+        <span className="graph-type-legend__key">
+          <span className="graph-type-legend__size" aria-hidden="true" />
+          Folder
+        </span>
         <ul className="graph-type-legend__list">
           {inventory.filter((entry) => legendGroup(entry.name) === "code").map(legendItem)}
         </ul>
@@ -146,13 +150,25 @@ export function FolderLegend({
 export function EdgeLegend({ edges }: { edges: GraphEdge[] }) {
   const kinds = new Set(edges.map((edge) => edge.kind));
 
-  if (!["folder-containment", "folder-crosslink", "folder-minor"].some((kind) => kinds.has(kind)))
+  if (
+    ![
+      "folder-containment",
+      "folder-crosslink",
+      "folder-minor",
+      "explorer-documents",
+      "explorer-code",
+      "explorer-tests",
+    ].some((kind) => kinds.has(kind))
+  )
     return null;
 
   return (
     <div className="graph-edge-legend" aria-label="Graph link legend">
       {[
         ["folder-containment", "Contains"],
+        ["explorer-documents", "Documents / mentions"],
+        ["explorer-code", "Calls / imports"],
+        ["explorer-tests", "Tests"],
         ["folder-crosslink", "Note–code links"],
         ["folder-minor", "Other links on hover"],
       ].flatMap(([kind, label]) =>

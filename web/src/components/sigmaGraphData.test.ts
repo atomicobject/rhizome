@@ -69,8 +69,8 @@ describe("Explorer renderer data", () => {
       label: "",
       size: expect.any(Number),
     });
-    expect(style("edge-0").size).toBe(1);
-    expect(style("edge-1").size).toBeGreaterThan(1);
+    expect(style("edge-0").size).toBe(1.5);
+    expect(style("edge-1").size).toBeLessThanOrEqual(1.25);
     expect(style("edge-1").size).toBeLessThan(2.5);
     expect(style("edge-2").hidden).toBe(true);
     state.hoverNodeID = "unrelated";
@@ -79,7 +79,7 @@ describe("Explorer renderer data", () => {
       computeNodeStyle({ nodeId: "a", attrs: graph.getNodeAttributes("a"), state, lod: 1 }).label,
     ).toBe("A");
     state.hoverNodeID = "a";
-    expect(style("edge-1").label).toBe("34 note–code links");
+    expect(style("edge-1").label).toBe("34");
     expect(style("edge-2").hidden).toBe(false);
   });
   it("marks the focused file and shortens local names without losing paths", () => {

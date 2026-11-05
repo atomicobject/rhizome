@@ -1,3 +1,4 @@
+import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 // Explorer node labels: placed clear of node discs, other labels, and (where
 // possible) edges, then drawn on a solid backing in the canvas color, pinned to the
 // node, so a label never reads as belonging to a line or a neighbor.
@@ -9,7 +10,7 @@
 // spot. Larger graphs place labels in Sigma's order against labels alone.
 import type Sigma from "sigma";
 import type { NodeLabelDrawingFunction } from "sigma/rendering";
-import type { SigmaEdgeAttrs, SigmaNodeAttrs } from "../lib/graphStyle";
+import type { SigmaEdgeAttrs } from "../lib/graphStyle";
 
 type Box = [left: number, top: number, right: number, bottom: number];
 
@@ -255,10 +256,31 @@ export function createLabelPainter(
         ? `600 ${size}px Inter, -apple-system, system-ui, sans-serif`
         : font;
 
+      const attrs = graph.getNodeAttributes(node.id);
+
+      if (attrs.selected || (attrs.explorerLabels && attrs.fixed && attrs.kind !== "module")) {
+        const width =
+          measure(context, node.label) + (node.detail ? 6 + measure(context, node.detail) : 0);
+
+        const chosen = outwardSpots(
+          node.x,
+          node.y,
+          node.r,
+          width,
+          size,
+          attrs.kind === "note" || attrs.kind === "embedded" ? -1 : 1,
+          0,
+        )[0];
+
+        placed.push(chosen.box);
+        spots.set(at(node.x, node.y), chosen);
+        continue;
+      }
+
       if (node.fixed) {
         let chosen: Spot | null = null;
 
-        for (const detail of node.detail ? [true, false] : [false]) {
+        for (const detail of node.detail ? [true] : [false]) {
           const width =
             measure(context, node.label) + (detail ? 6 + measure(context, node.detail) : 0);
 
@@ -280,6 +302,16 @@ export function createLabelPainter(
             break;
           }
         }
+
+        chosen ??= outwardSpots(
+          node.x,
+          node.y,
+          node.r,
+          measure(context, node.label),
+          size,
+          node.dx,
+          node.dy,
+        )[0];
 
         if (chosen) placed.push(chosen.box);
         spots.set(at(node.x, node.y), chosen);
@@ -393,7 +425,12 @@ export function createLabelPainter(
     const endY = Math.max(top, Math.min(data.y, bottom));
     const distance = Math.hypot(endX - data.x, endY - data.y);
 
-    if (distance > data.size + 4) {
+    if (
+      !attrs?.selected &&
+      distance > data.size + 4 &&
+      (!attrs?.explorerLabels || distance <= data.size + 24)
+    ) {
+      if (attrs?.explorerLabels) context.setLineDash([1, 3]);
       context.strokeStyle = attrs?.fixed ? colors().edgeLabel || label : label;
       context.globalAlpha = attrs?.fixed ? 0.4 : 1;
       context.lineWidth = 1;
@@ -405,12 +442,14 @@ export function createLabelPainter(
       context.lineTo(endX, endY);
       context.stroke();
       context.globalAlpha = 1;
+      context.setLineDash([]);
     }
 
     context.fillStyle = canvas;
     context.fillRect(left, top, right - left, bottom - top);
+    context.globalAlpha = attrs?.muted ? 0.4 : 1;
     context.fillStyle = label;
-    context.font = `${attrs?.explorerLabels && attrs.center ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
+    context.font = `${attrs?.selected ? "600" : settings.labelWeight} ${size}px ${settings.labelFont}`;
     context.fillText(data.label, spot.x, spot.y);
 
     if (attrs?.labelDetail && spot.detail !== false) {
@@ -419,6 +458,8 @@ export function createLabelPainter(
       context.font = `500 ${Math.max(13, size)}px ${settings.labelFont}`;
       context.fillText(attrs.labelDetail, start, spot.y);
     }
+
+    context.globalAlpha = 1;
   };
 
   return { draw, beginFrame };
