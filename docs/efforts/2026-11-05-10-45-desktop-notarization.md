@@ -27,9 +27,9 @@ Implement the two-batch notarization plan approved by the user in chat on 2026-1
 
 ## Spec Coverage Checklist
 
-- [ ] Shared Developer ID signing, notarization, stapling and distribution verification.
-- [ ] Protected CI signing and non-publishing candidate verification.
-- [ ] Credential custody documentation and release contract updates.
+- [x] Shared Developer ID signing, notarization, stapling and distribution verification.
+- [x] Protected CI signing and non-publishing candidate verification.
+- [x] Credential custody documentation and release contract updates.
 
 ## Plan
 
@@ -67,7 +67,9 @@ A notarized desktop build shared by local releases and CI, with protected creden
 
 ## Actual Delivered
 
-Implementation and verification are in progress. No release has been published.
+Implemented the shared notarized desktop build and protected CI recovery/candidate workflow in [PR #93](https://github.com/atomicobject/rhizome/pull/93). Local and CI candidates passed Apple notarization, signature/team/hardened-runtime checks, app and DMG ticket validation, Gatekeeper, and updater-signature verification. The packaged local app opened its disposable fixture setup screen. GitHub's release Environment contains all nine required signing and publishing secrets, including the explicitly approved Homebrew token transfer. Temporary implementation-branch access was removed; only main is permitted. No release has been published and the PR remains unmerged.
+
+The local candidate loaded credentials directly from the existing 1Password backup items. The named local release Environment still needs the Apple and updater variables before the standard local release wrapper can supply them. CI is configured independently and needs no 1Password interaction.
 
 ## Execution Notes
 
@@ -94,19 +96,23 @@ Implementation and verification are in progress. No release has been published.
 
 ## Deviations
 
-None in approved delivery scope. CI uses candidate_only on the existing manual workflow so the candidate can be dispatched from an implementation branch; it neither deploys nor publishes.
+CI uses candidate_only on the existing manual workflow so the candidate can be dispatched from an implementation branch; it neither deploys nor publishes. The local acceptance run retrieved the backed-up credentials directly, rather than populating the named local release Environment. Finishing that Environment setup remains open: the available 1Password CLI supports listing Environment secrets but not writing them, and the local 1Password MCP server is unavailable. The shared local build and required variable contract are verified/documented; the ordinary local wrapper has not been verified with a populated Environment.
+
+After the successful CI and Greptile runs at 22067a08, integrated current main in 5f3cc6fb, resolving only the changelog overlap and preserving main's release changes. The focused suites passed again (53 release tests and 9 secret-wrapper tests). The notarization implementation is unchanged from the accepted CI candidate; no new Apple submission was made for this integration/documentation update.
 
 ## Compounding Follow-ups
 
-No reusable shard proposed yet.
+No reusable shard proposed. The credential-filter and ticket-service findings are captured in the release documentation and regression tests.
 
 ## Closure Checklist
 
-- [ ] Local notarized candidate verified, including updater archive.
-- [ ] Protected CI secrets configured and non-publishing candidate verified.
-- [ ] Applicable checks and independent review completed.
-- [ ] Documentation reconciled and change integrated through a reviewed PR.
+- [x] Local notarized candidate verified, including updater archive.
+- [x] Protected CI secrets configured and non-publishing candidate verified.
+- [x] Temporary implementation-branch Environment access removed.
+- [x] Implementation checks and independent review completed; Greptile 5/5 with zero comments at 22067a08.
+- [x] Documentation reconciled and delivery recorded in PR #93.
+- [ ] Populate the local release 1Password Environment and verify the ordinary wrapper's signing-variable availability without displaying values.
 
 ## Status
 
-Active. Candidate verification and operational setup remain in progress.
+Active. CI notarization is verified and ready for PR integration. Remaining operational setup is the named local release 1Password Environment. Its MCP server must be enabled/connected, or the documented variables added in the 1Password app, before local releases can use the ordinary wrapper. Merging and publishing remain outside this effort's authorization.
