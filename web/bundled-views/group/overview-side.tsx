@@ -232,6 +232,14 @@ export function DeclaredUnused({
           unused.length ? (
             <>
               <table className="gv-table gv-unused-table">
+                {model && model.nodes.some((node) => node.count === 0) && (
+                  <caption className="gv-quiet">
+                    {model.nodes
+                      .filter((node) => node.count === 0)
+                      .map((node) => `${node.label}: no records`)
+                      .join(" · ")}
+                  </caption>
+                )}
                 <thead>
                   <tr>
                     <th>Owner type</th>
@@ -249,14 +257,6 @@ export function DeclaredUnused({
                   ))}
                 </tbody>
               </table>
-              {model &&
-                model.nodes
-                  .filter((node) => node.count === 0)
-                  .map((node) => (
-                    <p className="gv-quiet" key={node.id}>
-                      {node.label}: no records
-                    </p>
-                  ))}
             </>
           ) : (
             <p className="gv-quiet">Records use every relation declared between members.</p>

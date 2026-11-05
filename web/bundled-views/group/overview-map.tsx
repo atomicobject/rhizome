@@ -426,7 +426,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                     <tspan className="gv-map-n" x={place.x} dy={17}>
                       {fmt(node.count)} {plural(node.count, "note", "notes")}
                       {node.kind === "group"
-                        ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}`
+                        ? ` · ${node.members.length} member ${plural(node.members.length, "type", "types")}`
                         : ""}
                     </tspan>
                   </text>

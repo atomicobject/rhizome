@@ -69,15 +69,92 @@
   width: 38%;
 }
 
-.gv-overview-outside .gv-changes::before {
-  content: "Linked records";
-  display: block;
-  text-align: right;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
-}
 .gv-page .gv-ov-table td.num > * {
   font-size: 14px;
   font-weight: 500;
+}
+
+.gv-ov-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.gv-ov-side .rz-section-head {
+  margin-bottom: var(--section-gap, 10px);
+}
+.gv-ov-side .list-more {
+  display: block;
+  margin-top: 8px;
+}
+.gv-unused-table th:first-child,
+.gv-unused-table td:first-child {
+  padding-left: 0;
+}
+.gv-unused-table caption {
+  caption-side: bottom;
+  text-align: left;
+  padding-top: 8px;
+}
+.gv-map-edge[data-kind="plain"] line:first-child {
+  stroke-dasharray: 6 4;
+}
+.gv-map-legend s[data-kind="plain"] {
+  border-top-style: dashed;
+}
+.gv-map-legend s[data-kind="outside"] {
+  border-top-style: dotted;
+}
+.gv-map-legend .gv-legend-family {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+.gv-legend-family-name {
+  color: var(--text-muted);
+  font: 500 13px/1.35 var(--font-sans);
+}
+.gv-legend-family-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gv-legend-family-types > span {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.gv-legend-family:not(:has(.gv-legend-family-name)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.gv-ov-side > .rz-section {
+  margin-top: 0;
+}
+.gv-ov-members {
+  overflow-x: auto;
+}
+
+.gv-ov--group .gv-ov-table th,
+.gv-ov--group .gv-ov-table td {
+  white-space: normal;
+  padding-inline: 6px;
+}
+.gv-ov--group .gv-ov-table th:first-child {
+  padding-left: 20px;
+}
+.gv-ov--group .gv-ov-stage {
+  width: 132px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gv-ov--group .gv-ov-table .gv-num {
+  white-space: nowrap;
+}
+
+.gv-ov--group .gv-ov-table td {
+  padding-block: 5px;
+}
+.gv-ov:not(.gv-ov--group) .gv-legend-family:not(:has(.gv-legend-family-name)) {
+  padding-left: 72px;
+  box-sizing: border-box;
 }

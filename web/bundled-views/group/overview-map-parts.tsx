@@ -86,7 +86,7 @@ export function nodeRadius(model: ScopeModel) {
 }
 
 export const nodeText = (node: ScopeNode) =>
-  `${node.label}\n${fmt(node.count)} ${plural(node.count, "note", "notes")}${node.kind === "group" ? ` · ${node.members.length} ${plural(node.members.length, "type", "types")}` : ""}`;
+  `${node.label}\n${fmt(node.count)} ${plural(node.count, "note", "notes")}${node.kind === "group" ? ` · ${node.members.length} member ${plural(node.members.length, "type", "types")}` : ""}`;
 
 const memberLinks = (links: LinkModel, id: string) =>
   links.edges.reduce((sum, edge) => sum + (edge.a === id || edge.b === id ? edge.links : 0), 0);
@@ -165,7 +165,10 @@ export function EdgeTip({
           {summaries.get(field.type)?.label ?? field.type}.{field.field} {fmt(field.count)}
         </span>
       ))}
-      {edge.plainLinks > 0 && <span>plain links {fmt(edge.plainLinks)}</span>}
+      {edge.plainLinks > 0 && <span>Plain links {fmt(edge.plainLinks)}</span>}
+      {edge.plainLinks > 0 && edge.relationLinks > 0 && (
+        <span>Mostly {edge.relation ? "relations" : "plain links"}</span>
+      )}
       {trace && <span>Activate to open Trace</span>}
     </>
   );
@@ -208,6 +211,17 @@ export function MapLegend({
   const rings = drawn.filter((node) => node.kind === "interface" || node.kind === "group");
   const label = (name: string) => summaries.get(name)?.label ?? name;
 
+  const familyLabel = (name: string, family: ScopeNode) => {
+    const suffix = label(name).split(" ").at(-1);
+
+    return family.kind === "interface" &&
+      family.types.length > 1 &&
+      suffix &&
+      family.types.every((type) => label(type).endsWith(` ${suffix}`))
+      ? label(name).slice(0, -(suffix.length + 1))
+      : label(name);
+  };
+
   const types = drawn
     .filter((node) => node.kind !== "group" && node.kind !== "interface" && node.kind !== "untyped")
     .map((node) => (
@@ -221,13 +235,13 @@ export function MapLegend({
     links.edges.some((edge) => edge.relation) && (
       <span key="relation">
         <s data-kind="relation" />
-        mostly relation links
+        Relations
       </span>
     ),
     links.edges.some((edge) => !edge.relation) && (
       <span key="plain">
         <s data-kind="plain" />
-        mostly plain links
+        Plain links
       </span>
     ),
     unused && (
@@ -242,20 +256,34 @@ export function MapLegend({
     kinds.push(
       <span key="outside">
         <s data-kind="outside" />
-        {links.outside.length > shown
-          ? `top ${shown} of ${links.outside.length} outside links`
-          : "outside links"}
+        Outside links
+        {links.outside.length > shown && ` (top ${shown} of ${links.outside.length})`}
       </span>,
     );
 
   const groups = [
     ...rings.map((node) => ({
       title: node.label,
-      items: compositionArcs(node, summaries, color).map((arc) => (
-        <span key={arc.name}>
-          <i style={{ background: arc.color }} />
-          {label(arc.name)}
-        </span>
+      items: (node.kind === "group"
+        ? node.members.filter((member) => member.count > 0)
+        : [node]
+      ).map((family) => (
+        <div className="gv-legend-family" key={family.id}>
+          {node.kind === "group" && family.kind === "interface" && (
+            <span className="gv-legend-family-name">{family.label}</span>
+          )}
+          <div className="gv-legend-family-types">
+            {(family.kind === "interface"
+              ? compositionArcs(family, summaries, color)
+              : [{ name: family.name, color: nodeHue(family, color) }]
+            ).map((part) => (
+              <span key={part.name}>
+                <i style={{ background: part.color }} />
+                {familyLabel(part.name, family)}
+              </span>
+            ))}
+          </div>
+        </div>
       )),
     })),
     { title: "Types", items: types },

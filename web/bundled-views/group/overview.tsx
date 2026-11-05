@@ -321,16 +321,13 @@ function OverviewPage({ scope }: { scope: Scope }) {
       <ScopeFacts scope={scope} data={data} status={status} />
       {!data.missing && (
         <>
-          {/* All notes keeps Members under the map and the folder table beside them,
-              so the side column's height never pushes Members below the fold. */}
-          <div className={scope.kind === "workspace" ? "gv-ov gv-ov--workspace" : "gv-ov"}>
+          {/* Members flow beneath the map independently of the side column. */}
+          <div className={`gv-ov gv-ov--workspace${scope.kind === "group" ? " gv-ov--group" : ""}`}>
             <div className="gv-ov-main">
               <MapBlock data={data} {...expansion} />
-              {scope.kind === "workspace" && (
-                <div className="gv-ov-members">
-                  <MembersBlock data={data} {...expansion} />
-                </div>
-              )}
+              <div className="gv-ov-members">
+                <MembersBlock data={data} {...expansion} />
+              </div>
             </div>
             <div className="gv-ov-side">
               {scope.kind === "workspace" ? (
@@ -346,11 +343,6 @@ function OverviewPage({ scope }: { scope: Scope }) {
               )}
             </div>
           </div>
-          {scope.kind !== "workspace" && (
-            <div className="gv-ov-members">
-              <MembersBlock data={data} {...expansion} />
-            </div>
-          )}
         </>
       )}
     </main>

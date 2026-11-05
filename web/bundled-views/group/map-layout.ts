@@ -403,7 +403,7 @@ function layoutAtSize(input: LayoutInput): MapLayout {
     const bounds = union(placed.boxes);
 
     if (!bounds) break;
-    let sx = Math.min((FILL * width) / Math.max(bounds.w, 1), 2.5);
+    let sx = Math.min((width - 2 * INSET) / Math.max(bounds.w, 1), 2.5);
     let sy = Math.min((FILL * height) / Math.max(bounds.h, 1), 2.5);
     [sx, sy] = [Math.min(sx, sy * 3), Math.min(sy, sx * 3)];
 
@@ -420,7 +420,20 @@ function layoutAtSize(input: LayoutInput): MapLayout {
     placed = place();
   }
 
-  const { labels, boxes } = placed;
+  // Centre the complete drawing, including labels, rather than only its nodes.
+  const bounds = union(placed.boxes);
+  const dx = bounds ? (width - bounds.w) / 2 - bounds.x : 0;
+
+  for (const point of positions.values()) point.x += dx;
+
+  for (const label of placed.labels.values()) {
+    label.x += dx;
+
+    if (label.leader) label.leader.x += dx;
+  }
+
+  const labels = placed.labels;
+  const boxes = placed.boxes.map((box) => ({ ...box, x: box.x + dx }));
 
   return {
     height,
