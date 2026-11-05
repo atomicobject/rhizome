@@ -40,6 +40,7 @@ it("reuses the native executor and reads through the host edit session without e
       );
     }),
   );
+  vi.resetModules();
   const { useViewRows } = await import("./index");
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
