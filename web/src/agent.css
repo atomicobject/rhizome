@@ -292,7 +292,7 @@
 .agent-examples ul {
   display: grid;
   gap: 2px;
-  margin: 0;
+  margin: 0 calc(-1 * var(--sp-3));
   padding: 0;
   list-style: none;
 }
@@ -313,19 +313,23 @@
   cursor: pointer;
 }
 
+/* The arrow follows the question by 8px, so it reads as the row's action. */
 .agent-workspace .agent-examples button > span {
   min-width: 0;
 }
 
 .agent-examples__arrow {
   flex: none;
-  margin-left: auto;
-  color: var(--text-muted);
+  color: var(--text-faint);
 }
 
 .agent-workspace .agent-examples button:hover {
   border: 0;
   background: var(--surface-sunk);
+}
+
+.agent-workspace .agent-examples button:hover .agent-examples__arrow {
+  color: var(--text-muted);
 }
 
 .agent-empty p {

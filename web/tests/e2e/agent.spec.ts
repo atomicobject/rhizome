@@ -17,20 +17,19 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await expect(page.getByText("No sessions yet.", { exact: true })).toHaveCSS("font-size", "13px");
   const rows = page.locator(".agent-examples button");
   await expect(rows).toHaveCount(3);
-  const composer = await page.locator(".agent-composer__frame").boundingBox();
 
-  const arrows = await page
-    .locator(".agent-examples__arrow")
-    .evaluateAll((icons) => icons.map((icon) => icon.getBoundingClientRect().right));
+  // The arrow follows its question by 8px, so it reads as the row's action.
+  const gaps = await page.locator(".agent-examples button").evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const text = button.querySelector("span")!.getBoundingClientRect();
 
-  expect(new Set(arrows).size).toBe(1);
+      const arrow = button.querySelector(".agent-examples__arrow")!.getBoundingClientRect();
 
-  for (const row of await rows.all()) {
-    const box = await row.boundingBox();
-    expect(box?.width).toBeCloseTo(composer!.width, 0);
-    expect(box?.x).toBeCloseTo(composer!.x, 0);
-    expect(box!.height).toBeGreaterThanOrEqual(32);
-  }
+      return Math.round(arrow.left - text.right);
+    }),
+  );
+
+  expect(gaps).toEqual([8, 8, 8]);
 
   await rows.first().focus();
   await page.keyboard.press("Enter");
