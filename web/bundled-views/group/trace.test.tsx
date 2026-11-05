@@ -42,9 +42,13 @@ async function chooseRows(label: string) {
 
 /** A column's label: its first button's text without the record count. */
 const columnName = (header: HTMLElement) =>
-  within(header)
-    .getAllByRole("button")[0]
-    .textContent?.replace(/\u00a0\d+$/, "");
+  header.querySelector('[role="radiogroup"]')
+    ? within(header)
+        .getByRole("radio", { checked: true })
+        .parentElement?.textContent?.replace(/ \d+.*$/, "")
+    : within(header)
+        .getAllByRole("button")[0]
+        .textContent?.replace(/\u00a0\d+$/, "");
 
 const columnNames = () => screen.getAllByRole("columnheader").map(columnName);
 
@@ -118,8 +122,12 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
   expect(
     screen.getByRole("radiogroup", { name: "Rows" }).querySelector(".gv-default-dot"),
   ).toBeNull();
-  expect(columnHeader("Areas")).toHaveTextContent("Most connected first · Nested under parents");
-  // The toolbar holds only the row choice; why the default is the default sits in the footer.
+  expect(columnHeader("Areas")).toHaveTextContent("Nested under parents · Most connected first");
+  expect(screen.getByRole("radiogroup", { name: "Rows" }).closest("th")).toBe(
+    columnHeader("Areas"),
+  );
+  expect(document.querySelector(".gv-toolbar")).toBeNull();
+  // Why the default is the default sits in the footer.
   expect(
     screen.getByText(/Areas are the default rows: the tree other types link to/),
   ).toBeVisible();
@@ -197,7 +205,7 @@ it("switches rows and orders columns by contract with outside links last", async
   ]);
 });
 
-it("bands rows by lifecycle, most advanced first and closed values last, naming empty values", async () => {
+it("bands rows by lifecycle, most advanced first and closed values last, summarizing held values", async () => {
   const data = {
     ...RECORDS_DATA,
     Story: changed("Story", (story) =>
@@ -210,7 +218,12 @@ it("bands rows by lifecycle, most advanced first and closed values last, naming 
 
   expect(bands()).toEqual(["Blocked1", "Doing2", "Done2", "No stage1"]);
   expect(columnHeader("Work items")).not.toHaveTextContent("most advanced first");
-  expect(columnHeader("Work items")).toHaveTextContent("No backlog or dropped work items");
+  expect(
+    Array.from(
+      columnHeader("Work items").querySelectorAll(".gv-counts > span"),
+      (span) => span.textContent,
+    ),
+  ).toEqual(["Doing2", "Blocked1", "Done2"]);
   expect(rowTitles().map(([title]) => title)).toEqual([
     "Tax rounding",
     "Checkout redesign",
@@ -357,9 +370,10 @@ it("opens records, outside notes, and collections through the workspace", async 
   fireEvent.click(screen.getByRole("button", { name: "Checkout redesign" }));
   fireEvent.click(within(row("Checkout redesign")).getByRole("button", { name: "Payments" }));
   fireEvent.click(within(row("Checkout redesign")).getByRole("button", { name: "Ada Lovelace" }));
-  fireEvent.click(within(columnHeader("Work items")).getByRole("button", { name: "Work items" }));
   fireEvent.click(within(columnHeader("Areas")).getByRole("button", { name: /^Areas/ }));
   fireEvent.click(within(columnHeader("Owner")).getByRole("button", { name: "Owner" }));
+  await chooseRows("Areas");
+  fireEvent.click(within(columnHeader("Work items")).getByRole("button", { name: "Work items" }));
 
   expect(posted.filter((message) => message.type.startsWith("rhizome:open-"))).toEqual([
     {
@@ -368,9 +382,9 @@ it("opens records, outside notes, and collections through the workspace", async 
     },
     { type: OPEN_NODE_MESSAGE, ref: { notePath: PATHS.payments, kind: "NOTE", typeName: "Area" } },
     { type: OPEN_NOTE_MESSAGE, path: PATHS.ada, beside: false },
-    { type: OPEN_COLLECTION_MESSAGE, name: "Work" },
     { type: OPEN_COLLECTION_MESSAGE, name: "Area" },
     { type: OPEN_COLLECTION_MESSAGE, name: "Person" },
+    { type: OPEN_COLLECTION_MESSAGE, name: "Work" },
   ]);
 });
 

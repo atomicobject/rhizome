@@ -1,0 +1,53 @@
+/* Header controls replace the separate Trace toolbar. */
+.gv-trace .gv-col-spine,
+.gv-trace thead th.gv-trace-spine {
+  width: calc(34% + 80px);
+}
+
+.gv-trace .gv-trace-related {
+  width: 220px;
+  min-width: 220px;
+}
+
+.gv-trace-spine > .gv-cov {
+  margin-top: 4px;
+}
+
+.gv-trace-spine .gv-counts,
+.gv-trace-spine .gv-counts > span {
+  display: inline;
+  font: inherit;
+}
+
+.gv-trace-spine .gv-counts > span + span::before {
+  content: " · ";
+}
+
+.gv-trace-spine .gv-counts .gv-num {
+  margin-left: 4px;
+}
+
+.gv-jump {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 20px;
+  gap: 0 8px;
+  font-size: 14px;
+}
+
+.gv-jump-label {
+  margin-right: 4px;
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-jump > button + button::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--text-faint);
+}
+
+.gv-jump .num {
+  color: var(--text-muted);
+}

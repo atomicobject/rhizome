@@ -268,11 +268,9 @@ export function LifecycleCounts({ member }: { member: Member }) {
 export function GroupFacts({
   model,
   collection = false,
-  children,
 }: {
   model: GroupModel;
   collection?: boolean;
-  children?: ReactNode;
 }) {
   const records = [...model.records.values()];
   const withIssues = records.filter((record) => record.issueCount > 0).length;
@@ -282,7 +280,6 @@ export function GroupFacts({
 
   return (
     <div className="gv-facts">
-      {children && <span className="gv-facts-jumps">{children}</span>}
       <span className="gv-facts-list">
         {/* A group counts every note its member types hold, ambiguous notes
             included; Overview counts only typed records, so each names its scope. */}
