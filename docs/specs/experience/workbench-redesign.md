@@ -4,8 +4,8 @@ id: SPEC-0126
 aliases: [SPEC-0126, Workbench redesign]
 summary: "Redesigns the Rhizome workbench in the browser and in Rhizome Desktop: selectable chrome themes with light and dark appearance, an Inter type scale and neutral surfaces, a calmer view header with progressive disclosure, a table column policy that keeps titles readable, resizable side panels with one right pane, and fuzzy finders for notes and files (⌘P), repositories (⌘O), and worktrees (⇧⌘O)."
 spec-status: active
-last-updated: 2026-11-04
-last-verified: 2026-11-04 # Round 7
+last-updated: 2026-11-05
+last-verified: 2026-11-05 # Parallel hill climb
 ---
 
 # Workbench redesign
@@ -213,7 +213,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 ### Workspace navigation and type colours
 
 - MUST retain note tabs while a collection, saved view, Problems, Changes, or search replaces the current page. Only one such page is retained at a time; the note-tab strip is visible only while at least one note is open.
-- MUST use one twelve-hue type palette across the finder, type dots, maps, Explorer, Atlas, and bundled views. Assign concrete types by name, types with records first; interfaces, collapsed groups, code, and untyped notes use the neutral slot. Unknown types fall back to a name hash. Hues repeat after twelve types.
+- MUST use one twelve-hue type palette across the finder, type dots, maps, Explorer, Atlas, and bundled views. Assign concrete types by name, types with records first, and give each type one colour on every surface. An interface shares the colour of its implementor with the most records (name order breaks ties); one without implementors uses the name hash. Collapsed groups and untyped notes use the neutral slot, and Explorer gives code its own colour. Unknown types fall back to a name hash. Hues repeat after twelve types.
 
 ### Desktop
 

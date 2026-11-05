@@ -4,8 +4,8 @@ id: SPEC-0125
 aliases: [SPEC-0125, Design system parity]
 summary: "One design system across the host web UI, the custom-view kit, bundled views, and agent guidance: shared tokens with a dark theme, kit defaults and primitives that match DESIGN.md, AA contrast, calmer collection toolbars, designed loading states, and render performance on large vaults."
 spec-status: active
-last-updated: 2026-11-04
-last-verified: 2026-11-04 # Round 7
+last-updated: 2026-11-05
+last-verified: 2026-11-05 # Parallel hill climb
 ---
 
 # Design system parity
@@ -41,7 +41,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 - `web/src/base.css` remains the single token source. The kit build includes every theme block from it, not only the first `:root`.
 - Dark values live beside light ones and apply under `@media (prefers-color-scheme: dark)`; `color-scheme: light dark` is declared. The desktop shell (`desktop/src`) and GraphiQL follow the same tokens.
 - Add semantic tokens the audit found missing: filled primary (`#c8313a` light, AA with white text), text on ink, success and info soft/ink, overlay scrim, and syntax-highlight roles. Define or remove the 11 undefined tokens (`--line`, `--r-full`, `--ink`, `--accent-danger`, `--accent-warning`, `--warning-line`, `--text-default`, `--surface-1`, `--surface-2`, `--radius` in host CSS, and similar) and delete Tailwind fallbacks that hide undefined tokens.
-- A shared twelve-hue categorical palette uses `--type-1..13`, reserving `--type-8` for neutral interfaces, code, collapsed groups, and untyped notes. Concrete types are assigned in name order with types having records first; unknown names use a hash fallback. Host and kit use the same assignment, and hues repeat after twelve types. Ink variants retain the 4.5:1 text-contrast requirement. It excludes AO red and connection teal. A chart series palette `--series-1..8` is neutral-first, excludes red, and reserves teal for "linked/connected".
+- A shared twelve-hue categorical palette uses `--type-1..13`, reserving `--type-8` for collapsed groups and untyped notes. Concrete types are assigned in name order with types having records first; an interface shares the token of its implementor with the most records (name order breaks ties), and unknown names use a hash fallback. Explorer gives code its own colour. Host and kit use the same assignment, and hues repeat after twelve types. Ink variants retain the 4.5:1 text-contrast requirement. It excludes AO red and connection teal. A chart series palette `--series-1..8` is neutral-first, excludes red, and reserves teal for "linked/connected".
 - The kit's shadcn variable names must not collide with host tokens (`--muted` becomes a kit-private name).
 - Fonts are self-hosted woff2 with `font-display: swap`, served by the binary for the host and every custom-view frame; all currently requested weights remain available. License notices are generated.
 
