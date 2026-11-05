@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import Sigma from "sigma";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,7 +43,7 @@ function Harness({
   scope?: { mode: "global" | "local"; label?: string };
   problemCounts?: ReadonlyMap<string, number>;
 }): ReactNode {
-  const { containerRef, hover } = useSigmaGraph({
+  const { containerRef, hover, handleFitToView } = useSigmaGraph({
     nodes,
     layoutExtent,
     problemCounts,
@@ -61,6 +61,7 @@ function Harness({
   return (
     <>
       <div ref={containerRef} />
+      <button onClick={handleFitToView}>Fit</button>
       {hover && <div data-testid="graph-hover">{hover.label}</div>}
     </>
   );
@@ -125,6 +126,71 @@ describe("useSigmaGraph renderer lifecycle", () => {
     expect(nodes.map((node) => renderer.getNodeDisplayData(node.id))).toEqual(before);
     expect(layout).not.toHaveBeenCalled();
     view.unmount();
+  });
+
+  it("preserves folder cameras on refresh and expansion, and fits navigation and Fit", () => {
+    vi.useFakeTimers();
+    const onSpy = vi.spyOn(Sigma.prototype, "on");
+    const scope = { mode: "global" } as const;
+    const root = { id: "folder:", label: "Vault", kind: "module", center: true, x: 0, y: 0 };
+    const folder = { id: "folder:pkg", label: "pkg", kind: "module", x: 100, y: 20 };
+    const view = render(<Harness nodes={[root, folder]} scope={scope} onNodeClick={vi.fn()} />);
+
+    try {
+      const renderer = Array.from(new Set(onSpy.mock.contexts)).filter(isSigma)[0];
+      act(() => vi.advanceTimersByTime(600));
+      const camera = renderer.getCamera();
+      camera.setState({ x: 0.23, y: 0.71, angle: 0.2, ratio: 1.7 });
+      const before = camera.getState();
+      view.rerender(
+        <Harness
+          nodes={[{ ...root }, { ...folder }, { ...secondNode, x: 200, y: 50 }]}
+          scope={scope}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).toEqual(before);
+      view.rerender(
+        <Harness
+          nodes={[
+            { ...root, center: false },
+            { ...folder, center: true },
+          ]}
+          scope={scope}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+      camera.setState(before);
+      view.rerender(
+        <Harness
+          nodes={[{ ...firstNode, kind: "code", center: true, x: 0, y: 0 }]}
+          scope={{ mode: "local", label: "one.md" }}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+      camera.setState(before);
+      view.rerender(
+        <Harness
+          nodes={[root, folder]}
+          scope={{ mode: "global", label: "another-root" }}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+      camera.setState(before);
+      fireEvent.click(view.getByRole("button", { name: "Fit" }));
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
   });
 
   it("installs problem counts that arrive while a worker lays the graph out", () => {

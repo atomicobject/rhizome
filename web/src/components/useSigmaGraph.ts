@@ -93,7 +93,7 @@ export function useSigmaGraph({
   const fixedRef = useRef(fixed);
   fixedRef.current = fixed;
   const didFit = useRef(false);
-  const fittedFile = useRef<string | undefined>(undefined);
+  const fittedSubject = useRef<string | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sigmaRef = useRef<SigmaRenderer | null>(null);
   const graphRef = useRef<SigmaGraph | null>(null);
@@ -341,11 +341,16 @@ export function useSigmaGraph({
 
       if (fixed) {
         sigma.refresh();
-        const selectedFile = nodes.find((node) => node.kind === "code" && node.center)?.id;
 
-        if (!selectedFile || selectedFile !== fittedFile.current)
+        const subject = JSON.stringify([
+          scope.mode,
+          scope.label,
+          nodes.find((node) => node.center)?.id,
+        ]);
+
+        if (!didFit.current || subject !== fittedSubject.current)
           fitFixedGraph(sigma, !didFit.current);
-        fittedFile.current = selectedFile;
+        fittedSubject.current = subject;
         didFit.current = true;
       }
 
@@ -372,6 +377,7 @@ export function useSigmaGraph({
     nodes,
     scheduleRefresh,
     scope.mode,
+    scope.label,
     typeColors,
   ]);
 
