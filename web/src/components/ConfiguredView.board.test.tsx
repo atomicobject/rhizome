@@ -30,7 +30,7 @@ describe("ConfiguredViewBoard", () => {
 
     // A value the view collapses by default still starts open on a board.
     expect(screen.getByLabelText("Active column")).toBeVisible();
-    fireEvent.click(screen.getAllByRole("button", { name: "Compact cards" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Card details", expanded: true })[1]);
     expect(within(screen.getByLabelText("Active column")).getByRole("article")).toHaveClass(
       "configured-card--compact",
     );
@@ -39,20 +39,19 @@ describe("ConfiguredViewBoard", () => {
   it("switches between compact and full cards without hiding records", () => {
     render(<ConfiguredViewBoard {...rendererProps()} />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Compact cards" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Card details", expanded: true })[0]);
     expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toHaveClass(
       "configured-card--compact",
     );
 
-    expect(screen.getByRole("button", { name: "Full cards" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Card details", expanded: false })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Full cards" }));
-    expect(screen.getAllByRole("button", { name: "Compact cards" })[0]).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Card details", expanded: false }));
+    expect(
+      screen.getAllByRole("button", { name: "Card details", expanded: true })[0],
+    ).toHaveAttribute("aria-expanded", "true");
     expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toBeVisible();
   });
 

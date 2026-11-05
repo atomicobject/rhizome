@@ -1,5 +1,10 @@
 .configured-view__density-button {
-  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-left: auto;
+  height: 28px;
   padding: 0 5px;
   border: 0;
   border-radius: var(--r);
@@ -55,10 +60,6 @@
   opacity: 1;
 }
 
-.configured-view__board-column-title .configured-view__density-button {
-  flex: none;
-  margin-left: auto;
-}
 .configured-view .configured-view__footer-status > span {
   flex: none;
 }
@@ -81,4 +82,33 @@
 .configured-view__board-columns,
 .configured-view__board-cells {
   margin-left: var(--sp-5);
+}
+
+.configured-view__board-column-header {
+  grid-template-rows: 24px 28px;
+}
+.configured-view__board-column-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.configured-view__board-column-details .configured-view__board-stale {
+  font-size: 13px;
+}
+.configured-brief__chips > .configured-brief__relation-more {
+  flex-basis: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.view-record__context .ontology-sidebar-context__group > h3 {
+  margin-bottom: 10px;
+  font: 600 15px var(--font-sans);
+}
+.view-record__context .rail-legend:has(> span:only-child) {
+  display: none;
+}
+
+.configured-brief__chips:has(> .configured-brief__relation-more) {
+  row-gap: 0;
 }

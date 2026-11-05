@@ -10,6 +10,7 @@ import {
 } from "./boardLayout";
 import { capabilityLabel, GroupValueMark } from "./ConfiguredViewModel";
 import { moveMenuFocus } from "./focusManagement";
+import { DisclosureChevron } from "./DisclosureChevron";
 import { STALE_DAYS } from "./viewProfile";
 
 /** A board card's Move button and its menu of other columns; `m` on a card opens it too. */
@@ -206,25 +207,26 @@ export function BoardColumnHeaders({
         <span className="configured-view__board-column-title">
           {mark}
           <span className="configured-view__board-count">{count}</span>
+        </span>
+        <div className="configured-view__board-column-details">
+          {item.stale > 0 && (
+            <span
+              className="configured-view__board-stale"
+              title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
+            >
+              {item.stale} unchanged {STALE_DAYS}+ days
+            </span>
+          )}
           <button
             type="button"
             className="configured-view__density-button"
-            aria-label={item.compact ? "Full cards" : "Compact cards"}
             aria-expanded={!item.compact}
-            title={item.compact ? "Full cards" : "Compact cards"}
             onClick={() => onToggle(column.key)}
           >
-            {item.compact ? "Full cards" : "Compact cards"}
+            <DisclosureChevron open={!item.compact} />
+            Card details
           </button>
-        </span>
-        {item.stale > 0 && (
-          <span
-            className="configured-view__board-stale"
-            title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
-          >
-            {item.stale} unchanged {STALE_DAYS}+ days
-          </span>
-        )}
+        </div>
       </header>
     );
   });

@@ -134,14 +134,18 @@ describe("remembered view preferences", () => {
       context: TYPE,
     });
 
-    fireEvent.click((await screen.findAllByRole("button", { name: "Compact cards" }))[0]);
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: "Card details", expanded: true }))[0],
+    );
     await waitFor(() => expect(server.read(scope).values).toHaveProperty("native.boardColumns"));
-    expect(screen.getByRole("button", { name: "Full cards" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Card details", expanded: false })).toBeVisible();
 
     openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Reset to shared" }));
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Compact cards" })).toHaveLength(2),
+      expect(screen.getAllByRole("button", { name: "Card details", expanded: true })).toHaveLength(
+        2,
+      ),
     );
     await waitFor(() => expect(server.read(scope).values).toEqual({}));
     expect(screen.queryByRole("button", { name: "Reset to shared" })).toBeNull();
