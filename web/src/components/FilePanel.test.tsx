@@ -5,6 +5,19 @@ import type { FileView } from "../api/types";
 import { FilePanel } from "./FilePanel";
 
 describe("FilePanel", () => {
+  it("closes details through the accessible shared pane icon", () => {
+    const onClose = vi.fn();
+    render(
+      <FilePanel
+        file={{ path: "src/main.go", kind: "code" }}
+        onClose={onClose}
+        onSelectFile={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close file details" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it("groups relation kinds and collapses duplicate destinations within each relation", () => {
     const onSelectFile = vi.fn();
     render(

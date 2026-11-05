@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { FileText } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import type { FileView } from "../api/types";
 import { convertWikilinks, resolveLinkTarget, stripFrontmatter } from "../lib/content";
 import "./file-panel-preview.css";
@@ -126,8 +126,14 @@ export function FilePanel({
           </span>
         </div>
         <div className="explorer-pane__actions">
-          <button type="button" className="explorer-pane__close" onClick={onClose}>
-            Close
+          <button
+            type="button"
+            className="notes-right-rail__close"
+            aria-label="Close file details"
+            title="Close file details"
+            onClick={onClose}
+          >
+            <X size={16} strokeWidth={1.5} aria-hidden="true" />
           </button>
         </div>
       </header>

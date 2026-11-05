@@ -1,3 +1,5 @@
+import type Graph from "graphology";
+import { resolveCssColor } from "../lib/themeColors";
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getFileView } from "../api/client";
@@ -129,24 +131,75 @@ export function useExplorerGraph(
 }
 
 export function drawTestEdges(
-  sigma: import("sigma").default<ExplorerNodeAttrs, import("../lib/graphStyle").SigmaEdgeAttrs>,
-  context: CanvasRenderingContext2D,
+  sigma: {
+    getGraph: () => Graph;
+    getNodeDisplayData: (
+      id: string,
+    ) => { x: number; y: number; hidden?: boolean } | null | undefined;
+    framedGraphToViewport: (point: { x: number; y: number }) => { x: number; y: number };
+  },
+  context: Pick<
+    CanvasRenderingContext2D,
+    "strokeStyle" | "lineWidth" | "setLineDash" | "beginPath" | "moveTo" | "lineTo" | "stroke"
+  >,
   color: string,
 ) {
-  context.strokeStyle = color;
-  context.lineWidth = 1.5;
-  context.setLineDash([4, 3]);
-  sigma.getGraph().forEachEdge((_id, attrs, source, target) => {
-    if (attrs.kind !== "explorer-tests") return;
-    const a = sigma.getNodeDisplayData(source);
-    const b = sigma.getNodeDisplayData(target);
+  const graph = sigma.getGraph();
 
-    if (!a || !b || a.hidden || b.hidden) return;
-    const start = sigma.framedGraphToViewport(a);
-    const end = sigma.framedGraphToViewport(b);
+  const point = (id: string) => {
+    const node = sigma.getNodeDisplayData(id);
+
+    return node && !node.hidden ? sigma.framedGraphToViewport(node) : null;
+  };
+
+  const line = (x1: number, y1: number, x2: number, y2: number) => {
+    context.moveTo(x1, y1);
+    context.lineTo(x2, y2);
+  };
+
+  graph.forEachNode((id) => {
+    if (!id.startsWith("file-group:")) return;
+    const heading = point(id);
+
+    if (!heading) return;
+    const items: { x: number; y: number }[] = [];
+    const focused: { x: number; y: number }[] = [];
+    let kind = "";
+    graph.forEachEdge(id, (_edge, attrs, source, target) => {
+      kind = attrs.kind;
+
+      const other = source === id ? target : source;
+      const position = point(other);
+
+      if (!position) return;
+
+      if (graph.getNodeAttribute(other, "selected")) focused.push(position);
+      else items.push(position);
+    });
+    context.strokeStyle =
+      kind === "explorer-documents" ? resolveCssColor("var(--explorer-link-strong)") : color;
+    context.lineWidth = 1.5;
+    context.setLineDash(kind === "explorer-tests" ? [4, 3] : []);
     context.beginPath();
-    context.moveTo(start.x, start.y);
-    context.lineTo(end.x, end.y);
+
+    for (const focus of focused) line(focus.x, focus.y, heading.x, heading.y);
+    const columns = new Map<number, { x: number; y: number }[]>();
+
+    for (const item of items) {
+      const x = Math.round(item.x);
+      const column = columns.get(x) ?? [];
+      column.push(item);
+      columns.set(x, column);
+    }
+
+    for (const [x, column] of columns) {
+      const trunkX = x + (x < heading.x ? 12 : -12);
+      line(heading.x, heading.y, trunkX, heading.y);
+      line(trunkX, heading.y, trunkX, Math.max(...column.map((item) => item.y)));
+
+      for (const item of column) line(trunkX, item.y, item.x, item.y);
+    }
+
     context.stroke();
   });
   context.setLineDash([]);

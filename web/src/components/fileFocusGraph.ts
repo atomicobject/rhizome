@@ -1,5 +1,6 @@
 import type { FileView, GraphEdge, GraphNode, GraphResponse } from "../api/types";
 import type { GraphViewNode } from "./graphViewShared";
+import { fileFocusLabels, fileFocusRowHeight } from "./fileFocusLabels";
 
 /** File details include code-anchor matches that the graph projection does not. */
 export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResponse {
@@ -39,15 +40,14 @@ export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResp
 
 const GROUP_LIMIT = 8;
 
-const ROW_GAP = 220;
+const GROUP_GAP = 80;
+
+const HEADING_GAP = 120;
 
 const isNote = (node: GraphNode) => node.kind === "note" || node.kind === "embedded";
 
 const isTest = (node: GraphNode) =>
   /(^|[/_.-])(tests?|spec)([/_.-]|$)/i.test(node.path || node.label);
-
-const shortLabel = (label: string) =>
-  label.length > 16 ? `${label.slice(0, 8)}…${label.slice(-7)}` : label;
 
 export function fileFocusGraph(
   input: GraphResponse,
@@ -115,15 +115,46 @@ export function fileFocusGraph(
   for (const side of ["notes", "code"]) {
     const entries = [...groups].filter(([, members]) => isNote(members[0]) === (side === "notes"));
 
-    const height = (members: GraphNode[], label: string) =>
-      (Math.min(members.length, expanded.has(label) ? Infinity : GROUP_LIMIT + 1) > 10
-        ? Math.ceil(
-            Math.min(members.length, expanded.has(label) ? Infinity : GROUP_LIMIT + 1) / 2,
-          ) + 2
-        : Math.min(members.length, GROUP_LIMIT + 1) + 2) * ROW_GAP;
+    const visible = (members: GraphNode[], label: string): GraphViewNode[] =>
+      expanded.has(label) || members.length <= GROUP_LIMIT
+        ? members
+        : [
+            ...members.slice(0, GROUP_LIMIT),
+            {
+              id: `file-more:${label}`,
+              kind: side === "notes" ? "note" : "code",
+              label: `+${members.length - GROUP_LIMIT} more`,
+              childCount: members.length - GROUP_LIMIT,
+              aggregate: true,
+            },
+          ];
 
-    const totalHeight = entries.reduce((sum, [label, members]) => sum + height(members, label), 0);
-    let top = totalHeight / 2;
+    const height = (members: GraphNode[], label: string, collapsed = false) => {
+      const shown = fileFocusLabels(
+        collapsed
+          ? members.slice(0, members.length > GROUP_LIMIT ? GROUP_LIMIT + 1 : GROUP_LIMIT)
+          : visible(members, label),
+      );
+
+      const rows = shown.length > 10 ? Math.ceil(shown.length / 2) : shown.length;
+
+      return (
+        HEADING_GAP +
+        Math.max(
+          ...[shown.slice(0, rows), shown.slice(rows)].map((column) =>
+            column.reduce((sum, node) => sum + fileFocusRowHeight(node), 0),
+          ),
+        ) +
+        GROUP_GAP
+      );
+    };
+
+    const totalHeight = entries.reduce(
+      (sum, [label, members]) => sum + height(members, label, true),
+      0,
+    );
+
+    let top = totalHeight / 2 - (side === "code" ? 60 : 0);
 
     for (const [label, members] of entries) {
       members.sort((a, b) => (a.path || a.label).localeCompare(b.path || b.label));
@@ -144,36 +175,18 @@ export function fileFocusGraph(
         label,
         labelDetail: `${members.length} ${side === "notes" ? "notes" : "files"}`,
         aggregate: true,
-        x: direction * 80,
+        x: direction * 210,
         y: groupY,
       });
       edges.push({ source: focused.id, target: groupID, kind });
 
-      const shown: GraphViewNode[] =
-        expanded.has(label) || members.length <= GROUP_LIMIT
-          ? members
-          : [
-              ...members.slice(0, GROUP_LIMIT),
-              {
-                id: `file-more:${label}`,
-                kind: side === "notes" ? "note" : "code",
-                label: `+${members.length - GROUP_LIMIT} more`,
-                childCount: members.length - GROUP_LIMIT,
-                aggregate: true,
-              },
-            ];
-
+      const shown = fileFocusLabels(visible(members, label));
       const rows = shown.length > 10 ? Math.ceil(shown.length / 2) : shown.length;
+      let itemY = groupY - HEADING_GAP;
       shown.forEach((node, index) => {
-        nodes.push({
-          ...node,
-          label:
-            node.kind === "code" && node.path
-              ? shortLabel(node.path.split("/").pop() || node.label)
-              : node.label,
-          x: direction * (180 + Math.floor(index / rows) * 1100),
-          y: groupY - ROW_GAP * ((index % rows) + 1),
-        });
+        if (index === rows) itemY = groupY - HEADING_GAP;
+        nodes.push({ ...node, x: direction * (280 + Math.floor(index / rows) * 1000), y: itemY });
+        itemY -= fileFocusRowHeight(node);
         edges.push({ source: groupID, target: node.id, kind });
       });
       top -= height(members, label);
