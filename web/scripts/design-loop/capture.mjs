@@ -156,6 +156,29 @@ export const SURFACES = [
   { id: "ontology", title: "Ontology · Atlas", url: "/ontology" },
   { id: "ontology-type", title: "Ontology · type detail (Effort)", url: "/ontology/type/Effort" },
   { id: "explorer", title: "Explorer (graph)", url: "/explorer" },
+  {
+    id: "c-explorer-folder",
+    title: "Explorer · folder expanded (pkg)",
+    url: "/explorer",
+    act: async (p) => {
+      await p.locator(".explorer-rail").getByRole("button", { name: "pkg", exact: true }).click();
+    },
+  },
+  {
+    id: "c-explorer-deep",
+    title: "Explorer · deep folder after two expansions (pkg, then pkg/app)",
+    url: "/explorer",
+    act: async (p) => {
+      const rail = p.locator(".explorer-rail");
+      await rail.getByRole("button", { name: "pkg", exact: true }).click();
+      await rail.getByRole("button", { name: "app", exact: true }).click();
+    },
+  },
+  {
+    id: "c-explorer-file",
+    title: "Explorer · code file focused with its neighbours",
+    url: "/explorer?file=pkg%2Fsearch%2Fplanner%2Fplanner.go",
+  },
   { id: "agent", title: "Agent workspace", url: "/agent" },
   { id: "tasks", title: "Tasks", url: "/tasks" },
   { id: "graphql", title: "GraphQL explorer", url: "/graphql" },
