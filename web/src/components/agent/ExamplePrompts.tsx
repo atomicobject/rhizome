@@ -10,7 +10,7 @@ const EXAMPLE_PROMPTS = [
 export function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
   return (
     <div className="agent-examples">
-      <h2 className="agent-examples__head">Try asking</h2>
+      <h2 className="agent-examples__head section-heading">Try asking</h2>
       <ul>
         {EXAMPLE_PROMPTS.map((prompt) => (
           <li key={prompt}>

@@ -284,9 +284,7 @@
 }
 
 .agent-examples__head {
-  margin: 0 0 var(--sp-2);
-  font: var(--label-font);
-  color: var(--label-color);
+  margin: 0 0 10px;
 }
 
 .agent-examples ul {

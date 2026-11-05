@@ -53,7 +53,8 @@
 /* Rows hold two lines: the task name over its id. */
 .task-table tbody :is(th, td) {
   height: 52px;
-  padding: 0 10px;
+  padding: 8px 10px;
+  vertical-align: top;
   border-bottom: 1px solid var(--border-faint);
   font-weight: 400;
   text-align: left;
