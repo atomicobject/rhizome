@@ -38,6 +38,10 @@ describe("file neighbour groups", () => {
       kind: "explorer-tests",
     });
     const expanded = fileFocusGraph(graph, "src/main.go", undefined, new Set(["Calls / imports"]));
+    expect(expanded.nodes.find((node) => node.id === "file-group:Calls / imports")).toMatchObject({
+      x: result.nodes.find((node) => node.id === "file-group:Calls / imports")?.x,
+      y: result.nodes.find((node) => node.id === "file-group:Calls / imports")?.y,
+    });
     expect(expanded.nodes.filter((node) => node.path?.startsWith("src/c"))).toHaveLength(30);
     expect(expanded.nodes.some((node) => node.id.startsWith("file-more:"))).toBe(false);
     const columns = new Map<number | undefined, number[]>();

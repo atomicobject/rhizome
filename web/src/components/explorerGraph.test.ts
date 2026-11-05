@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import Graph from "graphology";
+import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { fileFocusGraph, focusFolderNodes, onBranch } from "./explorerGraph";
+import { drawTestEdges, fileFocusGraph, focusFolderNodes, onBranch } from "./explorerGraph";
 import { useFolderExplorer } from "./useFolderExplorer";
 
 describe("Explorer focus", () => {
@@ -100,4 +101,54 @@ describe("Explorer focus", () => {
     act(() => result.current.reset());
     expect(result.current.open.has("docs")).toBe(true);
   });
+});
+
+it("draws one bracket when Sigma canonicalizes code edges toward the group", () => {
+  const graph = new Graph();
+  graph.addNode("focus", { selected: true });
+  graph.addNode("file-group:Tests");
+  graph.addNode("code:a");
+  graph.addNode("code:b");
+  graph.addEdge("file-group:Tests", "focus", { kind: "explorer-tests" });
+  graph.addEdge("code:a", "file-group:Tests", { kind: "explorer-tests" });
+  graph.addEdge("code:b", "file-group:Tests", { kind: "explorer-tests" });
+
+  const points = new Map([
+    ["focus", { x: 0, y: 0 }],
+    ["file-group:Tests", { x: 100, y: 0 }],
+    ["code:a", { x: 130, y: 40 }],
+    ["code:b", { x: 130, y: 80 }],
+  ]);
+
+  const context = {
+    strokeStyle: "",
+    lineWidth: 1,
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    beginPath: vi.fn(),
+    stroke: vi.fn(),
+    setLineDash: vi.fn(),
+  };
+
+  const sigma = {
+    getGraph: () => graph,
+    getNodeDisplayData: (id: string) => points.get(id),
+    framedGraphToViewport: (point: { x: number; y: number }) => point,
+  };
+
+  drawTestEdges(sigma, context, "blue");
+  expect(context.moveTo.mock.calls).toEqual([
+    [0, 0],
+    [100, 0],
+    [118, 0],
+    [118, 40],
+    [118, 80],
+  ]);
+  expect(context.lineTo.mock.calls).toEqual([
+    [100, 0],
+    [118, 0],
+    [118, 80],
+    [130, 40],
+    [130, 80],
+  ]);
 });
