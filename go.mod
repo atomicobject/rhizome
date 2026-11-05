@@ -1,8 +1,6 @@
 module github.com/atomicobject/rhizome
 
-go 1.24.0
-
-toolchain go1.24.2
+go 1.27.3
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6

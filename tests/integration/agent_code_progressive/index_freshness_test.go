@@ -49,6 +49,8 @@ try {
  const before = await client.codeSymbol({ symbol: "greet", path: "src/example.py" });
  assert.equal(before.ok, true, JSON.stringify(before));
  assert.match(JSON.stringify(before.payload), /greet/);
+ // Close the runtime's SQLite handles before replacing its database files.
+ execFileSync(process.env.PROGRESSIVE_BINARY, ["stop"], { cwd: root, env: process.env, timeout: 30000, stdio: "pipe" });
  const db = join(root, ".rhizome/db.sqlite");
  const old = await stat(db);
  // Preserve the old store and create a different indexed database in its place.
