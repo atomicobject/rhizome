@@ -39,7 +39,7 @@ export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResp
 
 const GROUP_LIMIT = 8;
 
-const ROW_GAP = 100;
+const ROW_GAP = 220;
 
 const isNote = (node: GraphNode) => node.kind === "note" || node.kind === "embedded";
 
@@ -47,7 +47,7 @@ const isTest = (node: GraphNode) =>
   /(^|[/_.-])(tests?|spec)([/_.-]|$)/i.test(node.path || node.label);
 
 const shortLabel = (label: string) =>
-  label.length > 26 ? `${label.slice(0, 14)}…${label.slice(-11)}` : label;
+  label.length > 16 ? `${label.slice(0, 8)}…${label.slice(-7)}` : label;
 
 export function fileFocusGraph(
   input: GraphResponse,
@@ -171,7 +171,7 @@ export function fileFocusGraph(
             node.kind === "code" && node.path
               ? shortLabel(node.path.split("/").pop() || node.label)
               : node.label,
-          x: direction * (180 + Math.floor(index / rows) * 540),
+          x: direction * (180 + Math.floor(index / rows) * 1100),
           y: groupY - ROW_GAP * ((index % rows) + 1),
         });
         edges.push({ source: groupID, target: node.id, kind });
