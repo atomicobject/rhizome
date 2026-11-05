@@ -16,18 +16,14 @@ import { vaultLabel } from "../lib/labels";
 import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
 import { useDebouncedValue, useFolderExplorer } from "./useFolderExplorer";
+import { folderSearchMatches } from "./folderSearchMatches";
 import { useExplorerGraph, useRevealRail } from "./explorerGraph";
 import { ExplorerHeader } from "./ExplorerHeader";
 import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { TreeList } from "./TreeList";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
-import {
-  moduleKey,
-  isNoteTarget,
-  openNoteWorkspace,
-  explorerFileFromLocation,
-} from "./explorerNavigation";
+import { isNoteTarget, openNoteWorkspace, explorerFileFromLocation } from "./explorerNavigation";
 
 export { folderCoverage } from "./explorerNavigation";
 
@@ -133,18 +129,6 @@ export function ExplorerWorkspace({
     match.path ? [match.path] : [],
   );
 
-  const searchModules = useMemo(() => {
-    const modules = new Set<string>();
-
-    for (const path of searchPaths) {
-      const key = moduleKey(path, 2);
-
-      if (key) modules.add(key);
-    }
-
-    return Array.from(modules);
-  }, [searchPaths]);
-
   const searchActive = submittedSearch !== null;
   const searching = searchQuery.isFetching;
 
@@ -213,7 +197,7 @@ export function ExplorerWorkspace({
     [graph.nodes, accentKey],
   );
 
-  const byFolder = atRoot && !searchActive;
+  const byFolder = atRoot;
 
   const folderExplorer = useFolderExplorer(
     graph,
@@ -313,7 +297,11 @@ export function ExplorerWorkspace({
 
   const hasPanel = selection.kind === "file";
   const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
-  const searchModuleSet = useMemo(() => new Set(searchModules), [searchModules]);
+
+  const searchModuleSet = useMemo(
+    () => folderSearchMatches(folders, graph, searchPathSet),
+    [folders, graph, searchPathSet],
+  );
 
   const graphScopeLabel =
     graphScope.mode === "global"

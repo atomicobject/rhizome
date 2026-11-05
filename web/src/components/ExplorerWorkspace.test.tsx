@@ -462,7 +462,7 @@ describe("ExplorerWorkspace", () => {
     const oldSearch = deferredReply<SearchResponse>();
     const currentSearch = deferredReply<SearchResponse>();
     http
-      .json("GET", "/api/v1/graphs/global", graphWith("specs/current.md", "specs/old.md"))
+      .json("GET", "/api/v1/graphs/global", graphWith("current/current.md", "old/old.md"))
       .on("GET", "/api/v1/search", (request) =>
         request.query.get("q") === "old" ? oldSearch.promise : currentSearch.promise,
       );
@@ -477,13 +477,13 @@ describe("ExplorerWorkspace", () => {
     fireEvent.keyDown(search, { key: "Enter" });
     fireEvent.click(screen.getByLabelText("Only matches"));
 
-    currentSearch.resolve({ count: 1, matches: [{ path: "specs/current.md", kind: "note" }] });
+    currentSearch.resolve({ count: 1, matches: [{ path: "current/current.md", kind: "note" }] });
     // With "Only matches" on, the graph hides everything the submitted search
     // did not return, so node visibility is the search set the pane is using.
-    await waitFor(() => expect(displayHidden("specs/current.md")).toBe(false));
-    expect(displayHidden("specs/old.md")).toBe(true);
+    await waitFor(() => expect(displayHidden("folder:current")).toBe(false));
+    expect(displayHidden("folder:old")).toBe(true);
 
-    oldSearch.resolve({ count: 1, matches: [{ path: "specs/old.md", kind: "note" }] });
+    oldSearch.resolve({ count: 1, matches: [{ path: "old/old.md", kind: "note" }] });
     await act(async () => {
       await oldSearch.promise;
     });
@@ -493,7 +493,7 @@ describe("ExplorerWorkspace", () => {
     act(() => {
       sigma.refresh();
     });
-    expect(displayHidden("specs/current.md")).toBe(false);
-    expect(displayHidden("specs/old.md")).toBe(true);
+    expect(displayHidden("folder:current")).toBe(false);
+    expect(displayHidden("folder:old")).toBe(true);
   });
 });

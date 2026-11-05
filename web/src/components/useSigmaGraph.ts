@@ -167,7 +167,7 @@ export function useSigmaGraph({
       const matched =
         (node.kind !== "module" && path && searchPaths.has(path)) ||
         (node.kind === "module" &&
-          (searchModules.has(path) || searchModules.has(node.label || "")));
+          (searchModules.has(node.id) || searchModules.has(path) || searchModules.has(node.label)));
 
       if (matched) matches.add(node.id);
     });
