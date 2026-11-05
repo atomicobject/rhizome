@@ -60,7 +60,11 @@ export function ExplorerHeader({
       <div className="view-header__title-row">
         <h2>Explorer</h2>
         <span className="view-header__count num">
-          {filePath && <span className="explorer-header__breadcrumb">File neighbourhood · </span>}
+          {filePath && (
+            <span className="explorer-header__breadcrumb">
+              {filePath.split("/").pop()} neighbourhood ·{" "}
+            </span>
+          )}
           {focusedPath && (
             <span className="explorer-header__breadcrumb">
               {focusedPath.split("/").join(" / ")} ·{" "}

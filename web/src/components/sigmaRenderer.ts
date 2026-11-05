@@ -263,6 +263,7 @@ export function mountSigmaRenderer({
         context.lineWidth = 1.5;
       }
     });
+    context.globalAlpha = 1;
     drawFolderEdgeCounts(sigma, context, labels.occupied(), colorsRef.current ?? readThemeColors());
     context.restore();
   });

@@ -3,10 +3,11 @@ export function noteLabelLines(text: string, measure: (text: string) => number):
   text = text.replaceAll("...", "…");
 
   if (measure(text) <= 220) return [text];
+  const lineWidth = Math.min(220, measure(text) / 2);
   let split = 1;
 
-  while (split < text.length && measure(text.slice(0, split + 1)) <= 220) split++;
-  const space = text.lastIndexOf(" ", split);
+  while (split < text.length && measure(text.slice(0, split + 1)) <= lineWidth) split++;
+  const space = Math.max(text.lastIndexOf(" ", split), text.lastIndexOf("-", split) + 1);
 
   if (space > split / 2) split = space;
   const first = text.slice(0, split).trim();

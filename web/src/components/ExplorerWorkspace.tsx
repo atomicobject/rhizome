@@ -11,7 +11,7 @@ import {
   searchPaths as searchPathMatches,
 } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
-import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
+import type { FileView, GraphNode, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
 import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
@@ -224,10 +224,7 @@ export function ExplorerWorkspace({
   useRevealRail(folderExplorer.initial, atRoot, selectedFilePath, setExpandedPaths);
   const folders = byFolder ? folderExplorer.drawn : null;
 
-  const drawn: ReturnType<typeof useExplorerGraph> & {
-    reveal?: (node: GraphNode) => boolean;
-    sourceGraph?: GraphResponse;
-  } = useExplorerGraph(folders, graph, selection);
+  const drawn = useExplorerGraph(folders, graph, selection);
 
   const focusModule = useCallback(
     (path: string) => {
@@ -266,7 +263,7 @@ export function ExplorerWorkspace({
 
   const onNodeClick = useCallback(
     (node: GraphNode) => {
-      if (drawn.reveal?.(node)) return;
+      if (drawn.reveal(node)) return;
 
       if (node.kind === "module") {
         const path = node.path ?? "";

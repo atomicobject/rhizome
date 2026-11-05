@@ -15,3 +15,8 @@ it("wraps note titles to two 220px lines before shortening with one ellipsis", (
   expect(lines[1]).toContain("…");
   expect(lines[1]).toMatch(/ending$/);
 });
+
+it("balances a title that only slightly exceeds one line", () => {
+  const lines = noteLabelLines("unified-search-answer-architecture", (s) => s.length * 7);
+  expect(lines).toEqual(["unified-search-", "answer-architecture"]);
+});
