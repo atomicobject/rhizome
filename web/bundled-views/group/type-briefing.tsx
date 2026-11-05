@@ -10,6 +10,7 @@ import {
   openNote,
   openView,
   useViewContext,
+  useTypeColors,
   type ViewContext,
   type ViewModuleProps,
 } from "@rhizome/kit";
@@ -223,6 +224,7 @@ function targetLabel(model: GroupModel, type: string) {
 function ConnectionRow({ model, connection }: { model: GroupModel; connection: FieldConnection }) {
   const { field, direction, filled, total, top, targets, sampled } = connection;
   const share = total ? filled / total : 0;
+  const color = useTypeColors()(connection.targetType);
   const expanded = useRememberedOpen("briefing.expanded");
   const open = expanded.isOpen(`connection:${field}`, false);
   const shown = open ? targets : top;
@@ -238,8 +240,8 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
           {filled} of {total} {lower(model.members[0].pluralLabel)} linked
         </span>
       </div>
-      <div className="gv-fill" aria-hidden="true">
-        <i data-thin={share < 0.5 || undefined} style={{ width: `${share * 100}%` }} />
+      <div className="gv-connection-bar" aria-hidden="true">
+        <i style={{ width: `${share * 100}%`, background: color }} />
       </div>
       {top.length > 0 ? (
         <>
