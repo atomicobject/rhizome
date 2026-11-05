@@ -45,6 +45,28 @@ test("cards place metadata immediately below one-line and two-line titles and al
     0,
   );
 
+  for (const [card, lines] of [
+    [short, 4],
+    [long, 3],
+  ] as const) {
+    const visibleLines = await card.evaluate((element) => {
+      const content = element.querySelector(".configured-card__content");
+      const summary = element.querySelector(".configured-card__summary");
+
+      if (!content || !summary) throw new Error("Missing summary budget");
+      summary.textContent = "Inspect every chain and rail before the storm season starts. ".repeat(
+        12,
+      );
+
+      return (
+        (content.getBoundingClientRect().bottom - summary.getBoundingClientRect().top) /
+        Number.parseFloat(getComputedStyle(summary).lineHeight)
+      );
+    });
+
+    expect(visibleLines).toBeCloseTo(lines, 0);
+  }
+
   if (process.env.RHIZOME_CARDS_SCREENSHOT) {
     await page.screenshot({ path: process.env.RHIZOME_CARDS_SCREENSHOT, fullPage: true });
   }

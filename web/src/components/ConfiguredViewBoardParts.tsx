@@ -10,7 +10,6 @@ import {
 } from "./boardLayout";
 import { capabilityLabel, GroupValueMark } from "./ConfiguredViewModel";
 import { moveMenuFocus } from "./focusManagement";
-import { DisclosureChevron } from "./DisclosureChevron";
 import { STALE_DAYS } from "./viewProfile";
 
 /** A board card's Move button and its menu of other columns; `m` on a card opens it too. */
@@ -172,18 +171,15 @@ type HeaderItem = {
   count: number;
   strip: boolean;
   stale: number;
-  compact: boolean;
 };
 
-/** Column headings and their card density controls; empty values use narrow tracks. */
+/** Column headings; empty values use narrow tracks. */
 export function BoardColumnHeaders({
   items,
   capability,
-  onToggle,
 }: {
   items: HeaderItem[];
   capability: ViewFieldCapability | undefined;
-  onToggle: (key: string) => void;
 }) {
   return items.map((item) => {
     const { column, label, count } = item;
@@ -217,15 +213,6 @@ export function BoardColumnHeaders({
               {item.stale} unchanged {STALE_DAYS}+ days
             </span>
           )}
-          <button
-            type="button"
-            className="configured-view__density-button"
-            aria-expanded={!item.compact}
-            onClick={() => onToggle(column.key)}
-          >
-            <DisclosureChevron open={!item.compact} />
-            Card details
-          </button>
         </div>
       </header>
     );

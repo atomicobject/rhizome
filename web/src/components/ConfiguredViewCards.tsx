@@ -10,6 +10,7 @@ import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { groupIdentity } from "./ConfiguredViewSave";
 import { StatusMark } from "./StatusMark";
 import { useRememberedExpansion } from "./useRememberedExpansion";
+import { recordFacts } from "./viewProfile";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { type ReorderGroup, useViewReorder, type ViewReorder } from "./useViewReorder";
 
@@ -85,6 +86,7 @@ export function ConfiguredViewCards(props: Props) {
     profile && (view.generated || !view.variants.card)
       ? (row: ViewTableRow, omitField?: string) => ({
           className: " configured-card--brief",
+          summary: recordFacts(row, profile, props.capabilities).summary,
           header: (
             <RecordBriefHeader
               row={row}
@@ -99,6 +101,7 @@ export function ConfiguredViewCards(props: Props) {
           ),
           body: (
             <RecordBriefBody
+              omitSummary
               row={row}
               profile={profile}
               capabilities={props.capabilities}
@@ -235,7 +238,7 @@ function CardGrid({
   briefFor?: (
     row: ViewTableRow,
     omitField?: string,
-  ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body">;
+  ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body" | "summary">;
 }) {
   return (
     <div
@@ -255,6 +258,7 @@ function CardGrid({
             {...cardProps}
             header={brief?.header}
             body={brief?.body}
+            summary={brief?.summary}
             busy={reorder.pendingKeys.has(rowKey)}
             draggable={source.draggable}
             dragging={reorder.dragKey === rowKey}

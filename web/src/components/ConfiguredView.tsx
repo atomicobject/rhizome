@@ -17,6 +17,7 @@ import type { ViewContext } from "../views/context";
 import { nativePreferenceScope } from "../viewPreferences/native";
 import type { OpenMode } from "./useNoteTabs";
 import { rowsWithStagedValues } from "./ConfiguredTableCellHelpers";
+import { BoardDensityControl, defaultBoardDensity } from "./BoardDensityControl";
 import { ConfiguredViewBoard } from "./ConfiguredViewBoard";
 import { ConfiguredViewCards } from "./ConfiguredViewCards";
 import { ConfiguredViewFacets } from "./ConfiguredViewFacets";
@@ -217,6 +218,7 @@ export function ConfiguredView({
         onGroupedColumnsChange: setGroupedColumns,
         profile,
         density,
+        boardDensity: layout.boardDensityChoice ?? undefined,
         onLoadMore: loadMore,
         columnWidths: layout.columnWidths ?? undefined,
         onColumnWidthsChange: layout.setColumnWidths,
@@ -267,6 +269,12 @@ export function ConfiguredView({
 
   const viewActions = (
     <>
+      {activeVariant === "kanban" && (
+        <BoardDensityControl
+          density={layout.boardDensityChoice ?? defaultBoardDensity(execution?.board)}
+          onChange={layout.setBoardDensity}
+        />
+      )}
       <SaveViewAction {...save} onActiveChange={setSaveActive} />
       <button
         type="button"
