@@ -186,3 +186,108 @@
   padding-left: 72px;
   box-sizing: border-box;
 }
+
+/* Compact, wrapping group keys keep every type beside its group label. */
+.gv-page .gv-map-legend .gv-map-legend-row {
+  display: block;
+  line-height: 1.8;
+}
+.gv-page .gv-map-legend dt,
+.gv-page .gv-map-legend dd {
+  display: inline;
+  margin: 0;
+  font: 500 13px/1.8 var(--font-sans);
+}
+.gv-page .gv-map-legend dt {
+  color: var(--text-muted);
+  margin-right: 12px;
+}
+.gv-map-legend dd > span {
+  margin-right: 8px;
+}
+.gv-map-legend dd > span + span::before {
+  content: "·";
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+.gv-page .gv-ov-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.gv-ov-table .gv-col-number {
+  width: 96px;
+}
+.gv-ov-table .gv-col-stages {
+  width: 420px;
+}
+.gv-ov-table .gv-col-linked {
+  width: 116px;
+}
+.gv-ov-table .gv-col-gaps {
+  width: 180px;
+}
+.gv-page .gv-ov-table th,
+.gv-page .gv-ov-table td {
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+.gv-page .gv-ov-table th:first-child {
+  padding-left: 46px;
+}
+.gv-page .gv-ov-table .gv-ov-chev,
+.gv-page .gv-ov-table .gv-ov-chev-button {
+  width: 24px;
+  min-width: 24px;
+  margin: 0;
+  padding: 0;
+  justify-content: flex-start;
+}
+.gv-ov-no-disclosure {
+  padding-left: 24px;
+}
+.gv-page .gv-ov-table .gv-ov-dot {
+  box-sizing: border-box;
+}
+.gv-page .gv-ov-table tbody tr {
+  height: 32px;
+}
+.gv-page .gv-ov-table .gv-record,
+.gv-page .gv-ov-table .gv-member {
+  font-size: 14px;
+  font-weight: 500;
+}
+.gv-ov--group .gv-ov-table {
+  min-width: 1140px;
+}
+.gv-ov-stage {
+  max-width: 100%;
+}
+.gv-ov-below {
+  display: block;
+}
+.gv-overview-outside .rz-section {
+  margin-top: 0;
+}
+.gv-overview-outside .gv-change {
+  padding-block: 4px;
+}
+.gv-overview-outside .gv-change-title {
+  color: var(--text);
+}
+.gv-ov-side {
+  overflow: visible;
+}
+.gv-page .gv-map-legend {
+  gap: 0;
+}
+.gv-page .gv-map-legend .gv-map-legend-row,
+.gv-page .gv-map-legend dt,
+.gv-page .gv-map-legend dd {
+  line-height: 1.5;
+}
+.gv-ov-table .gv-col-stages {
+  width: 440px;
+}
+.gv-ov-table .gv-ov-bar {
+  width: 60px;
+}

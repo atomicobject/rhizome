@@ -236,7 +236,8 @@ function NameCell({
     </>
   );
 
-  if (node.kind === "untyped") return <span className="gv-ov-name">{name}</span>;
+  if (node.kind === "untyped")
+    return <span className="gv-ov-name gv-ov-no-disclosure">{name}</span>;
 
   const open = (
     <button type="button" className="gv-record" onClick={() => openNode(node)}>
@@ -245,7 +246,8 @@ function NameCell({
   );
 
   // An interface folds its implementing types under a chevron of its own.
-  if (row.toggle === undefined) return open;
+  if (row.toggle === undefined)
+    return <span className="gv-ov-name gv-ov-no-disclosure">{open}</span>;
   const { toggle } = row;
 
   return (
@@ -344,7 +346,7 @@ function DataRow({
   return (
     <tr data-kind={row.kind} title={description}>
       {/* A nested row starts 16px past its parent's name, not its dot. */}
-      <td style={{ paddingLeft: `${20 + row.depth * 31}px` }}>
+      <td style={{ paddingLeft: `${22 + row.depth * 24}px` }}>
         <NameCell summaries={summaries} row={row} onToggle={onToggle} />
       </td>
       <td className="gv-right gv-num num">{fmt(node.count)}</td>
@@ -433,6 +435,17 @@ export function MemberTable({
 
   return (
     <table className="gv-table gv-ov-table">
+      <colgroup>
+        <col />
+        <col className="gv-col-number" />
+        {shown.stages && <col className="gv-col-stages" />}
+        {shown.gaps && <col className="gv-col-gaps" />}
+        {shown.linked && <col className="gv-col-linked" />}
+        <col className="gv-col-number" />
+        {!workspace && <col className="gv-col-number" />}
+        <col className="gv-col-number" />
+        <col className="gv-col-number" />
+      </colgroup>
       <thead>
         <tr>
           <th scope="col">{workspace ? "Group · type" : "Type"}</th>

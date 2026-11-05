@@ -242,7 +242,12 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
           })}
           {[...layout.labels].map(
             ([id, place]) =>
-              place.leader && (
+              place.leader &&
+              Math.hypot(place.leader.x - at(id).x, place.leader.y - at(id).y) >
+                (model.nodeIndex.has(id)
+                  ? radius(model.nodeIndex.get(id) ?? model.nodes[0])
+                  : OUTSIDE_RADIUS) +
+                  20 && (
                 <line
                   key={`leader:${id}`}
                   className="gv-map-leader"
@@ -267,13 +272,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 y2={at(edge.b).y}
                 strokeWidth={stroke(edge.links)}
               />
-              <line
+              <path
                 className="gv-map-hit"
                 data-action={traceable(edge) ? "trace" : undefined}
-                x1={at(edge.a).x}
-                y1={at(edge.a).y}
-                x2={at(edge.b).x}
-                y2={at(edge.b).y}
+                d={`M${at(edge.a).x},${at(edge.a).y} L${at(edge.b).x},${at(edge.b).y}`}
                 onMouseEnter={() => setHot({ kind: "edge", key: edge.key })}
                 onMouseLeave={() => setHot(null)}
                 onClick={() => {
@@ -304,7 +306,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
             const point = at(node.id);
             const r = radius(node);
             const hue = nodeHue(node, color);
-            const arcs = compositionArcs(node, summaries, color);
+            const arcs = compositionArcs(node, summaries, color, r);
 
             return (
               <g

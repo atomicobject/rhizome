@@ -34,6 +34,7 @@ export function compositionArcs(
   node: ScopeNode,
   summaries: ReadonlyMap<string, TypeSummary>,
   color: TypeColor,
+  radius = 30,
 ) {
   if (node.kind !== "group" && node.kind !== "interface") return [];
 
@@ -42,10 +43,29 @@ export function compositionArcs(
     .filter((part) => part.count > 0);
 
   const total = parts.reduce((sum, part) => sum + part.count, 0);
+  const circumference = 2 * Math.PI * (radius - Math.max(4, radius * 0.32) / 2);
+  const minimum = Math.min(4 / circumference, 1 / parts.length);
+  let remaining = 1;
+  let weight = total;
+  const shares = new Map<string, number>();
+
+  for (const part of [...parts].sort((a, b) => a.count - b.count)) {
+    const share = Math.max(minimum, (remaining * part.count) / weight);
+    shares.set(part.name, share);
+    remaining -= share;
+    weight -= part.count;
+  }
+
   let start = 0;
 
   return parts.map((part) => {
-    const arc = { name: part.name, color: color(part.name), start, share: part.count / total };
+    const arc = {
+      name: part.name,
+      color: color(part.name),
+      start,
+      share: shares.get(part.name) ?? 0,
+    };
+
     start += arc.share;
 
     return arc;
@@ -227,7 +247,7 @@ export function MapLegend({
     .map((node) => (
       <span key={node.id}>
         <i style={{ background: nodeHue(node, color) }} />
-        {node.label}
+        {node.label} {fmt(node.count)}
       </span>
     ));
 
@@ -250,7 +270,7 @@ export function MapLegend({
         declared, unused
       </span>
     ),
-  ].filter(Boolean);
+  ].filter((item) => item !== false);
 
   if (links.outside.length > 0)
     kinds.push(
@@ -264,26 +284,17 @@ export function MapLegend({
   const groups = [
     ...rings.map((node) => ({
       title: node.label,
-      items: (node.kind === "group"
-        ? node.members.filter((member) => member.count > 0)
-        : [node]
-      ).map((family) => (
-        <div className="gv-legend-family" key={family.id}>
-          {node.kind === "group" && family.kind === "interface" && (
-            <span className="gv-legend-family-name">{family.label}</span>
-          )}
-          <div className="gv-legend-family-types">
-            {(family.kind === "interface"
-              ? compositionArcs(family, summaries, color)
-              : [{ name: family.name, color: nodeHue(family, color) }]
-            ).map((part) => (
-              <span key={part.name}>
-                <i style={{ background: part.color }} />
-                {familyLabel(part.name, family)}
-              </span>
-            ))}
-          </div>
-        </div>
+      items: node.types.map((name) => (
+        <span key={name}>
+          <i style={{ background: color(name) }} />
+          {familyLabel(
+            name,
+            node.kind === "group"
+              ? (node.members.find((member) => member.types.includes(name)) ?? node)
+              : node,
+          )}{" "}
+          {fmt(summaries.get(name)?.count ?? 0)}
+        </span>
       )),
     })),
     { title: "Types", items: types },
@@ -313,8 +324,12 @@ export function MapLegend({
           </button>,
         ],
       })),
-    { title: "Links", items: kinds },
   ].filter((group) => group.items.length > 0);
+
+  const last = groups.at(-1);
+
+  if (last) last.items.push(...kinds);
+  else if (kinds.length) groups.push({ title: "Links", items: kinds });
 
   return (
     <>

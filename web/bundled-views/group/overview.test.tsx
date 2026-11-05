@@ -180,7 +180,7 @@ it("lists relations declared between members that no record uses", async () => {
 
 it("lists the notes outside the group most connected first, then the guide and views", async () => {
   const { posted } = await renderGroupView(loadOverview, { routes: scopeRoutes(), embedded: true });
-  const outside = region("Outside notes");
+  const outside = region("Outside the group");
 
   expect(within(outside).getByText("4 notes")).toBeVisible();
   expect(region("Outside the group")).toHaveTextContent("1 person3 untyped notes");

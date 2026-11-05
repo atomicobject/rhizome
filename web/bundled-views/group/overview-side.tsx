@@ -2,21 +2,13 @@
 // untyped notes by folder and the coverage line. On a group: relations
 // declared but unused, the notes outside the group linking to the most of its
 // records, and the group's guide and views.
-import { openSearch, typeLabel } from "@rhizome/kit";
-import { Fragment, useMemo, type ReactNode } from "react";
+import { openSearch } from "@rhizome/kit";
+import { Fragment, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 
 import { boundary } from "./activity.ts";
 import { OutsideNotes } from "./briefing-activity.tsx";
 import { GuideAndViews } from "./briefing-contents.tsx";
-import {
-  Block,
-  BlockBody,
-  ModelBlock,
-  MoreToggle,
-  Rebuilding,
-  plural,
-  lower,
-} from "./briefing-parts.tsx";
+import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
 import { fieldLabel, type GroupModel } from "./model.ts";
@@ -50,7 +42,11 @@ export function FolderBlock() {
   return (
     <Block
       title="Untyped notes by folder"
-      count={facts && !facts.rebuilding ? `${fmt(facts.untypedNotes)} notes` : undefined}
+      count={
+        facts && !facts.rebuilding
+          ? `${fmt(facts.untypedNotes)} notes (includes ${facts.ambiguousNotes} ambiguous)`
+          : undefined
+      }
       info={{
         text: "Top-level folders by untyped notes. Activate one to search it.",
         display: "title",
@@ -292,7 +288,29 @@ const OVERVIEW_OUTSIDE_NOTES = 3;
 const GUIDE_READ: GroupRead = { records: false };
 
 function GroupOutside({ model }: { model: GroupModel }) {
-  // Records past the read cap may link to notes not listed, so the list is partial.
+  const ref = useRef<HTMLDivElement>(null);
+  const [limit, setLimit] = useState(OVERVIEW_OUTSIDE_NOTES);
+  useEffect(() => {
+    const element = ref.current;
+    const main = element?.closest(".gv-ov")?.querySelector(".gv-ov-main");
+
+    if (!element || !main || typeof ResizeObserver === "undefined") return;
+
+    const measure = () => {
+      if (main.getBoundingClientRect().height === 0) return;
+      const available = main.getBoundingClientRect().bottom - element.getBoundingClientRect().top;
+      setLimit(Math.max(0, Math.min(3, Math.floor((available - 155) / 64))));
+    };
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(main);
+
+    if (element.previousElementSibling) observer.observe(element.previousElementSibling);
+    measure();
+
+    return () => observer.disconnect();
+  }, []);
+
   const outside = useMemo(() => {
     const found = boundary(model);
 
@@ -300,81 +318,35 @@ function GroupOutside({ model }: { model: GroupModel }) {
   }, [model]);
 
   return (
-    <div className="gv-overview-outside">
+    <div ref={ref} className="gv-overview-outside">
       <OutsideNotes
-        title="Outside notes"
+        title="Outside the group"
         outside={outside}
         model={model}
         info={`Notes that link to or from ${model.name} records, most connected first.`}
         empty="No notes outside the group link to or from its records."
-        limit={OVERVIEW_OUTSIDE_NOTES}
+        limit={limit}
       />
     </div>
   );
 }
 
-/** Keep the boundary summary beside the map without the preview list. */
 export function GroupOutsideSummary() {
   const state = useGroupModel({ views: false, read: OUTSIDE_READ });
 
   return (
     <ModelBlock state={state} title="Outside the group" what="outside notes">
-      {(model) => {
-        const outside = boundary(model);
-        const incomplete = outside.incomplete || model.truncated;
-
-        return (
-          <Block
-            title="Outside the group"
-            count={`${incomplete ? "at least " : ""}${outside.notes.length} ${plural(outside.notes.length, "note", "notes")}`}
-          >
-            <p className="gv-outsum">
-              {outside.byType.map((entry) => {
-                const labels = entry.type ? model.typeLabels.get(entry.type) : undefined;
-
-                return (
-                  <span key={entry.type ?? ""}>
-                    <b className="num">{entry.count}</b>{" "}
-                    {entry.type === null
-                      ? plural(entry.count, "untyped note", "untyped notes")
-                      : lower(
-                          labels
-                            ? typeLabel(labels, { count: entry.count })
-                            : fieldLabel(entry.type),
-                        )}
-                  </span>
-                );
-              })}
-            </p>
-            <p className="gv-quiet">
-              {incomplete
-                ? "More notes may link to this group because viewed records and their links are limited."
-                : "Notes that link to or from this group’s records, most connected first."}{" "}
-              <button
-                type="button"
-                className="gv-inline gv-link"
-                onClick={() => openSearch({ folder: "" })}
-              >
-                Search all notes
-              </button>
-            </p>
-          </Block>
-        );
-      }}
+      {(model) => <GroupOutside model={model} />}
     </ModelBlock>
   );
 }
 
 /** "Outside the group" and "Guide and views", each from its own read. */
 export function GroupRecordsBlocks() {
-  const outside = useGroupModel({ views: false, read: OUTSIDE_READ });
   const guide = useGroupModel({ read: GUIDE_READ });
 
   return (
     <>
-      <ModelBlock state={outside} title="Outside notes" what="outside notes">
-        {(model) => <GroupOutside model={model} />}
-      </ModelBlock>
       <ModelBlock state={guide} title="Guide and views" what="the guide and views">
         {(model) => <GuideAndViews model={model} />}
       </ModelBlock>
