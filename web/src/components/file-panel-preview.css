@@ -1,0 +1,5 @@
+.explorer-pane__code pre,
+.explorer-pane__code pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
