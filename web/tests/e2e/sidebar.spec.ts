@@ -25,12 +25,13 @@ test("keeps the sidebar where the user put it across searches, reloads, and sect
   await expect(page.getByRole("button", { name: "Show sidebar" })).toBeVisible();
   await expect(sidebar).toBeHidden();
 
-  // GraphQL has no sidebar: the toggle is disabled there and the choice holds.
+  // GraphQL has the same sidebar, so the choice holds there too.
   await page
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "GraphQL" })
     .click();
-  await expect(page.getByRole("button", { name: "Show sidebar" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Show sidebar" })).toBeEnabled();
+  await expect(page.getByRole("navigation", { name: "GraphQL navigation" })).toBeHidden();
   await page
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "Notes" })

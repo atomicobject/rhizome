@@ -42,6 +42,7 @@ it.each(["Home", "View"])(
         },
       ]),
       view,
+      groups: [],
     };
 
     const saved: OntologyEditSessionResponse = {

@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-// DefaultOrigin is the gateway origin internal releases and desktop dev builds compile in:
+// DefaultOrigin is the gateway origin release builds and desktop dev builds compile in:
 // -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://...
-// Public builds leave it empty.
+// Plain CLI dev builds leave it empty.
 var DefaultOrigin = ""
 
 // DevelopmentOrigin is the default for development builds (version "dev").
@@ -91,18 +91,6 @@ func writeSelector(path, origin string) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
-}
-
-// clearSelector removes the selector only if it still names origin.
-func clearSelector(path, origin string) error {
-	current, ok, err := ReadSelector(path)
-	if err != nil || !ok || current != origin {
-		return err
-	}
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
 }
 
 // ResolveOptions are the inputs to ResolveOrigin.

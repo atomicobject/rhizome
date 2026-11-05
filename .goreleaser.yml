@@ -32,7 +32,7 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
-      - '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}{{ with index .Env "RZM_INTERNAL_TEAM_API_ORIGIN" }}-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin={{ . }}{{ end }}{{ end }}'
+      - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
 
   # Linux builds - cross-compiled with zig
   - id: rzm-linux
@@ -56,7 +56,7 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
-      - '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}{{ with index .Env "RZM_INTERNAL_TEAM_API_ORIGIN" }}-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin={{ . }}{{ end }}{{ end }}'
+      - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
     overrides:
       - goos: linux
         goarch: amd64
@@ -94,7 +94,7 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
-      - '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}{{ with index .Env "RZM_INTERNAL_TEAM_API_ORIGIN" }}-X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin={{ . }}{{ end }}{{ end }}'
+      - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
 
 release:
   target_commitish: "{{ .Commit }}"

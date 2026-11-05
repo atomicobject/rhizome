@@ -118,7 +118,7 @@ describe("AgentWorkspace", () => {
       fireEvent.click(screen.getByRole("button", { name: `Confirm delete ${deleted.title}` }));
 
       if (action === "create another") {
-        fireEvent.click(screen.getByRole("button", { name: "New" }));
+        fireEvent.click(screen.getByRole("button", { name: "New session" }));
         await screen.findByRole("heading", { name: created.title });
       } else {
         const next = action === "select another" ? third : second;
@@ -176,7 +176,7 @@ describe("AgentWorkspace", () => {
       },
       "codex 0.149.0 is older than minimum 0.150.0",
     ],
-    ["ready", readyStatus, "Ready · 1.2.3 · drew@example.com"],
+    ["ready", readyStatus, "Codex · Ready"],
     [
       "degraded",
       {
@@ -191,6 +191,13 @@ describe("AgentWorkspace", () => {
 
     const heading = await screen.findByRole("heading", { name: "Rhizome agent" });
     await waitFor(() => expect(heading.closest("header")).toHaveTextContent(expected));
+
+    // The version and account sit behind Details, not on the state line.
+    if (status.account) {
+      expect(screen.getByText(status.account)).not.toBeVisible();
+      expect(screen.getByText("Details")).toBeVisible();
+    }
+
     expect(screen.getAllByText("Codex").length).toBeGreaterThan(0);
 
     if (status.loginHint && !status.lastError) {
@@ -221,15 +228,22 @@ describe("AgentWorkspace", () => {
     expect(await screen.findByText("Resolved: first available")).toBeVisible();
   });
 
-  it("shows a compact empty state for a session without messages", async () => {
+  it("offers example questions in an empty thread that fill the composer", async () => {
     http
       .json("GET", "/api/agent/settings", settingsWith(readyStatus))
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/^No messages yet\./);
-    expect(screen.queryByRole("heading", { name: /Ask against the vault/ })).toBeNull();
+    const example = await screen.findByRole("button", {
+      name: "What changed in this repository this week?",
+    });
+
+    fireEvent.click(example);
+    expect(screen.getByLabelText("Message")).toHaveValue(
+      "What changed in this repository this week?",
+    );
+    expect(screen.getByLabelText("Message")).toHaveFocus();
   });
 
   it("uses the Claude Code install hint", async () => {
@@ -244,7 +258,17 @@ describe("AgentWorkspace", () => {
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
-    expect(await screen.findByText(/Install Claude Code to use chat/)).toBeVisible();
+    // The header names the state, and the note beside Send repeats the next step.
+    const hints = await screen.findAllByText(/Install Claude Code to use chat/);
+    expect(hints).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+
+    // The keyboard shortcut is gated too: nothing posts and the draft stays.
+    const message = screen.getByLabelText("Message");
+    fireEvent.change(message, { target: { value: "hello" } });
+    fireEvent.keyDown(message, { key: "Enter", metaKey: true, ctrlKey: true });
+    expect(http.requests("POST", "/api/agent/sessions")).toHaveLength(0);
+    expect(message).toHaveValue("hello");
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {
@@ -408,9 +432,11 @@ describe("AgentWorkspace", () => {
 
     // Switching models never invents an effort: the vendor default stays selected
     // until the user picks one, and only that model's efforts are offered.
-    await waitFor(() => expect(screen.getByLabelText("Effort")).toHaveValue(""));
-    expect(within(screen.getByLabelText("Effort")).getAllByRole("option")).toHaveLength(2);
-    fireEvent.change(screen.getByLabelText("Effort"), { target: { value: "low" } });
+    await waitFor(() => expect(screen.getByLabelText("Reasoning effort")).toHaveValue(""));
+    expect(within(screen.getByLabelText("Reasoning effort")).getAllByRole("option")).toHaveLength(
+      2,
+    );
+    fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "low" } });
     await waitFor(() => {
       // SAFETY: this is the request produced by the typed settings client above.
       const body = JSON.parse(String(http.requests("PUT", "/api/agent/settings").at(-1)?.body)) as {

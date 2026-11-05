@@ -31,6 +31,7 @@ export function ConfiguredViewFooter({
   collapsed,
   stagedCount,
   moved = [],
+  hidden = [],
   pager,
   onPage,
 }: {
@@ -41,6 +42,8 @@ export function ConfiguredViewFooter({
   stagedCount: number;
   /** Labels of table columns too narrow to show, which the Record pane shows instead. */
   moved?: string[];
+  /** Plain notes on columns hidden because one value fills nearly every row. */
+  hidden?: string[];
   pager: (Page & { hasMore: boolean }) | null;
   onPage: (page: Page) => void;
 }) {
@@ -50,11 +53,7 @@ export function ConfiguredViewFooter({
         <span role="status">{summary}</span>
         {loadingMore && <span role="status">Loading more rows…</span>}
         {collapsed && <span>{collapsed}</span>}
-        {moved.length > 0 && (
-          <span className="configured-view__moved-columns">
-            {moved.join(", ")} {moved.length === 1 ? "shows" : "show"} in the Record pane
-          </span>
-        )}
+        <ColumnNotes moved={moved} hidden={hidden} />
         {stagedCount > 0 && (
           <span className="configured-view__staged-count">
             {stagedCount} staged {stagedCount === 1 ? "change" : "changes"}
@@ -82,6 +81,41 @@ export function ConfiguredViewFooter({
         </div>
       )}
     </footer>
+  );
+}
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+/**
+ * Columns the table does not show, as one compact disclosure ("2 columns in
+ * Record · 1 column hidden"); it opens to name each and say why, so a narrow
+ * footer never cuts several explanations at once.
+ */
+function ColumnNotes({ moved, hidden }: { moved: string[]; hidden: string[] }) {
+  if (moved.length === 0 && hidden.length === 0) return null;
+
+  const summary = [
+    moved.length > 0 ? `${plural(moved.length, "column")} in Record` : "",
+    hidden.length > 0 ? `${plural(hidden.length, "column")} hidden` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <details className="configured-view__column-notes">
+      <summary>{summary}</summary>
+      <div className="configured-view__column-notes-body">
+        {moved.length > 0 && (
+          <p>
+            {moved.join(", ")} {moved.length === 1 ? "shows" : "show"} in the Record pane while the
+            table is narrow.
+          </p>
+        )}
+        {hidden.map((note) => (
+          <p key={note}>{note}. Show it again from Display › Columns.</p>
+        ))}
+      </div>
+    </details>
   );
 }
 

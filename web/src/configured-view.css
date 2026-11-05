@@ -50,8 +50,36 @@
   font-variant-numeric: tabular-nums;
 }
 
-.view-header__count:empty {
+.view-header__count:empty:not([data-fallback]) {
   display: none;
+}
+
+.view-header__count[data-fallback]:empty::before {
+  content: attr(data-fallback);
+}
+
+.view-header__about-info {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: help;
+}
+
+.view-header__about-info:hover {
+  color: var(--text-muted);
+}
+
+.view-header__about-info:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .view-header__about {
@@ -190,6 +218,7 @@
 /* A narrow header drops its least useful text before anything wraps or scrolls. */
 @container view-header (max-width: 760px) {
   .view-header__about,
+  .view-header__about-info,
   .view-header__fact:not(.view-header__issues),
   .configured-view__find kbd {
     display: none;
@@ -630,8 +659,71 @@
   text-decoration: underline;
 }
 
-.configured-view__moved-columns {
+/* Columns the table leaves out: a compact summary that opens upward into a
+   short list naming each column and why. */
+.configured-view__column-notes {
+  position: relative;
+  flex: none;
+}
+
+.configured-view__column-notes > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+
+.configured-view__column-notes > summary::-webkit-details-marker {
+  display: none;
+}
+
+.configured-view__column-notes > summary::after {
+  content: "";
+  display: inline-block;
+  vertical-align: -3px;
+  color: var(--text-faint);
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--chevron-mask) center / 16px no-repeat;
+  transform: rotate(-90deg);
+}
+
+.configured-view__column-notes[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+.configured-view__column-notes > summary:hover {
+  color: var(--text);
+}
+
+.configured-view__column-notes-body {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 8px);
+  left: -10px;
+  width: max-content;
+  max-width: 360px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.configured-view__column-notes-body p {
+  margin: 0;
+}
+
+.configured-view__column-notes-body p + p {
+  margin-top: 6px;
 }
 
 .configured-view__status {
@@ -798,13 +890,32 @@
   background: var(--surface-sunk);
 }
 
-/* Selection takes the chrome tint, so a selected row never reads as an error. */
-.configured-view__row.is-selected td {
-  background: var(--selection);
+/* Selection takes the chrome tint, so a selected row never reads as an error.
+   It sits a step deeper than hover, so the two never read alike. */
+.configured-view__row.is-selected td,
+.configured-view__row.is-selected:hover td {
+  background: color-mix(in srgb, var(--selection-edge) 12%, var(--surface));
 }
 
+/* The edge sits 2px inside the panel so it never merges with the dark
+   sidebar beside it; chrome ink on the tinted fill clears 3:1 in both themes. */
 .configured-view__row.is-selected td:first-child {
-  box-shadow: inset 3px 0 0 var(--selection-edge);
+  box-shadow:
+    inset 2px 0 0 color-mix(in srgb, var(--selection-edge) 12%, var(--surface)),
+    inset 5px 0 0 var(--selection-edge);
+}
+
+/* The footer's notices stay clear of an overlaid record pane. */
+.notes-shell__frame:has(.notes-right-rail.is-overlay) .configured-view__footer {
+  padding-right: calc(min(var(--pane-width), 100%) + var(--sp-5));
+}
+
+/* The overlaid record pane lifts off the table it covers. */
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view)
+  .notes-right-rail.is-overlay {
+  box-shadow:
+    -1px 0 0 var(--border-strong),
+    -12px 0 28px -6px light-dark(rgba(42, 39, 36, 0.22), rgba(0, 0, 0, 0.6));
 }
 
 /* One ring around the row, not a box around every cell. */
@@ -831,7 +942,7 @@
   gap: var(--sp-2);
   width: 100%;
   height: 36px;
-  padding: 0 10px 0 calc(13px + (var(--group-depth, 0) * var(--sp-5)));
+  padding: 0 10px 0 calc(8px + (var(--group-depth, 0) * var(--sp-5)));
   border: 0;
   background: transparent;
   color: var(--text);
@@ -839,17 +950,54 @@
   cursor: pointer;
 }
 
-.configured-view__group-caret {
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--text-faint);
+/* The one disclosure chevron: 16px, right when closed, down when open. Its
+   control is the whole group header, or a 24px button where it stands alone. */
+.configured-view__disclosure-icon {
+  flex: none;
+  color: var(--text-muted);
   transition: transform 180ms var(--ease);
 }
 
-.configured-view__group-toggle[aria-expanded="true"] .configured-view__group-caret {
+[aria-expanded="true"] > .configured-view__disclosure-icon {
   transform: rotate(90deg);
+}
+
+.configured-view__disclosure {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.configured-view__disclosure:hover {
+  background: var(--bg-tint);
+}
+
+.configured-view__disclosure:hover > .configured-view__disclosure-icon {
+  color: var(--text);
+}
+
+.configured-view__disclosure:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .configured-view__disclosure-icon {
+    transition: none;
+  }
+}
+
+.configured-view__group-toggle .status-mark,
+.configured-view__group-toggle .configured-view__group-label,
+.configured-view__card-section-header .status-mark {
+  font-weight: inherit;
 }
 
 .configured-view__group-count {
@@ -889,8 +1037,69 @@
   cursor: pointer;
 }
 
-.configured-view__title-button {
+/* Overdue: warning ink with a mark, beside the due date. */
+.configured-view__overdue {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: var(--sp-2);
+  color: var(--warning-ink);
+  font: 500 var(--fs-xs) var(--font-sans);
+}
+
+/* A source note is a secondary link column: muted ink, underlined on hover,
+   so titles retain the emphasis. */
+.configured-view__table .configured-view__source-link a.markdown-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.configured-view__table .configured-view__source-link a.markdown-link:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+}
+
+/* A source column names the note by title; its path is the tooltip. */
+.configured-view__table th.configured-view__cell--source {
+  width: 220px;
+}
+
+.configured-view__table td.configured-view__cell--source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A record title is a quiet link: ink, underlined on hover and focus. */
+.configured-view__title-button,
+.configured-view__table [data-row-title] {
   font-weight: 500;
+}
+
+.configured-view__table [data-row-title]:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* A one-line table lets a long title wrap to a second line before it cuts,
+   so the row grows to 56px instead of hiding the end of the title: 8px above
+   and below two 20px lines, the same 8px that centres a 36px one-line row. */
+.configured-view__table:not(.configured-view__table--two-line) .configured-view__row td {
+  padding-block: 8px;
+  line-height: 20px;
+}
+
+.configured-view__table:not(.configured-view__table--two-line) [data-row-title] {
+  display: -webkit-box;
+  /* A button ignores -webkit-box, so the height caps it at two lines too. */
+  max-height: 40px;
+  line-height: 20px;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .configured-view__linked-cell {
@@ -924,8 +1133,16 @@
   width: 176px;
 }
 
+/* A medium date ("May 31, 2026") is about 94px of tabular figures, plus 20px
+   of padding. */
 .configured-view__table th.configured-view__cell--date {
-  width: 104px;
+  width: 116px;
+}
+
+/* A relative age ("3h", "30d") needs only a short column; 92px keeps
+   "Changed" and its sort arrow whole. */
+.configured-view__table th.configured-view__cell--age {
+  width: 92px;
 }
 
 .configured-view__table th.configured-view__cell--numeric,
@@ -935,17 +1152,30 @@
 }
 
 .configured-view__table th.configured-view__cell--relation {
-  width: 180px;
+  width: 220px;
+}
+
+/* One person's name, such as an assignee: narrower than a linked title. */
+.configured-view__table th.configured-view__cell--person {
+  width: 160px;
+}
+
+/* A due date keeps room for the "Overdue" label beside it. */
+.configured-view__table th.configured-view__cell--deadline {
+  width: 188px;
 }
 
 .configured-view__table thead th.configured-view__cell--primary {
   width: auto;
 }
 
-.configured-view__cell--identifier,
+/* Identifiers read in mono; dates and numbers in Inter with tabular figures. */
+.configured-view__cell--identifier {
+  font-family: var(--font-mono);
+}
+
 .configured-view__cell--date,
 .configured-view__cell--numeric {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1026,8 +1256,8 @@
 }
 
 .status-mark--success .status-mark__shape {
-  border-color: var(--success-ink);
-  background: var(--success-ink);
+  border-color: var(--success);
+  background: var(--success);
 }
 
 .status-mark--warning .status-mark__shape {
@@ -1035,13 +1265,6 @@
   border-radius: 0;
   background: var(--warning);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
-}
-
-.status-mark--risk .status-mark__shape {
-  border: 0;
-  border-radius: 0;
-  background: var(--accent);
-  transform: rotate(45deg) scale(0.78);
 }
 
 .status-mark--muted .status-mark__shape {
@@ -1103,6 +1326,37 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* An empty cell says so with a muted dash rather than a blank. */
+.configured-view__table
+  td:not(.configured-view__check-cell, .configured-view__issue-cell):empty::before,
+.configured-view__table .configured-view__scalar-cell:empty::before,
+.configured-view__table .configured-view__relation-display:empty::before {
+  color: var(--text-faint);
+  content: "—";
+  opacity: 0.55;
+}
+
+/* Relation titles in dense layouts are quiet links: teal ink, underlined only
+   on hover and keyboard focus. */
+:is(.configured-view, .view-record) [data-configured-relation-link] a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+:is(.configured-view, .view-record) [data-configured-relation-link] a:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* People are names, not records to browse: ink, still openable on hover. */
+.configured-view__relation-value--person,
+:is(.configured-view, .view-record)
+  .configured-view__relation-value--person
+  [data-configured-relation-link]
+  a {
+  color: var(--text);
 }
 
 .configured-view__relation-edit {
@@ -1205,9 +1459,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   gap: var(--sp-3);
 }
 
+/* Headers top-align, and every expanded header reserves the same two lines
+   (title, then staleness), so titles share one baseline across columns. */
 .configured-view__board-columns {
   position: sticky;
-  align-items: end;
+  align-items: start;
   z-index: 2;
   top: 0;
   padding-top: var(--sp-3);
@@ -1251,12 +1507,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   cursor: pointer;
 }
 
-.configured-view__board-lane-header
-  button[aria-expanded="false"]
-  .configured-view__card-section-caret {
-  transform: none;
-}
-
 .configured-view__board-lane-header .configured-view__board-count {
   margin-left: var(--sp-1);
 }
@@ -1265,7 +1515,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--r-md);
   background: var(--surface-sunk);
   transition:
@@ -1279,57 +1529,56 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   background: var(--bg-tint);
 }
 
+/* A column header reads "Active 14 ‹" as one unit, the collapse chevron right
+   after the count, with any staleness on its own muted line below. */
 .configured-view__board-column-header {
-  display: flex;
+  display: grid;
+  grid-template-rows: 20px 18px;
   align-items: center;
-  gap: var(--sp-2);
   min-width: 0;
-  min-height: 30px;
   padding: 4px 2px 6px;
   background: var(--bg);
   font-size: var(--fs-sm);
   font-weight: 600;
 }
 
-.configured-view__board-column-header > button {
-  width: 20px;
-  height: 20px;
-  margin-left: 2px;
-  overflow: hidden;
-  border: 0;
-  background: transparent;
-  color: transparent;
-  cursor: pointer;
+.configured-view__board-column-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
-.configured-view__board-column-header > button::before {
-  content: "‹";
-  display: block;
-  color: var(--text-faint);
-  font-size: 17px;
-  line-height: 18px;
+.configured-view__board-column-title .configured-view__board-count {
+  margin-left: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .configured-view__board-count {
   margin-left: auto;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
-.configured-view__board-stale {
-  padding: 0 4px;
-  border-radius: var(--r-sm);
-  background: var(--warning-soft);
-  color: var(--warning-ink);
-  font: 500 var(--fs-xs) var(--font-mono);
+/* Unchanged records are a quiet fact, not a warning: muted text with a clock. */
+.configured-view__board-stale,
+.configured-brief__stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font: 500 var(--fs-xs) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.configured-view__board-stale + .configured-view__board-count {
-  margin-left: 0;
-}
-
-.configured-view__board-column-header .status-mark + .configured-view__board-stale {
-  margin-left: auto;
+.configured-view__board-stale svg,
+.configured-brief__stale svg {
+  flex: none;
 }
 
 .configured-view__board-stack {
@@ -1339,20 +1588,21 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   padding: var(--sp-2);
 }
 
-/* A strip is a value narrowed to its mark: collapsed with a count, or empty. */
+/* A strip is a value narrowed to a compact horizontal header: its mark and
+   label, its count, and a chevron when collapsed. Nothing is rotated. */
 .configured-view__board-strip {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  align-self: end;
-  gap: 2px;
-  width: 34px;
-  margin-bottom: 4px;
-  padding: 3px 0;
+  align-self: start;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 var(--sp-2);
   border: 1px solid var(--border);
-  border-radius: var(--r);
+  border-radius: var(--r-md);
   background: var(--surface-sunk);
   color: var(--text);
+  font: 600 var(--fs-sm) var(--font-sans);
   cursor: pointer;
   transition:
     border-color 180ms var(--ease),
@@ -1362,6 +1612,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__board-strip.is-empty {
   border-color: transparent;
   background: transparent;
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -1370,40 +1621,33 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   background: var(--bg-tint);
 }
 
-/* The strip cell below names the value; the header keeps its mark and count. */
+.configured-view__board-strip .status-mark {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: inherit;
+}
+
 .configured-view__board-strip .status-mark__label {
-  display: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.configured-view__board-strip > span:last-child {
-  color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
-}
-
-.configured-view__board-strip-cell {
-  min-height: 48px;
-  padding: 8px 0;
-  border: 1px solid var(--border-faint);
-  border-radius: var(--r-md);
-  background: var(--surface-sunk);
-}
-
-.configured-view__board-strip-cell.is-empty {
-  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--border-faint) 5px 6px);
-}
-
-.configured-view__board-strip-label {
-  display: block;
-  margin: 0 auto;
+.configured-view__board-strip .configured-view__board-count {
+  margin-left: 0;
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  writing-mode: vertical-rl;
 }
 
-/* Only the first lane names its strips. */
-.configured-view__board-lane:not(.configured-view__board-columns + .configured-view__board-lane)
-  .configured-view__board-strip-label {
-  display: none;
+.configured-view__board-strip svg {
+  flex: none;
+  color: var(--text-faint);
+}
+
+/* Below a strip, an empty drop zone; it outlines only while a card drags over it. */
+.configured-view__board-strip-cell {
+  min-height: 48px;
+  border: 1px dashed transparent;
+  border-radius: var(--r-md);
 }
 
 .configured-view__board-drop-slot {
@@ -1423,7 +1667,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   margin: 0;
   padding: 10px;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-view__board-warning {
@@ -1432,6 +1677,50 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card--board {
   padding: 7px 9px 8px;
+}
+
+/* Every board card keeps its age in the top-right corner, beside the title:
+   compact cards through their meta, full cards through the corner slot. */
+.configured-card--board:has(> .configured-brief__corner) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--sp-3);
+}
+
+.configured-card--board:has(> .configured-brief__corner) > * {
+  grid-column: 1 / -1;
+}
+
+.configured-card--board:has(> .configured-brief__corner) > .configured-card__title {
+  grid-column: 1;
+  white-space: normal;
+}
+
+.configured-card--board > .configured-brief__corner {
+  display: inline-flex;
+  grid-column: 2;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.configured-brief__corner:empty {
+  display: none;
+}
+
+/* "Governing specs" names the linked records, so their status marks never
+   read as the card's own status. */
+.configured-brief__relation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.configured-brief__relation-label {
+  color: var(--text-faint);
+  font: 500 var(--fs-xs) var(--font-sans);
+  white-space: nowrap;
 }
 
 .configured-card--board .configured-card__preview {
@@ -1521,11 +1810,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 var(--sp-5) 10px;
+  padding: 0 22px 10px;
 }
 
 .configured-view__card-section-header {
-  margin: 0 0 var(--sp-3);
+  margin: 0 0 12px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1539,30 +1828,16 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border: 0;
   background: transparent;
   color: var(--text);
-  font: 700 var(--fs-base)/1.2 var(--font-sans);
+  font: 600 var(--fs-base)/1.2 var(--font-sans);
   text-align: left;
   cursor: pointer;
 }
 
-.configured-view__card-section-caret {
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--text-faint);
-  transform: rotate(90deg);
-}
-
-.configured-view__card-section-header
-  button[aria-expanded="false"]
-  .configured-view__card-section-caret {
-  transform: none;
-}
-
+/* The count follows its label, as in table group headers ("Active 14"). */
 .configured-view__card-section-count {
-  margin-left: auto;
-  color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  color: var(--text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-view__card-subheader {
@@ -1575,6 +1850,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-items: start;
   gap: var(--sp-3);
 }
 
@@ -1637,7 +1913,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-card__staged {
   overflow: hidden;
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1649,20 +1925,23 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 .configured-card__title {
+  color: var(--text);
   overflow: hidden;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
-  font: 600 var(--fs-base)/1.3 var(--font-sans);
+  font: 500 var(--fs-base)/1.3 var(--font-sans);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
 
-.configured-card__title:hover {
-  color: var(--link);
+/* A card title is a quiet link: ink, underlined on hover and focus. */
+.configured-card__title:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .configured-card__preview {
@@ -1714,7 +1993,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border-radius: var(--r-sm);
   background: var(--warning-soft);
   color: var(--warning-ink);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 
@@ -1738,8 +2018,31 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   align-items: center;
 }
 
+/* Footer facts read as one strip: "52 rows · 1 group collapsed · 2 columns in Record". */
 .configured-view__footer-status {
-  gap: var(--sp-5);
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.configured-view__footer-status > span + span::before,
+.configured-view__footer-status > * + .configured-view__column-notes > summary::before {
+  margin-right: var(--sp-2);
+  color: var(--text-faint);
+  content: "·";
+}
+
+/* Notices stay one line each; when the footer is short of room (an overlaid
+   record pane), the longer ones cut with an ellipsis instead of wrapping. */
+.configured-view__footer-status > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.configured-view__footer-status > span:first-child {
+  flex: none;
 }
 
 .configured-view__staged-count {
@@ -1848,13 +2151,20 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 /* Profile-driven record content: board cards and record briefs (SPEC-0112). */
 
+/* A compact card is the same card without its summary and facts: the same
+   title, with its muted meta (type, age) beside it instead of below. */
 .configured-card--compact {
-  gap: 2px;
-  padding: 4px 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--sp-3);
+}
+
+.configured-card--compact > :not(.configured-card__title, .configured-brief__meta) {
+  grid-column: 1 / -1;
 }
 
 .configured-card--compact .configured-card__title {
-  font-size: var(--fs-sm);
+  white-space: normal;
 }
 
 .configured-brief__summary,
@@ -1874,7 +2184,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-brief__summary--brief {
   font-size: var(--fs-base);
-  -webkit-line-clamp: 6;
+  -webkit-line-clamp: 3;
 }
 
 .configured-brief__key-text {
@@ -1918,20 +2228,14 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-brief__lanes,
 .configured-brief__more {
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-brief__count b {
   color: var(--text);
-  font: 500 var(--fs-xs) var(--font-mono);
-}
-
-.configured-brief__stale {
-  padding: 0 4px;
-  border-radius: var(--r-sm);
-  background: var(--warning-soft);
-  color: var(--warning-ink);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-brief__person {
@@ -1942,7 +2246,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   border: 1px solid var(--border-strong);
   border-radius: 50%;
   color: var(--text-muted);
-  font: 600 var(--fs-xs) var(--font-mono);
+  font: 600 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
 
@@ -1954,13 +2259,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-width: 0;
 }
 
+/* Relations read as plain teal note links, not boxed chips. */
 .configured-brief__chip {
   max-width: 18em;
   overflow: hidden;
-  padding: 0 5px;
-  border-radius: var(--r-sm);
-  background: var(--surface-sunk);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2050,15 +2353,10 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   font-size: var(--fs-xs);
 }
 
-.configured-view__card-grid--briefs {
-  display: block;
-  columns: 320px;
-  column-gap: var(--sp-3);
-}
-
+/* Briefs sit in aligned rows, like plain cards: tops line up across a row
+   and a clamped summary keeps rows even. */
 .configured-view__card-grid--briefs > .configured-card {
-  margin-bottom: var(--sp-3);
-  break-inside: avoid;
+  align-content: start;
 }
 
 .configured-card--brief {
@@ -2069,6 +2367,33 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-card--brief .configured-card__title {
   font-size: var(--fs-md);
   white-space: normal;
+}
+
+/* Grid briefs lead with the title (14/500, up to two lines), then one muted
+   13px row with the type at left and the age at right. */
+.configured-card--cards.configured-card--brief .configured-card__title {
+  display: grid;
+  align-content: start;
+  order: -1;
+  margin-bottom: 3px;
+  font-size: var(--fs-base);
+}
+
+.configured-card--cards.configured-card--brief .configured-card__title-text,
+.configured-card--compact .configured-card__title-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.configured-card--cards.configured-card--brief .configured-brief__header,
+.configured-card--cards.configured-card--brief .configured-brief__type {
+  font-size: var(--fs-sm);
+}
+
+.configured-card--cards.configured-card--brief .configured-brief__type {
+  color: var(--text-muted);
 }
 
 /* Save view (SPEC-0112) */
@@ -2340,13 +2665,26 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   cursor: pointer;
 }
 
+/* Every row reveals its checkbox the same way: on hover or keyboard focus, or
+   for all rows once any is checked. Selection alone never shows it. */
 .configured-view__row:hover .configured-view__check-cell input,
-.configured-view__row:focus-within .configured-view__check-cell input,
-.configured-view__row.is-selected .configured-view__check-cell input,
+.configured-view__row:focus-visible .configured-view__check-cell input,
 .configured-view__table thead:hover .configured-view__check-cell input,
 .configured-view__table-wrap.has-checked .configured-view__check-cell input,
 .configured-view__check-cell input:focus-visible {
   opacity: 1;
+}
+
+/* A selected row shows only its edge and tint: the record pane already
+   describes it, so hover chrome (checkbox, edit pencil, drag handle) stays
+   hidden unless a check is in progress or the control has keyboard focus. */
+.configured-view__table-wrap:not(.has-checked)
+  .configured-view__row.is-selected:hover
+  .configured-view__check-cell
+  input:not(:focus-visible),
+.configured-view__row.is-selected:hover .configured-view__relation-edit:not(:focus-visible),
+.configured-view__row.is-selected .configured-view__drag-handle:not(:focus-visible) {
+  opacity: 0;
 }
 
 .configured-view__row.is-checked td {
@@ -2362,10 +2700,27 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   color: var(--text-faint);
 }
 
-.configured-view__sort-arrow sub {
-  margin-left: 1px;
-  font: 500 var(--fs-xs) var(--font-mono);
-  vertical-align: baseline;
+/* A multi-key sort numbers each key; Display lists the full order. */
+.configured-view__sort-rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--surface-sunk);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text-muted);
+  font: 600 11px/1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  vertical-align: 1px;
+}
+
+.configured-view__sort-then {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .configured-view__column-resize {
@@ -2408,7 +2763,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 .configured-view__bulk-count b {
-  font: 600 var(--fs-sm) var(--font-mono);
+  font: 600 var(--fs-sm) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .configured-view__bulk-bar select,
@@ -2454,18 +2810,69 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .view-record__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
   min-width: 0;
 }
 
-.view-record__path {
-  flex: 1;
+/* The record's stable ID in 12px mono under the title, with the file path
+   behind a compact copy control at the line's end. */
+.view-record__id {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 22px;
+  margin: 2px 0 0;
+}
+
+.view-record__id code {
   min-width: 0;
   overflow: hidden;
-  color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  color: var(--text-muted);
+  font: 500 var(--fs-xs) / 1.4 var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.view-record__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-xs) var(--font-sans);
+  cursor: pointer;
+}
+
+.view-record__copy:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.view-record__copy:focus-visible,
+.view-record__more-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.middle-truncate {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.middle-truncate__head {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.middle-truncate__tail {
+  flex: none;
 }
 
 .view-record__title {
@@ -2476,9 +2883,36 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   line-height: 1.25;
 }
 
+/* Six lines, then a separate disclosure row. */
+.view-record__summary.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+.view-record__more-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.view-record__more-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .view-record__summary {
   margin: var(--sp-2) 0 0;
-  color: var(--text-muted);
+  color: var(--text);
   line-height: 1.45;
 }
 
@@ -2486,9 +2920,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   margin: var(--sp-4) 0 0;
 }
 
+/* 120px labels fit two-word names such as "Governing specs" on one line. The
+   rail-scoped selector outranks the shell's older 104px column. */
 .view-record__fields > div {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
   align-items: center;
   gap: var(--sp-3);
   min-height: 30px;
@@ -2508,16 +2944,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   white-space: nowrap;
 }
 
-/* An empty field still says so, and shows its edit affordance without a hover. */
-.view-record__fields
-  dd:has(.configured-view__relation-display:empty)
-  .configured-view__relation-edit {
-  opacity: 1;
-}
-
+/* An empty field says "Not set"; its edit affordance waits for hover or focus. */
+.view-record__fields .configured-view__relation-display:empty::before,
 .view-record__fields dd:empty::before {
   color: var(--text-faint);
-  content: "—";
+  content: "Not set";
 }
 
 .view-record__reverse {
@@ -2536,7 +2967,8 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .view-record__count {
   color: var(--text-faint);
-  font: 500 var(--fs-xs) var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .view-record__reverse ul {
@@ -2596,4 +3028,46 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   margin: 0;
   color: var(--text-faint);
   font-size: var(--fs-xs);
+}
+
+/* The default view in the custom-view menu: a quiet word, not a dot. */
+.view-selector__menu .view-selector__default {
+  margin-left: auto;
+  padding-left: var(--sp-3);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+/* An age ("3h", "30d") is a reading, not evidence: sans with tabular figures. */
+.relative-age {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Relation previews inherit the shared secondary-link treatment. */
+.link-secondary a.markdown-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.link-secondary a.markdown-link:is(:hover, :focus-visible) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Empty board tracks remain visible as drop targets. */
+.configured-view__board-strip-cell.is-empty {
+  min-height: 160px;
+  border-color: var(--border);
+  background: var(--surface-sunk);
+}
+
+.configured-view__table td.is-repeat,
+.configured-view__table td.is-repeat :is(a, button, .configured-cell-text) {
+  color: var(--text-faint);
+}
+
+.view-record__context .ontology-sidebar-context__identity {
+  display: none;
 }

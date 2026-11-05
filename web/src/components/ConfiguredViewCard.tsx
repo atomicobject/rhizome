@@ -206,7 +206,7 @@ export function ConfiguredViewCard({
         }}
         disabled={busy}
       >
-        {title}
+        <span className="configured-card__title-text">{title}</span>
       </button>
       {titlePreview.preview}
       {custom && body}

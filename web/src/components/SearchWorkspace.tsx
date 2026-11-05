@@ -1,8 +1,13 @@
+import { DisclosureChevron } from "./DisclosureChevron";
+import { InfoTip } from "./InfoTip";
+import { MiddleTruncate } from "./MiddleTruncate";
+import { noteExcerptParts } from "./searchExcerpt";
 import { publicTypeName } from "../lib/typeNames";
 import { humanizeName } from "../lib/labels";
 import {
   useEffect,
   useEffectEvent,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -66,8 +71,87 @@ function excerptFor(match: WorkspaceSearchMatch): string | null {
   return value.trim() ? value.trim() : null;
 }
 
+// A code preview joins a symbol's signature and its doc comment with " — ".
+// The signature keeps its source lines; the comment reads as one paragraph.
+function codeExcerptParts(excerpt: string) {
+  const at = excerpt.indexOf(" — ");
+
+  if (at < 0) return { signature: excerpt, doc: "" };
+
+  return { signature: excerpt.slice(0, at), doc: excerpt.slice(at + 3).replace(/\s+/g, " ") };
+}
+
+// What the match is, from the result itself: a code symbol's kind or a note
+// section. The payload carries no per-match retrieval evidence.
+function matchedAs(match: WorkspaceSearchMatch): string {
+  if (match.type === "code") return match.kind ? `${humanizeName(match.kind)} symbol` : "";
+
+  return match.nodeKind?.toUpperCase() === "SECTION" ? "Section" : "";
+}
+
+function SearchBanner({
+  tone = "status",
+  details = [],
+  action,
+  children,
+}: {
+  tone?: "status" | "alert";
+  details?: string[];
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
+
+  return (
+    <div className={`search-workspace__banner is-${tone}`}>
+      <div className="search-workspace__banner-row">
+        <svg
+          className="search-workspace__banner-mark"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        >
+          <path d="M8 2.5 14 13H2L8 2.5Z" />
+          <path d="M8 6.5v3" strokeLinecap="round" />
+          <circle cx="8" cy="11.25" r="0.5" fill="currentColor" stroke="none" />
+        </svg>
+        <span className="search-workspace__banner-text" role={tone}>
+          {children}
+        </span>
+        {action}
+        {details.length > 0 ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={detailsId}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? "Hide details" : "Details"}
+          </button>
+        ) : null}
+      </div>
+      {details.length > 0 ? (
+        <ul id={detailsId} className="search-workspace__banner-details" hidden={!open}>
+          {details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function resultLabel(match: WorkspaceSearchMatch): string {
   return match.title || match.symbol || match.fqn || match.path || "Untitled result";
+}
+
+/** A provenance path that gives way in the middle, keeping its file name and line. */
+function SourcePath({ path }: { path: string }) {
+  return <MiddleTruncate text={path} tail={path.length - path.lastIndexOf("/") - 1} />;
 }
 
 function sourceLabel(match: WorkspaceSearchMatch): string {
@@ -223,12 +307,12 @@ function FolderNotesWorkspace({
       }}
     >
       <header className="search-workspace__header">
-        <div>
+        <div className="search-workspace__title-row">
           <h1>Notes in {folderLabel(folder)}</h1>
           {notesQuery.data ? (
-            <p className="search-workspace__query">
+            <span className="search-workspace__count">
               {notes.length} {notes.length === 1 ? "note" : "notes"}
-            </p>
+            </span>
           ) : null}
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
@@ -288,7 +372,9 @@ function FolderNotesWorkspace({
                 <NoteResultLink target={publicOntologyListItemRef(note)} onOpenNote={onOpenNote}>
                   {note.title || note.path}
                 </NoteResultLink>
-                <div className="search-workspace__result-source">{note.path}</div>
+                <div className="search-workspace__result-source">
+                  <SourcePath path={note.path} />
+                </div>
               </article>
             </li>
           ))}
@@ -365,6 +451,26 @@ function RankedSearchWorkspace({
   );
 
   const incomplete = degradedLanes.length > 0 || availabilityWarnings.length > 0;
+
+  // One banner: a summary line when sources are missing, with each source's
+  // own message behind its disclosure.
+  // A single missing source is named by its warning's first clause ("Code
+  // embeddings are unavailable"); the full message stays behind Details.
+  const missingSources = availabilityWarnings.flatMap((warning) =>
+    warning.message ? [warning.message.split(/[;.]/, 1)[0].trim()] : [],
+  );
+
+  const notices = [
+    ...(incomplete && results.length > 0
+      ? [
+          missingSources.length === 1 && degradedLanes.length === 0
+            ? `${missingSources[0]}. Showing the usable results.`
+            : "Some search sources are unavailable. Showing the usable results.",
+        ]
+      : []),
+    ...displayWarnings.flatMap((warning) => (warning.message ? [warning.message] : [])),
+  ];
+
   const backgroundError = query.isError && !query.isFetchNextPageError && results.length > 0;
   const noteTypes = types.filter((type) => type.role === "note");
 
@@ -375,11 +481,11 @@ function RankedSearchWorkspace({
   // first page rather than whichever continuation page happens to be loaded last.
   const firstPage = pages[0];
 
-  const statusSegments: { text: string; title?: string }[] = [
+  const statusSegments: { text: string; info?: string }[] = [
     {
       text:
         total !== null
-          ? `${results.length} of ${total} ranked`
+          ? `Showing ${results.length} of ${total} results`
           : `${results.length} results loaded`,
     },
   ];
@@ -390,9 +496,11 @@ function RankedSearchWorkspace({
   const confidenceLevel = firstPage?.confidence?.level;
 
   if (confidenceLevel) {
+    const reason = firstPage?.confidence?.reason;
+
     statusSegments.push({
-      text: `Confidence ${confidenceLevel}`,
-      title: firstPage?.confidence?.reason || undefined,
+      text: `${confidenceLevel[0].toUpperCase()}${confidenceLevel.slice(1)} confidence`,
+      info: `Confidence is how much independent evidence supports the top results.${reason ? ` Here: ${reason}.` : ""}`,
     });
   }
 
@@ -420,28 +528,32 @@ function RankedSearchWorkspace({
       }}
     >
       <header className="search-workspace__header">
-        <div>
+        <div className="search-workspace__title-row">
           <h1>Search results</h1>
-          <p className="search-workspace__query">{tab.query}</p>
+          <p className="search-workspace__query" title={tab.query}>
+            for “{tab.query}”
+          </p>
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
-          {(["all", "notes", "code"] as const).map((scope) => (
-            <button
-              key={scope}
-              type="button"
-              className={tab.filters.scope === scope ? "is-active" : undefined}
-              aria-pressed={tab.filters.scope === scope}
-              onClick={() =>
-                onRefineSearch(tab.id, {
-                  ...tab.filters,
-                  scope,
-                  noteType: scope === "notes" ? tab.filters.noteType : null,
-                })
-              }
-            >
-              {scope === "all" ? "All" : scope === "notes" ? "Notes" : "Code"}
-            </button>
-          ))}
+          <div className="segmented" role="group" aria-label="Search scope">
+            {(["all", "notes", "code"] as const).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                className={tab.filters.scope === scope ? "is-active" : undefined}
+                aria-pressed={tab.filters.scope === scope}
+                onClick={() =>
+                  onRefineSearch(tab.id, {
+                    ...tab.filters,
+                    scope,
+                    noteType: scope === "notes" ? tab.filters.noteType : null,
+                  })
+                }
+              >
+                {scope === "all" ? "All" : scope === "notes" ? "Notes" : "Code"}
+              </button>
+            ))}
+          </div>
           {noteTypes.length > 0 && tab.filters.scope !== "code" ? (
             <label>
               <span>Type</span>
@@ -478,34 +590,34 @@ function RankedSearchWorkspace({
             />
           </label>
           {hasFilters ? (
-            <button type="button" onClick={() => onRefineSearch(tab.id, normalizeSearchFilters())}>
+            <button
+              type="button"
+              className="search-workspace__clear"
+              onClick={() => onRefineSearch(tab.id, normalizeSearchFilters())}
+            >
               Clear filters
             </button>
           ) : null}
         </div>
       </header>
 
-      {!query.isPending &&
-      (displayWarnings.length > 0 || (incomplete && results.length > 0) || backgroundError) ? (
+      {!query.isPending && (notices.length > 0 || backgroundError) ? (
         <div className="search-workspace__warnings" aria-label="Search warnings">
-          {incomplete && results.length > 0 ? (
-            <div className="search-workspace__warning" role="status">
-              Some search sources are unavailable. Showing the usable results.
-            </div>
-          ) : null}
           {backgroundError ? (
-            <div className="search-workspace__warning" role="alert">
+            <SearchBanner
+              tone="alert"
+              action={
+                <button type="button" onClick={() => void query.refetch()}>
+                  Retry refresh
+                </button>
+              }
+            >
               Search refresh failed. The previous results remain visible.
-              <button type="button" onClick={() => void query.refetch()}>
-                Retry refresh
-              </button>
-            </div>
+            </SearchBanner>
           ) : null}
-          {displayWarnings.map((warning) => (
-            <div className="search-workspace__warning" key={warning.code} role="status">
-              {warning.message}
-            </div>
-          ))}
+          {notices.length > 0 ? (
+            <SearchBanner details={notices.slice(1)}>{notices[0]}</SearchBanner>
+          ) : null}
         </div>
       ) : null}
       {query.isError && results.length === 0 ? (
@@ -539,8 +651,11 @@ function RankedSearchWorkspace({
           <div className="search-workspace__meta">
             <span className="search-workspace__status" aria-label="Search status">
               {statusSegments.map((segment) => (
-                <span key={segment.text} title={segment.title}>
+                <span key={segment.text}>
                   {segment.text}
+                  {segment.info ? (
+                    <InfoTip label="About search confidence">{segment.info}</InfoTip>
+                  ) : null}
                 </span>
               ))}
             </span>
@@ -559,6 +674,9 @@ function RankedSearchWorkspace({
                       {publicTypeName(match.noteType)
                         ? ` · ${humanizeName(publicTypeName(match.noteType))}`
                         : ""}
+                      {matchedAs(match) ? (
+                        <span className="search-workspace__result-why">{matchedAs(match)}</span>
+                      ) : null}
                     </div>
                     {isNoteMatch(match) ? (
                       <NoteResultLink target={noteTargetForMatch(match)} onOpenNote={onOpenNote}>
@@ -574,13 +692,31 @@ function RankedSearchWorkspace({
                       </button>
                     )}
                     <div className="search-workspace__result-source">
-                      {sourceLabel(match)}
-                      {line ? `:${line}` : ""}
-                      {match.heading ? ` · ${match.heading}` : ""}
+                      <SourcePath path={`${sourceLabel(match)}${line ? `:${line}` : ""}`} />
+                      {match.heading && match.heading !== resultLabel(match) ? (
+                        <span className="search-workspace__result-heading" title={match.heading}>
+                          {match.heading}
+                        </span>
+                      ) : null}
                     </div>
-                    <p className={excerpt ? undefined : "is-missing"}>
-                      {excerpt ? highlightLiteral(excerpt, tab.query) : "Excerpt unavailable."}
-                    </p>
+                    {excerpt && match.type === "code" ? (
+                      <CodeExcerpt excerpt={excerpt} query={tab.query} />
+                    ) : (
+                      <p className={excerpt ? undefined : "is-missing"}>
+                        {excerpt
+                          ? noteExcerptParts(excerpt).map((part, partIndex) =>
+                              part.code ? (
+                                // oxlint-disable-next-line react/no-array-index-key -- parts have no identity beyond order
+                                <code key={partIndex}>
+                                  {highlightLiteral(part.text, tab.query)}
+                                </code>
+                              ) : (
+                                highlightLiteral(part.text, tab.query)
+                              ),
+                            )
+                          : "Excerpt unavailable."}
+                      </p>
+                    )}
                   </article>
                 </li>
               );
@@ -617,5 +753,31 @@ function RankedSearchWorkspace({
         </>
       )}
     </main>
+  );
+}
+
+function CodeExcerpt({ excerpt, query }: { excerpt: string; query: string }) {
+  const { signature, doc } = codeExcerptParts(excerpt);
+  const [expanded, setExpanded] = useState(false);
+  const lines = signature.split("\n");
+  const truncated = lines.length > 3;
+  const visible = truncated && !expanded ? lines.slice(0, 3).join("\n") : signature;
+
+  return (
+    <>
+      <pre className="search-workspace__code">{highlightLiteral(visible, query)}</pre>
+      {truncated && (
+        <button
+          type="button"
+          className="list-more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <DisclosureChevron open={expanded} />
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+      {doc && <p>{highlightLiteral(doc, query)}</p>}
+    </>
   );
 }

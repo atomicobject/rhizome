@@ -123,8 +123,9 @@ describe("OntologyTypeDetail", () => {
     expect(await screen.findByRole("heading", { name: "Typed relations" })).toBeVisible();
     expect(screen.getByRole("button", { name: /ReferenceDoc\[\]/ })).toBeVisible();
     expect(screen.getByRole("button", { name: /UserStory\[\]/ })).toBeVisible();
-    expect(screen.queryByText("requirements")).not.toBeNull();
-    expect(screen.queryByText("stories")).not.toBeNull();
+    // A field whose identifier only repeats its human label shows the label alone.
+    expect(screen.queryByText("Requirements")).not.toBeNull();
+    expect(screen.queryByText("Stories")).not.toBeNull();
 
     const exampleLink = screen.getByRole("link", { name: "Demo Spec" });
     expect(exampleLink).toHaveAttribute(

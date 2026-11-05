@@ -31,12 +31,17 @@ SELECTOR="$HOME/.config/rhizome/team-session.json"
 say() { printf '\n==> %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
+# Logout keeps the selector, so put back the previous one while it still names
+# the e2e origin; a selection made meanwhile is left alone.
+restore_selector() {
+	[ -f "$SELECTOR" ] && grep -qF "\"origin\":\"$ORIGIN\"" "$SELECTOR" || return 0
+	if [ -f "$WORK/selector.backup" ]; then cp "$WORK/selector.backup" "$SELECTOR"; else rm -f "$SELECTOR"; fi
+}
+
 cleanup() {
 	[ -d "$WORK/repo" ] && (cd "$WORK/repo" && RZM_SKIP_REPO_DELEGATE=1 "$RZM" stop >/dev/null 2>&1) || true
 	"$RZM" auth logout --server "$ORIGIN" --json >/dev/null 2>&1 || true
-	# Logout clears a selector naming the e2e origin; restore the previous one
-	# unless something else was selected meanwhile.
-	if [ -f "$WORK/selector.backup" ] && [ ! -f "$SELECTOR" ]; then cp "$WORK/selector.backup" "$SELECTOR"; fi
+	restore_selector
 	[ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null && wait "$SERVER_PID" 2>/dev/null || true
 	if [ -n "${TEAM_API_E2E_KEEP:-}" ]; then echo "kept $WORK"; return; fi
 	if command -v trash >/dev/null; then trash "$WORK"; else rm -rf "$WORK"; fi
@@ -133,6 +138,6 @@ if grep -rqE 'rzt_[ar]_|dev-member@' "$WORK/gateway/.rhizome/diagnostics"; then 
 
 say "Signing out"
 "$RZM" auth logout --server "$ORIGIN" --json
-if [ -f "$WORK/selector.backup" ] && [ ! -f "$SELECTOR" ]; then cp "$WORK/selector.backup" "$SELECTOR"; fi
+restore_selector
 echo
 echo "PASS: team API end-to-end"

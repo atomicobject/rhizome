@@ -8,4 +8,4 @@ source:
 mount:
   kind: group
   group: "*"
-  order: 1
+  order: 0

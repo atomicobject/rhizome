@@ -216,7 +216,7 @@ describe("TasksWorkspace local task drafts", () => {
 
     expect(screen.getByRole("group", { name: "Mode" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Inbox item" })).toBeVisible();
-    expect(screen.getByText("Every 12h")).toBeVisible();
+    expect(screen.getByText("Every 12 hours")).toBeVisible();
   });
 
   it("offers Test once for an unchanged local copy, and shows a refused launch", async () => {

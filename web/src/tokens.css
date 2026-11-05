@@ -72,22 +72,43 @@
   --accent-ink: light-dark(#9c1d24, #ff9096);
 
   --info: light-dark(#3295bd, #5fb3d6);
-  --success: light-dark(#16cbc4, #2fd3cc);
+  /* Success is green, never teal: teal means a link. --success is the mark
+     (3:1 on every surface), --success-ink the text (4.5:1). */
+  --success: light-dark(#2f8a50, #4cb873);
   --warning: #dcad66;
   --warning-soft: light-dark(#fbefd4, #362b19);
   --warning-ink: light-dark(#8a5a0f, #e8c27e);
 
   /* Note links: teal means connection, everywhere a link points at a note. */
-  --link: light-dark(var(--ao-teal-ink), #5fd6d0);
+  --link: light-dark(var(--ao-teal-ink), #75b9b5);
   --link-line: light-dark(
     color-mix(in srgb, var(--ao-teal) 45%, transparent),
-    color-mix(in srgb, #2fd3cc 45%, transparent)
+    color-mix(in srgb, var(--link) 45%, transparent)
   );
 
-  /* Section label: the one style for section heads, rail groups, column heads,
-     and fact labels. Sentence case; hierarchy comes from weight, not tracking. */
-  --label-font: 600 var(--fs-xs) / 1.3 var(--font-sans);
+  /* Label: the one style for rail groups, column heads, finder groups, and
+     fact labels. Sentence case; hierarchy comes from weight, not tracking. */
+  --label-structure: 500 13px / 1.35 var(--font-sans);
+  --label-font: var(--label-structure);
   --label-color: var(--text-muted);
+
+  /* Section heading: a block or section title in a view body (Briefing
+     blocks, Overview sections, grouped lists). It outranks the 14/500 row
+     titles under it: 15/600 in full ink, with 10px below. */
+  --section-font: 600 var(--fs-md) / 1.35 var(--font-sans);
+  --section-color: var(--text);
+  --section-gap: 10px;
+
+  /* Navigable record titles: ink at 500, never 600, with a teal underline
+     only on hover or focus, so a table of titles stays calm. */
+  --title-weight: 500;
+
+  /* One disclosure control: a 16px chevron inside a 24px hit target. */
+  --disclosure-icon: 16px;
+  --disclosure-target: 24px;
+
+  /* An expander ("Show N more") sits on its own line this far below its items. */
+  --expander-gap: 8px;
 
   /* ---- Typography ---- */
   --font-display: "Merriweather", Georgia, "Times New Roman", serif;
@@ -112,6 +133,10 @@
   --sp-6: 18px;
   --sp-7: 24px;
   --sp-8: 32px;
+
+  /* The content gutter: every view header, tab row, status line, and first
+     column starts this far from the content panel's left edge. */
+  --gutter: 22px;
 
   /* ---- Radii (restrained, technical) ---- */
   --r-sm: 3px;
@@ -138,43 +163,59 @@
   --focus-ring: light-dark(#c8313a, #ff6b72);
 
   /* ---- Status roles ---- */
-  --success-soft: light-dark(#d8f7f5, #15302e);
-  --success-ink: light-dark(#0b6a66, #5fe0da);
+  --success-soft: light-dark(#e4f3e8, #17301f);
+  --success-ink: light-dark(#1e6b3b, #7fd69c);
   --info-soft: light-dark(#e1f0f7, #1b2c34);
   --info-ink: light-dark(#1f6f91, #8ccbe6);
 
   /* ---- Type palette ----
      Categorical colors for ontology types in graphs, atlas cards, and type
-     dots. Never red (risk) or teal (connection). Each -ink variant is the
-     text color for that type and clears 4.5:1 on every light surface. */
-  --type-1: light-dark(#3295bd, #5fb3d6);
-  --type-1-ink: light-dark(#1f6f91, #8ccbe6);
-  --type-2: light-dark(#a5488b, #c873b0);
-  --type-2-ink: light-dark(#8a3a74, #dca0cb);
-  --type-3: light-dark(#a87720, #dcad66);
-  --type-3-ink: light-dark(#7a5410, #e8c27e);
-  --type-4: light-dark(#5b7a99, #8aa5c2);
-  --type-4-ink: light-dark(#3f5a75, #b0c4d9);
-  --type-5: light-dark(#6f8f3a, #9cbc63);
-  --type-5-ink: light-dark(#4d6625, #bcd48f);
-  --type-6: light-dark(#a0663c, #c98c5f);
-  --type-6-ink: light-dark(#7a4a26, #ddb08e);
-  --type-7: light-dark(#7b6aa8, #a493d1);
-  --type-7-ink: light-dark(#5a4a87, #c4b8e3);
+     dots. Never red (risk) or teal (connection). Slots 1-7 and 9-13 are the
+     twelve type hues, each 3:1 on every surface of its theme; slots 4 and
+     9-13 vary in lightness as well as hue. Dark values are brighter and
+     saturated independently of light values. Slot 8 is the
+     warm-gray neutral for code, untyped notes, and essential edges. Each -ink
+     variant is the text color for that slot and clears 4.5:1. */
+  --type-1: light-dark(#1264df, #63a6ff);
+  --type-1-ink: light-dark(#1453b8, #63a6ff);
+  --type-2: light-dark(#c32ca4, #f16cce);
+  --type-2-ink: light-dark(#a31c89, #f16cce);
+  --type-3: light-dark(#aa7400, #f5bd27);
+  --type-3-ink: light-dark(#885c00, #f5bd27);
+  --type-4: light-dark(#3238ae, #a1a0ff);
+  --type-4-ink: light-dark(#3238ae, #a1a0ff);
+  --type-5: light-dark(#278b19, #70d54b);
+  --type-5-ink: light-dark(#226d16, #70d54b);
+  --type-6: light-dark(#d05200, #ff9848);
+  --type-6-ink: light-dark(#aa4200, #ff9848);
+  --type-7: light-dark(#853de0, #bd88ff);
+  --type-7-ink: light-dark(#7130bf, #bd88ff);
   --type-8: light-dark(#8a8682, #a29d97);
   --type-8-ink: light-dark(#5c5853, #c9c4bd);
+  --type-9: light-dark(#007eae, #49c8ff);
+  --type-9-ink: light-dark(#006b94, #49c8ff);
+  --type-10: light-dark(#9c168e, #ef9de4);
+  --type-10-ink: light-dark(#921584, #ef9de4);
+  --type-11: light-dark(#697900, #c4da36);
+  --type-11-ink: light-dark(#566400, #c4da36);
+  --type-12: light-dark(#00652e, #38bc78);
+  --type-12-ink: light-dark(#00652e, #38bc78);
+  --type-13: light-dark(#98420a, #df8746);
+  --type-13-ink: light-dark(#98420a, #df8746);
+  /* Code in graphs: a mid gray lighter than the untyped neutral, so strong fills stay with notes. */
+  --graph-code: light-dark(#b3b0ab, #6e6a65);
 
   /* ---- Chart series ----
      Neutral first; no red. Teal is reserved for "linked" or "connected"
      series (--series-link). */
   --series-1: light-dark(#5c5853, #c9c4bd);
-  --series-2: light-dark(#3295bd, #5fb3d6);
-  --series-3: light-dark(#a87720, #dcad66);
-  --series-4: light-dark(#a29d97, #7d7872);
-  --series-5: light-dark(#a5488b, #c873b0);
-  --series-6: light-dark(#6f8f3a, #9cbc63);
-  --series-7: light-dark(#a0663c, #c98c5f);
-  --series-8: light-dark(#5b7a99, #8aa5c2);
+  --series-2: light-dark(#007eae, #49c8ff);
+  --series-3: light-dark(#aa7400, #f5bd27);
+  --series-4: light-dark(#85817b, #96918a);
+  --series-5: light-dark(#c32ca4, #f16cce);
+  --series-6: light-dark(#697900, #c4da36);
+  --series-7: light-dark(#d05200, #ff9848);
+  --series-8: light-dark(#1264df, #63a6ff);
   --series-link: light-dark(#16cbc4, #2fd3cc);
 
   /* ---- Code syntax ---- */

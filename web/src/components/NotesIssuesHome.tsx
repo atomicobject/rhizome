@@ -375,30 +375,32 @@ function NotesIssuesHomeContent({
 
   return (
     <section className="problems-workspace" aria-label="Problems">
-      <header className="problems-workspace__header">
-        <div>
-          <p className="problems-workspace__meta">
-            validation
-            {scope?.kind !== "global" && scope?.key && (
+      <header className="view-header problems-workspace__header">
+        <div className="view-header__title-row">
+          <h2>Problems</h2>
+          {/* With no issues, the strip's "No issues" says it; a 0 here would repeat it. */}
+          {hasAnyIssues ? <span className="view-header__count is-risk">{totalIssues}</span> : null}
+          <span className="view-header__about">
+            {hasAnyIssues
+              ? `${totalIssues} ${totalIssues === 1 ? "issue" : "issues"} in ${affectedFiles} ${affectedFiles === 1 ? "file" : "files"}`
+              : "Validation results for this vault"}
+            {scope?.kind !== "global" && scope?.key ? (
               <>
                 {" · "}
                 <span className="problems-workspace__scope">
                   {scope.kind} · {scope.key}
                 </span>
               </>
-            )}
-          </p>
-          <h2>
-            {hasAnyIssues
-              ? `${totalIssues} ${totalIssues === 1 ? "issue" : "issues"} in ${affectedFiles} ${affectedFiles === 1 ? "file" : "files"}`
-              : "Problems"}
-          </h2>
+            ) : null}
+          </span>
+          {pendingChangeCount > 0 && onReviewChanges ? (
+            <div className="view-header__actions">
+              <button type="button" className="button" onClick={onReviewChanges}>
+                Review {pendingChangeCount} staged {pendingChangeCount === 1 ? "change" : "changes"}
+              </button>
+            </div>
+          ) : null}
         </div>
-        {pendingChangeCount > 0 && onReviewChanges && (
-          <button type="button" className="problems-workspace__review" onClick={onReviewChanges}>
-            Review {pendingChangeCount} staged {pendingChangeCount === 1 ? "change" : "changes"}
-          </button>
-        )}
       </header>
 
       <ValidationStatusStrip

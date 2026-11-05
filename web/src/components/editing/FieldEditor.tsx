@@ -16,6 +16,7 @@ import {
 import { BooleanEditor, ListEditor, NumberEditor } from "./FieldValueEditors";
 import { RelationEditor, displayValues, fieldValueFromScalar } from "./RelationEditor";
 import { FieldLinkValues, fieldLinksForValues } from "../FieldLinkValues";
+import { InfoTip } from "../InfoTip";
 
 type Props = {
   node: WorkspaceFieldNode;
@@ -25,6 +26,8 @@ type Props = {
   vaultKey?: string | null;
   operationTarget?: string;
   expected?: OntologyEditExpected;
+  /** How an enum edits; the identity strip uses the compact menu. */
+  enumVariant?: "segmented" | "menu";
 };
 
 export function FieldEditor({
@@ -35,6 +38,7 @@ export function FieldEditor({
   vaultKey = null,
   operationTarget = fieldOperationTarget(node.notePath, node.ref.nodeId, node.field.name),
   expected,
+  enumVariant,
 }: Props) {
   const capability = node.field.capability ? effectiveFieldCapability(node) : null;
   const values = node.field.values || [];
@@ -190,9 +194,7 @@ export function FieldEditor({
     return (
       <span className="field-editor field-editor--readonly">
         <span>{readOnlyValues(node)}</span>
-        {editing ? (
-          <small className="field-editor__reason">Schema edit metadata is unavailable.</small>
-        ) : null}
+        {editing ? <ReadOnlyReason reason="Schema edit metadata is unavailable." /> : null}
       </span>
     );
   }
@@ -202,7 +204,7 @@ export function FieldEditor({
       <span className="field-editor field-editor--readonly">
         <span>{readOnlyValues(node)}</span>
         {editing && capability.readOnlyReason ? (
-          <small className="field-editor__reason">{capability.readOnlyReason}</small>
+          <ReadOnlyReason reason={capability.readOnlyReason} />
         ) : null}
       </span>
     );
@@ -252,6 +254,7 @@ export function FieldEditor({
             editing={editing}
             dirty={dirty}
             clearable={!capability.required}
+            variant={enumVariant}
             onStage={(next) => {
               const nextValue = fieldValueFromScalar(next);
               const nextExpected = captureExpected(nextValue, true);
@@ -378,6 +381,11 @@ export function FieldEditor({
       ) : null}
     </span>
   );
+}
+
+/** Why a field cannot be edited, behind an info mark that shows it on hover or focus. */
+function ReadOnlyReason({ reason }: { reason: string }) {
+  return <InfoTip label="Why this field is read-only">{reason}</InfoTip>;
 }
 
 /** Read-only values; relation values show their targets' titles. */

@@ -143,7 +143,7 @@ describe("OntologyIdentityStrip", () => {
     expect(screen.getByText("Cross-cutting search refactor")).toBeInTheDocument();
     expect(screen.getByText("SPEC-0007")).toBeInTheDocument();
     expect(screen.getByText("Proposed")).toBeInTheDocument();
-    expect(screen.getByText("2026-04-12")).toBeInTheDocument();
+    expect(screen.getByText("Apr 12, 2026")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
   });
 
@@ -205,7 +205,8 @@ describe("OntologyIdentityStrip", () => {
         onStageOps={onStageOps}
       />,
     );
-    fireEvent.click(screen.getByText("Active"));
+    // The status editor is a chip over a native select.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "active" } });
     expect(onStageOps).toHaveBeenCalledTimes(1);
     const ops = onStageOps.mock.calls[0][0];
     expect(ops).toEqual([

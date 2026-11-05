@@ -5,6 +5,7 @@ import {
   OPEN_COLLECTION_MESSAGE,
   OPEN_ISSUES_MESSAGE,
   OPEN_NOTE_MESSAGE,
+  OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
@@ -15,7 +16,7 @@ import {
   VALIDATION_ENVELOPE,
 } from "./__fixtures__/aggregate.ts";
 import { PATHS, PLANNING_GUIDE } from "./__fixtures__/groups.ts";
-import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
+import { fixtureModel, renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 
 const loadOverview = () => import("./overview.tsx");
 
@@ -54,7 +55,7 @@ it("draws a group's members most records first, with keyboard focus in that orde
     "Checklists, 1 record, 1 link to other members",
   ]);
   // Outside neighbors sit on the ring with their link counts, and the unused relation is a hairline.
-  expect(map().querySelectorAll("[data-outside='true']")).toHaveLength(2);
+  expect(map().querySelectorAll("g[data-outside='true']")).toHaveLength(2);
   expect(map()).toHaveTextContent("Untyped notes 3 links");
   expect(map().querySelectorAll(".gv-map-unused")).toHaveLength(1);
   expect(region("Map")).toHaveTextContent("declared, unused");
@@ -140,14 +141,21 @@ it("compares members in one table, nesting an interface's implementors", async (
 
   expect(work).toHaveAttribute("title", "Planned work.");
   expect(work).toHaveTextContent("Work items6");
-  expect(work).toHaveTextContent("4 active");
-  // The stage bar reads as a text breakdown.
+  // The stage bar has a visible key: each held stage and its count.
+  expect(work).toHaveTextContent("Backlog 1 · Doing 3 · Blocked 1 · Done 1");
   expect(within(work).getByRole("img", { name: /^Stages: .+ \d+/ })).toBeInTheDocument();
   expect(work).toHaveTextContent("Next step 3/6");
   expect(work).toHaveTextContent("67%");
   // Optional gaps stay neutral.
   expect(work.querySelector("[data-required='true']")).toBeNull();
-  expect(rowNamed(table, "Stories")).toHaveAttribute("data-kind", "implementor");
+  // An interface starts folded; its chevron shows the implementing types.
+  expect(within(table).queryByText("Stories")).toBeNull();
+  fireEvent.click(
+    within(work).getByRole("button", { name: "Show the types implementing Work items" }),
+  );
+  await waitFor(() =>
+    expect(rowNamed(table, "Stories")).toHaveAttribute("data-kind", "implementor"),
+  );
   expect(rowNamed(table, "Areas")).toHaveTextContent("no lifecycle");
 
   fireEvent.click(within(rowNamed(table, "Areas")).getByRole("button", { name: /Areas/ }));
@@ -164,9 +172,10 @@ it("lists relations declared between members that no record uses", async () => {
   const unused = region("Declared, unused");
 
   expect(within(unused).getByText("1")).toBeVisible();
-  expect(unused).toHaveTextContent("Releasesarea → Areas");
+  // Fields read by their display labels, not schema names.
+  expect(unused).toHaveTextContent("ReleasesArea → Areas");
   // A long list truncates beside the name; the full list is its title.
-  expect(within(unused).getByTitle("area → Areas")).toBeVisible();
+  expect(within(unused).getByTitle("Area → Areas")).toBeVisible();
 });
 
 it("lists the notes outside the group most connected first, then the guide and views", async () => {
@@ -176,11 +185,15 @@ it("lists the notes outside the group most connected first, then the guide and v
   expect(within(outside).getByText("4 notes")).toBeVisible();
   expect(outside.querySelector(".gv-outsum")).toHaveTextContent("1 person3 untyped notes");
   expect([...outside.querySelectorAll("li")].map((entry) => entry.textContent)).toEqual([
-    "Ada Lovelace person2 linked records",
-    "Kickoff untyped note2 linked records",
-    "Release guide untyped note1 linked record",
-    "Scratch untyped note1 linked record",
+    "Ada LovelacePerson · people/2 linked records",
+    "KickoffUntyped note · notes/2 linked records",
+    "Release guideUntyped note · docs/1 linked record",
   ]);
+
+  fireEvent.click(within(outside).getByRole("button", { name: "Show 1 more" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(4);
+  fireEvent.click(within(outside).getByRole("button", { name: "Show fewer" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(3);
 
   fireEvent.click(within(outside).getByRole("button", { name: "Kickoff" }));
   fireEvent.click(
@@ -231,9 +244,11 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     embedded: true,
   });
 
-  await waitFor(() => expect(screen.getByRole("button", { name: "5 issues" })).toBeVisible());
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Validation: 5 issues" })).toBeVisible(),
+  );
   expect(document.querySelector(".gv-facts-list")).toHaveTextContent(
-    "49 notes59% typed10 note types3 ambiguous5 issues",
+    "49 notes59% typed10 note typesTyping: 3 ambiguous notesValidation: 5 issues",
   );
   expect(nodeNames()).toEqual([
     "Untyped notes, 20 notes, 11 links",
@@ -241,10 +256,13 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
     "Library, 5 records, 2 links, collapsed group of 2 types",
     "Meetings, 5 records, 10 links",
     "People, 2 records, 6 links, collapsed group of 1 type",
-    "Notices, 0 records, 0 links",
   ]);
+  // A member with no links is listed in the legend, not drawn.
+  expect(
+    within(region("Map")).getByRole("button", { name: "Notices, 0 records, 0 links" }),
+  ).toBeVisible();
 
-  fireEvent.click(screen.getByRole("button", { name: "3 ambiguous" }));
+  fireEvent.click(screen.getByRole("button", { name: "Typing: 3 ambiguous notes" }));
   expect(opened(posted)).toEqual([{ type: OPEN_ISSUES_MESSAGE }]);
 });
 
@@ -346,7 +364,7 @@ it("lists the eight largest folders before +N more", async () => {
 
   const folders = within(region("Untyped notes by folder"));
   expect(folders.getAllByRole("row")).toHaveLength(1 + 8);
-  fireEvent.click(folders.getByRole("button", { name: "+3 more" }));
+  fireEvent.click(folders.getByRole("button", { name: "Show 3 more" }));
   expect(folders.getAllByRole("row")).toHaveLength(1 + 11);
 });
 
@@ -525,4 +543,44 @@ it("reads the members part once, with the published validation generation", asyn
     .filter((request) => request.query.get("parts") === "members");
 
   expect(members).toHaveLength(1);
+});
+
+it("reveals exactly the advertised outside notes and exposes incomplete reads", async () => {
+  const model = fixtureModel("Planning");
+
+  const notes = Array.from({ length: 21 }, (_, index) => ({
+    key: `outside-${index}`,
+    path: `outside-${index}.md`,
+    title: `Outside ${index}`,
+    type: null,
+    touches: ["record"],
+  }));
+
+  const { posted } = await renderGroupView(
+    async () => {
+      const { OutsideNotes } = await import("./briefing-activity.tsx");
+
+      return {
+        default: () => (
+          <OutsideNotes
+            model={model}
+            outside={{ notes, byType: [], incomplete: true }}
+            title="Outside the group"
+            info="Linked notes"
+            empty="None"
+            limit={3}
+          />
+        ),
+      };
+    },
+    { embedded: true },
+  );
+
+  const outside = region("Outside the group");
+  expect(outside.querySelectorAll("li")).toHaveLength(3);
+  fireEvent.click(within(outside).getByRole("button", { name: "Show 18 more" }));
+  expect(outside.querySelectorAll("li")).toHaveLength(21);
+  expect(outside).toHaveTextContent("More notes may link to this group than are listed.");
+  fireEvent.click(within(outside).getByRole("button", { name: "Search all notes" }));
+  expect(posted).toContainEqual({ type: OPEN_SEARCH_MESSAGE, folder: "" });
 });

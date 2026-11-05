@@ -64,13 +64,18 @@ describe("TasksWorkspace", () => {
       "Changelog draftchangelog",
     ]);
 
+    expect(screen.getByText(/1 failed run/)).toBeVisible();
     const docs = within(rows[0]!);
     expect(docs.getByText("Auto")).toBeInTheDocument();
-    expect(docs.getByText("1d")).toBeInTheDocument();
+    expect(docs.getByText("1 day")).toBeInTheDocument();
     expect(docs.getByText("Ready")).toBeInTheDocument();
     expect(docs.getByText("Ready for review")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("Due now")).toBeInTheDocument();
-    expect(within(rows[2]!).getByText("Needs attention")).toBeInTheDocument();
+    // An item that needs a person is one action, not a second red state.
+    expect(within(rows[2]!).getByRole("link", { name: "Review failed run" })).toHaveAttribute(
+      "href",
+      "/tasks/flaky-tests",
+    );
     expect(within(rows[3]!).getByText("Not needed")).toBeInTheDocument();
 
     const rail = screen.getByRole("navigation", { name: "Tasks" });
@@ -82,6 +87,20 @@ describe("TasksWorkspace", () => {
     expect(window.location.pathname).toBe("/tasks/flaky-tests");
   });
 
+  it("counts failed last runs with a plural label in the header", async () => {
+    const report = reportFixture(NOW);
+
+    http.json("GET", "/api/tasks", {
+      ...report,
+      tasks: report.tasks.map((task) =>
+        task.lastRun ? { ...task, lastRun: { ...task.lastRun, outcome: "failed" } } : task,
+      ),
+    });
+    open("/tasks");
+    render(<TasksWorkspace />);
+    expect(await screen.findByText(/4 failed runs/)).toBeVisible();
+  });
+
   it("shows a new-task announcement and dismisses it", async () => {
     const state = stateFixture(NOW);
 
@@ -91,7 +110,7 @@ describe("TasksWorkspace", () => {
       task: "changelog",
       kind: "announcement",
       state: "due",
-      summary: 'New task "Changelog draft" runs every 1d in auto mode.',
+      summary: 'New task "Changelog draft" runs every 1d in auto mode. Drafts release notes.',
     };
 
     http.json("GET", "/api/tasks/state", { ...state, items: [...state.items, announcement] });
@@ -99,7 +118,12 @@ describe("TasksWorkspace", () => {
     open("/tasks");
     render(<TasksWorkspace />);
 
-    expect(await screen.findByText(/New task "Changelog draft" runs every 1d/)).toBeVisible();
+    // The notice folds into the task's row: a New tag, with schedule and purpose behind a toggle.
+    const row = (await screen.findByRole("rowheader", { name: /Changelog draft/ })).closest("tr")!;
+    expect(within(row).getByText("New")).toBeVisible();
+    expect(screen.queryByText(/Drafts release notes/)).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "What it does" }));
+    expect(screen.getByText("Runs every 1 day in Off mode. Drafts release notes.")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/12/done")).toBe(1));
@@ -426,6 +450,25 @@ describe("TasksWorkspace", () => {
     const settled = http.count("GET", "/api/tasks/state");
     await act(() => vi.advanceTimersByTimeAsync(20_000));
     expect(http.count("GET", "/api/tasks/state")).toBe(settled);
+  });
+
+  it("runs a task that has no inbox item from Run now", async () => {
+    http.json("POST", "/api/tasks/run/changelog", {
+      launchedAt: new Date(NOW).toISOString(),
+      item: "12",
+    });
+    open("/tasks/changelog");
+    const { unmount } = render(<TasksWorkspace />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(http.count("POST", "/api/tasks/run/changelog")).toBe(1));
+    unmount();
+
+    // A task with an open item runs from the item instead.
+    open("/tasks/dependency-updates");
+    render(<TasksWorkspace />);
+    expect(await screen.findByRole("button", { name: "Run" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Run now" })).not.toBeInTheDocument();
   });
 
   it("stops awaiting a launch after 30 seconds", async () => {

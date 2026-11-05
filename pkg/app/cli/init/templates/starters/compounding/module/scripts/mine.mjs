@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Mine this repository's agent sessions into local proposals (SPEC-0124 US1):
 // episodes past each session's cursor are screened by Jev passage by passage,
-// extracted, grouped with earlier clusters, tiered, and verified (tier A
-// always, tier B up to a per-run budget), and proposals land in the main
+// extracted, grouped with earlier clusters, prioritized, and evidence-verified
+// up to a per-run count and spend budget. Proposals land in the main
 // checkout's .rhizome/compounding/proposals.json, which every worktree shares.
 //
 //   mine.mjs [--harness claude|codex] [--budget USD] [--dry-run]
@@ -42,6 +42,7 @@ import { pending, proposalOf as proposal } from "./lib/approvals.mjs";
 import { openRun, openState } from "./lib/state.mjs";
 import { Refused, readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
+import { due, unrouted, verificationQueue, verificationStatus } from "./lib/verification-queue.mjs";
 import { discover } from "./sessions.mjs";
 
 const ROLES = ["decide", "extract", "synthesize", "verify"];
@@ -56,6 +57,7 @@ export async function mine(opts, clients) {
   // No workers would skip extraction and verification yet still advance the cursors.
   const concurrency = Number(opts.concurrency ?? 4);
   if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("--concurrency must be a whole number of at least 1");
+  for (const name of ["verifyBudget", "verifyHeld"]) if (opts[name] !== undefined && (!Number.isInteger(opts[name]) || opts[name] < 0)) throw new Error(`${name} must be a nonnegative whole number`);
   // Mining writes transcript text there, so Git must ignore the folder.
   const store = openState(opts.root, { state: opts.state, guard: true });
   const dry = !opts.abandon && (opts.dryRun || opts.budget == null);
@@ -207,7 +209,7 @@ async function mineLocked(opts, clients, store, dry) {
     episodes = found.episodes;
     // A pending proposal with no response, or a finding whose friction the
     // pool shows came back, is verified again even when nothing is new.
-    const record = !episodes.length && !opts.verifyHeld && !pending(store, opts.root).some((p) => !p.response && !p.rejected) && refreshFindings(store, opts.root);
+    const record = !episodes.length && !verificationQueue(opts.root, store).length && !pending(store, opts.root).some((p) => !p.response && !p.rejected) && refreshFindings(store, opts.root);
     if (record) {
       if (!dry && Object.keys(found.cursorTargets).length) store.write("cursors.json", { ...store.read("cursors.json", {}), ...found.cursorTargets });
       // A finding checked since the last run gets its report dates now.
@@ -223,7 +225,7 @@ async function mineLocked(opts, clients, store, dry) {
       if (!(err instanceof Stop)) throw err;
       return { status: "stopped", reason: err.reason, message: err.message };
     }
-    if (bound.unbound) return { status: "estimate", estimate: null, episodes: episodes.length, discovery: found.report, next: bound.unbound };
+    if (bound.unbound) return { status: "estimate", estimate: null, episodes: episodes.length, discovery: found.report, verification: verificationStatus(opts.root, store), next: bound.unbound };
     run = {
       id,
       status: "open",
@@ -248,7 +250,7 @@ async function mineLocked(opts, clients, store, dry) {
   // A dry run over an open run names it, and why it stopped, so a caller can
   // tell a resumable run from one a person must unblock.
   const open = resumed ? { run: run.id, status: run.status, stoppedReason: run.stoppedReason ?? null, stoppedMessage: run.stoppedMessage ?? null } : undefined;
-  if (dry) return { status: "estimate", estimate: est, episodes: est.episodes, bindings: run.bindings, discovery: run.discovery, open, next: "rerun with --budget <USD> to spend up to that amount" };
+  if (dry) return { status: "estimate", estimate: est, episodes: est.episodes, bindings: run.bindings, discovery: run.discovery, open, verification: verificationStatus(opts.root, store, run), next: "rerun with --budget <USD> to spend up to that amount" };
   const unpriced = est.rows.filter((r) => !r.priced).map((r) => `${r.role} (${r.binding})`);
   if (unpriced.length && !opts.allowUnpriced) throw new Error(`no price is known for ${unpriced.join(", ")}, so the budget cannot reserve for it; choose a priced model with --model, or pass --allow-unpriced to count only the costs the provider reports`);
   run.budget = opts.budget;
@@ -256,25 +258,18 @@ async function mineLocked(opts, clients, store, dry) {
   const caller = makeCaller({ clients, store, run: run.id, bindings: run.bindings, budget: opts.budget, spend });
   try {
     const report = await stages({ root: opts.root, store, run, caller, clients, episodes, concurrency: Number(opts.concurrency ?? 4), log });
+    report.verification = verificationStatus(opts.root, store, { ...run, status: "done" });
+    const status = report.verification.complete ? "done" : "deferred";
     store.write("cursors.json", { ...store.read("cursors.json", {}), ...run.cursorTargets });
-    saveRun(store, { ...run, status: "done", finishedAt: new Date().toISOString(), spend, report });
-    return { status: "done", run: run.id, spend, report };
+    saveRun(store, { ...run, status, finishedAt: new Date().toISOString(), spend, report });
+    return { status, run: run.id, spend, report };
   } catch (err) {
     if (!(err instanceof Stop)) throw err;
-    saveRun(store, { ...run, status: "stopped", stoppedReason: err.reason, stoppedMessage: err.message, spend });
-    return { status: "stopped", reason: err.reason, message: err.message, run: run.id, spend };
+    const report = { verification: verificationStatus(opts.root, store, run, { reason: err.reason }) };
+    saveRun(store, { ...run, status: "stopped", stoppedReason: err.reason, stoppedMessage: err.message, spend, report });
+    return { status: "stopped", reason: err.reason, message: err.message, run: run.id, spend, report };
   }
 }
-
-// A proposal verified before verification chose a response has none, so it
-// is verified again rather than defaulting to remember.
-const unrouted = (c) => c.verification?.decision === "propose" && !c.verification.response;
-
-// A cluster needs verification when it has none, when it has no response,
-// or when a model rejected it and another family has since supported it.
-// Decisions a person made live in reviewed.json and decision files, not
-// here, so they are never reopened.
-const due = (c) => !c.verification || unrouted(c) || (c.verification.decision === "reject" && c.families.length > (c.verification.families ?? Infinity));
 
 function cleanHead(dir) {
   try {
@@ -344,7 +339,7 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   const ranks = run.unscreened ? new Map() : await rank(caller, touched, cands, { estimatePerItem: per.jev });
   for (const cl of touched) {
     const f = facts(cl, cands, eps);
-    Object.assign(cl, { evidence: f.evidence, families: f.families, tier: tierOf(f, cl, ranks.get(cl.id)), worth: ranks.get(cl.id)?.worth ?? null });
+    Object.assign(cl, { evidence: f.evidence, families: f.families, tier: tierOf(f, cl, ranks.get(cl.id)), worth: ranks.get(cl.id)?.worth ?? null, rank: ranks.get(cl.id) ?? cl.rank });
   }
   // Episodes matching a finding are recorded for the friction report; a
   // completed finding they recur for is offered for review again.
@@ -367,14 +362,19 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   if (!plan) {
     // A learning a person already settled, here or in a teammate's shared
     // decision or shard, does not spend a verification call.
-    const open = (c) => due(c) && (reopen(c) || (!reviewed[c.id] && !settled.has(hashOf(c))));
+    const queue = verificationQueue(root, store, clusters);
     const byWorth = (x, y) => (y.worth ?? 0) - (x.worth ?? 0) || (x.id < y.id ? -1 : 1);
-    const ids = new Set(touched.map((c) => c.id));
+    // Earlier count-deferred work precedes fresh work so repeated new sessions
+    // cannot starve it, and a retry of an invalid reply goes last so a cached
+    // failure cannot hold the slots untried work needs. Jev orders peers, but
+    // never excludes a candidate.
+    const touchedIds = new Set(touched.map((c) => c.id));
+    const byAge = (x, y) =>
+      Number(!!x.verifyProblems) - Number(!!y.verifyProblems) || Number(touchedIds.has(x.id)) - Number(touchedIds.has(y.id)) || byWorth(x, y);
+    const urgent = (c) => c.tier === "A" || unrouted(c) || reopen(c);
     plan = [
-      ...touched.filter((c) => open(c) && (c.tier === "A" || reopen(c))),
-      ...touched.filter((c) => open(c) && c.tier === "B").sort(byWorth).slice(0, run.verifyBudget),
-      ...Object.values(clusters).filter((c) => open(c) && c.tier === "B" && !ids.has(c.id)).sort(byWorth).slice(0, run.verifyHeld),
-      ...Object.values(clusters).filter((c) => open(c) && (unrouted(c) || reopen(c))),
+      ...queue.filter(urgent),
+      ...queue.filter((c) => !urgent(c)).sort(byAge).slice(0, run.verifyBudget + (run.verifyHeld ?? 0)),
     ].map((c) => c.id);
     plan = [...new Set(plan)];
     store.write(planName, plan);
@@ -412,6 +412,8 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
       cl.verifyProblems = { problems: v.contractProblems, run: run.id, at };
     } else {
       cl.verification = { ...v.result, contractProblems: [], rounds: v.rounds.length, run: run.id, commit, model: run.bindings.verify.model, at, families: cl.families.length };
+      // Tier B now has repository evidence, rather than only an estimate.
+      if (cl.tier === "C" && v.result.decision === "propose") cl.tier = "B";
       delete cl.verifyProblems;
     }
     store.write("pool/clusters.json", clusters);
@@ -452,7 +454,7 @@ function summarize({ episodes, screened, results, touched, plan, clusters, fresh
     candidates: { extracted: fresh.length, repaired: results.reduce((t, r) => t + r.repaired, 0), dropped: results.reduce((t, r) => t + r.dropped, 0), merged: touched.filter((c) => c.members.length > 1).reduce((t, c) => t + c.members.filter((m) => freshSet.has(m)).length, 0) },
     clusters: { touched: touched.length, byTier: count(touched, (c) => c.tier) },
     verified: { planned: plan.length, proposed: verified.filter((c) => c.verification.decision === "propose").length, rejected: count(verified.filter((c) => c.verification.decision === "reject"), (c) => c.verification.rejectReason ?? "other"), contractProblems: plan.map((id) => clusters[id]).filter((c) => !c.verification && c.verifyProblems).length },
-    held: { tierC: touched.filter((c) => c.tier === "C").length, tierBOverBudget: touched.filter((c) => c.tier === "B" && !planned.has(c.id) && !c.verification).length },
+    held: { tierC: touched.filter((c) => c.tier === "C" && !planned.has(c.id) && !c.verification).length, tierBOverBudget: touched.filter((c) => c.tier === "B" && !planned.has(c.id) && !c.verification).length },
     proposals: proposals.length,
   };
 }

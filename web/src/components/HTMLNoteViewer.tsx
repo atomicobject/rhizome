@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   createHTMLViewer,
   revokeHTMLViewer,
@@ -207,6 +208,8 @@ type Props = {
   /** Chrome-free page mode: the viewer is the whole document. */
   bare?: boolean;
   onNavigate: (target: string, beside: boolean, authored: string) => void;
+  /** Where the host draws Refresh and Open; without it, the viewer's own toolbar does. */
+  actionsSlot?: HTMLElement | null;
 };
 
 /** The same note route with `bare=1`, which AppShell renders without chrome. */
@@ -339,6 +342,7 @@ export function HTMLNoteViewer({
   applicationHref,
   bare = false,
   onNavigate,
+  actionsSlot = null,
 }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [refreshGeneration, setRefreshGeneration] = useState(0);
@@ -631,28 +635,74 @@ export function HTMLNoteViewer({
 
   const frameTitle = useMemo(() => `Interactive HTML note: ${path}`, [path]);
 
+  const actions = (
+    <>
+      <span className="html-note-viewer__state" role="status">
+        {error ? "Viewer problem" : ready ? "" : "Loading prototype…"}
+      </span>
+      <button
+        type="button"
+        className="html-note-viewer__ghost html-note-viewer__ghost--icon"
+        aria-label="Refresh"
+        title="Refresh"
+        onClick={() => setRefreshGeneration((value) => value + 1)}
+      >
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3" />
+        </svg>
+      </button>
+      {bare ? (
+        <a className="html-note-viewer__ghost" href={applicationHref}>
+          Open in Rhizome
+        </a>
+      ) : (
+        <a
+          className="html-note-viewer__ghost"
+          href={bareNoteHref(applicationHref)}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open in browser tab"
+          title="Open in browser tab"
+        >
+          Open
+          <svg
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9.5 2.5h4v4M13.5 2.5 8 8M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" />
+          </svg>
+        </a>
+      )}
+    </>
+  );
+
+  const toolbar = (
+    <div className="html-note-viewer__toolbar">
+      <span className="html-note-viewer__format">HTML</span>
+      <span className="html-note-viewer__spacer" />
+      {actions}
+    </div>
+  );
+
   return (
     <section
       className={`html-note-viewer${visible ? "" : " is-hidden"}`}
       aria-label="HTML note viewer"
     >
-      <div className="html-note-viewer__toolbar">
-        <span className="html-note-viewer__format">HTML</span>
-        <span className="html-note-viewer__state" role="status">
-          {error ? "Viewer problem" : ready ? "" : "Loading prototype…"}
-        </span>
-        <span className="html-note-viewer__spacer" />
-        <button type="button" onClick={() => setRefreshGeneration((value) => value + 1)}>
-          Refresh
-        </button>
-        {bare ? (
-          <a href={applicationHref}>Open in Rhizome</a>
-        ) : (
-          <a href={bareNoteHref(applicationHref)} target="_blank" rel="noreferrer">
-            Open in browser tab
-          </a>
-        )}
-      </div>
+      {actionsSlot ? createPortal(actions, actionsSlot) : toolbar}
       {error && (
         <div className="html-note-viewer__problem" role="alert">
           {error}

@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { TypeProfile, ViewExecuteRequest, ViewFieldCapability } from "../api/types";
@@ -169,12 +170,12 @@ type HeaderItem = {
   column: BoardColumn;
   label: string;
   count: number;
-  collapsed: boolean;
   strip: boolean;
   stale: number;
+  compact: boolean;
 };
 
-/** The board's header row: a column header, an empty strip, or a collapsed strip per value. */
+/** Column headings and their card density controls; empty values use narrow tracks. */
 export function BoardColumnHeaders({
   items,
   capability,
@@ -188,22 +189,6 @@ export function BoardColumnHeaders({
     const { column, label, count } = item;
     const mark = <GroupValueMark capability={capability} tone={column.tone} label={label} />;
 
-    if (item.collapsed) {
-      return (
-        <button
-          type="button"
-          key={column.key}
-          className="configured-view__board-strip"
-          aria-label={`Expand ${label} column, ${count} items`}
-          title={`Expand ${label}`}
-          onClick={() => onToggle(column.key)}
-        >
-          {mark}
-          <span>{count}</span>
-        </button>
-      );
-    }
-
     if (item.strip) {
       return (
         <div
@@ -212,31 +197,35 @@ export function BoardColumnHeaders({
           title={`${label}: no records`}
         >
           {mark}
-          <span>0</span>
+          <span className="configured-view__board-count">0</span>
         </div>
       );
     }
 
     return (
       <header key={column.key} className="configured-view__board-column-header">
-        {mark}
+        <span className="configured-view__board-column-title">
+          {mark}
+          <span className="configured-view__board-count">{count}</span>
+          <button
+            type="button"
+            className="configured-view__disclosure"
+            aria-label={item.compact ? "Full cards" : "Compact cards"}
+            aria-expanded={!item.compact}
+            title={item.compact ? "Full cards" : "Compact cards"}
+            onClick={() => onToggle(column.key)}
+          >
+            <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
+          </button>
+        </span>
         {item.stale > 0 && (
           <span
             className="configured-view__board-stale"
-            title={`Active and unchanged for ${STALE_DAYS} days`}
+            title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
           >
-            {item.stale} stale
+            {item.stale} unchanged {STALE_DAYS}+ days
           </span>
         )}
-        <span className="configured-view__board-count">{count}</span>
-        <button
-          type="button"
-          aria-label={`Collapse ${label} column`}
-          title="Collapse column"
-          onClick={() => onToggle(column.key)}
-        >
-          Collapse
-        </button>
       </header>
     );
   });

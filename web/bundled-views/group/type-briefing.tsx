@@ -17,7 +17,7 @@ import { useMemo } from "react";
 
 import { boundary, inMotion, needsAttention, reverseGaps } from "./activity.ts";
 import { REVERSE_SAMPLE } from "./api.ts";
-import { MotionRow, OutsideNotes, RecentChanges } from "./briefing-activity.tsx";
+import { MotionList, OutsideNotes, RecentChanges } from "./briefing-activity.tsx";
 import { NeedsAttention, type MemberAction } from "./briefing-attention.tsx";
 import { Implementors } from "./briefing-contents.tsx";
 import { Block, MoreToggle, lower, plural } from "./briefing-parts.tsx";
@@ -35,36 +35,21 @@ import { useCollectionModel } from "./load.ts";
 import { fieldLabel, type GroupModel, type Member } from "./model.ts";
 import { useRememberedOpen } from "./remembered.ts";
 
-/** In-motion records listed before "+N more". */
-export const MOTION_RECORDS = 8;
-
-function InMotion({ model, member }: { model: GroupModel; member: Member }) {
+function InMotion({ model }: { model: GroupModel }) {
   const motion = useMemo(() => inMotion(model), [model]);
   const entries = motion.groups[0]?.entries ?? [];
-  const expanded = useRememberedOpen("briefing.expanded");
-  const open = expanded.isOpen("in-motion", false);
-  const setOpen = (next: boolean) => expanded.setOpen("in-motion", next);
-  const shown = open ? entries : entries.slice(0, MOTION_RECORDS);
 
   return (
     <Block
       title="In motion"
       count={entries.length}
-      caption="Records whose lifecycle value is in the active stage, newest change first."
+      info={{
+        text: "Records whose lifecycle value is in the active stage, newest change first.",
+        display: "title",
+      }}
     >
       {entries.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
-      <ul className="gv-list">
-        {shown.map((entry) => (
-          <MotionRow key={entry.record.key} member={member} entry={entry} />
-        ))}
-      </ul>
-      {entries.length > MOTION_RECORDS && (
-        <MoreToggle
-          hidden={entries.length - MOTION_RECORDS}
-          open={open}
-          onToggle={() => setOpen(!open)}
-        />
-      )}
+      <MotionList model={model} entries={entries} />
     </Block>
   );
 }
@@ -122,6 +107,15 @@ const monthLabel = (month: string) =>
     { month: "short", year: "numeric" },
   );
 
+const shortMonth = (month: string, withYear: boolean) =>
+  new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleDateString(
+    undefined,
+    withYear ? { month: "short", year: "2-digit" } : { month: "short" },
+  );
+
+/** Months a chart labels bar by bar; longer spans label only the ends. */
+const LABELLED_MONTHS = 12;
+
 /** Records per month of the primary date, as bars from the first month to the last. */
 function MonthChart({ chart }: { chart: DateMonths }) {
   const { months, earlier, undated } = chart;
@@ -129,11 +123,15 @@ function MonthChart({ chart }: { chart: DateMonths }) {
   const label = fieldLabel(chart.field);
   const first = monthLabel(months[0].month);
   const last = monthLabel(months[months.length - 1].month);
+  const perBar = months.length <= LABELLED_MONTHS;
+  const year = months[0].month.slice(0, 4);
+  const oneYear = months.every((entry) => entry.month.startsWith(year));
 
   return (
     <div className="gv-spread">
       <h3 className="gv-spread-head">
-        {label} <span className="gv-sub">per month</span>
+        {chart.field === "createdAt" ? "Created" : label} by month
+        <span className="gv-sub">{perBar && oneYear ? `${year}` : ""}</span>
       </h3>
       <div
         className="gv-hist"
@@ -141,19 +139,32 @@ function MonthChart({ chart }: { chart: DateMonths }) {
         aria-label={`${label} per month, ${first} to ${last}: busiest ${monthLabel(busiest.month)} with ${busiest.count}`}
       >
         {months.map((entry) => (
-          <i
-            key={entry.month}
-            style={{ height: `${(entry.count / busiest.count) * 100}%` }}
-            title={`${monthLabel(entry.month)}: ${entry.count}`}
-          />
+          <span key={entry.month} title={`${monthLabel(entry.month)}: ${entry.count}`}>
+            {/* An empty month draws no bar and no count; a month with records
+                always shows a visible bar under its count. */}
+            {perBar && entry.count > 0 && <b>{entry.count}</b>}
+            {entry.count > 0 && (
+              <i style={{ height: `calc((100% - 16px) * ${entry.count / busiest.count})` }} />
+            )}
+          </span>
         ))}
       </div>
-      <p className="gv-hist-axis">
-        <span>{first}</span>
-        <span>
-          busiest {monthLabel(busiest.month)} · {busiest.count}
-        </span>
-        <span>{last}</span>
+      {perBar ? (
+        <p className="gv-hist-axis gv-hist-months" aria-hidden="true">
+          {months.map((entry, index) => (
+            <span key={entry.month}>
+              {shortMonth(entry.month, !oneYear && (index === 0 || entry.month.endsWith("-01")))}
+            </span>
+          ))}
+        </p>
+      ) : (
+        <p className="gv-hist-axis">
+          <span>{first}</span>
+          <span>{last}</span>
+        </p>
+      )}
+      <p className="gv-cap gv-hist-peak">
+        Busiest {monthLabel(busiest.month)} · <span className="gv-num">{busiest.count}</span>
       </p>
       {(earlier > 0 || undated > 0) && (
         <p className="gv-cap">
@@ -174,11 +185,14 @@ function SpreadBlock({ model, member }: { model: GroupModel; member: Member }) {
   return (
     <Block
       title="Shape"
-      caption={`How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`}
+      info={{
+        text: `How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`,
+        display: "title",
+      }}
     >
       {member.kind === "interface" && (
         <div className="gv-spread">
-          <h3 className="gv-spread-head">Implementing types</h3>
+          <h3 className="gv-spread-head">{member.label} types</h3>
           <Implementors model={model} member={member} />
         </div>
       )}
@@ -197,8 +211,11 @@ function targetLabel(model: GroupModel, type: string) {
 }
 
 function ConnectionRow({ model, connection }: { model: GroupModel; connection: FieldConnection }) {
-  const { field, direction, filled, total, top, distinct, sampled } = connection;
+  const { field, direction, filled, total, top, targets, sampled } = connection;
   const share = total ? filled / total : 0;
+  const expanded = useRememberedOpen("briefing.expanded");
+  const open = expanded.isOpen(`connection:${field}`, false);
+  const shown = open ? targets : top;
 
   return (
     <li className="gv-rel">
@@ -208,27 +225,43 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
           {direction === "forward" ? "→" : "←"} {targetLabel(model, connection.targetType)}
         </span>
         <span className="gv-num">
-          {filled}/{total}
+          {filled} of {total} {lower(model.members[0].pluralLabel)} linked
         </span>
       </div>
       <div className="gv-fill" aria-hidden="true">
         <i data-thin={share < 0.5 || undefined} style={{ width: `${share * 100}%` }} />
       </div>
       {top.length > 0 ? (
-        <p className="gv-tops">
-          {top.map(({ note, count }) => (
-            <span key={note.path}>
-              <button type="button" className="gv-inline" onClick={() => openNote(note.path)}>
-                {note.title}
-              </button>{" "}
-              <span className="gv-num">{count}</span>
-            </span>
-          ))}
-          {distinct > top.length && <span className="gv-sub">+{distinct - top.length} more</span>}
-          {sampled && (
-            <span className="gv-sub">counted from the first {REVERSE_SAMPLE} of each record</span>
+        <>
+          <ul className="gv-list gv-tops">
+            {shown.map(({ note, count }) => (
+              <li key={note.path}>
+                <button
+                  type="button"
+                  className="gv-inline link-secondary"
+                  title={note.title}
+                  onClick={() => openNote(note.path)}
+                >
+                  {note.title}
+                </button>
+                <span className="gv-num">{count}</span>
+              </li>
+            ))}
+          </ul>
+          {(targets.length > top.length || sampled) && (
+            <p className="gv-sub gv-tops-more">
+              {targets.length > top.length && (
+                <MoreToggle
+                  hidden={targets.length - top.length}
+                  open={open}
+                  onToggle={() => expanded.setOpen(`connection:${field}`, !open)}
+                />
+              )}
+              {targets.length > top.length && sampled && " · "}
+              {sampled && `counted from the first ${REVERSE_SAMPLE} of each record`}
+            </p>
           )}
-        </p>
+        </>
       ) : (
         <p className="gv-rel-none">
           {direction === "forward"
@@ -246,7 +279,10 @@ function Connections({ model, member }: { model: GroupModel; member: Member }) {
   return (
     <Block
       title="Connections"
-      caption="Each people, relation, and reverse field: how many records fill it, and its most common targets."
+      info={{
+        text: "Each people, relation, and reverse field: how many records fill it, and its most common targets.",
+        display: "title",
+      }}
     >
       {connections.length === 0 && <p className="gv-quiet">No relation or reverse fields.</p>}
       <ul className="gv-list">
@@ -266,7 +302,11 @@ function Guide({ model, context }: { model: GroupModel; context: ViewContext }) 
       {guide ? (
         <>
           <p className="gv-res">
-            <button type="button" className="gv-link" onClick={() => openNote(guide.path)}>
+            <button
+              type="button"
+              className="gv-link link-title"
+              onClick={() => openNote(guide.path)}
+            >
               {guide.title}
             </button>
             <span className="gv-sub">companion doc</span>
@@ -308,35 +348,34 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
   return (
     <HighlightProvider>
       <GroupFacts model={model} collection />
-      <div className="gv-brief">
+      <div className="gv-brief gv-brief-split">
         <div className="gv-brief-col">
           <NeedsAttention
             model={model}
             signals={signals}
-            caption="Validation issues and declared warning values."
+            info="Validation issues and declared warning values."
             memberAction={openTable}
           />
           {/* A lifecycle without an active stage (a contract) has nothing in motion by design. */}
           {member.lifecycle?.values.some((value) => value.stage === "active") && (
-            <InMotion model={model} member={member} />
+            <InMotion model={model} />
           )}
           <RecentChanges
             model={model}
-            caption="Newest first. Four or more records changed in the same minute collapse into one line."
+            info="Newest first. Four or more records changed in the same minute collapse into one line."
           />
         </div>
-        <div className="gv-brief-col">
+        {/* Current work takes about 60%; the collection's shape and links stack beside it. */}
+        <div className="gv-brief-col gv-brief-side">
           <SpreadBlock model={model} member={member} />
+          <Connections model={model} member={member} />
           <OutsideNotes
             model={model}
             outside={linkedIn}
             title="Linked from outside"
-            caption={`Notes of other types that link to these ${lower(member.pluralLabel)}, most connected first.`}
+            info={`Notes of other types that link to these ${lower(member.pluralLabel)}, most connected first.`}
             empty="No notes of other types link here."
           />
-        </div>
-        <div className="gv-brief-col gv-brief-side">
-          <Connections model={model} member={member} />
           <Guide model={model} context={context} />
         </div>
       </div>

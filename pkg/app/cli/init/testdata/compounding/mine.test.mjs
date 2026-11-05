@@ -24,10 +24,10 @@ const clusterIds = (state) => Object.fromEntries(Object.values(read(state, "pool
 const prompts = (fake, prefix) => fake.calls.prompts.filter((p) => p.prompt.startsWith(prefix));
 
 // Probes for haiku, opus, and sonnet, one extraction batch, one grouping
-// chunk, and two verifications (alpha in tier A, beta in tier B).
-const COLD_CALLS = 7;
+// chunk, and three verifications (alpha A, beta B, uncertain envgamma C).
+const COLD_CALLS = 8;
 
-test("a cold run proposes tiers A and B, holds tier C, and keeps state owner-only", async () => {
+test("a cold run verifies every tier, rejects the external claim, and keeps state owner-only", async () => {
   const state = tmp();
   const fake = fakeClients();
   const r = await run(state, fake);
@@ -36,7 +36,10 @@ test("a cold run proposes tiers A and B, holds tier C, and keeps state owner-onl
   assert.deepEqual(topics(state), ["alpha", "beta"]);
   const tiers = Object.fromEntries(read(state, "proposals.json").map((p) => [p.statement.match(/Topic (\w+)/)[1], p.tier]));
   assert.deepEqual(tiers, { alpha: "A", beta: "B" });
-  assert.equal(r.report.held.tierC, 1);
+  assert.equal(r.report.held.tierC, 0);
+  assert.equal(r.report.verification.examined, 3);
+  assert.deepEqual(r.report.verification.rejected, { not_repository_specific: 1 });
+  assert.equal(r.report.verification.pending, 0);
   // Windows has no owner-only mode bits; the state inherits the checkout's access control.
   if (process.platform !== "win32") {
     assert.equal(statSync(state).mode & 0o777, 0o700);
@@ -178,7 +181,7 @@ test("a resumed run keeps its frozen bindings and stops while one is unavailable
   assert.equal((await run(state, fake, { model: ["verify=claude:claude-opus-5-5:medium"] })).status, "done");
   assert.deepEqual(manifests(state)[0].bindings, frozen);
   const verifies = prompts(fake, P.PACKET_PREFIX);
-  assert.equal(verifies.length, 2);
+  assert.equal(verifies.length, 3);
   assert.ok(verifies.every((p) => p.model === "claude-sonnet-5-5"));
 });
 
@@ -258,11 +261,13 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   const failed = await run(retry, fakeClients({ badVerify: true }), { discover: fakeDiscover([SESSIONS.s1]) });
   assert.equal(failed.report.proposals, 0);
   assert.ok(failed.report.verified.contractProblems > 0);
-  // New evidence makes one cluster tier A, so it is verified again and proposed;
-  // the other stays unverified and eligible for a later plan.
+  // New evidence refreshes alpha's packet; beta's unchanged invalid reply
+  // remains visibly pending instead of being silently forgotten.
   const again = await run(retry, fakeClients(), { discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]) });
   assert.equal(again.report.proposals, 1);
-  assert.equal(again.report.verified.contractProblems, 0);
+  assert.equal(again.report.verified.contractProblems, 1);
+  assert.equal(again.status, "deferred");
+  assert.deepEqual(again.report.verification.deferred.reasons, { contract: 1 });
   const pool = read(retry, "pool/clusters.json");
   assert.equal(Object.values(pool).filter((c) => c.verifyProblems && !c.verification).length, 1);
 

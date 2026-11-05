@@ -180,6 +180,11 @@ export function runTaskItem(itemID: string) {
   return post<{ launchedAt: string }>(`/api/tasks/items/${enc(itemID)}/run`);
 }
 
+/** Runs a task that has no inbox item yet: the server adds a due item and starts it like runTaskItem. */
+export function runTask(task: string) {
+  return post<{ launchedAt: string; item: string }>(`/api/tasks/run/${enc(task)}`);
+}
+
 /**
  * Tests the selected checkout's definition once; a failed precheck is a 409.
  * `sourceCheckout` is the canonical checkout the test captures.

@@ -19,12 +19,6 @@ function Icon({ children }: { children: ReactNode }) {
   );
 }
 
-export const ChevronIcon = () => (
-  <Icon>
-    <path d="m6 4 4 4-4 4" />
-  </Icon>
-);
-
 export const BackIcon = () => (
   <Icon>
     <path d="M10 4 6 8l4 4" />

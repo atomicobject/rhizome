@@ -8,7 +8,7 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
-  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("button", { name: "New session", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Rhizome agent chat" })).toBeVisible();
 
   await page.getByLabel("Message").fill("ping");

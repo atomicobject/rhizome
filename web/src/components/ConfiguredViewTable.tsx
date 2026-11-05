@@ -40,7 +40,7 @@ import {
 import { capabilityFor, columnLabel } from "./ConfiguredViewModel";
 import { changedFields, changedFieldsByKey } from "../staging/stagedState";
 import { groupIdentity } from "./ConfiguredViewSave";
-import { RecordRailPortal } from "./recordRail";
+import { RecordRailPortal, useRecordOverlayWidth } from "./recordRail";
 import { useRememberedExpansion } from "./useRememberedExpansion";
 import { useViewReorder } from "./useViewReorder";
 import { useRowSelection } from "./useRowSelection";
@@ -108,28 +108,65 @@ export function ConfiguredViewTable({
   onMovedColumnsChange,
 }: Props) {
   const scroll = useLoadOnScroll(onLoadMore);
-  const available = useElementWidth(scroll.ref);
+  // An overlaid record pane covers the table's right side; lay out for what it leaves.
+  const covered = useRecordOverlayWidth(active);
+  const available = useElementWidth(scroll.ref) - covered;
   const twoLine = density === "two-line" && Boolean(profile?.summaryField);
 
-  const allocation = useMemo(() => {
+  const groups = useMemo(
+    () => normalizeTableGroups(execution.groups ?? [], rows),
+    [execution.groups, rows],
+  );
+
+  // Inside a group every row holds the group's value, so its column says nothing.
+  // Dates and lists stay: a month group holds different days, and a list row
+  // sits under each of its members while holding the others too.
+  const tableColumns = useMemo(() => {
+    const grouped = groupedFields(groups);
+
+    if (grouped.size === 0) return allColumns;
+
+    const keyOf = (field: string) => capabilityFor(capabilities, field)?.key ?? field;
+
+    const keepsColumn = (field: string) => {
+      const capability = capabilityFor(capabilities, field);
+      const kind = capability?.valueKind;
+
+      return (
+        kind === "date" || kind === "datetime" || kind === "list" || capability?.edit?.list === true
+      );
+    };
+
+    const groupedKeys = new Set(
+      [...grouped].flatMap((field) => (keepsColumn(field) ? [] : [keyOf(field)])),
+    );
+
     const titleIndex = primaryColumn(allColumns, capabilities);
 
-    const kinds = allColumns.map((column, index) => ({
+    return allColumns.filter(
+      (column, index) => index === titleIndex || !groupedKeys.has(keyOf(column.field)),
+    );
+  }, [allColumns, capabilities, groups]);
+
+  const allocation = useMemo(() => {
+    const titleIndex = primaryColumn(tableColumns, capabilities);
+
+    const kinds = tableColumns.map((column, index) => ({
       field: column.field,
       kind: columnKind(columnClassName(column, capabilities), index === titleIndex),
     }));
 
     return allocateColumns(kinds, available, twoLine, columnWidths ?? {});
-  }, [allColumns, available, capabilities, columnWidths, twoLine]);
+  }, [tableColumns, available, capabilities, columnWidths, twoLine]);
 
   const columns = useMemo(
-    () => allColumns.filter((column) => allocation.shown.includes(column.field)),
-    [allColumns, allocation.shown],
+    () => tableColumns.filter((column) => allocation.shown.includes(column.field)),
+    [tableColumns, allocation.shown],
   );
 
   const movedColumns = useMemo(
-    () => allColumns.filter((column) => allocation.moved.includes(column.field)),
-    [allColumns, allocation.moved],
+    () => tableColumns.filter((column) => allocation.moved.includes(column.field)),
+    [tableColumns, allocation.moved],
   );
 
   const movedLabels = movedColumns.map((column) => columnLabel(column, capabilities)).join("\n");
@@ -137,11 +174,6 @@ export function ConfiguredViewTable({
   useEffect(() => {
     onMovedColumnsChange?.(movedLabels ? movedLabels.split("\n") : []);
   }, [movedLabels, onMovedColumnsChange]);
-
-  const groups = useMemo(
-    () => normalizeTableGroups(execution.groups ?? [], rows),
-    [execution.groups, rows],
-  );
 
   const reorderGroups = useMemo(
     () => leafReorderGroups(groups, rows, capabilities),
@@ -265,6 +297,11 @@ export function ConfiguredViewTable({
 
   const dragActive = reorder.dragKey !== null;
 
+  const sortFields = useMemo(
+    () => new Set(effectiveSort(state, execution.state).map((sort) => sort.field)),
+    [state, execution.state],
+  );
+
   const rowProps = useMemo<TableRowProps>(
     () => ({
       columnCells,
@@ -286,6 +323,7 @@ export function ConfiguredViewTable({
       onClearSelection: clearRowSelection,
       summaryField,
       categoryFields,
+      sortFields,
     }),
     [
       capabilities,
@@ -303,6 +341,7 @@ export function ConfiguredViewTable({
       reorder.enabled,
       selection.toggle,
       summaryField,
+      sortFields,
       vaultKey,
       viewID,
     ],
@@ -344,7 +383,10 @@ export function ConfiguredViewTable({
       <table
         className={`configured-view__table${summaryField ? " configured-view__table--two-line" : ""}`}
         // The title takes the slack; this keeps it at its minimum when nothing is left.
-        style={{ minWidth: allocation.minWidth }}
+        style={{
+          minWidth: allocation.minWidth,
+          width: covered > 0 ? `calc(100% - ${covered}px)` : undefined,
+        }}
       >
         <ConfiguredViewTableHeader
           columns={columns}
@@ -372,10 +414,11 @@ export function ConfiguredViewTable({
                   onToggle={toggleGroup}
                 />
               ))
-            : (reorder.groups[0]?.rows ?? rows).map((row) => (
+            : (reorder.groups[0]?.rows ?? rows).map((row, index, groupRows) => (
                 <ConfiguredViewTableRow
                   key={configuredTableRowKey(row)}
                   row={row}
+                  previousRow={groupRows[index - 1]}
                   groupId={UNGROUPED}
                   {...rowProps}
                   {...rowState(row, UNGROUPED)}
@@ -424,6 +467,16 @@ export function ConfiguredViewTable({
       </RecordRailPortal>
     </div>
   );
+}
+
+/** Every field the groups nest by, at any depth. */
+function groupedFields(groups: ConfiguredTableGroup[], fields = new Set<string>()) {
+  for (const group of groups) {
+    fields.add(group.field);
+    groupedFields(group.children, fields);
+  }
+
+  return fields;
 }
 
 /** The element's content width, or Infinity until it is measured. */

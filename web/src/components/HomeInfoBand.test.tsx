@@ -62,7 +62,7 @@ describe("HomeInfoBand", () => {
     rerender(
       <HomeInfoBand {...props} noteIssueCounts={new Map([["a.md", 0]])} health="current_clean" />,
     );
-    expect(screen.getByText("No problems in these notes.")).toBeVisible();
+    expect(screen.getByText("✓ No issues")).toBeVisible();
 
     rerender(<HomeInfoBand {...props} noteIssueCounts={new Map()} health="never_checked" />);
     expect(screen.getByText("Not checked yet.")).toBeVisible();

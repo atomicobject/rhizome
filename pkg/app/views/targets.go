@@ -225,13 +225,14 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 	if standard != nil {
 		target.Choices = append(target.Choices, entryChoices(*standard, false)...)
 	}
-	// Standard scope views have fixed ordering, including repository overrides.
+	// Standard scope views have fixed ordering, including repository overrides:
+	// Briefing, then Overview, on every scope, as a type puts Briefing first.
 	sort.SliceStable(groupViews, func(i, j int) bool {
 		rank := func(id string) int {
 			switch id {
-			case OverviewViewID, WorkspaceBriefingViewID:
+			case BriefingViewID, WorkspaceBriefingViewID:
 				return 0
-			case WorkspaceOverviewViewID:
+			case OverviewViewID, WorkspaceOverviewViewID:
 				return 1
 			default:
 				return 2

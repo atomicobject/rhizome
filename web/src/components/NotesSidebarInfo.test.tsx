@@ -241,8 +241,10 @@ function workspaceWithSectionsAndNearby(): NodeWorkspace {
 
 function groupSection(title: string): HTMLElement {
   const section = screen
-    .getByRole("heading", { name: (name) => name.replace(/\d+$/, "") === title })
-    .closest("section");
+    .getByRole("heading", {
+      name: (name) => name.replace(/\d+\s*(materials?)?$/, "").trim() === title,
+    })
+    .closest<HTMLElement>("section, details");
 
   if (!section) throw new Error(`no sidebar section rendered for ${title}`);
 
@@ -336,8 +338,8 @@ describe("NotesSidebarInfo", () => {
     render(<NotesSidebarInfo workspace={workspace} onOpen={vi.fn()} />);
 
     const relations = groupSection("Relations");
-    expect(relations).toHaveTextContent(/←\s*Opportunities\s*Links here\s*Idea\s*1\s*Idea A/);
-    expect(relations).toHaveTextContent(/Impacts\s*→\s*Links to\s*Impact\s*1\s*Impact B/);
+    expect(relations).toHaveTextContent(/←\s*Incoming\s*Opportunities\s*Idea\s*1\s*Idea A/);
+    expect(relations).toHaveTextContent(/→\s*Outgoing\s*Impacts\s*Impact\s*1\s*Impact B/);
 
     const linked = groupSection("Linked notes");
     expect(within(linked).queryByRole("button", { name: "Idea A" })).toBeNull();
@@ -375,7 +377,9 @@ describe("NotesSidebarInfo", () => {
     const onOpen = vi.fn();
     render(<NotesSidebarInfo workspace={workspaceWithNavigation()} onOpen={onOpen} />);
 
-    const navigation = groupSection("In this effort");
+    // An effort's materials start open.
+    const navigation = groupSection("Effort materials");
+    expect(navigation).toHaveAttribute("open");
     expect(navigation).toHaveTextContent("Schema-driven navigation");
     expect(within(navigation).getByRole("button", { name: "Implementation plan" })).toHaveAttribute(
       "aria-current",
@@ -395,6 +399,17 @@ describe("NotesSidebarInfo", () => {
 
     fireEvent.click(within(navigation).getByRole("button", { name: "Work log" }));
     expect(onOpen).toHaveBeenCalledWith("docs/efforts/example/work-log.md", "stack");
+  });
+
+  it("keeps an HTML page's effort materials closed, since the page links them", () => {
+    const workspace = workspaceWithNavigation();
+    workspace.content.format = "html";
+    render(<NotesSidebarInfo workspace={workspace} onOpen={vi.fn()} />);
+
+    const navigation = groupSection("Effort materials");
+    expect(navigation).not.toHaveAttribute("open");
+    expect(navigation.querySelector("summary")).toHaveTextContent(/materials?$/);
+    expect(groupSection("Relations")).toBeVisible();
   });
 });
 

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   createAgentSession,
   deleteAgentSession,
@@ -26,7 +27,7 @@ import type {
   AgentSettingsResponse,
 } from "../api/types";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
-import { AgentStatusHeader } from "./agent/AgentStatusHeader";
+import { AgentAvailability, AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
 import { AgentTimeline } from "./agent/AgentTimeline";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
 
@@ -117,6 +118,31 @@ function completedAssistant(events: AgentEvent[], completed: AgentEvent): AgentM
   };
 }
 
+const EXAMPLE_PROMPTS = [
+  "What changed in this repository this week?",
+  "Which notes explain how search ranks results?",
+  "List the open action items and who owns them.",
+];
+
+/** An empty thread offers a few starting questions; picking one fills the composer. */
+function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
+  return (
+    <div className="agent-examples">
+      <h2 className="agent-examples__head">Try asking</h2>
+      <ul>
+        {EXAMPLE_PROMPTS.map((prompt) => (
+          <li key={prompt}>
+            <button type="button" onClick={() => onPick(prompt)}>
+              <span>{prompt}</span>
+              <ArrowRight size={16} aria-hidden="true" className="agent-examples__arrow" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function AgentWorkspace({
   sidebarTitle,
   sidebarHint,
@@ -138,6 +164,16 @@ export function AgentWorkspace({
   const [error, setError] = useState("");
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // The composer grows with its message; CSS caps it, then it scrolls.
+  useLayoutEffect(() => {
+    const field = composerRef.current;
+
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
+  }, [draft]);
   const latestEventIDRef = useRef(0);
 
   const sessionsQuery = useQuery({
@@ -338,7 +374,14 @@ export function AgentWorkspace({
   const submitText = async (content: string) => {
     const trimmed = content.trim();
 
-    if (!trimmed || isSending || selectedSession?.turnRunning || selectedSession?.readOnly) return;
+    if (
+      !trimmed ||
+      blocked ||
+      isSending ||
+      selectedSession?.turnRunning ||
+      selectedSession?.readOnly
+    )
+      return;
     setError("");
     setIsSending(true);
     let sessionID = selectedID;
@@ -386,6 +429,10 @@ export function AgentWorkspace({
   const status = settingsResponse.harnesses.find((item) => item.kind === harness)?.status;
   const busy = isSending || Boolean(selectedSession?.turnRunning);
 
+  // Until settings load, the harness is unknown rather than missing.
+  const blocked =
+    !selectedSession?.readOnly && settingsQuery.isSuccess && harnessBlocked(harness, status);
+
   const disabledReason = selectedSession?.readOnly
     ? "This pre-harness session is read-only."
     : busy
@@ -396,6 +443,9 @@ export function AgentWorkspace({
 
   const visibleError =
     error || (readError instanceof Error ? readError.message : readError ? String(readError) : "");
+
+  const showExamples =
+    messages.length === 0 && events.length === 0 && !blocked && !selectedSession?.readOnly;
 
   return (
     <main className="workspace workbench agent-workspace">
@@ -422,7 +472,10 @@ export function AgentWorkspace({
           }}
         />
       </WorkbenchSidebar>
-      <section className="workbench__panel agent-thread" aria-label="Agent chat">
+      <section
+        className={`workbench__panel agent-thread${showExamples ? " agent-thread--empty" : ""}`}
+        aria-label="Agent chat"
+      >
         <AgentStatusHeader
           session={selectedSession}
           harness={harness}
@@ -436,7 +489,16 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <div className="agent-thread__body" ref={threadRef}>
+          {showExamples ? (
+            <ExamplePrompts
+              onPick={(text) => {
+                setDraft(text);
+                composerRef.current?.focus();
+              }}
+            />
+          ) : null}
           <AgentTimeline
+            available={!blocked}
             messages={messages}
             events={events}
             onApproval={async (requestID, decision: AgentApprovalDecision) => {
@@ -475,8 +537,9 @@ export function AgentWorkspace({
             submitText(draft);
           }}
         >
-          <div>
+          <div className="agent-composer__frame">
             <textarea
+              ref={composerRef}
               value={draft}
               aria-label="Message"
               placeholder="Ask Rhizome…"
@@ -490,14 +553,25 @@ export function AgentWorkspace({
                 }
               }}
             />
-            {disabledReason ? <p className="agent-muted">{disabledReason}</p> : null}
+            <div className="agent-composer__bar">
+              {disabledReason ? (
+                <p className="agent-muted">{disabledReason}</p>
+              ) : blocked || status?.loggedIn === false ? (
+                <AgentAvailability harness={harness} status={status} />
+              ) : (
+                <p className="agent-muted">
+                  <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends
+                </p>
+              )}
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={busy || blocked || !draft.trim() || Boolean(selectedSession?.readOnly)}
+              >
+                Send
+              </button>
+            </div>
           </div>
-          <button
-            type="submit"
-            disabled={busy || !draft.trim() || Boolean(selectedSession?.readOnly)}
-          >
-            Send
-          </button>
         </form>
       </section>
     </main>

@@ -3,17 +3,10 @@ import ReactMarkdown from "react-markdown";
 
 import { decodeJson, isJsonObject, isString } from "../../api/parse";
 
+import { DisclosureChevron } from "../DisclosureChevron";
 import { StatusMark } from "../StatusMark";
 import { UnifiedDiff } from "../UnifiedDiff";
-import {
-  ChevronIcon,
-  FileIcon,
-  LogIcon,
-  RetryIcon,
-  TerminalIcon,
-  ThinkingIcon,
-  ToolIcon,
-} from "./TaskIcons";
+import { FileIcon, LogIcon, RetryIcon, TerminalIcon, ThinkingIcon, ToolIcon } from "./TaskIcons";
 import { formatDuration } from "./taskFormat";
 import type { TimelineBlock } from "./transcript";
 
@@ -54,7 +47,7 @@ function Disclosure({
     >
       <summary className="task-block__summary">
         <span className="task-block__chevron">
-          <ChevronIcon />
+          <DisclosureChevron />
         </span>
         <span className="task-block__icon">{icon}</span>
         <span className="task-block__title">{summary}</span>

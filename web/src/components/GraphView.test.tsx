@@ -60,7 +60,7 @@ describe("GraphView", () => {
     try {
       expect(screen.getByRole("img", { name: /^Graph of 1 node and 0 links\./ })).toBeVisible();
       expect(screen.getByRole("textbox", { name: "Search graph nodes" })).toBeVisible();
-      fireEvent.click(screen.getByRole("button", { name: "More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Display" }));
       const labels = screen.getByRole("checkbox", { name: "Edge labels" });
       expect(labels).not.toBeChecked();
 
@@ -197,7 +197,7 @@ describe("GraphView", () => {
         expect(screen.getByText("1 of 3 nodes highlighted")).toBeInTheDocument();
         expect(within(legend).getByText("Spec")).toBeInTheDocument();
         expect(within(legend).getByText("Task")).toBeInTheDocument();
-        expect(within(legend).getByText("Untyped")).toBeInTheDocument();
+        expect(within(legend).getByText("Untyped notes")).toBeInTheDocument();
         const specEntry = legend.querySelector('[data-type="Spec"]');
         const taskEntry = legend.querySelector('[data-type="Task"]');
         const untypedEntry = legend.querySelector('[data-type="__untyped__"]');
@@ -205,7 +205,7 @@ describe("GraphView", () => {
         expect(specEntry).toHaveTextContent("1");
         expect(taskEntry).not.toHaveClass("is-highlighted");
         expect(taskEntry).toHaveTextContent("1");
-        expect(untypedEntry).toHaveTextContent("Untyped");
+        expect(untypedEntry).toHaveTextContent("Untyped notes");
         expect(untypedEntry).toHaveTextContent("1");
 
         const renderer = renderers().at(-1);
@@ -225,6 +225,61 @@ describe("GraphView", () => {
       }
     },
   );
+
+  it("keys the colors a summarized view shows, with every type behind All types", () => {
+    const restoreWebGL = installFakeWebGL();
+
+    const notes: GraphNode[] = ["Spec", "Task", "ProcessPlan"].map((type) => ({
+      id: type,
+      label: type,
+      kind: "note",
+      path: `${type}.md`,
+      resolvedType: type,
+    }));
+
+    // One folder, colored by its most common type: only Spec's color is on screen.
+    const folder = {
+      id: "folder:docs",
+      label: "docs",
+      kind: "module",
+      fill: "#6366f1",
+      fillKey: "Spec",
+    };
+
+    const view = render(
+      <GraphView
+        {...baseProps}
+        nodes={[folder]}
+        legendNodes={notes}
+        typeColors={
+          new Map([
+            ["Spec", "#6366f1"],
+            ["Task", "#22c55e"],
+            ["ProcessPlan", "#f97316"],
+          ])
+        }
+        showTypeLegend
+      />,
+    );
+
+    try {
+      const legend = screen.getByRole("complementary", { name: "Graph type legend" });
+
+      // The key names only the colors on screen; the rest wait behind All types.
+      expect(legend.querySelector('[data-type="Spec"]')).not.toBeNull();
+      expect(legend.querySelector('[data-type="Task"]')).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "All types" }));
+
+      for (const type of ["Spec", "Task", "ProcessPlan"])
+        expect(legend.querySelector(`#graph-type-legend-all [data-type="${type}"]`)).not.toBeNull();
+
+      expect(legend.querySelector('[data-type="ProcessPlan"]')).toHaveTextContent("Process plan");
+    } finally {
+      view.unmount();
+      restoreWebGL();
+    }
+  });
 
   it("enables the Problems overlay without rebuilding the graph", () => {
     const restoreWebGL = installFakeWebGL();
@@ -249,7 +304,7 @@ describe("GraphView", () => {
       const camera = renderer.getCamera();
       renderer.refresh({ schedule: false });
       expect(renderer.getNodeDisplayData("note")?.label).toBe("Note");
-      fireEvent.click(screen.getByRole("button", { name: "More" }));
+      fireEvent.click(screen.getByRole("button", { name: "Display" }));
       fireEvent.click(screen.getByRole("checkbox", { name: "Problems (1)" }));
       renderer.refresh({ schedule: false });
       expect(renderer.getNodeDisplayData("note")?.label).toContain("2");

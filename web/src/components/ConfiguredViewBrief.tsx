@@ -38,7 +38,7 @@ type OpenRow = (row: ViewTableRow, mode?: OpenMode) => void;
 
 const BRIEF_REVERSE_LIMIT = 4;
 
-/** The middle of a board card under its title; compact cards show only the implementing type. */
+/** The middle of a board card under its title; compact cards drop the summary and facts but keep the meta row. */
 export function BoardCardBody({
   row,
   profile,
@@ -63,25 +63,37 @@ export function BoardCardBody({
 }) {
   const typeLabel = useTypeLabel();
   const shown = (field: string) => !hiddenFields.includes(field);
-  const markers = <CardMarkers stale={stale} otherLanes={otherLanes} />;
+  const markers = <CardMarkers row={row} stale={stale} otherLanes={otherLanes} />;
+  // A stale card's clock already carries its age.
+  const age = stale ? null : changedAge(row);
 
   if (compact) {
-    return showType || stale || otherLanes > 0 ? (
+    return (
       <div className="configured-brief__meta">
         {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
-        {markers}
+        <span className="configured-brief__end">
+          {markers}
+          {age}
+        </span>
       </div>
-    ) : null;
+    );
   }
 
   const facts = recordFacts(row, profile, capabilities);
   const keyText = facts.keyTexts[0];
   const relation = facts.relations.find((fact) => shown(fact.field));
   const tags = facts.orderedTags.filter((tag) => shown(tag.field));
-  const age = changedAge(row);
+  const people = facts.people.length > 0;
+  const meta = tags.length > 0 || facts.reverse.length > 0 || people || otherLanes > 0;
 
   return (
     <>
+      {/* The age, or a stale card's clock, holds the card's top-right corner,
+          beside the title, the same on every card. */}
+      <span className="configured-brief__corner">
+        <CardMarkers row={row} stale={stale} otherLanes={0} />
+        {age}
+      </span>
       {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
       {facts.summary && <p className="configured-brief__summary">{facts.summary}</p>}
       {keyText && (
@@ -89,35 +101,48 @@ export function BoardCardBody({
           <span className="configured-brief__label">{keyText.label}</span> {keyText.value}
         </p>
       )}
-      <div className="configured-brief__meta">
-        {tags.map((tag) => (
-          <StatusMark key={tag.field} tone={tag.tone} label={tag.label} />
-        ))}
-        {relation && <RelationChips row={row} fact={relation} onOpenRow={onOpenRow} limit={2} />}
-        {facts.reverse.map((fact) => (
-          <span key={fact.field} className="configured-brief__count">
-            <b>{fact.count}</b> {fact.label.toLowerCase()}
+      {/* Named, so a linked record's status marks never read as this card's own status. */}
+      {relation && (
+        <div className="configured-brief__relation">
+          <span className="configured-brief__relation-label">{relation.label}</span>
+          <RelationChips row={row} fact={relation} onOpenRow={onOpenRow} limit={2} />
+        </div>
+      )}
+      {meta && (
+        <div className="configured-brief__meta">
+          {tags.map((tag) => (
+            <StatusMark key={tag.field} tone={tag.tone} label={tag.label} />
+          ))}
+          {facts.reverse.map((fact) => (
+            <span key={fact.field} className="configured-brief__count">
+              <b>{fact.count}</b> {fact.label.toLowerCase()}
+            </span>
+          ))}
+          <span className="configured-brief__end">
+            <CardMarkers row={row} stale={false} otherLanes={otherLanes} />
+            <People facts={facts.people} />
           </span>
-        ))}
-        <span className="configured-brief__end">
-          {markers}
-          <People facts={facts.people} />
-          {age}
-        </span>
-      </div>
+        </div>
+      )}
     </>
   );
 }
 
-function CardMarkers({ stale, otherLanes }: { stale: boolean; otherLanes: number }) {
+function CardMarkers({
+  row,
+  stale,
+  otherLanes,
+}: {
+  row: ViewTableRow;
+  stale: boolean;
+  otherLanes: number;
+}) {
   return (
     <>
       {stale && (
-        <span
-          className="configured-brief__stale"
-          title={`Active and unchanged for ${STALE_DAYS} days`}
-        >
-          stale
+        <span className="configured-brief__stale" title={`Unchanged for ${STALE_DAYS}+ days`}>
+          <span className="sr-only">Unchanged </span>
+          {row.updatedAt ? <ChangedCell value={row.updatedAt} /> : `${STALE_DAYS}+ days`}
         </span>
       )}
       {otherLanes > 0 && (
@@ -139,21 +164,38 @@ export function RecordBriefHeader({
   capabilities,
   editSession,
   onStageOps,
+  omitField,
+  showType = true,
 }: {
   row: ViewTableRow;
   profile: TypeProfile;
   capabilities: ViewFieldCapability[];
   editSession?: OntologyEditSessionResponse | null;
   onStageOps?: (ops: OntologyEditOp[]) => Promise<void> | undefined;
+  /** A field the surrounding group already names, such as a card section's status. */
+  omitField?: string;
+  /** False when the record's type is the one most of its group shares. */
+  showType?: boolean;
 }) {
   const typeLabel = useTypeLabel();
   const facts = recordFacts(row, profile, capabilities);
   const lifecycle = lifecycleTag(row, profile, capabilities);
-  const tags = lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags;
+
+  // The group already names the omitted field, but an editable one stays: it is
+  // the card's only way to change that value in place.
+  const editable = (tag: (typeof facts.orderedTags)[number]) =>
+    Boolean(onStageOps && tag.capability.edit && !tag.capability.edit.list);
+
+  const tags = (lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags).filter(
+    (tag) =>
+      !omitField ||
+      editable(tag) ||
+      ![tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField),
+  );
 
   return (
     <span className="configured-brief__header">
-      <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>
+      {showType && <span className="configured-brief__type">{typeLabel(row.resolvedType)}</span>}
       {tags.map((tag) => (
         <TagMenu
           key={tag.field}
@@ -310,7 +352,7 @@ function RelationLink({
 
   return (
     // A link inside a draggable card must not start the card's drag.
-    <span data-configured-relation-link>
+    <span className="link-secondary" data-configured-relation-link>
       {status}
       <NoteLinkPreview
         target={target}

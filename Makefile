@@ -60,9 +60,9 @@ clean-all:
 
 lint:
 	@printf '\n==> lint\n'
-	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +)" ]; then \
+	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +)" ]; then \
 		echo "Run 'go fmt ./...' to fix formatting"; \
-		find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +; \
+		find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +; \
 		exit 1; \
 	fi
 	@printf '<== lint\n'
@@ -391,6 +391,7 @@ desktop-check:
 	cd desktop/src-tauri && cargo fmt --check
 	cd desktop/src-tauri && cargo test --locked
 	cd desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings
+	desktop/scripts/app-instances_test.sh
 
 # Build, install, and restart "Rhizome Dev" in /Applications. Main checkout only.
 desktop-install-dev:

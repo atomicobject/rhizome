@@ -70,7 +70,7 @@ describe("Save view", () => {
     expect(body.state).not.toHaveProperty("columns");
   });
 
-  it("keeps View options open while a save runs, so its result stays visible", async () => {
+  it("keeps Display options open while a save runs, so its result stays visible", async () => {
     const reply = deferredReply<unknown>();
     http.on("POST", SAVE_PATH, () => reply.promise);
     renderBoard(undefined, { laneField: "priority" });
@@ -81,7 +81,7 @@ describe("Save view", () => {
     // Clicking back into the view would close the panel; a running save keeps it.
     fireEvent.pointerDown(document.body);
     fireEvent.mouseDown(document.body);
-    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Display options" })).toBeVisible();
 
     reply.resolve({ id: "ip-ideas", path: ".rhizome/views/ip-ideas.yaml", created: false });
     await waitFor(() =>
@@ -89,7 +89,7 @@ describe("Save view", () => {
         "Saved .rhizome/views/ip-ideas.yaml",
       ),
     );
-    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Display options" })).toBeVisible();
   });
 
   it("lets a failed save's result be dismissed", async () => {
@@ -102,10 +102,12 @@ describe("Save view", () => {
     await screen.findByRole("alert");
     // The save's end releases the pin one effect after the alert renders.
     await act(async () => {});
-    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Display options" })).toBeVisible();
 
     fireEvent.mouseDown(document.body);
-    await waitFor(() => expect(screen.queryByRole("group", { name: "View options" })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Display options" })).toBeNull(),
+    );
   });
 
   it("toggles a header sort away from the view's own sort", () => {
@@ -129,7 +131,7 @@ describe("Save view", () => {
   it("shows no unsaved marker when nothing differs from the definition", () => {
     renderBoard();
 
-    expect(screen.getByRole("button", { name: "View options" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Display options" })).toBeVisible();
   });
 
   it("shows an invalid result inline", async () => {

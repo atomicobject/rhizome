@@ -43,9 +43,9 @@ test("switches board lanes on the workflow type and moves a card between columns
 
   const title = ((await card.locator(".configured-card__title").textContent()) ?? "").trim();
   expect(title).not.toBe("");
-  await card.focus();
-  await page.keyboard.press("m");
-  await page.getByRole("menuitem", { name: "Ready", exact: true }).click();
+  await card
+    .locator(".configured-card__title")
+    .dragTo(board.getByLabel("Ready column", { exact: true }));
 
   await expect(
     board
@@ -104,5 +104,5 @@ test("saves a generated view and opens it as the type's default after reload", a
   await openCollection(page, /^Lane projects \(\d+\)$/);
   await expect(rows).toHaveCount(3);
   await expect.poll(titles).toEqual([...ascending].reverse());
-  await expect(page.getByRole("button", { name: "View options", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Display options", exact: true })).toBeVisible();
 });

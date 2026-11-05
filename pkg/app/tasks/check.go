@@ -46,6 +46,19 @@ func (l Locations) env() []string {
 	return env
 }
 
+// taskPath is the login PATH with this runtime's own rzm first. The runtime
+// runs with RZM_SKIP_REPO_DELEGATE, which task subprocesses inherit, so a
+// bare `rzm` would otherwise run whatever rzm is first on PATH instead of the
+// repository's binary that this runtime already resolved.
+func (s *Service) taskPath() string {
+	return filepath.Dir(s.opts.Rzm) + string(os.PathListSeparator) + procrun.LoginPath()
+}
+
+// agentEnv is the environment a task's agent adds to its own.
+func (s *Service) agentEnv(loc Locations) []string {
+	return append(loc.env(), "PATH="+s.taskPath())
+}
+
 // runCheck runs a task's check and parses its result. A command runs in the
 // reset check checkout at the resolved commit; a code-mode script is read
 // at that commit and runs against the main checkout's vault. For a draft,
@@ -84,14 +97,17 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 				return CheckResult{}, fmt.Errorf("prepare check checkout: %w", err)
 			}
 		}
-		name, err := procrun.LookLoginPath(def.Check.Command[0])
-		if err != nil {
-			return CheckResult{}, fmt.Errorf("check %w", err)
+		name := s.opts.Rzm
+		if def.Check.Command[0] != "rzm" {
+			var err error
+			if name, err = procrun.LookLoginPath(def.Check.Command[0]); err != nil {
+				return CheckResult{}, fmt.Errorf("check %w", err)
+			}
 		}
 		cmd = exec.Command(name, def.Check.Command[1:]...)
 		cmd.Dir = dir
 	}
-	cmd.Env = append(procrun.WithPath(os.Environ(), procrun.LoginPath()), loc.env()...)
+	cmd.Env = append(procrun.WithPath(os.Environ(), s.taskPath()), loc.env()...)
 	if loc.Test && def.Check.Script != "" {
 		cmd.Env = append(cmd.Env, "RZM_RUNTIME_AUTOSTART=0")
 	}

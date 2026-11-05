@@ -257,7 +257,8 @@ func TestBundledScopeDefinitionsHaveStandardSlots(t *testing.T) {
 	}
 	for _, group := range []string{"Delivery", "Library"} {
 		target := findTarget(t, catalog, viewconfig.MountKindGroup, group)
-		require.Equal(t, OverviewViewID, target.Choices[0].ViewID)
+		require.Equal(t, BriefingViewID, target.Choices[0].ViewID)
+		require.Equal(t, OverviewViewID, target.Choices[1].ViewID)
 		for _, c := range target.Choices {
 			require.NotEqual(t, "builtin:overview", c.ID)
 		}

@@ -11,7 +11,7 @@ import { GuideAndViews } from "./briefing-contents.tsx";
 import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
-import type { GroupModel } from "./model.ts";
+import { fieldLabel, type GroupModel } from "./model.ts";
 import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, type DeclaredRelation, type ScopeModel } from "./scope.ts";
 import {
@@ -43,7 +43,10 @@ export function FolderBlock() {
     <Block
       title="Untyped notes by folder"
       count={facts && !facts.rebuilding ? `${fmt(facts.untypedNotes)} notes` : undefined}
-      caption="Top-level folders by untyped notes. Activate one to search it."
+      info={{
+        text: "Top-level folders by untyped notes. Activate one to search it.",
+        display: "title",
+      }}
       className="gv-slot-side"
     >
       <BlockBody status={status} what="folders">
@@ -87,21 +90,29 @@ export function FolderBlock() {
                         <td
                           title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
                         >
-                          <span className="gv-ov-share">
-                            <span className="gv-num">{percent}%</span>
-                            <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
-                              <i style={{ width: `${percent}%` }} />
+                          {/* A whole folder untyped is the common case: the share recedes,
+                              and only a partial share draws its bar. */}
+                          {percent >= 100 ? (
+                            <span className="gv-num gv-faint">100%</span>
+                          ) : (
+                            <span className="gv-ov-share">
+                              <span className="gv-num">{percent}%</span>
+                              <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
+                                <i style={{ width: `${percent}%` }} />
+                              </span>
                             </span>
-                          </span>
+                          )}
                         </td>
                         <td className="gv-ov-links" title={linksText(line.linksTo)}>
                           {line.linksTo.length ? (
-                            line.linksTo.map((target, index) => (
-                              <Fragment key={target.type}>
-                                {index > 0 && ", "}
-                                {target.label} <span className="gv-num">{fmt(target.count)}</span>
-                              </Fragment>
-                            ))
+                            <span className="gv-ov-links-text">
+                              {line.linksTo.map((target, index) => (
+                                <Fragment key={target.type}>
+                                  {index > 0 && ", "}
+                                  {target.label} <span className="gv-num">{fmt(target.count)}</span>
+                                </Fragment>
+                              ))}
+                            </span>
                           ) : (
                             <span className="gv-faint">no typed notes</span>
                           )}
@@ -216,8 +227,22 @@ export function DeclaredUnused({
 
   const label = (id: string) => model?.nodeIndex.get(id)?.label ?? id;
 
+  // Field display labels by target ("Work log, Materials → Materials"); a
+  // field named for its only target reads as the target alone.
   const relationsText = (relations: readonly DeclaredRelation[]) =>
-    relations.map((relation) => `${relation.field} → ${label(relation.target)}`).join(" · ");
+    [...new Set(relations.map((relation) => relation.target))]
+      .map((id) => {
+        const target = label(id);
+
+        const fields = relations.flatMap((relation) =>
+          relation.target === id ? [fieldLabel(relation.field)] : [],
+        );
+
+        return fields.length === 1 && fields[0] === target
+          ? target
+          : `${fields.join(", ")} → ${target}`;
+      })
+      .join(" · ");
 
   const byMember = new Map<string, DeclaredRelation[]>();
 
@@ -228,7 +253,7 @@ export function DeclaredUnused({
     <Block
       title="Declared, unused"
       count={status.status === "ready" ? unused.length : undefined}
-      caption="Relations the schema allows between members that no record uses."
+      info="Relations the schema allows between members that no record uses."
     >
       <BlockBody status={status} what="relations">
         {() =>
@@ -267,6 +292,9 @@ const OUTSIDE_READ: GroupRead = {
   neighborCap: 10,
 };
 
+/** Outside notes the Overview lists before "Show N more", so Members stays above the fold. */
+const OVERVIEW_OUTSIDE_NOTES = 3;
+
 /** Only the guide note. */
 const GUIDE_READ: GroupRead = { records: false };
 
@@ -283,8 +311,9 @@ function GroupOutside({ model }: { model: GroupModel }) {
       title="Outside the group"
       outside={outside}
       model={model}
-      caption={`Notes that link to or from ${model.name} records, most connected first.`}
+      info={`Notes that link to or from ${model.name} records, most connected first.`}
       empty="No notes outside the group link to or from its records."
+      limit={OVERVIEW_OUTSIDE_NOTES}
     />
   );
 }

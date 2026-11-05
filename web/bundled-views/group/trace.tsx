@@ -4,6 +4,8 @@
 import {
   Segmented,
   HighlightProvider,
+  StatusMark,
+  orderedEnumValues,
   openCollection,
   useViewPreference,
   type ViewModuleProps,
@@ -15,7 +17,7 @@ import { GroupFacts, GroupPage, MemberHeading } from "./components.tsx";
 import { linkGraph, spineChoices, type LinkGraph } from "./graph.ts";
 import { useGroupModel } from "./load.ts";
 import { traceMatrix, type MatrixColumn, type TraceMatrix } from "./matrix.ts";
-import { fieldLabel, memberLabel, type GroupModel, type Member } from "./model.ts";
+import { fieldLabel, lifecycleValue, memberLabel, type GroupModel, type Member } from "./model.ts";
 import { Band, inSentence } from "./traceRows.tsx";
 
 /** A closed band with more rows than this starts folded while other bands are open. */
@@ -38,14 +40,76 @@ const RELATION: Record<Extract<MatrixColumn, { kind: "member" }>["relation"], st
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
-function columnLabel(model: GroupModel, column: MatrixColumn) {
-  return column.kind === "member"
-    ? memberLabel(model, column.member, { plural: true })
-    : fieldLabel(column.link.field);
+function columnLabel(model: GroupModel, column: MatrixColumn, joining = 1) {
+  if (column.kind !== "member") return fieldLabel(column.link.field);
+
+  const label = memberLabel(model, column.member, { plural: true });
+
+  // Records joined by several fields (plans and work logs) are related, not one kind.
+  return joining > 1 ? `Related ${inSentence(label)}` : label;
 }
 
 const openColumn = (column: MatrixColumn) =>
   openCollection(column.kind === "member" ? column.member.name : column.link.targetType);
+
+/**
+ * The link field that joins a column to the rows, such as "Governing specs":
+ * the rows' own field for a column they link to, the column's field for one
+ * that links to them. A column reached through others has none.
+ */
+function relationFields(matrix: TraceMatrix, column: MatrixColumn) {
+  if (column.kind === "outside") return [];
+  const { spine } = matrix;
+
+  const links =
+    column.relation === "linked-from-rows"
+      ? spine.links.filter((item) => item.target === column.member.name)
+      : column.relation === "links-to-rows"
+        ? column.member.links.filter((item) => item.target === spine.name)
+        : [];
+
+  return [...new Set(links.map((link) => fieldLabel(link.field)))];
+}
+
+/** Lifecycle values the column's records hold, so the key names only marks on screen. */
+function heldValues(matrix: TraceMatrix, column: MatrixColumn & { kind: "member" }) {
+  const held = new Set<string>();
+
+  const visit = (row: TraceMatrix["bands"][number]["roots"][number]) => {
+    for (const entry of row.cells.get(column.id) ?? []) {
+      const value = entry.kind === "record" ? lifecycleValue(column.member, entry.record) : null;
+
+      if (value) held.add(value);
+    }
+
+    row.children.forEach(visit);
+  };
+
+  for (const band of matrix.bands) band.roots.forEach(visit);
+
+  return held;
+}
+
+/**
+ * What the marks in a linked column mean, always on screen under its heading:
+ * each status its records hold, mark and word ("● Active · ○ Proposed").
+ */
+function ColumnLegend({ matrix, column }: { matrix: TraceMatrix; column: MatrixColumn }) {
+  if (column.kind !== "member" || !column.member.lifecycle) return null;
+  const values = column.member.lifecycle.values;
+  const held = heldValues(matrix, column);
+  const shown = orderedEnumValues(values).filter((value) => held.has(value.name));
+
+  if (shown.length === 0) return null;
+
+  return (
+    <div className="gv-col-legend" aria-label={`${column.member.pluralLabel} status marks`}>
+      {shown.map((value) => (
+        <StatusMark key={value.name} value={value.name} values={values} />
+      ))}
+    </div>
+  );
+}
 
 function ColumnHead({
   model,
@@ -56,24 +120,14 @@ function ColumnHead({
   matrix: TraceMatrix;
   column: MatrixColumn;
 }) {
-  const label = columnLabel(model, column);
-
-  if (column.collapsed) {
-    const why = column.kind === "member" ? "none recorded" : "no row links one";
-
-    return (
-      <th scope="col" className="gv-narrow" title={`${label}: ${why}`}>
-        <button type="button" className="gv-member gv-vertical" onClick={() => openColumn(column)}>
-          {label} <span className="gv-num">0</span>
-          <span className="sr-only">, {why}</span>
-        </button>
-      </th>
-    );
-  }
+  const fields = relationFields(matrix, column);
+  const label = columnLabel(model, column, fields.length);
 
   const where =
     column.kind === "member"
-      ? RELATION[column.relation]
+      ? fields.length
+        ? fields.join(" · ")
+        : RELATION[column.relation]
       : column.link.targetGroup
         ? `in ${column.link.targetGroup}`
         : "outside the group";
@@ -81,25 +135,38 @@ function ColumnHead({
   const thin = column.covered < matrix.rowCount / 3;
 
   return (
-    <th scope="col" className={column.kind === "outside" ? "gv-outcol" : undefined}>
+    <th
+      scope="col"
+      className={
+        [column.kind === "outside" && "gv-outcol", sparse(matrix, column) && "gv-col-sparse"]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
+    >
       <div className="gv-head">
-        {/* The count sits inside the button so it wraps with the label's last word. */}
         <button type="button" className="gv-member" onClick={() => openColumn(column)}>
           {label}
-          {column.kind === "member" && (
-            <>
-              {"\u00a0"}
-              <span className="gv-num">{column.member.count}</span>
-            </>
-          )}
         </button>
+        {column.kind === "member" && <span className="gv-num">{column.member.count}</span>}
+        <span
+          className="gv-cov-count"
+          title={`${column.covered} of ${matrix.rowCount} rows hold one`}
+        >
+          <b className={thin ? "gv-thin" : undefined}>{column.covered}</b> of {matrix.rowCount}{" "}
+          {inSentence(memberLabel(model, matrix.spine, { plural: true }))} linked
+        </span>
       </div>
-      <div className="gv-cov">
-        <b className={thin ? "gv-thin" : undefined}>
-          {column.covered}/{matrix.rowCount}
-        </b>{" "}
-        rows · {where}
+      {/* The name and coverage, the relation, then a persistent status key in
+          words, so filled and hollow marks never need a lookup. */}
+      <div className="gv-cov-row">
+        <div
+          className="gv-cov"
+          title={column.kind === "member" ? `${where}: ${RELATION[column.relation]}` : where}
+        >
+          {where}
+        </div>
       </div>
+      <ColumnLegend matrix={matrix} column={column} />
     </th>
   );
 }
@@ -112,27 +179,59 @@ function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }
     ? `by ${fieldLabel(lifecycle.field).toLowerCase()}, most advanced first`
     : "most connected first";
 
+  const empty = matrix.emptyValues.map((value) => value.label ?? value.name).join(", ");
+
   return (
     <th scope="col" className="gv-trace-spine">
       <div className="gv-head">
         <MemberHeading model={model} member={spine} />
-        {"\u00a0"}
         <span className="gv-num">{spine.count}</span>
       </div>
       <div className="gv-cov">
         {order}
         {matrix.hierarchical && ", nested under parents"}
+        {empty && ` · none ${empty}`}
       </div>
-      {matrix.emptyValues.length > 0 && (
-        <div className="gv-cov">
-          Empty: {matrix.emptyValues.map((value) => value.label ?? value.name).join(", ")}
-        </div>
-      )}
     </th>
   );
 }
 
-function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+/** Columns with nothing to show, named once in the footer instead of as empty columns. */
+function EmptyColumns({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+  const empty = matrix.columns.filter((column) => column.collapsed);
+
+  if (!empty.length) return null;
+
+  return (
+    <span className="gv-faint">
+      No links:{" "}
+      {empty.map((column, index) => (
+        <span key={column.id}>
+          {index > 0 && ", "}
+          <button
+            type="button"
+            className="gv-inline gv-link"
+            title={column.kind === "member" ? "None recorded" : "No row links one"}
+            onClick={() => openColumn(column)}
+          >
+            {columnLabel(model, column)}
+          </button>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function Footer({
+  model,
+  matrix,
+  defaultNote,
+}: {
+  model: GroupModel;
+  matrix: TraceMatrix;
+  /** Why the dotted row choice is the default. */
+  defaultNote?: string;
+}) {
   const label = (member: Member, count?: number) =>
     inSentence(memberLabel(model, member, count === undefined ? { plural: true } : { count }));
 
@@ -157,6 +256,12 @@ function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
           {list.format(matrix.unreached.map((member) => label(member)))}.
         </span>
       )}
+      <EmptyColumns model={model} matrix={matrix} />
+      {defaultNote && (
+        <span>
+          <span className="gv-default-dot" aria-hidden="true" /> {defaultNote}
+        </span>
+      )}
       <span>
         Lighter italic titles were reached through another record in the row. Point at or focus a
         record to light every row it appears in.
@@ -165,14 +270,26 @@ function Footer({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
   );
 }
 
-/** The matrix's narrowest readable width, in pixels. */
-function matrixWidth(matrix: TraceMatrix) {
-  const wide = matrix.columns.filter((column) => !column.collapsed).length;
+/** Columns that show; an empty column is named in the toolbar instead. */
+const shownColumns = (matrix: TraceMatrix) => matrix.columns.filter((column) => !column.collapsed);
 
-  return 280 + wide * 120 + (matrix.columns.length - wide) * 30;
+/** The matrix's narrowest readable width, in pixels: a 340px spine and 220px columns. */
+function matrixWidth(matrix: TraceMatrix) {
+  return 340 + shownColumns(matrix).length * 220;
 }
 
-function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
+/** A column few rows fill is held to a fifth of the width, so dense columns get the room. */
+const sparse = (matrix: TraceMatrix, column: MatrixColumn) => column.covered < matrix.rowCount / 4;
+
+function Matrix({
+  model,
+  matrix,
+  defaultNote,
+}: {
+  model: GroupModel;
+  matrix: TraceMatrix;
+  defaultNote?: string;
+}) {
   const open = matrix.bands.some((band) => !band.closed);
 
   return (
@@ -181,14 +298,17 @@ function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
         <table className="gv-trace">
           <colgroup>
             <col className="gv-col-spine" />
-            {matrix.columns.map((column) => (
-              <col key={column.id} className={column.collapsed ? "gv-col-narrow" : undefined} />
+            {shownColumns(matrix).map((column) => (
+              <col
+                key={column.id}
+                className={sparse(matrix, column) ? "gv-col-sparse" : undefined}
+              />
             ))}
           </colgroup>
           <thead>
             <tr>
               <SpineHead model={model} matrix={matrix} />
-              {matrix.columns.map((column) => (
+              {shownColumns(matrix).map((column) => (
                 <ColumnHead key={column.id} model={model} matrix={matrix} column={column} />
               ))}
             </tr>
@@ -204,29 +324,36 @@ function Matrix({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
           ))}
         </table>
       </HighlightProvider>
-      <Footer model={model} matrix={matrix} />
+      <Footer model={model} matrix={matrix} defaultNote={defaultNote} />
     </>
   );
 }
 
+/** Why the first row choice is the default, for the footer. */
+function defaultRowsNote(model: GroupModel, graph: LinkGraph, choices: readonly string[]) {
+  const fallback = choices[0];
+  const member = model.memberIndex.get(fallback);
+
+  if (!member || choices.length < 2) return undefined;
+
+  const tree =
+    (member.parentField ?? null) !== null && (graph.incoming.get(fallback)?.size ?? 0) > 0;
+
+  return `${memberLabel(model, member, { plural: true })} are the default rows: ${tree ? "the tree other types link to" : "the type linked with the most others"}. Columns follow link direction.`;
+}
+
 function SpineSwitcher({
   model,
-  graph,
   choices,
   spine,
   onChoose,
 }: {
   model: GroupModel;
-  graph: LinkGraph;
   choices: readonly string[];
   spine: string;
   onChoose: (spine: string) => void;
 }) {
   const fallback = choices[0];
-  const member = model.memberIndex.get(fallback);
-
-  const tree =
-    (member?.parentField ?? null) !== null && (graph.incoming.get(fallback)?.size ?? 0) > 0;
 
   return (
     <div className="gv-toolbar">
@@ -255,11 +382,6 @@ function SpineSwitcher({
           ];
         })}
       />
-      <span className="gv-faint">
-        <span className="gv-default-dot" aria-hidden="true" /> Default:{" "}
-        {tree ? "the tree other types link to" : "the type linked with the most others"}. Columns
-        follow link direction.
-      </span>
     </div>
   );
 }
@@ -297,14 +419,13 @@ function TraceBody({ model }: { model: GroupModel }) {
   return (
     <div className="gv-trace-page" style={{ minWidth: matrixWidth(matrix) }}>
       <GroupFacts model={model} />
-      <SpineSwitcher
+      <SpineSwitcher model={model} choices={choices} spine={spine} onChoose={choose} />
+      <Matrix
+        key={spine}
         model={model}
-        graph={graph}
-        choices={choices}
-        spine={spine}
-        onChoose={choose}
+        matrix={matrix}
+        defaultNote={defaultRowsNote(model, graph, choices)}
       />
-      <Matrix key={spine} model={model} matrix={matrix} />
     </div>
   );
 }

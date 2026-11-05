@@ -23,6 +23,9 @@ const cases = [
   { id: "concept", kind: "fact", file: "docs/concepts.md", text: "Search titles before creating a concept.", statement: "Search meaning as well as titles before creating concept notes.", response: "document" },
   { id: "links", kind: "fact", file: "tools/links.mjs", text: "export const rewrite = (text, oldTitle, newTitle) => text.replaceAll(oldTitle, newTitle);", statement: "Preserve historical display labels when tools/links.mjs redirects a merged note.", response: "fix" },
   { id: "report", kind: "rule", file: "docs/report.md", text: "Write high-level weekly bullets. Use details to frame the update, not as the update.", statement: "Keep recurring weekly reports at the high level agreed in docs/report.md.", reject: "already_documented", origin: "person", confidence: "likely", lens: "correction" },
+  { id: "categories", kind: "rule", file: "docs/categories.md", text: "The previous report's categories are examples. Choose categories for the current work.", statement: "Every weekly report must reuse the previous report's categories.", reject: "conflicts_with_policy", origin: "person", confidence: "likely", lens: "correction" },
+  { id: "short_bullets", kind: "rule", file: "docs/bullets.md", text: "Keep this one report's bullets short enough for its audience; include useful context in later reports.", statement: "Every weekly report must use only short bullets without supporting context.", reject: "one_off", origin: "unknown", confidence: "unknown", lens: "correction" },
+  { id: "delegated", kind: "rule", file: "docs/delegated.md", text: "No standing instruction establishes a required final section.", statement: "The delegated brief proves the author requires every draft to end with a next-step section.", reject: "preference", origin: "unknown", confidence: "unknown", lens: "correction" },
   { id: "next_step", kind: "rule", file: "schemas/concept.json", text: '{"properties":{"nextStep":{"type":"string"}},"required":["title"]}', statement: "schemas/concept.json makes nextStep optional; do not invent a next step.", reject: "already_documented", origin: "unknown", confidence: "unknown", lens: "correction" },
   { id: "reviewer", kind: "rule", file: "docs/review.md", text: "A reviewer must resolve to a Person note before approving a proposal.", statement: "Require a Person reviewer for the approval workflow in docs/review.md.", reject: "already_documented" },
   { id: "obsolete", kind: "fact", file: "tools/publish.mjs", text: "export const publish = (notes) => notes.filter((note) => note.ready);", statement: "tools/publish.mjs selects status sent and supports a drafts flag.", reject: "false_now" },
@@ -30,8 +33,8 @@ const cases = [
   { id: "one_off", kind: "rule", file: "docs/draft.md", text: "One draft for a single meeting.", statement: "Use exactly two paragraphs for this one meeting draft.", reject: "one_off" },
   { id: "entrypoint", kind: "fact", file: "docs/entrypoint.md", text: "For concept work, inspect links.", extraFile: "docs/concept-review.md", extraText: "Before creating a concept, search by meaning.", statement: "The concept entrypoint omits the search rule in docs/concept-review.md; link that guide where concept work starts.", response: "document", replacement: "For concept work, read [concept review](concept-review.md), then inspect links." },
   { id: "documented_miss", kind: "fact", file: "docs/linked-entrypoint.md", text: "For concept work, read [concept review](concept-review.md).", extraFile: "docs/concept-review.md", extraText: "Before creating a concept, search by meaning.", statement: "Repeat the search rule from docs/concept-review.md because an earlier agent missed it despite the working entrypoint link.", reject: "already_documented" },
-  { id: "environment", kind: "fact", file: "docs/environment.md", text: "No local timing guarantee is recorded.", statement: "The author's laptop always needs five seconds before a search returns.", external: true },
-  { id: "ungrouped", kind: "fact", file: "docs/missing.md", text: "Unclassified evidence.", statement: "The grouper supplied no checkability assessment for this claim.", ungrouped: true },
+  { id: "environment", kind: "fact", file: "docs/environment.md", text: "No local timing guarantee is recorded.", statement: "The author's laptop always needs five seconds before a search returns.", external: true, reject: "not_repository_specific" },
+  { id: "ungrouped", kind: "fact", file: "docs/missing.md", text: "Unclassified evidence.", statement: "The grouper supplied no checkability assessment for this claim.", ungrouped: true, reject: "too_vague" },
 ];
 
 function fixture(selected = cases) {
@@ -98,7 +101,7 @@ function clients({ legacy = null } = {}) {
         else seen.ranks.push(item);
         const answers = passage !== undefined
           ? { p_reusable: { noul: passage.startsWith("CASE ") ? 0.99 : 0 }, p_surprise: { noul: 0 } }
-          : { worth: { noul: 0.8 }, checkable: { noul: /^(environment|ungrouped):/.test(item.state.statement) ? 0.1 : 0.9 } };
+          : { worth: { noul: 0.8 }, checkable: { noul: 0.1 } };
         return { id: item.id, status: "succeeded", response: { answers } };
       }), usage: { input_tokens: 100 } };
     },
@@ -112,17 +115,17 @@ for (const unscreened of [false, true]) test(`${unscreened ? "unscreened fallbac
   const result = await mine({ ...f, state, harness: "claude", budget: 5, unscreened, log: () => {} }, fake);
   assert.equal(result.status, "done");
   const clusters = Object.fromEntries(Object.values(read(state, "pool/clusters.json")).map((c) => [label(c.statement), c]));
-  assert.deepEqual(fake.seen.verification.map((v) => v.id).sort(), cases.filter((c) => !c.external && !c.ungrouped).map((c) => c.id).sort());
+  assert.deepEqual(fake.seen.verification.map((v) => v.id).sort(), cases.map((c) => c.id).sort());
   assert.deepEqual(read(state, "proposals.json").map((p) => [label(p.statement), p.response]).sort(), [["concept", "document"], ["entrypoint", "document"], ["links", "fix"]]);
   for (const c of cases.filter((c) => c.reject)) assert.equal(clusters[c.id].verification.rejectReason, c.reject);
   for (const id of ["environment", "ungrouped"]) {
     assert.equal(clusters[id].tier, "C");
-    assert.equal(clusters[id].verification, undefined);
+    assert.equal(clusters[id].verification.decision, "reject");
   }
   // Checkability admits a likely correction without upgrading it to tier A,
   // and preserves the uncertainty of a delegated source all the way through.
-  for (const [id, origin, confidence] of [["report", "person", "likely"], ["next_step", "unknown", "unknown"]]) {
-    assert.equal(clusters[id].tier, "B");
+  for (const [id, origin, confidence] of [["report", "person", "likely"], ["next_step", "unknown", "unknown"], ["delegated", "unknown", "unknown"]]) {
+    assert.equal(clusters[id].tier, unscreened ? "B" : "C");
     assert.equal(fake.seen.extracts.find((e) => e.id === `claude:${id}:1`).confidence, confidence);
     assert.deepEqual(fake.seen.verification.find((v) => v.id === id).sources.map((s) => [s.origin, s.confidence]), [[origin, confidence]]);
   }
@@ -141,6 +144,6 @@ for (const checkable of ["code", "workflow", "environment"]) test(`saved ${check
   const result = await mine({ ...f, state, harness: "claude", budget: 5, unscreened: true, log: () => {} }, fake);
   assert.equal(result.status, "done");
   const cluster = read(state, "pool/clusters.json")[legacy.id];
-  assert.equal(cluster.tier, checkable === "code" ? "B" : "C");
-  assert.equal(fake.seen.verification.length, checkable === "code" ? 1 : 0);
+  assert.equal(fake.seen.verification.length, 1);
+  assert.equal(cluster.tier, "B");
 });

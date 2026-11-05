@@ -144,6 +144,48 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 	return s.work(ctx, def, a, itemID, check, ref, commit), nil
 }
 
+// RequestRun gives a task an item that Run can start, so the person can run
+// a task the scheduler has not made due yet. It returns the task's open due
+// or needs-attention item, or adds a due item when the task has none. It
+// holds the run lock so a scheduler pass cannot add a competing item.
+func (s *Service) RequestRun(ctx context.Context, task string) (string, error) {
+	if reason := s.untrusted(); reason != "" {
+		return "", errors.New(reason)
+	}
+	release, err := s.lockRun(ctx, 0)
+	if errors.Is(err, errLocked) {
+		return "", ErrBusy
+	}
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = release() }()
+	// A crashed run leaves its item running; recover it so it can be retried.
+	if err := s.finalizeInterrupted(ctx); err != nil {
+		return "", err
+	}
+	_, commit, def, err := s.currentDefinition(ctx, task)
+	if err != nil {
+		return "", err
+	}
+	if def.Prompt == "" {
+		return "", fmt.Errorf("task %q has no prompt to run", def.ID)
+	}
+	var id string
+	err = s.store.Update(ctx, func(st *State) error {
+		if it := st.ActiveTaskItem(def.ID); it != nil {
+			if it.State != StateDue && it.State != StateAttention {
+				return fmt.Errorf("item %s already has this task %s; finish or discard it first", it.ID, it.State)
+			}
+			id = it.ID
+			return nil
+		}
+		id = st.AddItem(Item{Task: def.ID, Kind: KindTask, State: StateDue, Summary: "Run requested", Commit: commit}, s.opts.Now()).ID
+		return nil
+	})
+	return id, err
+}
+
 // startRun checks that the item can run under the held run lock, loads its
 // task, and marks the run as Running.
 func (s *Service) startRun(ctx context.Context, itemID string) (a attempt, def Definition, ref, commit string, check CheckResult, err error) {

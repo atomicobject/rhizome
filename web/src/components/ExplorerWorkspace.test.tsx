@@ -67,7 +67,8 @@ describe("ExplorerWorkspace", () => {
       .json("GET", "/api/v1/graphs/expand", graphWith())
       .json("GET", "/api/v1/files/view", fileView(""))
       .json("GET", "/api/v1/suggest", { count: 0, matches: [] })
-      .json("GET", "/api/v1/search", { count: 0, matches: [] });
+      .json("GET", "/api/v1/search", { count: 0, matches: [] })
+      .json("GET", "/api/v1/ontology/summary", { types: [], interfaces: [] });
   });
 
   afterEach(() => {
@@ -82,7 +83,7 @@ describe("ExplorerWorkspace", () => {
     const utils = render(<ExplorerWorkspace vaultName="rhizome" />);
 
     async function renderer() {
-      await screen.findByPlaceholderText("Search nodes");
+      await screen.findByRole("img", { name: /^Graph of / });
       const sigma = sigmaOn.mock.contexts.at(-1);
 
       if (!(sigma instanceof Sigma)) throw new Error("graph pane never mounted a renderer");
@@ -159,8 +160,66 @@ describe("ExplorerWorkspace", () => {
     );
   });
 
-  it("opens an embedded graph node at its canonical target", async () => {
+  it("starts the whole vault at folder level and opens a folder from its node", async () => {
     http.json("GET", "/api/v1/graphs/global", {
+      nodes: [
+        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+        { id: "b", label: "b", kind: "code", path: "pkg/b.go" },
+      ],
+      edges: [{ source: "a", target: "b", kind: "mentions" }],
+      truncated: false,
+    });
+    const explorer = renderExplorer();
+    const renderer = await explorer.renderer();
+    await waitFor(() =>
+      expect(renderer.getGraph().nodes().sort()).toEqual(["folder:", "folder:docs", "folder:pkg"]),
+    );
+
+    act(() => {
+      renderer.emit("clickNode", {
+        node: "folder:pkg",
+        event: {
+          x: 0,
+          y: 0,
+          sigmaDefaultPrevented: false,
+          preventSigmaDefault: () => undefined,
+          original: new MouseEvent("click"),
+        },
+        preventSigmaDefault: () => undefined,
+      });
+    });
+
+    await waitFor(() =>
+      expect(http.requests("GET", "/api/v1/graphs/expand").at(-1)?.query.get("module")).toBe("pkg"),
+    );
+    expect(document.querySelector(".explorer-pane")).toBeNull();
+    expect(document.querySelector(".explorer-grid--with-pane")).toBeNull();
+  });
+
+  it("keeps containment separate from links between a parent folder and its child", async () => {
+    http.json("GET", "/api/v1/graphs/global", {
+      nodes: [
+        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+        { id: "b", label: "b", kind: "note", path: "docs/specs/b.md" },
+      ],
+      edges: [{ source: "a", target: "b", kind: "mentions" }],
+      truncated: false,
+    });
+    const explorer = renderExplorer();
+    const graph = await explorer.graph();
+
+    await waitFor(() => expect(graph.edges("folder:docs", "folder:docs/specs")).toHaveLength(2));
+    expect(
+      graph
+        .edges("folder:docs", "folder:docs/specs")
+        .map((edge) => graph.getEdgeAttribute(edge, "kind"))
+        .sort(),
+    ).toEqual(["folder-containment", "folder-minor"]);
+  });
+
+  it("opens an embedded graph node at its canonical target", async () => {
+    window.history.replaceState({}, "", "/explorer?file=specs%2Fdemo.md");
+    http.json("GET", "/api/v1/graphs/local", {
       nodes: [
         {
           id: "criterion",
@@ -333,11 +392,13 @@ describe("ExplorerWorkspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^.*old$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^.*current$/i }));
     currentChildren.resolve({ path: "current", entries: [] });
-    expect(await screen.findByRole("heading", { name: "current" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "current" })).toHaveAttribute("aria-current", "page");
+    expect(document.querySelector(".explorer-pane")).toBeNull();
 
     oldChildren.resolve({ path: "old", entries: [] });
     await waitFor(() => expect(http.count("GET", "/api/v1/files/tree")).toBe(3));
-    expect(screen.getByRole("heading", { name: "current" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "current" })).toHaveAttribute("aria-current", "page");
+    expect(document.querySelector(".explorer-pane")).toBeNull();
   });
 
   it("shows suggestions only for the latest debounced query", async () => {
@@ -387,7 +448,7 @@ describe("ExplorerWorkspace", () => {
     const pushState = vi.spyOn(window.history, "pushState");
 
     renderExplorer();
-    const search = screen.getByPlaceholderText("Search notes + code");
+    const search = screen.getByRole("searchbox", { name: "Search notes and code" });
     fireEvent.focus(search);
     fireEvent.change(search, { target: { value: "guide" } });
     const suggestion = await screen.findByRole("button", { name: /src\/guide\.html/i });
@@ -409,7 +470,7 @@ describe("ExplorerWorkspace", () => {
     const explorer = renderExplorer();
     const sigma = await explorer.renderer();
     const displayHidden = (id: string) => sigma.getNodeDisplayData(id)?.hidden;
-    const search = screen.getByPlaceholderText("Search notes + code");
+    const search = screen.getByRole("searchbox", { name: "Search notes and code" });
     fireEvent.change(search, { target: { value: "old" } });
     fireEvent.keyDown(search, { key: "Enter" });
     fireEvent.change(search, { target: { value: "current" } });

@@ -15,126 +15,19 @@
 
 /* ---- Sidebar ---- */
 
-.tasks-rail {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
+/* On the chrome, risk takes the chrome's risk ink rather than AO red. */
+.sidebar-nav__row:not([aria-current="page"]) .status-mark--risk .status-mark__shape {
+  background: var(--chrome-risk);
 }
 
-.tasks-rail__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  padding: 6px 8px 4px 18px;
-  color: var(--chrome-text);
-}
-
-.tasks-rail__head h1 {
-  margin: 0;
-  font-size: var(--fs-base);
-  font-weight: 600;
-}
-
-.tasks-rail__pause {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--chrome-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.tasks-rail__pause:hover {
-  background: var(--chrome-raised);
-  color: var(--chrome-text);
-}
-
-.tasks-rail__pause[aria-pressed="true"] {
-  background: var(--chrome-active);
-  color: var(--chrome-text);
-}
-
-.tasks-rail__pause .task-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.tasks-rail__list {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 1px;
-  min-height: 0;
-  margin: 0;
-  padding: 2px 8px var(--sp-4);
-  overflow: auto;
-  list-style: none;
-  scrollbar-color: var(--chrome-raised) transparent;
-  scrollbar-width: thin;
-}
-
-.tasks-rail__row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  width: 100%;
-  height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--chrome-text);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.12s var(--ease);
-}
-
-.tasks-rail__row:hover {
-  background: var(--chrome-raised);
-}
-
-.tasks-rail__row:focus-visible {
-  outline: 2px solid var(--chrome-text);
-  outline-offset: -2px;
-}
-
-.tasks-rail__row[aria-current="page"] {
-  background: var(--chrome-pill);
-  color: var(--chrome-pill-text);
-  font-weight: 600;
-}
-
-.tasks-rail__row[aria-current="page"]:focus-visible {
-  outline-color: var(--chrome-pill-text);
-}
-
-.tasks-rail__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tasks-rail__aside {
+.tasks-rail__failed {
   flex: none;
-  color: var(--chrome-muted);
   font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  font-weight: 400;
+  font-weight: 600;
 }
 
-.tasks-rail__row[aria-current="page"] .tasks-rail__aside {
-  color: inherit;
-  opacity: 0.8;
+.sidebar-nav__row:not([aria-current="page"]) .tasks-rail__failed {
+  color: var(--chrome-risk);
 }
 
 /* ---- Buttons ---- */
@@ -219,8 +112,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3) var(--sp-5);
-  min-height: 60px;
-  padding: 10px 18px;
+  min-height: 56px;
+  padding: 10px var(--sp-4) 10px var(--gutter);
   border-bottom: 1px solid var(--border);
 }
 
@@ -261,37 +154,13 @@
   font-size: var(--fs-xs);
 }
 
+/* Repository conditions use the shared .banner; this only places them. */
 .task-notice {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2) var(--sp-4);
-  margin: 12px 18px 0;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--bg-tint);
-}
-
-.task-notice p,
-.task-notice ul {
-  flex: 1;
-  min-width: 240px;
-  margin: 0;
+  margin: 10px var(--gutter) 0;
 }
 
 .task-notice ul {
   padding-left: 18px;
-}
-
-.task-notice--risk {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-}
-
-.task-notice__aside {
-  color: var(--text-muted);
 }
 
 /* ---- Overview table ---- */
@@ -332,11 +201,12 @@
 }
 
 .task-table :is(th, td):first-child {
-  padding-left: 18px;
+  padding-left: var(--gutter);
 }
 
+/* Rows hold two lines: the task name over its id. */
 .task-table tbody :is(th, td) {
-  height: 40px;
+  height: 52px;
   padding: 0 10px;
   border-bottom: 1px solid var(--border-faint);
   font-weight: 400;
@@ -348,36 +218,51 @@
   background: var(--bg-tint);
 }
 
+/* The task name is a quiet teal link; its id is a muted mono second line. */
 .task-table__open {
   display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   max-width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
 }
 
-.task-table__open:hover span {
+.task-table__open:is(:hover, :focus-visible) .link-quiet {
   text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
-.task-table__open code,
+/* The row's secondary line: the task id, then a new task's quiet "What it
+   does" disclosure, so the row's prominent action stays the inbox one. */
+.task-table__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 1px;
+  font-size: var(--fs-sm);
+}
+
+.task-table__meta code {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.task-table__meta code,
 .task-table__aside,
 .task-table__none {
   color: var(--text-muted);
 }
 
-.task-table__mono,
+/* Intervals and relative times are sans, like every relative time. */
+.task-table__time,
 .task-table__due {
-  font-family: var(--font-mono);
-  font-size: var(--fs-base);
   font-variant-numeric: tabular-nums;
 }
 
@@ -394,6 +279,11 @@
 
 .task-table__aside {
   font-size: var(--fs-sm);
+}
+
+.task-table__run-link {
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .task-table__local {
@@ -872,16 +762,6 @@
   color: var(--text-faint);
 }
 
-.task-block__chevron .task-icon {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.15s var(--ease);
-}
-
-.task-block[open] > summary .task-block__chevron .task-icon {
-  transform: rotate(90deg);
-}
-
 .task-block__title {
   display: flex;
   align-items: baseline;
@@ -1130,7 +1010,7 @@
 
   .task-run__id,
   .task-table .is-optional,
-  .task-table__open code,
+  .task-table__meta code,
   .task-table td .task-table__aside {
     display: none;
   }
@@ -1142,6 +1022,57 @@
   .task-table :is(th, td) {
     padding-inline: 8px;
   }
+}
+
+/* A new task's row carries its notice: a "New" tag and a quiet "What it
+   does" toggle that opens the purpose in a full-width row below. "New" is
+   the neutral chip (as .type-chip): a fact, not a status. */
+.task-table__new-tag {
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.task-notice__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-notice__more:is(:hover, :focus-visible) {
+  color: var(--text);
+}
+
+.task-table tr.is-expanded > * {
+  border-bottom-color: transparent;
+}
+
+.task-table tbody .task-table__purpose > td {
+  height: auto;
+  padding-top: 0;
+  padding-bottom: var(--sp-3);
+  white-space: normal;
+}
+
+.task-table__purpose:hover {
+  background: transparent;
+}
+
+.task-table__purpose p {
+  max-width: 72ch;
+  margin: 0 0 var(--sp-3);
+  color: var(--text-muted);
 }
 
 .task-notice__sentence::first-letter {

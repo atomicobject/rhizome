@@ -24,6 +24,7 @@ The point of tasks is agent work that happens automatically or semi-automaticall
 
 - **Auto:** when the task is due and its check says it is needed, the prompt runs in the background.
 - **Notify:** the task appears in the inbox instead. **Run** does the work in the background now. **Start** opens the person's harness interactively in a new worktree. The person can also snooze or skip it.
+- **Run now:** a task with no open inbox item can be run on request from its page or with `rzm tasks run --task <task>`. Rhizome adds a due item and runs it as Run would, check first.
 
 The repository sets the default mode for its tasks, and each person can override it per task, including turning a task off. Cost is the task author's responsibility: a task should be well structured, use its check to avoid unneeded work, and keep its prompt efficient. A task that costs too much is a problem with the task, to be fixed or turned off, not something Rhizome meters.
 
@@ -219,6 +220,7 @@ Task authors can see and test a local version before it reaches the primary bran
 - MUST keep task state outside every Git-tracked path, readable only by the person on macOS and Linux.
 - MUST NOT fetch from the network to decide what is due. The primary ref is as fresh as the person's last fetch.
 - MUST resolve each check's interpreter the way the person's login shell does, because a runtime started by the desktop app or launchd lacks the shell's PATH, and version-manager shims such as mise fail without their environment.
+- MUST run the runtime's own `rzm` for a check command named `rzm`, and put that binary first on the PATH of checks and agent work. The runtime runs with repo delegation off, and its subprocesses inherit that, so a bare `rzm` would otherwise run whichever `rzm` the shell finds first.
 - SHOULD keep deciding what is due cheap enough to run every tick.
 
 ## Edge Cases

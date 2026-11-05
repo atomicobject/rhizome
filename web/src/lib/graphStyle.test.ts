@@ -63,6 +63,27 @@ function edgeAttrs(overrides: Partial<SigmaEdgeAttrs> = {}): SigmaEdgeAttrs {
 }
 
 describe("graph style reducers", () => {
+  it("keeps containment visible and reveals counted cross-folder links only on hover", () => {
+    const input = {
+      source: "folder:docs",
+      target: "folder:pkg",
+      sourceAttrs: nodeAttrs(),
+      targetAttrs: nodeAttrs(),
+      state: reducerState(),
+      lod: lodFromRatio(1),
+    };
+
+    const attrs = edgeAttrs({ kind: "folder-minor", label: "12 links" });
+
+    expect(computeEdgeStyle({ ...input, attrs })).toMatchObject({ hidden: true, label: "" });
+    expect(
+      computeEdgeStyle({ ...input, attrs, state: reducerState({ hoverNodeID: "folder:docs" }) }),
+    ).toMatchObject({ hidden: false, label: "12 links" });
+    expect(
+      computeEdgeStyle({ ...input, attrs: edgeAttrs({ kind: "folder-containment" }) }),
+    ).toMatchObject({ hidden: false, label: "" });
+  });
+
   it("hides non-matching nodes when search-only filter is active", () => {
     const result = computeNodeStyle({
       nodeId: "note:task-flow",

@@ -56,7 +56,7 @@ Either kind prints one JSON object:
 
 or `{"needed": false}`. A task with no check is needed whenever it is due.
 
-Checks and prompts receive the same locations: `RZM_TASK_ID`, `RZM_TASK_MAIN_CHECKOUT`, `RZM_TASK_COMMIT`, and `RZM_TASK_DATA_DIR`, a private folder that keeps the task's state between runs. Prompts receive them in their instructions.
+Checks and prompts receive the same locations: `RZM_TASK_ID`, `RZM_TASK_MAIN_CHECKOUT`, `RZM_TASK_COMMIT`, and `RZM_TASK_DATA_DIR`, a private folder that keeps the task's state between runs. Prompts receive them in their instructions. In both, `rzm` on `PATH` is the binary running the task, so a repository that pins its own Rhizome build uses that build.
 
 For a test, `RZM_TASK_COMMIT` names the source snapshot and `RZM_TASK_DATA_DIR` is fresh for that attempt. `RZM_TASK_TEST=1` lets a task with its own private state choose separate test storage; the compounding module does this automatically. Command checks and agent work use the captured worktree. A code-mode test reads its captured script but queries the selected checkout's existing index; create that index first if it is missing. It does not automatically index a new test worktree or start a runtime. If no runtime is running, code mode uses its existing in-process read path with `RZM_RUNTIME_AUTOSTART=0`.
 
@@ -86,13 +86,13 @@ Tasks run only in a repository you trusted with `rzm trust`. The first time Rhiz
 
 ## When tasks run
 
-While Rhizome Desktop or any headless `rzm` runtime is up for a vault inside a Git checkout, it starts `rzm tasks run-due` every 15 minutes. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass.
+While Rhizome Desktop or any headless `rzm` runtime is up for a vault inside a Git checkout, it starts `rzm tasks run-due` every 15 minutes. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
 
 A `person` task is due when your own last run is older than its cadence. A `team` task also counts teammates: when a commit tagged `Rhizome-Task: <id>` reaches the primary branch, everyone's clock resets. Squash merges keep the tag when the repository squashes with commit messages. They drop it when it squashes with the pull request title alone.
 
 ## Background runs
 
-A background run, automatic or started with `rzm tasks run <item>`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. Nothing is pushed and no pull request is opened. A run that changes nothing removes its worktree and branch.
+A background run, automatic or started with **Run**, **Run now**, or `rzm tasks run`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. Nothing is pushed and no pull request is opened. A run that changes nothing removes its worktree and branch.
 
 Review a finished run in its worktree, then open the pull request yourself, or discard it with `rzm tasks discard <item>`.
 

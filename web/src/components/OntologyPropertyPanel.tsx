@@ -1,3 +1,5 @@
+import { DisclosureChevron } from "./DisclosureChevron";
+import { ChevronRight } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -100,11 +102,15 @@ export function OntologyPropertyPanel({
     ...(editing || detailsOpen || forceDetailsOpen ? detailFields : []),
   ];
 
-  // Reading, a field with nothing to say waits behind one toggle; editing
-  // shows every field so it can be filled. Fields with issues stay visible.
-  const emptyFields = editing
-    ? []
-    : shown.filter((node) => isEmptyField(node) && !detailFieldMustStayVisible(node));
+  // A field with nothing to say waits behind one toggle, in edit mode too, so
+  // entering edit mode keeps read mode's geometry. Fields with issues or
+  // staged changes stay visible.
+  const emptyFields = shown.filter(
+    (node) =>
+      isEmptyField(node) &&
+      !detailFieldMustStayVisible(node) &&
+      !changedFieldNames.has(node.field.name),
+  );
 
   const emptyCount = emptyFields.length;
   const displayable = emptyOpen ? shown : shown.filter((node) => !emptyFields.includes(node));
@@ -150,9 +156,11 @@ export function OntologyPropertyPanel({
 
   return (
     <section className="ontology-properties">
-      <div className="ontology-properties__header">
-        <h3 className="ontology-properties__label">Properties</h3>
-        {!editing && !forceDetailsOpen && detailFields.length > 0 && (
+      {/* The divider above already frames the fields, so a visible label would
+          stack on the first field's label. */}
+      <h3 className="sr-only">Properties</h3>
+      {!editing && !forceDetailsOpen && detailFields.length > 0 && (
+        <div className="ontology-properties__header">
           <button
             type="button"
             className="ontology-properties__details-toggle"
@@ -169,8 +177,8 @@ export function OntologyPropertyPanel({
           >
             {detailsOpen ? "Hide details" : `${detailFields.length} more`}
           </button>
-        )}
-      </div>
+        </div>
+      )}
       <dl className="ontology-properties__grid">
         {parentRef && parentPath && (
           <div className="ontology-properties__row">
@@ -216,6 +224,7 @@ export function OntologyPropertyPanel({
             setEmptyOpen(next);
           }}
         >
+          <ChevronRight className="disclosure-chevron" size={16} aria-hidden="true" />
           {emptyOpen
             ? `Hide ${emptyCount} empty field${emptyCount === 1 ? "" : "s"}`
             : `Show ${emptyCount} empty field${emptyCount === 1 ? "" : "s"}`}
@@ -361,17 +370,41 @@ function PropertyRow({
   const value = values[0] || "";
   const isLocator = name === "locator";
   const relation = effectiveFieldCapability(node).valueKind === "relation";
+  // Long text runs full width under its label, in read and edit mode alike.
+  const long = !relation && values.join(", ").length > LONG_TEXT;
+  const [opened, setOpened] = useState(false);
+  // Keep the full field editor available while editing.
+  const preview = long && !opened && !dirty && !editing;
+  const previewRef = useRef<HTMLSpanElement>(null);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const element = previewRef.current;
+
+    if (!element || !preview) return;
+
+    const measure = () => setOverflows(element.scrollHeight > element.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [preview, values]);
 
   return (
     <div
-      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}`}
+      className={`ontology-properties__row${dirty ? " is-dirty" : ""}${present ? "" : " is-missing"}${long ? " is-long" : ""}`}
       data-field={name}
     >
       <dt className="ontology-properties__key" title={name}>
         {humanizeName(name)}
       </dt>
       <dd className="ontology-properties__value">
-        {links && !editing && relation && values.length > 0 ? (
+        {preview ? (
+          <span ref={previewRef} className="ontology-properties__preview-text">
+            {links ? linkedText(values.join(", "), links) : values.join(", ")}
+          </span>
+        ) : links && !editing && relation && values.length > 0 ? (
           <span className={`widget-text${dirty ? " is-dirty" : ""}`}>
             <FieldLinkValues
               links={fieldLinksForValues(values, node.field.links)}
@@ -403,10 +436,23 @@ function PropertyRow({
             onStage={onStage}
           />
         )}
+        {long && (overflows || opened) && !dirty && !editing && (
+          <button
+            type="button"
+            className="list-more ontology-properties__preview-more"
+            aria-expanded={opened}
+            onClick={() => setOpened((value) => !value)}
+          >
+            <DisclosureChevron open={opened} />
+            {opened ? "Show less" : `Show full ${humanizeName(name).toLowerCase()}`}
+          </button>
+        )}
       </dd>
     </div>
   );
 }
+
+const LONG_TEXT = 60;
 
 type PropertyLinks = {
   rendered: RenderedFile | null;

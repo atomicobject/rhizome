@@ -27,9 +27,9 @@ describe("allocateColumns", () => {
 
     expect(allocation.shown).toEqual(effortColumns.map((column) => column.field));
     expect(allocation.moved).toEqual([]);
-    // 30 check + 240 title + 176 + 136 + 180 + 104.
-    expect(allocation.minWidth).toBe(866);
-    expect(AT_1920_WITH_PANE - allocation.minWidth + 240).toBeGreaterThan(600);
+    // 30 check + 320 title + 176 + 136 + 220 + 116.
+    expect(allocation.minWidth).toBe(998);
+    expect(AT_1920_WITH_PANE - allocation.minWidth + 320).toBeGreaterThan(590);
   });
 
   it("keeps every column at 1440 without the pane", () => {
@@ -44,11 +44,11 @@ describe("allocateColumns", () => {
   });
 
   it("then moves the ID column, keeping the title minimum", () => {
-    const allocation = allocateColumns(effortColumns, 600, false, {});
+    const allocation = allocateColumns(effortColumns, 610, false, {});
 
     expect(allocation.moved).toEqual(["id", "governingSpec"]);
     expect(allocation.shown).toEqual(["title", "status", "createdAt"]);
-    expect(allocation.minWidth).toBe(30 + 240 + 136 + 104);
+    expect(allocation.minWidth).toBe(30 + 320 + 136 + 116);
   });
 
   it("moves dates last and never the title or status", () => {
@@ -66,7 +66,7 @@ describe("allocateColumns", () => {
     const twoLine = allocateColumns(effortColumns, AT_1440_WITH_PANE, true, {});
 
     expect(twoLine.moved).toEqual(["governingSpec"]);
-    expect(twoLine.minWidth).toBe(30 + 320 + 176 + 136 + 104);
+    expect(twoLine.minWidth).toBe(30 + 320 + 176 + 136 + 116);
   });
 
   it("drops the rightmost column of a kind first", () => {
@@ -76,7 +76,7 @@ describe("allocateColumns", () => {
       { field: "spec", kind: "relation" },
     ];
 
-    expect(allocateColumns(columns, 30 + 240 + 180 + 10, false, {}).moved).toEqual(["spec"]);
+    expect(allocateColumns(columns, 30 + 320 + 220 + 10, false, {}).moved).toEqual(["spec"]);
   });
 
   it("uses a user-resized width in place of the fixed width", () => {
@@ -85,7 +85,7 @@ describe("allocateColumns", () => {
       title: 400,
     });
 
-    expect(allocation.minWidth).toBe(30 + 400 + 176 + 220 + 180 + 104);
+    expect(allocation.minWidth).toBe(30 + 400 + 176 + 220 + 220 + 116);
   });
 });
 
@@ -97,6 +97,7 @@ describe("columnKind", () => {
     expect(columnKind(cell("identifier", "id"), false)).toBe("id");
     expect(columnKind(cell("identifier"), false)).toBe("id");
     expect(columnKind(cell("date"), false)).toBe("date");
+    expect(columnKind(cell("date", "age"), false)).toBe("age");
     expect(columnKind(cell("numeric", "flag"), false)).toBe("flag");
     expect(columnKind(cell("numeric"), false)).toBe("number");
     expect(columnKind(cell("relation"), false)).toBe("relation");

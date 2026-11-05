@@ -9,6 +9,7 @@ import {
   candidateForInput,
   cellValues,
   fieldValue,
+  markCutTitle,
   rawFieldValue,
 } from "./ConfiguredTableCellHelpers";
 import { NoteLinkPreview, useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
@@ -29,12 +30,17 @@ export function renderReadOnlyCell(
   const control = viewFieldControl(capability);
   const displayValue = control.kind === "relation" ? relationDisplayValue(value) : value;
 
+  // People read as names in ink; teal stays for records you navigate to.
+  const relationClass = `configured-view__relation-value${
+    capability?.edit?.targetType === "Person" ? " configured-view__relation-value--person" : ""
+  }`;
+
   if (control.kind === "relation") {
     const relationValues = relationValuesForField(row, field, capability);
 
     if (relationValues.length > 0) {
       return (
-        <span className="configured-view__relation-value">
+        <span className={relationClass}>
           {relationValues.map((relation, index) => {
             const target = relation.ref ? publicWorkspaceRef(relation.ref) : "";
             const text = displayTitle(relation.title) || relationDisplayValue(relation.value);
@@ -42,6 +48,7 @@ export function renderReadOnlyCell(
             return (
               <span
                 key={`${relation.value}:${target}:${index}`}
+                className="link-secondary"
                 data-configured-relation-link
                 onClick={(event) => event.stopPropagation()}
                 onFocus={(event) => event.stopPropagation()}
@@ -81,7 +88,9 @@ export function renderReadOnlyCell(
 
   if (onOpenRow) {
     const path = row.path || row.ref.notePath;
-    const display = displayTitle(displayValue || row.title) || path || "Untitled";
+
+    const display =
+      markCutTitle(row, displayTitle(displayValue || row.title)) || path || "Untitled";
 
     return <PrimaryReadOnlyCell row={row} path={path} display={display} onOpenRow={onOpenRow} />;
   }
@@ -113,16 +122,18 @@ export function renderReadOnlyCell(
   }
 
   if (control.kind === "relation" && value) {
-    return <span className="configured-view__relation-value">{displayValue}</span>;
+    return <span className={relationClass}>{displayValue}</span>;
   }
 
-  // Staged reads can return a date as a midnight timestamp.
-  if (control.kind === "date" && /^\d{4}-\d{2}-\d{2}T00:00:00(\.0+)?Z$/.test(value)) {
-    return value.slice(0, 10);
-  }
-
-  if (control.kind === "datetime" && value.length > 10) {
-    return <time title={value}>{value.slice(0, 10)}</time>;
+  // A date reads as words ("May 31, 2026"), so an ISO string never looks like
+  // code; the ISO form stays in the tooltip. Staged reads can return a date
+  // as a midnight timestamp.
+  if ((control.kind === "date" || control.kind === "datetime") && ISO_DATE.test(value)) {
+    return (
+      <time dateTime={value.slice(0, 10)} title={value}>
+        {readableDate(value)}
+      </time>
+    );
   }
 
   if (control.kind === "text" && onOpenRelation && hasCellLinks(value)) {
@@ -173,7 +184,7 @@ function PrimaryReadOnlyCell({
       <button
         {...previewTrigger.triggerProps}
         type="button"
-        className="configured-view__title-button"
+        className="configured-view__title-button link-quiet link-title"
         data-row-title
         aria-label={`Open ${display}`}
         title={display}
@@ -288,6 +299,18 @@ export function relationDisplayValue(value: string) {
     .join(", ");
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/;
+
+let dateFormat: Intl.DateTimeFormat | null = null;
+
+/** "2026-05-31" as "May 31, 2026", read as a calendar date in any time zone. */
+export function readableDate(value: string) {
+  dateFormat ??= new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: "UTC" });
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+
+  return dateFormat.format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 // The options `Date.prototype.toLocaleString()` uses, built once: a table
 // formats one timestamp per row.
 let localTimeFormat: Intl.DateTimeFormat | null = null;
@@ -317,7 +340,7 @@ export function ChangedCell({
   const date = new Date(value < 1e12 ? value * 1000 : value);
 
   return (
-    <time dateTime={date.toISOString()} title={formatLocalTime(date)}>
+    <time className="relative-age" dateTime={date.toISOString()} title={formatLocalTime(date)}>
       {relativeAge(date.getTime(), now)}
     </time>
   );

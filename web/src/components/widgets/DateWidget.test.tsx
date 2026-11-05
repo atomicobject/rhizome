@@ -9,9 +9,12 @@ afterEach(() => {
 });
 
 describe("DateWidget", () => {
-  it("renders the literal value in browse mode", () => {
+  it("renders a calendar date as words in browse mode", () => {
     render(<DateWidget value="2026-04-12" editing={false} />);
-    expect(screen.getByText("2026-04-12")).toBeInTheDocument();
+    expect(screen.getByText("Apr 12, 2026")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/^2026-04-12/),
+    );
   });
 
   it("renders an empty placeholder when missing", () => {
@@ -22,7 +25,7 @@ describe("DateWidget", () => {
   it("renders a date input pre-populated with ISO form in edit mode", () => {
     render(<DateWidget value="2026-04-12T14:00:00Z" editing={true} />);
     const input = screen.getByDisplayValue<HTMLInputElement>("2026-04-12");
-    expect(input.type).toBe("date");
+    expect(input.type).toBe("text");
   });
 
   it("stages DateTime edits as RFC3339 while preserving the existing offset", () => {
@@ -106,7 +109,7 @@ describe("DateWidget", () => {
     const input = screen.getByLabelText<HTMLInputElement>("due");
     fireEvent.change(input, { target: { value: "2026-05-01" } });
     expect(readPersistedEditorDraftRecord("/vault", operationTarget)?.value).toBe("2026-05-01");
-    expect(input.type).toBe("date");
+    expect(input.type).toBe("text");
     fireEvent.blur(input);
 
     expect(onStage).toHaveBeenCalledWith("2026-05-01");

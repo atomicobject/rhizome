@@ -105,7 +105,7 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	}
 	prompt := testPrompt(def, loc, check, dir)
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
-	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: prompt, Transcript: s.runFile(a.id, transcriptFile), Env: loc.env()})
+	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: prompt, Transcript: s.runFile(a.id, transcriptFile), Env: s.agentEnv(loc)})
 	cancel()
 	outcome := OutcomeReady
 	message := strings.TrimSpace(res.Message)

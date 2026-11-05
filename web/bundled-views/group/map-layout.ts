@@ -2,11 +2,13 @@
 // same input always yields the same positions, with no randomness.
 //
 // Linked members get a small force layout seeded on a golden-angle spiral and
-// stretched to the box. Members with no links to other members sit in labeled
-// rows along the bottom, or spread over the whole box when no member is linked. Outside neighbors sit on an ellipse at the edge, each
-// at the angle of the members it links to, spread so none overlap. Each label
-// goes below, above, right, or left of its node, whichever first clears the
-// labels and nodes already placed, largest nodes first.
+// stretched to the box, every node at least INSET inside it. Members with no
+// links at all, inside or outside the group, are left out of the drawing (the legend lists them),
+// unless no member is linked, when they spread over the whole box. Outside
+// neighbors sit on an ellipse at the edge, each at the angle of the members it
+// links to, spread so none overlap. Each label goes on the first of eight
+// sides of its node that clears the nodes, labels, and edges already placed,
+// largest nodes first.
 
 export type LayoutNode = { id: string; radius: number; label: string };
 
@@ -33,30 +35,27 @@ export type Point = { x: number; y: number };
 export type LabelPlacement = Point & { anchor: "start" | "middle" | "end" };
 
 export type MapLayout = {
+  height: number;
   positions: ReadonlyMap<string, Point>;
   labels: ReadonlyMap<string, LabelPlacement>;
-  /** Members with no links to other members, in the bottom rows. */
+  /** Members with no links to other members, not drawn; empty when no member is linked. */
   loose: readonly string[];
-  /** The top of the bottom rows, or null when every member is linked. */
-  looseTop: number | null;
   /** Where each edge label sits; an edge whose label would cover a node or its label has none. */
   edgeLabels: ReadonlyMap<string, Point>;
 };
 
 export const OUTSIDE_RADIUS = 6;
 
+/** Room kept outside the ring of outside neighbors for their names. */
+const RING_LABEL_GUTTER = 150;
+
 const ITERATIONS = 400;
 
-const ROW_HEIGHT = 30;
+/** Average label glyph width at the map's 13px font, generous so boxes cover the drawn text. */
+const GLYPH = 7.5;
 
-/** Space below the bottom row, so it clears the legend under the map. */
-const ROW_BOTTOM_GAP = 10;
-
-/** The row label's width, before the first loose member. */
-const ROW_START = 104;
-
-/** Average label glyph width at the map's font size. */
-const GLYPH = 6;
+/** The least gap between a node's edge and the box's edge. */
+export const INSET = 24;
 
 function forceLayout(
   nodes: readonly LayoutNode[],
@@ -147,8 +146,9 @@ function fit(
     Math.max(...ys),
   ];
 
-  const sx = (width - 2 * padX) / Math.max(maxX - minX, 1);
-  const sy = (height - 2 * padY) / Math.max(maxY - minY, 1);
+  // Padding never takes more than 70% of the box, so a narrow canvas still spreads its members.
+  const sx = Math.max(width - 2 * padX, width * 0.3) / Math.max(maxX - minX, 1);
+  const sy = Math.max(height - 2 * padY, height * 0.3) / Math.max(maxY - minY, 1);
   const scale = Math.min(sx, sy, 3);
   const tx = Math.min(sx, scale * 2, 4);
   const ty = Math.min(sy, scale * 2, 4);
@@ -159,41 +159,6 @@ function fit(
     point.x = width / 2 + (point.x - cx) * tx;
     point.y = height / 2 + (point.y - cy) * ty;
   }
-}
-
-/** Loose members left to right in rows from the bottom up, each row as tall as its largest node; returns the rows' total height. */
-function placeLoose(
-  positions: Map<string, Point>,
-  loose: readonly LayoutNode[],
-  width: number,
-  height: number,
-) {
-  const rows: { node: LayoutNode; x: number }[][] = [];
-  let x = ROW_START;
-
-  for (const node of loose) {
-    const span = 2 * node.radius + 10 + node.label.length * GLYPH + 24;
-
-    if (!rows.length || (x > ROW_START && x + span > width)) {
-      rows.push([]);
-      x = ROW_START;
-    }
-
-    rows[rows.length - 1].push({ node, x: x + node.radius });
-    x += span;
-  }
-
-  if (!rows.length) return 0;
-  let bottom = height - ROW_BOTTOM_GAP;
-
-  for (const row of rows) {
-    const rowHeight = Math.max(ROW_HEIGHT, ...row.map(({ node }) => 2 * node.radius + 8));
-
-    for (const { node, x: cx } of row) positions.set(node.id, { x: cx, y: bottom - rowHeight / 2 });
-    bottom -= rowHeight;
-  }
-
-  return height - bottom;
 }
 
 /** Outside neighbors on an ellipse, each toward the members it links to, at least 0.6 rad apart. */
@@ -236,10 +201,14 @@ function placeRing(
     }
   }
 
+  // The ring leaves a label gutter outside it, so a neighbor's name can sit
+  // beyond its node, clear of the links running in to it.
+  const rx = Math.max(width / 2 - INSET - RING_LABEL_GUTTER, width * 0.3);
+
   for (const { id, angle } of angles) {
     positions.set(id, {
-      x: cx + (width / 2 - 40) * Math.cos(angle),
-      y: cy + (height / 2 - 16) * Math.sin(angle),
+      x: cx + rx * Math.cos(angle),
+      y: cy + (height / 2 - INSET - OUTSIDE_RADIUS) * Math.sin(angle),
     });
   }
 }
@@ -249,11 +218,64 @@ export type Box = { x: number; y: number; w: number; h: number };
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
+/** Whether the segment from `a` to `b` passes through the box. */
+function crosses(box: Box, a: Point, b: Point) {
+  // Liang–Barsky clipping: the segment meets the box when some t in [0, 1] lies inside it.
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+
+  for (const [p, q] of [
+    [-dx, a.x - box.x],
+    [dx, box.x + box.w - a.x],
+    [-dy, a.y - box.y],
+    [dy, box.y + box.h - a.y],
+  ]) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+
+    const t = q / p;
+
+    if (p < 0) t0 = Math.max(t0, t);
+    else t1 = Math.min(t1, t);
+
+    if (t0 > t1) return false;
+  }
+
+  return true;
+}
+
+/** The least gap between a label and any other node or label. */
+const LABEL_CLEARANCE = 4;
+
+const grow = (box: Box, by: number): Box => ({
+  x: box.x - by,
+  y: box.y - by,
+  w: box.w + 2 * by,
+  h: box.h + 2 * by,
+});
+
+/** Label text height plus its halo. */
+const LABEL_HEIGHT = 34;
+
+/** How far out a label may step from its node to clear the edges there. */
+const LABEL_GUTTER = 24;
+
+/** The gap between an outside neighbor and its name, on the side facing away from the members. */
+const OUTSIDE_LABEL_GAP = 12;
+
+type LabelItem = { id: string; radius: number; label: string; outward?: Point };
+
 function placeLabels(
   positions: ReadonlyMap<string, Point>,
-  items: readonly { id: string; radius: number; label: string; loose: boolean }[],
+  items: readonly LabelItem[],
+  segments: readonly [Point, Point][],
   width: number,
   height: number,
+  reserved: readonly Box[] = [],
 ) {
   const boxes: Box[] = items.flatMap((item) => {
     const point = positions.get(item.id);
@@ -270,6 +292,7 @@ function placeLabels(
       : [];
   });
 
+  boxes.push(...reserved);
   const labels = new Map<string, LabelPlacement>();
 
   for (const item of [...items].sort((a, b) => b.radius - a.radius || a.id.localeCompare(b.id))) {
@@ -277,48 +300,149 @@ function placeLabels(
 
     if (!point) continue;
     const { x, y } = point;
-    const r = item.radius;
-    const w = item.label.length * GLYPH;
-    const h = 13;
+    const w = Math.max(...item.label.split("\n").map((line) => line.length)) * GLYPH;
+    const h = LABEL_HEIGHT;
+
+    // Beside the node first, then a label gutter further out, so a label can
+    // step clear of the edges bundled at its node. On each ring: below,
+    // above, right, left, then the four diagonals; `y` is the text baseline.
+    // An outside neighbor's name goes on its own side, away from the spokes
+    // running in from the members, 12px clear of the node.
+    const outward = item.outward
+      ? (() => {
+          const r = item.radius + OUTSIDE_LABEL_GAP;
+          const { x: ox, y: oy } = item.outward;
+
+          if (Math.abs(ox) >= Math.abs(oy) * 0.25)
+            return ox >= 0
+              ? [
+                  {
+                    x: x + r,
+                    y: y + 4,
+                    anchor: "start" as const,
+                    box: { x: x + r, y: y - 8, w, h },
+                  },
+                ]
+              : [
+                  {
+                    x: x - r,
+                    y: y + 4,
+                    anchor: "end" as const,
+                    box: { x: x - r - w, y: y - 8, w, h },
+                  },
+                ];
+
+          return oy >= 0
+            ? [
+                {
+                  x,
+                  y: y + r + 11,
+                  anchor: "middle" as const,
+                  box: { x: x - w / 2, y: y + r, w, h },
+                },
+              ]
+            : [
+                {
+                  x,
+                  y: y - r - 4,
+                  anchor: "middle" as const,
+                  box: { x: x - w / 2, y: y - r - h, w, h },
+                },
+              ];
+        })()
+      : [];
 
     const candidates = [
-      { x, y: y + r + 12, anchor: "middle" as const, box: { x: x - w / 2, y: y + r + 2, w, h } },
-      { x, y: y - r - 5, anchor: "middle" as const, box: { x: x - w / 2, y: y - r - 16, w, h } },
-      { x: x + r + 5, y: y + 4, anchor: "start" as const, box: { x: x + r + 4, y: y - 7, w, h } },
-      { x: x - r - 5, y: y + 4, anchor: "end" as const, box: { x: x - r - 4 - w, y: y - 7, w, h } },
+      ...outward,
+      ...[
+        item.radius + (item.outward ? OUTSIDE_LABEL_GAP : 7),
+        item.radius + LABEL_GUTTER,
+        ...Array.from({ length: 12 }, (_, i) => item.radius + 40 + i * 18),
+      ].flatMap((r) => {
+        const d = r * Math.SQRT1_2;
+
+        return [
+          { x, y: y + r + 11, anchor: "middle" as const, box: { x: x - w / 2, y: y + r, w, h } },
+          {
+            x,
+            y: y - r - 4,
+            anchor: "middle" as const,
+            box: { x: x - w / 2, y: y - r - h, w, h },
+          },
+          { x: x + r, y: y + 4, anchor: "start" as const, box: { x: x + r, y: y - 8, w, h } },
+          { x: x - r, y: y + 4, anchor: "end" as const, box: { x: x - r - w, y: y - 8, w, h } },
+          {
+            x: x + d,
+            y: y + d + 11,
+            anchor: "start" as const,
+            box: { x: x + d, y: y + d, w, h },
+          },
+          {
+            x: x + d,
+            y: y - d - 4,
+            anchor: "start" as const,
+            box: { x: x + d, y: y - d - h, w, h },
+          },
+          {
+            x: x - d,
+            y: y + d + 11,
+            anchor: "end" as const,
+            box: { x: x - d - w, y: y + d, w, h },
+          },
+          {
+            x: x - d,
+            y: y - d - 4,
+            anchor: "end" as const,
+            box: { x: x - d - w, y: y - d - h, w, h },
+          },
+        ];
+      }),
     ].filter(
       ({ box }) =>
         box.x > 2 && box.x + box.w < width - 2 && box.y > 2 && box.y + box.h < height - 2,
     );
 
-    // A loose member's label reads along its row.
-    if (item.loose)
-      candidates.sort((a, b) => Number(b.anchor === "start") - Number(a.anchor === "start"));
+    // A label keeps LABEL_CLEARANCE from every node and label, so two never read as one stacked block.
+    const clear = (box: Box) => !boxes.some((other) => overlaps(other, grow(box, LABEL_CLEARANCE)));
+    const crossings = (box: Box) => segments.filter(([a, b]) => crosses(box, a, b)).length;
+    // Clear of nodes and labels first, then crossing the fewest edges, then the earliest side.
+    const open = candidates.filter(({ box }) => clear(box));
+    const pool = open;
+    const scored = pool.map((candidate) => ({ candidate, cost: crossings(candidate.box) }));
 
-    const chosen = candidates.find(
-      (candidate) => !boxes.some((box) => overlaps(box, candidate.box)),
-    ) ??
-      candidates[0] ?? { x, y: y + r + 12, anchor: "middle" as const, box: { x, y, w: 0, h: 0 } };
+    const best = scored.reduce<(typeof scored)[number] | undefined>(
+      (min, next) => (!min || next.cost < min.cost ? next : min),
+      undefined,
+    );
+
+    const chosen = best?.candidate ?? {
+      x,
+      y: y + item.radius + 18,
+      anchor: "middle" as const,
+      box: { x, y, w: 0, h: 0 },
+    };
 
     boxes.push(chosen.box);
     labels.set(item.id, { x: chosen.x, y: chosen.y, anchor: chosen.anchor });
   }
 
-  return { labels, boxes };
+  return { labels, boxes: boxes.filter((box) => !reserved.includes(box)) };
 }
 
 /** Where along an edge its label may sit, nearest the middle first. */
-const EDGE_STOPS = [0.5, 0.38, 0.62, 0.28, 0.72];
+const EDGE_STOPS = [0.5];
 
 /**
  * Each labeled edge's label at the first stop along it whose box clears
  * `occupied` (node circles and labels) and the labels placed before it,
- * heaviest edges first; an edge with no clear stop gets no label.
+ * preferring one no other segment crosses, heaviest edges first; an edge
+ * with no clear stop gets no label.
  */
 export function placeEdgeLabels(
   positions: ReadonlyMap<string, Point>,
   edges: readonly LayoutEdge[],
   occupied: readonly Box[],
+  segments: readonly [Point, Point][] = [],
 ) {
   const boxes = [...occupied];
   const placed = new Map<string, Point>();
@@ -329,14 +453,23 @@ export function placeEdgeLabels(
     const b = positions.get(edge.b);
 
     if (!a || !b || !edge.label) continue;
-    const w = edge.label.text.length * GLYPH + 4;
+    // The count's box covers the pill overview-map.tsx draws, centered on the edge.
+    const w = edge.label.text.length * GLYPH + 10;
 
-    const spot = EDGE_STOPS.map((t) => {
+    const spots = EDGE_STOPS.flatMap((t) => {
       const x = a.x + (b.x - a.x) * t;
-      const y = a.y + (b.y - a.y) * t - 3;
+      const y = a.y + (b.y - a.y) * t;
+      const box = { x: x - w / 2, y: y - 9, w, h: 18 };
 
-      return { x, y, box: { x: x - w / 2, y: y - 9, w, h: 11 } };
-    }).find((candidate) => !boxes.some((box) => overlaps(box, candidate.box)));
+      return boxes.some((other) => overlaps(other, box)) ? [] : [{ x, y, box }];
+    });
+
+    // Prefer a stop no other edge passes through, so a count reads as its own edge's.
+    const others = segments.filter(([from, to]) => !(from === a && to === b));
+
+    const spot =
+      spots.find((candidate) => !others.some(([from, to]) => crosses(candidate.box, from, to))) ??
+      undefined;
 
     if (!spot) continue;
     boxes.push(spot.box);
@@ -346,48 +479,168 @@ export function placeEdgeLabels(
   return placed;
 }
 
+/** The share of the box the drawing, labels included, should fill. */
+const FILL = 0.85;
+
+function union(boxes: readonly Box[]): Box | undefined {
+  if (!boxes.length) return undefined;
+  const x = Math.min(...boxes.map((box) => box.x));
+  const y = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.w));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.h));
+
+  return { x, y, w: right - x, h: bottom - y };
+}
+
+/** Keep every node at least INSET inside the box. */
+function inset(
+  positions: Map<string, Point>,
+  nodes: readonly LayoutNode[],
+  width: number,
+  height: number,
+) {
+  for (const node of nodes) {
+    const point = positions.get(node.id);
+
+    if (!point) continue;
+    const pad = node.radius + INSET;
+    point.x = Math.min(Math.max(point.x, pad), Math.max(pad, width - pad));
+    point.y = Math.min(Math.max(point.y, pad), Math.max(pad, height - pad));
+  }
+}
+
 export function layoutMap(input: LayoutInput): MapLayout {
   const { width, height } = input;
-  const linked = new Set(input.edges.flatMap((edge) => [edge.a, edge.b]));
+
+  // A member with only outside links still needs a position for its spokes.
+  const linked = new Set([
+    ...input.edges.flatMap((edge) => [edge.a, edge.b]),
+    ...input.outside.flatMap((neighbor) => [...neighbor.byMember.keys()]),
+  ]);
+
   const core = input.nodes.filter((node) => linked.has(node.id));
   // With no linked members there is nothing to set the unlinked ones apart from.
   const spread = core.length === 0;
+  const drawn = spread ? input.nodes : core;
   const loose = spread ? [] : input.nodes.filter((node) => !linked.has(node.id));
-  const looseOnly = new Map<string, Point>();
-  const looseHeight = placeLoose(looseOnly, loose, width, height);
-  const top = height - looseHeight;
-  // ponytail: many large unlinked members can overrun the box; keep a third of it for linked ones.
-  const coreHeight = Math.max(top, height / 3);
-  const positions = forceLayout(spread ? input.nodes : core, input.edges, width, coreHeight);
+  const positions = forceLayout(drawn, input.edges, width, height);
   const ring = input.outside.length > 0;
 
   if (positions.size)
-    fit(positions, width, coreHeight, ring ? 190 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
+    fit(positions, width, height, ring ? 140 : spread ? 140 : 80, ring ? 70 : spread ? 60 : 30);
 
-  for (const [id, point] of looseOnly) positions.set(id, point);
+  inset(positions, drawn, width, height);
 
-  if (ring) placeRing(positions, input.outside, width, coreHeight);
+  if (ring) placeRing(positions, input.outside, width, height);
 
-  const { labels, boxes } = placeLabels(
-    positions,
-    [
-      ...input.nodes.map((node) => ({ ...node, loose: looseOnly.has(node.id) })),
-      ...input.outside.map((neighbor) => ({
-        id: neighbor.id,
-        radius: OUTSIDE_RADIUS,
-        label: neighbor.label,
-        loose: false,
-      })),
-    ],
-    width,
-    height,
-  );
+  const segments = () => {
+    const list: [Point, Point][] = [];
+
+    const segment = (a: string, b: string) => {
+      const from = positions.get(a);
+      const to = positions.get(b);
+
+      if (from && to) list.push([from, to]);
+    };
+
+    for (const edge of input.edges) segment(edge.a, edge.b);
+
+    for (const neighbor of input.outside)
+      for (const member of neighbor.byMember.keys()) segment(member, neighbor.id);
+
+    return list;
+  };
+
+  const place = () => {
+    for (let pass = 0; pass < 10; pass++) {
+      for (const edge of input.edges) {
+        const a = positions.get(edge.a);
+        const b = positions.get(edge.b);
+
+        if (!a || !b || !edge.label || edge.a === edge.b) continue;
+
+        const radius = Math.max(
+          ...drawn
+            .filter((node) => node.id === edge.a || node.id === edge.b)
+            .map((node) => node.radius),
+        );
+
+        const distance = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const extra = (2 * radius + edge.label.text.length * GLYPH + 24 - distance) / 2;
+
+        if (extra <= 0) continue;
+
+        const dx = ((b.x - a.x) / distance) * extra;
+        const dy = ((b.y - a.y) / distance) * extra;
+        a.x -= dx;
+        a.y -= dy;
+        b.x += dx;
+        b.y += dy;
+      }
+    }
+
+    return placeLabels(
+      positions,
+      [
+        ...drawn,
+        ...input.outside.map((neighbor) => {
+          const point = positions.get(neighbor.id) ?? { x: width / 2, y: height / 2 };
+
+          return {
+            id: neighbor.id,
+            radius: OUTSIDE_RADIUS,
+            label: neighbor.label,
+            outward: { x: point.x - width / 2, y: point.y - height / 2 },
+          };
+        }),
+      ],
+      segments(),
+      width,
+      height,
+      input.edges.flatMap((edge) => {
+        const a = positions.get(edge.a);
+        const b = positions.get(edge.b);
+
+        if (!a || !b || !edge.label) return [];
+        const w = edge.label.text.length * GLYPH + 4;
+
+        return [{ x: (a.x + b.x - w) / 2, y: (a.y + b.y) / 2 - 9, w, h: 18 }];
+      }),
+    );
+  };
+
+  // The drawing, labels included, fills about FILL of the box: spread the
+  // positions until it does, re-placing labels each pass.
+  let placed = place();
+
+  for (let pass = 0; pass < 4; pass++) {
+    const bounds = union(placed.boxes);
+
+    if (!bounds) break;
+    let sx = Math.min((FILL * width) / Math.max(bounds.w, 1), 2.5);
+    let sy = Math.min((FILL * height) / Math.max(bounds.h, 1), 2.5);
+    [sx, sy] = [Math.min(sx, sy * 3), Math.min(sy, sx * 3)];
+
+    if (Math.abs(sx - 1) < 0.03 && Math.abs(sy - 1) < 0.03) break;
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+
+    for (const point of positions.values()) {
+      point.x = width / 2 + (point.x - cx) * sx;
+      point.y = height / 2 + (point.y - cy) * sy;
+    }
+
+    inset(positions, drawn, width, height);
+    placed = place();
+  }
+
+  const { labels, boxes } = placed;
 
   return {
+    height,
     positions,
     labels,
     loose: loose.map((node) => node.id),
-    looseTop: loose.length ? top : null,
-    edgeLabels: placeEdgeLabels(positions, input.edges, boxes),
+    edgeLabels: placeEdgeLabels(positions, input.edges, boxes, segments()),
   };
 }

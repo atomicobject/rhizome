@@ -25,6 +25,7 @@ type TasksAPI interface {
 	Runs(task string) ([]tasks.RunView, error)
 	RunDetail(id string, after int64) (tasks.RunDetail, error)
 	PrecheckRun(ctx context.Context, itemID string) error
+	RequestRun(ctx context.Context, task string) (string, error)
 	PrecheckTest(ctx context.Context, taskID string) (tasks.TestSource, error)
 	RecordTestLaunchError(ctx context.Context, taskID, reason string) error
 	Snooze(ctx context.Context, itemID string, until time.Time) error
@@ -142,6 +143,20 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serve = s.taskItemAction(w, r, itemID, action)
+	case len(parts) == 2 && parts[0] == "run" && post:
+		task := parts[1]
+		if !tasks.ValidID(task) {
+			writeError(w, http.StatusBadRequest, errors.New("invalid task id"))
+			return
+		}
+		serve = func(api TasksAPI) {
+			itemID, err := api.RequestRun(r.Context(), task)
+			if err != nil {
+				writeTasksAction(w, err)
+				return
+			}
+			s.launchItemRun(w, r.Context(), api, itemID)
+		}
 	case len(parts) == 2 && parts[0] == "tests" && post:
 		task := parts[1]
 		if !tasks.ValidID(task) {
@@ -220,23 +235,7 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 	ctx := r.Context()
 	switch action {
 	case "run":
-		return func(api TasksAPI) {
-			if err := api.PrecheckRun(ctx, itemID); err != nil {
-				writeError(w, http.StatusConflict, err)
-				return
-			}
-			launchedAt := time.Now().UTC()
-			launch := s.tasksLaunch
-			if launch == nil {
-				launch = launchTaskRun
-			}
-			if err := launch(s.cfg.VaultPath, itemID); err != nil {
-				_ = api.RecordLaunchError(ctx, itemID, err.Error())
-				writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", err))
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339Nano)})
-		}
+		return func(api TasksAPI) { s.launchItemRun(w, ctx, api, itemID) }
 	case "snooze":
 		var req struct {
 			Until time.Time `json:"until"`
@@ -255,6 +254,26 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 	}
 	writeError(w, http.StatusNotFound, fmt.Errorf("unknown item action %q", action))
 	return nil
+}
+
+// launchItemRun starts an item's run in a separate process and answers with
+// when it launched and which item it runs.
+func (s *Server) launchItemRun(w http.ResponseWriter, ctx context.Context, api TasksAPI, itemID string) {
+	if err := api.PrecheckRun(ctx, itemID); err != nil {
+		writeError(w, http.StatusConflict, err)
+		return
+	}
+	launchedAt := time.Now().UTC()
+	launch := s.tasksLaunch
+	if launch == nil {
+		launch = launchTaskRun
+	}
+	if err := launch(s.cfg.VaultPath, itemID); err != nil {
+		_ = api.RecordLaunchError(ctx, itemID, err.Error())
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", err))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339Nano), "item": itemID})
 }
 
 func parseTasksAfter(raw string) (int64, error) {

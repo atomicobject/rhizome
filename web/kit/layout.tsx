@@ -3,6 +3,7 @@
 // Rhizome. Styling lives in components.css (rz-* classes), on theme tokens.
 import { useId, type ReactNode } from "react";
 
+import { isString } from "../src/api/parse";
 import { cn } from "./lib/utils";
 
 /** A block's data state: loading, failed with a retry, or ready. */
@@ -42,6 +43,7 @@ export function Section({
   title,
   count,
   caption,
+  info,
   controls,
   status,
   what,
@@ -52,6 +54,13 @@ export function Section({
   title: ReactNode;
   count?: ReactNode;
   caption?: ReactNode;
+  /**
+   * What the block shows, for a reader new to it: an info mark beside the
+   * title that shows it on hover and names it to assistive technology,
+   * instead of a caption line every visit. Use display: "title" for descriptive
+   * help that belongs on the heading without a separate icon.
+   */
+  info?: string | { text: string; display: "title" };
   controls?: ReactNode;
   status?: SectionStatus;
   /** Names the data in state lines: "Loading {what}…". */
@@ -62,14 +71,40 @@ export function Section({
   children?: ReactNode | (() => ReactNode);
 }) {
   const id = useId();
+  const infoId = useId();
+  const help = isString(info) ? info : info?.text;
+  const showInfo = isString(info);
 
   return (
-    <section className={cn("rz-section", className)} aria-labelledby={id}>
-      <h2 className="rz-section-head">
+    <section
+      className={cn("rz-section", className)}
+      aria-labelledby={id}
+      aria-describedby={info ? infoId : undefined}
+    >
+      <h2 className="rz-section-head" title={!showInfo ? help : undefined}>
         <span id={id}>{title}</span>
         {count !== undefined && count !== null && <Count>{count}</Count>}
+        {showInfo && (
+          <span className="rz-info" title={help}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+              <path
+                d="M8 7.2v3.8M8 5.1v.1"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+        )}
         {controls && <span className="rz-section-controls">{controls}</span>}
       </h2>
+      {/* Outside the heading, so the heading's name stays its title. */}
+      {help && (
+        <span id={infoId} className="sr-only">
+          {help}
+        </span>
+      )}
       {caption && <p className="rz-caption">{caption}</p>}
       <SectionBody status={status} what={what} empty={empty}>
         {children}
@@ -184,7 +219,7 @@ export function Dash() {
   );
 }
 
-/** "+N more" while the rest is hidden, "Show fewer" once revealed in place. */
+/** "Show N more" while the rest is hidden, "Show fewer" once revealed in place. */
 export function MoreToggle({
   hidden,
   open,
@@ -201,8 +236,33 @@ export function MoreToggle({
       aria-expanded={open}
       onClick={onToggle}
     >
-      {open ? "Show fewer" : `+${hidden} more`}
+      {open ? "Show fewer" : `Show ${hidden} more`}
     </button>
+  );
+}
+
+/**
+ * The one disclosure chevron: a 16px right-pointing chevron that turns down
+ * when `open`. Put it inside a control with an accessible name; on its own as
+ * a button, use `rz-disclosure` for the 24px hit target.
+ */
+export function DisclosureIcon({ open, className }: { open: boolean; className?: string }) {
+  return (
+    <svg
+      className={cn("rz-disclosure-icon", className)}
+      data-open={open || undefined}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 3.5 10.5 8 6 12.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

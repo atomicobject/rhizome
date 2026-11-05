@@ -6,6 +6,7 @@
   },
   "include": [
     "playwright.config.ts",
+    "playwright.webkit.config.ts",
     "vite.config.ts",
     "vite.kit.config.ts",
     "devProxyConfig.ts",

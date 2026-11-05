@@ -204,7 +204,8 @@ func (a *Account) Publish(ctx context.Context, grant wire.SessionGrant, expected
 }
 
 // Logout revokes the session on the gateway and deletes the local record,
-// serialized with refresh so a refresh cannot recreate it. remoteRevoked is
+// serialized with refresh so a refresh cannot recreate it. The selector keeps
+// naming this origin, so the next sign-in returns to the same server. remoteRevoked is
 // false when the gateway could not be reached; the record is deleted anyway.
 func (a *Account) Logout(ctx context.Context) (remoteRevoked bool, err error) {
 	unlock, err := lockFile(ctx, a.lockPath)
@@ -215,9 +216,9 @@ func (a *Account) Logout(ctx context.Context) (remoteRevoked bool, err error) {
 	rec, err := a.load()
 	switch {
 	case errors.Is(err, ErrNotFound):
-		return true, a.clearSelector()
+		return true, nil
 	case errors.Is(err, errMalformed):
-		return false, errors.Join(a.delete(), a.clearSelector())
+		return false, a.delete()
 	case err != nil:
 		return false, err
 	}
@@ -226,14 +227,7 @@ func (a *Account) Logout(ctx context.Context) (remoteRevoked bool, err error) {
 	revokeCtx, cancel := context.WithTimeout(ctx, logoutTimeout)
 	remoteRevoked = a.revoke(revokeCtx, rec)
 	cancel()
-	return remoteRevoked, errors.Join(a.delete(), a.clearSelector())
-}
-
-func (a *Account) clearSelector() error {
-	if a.selector == "" {
-		return nil
-	}
-	return clearSelector(a.selector, a.origin)
+	return remoteRevoked, a.delete()
 }
 
 func (a *Account) revoke(ctx context.Context, rec Record) bool {

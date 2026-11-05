@@ -2,9 +2,10 @@
 type: ExperienceSpec
 id: SPEC-0128
 aliases: [SPEC-0128, Workbench sidebar]
-summary: "One persistent, user-toggled sidebar across Notes, Ontology, Explorer, and Agent: the same themed frame with section-specific contents, one remembered collapsed state and width, a toggle in the browser top bar and in Rhizome Desktop's toolbar, and ⌃⌘S or ⌘\\ to toggle it."
+summary: "One persistent, user-toggled sidebar across Notes, Ontology, Explorer, Agent, and GraphQL: the same themed frame with section-specific contents, one remembered collapsed state and width, a toggle in the browser top bar and in Rhizome Desktop's toolbar, and ⌃⌘S or ⌘\\ to toggle it."
 spec-status: active
-last-updated: 2026-10-26
+last-updated: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 ---
 
 # Workbench sidebar
@@ -18,12 +19,11 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 ## Goals
 
 - The sidebar is shown or hidden by the user alone. Opening a search, switching sections, or reloading never changes it.
-- Notes, Ontology, Explorer, and Agent share one sidebar frame: the same chrome colour, header, width, resize handle, and collapse behaviour. Only the contents differ.
+- Notes, Ontology, Explorer, Agent, and GraphQL share one sidebar frame: the same chrome colour, header, width, resize handle, and collapse behaviour. Only the contents differ.
 - One toggle, in the same place in every section, controls it: in the browser top bar beside the section switcher, and in Rhizome Desktop's toolbar.
 
 ## Non-Goals
 
-- A sidebar for GraphQL. GraphiQL keeps its own docs and history panel.
 - Per-section collapsed state or per-section widths.
 - New narrow-window behaviour for the sidebar. The existing cap of 45% of the window stays.
 - Changes to the right pane (SPEC-0126 US6) and its `]` shortcut.
@@ -40,9 +40,9 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 #### Acceptance Criteria
 
 - Opening a project search keeps the sidebar visible if it was visible. The search results fill the content panel beside it.
-- Switching among Notes, Ontology, Explorer, and Agent keeps the sidebar's collapsed state and width.
+- Switching among Notes, Ontology, Explorer, Agent, and GraphQL keeps the sidebar's collapsed state and width.
 - The collapsed state and width survive a reload. In the browser they are remembered per origin and follow changes made in another tab of the same origin. In Rhizome Desktop the collapsed state applies to every window and repository and survives restarts; the width is remembered per repository and followed by that repository's other windows.
-- In GraphQL the content fills the window. Returning to another section restores the sidebar as it was.
+- GraphQL uses the same sidebar and inset content panel, preserving the shared collapsed state and width.
 
 ### US2 - Toggle the sidebar from one place
 
@@ -55,21 +55,22 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 - In the browser, a sidebar toggle sits in the top bar immediately before the section switcher. It uses the panel-left icon, is labelled "Hide sidebar" or "Show sidebar", and reports its state with `aria-expanded`. The document tab strip no longer has a sidebar toggle.
 - In Rhizome Desktop the page draws no toggle of its own. The toolbar's first control after the window buttons is the sidebar toggle, drawn like the other toolbar icon buttons and pressed while the sidebar shows. The View menu has Show Sidebar or Hide Sidebar with ⌃⌘S.
 - ⌃⌘S and ⌘\\ toggle the sidebar in the browser and in Rhizome Desktop (Ctrl+Alt+S and Ctrl+\\ off macOS), including while focus is in the content page. The page ignores them while typing in a text field or editor; Desktop's View menu item answers ⌃⌘S from anywhere, like any menu command.
-- In GraphQL the toggle is disabled and its tooltip says the section has no sidebar.
+- The browser sidebar toggle and shortcuts work in GraphQL too. Desktop still disables its toolbar and View-menu toggle in GraphQL; this remaining integration gap is tracked in the closure effort.
 
 ### US3 - Use the same sidebar in every section
 
 - id:: ^SPEC-0128-US3
-- summary:: See the same sidebar frame in Notes, Ontology, Explorer, and Agent, holding what each section needs.
+- summary:: See the same sidebar frame in Notes, Ontology, Explorer, Agent, and GraphQL, holding what each section needs.
 - status:: ready
 
 #### Acceptance Criteria
 
 - Every section's sidebar sits on the theme's chrome colour beside the inset content panel, with the same header row naming the vault or repository, the same width range (200–400px, 264px default), and the same drag handle.
-- Notes holds Views, the scopes, and the type tree, as today.
+- Notes holds Views, the scopes, and the type tree. A group containing both saved views and types gives them separate Views and Types subheadings at 13px/500. Saved-view icons, type dots, and group chevrons occupy one 16px leading slot so sibling labels align. A zero-record type is hidden only when a saved view with the same display name exists in that group; nested children retain their navigation.
 - Ontology holds an Atlas row followed by the display groups with their types and interfaces, like the Notes type tree. Choosing a type or interface opens its Ontology detail, and the current one is selected.
 - Explorer holds the vault tree, with the current folder or note selected.
 - Agent holds the session list. Its narrow-window drawer and hamburger button are replaced by the shared toggle.
+- GraphQL holds Docs and History, with Refetch schema, Keyboard shortcuts, and Settings at its foot. These controls operate GraphiQL's existing panels; its own tool rail is hidden.
 - Selected rows, hover, focus, and counts look the same in every section.
 
 ## Requirements
@@ -89,7 +90,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 ### Accessibility and verification
 
 - The toggle MUST be reachable by keyboard in the browser top bar and the desktop toolbar, and its focus indicator MUST meet AA on every chrome theme in both appearances.
-- Unit tests MUST cover the shared state (persistence, carry-over from the old key, cross-tab updates, desktop commands) and the shortcuts' text-field exclusion. E2E tests MUST cover the sidebar staying visible on a search tab, keeping its state across sections and a reload, and the GraphQL exception. Desktop tests MUST cover the new command, report field, preference, and menu item.
+- Unit tests MUST cover the shared state (persistence, carry-over from the old key, cross-tab updates, desktop commands) and the shortcuts' text-field exclusion. E2E tests MUST cover the sidebar staying visible on a search tab, keeping its state across sections and a reload, and the GraphQL sidebar. Desktop tests MUST cover the new command, report field, preference, and menu item.
 
 ### Documentation
 
@@ -98,4 +99,8 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 ## Open Questions
 
-None. Drew settled the open choices on 2026-10-26: one shared collapsed state, an Ontology type tree, no GraphQL sidebar, and both ⌃⌘S and ⌘\\.
+None. Drew settled the shared state, Ontology type tree, shortcuts, and original GraphQL exclusion on 2026-10-26. On 2026-11-04 he approved the standard GraphQL sidebar, reversing that exclusion. Desktop's disabled GraphQL toggle remains a recorded delivery gap.
+
+## Change record
+
+2026-11-04: Recorded Drew's approved reversal of the 2026-10-26 GraphQL exclusion and the Views/Types grouping. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

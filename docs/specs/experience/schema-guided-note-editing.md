@@ -3,7 +3,8 @@ type: ExperienceSpec
 summary: "Defines a responsive, schema-guided Notes editing experience with typed controls, durable local drafts, clear save and conflict recovery, safe source editing, and accessible visual feedback."
 id: SPEC-0099
 spec-status: active
-last-updated: 2026-09-11
+last-updated: 2026-11-04
+last-verified: 2026-11-04 # Round 7
 aliases:
   - SPEC-0099
 ---
@@ -116,7 +117,8 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US11). A section edit
 
 Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US11):
 - **Reading:** the property panel hides fields with no value text, links, or bound sections behind a "Show N empty fields" toggle, remembered per type for the browser session. Fields with validation issues always show.
-- **Editing:** every field shows.
+- **Editing (amended 2026-11-04):** empty fields stay behind the same disclosure as in reading mode, except fields with staged changes or validation issues. Identifier guidance is behind an info control, and editable sections carry a quiet gutter pencil. The editing bar shows a warning-soft "Editing" chip with warning-ink text and no dot before changes are staged.
+- **Long properties:** read-mode previews show up to six lines. "Show full summary" appears on its own row only when the text overflows; "Show less" restores the preview. Edit mode exposes the full field editor.
 - **Section editors:** they keep read-mode typography and position, with no box at rest, a faint tint on hover, and the focus ring while focused.
 
 #### Acceptance Criteria
@@ -136,10 +138,14 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US11):
 - MUST expose server validation and typed conflicts in the same review surface used before Save.
 - MUST preserve user input through retryable network, storage, replay, and commit failures.
 - MUST not refresh the full node workspace for every character typed.
-- MUST use the established Notes shell tokens and interaction density.
+- MUST use the established Notes shell tokens and interaction density. The idle "Editing" chip uses warning-soft and warning-ink; its control-row border stays neutral. Staged fields, sections, cells, cards, tab markers, and the save bar use warning gold. Errors and conflicts use red. Save is primary only when changes are pending.
 - SHOULD keep common field controls and edit-state components below about 500 lines and split orchestration from rendering.
 - SHOULD measure narrative stage request count, transferred bytes, and response time against the same long-note workload before and after implementation.
 
 ## Open Questions
 
 None. The control mapping, conflict policy, local validation boundary, source escape hatch, and persistence model are part of this contract.
+
+## Change record
+
+2026-11-04: Reconciled empty-property disclosure during editing, quiet section affordances, and the shared staged-edit state colours. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.

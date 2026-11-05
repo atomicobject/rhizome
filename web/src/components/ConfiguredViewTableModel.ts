@@ -5,6 +5,7 @@ import type {
   ViewTableColumn,
   ViewTableRow,
 } from "../api/types";
+import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { capabilityFor, groupValueLabel } from "./ConfiguredViewModel";
 import type { ReorderGroup } from "./useViewReorder";
 import { viewFieldControl } from "./viewFieldControls";
@@ -60,14 +61,16 @@ export function leafReorderGroups(
 }
 
 export const FIXED_WIDTH_CELL =
-  /configured-view__cell--(id|date|numeric|flag|boolean|enum|relation)\b/;
+  /configured-view__cell--(id|date|age|numeric|flag|boolean|enum|relation)\b/;
 
 export function columnClassName(column: ViewTableColumn, capabilities: ViewFieldCapability[]) {
   const capability = capabilityFor(capabilities, column.field);
   const kind = viewFieldControl(capability).kind;
   const classes = ["configured-view__cell"];
 
-  if (
+  if (column.field === "notePath") {
+    classes.push("configured-view__cell--source");
+  } else if (
     capability?.semanticRole === "identifier" ||
     column.field === "path" ||
     /(^|\.)id$/i.test(column.field)
@@ -79,7 +82,14 @@ export function columnClassName(column: ViewTableColumn, capabilities: ViewField
 
   if (kind === "date" || kind === "datetime" || column.field === "updatedAt") {
     classes.push("configured-view__cell--date");
+
+    // A due date can be overdue, so it gets room for that label.
+    if (isDeadlineField(capability?.canonicalField ?? column.field))
+      classes.push("configured-view__cell--deadline");
   }
+
+  // The change time renders as a relative age, so it needs less room than a date.
+  if (column.field === "updatedAt") classes.push("configured-view__cell--age");
 
   if (
     kind === "number" ||
@@ -94,9 +104,51 @@ export function columnClassName(column: ViewTableColumn, capabilities: ViewField
     classes.push(`configured-view__cell--${kind}`);
   }
 
+  // One person's name needs less room than a linked record's title.
+  if (kind === "relation" && capability?.edit?.targetType === "Person" && !capability.edit.list)
+    classes.push("configured-view__cell--person");
+
   if (column.field === "hasIssues") classes.push("configured-view__cell--flag");
 
   return classes.join(" ");
+}
+
+/** A date field that names when something is due, such as `due` or `deadline`. */
+export function isDeadlineField(field: string) {
+  return /^(due|due[-_]?date|deadline)$/i.test(field.replace(/^.*\./, ""));
+}
+
+/**
+ * True when an open row's due date is before today. A row is closed when its
+ * `done` flag is set or a staged field, such as its lifecycle, is at a done or
+ * dropped stage; a date-only value compares by calendar day.
+ */
+export function isOverdue(
+  row: ViewTableRow,
+  value: string,
+  capabilities: ViewFieldCapability[],
+  today = localDay(new Date()),
+) {
+  const done = row.fields?.done;
+
+  if (done === true || done === "true") return false;
+
+  const closed = capabilities.some((capability) => {
+    const current = fieldValue(row, capability.key);
+    const stage = capability.enumValues?.find((option) => option.value === current)?.stage;
+
+    return stage === "done" || stage === "dropped";
+  });
+
+  if (closed) return false;
+
+  return /^\d{4}-\d{2}-\d{2}/.test(value) && value.slice(0, 10) < today;
+}
+
+function localDay(date: Date) {
+  const pad = (part: number) => String(part).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 export function primaryColumn(columns: ViewTableColumn[], capabilities: ViewFieldCapability[]) {

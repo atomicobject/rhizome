@@ -1,4 +1,6 @@
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSettings } from "../../api/types";
+import { humanizeName } from "../../lib/labels";
+import { DisclosureChevron } from "../DisclosureChevron";
 
 type StatusEntry = { kind: AgentHarnessKind; status: AgentHarnessStatus };
 
@@ -40,6 +42,8 @@ export function AgentSettingsPanel({
   const model = models.find((option) => option.id === selectedModel);
   const efforts = model?.efforts ?? [];
   const permissionModes = status?.capabilities.permissionModes ?? [];
+  // A harness that reports no modes still shows the configured one, not an empty box.
+  const modeOptions = permissionModes.length ? permissionModes : [configured.permissionMode];
 
   const updateHarnessSettings = (
     kind: AgentHarnessKind,
@@ -77,7 +81,7 @@ export function AgentSettingsPanel({
             ))}
           </select>
         </label>
-        <label className="agent-model-controls__model">
+        <label>
           Model
           <select
             aria-label="Model"
@@ -92,7 +96,7 @@ export function AgentSettingsPanel({
               });
             }}
           >
-            {models.length === 0 ? <option value="">No models reported</option> : null}
+            {models.length === 0 ? <option value="">None reported</option> : null}
             {models.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName || option.id}
@@ -101,44 +105,57 @@ export function AgentSettingsPanel({
             ))}
           </select>
         </label>
-        <label>
-          Effort
-          <select
-            aria-label="Effort"
-            value={efforts.includes(configured.effort || "") ? configured.effort : ""}
-            disabled={saving || efforts.length === 0}
-            onChange={(event) => updateHarnessSettings(harness, { effort: event.target.value })}
-          >
-            <option value="">Default</option>
-            {efforts.map((effort) => (
-              <option key={effort} value={effort}>
-                {effort}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="agent-model-controls__wide">
-          Permission mode
-          <select
-            aria-label="Permission mode"
-            value={configured.permissionMode}
-            disabled={saving || permissionModes.length === 0}
-            onChange={(event) =>
-              updateHarnessSettings(harness, {
-                permissionMode:
-                  permissionModes.find((mode) => mode === event.target.value) ||
-                  configured.permissionMode,
-              })
-            }
-          >
-            {permissionModes.map((mode) => (
-              <option key={mode} value={mode}>
-                {mode}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
+      {/* Effort and permission are per-session tuning: behind one disclosure
+          whose summary still names the active permission. */}
+      <details className="agent-session-settings">
+        <summary>
+          <DisclosureChevron />
+          <span>Session settings</span>
+          <span className="agent-session-settings__active">
+            {humanizeName(configured.permissionMode)}
+          </span>
+        </summary>
+        <div className="agent-model-controls">
+          <label>
+            Reasoning effort
+            <select
+              aria-label="Reasoning effort"
+              value={efforts.includes(configured.effort || "") ? configured.effort : ""}
+              disabled={saving || efforts.length === 0}
+              onChange={(event) => updateHarnessSettings(harness, { effort: event.target.value })}
+            >
+              <option value="">Default</option>
+              {efforts.map((effort) => (
+                <option key={effort} value={effort}>
+                  {humanizeName(effort)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Permission mode
+            <select
+              aria-label="Permission mode"
+              value={configured.permissionMode}
+              disabled={saving || permissionModes.length === 0}
+              onChange={(event) =>
+                updateHarnessSettings(harness, {
+                  permissionMode:
+                    permissionModes.find((mode) => mode === event.target.value) ||
+                    configured.permissionMode,
+                })
+              }
+            >
+              {modeOptions.map((mode) => (
+                <option key={mode} value={mode}>
+                  {humanizeName(mode)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </details>
     </section>
   );
 }

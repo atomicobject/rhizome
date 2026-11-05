@@ -1,5 +1,6 @@
 // Sections (SPEC-0111): each member of the group as a compact table of its most
 // advanced, then newest, records. Hierarchical members render as tree tables.
+import { Info } from "lucide-react";
 import { RelativeTime, openCollection, typeLabel, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
@@ -24,12 +25,15 @@ import {
   type SectionColumn,
   type TreeNode,
 } from "./graph.ts";
+import { MoreToggle, lower } from "./briefing-parts.tsx";
 import { useGroupModel } from "./load.ts";
+import { useRememberedOpen } from "./remembered.ts";
 import {
   fieldLabel,
   fieldValue,
   firstSentence,
   isEmptyValue,
+  lifecycleValue,
   linkTargets,
   memberLabel,
   valueText,
@@ -39,13 +43,23 @@ import {
   type MemberField,
 } from "./model.ts";
 
-/** Rows shown per member before "Show all". */
+/** True when one concrete type holds more than 90% of the member's records. */
+function oneTypeDominates(member: Member) {
+  const counts = new Map<string, number>();
+
+  for (const record of member.records) counts.set(record.type, (counts.get(record.type) ?? 0) + 1);
+
+  return Math.max(0, ...counts.values()) > member.records.length * 0.9;
+}
+
+/** Rows shown per member before "Show N more". */
 export const SECTION_ROWS = 8;
 
 function columnLabel(member: Member, column: SectionColumn) {
   if (column.kind === "type") return "Type";
 
-  return column.kind === "lifecycle" ? fieldLabel(column.field) : column.label;
+  // Every lifecycle reads as "Status", whatever its field is called ("Spec status").
+  return column.kind === "lifecycle" ? "Status" : column.label;
 }
 
 function FieldCell({ record, field }: { record: GroupRecord; field: MemberField }) {
@@ -93,36 +107,47 @@ function Row({
   member,
   node,
   columns,
+  marked,
 }: {
   model: GroupModel;
   member: Member;
   node: TreeNode;
   columns: readonly SectionColumn[];
+  /** False when the section's rows share one status, which the heading already counts. */
+  marked: boolean;
 }) {
   const { record, depth, parent } = node;
+  const lifecycleShown = !marked || columns.some((column) => column.kind === "lifecycle");
 
   return (
     <tr data-record-key={record.key} data-depth={depth || undefined}>
       <td>
         <div className="gv-title" style={{ paddingLeft: depth * 16 }}>
           {depth > 0 && <span className="gv-branch" aria-hidden="true" />}
-          <RecordMark member={member} record={record} />
+          {/* The Status column already names the lifecycle value. */}
+          {!lifecycleShown && <RecordMark member={member} record={record} />}
           <RecordTitle record={record} />
           {parent && <span className="sr-only">, under {parent.title}</span>}
           <IssueCount record={record} />
         </div>
         {record.summary && (
-          <div className="gv-summary" style={{ marginLeft: depth * 16 + 18 }}>
+          <div
+            className="gv-summary"
+            style={{ marginLeft: depth * 16 + (lifecycleShown ? 0 : 16) }}
+          >
             {record.summary}
           </div>
         )}
       </td>
       {columns.map((column) => (
-        <td key={column.kind === "field" ? column.id : column.kind}>
+        <td
+          key={column.kind === "field" ? column.id : column.kind}
+          className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+        >
           <Cell model={model} member={member} record={record} column={column} />
         </td>
       ))}
-      <td className="gv-num gv-right">
+      <td className="gv-age gv-right">
         {record.updatedAt === null ? <Dash /> : <RelativeTime value={record.updatedAt} />}
       </td>
     </tr>
@@ -131,21 +156,43 @@ function Row({
 
 function Section({ model, member }: { model: GroupModel; member: Member }) {
   const rows = useMemo(() => sectionRows(member), [member]);
-  const shown = rows.slice(0, SECTION_ROWS);
+  const expanded = useRememberedOpen("sections.expanded");
+  const open = expanded.isOpen(member.name, false);
+  const shown = open ? rows : rows.slice(0, SECTION_ROWS);
 
+  // A section whose records all share one status omits it: the heading's
+  // counts already say it. Judged over every row, not just the shown ones, so
+  // a section mixing Active and Complete always says which row is which.
+  const oneStatus =
+    Boolean(member.lifecycle) &&
+    new Set(rows.map((node) => lifecycleValue(member, node.record))).size <= 1;
+
+  // An interface's Type column says nothing when one type holds nearly every record.
   const columns = sectionColumns(
     member,
     shown.map((node) => node.record),
+  ).filter(
+    (column) =>
+      (column.kind !== "type" || !oneTypeDominates(member)) &&
+      (column.kind !== "lifecycle" || !oneStatus),
   );
 
   const label = memberLabel(model, member, { plural: true });
   const total = Math.max(member.count, rows.length);
 
   return (
-    <section className="gv-section" aria-label={label}>
+    <section className="gv-section" id={sectionId(member)} aria-label={label}>
       <header className="gv-section-head">
         <h2>
           <MemberHeading model={model} member={member} />
+          <span
+            className="rz-info"
+            tabIndex={0}
+            title={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+            aria-label={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+          >
+            <Info size={14} aria-hidden="true" />
+          </span>
         </h2>
         <span className="gv-num">{member.count}</span>
         {member.issueCount > 0 && (
@@ -164,7 +211,11 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
             <tr>
               <th scope="col">Title</th>
               {columns.map((column) => (
-                <th scope="col" key={column.kind === "field" ? column.id : column.kind}>
+                <th
+                  scope="col"
+                  key={column.kind === "field" ? column.id : column.kind}
+                  className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+                >
                   {columnLabel(member, column)}
                 </th>
               ))}
@@ -181,20 +232,30 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
                 member={member}
                 node={node}
                 columns={columns}
+                marked={!oneStatus}
               />
             ))}
           </tbody>
         </table>
       )}
-      {total > shown.length && (
+      {rows.length > SECTION_ROWS && (
         <p className="gv-foot">
-          <button type="button" className="gv-link" onClick={() => openCollection(member.name)}>
-            Show all {total}
+          <MoreToggle
+            hidden={rows.length - SECTION_ROWS}
+            open={open}
+            onToggle={() => expanded.setOpen(member.name, !open)}
+          />
+        </p>
+      )}
+      {open && total > rows.length && (
+        <p className="gv-foot">
+          <button
+            type="button"
+            className="gv-link gv-more"
+            onClick={() => openCollection(member.name)}
+          >
+            Open {lower(label)}
           </button>
-          <span className="gv-faint">
-            {" "}
-            · {member.lifecycle ? "most advanced first, then newest" : "newest first"}
-          </span>
         </p>
       )}
     </section>
@@ -208,11 +269,25 @@ function SectionsBody({ model }: { model: GroupModel }) {
   return (
     <>
       <GroupFacts model={model}>
-        {graph.linked
-          ? "Ordered like Trace columns."
-          : members.length > 1
-            ? "Ordered by size."
-            : null}
+        {members.length > 1 && (
+          <nav className="gv-jump" aria-label="Jump to section">
+            {members.map((member) => (
+              <button
+                key={member.name}
+                type="button"
+                className="gv-link"
+                onClick={() =>
+                  document
+                    .getElementById(sectionId(member))
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                {memberLabel(model, member, { plural: true })}{" "}
+                <span className="gv-num">{member.count}</span>
+              </button>
+            ))}
+          </nav>
+        )}
       </GroupFacts>
       {members.map((member) => (
         <Section key={member.name} model={model} member={member} />
@@ -220,6 +295,8 @@ function SectionsBody({ model }: { model: GroupModel }) {
     </>
   );
 }
+
+const sectionId = (member: Member) => `section-${member.name}`;
 
 export default function Sections(_props: ViewModuleProps) {
   const state = useGroupModel();

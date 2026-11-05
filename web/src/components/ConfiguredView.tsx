@@ -24,6 +24,7 @@ import { useViewHeaderSlots, ViewHeader } from "./ConfiguredViewHeader";
 import {
   activeViewVariant,
   availableViewColumns,
+  columnLabel,
   configuredColumns,
   filterPresets,
   stagedChangeCount,
@@ -34,9 +35,9 @@ import { SaveViewAction, saveViewProps } from "./ConfiguredViewSave";
 import { ConfiguredViewFooter, ViewErrorStatus } from "./ConfiguredViewStatus";
 import { effectiveSort, nextSort } from "./ConfiguredViewTableModel";
 import { ConfiguredViewToolbar } from "./ConfiguredViewToolbar";
-import { useTypeLabel, viewDisplayName } from "./typeLabels";
+import { type TypeLabelFn, useTypeLabel, viewDisplayName } from "./typeLabels";
 import { growingWindow } from "./useScrollLoading";
-import { useViewLayout } from "./useViewLayout";
+import { dominantColumnValue, useViewLayout } from "./useViewLayout";
 import { ViewPreferencesStatus } from "./ViewPreferencesStatus";
 
 const EMPTY_CAPABILITIES: NonNullable<ViewExecuteResponse["capabilities"]> = [];
@@ -123,7 +124,7 @@ export function ConfiguredView({
     preferenceSlot,
   );
 
-  const { visibleFields, emptyFields, density } = layout;
+  const { visibleFields, emptyFields, repeatedFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
   const [movedColumns, setMovedColumns] = useState<string[]>([]);
@@ -317,6 +318,7 @@ export function ConfiguredView({
         sort={execution ? effectiveSort(state, execution.state) : (state.sort ?? [])}
         onToggleColumn={layout.toggleColumn}
         emptyFields={emptyFields}
+        repeatedFields={repeatedFields}
         density={summaryField ? density : undefined}
         onDensityChange={layout.setDensity}
         onResetPage={resetPage}
@@ -393,11 +395,27 @@ export function ConfiguredView({
           loadingMore={loadingMore}
           collapsed={
             collapsedGroupCount > 0
-              ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "columns" : "groups"} collapsed`
+              ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "column" : "group"}${collapsedGroupCount === 1 ? "" : "s"} collapsed`
               : ""
           }
           stagedCount={stagedCount}
           moved={activeVariant === "table" ? movedColumns : []}
+          hidden={
+            activeVariant === "table"
+              ? columns.flatMap((column) =>
+                  repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
+                    ? [
+                        repeatedColumnNote(
+                          column.field,
+                          columnLabel(column, capabilities),
+                          execution,
+                          typeLabel,
+                        ),
+                      ]
+                    : [],
+                )
+              : []
+          }
           pager={
             paged && !scrolls
               ? { offset, first, hasMore: pageInfo ? pageInfo.hasMore : true }
@@ -408,6 +426,20 @@ export function ConfiguredView({
       )}
     </section>
   );
+}
+
+/** Says in plain words why a repeated column is hidden: "Type column hidden: 51 of 52 rows are Effort notes". */
+function repeatedColumnNote(
+  field: string,
+  label: string,
+  execution: Parameters<typeof dominantColumnValue>[1],
+  typeLabel: TypeLabelFn,
+) {
+  const { value, count, total } = dominantColumnValue(field, execution);
+  const shown = field === "resolvedType" ? typeLabel(value, count !== 1) : value;
+  const share = count >= total ? `all ${total}` : `${count} of ${total}`;
+
+  return `${label} column hidden: ${share} rows are ${shown || "empty"}`;
 }
 
 function rowCountLabel(count: number) {

@@ -63,3 +63,241 @@
   grid-column: 1 / -1;
   margin-left: 6px;
 }
+
+/* Selects on the sidebar take the chrome tint, like the top bar's search
+   field, rather than a bright surface box. The chevron is light chrome ink;
+   the open list keeps the content surface so its options stay legible. */
+.workbench-sidebar select:not([multiple]):not([size]) {
+  border-color: transparent;
+  background-color: var(--chrome-raised);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23cbc7c1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 6.5 3 3 3-3'/%3E%3C/svg%3E");
+  color: var(--chrome-text);
+}
+
+.workbench-sidebar select:not([multiple]):not([size]):hover:enabled {
+  border-color: transparent;
+  background-color: var(--chrome-active);
+}
+
+.workbench-sidebar select:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: 1px;
+}
+
+.workbench-sidebar select:disabled {
+  opacity: 0.6;
+}
+
+.workbench-sidebar select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Buttons on the sidebar take the same chrome tint as its selects. */
+.workbench-sidebar .button:not(.button--primary) {
+  border-color: transparent;
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+
+.workbench-sidebar .button:not(.button--primary):hover:enabled {
+  background: var(--chrome-active);
+}
+
+/* "Views" and "Types" inside a sidebar group that holds both. */
+.notes-left-rail__subhead {
+  display: flex;
+  align-items: flex-end;
+  height: 24px;
+  padding: 0 0 3px 8px;
+  color: var(--chrome-muted);
+  font: var(--label-structure);
+}
+
+/* ---- Sidebar navigation ----
+   The plain list a section's sidebar holds (Tasks, GraphQL): a 14px heading,
+   then 30px rows. The current row is the light chrome pill, like the Notes
+   rail's active collection. */
+.sidebar-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-nav__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 6px 8px 4px 18px;
+  color: var(--chrome-text);
+}
+
+.sidebar-nav__head h1 {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.sidebar-nav__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 8px var(--sp-4);
+  overflow: auto;
+  list-style: none;
+  scrollbar-color: var(--chrome-raised) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-nav__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--chrome-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s var(--ease);
+}
+
+.sidebar-nav__row:hover {
+  background: var(--chrome-raised);
+}
+
+.sidebar-nav__row:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+
+.sidebar-nav__row[aria-current] {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+  font-weight: 600;
+}
+
+.sidebar-nav__row[aria-current]:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
+.sidebar-nav__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav__aside {
+  flex: none;
+  color: var(--chrome-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.sidebar-nav__row[aria-current] .sidebar-nav__aside {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.sidebar-nav__icon {
+  flex: none;
+  color: var(--chrome-muted);
+}
+
+.sidebar-nav__row[aria-current] .sidebar-nav__icon {
+  color: inherit;
+}
+
+/* Secondary actions (refetch, shortcuts, settings) sit at the sidebar's foot. */
+.sidebar-nav__list--foot {
+  flex: none;
+  margin-top: auto;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--chrome-raised);
+}
+
+/* One leading slot for icons, type dots, and group chevrons. */
+.workbench-sidebar .notes-left-rail .ontology-type-row-wrap {
+  position: relative;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row,
+.workbench-sidebar .notes-left-rail .ontology-view-row {
+  gap: 8px;
+  padding-left: 8px;
+}
+
+.workbench-sidebar
+  .notes-left-rail
+  .notes-left-rail__section
+  > .ontology-type-row.ontology-type-row--group {
+  padding-left: 32px;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row__collapse-spacer {
+  display: none;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row-wrap > .ontology-type-row__collapse {
+  position: absolute;
+  right: 32px;
+  width: 24px;
+  height: 24px;
+}
+
+.workbench-sidebar .notes-left-rail .notes-left-rail__section > .ontology-type-row__collapse {
+  left: 4px;
+  right: auto;
+}
+
+.workbench-sidebar .notes-left-rail .ontology-type-row--group > .ontology-type-row__collapse {
+  flex: 0 0 16px;
+  margin-left: -24px;
+  margin-right: 0;
+}
+
+.workbench-sidebar
+  .notes-left-rail
+  .ontology-type-row-wrap:has(> .ontology-type-row__collapse):not(.notes-left-rail__section)
+  > .ontology-type-row {
+  padding-right: 60px;
+}
+
+.notes-left-rail__type-slot {
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+}
+
+.notes-left-rail__type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.workbench-sidebar
+  .notes-left-rail
+  .ontology-type-row-wrap:has(> .ontology-type-row__collapse):not(.notes-left-rail__section)
+  .ontology-type-row__count {
+  position: absolute;
+  right: 10px;
+}
+
+/* Record-rail type groups and legends are structural labels too. */
+.workbench .notes-right-rail .rail-row > .rail-row__type,
+.workbench .notes-right-rail .rail-legend {
+  font: var(--label-structure);
+}

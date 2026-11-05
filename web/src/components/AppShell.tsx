@@ -16,7 +16,7 @@ import {
 } from "./desktopHost";
 import { useDesktopTasks } from "./desktopTasks";
 import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
-import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
+import { SidebarToggle, useSidebarShortcut, WorkbenchSidebar } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { FinderQuickOpen } from "./FinderQuickOpen";
@@ -184,7 +184,7 @@ function GlobalSearch({ route }: { route: Route }) {
   );
 }
 
-function NotesNavTools() {
+function VaultTools() {
   const summaryQuery = useOntologySummaryQuery();
   const validationQuery = useValidationQuery();
   const summary = summaryQuery.data;
@@ -195,15 +195,17 @@ function NotesNavTools() {
     <div className="app-shell__notes-tools">
       {/* Unknown counts stay hidden rather than reading as zero, as while the
           first index after a start is still rebuilding. */}
+      {/* Each figure names its scope: typed notes, and note types (the types
+          Overview counts; embedded types such as user stories are not notes). */}
       {summary && summaryCountsKnown(summary) && (
-        <>
-          <span>
-            <b>{summary.typedNotes}</b> typed
-          </span>
-          <span>
-            <b>{summary.types?.length ?? 0}</b> types
-          </span>
-        </>
+        <span className="app-shell__vault-counts">
+          <b className="num">{summary.typedNotes}</b> typed notes
+          <span aria-hidden="true"> · </span>
+          <b className="num">
+            {summary.types?.filter((type) => type.role !== "embedded").length ?? 0}
+          </b>{" "}
+          note types
+        </span>
       )}
       <ValidationIssueBadge
         count={issueCount}
@@ -276,8 +278,7 @@ export function AppShell() {
     }
   });
 
-  // GraphQL has no sidebar (SPEC-0128).
-  useSidebarShortcut({ desktop, disabled: route === "graphql" });
+  useSidebarShortcut({ desktop, disabled: false });
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
@@ -340,18 +341,11 @@ export function AppShell() {
         <header className="app-shell__nav">
           <div className="app-shell__brand" title={status?.vaultPath || undefined}>
             <span>Rhizome</span>
-            {/* Each sidebar names the vault; GraphQL, which has none, keeps it here. */}
-            {route === "graphql" || statusQuery.isError ? (
-              <small>
-                {vaultName
-                  ? vaultLabel(vaultName)
-                  : statusQuery.isError
-                    ? "Status unavailable"
-                    : ""}
-              </small>
-            ) : null}
+            {/* Each sidebar names the vault, and GraphQL names it in its own
+                header, so the shell's positions never move between sections. */}
+            {statusQuery.isError ? <small>Status unavailable</small> : null}
           </div>
-          <SidebarToggle disabled={route === "graphql"} />
+          <SidebarToggle />
           <nav aria-label="Primary">
             <button
               type="button"
@@ -404,7 +398,7 @@ export function AppShell() {
           </nav>
           <GlobalSearch route={route} />
           <div className="app-shell__header-tools">
-            {route === "notes" ? <NotesNavTools /> : null}
+            <VaultTools />
             <AppearanceMenu />
             <KeyboardShortcuts />
           </div>
@@ -442,8 +436,21 @@ export function AppShell() {
           ) : route === "tasks" ? (
             <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
-            <Suspense fallback={<main className="graphql-explorer" />}>
-              <GraphQLExplorer />
+            <Suspense
+              fallback={
+                <div className="workspace workbench graphql-workspace">
+                  <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
+                    {null}
+                  </WorkbenchSidebar>
+                  <main className="workbench__panel graphql-explorer" />
+                </div>
+              }
+            >
+              <GraphQLExplorer
+                vaultName={vaultName}
+                sidebarTitle={sidebarTitle}
+                sidebarHint={sidebarHint}
+              />
             </Suspense>
           ) : (
             <ExplorerWorkspace

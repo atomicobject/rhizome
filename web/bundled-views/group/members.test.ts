@@ -2,12 +2,13 @@ import { expect, it } from "vitest";
 
 import { AGGREGATE, SCOPE_GROUPS, SUMMARIES } from "./__fixtures__/aggregate.ts";
 import { TYPE_DOCS } from "./__fixtures__/groups.ts";
-import { layoutMap, placeEdgeLabels, type LayoutInput } from "./map-layout.ts";
+import { INSET, layoutMap, placeEdgeLabels, type LayoutInput } from "./map-layout.ts";
 import {
   coverage,
   folderLines,
   lifecycleSummary,
   memberRows,
+  pluralLabelOf,
   type MemberRow,
   type NodeRow,
 } from "./members.ts";
@@ -49,12 +50,23 @@ function rowOf(list: readonly MemberRow[], label: string): NodeRow {
   return found;
 }
 
-it("lists a group's members most records first, an interface followed by its implementors", () => {
-  const planning = rows({ kind: "group", group: "Planning" });
+it("lists a group's members most records first, an interface folded until opened", () => {
+  const layout = (list: MemberRow[]) =>
+    list.map((row) => (isNode(row) ? [row.kind, row.node.label, row.depth] : row.kind));
 
-  expect(
-    planning.map((row) => (isNode(row) ? [row.kind, row.node.label, row.depth] : row.kind)),
-  ).toEqual([
+  const folded = rows({ kind: "group", group: "Planning" });
+
+  expect(layout(folded)).toEqual([
+    ["member", "Areas", 0],
+    ["member", "Work items", 0],
+    ["member", "Releases", 0],
+    ["member", "Checklists", 0],
+  ]);
+  expect(rowOf(folded, "Work items")).toMatchObject({ expanded: false, toggle: "interface:Work" });
+
+  const planning = rows({ kind: "group", group: "Planning" }, ["interface:Work"]);
+
+  expect(layout(planning)).toEqual([
     ["member", "Areas", 0],
     ["member", "Work items", 0],
     ["implementor", "Stories", 1],
@@ -146,7 +158,7 @@ it("lists named groups, then ungrouped types under a heading, then untyped notes
 });
 
 it("expands a named group's row into its members", () => {
-  const all = rows({ kind: "workspace" }, ["Planning"]);
+  const all = rows({ kind: "workspace" }, ["Planning", "interface:Work"]);
   const index = all.findIndex((row) => isNode(row) && row.node.label === "Planning");
 
   expect(rowOf(all, "Planning").expanded).toBe(true);
@@ -170,7 +182,7 @@ it("counts an expanded interface's links between its own implementors in linked 
     ]),
   };
 
-  const set = new Set(["Planning"]);
+  const set = new Set(["Planning", "interface:Work"]);
 
   const model = scopeModel({
     scope: { kind: "workspace" },
@@ -218,6 +230,13 @@ it("names empty, unlinked, and embedded types for the coverage line", () => {
   });
 });
 
+it("names unlabelled types in plain English", () => {
+  expect(pluralLabelOf("AcceptanceCriterion", "AcceptanceCriterion")).toBe("Acceptance criteria");
+  expect(pluralLabelOf("UserStory", undefined)).toBe("User stories");
+  expect(pluralLabelOf("ActionItem", "ActionItem")).toBe("Action items");
+  expect(pluralLabelOf("Task", "Tasks")).toBe("Tasks");
+});
+
 const LAYOUT: LayoutInput = {
   width: 760,
   height: 340,
@@ -251,64 +270,74 @@ it("lays the map out the same way every time, inside the box", () => {
   }
 });
 
-it("puts members without links in a bottom row and outside neighbors on the ring", () => {
+it("keeps linked members apart in a canvas narrower than the ring's padding", () => {
+  const layout = layoutMap({ ...LAYOUT, width: 380, height: 400 });
+  const points = ["Area", "Work", "Release", "Checklist"].map((id) => layout.positions.get(id));
+  const distinct = new Set(points.map((point) => `${point?.x},${point?.y}`));
+
+  expect(distinct.size).toBe(points.length);
+});
+
+it("leaves members without links out of the drawing and puts outside neighbors on the ring", () => {
   const layout = layoutMap(LAYOUT);
 
   expect(layout.loose).toEqual(["Lonely"]);
-  expect(layout.looseTop).toBe(300);
-  expect(layout.positions.get("Lonely")?.y).toBe(315);
-
-  for (const id of ["Area", "Work", "Release", "Checklist"])
-    expect(layout.positions.get(id)?.y).toBeLessThan(300);
+  expect(layout.positions.has("Lonely")).toBe(false);
+  expect(layout.labels.has("Lonely")).toBe(false);
   expect(layout.positions.has("Person")).toBe(true);
+  expect(layout.height).toBe(LAYOUT.height);
+});
 
-  // Rows grow to fit large unlinked members, between the row line and the box's bottom.
-  const large = layoutMap({ ...LAYOUT, edges: [{ a: "Release", b: "Checklist", links: 1 }] });
-  const top = large.looseTop ?? 0;
+it("draws a member whose only links go outside the group, so its spokes have a start", () => {
+  const outside = [{ id: "Person", label: "People 1 link", byMember: new Map([["Lonely", 1]]) }];
+  const layout = layoutMap({ ...LAYOUT, outside });
 
-  for (const id of ["Area", "Work", "Lonely"]) {
-    const node = LAYOUT.nodes.find((candidate) => candidate.id === id);
-    const y = large.positions.get(id)?.y ?? 0;
-    expect(y - (node?.radius ?? 0)).toBeGreaterThanOrEqual(top);
-    expect(y + (node?.radius ?? 0)).toBeLessThan(LAYOUT.height);
+  expect(layout.loose).toEqual([]);
+  expect(layout.positions.has("Lonely")).toBe(true);
+});
+
+it("keeps every node at least 24px inside the box", () => {
+  const layout = layoutMap(LAYOUT);
+
+  for (const node of LAYOUT.nodes) {
+    const point = layout.positions.get(node.id);
+
+    if (!point) continue;
+    expect(point.x - node.radius).toBeGreaterThanOrEqual(INSET);
+    expect(point.x + node.radius).toBeLessThanOrEqual(LAYOUT.width - INSET);
+    expect(point.y - node.radius).toBeGreaterThanOrEqual(INSET);
+    expect(point.y + node.radius).toBeLessThanOrEqual(LAYOUT.height - INSET);
   }
 });
 
-it("keeps linked members placed when unlinked rows would fill the box", () => {
-  const crowd = Array.from({ length: 13 }, (_, n) => ({
-    id: `Loose${n}`,
-    radius: 30,
-    label: "A long member name 9",
-  }));
+it("keeps node labels off other nodes", () => {
+  const layout = layoutMap(LAYOUT);
+  const drawn = LAYOUT.nodes.filter((node) => layout.positions.has(node.id));
 
-  const layout = layoutMap({ ...LAYOUT, nodes: [...LAYOUT.nodes, ...crowd] });
+  for (const node of drawn) {
+    const label = layout.labels.get(node.id);
 
-  for (const point of layout.positions.values()) {
-    expect(Number.isFinite(point.x)).toBe(true);
-    expect(Number.isFinite(point.y)).toBe(true);
-  }
-});
+    if (!label) throw new Error(`no label for ${node.id}`);
+    const w = node.label.length * 7;
 
-it("draws the row line at the top of the unlinked rows", () => {
-  const crowd = Array.from({ length: 10 }, (_, n) => ({
-    id: `Loose${n}`,
-    radius: 30,
-    label: "A long member name 9",
-  }));
+    const left =
+      label.anchor === "start" ? label.x : label.anchor === "end" ? label.x - w : label.x - w / 2;
 
-  const layout = layoutMap({ ...LAYOUT, nodes: [...LAYOUT.nodes, ...crowd] });
-  const top = layout.looseTop ?? 0;
-
-  for (const id of layout.loose) {
-    const node = [...LAYOUT.nodes, ...crowd].find((candidate) => candidate.id === id);
-    expect((layout.positions.get(id)?.y ?? 0) - (node?.radius ?? 0)).toBeGreaterThanOrEqual(top);
+    for (const other of drawn) {
+      const point = layout.positions.get(other.id) ?? { x: 0, y: 0 };
+      const nearestX = Math.min(Math.max(point.x, left), left + w);
+      const nearestY = Math.min(Math.max(point.y, label.y - 11), label.y + 3);
+      expect(
+        Math.hypot(point.x - nearestX, point.y - nearestY),
+        `${node.id} label on ${other.id}`,
+      ).toBeGreaterThan(other.radius);
+    }
   }
 });
 
 it("spreads the members over the box when none links to another", () => {
   const layout = layoutMap({ ...LAYOUT, edges: [], outside: [] });
 
-  expect(layout.looseTop).toBeNull();
   expect(layout.loose).toEqual([]);
 
   for (const node of LAYOUT.nodes) {
@@ -323,7 +352,7 @@ it("spreads the members over the box when none links to another", () => {
   expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(40);
 });
 
-it("moves an edge count off a node label along its edge, and drops it when nothing is clear", () => {
+it("places edge counts at the midpoint and omits obstructed counts", () => {
   const positions = new Map([
     ["A", { x: 0, y: 100 }],
     ["B", { x: 200, y: 100 }],
@@ -335,8 +364,8 @@ it("moves an edge count off a node label along its edge, and drops it when nothi
 
   // 38% and 62% along still touch it; 28% clears it.
   const moved = placeEdgeLabels(positions, [edge], [middle]).get("A|B");
-  expect(moved?.x).toBeCloseTo(56);
-  expect(moved?.y).toBe(97);
+  expect(moved).toBeUndefined();
+  expect(placeEdgeLabels(positions, [edge], []).get("A|B")).toEqual({ x: 100, y: 100 });
 
   const covered = { x: 0, y: 80, w: 200, h: 30 };
   expect(placeEdgeLabels(positions, [edge], [covered]).has("A|B")).toBe(false);

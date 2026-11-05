@@ -7,6 +7,7 @@ import { FinderPalette, type FinderPaletteItem, IS_MAC } from "./FinderPalette";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { buildNotesLocation, NOTES_ROOT_PATH } from "./notesRoute";
 import { TypeLabelsProvider, useTypeLabel } from "./typeLabels";
+import { typeAccentColor, useTypeAccentKey } from "../lib/typeAccent";
 import type { OpenMode } from "./useNoteTabs";
 
 type QuickOpenItem = FinderPaletteItem & { item: FindItem };
@@ -154,8 +155,18 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
         ? row.item.lang
         : row.item.type
           ? typeLabel(row.item.type)
-          : undefined,
+          : // Every note row names its type, so the column never reads ragged.
+            "Untyped",
     [typeLabel],
+  );
+
+  // Type hues follow the ontology summary; the key re-renders rows once it loads.
+  const accentKey = useTypeAccentKey();
+
+  const hue = useCallback(
+    (row: QuickOpenItem) => (row.item.type ? typeAccentColor(row.item.type) : "var(--type-8)"),
+    // The summary decides each type's palette slot.
+    [accentKey],
   );
 
   const onOpen = useCallback((row: QuickOpenItem, { beside }: { beside: boolean }) => {
@@ -183,6 +194,7 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       emptyText={(query) => `No notes or files match “${query}”`}
       describe={describe}
+      hue={hue}
     />
   );
 }

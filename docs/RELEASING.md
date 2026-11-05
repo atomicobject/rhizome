@@ -118,6 +118,8 @@ Every public release publishes the macOS desktop app built from the same tag ([S
 
 GoReleaser uploads all four and lists them in `checksums.txt`.
 
+Every release build, public and internal, compiles the deployed team API origin from `.goreleaser.yml` into `pkg/teamapi/session.DefaultOrigin`, so Atomic Object staff can sign in from the published app and CLI. See [the team API runbook](../services/team-api/RUNBOOK.md) if the gateway hostname ever changes.
+
 The candidate build, a GoReleaser snapshot, runs the same hook, so a broken desktop toolchain stops the release before any repository change. Without the signing key the snapshot still builds the app and DMG but skips the updater archive and `latest.json`. Publication sets `RZM_RELEASE_DESKTOP=1`. In that mode the hook fails when the key is missing, and GoReleaser fails when any of the four assets is absent, so a public release cannot go out without the app. Apply also refuses to start a public release without the key.
 
 Public `make release` also enables desktop publication automatically and requires the signing key and desktop build tools listed in the prerequisites. Internal releases (`RZM_INTERNAL_S3_BUCKET` set) publish the CLI only. The manually dispatched GitHub Actions recovery workflow publishes the same notarized desktop assets as local publication. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
@@ -215,7 +217,6 @@ Atomic Object users may continue installing and updating from a private S3 mirro
 An internal release additionally:
 
 - requires `ATOMIC_RHIZOME_KEY`, `VOYAGE_API_KEY`, and `TYPESAFE_API_KEY`. `scripts/teamkeys/release.py` encrypts the keys into a temporary Go overlay for the publishing build only and refuses to run unless the GitHub repository is private, because GoReleaser also uploads the bundled binaries there;
-- when `RZM_INTERNAL_TEAM_API_ORIGIN` is set in the private release environment, compiles that root HTTPS origin into `pkg/teamapi/session.DefaultOrigin` for team sign-in. The gateway must be deployed first; see [the team API runbook](../services/team-api/RUNBOOK.md). Public builds discard this variable and keep an empty default;
 - links the mirror into `rzm update` and the staged installer (`https://<bucket>.s3.amazonaws.com/releases`), in place of the GitHub API default;
 - requires AWS access to the bucket (`aws login` or the release Environment), checked before apply;
 - publishes the legacy `latest.json` and `.tbz` layout read by v0.50.x and older clients, and GitHub-release-shaped `releases/latest` and `releases/tags/<version>` documents read by current clients.

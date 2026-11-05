@@ -99,16 +99,28 @@ export function isIssueColumn(field: string, issueCounts: ReadonlyMap<string, nu
   return field === "validationIssues" || (field === "hasIssues" && issueCounts !== undefined);
 }
 
-/** A group or board column label; boolean values read as "Done: yes", not "true". */
+/**
+ * A group or board column label. A boolean value reads in words: the view's
+ * own label, "Done" and "Open" for a done-like field, else "Flagged" and
+ * "Not flagged", never "true" or "Done: no".
+ */
 export function groupValueLabel(
   capability: ViewFieldCapability | undefined,
   value: string,
   label?: string,
 ) {
-  if (capability && viewFieldControl(capability).kind === "boolean") {
-    if (value === "true") return `${capabilityLabel(capability)}: yes`;
+  if (
+    capability &&
+    viewFieldControl(capability).kind === "boolean" &&
+    /^(true|false)$/.test(value)
+  ) {
+    if (label && label !== value) return label;
+    const name = capabilityLabel(capability);
+    const doneLike = /^(done|complete|completed|closed|resolved)$/i.test(name);
 
-    if (value === "false") return `${capabilityLabel(capability)}: no`;
+    if (value === "true") return name;
+
+    return doneLike ? "Open" : `Not ${name.toLowerCase()}`;
   }
 
   // Enum values without a schema label read like the rest of the UI ("active" → "Active").

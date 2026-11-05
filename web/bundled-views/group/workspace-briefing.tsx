@@ -11,7 +11,6 @@
 //   for each type's newest records in an active lifecycle value;
 // - `GET /api/v1/ontology/types/__all__?limit=N` for the newest notes.
 import {
-  RelativeTime,
   StatusMark,
   openCollection,
   openIssues,
@@ -25,9 +24,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
-import { Block, BlockBody, Rebuilding, lower, plural } from "./briefing-parts.tsx";
+import { ChangeRow } from "./briefing-activity.tsx";
+import {
+  Block,
+  BlockBody,
+  HealthyAttention,
+  MoreToggle,
+  Rebuilding,
+  lower,
+  plural,
+} from "./briefing-parts.tsx";
 import "./components.tsx";
 import { getJSON, refetchFailedTypeDocs } from "./load.ts";
+import { useRememberedOpen } from "./remembered.ts";
 import {
   blockStatus,
   readOf,
@@ -120,17 +129,32 @@ function NeedsAttention() {
 
   const status = blockStatus(reads);
   const total = (groups.data ?? []).reduce((sum, group) => sum + group.issueCount, 0);
+  const info = "Validation issues by variant, untyped and ambiguous notes included.";
+
+  // Green only for a current, clean run; a stale or unfinished one keeps the block.
+  if (
+    status.status === "ready" &&
+    generation > 0 &&
+    groups.data?.length === 0 &&
+    validation.health === "current_clean"
+  )
+    return <HealthyAttention info={info} />;
 
   return (
     <Block
       title="Needs attention"
       count={status.status === "ready" ? fmt(total) : undefined}
-      caption="Validation issues by variant, untyped and ambiguous notes included."
+      info={info}
     >
       <BlockBody status={status} what="what needs attention">
         {() => {
           if (generation === 0)
             return <p className="gv-quiet">Validation has not published results yet.</p>;
+
+          if (!groups.data?.length)
+            return (
+              <p className="gv-quiet">The last validation run is out of date or unfinished.</p>
+            );
 
           const list = groups.data ?? [];
 
@@ -152,15 +176,6 @@ function NeedsAttention() {
                   </button>
                 </li>
               ))}
-              {!list.length && (
-                <li className="gv-sig" data-severity="ok">
-                  <span className="gv-sig-count">
-                    <span aria-hidden="true">✓</span>
-                  </span>
-                  <span className="gv-sig-text">No validation issues</span>
-                  <span />
-                </li>
-              )}
             </ul>
           );
         }}
@@ -171,6 +186,7 @@ function NeedsAttention() {
 
 function InMotion() {
   const queryClient = useQueryClient();
+  const expanded = useRememberedOpen("briefing.expanded");
   const members = useAggregatePart("members");
   const summaries = useTypeSummaries();
   // While the index rebuilds, its figures are empty: read nothing until it finishes.
@@ -233,7 +249,10 @@ function InMotion() {
   return (
     <Block
       title="In motion"
-      caption="Records in an active lifecycle stage, any type, newest change first."
+      info={{
+        text: "Records in an active lifecycle stage, any type, newest change first.",
+        display: "title",
+      }}
     >
       <BlockBody status={status} what="work in motion">
         {() => {
@@ -247,62 +266,70 @@ function InMotion() {
 
           if (!moving.length) return <p className="gv-quiet">Nothing in an active stage.</p>;
 
-          return moving.map((entry) => {
-            const more = entry.records.length > MOTION_PER_TYPE;
+          const entries = moving
+            .flatMap((entry) => entry.records.map((record) => ({ entry, record })))
+            .sort((a, b) => (b.record.updatedAt ?? 0) - (a.record.updatedAt ?? 0));
 
-            return (
-              <div key={entry.type} className="gv-mo-group">
-                <h3 className="gv-mo-type">
-                  {label(entry.type, true)}{" "}
-                  <span className="gv-num">
-                    {Math.min(entry.records.length, MOTION_PER_TYPE)}
-                    {more ? "+" : ""}
-                  </span>
-                </h3>
-                <ul className="gv-list">
-                  {entry.records.slice(0, MOTION_PER_TYPE).map((record) => {
-                    const value = record.values.get(entry.field);
+          const open = expanded.isOpen("in-motion", false);
+          const shown = open ? entries : entries.slice(0, MOTION_PER_TYPE);
 
-                    return (
-                      <li key={record.key} className="gv-mo">
-                        <div className="gv-title">
-                          {isString(value) ? (
-                            <StatusMark
-                              value={value}
-                              values={entry.values}
-                              hideLabel
-                              className="gv-mark"
-                            />
-                          ) : (
-                            <span className="gv-mark-slot" aria-hidden="true" />
-                          )}
-                          <button
-                            type="button"
-                            className="gv-record"
-                            onClick={() => openNode(record.ref)}
-                          >
-                            {record.title}
-                          </button>
-                          {record.updatedAt !== null && (
-                            <RelativeTime value={record.updatedAt} className="gv-num gv-mo-time" />
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {more && (
-                  <button
-                    type="button"
-                    className="gv-link gv-more gv-mo-more"
-                    onClick={() => openCollection(entry.type)}
-                  >
-                    More in {lower(label(entry.type, true))}
-                  </button>
-                )}
-              </div>
-            );
-          });
+          const mixed =
+            new Set(entries.map(({ entry, record }) => record.values.get(entry.field))).size > 1;
+
+          return (
+            <>
+              <ul className="gv-list gv-changes">
+                {shown.map(({ entry, record }) => {
+                  const value = record.values.get(entry.field);
+
+                  return (
+                    <ChangeRow
+                      key={record.key}
+                      line={{
+                        key: record.key,
+                        title: record.title,
+                        type: label(entry.type, false),
+                        folder: record.path.split("/").slice(0, -1).join("/"),
+                        time: record.updatedAt,
+                        onOpen: () => openNode(record.ref),
+                      }}
+                      mark={
+                        mixed && isString(value) ? (
+                          <StatusMark
+                            value={value}
+                            values={entry.values}
+                            hideLabel
+                            className="gv-mark"
+                          />
+                        ) : undefined
+                      }
+                    />
+                  );
+                })}
+              </ul>
+              {entries.length > MOTION_PER_TYPE && (
+                <MoreToggle
+                  hidden={entries.length - MOTION_PER_TYPE}
+                  open={open}
+                  onToggle={() => expanded.setOpen("in-motion", !open)}
+                />
+              )}
+              {open &&
+                moving
+                  .filter((entry) => entry.total > entry.records.length)
+                  .map((entry) => (
+                    <div key={entry.type} className="gv-mo-more">
+                      <button
+                        type="button"
+                        className="gv-link gv-more"
+                        onClick={() => openCollection(entry.type)}
+                      >
+                        Open {lower(label(entry.type, true))}
+                      </button>
+                    </div>
+                  ))}
+            </>
+          );
         }}
       </BlockBody>
     </Block>
@@ -322,26 +349,28 @@ function RecentChanges() {
   const status = blockStatus([readOf(recent), summaries.read]);
 
   return (
-    <Block title="Recent changes" caption="Every note, untyped included, newest first.">
+    <Block
+      title="Recent changes"
+      info={{ text: "Every note, untyped included, newest first.", display: "title" }}
+    >
       <BlockBody status={status} what="recent changes">
         {() =>
           recent.data?.length ? (
-            <ul className="gv-list">
+            <ul className="gv-list gv-changes">
               {recent.data.map((note) => (
-                <li key={note.path} className="gv-out">
-                  <span>
-                    <button type="button" className="gv-inline" onClick={() => openNode(note.ref)}>
-                      {note.title}
-                    </button>{" "}
-                    <span className="gv-sub">
-                      {note.type ? (summaries.data?.get(note.type)?.label ?? note.type) : "untyped"}
-                      {note.folder && ` · ${note.folder}/`}
-                    </span>
-                  </span>
-                  {note.updatedAt !== null && (
-                    <RelativeTime value={note.updatedAt} className="gv-num" />
-                  )}
-                </li>
+                <ChangeRow
+                  key={note.path}
+                  line={{
+                    key: note.path,
+                    title: note.title,
+                    type: note.type
+                      ? (summaries.data?.get(note.type)?.label ?? note.type)
+                      : "Untyped",
+                    folder: note.folder,
+                    time: note.updatedAt,
+                    onOpen: () => openNode(note.ref),
+                  }}
+                />
               ))}
             </ul>
           ) : (

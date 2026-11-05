@@ -57,7 +57,7 @@ Screening asks Jev two cheap questions about each passage of a session and sends
 
 A first run reads the last 7 days of sessions and asks before reading more than 200. Run it without a budget first: it spends nothing, and it shows the model for each role, every provider that will receive transcript text, and the estimated cost. Then give it a spend limit. Cost grows with the number of sessions, so the estimate is the number to check. Later runs read only new turns, and an unchanged rerun makes no model calls.
 
-A run that reaches its budget stops and resumes where it left off.
+A run that reaches its spend budget stops and resumes where it left off. Jev ranks candidates for priority; every unsettled candidate can reach evidence verification. The per-run verification count limit can defer work, including old low-score candidates. Rerunning with an approved budget continues that pool without new sessions. Deferred or invalid responses stay visibly unfinished.
 
 ## The weekly mining task
 
@@ -90,7 +90,7 @@ New shards, findings, document edits, and shared decisions are ordinary changes 
 The **Compounding** view, under Knowledge in the Notes sidebar, is the quicker way to review. It has three tabs.
 
 - **Recommendations** lists pending proposals and open fix, guard, and ask findings as a checklist, grouped by response, with everything checked. Expand a row to read its draft, evidence, and cited excerpts, or the finding's note. Uncheck what you want to leave for later, then **Copy prompt** and paste it into your agent. The prompt names the items, not their text, and says you reviewed them and approve publishing them. The agent approves each proposal as drafted with the compounding skill, applies the document edits, implements the fixes and guards, checks off the action items it completes, and finishes on one branch for one pull request. Anything a script refuses comes back to you one item at a time.
-- **Health** shows the friction report and the last mine run's spend and outcome. Each row opens that item on its own page.
+- **Health** shows the friction report, actual verification coverage and rejection reasons, deferred work with a continuation command, and the exact mining store. An empty Recommendations list does not establish that every candidate was examined. Isolated replays appear only in their own store. Each friction row opens that item on its own page.
 - **Memory** lists the approved context shards and findings, and the shards that need re-verifying.
 
 **Remove** changes only your own review. It dismisses a proposal locally, with a quick reason, or hides a finding from your workspace. A proposal redrafted since you reviewed it must be reviewed again before removal. A teammate still sees both, and hiding a finding never checks off its action item; only finishing the work does. To share a dismissal with the team, dismiss it through the skill with `--shared`.

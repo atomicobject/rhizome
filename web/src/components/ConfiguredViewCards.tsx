@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { type ComponentProps, Fragment, useEffect, useMemo } from "react";
 
 import type { ViewExecuteResponse, ViewTableRow } from "../api/types";
@@ -82,13 +83,16 @@ export function ConfiguredViewCards(props: Props) {
   // An authored card layout wins; generated cards become record briefs (SPEC-0112).
   const briefFor =
     profile && (view.generated || !view.variants.card)
-      ? (row: ViewTableRow) => ({
+      ? (row: ViewTableRow, omitField?: string) => ({
           className: " configured-card--brief",
           header: (
             <RecordBriefHeader
               row={row}
               profile={profile}
               capabilities={props.capabilities}
+              omitField={omitField}
+              // Every grid card carries the same metadata row: type at left, age at right.
+              showType
               editSession={props.editSession}
               onStageOps={props.onStageOps}
             />
@@ -143,7 +147,11 @@ export function ConfiguredViewCards(props: Props) {
             <section className="configured-view__card-section" key={group.key}>
               <h3 className="configured-view__card-section-header">
                 <button type="button" aria-expanded={!collapsed} onClick={() => toggleGroup(group)}>
-                  <span className="configured-view__card-section-caret" aria-hidden />
+                  <ChevronRight
+                    size={16}
+                    className="configured-view__disclosure-icon"
+                    aria-hidden
+                  />
                   {tone ? <StatusMark tone={tone} label={label} /> : <span>{label}</span>}
                   <span className="configured-view__card-section-count">
                     {group.totalCount ?? group.count}
@@ -226,6 +234,7 @@ function CardGrid({
   cardProps: CardGridProps;
   briefFor?: (
     row: ViewTableRow,
+    omitField?: string,
   ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body">;
 }) {
   return (
@@ -236,7 +245,8 @@ function CardGrid({
       {rows.map((row) => {
         const rowKey = configuredTableRowKey(row);
         const source = reorder.dragSource(row);
-        const brief = briefFor?.(row);
+        // The section header already names the grouped value.
+        const brief = briefFor?.(row, cardProps.omitField);
 
         return (
           <ConfiguredViewCard

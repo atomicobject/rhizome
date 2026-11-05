@@ -6,7 +6,9 @@ test("⌘P finds a note by a typo'd query and opens it as a tab, then a code fil
   await page.goto("/notes");
   const tabs = page.getByRole("tablist", { name: "Open notes" });
 
-  await expect(tabs).toBeVisible();
+  // Home alone hides the strip until a note opens.
+  await expect(page.getByRole("heading", { name: "All notes" })).toBeVisible();
+  await expect(tabs).toBeHidden();
   await page.keyboard.press("ControlOrMeta+p");
   const input = page.getByRole("combobox", { name: "Find a note or file" });
 

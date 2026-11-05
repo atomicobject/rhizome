@@ -1,6 +1,6 @@
 // Trace's row groups: a lifecycle band of rows, each row's spine cell with its
 // nesting controls, and the record chips in its cells.
-import { RecordChip, StatusMark, openNote } from "@rhizome/kit";
+import { DisclosureIcon, RecordChip, StatusMark, openNote } from "@rhizome/kit";
 import { useMemo, useState } from "react";
 
 import { Dash, IssueCount, RecordMark, RecordTitle, openRecord } from "./components.tsx";
@@ -37,7 +37,7 @@ function Entry({ model, entry }: { model: GroupModel; entry: MatrixEntry }) {
         title={entry.note.title}
         onOpen={() => openNote(entry.note.path)}
         wrap
-        className="gv-chip"
+        className="gv-chip link-secondary"
       >
         {entry.note.title}
       </RecordChip>
@@ -54,7 +54,7 @@ function Entry({ model, entry }: { model: GroupModel; entry: MatrixEntry }) {
       title={entry.record.title}
       onOpen={() => openRecord(entry.record)}
       wrap
-      className="gv-chip"
+      className="gv-chip link-secondary"
     >
       {entry.record.title}
     </RecordChip>
@@ -88,7 +88,7 @@ function Cell({
       ))}
       {shown.length < entries.length && (
         <button type="button" className="gv-trace-more" onClick={() => setAll(true)}>
-          +{entries.length - shown.length} more
+          Show {entries.length - shown.length} more
         </button>
       )}
       {rolled && (
@@ -119,7 +119,9 @@ function Row({
   const { record, depth, parent } = row;
   const { spine } = matrix;
   const key = keyText(spine, record);
-  const offset = depth * INDENT + (matrix.hierarchical ? INDENT : 0) + 18;
+  // A top-level row in a band shows no mark, so its text starts at the title.
+  const marked = !matrix.banded || depth > 0;
+  const offset = depth * INDENT + (matrix.hierarchical ? INDENT : 0) + (marked ? 16 : 0);
 
   return (
     <tr data-record-key={record.key} data-depth={depth || undefined}>
@@ -128,17 +130,18 @@ function Row({
           {row.children.length > 0 ? (
             <button
               type="button"
-              className="gv-twisty"
+              className="rz-disclosure gv-twisty"
               aria-expanded={!collapsed}
               aria-label={`Rows under ${record.title}`}
               onClick={() => onToggle(record.key)}
             >
-              <span aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
+              <DisclosureIcon open={!collapsed} />
             </button>
           ) : (
             matrix.hierarchical && <span className="gv-twisty-slot" aria-hidden="true" />
           )}
-          <RecordMark member={spine} record={record} />
+          {/* The band names a top-level row's status; a nested row's may differ. */}
+          {marked && <RecordMark member={spine} record={record} />}
           <RecordTitle record={record} />
           {parent && <span className="sr-only">, under {parent.title}</span>}
           {collapsed && row.descendants > 0 && (
@@ -158,11 +161,13 @@ function Row({
           </div>
         )}
       </th>
-      {matrix.columns.map((column) => (
-        <td key={column.id} className={column.kind === "outside" ? "gv-outcol" : undefined}>
-          {!column.collapsed && <Cell model={model} matrix={matrix} row={row} column={column} />}
-        </td>
-      ))}
+      {matrix.columns
+        .filter((column) => !column.collapsed)
+        .map((column) => (
+          <td key={column.id} className={column.kind === "outside" ? "gv-outcol" : undefined}>
+            <Cell model={model} matrix={matrix} row={row} column={column} />
+          </td>
+        ))}
     </tr>
   );
 }
@@ -201,7 +206,7 @@ export function Band({
   );
 
   const rows = useMemo(() => visibleRows(band.roots, collapsed), [band.roots, collapsed]);
-  const span = matrix.columns.length + 1;
+  const span = matrix.columns.filter((column) => !column.collapsed).length + 1;
   const hidden = rows.length - limit;
   const toggle = (key: string) => tree.setOpen(key, collapsed.has(key));
 
@@ -216,9 +221,7 @@ export function Band({
               aria-expanded={open}
               onClick={() => setOpen(!open)}
             >
-              <span className="gv-caret" aria-hidden="true">
-                {open ? "▾" : "▸"}
-              </span>
+              <DisclosureIcon open={open} className="gv-caret" />
               <BandLabel matrix={matrix} band={band} />
               <span className="gv-num">{band.size}</span>
             </button>

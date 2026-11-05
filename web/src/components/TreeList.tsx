@@ -1,4 +1,6 @@
+import { FileCode2, FileText, Folder, FolderOpen } from "lucide-react";
 import type { TreeEntry } from "../api/types";
+import { DisclosureChevron } from "./DisclosureChevron";
 
 export function TreeList({
   entries,
@@ -20,6 +22,14 @@ export function TreeList({
         const isExpanded = !!expanded[entry.path];
         const isSelected = selectedPath === entry.path;
 
+        const Icon = isDir
+          ? isExpanded
+            ? FolderOpen
+            : Folder
+          : entry.kind === "note"
+            ? FileText
+            : FileCode2;
+
         return (
           <li key={entry.path} className="tree-item">
             <button
@@ -30,11 +40,8 @@ export function TreeList({
               onClick={() => (isDir ? onToggle(entry) : onSelect(entry))}
             >
               {isDir ? (
-                <span
-                  className={`tree-chevron ${isExpanded ? "tree-chevron--open" : ""}`}
-                  aria-hidden="true"
-                >
-                  ›
+                <span className="tree-chevron" aria-hidden="true">
+                  <DisclosureChevron open={isExpanded} />
                 </span>
               ) : (
                 <span className="tree-chevron tree-chevron--spacer" aria-hidden="true" />
@@ -43,7 +50,7 @@ export function TreeList({
                 className={`tree-icon ${isDir ? "tree-icon--dir" : "tree-icon--file"}`}
                 aria-hidden="true"
               >
-                {isDir ? (isExpanded ? "📂" : "📁") : entry.kind === "note" ? "📄" : "📝"}
+                <Icon size={16} strokeWidth={1.5} />
               </span>
               <span className="tree-name">{entry.name}</span>
             </button>

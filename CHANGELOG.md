@@ -4,6 +4,15 @@
 
 - Require Developer ID signing and Apple notarization for public desktop releases, with protected CI recovery and non-publishing candidate verification.
 
+- Refreshed the workbench with clearer tables and boards, calmer note and search pages, consistent type colours, and more readable graph labels.
+- GraphQL now shares the workbench sidebar and page layout.
+
+- Signing out of the team server (`rzm auth logout`, or Sign out in Rhizome Desktop) keeps the server you used, so signing in again returns to it instead of the built-in default.
+
+- The team API gateway now limits session-store lookups from unrecognized tokens per client address and in total, and caches the Jev model list with one shared upstream request and a per-person rate, so unauthenticated floods and stolen sessions cannot drive unbounded store reads or provider requests.
+
+- Published Rhizome builds, including the desktop app, know the Atomic Object team server, so staff can choose **Sign in with Atomic Object** or run `rzm auth login` without passing `--server`.
+
 - Desktop Settings now groups provider access: choose the Atomic Object server or your own key for Voyage and Jev, enter or import keys from 1Password, and inspect the connections running repositories actually use. Explicit server selection overrides local keys; older runtimes report unknown routing, and Voyage changes show when a restart is needed.
 
 - Desktop development builds default to the deployed team API for Google sign-in, while retaining explicit local server testing.
@@ -13,6 +22,12 @@
 - Client release commands now deploy and verify the exact release gateway source before uploading artifacts, with pinned retries and private/public source agreement. Ordinary main merges no longer deploy the gateway.
 
 ### Fixed
+
+- The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.
+
+- A compounding mining run that finds nothing to review now says why (how many candidates were rejected or held) instead of linking to an empty workspace, and the workspace's status line shows the latest run's counts.
+
+- Compounding sends low-ranked candidates to evidence verification, resumes deferred work without new sessions, and shows verification coverage, deferral reasons and the active mining store in its workspace. Jev passage screening and human publication approval remain in place.
 
 - Compounding uses `jev-latest` for screening and ranking, with priced estimates and usage accounting. The team gateway also accepts explicit Jev release IDs such as `jev-1.13.0`, retaining budget reservations and per-person/global limits.
 - Compounding can verify Markdown and workflow learnings against repository documentation and schemas, including when Jev screening is unavailable. Source confidence is preserved, and redundant or obsolete guidance is still rejected.

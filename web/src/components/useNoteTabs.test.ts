@@ -242,7 +242,7 @@ describe("useNoteTabs", () => {
     expect(result.current.activeId).toBe("note:docs/spec.md");
   });
 
-  it("restores a stored view tab and activates it for a back or forward view URL", async () => {
+  it("drops a stored view tab under Home and reopens it for a back or forward view URL", async () => {
     window.sessionStorage.setItem(
       storedKey("vault-a"),
       JSON.stringify({
@@ -252,9 +252,9 @@ describe("useNoteTabs", () => {
     );
     window.history.replaceState({}, "", "/notes");
     const { result } = renderHook(() => useNoteTabs("vault-a"));
-    await waitFor(() =>
-      expect(result.current.tabs.filter((tab) => tab.kind === "view")).toHaveLength(1),
-    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    // Home is the page, so the stored view it replaced does not linger as a hidden tab.
+    expect(result.current.tabs.filter((tab) => tab.kind === "view")).toHaveLength(0);
     expect(result.current.activeId).toBe("home");
 
     act(() => {
@@ -354,7 +354,7 @@ describe("useNoteTabs", () => {
     expect(result.current.tabs.some((tab) => tab.id === "collection:modified")).toBe(false);
   });
 
-  it("retains independent filtered searches and reuses normalized identities", () => {
+  it("replaces the search page with a new search and reuses normalized identities", () => {
     const { result } = renderHook(() => useNoteTabs("vault-a"));
 
     act(() => result.current.openSearch("  Architecture   Review "));
@@ -371,7 +371,8 @@ describe("useNoteTabs", () => {
     expect(result.current.activeId).toBe(firstID);
 
     act(() => result.current.openSearch("architecture review", { scope: "code" }));
-    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toHaveLength(2);
+    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toHaveLength(1);
+    expect(result.current.activeId).not.toBe(firstID);
     expect(new URLSearchParams(window.location.search).get("scope")).toBe("code");
   });
 
@@ -443,9 +444,9 @@ describe("useNoteTabs", () => {
       act(() => vi.advanceTimersByTime(200));
       expect(result.current.activeTab).toMatchObject({ id, scrollTop: 120 });
 
-      // Leaving the tab commits a pending position before the debounce.
+      // Leaving the tab for a note commits a pending position before the debounce.
       act(() => result.current.setSearchScroll(id, 300));
-      act(() => result.current.activate("home"));
+      act(() => result.current.open("notes/a.md"));
       expect(result.current.tabs.find((tab) => tab.id === id)).toMatchObject({ scrollTop: 300 });
 
       // A refinement that resets the position drops an older pending one.
@@ -505,13 +506,10 @@ describe("useNoteTabs", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     await waitFor(() => expect(result.current.activeId).toBe(firstID));
-    expect(result.current.tabs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: firstID, query: "search a" }),
-        expect.objectContaining({ id: secondID, query: "search b" }),
-        expect.objectContaining({ id: thirdID, query: "search c" }),
-      ]),
-    );
+    // Each search replaced the one before it; Back reopens the first under its own id.
+    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toEqual([
+      expect.objectContaining({ id: firstID, query: "search a" }),
+    ]);
   });
 
   it("does not restore tabs closed before vault hydration but restores untouched tabs", () => {
@@ -559,9 +557,8 @@ describe("useNoteTabs", () => {
     act(() => result.current.close(initialSearchID));
     rerender({ vault: "vault-a" });
 
-    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toEqual([
-      expect.objectContaining({ id: "search-tab:6", query: "untouched" }),
-    ]);
+    // Closing the search shows Home, which is the page now: no search lingers.
+    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toEqual([]);
     expect(result.current.activeId).toBe("home");
     expect(window.sessionStorage.getItem(storedKey("vault-a"))).not.toContain("search-tab:5");
   });
@@ -806,7 +803,7 @@ describe("useNoteTabs", () => {
     ).toHaveLength(1);
   });
 
-  it("opens a new retained search when shared chrome changes the location", async () => {
+  it("opens a new search in place of the last when shared chrome changes the location", async () => {
     const { result } = renderHook(() => useNoteTabs("vault-a"));
 
     act(() => {
@@ -826,7 +823,7 @@ describe("useNoteTabs", () => {
         filters: { scope: "code" },
       }),
     );
-    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toHaveLength(2);
+    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toHaveLength(1);
   });
 
   it.each(["setItem", "removeItem"] as const)(
