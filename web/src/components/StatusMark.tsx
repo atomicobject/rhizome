@@ -17,7 +17,10 @@ export function StatusMark({ tone, label }: Props) {
 /** A clean validation result; lifecycle success keeps its filled dot. */
 export function ValidationCheck({ label }: { label: string }) {
   return (
-    <span className="status-mark" style={{ fontWeight: "inherit" }}>
+    <span
+      className="status-mark"
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: "inherit" }}
+    >
       <svg
         aria-hidden="true"
         viewBox="0 0 16 16"
