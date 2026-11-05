@@ -1,5 +1,8 @@
 version: 2
 
+snapshot:
+  version_template: '{{ if index .Env "RZM_CI_RELEASE_VERSION" }}{{ .Env.RZM_CI_RELEASE_VERSION }}{{ else }}{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}{{ end }}'
+
 before:
   hooks:
     - ./scripts/vendor/ensure_tree_sitter_sources.sh
