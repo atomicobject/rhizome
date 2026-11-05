@@ -137,7 +137,7 @@ export function Finder({
     if (row) setActive(rowKey(row));
   };
 
-  // The overlay keeps its document between openings; take focus each time.
+  // Each opening starts with the search input focused.
   useEffect(() => {
     input.current?.focus();
   }, []);
