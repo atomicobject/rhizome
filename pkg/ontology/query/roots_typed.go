@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 )
 
 func (e *executor) rootNotesWithMax(ctx context.Context, args map[string]any, maxFirst int) ([]*noteRecord, error) {
@@ -152,11 +153,16 @@ func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, a
 		return rootPage[*noteRecord]{}, fmt.Errorf("%s(...) offset must be < %d for residual filters or sort; narrow the query to continue", queryRootFieldName(typeName), publicRootFirstMax)
 	}
 	if e.deps.ReadOverlay != nil && !e.deps.ReadOverlay.Empty() {
+		overlaySort := plan.Sort
+		if noteType == nil && len(plan.Predicates) == 0 && len(overlaySort) == 0 {
+			// Keep plain interface reads on the bounded indexed overlay path.
+			overlaySort = []readmodel.FieldSort{{FieldName: "path", ValueKind: "builtin"}}
+		}
 		result, err := e.loaders.scope.TypeInstances(ctx, noderead.TypeInstancesRequest{
 			TypeName:   typeName,
 			Limit:      publicRootFirstMax,
 			Predicates: plan.Predicates,
-			Sort:       plan.Sort,
+			Sort:       overlaySort,
 		})
 		if err != nil {
 			return rootPage[*noteRecord]{}, err
