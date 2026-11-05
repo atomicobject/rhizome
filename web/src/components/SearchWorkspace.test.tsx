@@ -319,6 +319,7 @@ describe("SearchWorkspace", () => {
     renderSearch({
       count: 1,
       total: 3,
+      policy: { candidateWindow: 3 },
       targetStatus: "inferred_symbol",
       confidence: { level: "medium", reason: "one strong source" },
       coverage: { missing: ["tests"] },
@@ -335,7 +336,7 @@ describe("SearchWorkspace", () => {
 
     const status = await screen.findByLabelText("Search status");
     expect(status).toHaveTextContent("Showing 1");
-    expect(document.querySelector(".search-workspace__header .num")).toHaveTextContent("3");
+    expect(status).toHaveTextContent("Showing 1 of 3 results (search limit)");
     expect(status).toHaveTextContent("Exact symbol");
     expect(status).toHaveTextContent("Medium confidence");
     expect(status).toHaveTextContent("Missing: tests");
@@ -348,7 +349,7 @@ describe("SearchWorkspace", () => {
     renderSearch();
 
     const status = await screen.findByLabelText("Search status");
-    expect(status.textContent).toBe("Showing 1");
+    expect(status.textContent).toBe("Showing 1 of 1 results");
   });
 
   it.each([0, 1])(

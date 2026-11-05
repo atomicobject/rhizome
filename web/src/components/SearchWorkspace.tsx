@@ -140,7 +140,7 @@ function RankedSearchWorkspace({
 
   const statusSegments: { text: string; info?: string }[] = [
     {
-      text: `Showing ${results.length}`,
+      text: `Showing ${results.length}${total === null ? "" : ` of ${total}`} results${total !== null && total === response?.policy?.candidateWindow ? " (search limit)" : ""}`,
     },
   ];
 
@@ -184,7 +184,6 @@ function RankedSearchWorkspace({
       <header className="search-workspace__header">
         <div className="search-workspace__title-row">
           <h1>Search results</h1>
-          {total !== null && <span className="view-header__count num">{total}</span>}
           <p className="search-workspace__query" title={tab.query}>
             for “{tab.query}”
           </p>
