@@ -26,3 +26,73 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.gv-coverage .gv-sig-rows[data-subtypes] .gv-sig-row {
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+}
+.gv-coverage-subtype {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: left;
+}
+.gv-coverage .gv-age {
+  text-align: right;
+}
+.gv-facts-list {
+  font-weight: 400;
+}
+.gv-facts-list b,
+.gv-facts .gv-num {
+  font-weight: 600;
+}
+.gv-facts-list .gv-ok,
+.gv-facts-list .gv-sub {
+  font-weight: 400;
+}
+.gv-hint summary.rz-info {
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+.gv-spread-head,
+.gv-composition-head {
+  color: var(--text-muted);
+  font: 600 13px / 1.4 var(--font-sans);
+}
+.gv-spread-head > .gv-sub {
+  margin-left: auto;
+  font-weight: 400;
+}
+.gv-composition-head > .gv-num {
+  font-weight: 400;
+  text-align: right;
+}
+.gv-hist {
+  border-bottom-color: var(--border-strong);
+}
+.gv-hist i {
+  min-height: 4px;
+  flex-shrink: 0;
+}
+.gv-outside-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 20px;
+  font-size: 13px;
+}
+.gv-outside-totals > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  align-items: baseline;
+}
+.gv-outside-totals > span > span {
+  grid-column: 1;
+  grid-row: 1;
+}
+.gv-outside-totals b {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: right;
+}

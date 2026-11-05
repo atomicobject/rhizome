@@ -1,4 +1,4 @@
-import { useValidationSummaries } from "@rhizome/kit";
+import { RelativeTime, useValidationSummaries } from "@rhizome/kit";
 import { useQuery } from "@tanstack/react-query";
 import { isJsonObject, isNumber, isString, type JsonValue } from "./api.ts";
 import { getJSON } from "./load.ts";
@@ -68,4 +68,16 @@ export function NoIssues() {
     return <span className="gv-ok">✓ No issues</span>;
 
   return <span className="gv-sub">Validation out of date</span>;
+}
+
+export function LastChanged({ value }: { value: number }) {
+  const now = new Date();
+  const age = now.getTime() - value;
+
+  return (
+    <span>
+      Last changed <RelativeTime value={value} now={now} />
+      {age >= 60_000 && age < 60 * 86_400_000 && <span aria-hidden="true"> ago</span>}
+    </span>
+  );
 }

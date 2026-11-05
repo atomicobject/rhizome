@@ -11,7 +11,6 @@
 // - openRecord(record), openMemberIssues(member): navigation helpers.
 import {
   Dash,
-  RelativeTime,
   StatusMark,
   openCollection,
   openIssues,
@@ -23,7 +22,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 import "./group.css";
 import "./briefing.css";
-import { NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
+import { LastChanged, NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { RECORD_CAP } from "./api.ts";
 import type { GroupModelState } from "./load.ts";
 import {
@@ -300,7 +299,7 @@ export function GroupFacts({
         )}
         {withIssues ? (
           <span className="gv-bad">
-            {withIssues} {withIssues === 1 ? "record" : "records"} with issues
+            <b>{withIssues}</b> {withIssues === 1 ? "record" : "records"} with issues
           </span>
         ) : (
           <>
@@ -308,11 +307,7 @@ export function GroupFacts({
             <ValidationFreshness />
           </>
         )}
-        {latest > 0 && (
-          <span>
-            changed <RelativeTime value={latest} className="gv-strong" />
-          </span>
-        )}
+        {latest > 0 && <LastChanged value={latest} />}
       </span>
       <span className="gv-facts-note">
         {model.guide && !collection && (
@@ -321,13 +316,20 @@ export function GroupFacts({
             <button
               type="button"
               className="gv-link"
+              title={
+                model.members.length > 1
+                  ? `Shared by ${model.guide.sharedBy} of ${model.members.length} types`
+                  : undefined
+              }
+              aria-description={
+                model.members.length > 1
+                  ? `Shared by ${model.guide.sharedBy} of ${model.members.length} types`
+                  : undefined
+              }
               onClick={() => openNote(model.guide?.path ?? "")}
             >
               {model.guide.title}
             </button>
-            {model.members.length > 1
-              ? `, shared by ${model.guide.sharedBy} of ${model.members.length} types.`
-              : "."}
           </>
         )}
       </span>

@@ -11,7 +11,6 @@
 //   for each type's newest records in an active lifecycle value;
 // - `GET /api/v1/ontology/types/__all__?limit=N` for the newest notes.
 import {
-  RelativeTime,
   StatusMark,
   openCollection,
   openIssues,
@@ -29,7 +28,7 @@ import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.t
 import { ChangeRow } from "./briefing-activity.tsx";
 import { Block, BlockBody, MoreToggle, Rebuilding, lower, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
-import { NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
+import { LastChanged, NoIssues, ValidationFreshness } from "./validation-freshness.tsx";
 import { getJSON, refetchFailedTypeDocs } from "./load.ts";
 import { useRememberedOpen } from "./remembered.ts";
 import {
@@ -405,13 +404,15 @@ function WorkspaceFacts() {
           </span>
         )}
         {issues !== undefined &&
-          (issues > 0 ? <span className="gv-bad">{fmt(issues)} issues</span> : <NoIssues />)}
+          (issues > 0 ? (
+            <span className="gv-bad">
+              <b>{fmt(issues)}</b> issues
+            </span>
+          ) : (
+            <NoIssues />
+          ))}
         <ValidationFreshness />
-        {latest && (
-          <span>
-            changed <RelativeTime value={latest} />
-          </span>
-        )}
+        {latest && <LastChanged value={latest} />}
       </span>
     </div>
   );
