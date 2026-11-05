@@ -14,7 +14,8 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{
-    webview::WebviewBuilder, AppHandle, LogicalPosition, LogicalSize, Manager, WebviewUrl, Window,
+    webview::WebviewBuilder, AppHandle, LogicalPosition, LogicalSize, Manager, Webview, WebviewUrl,
+    Window,
 };
 
 /// Puts the bundled UI in finder mode.
@@ -46,7 +47,7 @@ pub enum Choice {
 }
 
 /// Shows the shell's `revision`th `model` in the window's finder, creating the
-/// overlay on first use. `return_to_content` names where focus goes back when
+/// overlay when needed. `return_to_content` names where focus goes back when
 /// the finder closes.
 pub fn show(
     window: &Window,
@@ -54,7 +55,6 @@ pub fn show(
     revision: u64,
     return_to_content: bool,
 ) -> Result<(), String> {
-    let finder = label(window.label());
     let opened = model["opened"]
         .as_f64()
         .ok_or("The finder model has no opening stamp.")?;
@@ -68,32 +68,39 @@ pub fn show(
     else {
         return Ok(());
     };
-    if window.get_webview(&finder).is_none() {
-        let size = window
-            .inner_size()
-            .map_err(|e| e.to_string())?
-            .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
-        let allowed = finder.clone();
-        window
-            .add_child(
-                WebviewBuilder::new(&finder, WebviewUrl::App("index.html".into()))
-                    // Transparent outside the palette, so the scrim lets the page show.
-                    .transparent(true)
-                    .auto_resize()
-                    .initialization_script(MARKER)
-                    .on_navigation(move |url| {
-                        security::shell_authorized(&allowed, url, cfg!(debug_assertions))
-                    }),
-                LogicalPosition::new(0.0, 0.0),
-                LogicalSize::new(size.width, size.height),
-            )
-            // A concurrent request may have created it first.
-            .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))?;
-    }
+    ensure_view(window)?;
     // A live update leaves focus alone, so it never pulls focus back from
     // another window.
     sync(window, if starts { Focus::Finder } else { Focus::Stay });
     Ok(())
+}
+
+fn ensure_view(window: &Window) -> Result<Webview, String> {
+    let finder = label(window.label());
+    if let Some(view) = window.get_webview(&finder) {
+        return Ok(view);
+    }
+    let size = window
+        .inner_size()
+        .map_err(|e| e.to_string())?
+        .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
+    let allowed = finder.clone();
+    window
+        .add_child(
+            WebviewBuilder::new(&finder, WebviewUrl::App("index.html".into()))
+                .disable_drag_drop_handler()
+                // Transparent outside the palette, so the scrim lets the page show.
+                .transparent(true)
+                .auto_resize()
+                .initialization_script(MARKER)
+                .on_navigation(move |url| {
+                    security::shell_authorized(&allowed, url, cfg!(debug_assertions))
+                }),
+            LogicalPosition::new(0.0, 0.0),
+            LogicalSize::new(size.width, size.height),
+        )
+        // A concurrent request may have created it first.
+        .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))
 }
 
 /// Hides the finder for opening `opening`, or the one on screen. Focus returns
@@ -127,7 +134,7 @@ enum Focus {
     Return { to_shell: bool },
 }
 
-/// Shows or hides the overlay as the pane says. Show and hide requests race,
+/// Shows or closes the overlay as the pane says. Show and hide requests race,
 /// so each queues this on the main thread, which runs tasks in order, and it
 /// reads the pane when it runs: the last one leaves the overlay right.
 fn sync(window: &Window, focus: Focus) {
@@ -143,18 +150,28 @@ fn sync(window: &Window, focus: Focus) {
         else {
             return;
         };
-        let view = window.get_webview(&label(window.label()));
         if open {
-            if let Some(view) = view {
-                let _ = view.show();
-                if matches!(focus, Focus::Finder) {
-                    let _ = view.set_focus();
+            let view = match ensure_view(&window) {
+                Ok(view) => view,
+                Err(error) => {
+                    eprintln!("Rhizome Desktop could not reopen its finder: {error}");
+                    return;
                 }
+            };
+            let _ = view.show();
+            if matches!(focus, Focus::Finder) {
+                let _ = view.set_focus();
             }
             return;
         }
-        if let Some(view) = view {
-            let _ = view.hide();
+        if let Some(view) = window.get_webview(&label(window.label())) {
+            // Hidden macOS webviews still intercept drags in the content view.
+            if view.close().is_ok() {
+                window
+                    .app_handle()
+                    .state::<Panes>()
+                    .with(window.label(), |pane| pane.detach_finder());
+            }
         }
         let Focus::Return { to_shell } = focus else {
             return;
