@@ -125,7 +125,7 @@ test("edits configured view enum checkbox and relation cells", async ({ page }) 
   await assignee.selectOption({ value: bobValue! });
   await expect(row.getByRole("link", { name: "Bob" })).toBeVisible();
 
-  await expect(page.locator(".ontology-edit-bar")).toContainText("Ready to save");
+  await expect(page.locator(".ontology-edit-bar")).toContainText("Unsaved changes");
   await expect(page.locator(".ontology-edit-bar")).toContainText("1 note");
   await expect(page.locator(".ontology-edit-bar")).toContainText("3 changes");
 

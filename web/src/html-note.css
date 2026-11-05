@@ -160,7 +160,7 @@ button.html-note-viewer__ghost svg {
   height: 0;
   min-height: 0;
   border: 0;
-  background: white;
+  background: var(--surface);
 }
 
 @media (max-width: 700px) {
@@ -321,4 +321,9 @@ button.html-note-viewer__ghost svg {
 
 .notes-shell .ontology-pane__main--html > .ontology-markdown--html {
   margin-top: 0;
+}
+
+/* The authored page carries its own status. */
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--status {
+  display: none;
 }
