@@ -457,3 +457,26 @@ it("keeps small-map edges clear of every other node", () => {
     }
   }
 });
+
+it("aligns a label left of its node by its near end", async () => {
+  const { placeLabels } = await import("./map-labels.ts");
+
+  const { labels } = placeLabels(
+    new Map([["Knowledge", { x: 600, y: 130 }]]),
+    [
+      {
+        id: "Knowledge",
+        radius: 22,
+        label: "Knowledge\n166 notes · 3 member types",
+        alignToNode: true,
+      },
+    ],
+    [],
+    652,
+    260,
+  );
+
+  const label = labels.get("Knowledge")!;
+  expect(label.anchor).toBe("end");
+  expect(Math.hypot(600 - label.x, Math.max(0, label.y - 12 - 130)) - 22).toBeLessThanOrEqual(12);
+});

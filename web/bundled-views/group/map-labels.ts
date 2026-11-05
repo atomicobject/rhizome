@@ -50,7 +50,13 @@ const grow = (box: Box, by: number): Box => ({
 /** Label text height plus its halo. */
 const LABEL_HEIGHT = 34;
 
-type LabelItem = { id: string; radius: number; label: string; outward?: Point };
+type LabelItem = {
+  id: string;
+  radius: number;
+  label: string;
+  outward?: Point;
+  alignToNode?: boolean;
+};
 
 export function placeLabels(
   positions: ReadonlyMap<string, Point>,
@@ -143,7 +149,13 @@ export function placeLabels(
           }
         : undefined;
 
-    labels.set(item.id, { x: box.x, y: box.y + 12, anchor: "start", leader });
+    const left = item.alignToNode && box.x + box.w <= point.x;
+    labels.set(item.id, {
+      x: left ? box.x + box.w : box.x,
+      y: box.y + 12,
+      anchor: left ? "end" : "start",
+      leader,
+    });
   }
 
   return { labels, boxes: boxes.filter((box) => !reserved.includes(box)) };

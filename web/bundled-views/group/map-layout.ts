@@ -13,7 +13,7 @@ export { placeEdgeLabels } from "./map-labels.ts";
 // sides of its node that clears the nodes, labels, and edges already placed,
 // largest nodes first.
 
-export type LayoutNode = { id: string; radius: number; label: string };
+export type LayoutNode = { id: string; radius: number; label: string; alignToNode?: boolean };
 
 export type LayoutEdge = {
   a: string;

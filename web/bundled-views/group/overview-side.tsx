@@ -70,7 +70,7 @@ export function FolderBlock() {
                     <th scope="col" className="gv-right">
                       Untyped
                     </th>
-                    <th scope="col">Share of folder</th>
+                    <th scope="col">Share</th>
                     <th scope="col">Untyped notes link to</th>
                   </tr>
                 </thead>

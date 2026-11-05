@@ -98,6 +98,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
         id: node.id,
         radius: size(node),
         label: nodeText(node),
+        alignToNode: node.kind === "group",
       })),
       edges: links.edges.map((edge) => ({
         ...edge,

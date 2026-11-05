@@ -348,7 +348,7 @@
   width: 58px;
 }
 .gv-page .gv-ov-folders th:nth-child(3) {
-  width: 100px;
+  width: 78px;
 }
 .gv-page .gv-ov-folders td {
   height: 32px;
@@ -356,11 +356,15 @@
   padding-block: 5px;
 }
 .gv-page .gv-ov-folders td.gv-ov-links {
-  white-space: nowrap;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 .gv-ov-folders .gv-ov-links-text {
   display: block;
-  white-space: nowrap;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
   font-size: 13px;
 }
 .gv-ov-folders .gv-ov-mini {

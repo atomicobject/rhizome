@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { openNote, openSearch, openView, typeLabel } from "@rhizome/kit";
 import { type Boundary } from "./activity.ts";
 import { readableTitle } from "./briefing-activity.tsx";
@@ -177,51 +176,7 @@ export function GuideAndViews({ model }: { model: GroupModel }) {
   );
 }
 
-export function fitSummary(text: string, width: number, measure: (value: string) => number) {
-  if (measure(text) <= width) return text;
-  const words = text.split(" ");
-
-  while (words.length && measure(words.join(" ") + "…") > width) words.pop();
-
-  return words.join(" ") + "…";
-}
-
-/** Keep complete words visible; the full relationship summary remains in the tooltip. */
+/** Keep every destination readable as the folder column wraps. */
 export function LinkSummary({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [shown, setShown] = useState(text);
-
-  useEffect(() => {
-    const element = ref.current;
-
-    if (!element) return;
-
-    const measure = () => {
-      const probe = document.createElement("span");
-      probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
-      element.append(probe);
-
-      const next = fitSummary(text, element.clientWidth, (value) => {
-        probe.textContent = value;
-
-        return probe.getBoundingClientRect().width;
-      });
-
-      probe.remove();
-      setShown(next);
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    void document.fonts?.ready.then(measure);
-
-    return () => observer.disconnect();
-  }, [text]);
-
-  return (
-    <span ref={ref} className="gv-ov-links-text" title={text}>
-      {shown}
-    </span>
-  );
+  return <span className="gv-ov-links-text">{text}</span>;
 }
