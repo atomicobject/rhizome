@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { FileText, X } from "lucide-react";
+import { graphNodeNavigationTarget } from "./graphViewShared";
 import { FILE_NOTE_RELATIONS } from "./fileFocusGraph";
 import type { FileView, GraphResponse } from "../api/types";
 import { convertWikilinks, resolveLinkTarget, stripFrontmatter } from "../lib/content";
@@ -89,7 +90,7 @@ export function FilePanel({
       const known = new Set((file.relatedNotes ?? []).map((note) => note.path));
 
       for (const node of graph?.nodes ?? []) {
-        const path = node.notePath || node.path;
+        const path = graphNodeNavigationTarget(node);
 
         if ((node.kind === "note" || node.kind === "embedded") && path && !known.has(path)) {
           add("Related in graph", path, node.label || getFileName(path));

@@ -51,6 +51,40 @@ describe("FilePanel", () => {
     expect(onSelectFile).toHaveBeenCalledWith("docs/guide.md", "note");
   });
 
+  it("keeps graph items in the same note distinct and opens their full targets", () => {
+    const onSelectFile = vi.fn();
+    render(
+      <FilePanel
+        file={{ path: "src/main.go", kind: "code", relatedNotes: [] }}
+        graph={{
+          nodes: [
+            {
+              id: "one",
+              kind: "embedded",
+              notePath: "docs/guide.md",
+              label: "First item",
+              sourceLocator: "docs/guide.md#^one",
+            },
+            {
+              id: "two",
+              kind: "embedded",
+              notePath: "docs/guide.md",
+              label: "Second item",
+              nodeRef: { kind: "EMBEDDED", notePath: "docs/guide.md", fragment: "^two" },
+            },
+          ],
+          edges: [],
+        }}
+        onClose={vi.fn()}
+        onSelectFile={onSelectFile}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /First item/ }));
+    expect(onSelectFile).toHaveBeenLastCalledWith("docs/guide.md#^one", "note");
+    fireEvent.click(screen.getByRole("button", { name: /Second item/ }));
+    expect(onSelectFile).toHaveBeenLastCalledWith("docs/guide.md#^two", "note");
+  });
+
   it("renders code HTML as text instead of injecting markup", () => {
     const file: FileView = {
       path: "src/example.ts",
