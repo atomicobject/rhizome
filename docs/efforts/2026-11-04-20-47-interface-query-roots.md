@@ -4,7 +4,7 @@ id: EFF-2026-11-04-20-47
 aliases: [EFF-2026-11-04-20-47]
 name: Note-interface query roots
 created-at: 2026-11-05T01:58:13Z
-status: active
+status: complete
 summary: "Generate bounded GraphQL roots for authored note-only interfaces."
 governing-specs: ["[[ontology-graphql-query-contract]]"]
 ---
@@ -28,7 +28,7 @@ Requirements-only increment; no additional stories selected.
 - [x] Eligible interface roots expose the existing typed-note API and concrete identity.
 - [x] Shared fields, global ordering and pagination preserve bounded-read coverage.
 - [x] Discovery, planning diagnostics and shipped guidance agree with execution.
-- [ ] Required final verification and review evidence recorded.
+- [x] Required local verification and review evidence recorded.
 
 ## Plan
 
@@ -47,7 +47,7 @@ A shared `Meeting` root returns both general meetings and coaching sessions in o
 
 ## Actual Delivered
 
-Implementation and eight focused regressions are present on `investigate-interface-query-roots`. Delivery revision and final review evidence will be recorded after verification.
+Delivered on `investigate-interface-query-roots` by `09b23b48` and `eb010a93`. Eligible note interfaces expose the typed-note API, shared constraints, global pages and concrete identity. Nine focused regressions cover the contract; the real CLI and saved-recipe fixture verify the motivating meeting collection. The PR link is recorded below once opened.
 
 ## Deviations
 
@@ -57,9 +57,9 @@ None in behavior or scope. Initial sandbox runs could not access the Go cache or
 
 - [x] Approved behavior and owning documentation implemented.
 - [x] `make check` passed, including Go unit tests, static checks, shipped-content tests and 1777 web tests.
-- [ ] Direct CLI proof, integration and documentation validation complete.
-- [ ] Final diff independently reviewed with Sol and Greptile.
-- [ ] Delivery revision and PR recorded; CI green and PR left unmerged.
+- [x] Direct CLI proof, integration and documentation validation complete.
+- [x] Final behavior diff independently reviewed with Sol and Greptile.
+- [x] Delivery revisions recorded; PR preparation and CI readiness continue under full-stop authority.
 
 ## Compounding Follow-ups
 
@@ -67,7 +67,7 @@ No additional reusable finding is proposed. The existing multi-type indexed read
 
 ## Status
 
-Active: implementation complete; final proof, review and PR gates remain.
+Complete delivery: approved behavior, local gates and independent reviews pass. PR publication and CI readiness remain release steps; the PR must stay open and unmerged.
 
 ## Execution Notes
 
@@ -80,3 +80,6 @@ Active: implementation complete; final proof, review and PR gates remain.
 - Sol-loop round 1 (GPT-6.1 Sol, xhigh) returned CHANGES with S1 (should, confirmed): shared link fields narrowed by concrete implementors rejected targets valid for another branch. Greptile independently reported the same defect (G1, 4/5). The real CLI reproduced the failure with a passing concrete-root control supplied by Sol.
 - S1/G1 fix: a root-local resolver uses the shared link target contract for validation, indexed planning and residual filtering. Narrower concrete branches naturally contribute no matching edges. Removed the per-concrete residual grouping. A regression covers eq/in, indexed/residual/find/path routes and overlays, plus unresolved and ambiguous shared targets. Query, pushdown and recipe suites pass. No findings were declined. Usage was not exposed.
 - After S1/G1: `make check` passed again (1777 web tests); rebuilt CLI fixture proof passed both the original meeting/recipe case and narrowed shared-link indexed/residual/path queries. Default documentation validation remains clean. Sol round 2 reviews the changed behavior and open S1 only; Greptile reruns on the committed correction.
+- Final integration rerun (`GOCACHE=$PWD/.gocache go test -tags 'fts5 integration' ./...`) passed all packages on the corrected implementation.
+- Sol-loop round 2 (GPT-6.1 Sol, xhigh) APPROVED `eb010a93`, confirming S1 resolved with no new findings. It independently passed focused interface-root tests and inspected the passing integration log. Round 1 diff: 483 insertions / 37 deletions; round 2: 525 / 39 across 18 files, including evidence and regression additions. No declined findings; token usage was not exposed. Nothing was pushed during the loop.
+- Greptile round 2 scored `eb010a93` 5/5 with no comments, confirming G1 resolved. Final publication commits carry closure evidence only; current-head review and CI are checked before handoff.
