@@ -140,7 +140,7 @@ export function fileFocusGraph(
           : visible(members, label),
       );
 
-      const rows = shown.length > 10 ? Math.ceil(shown.length / 2) : shown.length;
+      const rows = shown.length > 20 ? Math.ceil(shown.length / 2) : shown.length;
 
       return (
         HEADING_GAP +
@@ -185,7 +185,7 @@ export function fileFocusGraph(
       edges.push({ source: focused.id, target: groupID, kind });
 
       const shown = fileFocusLabels(visible(members, label));
-      const rows = shown.length > 10 ? Math.ceil(shown.length / 2) : shown.length;
+      const rows = shown.length > 20 ? Math.ceil(shown.length / 2) : shown.length;
       let itemY = groupY - HEADING_GAP;
       shown.forEach((node, index) => {
         if (index === rows) itemY = groupY - HEADING_GAP;

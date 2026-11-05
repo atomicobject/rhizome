@@ -60,6 +60,28 @@ describe("file neighbour groups", () => {
     }
   });
 
+  it("keeps eleven tests in one lane when their disclosure expands", () => {
+    const tests = Array.from({ length: 11 }, (_, i) => ({
+      id: `t${i}`,
+      kind: "code",
+      path: `src/case${i}_test.go`,
+      label: `case${i}_test.go`,
+    }));
+
+    const result = fileFocusGraph(
+      { nodes: [graph.nodes[0], ...tests], edges: [] },
+      "src/main.go",
+      undefined,
+      new Set(["Tests"]),
+    );
+
+    expect(result.nodes.filter((node) => node.path?.endsWith("_test.go"))).toHaveLength(11);
+    expect(
+      new Set(result.nodes.filter((node) => node.path?.endsWith("_test.go")).map((node) => node.x))
+        .size,
+    ).toBe(1);
+  });
+
   it("unions inspector anchor notes and references with graph notes, without duplicates", () => {
     const input = {
       ...graph,

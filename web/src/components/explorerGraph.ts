@@ -182,8 +182,10 @@ export function drawTestEdges(
       kind === "explorer-documents"
         ? resolveCssColor("var(--explorer-link-strong)")
         : kind === "explorer-code"
-          ? resolveCssColor("var(--graph-code)")
-          : color;
+          ? resolveCssColor("var(--explorer-code)")
+          : kind === "explorer-tests"
+            ? resolveCssColor("var(--type-8)")
+            : color;
     context.lineWidth = 1.5;
     context.setLineDash(kind === "explorer-tests" ? [4, 3] : []);
     context.beginPath();
