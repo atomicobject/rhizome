@@ -1,3 +1,4 @@
+import { type BoardDensity, defaultBoardDensity } from "./BoardDensityControl";
 import { ChevronRight } from "lucide-react";
 import { type ComponentProps, type DragEvent, useEffect, useState } from "react";
 
@@ -15,12 +16,9 @@ import { useRememberedExpansion } from "./useRememberedExpansion";
 import { mostCommon } from "./useViewLayout";
 import { isStaleRow } from "./viewProfile";
 
-type Props = ComponentProps<typeof ConfiguredViewTable>;
+type Props = ComponentProps<typeof ConfiguredViewTable> & { boardDensity?: BoardDensity };
 
 type DraggedCard = { row: ViewTableRow; columnKey: string };
-
-/** Columns holding more cards than this show compact cards. */
-const COMPACT_ABOVE = 24;
 
 export function ConfiguredViewBoard(props: Props) {
   const { execution, onCollapsedGroupCountChange, capabilities } = props;
@@ -29,13 +27,6 @@ export function ConfiguredViewBoard(props: Props) {
   const stagedSession = props.loading || props.showStagedEdits ? props.editSession : null;
   const laneCapability = fieldCapability(capabilities, board?.laneField);
   const lanes = boardLanes(execution, laneCapability?.edit?.field, stagedSession);
-
-  const columnExpansion = useRememberedExpansion(
-    props.preferenceScope,
-    props.vaultKey,
-    "native.boardColumns",
-    board?.columnField ?? "",
-  );
 
   const laneExpansion = useRememberedExpansion(
     props.preferenceScope,
@@ -136,7 +127,7 @@ export function ConfiguredViewBoard(props: Props) {
       // Empty values retain a narrow drop track.
       strip: count === 0,
       stale: profile ? rows.filter((row) => isStaleRow(row, profile, capabilities, now)).length : 0,
-      compact: !columnExpansion.isExpanded(column.key, rows.length <= COMPACT_ABOVE),
+      compact: (props.boardDensity ?? defaultBoardDensity(board)) === "compact",
       label: labelFor(column),
     };
   });
@@ -203,13 +194,6 @@ export function ConfiguredViewBoard(props: Props) {
         return next;
       });
     }
-  }
-
-  function toggleColumn(key: string) {
-    const column = board?.columns.find((item) => item.key === key);
-
-    if (!column) return;
-    columnExpansion.toggle(key, (placement?.rows.get(key)?.length ?? 0) <= COMPACT_ABOVE);
   }
 
   /** Drop handlers for one cell: a column, or a column within a lane. */
@@ -413,11 +397,7 @@ export function ConfiguredViewBoard(props: Props) {
             maxWidth,
           }}
         >
-          <BoardColumnHeaders
-            items={columns}
-            capability={columnCapability}
-            onToggle={toggleColumn}
-          />
+          <BoardColumnHeaders items={columns} capability={columnCapability} />
         </div>
         {laneList.map((lane) => {
           const collapsed = lane ? !laneExpansion.isExpanded(lane.key, true) : false;

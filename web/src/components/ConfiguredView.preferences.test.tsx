@@ -115,7 +115,7 @@ describe("remembered view preferences", () => {
     await waitFor(() => expect(draft()).toHaveAttribute("aria-expanded", "false"));
   });
 
-  it("remembers board columns and resets every personal choice to the shared defaults", async () => {
+  it("remembers board density and resets every personal choice to the shared defaults", async () => {
     const server = preferenceServer(http);
     const scope = nativePreferenceScope(baseView, TYPE);
 
@@ -134,18 +134,24 @@ describe("remembered view preferences", () => {
       context: TYPE,
     });
 
-    fireEvent.click(
-      (await screen.findAllByRole("button", { name: "Card details", expanded: true }))[0],
-    );
-    await waitFor(() => expect(server.read(scope).values).toHaveProperty("native.boardColumns"));
-    expect(screen.getByRole("button", { name: "Card details", expanded: false })).toBeVisible();
-
+    await screen.findByRole("button", { name: /^Display options/ });
     openViewOptions();
+    fireEvent.click(screen.getByRole("button", { name: "Compact" }));
+    await waitFor(() =>
+      expect(server.read(scope).values).toHaveProperty("native.boardDensity", "compact"),
+    );
+    expect(
+      screen
+        .getAllByRole("article")
+        .every((card) => card.classList.contains("configured-card--compact")),
+    ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Reset to shared" }));
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Card details", expanded: true })).toHaveLength(
-        2,
-      ),
+      expect(
+        screen
+          .getAllByRole("article")
+          .every((card) => !card.classList.contains("configured-card--compact")),
+      ).toBe(true),
     );
     await waitFor(() => expect(server.read(scope).values).toEqual({}));
     expect(screen.queryByRole("button", { name: "Reset to shared" })).toBeNull();

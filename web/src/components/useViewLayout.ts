@@ -78,6 +78,15 @@ export function useViewLayout(
     slot,
   );
 
+  const [boardDensityChoice, setBoardDensity] = useStoredViewChoice(
+    "boardDensity",
+    vaultKey,
+    view,
+    (value: unknown): value is "full" | "compact" => value === "full" || value === "compact",
+    context,
+    slot,
+  );
+
   const [columnWidths, setColumnWidths] = useStoredViewChoice(
     "widths",
     vaultKey,
@@ -169,6 +178,8 @@ export function useViewLayout(
     },
     density,
     densityChoice,
+    boardDensityChoice,
+    setBoardDensity,
     setDensity,
     columnWidths,
     setColumnWidths,
