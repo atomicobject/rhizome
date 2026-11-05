@@ -6,12 +6,11 @@ const OntologyGraph = lazy(() =>
   import("./OntologyGraph").then((m) => ({ default: m.OntologyGraph })),
 );
 
-function AtlasHeader({ count, about }: { count?: number; about?: string }) {
+function AtlasHeader({ about }: { about?: string }) {
   return (
     <header className="view-header">
       <div className="view-header__title-row">
         <h2>Ontology Atlas</h2>
-        {count !== undefined ? <span className="view-header__count">{count}</span> : null}
         {about ? <span className="view-header__about">{about}</span> : null}
       </div>
     </header>
@@ -77,7 +76,6 @@ export function OntologyAtlasHome({ atlas, error, onRetry }: Props) {
   return (
     <section className="ontology-atlas">
       <AtlasHeader
-        count={types.length + interfaces.length}
         about={`${plural(types.length, "type", "types")} and ${plural(interfaces.length, "interface", "interfaces")} · ${plural(records, "record", "records")}${embedded ? ` · ${plural(embedded, "embedded item", "embedded items")}` : ""}`}
       />
 
