@@ -232,7 +232,7 @@ func IntelOntologyNodeForProjection(schema *ontoschema.Schema, projection *NodeP
 		TypeName:              ref.TypeName,
 		ParentNodeID:          parentID,
 		ParentTypeName:        parentType,
-		Title:                 displayLabel,
+		Title:                 nodeCatalogTitle(projection),
 		SourceLocator:         sourceLocator,
 		Fragment:              fragment,
 		BlockID:               blockID,
@@ -403,7 +403,7 @@ func nodeCatalogFragments(projection *NodeProjection) (string, string) {
 	return fragment, blockID
 }
 
-func nodeCatalogDisplayLabel(projection *NodeProjection) string {
+func nodeCatalogTitle(projection *NodeProjection) string {
 	if projection == nil {
 		return ""
 	}

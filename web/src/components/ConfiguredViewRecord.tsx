@@ -19,7 +19,12 @@ import {
   relationDisplayValue,
   relationTargetRow,
 } from "./ConfiguredTableCellReadOnly";
-import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
+import {
+  cellValues,
+  fieldValue,
+  recordDisplayTitle,
+  rawFieldValue,
+} from "./ConfiguredTableCellHelpers";
 import {
   capabilityFor,
   capabilityLabel,
@@ -76,7 +81,7 @@ export function ConfiguredViewRecord({
   onOpenRow,
 }: Props) {
   const typeLabel = useTypeLabel();
-  const title = markCutTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
+  const title = recordDisplayTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
   const path = row.path || row.ref.notePath;
   const identifier = recordIdentifier(row, capabilities);

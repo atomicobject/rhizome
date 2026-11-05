@@ -30,7 +30,8 @@ import (
 // type resolution; scalar and metadata-link normalization use one contract.
 // Alias retirement invalidates unresolved dependencies before old aliases vanish.
 // v16: note titles derived from an H1 drop a trailing Obsidian block ID.
-const OntologyMaterializationVersion = 16
+// v17: embedded display labels retain the full headline without changing indexed titles or fields.
+const OntologyMaterializationVersion = 17
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.
