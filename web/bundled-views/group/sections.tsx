@@ -191,22 +191,22 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
       <header className="gv-section-head">
         <h2>
           <MemberHeading model={model} member={member} />
-          <span
-            className="rz-info"
-            tabIndex={0}
-            title={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
-            aria-label={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
-          >
-            <Info size={14} aria-hidden="true" />
-          </span>
         </h2>
         <span className="gv-num">{member.count}</span>
+        {member.description && <span className="gv-desc">{firstSentence(member.description)}</span>}
+        <span
+          className="rz-info"
+          tabIndex={0}
+          title={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+          aria-label={member.lifecycle ? "Most advanced first, then newest" : "Newest first"}
+        >
+          <Info size={14} aria-hidden="true" />
+        </span>
         {member.issueCount > 0 && (
           <button type="button" className="gv-issues" onClick={() => openMemberIssues(member)}>
             {member.issueCount} {member.issueCount === 1 ? "issue" : "issues"}
           </button>
         )}
-        {member.description && <span className="gv-desc">{firstSentence(member.description)}</span>}
         <LifecycleCounts member={member} />
       </header>
       {rows.length === 0 ? (
@@ -288,14 +288,16 @@ function SectionsBody({ model }: { model: GroupModel }) {
                 key={member.name}
                 type="button"
                 className="gv-link"
+                data-empty={member.count === 0 || undefined}
+                aria-label={`${memberLabel(model, member, { plural: true })} ${member.count}`}
+                title={`${memberLabel(model, member, { plural: true })} ${member.count}`}
                 onClick={() =>
                   document
                     .getElementById(sectionId(member))
                     ?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
               >
-                {memberLabel(model, member, { plural: true })}{" "}
-                <span className="gv-num">{member.count}</span>
+                {memberLabel(model, member, { plural: true })}
               </button>
             ))}
           </nav>

@@ -41,6 +41,17 @@ it("renders each member as a table in Trace column order, most advanced first", 
   ]);
   expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
 
+  const jump = screen.getByRole("navigation", { name: "Jump to section" });
+  const workLink = within(jump).getByRole("button", { name: "Work items 6" });
+  expect(workLink).toHaveTextContent(/^Work items$/);
+  expect(workLink).toHaveAttribute("title", "Work items 6");
+  const heading = section("Areas").querySelector(".gv-section-head");
+  expect(
+    Array.from(heading?.children ?? [])
+      .slice(0, 4)
+      .map((child) => child.textContent),
+  ).toEqual(["Areas", "6", "A product or platform area.", ""]);
+
   const work = section("Work items");
   expect(headers(work)).toEqual([
     "Title",

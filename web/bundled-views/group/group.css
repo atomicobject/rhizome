@@ -185,7 +185,7 @@
   content: "·";
 }
 
-/* Section jump links: each member's name and count, near the tabs. */
+/* Section jump links keep counts in their accessible names. */
 .gv-jump {
   display: inline-flex;
   flex-wrap: wrap;
@@ -194,8 +194,8 @@
   font-size: var(--fs-sm);
 }
 
-.gv-jump .gv-num {
-  margin-left: 2px;
+.gv-jump [data-empty] {
+  color: var(--text-faint);
 }
 
 .gv-facts-list b {
@@ -965,45 +965,45 @@
   table-layout: fixed;
 }
 
-/* About 40% for the rows, the rest shared by the linked columns; a column
-   few rows fill keeps a fixed 260px. Plain lengths: Chrome treats a calc() or
-   max() width on a table column as auto. */
+/* Leave room for related materials; use plain lengths for fixed table columns. */
 .gv-col-spine,
 .gv-trace thead th.gv-trace-spine {
-  width: 40%;
+  width: 34%;
 }
-
 .gv-col-sparse,
 .gv-trace thead th.gv-col-sparse {
   width: 260px;
 }
-
-/* The status key shares the relation's single, truncating metadata line. */
+.gv-trace .gv-trace-related {
+  width: 300px;
+}
+.gv-trace .gv-trace-related .gv-cov {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+/* Status marks stay inline with the relation caption. */
 .gv-trace .gv-col-legend {
   display: inline;
   font: inherit;
 }
-
 .gv-trace .gv-head > .gv-num {
   flex: none;
   font-size: 14px;
   font-weight: 400;
 }
-
 /* Linked titles are 14px teal quiet links, like every record link. */
 .gv-trace td .gv-chip {
   font-size: var(--fs-base);
 }
-
 .gv-trace td .gv-chip:not([data-indirect]) {
   color: var(--text-muted);
 }
-
 .gv-trace td .gv-chip:is(:hover, :focus-visible) > span:not(.sr-only) {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-
 .gv-legend {
   display: inline-flex;
   flex-wrap: wrap;

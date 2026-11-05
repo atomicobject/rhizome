@@ -120,7 +120,11 @@ function ColumnHead({
     <th
       scope="col"
       className={
-        [column.kind === "outside" && "gv-outcol", sparse(matrix, column) && "gv-col-sparse"]
+        [
+          column.kind === "outside" && "gv-outcol",
+          fields.length <= 1 && sparse(matrix, column) && "gv-col-sparse",
+          fields.length > 1 && "gv-trace-related",
+        ]
           .filter(Boolean)
           .join(" ") || undefined
       }
@@ -266,9 +270,15 @@ function Footer({
 /** Columns that show; an empty column is named in the toolbar instead. */
 const shownColumns = (matrix: TraceMatrix) => matrix.columns.filter((column) => !column.collapsed);
 
-/** The matrix's narrowest readable width, in pixels: a 340px spine and 220px columns. */
+/** Keep related materials readable alongside the spine and other linked columns. */
 function matrixWidth(matrix: TraceMatrix) {
-  return 340 + shownColumns(matrix).length * 220;
+  return (
+    340 +
+    shownColumns(matrix).reduce(
+      (width, column) => width + (relationFields(matrix, column).length > 1 ? 300 : 220),
+      0,
+    )
+  );
 }
 
 /** A column few rows fill is held to a fifth of the width, so dense columns get the room. */
@@ -294,7 +304,13 @@ function Matrix({
             {shownColumns(matrix).map((column) => (
               <col
                 key={column.id}
-                className={sparse(matrix, column) ? "gv-col-sparse" : undefined}
+                className={
+                  relationFields(matrix, column).length > 1
+                    ? "gv-trace-related"
+                    : sparse(matrix, column)
+                      ? "gv-col-sparse"
+                      : undefined
+                }
               />
             ))}
           </colgroup>

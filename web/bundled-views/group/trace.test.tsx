@@ -373,3 +373,29 @@ it("opens records, outside notes, and collections through the workspace", async 
     { type: OPEN_COLLECTION_MESSAGE, name: "Person" },
   ]);
 });
+
+it("gives a column joined by multiple fields room for its full relation caption", async () => {
+  const release = {
+    ...TYPE_DOCS.Release,
+    fields: TYPE_DOCS.Release.fields.flatMap((field) =>
+      field.name === "area"
+        ? [field, { ...field, name: "otherArea", label: "Other area" }]
+        : [field],
+    ),
+  };
+
+  const routes = groupRoutes({
+    "GET /api/v1/ontology/types/Release": () => jsonReply({ type: release, count: 2 }),
+  });
+
+  await renderGroupView(loadTrace, { routes });
+  await screen.findByRole("table");
+  const related = columnHeader("Related releases");
+  expect(related).toHaveClass("gv-trace-related");
+  expect(related).not.toHaveClass("gv-col-sparse");
+  expect(related.querySelector(".gv-cov")).toHaveAttribute(
+    "title",
+    expect.stringContaining("Area · Other area"),
+  );
+  expect(screen.getByRole("table").querySelector("col.gv-trace-related")).toBeInTheDocument();
+});
