@@ -9,7 +9,7 @@
 
 .validation-checks__list {
   display: grid;
-  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+  grid-template-columns: 160px minmax(0, 1fr);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -29,10 +29,12 @@
 }
 
 .validation-checks__list strong {
+  color: var(--text);
   font-weight: 500;
 }
 
-.validation-checks__result {
+.validation-checks__list .validation-checks__result {
+  font-size: var(--fs-sm);
   gap: var(--sp-2);
   overflow: hidden;
   color: var(--text-muted);
@@ -41,11 +43,13 @@
 
 .validation-checks__mark {
   flex: none;
+  font-size: var(--fs-base);
   color: var(--success);
   font-weight: 700;
 }
 
-.validation-status-strip--success,
-.validation-checks {
-  max-width: 720px;
+.problems-workspace:has(.validation-checks)
+  > :is(.problems-workspace__header, .validation-status-strip, .validation-checks) {
+  width: 100%;
+  max-width: 960px;
 }
