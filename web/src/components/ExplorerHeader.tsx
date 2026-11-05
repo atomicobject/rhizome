@@ -4,6 +4,8 @@ import { folderCoverage } from "./explorerNavigation";
 
 type Props = {
   graph: GraphResponse;
+  focusedPath?: string;
+  filePath?: string;
   graphScopeLabel: string;
   displaySlot: (element: HTMLDivElement | null) => void;
   searchActive: boolean;
@@ -25,6 +27,8 @@ type Props = {
 
 export function ExplorerHeader({
   graph,
+  focusedPath,
+  filePath,
   graphScopeLabel,
   displaySlot: setDisplaySlot,
   searchActive,
@@ -43,14 +47,31 @@ export function ExplorerHeader({
   onSelectFile,
   retrySearch,
 }: Props) {
+  const counts = (path?: string) => {
+    const nodes = path
+      ? graph.nodes.filter((n) => (n.notePath || n.path || "").startsWith(`${path}/`))
+      : graph.nodes;
+
+    return `${nodes.filter((n) => n.kind === "note").length.toLocaleString("en-US")} notes · ${nodes.filter((n) => n.kind === "code").length.toLocaleString("en-US")} code files`;
+  };
+
   return (
     <header className="view-header explorer-header">
       <div className="view-header__title-row">
         <h2>Explorer</h2>
         <span className="view-header__count num">
-          {graph.nodes.length
-            ? `${graph.nodes.filter((node) => node.kind === "note").length.toLocaleString("en-US")} notes · ${graph.nodes.filter((node) => node.kind === "code").length.toLocaleString("en-US")} code files`
-            : ""}
+          {filePath && (
+            <span className="explorer-header__breadcrumb">
+              {filePath.split("/").pop()} neighbourhood ·{" "}
+            </span>
+          )}
+          {focusedPath && (
+            <span className="explorer-header__breadcrumb">
+              {focusedPath.split("/").join(" / ")} ·{" "}
+            </span>
+          )}
+          {graph.nodes.length ? counts(focusedPath) : ""}
+          {focusedPath && <span className="explorer-header__totals"> of {counts()}</span>}
         </span>
         <button
           type="button"

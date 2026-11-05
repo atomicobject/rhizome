@@ -78,10 +78,10 @@ describe("Explorer focus", () => {
     expect(focused.nodes.every((node) => Boolean(node.label) && Number.isFinite(node.x))).toBe(
       true,
     );
-    expect(focused.edges.map((edge) => edge.kind)).toEqual([
-      "explorer-documents",
-      "explorer-tests",
-    ]);
+    expect(focused.nodes.map((node) => node.label)).toEqual(
+      expect.arrayContaining(["Tests", "Other code"]),
+    );
+    expect(focused.edges.some((edge) => edge.kind === "explorer-tests")).toBe(true);
   });
   it("closes off-path automatic fans and restores them at the vault root", () => {
     const graph = {

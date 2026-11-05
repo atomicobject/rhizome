@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { FileText } from "lucide-react";
 import type { FileView } from "../api/types";
 import { convertWikilinks, resolveLinkTarget, stripFrontmatter } from "../lib/content";
+import "./file-panel-preview.css";
 import { Markdown } from "./markdown/Markdown";
 
 const HIGHLIGHT_LANGS = new Map<string, string>([

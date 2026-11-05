@@ -1,3 +1,4 @@
+import { EMPTY_GRAPH, type ExplorerSelection } from "./ExplorerWorkspaceState";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { FolderOpen } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -10,7 +11,7 @@ import {
   searchPaths as searchPathMatches,
 } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
-import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
+import type { FileView, GraphNode, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
 import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
@@ -38,17 +39,6 @@ type ExplorerWorkspaceProps = {
   vaultName: string;
   sidebarTitle?: string | null;
   sidebarHint?: string | null;
-};
-
-type ExplorerSelection =
-  | { kind: "root" }
-  | { kind: "file"; path: string }
-  | { kind: "module"; path: string };
-
-const EMPTY_GRAPH: GraphResponse = {
-  nodes: [],
-  edges: [],
-  truncated: false,
 };
 
 export function ExplorerWorkspace({
@@ -225,9 +215,15 @@ export function ExplorerWorkspace({
 
   const byFolder = atRoot && !searchActive;
 
-  const folderExplorer = useFolderExplorer(graph, typeColors);
+  const folderExplorer = useFolderExplorer(
+    graph,
+    typeColors,
+    selection.kind === "module" ? selection.path : undefined,
+  );
+
   useRevealRail(folderExplorer.initial, atRoot, selectedFilePath, setExpandedPaths);
   const folders = byFolder ? folderExplorer.drawn : null;
+
   const drawn = useExplorerGraph(folders, graph, selection);
 
   const focusModule = useCallback(
@@ -267,6 +263,8 @@ export function ExplorerWorkspace({
 
   const onNodeClick = useCallback(
     (node: GraphNode) => {
+      if (drawn.reveal(node)) return;
+
       if (node.kind === "module") {
         const path = node.path ?? "";
 
@@ -283,7 +281,7 @@ export function ExplorerWorkspace({
         if (target) onSelectFile(target, node.kind);
       }
     },
-    [focusModule, onSelectFile, folderExplorer],
+    [focusModule, onSelectFile, folderExplorer, drawn],
   );
 
   const closePanel = useCallback(() => {
@@ -368,7 +366,9 @@ export function ExplorerWorkspace({
       </WorkbenchSidebar>
       <div className="workbench__panel workspace--explorer">
         <ExplorerHeader
-          graph={graph}
+          graph={drawn.sourceGraph ?? graph}
+          filePath={selection.kind === "file" ? selection.path : undefined}
+          focusedPath={selection.kind === "module" ? selection.path : undefined}
           graphScopeLabel={graphScopeLabel}
           displaySlot={setDisplaySlot}
           searchActive={searchActive}
@@ -417,7 +417,7 @@ export function ExplorerWorkspace({
                     nodes={drawn.nodes}
                     edges={drawn.edges}
                     truncated={drawn.truncated}
-                    legendNodes={folders ? graph.nodes : undefined}
+                    legendNodes={folders ? graph.nodes : drawn.sourceGraph?.nodes}
                     folderCaption={undefined}
                     sizeCaption={
                       folders ? "Size counts the notes and code files a folder holds" : undefined

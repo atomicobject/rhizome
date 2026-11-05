@@ -136,24 +136,23 @@ export function visibleFolderChildren(
 
     const hiddenNotes = hidden.filter((c) => !c.folder && c.node.kind === "note").length;
     const hiddenFiles = hidden.length - hiddenFolders - hiddenNotes;
-    const noun = (n: number, word: string) => `${n} more ${word}${n === 1 ? "" : "s"}`;
+    const noun = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-    const label =
-      [
-        hiddenFolders ? noun(hiddenFolders, "folder") : "",
-        hiddenNotes ? noun(hiddenNotes, "note") : "",
-        hiddenFiles ? noun(hiddenFiles, "file") : "",
-      ]
-        .filter(Boolean)
-        .join(" · ") + ` in ${folder.path || "root"}`;
+    const label = [
+      hiddenFolders ? noun(hiddenFolders, "folder") : "",
+      hiddenNotes ? noun(hiddenNotes, "note") : "",
+      hiddenFiles ? noun(hiddenFiles, "file") : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
 
     kept.push({
       node: {
         id: `more:${folder.path}`,
         path: folder.path,
         kind: "module",
-        label,
-        labelDetail: totalsLabel(totals),
+        label: `+${label}`,
+        labelDetail: hiddenFolders ? `${totalsLabel(totals)} in all` : undefined,
         aggregate: true,
         childCount: totals.notes + totals.files,
         ...fill(totals, color),
@@ -170,6 +169,7 @@ export function visibleFolderGraph(
   tree: FolderTree,
   state: FolderExpansion,
   color: (type: string) => string | undefined,
+  focusedPath?: string,
 ): FolderGraph {
   const root = folderChild(tree.root, color);
   const nodes = [root.node];
@@ -200,9 +200,26 @@ export function visibleFolderGraph(
   visit(root);
   const aggregated = new Map<string, GraphEdge>();
 
+  const endpoint = (id: string) => {
+    const file = tree.files.get(id);
+
+    if (!file) return representatives.get(id);
+    const path = filePath(file);
+
+    if (focusedPath && path.startsWith(`${focusedPath}/`)) return representatives.get(id);
+    const top = path.includes("/") ? `folder:${path.split("/")[0]}` : "more:";
+
+    return nodes.some((node) => node.id === top) ? top : representatives.get(id);
+  };
+
   for (const link of tree.links) {
-    const a = representatives.get(link.source),
+    let a = endpoint(link.source),
+      b = endpoint(link.target);
+
+    if (a === b) {
+      a = representatives.get(link.source);
       b = representatives.get(link.target);
+    }
 
     if (!a || !b || a === b) continue;
     const [source, target] = [a, b].sort();
@@ -223,7 +240,11 @@ export function visibleFolderGraph(
   const names = new Map(nodes.map((node) => [node.id, node.label.toLowerCase()]));
 
   for (const node of nodes) {
-    const duplicates = nodes.filter((other) => names.get(other.id) === names.get(node.id));
+    if (node.aggregate) continue;
+
+    const duplicates = nodes.filter(
+      (other) => !other.aggregate && names.get(other.id) === names.get(node.id),
+    );
 
     if (duplicates.length > 1 && node.path) {
       const parts = node.path.split("/");

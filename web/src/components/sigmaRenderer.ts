@@ -1,9 +1,14 @@
+import { drawFolderEdgeCounts } from "./sigmaEdgeLabels";
 import { drawTestEdges } from "./explorerGraph";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import { createNodeImageProgram } from "@sigma/node-image";
 import Graph from "graphology";
 import Sigma from "sigma";
-import { drawDiscNodeLabel, type NodeHoverDrawingFunction } from "sigma/rendering";
+import {
+  drawStraightEdgeLabel,
+  drawDiscNodeLabel,
+  type NodeHoverDrawingFunction,
+} from "sigma/rendering";
 import type { RefObject } from "react";
 import type { GraphNode } from "../api/types";
 import { createLabelPainter } from "./sigmaLabels";
@@ -57,7 +62,7 @@ export function readThemeColors(): ThemeColors {
     edgeLight: mixColors(border, strong, 0.35),
     edgeStrong: mixColors(strong, faint, 0.35),
     label: resolveCssColor("var(--text)"),
-    edgeLabel: faint,
+    edgeLabel: resolveCssColor("var(--text-muted)"),
     surface: resolveCssColor("var(--surface)"),
     canvas: resolveCssColor("var(--surface-alt)"),
   };
@@ -183,6 +188,10 @@ export function mountSigmaRenderer({
     ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
     defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
     defaultDrawNodeLabel: labels.draw,
+    defaultDrawEdgeLabel: (context, data, source, target, settings) => {
+      if (data.kind !== "folder-crosslink")
+        drawStraightEdgeLabel(context, data, source, target, settings);
+    },
     minCameraRatio: CAMERA.minRatio,
     maxCameraRatio: CAMERA.maxRatio,
     zIndex: true,
@@ -238,7 +247,9 @@ export function mountSigmaRenderer({
         context.fill();
       }
 
+      context.setLineDash(attrs.aggregate ? [3, 3] : []);
       context.stroke();
+      context.setLineDash([]);
 
       if (attrs.selected) {
         context.beginPath();
@@ -252,6 +263,8 @@ export function mountSigmaRenderer({
         context.lineWidth = 1.5;
       }
     });
+    context.globalAlpha = 1;
+    drawFolderEdgeCounts(sigma, context, labels.occupied(), colorsRef.current ?? readThemeColors());
     context.restore();
   });
   const camera = sigma.getCamera();
@@ -272,7 +285,10 @@ export function mountSigmaRenderer({
       hidden: result.hidden,
       type: result.type,
       image: result.image,
-      size: result.size,
+      size:
+        attrs.explorerLabels && attrs.fixed && attrs.kind !== "module"
+          ? attrs.baseSize
+          : result.size,
       color: attrs.muted
         ? mixColors(result.color, (colorsRef.current ?? readThemeColors()).canvas, 0.6)
         : result.color,
@@ -305,7 +321,7 @@ export function mountSigmaRenderer({
       color: result.color,
       size: result.size,
       label: result.label,
-      forceLabel: Boolean(result.label && attrs.kind === "folder-crosslink"),
+      forceLabel: false,
     };
   });
 

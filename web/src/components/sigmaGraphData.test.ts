@@ -70,7 +70,7 @@ describe("Explorer renderer data", () => {
       size: expect.any(Number),
     });
     expect(style("edge-0").size).toBe(1.5);
-    expect(style("edge-1").size).toBeLessThanOrEqual(1.25);
+    expect(style("edge-1").size).toBe(1.75);
     expect(style("edge-1").size).toBeLessThan(2.5);
     expect(style("edge-2").hidden).toBe(true);
     state.hoverNodeID = "unrelated";

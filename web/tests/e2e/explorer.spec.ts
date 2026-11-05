@@ -44,6 +44,10 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
     )
     .toBeGreaterThan(0);
   await expect(src).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".explorer-header__breadcrumb")).toHaveText("src ·");
+  await expect(page.locator(".explorer-header__totals")).toContainText(
+    `of ${notes.toLocaleString("en-US")} notes`,
+  );
 
   const expandedNodes = nodeCount(
     await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label"),

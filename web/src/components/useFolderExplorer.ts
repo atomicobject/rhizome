@@ -4,7 +4,11 @@ import { buildFolderTree, initialOpenFolders } from "./folderTree";
 import { visibleFolderChildren, visibleFolderGraph } from "./folderGraph";
 import { layoutFolderGraph } from "./folderLayout";
 
-export function useFolderExplorer(graph: GraphResponse, colors: Map<string, string>) {
+export function useFolderExplorer(
+  graph: GraphResponse,
+  colors: Map<string, string>,
+  focusedPath?: string,
+) {
   const tree = useMemo(() => buildFolderTree(graph), [graph]);
   const initial = useMemo(() => initialOpenFolders(tree), [tree]);
   const [overrides, setOverrides] = useState(new Map<string, boolean>());
@@ -29,9 +33,14 @@ export function useFolderExplorer(graph: GraphResponse, colors: Map<string, stri
     () =>
       layoutFolderGraph(
         tree,
-        visibleFolderGraph(tree, { open, explicit, showAll }, (type) => colors.get(type)),
+        visibleFolderGraph(
+          tree,
+          { open, explicit, showAll },
+          (type) => colors.get(type),
+          focusedPath,
+        ),
       ),
-    [tree, open, explicit, showAll, colors],
+    [tree, open, explicit, showAll, colors, focusedPath],
   );
 
   return {

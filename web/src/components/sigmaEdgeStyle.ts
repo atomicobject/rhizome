@@ -32,10 +32,10 @@ export function computeEdgeStyle(
       hidden: false,
       color: focused
         ? resolveCssColor("var(--explorer-link-strong)")
-        : colorWithPremultipliedAlpha(resolveCssColor("var(--explorer-link)"), 0.18),
-      size: focused ? Math.min(3, 1 + Math.sqrt(attrs.weight) * 0.16) : 0.65,
+        : resolveCssColor("var(--explorer-link)"),
+      size: (attrs.weight >= 40 ? 2.5 : attrs.weight >= 10 ? 1.75 : 1) + (hovered ? 0.5 : 0),
       label:
-        focused && state.showEdgeLabels && attrs.kind === "folder-crosslink"
+        (hovered || touchesBranch) && state.showEdgeLabels && attrs.kind === "folder-crosslink"
           ? String(attrs.weight)
           : "",
     };

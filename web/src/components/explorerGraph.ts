@@ -1,4 +1,9 @@
-import { useEffect, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getFileView } from "../api/client";
+import { queryKeys } from "../api/queryKeys";
+import { fileFocusGraph, mergeFileNotes } from "./fileFocusGraph";
+import type { GraphNode } from "../api/types";
 import type { FolderGraph } from "./folderGraph";
 import type { GraphResponse } from "../api/types";
 import type { SigmaNodeAttrs } from "../lib/graphStyle";
@@ -30,67 +35,7 @@ export function focusFolderNodes(nodes: GraphViewNode[], path: string): GraphVie
   }));
 }
 
-const middle = (label: string) =>
-  label.length > 28 ? `${label.slice(0, 14)}…${label.slice(-13)}` : label;
-
-/** Deterministic relation columns leave every label beside its own node. */
-export function fileFocusGraph(graph: GraphResponse, path: string) {
-  const focused = graph.nodes.find((node) => node.path === path || node.notePath === path);
-  const rest = graph.nodes.filter((node) => node !== focused);
-  const notes = rest.filter((node) => node.kind === "note" || node.kind === "embedded");
-
-  const code = rest
-    .filter((node) => !notes.includes(node))
-    .sort(
-      (a, b) =>
-        Number((a.path || a.label).includes("test")) -
-          Number((b.path || b.label).includes("test")) || a.label.localeCompare(b.label),
-    );
-
-  const nodes: GraphViewNode[] = [];
-
-  for (const [group, x] of [
-    [notes, -140],
-    [code, 140],
-  ] as const) {
-    group.forEach((node, index) =>
-      nodes.push({
-        ...node,
-        label: middle(
-          node.kind === "code"
-            ? (node.path || node.label).split("/").pop() || node.label
-            : node.label,
-        ),
-        x,
-        y: ((group.length - 1) / 2 - index) * (group === notes ? 180 : 60),
-      }),
-    );
-  }
-
-  if (focused)
-    nodes.push({
-      ...focused,
-      center: true,
-      label: path.split("/").pop() || focused.label,
-      x: -140,
-      y: Math.max(360, code.length * 30 + 120),
-    });
-
-  return {
-    ...graph,
-    nodes,
-    edges: graph.edges.map((edge) => ({
-      ...edge,
-      kind: [edge.source, edge.target].some((id) => notes.some((node) => node.id === id))
-        ? "explorer-documents"
-        : [edge.source, edge.target].some((id) =>
-              code.some((node) => node.id === id && (node.path || node.label).includes("test")),
-            )
-          ? "explorer-tests"
-          : "explorer-code",
-    })),
-  };
-}
+export { fileFocusGraph } from "./fileFocusGraph";
 
 export function useRevealRail(
   initial: Set<string>,
@@ -131,7 +76,22 @@ export function useExplorerGraph(
   graph: GraphResponse,
   selection: { kind: "root" } | { kind: "module" | "file"; path: string },
 ) {
-  return useMemo(
+  const path = selection.kind === "file" ? selection.path : "";
+
+  const { data: file } = useQuery({
+    queryKey: queryKeys.files.detail(path),
+    queryFn: ({ signal }) => getFileView(path, { signal }),
+    enabled: Boolean(path),
+  });
+
+  const [revealed, setRevealed] = useState<{ path: string; groups: Set<string> }>({
+    path: "",
+    groups: new Set(),
+  });
+
+  const sourceGraph = useMemo(() => mergeFileNotes(graph, file), [graph, file]);
+
+  const drawn = useMemo(
     () =>
       folders
         ? {
@@ -142,10 +102,30 @@ export function useExplorerGraph(
             ),
           }
         : selection.kind === "file"
-          ? fileFocusGraph(graph, selection.path)
+          ? fileFocusGraph(
+              sourceGraph,
+              selection.path,
+              file,
+              revealed.path === path ? revealed.groups : new Set(),
+            )
           : graph,
-    [folders, graph, selection],
+    [folders, graph, selection, sourceGraph, file, revealed, path],
   );
+
+  const reveal = (node: GraphNode) => {
+    if (!node.id.startsWith("file-more:")) return false;
+    setRevealed((previous) => ({
+      path,
+      groups: new Set([
+        ...(previous.path === path ? previous.groups : []),
+        node.id.slice("file-more:".length),
+      ]),
+    }));
+
+    return true;
+  };
+
+  return { ...drawn, sourceGraph, reveal };
 }
 
 export function drawTestEdges(

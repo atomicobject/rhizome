@@ -89,7 +89,8 @@ describe("complete folder model", () => {
 
     const graph = visibleFolderGraph(tree, state(), color);
     expect(graph.nodes.find((node) => node.id === "more:")).toMatchObject({
-      label: "1 more note in root",
+      label: "+1 note",
+      labelDetail: undefined,
       childCount: 1,
     });
     expect(graph.children.get("")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(31);
@@ -210,4 +211,67 @@ describe("stable radial containment", () => {
 
     expect(angles.slice(0, 2)).toEqual(["folder:docs", "folder:web"]);
   });
+});
+
+it("bundles underlying links while keeping focused children separate", () => {
+  const tree = buildFolderTree({
+    nodes: [note("docs/a.md"), note("docs/b.md"), code("pkg/a/a.ts"), code("pkg/b/b.ts")],
+    edges: [
+      { source: "note:docs/a.md", target: "code:pkg/a/a.ts", kind: "mentions" },
+      { source: "note:docs/b.md", target: "code:pkg/a/a.ts", kind: "mentions" },
+      { source: "note:docs/b.md", target: "code:pkg/b/b.ts", kind: "mentions" },
+    ],
+  });
+
+  const open = state(["pkg", "docs"]);
+  expect(
+    visibleFolderGraph(tree, open, color).edges.filter((e) => e.kind === "folder-crosslink"),
+  ).toEqual([
+    {
+      source: "folder:docs",
+      target: "folder:pkg",
+      kind: "folder-crosslink",
+      weight: 3,
+      relationLabel: "3 note–code links",
+    },
+  ]);
+  expect(
+    visibleFolderGraph(tree, open, color, "pkg").edges.filter((e) => e.kind === "folder-crosslink"),
+  ).toEqual([
+    {
+      source: "folder:docs",
+      target: "folder:pkg/a",
+      kind: "folder-crosslink",
+      weight: 2,
+      relationLabel: "2 note–code links",
+    },
+    {
+      source: "folder:docs",
+      target: "folder:pkg/b",
+      kind: "folder-crosslink",
+      weight: 1,
+      relationLabel: "1 note–code links",
+    },
+  ]);
+});
+
+it("overflow gives direct counts once and labels descendant totals explicitly", () => {
+  const tree = buildFolderTree({
+    nodes: [...Array.from({ length: 12 }, (_, i) => note(`n${i}.md`)), code("a.ts")],
+    edges: [],
+  });
+
+  expect(visibleFolderGraph(tree, state(), color).nodes.find((n) => n.aggregate)).toMatchObject({
+    label: "+12 notes, 1 file",
+    labelDetail: undefined,
+  });
+
+  const nested = buildFolderTree({
+    nodes: Array.from({ length: 20 }, (_, i) => note(`docs/f${i}/n.md`)),
+    edges: [],
+  });
+
+  expect(
+    visibleFolderGraph(nested, state(["docs"]), color).nodes.find((n) => n.aggregate),
+  ).toMatchObject({ label: "+7 folders", labelDetail: "7 notes in all" });
 });
