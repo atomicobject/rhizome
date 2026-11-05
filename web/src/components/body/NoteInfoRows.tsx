@@ -81,11 +81,14 @@ export type OpenFn = (path: string, target?: "current" | "stack" | "beside") => 
 export function RailRowItem({
   row,
   showDirection,
+  groupLabel,
   from,
   onOpen,
 }: {
   row: RailRow;
   showDirection: boolean;
+  /** The bucket's label; a type line that repeats it is left out. */
+  groupLabel?: string;
   from: string;
   onOpen: OpenFn;
 }) {
@@ -115,7 +118,9 @@ export function RailRowItem({
           {row.label}
         </span>
       )}
-      {row.typeName && <span className="rail-row__type">{row.typeName}</span>}
+      {row.typeName && row.typeName !== groupLabel && (
+        <span className="rail-row__type">{row.typeName}</span>
+      )}
       {row.folder && (
         // Truncates from the start (CSS rtl) so the deepest folder stays; the
         // marks keep the path itself in left-to-right order.
@@ -159,6 +164,7 @@ export function RailBucketList({
             key={row.key}
             row={row}
             showDirection={showDirection}
+            groupLabel={bucket.label}
             from={from}
             onOpen={onOpen}
           />
