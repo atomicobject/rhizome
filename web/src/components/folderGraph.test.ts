@@ -235,24 +235,19 @@ it("bundles underlying links while keeping focused children separate", () => {
       relationLabel: "3 note–code links",
     },
   ]);
-  expect(
-    visibleFolderGraph(tree, open, color, "pkg").edges.filter((e) => e.kind === "folder-crosslink"),
-  ).toEqual([
+  const focused = visibleFolderGraph(tree, open, color, "pkg");
+  expect(focused.edges.filter((e) => e.kind === "folder-crosslink")).toEqual([
     {
-      source: "folder:docs",
-      target: "folder:pkg/a",
+      source: "folder:pkg",
+      target: "folder:docs",
       kind: "folder-crosslink",
-      weight: 2,
-      relationLabel: "2 note–code links",
-    },
-    {
-      source: "folder:docs",
-      target: "folder:pkg/b",
-      kind: "folder-crosslink",
-      weight: 1,
-      relationLabel: "1 note–code links",
+      weight: 3,
+      relationLabel: "3 note–code links",
     },
   ]);
+  expect(focused.edges.filter((e) => e.kind === "folder-child-crosslink")).toHaveLength(2);
+  expect(focused.nodes.find((n) => n.id === "folder:pkg/a")?.labelDetail).toContain("→ docs · 2");
+  expect(focused.nodes.find((n) => n.id === "folder:pkg/b")?.labelDetail).toContain("→ docs · 1");
 });
 
 it("overflow gives direct counts once and labels descendant totals explicitly", () => {
@@ -262,7 +257,7 @@ it("overflow gives direct counts once and labels descendant totals explicitly", 
   });
 
   expect(visibleFolderGraph(tree, state(), color).nodes.find((n) => n.aggregate)).toMatchObject({
-    label: "+12 notes, 1 file",
+    label: "+12 notes · 1 file",
     labelDetail: undefined,
   });
 
@@ -273,5 +268,5 @@ it("overflow gives direct counts once and labels descendant totals explicitly", 
 
   expect(
     visibleFolderGraph(nested, state(["docs"]), color).nodes.find((n) => n.aggregate),
-  ).toMatchObject({ label: "+7 folders", labelDetail: "7 notes in all" });
+  ).toMatchObject({ label: "+7 folders", labelDetail: "total 7 notes" });
 });

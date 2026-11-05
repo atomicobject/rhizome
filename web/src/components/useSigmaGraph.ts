@@ -340,7 +340,7 @@ export function useSigmaGraph({
 
       if (fixed) {
         sigma.refresh();
-        fitFixedGraph(sigma, !didFit.current);
+        fitFixedGraph(sigma, !didFit.current, true);
         didFit.current = true;
       }
 

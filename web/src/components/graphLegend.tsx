@@ -79,6 +79,7 @@ export function FolderLegend({
   sizeCaption,
   edgeCaption,
   edges,
+  nodes,
 }: {
   entries: readonly GraphTypeEntry[];
   /** The fill keys the drawn folders use. */
@@ -87,66 +88,83 @@ export function FolderLegend({
   sizeCaption?: string;
   edgeCaption?: string;
   edges: GraphEdge[];
+  nodes?: readonly (GraphNode & { aggregate?: boolean })[];
 }) {
   const [all, setAll] = useState(false);
   const inventory = entries.filter((entry) => entry.name !== FOLDER_NODE_TYPE);
 
+  const typed = inventory.filter(
+    (entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code",
+  );
+
+  const folders = nodes?.some((node) => node.kind === "module" && !node.aggregate) ?? true;
+  const files = nodes?.some((node) => node.kind !== "module") ?? true;
+  const overflow = nodes?.some((node) => node.kind === "module" && node.aggregate) ?? true;
+
   return (
     <aside className="graph-type-legend graph-type-legend--folders" aria-label="Graph type legend">
-      <div className="graph-type-legend__row">
-        <h3 className="graph-type-legend__title">Types</h3>
-        <ul className="graph-type-legend__list">
-          {inventory
-            .filter((entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code")
-            .map(legendItem)}
-        </ul>
-        <button
-          type="button"
-          className="graph-type-legend__more"
-          aria-expanded={all}
-          aria-controls="graph-type-legend-all"
-          onClick={() => setAll((open) => !open)}
-        >
-          <span className="graph-type-legend__chevron" aria-hidden="true">
-            <ChevronDown size={16} strokeWidth={1.75} />
-          </span>
-          All types
-        </button>
-      </div>
+      {typed.length > 0 && (
+        <div className="graph-type-legend__row">
+          <h3 className="graph-type-legend__title">Types</h3>
+          <ul className="graph-type-legend__list">
+            {inventory
+              .filter((entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code")
+              .map(legendItem)}
+          </ul>
+          <button
+            type="button"
+            className="graph-type-legend__more"
+            aria-expanded={all}
+            aria-controls="graph-type-legend-all"
+            onClick={() => setAll((open) => !open)}
+          >
+            <span className="graph-type-legend__chevron" aria-hidden="true">
+              <ChevronDown size={16} strokeWidth={1.75} />
+            </span>
+            All types
+          </button>
+        </div>
+      )}
       <div className="graph-type-legend__row graph-type-legend__keys">
         <h3 className="graph-type-legend__title">Graph</h3>
-        <span className="graph-type-legend__key">
-          <span
-            className="graph-type-legend__swatch"
-            style={{
-              background: "transparent",
-              border: "1.5px solid currentColor",
-              borderRadius: 2,
-            }}
-            aria-hidden="true"
-          />
-          Folder (colour: what it mostly holds)
-        </span>
-        <span className="graph-type-legend__key">
-          <span
-            className="graph-type-legend__swatch"
-            style={{ background: "transparent", border: "1.5px solid currentColor" }}
-            aria-hidden="true"
-          />
-          File
-        </span>
-        <span className="graph-type-legend__key">
-          <span
-            className="graph-type-legend__swatch"
-            style={{
-              background: "transparent",
-              border: "1.5px dashed currentColor",
-              borderRadius: 2,
-            }}
-            aria-hidden="true"
-          />
-          +N more
-        </span>
+        {folders && (
+          <span className="graph-type-legend__key">
+            <span
+              className="graph-type-legend__swatch"
+              style={{
+                background: "transparent",
+                border: "1.5px solid currentColor",
+                borderRadius: 2,
+              }}
+              aria-hidden="true"
+            />
+            Folder (colour: what it mostly holds)
+          </span>
+        )}
+        {files && (
+          <span className="graph-type-legend__key">
+            <span
+              className="graph-type-legend__swatch"
+              style={{ background: "transparent", border: "1.5px solid currentColor" }}
+              aria-hidden="true"
+            />
+            File
+          </span>
+        )}
+        {overflow && (
+          <span className="graph-type-legend__key">
+            <span
+              className="graph-type-legend__swatch"
+              style={{
+                background: "transparent",
+                border: "1.5px dashed currentColor",
+                borderRadius: 2,
+              }}
+              aria-hidden="true"
+            />
+            +N more
+          </span>
+        )}
         <ul className="graph-type-legend__list">
           {inventory.filter((entry) => legendGroup(entry.name) === "code").map(legendItem)}
         </ul>

@@ -20,3 +20,14 @@ it("balances a title that only slightly exceeds one line", () => {
   const lines = noteLabelLines("unified-search-answer-architecture", (s) => s.length * 7);
   expect(lines).toEqual(["unified-search-", "answer-architecture"]);
 });
+
+it("keeps selected note title lines within the middle gap", () => {
+  const lines = noteLabelLines(
+    "Investigating the complete agent experience research handoff",
+    (text) => text.length * 7,
+    140,
+  );
+
+  expect(lines).toHaveLength(2);
+  expect(lines.every((line) => line.length * 7 <= 140)).toBe(true);
+});

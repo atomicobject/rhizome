@@ -144,7 +144,7 @@ export function visibleFolderChildren(
       hiddenFiles ? noun(hiddenFiles, "file") : "",
     ]
       .filter(Boolean)
-      .join(", ");
+      .join(" · ");
 
     kept.push({
       node: {
@@ -152,7 +152,7 @@ export function visibleFolderChildren(
         path: folder.path,
         kind: "module",
         label: `+${label}`,
-        labelDetail: hiddenFolders ? `${totalsLabel(totals)} in all` : undefined,
+        labelDetail: hiddenFolders ? `total ${totalsLabel(totals)}` : undefined,
         aggregate: true,
         childCount: totals.notes + totals.files,
         ...fill(totals, color),
@@ -237,6 +237,57 @@ export function visibleFolderGraph(
     }
   }
 
+  if (focusedPath) {
+    const local = new Set((children.get(focusedPath) ?? []).map((child) => child.node.id));
+    const bundles = new Map<string, GraphEdge>();
+
+    for (const edge of aggregated.values()) {
+      if (edge.kind !== "folder-crosslink") continue;
+
+      const child = local.has(edge.source)
+        ? edge.source
+        : local.has(edge.target)
+          ? edge.target
+          : undefined;
+
+      const destination = child === edge.source ? edge.target : edge.source;
+
+      if (!child || local.has(destination) || destination === `folder:${focusedPath}`) continue;
+      edge.kind = "folder-child-crosslink";
+      const node = nodes.find((node) => node.id === child);
+      const target = nodes.find((node) => node.id === destination);
+
+      if (node && target)
+        node.labelDetail = `${node.labelDetail || ""}  → ${target.label} · ${edge.weight}`.trim();
+
+      const bundle = bundles.get(destination) ?? {
+        source: `folder:${focusedPath}`,
+        target: destination,
+        kind: "folder-crosslink",
+        weight: 0,
+      };
+
+      bundle.weight = (bundle.weight ?? 0) + (edge.weight ?? 1);
+      bundle.relationLabel = `${bundle.weight} note–code links`;
+      bundles.set(destination, bundle);
+    }
+
+    for (const [destination, edge] of bundles) {
+      aggregated.set(`bundle:${destination}`, edge);
+      const opened = nodes.find((node) => node.id === `folder:${focusedPath}`);
+      const target = nodes.find((node) => node.id === destination);
+
+      if (opened && target)
+        opened.labelDetail =
+          `${opened.labelDetail || ""}  → ${target.label} · ${edge.weight}`.trim();
+    }
+  }
+
+  const overflows = nodes.filter((node) => node.aggregate);
+
+  if (overflows.length > 1)
+    for (const node of overflows) node.label += ` in ${node.path?.split("/").pop() || "Vault"}`;
+
   const names = new Map(nodes.map((node) => [node.id, node.label.toLowerCase()]));
 
   for (const node of nodes) {
@@ -247,20 +298,8 @@ export function visibleFolderGraph(
     );
 
     if (duplicates.length > 1 && node.path) {
-      const parts = node.path.split("/");
-      let depth = 2;
-
-      while (
-        depth < parts.length &&
-        duplicates.some(
-          (other) =>
-            other.id !== node.id &&
-            (other.path || "").split("/").slice(-depth).join("/").toLowerCase() ===
-              parts.slice(-depth).join("/").toLowerCase(),
-        )
-      )
-        depth++;
-      node.label = parts.slice(-depth).join("/");
+      const parent = node.path.split("/").slice(0, -1).join("/");
+      node.labelDetail = `${parent}/  ${node.labelDetail || ""}`;
     }
   }
 

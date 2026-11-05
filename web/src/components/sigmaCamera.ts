@@ -1,4 +1,4 @@
-import { noteLabelLines } from "./sigmaLabelText";
+import { noteLabelLines, selectedNoteSpot } from "./sigmaLabelText";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import type Sigma from "sigma";
 import { outwardSpots } from "./sigmaLabels";
@@ -6,12 +6,32 @@ import { CAMERA } from "./graphViewShared";
 import type { SigmaEdgeAttrs } from "../lib/graphStyle";
 
 /** Fit visible positions in the fixed coordinate frame, reserving room for labels. */
-export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, instant: boolean) {
+export function fitFixedGraph(
+  sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>,
+  instant: boolean,
+  focusOnly = false,
+) {
+  const hasFocus = sigma
+    .getGraph()
+    .someNode((_id, attrs) => Boolean(attrs.selected && attrs.path && attrs.kind === "module"));
+
+  const include = (id: string) =>
+    !focusOnly ||
+    !hasFocus ||
+    Boolean(sigma.getGraph().getNodeAttribute(id, "branch")) ||
+    sigma
+      .getGraph()
+      .someNode(
+        (_key, attrs) =>
+          Boolean(attrs.selected && attrs.path) &&
+          (id === "folder:" || `folder:${attrs.path}`.startsWith(`${id}/`)),
+      );
+
   const points: { x: number; y: number }[] = [];
   sigma.getGraph().forEachNode((id) => {
     const node = sigma.getNodeDisplayData(id);
 
-    if (node && !node.hidden) points.push(node);
+    if (node && !node.hidden && include(id)) points.push(node);
   });
 
   if (!points.length) return;
@@ -50,14 +70,14 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
   const context = document.createElement("canvas").getContext("2d");
 
   if (context) {
-    context.font = "500 14px Inter, -apple-system, system-ui, sans-serif";
+    const size = sigma.getSetting("labelSize");
 
     for (let pass = 0; pass < 12; pass++) {
       const boxes: number[][] = [];
       sigma.getGraph().forEachNode((id, attrs) => {
         const node = sigma.getNodeDisplayData(id);
 
-        if (!node || node.hidden) return;
+        if (!node || node.hidden || !include(id)) return;
         const point = sigma.framedGraphToViewport(node, { cameraState: state });
 
         const parent = sigma.getNodeDisplayData(
@@ -66,36 +86,50 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
 
         const origin = parent ? sigma.framedGraphToViewport(parent, { cameraState: state }) : point;
 
+        context.font = `${attrs.selected || id.startsWith("file-group:") ? "600" : sigma.getSetting("labelWeight")} ${size}px ${sigma.getSetting("labelFont")}`;
+
         const lines =
           attrs.kind === "note" || attrs.kind === "embedded"
-            ? noteLabelLines(attrs.label, (text) => context.measureText(text).width)
+            ? noteLabelLines(
+                attrs.label,
+                (text) => context.measureText(text).width,
+                attrs.selected ? 140 : 220,
+              )
             : [attrs.label];
 
-        const textWidth =
-          Math.max(...lines.map((text) => context.measureText(text).width)) +
-          (attrs.labelDetail ? context.measureText("  " + attrs.labelDetail).width : 0);
+        const labelWidth = Math.max(...lines.map((text) => context.measureText(text).width));
 
-        const spot = outwardSpots(
-          point.x,
-          point.y,
-          sigma.scaleSize(node.size),
-          textWidth,
-          14,
-          (attrs.selected && attrs.path) || attrs.kind !== "module"
-            ? attrs.kind === "note" || attrs.kind === "embedded"
-              ? -1
-              : 1
-            : id === "folder:"
-              ? 0
-              : point.x - origin.x,
-          (attrs.selected && attrs.path) || attrs.kind !== "module"
-            ? 0
-            : id === "folder:"
-              ? 1
-              : point.y - origin.y,
-        )[0];
+        const detailWidth = attrs.labelDetail
+          ? context.measureText("  " + attrs.labelDetail).width
+          : 0;
 
-        spot.box[3] += (lines.length - 1) * 17;
+        const stacked = attrs.fixed && attrs.kind === "module";
+        const textWidth = stacked ? Math.max(labelWidth, detailWidth) : labelWidth + detailWidth;
+
+        const spot =
+          attrs.selected && attrs.kind === "note"
+            ? selectedNoteSpot(point.x, point.y, sigma.scaleSize(node.size), textWidth, size)
+            : outwardSpots(
+                point.x,
+                point.y,
+                sigma.scaleSize(node.size),
+                textWidth,
+                size,
+                (attrs.selected && attrs.path) || attrs.kind !== "module"
+                  ? attrs.kind === "note" || attrs.kind === "embedded"
+                    ? -1
+                    : 1
+                  : id === "folder:"
+                    ? 0
+                    : point.x - origin.x,
+                (attrs.selected && attrs.path) || attrs.kind !== "module"
+                  ? 0
+                  : id === "folder:"
+                    ? 1
+                    : point.y - origin.y,
+              )[0];
+
+        spot.box[3] += (lines.length - 1 + (stacked && attrs.labelDetail ? 1 : 0)) * (size + 3);
         boxes.push(spot.box, [point.x - 16, point.y - 16, point.x + 16, point.y + 16]);
       });
 
