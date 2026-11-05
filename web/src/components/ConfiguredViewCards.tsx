@@ -5,7 +5,7 @@ import { type ComponentProps, Fragment, useEffect, useMemo } from "react";
 import type { ViewExecuteResponse, ViewTableRow } from "../api/types";
 import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { ConfiguredViewCard, focusCard } from "./ConfiguredViewCard";
-import { capabilityFor, groupValueLabel } from "./ConfiguredViewModel";
+import { capabilityFor, coveredGroupField, groupValueLabel } from "./ConfiguredViewModel";
 import { RecordBriefBody, RecordBriefHeader } from "./ConfiguredViewBrief";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { groupIdentity } from "./ConfiguredViewSave";
@@ -263,13 +263,15 @@ function CardGrid({
         const rowKey = configuredTableRowKey(row);
         const source = reorder.dragSource(row);
         // The section header already names the grouped value.
-        const brief = briefFor?.(row, cardProps.omitField);
+        const omitField = coveredGroupField(row, cardProps.omitField, cardProps.capabilities);
+        const brief = briefFor?.(row, omitField);
 
         return (
           <ConfiguredViewCard
             key={rowKey}
             row={row}
             {...cardProps}
+            omitField={omitField}
             header={brief?.header}
             body={brief?.body}
             summary={brief?.summary}

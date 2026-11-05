@@ -7,7 +7,12 @@ import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { editOpForCell, fieldValue } from "./ConfiguredTableCellHelpers";
 import { ConfiguredViewCard, focusCard } from "./ConfiguredViewCard";
 import { BoardColumnHeaders, BoardMoveMenu, LaneMark } from "./ConfiguredViewBoardParts";
-import { capabilityFor, fieldCapability, groupValueLabel } from "./ConfiguredViewModel";
+import {
+  capabilityFor,
+  coveredGroupField,
+  fieldCapability,
+  groupValueLabel,
+} from "./ConfiguredViewModel";
 import { BoardCardBody } from "./ConfiguredViewBrief";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { type BoardColumn, type BoardLane, boardLanes, placeStagedCards } from "./boardLayout";
@@ -263,7 +268,7 @@ export function ConfiguredViewBoard(props: Props) {
         row={row}
         layout={execution.card}
         mode="board"
-        omitField={columnField}
+        omitField={coveredGroupField(row, columnField, capabilities)}
         busy={busy}
         compact={item.compact}
         body={
@@ -272,7 +277,9 @@ export function ConfiguredViewBoard(props: Props) {
               row={row}
               profile={profile}
               capabilities={capabilities}
-              hiddenFields={hiddenFields}
+              hiddenFields={hiddenFields.filter((field) =>
+                coveredGroupField(row, field, capabilities),
+              )}
               otherLanes={Math.max(0, memberships - 1)}
               stale={isStaleRow(row, profile, capabilities, now)}
               compact={item.compact}
