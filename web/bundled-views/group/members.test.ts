@@ -1,3 +1,4 @@
+import { mapLabelLine } from "./map-labels.ts";
 import { expect, it } from "vitest";
 
 import { AGGREGATE, SCOPE_GROUPS, SUMMARIES } from "./__fixtures__/aggregate.ts";
@@ -479,4 +480,20 @@ it("aligns a label left of its node by its near end", async () => {
   const label = labels.get("Knowledge")!;
   expect(label.anchor).toBe("end");
   expect(Math.hypot(600 - label.x, Math.max(0, label.y - 12 - 130)) - 22).toBeLessThanOrEqual(12);
+});
+
+it("fits a label wider than the canvas without adding height", () => {
+  const layout = layoutMap({
+    width: 380,
+    height: 260,
+    nodes: [{ id: "wide", radius: 20, label: "Long name ".repeat(30) }],
+    edges: [],
+    outside: [],
+  });
+
+  expect(mapLabelLine("Long name ".repeat(30), 380)).toBe(
+    "Long name Long name Long name Long name Lon…",
+  );
+  expect(layout.labels.has("wide")).toBe(true);
+  expect(layout.height).toBe(260);
 });

@@ -2,6 +2,13 @@ import type { Point, LabelPlacement, LayoutEdge } from "./map-layout.ts";
 
 const GLYPH = 7.5;
 
+/** Shorten only lines that cannot fit across the canvas, preserving the two-line style. */
+export function mapLabelLine(text: string, width: number): string {
+  const limit = Math.max(1, Math.floor((width - 48) / GLYPH));
+
+  return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
+}
+
 export type Box = { x: number; y: number; w: number; h: number };
 
 const overlaps = (a: Box, b: Box) =>
@@ -95,7 +102,10 @@ export function placeLabels(
     const point = positions.get(item.id);
 
     if (!point) continue;
-    const w = Math.max(...item.label.split("\n").map((line) => line.length)) * GLYPH;
+
+    const w =
+      Math.max(...item.label.split("\n").map((line) => mapLabelLine(line, width).length)) * GLYPH;
+
     const h = LABEL_HEIGHT;
     const angle = Math.atan2(point.y - center.y, point.x - center.x);
 

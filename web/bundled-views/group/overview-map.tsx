@@ -1,3 +1,4 @@
+import { mapLabelLine } from "./map-labels.ts";
 // The Overview map (SPEC-0117 US1, US3): one node per member, sized by its
 // records, edges counting the record links between members, faded outside
 // neighbors on a ring, and members without links listed in the side panel. Nodes take
@@ -7,7 +8,6 @@ import { openCollection, openView, useTypeColors } from "@rhizome/kit";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { layoutMap, outsideOrigin, OUTSIDE_RADIUS, type Point } from "./map-layout.ts";
-import { plural } from "./briefing-parts.tsx";
 import { edgeKey, type MapEdge, type ScopeNode } from "./scope.ts";
 
 /** The layout width before the canvas is measured, and where it cannot be measured. */
@@ -399,9 +399,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                     y={place.y}
                     textAnchor={place.anchor}
                   >
-                    {neighbor.label}{" "}
+                    <title>{neighbor.label}</title>
+                    {mapLabelLine(neighbor.label, width)}{" "}
                     <tspan className="gv-map-n" x={place.x} dy={17}>
-                      {fmt(neighbor.links)} links
+                      {mapLabelLine(`${fmt(neighbor.links)} links`, width)}
                     </tspan>
                   </text>
                 )
@@ -420,12 +421,10 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                     y={place.y}
                     textAnchor={place.anchor}
                   >
-                    {node.label}{" "}
+                    <title>{node.label}</title>
+                    {mapLabelLine(node.label, width)}{" "}
                     <tspan className="gv-map-n" x={place.x} dy={17}>
-                      {fmt(node.count)} {plural(node.count, "note", "notes")}
-                      {node.kind === "group"
-                        ? ` · ${node.members.length} member ${plural(node.members.length, "type", "types")}`
-                        : ""}
+                      {mapLabelLine(nodeText(node).split("\n")[1] ?? "", width)}
                     </tspan>
                   </text>
                 )
