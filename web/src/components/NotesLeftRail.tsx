@@ -154,11 +154,9 @@ export const NotesLeftRail = memo(function NotesLeftRail({
             () => onSelectCollection(PSEUDO_TYPE_ISSUES),
             issueCount == null ? (
               <ValidationIssueBadge count={issueCount} health={health} label="Validation status" />
-            ) : (
-              <span className={`ontology-type-row__count${issueCount > 0 ? " is-risk" : ""}`}>
-                {issueCount}
-              </span>
-            ),
+            ) : issueCount > 0 ? (
+              <span className="ontology-type-row__count is-risk">{issueCount}</span>
+            ) : null,
             " ontology-type-row--issues",
           )}
           {editSession?.hasUncommittedChanges &&
