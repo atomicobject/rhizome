@@ -134,7 +134,7 @@ A Fable 5.1 plateau judge found the council saturated. Most int-2 consensus find
 - [x] Contradicted statements in SPEC-0111, SPEC-0125, and SPEC-0126 reconciled on this branch.
 - [x] The closed effort's delivered follow-ups completed, and new follow-ups triaged and assigned below.
 - [x] Changelog line added under `## [Unreleased]`, including the catalog refresh.
-- [ ] PR handoff: the PR number is pending. Add it here and in Status once the PR exists.
+- [x] PR handoff recorded: [PR #96](https://github.com/atomicobject/rhizome/pull/96) carries the delivery, the review fixes, and this closure record. Local gates passed on the merged head (`1f2206d6`): `make check` (142 Go packages, 1,912 web unit tests) and the full Playwright suite (121 of 121). CI runs on the PR.
 - [x] Local gates and sol-loop review passed on the branch (Execution Notes). The integrator reruns gates before the PR; Greptile and CI run on the PR.
 
 ## Compounding Follow-ups
@@ -169,4 +169,4 @@ Parallel slice leads worked: each slice climbed on its own, and Lead C moved the
 
 ## Status
 
-Complete. Opened retroactively at closure and closed for the banked design slice. The 9 target is unmet; the council saturated, and the work was banked. The PR number is pending; add it once the PR exists.
+Complete. Opened retroactively at closure and closed for the banked design slice. The 9 target is unmet; the council saturated, and the work was banked. Delivered in [PR #96](https://github.com/atomicobject/rhizome/pull/96), which carries this closure record; CI runs on the PR.
