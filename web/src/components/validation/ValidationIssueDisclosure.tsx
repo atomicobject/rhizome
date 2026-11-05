@@ -1,6 +1,5 @@
-import { CircleCheck } from "lucide-react";
-// int-2: switch to w3's shared mark at merge
 import type { ValidationCheckSnapshot, ValidationSnapshot } from "../../api/types";
+import { ValidationCheck } from "../StatusMark";
 import { humanizeName } from "../../lib/labels";
 
 export function ValidationIssueDisclosure({ snapshot }: { snapshot?: ValidationSnapshot }) {
@@ -75,15 +74,15 @@ export function CleanCheckList({ checks }: { checks: ValidationCheckSnapshot[] }
         <li key={check.check}>
           <strong>{humanizeName(check.check)}</strong>
           <span className="validation-checks__result">
-            <CircleCheck
-              className="validation-checks__mark"
-              size={16}
-              strokeWidth={1.5}
-              aria-hidden="true"
+            <ValidationCheck
+              label={
+                check.summary
+                  ? sentence(
+                      check.summary.replace("identifier nodes checked", "identifiers checked"),
+                    )
+                  : "Passed"
+              }
             />
-            {check.summary
-              ? sentence(check.summary.replace("identifier nodes checked", "identifiers checked"))
-              : "Passed"}
           </span>
         </li>
       ))}
