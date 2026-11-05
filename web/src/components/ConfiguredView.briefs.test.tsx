@@ -165,6 +165,7 @@ describe("ConfiguredViewCards record briefs", () => {
     render(<ConfiguredViewCards {...rendererProps({ execution: ideaBriefs(), onStageOps })} />);
     const bravo = brief("Bravo");
 
+    expect(within(bravo).queryByText("Pursuing")).toBeNull();
     fireEvent.click(within(bravo).getByRole("button", { name: "Edit Priority" }));
     fireEvent.click(within(bravo).getByRole("menuitemradio", { name: "High" }));
 

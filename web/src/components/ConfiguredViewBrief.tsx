@@ -181,15 +181,9 @@ export function RecordBriefHeader({
   const facts = recordFacts(row, profile, capabilities);
   const lifecycle = lifecycleTag(row, profile, capabilities);
 
-  // The group already names the omitted field, but an editable one stays: it is
-  // the card's only way to change that value in place.
-  const editable = (tag: (typeof facts.orderedTags)[number]) =>
-    Boolean(onStageOps && tag.capability.edit && !tag.capability.edit.list);
-
   const tags = (lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags).filter(
     (tag) =>
       !omitField ||
-      editable(tag) ||
       ![tag.field, tag.capability.key, tag.capability.canonicalField].includes(omitField),
   );
 
@@ -323,7 +317,7 @@ function RelationChips({
           <RelationLink row={row} value={value} onOpenRow={onOpenRow} />
         </span>
       ))}
-      {rest > 0 && <span className="configured-brief__more">+{rest}</span>}
+      {rest > 0 && <span className="configured-brief__more">+{rest} more</span>}
     </span>
   );
 }

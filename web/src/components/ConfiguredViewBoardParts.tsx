@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { TypeProfile, ViewExecuteRequest, ViewFieldCapability } from "../api/types";
@@ -209,13 +208,13 @@ export function BoardColumnHeaders({
           <span className="configured-view__board-count">{count}</span>
           <button
             type="button"
-            className="configured-view__disclosure"
-            aria-label={item.compact ? "Full cards" : "Compact cards"}
+            className="configured-view__density-button"
+            aria-label={item.compact ? "Show details" : "Hide details"}
             aria-expanded={!item.compact}
-            title={item.compact ? "Full cards" : "Compact cards"}
+            title={item.compact ? "Show details" : "Hide details"}
             onClick={() => onToggle(column.key)}
           >
-            <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
+            {item.compact ? "Show details" : "Hide details"}
           </button>
         </span>
         {item.stale > 0 && (
