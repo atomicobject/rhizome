@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { isBoolean, isJsonObject } from "../api/parse";
 import { HomeGraphLayout } from "../components/HomeGraphLayout";
 import { buildTypeColors } from "../components/graphViewShared";
+import { useTypeAccentKey } from "../lib/typeAccent";
 import {
   useGlobalNotesGraphQuery,
   useOntologySummaryQuery,
@@ -107,10 +108,17 @@ export function BuiltinOverview(props: ViewRuntimeProps) {
     scopes,
   );
 
-  // Key on the names alone: a new colors map rebuilds the graph renderer, and a
-  // summary refresh after any edit or validation run changes only counts.
+  const accentKey = useTypeAccentKey();
   const typeNames = (summary.data?.types ?? []).map((type) => type.name).join("\n");
-  const colors = useMemo(() => buildTypeColors(typeNames.split("\n")), [typeNames]);
+
+  // Key on the names and the shared palette's summary: a new colors map rebuilds
+  // the graph renderer, and a scope-summary refresh after any edit or validation
+  // run changes only counts. The palette key settles colors once it loads.
+  const colors = useMemo(
+    () => buildTypeColors(typeNames.split("\n")),
+    // The summary decides each type's palette slot.
+    [typeNames, accentKey],
+  );
 
   const summaryError =
     summary.isError && !summary.data
