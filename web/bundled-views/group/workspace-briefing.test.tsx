@@ -159,6 +159,7 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
 
   const motion = region("In motion");
   expect(motion.querySelector("h3")).toBeNull();
+  expect(motion.querySelector(".rz-count")).toHaveTextContent("5");
   expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
   // Doing and Shipping mix in this list, so each row carries its status.
   expect(motion.querySelector(".gv-mark")).not.toBeNull();
@@ -286,16 +287,33 @@ it.each([
     context: WORKSPACE,
     routes: routes({
       "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health }),
+      "POST /api/v1/validation/summaries": () =>
+        jsonReply({
+          generation: 3,
+          summaries: [
+            {
+              scope: { kind: "global" },
+              issueCount: 0,
+              affectedFileCount: 0,
+              affectedNoteCount: 0,
+              repairActionCount: 0,
+            },
+          ],
+        }),
       "POST /api/v1/validation/groups": () => jsonReply({ generation: 3, groups: [] }),
     }),
   });
 
-  if (clean) expect(await screen.findByText("No issues")).toBeVisible();
-  else {
+  if (clean) {
+    const cleanState = await screen.findByText("✓ No issues");
+    expect(cleanState.closest(".gv-facts")).toHaveTextContent("49 notes");
+    expect(cleanState.closest(".gv-facts")).toHaveTextContent("Checked");
+    expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
+  } else {
     expect(
       await screen.findByText("The last validation run is out of date or unfinished."),
     ).toBeVisible();
-    expect(screen.queryByText("No issues")).toBeNull();
+    expect(screen.queryByText("✓ No issues")).toBeNull();
   }
 });
 

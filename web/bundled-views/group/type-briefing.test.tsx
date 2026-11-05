@@ -53,9 +53,10 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
 
   expect(within(await region("Recent changes")).getByText("Checkout redesign")).toBeVisible();
 
-  const spread = await region("Shape");
+  expect(document.querySelector(".gv-facts-list")).not.toHaveTextContent(/records/);
+  const spread = await region("Composition");
 
-  expect(within(spread).getByRole("heading", { name: "Stage lifecycle" })).toBeVisible();
+  expect(within(spread).getByRole("heading", { name: "Stage" })).toBeVisible();
   expect(within(spread).getByRole("heading", { name: "Health ordered" })).toBeVisible();
   expect(within(spread).getByRole("heading", { name: "Kind category" })).toBeVisible();
   expect(within(spread).getByText("Empty")).toHaveTextContent("Empty 2");
@@ -100,7 +101,7 @@ it("briefs an interface across its implementors and flags reverse links most rec
     "No meetings link to 2 of 6 work items",
   );
 
-  const spread = await region("Shape");
+  const spread = await region("Composition");
 
   expect(within(spread).getByRole("heading", { name: "Work item types" })).toBeVisible();
   expect(within(spread).getByText("Story")).toBeVisible();
@@ -118,7 +119,7 @@ it("leaves out In motion for a lifecycle without an active stage", async () => {
 
   // A contract-shaped type has nothing in motion by design; no hint to change the schema.
   expect(
-    within(await region("Shape")).getByRole("heading", { name: "Memo status lifecycle" }),
+    within(await region("Composition")).getByRole("heading", { name: "Memo status" }),
   ).toBeVisible();
   expect(screen.queryByRole("region", { name: "In motion" })).toBeNull();
   expect(screen.queryByText(/has no active stage/)).toBeNull();
@@ -127,17 +128,17 @@ it("leaves out In motion for a lifecycle without an active stage", async () => {
 it("leaves out In motion for a type without a lifecycle", async () => {
   await openType("Area");
 
-  await region("Shape");
+  await region("Composition");
   expect(screen.queryByRole("region", { name: "In motion" })).toBeNull();
   expect(
-    within(await region("Shape")).getByRole("heading", { name: "Category category" }),
+    within(await region("Composition")).getByRole("heading", { name: "Category category" }),
   ).toBeVisible();
 });
 
 it("charts a dated type's primary date by month and collapses a burst of changes", async () => {
   await openType("Meeting");
 
-  const spread = await region("Shape");
+  const spread = await region("Composition");
 
   expect(
     within(spread).getByRole("img", {

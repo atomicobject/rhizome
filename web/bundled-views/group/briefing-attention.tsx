@@ -1,5 +1,3 @@
-// The Briefings' Needs attention block: one row per signal, each with a count,
-// its records, and an action.
 import { RelativeTime, openCollection } from "@rhizome/kit";
 import { Fragment, createContext, useContext, type ReactNode } from "react";
 
@@ -23,10 +21,8 @@ import {
   type Member,
 } from "./model.ts";
 
-/** Records named under an attention signal before "+N more". */
 export const SIGNAL_RECORDS = 3;
 
-/** What a signal offers for its records' member: by default, opening its collection. */
 export type MemberAction = { label: (member: Member) => string; run: (member: Member) => void };
 
 const OPEN_COLLECTION: MemberAction = {
@@ -48,7 +44,6 @@ function SignalRecords({
   onMember,
   unlinked = false,
 }: {
-  /** The signal's stable key, under which its expansion is remembered. */
   id: string;
   unlinked?: boolean;
   model: GroupModel;
@@ -56,6 +51,68 @@ function SignalRecords({
   onMember: (member: Member) => void;
 }) {
   const expanded = useRememberedOpen("briefing.expanded");
+
+  if (unlinked)
+    return (
+      <div className="gv-coverage">
+        {groups
+          .filter((group) => group.records.length > 0)
+          .map((group) => {
+            const member = memberOf(model, group.member);
+            const key = `signal:${id}:${group.member}`;
+            const open = expanded.isOpen(key, false);
+            const hidden = group.records.length - SIGNAL_RECORDS;
+
+            return (
+              <div key={group.member}>
+                <h3 className="gv-sig-member">
+                  {member ? memberLabel(model, member, { plural: true }) : group.member}{" "}
+                  <span className="gv-num">{group.records.length}</span>
+                </h3>
+                <ul className="gv-sig-rows">
+                  {(open ? group.records : group.records.slice(0, SIGNAL_RECORDS)).map((record) => {
+                    const specific = model.typeLabels.get(record.type)?.label;
+
+                    return (
+                      <li key={record.key} className="gv-sig-row">
+                        <span>
+                          <button
+                            type="button"
+                            className="gv-inline"
+                            onClick={() => openRecord(record)}
+                          >
+                            {record.title}
+                          </button>
+                          {specific &&
+                            specific !== member?.label &&
+                            specific !== `${member?.label} note` && (
+                              <>
+                                {" "}
+                                <span className="gv-sub">{specific}</span>
+                              </>
+                            )}
+                        </span>
+                        {record.updatedAt !== null ? (
+                          <RelativeTime value={record.updatedAt} className="gv-age" />
+                        ) : (
+                          <span />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {hidden > 0 && (
+                  <MoreToggle
+                    hidden={hidden}
+                    open={open}
+                    onToggle={() => expanded.setOpen(key, !open)}
+                  />
+                )}
+              </div>
+            );
+          })}
+      </div>
+    );
   const open = expanded.isOpen(`signal:${id}`, false);
   const setOpen = (next: boolean) => expanded.setOpen(`signal:${id}`, next);
   const total = groups.reduce((sum, group) => sum + group.records.length, 0);
@@ -99,11 +156,6 @@ function SignalRecords({
                   >
                     {record.title}
                   </button>
-                  {unlinked && (
-                    <span className="gv-sub">
-                      {model.typeLabels.get(record.type)?.label ?? member?.label}
-                    </span>
-                  )}
                   {record.updatedAt !== null && (
                     <RelativeTime value={record.updatedAt} className="gv-age" />
                   )}
@@ -115,18 +167,7 @@ function SignalRecords({
       </ul>
       {hidden > 0 && (
         <div className="gv-sig-more">
-          {unlinked ? (
-            <button
-              type="button"
-              className="rz-text-button rz-more"
-              aria-expanded={open}
-              onClick={() => setOpen(!open)}
-            >
-              {open ? "Show fewer" : `Show ${hidden} more unlinked notes`}
-            </button>
-          ) : (
-            <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
-          )}
+          <MoreToggle hidden={hidden} open={open} onToggle={() => setOpen(!open)} />
         </div>
       )}
     </>
@@ -359,7 +400,6 @@ function Signal({ model, signal }: { model: GroupModel; signal: AttentionSignal 
   }
 }
 
-/** The records behind a signal, by member. */
 function signalGroups(model: GroupModel, signal: AttentionSignal): readonly MemberRecords[] {
   switch (signal.kind) {
     case "tone":
