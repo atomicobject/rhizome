@@ -308,7 +308,7 @@ it.each([
 
   if (clean) {
     const cleanState = await screen.findByText("✓ No issues");
-    expect(cleanState.closest(".gv-facts")).toHaveTextContent("49 notes");
+    expect(cleanState.closest(".gv-facts")).not.toHaveTextContent("49 notes");
     expect(cleanState.closest(".gv-facts")).toHaveTextContent("Checked");
     expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
   } else {
@@ -400,4 +400,33 @@ it("restores row metadata when expanding reveals another folder", async () => {
   fireEvent.click(within(motion).getByRole("button", { name: "Show 1 more" }));
   expect(motion.querySelector(".gv-motion-metadata")).toBeNull();
   expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE + 1);
+});
+
+it.each([14, 20, 23])("shows up to twenty motion rows when alone (%i records)", async (count) => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health: "current_clean" }),
+      "POST /api/v1/validation/groups": () => jsonReply({ generation: 3, groups: [] }),
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            Story: Array.from({ length: count }, (_, index) =>
+              record("Story", index + 1, { stage: "doing" }),
+            ),
+            Bug: [],
+            Release: [],
+          },
+        }),
+    }),
+  });
+  const motion = region("In motion");
+
+  expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
+  expect(motion.querySelectorAll(".gv-change")).toHaveLength(Math.min(count, 20));
+
+  if (count > 20) {
+    fireEvent.click(within(motion).getByRole("button", { name: `Show ${count - 20} more` }));
+    expect(motion.querySelectorAll(".gv-change")).toHaveLength(count);
+  } else expect(within(motion).queryByRole("button", { name: /Show .* more/ })).toBeNull();
 });

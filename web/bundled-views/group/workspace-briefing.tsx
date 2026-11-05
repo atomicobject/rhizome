@@ -180,6 +180,9 @@ function NeedsAttention() {
 }
 
 function InMotion() {
+  const validation = useValidationSummaries(GLOBAL);
+  const alone = validation.health === "current_clean";
+  const limit = alone ? 20 : MOTION_PER_TYPE;
   const queryClient = useQueryClient();
   const expanded = useRememberedOpen("briefing.expanded");
   const members = useAggregatePart("members");
@@ -251,7 +254,7 @@ function InMotion() {
         })),
       )
       .sort((a, b) => (b.time ?? 0) - (a.time ?? 0))
-      .slice(0, expanded.isOpen("in-motion", false) ? undefined : MOTION_PER_TYPE),
+      .slice(0, expanded.isOpen("in-motion", false) ? undefined : limit),
   );
 
   return (
@@ -289,7 +292,7 @@ function InMotion() {
             .sort((a, b) => (b.record.updatedAt ?? 0) - (a.record.updatedAt ?? 0));
 
           const open = expanded.isOpen("in-motion", false);
-          const shown = open ? entries : entries.slice(0, MOTION_PER_TYPE);
+          const shown = open ? entries : entries.slice(0, limit);
 
           const mixed =
             new Set(entries.map(({ entry, record }) => record.values.get(entry.field))).size > 1;
@@ -326,9 +329,9 @@ function InMotion() {
                   );
                 })}
               </ul>
-              {entries.length > MOTION_PER_TYPE && (
+              {entries.length > limit && (
                 <MoreToggle
-                  hidden={entries.length - MOTION_PER_TYPE}
+                  hidden={entries.length - limit}
                   open={open}
                   onToggle={() => expanded.setOpen("in-motion", !open)}
                 />
@@ -402,7 +405,6 @@ function RecentChanges() {
 }
 
 function WorkspaceFacts() {
-  const members = useAggregatePart("members");
   const validation = useValidationSummaries(GLOBAL);
 
   const recent = useQuery({
@@ -418,11 +420,6 @@ function WorkspaceFacts() {
   return (
     <div className="gv-facts">
       <span className="gv-facts-list" title="Validation includes untyped and ambiguous notes.">
-        {members.data && !members.data.facts.rebuilding && (
-          <span>
-            <b>{fmt(members.data.facts.totalNotes)}</b> notes
-          </span>
-        )}
         {issues !== undefined &&
           (issues > 0 ? (
             <span className="gv-bad">

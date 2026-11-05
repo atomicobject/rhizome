@@ -185,7 +185,7 @@ it("names lifecycles without an active stage", async () => {
   // Setup notes follow the list, with schema details behind the info disclosure.
   expect(motion.querySelector("h2 .gv-hint")).toBeNull();
   expect(motion.querySelector(".gv-stage-note")).toHaveTextContent(
-    "aren't listed: they have no active stage.",
+    "In motion shows active records only.",
   );
   const config = motion.querySelector("details")!;
   const summary = within(motion).getByLabelText("Why some types are not listed");
