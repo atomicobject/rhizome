@@ -4,7 +4,7 @@ id: EFF-2026-11-05-16-27
 aliases: [EFF-2026-11-05-16-27]
 name: Code mode reliability and discovery
 created-at: 2026-11-05T21:27:53Z
-status: active
+status: complete
 summary: Make permission failures actionable and immediate, shorten routine effort discovery, and verify the installed code-mode guidance in fresh Claude and Codex sessions.
 governing-specs:
   - "[[vault-runtime-coordination]]"
@@ -117,4 +117,4 @@ Host policy controls local access; repository settings cannot grant it. Preserve
 
 ## Status
 
-Active pending delivery commits and PR integration. Implementation and local verification are complete, including the successful final `make check-full`, regenerated-guidance stability, content/frozen-scope validation, and clean Claude/Codex trials. Full-send authorization covers branch, PR, review fixes, CI, and merge. Sol-loop round 1 with GPT-6.1 Sol at xhigh on standard service approved the full scoped diff with no findings; no behavior changes followed that review. Review usage was not returned. No review-driven scope was added. The host still controls permission grants; this change reports denied access and supports recovery without changing host policy.
+Complete. Implementation is carried by [d7321464](https://github.com/atomicobject/rhizome/commit/d7321464299924f29d3f1472557489f1f88e7ac6). The final `make check-full`, regenerated-guidance stability, content/frozen-scope validation, clean Claude/Codex trials, and original cold-read replay passed. Sol-loop round 1 with GPT-6.1 Sol at xhigh on standard service approved the full scoped behavior diff with no findings. Review usage was not returned; no review-driven scope was added. Full-send authorization covers this closure, PR, review fixes, CI, and merge. The PR reference will be added before merge. The host still controls permission grants; this change reports denied access and supports recovery without changing host policy.
