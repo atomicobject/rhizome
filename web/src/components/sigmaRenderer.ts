@@ -198,7 +198,9 @@ export function mountSigmaRenderer({
       context.globalAlpha = 1;
       context.strokeStyle = attrs.aggregate
         ? attrs.baseColor
-        : (colorsRef.current ?? readThemeColors()).label;
+        : attrs.explorerLabels && (attrs.kind === "note" || attrs.kind === "embedded")
+          ? attrs.baseColor
+          : (colorsRef.current ?? readThemeColors()).label;
 
       context.beginPath();
       const r = sigma.scaleSize(node.size);

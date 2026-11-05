@@ -114,7 +114,7 @@ export function FolderLegend({
     <aside className="graph-type-legend graph-type-legend--folders" aria-label="Graph type legend">
       {typed.length > 0 && (
         <div className="graph-type-legend__row">
-          <h3 className="graph-type-legend__title">Repository totals</h3>
+          <h3 className="graph-type-legend__title">{folders ? "Repository totals" : "Types"}</h3>
           <ul className="graph-type-legend__list">
             {inventory
               .filter((entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code")

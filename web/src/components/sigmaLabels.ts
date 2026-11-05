@@ -11,15 +11,12 @@ type Spot = { x: number; y: number; box: Box; detail?: boolean };
 
 type LabelColors = { label: string; canvas: string; edgeLabel?: string };
 
-/** Up to this many nodes, labels are placed clear of node discs and edges as well as other labels. */
 export const NODE_AVOID_ORDER = 10000;
 
-/** Padding of the label's backing around its text. */
 const PAD_X = 4;
 
 const PAD_Y = 2;
 
-/** A planned label's key: its node's center on screen, which the draw call receives too. */
 const at = (x: number, y: number) => `${Math.round(x)}:${Math.round(y)}`;
 
 const overlaps = (a: Box, b: Box, gap = 8) =>
@@ -465,15 +462,20 @@ export function createLabelPainter(
           ? line.slice(0, line.lastIndexOf("/ ") + 2)
           : "";
 
+      const labelX =
+        attrs?.fixed && attrs.kind === "module" && spot.box[2] < data.x
+          ? spot.box[2] - PAD_X - context.measureText(line).width
+          : spot.x;
+
       if (prefix) {
         context.fillStyle = colors().edgeLabel || label;
-        context.fillText(prefix, spot.x, spot.y);
+        context.fillText(prefix, labelX, spot.y);
         context.fillStyle = attrs?.muted ? colors().edgeLabel || label : label;
       }
 
       context.fillText(
         line.slice(prefix.length),
-        spot.x + context.measureText(prefix).width,
+        labelX + context.measureText(prefix).width,
         spot.y + index * (size + 3),
       );
     });

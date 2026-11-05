@@ -387,7 +387,7 @@
   border-top: 1.5px solid var(--explorer-link-strong);
 }
 .explorer-focus .graph-edge-legend__line--explorer-code {
-  border-top: 1.5px solid var(--graph-code);
+  border-top: 1.5px solid var(--explorer-code);
 }
 .explorer-focus .graph-edge-legend__line--explorer-tests {
   border-top: 1.5px dashed var(--type-8);
