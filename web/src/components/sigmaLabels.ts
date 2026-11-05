@@ -124,7 +124,7 @@ export function createLabelPainter(
     if (!sigma) return spots;
     const graph = sigma.getGraph();
     const { width: viewWidth, height: viewHeight } = sigma.getDimensions();
-    const discs: { id: string; box: Box }[] = [];
+    const discs: { id: string; box: Box }[] = [{ id: "graph-controls", box: [0, 0, 44, 100] }];
     const centers = new Map<string, { x: number; y: number }>();
 
     const labeled: {
@@ -244,6 +244,30 @@ export function createLabelPainter(
 
           if (count === 0) break;
         }
+      }
+
+      if (!chosen && node.landmark) {
+        // Crowded fans still name every folder, using the nearest free row with a leader.
+        const fallback: Spot[] = [];
+
+        for (let y = size + 12; y < viewHeight - 8; y += size + 14) {
+          for (let x = 8; x + width + PAD_X < viewWidth; x += 24) {
+            const box: Box = [x - PAD_X, y - size - PAD_Y + 1, x + width + PAD_X, y + PAD_Y + 3];
+
+            if (
+              !discs.some((disc) => overlaps(disc.box, box)) &&
+              !placed.some((other) => overlaps(other, box))
+            )
+              fallback.push({ x, y, box });
+          }
+        }
+
+        fallback.sort(
+          (a, b) =>
+            Math.hypot(a.x + width / 2 - node.x, a.y - node.y) -
+            Math.hypot(b.x + width / 2 - node.x, b.y - node.y),
+        );
+        chosen = fallback[0] ?? null;
       }
 
       if (chosen) placed.push(chosen.box);

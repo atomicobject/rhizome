@@ -101,7 +101,9 @@ export function buildSigmaGraph({
         (n.path === scope.label || n.notePath === scope.label)),
     );
 
-    const baseSize = nodeBaseSize({ ...n, center });
+    const baseSize = fixed
+      ? Math.min(12, nodeBaseSize({ ...n, center }) / 2)
+      : nodeBaseSize({ ...n, center });
 
     const colorValue =
       (explorer && n.kind === "code" ? CODE_COLOR : n.fill) ??

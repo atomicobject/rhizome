@@ -123,7 +123,9 @@ export function visibleFolderChildren(
 
   const kept = state.showAll.has(folder.path)
     ? [...folders, ...files]
-    : candidates.slice(0, allCount > budget ? budget - 1 : budget);
+    : folder.path === ""
+      ? [...folders, ...files.slice(0, 8)]
+      : candidates.slice(0, allCount > budget ? budget - 1 : budget);
 
   const keptIds = new Set(kept.map((c) => c.node.id));
   const hidden = [...folders, ...files].filter((c) => !keptIds.has(c.node.id));

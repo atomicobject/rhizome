@@ -27,6 +27,25 @@ test("root folder containment and folder focus", async ({ page }, testInfo) => {
       nodeCount(await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label")),
     )
     .toBeGreaterThan(initialNodes);
+
+  const expandedNodes = nodeCount(
+    await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label"),
+  );
+
+  await src.click();
+  await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
+  await expect
+    .poll(async () =>
+      nodeCount(await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label")),
+    )
+    .toBe(initialNodes);
+  await src.click();
+  await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
+  await expect
+    .poll(async () =>
+      nodeCount(await page.getByRole("img", { name: /^Graph of / }).getAttribute("aria-label")),
+    )
+    .toBe(expandedNodes);
   await expect(src).toHaveAttribute("aria-current", "page");
   await expect(page.locator(".explorer-pane")).toHaveCount(0);
   await page

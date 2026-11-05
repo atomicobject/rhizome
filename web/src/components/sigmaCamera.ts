@@ -1,4 +1,5 @@
 import type Sigma from "sigma";
+import { CAMERA } from "./graphViewShared";
 import type { SigmaNodeAttrs, SigmaEdgeAttrs } from "../lib/graphStyle";
 
 /** Fit visible positions in the fixed coordinate frame, reserving room for labels. */
@@ -28,11 +29,14 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
     x: (left + right) / 2,
     y: (bottom + top) / 2,
     angle: 0,
-    ratio: Math.max(
-      0.05,
+    ratio: Math.min(
+      CAMERA.maxRatio,
       Math.max(
-        ((right - left) * span) / Math.max(1, width - 360),
-        ((top - bottom) * span) / Math.max(1, height - 120),
+        CAMERA.minRatio,
+        Math.max(
+          ((right - left) * span) / Math.max(1, width - 360),
+          ((top - bottom) * span) / Math.max(1, height - 120),
+        ),
       ),
     ),
   };
