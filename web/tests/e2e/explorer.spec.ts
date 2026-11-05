@@ -3,6 +3,19 @@ import { expect, test } from "./fixtures";
 test("root folder containment and folder focus", async ({ page }, testInfo) => {
   await page.goto("/explorer");
   await expect(page.locator('[data-graph-ready="true"]')).toBeVisible();
+  await expect(page.locator(".graph-type-legend input")).toHaveCount(0);
+  await page.getByRole("button", { name: "Display", exact: true }).click();
+
+  const sizeToggle = page.getByRole("checkbox", {
+    name: "Size counts the notes and code files a folder holds",
+  });
+
+  await expect(sizeToggle).toBeVisible();
+  const checked = await sizeToggle.isChecked();
+  await sizeToggle.click();
+  await expect(sizeToggle).toBeChecked({ checked: !checked });
+  await sizeToggle.click();
+  await page.getByRole("button", { name: "Display", exact: true }).click();
   const complete = await page.request.get("/api/v1/graphs/global?limit=200000");
   const data = await complete.json();
   expect(data.truncated ?? false).toBe(false);

@@ -19,6 +19,43 @@ const baseProps = {
 };
 
 describe("GraphView", () => {
+  it("keys only drawn kinds and keeps the size toggle in Display", () => {
+    const onDisplayChange = vi.fn();
+
+    const view = render(
+      <GraphView
+        {...baseProps}
+        needsIndex
+        showTypeLegend
+        nodes={[{ id: "code", kind: "code", label: "main.ts", aggregate: true }]}
+        legendNodes={[{ id: "hidden", kind: "note", label: "Hidden", resolvedType: "Spec" }]}
+        display={{ scaleByAuthority: true, showEdgeLabels: false, showProblems: false }}
+        onDisplayChange={onDisplayChange}
+        sizeCaption="Size counts the notes and code files a folder holds"
+      />,
+    );
+
+    const legend = screen.getByLabelText("Graph type legend");
+    expect(within(legend).queryByText("Types")).toBeNull();
+    expect(within(legend).queryByText(/Folder \(colour/)).toBeNull();
+    expect(within(legend).queryByText("+N more")).toBeNull();
+    expect(within(legend).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Display" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Size counts the notes and code files a folder holds" }),
+    ).toBeVisible();
+
+    const size = screen.getByRole("checkbox", {
+      name: "Size counts the notes and code files a folder holds",
+    });
+
+    expect(size).toBeChecked();
+    fireEvent.click(size);
+    expect(onDisplayChange).toHaveBeenCalledWith({ scaleByAuthority: false });
+    expect(size).toBeChecked();
+    view.unmount();
+  });
+
   it("keys the folder edge kinds automatically", () => {
     render(
       <GraphView

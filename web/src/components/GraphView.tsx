@@ -223,7 +223,7 @@ export function GraphView({
                 checked={scaleByAuthority}
                 onChange={(e) => setScaleByAuthority(e.target.checked)}
               />
-              Size by authority
+              {sizeCaption || "Size by authority"}
             </label>
             <label className="graph-toggle">
               <input
@@ -427,10 +427,10 @@ export function GraphView({
       {showTypeLegend &&
         (legendNodes ? (
           <FolderLegend
+            nodes={nodes}
             entries={typeEntries}
-            shown={new Set(nodes.flatMap((node) => (node.fillKey ? [node.fillKey] : [])))}
+            shown={new Set(nodes.map((node) => node.fillKey || graphTypeName(node)))}
             caption={folderCaption}
-            sizeCaption={sizeCaption}
             edgeCaption={edgeCaption}
             edges={edges}
           />

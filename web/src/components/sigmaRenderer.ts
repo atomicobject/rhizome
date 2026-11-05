@@ -1,4 +1,4 @@
-import { drawFolderEdgeCounts } from "./sigmaEdgeLabels";
+import { drawFolderLinks } from "./sigmaFolderLinks";
 import { drawTestEdges } from "./explorerGraph";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import { createNodeImageProgram } from "@sigma/node-image";
@@ -219,6 +219,7 @@ export function mountSigmaRenderer({
     context.save();
     context.scale(outlines.width / width, outlines.height / height);
     context.clearRect(0, 0, width, height);
+    drawFolderLinks(sigma, context, stateRef.current);
     drawTestEdges(sigma, context, resolveCssColor("var(--explorer-code)"));
     context.strokeStyle = (colorsRef.current ?? readThemeColors()).label;
     context.lineWidth = 1.5;
@@ -228,7 +229,7 @@ export function mountSigmaRenderer({
       if (!node || node.hidden) return;
       const point = sigma.framedGraphToViewport(node);
       const palette = colorsRef.current ?? readThemeColors();
-      context.globalAlpha = attrs.muted ? 0.4 : 1;
+      context.globalAlpha = 1;
       context.strokeStyle = attrs.aggregate
         ? attrs.baseColor
         : (colorsRef.current ?? readThemeColors()).label;
@@ -264,7 +265,6 @@ export function mountSigmaRenderer({
       }
     });
     context.globalAlpha = 1;
-    drawFolderEdgeCounts(sigma, context, labels.occupied(), colorsRef.current ?? readThemeColors());
     context.restore();
   });
   const camera = sigma.getCamera();

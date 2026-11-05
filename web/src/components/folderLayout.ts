@@ -30,6 +30,13 @@ export function folderLayoutExtent(tree: FolderTree) {
 }
 
 function orderedChildren(tree: FolderTree, path: string, children: FolderChild[]) {
+  if (path)
+    return [...children].sort(
+      (a, b) =>
+        Number(Boolean(a.node.aggregate)) - Number(Boolean(b.node.aggregate)) ||
+        a.node.label.localeCompare(b.node.label),
+    );
+
   const remaining = [...children].sort(
     (a, b) => folderWeight(b.totals) - folderWeight(a.totals) || a.node.id.localeCompare(b.node.id),
   );

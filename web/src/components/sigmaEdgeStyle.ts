@@ -14,40 +14,22 @@ export function computeEdgeStyle(
   const { source, target, attrs, sourceAttrs, targetAttrs, state, lod } = input;
 
   const touchesSelection = Boolean(sourceAttrs.selected || targetAttrs.selected);
-  const touchesBranch = Boolean(sourceAttrs.branch || targetAttrs.branch);
-  const hovered = state.hoverNodeID === source || state.hoverNodeID === target;
+
+  if (attrs.kind === "folder-child-crosslink" || attrs.kind === "folder-crosslink")
+    return { hidden: true, color: resolveCssColor("var(--explorer-link)"), size: 1, label: "" };
+
+  if (
+    attrs.kind === "explorer-documents" ||
+    attrs.kind === "explorer-code" ||
+    attrs.kind === "explorer-tests"
+  )
+    return { hidden: true, color: resolveCssColor("var(--explorer-link)"), size: 1, label: "" };
 
   if (attrs.kind === "folder-containment")
     return {
       hidden: false,
       color: resolveCssColor("var(--type-8)"),
       size: touchesSelection ? 2.25 : 1.5,
-      label: "",
-    };
-
-  if (attrs.kind === "folder-crosslink" || attrs.kind === "explorer-documents") {
-    const focused = touchesBranch || hovered || attrs.kind === "explorer-documents";
-
-    return {
-      hidden: false,
-      color: focused
-        ? resolveCssColor("var(--explorer-link-strong)")
-        : resolveCssColor("var(--explorer-link)"),
-      size: (attrs.weight >= 40 ? 2.5 : attrs.weight >= 10 ? 1.75 : 1) + (hovered ? 0.5 : 0),
-      label:
-        (hovered || touchesBranch) && state.showEdgeLabels && attrs.kind === "folder-crosslink"
-          ? String(attrs.weight)
-          : "",
-    };
-  }
-
-  if (attrs.kind === "explorer-tests" || attrs.kind === "explorer-code")
-    return {
-      hidden: attrs.kind === "explorer-tests",
-      color: resolveCssColor(
-        attrs.kind === "explorer-tests" ? "var(--explorer-code)" : "var(--type-8)",
-      ),
-      size: attrs.kind === "explorer-tests" ? 2 : 1,
       label: "",
     };
 
