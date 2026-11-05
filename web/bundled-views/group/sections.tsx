@@ -142,7 +142,13 @@ function Row({
       {columns.map((column) => (
         <td
           key={column.kind === "field" ? column.id : column.kind}
-          className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+          className={
+            column.kind === "lifecycle"
+              ? "gv-col-status"
+              : column.kind === "type"
+                ? "gv-col-type"
+                : undefined
+          }
         >
           <Cell model={model} member={member} record={record} column={column} />
         </td>
@@ -214,7 +220,13 @@ function Section({ model, member }: { model: GroupModel; member: Member }) {
                 <th
                   scope="col"
                   key={column.kind === "field" ? column.id : column.kind}
-                  className={column.kind === "lifecycle" ? "gv-col-status" : undefined}
+                  className={
+                    column.kind === "lifecycle"
+                      ? "gv-col-status"
+                      : column.kind === "type"
+                        ? "gv-col-type"
+                        : undefined
+                  }
                 >
                   {columnLabel(member, column)}
                 </th>

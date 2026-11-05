@@ -320,6 +320,11 @@
   font-weight: 500;
 }
 
+.gv-section .gv-table td.gv-col-type {
+  font-size: 14px;
+  font-weight: 400;
+}
+
 .gv-section .gv-table td:not(:first-child) {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -366,8 +371,12 @@
   width: 1%;
 }
 
-.gv-table .gv-age {
+.gv-section .gv-table .gv-age {
   padding-top: 9px;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .gv-title {
@@ -922,12 +931,12 @@
   width: 100cqi;
 }
 
-.gv-toolbar {
+.gv-trace-page > .gv-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 14px;
-  padding: 7px 20px;
+  padding: 5px 20px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-xs);
 }
@@ -966,32 +975,16 @@
   width: 260px;
 }
 
-/* The heading's second line: the relation, then the Key disclosure. */
-.gv-cov-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+/* The status key shares the relation's single, truncating metadata line. */
+.gv-trace .gv-col-legend {
+  display: inline;
+  font: inherit;
 }
 
-.gv-cov-row > .gv-cov {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-/* Each linked column's status key, always shown: mark and word per status
-   its records hold, on a 13px line under the relation. */
-.gv-col-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  margin-top: 2px;
-  color: var(--text-muted);
-  font: 500 13px / 1.4 var(--font-sans);
-}
-
-.gv-trace td:has(> .rz-dash) {
-  vertical-align: middle;
+.gv-trace .gv-head > .gv-num {
+  flex: none;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 /* Linked titles are 14px teal quiet links, like every record link. */
@@ -1042,11 +1035,11 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 8px 10px 7px;
+  padding: 9px 10px;
   vertical-align: top;
   border-bottom-color: var(--border-strong);
   background: var(--surface);
-  font: 500 13px / 1.4 var(--font-sans);
+  font: 400 13px / 1.4 var(--font-sans);
 }
 
 .gv-trace .gv-trace-spine {
@@ -1066,47 +1059,50 @@
   background: color-mix(in srgb, var(--success-soft) 22%, var(--surface));
 }
 
-.gv-head {
+.gv-trace .gv-head {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
   white-space: nowrap;
 }
 
-.gv-head > .gv-member,
-.gv-head > .gv-record {
+.gv-trace .gv-head > .gv-member,
+.gv-trace .gv-head > .gv-record {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .gv-trace .gv-member {
-  font-size: var(--fs-base);
-  font-weight: 500;
-}
-
-.gv-cov-count {
-  margin-left: auto;
-  color: var(--text-faint);
-  font: 500 13px / 1.4 var(--font-sans);
-  font-variant-numeric: tabular-nums;
-}
-
-.gv-cov-count b {
-  color: var(--text);
+  font-size: 14px;
   font-weight: 600;
 }
 
-.gv-cov {
+.gv-trace .gv-cov-count {
+  flex: none;
+  margin-left: auto;
   color: var(--text-muted);
-  font: 500 13px / 1.4 var(--font-sans);
-  white-space: normal;
+  font: 400 13px / 1.4 var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
-.gv-cov-count .gv-thin {
+.gv-trace .gv-cov-count b {
   color: var(--text);
+  font-weight: 400;
+}
+
+.gv-trace .gv-cov {
+  overflow: hidden;
+  color: var(--text-muted);
+  font: 400 13px / 1.4 var(--font-sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gv-trace tr > :last-child {
+  padding-right: 20px;
 }
 
 .gv-band th {

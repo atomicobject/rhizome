@@ -115,6 +115,10 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
     "Checklists 1",
   ]);
   expect(screen.getByRole("radio", { name: /^Areas/ })).toBeChecked();
+  expect(
+    screen.getByRole("radiogroup", { name: "Rows" }).querySelector(".gv-default-dot"),
+  ).toBeNull();
+  expect(columnHeader("Areas")).toHaveTextContent("Most connected first · Nested under parents");
   // The toolbar holds only the row choice; why the default is the default sits in the footer.
   expect(
     screen.getByText(/Areas are the default rows: the tree other types link to/),
@@ -165,12 +169,15 @@ it("fills cells with records linked to anything in the row, marking indirect one
   expect(within(row("Payments")).getAllByText("(indirect)")).toHaveLength(2);
 
   // Coverage beside the name; under it, the field that joins the column to the rows.
-  expect(columnHeader("Work items")).toHaveTextContent("3 of 6 areas linked");
-  // Under that, the column's own status key, naming only the statuses it holds.
+  expect(columnHeader("Work items")).toHaveTextContent("3 of 6 linked");
+  // The relation shares its metadata line with only the statuses the column holds.
   expect(columnHeader("Work items")).toHaveTextContent(/linkedArea.*Doing.*Done/);
   expect(columnHeader("Work items")).not.toHaveTextContent(/Backlog/);
-  expect(columnHeader("Releases")).toHaveTextContent("1 of 6 areas linked");
-  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 areas linkedthrough other columns");
+  expect(
+    within(columnHeader("Work items")).getByTitle("Area · Doing · Blocked · Done"),
+  ).toBeVisible();
+  expect(columnHeader("Releases")).toHaveTextContent("1 of 6 linked");
+  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 linkedthrough other columns");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();
 });
 
@@ -180,8 +187,8 @@ it("switches rows and orders columns by contract with outside links last", async
   await chooseRows("Work items");
   expect(screen.getByRole("radio", { name: /^Work items/ })).toBeChecked();
   expect(columnNames()).toEqual(["Work items", "Areas", "Releases", "Checklists", "Owner"]);
-  expect(columnHeader("Areas")).toHaveTextContent("5 of 6 work items linked");
-  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 work items linkedin People");
+  expect(columnHeader("Areas")).toHaveTextContent("5 of 6 linked");
+  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 linkedin People");
   expect(cellTitles("Checkout redesign")).toEqual([
     ["Payments"],
     ["Fall release"],
@@ -202,8 +209,8 @@ it("bands rows by lifecycle, most advanced first and closed values last, naming 
   await chooseRows("Work items");
 
   expect(bands()).toEqual(["Blocked1", "Doing2", "Done2", "No stage1"]);
-  expect(columnHeader("Work items")).toHaveTextContent("by stage, most advanced first");
-  expect(columnHeader("Work items")).toHaveTextContent("none Backlog, Dropped");
+  expect(columnHeader("Work items")).not.toHaveTextContent("most advanced first");
+  expect(columnHeader("Work items")).toHaveTextContent("No backlog or dropped work items");
   expect(rowTitles().map(([title]) => title)).toEqual([
     "Tax rounding",
     "Checkout redesign",

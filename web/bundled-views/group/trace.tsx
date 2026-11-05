@@ -90,27 +90,6 @@ function heldValues(matrix: TraceMatrix, column: MatrixColumn & { kind: "member"
   return held;
 }
 
-/**
- * What the marks in a linked column mean, always on screen under its heading:
- * each status its records hold, mark and word ("● Active · ○ Proposed").
- */
-function ColumnLegend({ matrix, column }: { matrix: TraceMatrix; column: MatrixColumn }) {
-  if (column.kind !== "member" || !column.member.lifecycle) return null;
-  const values = column.member.lifecycle.values;
-  const held = heldValues(matrix, column);
-  const shown = orderedEnumValues(values).filter((value) => held.has(value.name));
-
-  if (shown.length === 0) return null;
-
-  return (
-    <div className="gv-col-legend" aria-label={`${column.member.pluralLabel} status marks`}>
-      {shown.map((value) => (
-        <StatusMark key={value.name} value={value.name} values={values} />
-      ))}
-    </div>
-  );
-}
-
 function ColumnHead({
   model,
   matrix,
@@ -132,7 +111,10 @@ function ColumnHead({
         ? `in ${column.link.targetGroup}`
         : "outside the group";
 
-  const thin = column.covered < matrix.rowCount / 3;
+  const values = column.kind === "member" ? (column.member.lifecycle?.values ?? []) : [];
+  const held = column.kind === "member" ? heldValues(matrix, column) : new Set<string>();
+  const shown = orderedEnumValues(values).filter((value) => held.has(value.name));
+  const metadata = [where, ...shown.map((value) => value.label ?? value.name)].join(" · ");
 
   return (
     <th
@@ -144,7 +126,12 @@ function ColumnHead({
       }
     >
       <div className="gv-head">
-        <button type="button" className="gv-member" onClick={() => openColumn(column)}>
+        <button
+          type="button"
+          className="gv-member"
+          title={label}
+          onClick={() => openColumn(column)}
+        >
           {label}
         </button>
         {column.kind === "member" && <span className="gv-num">{column.member.count}</span>}
@@ -152,21 +139,23 @@ function ColumnHead({
           className="gv-cov-count"
           title={`${column.covered} of ${matrix.rowCount} rows hold one`}
         >
-          <b className={thin ? "gv-thin" : undefined}>{column.covered}</b> of {matrix.rowCount}{" "}
-          {inSentence(memberLabel(model, matrix.spine, { plural: true }))} linked
+          <b>{column.covered}</b> of {matrix.rowCount} linked
         </span>
       </div>
-      {/* The name and coverage, the relation, then a persistent status key in
-          words, so filled and hollow marks never need a lookup. */}
-      <div className="gv-cov-row">
-        <div
-          className="gv-cov"
-          title={column.kind === "member" ? `${where}: ${RELATION[column.relation]}` : where}
-        >
-          {where}
-        </div>
+      <div className="gv-cov" title={metadata}>
+        {where}
+        {shown.length > 0 && (
+          <span className="gv-col-legend" aria-label={`${label} status marks`}>
+            {" · "}
+            {shown.map((value, index) => (
+              <span key={value.name}>
+                {index > 0 && " · "}
+                <StatusMark value={value.name} values={values} />
+              </span>
+            ))}
+          </span>
+        )}
       </div>
-      <ColumnLegend matrix={matrix} column={column} />
     </th>
   );
 }
@@ -175,11 +164,17 @@ function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }
   const { spine } = matrix;
   const lifecycle = spine.lifecycle;
 
-  const order = lifecycle
-    ? `by ${fieldLabel(lifecycle.field).toLowerCase()}, most advanced first`
-    : "most connected first";
+  const empty = new Intl.ListFormat("en", { type: "disjunction" }).format(
+    matrix.emptyValues.map((value) => (value.label ?? value.name).toLowerCase()),
+  );
 
-  const empty = matrix.emptyValues.map((value) => value.label ?? value.name).join(", ");
+  const metadata = [
+    !matrix.banded && "Most connected first",
+    matrix.hierarchical && "Nested under parents",
+    lifecycle && empty && `No ${empty} ${inSentence(memberLabel(model, spine, { plural: true }))}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <th scope="col" className="gv-trace-spine">
@@ -187,10 +182,8 @@ function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }
         <MemberHeading model={model} member={spine} />
         <span className="gv-num">{spine.count}</span>
       </div>
-      <div className="gv-cov">
-        {order}
-        {matrix.hierarchical && ", nested under parents"}
-        {empty && ` · none ${empty}`}
+      <div className="gv-cov" title={metadata}>
+        {metadata}
       </div>
     </th>
   );
@@ -229,7 +222,7 @@ function Footer({
 }: {
   model: GroupModel;
   matrix: TraceMatrix;
-  /** Why the dotted row choice is the default. */
+  /** Why the row choice is the default. */
   defaultNote?: string;
 }) {
   const label = (member: Member, count?: number) =>
@@ -370,12 +363,7 @@ function SpineSwitcher({
           return [
             {
               value: name,
-              label: (
-                <>
-                  {name === fallback && <span className="gv-default-dot" aria-hidden="true" />}
-                  {memberLabel(model, choice, { plural: true })}
-                </>
-              ),
+              label: memberLabel(model, choice, { plural: true }),
               count: choice.records.length,
               description: name === fallback ? "(default)" : undefined,
             },
