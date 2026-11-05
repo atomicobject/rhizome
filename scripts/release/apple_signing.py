@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 
 
 APPLE_SIGNING = (
@@ -82,17 +83,24 @@ def credentials(environ):
         yield env
 
 
-def run_check(command, *, runner, env):
-    try:
-        return runner(command, env=env, check=True, capture_output=True, text=True, timeout=120)
-    except (subprocess.SubprocessError, OSError) as error:
-        # These checks run without credentials and describe only public artifacts.
-        detail = ""
-        if isinstance(error, subprocess.CalledProcessError):
-            detail = (error.stderr or error.stdout or "").strip()[-2000:]
-        step = " ".join(command[:3])
-        target = str(command[-1])
-        raise AppleSigningError(f"Apple distribution verification failed: {step} {target}; {detail}") from error
+def run_check(command, *, runner, env, sleep=time.sleep):
+    for attempt in range(3):
+        try:
+            return runner(command, env=env, check=True, capture_output=True, text=True, timeout=120)
+        except (subprocess.SubprocessError, OSError) as error:
+            # Only public artifact checks reach this helper; no credential output.
+            detail = ""
+            if isinstance(error, subprocess.CalledProcessError):
+                detail = (error.stderr or error.stdout or "").strip()[-2000:]
+                transient = (command[:2] == ["xcrun", "stapler"] and error.returncode == 68
+                             and "NSURLErrorDomain" in detail)
+                if transient and attempt < 2:
+                    print(f"Apple ticket service connection failed; retrying check ({attempt + 2}/3)", flush=True)
+                    sleep((5, 15)[attempt])
+                    continue
+            step = " ".join(command[:3])
+            target = str(command[-1])
+            raise AppleSigningError(f"Apple distribution verification failed: {step} {target}; {detail}") from error
 
 
 def notarize_dmg(dmg, *, runner, env):

@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
 import shlex
 import subprocess
 import sys
@@ -32,7 +33,7 @@ def security(arguments: list[str], *, runner=subprocess.run) -> str:
     env = {name: os.environ[name] for name in ("PATH", "HOME", "TMPDIR") if name in os.environ}
     result = runner(["/usr/bin/security", "-i"], input=command + "\n", text=True,
                     capture_output=True, env=env)
-    if result.returncode:
+    if result.returncode or result.stderr.strip():
         raise SigningSetupError("Keychain operation failed: " + arguments[0])
     return result.stdout
 
@@ -117,6 +118,9 @@ def prepare(environ: Mapping[str, str], *, runner=subprocess.run, download=downl
         security(["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s",
                   "-k", keychain_password, str(keychain)], runner=runner)
         security(["list-keychains", "-d", "user", "-s", *previous, str(keychain)], runner=runner)
+        identities = security(["find-identity", "-v", "-p", "codesigning", str(keychain)], runner=runner)
+        if not re.search(r"\b[1-9]\d* valid identities found", identities):
+            raise SigningSetupError("The temporary Keychain has no valid code-signing identity")
         (root / "certificate.p12").unlink()
         (root / "intermediate.cer").unlink()
         with Path(environ["GITHUB_ENV"]).open("a", encoding="utf-8") as output:

@@ -21,11 +21,14 @@ class Runner:
         command = shlex.split(kwargs["input"])
         self.commands.append(command)
         stdout = '"/synthetic/login.keychain-db"\n' if command == ["list-keychains", "-d", "user"] else ""
+        if command[0] == "find-identity":
+            stdout = "1 valid identities found\n"
         if command[0] == "create-keychain":
             Path(command[-1]).touch(mode=0o600)
         if command[0] == "delete-keychain":
             Path(command[-1]).unlink()
-        return subprocess.CompletedProcess(argv, 1 if command[0] == self.fail else 0, stdout=stdout, stderr="synthetic-private-output")
+        return subprocess.CompletedProcess(argv, 1 if command[0] == self.fail else 0, stdout=stdout,
+                                           stderr="synthetic-private-output" if command[0] == self.fail else "")
 
 
 class CISigningTest(unittest.TestCase):
@@ -88,6 +91,24 @@ class CISigningTest(unittest.TestCase):
         with self.assertRaises(SigningSetupError) as caught:
             security(["import", "synthetic"], runner=Runner(fail="import"))
         self.assertNotIn("synthetic-private-output", str(caught.exception))
+
+    def test_command_error_is_rejected_even_if_interpreter_returns_zero(self):
+        def run(argv, **kwargs):
+            return subprocess.CompletedProcess(argv, 0, stdout="", stderr="security: synthetic import failure")
+        with self.assertRaises(SigningSetupError):
+            security(["import", "synthetic"], runner=run)
+
+    def test_missing_valid_identity_stops_setup_and_cleans_up(self):
+        original = Runner()
+        def run(argv, **kwargs):
+            result = original(argv, **kwargs)
+            if shlex.split(kwargs["input"])[0] == "find-identity":
+                result.stdout = "0 valid identities found\n"
+            return result
+        with self.assertRaises(SigningSetupError):
+            prepare(self.env, runner=run, download=lambda: b"synthetic-intermediate")
+        self.assertFalse((self.root / "github-env").exists())
+        self.assertFalse((self.root / "rhizome-desktop-signing").exists())
 
     def test_security_arguments_reject_command_injection(self):
         with self.assertRaises(SigningSetupError):

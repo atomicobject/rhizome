@@ -7,7 +7,7 @@ import tempfile
 import io
 from unittest.mock import Mock, patch
 
-from apple_signing import AppleSigningError, credentials, notarize_dmg, require_credentials, verify_app, verify_distribution
+from apple_signing import AppleSigningError, credentials, notarize_dmg, require_credentials, run_check, verify_app, verify_distribution
 
 
 IDENTITY = "Developer ID Application: Example LLC (ABCDEFGHIJ)"
@@ -16,6 +16,20 @@ ENV = {"APPLE_SIGNING_IDENTITY": IDENTITY, "APPLE_API_KEY": "synthetic-id",
 
 
 class AppleSigningTest(unittest.TestCase):
+    def test_ticket_network_failure_retries_but_invalid_ticket_does_not(self):
+        command = ["xcrun", "stapler", "validate", "candidate.dmg"]
+        network = subprocess.CalledProcessError(68, command, stderr='Error Domain=NSURLErrorDomain Code=-1005')
+        runner = Mock(side_effect=[network, subprocess.CompletedProcess(command, 0, "", "")])
+        sleep = Mock()
+        run_check(command, runner=runner, env={}, sleep=sleep)
+        self.assertEqual(2, runner.call_count)
+        sleep.assert_called_once_with(5)
+        for error, attempts in ((network, 3), (subprocess.CalledProcessError(65, command, stderr="invalid ticket"), 1)):
+            runner = Mock(side_effect=error)
+            with self.assertRaises(AppleSigningError):
+                run_check(command, runner=runner, env={}, sleep=Mock())
+            self.assertEqual(attempts, runner.call_count)
+
     def test_old_python_is_refused_before_signing(self):
         with patch("apple_signing.sys.version_info", (3, 11, 0)), self.assertRaisesRegex(AppleSigningError, "Python 3.12"):
             require_credentials(ENV)
