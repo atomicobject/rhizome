@@ -2,13 +2,21 @@
 // untyped notes by folder and the coverage line. On a group: relations
 // declared but unused, the notes outside the group linking to the most of its
 // records, and the group's guide and views.
-import { openSearch } from "@rhizome/kit";
+import { openSearch, typeLabel } from "@rhizome/kit";
 import { Fragment, useMemo, type ReactNode } from "react";
 
 import { boundary } from "./activity.ts";
 import { OutsideNotes } from "./briefing-activity.tsx";
 import { GuideAndViews } from "./briefing-contents.tsx";
-import { Block, BlockBody, ModelBlock, MoreToggle, Rebuilding } from "./briefing-parts.tsx";
+import {
+  Block,
+  BlockBody,
+  ModelBlock,
+  MoreToggle,
+  Rebuilding,
+  plural,
+  lower,
+} from "./briefing-parts.tsx";
 import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
 import { fieldLabel, type GroupModel } from "./model.ts";
@@ -277,7 +285,7 @@ const OUTSIDE_READ: GroupRead = {
   neighborCap: 10,
 };
 
-/** Outside notes the Overview lists before "Show N more", so Members stays above the fold. */
+/** Outside notes shown before expanding the preview. */
 const OVERVIEW_OUTSIDE_NOTES = 3;
 
 /** Only the guide note. */
@@ -294,7 +302,7 @@ function GroupOutside({ model }: { model: GroupModel }) {
   return (
     <div className="gv-overview-outside">
       <OutsideNotes
-        title="Outside the group"
+        title="Outside notes"
         outside={outside}
         model={model}
         info={`Notes that link to or from ${model.name} records, most connected first.`}
@@ -305,6 +313,58 @@ function GroupOutside({ model }: { model: GroupModel }) {
   );
 }
 
+/** Keep the boundary summary beside the map without the preview list. */
+export function GroupOutsideSummary() {
+  const state = useGroupModel({ views: false, read: OUTSIDE_READ });
+
+  return (
+    <ModelBlock state={state} title="Outside the group" what="outside notes">
+      {(model) => {
+        const outside = boundary(model);
+        const incomplete = outside.incomplete || model.truncated;
+
+        return (
+          <Block
+            title="Outside the group"
+            count={`${incomplete ? "at least " : ""}${outside.notes.length} ${plural(outside.notes.length, "note", "notes")}`}
+          >
+            <p className="gv-outsum">
+              {outside.byType.map((entry) => {
+                const labels = entry.type ? model.typeLabels.get(entry.type) : undefined;
+
+                return (
+                  <span key={entry.type ?? ""}>
+                    <b className="num">{entry.count}</b>{" "}
+                    {entry.type === null
+                      ? plural(entry.count, "untyped note", "untyped notes")
+                      : lower(
+                          labels
+                            ? typeLabel(labels, { count: entry.count })
+                            : fieldLabel(entry.type),
+                        )}
+                  </span>
+                );
+              })}
+            </p>
+            <p className="gv-quiet">
+              {incomplete
+                ? "More notes may link to this group because viewed records and their links are limited."
+                : "Notes that link to or from this group’s records, most connected first."}{" "}
+              <button
+                type="button"
+                className="gv-inline gv-link"
+                onClick={() => openSearch({ folder: "" })}
+              >
+                Search all notes
+              </button>
+            </p>
+          </Block>
+        );
+      }}
+    </ModelBlock>
+  );
+}
+
 /** "Outside the group" and "Guide and views", each from its own read. */
 export function GroupRecordsBlocks() {
   const outside = useGroupModel({ views: false, read: OUTSIDE_READ });
@@ -312,7 +372,7 @@ export function GroupRecordsBlocks() {
 
   return (
     <>
-      <ModelBlock state={outside} title="Outside the group" what="outside notes">
+      <ModelBlock state={outside} title="Outside notes" what="outside notes">
         {(model) => <GroupOutside model={model} />}
       </ModelBlock>
       <ModelBlock state={guide} title="Guide and views" what="the guide and views">

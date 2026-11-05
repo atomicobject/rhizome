@@ -4,11 +4,16 @@ import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 
 const loadOverview = () => import("./overview.tsx");
 
-it("keeps Members with the map independently of the side sections", async () => {
+it("places group Members across the columns before outside previews and guide", async () => {
   await renderGroupView(loadOverview, { routes: scopeRoutes() });
   const main = screen.getByRole("region", { name: "Map" }).closest(".gv-ov-main");
 
-  expect(main).toContainElement(screen.getByRole("region", { name: "Members" }));
+  const members = screen.getByRole("region", { name: "Members" });
+  expect(main).not.toContainElement(members);
+  expect(members.closest(".gv-ov-members")?.parentElement).toHaveClass("gv-ov--group");
+  const below = screen.getByRole("region", { name: "Outside notes" }).closest(".gv-ov-below");
+  expect(below).toContainElement(screen.getByRole("region", { name: "Guide and views" }));
+  expect(screen.getByRole("region", { name: "Outside the group" }).querySelector("li")).toBeNull();
   expect(main).not.toContainElement(screen.getByRole("region", { name: "Outside the group" }));
 });
 

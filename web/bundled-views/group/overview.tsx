@@ -23,7 +23,13 @@ import { Block, BlockBody, Rebuilding, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
 import { memberRows } from "./members.ts";
 import { ScopeMap } from "./overview-map.tsx";
-import { CoverageLine, DeclaredUnused, FolderBlock, GroupRecordsBlocks } from "./overview-side.tsx";
+import {
+  CoverageLine,
+  DeclaredUnused,
+  FolderBlock,
+  GroupOutsideSummary,
+  GroupRecordsBlocks,
+} from "./overview-side.tsx";
 import { MemberTable, ScopeMatrix } from "./overview-tables.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, linkModel, scopeOf, type Scope } from "./scope.ts";
@@ -321,13 +327,15 @@ function OverviewPage({ scope }: { scope: Scope }) {
       <ScopeFacts scope={scope} data={data} status={status} />
       {!data.missing && (
         <>
-          {/* Members flow beneath the map independently of the side column. */}
+          {/* Group Members span both columns; All notes keeps its compact main column. */}
           <div className={`gv-ov gv-ov--workspace${scope.kind === "group" ? " gv-ov--group" : ""}`}>
             <div className="gv-ov-main">
               <MapBlock data={data} {...expansion} />
-              <div className="gv-ov-members">
-                <MembersBlock data={data} {...expansion} />
-              </div>
+              {scope.kind === "workspace" && (
+                <div className="gv-ov-members">
+                  <MembersBlock data={data} {...expansion} />
+                </div>
+              )}
             </div>
             <div className="gv-ov-side">
               {scope.kind === "workspace" ? (
@@ -338,10 +346,20 @@ function OverviewPage({ scope }: { scope: Scope }) {
               ) : (
                 <>
                   <DeclaredUnused model={data.model} reads={data.reads} />
-                  <GroupRecordsBlocks />
+                  <GroupOutsideSummary />
                 </>
               )}
             </div>
+            {scope.kind === "group" && (
+              <>
+                <div className="gv-ov-members">
+                  <MembersBlock data={data} {...expansion} />
+                </div>
+                <div className="gv-ov-below">
+                  <GroupRecordsBlocks />
+                </div>
+              </>
+            )}
           </div>
         </>
       )}

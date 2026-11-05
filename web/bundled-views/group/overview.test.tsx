@@ -180,10 +180,10 @@ it("lists relations declared between members that no record uses", async () => {
 
 it("lists the notes outside the group most connected first, then the guide and views", async () => {
   const { posted } = await renderGroupView(loadOverview, { routes: scopeRoutes(), embedded: true });
-  const outside = region("Outside the group");
+  const outside = region("Outside notes");
 
   expect(within(outside).getByText("4 notes")).toBeVisible();
-  expect(outside.querySelector(".gv-outsum")).toHaveTextContent("1 person3 untyped notes");
+  expect(region("Outside the group")).toHaveTextContent("1 person3 untyped notes");
   expect([...outside.querySelectorAll("li")].map((entry) => entry.textContent)).toEqual([
     "Ada LovelacePerson · people/2 linked records",
     "KickoffUntyped note · notes/2 linked records",

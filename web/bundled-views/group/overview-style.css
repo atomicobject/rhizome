@@ -134,26 +134,54 @@
   overflow-x: auto;
 }
 
+.gv-ov--group > .gv-ov-members,
+.gv-ov-below {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+}
 .gv-ov--group .gv-ov-table th,
 .gv-ov--group .gv-ov-table td {
-  white-space: normal;
+  white-space: nowrap;
   padding-inline: 6px;
 }
 .gv-ov--group .gv-ov-table th:first-child {
   padding-left: 20px;
 }
-.gv-ov--group .gv-ov-stage {
-  width: 132px;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.gv-ov--group .gv-ov-table .gv-num {
-  white-space: nowrap;
-}
-
 .gv-ov--group .gv-ov-table td {
   padding-block: 5px;
 }
+.gv-ov--group .gv-ov-table tbody tr {
+  height: 32px;
+}
+.gv-ov-below {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+  gap: 24px;
+  padding: 24px 20px 16px;
+}
+.gv-ov-below .rz-section {
+  margin-top: 0;
+  min-width: 0;
+}
+.gv-ov-below .rz-section-head {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.gv-ov-below .rz-more {
+  display: block;
+  margin-top: 8px;
+}
+.gv-ov-below .gv-overview-outside .gv-outsum,
+.gv-ov-below .gv-overview-outside .gv-quiet:has(button) {
+  display: none;
+}
+@media (max-width: 959px) {
+  .gv-ov-below {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .gv-ov:not(.gv-ov--group) .gv-legend-family:not(:has(.gv-legend-family-name)) {
   padding-left: 72px;
   box-sizing: border-box;

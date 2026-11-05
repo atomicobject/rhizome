@@ -278,9 +278,28 @@ test("group Overview maps member types, lists members and outside notes, and swi
   for (const name of ["Areas", "Releases", "Work items"])
     await expect(members.getByRole("button", { name, exact: true })).toBeVisible();
 
+  const layout = await members.evaluate((section) => {
+    const container = section.closest(".gv-ov--group")!;
+    const map = container.querySelector(".gv-ov-main")!;
+
+    return {
+      width: section.getBoundingClientRect().width,
+      containerWidth: container.getBoundingClientRect().width,
+      gap: section.getBoundingClientRect().top - map.getBoundingClientRect().bottom,
+      rows: [...section.querySelectorAll("tbody tr")].map(
+        (row) => row.getBoundingClientRect().height,
+      ),
+    };
+  });
+
+  expect(layout.width).toBe(layout.containerWidth);
+  expect(layout.gap).toBeLessThanOrEqual(40);
+
+  for (const height of layout.rows) expect(height).toBeLessThanOrEqual(36);
+
   // Ada is the typed owner of one work item and watches another from outside;
   // Lin is named only in a body link.
-  const outside = frame.getByRole("region", { name: "Outside the group" });
+  const outside = frame.getByRole("region", { name: "Outside notes" });
   await expect(outside).toContainText("Ada Example");
   await expect(outside).toContainText("Lin Example");
   await expect(outside.locator(".gv-changes")).toHaveCSS("max-height", "none");
