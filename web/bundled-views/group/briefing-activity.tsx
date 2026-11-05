@@ -62,7 +62,6 @@ export function MotionList({
                 lines[index].type.toLowerCase() === metadata.type.toLowerCase() &&
                 lines[index].folder === metadata.folder
               }
-              showType={lines.filter((line) => line.title === record.title).length > 1}
               repeatAge={
                 index > 0 &&
                 lines[index - 1].time !== null &&
@@ -120,7 +119,7 @@ export function StageHints({
 
   // Match the section heading's info mark while keeping the native disclosure.
   return (
-    <div className="gv-stage-note">
+    <span className="gv-stage-note">
       <details className="gv-hint">
         <summary className="rz-info" aria-label="Why some types are not listed">
           <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -157,7 +156,7 @@ export function StageHints({
           {unstatused.length > 0 && <p>Records without a lifecycle field cannot be in motion.</p>}
         </div>
       </details>
-    </div>
+    </span>
   );
 }
 
@@ -183,14 +182,12 @@ export function ChangeRow({
   children,
   mark,
   compact = false,
-  showType = false,
   repeatAge = false,
 }: {
   line: ChangeLine;
   children?: ReactNode;
   mark?: ReactNode;
   compact?: boolean;
-  showType?: boolean;
   repeatAge?: boolean;
 }) {
   return (
@@ -206,14 +203,13 @@ export function ChangeRow({
           >
             {line.title}
           </button>
-          {showType && <span className="gv-change-type">{line.type}</span>}
         </span>
         {!compact && (
           <span className="gv-change-meta">
-            {!showType && line.type}
+            {line.type}
             {line.folder && (
               <>
-                {!showType && " · "}
+                {" · "}
                 <span className="gv-path" title={`${line.folder}/`}>
                   {line.folder}/
                 </span>
@@ -327,8 +323,6 @@ export function RecentChanges({ model, info }: { model: GroupModel; info?: strin
     [model],
   );
 
-  const records = moments.flatMap((moment) => moment.records);
-
   return (
     <Block title="Recent changes" info={info ? { text: info, display: "title" } : undefined}>
       {moments.length === 0 && <p className="gv-quiet">No change times recorded.</p>}
@@ -341,7 +335,6 @@ export function RecentChanges({ model, info }: { model: GroupModel; info?: strin
               <ChangeRow
                 key={record.key}
                 line={recordLine(model, record)}
-                showType={records.filter((item) => item.title === record.title).length > 1}
                 repeatAge={index > 0 && ageKey(moments[index - 1].time) === ageKey(moment.time)}
               />
             ))

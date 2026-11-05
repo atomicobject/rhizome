@@ -123,7 +123,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 0;
 }
 .gv-change.gv-change-compact {
   height: 36px;
@@ -154,11 +154,6 @@
   height: 100%;
 }
 
-.gv-change-type {
-  color: var(--text-muted);
-  font-size: 13px;
-  white-space: nowrap;
-}
 .gv-change .gv-age-repeat {
   color: var(--text-faint);
 }
@@ -169,6 +164,12 @@
   margin-left: 8px;
 }
 .gv-stale-review summary {
+  display: inline-flex;
+  align-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  gap: 4px;
+  list-style: none;
   cursor: pointer;
   color: var(--text-muted);
 }
@@ -182,4 +183,11 @@
   background: var(--surface);
   border: 1px solid var(--border);
   font-weight: 400;
+}
+
+.gv-stale-review summary::-webkit-details-marker {
+  display: none;
+}
+.gv-stale-review[open] .rz-disclosure-icon {
+  transform: rotate(90deg);
 }

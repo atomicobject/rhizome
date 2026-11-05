@@ -5,6 +5,7 @@
 // Briefing's loader and blocks over a one-member model, in the same three
 // columns.
 import {
+  DisclosureIcon,
   HighlightProvider,
   StatusMark,
   openNote,
@@ -62,7 +63,10 @@ function InMotion({ model }: { model: GroupModel }) {
               (signal) =>
                 signal.kind === "stale" && (
                   <details className="gv-stale-review" key={signal.member}>
-                    <summary>{signal.records.length} unchanged</summary>
+                    <summary>
+                      <DisclosureIcon open={false} />
+                      {signal.records.length} unchanged
+                    </summary>
                     <div>
                       Active records unchanged for 30+ days. Review whether they still reflect
                       current work.

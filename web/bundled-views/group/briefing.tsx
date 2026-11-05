@@ -64,15 +64,19 @@ function InMotion({ model }: { model: GroupModel }) {
         text: "Records whose lifecycle value is in the active stage, newest change first.",
         display: "title",
       }}
-      controls={<span className="gv-motion-age-label">Last changed</span>}
+      controls={
+        <>
+          <StageHints
+            model={model}
+            withoutActiveStage={motion.withoutActiveStage}
+            withoutLifecycle={motion.withoutLifecycle}
+          />
+          <span className="gv-motion-age-label">Last changed</span>
+        </>
+      }
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
       <MotionList model={model} entries={entries} />
-      <StageHints
-        model={model}
-        withoutActiveStage={motion.withoutActiveStage}
-        withoutLifecycle={motion.withoutLifecycle}
-      />
     </Block>
   );
 }

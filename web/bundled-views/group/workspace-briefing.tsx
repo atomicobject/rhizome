@@ -311,9 +311,6 @@ function InMotion() {
                         label(entry.type, false).toLowerCase() === metadata.type.toLowerCase() &&
                         record.path.split("/").slice(0, -1).join("/") === metadata.folder
                       }
-                      showType={
-                        shown.filter((item) => item.record.title === record.title).length > 1
-                      }
                       repeatAge={
                         index > 0 &&
                         ageKey(shown[index - 1].record.updatedAt) === ageKey(record.updatedAt)
@@ -393,7 +390,6 @@ function RecentChanges() {
               {recent.data.map((note, index) => (
                 <ChangeRow
                   key={note.path}
-                  showType={recent.data.filter((item) => item.title === note.title).length > 1}
                   repeatAge={
                     index > 0 && ageKey(recent.data[index - 1].updatedAt) === ageKey(note.updatedAt)
                   }

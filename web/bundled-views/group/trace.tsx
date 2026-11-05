@@ -10,7 +10,7 @@ import {
   useViewPreference,
   type ViewModuleProps,
 } from "@rhizome/kit";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 
 import { isString } from "./api.ts";
 import { GroupFacts, GroupPage } from "./components.tsx";
@@ -143,22 +143,13 @@ function ColumnHead({
   );
 }
 
-function SpineHead({
-  model,
-  matrix,
-  children,
-}: {
-  model: GroupModel;
-  matrix: TraceMatrix;
-  children: ReactNode;
-}) {
+function SpineHead({ model, matrix }: { model: GroupModel; matrix: TraceMatrix }) {
   return (
     <th scope="col" className="gv-trace-spine">
       <div className="gv-head">
         <span className="gv-member">{memberLabel(model, matrix.spine, { plural: true })}</span>
         <span className="gv-num num">{matrix.spine.count}</span>
       </div>
-      {children}
       <span className="gv-cov">— No link</span>
     </th>
   );
@@ -253,12 +244,10 @@ function Matrix({
   model,
   matrix,
   defaultNote,
-  children,
 }: {
   model: GroupModel;
   matrix: TraceMatrix;
   defaultNote?: string;
-  children: ReactNode;
 }) {
   const open = matrix.bands.some((band) => !band.closed);
 
@@ -283,9 +272,7 @@ function Matrix({
           </colgroup>
           <thead>
             <tr>
-              <SpineHead model={model} matrix={matrix}>
-                {children}
-              </SpineHead>
+              <SpineHead model={model} matrix={matrix} />
               {shownColumns(matrix).map((column) => (
                 <ColumnHead key={column.id} model={model} matrix={matrix} column={column} />
               ))}
@@ -392,14 +379,15 @@ function TraceBody({ model }: { model: GroupModel }) {
   return (
     <div className="gv-trace-page" style={{ minWidth: matrixWidth(matrix) }}>
       <GroupFacts model={model} />
+      <div className="gv-toolbar">
+        <SpineSwitcher model={model} choices={choices} spine={spine} onChoose={choose} />
+      </div>
       <Matrix
         key={spine}
         model={model}
         matrix={matrix}
         defaultNote={defaultRowsNote(model, graph, choices)}
-      >
-        <SpineSwitcher model={model} choices={choices} spine={spine} onChoose={choose} />
-      </Matrix>
+      />
     </div>
   );
 }
