@@ -220,21 +220,69 @@ def formula(version, checksums):
     return "\n".join(lines)
 
 
+def desktop_cask(version, checksum):
+    return "\n".join((
+        'cask "rhizome-desktop" do',
+        f'  version "{version.removeprefix("v")}"',
+        f'  sha256 "{checksum}"',
+        '',
+        f'  url "https://github.com/{REPOSITORY}/releases/download/v#{{version}}/Rhizome-macos-arm64.dmg"',
+        '  name "Rhizome"',
+        '  desc "Open repositories in Rhizome"',
+        f'  homepage "https://github.com/{REPOSITORY}"',
+        '',
+        '  auto_updates true',
+        '  depends_on arch: :arm64',
+        '  depends_on macos: :monterey',
+        '',
+        '  app "Rhizome.app"',
+        '  binary "#{appdir}/Rhizome.app/Contents/MacOS/rzm"',
+        'end',
+        '',
+    ))
+
+
 def update_homebrew(commands, version, assets, *, before_update=None):
-    content = formula(version, {name: digest(assets / name) for name in BUNDLE_FILES})
-    endpoint = f"repos/{TAP}/contents/rhizome.rb"
-    current = commands.api(endpoint + "?ref=main", brew=True)
-    try:
-        existing = base64.b64decode(current["content"], validate=False).decode()
-        sha = current["sha"]
-    except (KeyError, TypeError, ValueError) as error:
-        raise PublishError("invalid Homebrew formula metadata") from error
-    if existing == content:
+    checksums = {name: digest(assets / name) for name in BUNDLE_FILES}
+    desired = {"rhizome.rb": formula(version, checksums),
+               "Casks/rhizome-desktop.rb": desktop_cask(version, checksums["Rhizome-macos-arm64.dmg"])}
+    tree = commands.api(f"repos/{TAP}/git/trees/main?recursive=1", brew=True)
+    if (not isinstance(tree, dict) or tree.get("truncated") is not False
+            or not isinstance(tree.get("tree"), list)
+            or any(not isinstance(item, dict) or not isinstance(item.get("path"), str) for item in tree["tree"])):
+        raise PublishError("invalid or incomplete Homebrew tap tree")
+    entries = {item["path"]: item for item in tree["tree"]}
+    if len(entries) != len(tree["tree"]):
+        raise PublishError("ambiguous Homebrew tap tree")
+    pending = []
+    for path, content in desired.items():
+        endpoint = f"repos/{TAP}/contents/{path}"
+        sha = None
+        if path in entries:
+            entry = entries[path]
+            if entry.get("type") != "blob" or entry.get("mode") != "100644":
+                raise PublishError("Homebrew recipe must be an ordinary file")
+            current = commands.api(endpoint + "?ref=main", brew=True)
+            try:
+                sha = current["sha"]
+                if not re.fullmatch(r"[0-9a-f]{40}", sha) or sha != entry.get("sha"):
+                    raise ValueError("recipe changed while reading tap")
+                existing = base64.b64decode("".join(current["content"].split()), validate=True).decode()
+            except (KeyError, TypeError, ValueError, AttributeError) as error:
+                raise PublishError("invalid or changed Homebrew recipe metadata") from error
+            if existing == content:
+                continue
+        pending.append((endpoint, content, sha))
+    if not pending:
         return
     if before_update:
         before_update()
-    commands.api(endpoint, method="PUT", brew=True, payload={"message": f"Update Rhizome to {version}",
-        "content": base64.b64encode(content.encode()).decode(), "sha": sha, "branch": "main"})
+    for endpoint, content, sha in pending:
+        payload = {"message": f"Update Rhizome to {version}",
+                   "content": base64.b64encode(content.encode()).decode(), "branch": "main"}
+        if sha is not None:
+            payload["sha"] = sha
+        commands.api(endpoint, method="PUT", brew=True, payload=payload)
 
 
 def publish(root, source, assets, receipt, *, environment=None, runner=subprocess.run,

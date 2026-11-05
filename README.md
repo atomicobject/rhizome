@@ -23,20 +23,31 @@ You'll need a coding agent such as Codex or Claude Code, plus Node.js on its PAT
 
 On a Mac with Apple silicon, install Rhizome Desktop. It includes `rzm` and keeps both up to date.
 
-1. Download [Rhizome-macos-arm64.dmg](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-macos-arm64.dmg), open it, and drag Rhizome to Applications.
-2. Open Rhizome. The app is not notarized yet, so the first time macOS may say it cannot verify it. Open System Settings > Privacy & Security, choose Open Anyway, and confirm.
-3. In Rhizome > Settings, choose Install Command-Line Tool. macOS asks for your password once. `rzm` then works in terminals and coding agents until you delete the app.
+```bash
+brew install --cask atomicobject/tap/rhizome-desktop
+open -a Rhizome
+```
+
+Homebrew installs the app and links its bundled `rzm` into your terminal PATH. The app's separate Install Command-Line Tool step is unnecessary for this installation.
+
+If you already use the CLI-only formula, switch before installing the cask:
+
+```bash
+brew uninstall --formula atomicobject/tap/rhizome
+brew install --cask atomicobject/tap/rhizome-desktop
+```
+
+Without Homebrew, download [Rhizome-macos-arm64.dmg](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-macos-arm64.dmg), open it, and drag Rhizome to Applications. Open the app, then choose Rhizome > Settings > Install Command-Line Tool. macOS asks for your password once. The link runs the app's `rzm` until you delete the app.
 
 Or ask your coding agent to [install it for you](#install-with-a-coding-agent).
 
-For the command-line tool only, use Homebrew:
+For Linux, Intel Macs, or a headless installation, the CLI-only formula remains available:
 
 ```bash
-brew tap atomicobject/homebrew-tap
-brew install rhizome
+brew install --formula atomicobject/tap/rhizome
 ```
 
-For Linux, Windows, Intel Macs, or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
+For Windows or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
 
 ### 2. Initialize your project
 
@@ -112,8 +123,12 @@ These steps are written for a coding agent on macOS with Apple silicon. Tell you
 
 Agent instructions:
 
+Prefer the desktop cask when Homebrew is available. If the CLI-only `rhizome` formula is installed, use the migration commands above. Install `atomicobject/tap/rhizome-desktop` with `--cask`, open the app, and verify `command -v rzm`, its symbolic link into `Rhizome.app`, and the app/CLI versions. Homebrew manages this CLI link; skip the app's manual CLI setup. Preserve unrelated executables and report any collision instead of forcing an overwrite.
+
+Use the following steps for a direct DMG installation when Homebrew is unavailable:
+
 1. Stop and tell the user if `uname -m` is not `arm64`; follow the [installation guide](docs/reference/guides/getting-started.md#install) instead. If `/Applications/Rhizome.app` already exists, skip to step 3: the app updates itself.
-2. Download the app, check it against the release checksums, and copy it into Applications. Files fetched with `curl` carry no quarantine flag, so macOS opens the app without a Gatekeeper prompt.
+2. Download the notarized app, check it against the release checksums, and copy it into Applications.
 
    ```bash
    set -euo pipefail

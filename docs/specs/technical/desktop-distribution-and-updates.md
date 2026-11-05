@@ -33,7 +33,6 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - Windows and Linux desktop builds, and an Intel (x86_64) macOS build. macOS 26 is the last release for Intel Macs; the CLI archives keep serving Intel and other platforms.
 - Sparkle. Tauri's first-party updater covers the same signed-feed model without embedding an Objective-C framework.
 - Delta updates, beta or nightly update channels, and staged rollouts.
-- A Homebrew cask for the app. The formula and `install-rzm.sh` remain the CLI-only paths.
 - Desktop artifacts in internal (private S3) releases. Normal public publication is owned by the approved release-PR CI flow; private/internal releases remain local and CLI-only.
 - A background agent that removes the PATH link when the app is deleted. The link stops working by construction; the app repairs or removes it when it runs.
 - Committing, pushing, or opening pull requests for pin changes, and rerunning `rzm init` to refresh generated files after a pin advance. Refreshing stays in the terminal per SPEC-0118.
@@ -124,6 +123,14 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder. The candidate archive's signature MUST verify against that public key before staging. The signed candidate MUST verify that the signing key matches the committed public key before mutating release refs or uploading assets.
 - Losing the updater private key strands installed apps. Its custody and backup MUST be documented in `docs/RELEASING.md`.
 
+### Homebrew distribution
+
+- Public CI MUST publish `Casks/rhizome-desktop.rb` in the existing Homebrew tap after verifying and publishing the release assets. Its version and SHA-256 MUST identify the same release's notarized DMG; no separate desktop build is required.
+- The cask MUST require Apple Silicon and the minimum macOS version declared by the app, install `Rhizome.app`, link its bundled `Contents/MacOS/rzm` through Homebrew, and declare the app's built-in updates.
+- The existing `rhizome` formula MUST remain the CLI-only option for Linux, Intel Macs and headless users. Installation guidance MUST prefer the desktop cask on supported Macs and explain switching from the formula without overwriting an existing executable.
+- Publication recovery MUST inspect both generated recipes. An absent cask MUST be created only after proving it is absent; API/authentication failures MUST NOT be treated as absence. A partial tap update MUST resume only outstanding recipe changes after the fresh gateway gate.
+- A cask installation MUST NOT require the app's separate command-line installation step. Direct DMG installations retain that step and its ownership safeguards.
+
 ### Updater
 
 - The app MUST use `tauri-plugin-updater` with the endpoint `https://github.com/atomicobject/rhizome/releases/latest/download/latest.json` and the release public key embedded at build time.
@@ -167,7 +174,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 
 ### Documentation
 
-- README: a human install section (DMG download, the macOS 15 Gatekeeper step through System Settings > Privacy & Security > Open Anyway, command-line tool) and an "Install with a coding agent" section, keeping Homebrew and the installer as the CLI-only routes.
+- README: a human install section for the desktop cask and notarized DMG fallback, plus an "Install with a coding agent" section. Prefer the cask on supported Macs, retain the formula and installer as explicit CLI-only routes, and distinguish Homebrew-managed CLI links from manual DMG setup.
 - SPEC-0113: remove "Publishing or signing a public release" from Non-Goals, and replace Global installation with the bundled executable and command-line link. SPEC-0033: add the app hand-off for the global target. Record a deviation or refreeze on any planned or active effort that froze them.
 - `desktop/README.md`, `docs/reference/guides/getting-started.md`, `docs/RELEASING.md` (desktop phase, credentials, key custody), and a `CHANGELOG.md` entry.
 
@@ -178,6 +185,8 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - Native verification MUST install a real release DMG on a clean account twice: once downloaded with `curl` and once through a browser, following the README's Gatekeeper step and confirming the linked `rzm` runs. It MUST then install the command-line tool, update from the previous release through the updater, advance a fixture repository's pin, and delete the app and confirm `rzm` no longer runs it. The first public release cannot update from an earlier one; that check runs on the second.
 
 ## Decisions
+
+- 2026-11-05: Add a desktop Homebrew cask using the existing notarized DMG and bundled CLI. Retain the CLI-only formula for other platforms and headless use.
 
 - 2026-11-05, Drew Colthorp: require notarization for public desktop builds; support protected CI recovery and non-publishing candidates using the shared desktop build. Normal publication ownership remains local.
 
