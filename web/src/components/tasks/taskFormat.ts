@@ -42,6 +42,12 @@ export function formatAgo(value: string | undefined, now = Date.now()): string {
   return delta < 60_000 ? "just now" : `${span(delta)} ago`;
 }
 
+export function formatRunAge(value: string, now = Date.now()): string {
+  const days = (now - new Date(value).getTime()) / 86_400_000;
+
+  return days >= 1 ? `${Math.round(days)}d ago` : formatAgo(value, now);
+}
+
 /** "3h ago" or "in 3 hours". */
 export function formatRelative(value: string | undefined, now = Date.now()): string {
   if (!value) return "";

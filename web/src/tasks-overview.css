@@ -42,8 +42,14 @@
 
 .task-table :is(th, td):first-child {
   box-sizing: border-box;
-  width: clamp(320px, 36cqw, 480px);
+  width: clamp(280px, 32cqw, 440px);
   padding-left: var(--gutter);
+}
+
+.task-table :is(th, td):nth-child(2) {
+  box-sizing: border-box;
+  width: 176px;
+  padding-right: 16px;
 }
 
 .task-table :is(th, td):last-child {

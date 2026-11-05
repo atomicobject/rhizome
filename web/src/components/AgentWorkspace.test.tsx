@@ -1,90 +1,17 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  AgentEvent,
-  AgentHarnessCapabilities,
-  AgentHarnessStatus,
-  AgentSession,
-  AgentSettingsResponse,
-} from "../api/types";
+import type { AgentEvent, AgentSettingsResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
-import { deferredReply, jsonReply, type FakeFetch, withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AgentWorkspace } from "./AgentWorkspace";
-
-const capabilities: AgentHarnessCapabilities = {
-  supportsAllowedTools: true,
-  supportsAllowForSession: true,
-  permissionModes: ["approval-required", "auto-accept-edits"],
-};
-
-const readyStatus: AgentHarnessStatus = {
-  installed: true,
-  loggedIn: true,
-  version: "1.2.3",
-  account: "drew@example.com",
-  models: [
-    {
-      id: "gpt-standard",
-      displayName: "GPT Standard",
-      efforts: ["medium", "high"],
-      default: true,
-    },
-    { id: "gpt-fast", displayName: "GPT Fast", efforts: ["low"] },
-  ],
-  capabilities: { ...capabilities, permissionModes: [...capabilities.permissionModes] },
-};
-
-function settingsWith(status: AgentHarnessStatus): AgentSettingsResponse {
-  return {
-    settings: {
-      harness: "codex",
-      harnesses: {
-        codex: {
-          model: "gpt-standard",
-          effort: "medium",
-          permissionMode: "approval-required",
-        },
-        claude: { permissionMode: "approval-required" },
-      },
-    },
-    resolved: { harness: "codex", reason: "configured" },
-    harnesses: [{ kind: "codex", status }],
-  };
-}
-
-function session(overrides: Partial<AgentSession> = {}): AgentSession {
-  return {
-    id: "agt-1",
-    title: "Harness chat",
-    harness: "codex",
-    createdAt: "2026-09-12T12:00:00Z",
-    updatedAt: "2026-09-12T12:00:00Z",
-    ...overrides,
-  };
-}
-
-function setup(
-  http: FakeFetch,
-  options: {
-    status?: AgentHarnessStatus;
-    current?: AgentSession;
-    events?: AgentEvent[];
-  } = {},
-) {
-  const current = options.current;
-  http
-    .json("GET", "/api/agent/settings", settingsWith(options.status ?? readyStatus))
-    .json("GET", "/api/agent/sessions", { sessions: current ? [current] : [] });
-
-  if (current) {
-    http.json("GET", `/api/agent/sessions/${current.id}`, {
-      session: current,
-      messages: [],
-      events: options.events ?? [],
-    });
-  }
-}
+import {
+  capabilities,
+  readyStatus,
+  settingsWith,
+  session,
+  setup,
+} from "./AgentWorkspace.test-support";
 
 describe("AgentWorkspace", () => {
   const http = withFakeFetch();
@@ -142,79 +69,6 @@ describe("AgentWorkspace", () => {
       });
     },
   );
-
-  it.each<[string, AgentHarnessStatus, string]>([
-    [
-      "not installed",
-      {
-        installed: false,
-        loggedIn: false,
-        lastError: "exec: codex: executable file not found",
-        capabilities,
-      },
-      "Install the Codex CLI to use chat.",
-    ],
-    [
-      "not logged in",
-      {
-        installed: true,
-        loggedIn: false,
-        loginHint: "codex login --device-auth",
-        capabilities,
-      },
-      "Login required",
-    ],
-    [
-      "probe error before login",
-      {
-        installed: true,
-        loggedIn: false,
-        version: "0.149.0",
-        lastError: "codex 0.149.0 is older than minimum 0.150.0",
-        loginHint: "codex login",
-        capabilities,
-      },
-      "codex 0.149.0 is older than minimum 0.150.0",
-    ],
-    ["ready", readyStatus, "Codex · Ready"],
-    [
-      "degraded",
-      {
-        ...readyStatus,
-        lastError: "status probe timed out",
-      },
-      "status probe timed out",
-    ],
-  ])("renders the %s harness state", async (_name, status, expected) => {
-    setup(http, { status });
-    render(<AgentWorkspace />);
-
-    const heading = await screen.findByRole("heading", { name: "Rhizome agent" });
-    await waitFor(() => expect(heading.closest("header")).toHaveTextContent(expected));
-
-    // The version and account sit behind Details, not on the state line.
-    if (status.account) {
-      expect(screen.getByText(status.account)).not.toBeVisible();
-      expect(screen.getByText("Details")).toBeVisible();
-    }
-
-    expect(screen.getAllByText("Codex").length).toBeGreaterThan(0);
-
-    if (status.loginHint && !status.lastError) {
-      const command = screen.getByText(status.loginHint);
-      expect(command).toBeVisible();
-      expect(command.tagName).toBe("CODE");
-      expect(screen.getByRole("button", { name: "Copy" })).toBeVisible();
-    }
-
-    if (!status.installed && status.lastError) {
-      expect(screen.getByText(status.lastError)).toBeVisible();
-    }
-
-    if (status.installed && status.lastError && status.loginHint) {
-      expect(screen.queryByText(status.loginHint)).not.toBeInTheDocument();
-    }
-  });
 
   it("shows the resolution reason when no harness is configured", async () => {
     const response = settingsWith(readyStatus);

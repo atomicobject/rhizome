@@ -380,6 +380,16 @@ export function AgentWorkspace({
     settingsResponse.resolved.harness;
 
   const status = settingsResponse.harnesses.find((item) => item.kind === harness)?.status;
+
+  const modelID =
+    selectedSession?.model || (harness && settingsResponse.settings.harnesses[harness].model);
+
+  const models = status?.models ?? [];
+
+  const model = modelID
+    ? models.find((option) => option.id === modelID)?.displayName || modelID
+    : (models.find((option) => option.default) ?? models[0])?.displayName;
+
   const busy = isSending || Boolean(selectedSession?.turnRunning);
 
   // Until settings load, the harness is unknown rather than missing.
@@ -435,6 +445,7 @@ export function AgentWorkspace({
           status={status}
           resolutionReason={settingsResponse.resolved.reason}
           messageCount={messages.length}
+          model={model}
         />
         {selectedSession?.readOnly ? (
           <p className="agent-error" role="status">

@@ -8,6 +8,17 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
+  await page.getByLabel("Model", { exact: true }).selectOption({ index: 0 });
+
+  const model = await page
+    .getByLabel("Model", { exact: true })
+    .locator("option:checked")
+    .textContent();
+
+  await expect(page.locator(".agent-thread__head .view-header__about")).toContainText(
+    model?.replace(" (default)", "") || "",
+  );
+
   const settings = page.getByLabel("Settings: Tool approval: ask first", { exact: true });
   await expect(settings).toContainText("Settings");
   await expect(settings).toHaveCSS("height", "28px");

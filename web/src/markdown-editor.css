@@ -18,6 +18,13 @@
   position: relative;
 }
 
+.notes-shell :is(.body-section__title, .body-disclosure__heading) > .note-property-pencil {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 /* The lead metadata line keeps its quiet read-mode type while editing. */
 .body-narrative--meta .markdown-editor--atomic {
   --atomic-editor-body-size: var(--fs-sm);
