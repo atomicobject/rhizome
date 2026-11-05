@@ -153,6 +153,13 @@ test("searches from shared chrome in a full-width page", async ({ page }, testIn
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
     .toBe(0);
+  const column = await page.locator(".search-workspace__header").boundingBox();
+  const results = await page.locator(".search-workspace__results").boundingBox();
+  expect(column?.width).toBe(960);
+  expect(results?.x).toBe(column?.x);
+  expect(results?.width).toBe(column?.width);
+  const workspace = await page.locator(".search-workspace").boundingBox();
+  expect(column!.x - workspace!.x).toBeCloseTo((workspace!.width - 960) / 2, 0);
   await page.screenshot({ path: testInfo.outputPath("search-workspace-1280.png") });
 
   const filteredRequestPromise = page.waitForRequest(
