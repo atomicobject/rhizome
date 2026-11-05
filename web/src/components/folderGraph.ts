@@ -299,7 +299,7 @@ export function visibleFolderGraph(
 
     if (duplicates.length > 1 && node.path) {
       const parent = node.path.split("/").slice(0, -1).join("/");
-      node.labelDetail = `${parent}/  ${node.labelDetail || ""}`;
+      node.labelDetail = `${parent || "Vault"}/  ${node.labelDetail || ""}`;
     }
   }
 
