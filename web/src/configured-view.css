@@ -2692,7 +2692,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 /* A category value is a label, not a lifecycle state, so it carries no status mark. */
-.configured-view__table .is-category .status-mark__shape {
+.configured-view__table .is-category .status-mark > svg {
   display: none;
 }
 
