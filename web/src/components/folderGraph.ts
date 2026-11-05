@@ -124,7 +124,7 @@ export function visibleFolderChildren(
   const kept = state.showAll.has(folder.path)
     ? [...folders, ...files]
     : folder.path === ""
-      ? [...folders, ...files.slice(0, 8)]
+      ? [...folders]
       : candidates.slice(0, allCount > budget ? budget - 1 : budget);
 
   const keptIds = new Set(kept.map((c) => c.node.id));
@@ -134,12 +134,18 @@ export function visibleFolderChildren(
     const totals = sumTotals(hidden.map((c) => c.totals));
     const hiddenFolders = hidden.filter((c) => c.folder).length;
 
+    const hiddenNotes = hidden.filter((c) => !c.folder && c.node.kind === "note").length;
+    const hiddenFiles = hidden.length - hiddenFolders - hiddenNotes;
+    const noun = (n: number, word: string) => `${n} more ${word}${n === 1 ? "" : "s"}`;
+
     const label =
-      hiddenFolders === hidden.length
-        ? `${hidden.length} more folders`
-        : hiddenFolders
-          ? `${hidden.length} more items`
-          : `${hidden.length} more files`;
+      [
+        hiddenFolders ? noun(hiddenFolders, "folder") : "",
+        hiddenNotes ? noun(hiddenNotes, "note") : "",
+        hiddenFiles ? noun(hiddenFiles, "file") : "",
+      ]
+        .filter(Boolean)
+        .join(" · ") + ` in ${folder.path || "root"}`;
 
     kept.push({
       node: {
@@ -211,6 +217,29 @@ export function visibleFolderGraph(
       edge.weight = (edge.weight ?? 0) + count;
       edge.relationLabel = `${edge.weight.toLocaleString("en-US")} ${kind === "folder-crosslink" ? "note–code links" : "other links"}`;
       aggregated.set(key, edge);
+    }
+  }
+
+  const names = new Map(nodes.map((node) => [node.id, node.label.toLowerCase()]));
+
+  for (const node of nodes) {
+    const duplicates = nodes.filter((other) => names.get(other.id) === names.get(node.id));
+
+    if (duplicates.length > 1 && node.path) {
+      const parts = node.path.split("/");
+      let depth = 2;
+
+      while (
+        depth < parts.length &&
+        duplicates.some(
+          (other) =>
+            other.id !== node.id &&
+            (other.path || "").split("/").slice(-depth).join("/").toLowerCase() ===
+              parts.slice(-depth).join("/").toLowerCase(),
+        )
+      )
+        depth++;
+      node.label = parts.slice(-depth).join("/");
     }
   }
 

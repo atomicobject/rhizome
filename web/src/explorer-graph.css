@@ -376,3 +376,19 @@
   font-size: 13px;
   font-weight: 500;
 }
+
+.explorer-focus .graph-type-legend__size {
+  border-radius: 3px;
+}
+.explorer-focus .graph-edge-legend__line--folder-containment {
+  border-top: 1.5px solid var(--type-8);
+}
+.explorer-focus .graph-edge-legend__line--explorer-documents {
+  border-top: 1.5px solid var(--explorer-link-strong);
+}
+.explorer-focus .graph-edge-legend__line--explorer-code {
+  border-top: 1px solid var(--type-8);
+}
+.explorer-focus .graph-edge-legend__line--explorer-tests {
+  border-top: 1.5px dashed var(--explorer-code);
+}

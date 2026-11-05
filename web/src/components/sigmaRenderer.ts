@@ -1,3 +1,5 @@
+import { drawTestEdges } from "./explorerGraph";
+import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import { createNodeImageProgram } from "@sigma/node-image";
 import Graph from "graphology";
 import Sigma from "sigma";
@@ -13,7 +15,6 @@ import {
   type GraphColors,
   type ReducerState,
   type SigmaEdgeAttrs,
-  type SigmaNodeAttrs,
 } from "../lib/graphStyle";
 import { resolveCssColor } from "../lib/themeColors";
 import { CAMERA, type HoverInfo } from "./graphViewShared";
@@ -209,6 +210,7 @@ export function mountSigmaRenderer({
     context.save();
     context.scale(outlines.width / width, outlines.height / height);
     context.clearRect(0, 0, width, height);
+    drawTestEdges(sigma, context, resolveCssColor("var(--explorer-code)"));
     context.strokeStyle = (colorsRef.current ?? readThemeColors()).label;
     context.lineWidth = 1.5;
     sigma.getGraph().forEachNode((id, attrs) => {
@@ -216,12 +218,20 @@ export function mountSigmaRenderer({
 
       if (!node || node.hidden) return;
       const point = sigma.framedGraphToViewport(node);
+      const palette = colorsRef.current ?? readThemeColors();
+      context.globalAlpha = attrs.muted ? 0.4 : 1;
       context.strokeStyle = attrs.aggregate
         ? attrs.baseColor
         : (colorsRef.current ?? readThemeColors()).label;
 
       context.beginPath();
-      context.arc(point.x, point.y, sigma.scaleSize(node.size), 0, 2 * Math.PI);
+      const r = sigma.scaleSize(node.size);
+
+      if (attrs.explorerLabels && attrs.kind === "module") {
+        context.roundRect(point.x - r, point.y - r, r * 2, r * 2, Math.min(4, r / 3));
+        context.fillStyle = node.color;
+        context.fill();
+      } else context.arc(point.x, point.y, r, 0, 2 * Math.PI);
 
       if (attrs.aggregate) {
         context.fillStyle = (colorsRef.current ?? readThemeColors()).canvas;
@@ -229,6 +239,18 @@ export function mountSigmaRenderer({
       }
 
       context.stroke();
+
+      if (attrs.selected) {
+        context.beginPath();
+        context.strokeStyle = palette.label;
+        context.lineWidth = 2;
+
+        if (attrs.kind === "module")
+          context.roundRect(point.x - r - 4, point.y - r - 4, 2 * r + 8, 2 * r + 8, 5);
+        else context.arc(point.x, point.y, r + 4, 0, 2 * Math.PI);
+        context.stroke();
+        context.lineWidth = 1.5;
+      }
     });
     context.restore();
   });
@@ -251,7 +273,9 @@ export function mountSigmaRenderer({
       type: result.type,
       image: result.image,
       size: result.size,
-      color: result.color,
+      color: attrs.muted
+        ? mixColors(result.color, (colorsRef.current ?? readThemeColors()).canvas, 0.6)
+        : result.color,
       label: result.label,
       forceLabel: Boolean(attrs.landmark && result.label),
     };

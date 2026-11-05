@@ -1,3 +1,4 @@
+import type { ExplorerNodeAttrs } from "./explorerGraph";
 import type { EdgeReducerInput, EdgeReducerOutput } from "../lib/graphStyle";
 import {
   colorWithPremultipliedAlpha,
@@ -7,24 +8,48 @@ import {
 } from "../lib/graphStyle";
 import { resolveCssColor } from "../lib/themeColors";
 
-export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
+export function computeEdgeStyle(
+  input: EdgeReducerInput & { sourceAttrs: ExplorerNodeAttrs; targetAttrs: ExplorerNodeAttrs },
+): EdgeReducerOutput {
   const { source, target, attrs, sourceAttrs, targetAttrs, state, lod } = input;
 
-  if (
-    attrs.kind === "folder-crosslink" ||
-    (sourceAttrs.explorerLabels && (attrs.kind === "mentions" || attrs.kind === "coderef"))
-  ) {
-    const focused = state.hoverNodeID === source || state.hoverNodeID === target;
+  const touchesSelection = Boolean(sourceAttrs.selected || targetAttrs.selected);
+  const touchesBranch = Boolean(sourceAttrs.branch || targetAttrs.branch);
+  const hovered = state.hoverNodeID === source || state.hoverNodeID === target;
+
+  if (attrs.kind === "folder-containment")
+    return {
+      hidden: false,
+      color: resolveCssColor("var(--type-8)"),
+      size: touchesSelection ? 2.25 : 1.5,
+      label: "",
+    };
+
+  if (attrs.kind === "folder-crosslink" || attrs.kind === "explorer-documents") {
+    const focused = touchesBranch || hovered || attrs.kind === "explorer-documents";
 
     return {
       hidden: false,
       color: focused
         ? resolveCssColor("var(--explorer-link-strong)")
-        : colorWithPremultipliedAlpha(resolveCssColor("var(--explorer-link)"), 0.28),
-      size: Math.min(2.5, 0.6 + Math.sqrt(attrs.weight) * 0.16) + (focused ? 0.5 : 0),
-      label: focused && state.showEdgeLabels ? attrs.label : "",
+        : colorWithPremultipliedAlpha(resolveCssColor("var(--explorer-link)"), 0.18),
+      size: focused ? Math.min(3, 1 + Math.sqrt(attrs.weight) * 0.16) : 0.65,
+      label:
+        focused && state.showEdgeLabels && attrs.kind === "folder-crosslink"
+          ? String(attrs.weight)
+          : "",
     };
   }
+
+  if (attrs.kind === "explorer-tests" || attrs.kind === "explorer-code")
+    return {
+      hidden: attrs.kind === "explorer-tests",
+      color: resolveCssColor(
+        attrs.kind === "explorer-tests" ? "var(--explorer-code)" : "var(--type-8)",
+      ),
+      size: attrs.kind === "explorer-tests" ? 2 : 1,
+      label: "",
+    };
 
   const hasTypeHighlighting = state.highlightTypes.size > 0;
 

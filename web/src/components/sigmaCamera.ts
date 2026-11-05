@@ -1,15 +1,37 @@
+import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import type Sigma from "sigma";
 import { outwardSpots } from "./sigmaLabels";
 import { CAMERA } from "./graphViewShared";
-import type { SigmaNodeAttrs, SigmaEdgeAttrs } from "../lib/graphStyle";
+import type { SigmaEdgeAttrs } from "../lib/graphStyle";
 
 /** Fit visible positions in the fixed coordinate frame, reserving room for labels. */
 export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, instant: boolean) {
+  const selected = sigma
+    .getGraph()
+    .findNode((_id, attrs) => Boolean(attrs.selected && attrs.kind === "module"));
+
+  const selectedPath = selected
+    ? sigma.getGraph().getNodeAttribute(selected, "path") || undefined
+    : undefined;
+
+  const included = (id: string) => {
+    const attrs = sigma.getGraph().getNodeAttributes(id);
+    const path = attrs.path || "";
+
+    return (
+      selectedPath === undefined ||
+      !path ||
+      path === selectedPath ||
+      selectedPath.startsWith(`${path}/`) ||
+      path.split("/").slice(0, -1).join("/") === selectedPath
+    );
+  };
+
   const points: { x: number; y: number }[] = [];
   sigma.getGraph().forEachNode((id) => {
     const node = sigma.getNodeDisplayData(id);
 
-    if (node && !node.hidden) points.push(node);
+    if (node && !node.hidden && included(id)) points.push(node);
   });
 
   if (!points.length) return;
@@ -55,7 +77,7 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
       sigma.getGraph().forEachNode((id, attrs) => {
         const node = sigma.getNodeDisplayData(id);
 
-        if (!node || node.hidden) return;
+        if (!node || node.hidden || !included(id)) return;
         const point = sigma.framedGraphToViewport(node, { cameraState: state });
 
         const parent = sigma.getNodeDisplayData(
@@ -71,8 +93,14 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
           sigma.scaleSize(node.size),
           context.measureText(text).width,
           14,
-          id === "folder:" ? 0 : point.x - origin.x,
-          id === "folder:" ? 1 : point.y - origin.y,
+          attrs.kind !== "module"
+            ? attrs.kind === "note" || attrs.kind === "embedded"
+              ? -1
+              : 1
+            : id === "folder:"
+              ? 0
+              : point.x - origin.x,
+          attrs.kind !== "module" ? 0 : id === "folder:" ? 1 : point.y - origin.y,
         )[0];
 
         boxes.push(spot.box);
