@@ -162,7 +162,7 @@ export function FilePanel({
                       <FileText size={16} strokeWidth={1.5} absoluteStrokeWidth />
                     </span>
                     <span className="explorer-pane__link-text">
-                      <span className="explorer-pane__list-name">{note.label}</span>
+                      <span className="explorer-pane__list-name link-title">{note.label}</span>
                       <span className="explorer-pane__link-path">
                         {note.path.length > 54
                           ? `${note.path.slice(0, 24)}…${note.path.slice(-29)}`
