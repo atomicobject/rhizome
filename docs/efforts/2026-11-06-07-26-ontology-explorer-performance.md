@@ -122,7 +122,7 @@ Greptile reviewed implementation commit `bc6f5782237d956887561fe8a10e6a1aea5c6f0
 - [x] Implementation and measurements complete.
 - [x] Final local tests and documentation validation pass. CI on the PR remains the merge-readiness gate.
 - [x] Independent reviews cover the final behavior diff and Greptile reports 5/5 with no unresolved findings.
-- [x] Full implementation diff reviewed; delivery commit is `bc6f5782237d956887561fe8a10e6a1aea5c6f0c`. PR publication and final CI verification follow this closure commit; no merge is authorized.
+- [x] Full implementation diff reviewed; delivery commit is `bc6f5782237d956887561fe8a10e6a1aea5c6f0c`. Delivered in [PR #103](https://github.com/atomicobject/rhizome/pull/103), which remains open and unmerged with auto-merge disabled. Final CI verification is the handoff gate; no merge is authorized.
 
 ## Compounding Follow-ups
 
@@ -132,4 +132,4 @@ None recorded.
 
 ## Status
 
-Complete. Implementation, performance evidence, local full verification and independent reviews are complete. This closure ships with the reviewed implementation. The PR will remain open and unmerged; final CI and PR state are checked before handoff.
+Complete. Implementation, performance evidence, local full verification and independent reviews are complete. This closure ships with the reviewed implementation. [PR #103](https://github.com/atomicobject/rhizome/pull/103) remains open and unmerged; final CI and PR state are checked before handoff.
