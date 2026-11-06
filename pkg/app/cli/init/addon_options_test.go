@@ -80,7 +80,7 @@ func TestFirstRunSettingsTurnOnAnOptionalAddonAndItsHooks(t *testing.T) {
 	// Compounding, Enter turns hooks on, Enter twice leaves, Enter sets up.
 	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\ne\n5\n"+n+"\n\n\n\n\n")
 
-	require.Contains(t, out, "Optional add-ons: Compounding. Press e, then Add-ons, to turn one on.")
+	require.Contains(t, out, "Optional add-ons: AO KB knowledge and Compounding. Press e, then Add-ons, to turn one on.")
 	require.Contains(t, out, "[ ] Compounding")
 	require.Contains(t, out, "Compounding uses agent hooks, which are off.")
 	require.Contains(t, out, "Add-ons   Action items and Compounding")

@@ -1,0 +1,17 @@
+id: ao-kb
+name: AO KB knowledge
+description: "Browse, query, and trace an existing AO KB's sources, assertions, concepts, artifacts, and conflict registry, read-only, while AO KB keeps authoring them"
+requires:
+  - core
+optionalAddon: true
+# TODO(SPEC-0133 lane B): declare the AO-owned source paths (assertions/, sources/,
+# concepts/, artifacts/, .kb/curation/_conflicts.md) through the read-only source
+# ownership mechanism once it lands. Until then these records are not protected from
+# Rhizome writes; the setup skill and check action report ownership as pending.
+installedAssetTypes:
+  - ontology
+  - query-recipes
+  - views
+  - actions
+  - skills
+  - managed-docs
