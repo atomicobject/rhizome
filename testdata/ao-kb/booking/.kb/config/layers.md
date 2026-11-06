@@ -2,9 +2,12 @@
 type: config
 slug: layers
 ---
-# Layers
+# Booking knowledge layers
 
-| Layer | Description | Synonyms |
-| --- | --- | --- |
-| definition | Product decisions | rules |
-| design | Interface and behavior | experience |
+## definition
+**Description**: Product intent and clinic booking decisions.
+**Synonyms**: rules, product definition
+
+## design
+**Description**: Interface behavior and interaction details.
+**Synonyms**: experience, interaction

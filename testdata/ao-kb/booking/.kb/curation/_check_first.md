@@ -22,7 +22,7 @@ abstract one; a bare count means the vault has no layer config.
 
 _Soft claims selected by bands from kb-weights.json._
 
-1. **conflict** [[same-day-cancellation-fee]] ↔ [[same-day-cancellation-free]] — dependents 4 — open conflict, blocking: tied on authority and date; needs a tiebreak
-2. **artifact** [[booking-prd]] — dependents 1 — graphSyncedAt 2026-10-21T10:00:00Z is older than [[same-day-cancellation-free]] updatedAt 2026-11-03T09:00:00Z
-3. **artifact** [[booking-service-outline]] — dependents 1 — graphSyncedAt 2026-10-25T10:00:00Z is older than [[same-day-cancellation-free]] updatedAt 2026-11-03T09:00:00Z
-4. **artifact** [[reception-runbook]] — dependents 1 — graphSyncedAt 2026-10-22T10:00:00Z is older than [[same-day-cancellation-free]] updatedAt 2026-11-03T09:00:00Z
+1. **conflict** [[same-day-cancellation-fee]] ↔ [[same-day-cancellation-free]] — dependents 4 (↓0 ↑0) — open conflict, blocking: tied on authority and date; needs a tiebreak
+2. **artifact** [[booking-prd]] — dependents 1 (↓0 ↑0) — graphSyncedAt 2026-10-21T10:00:00Z is older than [[same-day-cancellation-free]] updatedAt 2026-11-03T09:00:00Z
+3. **artifact** [[booking-service-outline]] — dependents 1 (↓0 ↑0) — graphSyncedAt 2026-10-25T10:00:00Z is older than [[same-day-cancellation-free]] updatedAt 2026-11-03T09:00:00Z
+4. **artifact** [[reception-runbook]] — dependents 1 (↓0 ↑0) — graphSyncedAt 2026-10-22T10:00:00Z is older than [[same-day-cancellation-free]] updatedAt 2026-11-03T09:00:00Z

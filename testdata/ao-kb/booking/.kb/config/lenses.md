@@ -2,9 +2,10 @@
 type: config
 slug: lenses
 ---
-# Lenses
+# Booking lenses
 
-| Lens | Description |
-| --- | --- |
-| patient | Patient needs |
-| operations | Clinic operations |
+## patient
+**Description**: Patient needs and booking experience.
+
+## operations
+**Description**: Clinic operations and reception policies.

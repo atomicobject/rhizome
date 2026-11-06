@@ -1,7 +1,8 @@
 # Knowledge convention adapter for AO KB schemaVersion 8, toolkit e9dce951.
 # TODO(SPEC-0133 lane B): @policy is advisory, not source-ownership enforcement.
 # TODO(SPEC-0133 lane D): provenance.source/locator/speaker/speaker_role/quote_hash/
-# extracted_by remain available in the built-in frontmatter JSON.
+# extracted_by remain in source content. Indexed frontmatter currently drops objects;
+# a coherent durable raw-metadata read is a named platform deficiency.
 # Deficiencies: flat section-scoped/ordered links and frontmatter connection-shape
 # adaptation are unavailable. The explicit section nodes below preserve authored data.
 
@@ -65,7 +66,7 @@ type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @displa
   supportsRows: [String!] @field(source: "supports_rows") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
   """Ordered citation rows from ## Sources only. Repeated links remain separate rows; incidental links elsewhere are excluded. TODO: flat sources: [Source!] needs ordered section-link support."""
   sourcesSection: AssertionSources @contains(level: H2, heading: "Sources") @policy(reason: "AO KB owns this authored structure. TODO(SPEC-0133 lane B): write admission.")
-  """AO typed bullets in ## Connections. Read content for unknown declarations; frontmatter.connections is retained separately in frontmatter JSON."""
+  """AO typed bullets in ## Connections. Read content for unknown declarations; frontmatter connections remain inspectable in the full source content."""
   connectionsSection: AssertionConnections @contains(level: H2, heading: "Connections") @policy(reason: "AO KB owns this authored structure. TODO(SPEC-0133 lane B): write admission.")
   """Every outgoing assertion link to a concept, without inventing a primary concept."""
   concepts: [Concept!] @neighbors(direction: OUTBOUND, type: "Concept")
