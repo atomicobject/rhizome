@@ -19,7 +19,7 @@ from urllib.request import HTTPSHandler, Request, build_opener
 from desktop_candidates import TARGETS
 from release_advertise import (API, DOWNLOAD, AdvertisementError, ApiError, GitHub, SafeRedirect,
                                advertisement_environment, advertisement_resume_available, advertise,
-                               expected_outputs, resume_advertisement)
+                               expected_bundle, resume_advertisement)
 from verify_desktop_signing import DesktopSigningError
 
 COMMIT = "a" * 40
@@ -135,9 +135,8 @@ class AdvertisementTest(unittest.TestCase):
         config = self.root / "desktop/src-tauri/tauri.conf.json"
         config.parent.mkdir(parents=True)
         config.write_text(json.dumps({"plugins": {"updater": {"pubkey": KEY}}}))
-        self.dist, self.desktop = self.root / "dist", self.root / "extras"
-        self.dist.mkdir()
-        self.desktop.mkdir()
+        self.bundle = self.root / "bundle"
+        self.bundle.mkdir()
         self.files = {"latest.json": feed(VERSION), "Rhizome-macos-arm64.dmg": b"dmg"}
         packages = {}
         for target, info in TARGETS.items():
@@ -145,26 +144,20 @@ class AdvertisementTest(unittest.TestCase):
             self.files[info["asset"]] = value
             self.files[info["asset"] + ".sig"] = b"synthetic-signature"
             packages[target] = {"file": info["asset"], "sha256": digest(value), "size": len(value)}
-        assembly = {"schemaVersion": 1, "production": True, "version": VERSION, "sourceCommit": COMMIT,
+        assembly = {"schemaVersion": 1, "production": True, "candidateOnly": False, "version": VERSION, "sourceCommit": COMMIT,
                     "publicKeySha256": digest(KEY.encode()), "packages": packages}
         self.files["desktop-assembly.json"] = json.dumps(assembly).encode()
-        for name, value in self.files.items():
-            (self.desktop / name).write_bytes(value)
         for target in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64"):
-            name = f"rhizome-{target}.tar.gz"
-            self.files[name] = ("canonical-cli:" + target).encode()
-            (self.dist / name).write_bytes(self.files[name])
-        checksums = "".join(f"{digest(value)}  {name}\n" for name, value in sorted(self.files.items())).encode()
-        self.files["checksums.txt"] = checksums
-        (self.dist / "checksums.txt").write_bytes(checksums)
-        for name, value in {"install-rzm.sh": b"synthetic-installer",
-                            "install-rzm.sh.sha256": b"synthetic-installer-checksum"}.items():
-            self.files[name] = value
-            (self.desktop / name).write_bytes(value)
-        (self.dist / "metadata.json").write_text(json.dumps({"tag": "v" + VERSION, "version": VERSION, "commit": COMMIT}))
-        (self.dist / "homebrew").mkdir()
-        (self.dist / "homebrew/rhizome.rb").write_text(f'class Rhizome < Formula\n  version "{VERSION}"\nend\n')
-        self.expected = expected_outputs(self.root, self.dist, self.desktop, version=VERSION, commit=COMMIT)
+            self.files[f"rhizome-{target}.tar.gz"] = ("canonical-cli:" + target).encode()
+        self.files.update({"install-rzm.sh": b"synthetic-installer", "install-rzm.sh.sha256": b"synthetic-installer-checksum"})
+        manifest = {"schema_version": 1, "candidate_only": False, "source_commit": COMMIT, "version": "v" + VERSION,
+                    "files": {name: digest(value) for name, value in self.files.items()}}
+        self.files["release-manifest.json"] = json.dumps(manifest).encode()
+        self.files["checksums.txt"] = "".join(f"{digest(value)}  {name}\n" for name, value in sorted(self.files.items())).encode()
+        for name, value in self.files.items():
+            (self.bundle / name).write_bytes(value)
+        self.recipe_hashes = {"homebrewFormulaSha256": "c" * 64, "homebrewCaskSha256": "d" * 64}
+        self.expected = expected_bundle(self.root, self.bundle, version=VERSION, commit=COMMIT, recipe_hashes=self.recipe_hashes)
         self.receipt = self.root / "advertisement-receipt.json"
         self.api = ReleaseServer(self.files)
         self.verified = []
@@ -319,10 +312,10 @@ class AdvertisementTest(unittest.TestCase):
 
     def test_stale_manifest_and_changed_assets_are_rejected(self):
         with self.assertRaises(AdvertisementError):
-            expected_outputs(self.root, self.dist, self.desktop, version=VERSION, commit="b" * 40)
-        (self.desktop / TARGETS["windows-x86_64"]["asset"]).write_bytes(b"mutated")
+            expected_bundle(self.root, self.bundle, version=VERSION, commit="b" * 40, recipe_hashes=self.recipe_hashes)
+        (self.bundle / TARGETS["windows-x86_64"]["asset"]).write_bytes(b"mutated")
         with self.assertRaises(AdvertisementError):
-            expected_outputs(self.root, self.dist, self.desktop, version=VERSION, commit=COMMIT)
+            expected_bundle(self.root, self.bundle, version=VERSION, commit=COMMIT, recipe_hashes=self.recipe_hashes)
 
     def test_unproven_or_mismatched_receipt_cannot_relax_uncertain_tag_guard(self):
         self.assertFalse(advertisement_resume_available(self.receipt, expected_commit=COMMIT, expected_version=VERSION))

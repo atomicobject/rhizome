@@ -10,7 +10,6 @@ from assemble_desktop import assemble
 from desktop_candidates import MANIFEST, REQUIRED_TARGETS
 from desktop_candidates_test import COMMIT, VERSION, make_candidate
 import join_desktop
-from prepare_native_desktop import verify_files
 from release_gateway_runs import REPOSITORY
 
 
@@ -24,10 +23,9 @@ class JoinTests(unittest.TestCase):
             archive=mac/'Rhizome-macos-arm64.app.tar.gz'
             shutil.copyfile(archive,output/archive.name)
             (output/(archive.name+'.sig')).write_text('existing Mac signature')
-            identity={'repository':REPOSITORY,'source_commit':COMMIT,'version':VERSION}
-            receipt=root/'receipt.json'
-            receipt.write_text(json.dumps({'schemaVersion':1,'source':identity,
-                'attempt':{'request_id':'f'*32,'state':'success'},'files':verify_files(prepared,identity)}))
+            from desktop_candidates import sha256
+            files = {path.relative_to(prepared).as_posix(): sha256(path) for path in prepared.rglob('*') if path.is_file()}
+            (prepared / 'native-inputs.json').write_text(json.dumps({'source_commit':COMMIT,'version':'v'+VERSION,'candidate_only':False,'files':files}))
             config=root/'desktop/src-tauri/tauri.conf.json'; config.parent.mkdir(parents=True)
             config.write_text('{"plugins":{"updater":{"pubkey":"cHVibGlj"}}}')
             calls=[]
@@ -39,7 +37,7 @@ class JoinTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command,0,'synthetic toolchain','')
             def assembled(*args,**kwargs):
                 return assemble(*args,**kwargs,verifier=lambda *a,**k:None)
-            source={'RZM_DESKTOP_CANDIDATES_DIR':str(prepared),'RZM_DESKTOP_CANDIDATES_RECEIPT':str(receipt),
+            source={'RZM_DESKTOP_CANDIDATES_DIR':str(prepared),
                     'TAURI_SIGNING_PRIVATE_KEY':'synthetic'}
             with patch.object(join_desktop,'assemble',side_effect=assembled):
                 paths=join_desktop.join(root,mac/'rzm',VERSION,output,source=source,runner=runner)
@@ -50,7 +48,7 @@ class JoinTests(unittest.TestCase):
             self.assertNotEqual(manifest['canonicalCliSha256'],manifest['packagedCliSha256'])
             self.assertEqual(2,sum('signer' in command for command in calls))
             shutil.rmtree(prepared/'windows-x86_64')
-            with self.assertRaises(OSError):
+            with self.assertRaises((OSError, ValueError)):
                 join_desktop.join(root,mac/'rzm',VERSION,output,source=source,runner=runner)
 
 

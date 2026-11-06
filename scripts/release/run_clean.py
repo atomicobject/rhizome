@@ -39,8 +39,7 @@ def scoped_environment(source: Mapping[str, str], mode: str) -> dict[str, str]:
         require_private_repository()
     else:
         source = public_environment(source)
-    desktop = source.get("RZM_RELEASE_DESKTOP") == "1" and not source.get("RZM_INTERNAL_S3_BUCKET", "").strip()
-    allowed = ({"GITHUB_TOKEN"} if desktop else PUBLISH_ALLOWED) if mode == "publish" else set()
+    allowed = PUBLISH_ALLOWED if mode == "publish" else set()
     result = {
         name: value
         for name, value in source.items()
@@ -51,7 +50,7 @@ def scoped_environment(source: Mapping[str, str], mode: str) -> dict[str, str]:
         if github_token:
             result["GITHUB_TOKEN"] = github_token
         brew_token = source.get("BREW_GITHUB_TOKEN")
-        if brew_token and "BREW_GITHUB_TOKEN" in allowed:
+        if brew_token:
             result["BREW_GITHUB_TOKEN"] = brew_token
     return result
 
@@ -69,9 +68,7 @@ def run(mode: str, command: Sequence[str], source: Mapping[str, str] | None = No
 
 def _run(mode, command, environment):
     if mode == "publish":
-        desktop = environment.get("RZM_RELEASE_DESKTOP") == "1" and not environment.get("RZM_INTERNAL_S3_BUCKET", "").strip()
-        required = {"GITHUB_TOKEN"} if desktop else PUBLISH_ALLOWED
-        missing = sorted(name for name in required if not environment.get(name, "").strip())
+        missing = sorted(name for name in PUBLISH_ALLOWED if not environment.get(name, "").strip())
         if missing:
             raise ValueError("missing release credential environment: " + ", ".join(missing))
     return subprocess.run(command, env=environment).returncode

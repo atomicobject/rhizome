@@ -37,7 +37,7 @@ class SkipReasonTest(unittest.TestCase):
         self.assertIn("amd64", skip_reason("amd64", True, {"RZM_RELEASE_DESKTOP": "1"}))
         internal = {"RZM_INTERNAL_S3_BUCKET": "example-bucket", "RZM_RELEASE_DESKTOP": "1"}
         self.assertIn("internal", skip_reason("arm64", True, internal))
-        # The GitHub Actions fallback publishes without RZM_RELEASE_DESKTOP.
+        # The CLI-only build skips desktop unless explicitly enabled.
         self.assertIn("CLI only", skip_reason("arm64", False, {}))
 
 
@@ -117,6 +117,30 @@ class BuildTest(unittest.TestCase):
         self.assertEqual([self.output / "Rhizome-macos-arm64.dmg"], staged)
         self.assertFalse((self.output / "latest.json").exists())
 
+    def test_prebuilt_frontend_skips_rebuilding_it_in_both_tauri_phases(self) -> None:
+        frontend = self.root / "desktop/dist/index.html"
+        frontend.parent.mkdir(parents=True)
+        frontend.write_text("prepared frontend")
+        self.build({"RZM_DESKTOP_PREBUILT_FRONTEND": "1"})
+
+        phases = [command for command in self.runner.commands() if command[:3] == ["npm", "run", "tauri"]]
+        self.assertEqual(2, len(phases))
+        for command in phases:
+            configs = [json.loads(command[i + 1]) for i, value in enumerate(command)
+                       if value == "--config" and command[i + 1].startswith("{")]
+            self.assertIn({"build": {"beforeBuildCommand": "npm run rzm"}}, configs)
+        self.assertEqual("prepared frontend", frontend.read_text())
+
+    def test_missing_prebuilt_frontend_stops_before_tauri_build_or_bundle(self) -> None:
+        with self.assertRaisesRegex(DesktopBuildError, "prepared desktop frontend is missing"):
+            self.build({"RZM_DESKTOP_PREBUILT_FRONTEND": "1"})
+        self.assertEqual([], self.runner.calls)
+
+    def test_normal_build_keeps_tauri_frontend_build_configuration(self) -> None:
+        self.build({})
+        for command in self.runner.commands():
+            self.assertNotIn('{"build":{"beforeBuildCommand":"npm run rzm"}}', command)
+
     def test_signed_build_stages_stable_names_and_update_feed(self) -> None:
         stale = self.root / build_desktop.BUNDLE_DIR / "dmg/Rhizome_0.50.0_aarch64.dmg"
         stale.parent.mkdir(parents=True)
@@ -131,6 +155,7 @@ class BuildTest(unittest.TestCase):
             staged = self.build({
                 **APPLE,
                 "RZM_RELEASE_DESKTOP": "1",
+                "RZM_CI_RELEASE_VERSION": "0.51.0",
                 "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
                 "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password",
                 "GITHUB_TOKEN": "synthetic-github",
@@ -172,7 +197,7 @@ class BuildTest(unittest.TestCase):
                 patch.object(build_desktop, "join") as join:
             build(self.rzm, "0.51.0-SNAPSHOT-test", environ={"PATH": "/usr/bin", **APPLE,
                 "RZM_RELEASE_DESKTOP": "1", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key"}, root=self.root,
-                runner=self.runner, machine="arm64", home=self.home, snapshot=True)
+                runner=self.runner, machine="arm64", home=self.home)
         join.assert_not_called()
         self.assertTrue((self.output / "latest.json").is_file())
 

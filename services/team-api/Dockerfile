@@ -1,6 +1,6 @@
 # Build from the repository root. CGO keeps SQLite available for local runs;
 # musl's static libc lets the deployed image contain only the binary and CAs.
-FROM golang:1.26.10-alpine AS build
+FROM golang:1.27.3-alpine AS build
 RUN apk add --no-cache build-base ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./

@@ -1,5 +1,6 @@
 import { useEffect, useState, type Ref } from "react";
 import type { PageCommand, PageState } from "./api";
+import { shortcut } from "./keyboard";
 
 const SECTIONS = [
   ["notes", "Notes"],
@@ -58,12 +59,13 @@ export function PageTools({
           ref={searchRef}
           type="search"
           aria-label="Search this project"
+          aria-keyshortcuts={shortcut({ key: "K" }).aria}
           placeholder="Search this project…"
           maxLength={500}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <kbd>⌘K</kbd>
+        <kbd>{shortcut({ key: "K" }).label}</kbd>
       </form>
       <IssueBadge state={state} onOpen={() => onCommand({ command: "issues" })} />
       <button

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Discovery, FinderModel, FinderRow, Library, Repository, Worktree } from "./api";
 import { Finder, fuzzy, rank } from "./Finder";
 import { repositoryRows, worktreeRows } from "./Switcher";
@@ -119,6 +119,58 @@ describe("rows", () => {
 });
 
 describe("finder", () => {
+  it.each([
+    { macOS: true, name: "Command", modifier: { metaKey: true } },
+    { macOS: false, name: "Control", modifier: { ctrlKey: true } },
+  ])("opens a new window with $name+Enter or $name+click", ({ macOS, modifier }) => {
+    window.__RHIZOME_MACOS__ = macOS;
+    onTestFinished(() => {
+      delete window.__RHIZOME_MACOS__;
+    });
+    const { input, options, onChoose } = show();
+    fireEvent.keyDown(input, { key: "Enter", ...modifier });
+    expect(onChoose).toHaveBeenLastCalledWith({
+      choice: "open",
+      repository: "drews-vault",
+      worktree: null,
+      newWindow: true,
+    });
+    fireEvent.click(options()[2], modifier);
+    expect(onChoose).toHaveBeenLastCalledWith({
+      choice: "open",
+      repository: "harness-lab",
+      worktree: null,
+      newWindow: true,
+    });
+    expect(onChoose).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { macOS: true, name: "Command", modifier: { metaKey: true }, hint: "⌘9" },
+    { macOS: false, name: "Control", modifier: { ctrlKey: true }, hint: "Ctrl+9" },
+  ])("opens repositories 1 through 9 with $name", ({ macOS, modifier, hint }) => {
+    window.__RHIZOME_MACOS__ = macOS;
+    onTestFinished(() => {
+      delete window.__RHIZOME_MACOS__;
+    });
+    const { input, onChoose } = show({
+      rows: Array.from({ length: 9 }, (_, index) => row(`repository ${index + 1}`, `/w/${index}`)),
+    });
+    expect(screen.getByText(hint)).toBeVisible();
+    for (let number = 1; number <= 9; number++) {
+      fireEvent.keyDown(input, { key: String(number), ...modifier });
+      expect(onChoose).toHaveBeenLastCalledWith({
+        choice: "open",
+        repository: `repository ${number}`,
+        worktree: null,
+        newWindow: false,
+      });
+    }
+    fireEvent.keyDown(input, { key: "0", ...modifier });
+    fireEvent.keyDown(input, { key: "1", ...(macOS ? { ctrlKey: true } : { metaKey: true }) });
+    expect(onChoose).toHaveBeenCalledTimes(9);
+  });
+
   it("starts on the first row this window does not show and opens it", () => {
     const { input, active, onChoose } = show();
     expect(input).toHaveFocus();

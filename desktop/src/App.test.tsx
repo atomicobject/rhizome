@@ -164,6 +164,61 @@ function present(runtimes: Record<string, { state: "running" | "starting" | "sto
 beforeEach(() => vi.resetAllMocks());
 
 describe("desktop shell", () => {
+  it.each([
+    {
+      macOS: true,
+      repositoryTitle: "/work/project/.git\nSwitch repository (⌘O)",
+      worktreeTitle: "/work/project\nSwitch worktree (⇧⌘O)",
+      repositoryShortcut: "Meta+O",
+      worktreeShortcut: "Meta+Shift+O",
+      searchShortcut: "Meta+K",
+      searchHint: "⌘K",
+      reloadTitle: "Reload (⌘R)",
+      sidebarTitle: "Hide sidebar (⌃⌘S or ⌘\\)",
+    },
+    {
+      macOS: false,
+      repositoryTitle: "/work/project/.git\nSwitch repository (Ctrl+O)",
+      worktreeTitle: "/work/project\nSwitch worktree (Ctrl+Shift+O)",
+      repositoryShortcut: "Control+O",
+      worktreeShortcut: "Control+Shift+O",
+      searchShortcut: "Control+K",
+      searchHint: "Ctrl+K",
+      reloadTitle: "Reload (Ctrl+R)",
+      sidebarTitle: "Hide sidebar (Ctrl+Alt+S or Ctrl+\\)",
+    },
+  ])("shows native shortcut hints when macOS is $macOS", async (expected) => {
+    window.__RHIZOME_MACOS__ = expected.macOS;
+    onTestFinished(() => {
+      delete window.__RHIZOME_MACOS__;
+    });
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    act(() =>
+      emit({ type: "page", state: { section: "notes", search: "", sidebarCollapsed: false } }),
+    );
+    const repositoryButton = screen.getByRole("button", { name: "Repository project" });
+    expect(repositoryButton).toHaveAttribute("title", expected.repositoryTitle);
+    expect(repositoryButton).toHaveAttribute("aria-keyshortcuts", expected.repositoryShortcut);
+    const worktreeButton = screen.getByRole("button", { name: "Worktree main" });
+    expect(worktreeButton).toHaveAttribute("title", expected.worktreeTitle);
+    expect(worktreeButton).toHaveAttribute("aria-keyshortcuts", expected.worktreeShortcut);
+    expect(screen.getByRole("searchbox", { name: "Search this project" })).toHaveAttribute(
+      "aria-keyshortcuts",
+      expected.searchShortcut,
+    );
+    expect(screen.getByText(expected.searchHint)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reload" })).toHaveAttribute(
+      "title",
+      expected.reloadTitle,
+    );
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
+      "title",
+      expected.sidebarTitle,
+    );
+  });
+
   it("restores the window's selected worktree", async () => {
     start({ repository: repository.id, worktree: feature });
     await waitFor(() =>
@@ -907,6 +962,7 @@ describe("desktop shell", () => {
   it("keeps the worktree label quiet on the primary worktree only", async () => {
     start();
     expect(await screen.findByRole("button", { name: "Worktree main" })).not.toHaveClass("other");
+    await showFinder(/^Worktree /);
     choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
     expect(await screen.findByRole("button", { name: "Worktree feature" })).toHaveClass("other");
   });

@@ -12,6 +12,7 @@ import {
   type Worktree,
 } from "./api";
 import type { ThemeName } from "../../web/src/lib/themes";
+import { shortcut } from "./keyboard";
 
 // The shell's side of the finders: the toolbar's repository and worktree
 // targets, the rows it builds from the library and presence it holds, and the
@@ -161,14 +162,18 @@ export function Switcher({
   onOpen: (mode: FinderMode) => void;
   onMenu: (at: { x: number; y: number }) => void;
 }) {
+  const repositoryShortcut = shortcut({ key: "O" });
+  const worktreeShortcut = shortcut({ key: "O", shift: true });
+  const repositoryTitle = `Switch repository (${repositoryShortcut.label})`;
+  const worktreeTitle = `Switch worktree (${worktreeShortcut.label})`;
   return (
     <>
       <button
         className="switch-repository"
         aria-haspopup="dialog"
-        aria-keyshortcuts="Meta+O"
+        aria-keyshortcuts={repositoryShortcut.aria}
         aria-label={repository ? `Repository ${repository.name}` : "Choose a repository"}
-        title={repository ? `${repository.root}\nSwitch repository (⌘O)` : "Switch repository (⌘O)"}
+        title={repository ? `${repository.root}\n${repositoryTitle}` : repositoryTitle}
         onClick={() => onOpen("repositories")}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -185,9 +190,9 @@ export function Switcher({
               : "switch-worktree"
           }
           aria-haspopup="dialog"
-          aria-keyshortcuts="Meta+Shift+O"
+          aria-keyshortcuts={worktreeShortcut.aria}
           aria-label={`Worktree ${worktree ? worktreeName(worktree) : ""}`.trim()}
-          title={worktree ? `${worktree.path}\nSwitch worktree (⇧⌘O)` : "Switch worktree (⇧⌘O)"}
+          title={worktree ? `${worktree.path}\n${worktreeTitle}` : worktreeTitle}
           disabled={!info}
           onClick={() => onOpen("worktrees")}
         >

@@ -27,6 +27,7 @@ class NativeBuilderTests(unittest.TestCase):
         self.output = self.root / "candidate"
         self.calls = []
         self.extracted_gateway = False
+        self.prebuilt_frontend = False
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -62,7 +63,7 @@ class NativeBuilderTests(unittest.TestCase):
             stdout = "libc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x1234)"
         elif command[-1] == "--version" and Path(command[0]).name == "rzm":
             stdout = "rzm version v" + VERSION
-        elif "bundle" in command and command[0] == "npm":
+        elif "bundle" in command and command[0] in {"npm", "node"}:
             target = command[command.index("--bundles") + 1]
             directory = self.root / "desktop/src-tauri/target/release/bundle" / target
             directory.mkdir(parents=True)
@@ -84,7 +85,8 @@ class NativeBuilderTests(unittest.TestCase):
                      root=self.root, runner=self.runner, host=TARGETS[target]["host"], machine="x86_64",
                      source={"PATH": "/usr/bin", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-updater",
                              "VOYAGE_API_KEY": "synthetic-provider", "GITHUB_TOKEN": "synthetic-publisher",
-                             "AZURE_CLIENT_SECRET": "synthetic-native"}, **kwargs)
+                             "AZURE_CLIENT_SECRET": "synthetic-native",
+                             **({"RZM_DESKTOP_PREBUILT_FRONTEND": "1"} if self.prebuilt_frontend else {})}, **kwargs)
 
     def test_unsigned_windows_package_is_extracted_and_bound_to_cli_without_any_secrets(self):
         manifest = json.loads(self.build().read_text())
@@ -117,7 +119,7 @@ class NativeBuilderTests(unittest.TestCase):
         manifest = json.loads(self.build(production=True, sign_config=config).read_text())
         self.assertTrue(manifest["production"])
         for command, call in self.calls:
-            if command[0] == "npm" and "bundle" in command:
+            if command[0] in {"npm", "node"} and "bundle" in command:
                 self.assertEqual("synthetic-native", call["env"]["AZURE_CLIENT_SECRET"])
                 self.assertIn("windows_sign.py", " ".join(command))
             else:
@@ -133,6 +135,20 @@ class NativeBuilderTests(unittest.TestCase):
         with self.assertRaisesRegex(CandidateError, "canonical CLI"):
             self.build()
         self.assertFalse((self.output / MANIFEST).exists())
+
+    def test_shared_frontend_is_preserved_and_missing_transfer_fails_before_compiling(self):
+        self.prebuilt_frontend = True
+        with self.assertRaisesRegex(CandidateError, "prepared desktop frontend is missing"):
+            self.build()
+        self.assertFalse(any("build" in command for command, _ in self.calls))
+        index = self.root / "desktop/dist/index.html"
+        index.parent.mkdir(parents=True)
+        index.write_text("transferred frontend")
+        self.build()
+        builds = [command for command, _ in self.calls if "--no-bundle" in command]
+        self.assertEqual(1, len(builds))
+        self.assertIn('{"build":{"beforeBuildCommand":"npm run rzm"}}', builds[0])
+        self.assertEqual("transferred frontend", index.read_text())
 
 
 if __name__ == "__main__":

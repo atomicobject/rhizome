@@ -9,9 +9,12 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
+
+var getEntryConsoleWindow = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetConsoleWindow")
 
 // EntryPath is stable across app versions; its copied rzm only dispatches.
 func EntryPath() (string, error) {
@@ -27,6 +30,10 @@ func EntryPath() (string, error) {
 }
 
 func runEntryChild(command *exec.Cmd) error {
+	console, _, _ := getEntryConsoleWindow.Call()
+	if console == 0 {
+		hiddencommand.Configure(command)
+	}
 	// The console delivers Ctrl-C to both processes. Keep the dispatcher alive
 	// while the child handles it, without forwarding a second interrupt.
 	interrupts := make(chan os.Signal, 1)

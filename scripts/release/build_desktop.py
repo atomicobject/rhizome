@@ -64,7 +64,7 @@ def signs_updater(environ: Mapping[str, str]) -> bool:
     if environ.get("RZM_RELEASE_DESKTOP") == "1":
         raise DesktopBuildError(
             f"{SIGNING_KEY} is required to publish the desktop app; "
-            "run the release through ./scripts/with-secrets release"
+            "configure the protected release CI updater signing key"
         )
     return False
 
@@ -81,13 +81,15 @@ def require_release_pubkey(root: Path) -> None:
         )
 
 
-def tauri_command(version: str, *, updater: bool, notarize: bool = False, bundle: bool = False) -> list[str]:
+def tauri_command(version: str, *, updater: bool, notarize: bool = False, bundle: bool = False, prebuilt_frontend: bool = False) -> list[str]:
     command = [
         "npm", "run", "tauri", "--", "bundle" if bundle else "build",
         *(["--bundles", "app,dmg"] if bundle else ["--no-bundle"]),
         "--config", "src-tauri/tauri.release.conf.json",
         "--config", json.dumps({"version": version}),
     ]
+    if prebuilt_frontend:
+        command += ["--config", '{"build":{"beforeBuildCommand":"npm run rzm"}}']
     if not notarize:
         command += ["--config", '{"bundle":{"macOS":{"signingIdentity":"-"}}}']
     if not updater:
@@ -161,7 +163,6 @@ def build(
     machine: str | None = None,
     home: Path | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
-    snapshot: bool = False,
 ) -> list[Path]:
     """Build, verify, and stage the app; return the staged release assets."""
     environ = desktop_credentials(environ)
@@ -183,12 +184,15 @@ def build(
     clean_env = {name: value for name, value in env.items() if not sensitive_name(name)}
     if not (desktop / "node_modules").is_dir():
         runner(["make", "desktop-deps"], cwd=root, env=clean_env, check=True)
+    prebuilt_frontend = environ.get("RZM_DESKTOP_PREBUILT_FRONTEND") == "1"
+    if prebuilt_frontend and not (desktop / "dist/index.html").is_file():
+        raise DesktopBuildError("prepared desktop frontend is missing; restore the verified CI frontend artifact")
     bundle_dir = root / BUNDLE_DIR
     # Earlier builds leave differently named DMGs and stale updater archives.
     for kind in ("dmg", "macos"):
         shutil.rmtree(bundle_dir / kind, ignore_errors=True)
-    runner(tauri_command(version, updater=updater, notarize=notarize), cwd=desktop, env=clean_env, check=True)
-    command = tauri_command(version, updater=updater, notarize=notarize, bundle=True)
+    runner(tauri_command(version, updater=updater, notarize=notarize, prebuilt_frontend=prebuilt_frontend), cwd=desktop, env=clean_env, check=True)
+    command = tauri_command(version, updater=updater, notarize=notarize, bundle=True, prebuilt_frontend=prebuilt_frontend)
     if notarize:
         with credentials(env) as signing_env:
             # A signer failure must not expose credentials through captured output.
@@ -227,8 +231,9 @@ def build(
     for name, source in outputs.items():
         shutil.copyfile(source, output_dir / name)
         staged.append(output_dir / name)
-    if environ.get("RZM_RELEASE_DESKTOP") == "1" and not snapshot:
-        staged += [path for path in join(root, rzm, version, output_dir, source=dict(environ), runner=runner)
+    if environ.get("RZM_RELEASE_DESKTOP") == "1" and environ.get("RZM_CI_RELEASE_VERSION"):
+        staged += [path for path in join(root, rzm, version, output_dir, source=dict(environ), runner=runner,
+                                       candidate_only=environ.get("RZM_CI_RELEASE_CANDIDATE_ONLY") == "true")
                    if path not in staged]
     elif updater:
         signature = (output_dir / SIGNATURE).read_text(encoding="utf-8")
@@ -253,9 +258,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if reason:
             print(f"desktop: skipped; {reason}", file=sys.stderr)
             return 0
-        for path in build(Path(args.rzm), args.version, environ=os.environ, snapshot=args.snapshot == "true"):
+        for path in build(Path(args.rzm), args.version, environ=os.environ):
             print(f"desktop: staged {path.relative_to(ROOT)}", file=sys.stderr)
-    except (DesktopBuildError, CandidateError, AppleSigningError, subprocess.CalledProcessError, OSError, ValueError) as error:
+    except (DesktopBuildError, CandidateError, DesktopSigningError, AppleSigningError, subprocess.CalledProcessError, OSError, ValueError) as error:
         print(f"desktop: {error}", file=sys.stderr)
         return 1
     return 0

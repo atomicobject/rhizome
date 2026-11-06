@@ -4,10 +4,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import re
+import subprocess
 import tempfile
 import unittest
 
 import release_actions
+from run_clean import scoped_environment
 
 
 UNRELEASED_CHANGELOG = """# Changelog
@@ -120,15 +124,31 @@ class ReleaseActionsTest(unittest.TestCase):
         )
 
     def test_version_source_is_deterministic(self) -> None:
+        current = (Path(__file__).resolve().parents[2] / release_actions.VERSION_PATH).read_text()
+        expected, replacements = re.subn(r'(?m)^var Version = "[^"]*"$', 'var Version = "v1.3.0"', current)
+        self.assertEqual(replacements, 1)
         self.assertEqual(
             release_actions.render_version_go("v1.3.0"),
-            """package version
-
-// Version is the current rhizome version. Goreleaser overrides it at build
-// time via -X so tagged releases reflect the cut version.
-var Version = "v1.3.0"
-""",
+            expected,
         )
+
+    def test_prepared_version_compiles_and_preserves_release_channel_behavior(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "go.mod").write_text("module github.com/atomicobject/rhizome\n\ngo 1.24\n")
+            package = root / release_actions.VERSION_PATH
+            package.parent.mkdir(parents=True)
+            package.write_text(release_actions.render_version_go("v1.3.0"))
+            (root / "main.go").write_text('package main\nimport ("fmt"; "github.com/atomicobject/rhizome/pkg/vault/version")\nfunc main() { fmt.Printf("%s %s %t", version.Version, version.Channel, version.Development()) }\n')
+            environment = scoped_environment(os.environ, "build")
+            environment.update(GOTOOLCHAIN="local", CGO_ENABLED="0")
+            for flags, expected in (([], "v1.3.0 dev true"),
+                    (["-ldflags", "-X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release"], "v1.3.0 release false")):
+                with self.subTest(expected=expected):
+                    result = subprocess.run(["go", "run", *flags, "."], cwd=root,
+                        env=environment, capture_output=True, text=True, timeout=60)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, expected)
 
     def test_apply_changes_exactly_three_files_and_is_noop_on_retry(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

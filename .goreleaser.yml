@@ -1,5 +1,8 @@
 version: 2
 
+snapshot:
+  version_template: '{{ if index .Env "RZM_CI_RELEASE_VERSION" }}{{ .Env.RZM_CI_RELEASE_VERSION }}{{ else }}{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}{{ end }}'
+
 before:
   hooks:
     - ./scripts/vendor/ensure_tree_sitter_sources.sh
@@ -39,7 +42,6 @@ builds:
     binary: rzm
     hooks:
       post:
-        - python3 scripts/release/stage_native_cli.py "{{ .Path }}" "{{ .Version }}" "{{ .Os }}" "{{ .Arch }}" "{{ .IsSnapshot }}"
         - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
     goos:
       - linux
@@ -77,7 +79,6 @@ builds:
     binary: rzm
     hooks:
       post:
-        - python3 scripts/release/stage_native_cli.py "{{ .Path }}" "{{ .Version }}" "{{ .Os }}" "{{ .Arch }}" "{{ .IsSnapshot }}"
         - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
     goos:
       - windows
@@ -99,8 +100,6 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
 
 release:
-  # Public latest is promoted only after joined-feed verification; private releases retain their existing behavior.
-  make_latest: '{{ if index .Env "RZM_INTERNAL_S3_BUCKET" }}true{{ else }}false{{ end }}'
   target_commitish: "{{ .Commit }}"
   prerelease: auto
   extra_files:
@@ -114,11 +113,6 @@ release:
     - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz'
     - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz.sig'
     - glob: '.tmp/goreleaser-extra/latest{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.json'
-    - glob: '.tmp/goreleaser-extra/Rhizome-windows-x64-setup{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.exe'
-    - glob: '.tmp/goreleaser-extra/Rhizome-windows-x64-setup{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.exe.sig'
-    - glob: '.tmp/goreleaser-extra/Rhizome-linux-x64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.AppImage'
-    - glob: '.tmp/goreleaser-extra/Rhizome-linux-x64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.AppImage.sig'
-    - glob: '.tmp/goreleaser-extra/desktop-assembly{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.json'
 
 archives:
   - formats: [tar.gz]
@@ -130,14 +124,12 @@ archives:
 
 brews:
   - name: rhizome
-    # Complete desktop releases update the tap only after verified advertisement.
-    skip_upload: '{{ if eq (index .Env "RZM_RELEASE_DESKTOP") "1" }}true{{ else }}false{{ end }}'
     homepage: https://github.com/atomicobject/rhizome
     repository:
       owner: atomicobject
       name: homebrew-tap
       branch: main
-      token: '{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}{{ .Env.BREW_GITHUB_TOKEN }}{{ end }}'
+      token: "{{ .Env.BREW_GITHUB_TOKEN }}"
     # commit_author:
     #   name: your-name
     #   email: your-email@atomicobject.com
@@ -149,8 +141,3 @@ checksum:
     - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz'
     - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz.sig'
     - glob: '.tmp/goreleaser-extra/latest{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.json'
-    - glob: '.tmp/goreleaser-extra/Rhizome-windows-x64-setup{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.exe'
-    - glob: '.tmp/goreleaser-extra/Rhizome-windows-x64-setup{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.exe.sig'
-    - glob: '.tmp/goreleaser-extra/Rhizome-linux-x64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.AppImage'
-    - glob: '.tmp/goreleaser-extra/Rhizome-linux-x64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.AppImage.sig'
-    - glob: '.tmp/goreleaser-extra/desktop-assembly{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.json'

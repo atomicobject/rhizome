@@ -46,7 +46,6 @@ class FirstReleaseTest(unittest.TestCase):
             self.repo.work,
             command_runner=self.run_command,
             gateway=self.verify_gateway,
-            native_candidates=self.prepare_native,
             note_generator=lambda *args, **kwargs: GenerationResult(
                 recommended_bump="minor", rationale="First public release.",
                 themes=(ReleaseTheme("First usable release.", "First usable release.", ("unreleased:1",)),),
@@ -55,17 +54,9 @@ class FirstReleaseTest(unittest.TestCase):
             environ={"RZM_RELEASE_GITHUB_TOKEN": "synthetic", "TAURI_SIGNING_PRIVATE_KEY": "synthetic"},
         )
 
-    def prepare_native(self, root, release_commit, version, receipt, output, **kwargs):
-        self.assertEqual(root, self.repo.work.resolve())
-        self.assertEqual(self.repo.remote_ref("refs/heads/release"), release_commit)
-        self.assertEqual(version, self.version)
-        self.calls.append(("native", release_commit, version, str(receipt), str(output)))
-        return output
-
     def verify_gateway(self, root, release_commit, receipt, **kwargs):
         # Bootstrap must create release before any server deployment is requested.
         self.assertEqual(self.repo.remote_ref("refs/heads/release"), release_commit)
-        self.assertTrue(any(call[:2] == ("native", release_commit) for call in self.calls))
         self.calls.append(("gateway", release_commit))
         return {"attempt": {"state": "success"}}
 
@@ -84,8 +75,6 @@ class FirstReleaseTest(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 1, "", "connection lost after push")
             return result
         if len(command) > 1 and command[1].endswith("release_publish.py"):
-            self.assertIn("--desktop-candidates", command)
-            self.assertIn("--desktop-receipt", command)
             self.repo.git("push", "origin", f"refs/tags/{self.version}")
         elif command[0] == "trash":
             path = Path(command[1])

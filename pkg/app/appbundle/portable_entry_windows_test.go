@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/windows"
 )
@@ -78,6 +79,27 @@ func TestPortableWindowsDispatcherLetsChildHandleControlC(t *testing.T) {
 	out, err := controller.CombinedOutput()
 	require.NoError(t, err, string(out))
 	require.Contains(t, string(out), "control-c preserved")
+}
+
+func TestPortableWindowsDispatcherPreservesConsolelessProbe(t *testing.T) {
+	_, base := windowsEntryFixture(t)
+	self, err := os.Executable()
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	parent := ownedEntryCommand(ctx, self, "-test.run=^"+entryHelper+"$", "--", "console-controller", base)
+	parent.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
+	output, err := parent.CombinedOutput()
+	require.NoError(t, err, string(output))
+	var consoles struct {
+		Parent     uintptr `json:"parent"`
+		Dispatcher uintptr `json:"dispatcher"`
+		Image      uintptr `json:"image"`
+	}
+	require.NoError(t, json.Unmarshal(output, &consoles), string(output))
+	require.Zero(t, consoles.Parent, "the fixture parent must be consoleless")
+	require.Zero(t, consoles.Dispatcher, "the hidden probe must start a consoleless dispatcher")
+	require.Zero(t, consoles.Image, "dispatching must not create a console for the immutable image")
 }
 
 func TestPortableWindowsDispatcherRefusesDisabledRegistration(t *testing.T) {
@@ -179,10 +201,20 @@ func TestPortableWindowsEntryHelper(t *testing.T) {
 		runEntryController()
 		return
 	}
+	if mode == "console-controller" {
+		runEntryConsoleController(t)
+		return
+	}
+	if mode == "console" {
+		console, _, _ := getEntryConsoleWindow.Call()
+		require.NoError(t, json.NewEncoder(os.Stdout).Encode(console))
+	}
 	if handled, code := DispatchEntry(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); handled {
 		os.Exit(code)
 	}
 	switch mode {
+	case "console":
+		os.Exit(0)
 	case "echo":
 		input, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -216,6 +248,29 @@ func TestPortableWindowsEntryHelper(t *testing.T) {
 	default:
 		os.Exit(1)
 	}
+}
+
+func runEntryConsoleController(t *testing.T) {
+	t.Helper()
+	console, _, _ := getEntryConsoleWindow.Call()
+	entry, err := EntryPath()
+	require.NoError(t, err)
+	base, err := portableBaseDirectory()
+	require.NoError(t, err)
+	command := exec.Command(entry, "-test.run=^"+entryHelper+"$", "--", "console", base)
+	hiddencommand.Configure(command)
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, string(output))
+	var handles [2]uintptr
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	for index := range handles {
+		require.NoError(t, decoder.Decode(&handles[index]), string(output))
+	}
+	require.ErrorIs(t, decoder.Decode(new(any)), io.EOF, string(output))
+	require.NoError(t, json.NewEncoder(os.Stdout).Encode(map[string]uintptr{
+		"parent": console, "dispatcher": handles[0], "image": handles[1],
+	}))
+	os.Exit(0)
 }
 
 func runEntryController() {

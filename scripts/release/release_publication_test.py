@@ -3,10 +3,9 @@
 import subprocess
 from pathlib import Path
 import unittest
-from unittest.mock import patch
 
 from release_gateway import GatewayError
-from release_publication import PublicationError, gate_direct_publication, verify_terminal_gateway_receipt
+from release_publication import PublicationError, gate_direct_publication
 
 SHA = "a" * 40
 
@@ -91,46 +90,6 @@ class PublicationTest(unittest.TestCase):
             gate_direct_publication(Path("/repo"), runner=self.commands,
                 gateway=self.gate, verifier=invalid, receipt_path=Path("/tmp/receipt.json"))
         self.assertEqual(self.calls, [])
-
-    def test_post_build_gate_allows_only_the_owned_unstaged_generated_entry(self):
-        self.commands.dirty = " M pkg/app/web/assets/dist/index.html\n"
-        with self.assertRaises(PublicationError):
-            self.invoke()
-        receipt = self.invoke(allow_generated=True)
-        self.assertEqual(receipt["receiptPath"], "/repo/.git/gateway.json")
-        for dirty in (" M source.go\n", "M  pkg/app/web/assets/dist/index.html\n",
-                      " D pkg/app/web/assets/dist/index.html\n",
-                      " M pkg/app/web/assets/dist/index.html\n M source.go\n"):
-            self.commands.dirty = dirty
-            with self.assertRaises(PublicationError):
-                self.invoke(allow_generated=True)
-
-    def test_terminal_receipt_mode_never_dispatches_or_borrows_live_handoff(self):
-        receipt = {"source": {"repository": "atomicobject/rhizome", "release_commit": SHA},
-                   "attempt": {"state": "success", "run_id": 42}}
-        with patch("release_publication._load", return_value=receipt), \
-             patch("release_publication._source", return_value=receipt["source"]) as source, \
-             patch("release_publication.workflow_id", return_value=7), \
-             patch("release_publication.find_run", return_value={"id": 42}), \
-             patch("release_publication.fetch_run", return_value={"id": 42}), \
-             patch("release_publication.successful", return_value=True), \
-             patch("release_publication.ensure_gateway", side_effect=AssertionError("terminal mode dispatched")):
-            result = gate_direct_publication(Path("/repo"), runner=self.commands,
-                receipt_path=Path("/ci/terminal.json"), terminal_receipt=True)
-            self.assertEqual(result["attempt"]["run_id"], 42)
-            self.assertEqual(source.call_args.args[:3], (Path("/repo"), SHA, receipt))
-
-    def test_invalid_terminal_receipt_fails_without_a_deployment_fallback(self):
-        receipt = {"source": {}, "attempt": {"state": "success", "run_id": 42}}
-        with patch("release_publication._load", return_value=receipt), \
-             patch("release_publication._source", return_value={}), \
-             patch("release_publication.workflow_id", return_value=7), \
-             patch("release_publication.find_run", return_value=None), \
-             patch("release_publication.ensure_gateway", side_effect=AssertionError("terminal mode dispatched")):
-            with self.assertRaisesRegex(GatewayError, "run is missing"):
-                verify_terminal_gateway_receipt(Path("/repo"), SHA, Path("/ci/terminal.json"))
-        with self.assertRaisesRegex(PublicationError, "explicit receipt"):
-            self.invoke(terminal_receipt=True)
 
 
 if __name__ == "__main__":

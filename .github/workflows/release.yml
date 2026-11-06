@@ -1,470 +1,498 @@
-name: GoReleaser fallback
+name: Release
 
 on:
+  pull_request:
+    branches: [main]
+    types: [closed]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing release tag to publish
-        required: true
-        type: string
       candidate_only:
-        description: Build and notarize this workflow ref without publishing (tag input is ignored)
+        description: Verify this workflow source without release refs, deployment or publication
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
   contents: read
 
+concurrency:
+  group: public-release
+  cancel-in-progress: false
+
 jobs:
-  probe:
-    name: Validate tag and probe release
-    if: ${{ !inputs.candidate_only && github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome' }}
+  select:
+    name: Validate approved release source
+    if: >-
+      github.repository == 'atomicobject/rhizome' &&
+      ((github.event_name == 'pull_request' && github.event.pull_request.merged &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.event.pull_request.head.ref, 'release-prep/')) ||
+       (github.event_name == 'workflow_dispatch' && (inputs.candidate_only || github.ref == 'refs/heads/main')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
-      release_exists: ${{ steps.release.outputs.exists }}
-      release_commit: ${{ steps.topology.outputs.commit }}
-    steps:
-      - name: Validate release tag
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
-            echo "error: tag must be a v-prefixed semantic version" >&2
-            exit 1
-          fi
-          git check-ref-format "refs/tags/$RELEASE_TAG" >/dev/null
-
-      - name: Checkout canonical history
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Validate canonical topology
-        id: topology
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin \
-            "+refs/heads/main:refs/remotes/origin/main" \
-            "+refs/heads/release:refs/remotes/origin/release" \
-            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-          release_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
-          release_tip="$(git rev-parse refs/remotes/origin/release)"
-          if [[ "$release_commit" != "$release_tip" ]]; then
-            echo "error: tag does not match origin/release" >&2
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "$release_commit" refs/remotes/origin/main; then
-            echo "error: release commit is not contained in origin/main" >&2
-            exit 1
-          fi
-          if git rev-list --first-parent refs/remotes/origin/main | \
-            awk -v release="$release_commit" '$0 == release { found=1 } END { exit !found }'; then
-            : # Direct main-line release.
-          elif git rev-list --first-parent --parents refs/remotes/origin/main | \
-            awk -v release="$release_commit" 'NF >= 3 && $3 == release { found=1 } END { exit !found }'; then
-            : # Hotfix merge with release as second parent.
-          else
-            echo "error: origin/main does not contain a canonical release integration" >&2
-            exit 1
-          fi
-          echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
-
-      - name: Probe existing GitHub release
-        id: release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          set -euo pipefail
-          status="$(
-            curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header "X-GitHub-Api-Version: 2022-11-28" \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG"
-          )"
-          case "$status" in
-            200) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
-            404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
-            *)
-              echo "error: GitHub release probe returned HTTP $status" >&2
-              exit 1
-              ;;
-          esac
-
-  test:
-    needs: probe
-    if: needs.probe.outputs.release_exists == 'false'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.probe.outputs.release_commit }}
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.2"
-      # The compounding starter's Node script tests run inside go test.
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Test
-        run: make test
-
-  native_desktop:
-    name: Prepare exact native desktop candidates
-    needs: [probe, test]
-    if: needs.probe.outputs.release_exists == 'false'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 270
-    permissions:
-      contents: read
-      actions: write
+      source: ${{ steps.selection.outputs.source }}
+      version: ${{ steps.selection.outputs.version }}
+      candidate_only: ${{ steps.selection.outputs.candidate_only }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-          path: trusted
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.probe.outputs.release_commit }}
-          path: source
           fetch-depth: 0
           persist-credentials: false
-      - name: Build and verify correlated native candidates
-        shell: bash
+      - name: Validate release approval or explicit candidate
+        id: selection
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE: ${{ github.sha }}
+          CANDIDATE_ONLY: ${{ inputs.candidate_only && 'true' || 'false' }}
+        run: >-
+          python3 scripts/release/ci_release_selection.py
+          --event-file "$GITHUB_EVENT_PATH" --event-name "$EVENT_NAME"
+          --source "$SOURCE" --candidate-only "$CANDIDATE_ONLY"
+
+  common:
+    name: Prepare frontend and native tools on Linux
+    needs: select
+    if: needs.select.outputs.source != ''
+    runs-on: ubuntu-latest
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            desktop/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - name: Install signing test dependencies
         run: |
-          set -euo pipefail
-          python3 trusted/scripts/release/prepare_native_desktop.py \
-            --repo-root source --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG" \
-            --receipt "$RUNNER_TEMP/prepared/native-desktop-receipt.json" \
-            --output "$RUNNER_TEMP/prepared/native-desktop"
+          npm --prefix desktop ci
+          cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
+      - name: Verify release helpers
+        run: python3 -m unittest discover -s scripts/release -p '*_test.py'
+      - name: Build shared frontend output
+        run: |
+          npm --prefix web ci
+          python3 scripts/licenses/generate.py --check
+          npm --prefix web run generate:api
+          npm --prefix web run build
+          npm --prefix desktop run build
+          python3 scripts/release/ci_release_frontend.py create --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+      - name: Cross-compile Mac credential scanner on Linux
+        working-directory: ${{ runner.temp }}
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_ENABLED: '0'
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - name: Stage native scanner
+        run: |
+          mkdir -p .tmp/ci-tools
+          cp "$(go env GOPATH)/bin/darwin_arm64/gitleaks" .tmp/ci-tools/gitleaks
       - uses: actions/upload-artifact@v4
         with:
-          name: prepared-native-desktop
-          path: ${{ runner.temp }}/prepared/
+          name: release-frontend
+          path: .tmp/ci-release/frontend.tar.gz
+          retention-days: 1
           if-no-files-found: error
-          retention-days: 30
-
-  gateway:
-    name: Deploy and verify release gateway
-    needs: [probe, test, native_desktop]
-    if: needs.probe.outputs.release_exists == 'false'
-    runs-on: ubuntu-latest
-    timeout-minutes: 270
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - name: Checkout trusted release gate
-        uses: actions/checkout@v4
+          include-hidden-files: true
+      - uses: actions/upload-artifact@v4
         with:
-          ref: ${{ github.sha }}
-          path: trusted
+          name: release-mac-scanner
+          path: .tmp/ci-tools/gitleaks
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
+  linux:
+    name: Build Linux CLI and AppImage
+    needs: [select, common]
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+      RZM_DESKTOP_PREBUILT_FRONTEND: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.source }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Checkout validated release source
-        uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          ref: ${{ needs.probe.outputs.release_commit }}
-          path: source
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Wait for protected gateway deployment
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
-        run: |
-          set -euo pipefail
-          python3 trusted/scripts/release/release_gateway.py \
-            --repo-root "$GITHUB_WORKSPACE/source" \
-            --release-commit "$RELEASE_COMMIT" \
-            --receipt "$RUNNER_TEMP/release-gateway.json"
-
-      - name: Retain this run's terminal gateway proof
-        uses: actions/upload-artifact@v4
+          go-version: '1.27.3'
+      - uses: actions/setup-node@v4
         with:
-          name: release-gateway-receipt
-          path: ${{ runner.temp }}/release-gateway.json
-          if-no-files-found: error
-          retention-days: 30
-
-  goreleaser:
-    needs: [probe, test, native_desktop, gateway]
-    if: needs.probe.outputs.release_exists == 'false'
-    # macos-15 is Apple Silicon; the desktop bundle is arm64-only.
-    runs-on: macos-15
-    environment: release
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.probe.outputs.release_commit }}
-      - name: Download this run's verified native candidates
-        uses: actions/download-artifact@v4
-        with:
-          name: prepared-native-desktop
-          path: ${{ runner.temp }}/prepared
-      - name: Download this run's terminal gateway proof
-        uses: actions/download-artifact@v4
-        with:
-          name: release-gateway-receipt
-          path: ${{ runner.temp }}/gateway
-      - name: Revalidate native producer and retained bytes
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          python3 scripts/release/prepare_native_desktop.py --verify-only \
-            --repo-root . --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG" \
-            --receipt "$RUNNER_TEMP/prepared/native-desktop-receipt.json" \
-            --output "$RUNNER_TEMP/prepared/native-desktop"
-      - name: Revalidate release tag
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin \
-            "+refs/heads/main:refs/remotes/origin/main" \
-            "+refs/heads/release:refs/remotes/origin/release" \
-            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$RELEASE_COMMIT"
-          test "$(git rev-parse refs/remotes/origin/release)" = "$RELEASE_COMMIT"
-          git merge-base --is-ancestor "$RELEASE_COMMIT" refs/remotes/origin/main
-          if git rev-list --first-parent refs/remotes/origin/main | \
-            awk -v release="$RELEASE_COMMIT" '$0 == release { found=1 } END { exit !found }'; then
-            :
-          else
-            if git rev-list --first-parent --parents refs/remotes/origin/main | \
-              awk -v release="$RELEASE_COMMIT" 'NF >= 3 && $3 == release { found=1 } END { exit !found }'; then
-              :
-            else
-              echo "error: release commit is not on the canonical main topology" >&2
-              exit 1
-            fi
-          fi
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.2"
-      - name: Install zig
-        uses: goto-bus-stop/setup-zig@v2
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.13.0
-      - name: Install mingw-w64
-        run: brew install mingw-w64
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+      - name: Install native Linux packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64
+      - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: '~> v2'
           install-only: true
       - name: Install credential scanner
-        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
         working-directory: ${{ runner.temp }}
-        # gitleaks needs Go 1.24.11 or newer. Without a pin, Go switches to the
-        # newest release, which can 404 while that release is still propagating.
         env:
-          GOTOOLCHAIN: go1.24.11
-      - name: Check desktop architecture
+          GOTOOLCHAIN: local
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-frontend
+          path: .tmp/ci-release
+      - name: Restore verified common assets and build canonical Linux CLI
+        run: |
+          python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+          ./scripts/vendor/ensure_tree_sitter_sources.sh
+          npm --prefix desktop ci
+          export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux
+          python3 - <<'PYCLI'
+          import os
+          from pathlib import Path
+          files = list(Path('dist').glob('rzm-linux_linux_amd64*/rzm'))
+          if len(files) != 1:
+              raise SystemExit('Expected one canonical Linux x64 CLI')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
+          PYCLI
+      - name: Package and inspect the native Linux desktop
+        run: |
+          production=(); candidate=()
+          if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); else production=(--production); fi
+          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
+          python3 scripts/release/build_native_desktop.py --target linux-x86_64 \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version "$RELEASE_VERSION" --commit "$SOURCE" "${production[@]}" --output .tmp/ci-native/linux
+          python3 scripts/release/ci_release_artifacts.py collect --platform linux --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --candidate .tmp/ci-native/linux --output .tmp/ci-release/linux "${candidate[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: .tmp/ci-release/linux
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
+  windows:
+    name: Build signed Windows CLI and NSIS
+    needs: [select, common]
+    runs-on: windows-2025
+    environment: release
+    defaults:
+      run:
+        shell: bash
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+      RZM_DESKTOP_PREBUILT_FRONTEND: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require configured production Windows signing
+        if: needs.select.outputs.candidate_only != 'true'
+        env:
+          WINDOWS_SIGNING_CONFIG: ${{ vars.WINDOWS_SIGNING_CONFIG }}
+        run: |
+          python3 - <<'PYCONFIG'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts/release')
+          from windows_sign import configuration
+          value = os.environ.get('WINDOWS_SIGNING_CONFIG', '').strip()
+          if not value:
+              raise SystemExit('Windows production signing is not configured; unsigned GUI candidates use Desktop portability CI')
+          path = Path(os.environ['RUNNER_TEMP']) / 'windows-signing.json'
+          path.write_text(value)
+          configuration(path)
+          PYCONFIG
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          install-only: true
+      - name: Install credential scanner
+        working-directory: ${{ runner.temp }}
+        env:
+          GOTOOLCHAIN: local
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-frontend
+          path: .tmp/ci-release
+      - name: Restore verified common assets and build canonical Windows CLI
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+          ./scripts/vendor/ensure_tree_sitter_sources.sh
+          npm --prefix desktop ci
+          export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --single-target --skip=before,post-hooks --id rzm-windows-amd64
+          python3 - <<'PYCLI'
+          import os
+          from pathlib import Path
+          files = list(Path('dist').glob('rzm-windows-amd64_windows_amd64*/rzm.exe'))
+          if len(files) != 1:
+              raise SystemExit('Expected one canonical Windows x64 CLI')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
+          PYCLI
+      - name: Sign the canonical Windows CLI once
+        if: needs.select.outputs.candidate_only != 'true'
+        env:
+          WINDOWS_SIGNING_SECRET: ${{ needs.select.outputs.candidate_only != 'true' && secrets.WINDOWS_SIGNING_SECRET || '' }}
+        run: python3 scripts/release/windows_sign.py --config "$RUNNER_TEMP/windows-signing.json" --initial-cli "$RZM_DESKTOP_PREBUILT_RZM"
+      - name: Compile Windows GUI without signing credentials
+        run: |
+          signing=()
+          if [[ "$CANDIDATE_ONLY" != true ]]; then signing=(--production --windows-sign-config "$RUNNER_TEMP/windows-signing.json"); fi
+          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
+          python3 scripts/release/build_native_desktop.py --target windows-x86_64 \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version "$RELEASE_VERSION" --commit "$SOURCE" "${signing[@]}" --phase compile \
+            --output .tmp/ci-native/windows
+      - name: Sign installer and verify final Windows candidate
+        env:
+          WINDOWS_SIGNING_SECRET: ${{ needs.select.outputs.candidate_only != 'true' && secrets.WINDOWS_SIGNING_SECRET || '' }}
+        run: |
+          signing=()
+          if [[ "$CANDIDATE_ONLY" != true ]]; then signing=(--production --windows-sign-config "$RUNNER_TEMP/windows-signing.json"); fi
+          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
+          python3 scripts/release/build_native_desktop.py --target windows-x86_64 \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version "$RELEASE_VERSION" --commit "$SOURCE" "${signing[@]}" --phase package \
+            --output .tmp/ci-native/windows
+      - name: Collect verified Windows assets without credentials
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py collect --platform windows --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --candidate .tmp/ci-native/windows --output .tmp/ci-release/windows "${candidate[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: .tmp/ci-release/windows
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
+  mac:
+    name: Build and notarize native Mac assets
+    needs: [select, common, linux, windows]
+    runs-on: macos-15
+    environment: release
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require Apple Silicon
         run: test "$(uname -m)" = arm64
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          install-only: true
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             desktop/src-tauri/target
           key: desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-      - name: Install desktop dependencies
-        run: make desktop-deps
-      - name: Set up Python for archive verification
-        uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.13"
+          name: release-frontend
+          path: .tmp/ci-release
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-mac-scanner
+          path: .tmp/ci-tools
+      - name: Prepare native dependencies and verified frontend
+        run: |
+          chmod +x .tmp/ci-tools/gitleaks
+          echo "$GITHUB_WORKSPACE/.tmp/ci-tools" >> "$GITHUB_PATH"
+          python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+          ./scripts/vendor/ensure_tree_sitter_sources.sh
+          make desktop-deps
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux
+          path: .tmp/ci-release/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-windows
+          path: .tmp/ci-release/windows
+      - name: Verify this run's native inputs before signing
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py prepare-native --source "$SOURCE" --version "$RELEASE_VERSION" \
+            --input .tmp/ci-release/linux --input .tmp/ci-release/windows --output .tmp/ci-release/native "${candidate[@]}"
       - name: Prepare desktop signing
         run: python3 scripts/release/ci_desktop_signing.py prepare
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
-      - name: Run GoReleaser
-        run: python3 scripts/release/run_clean.py publish -- goreleaser release --clean --draft
+      - name: Build, notarize and verify native outputs
         env:
-          GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
-          GITHUB_TOKEN: ${{ github.token }}
-          RZM_RELEASE_DESKTOP: "1"
-          RZM_DESKTOP_CANDIDATES_DIR: ${{ runner.temp }}/prepared/native-desktop
-          RZM_DESKTOP_CANDIDATES_RECEIPT: ${{ runner.temp }}/prepared/native-desktop-receipt.json
+          RZM_RELEASE_DESKTOP: '1'
+          RZM_NOTARIZE_DESKTOP: '1'
+          RZM_DESKTOP_PREBUILT_FRONTEND: '1'
+          RZM_CI_RELEASE_CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+          RZM_DESKTOP_CANDIDATES_DIR: ${{ github.workspace }}/.tmp/ci-release/native
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      - name: Verify assets and advertise the complete desktop release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
-          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          python3 scripts/release/release_advertise.py --repo-root . \
-            --receipt "$RUNNER_TEMP/advertisement-receipt.json" \
-            --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG" \
-            --dist-dir dist --desktop-dir .tmp/goreleaser-extra \
-            --terminal-gateway-receipt "$RUNNER_TEMP/gateway/release-gateway.json"
-      - name: Retain advertisement recovery proof
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-advertisement-receipt
-          path: ${{ runner.temp }}/advertisement-receipt*
-          if-no-files-found: ignore
-          retention-days: 30
-      - name: Clean up desktop signing
+          export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before --id rzm-darwin
+      - name: Clean up signing credentials
         if: ${{ always() }}
         run: python3 scripts/release/ci_desktop_signing.py cleanup
+      - name: Collect verified assets without signing credentials
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py collect --platform macos --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --extras .tmp/goreleaser-extra --output .tmp/ci-release/macos "${candidate[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: .tmp/ci-release/macos
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
 
-  homebrew:
-    name: Publish verified Homebrew formula
-    needs: [probe, goreleaser]
-    if: needs.probe.outputs.release_exists == 'false'
-    runs-on: ubuntu-24.04
-    environment: release
-    timeout-minutes: 270
-    permissions:
-      contents: read
-      actions: write
+  assemble:
+    name: Assemble and verify complete release on Linux
+    needs: [select, linux, windows, mac]
+    runs-on: ubuntu-latest
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
-          path: trusted
+          ref: ${{ needs.select.outputs.source }}
+          fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - name: Install credential scanner
+        working-directory: ${{ runner.temp }}
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux
+          path: .tmp/ci-release/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-macos
+          path: .tmp/ci-release/macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-windows
+          path: .tmp/ci-release/windows
+      - name: Prepare pinned signature verifier dependencies
+        run: cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
+      - name: Assemble and verify the exact built artifacts
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/windows --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
+          python3 scripts/release/ci_release_artifacts.py verify --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/publish "${candidate[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-verified
+          path: .tmp/ci-release/publish
+          retention-days: 30
+          if-no-files-found: error
+          include-hidden-files: true
+
+  publish:
+    name: Publish approved release and Homebrew update
+    needs: [select, assemble]
+    if: needs.select.outputs.candidate_only != 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      actions: write
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+    steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.probe.outputs.release_commit }}
-          path: source
+          ref: ${{ needs.select.outputs.source }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
-          name: release-advertisement-receipt
-          path: ${{ runner.temp }}/advertisement
-      - name: Gate and publish the exact retained formula
+          name: release-verified
+          path: .tmp/ci-release/publish
+      - name: Prepare pinned signature verifier dependencies
+        run: cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
+      - name: Publish approved release and update Homebrew
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           BREW_GITHUB_TOKEN: ${{ secrets.BREW_GITHUB_TOKEN }}
-          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          python3 trusted/scripts/release/release_homebrew.py --repo-root source \
-            --advertisement-receipt "$RUNNER_TEMP/advertisement/advertisement-receipt.json" \
-            --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG"
-      - name: Retain tap recovery proof
+        run: >-
+          python3 scripts/release/ci_release_publish.py --source "$SOURCE"
+          --assets .tmp/ci-release/publish --receipt "$RUNNER_TEMP/release-state/release-gateway.json"
+      - name: Retain gateway correlation for interrupted publication
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: release-homebrew-receipt
-          path: ${{ runner.temp }}/advertisement/advertisement-receipt*
-          if-no-files-found: ignore
+          name: release-gateway-receipt
+          path: ${{ runner.temp }}/release-state/
+          overwrite: true
           retention-days: 30
-
-  notarization_candidate:
-    name: Verify notarized desktop candidate without publishing
-    if: inputs.candidate_only && github.repository == 'atomicobject/rhizome'
-    runs-on: macos-15
-    environment: release
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout candidate source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Check desktop architecture
-        run: test "$(uname -m)" = arm64
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.2"
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          install-only: true
-      - name: Install credential scanner
-        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
-        working-directory: ${{ runner.temp }}
-        env:
-          GOTOOLCHAIN: go1.24.11
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            desktop/src-tauri/target
-          key: desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-      - name: Install desktop dependencies
-        run: make desktop-deps
-      - name: Set up Python for archive verification
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Prepare desktop signing
-        run: python3 scripts/release/ci_desktop_signing.py prepare
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
-      - name: Build and verify notarized candidate
-        run: python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --single-target
-        env:
-          RZM_NOTARIZE_DESKTOP: "1"
-          RZM_RELEASE_DESKTOP: "1"
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      - name: Clean up desktop signing
-        if: ${{ always() }}
-        run: python3 scripts/release/ci_desktop_signing.py cleanup
+          if-no-files-found: ignore

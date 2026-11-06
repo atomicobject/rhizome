@@ -55,15 +55,17 @@ def sign_payload(path: Path, version: str, *, root: Path, env: dict, runner) -> 
 def assemble(directories: list[Path], version: str, commit: str, canonical_hashes: dict[str, str], output: Path,
              *, production: bool = True, required_targets=REQUIRED_TARGETS, test_public_key: str | None = None,
              test_base_url: str | None = None, root: Path = ROOT, source=None, runner=subprocess.run,
-             verifier=verify_archive, now=lambda: datetime.now(timezone.utc)) -> Path:
+             verifier=verify_archive, now=lambda: datetime.now(timezone.utc), candidate_only: bool = False) -> Path:
     version, commit = identity(version, commit)
     required = frozenset(required_targets)
     if not required or not required.issubset(REQUIRED_TARGETS):
         raise CandidateError("assembly target set is invalid")
-    if production and (required != REQUIRED_TARGETS or test_public_key is not None or test_base_url is not None):
+    if (production or candidate_only) and (required != REQUIRED_TARGETS or test_public_key is not None or test_base_url is not None):
         raise CandidateError("production assembly requires every platform and the production feed key/URLs")
+    if production and candidate_only:
+        raise CandidateError("a candidate-only assembly cannot be marked production")
     public_key = release_pubkey(root) if test_public_key is None else test_public_key.strip()
-    base = (f"https://github.com/atomicobject/rhizome/releases/download/v{version}" if production
+    base = (f"https://github.com/atomicobject/rhizome/releases/download/v{version}" if production or candidate_only
             else fixture_base_url(test_base_url or "http://127.0.0.1:9444"))
     candidates = {}
     for directory in directories:
@@ -80,6 +82,7 @@ def assemble(directories: list[Path], version: str, commit: str, canonical_hashe
     source = dict(os.environ) if source is None else dict(source)
     clean_env = {name: value for name, value in source.items() if not sensitive_name(name)}
     receipt = {"schemaVersion": 1, "version": version, "sourceCommit": commit, "production": production,
+               "candidateOnly": candidate_only,
                "publicKeySha256": hashlib.sha256(public_key.encode()).hexdigest(),
                "packages": {target: manifest["artifact"] for target, (manifest, _) in sorted(candidates.items())},
                "canonicalCliSha256": canonical_hashes,

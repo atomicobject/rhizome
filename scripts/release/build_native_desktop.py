@@ -86,6 +86,10 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
         raise CandidateError("signer configuration is only used by production Windows candidates")
     command = tauri_cli(root)
     configs = ["--config", str(config_path), "--config", json.dumps({"version": version})]
+    if source.get("RZM_DESKTOP_PREBUILT_FRONTEND") == "1":
+        if not (root / "desktop/dist/index.html").is_file():
+            raise CandidateError("prepared desktop frontend is missing; restore the verified CI frontend artifact")
+        configs += ["--config", '{"build":{"beforeBuildCommand":"npm run rzm"}}']
     if test_overlay is not None:
         from updater_fixture import read_overlay
         read_overlay(test_overlay)
@@ -108,6 +112,11 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
         windows_signature(package, root=root, env=env, runner=runner, thumbprint=signing["thumbprint"])
         windows_signature(root / "desktop/src-tauri/target/release/rhizome-desktop.exe",
                           root=root, env=env, runner=runner, thumbprint=signing["thumbprint"])
+    if production:
+        gui = root / ("desktop/src-tauri/target/release/rhizome-desktop.exe" if target.startswith("windows-")
+                      else "desktop/src-tauri/target/release/rhizome-desktop")
+        run([sys.executable, str(root / "scripts/teamkeys/release.py"), "--check-artifact", str(gui)],
+            root=root, env=env, runner=runner)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".desktop-candidate-", dir=output.parent) as temporary:
         staging = Path(temporary)

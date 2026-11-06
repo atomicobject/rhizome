@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Verify a populated GoReleaser draft before advertising its complete desktop feed.
+"""Verify the CI publisher's populated draft before advertising its desktop feed.
 
-GoReleaser alone uploads assets. This coordinator holds only the release GitHub
+ci_release_publish alone uploads assets. This verifier holds only the release GitHub
 token and verifies updater signatures with the committed public key. A receipt is
 written only after authenticated retrieval proves every uploaded byte. Unknown
 uploads without that receipt still require the release orchestrator's inspection.
@@ -9,7 +9,6 @@ GitHub API: https://docs.github.com/en/rest/releases/releases#update-a-release
 """
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import os
@@ -23,8 +22,6 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from desktop_candidates import CandidateError, REQUIRED_TARGETS, TARGETS, identity, sha256
 from run_clean import sensitive_name
-from release_gateway import GatewayError
-from release_publication import PublicationError, gate_direct_publication, tagged_release_identity
 from verify_desktop_signing import DesktopSigningError, release_pubkey, verify_archive
 
 REPOSITORY = "atomicobject/rhizome"
@@ -135,44 +132,48 @@ def _write(path, value):
     temporary.replace(path)
 
 
-def expected_outputs(root, dist, desktop, *, version, commit):
-    """Bind local GoReleaser checksums and the verified assembly to exact source."""
+def expected_bundle(root, directory, *, version, commit, recipe_hashes):
+    """Bind the verified immutable CI bundle and both recipes to exact source."""
     version, commit = identity(version, commit)
-    metadata, assembly = _read(dist / "metadata.json"), _read(desktop / "desktop-assembly.json")
-    if any(metadata.get(k) != v for k, v in {"tag": "v" + version, "version": version, "commit": commit}.items()):
-        raise AdvertisementError("GoReleaser output differs from the canonical release")
+    if set(recipe_hashes) != {"homebrewFormulaSha256", "homebrewCaskSha256"}:
+        raise AdvertisementError("both retained Homebrew recipe hashes are required")
+    directory = Path(directory)
+    manifest = _read(directory / "release-manifest.json")
+    if manifest.get("candidate_only") is not False:
+        raise AdvertisementError("candidate-only bundles cannot be published")
+    if (manifest.get("schema_version") != 1 or manifest.get("source_commit") != commit
+            or manifest.get("version") != "v" + version or not isinstance(manifest.get("files"), dict)):
+        raise AdvertisementError("CI bundle differs from the accepted release source")
+    assets = {}
+    for name, checksum in manifest["files"].items():
+        _asset_name(name)
+        path = directory / name
+        if path.is_symlink() or not path.is_file() or sha256(path) != checksum:
+            raise AdvertisementError("immutable release bundle asset changed")
+        assets[name] = {"sha256": checksum, "size": path.stat().st_size}
+    for name in ("release-manifest.json", "checksums.txt"):
+        path = directory / name
+        if path.is_symlink() or not path.is_file():
+            raise AdvertisementError("release bundle metadata is missing")
+        assets[name] = {"sha256": sha256(path), "size": path.stat().st_size}
+    if {path.name for path in directory.iterdir()} != set(assets):
+        raise AdvertisementError("release bundle contains an unexpected file")
+    checksums = "".join(f"{asset['sha256']}  {name}\n" for name, asset in sorted(assets.items()) if name != "checksums.txt")
+    if (directory / "checksums.txt").read_text() != checksums:
+        raise AdvertisementError("release checksums do not cover the complete bundle")
+    assembly = _read(directory / "desktop-assembly.json")
     key_hash = hashlib.sha256(release_pubkey(root).encode()).hexdigest()
-    if (assembly.get("schemaVersion") != 1 or assembly.get("production") is not True
+    if (assembly.get("schemaVersion") != 1 or assembly.get("production") is not True or assembly.get("candidateOnly") is not False
             or assembly.get("version") != version or assembly.get("sourceCommit") != commit
             or assembly.get("publicKeySha256") != key_hash or set(assembly.get("packages", {})) != REQUIRED_TARGETS):
         raise AdvertisementError("desktop assembly is incomplete or differs from canonical source/key")
-    assets = {}
-    for line in (dist / "checksums.txt").read_text().splitlines():
-        match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
-        if match is None:
-            raise AdvertisementError("invalid GoReleaser checksums")
-        digest, name = match.groups()
-        _asset_name(name)
-        if name in assets:
-            raise AdvertisementError("duplicate GoReleaser checksum")
-        matches = [directory / name for directory in (dist, desktop) if (directory / name).is_file()]
-        if len(matches) != 1 or matches[0].is_symlink() or sha256(matches[0]) != digest:
-            raise AdvertisementError("local release asset differs from its GoReleaser checksum")
-        assets[name] = {"sha256": digest, "size": matches[0].stat().st_size}
-    for path in (dist / "checksums.txt", desktop / "install-rzm.sh", desktop / "install-rzm.sh.sha256"):
-        if path.is_symlink() or not path.is_file():
-            raise AdvertisementError("release checksum or installer is missing")
-        assets[path.name] = {"sha256": sha256(path), "size": path.stat().st_size}
     for target, package in assembly["packages"].items():
         if package != {"file": TARGETS[target]["asset"], **assets.get(TARGETS[target]["asset"], {})}:
-            raise AdvertisementError("assembled package differs from GoReleaser output")
+            raise AdvertisementError("assembled package differs from the immutable CI bundle")
         if package["file"] + ".sig" not in assets:
             raise AdvertisementError("updater signature is missing from release checksums")
-    formula = dist / "homebrew/rhizome.rb"
-    if formula.is_symlink() or not formula.is_file():
-        raise AdvertisementError("generated Homebrew formula is missing")
     expected = {"repository": REPOSITORY, "version": version, "sourceCommit": commit,
-                "publicKeySha256": key_hash, "homebrewFormulaSha256": sha256(formula), "assets": assets}
+                "publicKeySha256": key_hash, **recipe_hashes, "assets": assets}
     _validate_expected(expected)
     return expected
 
@@ -181,11 +182,12 @@ def _validate_expected(expected):
     identity(expected["version"], expected["sourceCommit"])
     if expected.get("repository") != REPOSITORY or not re.fullmatch(r"[0-9a-f]{64}", expected.get("publicKeySha256", "")):
         raise AdvertisementError("invalid advertisement identity")
-    if not re.fullmatch(r"[0-9a-f]{64}", expected.get("homebrewFormulaSha256", "")):
-        raise AdvertisementError("advertisement has no retained Homebrew formula identity")
+    if any(not re.fullmatch(r"[0-9a-f]{64}", expected.get(field, ""))
+           for field in ("homebrewFormulaSha256", "homebrewCaskSha256")):
+        raise AdvertisementError("advertisement has no retained Homebrew recipe identity")
     assets = expected["assets"]
     required = {"latest.json", "checksums.txt", "install-rzm.sh", "install-rzm.sh.sha256",
-                "desktop-assembly.json", "Rhizome-macos-arm64.dmg"}
+                "desktop-assembly.json", "Rhizome-macos-arm64.dmg", "release-manifest.json"}
     required.update(f"rhizome-{target}.tar.gz" for target in
                     ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64"))
     required.update(value["asset"] + suffix for value in TARGETS.values() for suffix in ("", ".sig"))
@@ -248,6 +250,9 @@ def _release(api, expected, release_id=None):
             or release.get("prerelease") is not ("-" in expected["version"])
             or type(release.get("draft")) is not bool):
         raise AdvertisementError("GitHub release identity differs from the canonical stable release")
+    if ("releaseNotesSha256" in expected and (not isinstance(release.get("body"), str)
+            or hashlib.sha256(release["body"].encode()).hexdigest() != expected["releaseNotesSha256"])):
+        raise AdvertisementError("GitHub release notes differ from the committed narrative")
     return release
 
 
@@ -300,7 +305,7 @@ def _verify_assets(api, release, expected, directory, *, authenticated):
             raise AdvertisementError("release asset checksum mismatch")
 
 
-def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_archive):
+def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_archive, before_change=lambda: None):
     """Resume only a verified upload. Persist intent before each public mutation."""
     root, receipt_path = Path(root), Path(receipt_path)
     if receipt_path.exists():
@@ -406,6 +411,7 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
             if _release_id(api.latest()) != release["id"]:
                 latest_is(receipt["previousLatest"])
                 if release["draft"]:
+                    before_change()
                     save("publishing")
                     api.api(f"releases/{release['id']}", method="PATCH", data={"draft": False, "make_latest": "false"})
                 save("public")
@@ -419,6 +425,7 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
                     save("complete")
                     return receipt
                 save("promoting")
+                before_change()
                 api.api(f"releases/{release['id']}", method="PATCH", data={"make_latest": "true"})
             else:
                 _verify_tag(api, expected)
@@ -442,50 +449,5 @@ def resume_advertisement(root, receipt_path, *, expected_commit, expected_versio
     return advertise(root, receipt_path, api=api or GitHub(env["GITHUB_TOKEN"]), env=env, verifier=verifier)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--receipt", type=Path, required=True)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--commit", required=True)
-    parser.add_argument("--dist-dir", type=Path, default=Path("dist"))
-    parser.add_argument("--desktop-dir", type=Path, default=Path(".tmp/goreleaser-extra"))
-    receipts = parser.add_mutually_exclusive_group()
-    receipts.add_argument("--gateway-receipt", type=Path)
-    receipts.add_argument("--terminal-gateway-receipt", type=Path)
-    parser.add_argument("--resume", action="store_true")
-    args = parser.parse_args()
-    try:
-        args.repo_root = args.repo_root.resolve()
-        for name in ("dist_dir", "desktop_dir", "receipt"):
-            value = getattr(args, name)
-            if not value.is_absolute():
-                setattr(args, name, args.repo_root / value)
-        if args.resume and not advertisement_resume_available(args.receipt, expected_commit=args.commit, expected_version=args.version):
-            raise AdvertisementError("no exact verified-upload receipt; manual inspection required")
-        env = advertisement_environment(os.environ)
-        expected = None if args.resume else expected_outputs(args.repo_root, args.dist_dir, args.desktop_dir,
-                                                             version=args.version, commit=args.commit)
-        if expected is not None:
-            if args.receipt.exists() and _read(args.receipt).get("expected") != expected:
-                raise AdvertisementError("local assets differ from the saved advertisement")
-            args.receipt.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(dir=args.receipt.parent, delete=False) as output:
-                temporary = Path(output.name)
-                output.write((args.dist_dir / "homebrew/rhizome.rb").read_bytes())
-                output.flush()
-                os.fsync(output.fileno())
-            temporary.replace(args.receipt.with_suffix(".rhizome.rb"))
-        if tagged_release_identity(args.repo_root, allow_generated=True) != (args.version.removeprefix("v"), args.commit):
-            raise AdvertisementError("advertisement source differs from the local canonical release")
-        gate_direct_publication(args.repo_root, receipt_path=args.terminal_gateway_receipt or args.gateway_receipt,
-                                allow_generated=True, terminal_receipt=args.terminal_gateway_receipt is not None)
-        advertise(args.repo_root, args.receipt, expected=expected, api=GitHub(env["GITHUB_TOKEN"]), env=env)
-    except (AdvertisementError, DesktopSigningError, CandidateError, PublicationError, GatewayError,
-            OSError, ValueError, KeyError, TypeError) as error:
-        parser.exit(1, f"advertisement: {error}\n")
-    return 0
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit("Public publication runs only through the approved ci_release_publish workflow")
