@@ -13,5 +13,6 @@ installedAssetTypes:
   - query-recipes
   - views
   - actions
+  - scripts
   - skills
   - managed-docs
