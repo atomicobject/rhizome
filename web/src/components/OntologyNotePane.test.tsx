@@ -1,4 +1,5 @@
 import { EditorView } from "@codemirror/view";
+import { undo } from "@codemirror/commands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { nodeWorkspaceFromPublicGraphQL } from "../api/nodeWorkspaceAdapter";
@@ -2821,6 +2822,71 @@ describe("note body retention", () => {
         sections: [section],
       },
     },
+  });
+
+  const sourceContent = "## Heading\n\noriginal content";
+
+  function refreshedWorkspace(fingerprint: string, content = sourceContent): NodeWorkspace {
+    return {
+      ...asWorkspace({
+        path: "note.md",
+        node: { ref: { notePath: "note.md", kind: "NOTE", structuralFingerprint: fingerprint } },
+        content: {
+          markdown: content,
+          sourceCapabilities: ["structural_content_mutation"],
+          rendered: { path: "note.md", title: "Note", rendered: content, sections: [] },
+        },
+      }),
+      sourceRevision: { notePath: "note.md", contentFingerprint: fingerprint, content },
+    };
+  }
+
+  it("preserves editor undo when a staged refresh changes the structural fingerprint", async () => {
+    const stage = vi.fn(async () => {});
+
+    const pane = (fingerprint: string, content = sourceContent) => (
+      <OntologyNotePane
+        workspace={refreshedWorkspace(fingerprint, content)}
+        editing
+        viewMode="source"
+        onStageOps={stage}
+        onOpen={() => undefined}
+      />
+    );
+
+    const view = render(pane("before"));
+    const contentDOM = await screen.findByRole("textbox", { name: "Markdown source" });
+    const editor = EditorView.findFromDOM(contentDOM)!;
+    act(() => editor.dispatch({ changes: { from: editor.state.doc.length, insert: " changed" } }));
+    await waitFor(() => expect(stage).toHaveBeenCalled());
+    view.rerender(pane("after", sourceContent + " changed"));
+    const updatedDOM = await screen.findByRole("textbox", { name: "Markdown source" });
+    const updatedEditor = EditorView.findFromDOM(updatedDOM)!;
+    act(() => {
+      undo(updatedEditor);
+    });
+    expect(updatedEditor.state.doc.toString()).toBe(sourceContent);
+  });
+
+  it("restores reading position after a suspended refresh changes the structural fingerprint", () => {
+    const pane = (fingerprint: string, active: boolean, bodyResident: boolean) => (
+      <OntologyNotePane
+        workspace={refreshedWorkspace(fingerprint)}
+        active={active}
+        bodyResident={bodyResident}
+        onOpen={() => undefined}
+      />
+    );
+
+    const view = render(pane("before", true, true));
+    const body = view.container.querySelector<HTMLDivElement>(".ontology-pane__main")!;
+    body.scrollTop = 130;
+    view.rerender(pane("before", false, true));
+    view.rerender(pane("before", false, false));
+    body.scrollTop = 0;
+    view.rerender(pane("after", false, false));
+    view.rerender(pane("after", true, true));
+    expect(body.scrollTop).toBe(130);
   });
 
   it("releases body DOM and outline targets, then restores disclosure and reading position", () => {

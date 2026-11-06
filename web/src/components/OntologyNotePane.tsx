@@ -1190,7 +1190,12 @@ export function OntologyNotePane({
   ]);
 
   const initialAnchor = initialAnchorProp ?? parseAnchorFromPath(rendered?.path);
-  const readingIdentity = `${canonicalNodeRefKey(canonicalWorkspace?.node.ref)}|${viewMode}`;
+  const readingRef = canonicalWorkspace?.node.ref;
+
+  // A fingerprint tracks content revisions, not the lifetime of the reading state or editor.
+  const readingIdentity = `${canonicalNodeRefKey(
+    readingRef ? { ...readingRef, structuralFingerprint: "" } : readingRef,
+  )}|${viewMode}`;
 
   const readingState = useNoteReadingState({
     identity: readingIdentity,
