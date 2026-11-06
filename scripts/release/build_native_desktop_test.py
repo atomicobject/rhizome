@@ -96,6 +96,9 @@ class NativeBuilderTests(unittest.TestCase):
         self.assertEqual(self.digest, manifest["sidecars"][0]["sha256"])
         self.assertEqual("windows-11-x86_64", manifest["nativeDependencies"]["baseline"])
         self.assertEqual(b"native installer", (self.output / "Rhizome-windows-x64-setup.exe").read_bytes())
+        _, probe = next((command, call) for command, call in self.calls if Path(command[0]).resolve() == self.rzm.resolve())
+        self.assertEqual("1", probe["env"]["RZM_SKIP_REPO_DELEGATE"])
+        self.assertFalse(probe["cwd"].is_relative_to(self.root.resolve()))
         for _, call in self.calls:
             self.assertNotIn("TAURI_SIGNING_PRIVATE_KEY", call["env"])
             self.assertNotIn("VOYAGE_API_KEY", call["env"])

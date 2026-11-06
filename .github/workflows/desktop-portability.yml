@@ -258,6 +258,7 @@ jobs:
       - name: Prepare build inputs
         run: |
           ./scripts/vendor/ensure_tree_sitter_sources.sh
+          python3 -m unittest discover -s scripts/licenses -p '*_test.py'
           make web-build
           npm ci --prefix desktop
       - name: Build two exact fixture versions and sign their updater payloads
@@ -266,11 +267,21 @@ jobs:
           TEAM_API_ORIGIN: ${{ inputs.team_api_origin || 'https://team.example.test' }}
         run: |
           python3 scripts/release/build_upgrade_fixture.py --target "$TARGET" \
-            --team-api-origin "$TEAM_API_ORIGIN" --output "$RUNNER_TEMP/upgrade-fixture"
+            --team-api-origin "$TEAM_API_ORIGIN" --output "$RUNNER_TEMP/upgrade-fixture" \
+            --evidence-dir "$RUNNER_TEMP/upgrade-fixture-evidence"
       - name: Retain public fixture packages and acceptance instructions
         uses: actions/upload-artifact@v4
         with:
           name: desktop-upgrade-fixture-${{ matrix.artifact }}
           path: ${{ runner.temp }}/upgrade-fixture/
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain bounded fixture build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-upgrade-build-evidence-${{ matrix.artifact }}
+          path: ${{ runner.temp }}/upgrade-fixture-evidence/**/*.log
+          if-no-files-found: warn
           retention-days: 14

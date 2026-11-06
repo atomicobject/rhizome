@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
@@ -40,6 +41,19 @@ func runEntryChild(command *exec.Cmd) error {
 	signal.Notify(interrupts, os.Interrupt)
 	defer signal.Stop(interrupts)
 	return command.Run()
+}
+
+func removeEntryFile(path string) error {
+	retired, err := os.CreateTemp(filepath.Dir(path), ".rzm-entry-retired-*.exe")
+	if err != nil {
+		return err
+	}
+	// Retire the public name first; unlinking a running Windows image may fail.
+	defer os.Remove(retired.Name())
+	if err := retired.Close(); err != nil {
+		return err
+	}
+	return fileio.Replace(path, retired.Name())
 }
 
 func setEntrySearchPath(directory string, install bool) error {

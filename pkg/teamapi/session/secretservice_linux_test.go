@@ -64,10 +64,10 @@ func fakeStore(t *testing.T) (SecretService, *fakeSecretService) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	if reply, err := conn.RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-		t.Fatalf("own synthetic Secret Service: %v, %v", reply, err)
-	}
 	fake := &fakeSecretService{conn: conn, records: map[string][]byte{}}
+	// Serialize startup and per-item exports through the same fixture lock.
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
 	for _, export := range []struct {
 		value any
 		path  dbus.ObjectPath
@@ -81,6 +81,9 @@ func fakeStore(t *testing.T) (SecretService, *fakeSecretService) {
 		if err := conn.Export(export.value, export.path, export.iface); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if reply, err := conn.RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own synthetic Secret Service: %v, %v", reply, err)
 	}
 	return SecretService{connect: func(ctx context.Context) (*dbus.Conn, error) {
 		return dbus.Connect(address, dbus.WithContext(ctx))

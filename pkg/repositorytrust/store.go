@@ -52,8 +52,7 @@ func DefaultStore() (Store, error) {
 
 // CanonicalCheckout resolves aliases so one checkout has one trust identity.
 func CanonicalCheckout(path string) (string, error) {
-	path = strings.TrimSpace(path)
-	if path == "" {
+	if strings.TrimSpace(path) == "" {
 		return "", errors.New("repository checkout path is required")
 	}
 	canonical, err := paths.CanonicalExistingPath(path)

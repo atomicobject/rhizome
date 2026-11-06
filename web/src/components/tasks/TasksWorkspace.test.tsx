@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskRunDetail, TasksLiveState } from "../../api/tasks";
-import { jsonReply, withFakeFetch } from "../../test/fakeFetch";
+import { deferredReply, jsonReply, withFakeFetch } from "../../test/fakeFetch";
 import { renderWithQueryClient as render } from "../../test/renderWithQueryClient";
 import { useDesktopRequest } from "../desktopHost";
 import {
@@ -309,15 +309,18 @@ describe("TasksWorkspace", () => {
     http.on("GET", "/api/tasks/state", () => jsonReply(live));
 
     const finished = { run: runsFixture(NOW)[0]!, events: events.slice(8), next: 1200 };
+    const firstPage = { run: running, events: events.slice(0, 4), next: 400, checkLog: "check ok" };
+    const transcript = deferredReply<TaskRunDetail>();
 
     const pages = new Map<string, TaskRunDetail>([
-      ["0", { run: running, events: events.slice(0, 4), next: 400, checkLog: "check ok" }],
       ["400", { run: running, events: events.slice(4, 8), next: 800 }],
       ["800", finished],
     ]);
 
     http.on("GET", `/api/tasks/runs/${RUN_ID}`, (request) =>
-      jsonReply(pages.get(request.query.get("after") ?? "") ?? { ...finished, events: [] }),
+      request.query.get("after") === "0"
+        ? transcript.promise
+        : jsonReply(pages.get(request.query.get("after") ?? "") ?? { ...finished, events: [] }),
     );
     open(`/tasks/docs-drift/runs/${RUN_ID}`);
     render(<TasksWorkspace />);
@@ -326,6 +329,9 @@ describe("TasksWorkspace", () => {
     expect(
       screen.getByText("Running", { selector: ".task-run__head .status-mark__label" }),
     ).toBeVisible();
+    expect(within(timeline).getByRole("status", { name: "Loading the transcript" })).toBeVisible();
+    transcript.resolve(firstPage);
+    await within(timeline).findByText("Thinking");
     fireEvent.click(summaryRow("Thinking"));
     expect(await within(timeline).findByText(/I should confirm/)).toBeVisible();
 

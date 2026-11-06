@@ -3,6 +3,7 @@ param(
     [string]$ExpectedThumbprint = ""
 )
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $signature = Get-AuthenticodeSignature -LiteralPath $Path
 if ($signature.Status -ne "Valid" -or $null -eq $signature.SignerCertificate) {
     throw "Windows production artifact does not have a valid Authenticode signature."

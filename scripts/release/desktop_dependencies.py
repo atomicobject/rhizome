@@ -15,7 +15,8 @@ BASELINES = {'linux-x86_64': 'ubuntu-24.04-x86_64', 'windows-x86_64': 'windows-1
 
 def _run(command, *, root, env, runner):
     try:
-        result = runner(command, cwd=root, env=env, check=True, capture_output=True, text=True, timeout=60)
+        result = runner(command, cwd=root, env=env, check=True, capture_output=True, text=True,
+                        encoding='utf-8', errors='replace', timeout=60)
         return result.stdout.strip()
     except (OSError, subprocess.SubprocessError) as error:
         raise CandidateError(f'native dependency inspection failed: {Path(command[0]).name}') from error

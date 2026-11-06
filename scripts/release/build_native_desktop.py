@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -15,15 +16,38 @@ import tempfile
 
 from desktop_candidates import (CandidateError, MANIFEST, ROOT, TARGETS, candidate_manifest, identity,
                                 package_file, profile, sha256, sidecar_inventory, tauri_cli, validate_profile)
-from run_clean import scoped_environment
+from run_clean import scoped_environment, sensitive_name
 from windows_sign import configuration, signing_source
 from desktop_dependencies import inspect_dependencies
 
 
-def run(command, *, root: Path, env: dict, runner=subprocess.run, timeout=1200) -> str:
+def build_failure(error, command, diagnostic_path):
+    def decoded(value):
+        return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else (value or "")
+    output = "\n".join(filter(None, (decoded(getattr(error, "stdout", None)), decoded(getattr(error, "stderr", None)))))
+    output = re.sub(r"(?is)-----BEGIN [^-]*PRIVATE KEY-----.*?(?:-----END [^-]*PRIVATE KEY-----|\Z)", "[redacted private key]", output)
+    output = re.sub(r"(?i)(https?://)[^\s/@:]+:[^\s/@]+@", r"\1[redacted]@", output)
+    output = re.sub(r"(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)\S+", r"\1[redacted]", output)
+    output = re.sub(r"(?i)(\b(?:token|secret|password|api[_-]?key)\s*[:=]\s*)[^\s]+", r"\1[redacted]", output)
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+    output = "".join(character for character in output if character in "\n\t" or ord(character) >= 32)[-12000:]
+    status = getattr(error, "returncode", None)
+    detail = f"{Path(command[0]).name} failed ({'exit ' + str(status) if status is not None else type(error).__name__})"
+    diagnostic_path.parent.mkdir(parents=True, exist_ok=True)
+    diagnostic_path.write_text(detail + "\n" + output + "\n", encoding="utf-8")
+    return detail + f"; build evidence: {diagnostic_path}" + ("\n" + output[-4000:] if output else "")
+
+
+def run(command, *, root: Path, env: dict, runner=subprocess.run, timeout=1200, diagnostic_path: Path | None = None) -> str:
+    if diagnostic_path is not None and (any(word in {"bundle", "signer", "sign"} for word in command)
+            or any(value and sensitive_name(name) for name, value in env.items())):
+        raise CandidateError("build diagnostics are unavailable for signing commands or credentialed environments")
     try:
-        result = runner(command, cwd=root, env=env, check=True, capture_output=True, text=True, timeout=timeout)
+        result = runner(command, cwd=root, env=env, check=True, capture_output=True, text=True,
+                        encoding="utf-8", errors="replace", timeout=timeout)
     except (subprocess.SubprocessError, OSError) as error:
+        if diagnostic_path is not None:
+            raise CandidateError(build_failure(error, command, diagnostic_path)) from error
         # Build/signing tools may echo credentials on failure.
         raise CandidateError(f"desktop command failed: {Path(command[0]).name}; inspect the isolated native job") from error
     return (getattr(result, "stdout", "") or "").strip()
@@ -48,7 +72,8 @@ def extract(package: Path, target: str, directory: Path, *, root: Path, env: dic
 
 def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, canonical_hash: str,
           production: bool = False, sign_config: Path | None = None, test_overlay: Path | None = None,
-          source=None, root: Path = ROOT, runner=subprocess.run, host=None, machine=None, phase="all") -> Path:
+          source=None, root: Path = ROOT, runner=subprocess.run, host=None, machine=None, phase="all",
+          evidence_dir: Path | None = None) -> Path:
     version, commit = identity(version, commit)
     settings = TARGETS.get(target)
     if not settings or target.startswith("darwin-"):
@@ -66,10 +91,12 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
         raise CandidateError("production candidates cannot use a test updater overlay")
     source = dict(os.environ) if source is None else dict(source)
     env = scoped_environment(source, "build")
-    env.update({"CI": "true", "RZM_DESKTOP_PREBUILT_RZM": str(rzm)})
+    env.update({"CI": "true", "RZM_DESKTOP_PREBUILT_RZM": str(rzm), "RZM_SKIP_REPO_DELEGATE": "1"})
     if run(["git", "rev-parse", "HEAD"], root=root, env=env, runner=runner) != commit:
         raise CandidateError("native build checkout does not match the canonical commit")
-    reported_version = run([str(rzm), "--version"], root=root, env=env, runner=runner).split()
+    with tempfile.TemporaryDirectory(prefix="rhizome-canonical-version-") as neutral:
+        reported_version = run([str(rzm), "--version"], root=Path(neutral), env=env, runner=runner,
+                               diagnostic_path=evidence_dir / "canonical-version.log" if evidence_dir else None).split()
     if not reported_version or reported_version[-1].removeprefix("v") != version:
         raise CandidateError("canonical CLI version does not match the desktop candidate")
     signing = {"status": "not-applicable"} if target.startswith("linux-") else {"status": "unsigned"}
@@ -95,7 +122,8 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
         read_overlay(test_overlay)
         configs += ["--config", str(test_overlay.resolve())]
     if phase != "package":
-        run([*command, "build", "--no-bundle", *configs], root=root / "desktop", env=env, runner=runner)
+        run([*command, "build", "--no-bundle", *configs], root=root / "desktop", env=env, runner=runner,
+            diagnostic_path=evidence_dir / "tauri-build.log" if evidence_dir else None)
     if phase == "compile":
         return root / "desktop/src-tauri/target/release"
     bundle_env = dict(env)
@@ -154,12 +182,13 @@ def main() -> int:
     parser.add_argument("--windows-sign-config", type=Path)
     parser.add_argument("--test-overlay", type=Path)
     parser.add_argument("--phase", choices=("all", "compile", "package"), default="all")
+    parser.add_argument("--evidence-dir", type=Path)
     args = parser.parse_args()
     try:
         print(build(args.rzm, args.version, args.commit, args.target, args.output,
                     canonical_hash=args.canonical_sha256, production=args.production,
                     sign_config=args.windows_sign_config, test_overlay=args.test_overlay, phase=args.phase,
-                    root=args.repo_root.resolve()))
+                    root=args.repo_root.resolve(), evidence_dir=args.evidence_dir))
     except (CandidateError, OSError, ValueError) as error:
         print(f"desktop candidate: {error}", file=sys.stderr)
         return 1

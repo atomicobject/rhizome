@@ -158,7 +158,7 @@ func RemoveEntryExpected(ctx context.Context, bundle Info, path string, generati
 			return fmt.Errorf("%s belongs to another installation and was left in place", path)
 		}
 		if state != "absent" {
-			if err := os.Remove(path); err != nil {
+			if err := removeEntryFile(path); err != nil {
 				return err
 			}
 		}

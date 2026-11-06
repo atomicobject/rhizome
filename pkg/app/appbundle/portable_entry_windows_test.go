@@ -69,16 +69,29 @@ func TestPortableWindowsDispatcherPreservesStreamsArgumentsAndExit(t *testing.T)
 }
 
 func TestPortableWindowsDispatcherLetsChildHandleControlC(t *testing.T) {
-	_, base := windowsEntryFixture(t)
-	self, err := os.Executable()
-	require.NoError(t, err)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	controller := ownedEntryCommand(ctx, self, "-test.run=^"+entryHelper+"$", "--", "controller", base)
-	controller.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_CONSOLE}
-	out, err := controller.CombinedOutput()
-	require.NoError(t, err, string(out))
-	require.Contains(t, string(out), "control-c preserved")
+	for _, direct := range []bool{true, false} {
+		name := "dispatcher"
+		if direct {
+			name = "direct_image_control"
+		}
+		t.Run(name, func(t *testing.T) {
+			entry, base := windowsEntryFixture(t)
+			if direct {
+				bundle, err := Read(filepath.Join(base, ReleaseIdentifier))
+				require.NoError(t, err)
+				entry = bundle.ExecutablePath
+			}
+			self, err := os.Executable()
+			require.NoError(t, err)
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			controller := ownedEntryCommand(ctx, self, "-test.run=^"+entryHelper+"$", "--", "controller", base, entry)
+			controller.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_CONSOLE}
+			out, err := controller.CombinedOutput()
+			require.NoError(t, err, string(out))
+			require.Contains(t, string(out), "control-c preserved")
+		})
+	}
 }
 
 func TestPortableWindowsDispatcherPreservesConsolelessProbe(t *testing.T) {
@@ -198,7 +211,8 @@ func TestPortableWindowsEntryHelper(t *testing.T) {
 	mode, base := os.Args[separator+1], os.Args[separator+2]
 	portableBaseDirectory = func() (string, error) { return base, nil }
 	if mode == "controller" {
-		runEntryController()
+		require.Len(t, os.Args, separator+4)
+		runEntryController(os.Args[separator+3])
 		return
 	}
 	if mode == "console-controller" {
@@ -273,17 +287,18 @@ func runEntryConsoleController(t *testing.T) {
 	os.Exit(0)
 }
 
-func runEntryController() {
+func runEntryController(target string) {
 	// This process has its own console, so the broadcast cannot reach the test runner.
 	interrupts := make(chan os.Signal, 1)
 	signal.Notify(interrupts, os.Interrupt)
-	entry, err := EntryPath()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	// The runner may inherit Ctrl-C suppression; establish a known console before spawning children.
+	setConsoleCtrlHandler := windows.NewLazySystemDLL("kernel32.dll").NewProc("SetConsoleCtrlHandler")
+	if enabled, _, err := setConsoleCtrlHandler.Call(0, 0); enabled == 0 {
+		fmt.Fprintln(os.Stderr, "cannot enable fixture Ctrl-C handling:", err)
 		os.Exit(1)
 	}
 	base, _ := portableBaseDirectory()
-	command := exec.Command(entry, "-test.run=^"+entryHelper+"$", "--", "interrupt", base)
+	command := exec.Command(target, "-test.run=^"+entryHelper+"$", "--", "interrupt", base)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

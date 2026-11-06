@@ -151,7 +151,7 @@ func runImageProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 	const markerSize = len(imageProbeMarker) + len("old\n")
-	if _, err := file.Seek(-markerSize, io.SeekEnd); err != nil {
+	if _, err := file.Seek(-int64(markerSize), io.SeekEnd); err != nil {
 		t.Fatal(err)
 	}
 	marker := make([]byte, markerSize)

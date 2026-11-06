@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
 )
 
 func TestCanonicalCheckoutSharesVerbatimWindowsTrustAndLongPathIO(t *testing.T) {
@@ -58,19 +59,70 @@ func TestCanonicalCheckoutSharesVerbatimWindowsTrustAndLongPathIO(t *testing.T) 
 }
 
 func TestCanonicalCheckoutDoesNotMergeDistinctVerbatimWindowsNames(t *testing.T) {
-	base, err := filepath.EvalSymlinks(t.TempDir())
+	for _, tc := range []struct {
+		name, suffix string
+		ancestor     bool
+	}{
+		{"dot_leaf", ".", false},
+		{"space_leaf", " ", false},
+		{"dot_ancestor", ".", true},
+		{"space_ancestor", " ", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base, err := filepath.EvalSymlinks(t.TempDir())
+			require.NoError(t, err)
+			ordinary := filepath.Join(base, "checkout")
+			verbatim := `\\?\` + filepath.Join(base, "checkout"+tc.suffix)
+			require.NoError(t, os.Mkdir(ordinary, 0o755))
+			require.NoError(t, os.Mkdir(verbatim, 0o755))
+			if tc.ancestor {
+				ordinary = filepath.Join(ordinary, "repo")
+				verbatim = filepath.Join(verbatim, "repo")
+				require.NoError(t, os.Mkdir(ordinary, 0o755))
+				require.NoError(t, os.Mkdir(verbatim, 0o755))
+			}
+
+			// Use raw Win32 calls, independently of Go's automatic path prefixes.
+			ordinaryID := win32DirectoryIdentity(t, ordinary)
+			verbatimID := win32DirectoryIdentity(t, verbatim)
+			require.NotEqual(t, ordinaryID, verbatimID, "the fixture needs physically distinct directories")
+			canonical, err := CanonicalCheckout(verbatim)
+			require.NoError(t, err)
+			require.Equal(t, verbatim, canonical, "ambiguous components require verbatim Win32 spelling")
+			require.Equal(t, verbatimID, win32DirectoryIdentity(t, canonical))
+
+			store := Store{Dir: filepath.Join(t.TempDir(), "trust")}
+			_, err = store.Trust(ordinary)
+			require.NoError(t, err)
+			trusted, err := store.Trusted(verbatim)
+			require.NoError(t, err)
+			require.False(t, trusted, "trust must not cross distinct Windows directory identities")
+			recorded, err := store.Trust(verbatim)
+			require.NoError(t, err)
+			require.Equal(t, canonical, recorded)
+			records, err := os.ReadDir(store.Dir)
+			require.NoError(t, err)
+			require.Len(t, records, 2)
+			_, removed, err := store.Untrust(ordinary)
+			require.NoError(t, err)
+			require.True(t, removed)
+			trusted, err = store.Trusted(verbatim)
+			require.NoError(t, err)
+			require.True(t, trusted)
+		})
+	}
+}
+
+func win32DirectoryIdentity(t *testing.T, path string) [3]uint32 {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(path)
 	require.NoError(t, err)
-	ordinary := filepath.Join(base, "checkout")
-	verbatim := `\\?\` + filepath.Join(base, "checkout.")
-	require.NoError(t, os.Mkdir(ordinary, 0o755))
-	require.NoError(t, os.Mkdir(verbatim, 0o755))
-	canonical, err := CanonicalCheckout(verbatim)
+	handle, err := windows.CreateFile(name, 0,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
 	require.NoError(t, err)
-	require.True(t, strings.HasPrefix(canonical, `\\?\`))
-	store := Store{Dir: filepath.Join(t.TempDir(), "trust")}
-	_, err = store.Trust(ordinary)
-	require.NoError(t, err)
-	trusted, err := store.Trusted(verbatim)
-	require.NoError(t, err)
-	require.False(t, trusted, "Win32's ordinary spelling names a different directory")
+	defer windows.CloseHandle(handle)
+	var info windows.ByHandleFileInformation
+	require.NoError(t, windows.GetFileInformationByHandle(handle, &info))
+	return [3]uint32{info.VolumeSerialNumber, info.FileIndexHigh, info.FileIndexLow}
 }

@@ -23,14 +23,16 @@ VERSIONS = ('0.0.1', '0.0.2')
 
 def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.0.0.1:9444', source=None,
                   runner=subprocess.run, builder=build, assembler=assemble, prepare_key=prepare,
-                  team_api_origin='https://team.example.test') -> Path:
+                  team_api_origin='https://team.example.test', evidence_dir: Path | None = None) -> Path:
     if target not in NATIVE_TARGETS:
         raise CandidateError('upgrade fixtures support the two initial native desktop targets')
     base_url = fixture_base_url(base_url)
     output = output.resolve()
     if output.exists():
         raise CandidateError('upgrade fixture output must be fresh')
+    evidence_dir = (evidence_dir or output.parent / (output.name + '-evidence')).resolve()
     env = scoped_environment(os.environ if source is None else source, 'build')
+    env.pop('GORELEASER_CURRENT_TAG', None)
     team_api_origin = run(['node', '--input-type=module', '-e',
         'import {desktopTeamAPIOrigin} from "./desktop/scripts/team-api-origin.mjs"; console.log(desktopTeamAPIOrigin())'],
         root=root, env={**env, 'RZM_DESKTOP_TEAM_API_ORIGIN': team_api_origin}, runner=runner)
@@ -40,28 +42,30 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
         work = Path(temporary)
         staged = work / 'public'
         staged.mkdir()
-        config = (root / '.goreleaser.yml').read_text()
+        config = (root / '.goreleaser.yml').read_text(encoding='utf-8')
+        if 'RZM_CI_RELEASE_VERSION' not in config:
+            raise CandidateError('fixture builds require the canonical exact-version snapshot template')
         pattern = r'(?m)^(\s+- -X github\.com/atomicobject/rhizome/pkg/teamapi/session\.DefaultOrigin=)\S+$'
         config, count = re.subn(pattern, lambda match: match[1] + team_api_origin, config)
         if count != 3:
             raise CandidateError('fixture origin override no longer matches the canonical build definitions')
         fixture_config = work / 'goreleaser-fixture.yml'
-        fixture_config.write_text(config)
+        fixture_config.write_text(config, encoding='utf-8')
         overlay = prepare_key(work / 'key', base_url + '/latest.json', source=env, root=root, runner=runner)
-        public_key = json.loads(overlay.read_text())['plugins']['updater']['pubkey']
+        public_key = json.loads(overlay.read_text(encoding='utf-8'))['plugins']['updater']['pubkey']
         shutil.copyfile(overlay, staged / 'updater-test-overlay.json')
         (staged / 'updater.pub').write_text(public_key + '\n')
         for version in VERSIONS:
             cli = work / ('rzm-' + version + ('.exe' if target.startswith('windows-') else ''))
             build_env = {**env, 'GOOS': target.split('-')[0], 'GOARCH': 'amd64',
-                         'GORELEASER_CURRENT_TAG': 'v' + version}
+                         'RZM_CI_RELEASE_VERSION': version}
             build_id = 'rzm-windows-amd64' if target.startswith('windows-') else 'rzm-linux'
-            run(['goreleaser', 'build', '--clean', '--single-target', '--id', build_id,
-                 '--skip=before,post-hooks,validate', '--config', str(fixture_config), '--output', str(cli)],
-                root=root, env=build_env, runner=runner)
+            run(['goreleaser', 'build', '--snapshot', '--clean', '--single-target', '--id', build_id,
+                 '--skip=before,post-hooks', '--config', str(fixture_config), '--output', str(cli)],
+                root=root, env=build_env, runner=runner, diagnostic_path=evidence_dir / version / 'goreleaser.log')
             candidate = work / ('candidate-' + version)
             builder(cli, version, commit, target, candidate, canonical_hash=sha256(cli), test_overlay=overlay,
-                    source=env, root=root, runner=runner)
+                    source=env, root=root, runner=runner, evidence_dir=evidence_dir / version)
             feed = assembler([candidate], version, commit, {target: sha256(cli)}, staged / version,
                              production=False, required_targets={target}, test_public_key=public_key,
                              test_base_url=base_url + '/' + version, source={**env,
@@ -89,10 +93,11 @@ def main() -> int:
     parser.add_argument('--repo-root', type=Path, default=ROOT)
     parser.add_argument('--base-url', default='http://127.0.0.1:9444')
     parser.add_argument('--team-api-origin', default='https://team.example.test')
+    parser.add_argument('--evidence-dir', type=Path)
     args = parser.parse_args()
     try:
         print(build_fixture(args.target, args.output, root=args.repo_root.resolve(), base_url=args.base_url,
-                            team_api_origin=args.team_api_origin))
+                            team_api_origin=args.team_api_origin, evidence_dir=args.evidence_dir))
     except (CandidateError, OSError, ValueError) as error:
         print(f'upgrade fixture: {error}', file=sys.stderr)
         return 1

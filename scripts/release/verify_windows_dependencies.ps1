@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Imports
 )
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;

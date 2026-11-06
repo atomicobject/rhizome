@@ -40,3 +40,18 @@ func TestCanonicalExistingPathRequiresExistingFilesystemIdentity(t *testing.T) {
 		t.Fatalf("missing path error = %v, want os.ErrNotExist", err)
 	}
 }
+
+func TestVerbatimDOSPathPreservesNamesWithoutRewritingDeviceNamespaces(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{`C:\repo.`, `\\?\C:\repo.`},
+		{`C:\parent \repo`, `\\?\C:\parent \repo`},
+		{`\\server\share\repo.`, `\\?\UNC\server\share\repo.`},
+		{`\\?\GLOBALROOT\Device\repo.`, `\\?\GLOBALROOT\Device\repo.`},
+		{`\\?\Volume{00000000-0000-0000-0000-000000000000}\repo.`, `\\?\Volume{00000000-0000-0000-0000-000000000000}\repo.`},
+		{`\\.\C:\repo.`, `\\.\C:\repo.`},
+	} {
+		if got := verbatimDOSPath(tc.input); got != tc.want {
+			t.Errorf("verbatimDOSPath(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}

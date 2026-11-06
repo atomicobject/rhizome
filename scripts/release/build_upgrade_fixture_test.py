@@ -40,14 +40,18 @@ class FixtureTests(unittest.TestCase):
                 self.assertTrue(Path(kwargs['source']['TAURI_SIGNING_PRIVATE_KEY_PATH']).exists())
                 output.mkdir(); feed=output/'latest.json'; feed.write_text(json.dumps({'version':version})); return feed
             output=build_fixture('windows-x86_64',root/'fixture',root=ROOT,
-                source={'PATH':'/bin','GITHUB_TOKEN':'synthetic','TAURI_SIGNING_PRIVATE_KEY':'synthetic'},
+                source={'PATH':'/bin','GITHUB_TOKEN':'synthetic','TAURI_SIGNING_PRIVATE_KEY':'synthetic',
+                        'GORELEASER_CURRENT_TAG':'v99.0.0'},
                 runner=runner,builder=builder,assembler=assembler,prepare_key=key)
             self.assertEqual(VERSIONS[-1],json.loads((output/'latest.json').read_text())['version'])
             self.assertEqual(set(VERSIONS),{path.name for path in output.iterdir() if path.is_dir()})
             self.assertFalse(any('synthetic private fixture' in path.read_text() for path in output.rglob('*') if path.is_file()))
-            self.assertEqual(['v'+version for version in VERSIONS],
-                [kwargs['env']['GORELEASER_CURRENT_TAG'] for command,kwargs in calls if command[0]=='goreleaser'])
-            self.assertTrue(all('--snapshot' not in command for command,_ in calls))
+            self.assertEqual(list(VERSIONS),
+                [kwargs['env']['RZM_CI_RELEASE_VERSION'] for command,kwargs in calls if command[0]=='goreleaser'])
+            for command, kwargs in calls:
+                if command[0] == 'goreleaser':
+                    self.assertIn('--snapshot', command)
+                    self.assertNotIn('GORELEASER_CURRENT_TAG', kwargs['env'])
 
 
 if __name__=='__main__':
