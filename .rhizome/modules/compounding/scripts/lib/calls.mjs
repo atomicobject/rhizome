@@ -93,7 +93,8 @@ export function rzmClients(rzm = "rzm", { cwd } = {}) {
       child.stderr.on("data", (d) => (err += d));
       child.on("error", fail);
       child.stdin.on("error", (error) => {
-        if (error.code === "EPIPE") return;
+        // The CLI closed its input early: EPIPE on POSIX, EOF on Windows. Its reply still counts.
+        if (error.code === "EPIPE" || error.code === "EOF") return;
         inputError = error;
         child.kill("SIGKILL");
       });
