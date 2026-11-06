@@ -2603,6 +2603,12 @@ components:
           items:
             $ref: "#/components/schemas/GraphEdge"
         truncated: { type: boolean }
+        omittedNodeIDs:
+          type: array
+          items: { type: string }
+        omittedLinks:
+          type: array
+          items: { $ref: '#/components/schemas/GraphEdge' }
         omittedNodes: { type: integer }
         omittedEdges: { type: integer }
         centerID: { type: string }

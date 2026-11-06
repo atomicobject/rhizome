@@ -353,6 +353,20 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 	s.attachGraphScores(ctx, nodes)
 	s.attachGraphTypes(ctx, nodes)
 	resp.Nodes, resp.Edges, resp.OmittedNodes, resp.OmittedEdges = limitLocalGraph(nodes, edgeList, centerID, limit)
+	retained := make(map[string]bool, len(resp.Nodes))
+	for _, node := range resp.Nodes {
+		retained[node.ID] = true
+	}
+	for _, node := range sortedNodes(nodes) {
+		if !retained[node.ID] {
+			resp.OmittedNodeIDs = append(resp.OmittedNodeIDs, node.ID)
+		}
+	}
+	for _, edge := range edgeList {
+		if !retained[edge.Source] || !retained[edge.Target] {
+			resp.OmittedLinks = append(resp.OmittedLinks, edge)
+		}
+	}
 	resp.Truncated = resp.OmittedNodes > 0 || resp.OmittedEdges > 0
 	return resp, nil
 }

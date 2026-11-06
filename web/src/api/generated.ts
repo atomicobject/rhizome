@@ -1599,6 +1599,8 @@ export interface components {
       nodes: components["schemas"]["GraphNode"][];
       edges: components["schemas"]["GraphEdge"][];
       truncated?: boolean;
+      omittedNodeIDs?: string[];
+      omittedLinks?: components["schemas"]["GraphEdge"][];
       omittedNodes?: number;
       omittedEdges?: number;
       centerID?: string;

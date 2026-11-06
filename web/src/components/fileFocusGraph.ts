@@ -47,7 +47,40 @@ export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResp
     }
   }
 
-  return { ...graph, nodes, edges };
+  const loadedIDs = new Set(nodes.map((node) => node.id));
+  const omittedNodeIDs = graph.omittedNodeIDs?.filter((id) => !loadedIDs.has(id));
+  const edgeKey = (edge: GraphEdge) => JSON.stringify([edge.source, edge.target, edge.kind]);
+  const loadedLinks = new Set(edges.map(edgeKey));
+
+  for (const edge of graph.omittedLinks ?? []) {
+    if (
+      loadedIDs.has(edge.source) &&
+      loadedIDs.has(edge.target) &&
+      !loadedLinks.has(edgeKey(edge))
+    ) {
+      edges.push(edge);
+      loadedLinks.add(edgeKey(edge));
+    }
+  }
+
+  const omittedLinks = graph.omittedLinks?.filter((edge) => !loadedLinks.has(edgeKey(edge)));
+
+  return {
+    ...graph,
+    nodes,
+    edges,
+    omittedNodeIDs,
+    omittedLinks,
+    omittedNodes: Math.max(
+      0,
+      (graph.omittedNodes ?? 0) -
+        ((graph.omittedNodeIDs?.length ?? 0) - (omittedNodeIDs?.length ?? 0)),
+    ),
+    omittedEdges: Math.max(
+      0,
+      (graph.omittedEdges ?? 0) - ((graph.omittedLinks?.length ?? 0) - (omittedLinks?.length ?? 0)),
+    ),
+  };
 }
 
 export const FILE_NOTE_RELATIONS = ["Documented by", "Mentioned in", "Related in graph"];

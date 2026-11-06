@@ -37,5 +37,10 @@ func TestLocalGraphCountsThreeHundredNeighbours(t *testing.T) {
 	require.Len(t, graph.Nodes, 200)
 	require.Equal(t, 101, graph.OmittedNodes)
 	require.Equal(t, 101, graph.OmittedEdges)
+	require.Len(t, graph.OmittedNodeIDs, 101)
+	require.Len(t, graph.OmittedLinks, 101)
+	for _, edge := range graph.OmittedLinks {
+		require.Contains(t, graph.OmittedNodeIDs, edge.Source)
+	}
 	requireGraphNode(t, graph, "code:center.go", "code")
 }

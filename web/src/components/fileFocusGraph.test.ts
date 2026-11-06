@@ -264,3 +264,48 @@ it("shows server omissions as a remainder that cannot be revealed", () => {
   });
   expect(result.nodes.some((node) => node.id.startsWith("file-more:"))).toBe(false);
 });
+
+it("reconciles the omitted neighbour when file details load all 201 notes", () => {
+  const relatedNotes = Array.from({ length: 201 }, (_, i) => ({
+    path: `notes/${i}.md`,
+    title: `Note ${i}`,
+    reason: "coderef",
+  }));
+
+  const input = {
+    nodes: [
+      graph.nodes[0],
+      ...relatedNotes.slice(0, 200).map((note) => ({
+        id: `note:${note.path}`,
+        kind: "note",
+        path: note.path,
+        label: note.title,
+      })),
+    ],
+    edges: relatedNotes
+      .slice(0, 200)
+      .map((note) => ({ source: `note:${note.path}`, target: "f", kind: "coderef" })),
+    omittedNodes: 1,
+    omittedEdges: 1,
+    omittedNodeIDs: ["note:notes/200.md"],
+    omittedLinks: [{ source: "note:notes/200.md", target: "f", kind: "coderef" }],
+  };
+
+  const file = { path: "src/main.go", kind: "code", relatedNotes };
+  const result = fileFocusGraph(input, file.path, file);
+  expect(result.nodes.some((node) => node.id === "file-omitted")).toBe(false);
+  expect(result.nodes.find((node) => node.id === "file-group:Documented by")?.labelDetail).toBe(
+    "201 notes",
+  );
+  expect(mergeFileNotes(mergeFileNotes(input, file), file)).toEqual(mergeFileNotes(input, file));
+
+  const unrelated = {
+    ...file,
+    relatedNotes: [{ path: "anchor-only.md", title: "Extra", reason: "codeanchor" }],
+  };
+
+  expect(
+    fileFocusGraph(input, file.path, unrelated).nodes.find((node) => node.id === "file-omitted")
+      ?.label,
+  ).toBe("+1 more not loaded");
+});
