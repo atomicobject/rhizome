@@ -285,47 +285,6 @@
   }
 }
 
-/* ---- Narrow panels: list, then task, then run ---- */
-
-@container tasks-panel (max-width: 780px) {
-  .tasks-split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .task-history {
-    border-right: 0;
-  }
-
-  .tasks-split[data-run-open="true"] .task-history,
-  .tasks-split[data-run-open="false"] .task-run {
-    display: none;
-  }
-
-  .task-back {
-    display: inline-flex;
-  }
-
-  .task-run__head,
-  .task-run__scroll {
-    padding-inline: 18px;
-  }
-
-  .task-run__id,
-  .task-table .is-optional,
-  .task-table__meta code,
-  .task-table td .task-table__aside {
-    display: none;
-  }
-
-  .task-table tbody th {
-    white-space: normal;
-  }
-
-  .task-table :is(th, td) {
-    padding-inline: 8px;
-  }
-}
-
 /* A new task's row carries its notice: a "New" tag and a quiet "What it
    does" toggle that opens the purpose in a full-width row below. "New" is
    the neutral chip (as .type-chip): a fact, not a status. */

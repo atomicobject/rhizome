@@ -249,3 +249,46 @@
   color: var(--accent-ink);
   font-size: var(--fs-sm);
 }
+
+/* ---- Narrow panels: list, then task, then run ----
+   Keep this block last: it overrides base rules from this file and its
+   imports, so it must come after all of them in the cascade. */
+
+@container tasks-panel (max-width: 780px) {
+  .tasks-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-history {
+    border-right: 0;
+  }
+
+  .tasks-split[data-run-open="true"] .task-history,
+  .tasks-split[data-run-open="false"] .task-run {
+    display: none;
+  }
+
+  .task-back {
+    display: inline-flex;
+  }
+
+  .task-run__head,
+  .task-run__scroll {
+    padding-inline: 18px;
+  }
+
+  .task-run__id,
+  .task-table .is-optional,
+  .task-table__meta code,
+  .task-table td .task-table__aside {
+    display: none;
+  }
+
+  .task-table tbody th {
+    white-space: normal;
+  }
+
+  .task-table :is(th, td) {
+    padding-inline: 8px;
+  }
+}

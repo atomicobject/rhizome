@@ -143,4 +143,10 @@ test("tests a local-only task draft and reads its result", async ({ page }) => {
   const history = page.getByRole("region", { name: "Run history" });
   await expect(history.getByText("Test", { exact: true })).toBeVisible();
   await expect(strip.getByRole("button", { name: "Test once" })).toBeEnabled();
+
+  // A narrow panel shows the run alone; its History button must lead back to the list.
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(history).toBeHidden();
+  await run.getByRole("button", { name: "History" }).click();
+  await expect(history).toBeVisible();
 });
