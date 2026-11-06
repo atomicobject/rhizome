@@ -97,11 +97,11 @@ Implemented bounded native note-body retention with existing tab data and live r
 - [x] Required local gates and documentation validation recorded.
 - [x] Independent integrated review resolved.
 - [x] Actual delivery and durable docs reconciled.
-- [x] Committed delivery references: `0705be63f`, `3b236e912`; PR link is added when the PR is opened.
+- [x] Committed delivery references: `0705be63f`, `3b236e912`; PR delivery reference: [#105](https://github.com/atomicobject/rhizome/pull/105).
 
 ## Status
 
-Complete for PR delivery on `t3/reduce-web-app-memory`. All implementation scope is delivered and local verification passes. PR review, CI, merge and the main-checkout Rhizome Dev update remain the authorized Full Send delivery steps.
+Complete for delivery in [PR #105](https://github.com/atomicobject/rhizome/pull/105) on `t3/reduce-web-app-memory`. All implementation scope is delivered and local verification passes. PR review, CI, merge and the main-checkout Rhizome Dev update remain the authorized Full Send delivery steps.
 
 ## Compounding Follow-ups
 
