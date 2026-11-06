@@ -88,8 +88,9 @@ jobs:
       - name: Set up Rust
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - name: Restore Rust dependencies
+        id: rust-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cargo/registry
@@ -167,6 +168,16 @@ jobs:
             --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
             --version 0.0.0 --commit "$commit" --output .tmp/desktop-portability/candidate \
             --evidence-dir .tmp/desktop-portability/build-evidence
+
+      - name: Save compiled Rust dependencies
+        if: success() && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
 
       - name: Exercise Windows startup and New Window
         if: runner.os == 'Windows'
