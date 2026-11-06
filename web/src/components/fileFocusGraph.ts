@@ -241,13 +241,11 @@ export function fileFocusGraph(
 
       const shown = fileFocusLabels(visible(members, label));
 
-      // Grow sideways when another group occupies the space below this one.
+      // Keep column capacity fixed so revealing neighbours preserves existing positions.
       const rows =
         entries.at(-1)?.[0] !== label
           ? Math.min(members.length, GROUP_LIMIT + 1)
-          : shown.length > 20
-            ? Math.ceil(shown.length / 2)
-            : shown.length;
+          : Math.min(members.length, 20);
 
       let itemY = groupY - HEADING_GAP;
       shown.forEach((node, index) => {
