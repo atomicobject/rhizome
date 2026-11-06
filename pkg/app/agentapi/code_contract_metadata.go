@@ -95,7 +95,10 @@ var codeOperationInputMetadata = map[string]map[string]codeInputFieldMetadata{
 		"limit":     {Description: "Maximum entries returned for each report category.", Default: 25, HasDefault: true},
 	},
 	"ontology_query_schema": {
-		"type": {Description: "Optional type name. Omit for the full executable schema; supply it for one type fragment and root arguments."},
+		"type":     {Description: "One public type to discover; mutually exclusive with types. Omit both for the full executable schema."},
+		"types":    {Description: "Public types to discover together, at most 32; mutually exclusive with type."},
+		"depth":    {Description: "Related output-type hops to include, 0..2; requires type or types. Inputs, enums, and scalars are always included.", Default: 0, HasDefault: true},
+		"maxBytes": {Description: "Maximum bytes of selected SDL, at most 131072; zero uses 32768. Requires type or types. Whole definitions are retained; omitted related types remain in referencedTypes.", Default: 0, HasDefault: true},
 	},
 	"ontology_query": {
 		"query":     {Description: "Read-only GraphQL query text."},
@@ -180,7 +183,7 @@ var codeOperationInterpretations = map[string]string{
 	"community_list":           "Community and representative-note limits bound graph-analysis output.",
 	"report":                   "op selects one report family; paths and limits narrow its indexed code evidence.",
 	"vault_health":             "Each health category is truncated independently by limit; staleDays controls only stale-note classification.",
-	"ontology_query_schema":    "Without type this returns full discovery; with type it returns the selected fragment and root arguments needed to query it.",
+	"ontology_query_schema":    "Omitting type and types preserves full discovery. Selected discovery includes root arguments and input dependencies; depth includes related output types within maxBytes and the 32-type ceiling. Inspect includedTypes, referencedTypes, limits, truncated, and limitReasons before assuming a related type was returned.",
 	"ontology_query":           "The GraphQL payload may contain execution errors and returns exitCode 1 when it does; query data remains dynamic. Generated typed roots add independent coverage under extensions.typedRoots[responseAlias]; use offset for continuation where nextOffset is present.",
 	"query_recipe":             "list and validate operate on discovered recipes; run selects a recipe, merges inputs and anchors, then executes its compiled query.",
 	"node_link":                "refs or targets is required. Code mode supports never and plan; ensure=apply is rejected even on a read-write connection.",

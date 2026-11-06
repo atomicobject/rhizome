@@ -35,6 +35,22 @@ func TestResolveNodeFieldDisclosesProviderSourceContract(t *testing.T) {
 	}
 }
 
+func TestExecuteReturnsNestedConcreteTypeNames(t *testing.T) {
+	env := newQueryTestEnv(t)
+	prepared, errs := Prepare(env.execSchema, `{
+      project(path: "notes/projects/roadmap-refresh.md") {
+        __typename
+        owner { kind: __typename }
+      }
+    }`)
+	require.Empty(t, errs)
+	result := Execute(context.Background(), env.deps(nil), env.schema, prepared)
+	require.Empty(t, result.Errors)
+	project := result.Data["project"].([]any)[0].(map[string]any)
+	require.Equal(t, "Project", project["__typename"])
+	require.Equal(t, "Person", project["owner"].(map[string]any)["kind"])
+}
+
 func TestExecute_CachesNoteRecordsWithinRequest(t *testing.T) {
 	env := newQueryTestEnv(t)
 	prepared, errs := Prepare(env.execSchema, `

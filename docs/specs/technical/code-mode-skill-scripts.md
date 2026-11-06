@@ -4,7 +4,7 @@ id: SPEC-0115
 aliases: [SPEC-0115, code-mode-skill-scripts]
 summary: "Code-mode typed reads run in the vault runtime behind a disk-checked freshness barrier, view runs can omit the capability catalog, saved scripts take a JSON input, and skill authors learn to ship scripts for the work their skills govern."
 spec-status: active
-last-updated: 2026-10-04
+last-updated: 2026-11-05
 ---
 
 # Code-mode skill scripts
@@ -13,7 +13,7 @@ last-updated: 2026-10-04
 
 Skills brief agents faster when they ship code-mode scripts that page, deduplicate, and shape typed reads into one compact result. Three costs got in the way. Every `ontologyQuery`, `queryRecipe` run, and `view` call in code mode built a one-shot runtime and refreshed the whole projection: about one second each, serialized under an exclusive lock, even when the vault runtime could answer the same query in milliseconds. `view` runs returned the per-field capability catalog, often most of the response. Saved scripts had no supported way to take arguments.
 
-This spec refines [[persistent-agent-code-mode|SPEC-0092]] and the code-mode routing in [[vault-runtime-coordination|SPEC-0104]]. Typed reads move to the runtime only when the runtime can show its read models match the notes on disk; otherwise the host keeps its in-process refresh.
+This spec refines [[persistent-agent-code-mode|SPEC-0092]] and the code-mode routing in [[vault-runtime-coordination|SPEC-0104]]. Typed reads wait for the live runtime to show its read models match the notes on disk. A pending projection stays with that owner; in-process refresh remains available when no runtime is usable or after the connection writes.
 
 ## Goals
 
@@ -35,7 +35,7 @@ This spec refines [[persistent-agent-code-mode|SPEC-0092]] and the code-mode rou
 - The tool catalog MUST declare which calls of a local-override operation the runtime may serve: every `ontology_query`; `query_recipe` with `op: run`; `view` with action `list`, `show`, `validate`, or `run`. A call that supplies `path` MUST stay in the host, because the path resolves against the host's working directory.
 - The host MUST forward admitted reads under shared connection access so independent reads overlap. The runtime MUST serve them through the same workflows the host runs, over its open index and a schema cached by source hash, and MUST keep refusing other local-override calls with `code_mode_local_only`.
 - Before an `ontology_query` or recipe run, the runtime MUST show its projection is current: compare every selected note on disk with the persisted metadata rows by size and modification second, when size and second match, compare the content hash once per exact stat (nanosecond time and size) so a rewrite that keeps both is caught however old it is, and treat created and removed notes as changes. A pending resync, a pending configuration, ignore, or schema change, and a stored note that discovery no longer returns while its file remains, MUST also count as waiting. Waiting work MUST go to one watcher batch that starts after the call, with throttling lifted for changed notes; afterward nothing may still be waiting. The persisted ontology state MUST also be ready, match the current schema hash and materialization version, and match the metadata notes hash.
-- When the runtime cannot show this within its budgets (two seconds for index readiness, ten for the watcher batch), while a boot catch-up or explicit index runs, when it cannot confirm semantic readiness for a query that needs it, or when no runtime is usable, the host MUST serve that call in-process with its existing refresh. The runtime signals this with an internal outcome the host consumes; generated clients never see it.
+- When the runtime cannot show this within one readiness attempt (two seconds for index readiness, ten for the watcher batch), including during boot catch-up or explicit indexing, the host MUST keep the read with the live owner and retry within the original operation deadline. It MUST NOT start an in-process writer merely because that owner reports a pending projection. Cancellation and deadline expiry stop the wait. Permanent capability, source-sync, and proof-read errors MUST be returned directly rather than converted into pending responses. The runtime signals pending reads with an internal outcome the host consumes; generated clients never see it. If no runtime is usable, the existing in-process route remains available.
 - After a connection makes a call that can write, its typed reads MUST stay in-process for the rest of the connection.
 - View reads keep their persisted-projection semantics on either host.
 - Results, `extensions.typedRoots`, errors, and exit codes MUST match the in-process path.

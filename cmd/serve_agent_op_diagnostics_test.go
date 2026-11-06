@@ -63,7 +63,12 @@ func TestRuntimeAgentRequestDiagnosticsPreserveStructuredReadFailures(t *testing
 				require.Contains(t, outcome.Diagnostic.(map[string]any), "errors")
 				require.Contains(t, outcome.Stderr, "PRIVATE_INVALID_FIELD")
 			} else {
-				require.True(t, actions.IsCodeModeRuntimeReadPending(outcome.Diagnostic))
+				require.False(t, actions.IsCodeModeRuntimeReadPending(outcome.Diagnostic), "terminal readiness failures must retain their cause")
+				if test.cancel {
+					require.Contains(t, outcome.Stderr, context.Canceled.Error())
+				} else {
+					require.Contains(t, outcome.Stderr, test.indexErr.Error())
+				}
 			}
 			require.NoError(t, recorder.Close())
 			require.Empty(t, stderr.String())

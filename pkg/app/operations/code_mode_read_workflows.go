@@ -9,13 +9,17 @@ import (
 )
 
 type CodeModeOntologySchemaRuntime interface {
-	Discover(context.Context, string) (ontologyquery.SchemaDiscovery, error)
+	Discover(context.Context, ontologyquery.SchemaDiscoveryOptions) (ontologyquery.SchemaDiscovery, error)
 }
 
 type CodeModeOntologySchemaService struct{ Runtime CodeModeOntologySchemaRuntime }
 
 func (s CodeModeOntologySchemaService) Call(ctx context.Context, input map[string]any) CodeModeOutcome {
-	response, err := s.Runtime.Discover(ctx, codeModeString(input, "type"))
+	options, err := ontologyquery.DecodeSchemaDiscoveryOptions(input)
+	if err != nil {
+		return codeModeFailure(err, 1)
+	}
+	response, err := s.Runtime.Discover(ctx, options)
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}

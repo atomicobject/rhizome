@@ -33,6 +33,12 @@
 
 - Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
 
+- Code-mode reads wait for a warming runtime to publish current data instead of starting a competing local refresh and waiting on its writer lock.
+
+- GraphQL node queries now return `__typename` for concrete note, section, and code identities, including nested links, aliases, and the `UntypedNote` and `UntypedSection` fallback types.
+
+- Agent session start now reports runtime connectivity, and denied local access returns an actionable error immediately instead of waiting or opening a fallback writer. Code-mode guidance and the new `open-efforts` recipe shorten effort discovery in Claude and Codex.
+
 - The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.
 
 - A compounding mining run that finds nothing to review now says why (how many candidates were rejected or held) instead of linking to an empty workspace, and the workspace's status line shows the latest run's counts.
@@ -49,6 +55,8 @@
 - Stopping agent sessions on macOS avoids shutdown timeouts caused by slow process discovery.
 
 ### Added
+
+- Agent schema discovery can fetch several types together or include related types by depth, with bounded output and explicit remaining-type metadata in CLI, code mode, and MCP.
 
 - The Tasks page shows local task versions before merge and can run **Test once** against a captured checkout, including uncommitted changes and nonignored helper files. Test outcomes and transcripts are visible with separate data and history; scheduled execution continues to use the primary ref. Compounding tests use fresh mining state rather than changing real proposals or cursors.
 

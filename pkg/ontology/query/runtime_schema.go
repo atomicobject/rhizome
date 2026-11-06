@@ -194,6 +194,7 @@ func runtimeTypeNames() map[string]struct{} {
 		"Node":                    {},
 		"Note":                    {},
 		"NoteNode":                {},
+		"UntypedNote":             {},
 		"Section":                 {},
 		"UntypedSection":          {},
 		"CodeFile":                {},

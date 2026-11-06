@@ -30,6 +30,8 @@ func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field
 		return node.Path, true
 	case "title":
 		return node.Title, true
+	case "__typename":
+		return noteGraphQLTypeName(node), true
 	case "resolvedType":
 		return node.TypeName, true
 	case "content":
@@ -220,6 +222,8 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 				return nodeCatalogTitleFromProjection(node.Projection), true, true
 			}
 			return node.Node.Title, true, true
+		case "__typename":
+			return sectionGraphQLTypeName(node), true, true
 		case "resolvedType":
 			return node.TypeName, true, true
 		case recordFieldUpdatedAt:

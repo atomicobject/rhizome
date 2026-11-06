@@ -68,6 +68,9 @@ func Probe(ctx context.Context, manifest InstanceManifest) (Health, error) {
 	}
 	resp, err := probeHTTPClient.Do(req)
 	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return Health{}, fmt.Errorf("%w: allow local networking or rerun this Rhizome command with the required permissions: %w", ErrRuntimeAccessDenied, err)
+		}
 		if ctx.Err() != nil {
 			return Health{}, fmt.Errorf("%w: %v", ErrRuntimeUnresponsive, err)
 		}
@@ -99,12 +102,18 @@ func LiveManifest(ctx context.Context, vaultPath string) (*Client, Health, error
 		if os.IsNotExist(err) {
 			return nil, Health{}, ErrNoRuntime
 		}
+		if errors.Is(err, os.ErrPermission) {
+			return nil, Health{}, fmt.Errorf("%w: reading the runtime manifest requires filesystem permission: %w", ErrRuntimeAccessDenied, err)
+		}
 		// A torn or corrupt manifest is not a runtime; the next owner
 		// overwrites it, so callers may replace rather than wait forever.
 		return nil, Health{}, fmt.Errorf("%w: %v", ErrNoRuntime, err)
 	}
 	health, err := Probe(ctx, manifest)
 	if err != nil {
+		if errors.Is(err, ErrRuntimeAccessDenied) {
+			return nil, Health{}, err
+		}
 		if errors.Is(err, ErrRuntimeUnresponsive) && pidExists(manifest.PID) {
 			return nil, Health{}, fmt.Errorf("%w (pid %d)", ErrRuntimeUnresponsive, manifest.PID)
 		}

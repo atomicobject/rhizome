@@ -13,6 +13,10 @@ Discover only the types and relationships needed for the current decision; reuse
 
 Prefer a saved recipe when it answers the same workflow question, accepts compatible inputs, bounds output, and documents adaptation. Otherwise inspect the schema and write a narrow query.
 
+Run a recipe ID supplied by a workflow directly; listing the catalog first is unnecessary. For an unfamiliar question, list once and reuse the result. Request the relevant type from `ontology-query-schema` before requesting the full schema; its fragment includes the root, filters, and sorting. Preserve `extensions.typedRoots` from each query or recipe result and follow `nextOffset` when `hasMore` is true.
+
+For several known types, call `rzm.ontologyQuerySchema({ types: ["TypeA", "TypeB"] })`; use `type` with `depth: 1` to include directly related types instead. Inspect `includedTypes`, `referencedTypes`, and `truncated`; budget-limited expansion keeps whole definitions and names its limits. Input, enum, and scalar dependencies are included. `references/code-mode.md` documents the bounds and shows discovery followed by a nested GraphQL query.
+
 The public GraphQL layer supports typed note/relationship retrieval, a notes-only `search` root over the unified engine, `semantic:` note or node surveys, ontology metadata, authoring/schema metadata, and bounded known-path code/document/test evidence. It does not expose an `agent` root, does not replace broad mixed note/code `semantic-query`, and is not arbitrary code search. Use exact code tools for symbol/reference proof and `rzm agent surface` for agent-family capabilities.
 
 Empty or partial typed results may mean the selector was too narrow, content is untyped, the index is stale, or the ontology does not model that relationship. Diagnose those separately before falling back to broad search.

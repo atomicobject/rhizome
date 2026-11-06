@@ -153,7 +153,7 @@ func (commandOptions commandCodeModeNextIDAllocator) Allocate(ctx context.Contex
 
 type commandCodeModeOntologySchemaRuntime struct{ *vaultCommandOptions }
 
-func (commandOptions commandCodeModeOntologySchemaRuntime) Discover(ctx context.Context, typeName string) (ontologyquery.SchemaDiscovery, error) {
+func (commandOptions commandCodeModeOntologySchemaRuntime) Discover(ctx context.Context, options ontologyquery.SchemaDiscoveryOptions) (ontologyquery.SchemaDiscovery, error) {
 	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return ontologyquery.SchemaDiscovery{}, err
@@ -162,7 +162,7 @@ func (commandOptions commandCodeModeOntologySchemaRuntime) Discover(ctx context.
 	if err != nil {
 		return ontologyquery.SchemaDiscovery{}, err
 	}
-	return ontologyquery.DiscoverSchema(ontologySchema, schema, typeName)
+	return ontologyquery.DiscoverSchema(ontologySchema, schema, options)
 }
 
 type commandCodeModeOntologyQueryRuntime struct{ *vaultCommandOptions }
