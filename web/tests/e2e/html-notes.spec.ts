@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { chooseView } from "./workspaceView";
+import { chooseView, workspaceView } from "./workspaceView";
 
 test.describe.configure({ mode: "serial", timeout: 60_000 });
 
@@ -47,6 +47,45 @@ test("runs an admitted HTML prototype in a retained isolated frame", async ({ pa
   await chooseView(page, "Preview");
   await expect(frameElement).toBeVisible();
   await expect(prototype.locator("body")).toHaveAttribute("data-runtime-state", "kept");
+});
+
+test("keeps Source clickable while the HTML preview starts refreshing", async ({ page }) => {
+  await page.goto(prototypeRoute);
+
+  const prototype = page.frameLocator(
+    'iframe[title="Interactive HTML note: reports/prototype.html"]',
+  );
+
+  await expect(prototype.getByText("2 sales rows loaded")).toBeVisible();
+  await expect(page.getByText("Loading prototype…", { exact: true })).toBeHidden();
+
+  let resumeRefresh = () => {};
+
+  const refreshPending = new Promise<void>((resolve) => {
+    resumeRefresh = resolve;
+  });
+
+  await page.route("**/api/v1/html-viewers", async (route) => {
+    await refreshPending;
+    await route.continue();
+  });
+
+  const source = workspaceView(page).getByRole("button", { name: "Source", exact: true });
+  await source.evaluate(
+    (button, refresh) => {
+      if (!(refresh instanceof HTMLButtonElement)) throw new Error("HTML refresh button missing");
+      button.addEventListener("pointerdown", () => refresh.click(), { once: true });
+    },
+    await page.getByRole("button", { name: "Refresh", exact: true }).elementHandle(),
+  );
+
+  try {
+    await source.click({ delay: 100 });
+    await expect(page.getByLabel("Note source")).toContainText("Interactive sales prototype");
+  } finally {
+    resumeRefresh();
+    await page.unrouteAll({ behavior: "wait" });
+  }
 });
 
 test("groups typed properties and root metadata in one collapsed disclosure", async ({ page }) => {
