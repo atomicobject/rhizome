@@ -353,6 +353,7 @@
   width: 60px;
 }
 .gv-ov-folders .gv-ov-folder {
+  width: max-content;
   max-width: 160px;
   white-space: normal;
   overflow-wrap: anywhere;
