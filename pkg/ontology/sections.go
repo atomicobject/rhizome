@@ -159,6 +159,9 @@ func SectionBody(node *SectionNode) string {
 	if node == nil {
 		return ""
 	}
+	if !strings.HasPrefix(strings.TrimSpace(node.Content), "#") {
+		return strings.TrimSpace(node.Content)
+	}
 	if idx := strings.IndexByte(node.Content, '\n'); idx >= 0 {
 		return strings.TrimSpace(node.Content[idx+1:])
 	}
