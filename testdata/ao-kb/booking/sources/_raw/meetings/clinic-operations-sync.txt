@@ -1,0 +1,21 @@
+Clinic operations sync. Illustrative transcript.
+Facilitator: What does the clinic need?
+Reception: Patients choose appointments.
+Reception: Existing patients may use video visits.
+Reception: Saturday hours end in October.
+Reception: Appointment reminders should change.
+Reception: We first proposed 48 hours.
+Reception: We then proposed 24 hours.
+Reception: We now prefer two hours.
+Reception: Cancellation policy is still disputed.
+Facilitator: Who owns the booking?
+Reception: Patients can choose an available slot.
+Reception: They should not need to call.
+Reception: Show the clinic schedule.
+Reception: Keep appointment types distinct.
+Reception: A guardian must authorize minors.
+Reception: Reception checks incomplete referrals.
+Reception: Ask before confirming eligibility.
+Facilitator: We will review the policy.
+Reception: No fee decision has been settled.
+End of illustrative transcript.

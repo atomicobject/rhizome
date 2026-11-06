@@ -1,0 +1,2340 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-06T22:49:26.846Z",
+    "vaultSchemaVersion": 8,
+    "builder": "ao-kb@7.138.8"
+  },
+  "nodes": {
+    "a-000000000001": {
+      "id": "a-000000000001",
+      "type": "assertion",
+      "title": "Patients book their own slots",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Patients can choose an available appointment without calling the clinic.",
+      "file": "assertions/clinic-patient-books-own-slot.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 2,
+      "slug": "clinic-patient-books-own-slot",
+      "kind": "need",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": "Taylor, clinic lead",
+      "reviewed": true,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-00000000000c": {
+      "id": "a-00000000000c",
+      "type": "assertion",
+      "title": "Eligibility rules?",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "What eligibility checks should Booking make?",
+      "file": "assertions/eligibility-question-old.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "eligibility-question-old",
+      "kind": "question",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-00000000000d": {
+      "id": "a-00000000000d",
+      "type": "assertion",
+      "title": "Check referral before booking?",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "Must a referral be verified before a patient reserves an appointment?",
+      "file": "assertions/eligibility-question-specific.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "eligibility-question-specific",
+      "kind": "question",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-00000000000b": {
+      "id": "a-00000000000b",
+      "type": "assertion",
+      "title": "Guardian question withdrawn",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "Must every minor have an account-owning guardian?",
+      "file": "assertions/guardian-question-withdrawn.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "guardian-question-withdrawn",
+      "kind": "question",
+      "attestation": "direct",
+      "status": "retracted",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000008": {
+      "id": "a-000000000008",
+      "type": "assertion",
+      "title": "Paper booking is archived",
+      "phase": "definition",
+      "confidence": "hypothesis",
+      "excerpt": "The clinic previously booked appointments on paper.",
+      "file": "assertions/legacy-paper-booking.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L1-L2",
+      "sources": 2,
+      "slug": "legacy-paper-booking",
+      "kind": "observation",
+      "attestation": "direct",
+      "status": "archived",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000013": {
+      "id": "a-000000000013",
+      "type": "assertion",
+      "title": "Malformed locator fixture",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "The clinic may offer a special booking window.",
+      "file": "assertions/malformed-passage-locator.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "Lbanana",
+      "sources": 1,
+      "slug": "malformed-passage-locator",
+      "kind": "hypothesis",
+      "attestation": "inferred",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-00000000000e": {
+      "id": "a-00000000000e",
+      "type": "assertion",
+      "title": "Minors need a guardian",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "A guardian must authorize bookings for minors.",
+      "file": "assertions/minors-need-guardian.md",
+      "sources": 1,
+      "slug": "minors-need-guardian",
+      "kind": "rule",
+      "attestation": "direct",
+      "speaker": null,
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ]
+    },
+    "a-000000000016": {
+      "id": "a-000000000016",
+      "type": "assertion",
+      "title": "Waitlist offers expire hourly",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Waitlist offers expire after one hour.",
+      "file": "assertions/new-waitlist-after-snapshot.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "new-waitlist-after-snapshot",
+      "kind": "decision",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000014": {
+      "id": "a-000000000014",
+      "type": "assertion",
+      "title": "Eligibility check lacks evidence",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "Who confirms eligibility when the referral is incomplete?",
+      "file": "assertions/no-sources-eligibility-check.md",
+      "speaker": "Legacy recorder",
+      "sources": 0,
+      "slug": "no-sources-eligibility-check",
+      "kind": "question",
+      "attestation": "inferred",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "team"
+    },
+    "a-00000000000f": {
+      "id": "a-00000000000f",
+      "type": "assertion",
+      "title": "Pricing follows clinic tiers",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Clinic pricing uses the published appointment tiers.",
+      "file": "assertions/pricing-tier-policy.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "Pricing > Tiers",
+      "sources": 1,
+      "slug": "pricing-tier-policy",
+      "kind": "fact",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000010": {
+      "id": "a-000000000010",
+      "type": "assertion",
+      "title": "Referrals use second document",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Referral approval is recorded in the second attachment.",
+      "file": "assertions/referral-file-selection.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "2::L3-L5",
+      "sources": 1,
+      "slug": "referral-file-selection",
+      "kind": "fact",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000002": {
+      "id": "a-000000000002",
+      "type": "assertion",
+      "title": "Reminders arrive 48h before",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Booking sends reminders 48 hours before the visit.",
+      "file": "assertions/reminders-forty-eight-hours.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "reminders-forty-eight-hours",
+      "kind": "decision",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000003": {
+      "id": "a-000000000003",
+      "type": "assertion",
+      "title": "Reminders arrive 24h before",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Booking sends reminders 24 hours before the visit.",
+      "file": "assertions/reminders-twenty-four-hours.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "reminders-twenty-four-hours",
+      "kind": "decision",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000004": {
+      "id": "a-000000000004",
+      "type": "assertion",
+      "title": "Reminders arrive 2h before",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Booking sends reminders two hours before the visit.",
+      "file": "assertions/reminders-two-hours.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "reminders-two-hours",
+      "kind": "decision",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000006": {
+      "id": "a-000000000006",
+      "type": "assertion",
+      "title": "Same-day cancellation has fee",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Patients pay a fee when cancelling on the appointment day.",
+      "file": "assertions/same-day-cancellation-fee.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "same-day-cancellation-fee",
+      "kind": "rule",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000005": {
+      "id": "a-000000000005",
+      "type": "assertion",
+      "title": "Same-day cancellation is free",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Patients can cancel on the appointment day without a fee.",
+      "file": "assertions/same-day-cancellation-free.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "same-day-cancellation-free",
+      "kind": "rule",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000009": {
+      "id": "a-000000000009",
+      "type": "assertion",
+      "title": "Same-day video visits?",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "Should Booking offer same-day video appointments?",
+      "file": "assertions/same-day-video-question.md",
+      "sources": 1,
+      "slug": "same-day-video-question",
+      "kind": "question",
+      "attestation": "direct",
+      "speaker": null,
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000007": {
+      "id": "a-000000000007",
+      "type": "assertion",
+      "title": "Saturday hours end October",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Saturday appointments are available through October 2026.",
+      "file": "assertions/saturday-hours-through-october.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "saturday-hours-through-october",
+      "kind": "fact",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": "2026-10-31",
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000015": {
+      "id": "a-000000000015",
+      "type": "assertion",
+      "title": "Fallback source body policy",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Reception checks the referral before confirming a slot.",
+      "file": "assertions/source-note-fallback.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L1-L3",
+      "sources": 1,
+      "slug": "source-note-fallback",
+      "kind": "rule",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-000000000011": {
+      "id": "a-000000000011",
+      "type": "assertion",
+      "title": "Arrival buffer is 10m",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Patients need ten minutes to complete check-in.",
+      "file": "assertions/timestamp-arrival-buffer.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "01:10-01:30",
+      "sources": 1,
+      "slug": "timestamp-arrival-buffer",
+      "kind": "need",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "end-user"
+    },
+    "a-000000000012": {
+      "id": "a-000000000012",
+      "type": "assertion",
+      "title": "Unresolved passage fixture",
+      "phase": "definition",
+      "confidence": "guess",
+      "excerpt": "The clinic may reserve appointments for referral partners.",
+      "file": "assertions/unresolved-passage-range.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L120-L125",
+      "sources": 1,
+      "slug": "unresolved-passage-range",
+      "kind": "hypothesis",
+      "attestation": "inferred",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "a-00000000000a": {
+      "id": "a-00000000000a",
+      "type": "assertion",
+      "title": "Video visits are approved",
+      "phase": "definition",
+      "confidence": "validated",
+      "excerpt": "Booking offers same-day video appointments for existing patients.",
+      "file": "assertions/video-visits-approved.md",
+      "speaker": "Morgan, clinic operations",
+      "locator": "L12-L18",
+      "sources": 1,
+      "slug": "video-visits-approved",
+      "kind": "decision",
+      "attestation": "direct",
+      "status": "active",
+      "reviewedBy": null,
+      "reviewed": false,
+      "validFrom": "2026-10-20",
+      "validUntil": null,
+      "tags": [
+        "booking"
+      ],
+      "speaker_role": "stakeholder"
+    },
+    "cpt-000000000004": {
+      "id": "cpt-000000000004",
+      "type": "concept",
+      "title": "Availability",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Availability groups authored Booking assertions.",
+      "file": "concepts/availability.md",
+      "slug": "availability"
+    },
+    "cpt-000000000003": {
+      "id": "cpt-000000000003",
+      "type": "concept",
+      "title": "Cancellation",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Cancellation groups authored Booking assertions.",
+      "file": "concepts/cancellation.md",
+      "slug": "cancellation"
+    },
+    "cpt-000000000007": {
+      "id": "cpt-000000000007",
+      "type": "concept",
+      "title": "Eligibility",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Eligibility groups authored Booking assertions.",
+      "file": "concepts/eligibility.md",
+      "slug": "eligibility"
+    },
+    "cpt-000000000006": {
+      "id": "cpt-000000000006",
+      "type": "concept",
+      "title": "Guardians",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Guardians groups authored Booking assertions.",
+      "file": "concepts/guardians.md",
+      "slug": "guardians"
+    },
+    "cpt-000000000002": {
+      "id": "cpt-000000000002",
+      "type": "concept",
+      "title": "Reminders",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Reminders groups authored Booking assertions.",
+      "file": "concepts/reminders.md",
+      "slug": "reminders"
+    },
+    "cpt-000000000001": {
+      "id": "cpt-000000000001",
+      "type": "concept",
+      "title": "Self Service",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Self Service groups authored Booking assertions.",
+      "file": "concepts/self-service.md",
+      "slug": "self-service"
+    },
+    "cpt-000000000005": {
+      "id": "cpt-000000000005",
+      "type": "concept",
+      "title": "Video Visits",
+      "phases": [
+        "definition"
+      ],
+      "excerpt": "Video Visits groups authored Booking assertions.",
+      "file": "concepts/video-visits.md",
+      "slug": "video-visits"
+    },
+    "s-000000000009": {
+      "id": "s-000000000009",
+      "type": "source",
+      "title": "Archived clinic handbook",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "archived-clinic-handbook",
+      "speaker_role": "stakeholder"
+    },
+    "s-000000000001": {
+      "id": "s-000000000001",
+      "type": "source",
+      "title": "Clinic operations sync",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "clinic-operations-sync",
+      "speaker_role": "stakeholder"
+    },
+    "s-000000000003": {
+      "id": "s-000000000003",
+      "type": "source",
+      "title": "Clinic pricing policy",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "clinic-pricing-policy",
+      "speaker_role": "stakeholder"
+    },
+    "s-000000000006": {
+      "id": "s-000000000006",
+      "type": "source",
+      "title": "External booking brief",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "external-booking-brief",
+      "speaker_role": "external"
+    },
+    "s-000000000007": {
+      "id": "s-000000000007",
+      "type": "source",
+      "title": "Generated booking summary",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "generated-booking-summary",
+      "speaker_role": "generated"
+    },
+    "s-000000000005": {
+      "id": "s-000000000005",
+      "type": "source",
+      "title": "Patient arrival recording",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "patient-arrival-recording",
+      "speaker_role": "end-user"
+    },
+    "s-000000000002": {
+      "id": "s-000000000002",
+      "type": "source",
+      "title": "Patient booking interview",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "patient-booking-interview",
+      "speaker_role": "end-user"
+    },
+    "s-000000000008": {
+      "id": "s-000000000008",
+      "type": "source",
+      "title": "Reception policy note",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "reception-policy-note",
+      "speaker_role": "stakeholder"
+    },
+    "s-000000000004": {
+      "id": "s-000000000004",
+      "type": "source",
+      "title": "Referral attachments",
+      "status": "complete",
+      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "slug": "referral-attachments",
+      "speaker_role": "stakeholder"
+    },
+    "art:booking-policy-review": {
+      "id": "art:booking-policy-review",
+      "type": "artifact",
+      "title": "Booking policy review",
+      "phase": null,
+      "status": "draft",
+      "excerpt": "Illustrative Booking artifact.",
+      "file": "artifacts/booking-policy-review.md",
+      "slug": "booking-policy-review"
+    },
+    "art:booking-prd": {
+      "id": "art:booking-prd",
+      "type": "artifact",
+      "title": "Booking product brief",
+      "phase": null,
+      "status": "draft",
+      "excerpt": "Illustrative Booking artifact.",
+      "file": "artifacts/booking-prd.md",
+      "slug": "booking-prd"
+    },
+    "art:booking-service-outline": {
+      "id": "art:booking-service-outline",
+      "type": "artifact",
+      "title": "Booking service outline",
+      "phase": null,
+      "status": "draft",
+      "excerpt": "Illustrative Booking artifact.",
+      "file": "artifacts/booking-service-outline.md",
+      "slug": "booking-service-outline"
+    },
+    "art:reception-runbook": {
+      "id": "art:reception-runbook",
+      "type": "artifact",
+      "title": "Reception booking runbook",
+      "phase": null,
+      "status": "draft",
+      "excerpt": "Illustrative Booking artifact.",
+      "file": "artifacts/reception-runbook.md",
+      "slug": "reception-runbook"
+    }
+  },
+  "edges": [
+    {
+      "from": "a-000000000001",
+      "to": "a-000000000016",
+      "rel": "supports"
+    },
+    {
+      "from": "s-000000000006",
+      "to": "a-000000000001",
+      "rel": "grounds"
+    },
+    {
+      "from": "s-000000000007",
+      "to": "a-000000000001",
+      "rel": "grounds"
+    },
+    {
+      "from": "a-00000000000a",
+      "to": "a-000000000001",
+      "rel": "supports"
+    },
+    {
+      "from": "a-000000000001",
+      "to": "s-000000000002",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000001",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-00000000000c",
+      "to": "a-00000000000d",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-00000000000c",
+      "to": "s-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-00000000000c",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-00000000000d",
+      "to": "a-000000000001",
+      "rel": "refines"
+    },
+    {
+      "from": "a-00000000000d",
+      "to": "a-00000000000c",
+      "rel": "supersedes"
+    },
+    {
+      "from": "a-00000000000d",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-00000000000b",
+      "to": "s-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-00000000000b",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000008",
+      "to": "s-000000000009",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000008",
+      "to": "s-000000000009",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000013",
+      "to": "a-000000000001",
+      "rel": "teleports-to"
+    },
+    {
+      "from": "a-000000000013",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-00000000000e",
+      "to": "a-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "supports"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "refines"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "depends-on"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "duplicate"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "traces-to"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "grounds"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "exemplifies"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "actor-of"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "a-000000000001",
+      "rel": "element-depends-on"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-00000000000f",
+      "to": "s-000000000003",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-00000000000f",
+      "to": "s-000000000003",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000010",
+      "to": "s-000000000004",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000010",
+      "to": "s-000000000004",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000002",
+      "to": "a-000000000003",
+      "rel": "contradicts"
+    },
+    {
+      "from": "a-000000000002",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000003",
+      "to": "a-000000000002",
+      "rel": "contradicts"
+    },
+    {
+      "from": "a-000000000003",
+      "to": "a-000000000002",
+      "rel": "supersedes"
+    },
+    {
+      "from": "a-000000000003",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000004",
+      "to": "a-000000000003",
+      "rel": "supersedes"
+    },
+    {
+      "from": "a-000000000004",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000006",
+      "to": "a-000000000005",
+      "rel": "contradicts"
+    },
+    {
+      "from": "a-000000000006",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000005",
+      "to": "a-000000000006",
+      "rel": "contradicts"
+    },
+    {
+      "from": "a-000000000005",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000009",
+      "to": "s-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000009",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000007",
+      "to": "s-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000007",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000015",
+      "to": "s-000000000008",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000015",
+      "to": "s-000000000008",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000011",
+      "to": "s-000000000005",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000011",
+      "to": "s-000000000005",
+      "rel": "source"
+    },
+    {
+      "from": "a-000000000012",
+      "to": "s-000000000001",
+      "rel": "relates-to"
+    },
+    {
+      "from": "a-000000000012",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "a-00000000000a",
+      "to": "a-000000000009",
+      "rel": "resolves"
+    },
+    {
+      "from": "a-00000000000a",
+      "to": "s-000000000001",
+      "rel": "source"
+    },
+    {
+      "from": "cpt-000000000004",
+      "to": "cpt-000000000005",
+      "rel": "related"
+    },
+    {
+      "from": "cpt-000000000003",
+      "to": "cpt-000000000004",
+      "rel": "related"
+    },
+    {
+      "from": "cpt-000000000007",
+      "to": "cpt-000000000001",
+      "rel": "related"
+    },
+    {
+      "from": "cpt-000000000006",
+      "to": "cpt-000000000007",
+      "rel": "related"
+    },
+    {
+      "from": "cpt-000000000002",
+      "to": "cpt-000000000003",
+      "rel": "related"
+    },
+    {
+      "from": "cpt-000000000001",
+      "to": "cpt-000000000002",
+      "rel": "related"
+    },
+    {
+      "from": "cpt-000000000005",
+      "to": "cpt-000000000006",
+      "rel": "related"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000001",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000002",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000003",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000004",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000005",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000006",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000007",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000008",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-000000000009",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-00000000000a",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-00000000000b",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-00000000000c",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-00000000000d",
+      "rel": "extracted"
+    },
+    {
+      "from": "s-000000000001",
+      "to": "a-00000000000e",
+      "rel": "extracted"
+    },
+    {
+      "from": "art:booking-policy-review",
+      "to": "a-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-policy-review",
+      "to": "a-000000000005",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-policy-review",
+      "to": "a-00000000000a",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-policy-review",
+      "to": "cpt-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-policy-review",
+      "to": "s-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-policy-review",
+      "to": "art:booking-service-outline",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-prd",
+      "to": "a-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-prd",
+      "to": "a-000000000005",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-prd",
+      "to": "a-00000000000a",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-prd",
+      "to": "cpt-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-prd",
+      "to": "s-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-prd",
+      "to": "art:booking-policy-review",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-service-outline",
+      "to": "a-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-service-outline",
+      "to": "a-000000000005",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-service-outline",
+      "to": "a-00000000000a",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-service-outline",
+      "to": "cpt-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-service-outline",
+      "to": "s-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:booking-service-outline",
+      "to": "art:reception-runbook",
+      "rel": "references"
+    },
+    {
+      "from": "art:reception-runbook",
+      "to": "a-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:reception-runbook",
+      "to": "a-000000000005",
+      "rel": "references"
+    },
+    {
+      "from": "art:reception-runbook",
+      "to": "a-00000000000a",
+      "rel": "references"
+    },
+    {
+      "from": "art:reception-runbook",
+      "to": "cpt-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:reception-runbook",
+      "to": "s-000000000001",
+      "rel": "references"
+    },
+    {
+      "from": "art:reception-runbook",
+      "to": "art:booking-prd",
+      "rel": "references"
+    },
+    {
+      "from": "a-000000000001",
+      "to": "cpt-000000000001",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000001",
+      "to": "cpt-000000000007",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-00000000000c",
+      "to": "cpt-000000000007",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-00000000000d",
+      "to": "cpt-000000000007",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-00000000000b",
+      "to": "cpt-000000000006",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000008",
+      "to": "cpt-000000000001",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000013",
+      "to": "cpt-000000000004",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-00000000000e",
+      "to": "cpt-000000000006",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000016",
+      "to": "cpt-000000000004",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000014",
+      "to": "cpt-000000000007",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-00000000000f",
+      "to": "cpt-000000000003",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000010",
+      "to": "cpt-000000000007",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000002",
+      "to": "cpt-000000000002",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000003",
+      "to": "cpt-000000000002",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000004",
+      "to": "cpt-000000000002",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000006",
+      "to": "cpt-000000000003",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000005",
+      "to": "cpt-000000000003",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000009",
+      "to": "cpt-000000000005",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000007",
+      "to": "cpt-000000000004",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000015",
+      "to": "cpt-000000000007",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000011",
+      "to": "cpt-000000000004",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-000000000012",
+      "to": "cpt-000000000004",
+      "rel": "mentions"
+    },
+    {
+      "from": "a-00000000000a",
+      "to": "cpt-000000000005",
+      "rel": "mentions"
+    }
+  ],
+  "reverse": {
+    "a-000000000016": [
+      {
+        "from": "a-000000000001",
+        "rel": "supports"
+      }
+    ],
+    "a-000000000001": [
+      {
+        "from": "s-000000000006",
+        "rel": "grounds"
+      },
+      {
+        "from": "s-000000000007",
+        "rel": "grounds"
+      },
+      {
+        "from": "a-00000000000a",
+        "rel": "supports"
+      },
+      {
+        "from": "a-00000000000d",
+        "rel": "refines"
+      },
+      {
+        "from": "a-000000000013",
+        "rel": "teleports-to"
+      },
+      {
+        "from": "a-00000000000e",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "supports"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "refines"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "depends-on"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "duplicate"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "traces-to"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "grounds"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "exemplifies"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "actor-of"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "element-depends-on"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      },
+      {
+        "from": "art:booking-policy-review",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-prd",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-service-outline",
+        "rel": "references"
+      },
+      {
+        "from": "art:reception-runbook",
+        "rel": "references"
+      }
+    ],
+    "s-000000000002": [
+      {
+        "from": "a-000000000001",
+        "rel": "source"
+      }
+    ],
+    "s-000000000001": [
+      {
+        "from": "a-000000000001",
+        "rel": "source"
+      },
+      {
+        "from": "a-00000000000c",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-00000000000c",
+        "rel": "source"
+      },
+      {
+        "from": "a-00000000000d",
+        "rel": "source"
+      },
+      {
+        "from": "a-00000000000b",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-00000000000b",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000013",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000002",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000003",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000004",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000006",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000005",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000009",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000009",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000007",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000007",
+        "rel": "source"
+      },
+      {
+        "from": "a-000000000012",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000012",
+        "rel": "source"
+      },
+      {
+        "from": "a-00000000000a",
+        "rel": "source"
+      },
+      {
+        "from": "art:booking-policy-review",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-prd",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-service-outline",
+        "rel": "references"
+      },
+      {
+        "from": "art:reception-runbook",
+        "rel": "references"
+      }
+    ],
+    "a-00000000000d": [
+      {
+        "from": "a-00000000000c",
+        "rel": "relates-to"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-00000000000c": [
+      {
+        "from": "a-00000000000d",
+        "rel": "supersedes"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "s-000000000009": [
+      {
+        "from": "a-000000000008",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000008",
+        "rel": "source"
+      }
+    ],
+    "s-000000000003": [
+      {
+        "from": "a-00000000000f",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-00000000000f",
+        "rel": "source"
+      }
+    ],
+    "s-000000000004": [
+      {
+        "from": "a-000000000010",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000010",
+        "rel": "source"
+      }
+    ],
+    "a-000000000003": [
+      {
+        "from": "a-000000000002",
+        "rel": "contradicts"
+      },
+      {
+        "from": "a-000000000004",
+        "rel": "supersedes"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-000000000002": [
+      {
+        "from": "a-000000000003",
+        "rel": "contradicts"
+      },
+      {
+        "from": "a-000000000003",
+        "rel": "supersedes"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-000000000005": [
+      {
+        "from": "a-000000000006",
+        "rel": "contradicts"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      },
+      {
+        "from": "art:booking-policy-review",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-prd",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-service-outline",
+        "rel": "references"
+      },
+      {
+        "from": "art:reception-runbook",
+        "rel": "references"
+      }
+    ],
+    "a-000000000006": [
+      {
+        "from": "a-000000000005",
+        "rel": "contradicts"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "s-000000000008": [
+      {
+        "from": "a-000000000015",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000015",
+        "rel": "source"
+      }
+    ],
+    "s-000000000005": [
+      {
+        "from": "a-000000000011",
+        "rel": "relates-to"
+      },
+      {
+        "from": "a-000000000011",
+        "rel": "source"
+      }
+    ],
+    "a-000000000009": [
+      {
+        "from": "a-00000000000a",
+        "rel": "resolves"
+      },
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "cpt-000000000005": [
+      {
+        "from": "cpt-000000000004",
+        "rel": "related"
+      },
+      {
+        "from": "a-000000000009",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-00000000000a",
+        "rel": "mentions"
+      }
+    ],
+    "cpt-000000000004": [
+      {
+        "from": "cpt-000000000003",
+        "rel": "related"
+      },
+      {
+        "from": "a-000000000013",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000016",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000007",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000011",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000012",
+        "rel": "mentions"
+      }
+    ],
+    "cpt-000000000001": [
+      {
+        "from": "cpt-000000000007",
+        "rel": "related"
+      },
+      {
+        "from": "art:booking-policy-review",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-prd",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-service-outline",
+        "rel": "references"
+      },
+      {
+        "from": "art:reception-runbook",
+        "rel": "references"
+      },
+      {
+        "from": "a-000000000001",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000008",
+        "rel": "mentions"
+      }
+    ],
+    "cpt-000000000007": [
+      {
+        "from": "cpt-000000000006",
+        "rel": "related"
+      },
+      {
+        "from": "a-000000000001",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-00000000000c",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-00000000000d",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000014",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000010",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000015",
+        "rel": "mentions"
+      }
+    ],
+    "cpt-000000000003": [
+      {
+        "from": "cpt-000000000002",
+        "rel": "related"
+      },
+      {
+        "from": "a-00000000000f",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000006",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000005",
+        "rel": "mentions"
+      }
+    ],
+    "cpt-000000000002": [
+      {
+        "from": "cpt-000000000001",
+        "rel": "related"
+      },
+      {
+        "from": "a-000000000002",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000003",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-000000000004",
+        "rel": "mentions"
+      }
+    ],
+    "cpt-000000000006": [
+      {
+        "from": "cpt-000000000005",
+        "rel": "related"
+      },
+      {
+        "from": "a-00000000000b",
+        "rel": "mentions"
+      },
+      {
+        "from": "a-00000000000e",
+        "rel": "mentions"
+      }
+    ],
+    "a-000000000004": [
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-000000000007": [
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-000000000008": [
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-00000000000a": [
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      },
+      {
+        "from": "art:booking-policy-review",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-prd",
+        "rel": "references"
+      },
+      {
+        "from": "art:booking-service-outline",
+        "rel": "references"
+      },
+      {
+        "from": "art:reception-runbook",
+        "rel": "references"
+      }
+    ],
+    "a-00000000000b": [
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "a-00000000000e": [
+      {
+        "from": "s-000000000001",
+        "rel": "extracted"
+      }
+    ],
+    "art:booking-service-outline": [
+      {
+        "from": "art:booking-policy-review",
+        "rel": "references"
+      }
+    ],
+    "art:booking-policy-review": [
+      {
+        "from": "art:booking-prd",
+        "rel": "references"
+      }
+    ],
+    "art:reception-runbook": [
+      {
+        "from": "art:booking-service-outline",
+        "rel": "references"
+      }
+    ],
+    "art:booking-prd": [
+      {
+        "from": "art:reception-runbook",
+        "rel": "references"
+      }
+    ]
+  },
+  "derived": {
+    "a-000000000001": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001",
+        "s-000000000002"
+      ],
+      "sourceCount": 2,
+      "concepts": [
+        "cpt-000000000001",
+        "cpt-000000000007"
+      ]
+    },
+    "a-00000000000c": {
+      "current": false,
+      "supersededBy": [
+        "a-00000000000d"
+      ],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000007"
+      ]
+    },
+    "a-00000000000d": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [
+        "a-00000000000c"
+      ],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000007"
+      ]
+    },
+    "a-00000000000b": {
+      "current": false,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000006"
+      ]
+    },
+    "a-000000000008": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001",
+        "s-000000000009"
+      ],
+      "sourceCount": 2,
+      "concepts": [
+        "cpt-000000000001"
+      ]
+    },
+    "a-000000000013": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000004"
+      ]
+    },
+    "a-00000000000e": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000006"
+      ]
+    },
+    "a-000000000016": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000004"
+      ]
+    },
+    "a-000000000014": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [],
+      "sourceCount": 0,
+      "concepts": [
+        "cpt-000000000007"
+      ]
+    },
+    "a-00000000000f": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000003"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000003"
+      ]
+    },
+    "a-000000000010": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000004"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000007"
+      ]
+    },
+    "a-000000000002": {
+      "current": false,
+      "supersededBy": [
+        "a-000000000003"
+      ],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [
+        "a-000000000003"
+      ],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000002"
+      ]
+    },
+    "a-000000000003": {
+      "current": false,
+      "supersededBy": [
+        "a-000000000004"
+      ],
+      "supersedes": [
+        "a-000000000002"
+      ],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [
+        "a-000000000002"
+      ],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000002"
+      ]
+    },
+    "a-000000000004": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [
+        "a-000000000003"
+      ],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000002"
+      ]
+    },
+    "a-000000000006": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [
+        "a-000000000005"
+      ],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000003"
+      ]
+    },
+    "a-000000000005": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [
+        "a-000000000006"
+      ],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000003"
+      ]
+    },
+    "a-000000000009": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [
+        "a-00000000000a"
+      ],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000005"
+      ]
+    },
+    "a-000000000007": {
+      "current": false,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000004"
+      ]
+    },
+    "a-000000000015": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000008"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000007"
+      ]
+    },
+    "a-000000000011": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000005"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000004"
+      ]
+    },
+    "a-000000000012": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000004"
+      ]
+    },
+    "a-00000000000a": {
+      "current": true,
+      "supersededBy": [],
+      "supersedes": [],
+      "resolvedBy": [],
+      "resolves": [
+        "a-000000000009"
+      ],
+      "contradictedBy": [],
+      "sources": [
+        "s-000000000001"
+      ],
+      "sourceCount": 1,
+      "concepts": [
+        "cpt-000000000005"
+      ]
+    }
+  },
+  "questions": {
+    "open": [
+      "a-00000000000d",
+      "a-000000000014"
+    ],
+    "resolved": [
+      "a-000000000009"
+    ],
+    "withdrawn": [
+      "a-00000000000b",
+      "a-00000000000c"
+    ]
+  },
+  "bySlug": {
+    "clinic-patient-books-own-slot": "a-000000000001",
+    "eligibility-question-old": "a-00000000000c",
+    "eligibility-question-specific": "a-00000000000d",
+    "guardian-question-withdrawn": "a-00000000000b",
+    "legacy-paper-booking": "a-000000000008",
+    "malformed-passage-locator": "a-000000000013",
+    "minors-need-guardian": "a-00000000000e",
+    "new-waitlist-after-snapshot": "a-000000000016",
+    "no-sources-eligibility-check": "a-000000000014",
+    "pricing-tier-policy": "a-00000000000f",
+    "referral-file-selection": "a-000000000010",
+    "reminders-forty-eight-hours": "a-000000000002",
+    "reminders-twenty-four-hours": "a-000000000003",
+    "reminders-two-hours": "a-000000000004",
+    "same-day-cancellation-fee": "a-000000000006",
+    "same-day-cancellation-free": "a-000000000005",
+    "same-day-video-question": "a-000000000009",
+    "saturday-hours-through-october": "a-000000000007",
+    "source-note-fallback": "a-000000000015",
+    "timestamp-arrival-buffer": "a-000000000011",
+    "unresolved-passage-range": "a-000000000012",
+    "video-visits-approved": "a-00000000000a",
+    "availability": "cpt-000000000004",
+    "cancellation": "cpt-000000000003",
+    "eligibility": "cpt-000000000007",
+    "guardians": "cpt-000000000006",
+    "reminders": "cpt-000000000002",
+    "self-service": "cpt-000000000001",
+    "video-visits": "cpt-000000000005",
+    "archived-clinic-handbook": "s-000000000009",
+    "clinic-operations-sync": "s-000000000001",
+    "clinic-pricing-policy": "s-000000000003",
+    "external-booking-brief": "s-000000000006",
+    "generated-booking-summary": "s-000000000007",
+    "patient-arrival-recording": "s-000000000005",
+    "patient-booking-interview": "s-000000000002",
+    "reception-policy-note": "s-000000000008",
+    "referral-attachments": "s-000000000004",
+    "booking-policy-review": "art:booking-policy-review",
+    "booking-prd": "art:booking-prd",
+    "booking-service-outline": "art:booking-service-outline",
+    "reception-runbook": "art:reception-runbook"
+  }
+}

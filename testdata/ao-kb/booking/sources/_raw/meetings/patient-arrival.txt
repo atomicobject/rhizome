@@ -1,0 +1,4 @@
+00:00 Patient: I arrive early.
+01:10 Patient: I need ten minutes for check-in.
+01:30 Reception: We can show an arrival reminder.
+02:00 End.
