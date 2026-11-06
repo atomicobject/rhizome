@@ -91,7 +91,7 @@ describe("Explorer focus", () => {
     );
     expect(focused.edges.some((edge) => edge.kind === "explorer-tests")).toBe(true);
   });
-  it("closes off-path automatic fans and restores them at the vault root", () => {
+  it("preserves off-path automatic fans while expanding a folder", () => {
     const graph = {
       nodes: Array.from({ length: 20 }, (_, i) => [
         { id: `n${i}`, kind: "note", path: `docs/topic/a${i}.md`, label: `a${i}` },
@@ -103,8 +103,14 @@ describe("Explorer focus", () => {
 
     const { result } = renderHook(() => useFolderExplorer(graph, new Map()));
     expect(result.current.open.has("docs")).toBe(true);
+    const before = result.current.drawn.nodes.find((n) => n.id === "folder:docs/topic");
+    expect(before).toBeDefined();
     act(() => result.current.expand("pkg/app/cli"));
-    expect([...result.current.open]).toEqual(["", "pkg", "pkg/app", "pkg/app/cli"]);
+    expect([...result.current.open]).toEqual(["", "docs", "pkg", "pkg/app", "pkg/app/cli"]);
+    expect(result.current.drawn.nodes.find((n) => n.id === "folder:docs/topic")).toMatchObject({
+      x: before?.x,
+      y: before?.y,
+    });
     act(() => result.current.reset());
     expect(result.current.open.has("docs")).toBe(true);
   });

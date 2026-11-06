@@ -76,9 +76,6 @@ export function useFolderExplorer(
       setOverrides((previous) => {
         const next = new Map(previous);
 
-        for (const auto of initial)
-          if (auto && auto !== path && !path.startsWith(`${auto}/`) && !explicit.has(auto))
-            next.set(auto, false);
         const parts = path.split("/");
         parts.forEach((_, index) => next.set(parts.slice(0, index + 1).join("/"), true));
 
