@@ -301,6 +301,7 @@ button.html-note-viewer__ghost svg {
 }
 
 .notes-shell .ontology-pane__html-actions {
+  position: relative;
   display: flex;
   flex: none;
   align-items: center;
@@ -308,6 +309,22 @@ button.html-note-viewer__ghost svg {
   margin-right: calc(-1 * var(--sp-2));
   color: var(--text-faint);
   font-size: var(--fs-sm);
+}
+
+.notes-shell .ontology-pane__html-actions .html-note-viewer__state {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  right: 0;
+  padding: 3px var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-alt);
+  font-size: var(--fs-xs);
+}
+
+.notes-shell .ontology-pane__html-actions .html-note-viewer__state:empty {
+  display: none;
 }
 
 .notes-shell .ontology-pane__html-actions:empty {
