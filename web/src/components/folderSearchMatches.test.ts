@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { folderSearchMatches } from "./folderSearchMatches";
 import { visibleFolderGraph } from "./folderGraph";
-import { buildFolderTree } from "./folderTree";
+import { buildFolderTree } from "../test/folderOverview";
 import { buildSigmaGraph } from "./sigmaGraphData";
 
 it("counts matches on visible folders, files and overflow representatives without moving them", () => {

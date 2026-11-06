@@ -73,6 +73,24 @@ func TestAllGraphDocEdges_ReturnsCombinedGraph(t *testing.T) {
 	require.Equal(t, 1, edgeMap["notes/a.md->src/a.go:mentions"].Weight)
 	require.Equal(t, 1, edgeMap["src/a.go->notes/b.md:coderef"].Weight)
 	require.Equal(t, 1, edgeMap["src/b.go->src/a.go:calls"].Weight)
+
+	// Endpoint discovery must preserve unindexed targets from all four edge
+	// sources without first materializing their weights and confidence.
+	kinds := map[string]string{}
+	require.NoError(t, store.addGraphEndpointPaths(ctx, kinds))
+	readmodelEdges, err := store.allGraphDocEdgesReadmodel(ctx, 0, true, true)
+	require.NoError(t, err)
+	require.Equal(t, graphReadmodelPathKinds(nil, nil, readmodelEdges), kinds)
+	for _, includeCode := range []bool{false, true} {
+		paths, err := store.GraphIndexedPaths(ctx, includeCode)
+		require.NoError(t, err)
+		require.Contains(t, paths, readmodel.GraphPathRow{Path: "notes/b.md", Kind: "note"})
+		if !includeCode {
+			for _, path := range paths {
+				require.Equal(t, "note", path.Kind)
+			}
+		}
+	}
 }
 
 func TestGraphWebFingerprint_ChangesWhenGraphStateChanges(t *testing.T) {

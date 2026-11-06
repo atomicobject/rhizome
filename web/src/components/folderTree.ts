@@ -1,4 +1,4 @@
-import type { GraphNode, GraphEdge } from "../api/types";
+import type { GraphNode, FolderOverview } from "../api/types";
 import { publicTypeName } from "../lib/typeNames";
 
 export type FolderTotals = {
@@ -75,11 +75,7 @@ export function nodeTotals(node: GraphNode): FolderTotals {
   };
 }
 
-export function buildFolderTree(graph: {
-  nodes: readonly GraphNode[];
-  edges: readonly GraphEdge[];
-  truncated?: boolean;
-}): FolderTree {
+export function buildFolderTree(graph: FolderOverview): FolderTree {
   const folders = new Map<string, Folder>();
 
   const ensure = (path: string): Folder => {
@@ -96,13 +92,11 @@ export function buildFolderTree(graph: {
 
   const root = ensure("");
   const files = new Map<string, GraphNode>();
-  const notesByPath = new Map<string, string>();
 
-  for (const node of graph.nodes) {
+  for (const node of graph.files) {
     if (node.kind !== "note" && node.kind !== "code" && node.kind !== "module") continue;
     files.set(node.id, node);
 
-    if (node.kind === "note") notesByPath.set(filePath(node), node.id);
     ensure(
       node.kind === "module" ? filePath(node) : filePath(node).split("/").slice(0, -1).join("/"),
     ).direct.push(node);
@@ -120,32 +114,7 @@ export function buildFolderTree(graph: {
 
   gather(root);
 
-  const owners = new Map(
-    graph.nodes.map((n) => [
-      n.id,
-      n.kind === "embedded" ? notesByPath.get(filePath(n)) : files.has(n.id) ? n.id : undefined,
-    ]),
-  );
-
-  const pairs = new Map<string, FileLink>();
-
-  for (const edge of graph.edges) {
-    if (edge.kind === "embeds") continue;
-
-    const a = owners.get(edge.source),
-      b = owners.get(edge.target);
-
-    if (!a || !b || a === b) continue;
-    const [source, target] = [a, b].sort();
-    const key = JSON.stringify([source, target]);
-    const pair = pairs.get(key) ?? { source, target, noteCode: 0, other: 0 };
-    const category = edge.kind === "mentions" || edge.kind === "coderef" ? "noteCode" : "other";
-    // A file pair counts once in each category, even when embedded nodes repeat it.
-    pair[category] = Math.max(pair[category], edge.weight ?? 1);
-    pairs.set(key, pair);
-  }
-
-  const links = [...pairs.values()];
+  const links = graph.links;
   const linkCounts: FolderTree["linkCounts"] = new Map();
 
   for (const link of links)

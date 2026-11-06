@@ -66,6 +66,7 @@ export const queryKeys = {
   },
   graph: {
     all: () => [...queryKeys.all, "graph"] as const,
+    folders: () => [...queryKeys.graph.all(), "global", "folders"] as const,
     global: (options: { notesOnly?: boolean; diagnostics?: boolean; limit?: number }) =>
       [...queryKeys.graph.all(), "global", options] as const,
     local: (

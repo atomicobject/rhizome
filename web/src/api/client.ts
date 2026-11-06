@@ -19,6 +19,7 @@ import type {
   FindItem,
   FindResponse,
   GraphResponse,
+  FolderOverview,
   ModifiedNotesResponse,
   NodePreview,
   NodeRef,
@@ -368,6 +369,15 @@ function normalizeGraph(data: GraphResponse): GraphResponse {
     nodes: data.nodes || [],
     edges: data.edges || [],
   };
+}
+
+export function getFolderGraph(options: RequestOptions = {}) {
+  return fetchJSON<FolderOverview>("/api/v1/graphs/folders", requestInit(options)).then((data) => ({
+    ...data,
+    files: data.files || [],
+    links: data.links || [],
+    nestedTypes: data.nestedTypes || [],
+  }));
 }
 
 export function getGlobalGraph(

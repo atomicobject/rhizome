@@ -1,0 +1,171 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "id": "a",
+        "kind": "note",
+        "label": "A",
+        "path": "notes/a.md",
+        "resolvedType": "Note"
+      },
+      {
+        "id": "b",
+        "kind": "note",
+        "label": "B",
+        "path": "notes/b.md"
+      },
+      {
+        "id": "c",
+        "kind": "code",
+        "label": "C",
+        "path": "src/c.go",
+        "authority": 0.4
+      },
+      {
+        "id": "m",
+        "kind": "module",
+        "label": "Module",
+        "path": "lib",
+        "collapsed": true,
+        "childCount": 5
+      },
+      {
+        "id": "x",
+        "kind": "embedded",
+        "label": "X",
+        "notePath": "notes/a.md",
+        "resolvedType": "Task"
+      },
+      {
+        "id": "y",
+        "kind": "embedded",
+        "label": "Y",
+        "notePath": "notes/a.md",
+        "resolvedType": "Task"
+      },
+      {
+        "id": "z",
+        "kind": "embedded",
+        "label": "Orphan",
+        "notePath": "missing.md",
+        "resolvedType": "Task"
+      },
+      {
+        "id": "s",
+        "kind": "section",
+        "label": "Section",
+        "notePath": "notes/a.md",
+        "resolvedType": "Section"
+      }
+    ],
+    "edges": [
+      {
+        "source": "x",
+        "target": "c",
+        "kind": "mentions",
+        "weight": 2
+      },
+      {
+        "source": "y",
+        "target": "c",
+        "kind": "coderef",
+        "weight": 3
+      },
+      {
+        "source": "a",
+        "target": "c",
+        "kind": "wikilink",
+        "weight": 7
+      },
+      {
+        "source": "a",
+        "target": "c",
+        "kind": "ontology",
+        "weight": 4
+      },
+      {
+        "source": "c",
+        "target": "b",
+        "kind": "calls"
+      },
+      {
+        "source": "a",
+        "target": "x",
+        "kind": "embeds"
+      },
+      {
+        "source": "x",
+        "target": "a",
+        "kind": "ontology"
+      },
+      {
+        "source": "z",
+        "target": "b",
+        "kind": "ontology"
+      },
+      {
+        "source": "s",
+        "target": "b",
+        "kind": "ontology"
+      }
+    ],
+    "truncated": false
+  },
+  "overview": {
+    "files": [
+      {
+        "id": "a",
+        "kind": "note",
+        "label": "A",
+        "path": "notes/a.md",
+        "resolvedType": "Note"
+      },
+      {
+        "id": "b",
+        "kind": "note",
+        "label": "B",
+        "path": "notes/b.md"
+      },
+      {
+        "id": "c",
+        "kind": "code",
+        "label": "C",
+        "path": "src/c.go",
+        "authority": 0.4
+      },
+      {
+        "id": "m",
+        "kind": "module",
+        "label": "Module",
+        "path": "lib",
+        "collapsed": true,
+        "childCount": 5
+      }
+    ],
+    "links": [
+      {
+        "source": "a",
+        "target": "c",
+        "noteCode": 3,
+        "other": 7
+      },
+      {
+        "source": "b",
+        "target": "c",
+        "noteCode": 0,
+        "other": 1
+      }
+    ],
+    "nestedTypes": [
+      {
+        "resolvedType": "Section",
+        "count": 1
+      },
+      {
+        "resolvedType": "Task",
+        "count": 3
+      }
+    ],
+    "truncated": false
+  }
+}

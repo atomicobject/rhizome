@@ -1,3 +1,4 @@
+import { folderOverview } from "../test/folderOverview";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import Sigma from "sigma";
 import { it, vi } from "vitest";
@@ -51,7 +52,11 @@ it("preserves root folder positions across an uncached file visit", async () => 
     http.json("GET", "/api/v1/ontology/summary", { types: [], interfaces: [] });
     const local = deferredReply<GraphResponse>();
     http
-      .json("GET", "/api/v1/graphs/global", graphWith("a/one.go", "b/two.go", "c/three.go"))
+      .json(
+        "GET",
+        "/api/v1/graphs/folders",
+        folderOverview(graphWith("a/one.go", "b/two.go", "c/three.go")),
+      )
       .on("GET", "/api/v1/graphs/local", () => local.promise)
       .json(
         "GET",

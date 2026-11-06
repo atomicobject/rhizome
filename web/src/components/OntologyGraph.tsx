@@ -13,7 +13,8 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 
 import type { OntologyAtlasResponse } from "../api/types";
-import { buildOntologyGraph, layoutOntologyGraph } from "../lib/ontologyGraph";
+import { buildOntologyGraph } from "../lib/ontologyGraph";
+import { cachedOntologyLayout } from "../lib/ontologyLayoutCache";
 import { typeAccentColor, useTypePalette } from "../lib/typeAccent";
 import { OntologyRoutedEdge } from "./OntologyRoutedEdge";
 import { OntologyTypeNode } from "./OntologyTypeNode";
@@ -117,7 +118,7 @@ export function OntologyGraph({ atlas }: Props) {
       }
 
       if (cancelled) return;
-      void layoutOntologyGraph(built)
+      void cachedOntologyLayout(built)
         .then((laidOut) => {
           if (cancelled) return;
 

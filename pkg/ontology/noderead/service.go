@@ -36,6 +36,7 @@ type ReadStore interface {
 	readmodel.GraphStore
 	readmodel.ShapeStore
 	readmodel.RecentStore
+	readmodel.SummaryStore
 }
 
 // Service owns the stable dependencies used to create request-scoped Scopes.

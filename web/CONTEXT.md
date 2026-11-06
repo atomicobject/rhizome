@@ -1,5 +1,7 @@
 # Web UI data lifecycle
 
+Atlas geometry is cached independently of live counts and descriptions. `ontologyLayoutCache` keys bounded in-memory entries by ordered node dimensions and edges; misses run the unchanged ELK passes and offload component packing to `ontologyLayout.worker`, with synchronous packing as a fallback. Components still discard superseded results. Cache hits merge current node data into cloned geometry, so navigation avoids layout work without freezing metadata.
+
 React/Vite browser for Notes, Ontology, Explorer, Agent, and GraphQL. Server state uses TanStack Query. The app-level edit provider owns route-independent draft/session state; focused controls own selection, focus, and composition.
 
 ## Ownership

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/atomicobject/rhizome/internal/testkit"
 	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -91,13 +92,49 @@ type UnusedTask implements Section @node(locator: EMBEDDED) @source(shape: LIST_
 			}
 			require.Equal(t, 2, results["ProductSpec"].Count)
 			require.Equal(t, 1, results["ProductSpec"].IssueCount)
-			require.Equal(t, 1, counted.catalogCalls)
+			legacyReads := 0
+			if staged {
+				legacyReads = 1
+			}
+			require.Equal(t, legacyReads, counted.catalogCalls)
 			require.Zero(t, counted.typeCalls)
 			require.Zero(t, counted.inventoryCalls)
-			require.Equal(t, 1, counted.metadataCalls)
-			require.Equal(t, 1, counted.flagCalls)
+			require.Equal(t, legacyReads, counted.metadataCalls)
+			require.Equal(t, legacyReads, counted.flagCalls)
 			require.Zero(t, reader.contents)
 			require.Zero(t, reader.lists)
+			counts, err := NewService(vault, &obsidian.Note{}, store, schema).NewScope(options).TypeSummaries(ctx, typeNames, 0)
+			require.NoError(t, err)
+			for name, want := range results {
+				require.Equal(t, want.Count, counts[name].Count)
+				require.Equal(t, want.IssueCount, counts[name].IssueCount)
+				require.Empty(t, counts[name].Items)
+			}
 		})
+	}
+}
+
+func TestSummaryTotalsMatchesInventoryWithCurrentAndStaleFlags(t *testing.T) {
+	ctx := context.Background()
+	vault, store, schema := buildFixture(t, `type Product @node(paths:["specs/*.md"]) { summary:String! }`, "# Missing summary\n")
+	writeFixtureNote(t, vault.Path, "loose.md", "# Untyped\n")
+	_, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
+	require.NoError(t, err)
+	for _, stale := range []bool{false, true} {
+		if stale {
+			state, err := store.GetOntologySchemaState(ctx)
+			require.NoError(t, err)
+			state.MaterializationVersion = 0
+			require.NoError(t, store.UpsertOntologySchemaState(ctx, state))
+		}
+		scope := NewService(vault, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
+		got, err := scope.SummaryTotals(ctx)
+		require.NoError(t, err)
+		all, err := scope.TypeInstances(ctx, TypeInstancesRequest{TypeName: ontology.TypeScopeAll})
+		require.NoError(t, err)
+		require.Equal(t, all.Count, got.Notes)
+		require.Equal(t, all.IssueCount, got.Issues)
+		require.Equal(t, 1, got.Typed)
+		require.Zero(t, got.Ambiguous)
 	}
 }

@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { buildFolderTree } from "./folderTree";
+import { buildFolderTree } from "../test/folderOverview";
 import { visibleFolderGraph } from "./folderGraph";
 
 it("resolves 10,000 file pairs without scanning 10,000 visible folders per endpoint", () => {

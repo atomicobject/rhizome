@@ -182,6 +182,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/graphs/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getPublicFolderGraph"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/graphs/local": {
     parameters: {
       query?: never;
@@ -1594,6 +1610,23 @@ export interface components {
       relationLabel?: string;
       provenance?: string;
       structural?: boolean;
+    };
+    FolderOverview: {
+      files: components["schemas"]["GraphNode"][];
+      links: components["schemas"]["FolderLink"][];
+      nestedTypes: components["schemas"]["NestedTypeCount"][];
+      truncated: boolean;
+      needsIndex?: boolean;
+    };
+    FolderLink: {
+      source: string;
+      target: string;
+      noteCode: number;
+      other: number;
+    };
+    NestedTypeCount: {
+      resolvedType: string;
+      count: number;
     };
     GraphResponse: {
       nodes: components["schemas"]["GraphNode"][];
@@ -3446,6 +3479,27 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["GraphResponse"];
+        };
+      };
+      503: components["responses"]["IndexInitializing"];
+    };
+  };
+  getPublicFolderGraph: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Compact file-pair graph for the Explorer folder overview */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FolderOverview"];
         };
       };
       503: components["responses"]["IndexInitializing"];
