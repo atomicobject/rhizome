@@ -9,9 +9,15 @@ export function useExplorerListings(expandedPaths: Set<string>) {
   const [limits, setLimits] = useState<Record<string, number>>({});
 
   const previousPage = (path: string) =>
-    queryClient.getQueryData<TreeResponse>(
-      queryKeys.files.tree(path || undefined, Math.max(200, (limits[path] ?? 200) - 200)),
-    );
+    queryClient
+      .getQueriesData<TreeResponse>({ queryKey: [...queryKeys.files.all(), "tree", path] })
+      .sort(
+        ([a], [b]) =>
+          (queryClient.getQueryState(b)?.dataUpdatedAt ?? 0) -
+          (queryClient.getQueryState(a)?.dataUpdatedAt ?? 0),
+      )
+      .map(([, data]) => data)
+      .find((data) => data !== undefined);
 
   const options = (path: string) => ({
     queryKey: queryKeys.files.tree(path || undefined, limits[path] ?? 200),
@@ -40,7 +46,9 @@ export function useExplorerListings(expandedPaths: Set<string>) {
             className="tree-row"
             disabled={query.isFetching}
             onClick={() =>
-              setLimits((previous) => ({ ...previous, [path]: (previous[path] ?? 200) + 200 }))
+              query.isError
+                ? query.refetch()
+                : setLimits((previous) => ({ ...previous, [path]: (previous[path] ?? 200) + 200 }))
             }
           >
             Show {Math.min(200, omitted)} more ({omitted} remaining)
