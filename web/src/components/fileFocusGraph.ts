@@ -54,6 +54,8 @@ export const FILE_NOTE_RELATIONS = ["Documented by", "Mentioned in", "Related in
 
 const GROUP_LIMIT = 8;
 
+const REVEAL_BATCH = 14;
+
 const GROUP_GAP = 80;
 
 const HEADING_GAP = 120;
@@ -139,25 +141,39 @@ export function fileFocusGraph(
   ];
 
   const edges: GraphEdge[] = [];
+  const moreIDs = new Map<string, string>();
+  const batches = new Map<string, number>();
+
+  for (const key of expanded) {
+    const label = key.split(":")[0];
+    batches.set(label, (batches.get(label) ?? 0) + 1);
+  }
 
   for (const side of ["notes", "code"]) {
     const entries = [...groups]
       .filter(([, members]) => isNote(members[0]) === (side === "notes"))
       .sort(([a], [b]) => FILE_NOTE_RELATIONS.indexOf(a) - FILE_NOTE_RELATIONS.indexOf(b));
 
-    const visible = (members: GraphNode[], label: string): GraphViewNode[] =>
-      expanded.has(label) || members.length <= GROUP_LIMIT
-        ? members
-        : [
-            ...members.slice(0, GROUP_LIMIT),
-            {
-              id: `file-more:${label}`,
-              kind: side === "notes" ? "note" : "code",
-              label: `Show ${members.length - GROUP_LIMIT} more`,
-              childCount: members.length - GROUP_LIMIT,
-              aggregate: true,
-            },
-          ];
+    const visible = (members: GraphNode[], label: string): GraphViewNode[] => {
+      const batch = batches.get(label) ?? 0;
+      const limit = GROUP_LIMIT + batch * REVEAL_BATCH;
+
+      if (members.length <= limit) return members;
+      // The click handler stores this suffix; each batch gets its own disclosure key.
+      const id = `file-more:${label}${batch ? `:${batch}` : ""}`;
+      moreIDs.set(label, id);
+
+      return [
+        ...members.slice(0, limit),
+        {
+          id,
+          kind: side === "notes" ? "note" : "code",
+          label: `Show ${members.length - limit} more`,
+          childCount: members.length - limit,
+          aggregate: true,
+        },
+      ];
+    };
 
     const height = (members: GraphNode[], label: string, collapsed = false) => {
       const shown = fileFocusLabels(
@@ -238,7 +254,7 @@ export function fileFocusGraph(
     if (drawnIDs.has(id)) return id;
     const label = groupByID.get(id);
 
-    return label ? `file-more:${label}` : id;
+    return (label && moreIDs.get(label)) || id;
   };
 
   for (const edge of graph.edges) {

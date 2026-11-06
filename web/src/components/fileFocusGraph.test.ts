@@ -42,8 +42,10 @@ describe("file neighbour groups", () => {
       x: result.nodes.find((node) => node.id === "file-group:Calls / imports")?.x,
       y: result.nodes.find((node) => node.id === "file-group:Calls / imports")?.y,
     });
-    expect(expanded.nodes.filter((node) => node.path?.startsWith("src/c"))).toHaveLength(30);
-    expect(expanded.nodes.some((node) => node.id.startsWith("file-more:"))).toBe(false);
+    expect(expanded.nodes.filter((node) => node.path?.startsWith("src/c"))).toHaveLength(22);
+    expect(expanded.nodes.find((node) => node.id.startsWith("file-more:"))).toMatchObject({
+      childCount: 8,
+    });
     const columns = new Map<number | undefined, number[]>();
 
     for (const node of expanded.nodes.filter((node) => node.path?.startsWith("src/c"))) {
@@ -52,7 +54,7 @@ describe("file neighbour groups", () => {
       columns.set(node.x, ys);
     }
 
-    expect(columns.size).toBe(4);
+    expect(columns.size).toBe(3);
 
     for (const ys of columns.values()) {
       ys.sort((a, b) => a - b);
@@ -173,6 +175,36 @@ describe("file neighbour groups", () => {
     expect(merged.nodes).toHaveLength(10_001);
     expect(merged.edges).toHaveLength(10_000);
     expect(reads).toBeLessThan(4_000_000);
+  });
+
+  it("reveals 10,000 notes in bounded batches with an exact clickable remainder", () => {
+    const file = {
+      path: "src/main.go",
+      kind: "code",
+      relatedNotes: Array.from({ length: 10_000 }, (_, i) => ({
+        path: `notes/${i}.md`,
+        title: `Note ${i}`,
+        reason: "codeanchor",
+      })),
+    };
+
+    const input = { nodes: [graph.nodes[0]], edges: [] };
+    const expanded = new Set<string>();
+
+    for (let batch = 0; batch < 4; batch++) {
+      const result = fileFocusGraph(input, file.path, file, expanded);
+      const shown = result.nodes.filter((node) => !node.aggregate && !node.center);
+      expect(shown).toHaveLength(8 + batch * 14);
+      const more = result.nodes.find((node) => node.id.startsWith("file-more:"));
+      expect(more).toMatchObject({
+        label: `Show ${10_000 - shown.length} more`,
+        childCount: 10_000 - shown.length,
+      });
+      expect(
+        result.edges.every((edge) => result.nodes.some((node) => node.id === edge.target)),
+      ).toBe(true);
+      expanded.add(more!.id.slice("file-more:".length));
+    }
   });
 
   it("unions inspector anchor notes and references with graph notes, without duplicates", () => {
