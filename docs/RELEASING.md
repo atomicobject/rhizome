@@ -55,7 +55,7 @@ python3 scripts/release/prepare_release.py check
 
 Review the exact five-file diff, commit it, and open the `release-prep/<version>` PR. Editing the changelog later requires `python3 scripts/release/prepare_release.py sync`, followed by `check`. Opening or revising the PR does not authorize merging or publishing it.
 
-Once the maintainer approves publication and merges the release PR, CI performs this sequence:
+Once the maintainer approves publication and merges the release PR, the merge's push to main changes `.github/release-plan.json` and starts the **Release** workflow on main. Publication runs from main because the protected `release` Environment admits only main; a `pull_request` run executes on `refs/pull/<n>/merge` and could never reach signing. Selection looks up the release PR that produced the pushed commit and validates it. CI then performs this sequence:
 
 1. Linux validates the release intent and accepted source without signing secrets.
 2. Linux builds the shared web and desktop frontend once and prepares the Mac credential scanner.
@@ -190,7 +190,7 @@ Public builds reject compiler overlays, disable persisted Go settings, remove st
 
 ## Publication ownership and manual fallback
 
-GitHub Actions owns public builds and publication after release-PR approval. A version-tag push is not a release trigger. Local scripts cannot race CI by publishing the same public release. Manual dispatch is reserved for explicit candidate verification. Publication recovery retries failed jobs in the original approved run with its original verified artifact, as described above.
+GitHub Actions owns public builds and publication after release-PR approval. A version-tag push is not a release trigger. Local scripts cannot race CI by publishing the same public release. Manual dispatch is for candidate verification, or with `release_pr=<n>` and `candidate_only=false` for a merged release PR whose merge started no release run, such as the first push-triggered release. That dispatch refuses a version that is already tagged. Publication recovery retries failed jobs in the original approved run with its original verified artifact, as described above.
 
 The protected Mac job has read-only repository access. Complete bundle assembly also runs with read-only permissions. Only the final Linux publisher has repository write and gateway-dispatch permissions, and candidate mode skips that job. The Homebrew token reaches only the Homebrew operation.
 
