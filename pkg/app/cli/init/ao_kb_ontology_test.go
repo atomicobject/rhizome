@@ -36,6 +36,25 @@ func TestAOKBKnowledgeFixture(t *testing.T) {
 		require.Empty(t, result.Errors)
 		return result.Data
 	}
+	t.Run("nested provenance and map-shaped frontmatter connections", func(t *testing.T) {
+		row := func(slug string) map[string]any {
+			rows := query(t, `{ assertion(path:"assertions/`+slug+`.md") { provenanceSource provenanceLocator provenanceSpeaker provenanceSpeakerRole provenanceQuoteHash provenanceExtractedBy frontmatterSupports frontmatterRelatesTo frontmatterRefines } }`)["assertion"].([]any)
+			require.Len(t, rows, 1)
+			return rows[0].(map[string]any)
+		}
+		origin := row("clinic-patient-books-own-slot")
+		require.Equal(t, "s-000000000001", origin["provenanceSource"], "recorded origin stays the authored logical id")
+		visits := row("video-visits-approved")
+		require.Equal(t, "L12-L18", visits["provenanceLocator"])
+		require.Equal(t, "Morgan, clinic operations", visits["provenanceSpeaker"])
+		require.Equal(t, "stakeholder", visits["provenanceSpeakerRole"])
+		require.Equal(t, "llm@ao-kb@fixture", visits["provenanceExtractedBy"])
+		require.Contains(t, visits["provenanceQuoteHash"], "sha256:")
+		require.Equal(t, []any{"a-000000000001"}, visits["frontmatterSupports"], "map with inline list")
+		require.Equal(t, []any{"a-00000000000d"}, row("eligibility-question-old")["frontmatterRelatesTo"], "map with block sequence")
+		require.Empty(t, row("eligibility-question-specific")["frontmatterRefines"], "typed-map sequences are not projected; the check action reports them")
+		require.Nil(t, row("minors-need-guardian")["provenanceSpeaker"], "missing nested values stay missing")
+	})
 	t.Run("fields and native identity", func(t *testing.T) {
 		rows := query(t, `{ assertion(path:"assertions/clinic-patient-books-own-slot.md") { aoId nodeId path headline kind confidence attestation reviewedBy reviewedAt updatedAt contradictsRows supportsRows frontmatter content concepts { aoId } } }`)["assertion"].([]any)
 		require.Len(t, rows, 1)
@@ -48,7 +67,7 @@ func TestAOKBKnowledgeFixture(t *testing.T) {
 		require.Equal(t, []any{"feature:FEAT-BOOK-03"}, n["contradictsRows"])
 		require.Contains(t, n["content"], "Patients can choose an available appointment")
 		fm := n["frontmatter"].(map[string]any)
-		require.Equal(t, "", fm["provenance"], "named metadata deficiency: indexed JSON drops nested objects")
+		require.Equal(t, "", fm["provenance"], "indexed frontmatter JSON drops nested objects; read typed provenance fields instead")
 		require.Contains(t, n["content"], `speaker: "Morgan, clinic operations"`)
 		require.Contains(t, n["content"], `source: "s-000000000001"`)
 

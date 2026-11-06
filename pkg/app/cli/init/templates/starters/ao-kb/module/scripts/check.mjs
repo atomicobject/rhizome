@@ -55,14 +55,15 @@ export function check(root) {
   inspect('note includes', configPath, () => {
     const patterns = includes(read(root, configPath));
     const paths = ['assertions', 'sources', 'concepts', 'artifacts'];
-    const covered = patterns && paths.every(path => patterns.some(p => ['**/*.md', '**', `${path}/**`, `${path}/**/*.md`].includes(p)))
-      && patterns.some(p => ['**/*.md', '**', '.kb/**', '.kb/**/*.md', '.kb/curation/**', '.kb/curation/*.md', '.kb/curation/_conflicts.md'].includes(p));
-    const hiddenRegistry = existsSync(join(root, '.kb/curation/_conflicts.md'));
-    add('note includes', hiddenRegistry ? 'warning' : covered ? 'ok' : 'warning', hiddenRegistry
-      ? 'Conflict registry exists under hidden .kb; current note discovery skips hidden directories even with includes. Registry projection needs shared discovery support. Preserve unrelated include rules.'
-      : covered
-      ? 'Simple includes cover AO Markdown paths, including .kb/curation/_conflicts.md. Ignore rules may still exclude files; prove projection after indexing.'
-      : 'Coverage not established by simple includes. Inspect notes.includes and ignore rules; append required AO paths without replacing unrelated rules.', configPath);
+    const knowledge = patterns && paths.every(path => patterns.some(p => ['**/*.md', '**', `${path}/**`, `${path}/**/*.md`].includes(p)));
+    // Discovery skips hidden directories unless an include names the hidden path literally.
+    const registry = !existsSync(join(root, '.kb/curation/_conflicts.md'))
+      || patterns?.some(p => p === '.kb/curation/_conflicts.md' || p.startsWith('.kb/curation/') || p.startsWith('.kb/'));
+    add('note includes', knowledge && registry ? 'ok' : 'warning', knowledge && registry
+      ? 'Includes cover the AO knowledge paths and the conflict registry. Ignore rules may still exclude files; prove projection after indexing.'
+      : !knowledge
+      ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
+      : 'Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.', configPath);
   });
   const ownershipPath = '.rhizome/source-ownership.yml';
   inspect('source ownership', ownershipPath, () => {
@@ -82,6 +83,24 @@ export function check(root) {
     add('knowledge bindings', installed ? 'ok' : 'error', installed
       ? 'Static Markdown knowledge bindings installed; no compiler required. Index and typed query still required.'
       : 'Static knowledge bindings missing; install the starter.', `${module}/ontology`);
+  });
+  inspect('frontmatter connections', 'assertions', () => {
+    // A sequence under `connections:` ([{type, target}] or a bare id list) is not projected
+    // in this release; map-shaped connections are. Name every affected file.
+    const dirs = ['assertions', ...(existsSync(join(root, 'products')) ? readdirSync(join(root, 'products')).map(p => `products/${p}/assertions`) : [])];
+    const affected = [];
+    for (const dir of dirs) {
+      if (!existsSync(join(root, dir))) continue;
+      for (const name of readdirSync(join(root, dir), { recursive: true })) {
+        if (!String(name).endsWith('.md')) continue;
+        const path = `${dir}/${String(name).split('\\').join('/')}`;
+        const fm = read(root, path)?.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+        if (/^connections:\s*\[/m.test(fm) || /^connections:\s*\r?\n\s+-/m.test(fm)) affected.push(path);
+      }
+    }
+    add('frontmatter connections', affected.length ? 'unsupported' : 'ok', affected.length
+      ? `${affected.length} assertion(s) declare frontmatter connections as a sequence, which this release does not project; their ## Connections bullets and map-shaped connections still are: ${affected.join(', ')}`
+      : 'Frontmatter connections, where present, use the supported map shape.', 'assertions');
   });
   add('product-model bindings', 'unsupported', 'Product-model YAML bindings and binding compiler/refresh are not available in this release.', module);
   const weightsPath = '.kb/index/kb-weights.json';

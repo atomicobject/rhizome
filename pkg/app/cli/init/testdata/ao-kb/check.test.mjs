@@ -34,7 +34,7 @@ test('checks static readiness, limitations and unavailable analysis without writ
   assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
   assert.equal(named(root, 'product-model bindings').status, 'unsupported');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 10);
+  assert.equal(result.checks.length, 11);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
@@ -66,18 +66,17 @@ test('malformed saved output and stamp report errors independently', t => {
   assert.equal(named(root, 'knowledge bindings').status, 'ok');
 });
 
-test('include coverage preserves uncertainty and requires hidden registry coverage', t => {
-  for (const config of ['notes:\n  includes: ["assertions/**", "sources/**", "concepts/**", "artifacts/**"]\n', 'notes: {includes: ["**/*.md"]}\n']) {
-    assert.equal(named(fixture(t, { '.rhizome/config.yml': config }), 'note includes').status, 'warning');
-  }
-  const config = 'notes:\n  includes: ["assertions/**", "sources/**", "concepts/**", "artifacts/**", ".kb/curation/_conflicts.md"]\n';
-  assert.equal(named(fixture(t, { '.rhizome/config.yml': config }), 'note includes').status, 'ok');
-});
-
- test('hidden conflict registry needs discovery support even with includes', t => {
-  const root = fixture(t, { '.kb/curation/_conflicts.md': '# Conflicts\n' });
-  assert.equal(named(root, 'note includes').status, 'warning');
-  assert.match(named(root, 'note includes').message, /hidden directories/);
+test('include coverage needs the AO knowledge paths and an explicit include for the hidden registry', t => {
+  const narrow = 'notes:\n  includes: ["notes/**"]\n';
+  assert.equal(named(fixture(t, { '.rhizome/config.yml': narrow }), 'note includes').status, 'warning');
+  const broad = 'notes:\n  includes: ["**/*.md"]\n';
+  assert.equal(named(fixture(t, { '.rhizome/config.yml': 'notes: {includes: ["**/*.md"]}\n' }), 'note includes').status, 'warning', 'flow-style config is uncertain');
+  assert.equal(named(fixture(t, { '.rhizome/config.yml': broad }), 'note includes').status, 'ok', 'no registry to reach');
+  const missing = named(fixture(t, { '.rhizome/config.yml': broad, '.kb/curation/_conflicts.md': '# Conflicts\n' }), 'note includes');
+  assert.equal(missing.status, 'warning');
+  assert.match(missing.message, /\.kb\/curation\/_conflicts\.md/);
+  const explicit = 'notes:\n  includes: ["**/*.md", ".kb/curation/_conflicts.md"]\n';
+  assert.equal(named(fixture(t, { '.rhizome/config.yml': explicit, '.kb/curation/_conflicts.md': '# Conflicts\n' }), 'note includes').status, 'ok');
 });
 
 test('source ownership is ok only when the AO knowledge paths are declared', t => {
@@ -87,4 +86,17 @@ test('source ownership is ok only when the AO knowledge paths are declared', t =
   const result = named(fixture(t, { '.rhizome/source-ownership.yml': partial }), 'source ownership');
   assert.equal(result.status, 'warning');
   assert.match(result.message, /concepts\/\*\*/);
+});
+
+test('names assertions whose frontmatter connections are sequences', t => {
+  const root = fixture(t, {
+    'assertions/map.md': '---\nconnections: {supports: [a-1]}\n---\nClaim.\n',
+    'assertions/typed.md': '---\nconnections:\n  - type: refines\n    target: a-1\n---\nClaim.\n',
+    'assertions/bare.md': '---\nconnections: [a-1]\n---\nClaim.\n',
+  });
+  const result = named(root, 'frontmatter connections');
+  assert.equal(result.status, 'unsupported');
+  assert.match(result.message, /assertions\/typed\.md/);
+  assert.match(result.message, /assertions\/bare\.md/);
+  assert.doesNotMatch(result.message, /map\.md/);
 });

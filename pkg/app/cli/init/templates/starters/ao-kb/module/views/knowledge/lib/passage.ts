@@ -1,8 +1,7 @@
 /** On-demand browser IO for AO citations. Supply SourceText metadata and the
- * assertion's frontmatter.provenance.locator to readPassage. Source body should
+ * assertion's provenanceLocator field to readPassage. Source body should
  * come from noteBody(raw source note), not unprocessed GraphQL content (which may include frontmatter).
  * No raw evidence is indexed. No kit dependency; readText can be injected in tests.
- * TODO(SPEC-0133 lane D): callers use raw frontmatter.provenance until nested fields land.
  */
 import { resolvePassage, safeLocalPath, selectLocator, HASH_STATUS } from './locators.ts';
 import type { SourceText, PassageResult } from './locators.ts';
