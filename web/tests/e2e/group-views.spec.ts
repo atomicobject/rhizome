@@ -77,7 +77,15 @@ test("a group opens the bundled view its shape calls for and remembers a choice"
   await page.reload();
   await expectView(page, "Overview");
 
+  const saved = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/v1/view-preferences" &&
+      response.request().method() === "PATCH" &&
+      response.ok(),
+  );
+
   await chooseView(page, "Sections");
+  await saved;
   await expect(page.locator("iframe.custom-view-frame:not([data-incoming])")).toBeVisible();
   await page.reload();
   await expectView(page, "Sections");
