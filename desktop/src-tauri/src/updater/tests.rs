@@ -167,10 +167,18 @@ async fn refresh_with_limit(
     server: &Server,
     download_timeout: Duration,
 ) -> Status {
+    refresh_at(app, &server.url, download_timeout).await
+}
+
+async fn refresh_at(
+    app: &tauri::App<MockRuntime>,
+    url: &url::Url,
+    download_timeout: Duration,
+) -> Status {
     let builder = app
         .updater_builder()
         .target("test-target")
-        .endpoints(vec![server.url.clone()])
+        .endpoints(vec![url.clone()])
         .unwrap()
         .no_proxy();
     tokio::time::timeout(
@@ -179,6 +187,85 @@ async fn refresh_with_limit(
     )
     .await
     .expect("updater must settle and release its lock after the request timeout")
+}
+
+async fn timed_server(byte_delay: Duration) -> (url::Url, tokio::task::JoinHandle<()>) {
+    // Blocking socket phases inhibit paused-clock auto-advance until real I/O catches up.
+    use std::io::Read;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url: url::Url = format!("http://{}/feed", listener.local_addr().unwrap())
+        .parse()
+        .unwrap();
+    let package_url = url.join("/package").unwrap();
+    let server = tokio::spawn(async move {
+        for package in [false, true] {
+            let listener = listener.try_clone().unwrap();
+            let package_url = package_url.clone();
+            let stream = tokio::task::spawn_blocking(move || {
+                let began = std::time::Instant::now();
+                let mut stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(began.elapsed() < Duration::from_secs(2), "timed fixture accept stalled");
+                            thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("timed fixture accept: {error}"),
+                    }
+                };
+                stream.set_nonblocking(false).unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
+                stream.set_nodelay(true).unwrap();
+                let mut request = BufReader::new(&stream);
+                loop {
+                    let mut line = String::new();
+                    assert!(request.read_line(&mut line).unwrap() > 0);
+                    if line == "\r\n" { break }
+                }
+                if package {
+                    stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nt").unwrap();
+                    Some(stream)
+                } else {
+                    let feed = json!({"version": "1.0.0", "platforms": {"test-target": {"url": package_url, "signature": SIGNATURE}}}).to_string();
+                    respond(&mut stream, feed.as_bytes());
+                    None
+                }
+            }).await.unwrap();
+            if let Some(mut stream) = stream {
+                for (index, byte) in b"est".iter().enumerate() {
+                    tokio::time::sleep(byte_delay).await;
+                    let (next, written) = tokio::task::spawn_blocking(move || {
+                        let written = stream.write_all(&[*byte]).is_ok();
+                        if index == 2 && written {
+                            // Keep the clock paused until the client closes after the final body.
+                            stream.shutdown(std::net::Shutdown::Write).unwrap();
+                            let mut end = [0];
+                            match stream.read(&mut end) {
+                                Ok(0) => {}
+                                Err(error)
+                                    if matches!(
+                                        error.kind(),
+                                        std::io::ErrorKind::ConnectionReset
+                                            | std::io::ErrorKind::ConnectionAborted
+                                    ) => {}
+                                other => panic!("timed fixture peer did not close: {other:?}"),
+                            }
+                        }
+                        (stream, written)
+                    })
+                    .await
+                    .unwrap();
+                    stream = next;
+                    if !written {
+                        return;
+                    }
+                }
+            }
+        }
+    });
+    (url, server)
 }
 
 fn ready(version: &str) -> Status {
@@ -240,12 +327,51 @@ fn stalled_package_times_out_and_retry_downloads_verified_update() {
 
 #[test]
 fn progressing_download_can_exceed_the_read_timeout() {
-    tauri::async_runtime::block_on(async {
-        let app = app();
-        let server = Server::new(vec![Reply::Feed("1.0.0"), Reply::SlowPackage]);
-        assert_eq!(refresh(&app, &server).await, ready("1.0.0"));
-        assert_cached(&app, "1.0.0");
-    });
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .start_paused(true)
+        .build()
+        .unwrap()
+        .block_on(async {
+            let app = app();
+            let (url, server) = timed_server(Duration::from_millis(100)).await;
+            let began = tokio::time::Instant::now();
+            assert_eq!(
+                refresh_at(&app, &url, Duration::from_secs(5)).await,
+                ready("1.0.0")
+            );
+            assert!(began.elapsed() >= Duration::from_millis(300));
+            assert!(began.elapsed() > LIMIT);
+            assert_cached(&app, "1.0.0");
+            server.await.unwrap();
+        });
+}
+
+#[test]
+fn a_paused_clock_read_stall_still_times_out() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .start_paused(true)
+        .build()
+        .unwrap()
+        .block_on(async {
+            let app = app();
+            let (url, server) = timed_server(Duration::from_millis(400)).await;
+            let began = tokio::time::Instant::now();
+            let status = refresh_at(&app, &url, Duration::from_secs(5)).await;
+            assert_eq!(
+                status,
+                Status::Failed {
+                    message: "error decoding response body".into()
+                }
+            );
+            assert!(began.elapsed() >= LIMIT);
+            assert!(began.elapsed() < Duration::from_millis(400));
+            assert!(app.state::<Updates>().ready.lock().unwrap().is_none());
+            assert!(app.state::<Updates>().running.try_lock().is_ok());
+            server.abort();
+            assert!(server.await.unwrap_err().is_cancelled());
+        });
 }
 
 #[test]
