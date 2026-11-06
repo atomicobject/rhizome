@@ -20,7 +20,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 
 #[cfg(any(windows, test))]
 #[path = "windows_keyboard.rs"]
-pub(crate) mod windows_keyboard;
+mod windows_keyboard;
 
 const SHORTCUTS: &[(&str, &str)] = &[
     ("settings", "CmdOrCtrl+,"),
@@ -399,10 +399,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
 }
 
 fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
-    let enabled = !SHORTCUTS.iter().any(|(name, _)| *name == id) || shortcut_enabled(app, id);
-    #[cfg(windows)]
-    windows_keyboard::trace_menu(app, id, window.as_ref(), enabled);
-    if !enabled {
+    if SHORTCUTS.iter().any(|(name, _)| *name == id) && !shortcut_enabled(app, id) {
         return;
     }
     if let Some((window, item)) = id

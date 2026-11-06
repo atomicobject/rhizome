@@ -16,18 +16,9 @@ public static class DesktopPortabilityWindows {
         public uint MouseData, Flags, Time;
         public UIntPtr ExtraInfo;
     }
-    [StructLayout(LayoutKind.Sequential)] private struct KeyboardInput {
-        public ushort VirtualKey, ScanCode;
-        public uint Flags, Time;
-        public UIntPtr ExtraInfo;
-    }
-    [StructLayout(LayoutKind.Explicit)] private struct InputPayload {
-        [FieldOffset(0)] public MouseInput Mouse;
-        [FieldOffset(0)] public KeyboardInput Keyboard;
-    }
     [StructLayout(LayoutKind.Sequential)] private struct Input {
         public uint Type;
-        public InputPayload Payload;
+        public MouseInput Mouse;
     }
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindow callback, IntPtr parameter);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
@@ -48,7 +39,6 @@ public static class DesktopPortabilityWindows {
     [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(Point point);
     [DllImport("user32.dll", SetLastError = true)] private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, Input[] inputs, int size);
-    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int virtualKey);
     [DllImport("user32.dll")] private static extern IntPtr GetMenu(IntPtr window);
     [DllImport("user32.dll")] private static extern IntPtr GetSubMenu(IntPtr menu, int index);
     [DllImport("user32.dll")] private static extern int GetMenuItemCount(IntPtr menu);
@@ -63,13 +53,9 @@ public static class DesktopPortabilityWindows {
             Marshal.OffsetOf(typeof(GuiThreadInfo), "Focus").ToInt64() != 16 ||
             Marshal.OffsetOf(typeof(GuiThreadInfo), "CaretBounds").ToInt64() != 56)
             throw new InvalidOperationException("The Windows x64 GUITHREADINFO layout is incorrect.");
-        if (Marshal.SizeOf(typeof(Input)) != 40 || Marshal.SizeOf(typeof(InputPayload)) != 32 ||
-            Marshal.SizeOf(typeof(MouseInput)) != 32 || Marshal.SizeOf(typeof(KeyboardInput)) != 24 ||
-            Marshal.OffsetOf(typeof(Input), "Payload").ToInt64() != 8 ||
-            Marshal.OffsetOf(typeof(InputPayload), "Keyboard").ToInt64() != 0 ||
-            Marshal.OffsetOf(typeof(MouseInput), "ExtraInfo").ToInt64() != 24 ||
-            Marshal.OffsetOf(typeof(KeyboardInput), "Flags").ToInt64() != 4 ||
-            Marshal.OffsetOf(typeof(KeyboardInput), "ExtraInfo").ToInt64() != 16)
+        if (Marshal.SizeOf(typeof(Input)) != 40 || Marshal.SizeOf(typeof(MouseInput)) != 32 ||
+            Marshal.OffsetOf(typeof(Input), "Mouse").ToInt64() != 8 ||
+            Marshal.OffsetOf(typeof(MouseInput), "ExtraInfo").ToInt64() != 24)
             throw new InvalidOperationException("The Windows x64 SendInput layout is incorrect.");
     }
     public static IntPtr[] Visible(uint processId) {
@@ -179,8 +165,8 @@ public static class DesktopPortabilityWindows {
         if (!SetCursorPos(point.X, point.Y))
             return new { eligible = false, error = "Cannot position the diagnostic pointer." };
         var inputs = new[] {
-            new Input { Type = 0, Payload = new InputPayload { Mouse = new MouseInput { Flags = 0x0002 } } },
-            new Input { Type = 0, Payload = new InputPayload { Mouse = new MouseInput { Flags = 0x0004 } } }
+            new Input { Type = 0, Mouse = new MouseInput { Flags = 0x0002 } },
+            new Input { Type = 0, Mouse = new MouseInput { Flags = 0x0004 } }
         };
         var inserted = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Input)));
         var error = inserted == inputs.Length ? 0 : Marshal.GetLastWin32Error();
@@ -195,40 +181,5 @@ public static class DesktopPortabilityWindows {
         if (!ReadThreadInfo(0, out info) || info.Focus == IntPtr.Zero || info.Focus == window ||
             !IsChild(window, info.Focus) || !IsWindowVisible(info.Focus)) return IntPtr.Zero;
         return info.Focus;
-    }
-    public static object SendCtrlNDiagnostic(IntPtr window, IntPtr focusedChild, uint processId) {
-        var keys = new[] { 0x11, 0x10, 0x12, 0x5B, 0x5C, 0x4E };
-        var states = new List<object>();
-        var anyDown = false;
-        foreach (var key in keys) {
-            var down = (GetAsyncKeyState(key) & 0x8000) != 0;
-            states.Add(new { virtualKey = key, asyncDown = down });
-            anyDown |= down;
-        }
-        var beforeCount = ApplicationWindows(processId).Length;
-        var unchangedFocus = focusedChild != IntPtr.Zero && VisibleFocusedChild(window) == focusedChild;
-        if (beforeCount != 2 || !unchangedFocus || anyDown)
-            return new {
-                eligible = false, applicationWindowsBeforeInput = beforeCount, unchangedFocus = unchangedFocus,
-                keysBefore = states, anyKeyDown = anyDown, insertedEvents = 0, expectedEvents = 4
-            };
-        var inputs = new[] {
-            KeyboardEvent(0x11, 0), KeyboardEvent(0x4E, 0),
-            KeyboardEvent(0x4E, 0x0002), KeyboardEvent(0x11, 0x0002)
-        };
-        var sendUtc = DateTime.UtcNow.ToString("O");
-        var inserted = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Input)));
-        var error = inserted == inputs.Length ? 0 : Marshal.GetLastWin32Error();
-        return new {
-            eligible = true, applicationWindowsBeforeInput = beforeCount, unchangedFocus = unchangedFocus,
-            keysBefore = states, anyKeyDown = anyDown, insertedEvents = inserted, expectedEvents = inputs.Length,
-            sendUtc = sendUtc, returnedUtc = DateTime.UtcNow.ToString("O"), error = error,
-            eventOrder = new[] { "VK_CONTROL down", "VK_N down", "VK_N up", "VK_CONTROL up" }
-        };
-    }
-    private static Input KeyboardEvent(ushort key, uint flags) {
-        return new Input {
-            Type = 1, Payload = new InputPayload { Keyboard = new KeyboardInput { VirtualKey = key, Flags = flags } }
-        };
     }
 }

@@ -52,6 +52,8 @@ Use a disposable Git repository whose path includes spaces, an apostrophe, a sem
 
 Check PATH from an already open shell, a new shell, and a new tab in an already running Windows Terminal. A stale shell may need restarting; its reported resolution must be truthful. On Linux, a login that predates `~/.local/bin` may need that directory added to PATH or a new login.
 
+If a Windows shortcut fails, record the key, focused shell/content/finder, current window count and screenshot before trying again. Keep the failed result even if the next attempt succeeds. CI uses Windows Server 2025; these installed checks must still run on Windows 11.
+
 ## Test an installed upgrade
 
 The native upgrade fixture builder produces versions `0.0.1` and `0.0.2` from one source revision. It changes only the test version, updater endpoint/key, and loopback HTTP permission. Packaging and native signing policy stay the same; Windows fixture packages remain unsigned. The updater private key is discarded after assembly.
