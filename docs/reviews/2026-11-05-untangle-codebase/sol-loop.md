@@ -20,6 +20,7 @@ The first round approved the complete behavior diff with no findings. PR preflig
 | Round | Findings | Outcome | Fixed | Declined |
 | --- | --- | --- | --- | --- |
 | 1 | None | APPROVE | None required | None |
+| 2 | None | APPROVE: main integration | None required | None |
 
 The first round approved its reviewed behavior diff with no blocker or should finding. The existing [delivery evidence](delivery-evidence.md) supplies execution results; the reviewer performed a static review and did not claim to rerun them.
 
@@ -49,4 +50,27 @@ Verification before the integration commit:
 
 The initial shell selected Go 1.24.2 and an older linter despite the pinned tools already being installed. One attempt also retained the old GOROOT. The direct pinned-tool invocation resolved these host setup failures without changing source, weakening a check, or disabling artifact attestation. Logs are `/tmp/rhizome-untangle-sol-merge-verify-tools.log` and `/tmp/rhizome-untangle-sol-merge-init-check.log`. The helper only sets the selected tool paths and execs its arguments.
 
-Round two reviews only this integration delta and any open findings; round one has no open finding.
+Round two approved the integration at `b0d0cf824a9b7b7fc9e1832fd31aa5e7555e2f0e`, with no findings. Both rounds are complete, with no fixed or declined findings and no outstanding blocker or should. No source changed after this approval. Token usage was not exposed.
+
+Final PR diff against the integrated main: 295 files, 8,629 insertions and 7,080 deletions before this approval note. The same original-base diff is 401 files, 13,990 insertions and 8,023 deletions because it also includes intervening main changes. Those upstream additions are not attributed to this refactor or to Sol fixes.
+
+## Round-two report
+
+VERDICT: APPROVE
+
+No findings.
+
+Reviewed head: b0d0cf824a9b7b7fc9e1832fd31aa5e7555e2f0e.
+
+Scope: Narrow integration recheck after round one's approval at 0945364e5594329d2271d8c4c247887fbd9fa61b. Compared the merge against both parents, c0cc032caf92b2b8ea1633cdc200f39418f3294e and ccdeffe26ee7878c243394872c708b871006f19b, and inspected git show --remerge-diff. Retained the loop's stable base, git diff 900eee0b0036ee2699d84d5d02d5ffe6a39a4441. Earlier approved behavior and changes introduced only by main were not reopened as review scope.
+
+Integration evidence:
+
+- All four workflow resolutions match main byte-for-byte after normalizing the 15 intended Go-version substitutions. Root jobs use go.mod; the team-service job uses services/team-api/go.mod. Both modules specify Go 1.27.3. Main's release topology, dependencies, GOTOOLCHAIN=local, and scanner behavior remain intact.
+- The ontology_query_schema and start contract expressions exactly match main in their new per-operation factories. Inspected the relocated descriptions/defaults, expanded discovery output, input validation and CLI/MCP/local decoding, plus start's runtime response and callers. Only the two expected descriptor snapshot hashes changed.
+- Inspected the runtime-read retry and cancellation path through the shared outcome adapter, live-owner readiness and refresh requests, and the refactored bootstrap entrypoints it calls. No lost main behavior or competing writer was identified.
+- Inspected typed/untyped GraphQL names and fragment matching alongside the retained shared property lookup. Checked the Makefile fixture-path changes, retained native supervisor gate, and GraphResponse migration in server tests. No broken intersecting caller was identified.
+- Every file changed only on main is unchanged from the main parent in the merged tree. The worktree is clean.
+
+Limits: Static source and Git review only. No tests, builds, interface checks, CI runs, or release workflows were executed. The reported successful make verify, make check, init --check, documentation validation, and frozen-scope validation are root's recorded evidence, not independently reproduced results. Rhizome context lookup failed because local authentication was unavailable; repository source, policy, subsystem guidance, the prior report, and the review ledger supplied the review evidence. No repository files were edited; no commits, pushes, PR comments, or subagents. Only this report was written.
+
