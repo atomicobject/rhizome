@@ -198,9 +198,21 @@ class BuildTest(unittest.TestCase):
             self.build({**APPLE, "RZM_RELEASE_DESKTOP": "1",
                         "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
                         "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password"})
-        bundles = [c for c in self.runner.commands() if c[:3] == ["npm", "run", "tauri"] and "bundle" in c]
-        self.assertEqual(2, len(bundles))
+        commands = self.runner.commands()
+        self.assertEqual(2, sum(c[:3] == ["npm", "run", "tauri"] and "bundle" in c for c in commands))
+        self.assertEqual(2, sum(c[:3] == ["xcrun", "stapler", "validate"] for c in commands))
         verify.assert_called_once()
+        self.assertTrue((self.output / "Rhizome-macos-arm64.dmg").is_file())
+
+    def test_app_still_unstapled_after_rebuild_stages_nothing(self) -> None:
+        self.runner.unstapled_checks = 2
+        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"):
+            with self.assertRaisesRegex(DesktopBuildError, "no stapled ticket after rebuilding"):
+                self.build({**APPLE, "RZM_RELEASE_DESKTOP": "1",
+                            "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
+                            "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password"})
+        verify.assert_not_called()
+        self.assertFalse(self.output.exists() and any(self.output.iterdir()))
 
     def test_missing_dependencies_are_installed_first(self) -> None:
         (self.root / "desktop/node_modules").rmdir()

@@ -213,12 +213,13 @@ def build(
                 for attempt in range(2):
                     result = runner(command, cwd=desktop, env=signing_env, check=True, capture_output=True, text=True, timeout=3600)
                     report_notarization(result)
-                    if attempt or stapled(bundle_dir / "macos/Rhizome.app", runner=runner, env=clean_env):
+                    if stapled(bundle_dir / "macos/Rhizome.app", runner=runner, env=clean_env):
                         break
+                    if attempt:
+                        raise DesktopBuildError("Rhizome.app has no stapled ticket after rebuilding; no desktop assets staged")
                     # Tauri ignores `xcrun stapler staple` failures (tauri-macos-sign
                     # 2.12), so a ticket Apple has not yet propagated leaves the app,
-                    # DMG and updater archive unstapled. A rebuild resubmits the same
-                    # app; distribution verification below still requires the ticket.
+                    # DMG and updater archive unstapled. A rebuild resubmits the same app.
                     print("desktop: Tauri left Rhizome.app without a stapled ticket; rebuilding the bundle once", flush=True)
                     clear_bundle(bundle_dir)
                 outputs = bundle_outputs(bundle_dir, updater=updater)
