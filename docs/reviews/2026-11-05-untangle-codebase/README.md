@@ -7,7 +7,7 @@ reference-kind: analysis
 
 The audit found concrete opportunities to remove duplicate policy, unused APIs, and hidden initialization order. It does not support replacing Rhizome's existing subsystem architecture.
 
-**State:** implementation and integrated verification complete; final local commit/closure in progress in [[2026-11-05-18-48-untangle-codebase|EFF-2026-11-05-18-48]]. Baseline: `900eee0b0036ee2699d84d5d02d5ffe6a39a4441`. The user requested the untangle-codebase workflow, selected both optional comment and test cleanup passes, and approved the plan in chat.
+**State:** complete in [[2026-11-05-18-48-untangle-codebase|EFF-2026-11-05-18-48]]. Baseline: `900eee0b0036ee2699d84d5d02d5ffe6a39a4441`. The user requested the untangle-codebase workflow, selected both optional comment and test cleanup passes, and approved the plan in chat.
 
 Read the [delivery evidence](delivery-evidence.md) for results, candidate dispositions and checks. The [execution plan](plan.md) preserves the approved starting scope. The nine audit reports contain 46 candidate groups, their callers, evidence, verification, and retained exceptions. The [independent challenge](inventory-review.md) narrows several proposals and takes precedence where it corrects an audit recommendation.
 
@@ -42,6 +42,6 @@ The audit is source-backed, with caller searches and targeted probes. It is not 
 
 ## Execution ledger
 
-All 46 candidate groups are implemented with the approved retentions. Five integrated review passes are resolved. The final code passed `make verify`, including 1,844 web unit tests and 112 browser tests; both billing adapters executed against disposable stores. Desktop checks/build and the packaged fixture passed, including the additional heading-reload fix. Generated init output converged. Documentation and frozen scope checks passed before final reconciliation and are rerun at closure. The last pre-commit gate and carrying-commit record are in progress.
+All 46 candidate groups are implemented with the approved retentions. Five integrated review passes are resolved. The final code passed `make verify`, including 1,844 web unit tests and 112 browser tests; both billing adapters executed against disposable stores. Desktop checks/build and the packaged fixture passed, including the additional heading-reload fix. Generated init output converged. Final documentation and frozen scope checks passed with zero issues. The pre-commit gate passed, and the effort records the carrying code commit and closure.
 
 The baseline shutdown failure, its separate reproduced defects and final verification are distinguished in [delivery evidence](delivery-evidence.md). The approved [plan](plan.md) remains the frozen approval snapshot; execution updates live here and in the effort.

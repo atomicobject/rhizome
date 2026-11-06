@@ -9,6 +9,8 @@ All 46 approved candidate groups are implemented, with both selected comment and
 
 The result keeps the existing subsystem architecture. Shared rules now have one owner; obsolete APIs and state are removed; cache, bootstrap and configured-view code are split by responsibility. Intentional differences in graph output, missing preview values, Markdown syntax, ranking, scheduling and storage transactions remain explicit.
 
+Carrying code commit: `ed628b75c7845345e5624e495a07f51a40de011b`. The owning effort records completed closure on the same local branch.
+
 ## Candidate dispositions
 
 | ID | Disposition | Implemented result |
@@ -93,7 +95,7 @@ Five integrated review passes covered core/search/indexing/service, surfaces/web
 | Desktop | `make desktop-deps`, `make desktop-check`, and `make desktop-build` passed. Desktop checks included 113 UI tests, 111 Rust tests, formatting, clippy and app-instance lifecycle fixtures. The final isolated bundle was rebuilt after the heading fix with a unique test identifier. |
 | Packaged interaction | On macOS arm64, the final app's bundled CLI matched the verified branch binary by SHA-256. A disposable repo loaded through that CLI. Newly emitted heading URLs reloaded Details correctly; an authored saved-selector link also opened and reloaded, while the literal historical selector is covered by the round-trip test. Light/Indigo appearance persisted. The synthetic fixture had unrelated validation findings; repository validation is recorded separately. |
 | Generated init output | Disposable initialization followed by `init --check` exited 0. Root init preview identified exactly nine generated compounding files; init refreshed them, and the subsequent root check exited 0. Generated copies were not edited by hand. |
-| Documentation | `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` passed with zero issues; final reconciliation is checked again at closure. |
+| Documentation | `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` passed with zero issues on final reconciliation. |
 | Public operation catalog | Actual before/after CLI catalogs retained all 37 operation shapes and ordering. The only contract-text change says continuation requests repeat their original queries. |
 | Pre-commit | Final `TEAMAPI_DYNAMODB_ENDPOINT=http://127.0.0.1:59695 make check` passed after the redaction-test correction. |
 

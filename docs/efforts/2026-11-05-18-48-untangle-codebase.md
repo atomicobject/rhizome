@@ -4,8 +4,8 @@ id: EFF-2026-11-05-18-48
 aliases: [EFF-2026-11-05-18-48]
 name: Untangle shared policy and obsolete code
 created-at: 2026-11-05T23:53:07Z
-status: active
-summary: "Execute the approved 46-group untangle plan, preserving behavior while removing duplicated policy, dead paths and hidden dependencies."
+status: complete
+summary: "Completed the approved 46-group untangle plan, preserving supported behavior while removing duplicated policy, dead paths and hidden dependencies."
 governing-specs: ["[[codebase-untangling]]"]
 ---
 
@@ -42,7 +42,7 @@ The user explicitly wrote "Approves" in the working conversation before implemen
 - [x] R9 team service: batch 9.
 - [x] R10 test/comment cleanup: batch 10 and each owning batch.
 - [x] R11 final evidence: focused checks, full integration and independent review.
-- [ ] R12 documentation and authority: owning documents, bindings, validated effort and final delivery record.
+- [x] R12 documentation and authority: owning documents, bindings, validated effort and final delivery record.
 
 ## Plan
 
@@ -60,7 +60,7 @@ Complete the approved structural refactor and both cleanup passes in this branch
 
 All 46 approved candidate groups and both selected cleanup passes are implemented. Shared alias, section, language, ranking, preview, graph, trust, validation and billing rules have one appropriate owner; obsolete APIs/state are removed; cache/bootstrap/view source files are split by responsibility. The required packaged test additionally exposed a pre-existing fallback heading identity mismatch, now fixed with shared construction and lookup plus typed and historical-selector controls. See the [delivery evidence](../reviews/2026-11-05-untangle-codebase/delivery-evidence.md) for every candidate and retained exception.
 
-The final code passed the full build, race, integration, web and browser gate. SQLite and DynamoDB Local contracts executed, desktop checks and packaging passed, init converged in a disposable fixture and this checkout, and the actual packaged app passed heading navigation/reload and appearance persistence. The final `make check` passed. Carrying-commit recording and final documentation closure are in progress.
+The final code passed the full build, race, integration, web and browser gate. SQLite and DynamoDB Local contracts executed, desktop checks and packaging passed, init converged in a disposable fixture and this checkout, and the actual packaged app passed heading navigation/reload and appearance persistence. The final `make check` passed. Code and its review/verification evidence are carried by local commit `ed628b75c7845345e5624e495a07f51a40de011b` on `t3/untangle-codebase`. This closure record ships on the same branch; no pull request, push, merge or deployment was performed.
 
 ## Deviations
 
@@ -70,20 +70,20 @@ The narrowed Q4 constructor choice, distinct graph/preview policies, characteriz
 
 ## Closure Checklist
 
-- [ ] All 46 candidates fixed or retained with reviewed evidence.
-- [ ] Baseline harness failure diagnosed and resolved without hiding it.
-- [ ] Required code, generated-surface, desktop, DynamoDB and user-interface checks recorded.
-- [ ] Full integrated diff and fresh structural review completed.
-- [ ] Spec, subsystem notes, code bindings and effort validation pass.
-- [ ] Actual delivery and any remaining limitations recorded with carrying commit(s).
+- [x] All 46 candidates fixed or retained with reviewed evidence.
+- [x] Baseline harness failure diagnosed and resolved without hiding it.
+- [x] Required code, generated-surface, desktop, DynamoDB and user-interface checks recorded.
+- [x] Full integrated diff and fresh structural review completed.
+- [x] Spec, subsystem notes, code bindings and effort validation pass.
+- [x] Actual delivery and any remaining limitations recorded with carrying commit(s).
 
 ## Compounding Follow-ups
 
-Record new reusable lessons only if this work establishes them. Existing runtime authoring delays and sandbox socket restrictions are evidence gaps to track here; they are not permission to bypass source-of-truth or verification requirements.
+Shared-rule lessons are encoded in the owning subsystem notes and regression tests. No memory or context-shard publication was requested or performed. Remaining intentional limits are listed in the delivery evidence; none is unfinished approved implementation.
 
 ## Status
 
-Active. Implementation, integrated review and packaged verification are complete. The final pre-commit gate passed; local carrying commits and documentation closure remain. The earlier approval blocker is resolved.
+Complete. All approved candidates, selected cleanup, independent review and applicable local verification are delivered. Carrying code commit: `ed628b75c7845345e5624e495a07f51a40de011b`. Final documentation and frozen-scope validation accompany closure. Publication remains outside this task.
 
 ## Execution Notes
 
@@ -91,3 +91,5 @@ Active. Implementation, integrated review and packaged verification are complete
 - 2026-11-05T23:53:07Z [validation] Baseline evidence: CLI/web build and team-service build completed; `make check` failed in the unchanged immediate-decode shutdown test; 20 focused reruns passed without resolving the cause. Web tests passed except sandbox-bound socket cases, whose complete file passed with local socket access. Final integrated validation remains pending.
 
 - 2026-11-06T01:01:55Z [delivery] Implemented all approved candidates. Five integrated review passes are resolved; the packaged heading failure was reproduced before the supplemental identity fix. Full `make verify` passed after that fix, including 112 browser tests. Final local commit/closure remains in progress.
+
+- 2026-11-06T01:11:53Z [closure] Final `make check` passed after replacing the redaction wall-clock assertion with the same CPU budget. Full `make verify`, explicit SQLite/DynamoDB contracts, desktop checks/package/interaction and init convergence passed. The approved spec and plan hashes still match. Code committed as `ed628b75c7845345e5624e495a07f51a40de011b`; closing documentation records the completed result on this branch.
