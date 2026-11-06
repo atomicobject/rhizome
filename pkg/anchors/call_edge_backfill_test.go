@@ -27,23 +27,3 @@ func TestBuildDurableRefFootprintCompactsStoredRefs(t *testing.T) {
 	require.Equal(t, []string{"go|pkg/core|Handle", "go||Run"}, footprint.SymbolKeys)
 	require.Equal(t, []string{"pkg/dependency", "pkg/other"}, footprint.Modules)
 }
-
-func TestCallEdgeResidualKeyViewsDeduped(t *testing.T) {
-	t.Parallel()
-
-	residual := codeanchor.CallEdgeResidual{
-		SymbolRefs: []codeanchor.SymbolRef{
-			{Lang: codeanchor.LangPy, Pkg: "app.core", Name: "run"},
-			{Lang: codeanchor.LangPy, Pkg: "app.core", Name: "run"},
-		},
-		Modules: []string{"app.core", "app.core", "app.util"},
-		Fallbacks: []codeanchor.ReverseIndexFallback{
-			{Ref: codeanchor.SymbolRef{Lang: codeanchor.LangPy, Pkg: "app.core", Name: "run"}},
-			{Ref: codeanchor.SymbolRef{Lang: codeanchor.LangPy, Pkg: "app.core", Name: "run"}},
-		},
-	}
-
-	require.Equal(t, []string{"py|app.core|run"}, residual.SymbolKeys())
-	require.Equal(t, []string{"app.core", "app.util"}, residual.ModuleKeys())
-	require.Len(t, residual.FallbackFiltersBySymbolKey()["py|app.core|run"], 2)
-}

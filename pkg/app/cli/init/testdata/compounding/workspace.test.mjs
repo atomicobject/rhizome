@@ -10,7 +10,7 @@ import { test } from "node:test";
 
 const scripts = new URL("../../templates/starters/compounding/module/scripts/", import.meta.url);
 const { PUBLISH_STATEMENT, workspace } = await import(new URL("workspace.mjs", scripts));
-const { renderFinding } = await import(new URL("lib/findings.mjs", scripts));
+const { loadFindings, renderFinding } = await import(new URL("lib/findings.mjs", scripts));
 const { openStore } = await import(new URL("lib/store.mjs", scripts));
 const { report } = await import(new URL("report.mjs", scripts));
 
@@ -143,6 +143,25 @@ test("item gives a proposal's draft and redacted sources, or a finding's note", 
     () => ws("item", { ref: "finding:docs/memory/agent-findings/none.md" }),
     /no finding at/,
   );
+});
+
+test("the finding loader supplies the workspace action and status from the note", () => {
+  for (const { suffix, open, actionItem, assignee } of [
+    { suffix: "- [ ] Fix this #action-item\n  assignee::  [[Sam]]  \n", open: true, actionItem: "Fix this", assignee: "[[Sam]]" },
+    { suffix: "- [x] Done #action-item\n", open: false, actionItem: "Done", assignee: null },
+    { suffix: "- [X] Done #action-item\r\n  assignee:: [[Sam]]\r\n", open: false, actionItem: "Done", assignee: "[[Sam]]" },
+    { suffix: "No action item.\n", open: true, actionItem: null, assignee: null },
+    { suffix: "- [x] Done#action-item\n", open: false, actionItem: null, assignee: null },
+  ]) {
+    const note = teammateFinding("a").split("## Action item")[0] + "## Action item\n\n" + suffix;
+    const { root, ws } = repo([], { "fix-teammate-a": note });
+    const [f] = loadFindings(root);
+    assert.deepEqual([f.statement, f.open, f.actionItem, f.assignee],
+      ["Teammate a: the fallback in db.go is dead.", open, actionItem, assignee]);
+    const row = ws("item", { ref: `finding:${f.path}` });
+    assert.deepEqual([row.summary, row.open, row.actionItem, row.assignee],
+      [f.statement, open, actionItem, assignee]);
+  }
 });
 
 test("prompt names the selected references of both kinds and the publish statement", () => {

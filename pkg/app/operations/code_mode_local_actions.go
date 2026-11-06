@@ -44,7 +44,7 @@ func (s CodeModeCurrentUserService) Call(ctx context.Context, input map[string]a
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(result)
+	return CodeModeSuccess(result)
 }
 
 type CodeModeNextIDAllocator interface {
@@ -64,7 +64,7 @@ func (s CodeModeNextIDService) Call(ctx context.Context, input map[string]any) C
 	}
 	result, err := s.Allocator.Allocate(ctx, typeName, count, codeModeStrings(input, "paths"))
 	if err == nil {
-		return codeModeSuccess(result)
+		return CodeModeSuccess(result)
 	}
 	code := idalloc.ErrorCode(err)
 	if code == "" || code == "internal_error" {
@@ -100,7 +100,7 @@ func (s CodeModeRenameHeadingService) Call(ctx context.Context, input map[string
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(result)
+	return CodeModeSuccess(result)
 }
 
 type CodeModeNoteMover interface {
@@ -140,7 +140,7 @@ func (s CodeModeNoteMoveService) Call(ctx context.Context, input map[string]any)
 		moves = append(moves, MoveRequest{Source: sources[0], Target: target})
 	}
 	summary, err := s.Mover.Move(ctx, MoveParams{Moves: moves, Overwrite: codeModeBool(input, "overwrite"), UpdateBacklinks: codeModeBoolDefault(input, "updateBacklinks", true)})
-	outcome := codeModeSuccess(summary)
+	outcome := CodeModeSuccess(summary)
 	if err != nil {
 		outcome = codeModeFailure(err, 1)
 		outcome.Payload = summary

@@ -2,11 +2,15 @@ import path from "node:path";
 import { defineConfig } from "vite";
 
 import { rhizomeDevProxyPlugin } from "./devProxyConfig";
+import { themeBootstrapPlugin } from "./themeBootstrap";
 
 export default defineConfig(({ command }) => {
   return {
     root: path.resolve(__dirname),
-    plugins: command === "serve" ? [rhizomeDevProxyPlugin({ cwd: __dirname })] : undefined,
+    plugins: [
+      themeBootstrapPlugin,
+      ...(command === "serve" ? [rhizomeDevProxyPlugin({ cwd: __dirname })] : []),
+    ],
     // React's profiling build lets the desktop app turn on <Profiler> render
     // regions at runtime (SPEC-0116). The kit build is separate.
     resolve:

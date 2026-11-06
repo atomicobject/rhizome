@@ -180,16 +180,8 @@ func (l *DynamoDB) Reserve(ctx context.Context, r Receipt, person, everyone wire
 			return err
 		}
 		if i.Revision != "" {
-			if prev.Route != r.Route || prev.BodyHash != r.BodyHash {
-				return codeErr{wire.CodeIdempotencyClash}
-			}
-			switch prev.State {
-			case stateReserved, stateDispatched:
-				return codeErr{wire.CodeInProgress}
-			case stateSucceeded, stateRejected:
-				return codeErr{wire.CodeResultLost}
-			case stateUnknown:
-				return codeErr{wire.CodeOutcomeUnknown}
+			if code := replayCode(r, prev.Route, prev.BodyHash, prev.State); code != "" {
+				return codeErr{code}
 			}
 		}
 		day := l.Day()
@@ -252,13 +244,9 @@ func (l *DynamoDB) MarkUnknown(ctx context.Context, sub, key string) error {
 	return l.transition(ctx, sub, key, stateDispatched, stateUnknown, nil)
 }
 func (l *DynamoDB) Settle(ctx context.Context, sub, key string, outcome Outcome, actual int64, actualNanodollars ...int64) error {
-	to, ok := map[Outcome]string{NotDispatched: stateNotDispatched, Succeeded: stateSucceeded, Rejected: stateRejected}[outcome]
-	if !ok {
-		return fmt.Errorf("ledger: unknown outcome %d", outcome)
-	}
-	var settled *int64
-	if outcome == Succeeded && actual >= 0 {
-		settled = &actual
+	to, settled, err := settlement(outcome, actual)
+	if err != nil {
+		return err
 	}
 	return l.transition(ctx, sub, key, stateDispatched, to, settled, actualNanodollars...)
 }

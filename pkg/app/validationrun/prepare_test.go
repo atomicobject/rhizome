@@ -76,7 +76,7 @@ func TestPrepareDiscoversRecipeFactsOnlyForSelectedChecks(t *testing.T) {
 				".rhizome/config.yml":       "validation:\n  default:\n    add: [query-recipes]\n",
 				"docs/query-recipes/bad.md": "```query-recipe\napiVersion: [\n```\n",
 			}))
-			prepared, err := Prepare(obsidian.VaultDefinition{Path: root}, testNoteMetadata(t), []string{test.selector}, 7)
+			prepared, err := Prepare(obsidian.VaultDefinition{Path: root}, testNoteMetadata(t), []string{test.selector}, 7, nil)
 			require.NoError(t, err)
 			require.Equal(t, test.want, prepared.Request.Features.QueryRecipesConfigured)
 			require.Equal(t, 7, prepared.RunContext.MaxIssues)

@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/codefile"
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
@@ -89,11 +87,6 @@ func (s *Service) indexFileWithTimeout(ctx context.Context, idx LanguageIndexer,
 	if idx == nil {
 		return FileSummary{}, ErrUnsupportedLanguage
 	}
-	timeout := defaultIndexFileTimeout
-	if timeout <= 0 {
-		return idx.IndexFile(content, ref)
-	}
-
 	type result struct {
 		summary FileSummary
 		err     error
@@ -114,7 +107,7 @@ func (s *Service) indexFileWithTimeout(ctx context.Context, idx LanguageIndexer,
 		ch <- result{summary: summary, err: err}
 	}()
 
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(defaultIndexFileTimeout)
 	defer timer.Stop()
 
 	select {
@@ -130,25 +123,8 @@ func (s *Service) indexFileWithTimeout(ctx context.Context, idx LanguageIndexer,
 		if path == "" {
 			path = ref.Abs.String()
 		}
-		fallback := FileSummary{FilePath: path, Lang: langFromPath(path), ParseStatus: ParseTimeout}
+		fallback := FileSummary{FilePath: path, Lang: idx.Lang(), ParseStatus: ParseTimeout}
 		return fallback, nil
-	}
-}
-
-func langFromPath(path string) Lang {
-	ext := strings.ToLower(filepath.Ext(path))
-	if codefile.IsTypeScriptJavaScriptExtension(ext) {
-		return LangTS
-	}
-	switch ext {
-	case ".py":
-		return LangPy
-	case ".go":
-		return LangGo
-	case ".cs":
-		return LangCs
-	default:
-		return ""
 	}
 }
 

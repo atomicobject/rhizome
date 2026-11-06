@@ -32,6 +32,20 @@
 
 ### Fixed
 
+- Windows harness shutdown accepts an already-reaped child while retaining errors for a child that has not exited.
+- Compounding reports early subprocess rejections instead of crashing with a broken-pipe error.
+- `rzm init` preserves custom and edited command files, and previews and reports removal of unmodified generated commands.
+- Task checks reject malformed JSON suffixes before starting agent work.
+- PHP note lookup excludes anchors declared for another language, and indexing timeouts retain the selected parser's language.
+- Public API capabilities include the existing view-preference change event.
+
+- Untyped heading links survive reload by resolving the same section identity that navigation emits, including existing links made under a single document title.
+- Configured type views use their indexed read store even when no GraphQL query runtime is configured, preserving filters and ordering beyond the source cap.
+- Cached code references recognize timestamp-valued note aliases consistently with other note readers.
+- Development-server crash recovery updates Vite to the replacement backend and survives a replacement that exits before publishing its address.
+- Harness shutdown reports process reaping before diagnostic logging and reserves time for forced shutdown within the caller's deadline.
+- Agent search-continuation guidance now states that later pages must repeat the original queries.
+
 - Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
 
 - Code-mode reads wait for a warming runtime to publish current data instead of starting a competing local refresh and waiting on its writer lock.

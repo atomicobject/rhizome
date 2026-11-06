@@ -178,14 +178,10 @@ func (l *SQLite) Reserve(ctx context.Context, r Receipt, person, everyone wire.D
 		case errors.Is(err, sql.ErrNoRows):
 		case err != nil:
 			return err
-		case route != r.Route || hash != r.BodyHash:
-			return codeErr{wire.CodeIdempotencyClash}
-		case state == stateReserved || state == stateDispatched:
-			return codeErr{wire.CodeInProgress}
-		case state == stateSucceeded || state == stateRejected:
-			return codeErr{wire.CodeResultLost}
-		case state == stateUnknown:
-			return codeErr{wire.CodeOutcomeUnknown}
+		default:
+			if code := replayCode(r, route, hash, state); code != "" {
+				return codeErr{code}
+			}
 		}
 		day := l.Day()
 		if err := l.reserveProvider(ctx, c, day, r); err != nil {
@@ -262,13 +258,9 @@ func (l *SQLite) MarkUnknown(ctx context.Context, sub, key string) error {
 // changes nothing, so nothing is refunded twice. actualCredits < 0 means
 // usage is unknown; it only matters for Succeeded.
 func (l *SQLite) Settle(ctx context.Context, sub, key string, outcome Outcome, actualCredits int64, actualNanodollars ...int64) error {
-	to, ok := map[Outcome]string{NotDispatched: stateNotDispatched, Succeeded: stateSucceeded, Rejected: stateRejected}[outcome]
-	if !ok {
-		return fmt.Errorf("ledger: unknown outcome %d", outcome)
-	}
-	var settled *int64
-	if outcome == Succeeded && actualCredits >= 0 {
-		settled = &actualCredits
+	to, settled, err := settlement(outcome, actualCredits)
+	if err != nil {
+		return err
 	}
 	return l.tx(ctx, func(ctx context.Context, c *sql.Conn) error {
 		r, err := l.transition(ctx, c, sub, key, stateDispatched, to, settled)

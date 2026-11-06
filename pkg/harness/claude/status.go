@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
-	"github.com/atomicobject/rhizome/pkg/harness/internal/eventstream"
 )
 
 func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
@@ -35,13 +34,7 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		status.LastError = err.Error()
 		return status, nil
 	}
-	lifetime, cancel := context.WithCancel(context.Background())
-	probe := &session{transport: connection, stream: eventstream.New(), lifetime: lifetime, cancel: cancel, shutdownTimeout: d.shutdownTimeout, responses: make(map[string]chan message), responseBacklog: make(map[string]message), pending: make(map[string]pendingApproval), items: make(map[string]harness.EventKind)}
-	if probe.shutdownTimeout <= 0 {
-		probe.shutdownTimeout = defaultShutdownTimeout
-	}
-	probe.reader.Add(1)
-	go probe.readLoop()
+	probe := d.newSession(connection, false)
 	defer probe.Stop()
 	response, err := probe.initialize(ctx, "status-init")
 	if err != nil {

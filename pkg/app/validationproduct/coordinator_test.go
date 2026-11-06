@@ -171,7 +171,7 @@ func TestRunLiveRetainsProductionResultAndRunContext(t *testing.T) {
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root}
 	noteMetadata := testProjectionNoteMetadata(t)
 
-	run, err := RunLive(context.Background(), noteMetadata, vaultDef, 500)
+	run, err := RunLive(context.Background(), noteMetadata, vaultDef, 500, nil)
 	require.NoError(t, err)
 	require.Equal(t, root, run.RunContext.VaultPath)
 	require.Equal(t, vaultDef, run.RunContext.VaultDef)

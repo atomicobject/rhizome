@@ -185,7 +185,7 @@ func (h *harness) voyage(sub, key, body string) reply {
 }
 
 func (h *harness) usage(day string) (wire.DailyUsage, map[string]wire.DailyUsage) {
-	g, p, err := h.tr.Usage(context.Background(), day)
+	g, p, err := h.tr.ledger.Usage(context.Background(), day)
 	require.NoError(h.t, err)
 	return g, p
 }

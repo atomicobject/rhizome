@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIngestMarkdownCandidates_UsesOnlySuppliedPreclassifiedMixedCaseMarkdown(t *testing.T) {
+func TestIngestMarkdownCandidatesWithSources_UsesOnlySuppliedPreclassifiedMixedCaseMarkdown(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -35,12 +35,12 @@ code-anchors:
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 
-	result, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
+	result, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: includedPath,
 		RelPath: "Decision.MD",
 		ModTime: 1,
 		Kind:    FileKindNote,
-	}}, nil)
+	}}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, result.Count)
 	require.Empty(t, result.BuildErrors)
@@ -51,7 +51,7 @@ code-anchors:
 	require.Equal(t, []string{"Decision.MD"}, notePaths)
 }
 
-func TestIngestMarkdownCandidates_ForceReadProcessesUnchangedContent(t *testing.T) {
+func TestIngestMarkdownCandidatesWithSources_ForceReadProcessesUnchangedContent(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -62,18 +62,18 @@ func TestIngestMarkdownCandidates_ForceReadProcessesUnchangedContent(t *testing.
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 	candidate := FileCandidate{AbsPath: path, RelPath: "note.md", ModTime: 1, Kind: FileKindNote}
 
-	first, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{candidate}, nil)
+	first, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{candidate}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, first.Count)
 
-	unchanged, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{candidate}, nil)
+	unchanged, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{candidate}, nil, nil)
 	require.NoError(t, err)
 	require.Zero(t, unchanged.Count)
 	require.Equal(t, 1, unchanged.Unchanged)
 
 	forced := candidate
 	forced.ForceRead = true
-	forcedResult, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{forced}, nil)
+	forcedResult, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{forced}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, forcedResult.Count)
 	require.Zero(t, forcedResult.Unchanged)
@@ -140,7 +140,7 @@ func TestIngestMarkdownCandidatesWithSources_RejectsInvalidSourceBatchBeforeMuta
 	require.Empty(t, notePaths)
 }
 
-func TestIngestMarkdownCandidates_BuildErrorDoesNotRetireOwnership(t *testing.T) {
+func TestIngestMarkdownCandidatesWithSources_BuildErrorDoesNotRetireOwnership(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -157,12 +157,12 @@ code-anchors:
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 	require.NoError(t, store.UpsertNote(context.Background(), codeanchor.Note{Path: "bad.md", Title: "Existing"}))
 
-	result, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
+	result, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: path,
 		RelPath: "bad.md",
 		ModTime: 1,
 		Kind:    FileKindNote,
-	}}, nil)
+	}}, nil, nil)
 	require.NoError(t, err)
 	require.Zero(t, result.Count)
 	require.Zero(t, result.Deleted)
@@ -174,7 +174,7 @@ code-anchors:
 	require.Equal(t, []string{"bad.md"}, notePaths)
 }
 
-func TestIngestMarkdownCandidates_MissingCandidateFailsWithoutMutation(t *testing.T) {
+func TestIngestMarkdownCandidatesWithSources_MissingCandidateFailsWithoutMutation(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -182,12 +182,12 @@ func TestIngestMarkdownCandidates_MissingCandidateFailsWithoutMutation(t *testin
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 
-	result, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
+	result, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: missingPath,
 		RelPath: "missing.md",
 		ModTime: 1,
 		Kind:    FileKindNote,
-	}}, nil)
+	}}, nil, nil)
 	require.Error(t, err)
 	var readErr *MarkdownCandidateReadError
 	require.True(t, errors.As(err, &readErr))
@@ -200,7 +200,7 @@ func TestIngestMarkdownCandidates_MissingCandidateFailsWithoutMutation(t *testin
 	require.Empty(t, notePaths)
 }
 
-func TestIngestMarkdownCandidates_RejectsWholeInvalidBatchBeforeMutation(t *testing.T) {
+func TestIngestMarkdownCandidatesWithSources_RejectsWholeInvalidBatchBeforeMutation(t *testing.T) {
 	root := t.TempDir()
 	includedPath := filepath.Join(root, "Decision.MD")
 	outsidePath := filepath.Join(root, "Outside.MD")
@@ -222,7 +222,7 @@ func TestIngestMarkdownCandidates_RejectsWholeInvalidBatchBeforeMutation(t *test
 			store := openCandidateTestStore(t, t.TempDir())
 			svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 
-			_, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{valid, tt.invalid}, nil)
+			_, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{valid, tt.invalid}, nil, nil)
 			require.Error(t, err)
 			notePaths, listErr := store.NotePaths(context.Background())
 			require.NoError(t, listErr)

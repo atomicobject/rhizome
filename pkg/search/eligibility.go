@@ -1,5 +1,15 @@
 package search
 
+func rankingTier(intent Intent, evidence []Evidence) int {
+	if !IsPrecisionIntent(intent) && HasEvidence(evidence, "note_title_exact", "path_exact") {
+		return 2
+	}
+	if HasPrimaryEvidence(intent, evidence) {
+		return 1
+	}
+	return 0
+}
+
 // HasPrimaryEvidence reports whether a candidate carries the relationship proof
 // requested by a precision intent. Broad topical evidence remains supporting.
 func HasPrimaryEvidence(intent Intent, evidence []Evidence) bool {

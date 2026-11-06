@@ -5,7 +5,6 @@ import {
   getNodeWorkspaceGraph,
   getOntologySummary,
   getOntologyType,
-  searchNotes,
 } from "../api/client";
 import {
   executePublicView,
@@ -50,16 +49,6 @@ export function useOntologyTypeQuery(
     session,
     queryFn: ({ signal, editSession }) => getOntologyType(typeName ?? "", { editSession, signal }),
     enabled: enabled && Boolean(typeName && typeName !== "__modified__"),
-  });
-}
-
-export function useNoteSearchQuery(query: string, typeName: string | undefined) {
-  const options = { type: typeName, limit: 40 } as const;
-
-  return useQuery({
-    queryKey: queryKeys.search.notes(query, options),
-    queryFn: ({ signal }) => searchNotes(query, options, { signal }),
-    enabled: query.length >= 3,
   });
 }
 

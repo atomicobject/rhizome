@@ -23,7 +23,7 @@ func (s CodeModeOntologySchemaService) Call(ctx context.Context, input map[strin
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 type CodeModeOntologyQueryRuntime interface {
@@ -65,7 +65,7 @@ func (s CodeModeOntologyReferenceService) Call(ctx context.Context, input map[st
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 type CodeModeTextRuntime interface {
@@ -105,7 +105,7 @@ func (s CodeModeOntologyInspectService) Call(ctx context.Context, input map[stri
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 type CodeModeRationaleRuntime interface {
@@ -119,7 +119,7 @@ func (s CodeModeRationaleService) Call(ctx context.Context, input map[string]any
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 func codeModeObject(input map[string]any, key string) (map[string]any, error) {

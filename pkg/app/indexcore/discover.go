@@ -102,7 +102,10 @@ func Discover(ctx context.Context, request Request, store *sqlite.Store) (result
 		}
 	}
 	d.FullDiscovery = d.FullDiscovery || d.Recovery || request.ForceMetadata
-	d.input = noteownership.DiscoveryInput{VaultDefinition: request.VaultDefinition, Registry: runtime.Registry(), CodeRoots: d.CodeRoots, CodeLanguage: func(ref paths.CodePathRef) anchors.Lang { return codeintel.DetectCodeLang(ref.Abs.String()) }, PersistedNotePaths: d.persistedNotes, PersistedCodePaths: codePaths}
+	d.input = noteownership.DiscoveryInput{VaultDefinition: request.VaultDefinition, Registry: runtime.Registry(), CodeRoots: d.CodeRoots, CodeLanguage: func(ref paths.CodePathRef) anchors.Lang {
+		lang, _ := anchors.LangForPath(ref.Abs.String())
+		return lang
+	}, PersistedNotePaths: d.persistedNotes, PersistedCodePaths: codePaths}
 	for _, p := range request.Paths {
 		clean, err := paths.CleanRelPath(p.String())
 		if err != nil || clean == "" || clean != p {

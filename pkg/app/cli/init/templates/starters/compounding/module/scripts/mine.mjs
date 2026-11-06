@@ -29,7 +29,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom, strictSchema } from "./lib/calls.mjs";
+import { Stop, costOf, makeCaller, pool, resolveRzm, rzmClients, spendFrom, strictSchema } from "./lib/calls.mjs";
 import { episodesFor } from "./lib/episodes.mjs";
 import { callEstimates, estimate, formatEstimate } from "./lib/estimate.mjs";
 import { batches, extractBatch } from "./lib/extract.mjs";
@@ -484,7 +484,7 @@ if (isMain) {
   try {
     root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {}
-  const rzm = process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
+  const rzm = resolveRzm(root);
   let result;
   try {
     result = await mine(

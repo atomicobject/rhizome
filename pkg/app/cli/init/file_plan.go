@@ -70,10 +70,6 @@ type filePlan struct {
 	// legacyDirs are skill folders whose old marker files are folded into the
 	// record and deleted once the record owns the folder.
 	legacyDirs []string
-	// commandDirs hold rhizome-* command files; stale ones are cleaned up
-	// when the plan is applied.
-	commandDirs     []string
-	currentCommands map[string]struct{}
 	// hookFiles are harness settings files holding Rhizome hook entries.
 	hookFiles []generatedHookFile
 	// keptFlat are edited flat copies of starter files whose module copies
@@ -431,11 +427,6 @@ func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 			}
 		}
 		if err := removeLegacySkillFiles(filepath.Join(projectRoot, filepath.FromSlash(dir))); err != nil {
-			return report, err
-		}
-	}
-	for _, dir := range plan.commandDirs {
-		if _, err := cleanupStaleArtifacts(filepath.Join(projectRoot, filepath.FromSlash(dir)), plan.currentCommands); err != nil {
 			return report, err
 		}
 	}

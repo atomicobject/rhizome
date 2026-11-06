@@ -37,7 +37,7 @@ func codeCandidatesForTest(t testing.TB, vault, root string, service *anchors.Se
 		if d.IsDir() {
 			return nil
 		}
-		lang := DetectCodeLang(path)
+		lang, _ := anchors.LangForPath(path)
 		if lang == "" || !service.HasIndexer(lang) {
 			return nil
 		}

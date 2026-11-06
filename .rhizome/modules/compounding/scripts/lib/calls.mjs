@@ -4,7 +4,7 @@
 // ledger, and a failure is never cached.
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PROMPT_VERSION } from "./prompts.mjs";
@@ -76,6 +76,10 @@ export const dropNulls = (v) =>
             .map(([k, x]) => [k, dropNulls(x)]),
         )
       : v;
+
+export function resolveRzm(root) {
+  return process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
+}
 
 const CALL_TIMEOUT_MS = 60 * 60 * 1000;
 

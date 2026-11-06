@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"github.com/atomicobject/rhizome/pkg/graph/algorithms"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -120,8 +121,8 @@ func loadGraphSurprises(ctx context.Context, store *semdb.Store, topN int, minSc
 		edges = append(edges, algorithms.GraphDocEdgeForSurprise{
 			SrcPath:         src,
 			DstPath:         dst,
-			Kind:            graphFactEdgeKind(e),
-			Confidence:      graphFactConfidenceLabel(e),
+			Kind:            graphpresentation.FactEdgeKind(e),
+			Confidence:      graphpresentation.FactConfidenceLabel(e),
 			ConfidenceScore: e.Confidence,
 		})
 	}

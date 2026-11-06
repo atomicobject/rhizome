@@ -1,20 +1,14 @@
 package application
 
 import (
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/codefile"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/queryframe"
 )
-
-func Assess(intent search.Intent, results []search.RankedResult) []SourceAssessment {
-	return AssessQuery("", intent, results)
-}
 
 // AssessQuery classifies ranked sources using the request text when it is
 // available. Explicit language qualifiers constrain code results, while notes
@@ -335,8 +329,8 @@ func codeResultLanguageConflicts(result search.RankedResult, allowed []codeancho
 	if len(allowed) == 0 || !isCodeResult(result) {
 		return false
 	}
-	actual := codeLanguageFromPath(result.Path)
-	if actual == "" {
+	actual, known := codeanchor.LangForPath(strings.TrimSpace(result.Path))
+	if !known {
 		return false
 	}
 	for _, language := range allowed {
@@ -356,25 +350,6 @@ func isCodeResult(result search.RankedResult) bool {
 		return true
 	}
 	return strings.TrimSpace(result.FQN) != ""
-}
-
-func codeLanguageFromPath(path string) codeanchor.Lang {
-	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(path)))
-	if codefile.IsTypeScriptJavaScriptExtension(ext) {
-		return codeanchor.LangTS
-	}
-	switch ext {
-	case ".py":
-		return codeanchor.LangPy
-	case ".go":
-		return codeanchor.LangGo
-	case ".cs":
-		return codeanchor.LangCs
-	case ".php":
-		return codeanchor.LangPhp
-	default:
-		return ""
-	}
 }
 
 func relationshipForIntent(intent search.Intent) string {

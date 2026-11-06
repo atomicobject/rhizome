@@ -110,24 +110,6 @@ func (p *integratedProgress) SetSegment(start, end int) {
 	}
 }
 
-func (p *integratedProgress) SetTailStep(label string, step, total int) {
-	if p == nil {
-		return
-	}
-	p.SetStage(label)
-	if total <= 0 {
-		total = 1
-	}
-	if step < 0 {
-		step = 0
-	}
-	if step > total {
-		step = total
-	}
-	p.SetSegment(mainPhaseEnd, finalPhaseEnd)
-	p.Update(step, total)
-}
-
 func (p *integratedProgress) Finish(label string) {
 	if p == nil {
 		return

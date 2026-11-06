@@ -1,7 +1,7 @@
 ---
 summary: "Configured native views: schema-derived rows, shared query execution, deterministic presentation, and explicit saved configuration."
 reference-kind: guide
-last-verified: 2026-11-02
+last-verified: 2026-11-05
 code-paths:
   - pkg/app/views
   - pkg/ontology/viewconfig
@@ -21,6 +21,8 @@ code-anchors:
 `pkg/ontology/viewconfig` owns view configuration, loading, and static validation. `pkg/app/views.Service` owns catalogs, generated defaults, source adapters, execution, and explicit shared saves for web, CLI, and agent consumers. The browser owns presentation state; personal overrides live in the separate user-state store.
 
 ## Design constraints
+
+- Indexed type sources use the configured noderead `Store` capability. Optional `QueryDeps` serve broader query execution and must not gate ordinary indexed type reads. Preserve catalog-only and custom-resolver construction.
 
 - Ontology sources use `noderead.Scope.TypeInstances` and batched hydration. Rows retain canonical refs, including embedded nodes and staged edits. Do not introduce a second note scanner or path-only identity model.
 - Scalar filters and ordering use the shared schema capabilities, scalar adapter, and pushdown predicate/sort model. SQL, residual evaluation, and overlays agree on typed values, null placement, repeated-value aggregation, and identity tie breaks. DateTime values compare UTC instants with fixed nanosecond precision.
@@ -47,7 +49,7 @@ Use fixtures through `Service` for catalog and execution behavior. For predicate
 
 ## Key files
 
-- `pkg/app/views/service.go`, `execute.go`, `source_ontology.go`, `source_query_recipe.go`.
+- `pkg/app/views/service.go`, `execute.go`, `source_ontology.go`, `source_ontology_plan.go`, `source_ontology_rows.go`, `source_ontology_capabilities.go`, `source_query_recipe.go`.
 - `pkg/ontology/viewconfig` for the authored format and validation.
 - `pkg/app/views/CONTEXT.md` for detailed catalog, default, grouping, and save contracts.
 

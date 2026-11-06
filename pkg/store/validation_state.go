@@ -8,24 +8,6 @@ import (
 	"time"
 )
 
-// GetBrokenLinksJSON returns the stored broken-links validation JSON.
-func (s *Store) GetBrokenLinksJSON(ctx context.Context) (string, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT COALESCE(broken_links_json, '')
-		FROM ontology_schema_state
-		ORDER BY loaded_at DESC
-		LIMIT 1
-	`)
-	var raw string
-	if err := row.Scan(&raw); err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
-		return "", err
-	}
-	return raw, nil
-}
-
 // SetBrokenLinksJSON stores the broken-links validation JSON on the latest
 // ontology schema state row.
 func (s *Store) SetBrokenLinksJSON(ctx context.Context, jsonStr string) error {
@@ -56,25 +38,6 @@ func (s *Store) SetBrokenLinksJSON(ctx context.Context, jsonStr string) error {
 		`, jsonStr, schemaHash, notesHash)
 		return err
 	})
-}
-
-// GetValidationResultJSON returns the cached full validation result.
-func (s *Store) GetValidationResultJSON(ctx context.Context) (string, error) {
-	state, err := s.GetValidationState(ctx)
-	if err != nil {
-		return "", err
-	}
-	return state.ResultJSON, nil
-}
-
-// SetValidationResultJSON stores the full validation result JSON.
-func (s *Store) SetValidationResultJSON(ctx context.Context, jsonStr string) error {
-	generation, err := s.SetValidationRunning(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = s.SetValidationResult(ctx, generation, jsonStr, 0)
-	return err
 }
 
 func (s *Store) GetValidationState(ctx context.Context) (ValidationState, error) {

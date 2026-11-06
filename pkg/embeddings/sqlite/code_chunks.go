@@ -156,11 +156,6 @@ const (
 	codeVecChunkTablePrefix  = "code_chunk_embeddings_vec_d"
 	vecItemTablePrefix       = "code_item_embeddings_vec_d"
 
-	// DefaultStaleItemThreshold is the fraction of stale items (not seen in current sync)
-	// above which we prune them. Below this threshold, items are kept to avoid re-embedding
-	// costs when switching branches. 0.3 means we keep stale items if they're <30% of total.
-	DefaultStaleItemThreshold = 0.3
-
 	codeChunkBatchSize          = 20
 	codeEmbeddingCacheBatchSize = 50
 	hashLookupBatchSize         = 100

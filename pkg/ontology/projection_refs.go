@@ -136,20 +136,26 @@ func (r *projectionResolver) resolveSectionByStructural(structural string) *Sect
 		return nil
 	}
 	var matched *SectionNode
-	var walk func(nodes []*SectionNode)
-	walk = func(nodes []*SectionNode) {
+	var walk func(parentID string, nodes []*SectionNode)
+	walk = func(parentID string, nodes []*SectionNode) {
 		for _, node := range nodes {
 			if node == nil || matched != nil {
 				continue
 			}
-			if hashText(r.stableSectionFingerprint(node)) == structural {
+			matches := hashText(r.stableSectionFingerprint(node)) == structural
+			if !matches && r.noteType == nil && r.assessment == nil && r.sectionTypeByID[node.ID] == "" {
+				matches = fallbackSectionNodeRef(r.snapshot, node, parentID).Structural == structural
+				// Direct fallback reads previously retained the unwrapped H1's ID as parent.
+				matches = matches || hashText(fallbackSectionFingerprint(node, parentID)) == structural
+			}
+			if matches {
 				matched = node
 				return
 			}
-			walk(node.Children)
+			walk(node.ID, node.Children)
 		}
 	}
-	walk(r.snapshot.Sections)
+	walk("", r.snapshot.Sections)
 	return matched
 }
 

@@ -96,7 +96,8 @@ func (s *Session) CanPrompt() bool {
 // precedence: process env, then keys provided this run, then the persisted
 // CLI config env block.
 func (s *Session) Resolve(key string) string {
-	if value := strings.TrimSpace(sessionEnvValue(s.env, key)); value != "" {
+	envValue, _ := s.env.Lookup(key)
+	if value := strings.TrimSpace(envValue); value != "" {
 		return value
 	}
 	if value := strings.TrimSpace(s.provided[key]); value != "" {
@@ -189,9 +190,4 @@ func (s *Session) teamCovered() bool {
 		return false
 	}
 	return teamkeys.Available(s.env)
-}
-
-func sessionEnvValue(env vaultconfig.Env, key string) string {
-	value, _ := env.Lookup(key)
-	return value
 }

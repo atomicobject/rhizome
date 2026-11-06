@@ -6,6 +6,7 @@ package cmd
 // - [Code Index - Unified SQLite DB](docs/reference/analysis/Code Index - Unified SQLite DB.md)
 
 import (
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
@@ -23,14 +24,15 @@ func (commandOptions *indexInvocationOptions) runUnifiedIndex(cmd *cobra.Command
 	}
 
 	return indexing.RunUnifiedCore(cmd.Context(), lease, indexing.UnifiedOptions{
-		Config:       resolved,
-		VaultPath:    vaultPath,
-		VaultDef:     vaultDef,
-		NoteMetadata: noteMetadata,
-		ProgressBar:  bar,
-		Verbose:      commandOptions.indexTimings,
-		Vacuum:       commandOptions.indexVacuum,
-		TxLockMode:   sqliteutil.TxLockImmediate,
-		APIKey:       "",
+		SkillOverlays: initactions.ValidateBundledSkillOverlays,
+		Config:        resolved,
+		VaultPath:     vaultPath,
+		VaultDef:      vaultDef,
+		NoteMetadata:  noteMetadata,
+		ProgressBar:   bar,
+		Verbose:       commandOptions.indexTimings,
+		Vacuum:        commandOptions.indexVacuum,
+		TxLockMode:    sqliteutil.TxLockImmediate,
+		APIKey:        "",
 	})
 }

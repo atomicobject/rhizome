@@ -1,7 +1,7 @@
 ---
 summary: "Operational design constraints and review checklist for the indexing subsystem: pipeline stages, single queued writer lane, batching policy, index lock, and watcher integration."
 reference-kind: guide
-last-verified: 2026-10-31
+last-verified: 2026-11-05
 code-paths:
   - pkg/app/indexing
   - pkg/app/indexcore
@@ -43,6 +43,8 @@ code-anchors:
 Everything that turns vault and code roots into persisted SQLite indexes: batch `rzm index`, watcher-driven live refresh, validation projection, bounded candidate reads, queued writes, diagnostics, and lock coordination. `RunUnifiedCore` owns batch orchestration; `indexcore.Discover` and `indexcore.Publish` own shared structural work; `codeintel.ProcessCandidates` reads selected candidates. Full indexing and structural publication require the real token-bearing vault lease. The retired `rzm code index` and `rzm code index-anchors` commands are replaced by `rzm index`, which honors configured code roots and embedding enablement.
 
 ## Design constraints
+
+- Queue code-kind identity is explicit and independent of metrics labels or the ordered durable flush list. `OntologyNodeSyncer.ComputeDerived` owns ontology batching/concurrency; its provider helper performs one physical batch call while preserving shared gate, metrics and vector validation.
 
 - **Embedding indexing has one domain owner.** `pkg/embedindex` owns note/code/ontology chunk planning, content-hash reuse, prepared pipelines, compatible provider lanes, batching, and producer-owned writer ports. Application composition constructs providers and supplies the single `indexwriter.Writer`. The concrete writer does not import embedindex. Query execution has no dependency on embedindex. The note planner separates source loading and metadata batch lifetime while preserving explicit final drains.
 - **Graph computation and publication keep their owners.** Pure algorithms live in `pkg/graph/algorithms` and import no parent graph or application package. `pkg/graph/index` computes and publishes persisted scores through the existing writer port and barriers. Note metadata remains the sole author of note-link facts.

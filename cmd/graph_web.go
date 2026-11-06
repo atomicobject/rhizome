@@ -14,7 +14,7 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/app/web"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -51,7 +51,6 @@ Examples:
 				mode = args[0]
 			}
 
-			// Resolve vault
 			selectedVault := commandOptions.vaultName
 			if selectedVault == "" {
 				v := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
@@ -66,17 +65,13 @@ Examples:
 			if err != nil {
 				return err
 			}
-			resolvedConfig1,
-
-				// Load code config
-				configErr1 := repoconfig.Load(vaultPath)
+			resolvedConfig1, configErr1 := repoconfig.Load(vaultPath)
 			codeCfg, err := resolvedConfig1.Code, configErr1
 			if err != nil {
 				codeCfg = codeanchor.DefaultConfig(vaultPath)
 			}
 			codeCfg.IndexPath = repoconfig.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
 
-			// Open intel store
 			tStore := time.Now()
 			store, cleanup, err := requireIntelStore(vaultPath, codeCfg, indexstore.ReadOnly)
 			if err != nil {
@@ -85,7 +80,6 @@ Examples:
 			storeOpenTime := time.Since(tStore)
 			defer cleanup()
 
-			// Load vault definition and ignore matcher
 			vaultDef, err := vault.Definition()
 			if err != nil {
 				return err
@@ -93,7 +87,6 @@ Examples:
 			ignoreMatcher := ignore.LoadUnifiedMatcher(vaultPath, vaultDef.Excludes)
 			schema, _ := ontoschema.LoadSchema(vaultPath)
 
-			// Create a minimal graph builder
 			gb := &graphBuilder{
 				store:         store,
 				vaultDef:      vaultDef,
@@ -102,7 +95,7 @@ Examples:
 			}
 
 			start := time.Now()
-			var resp web.GraphResponse
+			var resp graphpresentation.GraphResponse
 			var buildErr error
 
 			switch mode {
@@ -134,7 +127,6 @@ Examples:
 				return enc.Encode(resp)
 			}
 
-			// Summary output
 			fmt.Fprintf(cmd.OutOrStdout(), "Mode: %s\n", mode)
 			fmt.Fprintf(cmd.OutOrStdout(), "Nodes: %d\n", len(resp.Nodes))
 			fmt.Fprintf(cmd.OutOrStdout(), "Edges: %d\n", len(resp.Edges))
@@ -143,7 +135,6 @@ Examples:
 				fmt.Fprintf(cmd.OutOrStdout(), "Center: %s\n", resp.CenterID)
 			}
 
-			// Edge breakdown by kind
 			kindCounts := map[string]int{}
 			for _, e := range resp.Edges {
 				kindCounts[e.Kind]++
@@ -155,7 +146,6 @@ Examples:
 				}
 			}
 
-			// Node breakdown by kind
 			nodeKindCounts := map[string]int{}
 			for _, n := range resp.Nodes {
 				nodeKindCounts[n.Kind]++
@@ -194,7 +184,7 @@ type graphBuilder struct {
 	ignoreMatcher *ignore.Matcher
 }
 
-func (gb *graphBuilder) buildGlobalGraph(ctx context.Context, limit, depth int) (web.GraphResponse, error) {
+func (gb *graphBuilder) buildGlobalGraph(ctx context.Context, limit, depth int) (graphpresentation.GraphResponse, error) {
 	if limit <= 0 {
 		limit = 2000
 	}
@@ -207,7 +197,7 @@ func (gb *graphBuilder) buildGlobalGraph(ctx context.Context, limit, depth int) 
 	}, depth, "")
 }
 
-func (gb *graphBuilder) buildLocalGraph(ctx context.Context, target string, limit, depth int) (web.GraphResponse, error) {
+func (gb *graphBuilder) buildLocalGraph(ctx context.Context, target string, limit, depth int) (graphpresentation.GraphResponse, error) {
 	if limit <= 0 {
 		limit = 200
 	}
@@ -217,7 +207,7 @@ func (gb *graphBuilder) buildLocalGraph(ctx context.Context, target string, limi
 
 	centerKind, centerPath, err := gb.resolveLocalGraphTarget(ctx, target)
 	if err != nil {
-		return web.GraphResponse{}, err
+		return graphpresentation.GraphResponse{}, err
 	}
 	return gb.buildNodeReadGraph(ctx, noderead.GraphRequest{
 		Sources: []ontology.NodeRef{{NotePath: centerPath, Kind: ontology.NodeKind(centerKind)}},
@@ -257,7 +247,7 @@ func (gb *graphBuilder) resolveLocalGraphTarget(ctx context.Context, target stri
 	}
 }
 
-func (gb *graphBuilder) buildModuleGraph(ctx context.Context, module string, limit int) (web.GraphResponse, error) {
+func (gb *graphBuilder) buildModuleGraph(ctx context.Context, module string, limit int) (graphpresentation.GraphResponse, error) {
 	if limit <= 0 {
 		limit = 600
 	}
@@ -268,61 +258,30 @@ func (gb *graphBuilder) buildModuleGraph(ctx context.Context, module string, lim
 	}, 2, "")
 }
 
-func (gb *graphBuilder) buildNodeReadGraph(ctx context.Context, req noderead.GraphRequest, depth int, centerID string) (web.GraphResponse, error) {
+func (gb *graphBuilder) buildNodeReadGraph(ctx context.Context, req noderead.GraphRequest, depth int, centerID string) (graphpresentation.GraphResponse, error) {
 	graph, err := noderead.NewService(gb.vaultDef, &obsidian.Note{}, gb.store, gb.schema).NewScope(noderead.ScopeOptions{}).Graph(ctx, req)
 	if err != nil {
-		return web.GraphResponse{}, err
+		return graphpresentation.GraphResponse{}, err
 	}
-	nodes := make(map[string]web.GraphNode, len(graph.Nodes))
+	return gb.presentNodeReadGraph(graph, req.Limit, depth, centerID), nil
+}
+
+func (gb *graphBuilder) presentNodeReadGraph(graph noderead.GraphResult, limit, depth int, centerID string) graphpresentation.GraphResponse {
+	nodes := make(map[string]graphpresentation.GraphNode, len(graph.Nodes))
 	for _, node := range graph.Nodes {
 		if gb.ignoreMatcher != nil && node.NotePath != "" && gb.ignoreMatcher.IsIgnored(node.NotePath, false) {
 			continue
 		}
-		kind := string(node.Kind)
-		path := node.Path
-		if path == "" {
-			path = node.NotePath
-		}
-		var nodeRef *ontology.NodeRef
-		if !node.Ref.IsZero() {
-			ref := node.Ref
-			nodeRef = &ref
-		}
-		nodes[node.ID] = web.GraphNode{
-			ID:            node.ID,
-			Path:          path,
-			NotePath:      node.NotePath,
-			NodeID:        node.NodeID,
-			NodeRef:       nodeRef,
-			Label:         firstGraphCLIString(node.Label, paths.NoteTitle(path)),
-			Kind:          kind,
-			Lang:          nodeLang(kind),
-			Module:        moduleKey(firstGraphCLIString(node.NotePath, path), depth),
-			SourceLocator: node.SourceLocator,
-			ResolvedType:  node.TypeName,
-		}
+		projected := graphpresentation.ProjectNode(node)
+		projected.Path = firstGraphCLIString(node.Path, node.NotePath)
+		projected.Label = firstGraphCLIString(node.Label, paths.NoteTitle(projected.Path))
+		projected.Lang = nodeLang(projected.Kind)
+		projected.Module = moduleKey(firstGraphCLIString(node.NotePath, projected.Path), depth)
+		nodes[node.ID] = projected
 	}
-	edges := make([]web.GraphEdge, 0, len(graph.Edges))
-	for _, edge := range graph.Edges {
-		if _, ok := nodes[edge.Source]; !ok {
-			continue
-		}
-		if _, ok := nodes[edge.Target]; !ok {
-			continue
-		}
-		edges = append(edges, web.GraphEdge{
-			Source:        edge.Source,
-			Target:        edge.Target,
-			Kind:          edge.Kind,
-			Weight:        edge.Weight,
-			RelationName:  edge.RelationName,
-			RelationLabel: edge.RelationLabel,
-			Provenance:    edge.Provenance,
-			Structural:    edge.Structural,
-		})
-	}
-	nodesOut, edgesOut, truncated := collapseGraphCLI(nodes, edges, req.Limit)
-	return web.GraphResponse{Nodes: nodesOut, Edges: edgesOut, Truncated: truncated, CenterID: centerID, Diagnostics: graph.Diagnostics}, nil
+	edges := graphpresentation.ProjectEdges(nodes, graph.Edges)
+	nodesOut, edgesOut, truncated := graphpresentation.Collapse(nodes, edges, limit, func(path string) string { return moduleKey(path, 2) })
+	return graphpresentation.GraphResponse{Nodes: nodesOut, Edges: edgesOut, Truncated: truncated, CenterID: centerID, Diagnostics: graph.Diagnostics}
 }
 
 func firstGraphCLIString(values ...string) string {
@@ -333,8 +292,6 @@ func firstGraphCLIString(values ...string) string {
 	}
 	return ""
 }
-
-// Helper functions (duplicated from web/graph.go for CLI independence)
 
 func nodeID(kind, path string) string {
 	return kind + ":" + path
@@ -370,83 +327,4 @@ func moduleKey(p string, depth int) string {
 		result += "/" + parts[i]
 	}
 	return result
-}
-
-const moduleCollapseThreshold = 250
-
-func collapseGraphCLI(nodes map[string]web.GraphNode, edges []web.GraphEdge, limit int) ([]web.GraphNode, []web.GraphEdge, bool) {
-	if len(nodes) <= limit {
-		nodeList := make([]web.GraphNode, 0, len(nodes))
-		for _, n := range nodes {
-			nodeList = append(nodeList, n)
-		}
-		return nodeList, edges, false
-	}
-
-	byModule := map[string][]web.GraphNode{}
-	for _, n := range nodes {
-		byModule[n.Module] = append(byModule[n.Module], n)
-	}
-	collapsed := map[string]web.GraphNode{}
-	for module, members := range byModule {
-		if len(members) < moduleCollapseThreshold {
-			for _, m := range members {
-				collapsed[m.ID] = m
-			}
-			continue
-		}
-		collapsed[nodeID("module", module)] = web.GraphNode{
-			ID:         nodeID("module", module),
-			Path:       module,
-			Label:      module,
-			Kind:       "module",
-			Collapsed:  true,
-			ChildCount: len(members),
-		}
-	}
-
-	edgeMap := map[string]*web.GraphEdge{}
-	for _, e := range edges {
-		src := collapseNodeIDCLI(collapsed, e.Source)
-		dst := collapseNodeIDCLI(collapsed, e.Target)
-		key := src + "|" + dst + "|" + e.Kind
-		if agg, ok := edgeMap[key]; ok {
-			agg.Weight += e.Weight
-		} else {
-			edgeMap[key] = &web.GraphEdge{Source: src, Target: dst, Kind: e.Kind, Weight: e.Weight}
-		}
-	}
-
-	nodeList := make([]web.GraphNode, 0, len(collapsed))
-	for _, n := range collapsed {
-		nodeList = append(nodeList, n)
-	}
-	edgeList := make([]web.GraphEdge, 0, len(edgeMap))
-	for _, e := range edgeMap {
-		edgeList = append(edgeList, *e)
-	}
-	return nodeList, edgeList, true
-}
-
-func collapseNodeIDCLI(nodes map[string]web.GraphNode, id string) string {
-	if _, ok := nodes[id]; ok {
-		return id
-	}
-	if len(id) > 7 && id[:7] == "module:" {
-		return id
-	}
-	var path string
-	if len(id) > 5 && id[:5] == "note:" {
-		path = id[5:]
-	} else if len(id) > 5 && id[:5] == "code:" {
-		path = id[5:]
-	} else {
-		return id
-	}
-	module := moduleKey(path, 2)
-	modID := nodeID("module", module)
-	if _, ok := nodes[modID]; ok {
-		return modID
-	}
-	return id
 }

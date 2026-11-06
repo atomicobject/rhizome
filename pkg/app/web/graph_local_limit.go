@@ -1,8 +1,10 @@
 package web
 
+import "github.com/atomicobject/rhizome/pkg/app/graphpresentation"
+
 // limitLocalGraph reserves the focus and admits neighbours in edge priority order.
-func limitLocalGraph(nodes map[string]GraphNode, edges []GraphEdge, center string, limit int) ([]GraphNode, []GraphEdge, int, int) {
-	retained := map[string]GraphNode{}
+func limitLocalGraph(nodes map[string]graphpresentation.GraphNode, edges []graphpresentation.GraphEdge, center string, limit int) ([]graphpresentation.GraphNode, []graphpresentation.GraphEdge, int, int) {
+	retained := map[string]graphpresentation.GraphNode{}
 	if node, ok := nodes[center]; ok {
 		retained[center] = node
 	}
@@ -27,7 +29,7 @@ func limitLocalGraph(nodes map[string]GraphNode, edges []GraphEdge, center strin
 		}
 		retained[node.ID] = node
 	}
-	outEdges := make([]GraphEdge, 0, len(edges))
+	outEdges := make([]graphpresentation.GraphEdge, 0, len(edges))
 	for _, edge := range orderedEdges {
 		_, sourceOK := retained[edge.Source]
 		_, targetOK := retained[edge.Target]

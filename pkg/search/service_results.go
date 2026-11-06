@@ -49,15 +49,10 @@ func (s *Service) prepareResults(ctx context.Context, spec QuerySpec, results []
 	// numeric score and stable identity tie-break.
 	if len(results) > 1 {
 		sort.SliceStable(results, func(i, j int) bool {
-			leftExact := !IsPrecisionIntent(spec.Intent) && HasEvidence(results[i].Evidence, "note_title_exact", "path_exact")
-			rightExact := !IsPrecisionIntent(spec.Intent) && HasEvidence(results[j].Evidence, "note_title_exact", "path_exact")
-			if leftExact != rightExact {
-				return leftExact
-			}
-			leftPrimary := HasPrimaryEvidence(spec.Intent, results[i].Evidence)
-			rightPrimary := HasPrimaryEvidence(spec.Intent, results[j].Evidence)
-			if leftPrimary != rightPrimary {
-				return leftPrimary
+			leftTier := rankingTier(spec.Intent, results[i].Evidence)
+			rightTier := rankingTier(spec.Intent, results[j].Evidence)
+			if leftTier != rightTier {
+				return leftTier > rightTier
 			}
 			if results[i].FinalScore != results[j].FinalScore {
 				return results[i].FinalScore > results[j].FinalScore

@@ -29,7 +29,7 @@ func indexedValidationSnapshot(t *testing.T, files map[string]string) (semdb.Val
 	require.NoError(t, err)
 	runtime, err := ontologytest.Publish(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	snapshot, durationMs, err := IndexValidationSnapshot(context.Background(), testNoteMetadata(t), vaultDef, runtime, nil, 500)
+	snapshot, durationMs, err := IndexValidationSnapshot(context.Background(), testNoteMetadata(t), vaultDef, runtime, nil, 500, nil)
 	require.GreaterOrEqual(t, durationMs, int64(0))
 	return snapshot, err
 }
@@ -117,7 +117,7 @@ func TestIndexValidationSnapshotUsesPreparedRuntimeError(t *testing.T) {
 	vaultDef := obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth}
 
 	require.NoError(t, writeFixtureFiles(root, map[string]string{".rhizome/ontology/schema.graphql": "type Note @node { title: String }"}))
-	snapshot, durationMs, err := IndexValidationSnapshot(context.Background(), testNoteMetadata(t), vaultDef, nil, errors.New("prepared runtime failed"), 500)
+	snapshot, durationMs, err := IndexValidationSnapshot(context.Background(), testNoteMetadata(t), vaultDef, nil, errors.New("prepared runtime failed"), 500, nil)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, durationMs, int64(0))
 
@@ -142,7 +142,7 @@ func TestConfiguredDefaultValidationChecksLoadsOnlySelectedVaultRoot(t *testing.
 	}))
 	t.Chdir(unrelatedRoot)
 
-	prepared, err := Prepare(obsidian.VaultDefinition{Path: vaultRoot}, testNoteMetadata(t), nil, 500)
+	prepared, err := Prepare(obsidian.VaultDefinition{Path: vaultRoot}, testNoteMetadata(t), nil, 500, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{validate.CheckOntology, validate.CheckIdentifiers}, prepared.Request.selection.Checks)
 }

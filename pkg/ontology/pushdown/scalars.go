@@ -2,7 +2,6 @@ package pushdown
 
 import (
 	"cmp"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"math"
@@ -99,15 +98,6 @@ func ScalarFromRow(row readmodel.FieldValueRow, kind string) Scalar {
 		value.text, value.Present = row.ValueNorm, true
 	}
 	return value
-}
-
-func AggregateSortValues(field *ontoschema.Field, values []string, kind string, desc bool) Scalar {
-	var best Scalar
-	for _, raw := range values {
-		value := ScalarFromRow(ontology.FieldValueRow(field, raw), kind)
-		best = selectSortValue(best, value, desc)
-	}
-	return best
 }
 
 func PresentSortValues(field *ontoschema.Field, values []string, present bool) []string {

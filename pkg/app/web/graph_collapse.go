@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"path/filepath"
@@ -36,71 +37,47 @@ func (s *Server) normalizeUserGraphInput(p string) string {
 	return s.normalizeEdgePath(clean)
 }
 
-func collapseGraph(nodes map[string]GraphNode, edges []GraphEdge, limit int) ([]GraphNode, []GraphEdge, bool) {
-	if len(nodes) <= limit {
-		return sortedNodes(nodes), sortedEdgeSlice(edges), false
-	}
-	byModule := map[string][]GraphNode{}
-	for _, n := range nodes {
-		byModule[n.Module] = append(byModule[n.Module], n)
-	}
-	collapsed := map[string]GraphNode{}
-	for module, members := range byModule {
-		if len(members) < moduleCollapseThreshold {
-			for _, m := range members {
-				collapsed[m.ID] = m
-			}
-			continue
+func collapseGraph(nodes map[string]graphpresentation.GraphNode, edges []graphpresentation.GraphEdge, limit int) ([]graphpresentation.GraphNode, []graphpresentation.GraphEdge, bool) {
+	collapsed, resultEdges, truncated := graphpresentation.Collapse(nodes, edges, limit, func(path string) string { return moduleKey(path, defaultModuleDepth) })
+	if truncated {
+		byModule := map[string][]graphpresentation.GraphNode{}
+		for _, node := range nodes {
+			byModule[node.Module] = append(byModule[node.Module], node)
 		}
-		community := ""
-		communityCounts := map[string]int{}
-		maxAuthority := 0.0
-		maxHub := 0.0
-		for _, m := range members {
-			if m.Community != "" {
-				communityCounts[m.Community]++
+		for i := range collapsed {
+			node := &collapsed[i]
+			if !node.Collapsed {
+				continue
 			}
-			if m.Authority > maxAuthority {
-				maxAuthority = m.Authority
+			counts := map[string]int{}
+			for _, member := range byModule[node.Path] {
+				if member.Community != "" {
+					counts[member.Community]++
+				}
+				if member.Authority > node.Authority {
+					node.Authority = member.Authority
+				}
+				if member.Hub > node.Hub {
+					node.Hub = member.Hub
+				}
 			}
-			if m.Hub > maxHub {
-				maxHub = m.Hub
+			for community, count := range counts {
+				if node.Community == "" || count > counts[node.Community] {
+					node.Community = community
+				}
 			}
-		}
-		for id, count := range communityCounts {
-			if community == "" || count > communityCounts[community] {
-				community = id
-			}
-		}
-		collapsed[nodeID("module", module)] = GraphNode{
-			ID:         nodeID("module", module),
-			Path:       module,
-			Label:      module,
-			Kind:       "module",
-			Community:  community,
-			Authority:  maxAuthority,
-			Hub:        maxHub,
-			Collapsed:  true,
-			ChildCount: len(members),
 		}
 	}
-
-	edgeMap := map[string]*GraphEdge{}
-	for _, e := range edges {
-		src := collapseNodeID(collapsed, e.Source)
-		dst := collapseNodeID(collapsed, e.Target)
-		key := src + "|" + dst + "|" + e.Kind
-		if agg, ok := edgeMap[key]; ok {
-			agg.Weight += e.Weight
-		} else {
-			edgeMap[key] = &GraphEdge{Source: src, Target: dst, Kind: e.Kind, Weight: e.Weight}
-		}
+	sort.SliceStable(collapsed, func(i, j int) bool { return collapsed[i].ID < collapsed[j].ID })
+	if truncated {
+		sortGraphEdges(resultEdges)
+	} else {
+		resultEdges = sortedEdgeSlice(resultEdges)
 	}
-
-	return sortedNodes(collapsed), sortedEdgeList(edgeMap), true
+	return collapsed, resultEdges, truncated
 }
 
-func finalizeGraph(nodes map[string]GraphNode, edges []GraphEdge, limit int, notesOnly bool) ([]GraphNode, []GraphEdge, bool) {
+func finalizeGraph(nodes map[string]graphpresentation.GraphNode, edges []graphpresentation.GraphEdge, limit int, notesOnly bool) ([]graphpresentation.GraphNode, []graphpresentation.GraphEdge, bool) {
 	if notesOnly {
 		// Ontology mode asks the backend for a notes-only graph up front. If we
 		// collapse first, large note sets can disappear into module stand-ins and
@@ -110,32 +87,8 @@ func finalizeGraph(nodes map[string]GraphNode, edges []GraphEdge, limit int, not
 	return collapseGraph(nodes, edges, limit)
 }
 
-func collapseNodeID(nodes map[string]GraphNode, id string) string {
-	if _, ok := nodes[id]; ok {
-		return id
-	}
-	if strings.HasPrefix(id, "module:") {
-		return id
-	}
-	var path string
-	switch {
-	case strings.HasPrefix(id, "note:"):
-		path = strings.TrimPrefix(id, "note:")
-	case strings.HasPrefix(id, "code:"):
-		path = strings.TrimPrefix(id, "code:")
-	default:
-		return id
-	}
-	module := moduleKey(path, defaultModuleDepth)
-	modID := nodeID("module", module)
-	if _, ok := nodes[modID]; ok {
-		return modID
-	}
-	return id
-}
-
-func sortedNodes(nodes map[string]GraphNode) []GraphNode {
-	out := make([]GraphNode, 0, len(nodes))
+func sortedNodes(nodes map[string]graphpresentation.GraphNode) []graphpresentation.GraphNode {
+	out := make([]graphpresentation.GraphNode, 0, len(nodes))
 	for _, n := range nodes {
 		out = append(out, n)
 	}
@@ -145,22 +98,13 @@ func sortedNodes(nodes map[string]GraphNode) []GraphNode {
 	return out
 }
 
-func sortedEdgeList(edges map[string]*GraphEdge) []GraphEdge {
-	out := make([]GraphEdge, 0, len(edges))
-	for _, e := range edges {
-		out = append(out, *e)
-	}
+func sortedEdgeSlice(edges []graphpresentation.GraphEdge) []graphpresentation.GraphEdge {
+	out := append([]graphpresentation.GraphEdge(nil), edges...)
 	sortGraphEdges(out)
 	return out
 }
 
-func sortedEdgeSlice(edges []GraphEdge) []GraphEdge {
-	out := append([]GraphEdge(nil), edges...)
-	sortGraphEdges(out)
-	return out
-}
-
-func sortGraphEdges(edges []GraphEdge) {
+func sortGraphEdges(edges []graphpresentation.GraphEdge) {
 	sort.SliceStable(edges, func(i, j int) bool {
 		if edges[i].Weight != edges[j].Weight {
 			return edges[i].Weight > edges[j].Weight

@@ -27,6 +27,8 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 
 ## Design constraints
 
+- Section bindings use `ontology.MatchSectionNodesForField`. Preview interpolation is shared through `ontology.InterpolatePreviewTemplate`, with caller-owned missing-value fallback; query previews retain empty text for absent values while HTTP previews retain the placeholder.
+
 - **Runtime warnings share one value type.** Query execution, pushdown planning, and configured views use `diag.Warning` with required JSON `code` and `message` and optional `path`. GraphQL retains its public `RuntimeWarning` schema name. Rich validation, recipe, view-configuration, and search issues retain their domain fields.
 
 - **Recipes share discovery and execution.** Caller-owned `queryrecipe.Registry` caches parsed sources by content digest, detecting additions, deletions and preserved-timestamp rewrites. Every consumer uses `queryrecipe.Run`: duplicate target IDs and target diagnostics block execution; unrelated recipe errors remain catalog diagnostics. Only the selected recipe is validated and compiled, and its prepared query executes directly. `pkg/app/queryengine` owns source/executable schema pairing and common dependency assembly; shared runtime providers serve CLI, MCP, public HTTP, and recipe-backed views with explicit exact-read, ownership and overlay capabilities.

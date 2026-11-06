@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Stop, rzmClients } from "./lib/calls.mjs";
+import { Stop, resolveRzm, rzmClients } from "./lib/calls.mjs";
 import { fixtureCheckout, labeledSet } from "./lib/calibration-data.mjs";
 import { bindingKey, calibrationBindings, calibrationEstimate, calibrationProfile } from "./lib/calibration-models.mjs";
 import { compareMeasurements, measure } from "./lib/calibration-score.mjs";
@@ -137,7 +137,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
   try {
     const options = args(process.argv.slice(2));
     const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
-    const result = options.apply ? applyCalibration({ ...options, root }) : await calibrate({ ...options, root }, rzmClients(process.env.RZM || "rzm", { cwd: root }));
+    const result = options.apply ? applyCalibration({ ...options, root }) : await calibrate({ ...options, root }, rzmClients(resolveRzm(root), { cwd: root }));
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     process.exitCode = result.status === "stopped" ? 3 : 0;
   } catch (err) {

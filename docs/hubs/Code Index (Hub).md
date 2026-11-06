@@ -29,7 +29,7 @@ flowchart TD
 ```
 
 - `OpenIntelStoreFromConfig*` (in `pkg/vault/obsidian/intel_store.go`) is the canonical entry: it resolves the unified path, opens the anchors store, and returns a cleanup func.
-- In `serve`, `pkg/app/bootstrap/live.go` hands the anchors store's `DB()` to the embeddings and codeindex stores via `OpenWithDB`, and sets a shared write mutex (`SetWriteMu`) so all three serialize commits on the single WAL writer.
+- In `serve`, `pkg/app/bootstrap/live_code.go` and `live_embeddings.go` hand the anchors store's `DB()` to the embeddings and codeindex stores via `OpenWithDB`, and sets a shared write mutex (`SetWriteMu`) so all three serialize commits on the single WAL writer.
 
 ## Reading order
 
@@ -121,7 +121,7 @@ Note: `calls` was removed (anchors store v15→v16); call/reference edges now li
 
 - **`intel_*` is the spine.** Anchors (`intel_code_anchors`), doc sections (`intel_doc_sections`), typed edges (`intel_edges`), ordered chunks (`intel_chunks`), the unified vector store (`intel_embeddings`), and FTS (`intel_fts` + `intel_fts_rowid`). These are **derived** and safe to drop/rebuild.
 - **Two embedding domains, one DB.** Note vectors live in `emb_*` (owned by `embeddings/sqlite`); code vectors live in `code_*` (owned by `embeddings/sqlite.CodeStore`). Both keep a content-hash **embedding cache** (`emb_embedding_cache`, `code_embedding_cache`) so rebuilds reuse vectors when provider/model match.
-- **`vec0` mirrors are sidecars.** Each per-dimension `*_vec_d{N}` table is a `sqlite-vec` `vec0` virtual table kept in sync by triggers on the canonical `embedding BLOB` rows. `intel_embeddings_vec_d{N}` uses `distance_metric=cosine`; the vec table is the ANN search surface, the BLOB column is the source of truth (`EnsureEmbeddingsVecPrimary` handles the vec-primary cutover).
+- **Unified vectors live in `vec0`.** `intel_embeddings_vec_d{N}` stores each dimension’s vectors with `distance_metric=cosine`; `intel_embeddings` holds their metadata. The baseline migration in `pkg/store/schema_baseline_vectors.go` calls `migrateIntelEmbeddingsToVecPrimaryTx` to move legacy BLOB vectors into these tables. The separate note/code embedding domains retain their own storage rules.
 - **Doc-links vs edges.** `doc_links` records source→target reference rows (coderefs, wikilinks); `intel_edges` with `kind='mentions'` is the primary "docs for code" mechanism the spine retrieves on.
 - **Graph + ontology + note tables co-resident.** `graph_doc_scores`/`graph_doc_edges`/`graph_anchor_scores` (PageRank/communities), `ontology_*` (typed-note model), and `notes`/`note_property_values`/`note_tags` all live in the same file, plus `mcp_sessions`/`mcp_session_items` for server session state.
 - **Schema versioning is per-domain.** Domains (`DomainCodeEmbeddings`, etc.) track versions in `rzm_migration_state`/`rzm_migration_log`; the anchors store carries its own numbered migration chain.
@@ -130,10 +130,10 @@ Note: `calls` was removed (anchors store v15→v16); call/reference edges now li
 
 - `pkg/vault/obsidian/intel_store.go` — `OpenIntelStoreFromConfig*` / `OpenIntelStoreForWrite*` / `OpenIntelStoreWithRecovery`: canonical open paths, corruption auto-recovery (preserve `emb_*` then full rebuild), and `IntelStoreOpenOptions` (txlock, pool).
 - `pkg/vault/obsidian/index_path.go` — `UnifiedIndexPath`: resolves the single `.rhizome/db.sqlite` path.
-- `pkg/anchors/sqlite/store.go` — anchors store: `intel_*`, `symbols`, `anchors`, `files`, `doc_links`, `graph_*`, `ontology_*`, `notes`; migration chain; `OpenWithDB` (shared handle); `DB()`/`SetWriteMu`; `intel_embeddings_vec_d{N}` + `EnsureEmbeddingsVecPrimary`.
+- `pkg/store` — unified store: `intel_*`, `symbols`, `anchors`, `files`, `doc_links`, `graph_*`, `ontology_*`, `notes`; migration chain; `DB()`/`SetWriteMu`; primary vectors in `intel_embeddings_vec_d{N}`. `schema_vec_primary.go` owns the legacy vector migration.
 - `pkg/embeddings/sqlite/note_schema.go` — note-embedding store: `emb_index_meta`, `emb_notes`, `emb_chunk_embeddings`, `emb_embedding_cache`, `emb_chunk_embeddings_vec_d{N}`; `OpenNotes(ctx, Borrowed(db), Options{Access: WriteIndex, Metadata: &meta})`.
 - `pkg/embeddings/sqlite/code_schema.go` — code-embedding store: `code_index_meta`, `code_items`, `code_item_embeddings`, `code_chunk_embeddings`, `code_chunk_fts`, `code_embedding_cache`, `code_*_vec_d{N}`; `ResetDomain` / `ResetDomainPreservingCache`.
-- `pkg/app/bootstrap/live.go` — `serve` handle sharing: opens the anchors store, then `OpenWithDB(store.DB())` for embeddings/codeindex stores and `SetWriteMu(&sharedWriteMu)`.
+- `pkg/app/bootstrap/live_code.go`, `live_embeddings.go` — `serve` handle sharing: opens the anchors store, then `OpenWithDB(store.DB())` for embeddings/codeindex stores and `SetWriteMu(&sharedWriteMu)`.
 - `cmd/index.go` — orchestrates semantic + code indexing and separable rebuild behavior.
 - `pkg/anchors/service.go` — ingestion/indexing surface that writes the spine tables.
 

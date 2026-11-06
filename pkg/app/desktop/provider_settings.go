@@ -4,18 +4,15 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/atomicobject/rhizome/pkg/app/credentials"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // SetProviderAccess changes only user-global preferences or saved key aliases.
 // The native caller holds its app-wide user-config lock across this operation.
 func (s *Service) SetProviderAccess(req Request) (CredentialStatus, error) {
-	var aliases []string
 	switch req.Provider {
-	case "voyage":
-		aliases = []string{"VOYAGE_API_KEY", "RHIZOME_VOYAGE_API_KEY"}
-	case "typesafe":
-		aliases = []string{"TYPESAFE_API_KEY"}
+	case "voyage", "typesafe":
 	default:
 		return CredentialStatus{}, problem("invalid_request", "Choose Voyage or Jev.")
 	}
@@ -44,12 +41,13 @@ func (s *Service) SetProviderAccess(req Request) (CredentialStatus, error) {
 		}
 	} else {
 		section = "env"
-		changes = map[string]*string{}
-		for _, name := range aliases {
+		need, _ := credentials.NeedForProvider(req.Provider, "")
+		changes = map[string]*string{need.Key: nil}
+		for _, name := range need.AltKeys {
 			changes[name] = nil
 		}
 		if req.Operation == "provider-key-set" {
-			changes[aliases[0]] = &req.Key
+			changes[need.Key] = &req.Key
 		}
 	}
 	if err := repoconfig.PatchCliConfigValues(s.env, section, changes); err != nil {

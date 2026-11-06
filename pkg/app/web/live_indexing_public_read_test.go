@@ -20,6 +20,7 @@ import (
 	"github.com/atomicobject/rhizome/internal/testkit"
 	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -167,10 +168,10 @@ func TestLiveIndexingPublicHealthyProviderEventLatency(t *testing.T) {
 				require.True(t, ok)
 				// index.changed is the baseline's only readiness signal. The integrated
 				// structural path should announce node.changed before derived work.
-				if event.Kind != GlobalEventNodeChanged && event.Kind != GlobalEventIndexChanged {
+				if event.Kind != appruntime.GlobalEventNodeChanged && event.Kind != appruntime.GlobalEventIndexChanged {
 					continue
 				}
-				if fields, ok := event.Data.(map[string]any); event.Kind == GlobalEventIndexChanged && ok && fields["domains"] != nil {
+				if fields, ok := event.Data.(map[string]any); event.Kind == appruntime.GlobalEventIndexChanged && ok && fields["domains"] != nil {
 					continue
 				}
 				data, err := json.Marshal(event.Data)
@@ -185,7 +186,7 @@ func TestLiveIndexingPublicHealthyProviderEventLatency(t *testing.T) {
 						}
 						elapsed := time.Since(start)
 						t.Logf("file-write to %s for %q: %s", event.Kind, marker, elapsed)
-						if event.Kind == GlobalEventNodeChanged {
+						if event.Kind == appruntime.GlobalEventNodeChanged {
 							require.Less(t, elapsed, 2*time.Second, "structural readiness must bypass the semantic cooldown")
 						}
 						found = true
@@ -349,7 +350,7 @@ func awaitPublicReadCommit(t *testing.T, events <-chan GlobalEvent, path string,
 		select {
 		case event, ok := <-events:
 			require.True(t, ok)
-			if event.Kind != GlobalEventNodeChanged {
+			if event.Kind != appruntime.GlobalEventNodeChanged {
 				continue
 			}
 			data, err := json.Marshal(event.Data)

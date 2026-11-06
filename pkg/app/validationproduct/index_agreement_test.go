@@ -25,10 +25,10 @@ func TestIndexedAndLiveValidationPublishTheSameApplicability(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, projection.Close()) })
-	indexed, _, err := validationrun.IndexValidationSnapshot(t.Context(), metadata, definition, projection.Runtime, nil, 100)
+	indexed, _, err := validationrun.IndexValidationSnapshot(t.Context(), metadata, definition, projection.Runtime, nil, 100, nil)
 	require.NoError(t, err)
 	require.NoError(t, projection.Close())
-	live, err := RunLive(t.Context(), metadata, definition, 100)
+	live, err := RunLive(t.Context(), metadata, definition, 100, nil)
 	require.NoError(t, err)
 	indexedOutcomes := make(map[string]string, len(indexed.Checks))
 	for _, outcome := range indexed.Checks {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"log/slog"
@@ -125,14 +126,13 @@ func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.D
 				if ticket.Path != "" {
 					data["paths"] = []string{ticket.Path}
 				}
-				w.publishEvent(globalEventIndexChanged, data)
+				w.publishEvent(appruntime.GlobalEventIndexChanged, data)
 			}
 		}
 		return nil
 	})
 }
 
-// inLane runs one writer-lease lane job without ticket checks.
 func (s *derivedScheduler) inLane(parent context.Context, phase string, run func(context.Context) error) error {
 	handle, _, err := s.watcher.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) (jobErr error) {
 		ctx, finish := watchPhase(ctx, phase)

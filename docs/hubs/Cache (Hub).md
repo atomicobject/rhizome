@@ -60,7 +60,7 @@ flowchart TD
 
 ### Integration points
 
-- `pkg/app/bootstrap/live.go` — constructs `cache.Service`, subscribes to WatchHub, and warms the note cache asynchronously for long-lived runtimes (`serve`, web)
+- `pkg/app/bootstrap/live_search.go` — constructs `cache.Service`, subscribes to WatchHub, and warms the note cache asynchronously for long-lived runtimes (`serve`, web)
 - `pkg/app/web/server.go` — uses `NoteAdapter` for cache-backed note reads and a separate graph-response cache
 - `pkg/app/cli/*` — body-heavy commands benefit from cached entry snapshots; note metadata/query paths increasingly prefer the unified SQLite/session store
 

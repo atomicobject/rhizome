@@ -22,7 +22,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/services/team-api/internal/config"
-	"github.com/atomicobject/rhizome/services/team-api/internal/core"
 	"github.com/atomicobject/rhizome/services/team-api/internal/identity"
 	"github.com/atomicobject/rhizome/services/team-api/internal/traffic"
 )
@@ -129,10 +128,7 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	}
 	defer rec.Close()
 
-	// Identity reads usage from the traffic ledger, and traffic reads the
-	// runtime configuration from identity; the ledger is filled in below.
-	usage := &laterUsage{}
-	id, err := identity.New(cfg, st, usage, rec, time.Now)
+	id, err := identity.New(cfg, st, l, rec, time.Now)
 	if err != nil {
 		return err
 	}
@@ -140,7 +136,6 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	if err != nil {
 		return err
 	}
-	usage.UsageReader = traf
 	id.Routes(mux)
 	paid := http.NewServeMux()
 	traf.Routes(paid)
@@ -192,8 +187,6 @@ func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.Se
 	<-stopped
 	return nil
 }
-
-type laterUsage struct{ core.UsageReader }
 
 type providerKeys struct{ Voyage, TypeSafe string }
 

@@ -213,7 +213,16 @@ func TestFailedCheckNeedsAttentionAndDoesNotRetry(t *testing.T) {
 func TestConcurrentPassesRunATaskOnce(t *testing.T) {
 	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
 	release := make(chan struct{})
+	started := make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
 	agent := &fakeAgent{run: func(AgentRequest) (AgentResult, error) {
+		close(started)
 		<-release
 		return AgentResult{Message: "done"}, nil
 	}}
@@ -222,8 +231,10 @@ func TestConcurrentPassesRunATaskOnce(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() { defer wg.Done(); _, _ = svc.RunDue(context.Background()) }()
-	for agent.calls() == 0 {
-		time.Sleep(10 * time.Millisecond)
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("agent did not start")
 	}
 	s, err := other.RunDue(context.Background())
 	if err != nil || s.Skipped == "" {
@@ -242,11 +253,14 @@ func TestConcurrentPassesRunATaskOnce(t *testing.T) {
 func TestTaggedMergeClosesTheItem(t *testing.T) {
 	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nscope: team\nprompt: Look around.\n"})
 	svc := newService(t, dir, editingAgent(), "")
+	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
+	svc.opts.Now = func() time.Time { return now }
 	ctx := context.Background()
 	if _, err := svc.RunDue(ctx); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(1100 * time.Millisecond) // committer dates have one-second precision
+	t.Setenv("GIT_AUTHOR_DATE", now.Add(time.Second).Format(time.RFC3339))
+	t.Setenv("GIT_COMMITTER_DATE", now.Add(time.Second).Format(time.RFC3339))
 	commitFile(t, dir, "x.md", "x\n", "teammate did it\n\nRhizome-Task: look")
 	if _, err := svc.RunDue(ctx); err != nil {
 		t.Fatal(err)

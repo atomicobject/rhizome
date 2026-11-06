@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
-import { type Appearance, setAppearance, setTheme, useAppearance } from "../lib/appearance";
+import { setAppearance, setTheme, useAppearance } from "../lib/appearance";
+import type { Appearance } from "../lib/appearanceSettings";
 import { THEMES } from "../lib/themes";
 import { usePopoverDismiss } from "./focusManagement";
 

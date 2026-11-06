@@ -96,7 +96,7 @@ async function main() {
   await supervisor.run();
 }
 
-class DevSupervisor {
+export class DevSupervisor {
   constructor(config, childEnv) {
     this.config = config;
     this.childEnv = childEnv;
@@ -112,17 +112,10 @@ class DevSupervisor {
 
   async run() {
     this.installSignalHandlers();
-    const startedAt = Date.now();
-    const backend = await this.startBackend("initial start");
-    this.viteOrigin = await waitForServeOrigin(this.config.vaultPath, {
-      minMtimeMs: startedAt,
-      expectedPID: backend.pid ?? null,
-    });
-    if (!this.config.skipVite) {
-      this.startVite();
-    }
+    await this.restartBackend("initial start");
+    if (this.shuttingDown) return;
     this.watchTimer = setInterval(() => {
-      void this.checkBinary();
+      void this.checkBinary().catch((error) => this.log(`backend restart failed: ${error.message}`));
     }, RESTART_POLL_MS);
     process.stdin.resume();
   }
@@ -164,12 +157,14 @@ class DevSupervisor {
     this.restartPromise = (async () => {
       this.log(`restarting backend (${reason})`);
       await this.stopBackend();
+      if (this.shuttingDown) return;
       const startedAt = Date.now();
       const backend = await this.startBackend(reason);
       const nextOrigin = await waitForServeOrigin(this.config.vaultPath, {
         minMtimeMs: startedAt,
         expectedPID: backend.pid ?? null,
       });
+      if (this.shuttingDown) return;
       if (this.viteOrigin !== nextOrigin) {
         this.log(`backend origin changed to ${nextOrigin}`);
         this.viteOrigin = nextOrigin;
@@ -177,11 +172,14 @@ class DevSupervisor {
           await this.restartVite();
         }
       }
+      if (!this.shuttingDown && !this.config.skipVite && !this.vite) {
+        this.startVite();
+      }
     })().finally(() => {
       this.restartPromise = null;
       if (this.restartQueued) {
         this.restartQueued = false;
-        void this.restartBackend("queued change");
+        void this.restartBackend("queued change").catch((error) => this.log(`backend restart failed: ${error.message}`));
       }
     });
     return this.restartPromise;
@@ -217,7 +215,7 @@ class DevSupervisor {
       this.log(`backend exited (${signal ?? code ?? "unknown"}); retrying`);
       setTimeout(() => {
         if (!this.shuttingDown && !this.backend) {
-          void this.startBackend("backend exit");
+          void this.restartBackend("backend exit").catch((error) => this.log(`backend restart failed: ${error.message}`));
         }
       }, RESTART_POLL_MS);
     });

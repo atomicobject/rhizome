@@ -268,8 +268,8 @@ test("--task-mode needs a budget, and a credential stop exits 4 with its reason"
   assert.match(r.stderr, /mining stopped \(credential\): Jev is unavailable/);
   assert.equal(JSON.parse(r.stdout).reason, "credential");
   // Outside task mode the same stop keeps exit 3.
-  const result = mineCli("--budget", "1");
-  assert.equal(result.status, 3, result.stderr);
+  const interactive = mineCli("--budget", "1");
+  assert.equal(interactive.status, 3, interactive.stderr);
 });
 
 test(

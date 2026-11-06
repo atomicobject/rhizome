@@ -54,18 +54,6 @@ func (s *Store) ReplaceOntologySnapshot(ctx context.Context, snapshot OntologySn
 	})
 }
 
-func (s *Store) InvalidateOntologyState(ctx context.Context) error {
-	ctx = indexingperf.WithOp(ctx, "intel.invalidate_ontology")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
-		return invalidateOntologyStateTx(ctx, tx)
-	})
-}
-
-func invalidateOntologyStateTx(ctx context.Context, tx *sql.Tx) error {
-	_, err := tx.ExecContext(ctx, `DELETE FROM ontology_schema_state`)
-	return err
-}
-
 // OntologyNodeCount returns the number of materialized catalog rows for the
 // boot-time readiness probe. Ontology sync publishes schema state and its node
 // catalog atomically; a populated catalog can remain readable during startup.

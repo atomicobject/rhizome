@@ -8,6 +8,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -27,17 +28,18 @@ func RunLive(
 	noteMetadata notemeta.Indexer,
 	vaultDef obsidian.VaultDefinition,
 	maxIssues int,
+	skillOverlays func() (skilloverlay.Manifest, error),
 ) (AuthoritativeRun, error) {
-	return RunLiveOnLane(ctx, noteMetadata, vaultDef, maxIssues, nil)
+	return RunLiveOnLane(ctx, noteMetadata, vaultDef, maxIssues, skillOverlays, nil)
 }
 
 // RunLiveOnLane serializes live projection writes with runtime indexing jobs.
 // Checks run after the projection has released the lane's index lock.
-func RunLiveOnLane(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, maxIssues int, indexLane lane.Lane) (AuthoritativeRun, error) {
+func RunLiveOnLane(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, maxIssues int, skillOverlays func() (skilloverlay.Manifest, error), indexLane lane.Lane) (AuthoritativeRun, error) {
 	if maxIssues <= 0 {
 		maxIssues = 500
 	}
-	prepared, err := validationrun.Prepare(vaultDef, noteMetadata, nil, maxIssues)
+	prepared, err := validationrun.Prepare(vaultDef, noteMetadata, nil, maxIssues, skillOverlays)
 	if err != nil {
 		return AuthoritativeRun{}, err
 	}
@@ -47,7 +49,7 @@ func RunLiveOnLane(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef 
 	request.Surface = validate.SurfaceLocal
 	result, err := RunWithProjection(ctx, request, ValidationProjectionRequest{
 		VaultPath: runContext.VaultPath, VaultDef: runContext.VaultDef, NoteMetadata: noteMetadata,
-		NoteReader: reader, Target: ValidationProjectionLive, Lane: indexLane,
+		NoteReader: reader, Target: ValidationProjectionLive, Lane: indexLane, SkillOverlays: skillOverlays,
 	}, validate.ScanOptions{MaxIssues: maxIssues, RunContext: &runContext})
 	if err != nil {
 		return AuthoritativeRun{}, err

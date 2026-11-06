@@ -103,20 +103,12 @@ func sealMarkdownCandidateSources(root string, candidates []FileCandidate, sourc
 	return sealed, nil
 }
 
-// IngestMarkdownCandidates indexes only the supplied, preclassified Markdown
-// candidates. It deliberately does not walk root, inspect filenames, or
-// perform stale-path cleanup: ownership orchestration owns those decisions.
-// The batch is validated before any candidate is read or index state is
-// queried, so no partial candidate batch can mutate the index.
-func IngestMarkdownCandidates(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, noteMetadata notemeta.Indexer, root string, candidates []FileCandidate, progress *ProgressCallbacks) (NoteIngestResult, error) {
-	return IngestMarkdownCandidatesWithSources(ctx, service, writeQueue, noteMetadata, root, candidates, nil, progress)
-}
-
 // IngestMarkdownCandidatesWithSources indexes preclassified Markdown
 // candidates, reusing any matching sealed authored-source snapshot instead of
 // reading that candidate from disk. Candidates without a supplied source stay
 // on ProcessCandidates. Source and candidate batches are fully
 // validated before index state is queried or work begins.
+// Ownership orchestration owns discovery, classification and stale-path cleanup.
 func IngestMarkdownCandidatesWithSources(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, noteMetadata notemeta.Indexer, root string, candidates []FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource, progress *ProgressCallbacks) (NoteIngestResult, error) {
 	if writeQueue == nil {
 		return NoteIngestResult{}, fmt.Errorf("note index writer is required")

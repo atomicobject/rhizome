@@ -29,15 +29,10 @@ import type {
   OntologyEditOp,
   OntologyEditSessionResponse,
   OntologyEditSessionSnapshot,
-  OntologyInspectResponse,
   OntologyNoteListItem,
   OntologyQueryReadRequest,
-  OntologyQueryRequest,
-  OntologyQueryResult,
-  OntologyQuerySchemaResponse,
   OntologySummaryResponse,
   OntologyTypeResponse,
-  RenderedFile,
   SearchResponse,
   WorkspaceSearchResponse,
   StatusResponse,
@@ -683,10 +678,6 @@ export function getFileView(path: string, requestOptions: RequestOptions = {}) {
   );
 }
 
-export function getRenderedFile(path: string) {
-  return fetchJSON<RenderedFile>(`/api/v1/files/rendered?path=${encodeURIComponent(path)}`);
-}
-
 export function getSuggestions(
   query: string,
   limit: number = 20,
@@ -806,22 +797,6 @@ export function getOntologyType(name: string, options: PublicReadOptions = {}) {
 
 export function getOntologyAtlas(options: RequestOptions = {}) {
   return fetchJSON<OntologyAtlasResponse>("/api/v1/ontology/atlas", requestInit(options));
-}
-
-export function getOntologyInspect(path: string) {
-  return fetchJSON<OntologyInspectResponse>(
-    `/api/v1/ontology/inspect?path=${encodeURIComponent(path)}`,
-  );
-}
-
-export function getOntologyQuerySchema() {
-  return fetchJSON<OntologyQuerySchemaResponse>("/api/v1/ontology/query-schema");
-}
-
-// The public GraphQL endpoint accepts queries only, so these POST reads may
-// retry INDEX_INITIALIZING. Edit-session mutation POSTs keep the default policy.
-export function queryOntology(body: OntologyQueryRequest) {
-  return postJSON<OntologyQueryRequest, OntologyQueryResult>("/api/v1/graphql", body, {}, true);
 }
 
 function nodeWorkspaceParams(ref: string | NodeRef) {

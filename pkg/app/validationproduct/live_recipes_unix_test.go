@@ -27,7 +27,7 @@ func TestRunLiveDoesNotReadUnselectedRecipeSources(t *testing.T) {
 	var run AuthoritativeRun
 	var runErr error
 	go func() {
-		run, runErr = RunLive(context.Background(), indexer, obsidian.VaultDefinition{Path: root}, 100)
+		run, runErr = RunLive(context.Background(), indexer, obsidian.VaultDefinition{Path: root}, 100, nil)
 		close(finished)
 	}()
 	t.Cleanup(func() {

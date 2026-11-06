@@ -5,6 +5,7 @@ import (
 	"fmt"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -121,7 +122,7 @@ func listGeminiModelsFromEndpoint(ctx context.Context, client httpClient, endpoi
 	}
 	models := make([]ModelInfo, 0, len(response.Models))
 	for _, model := range response.Models {
-		if !containsString(model.SupportedGenerationMethods, "generateContent") {
+		if !slices.Contains(model.SupportedGenerationMethods, "generateContent") {
 			continue
 		}
 		id := strings.TrimPrefix(model.Name, "models/")
@@ -141,13 +142,4 @@ func sortModels(models []ModelInfo) {
 	sort.SliceStable(models, func(i, j int) bool {
 		return strings.ToLower(models[i].ID) < strings.ToLower(models[j].ID)
 	})
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }

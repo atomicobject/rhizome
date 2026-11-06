@@ -108,8 +108,8 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 	}()
 	go func() {
 		err := cmd.Wait()
-		processlog.Exit(vendor, t.corr, cmd.Process.Pid, cmd.ProcessState, err)
 		close(t.exited)
+		processlog.Exit(vendor, t.corr, cmd.Process.Pid, cmd.ProcessState, err)
 	}()
 	return t, nil
 }
@@ -296,15 +296,10 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	// reparented; record them while they are still linked.
 	tree.Record()
 	t.closeInput()
+	// Leave time for process inventory, forced termination, and reaping.
 	grace := forceKillAfter
 	if deadline, ok := ctx.Deadline(); ok {
-		remaining := time.Until(deadline)
-		if half := remaining / 2; half < grace {
-			grace = half
-		}
-	}
-	if grace < 0 {
-		grace = 0
+		grace = closeGracePeriod(time.Until(deadline))
 	}
 	timer := time.NewTimer(grace)
 	defer timer.Stop()
@@ -325,7 +320,7 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	select {
 	case <-exited:
 		t.waitStderr(ctx)
-		if killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
+		if killErr != nil && !errors.Is(killErr, os.ErrProcessDone) && !reapedKillErrorIsBenign(exited, killErr) {
 			return t.decorate(fmt.Errorf("kill process: %w", killErr))
 		}
 		return nil
@@ -334,6 +329,10 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	case <-ctx.Done():
 		return t.decorate(errors.Join(killErr, ctx.Err()))
 	}
+}
+
+func closeGracePeriod(remaining time.Duration) time.Duration {
+	return max(0, min(forceKillAfter, remaining/2, remaining-killWaitFloor))
 }
 
 func (t *Transport[M]) closeInput() {

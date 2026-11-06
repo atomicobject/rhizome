@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -33,7 +33,7 @@ func InstallDefaultIgnore(vault repoconfig.VaultManager, opts InstallIgnoreOptio
 		return "", err
 	}
 
-	content := obsidian.DefaultIgnoreFile()
+	content := ignore.DefaultIgnoreFile()
 	if err := os.WriteFile(dest, []byte(content), 0o644); err != nil {
 		return "", err
 	}

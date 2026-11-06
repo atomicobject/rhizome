@@ -137,7 +137,7 @@ func (s *Store) CurrentNotePathsByFindPattern(ctx context.Context, pattern strin
 	// obsidian.FuzzyMatch on these paths so SQL can stay conservative without
 	// changing matcher semantics.
 	if strings.Contains(pattern, "/") {
-		dirPattern, contentPattern := splitFindDirectoryAndContent(pattern)
+		dirPattern, contentPattern, _ := strings.Cut(pattern, "/")
 		if strings.TrimSpace(dirPattern) == "" {
 			return nil, false, nil
 		}

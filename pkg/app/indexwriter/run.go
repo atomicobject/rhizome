@@ -16,7 +16,7 @@ func (q *Writer) run() {
 	defer ticker.Stop()
 	writeNodeCtx := indexingperf.WithPhase(q.ctx, "total")
 
-	s := &queueState{kinds: newPayloadKinds(q)}
+	s := newQueueState(q)
 
 	defer func() {
 		err := q.Err()
@@ -98,7 +98,7 @@ func (q *Writer) run() {
 			}
 			continue
 		}
-		codeHot := q.cfg.codePriorityActive(time.Now(), s.lastCodeAt, s.kinds[0].pending()+len(q.codeCmdCh))
+		codeHot := q.cfg.codePriorityActive(time.Now(), s.lastCodeAt, s.codeKind.pending()+len(q.codeCmdCh))
 		if codeHot && len(q.codeCmdCh) > 0 {
 			if waitingForInput {
 				indexingperf.ObserveLatency(writeNodeCtx, indexingperf.NodeWriteStarved, time.Since(waitStarted))

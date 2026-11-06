@@ -61,9 +61,6 @@ export function leafReorderGroups(
   return leaves;
 }
 
-export const FIXED_WIDTH_CELL =
-  /configured-view__cell--(id|date|age|numeric|flag|boolean|enum|relation)\b/;
-
 export function columnClassName(column: ViewTableColumn, capabilities: ViewFieldCapability[]) {
   const capability = capabilityFor(capabilities, column.field);
   const kind = viewFieldControl(capability).kind;

@@ -65,14 +65,6 @@ func estimateCodeChunkBatch(items []codeindex.ItemChunksUpsert) int {
 	return n
 }
 
-func CountCodeChunkRows(items []codeindex.ItemChunksUpsert) int {
-	rows := 0
-	for _, item := range items {
-		rows += len(item.Chunks)
-	}
-	return rows
-}
-
 func estimateNoteChunkWrite(chunks []embeddings.ChunkInput, vecs []embeddings.Embedding) int {
 	n := len(chunks) * 96
 	for _, v := range vecs {

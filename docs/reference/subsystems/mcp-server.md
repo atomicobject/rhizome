@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, responsiveness/async-init rules, and review checklist for MCP handlers, catalog dispatch, and per-call live capability snapshots."
 reference-kind: guide
-last-verified: 2026-11-02
+last-verified: 2026-11-05
 code-paths:
   - pkg/app/mcp
   - pkg/app/agentapi
@@ -41,6 +41,8 @@ Catalog handler construction wraps every shared tool with one execution boundary
 Persistent MCP and code-mode invokers also record request preparation and forwarding outcomes as parent events. The runtime executing the catalog handler owns the tool execution event; forwarding adds no duplicate execution. Frequent request and tool operations use events to avoid creating report files for normal polling. Informational diagnostics remain off protocol stdout and stderr; warnings and errors keep explicit severity and safe cause categories.
 
 ## Design constraints
+
+- Operation routing, schemas, descriptive metadata and conditional validation are assembled together by `agentapi/code_operations_*.go` before the immutable catalog is exposed to CLI and MCP.
 
 - **Stdio admission uses the invocation directory.** The command passes its captured working directory to `mcpserve.NewInvoker`; the neutral path helper requires the canonical vault root and accepts symlink aliases. Admission completes before background runtime startup, and never depends on process-wide directory changes.
 
@@ -96,7 +98,7 @@ Persistent MCP and code-mode invokers also record request preparation and forwar
 - `pkg/app/mcpserve/server.go` (stdio transport), `pkg/app/mcpserve/invoker.go` (request-scoped CLI orchestration), `cmd/mcp.go` (Cobra adapter)
 - `pkg/app/runtimeview/view.go` (snapshot/view contract), `cmd/runtime_helpers.go` (`buildAgentConfigForOperation`, `buildAgentConfigForRequestPlan`)
 - `cmd/agent.go`, `cmd/agent_surface.go` (CLI fronts + descriptor-projected surface)
-- `pkg/app/bootstrap/live.go`, `pkg/app/bootstrap/CONTEXT.md` (capability phases, leader/follower)
+- `pkg/app/bootstrap/live_{search,semantic,code,capabilities}.go`, `pkg/app/bootstrap/CONTEXT.md` (capability phases and readiness)
 
 ## Related docs
 

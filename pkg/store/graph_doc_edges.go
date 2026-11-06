@@ -277,14 +277,6 @@ func (s *Store) GraphDocEdgesWithConfidenceForPathsLimit(ctx context.Context, pa
 	return out, rows.Err()
 }
 
-func (s *Store) DeleteGraphDocEdgesByPath(ctx context.Context, path string) error {
-	ctx = indexingperf.WithOp(ctx, "intel.delete_graph_doc_edges")
-	return s.withWrite(ctx, func(ctx context.Context, db *sql.DB) error {
-		_, err := db.ExecContext(ctx, `DELETE FROM graph_doc_edges WHERE src_path = ? OR dst_path = ?`, path, path)
-		return err
-	})
-}
-
 func (s *Store) GraphDocEdgesByKind(ctx context.Context, kind string) ([]GraphDocEdgeRow, error) {
 	if kind == "" {
 		return nil, fmt.Errorf("graph_doc_edges: empty kind")

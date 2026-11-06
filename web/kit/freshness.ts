@@ -17,6 +17,7 @@ import {
   STREAM_RECONNECTED_EVENT,
   VAULT_EVENTS,
   VIEWS_CHANGED_EVENT,
+  VIEW_PREFERENCES_EVENT,
   publishVaultEvent,
   type VaultEvent,
 } from "../src/query/vaultEvents";
@@ -161,10 +162,7 @@ export function connectFreshness(queryClient: QueryClient, options: FreshnessOpt
   };
 
   const handle = ({ event, data }: VaultEvent) => {
-    if (
-      !options.hosted &&
-      (event === "view_preferences.changed" || event === STREAM_RECONNECTED_EVENT)
-    )
+    if (!options.hosted && (event === VIEW_PREFERENCES_EVENT || event === STREAM_RECONNECTED_EVENT))
       publishVaultEvent({ event, data });
 
     if (event === VIEWS_CHANGED_EVENT && ownFolder !== null && changedFolder(data) === ownFolder) {

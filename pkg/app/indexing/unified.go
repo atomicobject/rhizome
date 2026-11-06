@@ -26,6 +26,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
@@ -49,13 +50,14 @@ type ProgressBar interface {
 
 // UnifiedOptions configures the full one-pass indexing pipeline.
 type UnifiedOptions struct {
-	Config       *repoconfig.Resolved
-	VaultPath    string
-	VaultDef     obsidian.VaultDefinition
-	NoteMetadata notemeta.Indexer
-	ProgressBar  ProgressBar
-	Verbose      bool
-	Vacuum       bool
+	Config        *repoconfig.Resolved
+	VaultPath     string
+	VaultDef      obsidian.VaultDefinition
+	NoteMetadata  notemeta.Indexer
+	SkillOverlays func() (skilloverlay.Manifest, error)
+	ProgressBar   ProgressBar
+	Verbose       bool
+	Vacuum        bool
 	// SkipConfigPersistence leaves .rhizome/config.yml untouched after the run.
 	// Explicit `rzm index` persists resolved code and embeddings settings as
 	// always; the vault runtime's automatic boot catch-up sets this because
@@ -451,7 +453,7 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	}
 	progress.SetStage("Validating index")
 	validationSpan := indexingperf.StartSpan(ctx, "validation_snapshot")
-	validationSnapshot, validationDurationMs, validationErr := validationrun.IndexValidationSnapshot(ctx, opts.NoteMetadata, opts.VaultDef, runtime, runtimeErr, 500)
+	validationSnapshot, validationDurationMs, validationErr := validationrun.IndexValidationSnapshot(ctx, opts.NoteMetadata, opts.VaultDef, runtime, runtimeErr, 500, opts.SkillOverlays)
 	validationSpan(validationErr)
 	if err := ctx.Err(); err != nil {
 		return err

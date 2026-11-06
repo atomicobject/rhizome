@@ -58,13 +58,11 @@ func (s OntologyNodeSyncer) ComputeDerived(ctx context.Context, plan OntologyDer
 	// few slices in flight keep its batches full.
 	sem := make(chan struct{}, ontologyEmbedNodeInFlightSlices)
 	if s.EmbeddingNode == nil {
-		// One physical batch per slice, at most MaxConcurrent at once: the
-		// same provider concurrency as a single embedTextsWithProvider call.
 		batchSize := EffectiveBatchSize(s.Provider, s.BatchSize)
 		sliceTexts = batchSize
 		sem = make(chan struct{}, EffectiveMaxConcurrent(s.Provider, s.MaxConcurrent))
 		embed = func(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
-			return embedTextsWithProvider(ctx, s.Provider, texts, batchSize, 1, s.EmbedGate)
+			return embedProviderBatch(ctx, s.Provider, texts, batchSize, s.EmbedGate)
 		}
 	}
 	errs := make([]error, (len(plan.texts)+sliceTexts-1)/sliceTexts)

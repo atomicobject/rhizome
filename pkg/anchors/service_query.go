@@ -50,7 +50,7 @@ func (s *Service) NotesForFile(ctx context.Context, path string) (FileContext, e
 		return FileContext{}, err
 	}
 
-	fileLang := langFromPath(relPath)
+	fileLang, _ := LangForPath(relPath)
 	hasScopes := s.anchorScopesAvailable(ctx)
 	overflow, dirtyIDs := s.dirtyIDsSnapshot()
 

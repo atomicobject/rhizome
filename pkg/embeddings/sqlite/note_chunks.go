@@ -218,11 +218,6 @@ const (
 	tableChunkEmbeddings = "emb_chunk_embeddings"
 	tableEmbeddingCache  = "emb_embedding_cache"
 	vecChunkTablePrefix  = "emb_chunk_embeddings_vec_d"
-
-	// DefaultStaleNoteThreshold is the fraction of stale notes (not seen in current sync)
-	// above which we prune them. Below this threshold, notes are kept to avoid re-embedding
-	// costs when switching branches. 0.3 means we keep stale notes if they're <30% of total.
-	DefaultStaleNoteThreshold = 0.3
 )
 
 // DeleteChunksNotIn removes chunk embeddings whose indices are not in the provided set.

@@ -153,7 +153,7 @@ describe("NoteTab navigation", () => {
     await waitFor(() => expect(reads()).toEqual(["notes/a.md"]));
   });
 
-  it("preserves the document query in the HTML browser tab route", async () => {
+  it("preserves the document query and fragment in the HTML browser tab route", async () => {
     http.onGraphQL("PublicNodeDetail", () => jsonReply(htmlReply("notes/a.md")));
     http.on("POST", "/api/v1/html-viewers", () =>
       jsonReply(
@@ -167,12 +167,12 @@ describe("NoteTab navigation", () => {
       ),
     );
     http.on("DELETE", "/api/v1/html-viewers/viewer-1", () => new Response(null, { status: 204 }));
-    window.history.replaceState({}, "", "/notes?note=notes%2Fa.md&noteQuery=mode%3Dwide");
+    window.history.replaceState({}, "", "/notes?note=notes%2Fa.md&noteQuery=mode%3Dwide#chart");
     render(<Harness />);
 
     expect(await screen.findByRole("link", { name: "Open in browser tab" })).toHaveAttribute(
       "href",
-      "/notes?note=notes%2Fa.md&noteQuery=mode%3Dwide&bare=1",
+      "/notes?note=notes%2Fa.md&noteQuery=mode%3Dwide&bare=1#chart",
     );
   });
 

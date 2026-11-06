@@ -123,6 +123,18 @@ title: Demo
     );
   });
 
+  it("keeps question marks in fragments and clears empty authored queries", () => {
+    window.history.replaceState({}, "", "/notes?noteQuery=old");
+    expect(buildNoteWebHref("reports/prototype.html?#chart?detail")).toBe(
+      "/notes?note=reports%2Fprototype.html#chart%3Fdetail",
+    );
+  });
+
+  it("preserves a literal leading hash in a fragment", () => {
+    window.history.replaceState({}, "", "/notes");
+    expect(buildNoteWebHref("docs/spec.md##literal")).toBe("/notes?note=docs%2Fspec.md#%23literal");
+  });
+
   it("percent-encodes a heading fragment containing a literal percent", () => {
     window.history.replaceState({}, "", "/notes");
     const href = buildNoteWebHref("docs/spec.md#20%20off");

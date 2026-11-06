@@ -2,7 +2,6 @@ package codeintel
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,9 +13,8 @@ import (
 
 func TestDocLinkerPersistsMixedCaseAuthoredNotePath(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, "Decision.MD"), []byte("# Decision\n"), 0o644))
-
-	linker := NewDocLinker(root)
+	linker, err := NewDocLinkerFromNotePaths([]paths.NotePath{"Decision.MD"}, nil)
+	require.NoError(t, err)
 	require.NotNil(t, linker)
 	links := linker.LinksForCode("src/main.go", []byte("package main\n// See [[Decision]]\n"), codeanchor.FileContext{})
 	require.Len(t, links, 1)

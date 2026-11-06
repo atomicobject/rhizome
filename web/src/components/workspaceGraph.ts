@@ -1,14 +1,10 @@
 import type {
-  NodeCollectionState,
-  NodeFieldState,
   NodeWorkspace,
   NoteWorkspaceGroup,
   RenderedFile,
   RenderedSection,
   StructuralNode,
   StructuralView,
-  WorkspaceCollectionNode,
-  WorkspaceFieldNode,
   WorkspaceNode,
   WorkspaceRelationGroupsView,
   WorkspaceStructuralTabView,
@@ -125,48 +121,6 @@ function structuralNodeFromWorkspaceNode(
       return child ? [child] : [];
     }),
   };
-}
-
-export function selectWorkspaceFields(workspace: NodeWorkspace | null): NodeFieldState[] {
-  const graphNodes = (workspace?.nodes || []).filter(
-    (node): node is WorkspaceFieldNode => node.kind === "field",
-  );
-
-  if (graphNodes.length === 0) {
-    return workspace?.fields || [];
-  }
-
-  return graphNodes.map((node) => ({
-    id: node.id,
-    name: node.field.name,
-    kind: "FIELD",
-    present: node.field.present,
-    status: node.status,
-    range: node.field.range,
-    values: node.field.values || [],
-    valueRanges: node.field.valueRanges || [],
-    inlineSpans: node.field.inlineSpans || [],
-    sectionNodes: node.field.sectionRefs || [],
-  }));
-}
-
-export function selectWorkspaceCollections(workspace: NodeWorkspace | null): NodeCollectionState[] {
-  const graphNodes = (workspace?.nodes || []).filter(
-    (node): node is WorkspaceCollectionNode => node.kind === "collection",
-  );
-
-  if (graphNodes.length === 0) {
-    return workspace?.collections || [];
-  }
-
-  return graphNodes.map((node) => ({
-    name: node.collection.name,
-    kind: "COLLECTION",
-    status: node.status,
-    range: node.collection.range,
-    items: node.collection.itemRefs || [],
-    orderFingerprint: node.collection.orderFingerprint,
-  }));
 }
 
 export function selectWorkspaceRenderedSections(

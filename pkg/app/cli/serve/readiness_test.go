@@ -3,6 +3,7 @@ package serve
 import (
 	"context"
 	"errors"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -69,7 +70,7 @@ func TestReadinessCoordinatorCoalescesManualSaveAndWatcherRefresh(t *testing.T) 
 	coordinator.validation = refresher
 	coordinator.RequestValidationRefresh()
 	timer := timers.next(t)
-	coordinator.GlobalEventSink()(web.GlobalEventValidationInvalidated, nil)
+	coordinator.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, nil)
 	timer.awaitReset(t)
 	require.Zero(t, refresher.calls.Load())
 	timer.fire(t)
@@ -87,9 +88,9 @@ func TestReadinessCoordinatorGlobalEventSinkDebouncesValidationInvalidated(t *te
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
 	sink := coordinator.GlobalEventSink()
-	sink(web.GlobalEventValidationInvalidated, nil)
+	sink(appruntime.GlobalEventValidationInvalidated, nil)
 	timer := timers.next(t)
-	sink(web.GlobalEventValidationInvalidated, nil)
+	sink(appruntime.GlobalEventValidationInvalidated, nil)
 	timer.awaitReset(t)
 	require.Zero(t, refresher.calls.Load())
 	timer.fire(t)
@@ -101,8 +102,8 @@ func TestReadinessCoordinatorGlobalEventSinkKeepsValidationStaleAfterFailedRecon
 	coordinator, _ := validationTestCoordinator(t)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
-	coordinator.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{
-		"source": "watcher", "reason": web.GlobalEventReasonReconcileFailed,
+	coordinator.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{
+		"source": "watcher", "reason": appruntime.GlobalEventReasonReconcileFailed,
 	})
 	require.False(t, coordinator.ValidationRefreshPending(), "failed reconciliation must not admit a replacement")
 	require.Zero(t, refresher.calls.Load())
@@ -112,7 +113,7 @@ func TestReadinessCoordinatorGlobalEventSinkIgnoresOtherKinds(t *testing.T) {
 	coordinator, _ := validationTestCoordinator(t)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
-	coordinator.GlobalEventSink()(web.GlobalEventIndexChanged, nil)
+	coordinator.GlobalEventSink()(appruntime.GlobalEventIndexChanged, nil)
 	require.False(t, coordinator.ValidationRefreshPending(), "unrelated events must not admit validation work")
 	require.Zero(t, refresher.calls.Load())
 }

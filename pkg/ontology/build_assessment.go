@@ -235,7 +235,7 @@ func assessSectionField(doc *noteDoc, noteType *ontoschema.NoteType, field *onto
 
 func assessSectionFieldInNodes(notePath string, typeName string, propertyCase ontoschema.PropertyCase, field *ontoschema.Field, nodes []*SectionNode, schema *ontoschema.Schema, fieldPath string) (FieldAssessment, []ValidationIssue) {
 	fieldAssessment := baseFieldAssessment(field)
-	matches := matchSectionsForAssessment(nodes, field)
+	matches := MatchSectionNodesForField(nodes, field)
 	fieldAssessment.Present = len(matches) > 0
 	for _, match := range matches {
 		fieldAssessment.Values = append(fieldAssessment.Values, match.ID)
@@ -292,34 +292,6 @@ func assessSectionFieldInNodes(notePath string, typeName string, propertyCase on
 	}
 	issues = append(issues, assessNestedSectionIssues(notePath, typeName, propertyCase, field.TypeName, matches, schema, fieldPath)...)
 	return fieldAssessment, issues
-}
-
-// matchSectionsForAssessment picks the section nodes that a @contains field
-// binds to. Fields with an explicit heading delegate to FindMatchingSections
-// (recursive walk); list-typed fields without a heading match every direct
-// child of the current scope at the requested level, preserving document
-// order.
-func matchSectionsForAssessment(nodes []*SectionNode, field *ontoschema.Field) []*SectionNode {
-	if field == nil {
-		return nil
-	}
-	if field.SectionHeading != "" {
-		return FindMatchingSections(nodes, field.SectionLevel, field.SectionHeading)
-	}
-	if !field.List {
-		return nil
-	}
-	nodes = UnwrapSingleH1SectionRoot(nodes)
-	out := make([]*SectionNode, 0, len(nodes))
-	for _, node := range nodes {
-		if node == nil {
-			continue
-		}
-		if node.Level == field.SectionLevel {
-			out = append(out, node)
-		}
-	}
-	return out
 }
 
 func assessNestedSectionIssues(notePath string, enclosingTypeName string, propertyCase ontoschema.PropertyCase, sectionTypeName string, matches []*SectionNode, schema *ontoschema.Schema, parentPath string) []ValidationIssue {

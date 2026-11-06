@@ -60,31 +60,3 @@ func (s *Store) IntelChunkEmbeddingStates(ctx context.Context, ownerIDs []string
 	}
 	return out, nil
 }
-
-// EmbeddingStats returns the total embedding count and distinct dimensions.
-func (s *Store) EmbeddingStats(ctx context.Context) (int, []int, error) {
-	if s == nil {
-		return 0, nil, nil
-	}
-	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM intel_embeddings`).Scan(&count); err != nil {
-		return 0, nil, err
-	}
-	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT dimensions FROM intel_embeddings ORDER BY dimensions`)
-	if err != nil {
-		return count, nil, err
-	}
-	defer rows.Close()
-	var dims []int
-	for rows.Next() {
-		var d int
-		if err := rows.Scan(&d); err != nil {
-			return count, dims, err
-		}
-		dims = append(dims, d)
-	}
-	if err := rows.Err(); err != nil {
-		return count, dims, err
-	}
-	return count, dims, nil
-}

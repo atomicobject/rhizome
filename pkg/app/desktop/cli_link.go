@@ -12,6 +12,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
+	"github.com/atomicobject/rhizome/pkg/shellquote"
 )
 
 type CLILinkShell struct {
@@ -171,22 +172,20 @@ func (s *Service) CLILinkRemove(ctx context.Context) (CLILinkInfo, error) {
 	return s.mutateCLILink(ctx, true)
 }
 
-func cliLinkQuote(path string) string { return "'" + strings.ReplaceAll(path, "'", "'\"'\"'") + "'" }
-
 func cliLinkCommand(info CLILinkInfo, target string, remove bool) string {
-	link := cliLinkQuote(info.LinkPath)
+	link := shellquote.Quote(info.LinkPath)
 	if remove {
-		return "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + cliLinkQuote(info.rawTarget) + " ] && unlink " + link
+		return "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + shellquote.Quote(info.rawTarget) + " ] && unlink " + link
 	}
 	// Under administrator privileges, replace only what inspection saw: nothing,
 	// or the same link into a Rhizome bundle.
 	unchanged := "[ ! -e " + link + " ] && [ ! -L " + link + " ]"
 	if info.State != "absent" {
-		unchanged = "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + cliLinkQuote(info.rawTarget) + " ]"
+		unchanged = "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + shellquote.Quote(info.rawTarget) + " ]"
 	}
 	// The link always lives in cliLinkDirectory; deriving it from the path
 	// would depend on the build platform's separator.
-	return "mkdir -p " + cliLinkQuote(cliLinkDirectory) + " && " + unchanged + " && ln -sfn " + cliLinkQuote(target) + " " + link
+	return "mkdir -p " + shellquote.Quote(cliLinkDirectory) + " && " + unchanged + " && ln -sfn " + shellquote.Quote(target) + " " + link
 }
 
 func cliLinkUnlinkOwned(bundle *appbundle.Info, info CLILinkInfo) error {

@@ -63,12 +63,12 @@ func TestBuildAssessedAnswerRequiresResolvedPrecisionTargetForHighConfidence(t *
 		Result:      search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/service.go"}, Type: "code", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: 1}}}},
 		Eligibility: EvidencePrimary, Relationship: "definition", Relevance: RelevanceStrong, SupportedRoles: []string{"implementation"},
 	}}
-	unresolved := BuildAssessedAnswer(search.IntentGoToDef, "definition for Search", TargetResolution{}, nil, AvailabilityComplete, sources)
+	unresolved := BuildAssessedAnswerForFacets(search.IntentGoToDef, "definition for Search", nil, TargetResolution{}, nil, AvailabilityComplete, sources)
 	require.Equal(t, "low", unresolved.Confidence.Level)
 
-	statusOnly := BuildAssessedAnswer(search.IntentGoToDef, "definition for Search", TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: 0.93}, nil, AvailabilityComplete, sources)
+	statusOnly := BuildAssessedAnswerForFacets(search.IntentGoToDef, "definition for Search", nil, TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: 0.93}, nil, AvailabilityComplete, sources)
 	require.Equal(t, "low", statusOnly.Confidence.Level)
 
-	resolved := BuildAssessedAnswer(search.IntentGoToDef, "definition for Search", TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: 0.93, Selected: &search.TargetCandidate{FQN: "pkg.Search", Path: "pkg/search/service.go"}}, nil, AvailabilityComplete, sources)
+	resolved := BuildAssessedAnswerForFacets(search.IntentGoToDef, "definition for Search", nil, TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: 0.93, Selected: &search.TargetCandidate{FQN: "pkg.Search", Path: "pkg/search/service.go"}}, nil, AvailabilityComplete, sources)
 	require.Equal(t, "high", resolved.Confidence.Level)
 }

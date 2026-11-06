@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import * as ontologyApi from "../api/client";
+import { joinNoteTarget, splitNoteTarget } from "../lib/noteTarget";
 import { decodeJson, isJsonObject, isString, isStringArray } from "../api/parse";
 import type {
   NodeRef,
@@ -67,27 +68,13 @@ function applyWorkspaceToPane(pane: PaneState, workspace: NodeWorkspace): PaneSt
   });
 }
 
-/** A note target split into its path and `#fragment` parts. */
-type NoteTarget = {
-  path: string | null;
-  anchor: string | null;
-};
+function paneTarget(target: string) {
+  const { path, query, fragment } = splitNoteTarget(target);
 
-function splitNoteTarget(target: string | null): NoteTarget {
-  if (!target) {
-    return { path: null, anchor: null };
-  }
+  // Pane identity retains even an empty authored query until the server resolves it.
+  const emptyQuery = query === null && target[path.length] === "?" ? "?" : "";
 
-  const hashIndex = target.indexOf("#");
-
-  if (hashIndex === -1) {
-    return { path: target, anchor: null };
-  }
-
-  return {
-    path: target.slice(0, hashIndex),
-    anchor: target.slice(hashIndex + 1) || null,
-  };
+  return { path: target ? joinNoteTarget({ path, query }) + emptyQuery : null, anchor: fragment };
 }
 
 export function targetRefForNode(node: StructuralNode): string | NodeRef {
@@ -134,7 +121,7 @@ type PaneStackHandle = {
  */
 function paneNodeKey(pane: PaneState): string | null {
   if (pane.path) {
-    return pane.anchor ? `${pane.path}#${pane.anchor}` : pane.path;
+    return joinNoteTarget({ path: pane.path, fragment: pane.anchor });
   }
 
   return pane.requestedRef || null;
@@ -145,7 +132,7 @@ function nodeTargetKey(target: string | NodeRef): string | null {
 
   if (!target.notePath) return null;
 
-  return target.fragment ? `${target.notePath}#${target.fragment}` : target.notePath;
+  return joinNoteTarget({ path: target.notePath, fragment: target.fragment });
 }
 
 function targetMatchesResolvedRef(
@@ -155,7 +142,7 @@ function targetMatchesResolvedRef(
   if (!resolvedRef) return false;
 
   if (isString(target)) {
-    const { path, anchor } = splitNoteTarget(target);
+    const { path, anchor } = paneTarget(target);
 
     if (path !== resolvedRef.notePath) return false;
 
@@ -244,7 +231,7 @@ export function usePaneStack(
       const requestedRef = ontologyApi.publicWorkspaceRef(target);
 
       const { path, anchor } = isString(target)
-        ? splitNoteTarget(target)
+        ? paneTarget(target)
         : { path: target.notePath || null, anchor: target.fragment || null };
 
       if (!path) {

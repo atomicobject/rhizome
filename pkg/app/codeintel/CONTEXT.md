@@ -2,11 +2,11 @@
 
 Code-intel indexing primitives and service/indexer composition shared by command, batch, and live callers. Runtime bootstrap consumes this module without owning its constructor.
 
-- **Entry points**: `NewCodeAnchorService`, `ResolveRoots`, `ResolveRoot`, `IngestMarkdownCandidates`, `IndexCandidates`, `ValidateNotes`, `ReadAuthoredMarkdownAnchors`
+- **Entry points**: `NewCodeAnchorService`, `ResolveRoots`, `ResolveRoot`, `IngestMarkdownCandidatesWithSources`, `IndexCandidates`, `ValidateNotes`, `ReadAuthoredMarkdownAnchors`
 - **Key invariant**: read-only authored-anchor fallback validates the source path and resolved target within the vault, selects configured note ownership through the explicit format runtime, and parses only admitted Markdown. Shared runtime providers consume its unresolved targets and diagnostics without selecting a provider or parsing source.
 - **Key invariant**: all indexed paths are vault-root-relative when persisted (`pkg/paths` strict rel conversion)
 - **Key invariant**: explicit code ingest reads selected bytes and uses content hash, indexer version and trusted parse status to skip unchanged parsing and persistence; file timestamps cannot prove freshness. Note ingest retains its source/ownership and mtime/content-hash guards.
-- **Key invariant**: full indexing supplies preclassified explicit candidates. `IngestMarkdownCandidates` and `IndexCandidates` validate the complete batch, do no walk/extension classification/stale cleanup, and route only their supplied lane; ownership orchestration owns all of those decisions.
+- **Key invariant**: full indexing supplies preclassified explicit candidates. `IngestMarkdownCandidatesWithSources` and `IndexCandidates` validate the complete batch, do no walk/extension classification/stale cleanup, and route only their supplied lane; ownership orchestration owns all of those decisions.
 - **Key invariant**: explicit Markdown and code candidate read/build failures are terminal to the full run. They leave reconciliation pending and never use legacy cleanup to retire prior ownership. Retired code-only command walkers and direct-store fallbacks are removed.
 - **Key invariant**: note ingest receives an explicit configured `notemeta.Indexer` and shared writer, then projects `notemeta.NoteSourceSnapshot` with a vault-relative path; anchors accepts it through `BuildNoteIndexWorkFromSource` / `IngestNoteSource` only
 - **Key invariant**: collection-style note ingest must honor `VaultDefinition.Includes` before ignore/exclude pruning, or out-of-scope notes leak into intel/semantic state

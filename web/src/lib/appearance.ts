@@ -8,16 +8,7 @@
 import { useSyncExternalStore } from "react";
 
 import { DEFAULT_THEME, isThemeName, type ThemeName } from "./themes";
-
-export type Appearance = "auto" | "light" | "dark";
-
-const APPEARANCE_KEY = "rhizome:appearance";
-
-const THEME_KEY = "rhizome:theme";
-
-function isAppearance(value: string | null | undefined): value is Appearance {
-  return value === "auto" || value === "light" || value === "dark";
-}
+import { APPEARANCE_KEY, THEME_KEY, isAppearance, type Appearance } from "./appearanceSettings";
 
 // The desktop app marks its content view with an initialization script.
 function inDesktop(): boolean {

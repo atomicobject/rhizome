@@ -13,7 +13,7 @@ import (
 )
 
 func TestAssessRetainsParaphraseOnlySemanticEvidence(t *testing.T) {
-	assessed := Assess(search.IntentSearch, []search.RankedResult{{
+	assessed := AssessQuery("", search.IntentSearch, []search.RankedResult{{
 		Candidate: search.Candidate{
 			SourceRef: search.SourceRef{Path: "docs/pressure.md"},
 			Handle:    knowledge.NoteHandle("docs/pressure.md"),
@@ -27,7 +27,7 @@ func TestAssessRetainsParaphraseOnlySemanticEvidence(t *testing.T) {
 
 	require.Len(t, assessed, 1)
 	require.Equal(t, RelevanceUseful, assessed[0].Relevance)
-	packet := BuildAssessedAnswer(search.IntentSearch, "how does excess load get released?", TargetResolution{}, nil, AvailabilityComplete, assessed)
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "how does excess load get released?", nil, TargetResolution{}, nil, AvailabilityComplete, assessed)
 	require.NotEmpty(t, packet.MustRead)
 	require.Equal(t, "low", packet.Confidence.Level)
 }
@@ -44,7 +44,7 @@ func TestBuildAssessedAnswerKeepsEmbeddedNodeStrengthByCanonicalIdentity(t *test
 		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/spec.md", NodeRef: nodeB}, Handle: knowledge.NodeChunkHandle("story-b", "docs/spec.md", "node_body", 0), Type: "note"}}, Relevance: RelevanceWeak, SupportedRoles: []string{"documentation"}},
 	}
 
-	packet := BuildAssessedAnswer(search.IntentSearch, "story a", TargetResolution{}, nil, AvailabilityComplete, sources)
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "story a", nil, TargetResolution{}, nil, AvailabilityComplete, sources)
 	require.Len(t, packet.MustRead, 1)
 	require.Equal(t, "story-a", packet.MustRead[0].NodeRef.NodeID)
 	require.Equal(t, resultIdentity(sources[0].Result), itemIdentity(packet.MustRead[0]))
@@ -58,15 +58,15 @@ func TestBuildAssessedAnswerMatchesOrdinaryNotesByCanonicalPath(t *testing.T) {
 		Type:      "note",
 		Evidence:  []search.Evidence{{Type: "note_title_exact", RawScore: 1}},
 	}, FinalScore: 1}
-	assessed := Assess(search.IntentSearch, []search.RankedResult{result})
+	assessed := AssessQuery("", search.IntentSearch, []search.RankedResult{result})
 
-	packet := BuildAssessedAnswer(search.IntentSearch, "test", TargetResolution{}, nil, AvailabilityComplete, assessed)
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "test", nil, TargetResolution{}, nil, AvailabilityComplete, assessed)
 	require.Len(t, packet.MustRead, 1)
 	require.Equal(t, resultIdentity(result), itemIdentity(packet.MustRead[0]))
 }
 
 func TestAssessDoesNotPromoteNearZeroLaneArtifacts(t *testing.T) {
-	assessed := Assess(search.IntentSearch, []search.RankedResult{{
+	assessed := AssessQuery("", search.IntentSearch, []search.RankedResult{{
 		Candidate: search.Candidate{
 			SourceRef: search.SourceRef{Path: "docs/noise.md"},
 			Type:      "note",
@@ -80,13 +80,13 @@ func TestAssessDoesNotPromoteNearZeroLaneArtifacts(t *testing.T) {
 
 	require.Len(t, assessed, 1)
 	require.Equal(t, RelevanceWeak, assessed[0].Relevance)
-	packet := BuildAssessedAnswer(search.IntentSearch, "absent topic", TargetResolution{}, nil, AvailabilityComplete, assessed)
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "absent topic", nil, TargetResolution{}, nil, AvailabilityComplete, assessed)
 	require.Empty(t, packet.MustRead)
 	require.Equal(t, "low", packet.Confidence.Level)
 }
 
 func TestAssessPromotesMeaningfulIndependentCorroboration(t *testing.T) {
-	assessed := Assess(search.IntentSearch, []search.RankedResult{{
+	assessed := AssessQuery("", search.IntentSearch, []search.RankedResult{{
 		Candidate: search.Candidate{
 			SourceRef: search.SourceRef{Path: "pkg/search/merge.go"},
 			Type:      "code",
@@ -113,7 +113,7 @@ func TestAssessQueryDoesNotPromoteCodeFromTheWrongExplicitLanguage(t *testing.T)
 	require.Equal(t, RelevanceUseful, assessed[0].Relevance)
 	require.Equal(t, "code language does not match the explicit query language", assessed[0].RelevanceWhy)
 	require.Equal(t, RelevanceStrong, assessed[1].Relevance)
-	packet := BuildAssessedAnswer(search.IntentSearch, "what happens when the C# service adds a task", TargetResolution{}, nil, AvailabilityComplete, assessed)
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "what happens when the C# service adds a task", nil, TargetResolution{}, nil, AvailabilityComplete, assessed)
 	require.Len(t, packet.MustRead, 1)
 	require.Equal(t, "csharp/TaskService.cs", packet.MustRead[0].Path)
 }
@@ -197,7 +197,7 @@ func TestAssessQuerySelectsOneCoherentFacetObservationRegardlessOfEvidenceOrder(
 
 	for _, evidence := range [][]search.Evidence{{strongSupporting, useful, strongPrimary}, {strongPrimary, useful, strongSupporting}} {
 		result := search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "src/caller.go"}, Type: "code", Evidence: evidence}}
-		assessment := Assess(search.IntentSearch, []search.RankedResult{result})[0]
+		assessment := AssessQuery("", search.IntentSearch, []search.RankedResult{result})[0]
 		require.Equal(t, RelevanceStrong, assessment.Relevance)
 		require.Equal(t, []FacetSupport{want}, assessment.FacetSupport)
 	}
@@ -356,7 +356,7 @@ func TestAggregateFacetsBindsLanguageConstraintToTheExactFacetQuery(t *testing.T
 		Query:   search.QuerySpec{Text: "what happens when the C# service adds a task", Intent: search.IntentSearch},
 		Results: []search.RankedResult{python, csharp},
 	}}, 10)
-	assessed := Assess(search.IntentSearch, aggregated)
+	assessed := AssessQuery("", search.IntentSearch, aggregated)
 
 	require.Len(t, assessed, 2)
 	require.Equal(t, RelevanceUseful, assessed[0].FacetSupport[0].Relevance)
@@ -380,7 +380,7 @@ func TestAssessAssignsCodeAnchorsImplementationRoleWithoutChangingNoteAnchors(t 
 		Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}},
 	}}
 
-	assessed := Assess(search.IntentGoToDef, []search.RankedResult{code, note})
+	assessed := AssessQuery("", search.IntentGoToDef, []search.RankedResult{code, note})
 	require.Equal(t, []string{"implementation"}, assessed[0].SupportedRoles)
 	require.Equal(t, []string{"documentation"}, assessed[1].SupportedRoles)
 }
@@ -398,11 +398,11 @@ func TestBuildAssessedAnswerKeepsPrecisionContextOutOfMustRead(t *testing.T) {
 		Type:      "code",
 		Evidence:  []search.Evidence{{Type: "code_anchor", RawScore: 1}, {Type: "path_exact", RawScore: 1}},
 	}, FinalScore: 0.8}
-	assessed := Assess(search.IntentGoToDef, []search.RankedResult{primary, context})
+	assessed := AssessQuery("", search.IntentGoToDef, []search.RankedResult{primary, context})
 	require.Equal(t, EvidencePrimary, assessed[0].Eligibility)
 	require.Equal(t, EvidenceSupporting, assessed[1].Eligibility)
 
-	packet := BuildAssessedAnswer(search.IntentGoToDef, "definition of Merge", TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Merge", Path: "pkg/merge.go"}}, nil, AvailabilityComplete, assessed)
+	packet := BuildAssessedAnswerForFacets(search.IntentGoToDef, "definition of Merge", nil, TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Merge", Path: "pkg/merge.go"}}, nil, AvailabilityComplete, assessed)
 	require.Len(t, packet.MustRead, 1)
 	require.Equal(t, "pkg.Merge", packet.MustRead[0].FQN)
 	require.Len(t, packet.Supporting, 1)
@@ -438,7 +438,7 @@ func TestAggregateFacetsBindsRelevanceToTheFacetThatHasSupport(t *testing.T) {
 		{Query: search.QuerySpec{Text: "implementation", Intent: search.IntentSearch}, Results: []search.RankedResult{sharedStrong}},
 		{Query: search.QuerySpec{Text: "proof", Intent: search.IntentSearch}, Results: []search.RankedResult{sharedNoise, proof}},
 	}, 3)
-	assessed := Assess(search.IntentSearch, aggregated)
+	assessed := AssessQuery("", search.IntentSearch, aggregated)
 	require.Len(t, assessed, 2)
 	require.Equal(t, []FacetSupport{{Text: "implementation", Mode: search.IntentSearch, Relevance: RelevanceStrong, Eligibility: EvidenceSupporting, LeadsFacet: true, SupportedRoles: []string{"implementation"}}}, assessed[0].FacetSupport)
 	require.Equal(t, "proof", assessed[1].FacetSupport[0].Text)
@@ -451,7 +451,7 @@ func TestAggregateFacetsPreservesPrecisionFacetProof(t *testing.T) {
 		Query:   search.QuerySpec{Text: "who calls Target", Intent: search.IntentCallers, TargetStatus: search.TargetStatusInferredSymbol, ResolutionConfidence: .95, ResolvedTarget: &target},
 		Results: []search.RankedResult{result},
 	}}, 10)
-	assessed := Assess(search.IntentSearch, aggregated)
+	assessed := AssessQuery("", search.IntentSearch, aggregated)
 	require.Len(t, assessed, 1)
 	require.Equal(t, []FacetSupport{{Text: "who calls Target", Mode: search.IntentCallers, Relevance: RelevanceStrong, Eligibility: EvidencePrimary, Relationship: "caller", TargetEstablished: true, LeadsFacet: true, SupportedRoles: []string{"implementation"}}}, assessed[0].FacetSupport)
 }
@@ -614,7 +614,7 @@ func TestBuildAssessedAnswerStopsAfterStrongQueryProof(t *testing.T) {
 		})
 	}
 
-	packet := BuildAssessedAnswer(search.IntentSearch, "replacement package size", TargetResolution{}, nil, AvailabilityComplete, sources)
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "replacement package size", nil, TargetResolution{}, nil, AvailabilityComplete, sources)
 	require.Len(t, packet.MustRead, 1)
 	require.Equal(t, "policy.md", packet.MustRead[0].Path)
 }
@@ -629,7 +629,7 @@ func TestBuildAssessedAnswerRequiresSourceBoundPrecisionRelationship(t *testing.
 		Eligibility: EvidencePrimary, Relationship: "caller", Relevance: RelevanceStrong, SupportedRoles: []string{"implementation"},
 	}
 
-	packet := BuildAssessedAnswer(search.IntentCallers, "callers of Target", TargetResolution{
+	packet := BuildAssessedAnswerForFacets(search.IntentCallers, "callers of Target", nil, TargetResolution{
 		Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Target"},
 	}, nil, AvailabilityComplete, []SourceAssessment{context, caller})
 
@@ -674,7 +674,7 @@ func TestBuildAssessedAnswerRetainsAllExactPrimaryCallers(t *testing.T) {
 		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "a.go", FQN: "pkg.A"}, Handle: knowledge.AnchorHandle("a"), Type: "anchor", Evidence: []search.Evidence{{Type: "symbol_exact", RawScore: 1}}}, FinalScore: .9}, Eligibility: EvidencePrimary, Relationship: "caller", Relevance: RelevanceStrong, SupportedRoles: []string{"implementation"}},
 		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "b_test.go", FQN: "pkg.TestB"}, Handle: knowledge.AnchorHandle("b"), Type: "anchor", Evidence: []search.Evidence{{Type: "symbol_exact", RawScore: 1}}}, FinalScore: .8}, Eligibility: EvidencePrimary, Relationship: "caller", Relevance: RelevanceStrong, SupportedRoles: []string{"test"}},
 	}
-	packet := BuildAssessedAnswer(search.IntentCallers, "callers of Target", TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Target"}}, nil, AvailabilityComplete, callers)
+	packet := BuildAssessedAnswerForFacets(search.IntentCallers, "callers of Target", nil, TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Target"}}, nil, AvailabilityComplete, callers)
 	require.Equal(t, []string{"pkg.A", "pkg.TestB"}, []string{packet.MustRead[0].FQN, packet.MustRead[1].FQN})
 	require.Equal(t, "high", packet.Confidence.Level)
 }
@@ -687,7 +687,7 @@ func TestBuildAssessedAnswerDisclosesTruncatedExactRelationshipEvidence(t *testi
 			Eligibility: EvidencePrimary, Relationship: "caller", Relevance: RelevanceStrong, SupportedRoles: []string{"implementation"},
 		})
 	}
-	packet := BuildAssessedAnswer(search.IntentCallers, "callers of Target", TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Target"}}, nil, AvailabilityComplete, callers)
+	packet := BuildAssessedAnswerForFacets(search.IntentCallers, "callers of Target", nil, TargetResolution{Status: search.TargetStatusInferredSymbol, Confidence: .95, Selected: &search.TargetCandidate{FQN: "pkg.Target"}}, nil, AvailabilityComplete, callers)
 	require.Len(t, packet.MustRead, 6)
 	require.Contains(t, packet.Coverage.Missing, "relationship:caller:truncated")
 	require.NotEqual(t, "high", packet.Confidence.Level)
@@ -717,7 +717,7 @@ func TestBuildAssessedAnswerRefreshesSummaryAfterAvailabilityOverride(t *testing
 		Result:      search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "policy.md", Title: "Policy"}, Handle: knowledge.NoteHandle("policy.md"), Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: 1},
 		Eligibility: EvidenceSupporting, Relevance: RelevanceStrong, SupportedRoles: []string{"documentation"},
 	}
-	packet := BuildAssessedAnswer(search.IntentSearch, "Policy", TargetResolution{}, nil, AvailabilityPartial, []SourceAssessment{source})
+	packet := BuildAssessedAnswerForFacets(search.IntentSearch, "Policy", nil, TargetResolution{}, nil, AvailabilityPartial, []SourceAssessment{source})
 	require.Equal(t, "medium", packet.Confidence.Level)
 	require.Contains(t, packet.Summary, "Confidence: medium")
 }
@@ -835,7 +835,7 @@ func TestFinalizeConfidenceRequiresIdentityOrTwoLanes(t *testing.T) {
 		assessed := AssessQuery(query, search.IntentSearch, []search.RankedResult{{
 			Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/merge.go"}, Type: "code", Evidence: evidence}, FinalScore: score,
 		}})
-		return BuildAssessedAnswer(search.IntentSearch, query, TargetResolution{Status: search.TargetStatusNone}, nil, AvailabilityComplete, assessed)
+		return BuildAssessedAnswerForFacets(search.IntentSearch, query, nil, TargetResolution{Status: search.TargetStatusNone}, nil, AvailabilityComplete, assessed)
 	}
 
 	identity := build(t, []search.Evidence{{Type: "note_title_exact", RawScore: 1}}, 1)
@@ -1060,7 +1060,7 @@ func TestBuildAssessedAnswerDropsLowConfidenceMustReadThatIsNotAboutTheQuery(t *
 				Relevance: testCase.relevance, Eligibility: testCase.eligibility, Relationship: testCase.relationship,
 				SupportedRoles: []string{"documentation"},
 			}
-			packet := BuildAssessedAnswer(testCase.intent, query, testCase.target, nil, testCase.availability, []SourceAssessment{source})
+			packet := BuildAssessedAnswerForFacets(testCase.intent, query, nil, testCase.target, nil, testCase.availability, []SourceAssessment{source})
 
 			require.Equal(t, testCase.wantReason, packet.Confidence.Reason)
 			if testCase.wantMustRead {

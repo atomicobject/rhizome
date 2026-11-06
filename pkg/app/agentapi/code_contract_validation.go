@@ -22,66 +22,15 @@ func ValidateCodeInput(operation string, value map[string]any) error {
 	if err := validateSchemaValue("input", value, schema); err != nil {
 		return err
 	}
-	return validateOperationConditions(operation, value)
+	if descriptor.validateCodeInput != nil {
+		return descriptor.validateCodeInput(value)
+	}
+	return nil
 }
 
-func validateOperationConditions(operation string, value map[string]any) error {
-	requireString := func(key string) error {
-		if strings.TrimSpace(stringValue(value[key])) == "" {
-			return fmt.Errorf("input.%s is required", key)
-		}
-		return nil
-	}
-	switch operation {
-	case "ontology_reference":
-		if value["compact"] == true {
-			return requireString("type")
-		}
-	case "files":
-		if _, continuation := value["continuationToken"]; !continuation {
-			if _, present := value["inputs"]; !present {
-				return fmt.Errorf("input.inputs is required without continuationToken")
-			}
-		}
-	case "semantic_query":
-		if _, present := value["queries"]; !present {
-			return fmt.Errorf("input.queries is required; continuation requests repeat the same queries")
-		}
-	case "view":
-		if value["action"] == "show" || value["action"] == "run" {
-			return requireString("id")
-		}
-	case "current_user":
-		if value["action"] == "set" {
-			return requireString("personTitleOrRef")
-		}
-	case "find_connections":
-		if stringValue(value["note"]) == "" && stringValue(value["text"]) == "" {
-			return fmt.Errorf("input.note or input.text is required")
-		}
-	case "node_link":
-		if _, refs := value["refs"]; !refs {
-			if _, targets := value["targets"]; !targets {
-				return fmt.Errorf("input.refs or input.targets is required")
-			}
-		}
-	case "note_move":
-		_, source := value["source"]
-		_, sources := value["sources"]
-		_, target := value["target"]
-		_, folder := value["toFolder"]
-		if !source && !sources {
-			return fmt.Errorf("input.source or input.sources is required")
-		}
-		if folder {
-			if target {
-				return fmt.Errorf("input.target cannot be combined with input.toFolder")
-			}
-			return nil
-		}
-		if !source || sources || !target {
-			return fmt.Errorf("input.source and input.target are required unless sources and toFolder are used")
-		}
+func requireInputString(value map[string]any, key string) error {
+	if strings.TrimSpace(stringValue(value[key])) == "" {
+		return fmt.Errorf("input.%s is required", key)
 	}
 	return nil
 }

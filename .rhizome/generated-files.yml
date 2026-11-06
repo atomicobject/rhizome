@@ -130,17 +130,17 @@ written:
   .rhizome/modules/compounding/ontology/compounding.graphql: d43cdaa92757f036
   .rhizome/modules/compounding/recipes/compounding.yaml: 994398ce86bd8209
   .rhizome/modules/compounding/references/calibration-fixture.json: 4b858dc5aaf769c2
-  .rhizome/modules/compounding/scripts/calibrate.mjs: 234a22ffbf38fe3c
+  .rhizome/modules/compounding/scripts/calibrate.mjs: 671dd721caf02dc8
   .rhizome/modules/compounding/scripts/hook.mjs: efa68e344705ef9a
   .rhizome/modules/compounding/scripts/lib/approvals.mjs: 16da27f1855db130
   .rhizome/modules/compounding/scripts/lib/calibration-data.mjs: 50c7ba8e358f3780
   .rhizome/modules/compounding/scripts/lib/calibration-models.mjs: 040bd397ef1cbe0c
   .rhizome/modules/compounding/scripts/lib/calibration-score.mjs: 56b8330db4ad1099
-  .rhizome/modules/compounding/scripts/lib/calls.mjs: fe26bac845d22335
+  .rhizome/modules/compounding/scripts/lib/calls.mjs: a288e6675d1c6446
   .rhizome/modules/compounding/scripts/lib/episodes.mjs: 192fa78eda45082b
   .rhizome/modules/compounding/scripts/lib/estimate.mjs: 2a1caa922f7295f2
   .rhizome/modules/compounding/scripts/lib/extract.mjs: b7e8d59f161d707b
-  .rhizome/modules/compounding/scripts/lib/findings.mjs: 6e6bc518645f53aa
+  .rhizome/modules/compounding/scripts/lib/findings.mjs: 1cac626138a04e6a
   .rhizome/modules/compounding/scripts/lib/models.mjs: 189a5584719e4766
   .rhizome/modules/compounding/scripts/lib/paths.mjs: 53c2c47fbf39919f
   .rhizome/modules/compounding/scripts/lib/prompts.mjs: 7c7211509f4afbf8
@@ -153,13 +153,13 @@ written:
   .rhizome/modules/compounding/scripts/lib/transcripts.mjs: d63ee8f3cd1b89e7
   .rhizome/modules/compounding/scripts/lib/verification-queue.mjs: 57a8a20bb10f875b
   .rhizome/modules/compounding/scripts/lib/verify.mjs: 0ac53b2adbc79f41
-  .rhizome/modules/compounding/scripts/lookup.mjs: a0e82c9ced433250
-  .rhizome/modules/compounding/scripts/mine.mjs: f422ef47434689df
+  .rhizome/modules/compounding/scripts/lookup.mjs: 2487c503668408e3
+  .rhizome/modules/compounding/scripts/mine.mjs: 420ab7a3c634f89a
   .rhizome/modules/compounding/scripts/report.mjs: 14bf0256850597d1
   .rhizome/modules/compounding/scripts/sessions.mjs: 4cf33f17d765ff00
-  .rhizome/modules/compounding/scripts/shards.mjs: e1ca24687fe3a6f5
-  .rhizome/modules/compounding/scripts/task-check.mjs: 408193037f713169
-  .rhizome/modules/compounding/scripts/workspace.mjs: 64a41e0e5bc39826
+  .rhizome/modules/compounding/scripts/shards.mjs: 64b5db8fed09cc64
+  .rhizome/modules/compounding/scripts/task-check.mjs: ed8f0cea634b62a0
+  .rhizome/modules/compounding/scripts/workspace.mjs: 84aa78df9e59b58a
   .rhizome/modules/compounding/tasks/mine.yml: 9542f649f119cb9e
   .rhizome/modules/compounding/views/agent-findings.yaml: f9149a8753a64840
   .rhizome/modules/compounding/views/context-shards.yaml: 83368ad10a4f2745

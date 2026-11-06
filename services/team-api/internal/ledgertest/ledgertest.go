@@ -30,6 +30,7 @@ func Run(t *testing.T, open Factory) {
 	runProviders(t, open)
 	t.Run("SettleAppliesOnceAndRefundsOnlyUnused", func(t *testing.T) { testSettleAppliesOnceAndRefundsOnlyUnused(t, open) })
 	t.Run("OutcomesAndTheirReservations", func(t *testing.T) { testOutcomesAndTheirReservations(t, open) })
+	t.Run("InvalidOutcomeChangesNothing", func(t *testing.T) { testInvalidOutcomeChangesNothing(t, open) })
 	t.Run("PreconditionsOnMissingAndReservedReceipts", func(t *testing.T) { testPreconditionsOnMissingAndReservedReceipts(t, open) })
 	t.Run("BudgetRejectionChangesNothing", func(t *testing.T) { testBudgetRejectionChangesNothing(t, open) })
 	t.Run("SettlementAfterMidnightUpdatesAdmissionDay", func(t *testing.T) { testSettlementAfterMidnightUpdatesAdmissionDay(t, open) })
@@ -89,6 +90,30 @@ func testOutcomesAndTheirReservations(t *testing.T, open Factory) {
 		require.NoError(t, err)
 		require.Equal(t, want, code, key)
 	}
+}
+
+func testInvalidOutcomeChangesNothing(t *testing.T, open Factory) {
+	ctx := context.Background()
+	l, _ := openLedger(t, open)
+	require.EqualError(t, l.Settle(ctx, "s1", "invalid", ledger.Outcome(99), 0), "ledger: unknown outcome 99")
+	code, err := l.Reserve(ctx, receipt("invalid"), roomy, roomy)
+	require.NoError(t, err)
+	require.Empty(t, code)
+	require.EqualError(t, l.Settle(ctx, "s1", "invalid", ledger.Outcome(99), 0), "ledger: unknown outcome 99")
+	require.NoError(t, l.MarkDispatched(ctx, "s1", "invalid"))
+	require.EqualError(t, l.Settle(ctx, "s1", "invalid", ledger.Outcome(99), 0), "ledger: unknown outcome 99")
+	everyone, people, err := l.Usage(ctx, "2026-10-31")
+	require.NoError(t, err)
+	want := wire.DailyUsage{Requests: 1, InputBytes: 100, ReservedCredits: 10}
+	require.Equal(t, want, everyone)
+	require.Equal(t, want, people["s1"])
+
+	require.NoError(t, l.Settle(ctx, "s1", "invalid", ledger.Succeeded, 3))
+	everyone, people, err = l.Usage(ctx, "2026-10-31")
+	require.NoError(t, err)
+	want = wire.DailyUsage{Requests: 1, InputBytes: 100, ReservedCredits: 3, SettledCredits: 3}
+	require.Equal(t, want, everyone)
+	require.Equal(t, want, people["s1"])
 }
 
 func testPreconditionsOnMissingAndReservedReceipts(t *testing.T, open Factory) {

@@ -115,7 +115,7 @@ func scanBulletMetadataInlineFieldsInSegment(segment string, baseOffset int) []I
 			offset += len(line)
 			continue
 		}
-		itemStart, ok := unorderedListItemContentStart(trimmed)
+		itemStart, ok := markdownsyntax.UnorderedListItemContentStart(trimmed)
 		if !ok {
 			offset += len(line)
 			continue
@@ -177,18 +177,6 @@ func bulletMetadataFieldOccurrence(item string) (listInlineFieldOccurrence, bool
 		valueStart: valueStart,
 		valueEnd:   valueEnd,
 	}, true
-}
-
-func unorderedListItemContentStart(trimmed string) (int, bool) {
-	if len(trimmed) < 2 || trimmed[1] != ' ' && trimmed[1] != '\t' {
-		return 0, false
-	}
-	switch trimmed[0] {
-	case '-', '*', '+':
-		return 2, true
-	default:
-		return 0, false
-	}
 }
 
 func scanInlineFieldsInListOwnContent(content string, ranges []ByteRange) []InlineFieldSpan {

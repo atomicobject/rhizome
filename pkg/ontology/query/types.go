@@ -562,7 +562,8 @@ func (s *sectionRecord) fieldValues(field *ontoschema.Field, propertyCase ontosc
 	}
 	s.ensureInlinePropsLoaded()
 	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
-	return normalizeStrings(caseInsensitiveInlineLookup(s.inlineProps, propertyName))
+	values, _ := caseInsensitiveLookup(s.inlineProps, propertyName)
+	return normalizeStrings(values)
 }
 
 func (s *sectionRecord) hasFieldValue(field *ontoschema.Field, propertyCase ontoschema.PropertyCase) bool {
@@ -576,7 +577,8 @@ func (s *sectionRecord) hasFieldValue(field *ontoschema.Field, propertyCase onto
 	}
 	s.ensureInlinePropsLoaded()
 	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
-	return caseInsensitiveInlineHasKey(s.inlineProps, propertyName)
+	_, present := caseInsensitiveLookup(s.inlineProps, propertyName)
+	return present
 }
 
 func (s *sectionRecord) ensureInlinePropsLoaded() {
@@ -597,14 +599,14 @@ func (n *noteRecord) hasField(field *ontoschema.Field) bool {
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:
 		for _, name := range ontoschema.FieldSourceNames(field) {
-			if caseInsensitiveInlineHasKey(n.InlineProps, name) {
+			if _, present := caseInsensitiveLookup(n.InlineProps, name); present {
 				return true
 			}
 		}
 		return false
 	default:
 		for _, name := range ontoschema.FieldSourceNames(field) {
-			if caseInsensitiveFrontmatterHasKey(n.Frontmatter, name) {
+			if _, present := caseInsensitiveLookup(n.Frontmatter, name); present {
 				return true
 			}
 		}
@@ -639,86 +641,33 @@ func (n *noteRecord) fieldValues(field *ontoschema.Field) []string {
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:
 		for _, name := range ontoschema.FieldSourceNames(field) {
-			if values := normalizeStrings(caseInsensitiveInlineLookup(n.InlineProps, name)); len(values) > 0 {
-				return values
+			values, _ := caseInsensitiveLookup(n.InlineProps, name)
+			if normalized := normalizeStrings(values); len(normalized) > 0 {
+				return normalized
 			}
 		}
 		return nil
 	default:
 		for _, name := range ontoschema.FieldSourceNames(field) {
-			value := caseInsensitiveFrontmatterLookup(n.Frontmatter, name)
-			if value == nil {
-				continue
-			}
-			values := ontology.FieldTextValues(field, value)
-			if len(values) > 0 || caseInsensitiveFrontmatterHasKey(n.Frontmatter, name) {
-				return values
+			value, present := caseInsensitiveLookup(n.Frontmatter, name)
+			if present && value != nil {
+				return ontology.FieldTextValues(field, value)
 			}
 		}
 		return nil
 	}
 }
 
-func caseInsensitiveFrontmatterLookup(values map[string]any, key string) any {
-	if len(values) == 0 {
-		return nil
-	}
+func caseInsensitiveLookup[T any](values map[string]T, key string) (T, bool) {
 	if value, ok := values[key]; ok {
-		return value
+		return value, true
 	}
 	needle := strings.ToLower(strings.TrimSpace(key))
 	for currentKey, value := range values {
 		if strings.ToLower(strings.TrimSpace(currentKey)) == needle {
-			return value
+			return value, true
 		}
 	}
-	return nil
-}
-
-func caseInsensitiveFrontmatterHasKey(values map[string]any, key string) bool {
-	if len(values) == 0 {
-		return false
-	}
-	if _, ok := values[key]; ok {
-		return true
-	}
-	needle := strings.ToLower(strings.TrimSpace(key))
-	for currentKey := range values {
-		if strings.ToLower(strings.TrimSpace(currentKey)) == needle {
-			return true
-		}
-	}
-	return false
-}
-
-func caseInsensitiveInlineLookup(values map[string][]string, key string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	if value, ok := values[key]; ok {
-		return value
-	}
-	needle := strings.ToLower(strings.TrimSpace(key))
-	for currentKey, value := range values {
-		if strings.ToLower(strings.TrimSpace(currentKey)) == needle {
-			return value
-		}
-	}
-	return nil
-}
-
-func caseInsensitiveInlineHasKey(values map[string][]string, key string) bool {
-	if len(values) == 0 {
-		return false
-	}
-	if _, ok := values[key]; ok {
-		return true
-	}
-	needle := strings.ToLower(strings.TrimSpace(key))
-	for currentKey := range values {
-		if strings.ToLower(strings.TrimSpace(currentKey)) == needle {
-			return true
-		}
-	}
-	return false
+	var zero T
+	return zero, false
 }

@@ -17,7 +17,6 @@ func (s *Service) cacheFileContext(path string, ctx FileContext, generation uint
 		return
 	}
 	if s.cacheLimit > 0 && s.fileCtxList.Len() >= s.cacheLimit {
-		// Evict LRU (tail)
 		back := s.fileCtxList.Back()
 		if back != nil {
 			entry := back.Value.(struct {

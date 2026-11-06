@@ -4,16 +4,6 @@ import (
 	"strings"
 )
 
-func splitFindDirectoryAndContent(pattern string) (string, string) {
-	parts := strings.SplitN(pattern, "/", 2)
-	dirPattern := parts[0]
-	contentPattern := ""
-	if len(parts) > 1 {
-		contentPattern = parts[1]
-	}
-	return dirPattern, contentPattern
-}
-
 func unionSortedPaths(left, right []string) []string {
 	if len(left) == 0 {
 		return append([]string(nil), right...)

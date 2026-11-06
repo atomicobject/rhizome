@@ -49,7 +49,7 @@ func TestRunLiveRecipeDiscoveryMatchesSupportedSources(t *testing.T) {
 					require.NoError(t, os.MkdirAll(path, 0o755))
 				}
 			}
-			run, err := RunLive(context.Background(), testProjectionNoteMetadata(t), obsidian.VaultDefinition{Path: root}, 100)
+			run, err := RunLive(context.Background(), testProjectionNoteMetadata(t), obsidian.VaultDefinition{Path: root}, 100, nil)
 			require.NoError(t, err)
 			outcomeFound := false
 			for _, outcome := range run.Result.Outcomes {
@@ -98,7 +98,7 @@ func TestRunLiveReportsDanglingRecipeRoots(t *testing.T) {
 			if err := os.Symlink(filepath.Join(root, "missing-target"), path); err != nil {
 				t.Skipf("symlinks unavailable: %v", err)
 			}
-			run, err := RunLive(context.Background(), testProjectionNoteMetadata(t), obsidian.VaultDefinition{Path: root}, 100)
+			run, err := RunLive(context.Background(), testProjectionNoteMetadata(t), obsidian.VaultDefinition{Path: root}, 100, nil)
 			require.NoError(t, err)
 			require.False(t, run.Result.OK)
 			require.Equal(t, 1, run.Result.IssueCount)

@@ -316,12 +316,6 @@ func pruneOrphanExternalTargetsTx(ctx context.Context, tx *sql.Tx) error {
 	return err
 }
 
-// PruneOrphanExternalTargets removes unused raw mappings and catalog rows.
-func (s *Store) PruneOrphanExternalTargets(ctx context.Context) error {
-	ctx = indexingperf.WithOp(ctx, "intel.prune_external_targets")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error { return pruneOrphanExternalTargetsTx(ctx, tx) })
-}
-
 // ExternalTargets returns the canonical pathless catalog in deterministic order.
 func (s *Store) ExternalTargets(ctx context.Context) ([]codeanchor.ExternalTargetRow, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT external_id, handle, ecosystem, module, symbol_path, target_kind

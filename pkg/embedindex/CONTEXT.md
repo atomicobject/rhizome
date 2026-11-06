@@ -10,6 +10,7 @@ Owns note, code, and ontology chunk planning, hash-addressed reuse, provider exe
 - **Note planning**: source loading and metadata batching have separate helpers. Metadata acknowledgements also select the planning context so a failed earlier batch cannot strand queued notes. Planning joins workers and metadata batching, then flushes the queued metadata barrier before returning. SourceHighWater controls skip decisions; LastSync is diagnostic.
 - **Content ownership**: ontology partitions source body parts, anchors extracts source spans, and markdownsyntax owns rune-overlap splitting. Indexing and query share persisted labels through the embeddings leaf. Query packages do not import embedindex.
 - **Diagnostics**: preparation records planned/reused work; ontology embedded counts advance after provider success. Compute performs no durable writes. Chunk, vector, and state publication keep owning phases.
+- **Ontology execution**: `ComputeDerived` owns bounded slice scheduling and retains successful slices after a sibling fails. Direct-provider slices make one gated physical call; compatible shared nodes retain their own batching. Code writeback producers submit batched items through the queue and drain before freshness publication.
 
 ### Deep docs
 

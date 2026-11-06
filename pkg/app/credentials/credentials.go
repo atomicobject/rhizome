@@ -137,17 +137,6 @@ func CollectEmbeddingsNeeds(cfg *repoconfig.LocalConfig) []Need {
 	return needs
 }
 
-// CollectCompressionNeeds gathers the need for the active compression
-// provider, if any.
-func CollectCompressionNeeds(cfg *repoconfig.LocalConfig) []Need {
-	provider := ActiveCompressionProvider(cfg)
-	need, ok := NeedForProvider(provider, "compression")
-	if !ok {
-		return nil
-	}
-	return []Need{need}
-}
-
 // ActiveCompressionProvider returns the provider compression will use, or ""
 // when compression is disabled or would not auto-enable.
 func ActiveCompressionProvider(cfg *repoconfig.LocalConfig) string {
