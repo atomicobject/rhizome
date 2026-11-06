@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,7 +54,8 @@ func TestRepairWaiterRecoversExpiredPriority(t *testing.T) {
 			return false
 		}
 		for _, request := range requests {
-			if request.Name() == entries[0].Name() {
+			// Wait for the final request, not its temporary publication file.
+			if request.Name() == entries[0].Name() || !strings.HasSuffix(request.Name(), ".json") {
 				return false
 			}
 		}
