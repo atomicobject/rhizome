@@ -4,10 +4,8 @@ description: "Browse, query, and trace an existing AO KB's sources, assertions, 
 requires:
   - core
 optionalAddon: true
-# TODO(SPEC-0133 lane B): declare the AO-owned source paths (assertions/, sources/,
-# concepts/, artifacts/, .kb/curation/_conflicts.md) through the read-only source
-# ownership mechanism once it lands. Until then these records are not protected from
-# Rhizome writes; the setup skill and check action report ownership as pending.
+# repo/.rhizome/source-ownership.yml declares AO-owned paths at install, before any
+# binding or index exists. Init keeps local edits; deleting it ends the protection.
 installedAssetTypes:
   - ontology
   - query-recipes

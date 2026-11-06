@@ -64,8 +64,18 @@ export function check(root) {
       ? 'Simple includes cover AO Markdown paths, including .kb/curation/_conflicts.md. Ignore rules may still exclude files; prove projection after indexing.'
       : 'Coverage not established by simple includes. Inspect notes.includes and ignore rules; append required AO paths without replacing unrelated rules.', configPath);
   });
-  // TODO(SPEC-0133 lane B): replace this diagnostic after source ownership admission lands.
-  add('source ownership', 'pending', 'Lane B has not landed. AO-owned records are not protected from Rhizome writes; use AO KB skills to change knowledge.', module);
+  const ownershipPath = '.rhizome/source-ownership.yml';
+  inspect('source ownership', ownershipPath, () => {
+    const declared = new Set((read(root, ownershipPath) ?? '').split('\n')
+      .map(line => line.match(/^\s*-\s*['"]?([^'"#\s]+)['"]?\s*(?:#.*)?$/)?.[1]).filter(Boolean));
+    const required = ['.kb/**', 'assertions/**', 'sources/**', 'concepts/**', 'artifacts/**'];
+    const missing = required.filter(path => !declared.has(path));
+    add('source ownership', declared.size === 0 ? 'error' : missing.length ? 'warning' : 'ok', declared.size === 0
+      ? 'No source ownership declaration: AO-owned records are editable through Rhizome. Re-run init with the ao-kb add-on or restore the file.'
+      : missing.length
+      ? `Ownership declaration does not list ${missing.join(', ')}; Rhizome can edit those AO records.`
+      : 'AO KB knowledge paths are declared AO-owned; Rhizome refuses native edits to them.', ownershipPath);
+  });
   inspect('knowledge bindings', `${module}/ontology`, () => {
     const dir = join(root, module, 'ontology');
     const installed = existsSync(dir) && readdirSync(dir).some(name => name.endsWith('.graphql'));

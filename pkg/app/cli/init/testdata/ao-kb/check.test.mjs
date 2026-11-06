@@ -31,7 +31,7 @@ test('checks static readiness, limitations and unavailable analysis without writ
   const before = snapshot();
   const result = check(root);
   for (const name of ['starter installed', 'AO KB root', 'schemaVersion', 'product mode', 'note includes', 'knowledge bindings']) assert.equal(named(root, name).status, 'ok');
-  assert.equal(named(root, 'source ownership').status, 'pending');
+  assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
   assert.equal(named(root, 'product-model bindings').status, 'unsupported');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
   assert.equal(result.checks.length, 10);
@@ -78,4 +78,13 @@ test('include coverage preserves uncertainty and requires hidden registry covera
   const root = fixture(t, { '.kb/curation/_conflicts.md': '# Conflicts\n' });
   assert.equal(named(root, 'note includes').status, 'warning');
   assert.match(named(root, 'note includes').message, /hidden directories/);
+});
+
+test('source ownership is ok only when the AO knowledge paths are declared', t => {
+  const full = "sources:\n  - owner: AO KB\n    reason: AO KB writes these.\n    paths:\n      - .kb/**\n      - assertions/**\n      - sources/**\n      - concepts/**\n      - artifacts/**\n";
+  assert.equal(named(fixture(t, { '.rhizome/source-ownership.yml': full }), 'source ownership').status, 'ok');
+  const partial = full.replace('      - concepts/**\n', '');
+  const result = named(fixture(t, { '.rhizome/source-ownership.yml': partial }), 'source ownership');
+  assert.equal(result.status, 'warning');
+  assert.match(result.message, /concepts\/\*\*/);
 });

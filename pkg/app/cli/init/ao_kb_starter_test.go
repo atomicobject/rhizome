@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -59,9 +60,17 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 				".agents/skills/ao-kb-setup/SKILL.md",
 				".claude/skills/ao-kb-setup/SKILL.md",
 				"docs/reference/guides/ao-kb.md",
+				sourceownership.DeclarationPath,
 			} {
 				require.FileExists(t, filepath.Join(root, path))
 			}
+			// Ownership is established at install, before any binding or index exists.
+			var refusal *sourceownership.Refusal
+			for _, owned := range []string{"assertions/claim.md", ".kb/curation/_conflicts.md", "sources/_raw/input.md", "products/billing/concepts/term.md"} {
+				require.ErrorAs(t, sourceownership.Check(root, []string{owned}), &refusal, owned)
+				require.Equal(t, "AO KB", refusal.Owner)
+			}
+			require.NoError(t, sourceownership.Check(root, []string{"docs/reference/guides/ao-kb.md", "notes/team.md"}))
 			before := aoKBFiles(t, root)
 			requireUpToDate(t, root)
 			require.Equal(t, before, aoKBFiles(t, root), "re-init and --check change no bytes")
@@ -74,11 +83,13 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 				_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: "ao-kb"})
 				require.NoError(t, err)
 				require.NoFileExists(t, filepath.Join(root, ".agents/skills/ao-kb-setup/SKILL.md"))
+				require.FileExists(t, filepath.Join(root, sourceownership.DeclarationPath), "protection ends only when the declaration is deleted explicitly")
 			} else {
 				_, err = runInit(t, RunOptions{Dir: root, Eject: "ao-kb"})
 				require.NoError(t, err)
 				require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "ao-kb")
 				require.FileExists(t, filepath.Join(root, ".agents/skills/ao-kb-setup/SKILL.md"))
+				require.FileExists(t, filepath.Join(root, sourceownership.DeclarationPath), "ejection keeps protection")
 				_, err = runInit(t, RunOptions{Dir: root, AddAddon: "ao-kb"})
 				require.ErrorContains(t, err, "use --restore ao-kb")
 			}
@@ -99,4 +110,22 @@ func TestAOKBStarterFirstInit(t *testing.T) {
 	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateAddons.Enabled, "ao-kb")
 	require.FileExists(t, filepath.Join(root, ".rhizome/modules/ao-kb/actions/check.yaml"))
 	requireUpToDate(t, root)
+}
+
+func TestAOKBStarterPreservesAnEditedOwnershipDeclaration(t *testing.T) {
+	root := t.TempDir()
+	writeProjectConfig(t, root, "notes:\n  includes: [\"**/*.md\"]\n", repoconfig.LocalWorkflowConfig{})
+	_, err := runInit(t, RunOptions{Dir: root, AddAddon: "ao-kb"})
+	require.NoError(t, err)
+	declaration := filepath.Join(root, sourceownership.DeclarationPath)
+	data, err := os.ReadFile(declaration)
+	require.NoError(t, err)
+	edited := string(data) + "      - knowledge/**\n"
+	require.NoError(t, os.WriteFile(declaration, []byte(edited), 0o644))
+	_, err = runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+	data, err = os.ReadFile(declaration)
+	require.NoError(t, err)
+	require.Equal(t, edited, string(data))
+	require.Error(t, sourceownership.Check(root, []string{"knowledge/extra.md"}))
 }

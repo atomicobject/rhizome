@@ -6,7 +6,7 @@ The optional `ao-kb` starter presents an existing AO KB's Markdown knowledge in 
 
 Run from the vault root, using the repository's Rhizome launcher in place of `rzm`:
 
-1. Run `rzm init --add-addon ao-kb` for an existing Rhizome repository, or `rzm init --addons ao-kb` on first init. Init installs static assets; it does not run a project-specific compiler.
+1. Run `rzm init --add-addon ao-kb` for an existing Rhizome repository, or `rzm init --addons ao-kb` on first init. Init installs static assets; it does not run a project-specific compiler. It installs `.rhizome/source-ownership.yml` before anything is indexed, so AO's files are protected from the start.
 2. Run `rzm init --check`. This checks managed files only.
 3. Run `rzm module ao-kb check`. This is the starter's deterministic, read-only prerequisite action. It requires Node, uses no network, and returns JSON with named checks, status, message, and evidence path. Status is `ok`, `warning`, `error`, `pending`, or `unsupported`; successful action execution alone does not mean setup is ready.
 4. Resolve prerequisite errors before indexing. `.kb/config/vault.md` must exist at the vault root. SchemaVersion 8 is the inspected baseline; older versions are unsupported, so upgrade AO KB first. A multi-product KB needs product selection, arriving with model bindings; current knowledge views show all products. An unknown or newer schema requires a compatible adapter.
@@ -17,7 +17,7 @@ Report **starter installed**, **bindings ready**, and **index ready** separately
 
 ## Release boundaries
 
-Source ownership is **pending SPEC-0133 lane B**. AO-owned records are not yet protected from Rhizome writes. Change knowledge through AO's `/ao-kb:process`, `/ao-kb:curate`, and `/ao-kb:suggest` skills. The setup skill never invokes AO ingestion, curation, generation, or publishing.
+`.rhizome/source-ownership.yml` declares AO KB's standard layout AO-owned: `.kb/`, `assertions/`, `sources/`, `concepts/`, `artifacts/`, `decisions.md`, `_moc.md`, `MOCs/`, `_improvements/`, and the same paths under every `products/<slug>/` root, whether or not that product is selected. Rhizome refuses native edits to those files, including field edits, body edits, moves, link repairs, and edits staged before the declaration changed, and its editor shows the declared reason. This is an application boundary, not a file permission: AO skills and external editors still change the files, and Rhizome does not claim their edits passed AO validation. Add any other AO-authored location your KB uses; never add unrelated notes. Re-running init keeps your edits. Removing the add-on keeps the declaration; delete it explicitly to end the protection. Change knowledge through AO's `/ao-kb:process`, `/ao-kb:curate`, and `/ao-kb:suggest` skills. The setup skill never invokes AO ingestion, curation, generation, or publishing.
 
 Product-model bindings, product selection, and the binding compiler/refresh action are unavailable in this release. Static Markdown bindings need no compilation. Model recipes cannot produce model records until those bindings arrive.
 
