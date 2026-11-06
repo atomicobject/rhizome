@@ -142,7 +142,7 @@ function positionFolderGraph(
       const local = angle - direction;
       const depth = path.split("/").length;
       const axial = Math.cos(local) * distance * (depth > 2 ? 3.5 : depth > 1 ? 1.3 : 0.65);
-      const lateral = Math.sin(local) * distance * 1.4;
+      const lateral = Math.sin(local) * distance * (depth > 1 ? 1.9 : 1.4);
 
       let point = root
         ? {

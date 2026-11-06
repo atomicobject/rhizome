@@ -1,3 +1,7 @@
+import { outwardSpots, type Box, type Spot } from "./outwardLabelSpots";
+
+export { outwardSpots } from "./outwardLabelSpots";
+
 import { LabelBlockers } from "./labelBlockers";
 import { resolveCssColor } from "../lib/themeColors";
 import { noteLabelLines, selectedNoteSpot } from "./sigmaLabelText";
@@ -5,10 +9,6 @@ import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
 import type Sigma from "sigma";
 import type { NodeLabelDrawingFunction } from "sigma/rendering";
 import type { SigmaEdgeAttrs } from "../lib/graphStyle";
-
-type Box = [left: number, top: number, right: number, bottom: number];
-
-type Spot = { x: number; y: number; box: Box; detail?: boolean };
 
 type LabelColors = { label: string; canvas: string; edgeLabel?: string };
 
@@ -55,7 +55,6 @@ function spotsAround(
   size: number,
   left = false,
   landmark = false,
-  nearby = false,
 ): Spot[] {
   const gap = r + 12;
   const middle = y + size * 0.35;
@@ -68,11 +67,7 @@ function spotsAround(
   });
 
   return (
-    nearby
-      ? [0, size, size * 2]
-      : landmark
-        ? [0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256]
-        : [0, 16, 32, 48, 64, 80, 96]
+    landmark ? [0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256] : [0, 16, 32, 48, 64, 80, 96]
   ).flatMap((offset) => [
     at(left ? x - gap - offset - width : x + gap + offset, middle),
     at(left ? x + gap + offset : x - gap - offset - width, middle),
@@ -83,29 +78,6 @@ function spotsAround(
     at(x - gap - offset + 2 - width, y - corner - offset - 2),
     at(x - gap - offset + 2 - width, y + corner + offset + size),
   ]);
-}
-
-/** Fixed Explorer labels stay on the outward side, within a short leader of the disc. */
-export function outwardSpots(
-  x: number,
-  y: number,
-  r: number,
-  width: number,
-  size: number,
-  dx: number,
-  dy: number,
-): Spot[] {
-  const length = Math.hypot(dx, dy) || 1;
-  const side = dx / length;
-
-  return [0, 4, -4].map((nudge) => {
-    const sx = side >= 0.35 ? x + r + 6 : side <= -0.35 ? x - r - 6 - width : x - width / 2 + nudge;
-
-    const sy =
-      Math.abs(side) >= 0.35 ? y + size * 0.35 + nudge : dy < 0 ? y - r - 6 : y + r + 6 + size;
-
-    return { x: sx, y: sy, box: [sx - PAD_X, sy - size, sx + width + PAD_X, sy + 4] satisfies Box };
-  });
 }
 
 export function createLabelPainter(
@@ -155,6 +127,7 @@ export function createLabelPainter(
       center: boolean;
       landmark: boolean;
       fixed: boolean;
+      fan: boolean;
       dx: number;
       dy: number;
     }[] = [];
@@ -190,6 +163,7 @@ export function createLabelPainter(
           center: Boolean(attrs.explorerLabels && attrs.center),
           landmark: Boolean(attrs.fixed && attrs.kind === "module"),
           fixed: Boolean(attrs.fixed),
+          fan: Boolean(attrs.fixed && attrs.branch && !attrs.center && attrs.kind === "module"),
           dx: id === "folder:" ? 0 : x - origin.x,
           dy: id === "folder:" ? 1 : y - origin.y,
         });
@@ -205,7 +179,13 @@ export function createLabelPainter(
       if (display && !display.hidden && a && b) segments.push([a.x, a.y, b.x, b.y]);
     });
 
-    labeled.sort((a, b) => b.priority - a.priority || b.r - a.r || a.id.localeCompare(b.id));
+    labeled.sort(
+      (a, b) =>
+        b.priority - a.priority ||
+        Number(b.fan) - Number(a.fan) ||
+        (a.fan ? a.y - b.y : b.r - a.r) ||
+        a.id.localeCompare(b.id),
+    );
 
     const blockerIndex = new LabelBlockers(discs);
 
@@ -264,19 +244,46 @@ export function createLabelPainter(
         const width = Math.max(measure(context, node.label), measure(context, node.detail));
 
         function* candidates() {
-          yield* outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy);
-          yield* spotsAround(node.x, node.y, node.r, width, size, node.left, false, true);
+          if (!node.fan) {
+            yield* outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy);
+            yield* spotsAround(node.x, node.y, node.r, width, size, node.left, true);
+
+            return;
+          }
+
+          // Shared rows reserve room for counts before a larger sibling can consume it.
+          const step = size * 2 + 15;
+          const row = Math.round(node.y / step);
+          const horizontal = Math.abs(node.dx) >= Math.hypot(node.dx, node.dy) * 0.35;
+
+          for (const shift of [0, 1, -1, 2, -2, 3, -3, 4, -4, 8, -8, 12, -12, 16, -16]) {
+            for (const offset of [0, 16, 32, 48, 64, 96, 128, 192, 256, 384, 512])
+              yield* outwardSpots(
+                node.x + (horizontal ? Math.sign(node.dx) * offset : 0),
+                horizontal ? (row + shift) * step : node.y + Math.sign(node.dy) * offset,
+                node.r,
+                width,
+                size,
+                node.dx,
+                node.dy,
+              );
+          }
         }
 
         let chosen: Spot | undefined;
-        let first: Spot | undefined;
 
         for (const spot of candidates()) {
-          if (detail && spot.box[3] < node.y) {
+          if (detail && !node.fan && spot.box[3] < node.y) {
             spot.y -= size + 3;
             spot.box[1] -= size + 3;
           } else if (detail) spot.box[3] += size + 3;
-          first ??= spot;
+
+          if (!attrs.branch || attrs.center) {
+            const shift = Math.max(0, -spot.box[0]) - Math.max(0, spot.box[2] - viewWidth);
+            spot.x += shift;
+            spot.box[0] += shift;
+            spot.box[2] += shift;
+          }
 
           if (
             spot.box[0] >= 0 &&
@@ -290,12 +297,10 @@ export function createLabelPainter(
           }
         }
 
-        if (!chosen && attrs.muted && !attrs.aggregate) {
+        if (!chosen) {
           spots.set(at(node.x, node.y), null);
           continue;
         }
-
-        chosen ??= first!;
 
         chosen.detail = detail;
         addPlaced(chosen.box);

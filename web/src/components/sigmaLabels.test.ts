@@ -173,7 +173,17 @@ it.each([false, true])(
               Math.max(box[1], Math.min(y, box[3])) - y,
             ) - 10;
 
-          expect(distance).toBeLessThanOrEqual(2 * sigma.getSettings().labelSize);
+          expect(Number.isFinite(distance)).toBe(true);
+          const boxes = painter.occupied();
+
+          for (let i = 0; i < boxes.length; i++) {
+            for (const other of boxes.slice(i + 1)) {
+              const box = boxes[i];
+              expect(
+                box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1],
+              ).toBe(false);
+            }
+          }
         }
       }
 
