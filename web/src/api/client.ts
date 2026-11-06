@@ -667,7 +667,11 @@ export function listPublicViewFieldCandidates(
 }
 
 export function getTree(path?: string, limit: number = 200, requestOptions: RequestOptions = {}) {
-  const suffix = path ? `?path=${encodeURIComponent(path)}&limit=${limit}` : "";
+  const params = new URLSearchParams({ limit: String(limit) });
+
+  if (path) params.set("path", path);
+
+  const suffix = `?${params}`;
 
   return fetchJSON<TreeResponse>(`/api/v1/files/tree${suffix}`, requestInit(requestOptions));
 }

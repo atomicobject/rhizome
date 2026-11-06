@@ -2446,6 +2446,7 @@ components:
           items:
             $ref: "#/components/schemas/TreeEntry"
         truncated: { type: boolean }
+        omitted: { type: integer }
     RelatedNote:
       type: object
       required: [path]

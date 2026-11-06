@@ -1490,6 +1490,7 @@ export interface components {
       path: string;
       entries: components["schemas"]["TreeEntry"][];
       truncated?: boolean;
+      omitted?: number;
     };
     RelatedNote: {
       path: string;
