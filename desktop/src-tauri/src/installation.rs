@@ -78,25 +78,18 @@ fn prepare_metadata(identifier: &str, version: &str) -> Result<Prepared, String>
         .join(if cfg!(windows) { "rzm.exe" } else { "rzm" });
     let app_path = paths::durable_app(&current)?;
     let root = paths::base()?.join(identifier);
-    let prepared = prepare_image(root, app_path, identifier.into(), version.into(), &source)?;
     #[cfg(target_os = "linux")]
-    {
-        let _lock = lock(&prepared.root)?;
-        if read_registration(&prepared.root)?.is_some_and(|record| {
-            record.enabled
-                && record.app_path == prepared.app_path
-                && record.image_hash == prepared.hash
-        }) {
-            *prepared.integration_error.lock().unwrap() = desktop_entry::register(
-                &paths::account_home()?,
-                identifier,
-                &prepared.app_path,
-                None,
-            )
-            .err();
-        }
-    }
-    Ok(prepared)
+    let desktop_home = Some(paths::account_home()?);
+    #[cfg(not(target_os = "linux"))]
+    let desktop_home: Option<PathBuf> = None;
+    prepare_image(
+        root,
+        app_path,
+        identifier.into(),
+        version.into(),
+        &source,
+        desktop_home.as_deref(),
+    )
 }
 
 pub fn sidecar() -> Option<PathBuf> {
@@ -217,6 +210,7 @@ fn prepare_image(
     identifier: String,
     version: String,
     source: &Path,
+    _desktop_home: Option<&Path>,
 ) -> Result<Prepared, String> {
     if !app_path.is_absolute() || !app_path.is_file() {
         return Err("The installed Rhizome app is unavailable.".into());
@@ -279,6 +273,29 @@ fn prepare_image(
         ),
         _ => None,
     };
+    #[cfg(all(unix, any(target_os = "linux", test)))]
+    if let Some(home) = _desktop_home {
+        if next.as_ref().or(current.as_ref()).is_some_and(|record| {
+            record.enabled
+                && record.app_path == prepared.app_path
+                && record.image_hash == prepared.hash
+        }) {
+            let previous = current.as_ref().filter(|_| next.is_some());
+            let result = desktop_entry::register(
+                home,
+                &prepared.identifier,
+                &prepared.app_path,
+                previous.map(|record| record.app_path.as_path()),
+            );
+            if let Err(error) = result {
+                *prepared.integration_error.lock().unwrap() = Some(error);
+                if previous.is_some_and(|record| record.app_path != prepared.app_path) {
+                    // Preserve the old launcher's owner until relocation can be retried.
+                    return Ok(prepared);
+                }
+            }
+        }
+    }
     if let Some(record) = next {
         write_registration(&prepared.root, &record)?;
         prepared

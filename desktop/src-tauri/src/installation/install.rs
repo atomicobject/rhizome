@@ -67,6 +67,7 @@ mod tests {
                 "com.atomicobject.rhizome".into(),
                 "1.0.0".into(),
                 &source,
+                None,
             )
             .unwrap();
             change_prepared_registration(&prepared, true).unwrap();
@@ -86,6 +87,7 @@ mod tests {
                 "com.atomicobject.rhizome".into(),
                 "1.0.0".into(),
                 &source,
+                None,
             )
             .unwrap();
             let mut disabled = read_registration(&root).unwrap().unwrap();
@@ -99,6 +101,7 @@ mod tests {
                 "com.atomicobject.rhizome".into(),
                 "1.1.0".into(),
                 &source,
+                None,
             )
             .unwrap();
             assert!(!read_registration(&root).unwrap().unwrap().enabled);
@@ -119,6 +122,7 @@ mod tests {
                 "com.atomicobject.rhizome".into(),
                 "1.0.0".into(),
                 &source,
+                None,
             )
             .unwrap();
             let replacement = directory.path().join("new-install/Rhizome.exe");
@@ -130,6 +134,7 @@ mod tests {
                 "com.atomicobject.rhizome".into(),
                 "1.0.0".into(),
                 &source,
+                None,
             )
             .unwrap();
             assert_ne!(

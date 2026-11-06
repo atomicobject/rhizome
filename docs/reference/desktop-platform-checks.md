@@ -1,7 +1,7 @@
 ---
 summary: "Installed Windows and Linux desktop acceptance, including test-key upgrades and removal."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 ---
 
 # Windows and Linux desktop checks
@@ -26,6 +26,8 @@ chmod +x ~/Applications/Rhizome.AppImage
 ```
 
 Use the downloaded filename when it differs. Keep this path writable and stable for updates and CLI launch. After first launch, open Rhizome from the GNOME applications menu too. An edited or foreign launcher at `~/.local/share/applications/com.atomicobject.rhizome.desktop` must be preserved. If FUSE is missing, Ubuntu 24.04 uses `libfuse2t64`; see the [AppImage FUSE instructions](https://docs.appimage.org/user-guide/troubleshooting/fuse.html). Use the packaged AppImage for acceptance, rather than an extracted development executable.
+
+Also quit and move the registered AppImage to another durable path, launch it there, and confirm the owned applications-menu launcher opens the new location. If a foreign launcher prevents repair, it must remain untouched and the app must report the integration error so the move can be retried. A disabled integration must stay disabled.
 
 ## Exercise the installed app
 

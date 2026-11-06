@@ -19,6 +19,7 @@ fn materialized_image_survives_source_removal_and_rejects_tampering() {
         "com.atomicobject.rhizome".into(),
         "1.0.0".into(),
         &source,
+        None,
     )
     .unwrap();
     fs::remove_file(&source).unwrap();
@@ -30,7 +31,8 @@ fn materialized_image_survives_source_removal_and_rejects_tampering() {
         app,
         "com.atomicobject.rhizome".into(),
         "1.0.0".into(),
-        &source
+        &source,
+        None,
     )
     .unwrap_err()
     .contains("changed"));
@@ -45,6 +47,7 @@ fn startup_cannot_roll_back_registration_or_reenable_a_tombstone() {
         "com.atomicobject.rhizome".into(),
         "1.0.0".into(),
         &source,
+        None,
     )
     .unwrap();
     fs::write(&source, "version two").unwrap();
@@ -54,6 +57,7 @@ fn startup_cannot_roll_back_registration_or_reenable_a_tombstone() {
         "com.atomicobject.rhizome".into(),
         "1.1.0".into(),
         &source,
+        None,
     )
     .unwrap();
     assert!(second.generation.load(Ordering::Acquire) > first.generation.load(Ordering::Acquire));
@@ -64,6 +68,7 @@ fn startup_cannot_roll_back_registration_or_reenable_a_tombstone() {
         "com.atomicobject.rhizome".into(),
         "1.0.0".into(),
         &source,
+        None,
     )
     .unwrap();
     let mut record = read_registration(&root).unwrap().unwrap();
@@ -78,6 +83,7 @@ fn startup_cannot_roll_back_registration_or_reenable_a_tombstone() {
         "com.atomicobject.rhizome".into(),
         "1.2.0".into(),
         &source,
+        None,
     )
     .unwrap();
     let after = read_registration(&root).unwrap().unwrap();
@@ -98,6 +104,7 @@ fn aliased_configuration_keeps_cli_entry_ownership_after_update() {
         "com.atomicobject.rhizome".into(),
         "1.0.0".into(),
         &source,
+        None,
     )
     .unwrap();
     let entry = directory.path().join("terminal-rzm");
@@ -109,9 +116,178 @@ fn aliased_configuration_keeps_cli_entry_ownership_after_update() {
         "com.atomicobject.rhizome".into(),
         "1.1.0".into(),
         &source,
+        None,
     )
     .unwrap();
     entry::refresh(&second.root, &second.image, &entry).unwrap();
     assert_eq!(second.root, root.canonicalize().unwrap());
     assert_eq!(fs::read_link(&entry).unwrap(), second.image);
+}
+
+#[cfg(unix)]
+#[test]
+fn moving_registered_app_retargets_its_owned_desktop_launcher() {
+    let (directory, root, app, source) = fixture();
+    let first = prepare_image(
+        root.clone(),
+        app.clone(),
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    let selected = directory.path().join("Moved Rhizome.AppImage");
+    fs::rename(&app, &selected).unwrap();
+    let moved = prepare_image(
+        root.clone(),
+        selected.clone(),
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    assert!(moved.integration_error.lock().unwrap().is_none());
+    let location = desktop_entry::location(directory.path(), &moved.identifier).unwrap();
+    let launcher = fs::read_to_string(location.entry).unwrap();
+    assert!(launcher.contains(&format!("TryExec={}\n", selected.display())));
+    assert!(!launcher.contains(&format!("TryExec={}\n", app.display())));
+    let current = read_registration(&root).unwrap().unwrap();
+    assert_eq!(current.app_path, selected);
+    assert_eq!(
+        current.generation,
+        first.generation.load(Ordering::Acquire) + 1
+    );
+    assert!(change_prepared_registration(&first, true)
+        .unwrap_err()
+        .contains("changed"));
+    assert_eq!(
+        fs::read_to_string(
+            desktop_entry::location(directory.path(), &moved.identifier)
+                .unwrap()
+                .entry
+        )
+        .unwrap(),
+        launcher
+    );
+    fs::write(&app, "old app process").unwrap();
+    prepare_image(
+        root.clone(),
+        app,
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    assert_eq!(
+        read_registration(&root).unwrap().unwrap().app_path,
+        selected
+    );
+    assert_eq!(
+        fs::read_to_string(
+            desktop_entry::location(directory.path(), &moved.identifier)
+                .unwrap()
+                .entry
+        )
+        .unwrap(),
+        launcher
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn failed_relocation_preserves_launcher_ownership_for_retry() {
+    let (directory, root, app, source) = fixture();
+    let first = prepare_image(
+        root.clone(),
+        app.clone(),
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    let location = desktop_entry::location(directory.path(), &first.identifier).unwrap();
+    let owned_launcher = fs::read(&location.entry).unwrap();
+    let selected = directory.path().join("Moved Rhizome.AppImage");
+    fs::rename(&app, &selected).unwrap();
+    fs::write(&location.entry, b"[Desktop Entry]\nName=User entry\n").unwrap();
+    let failed = prepare_image(
+        root.clone(),
+        selected.clone(),
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    assert!(failed.integration_error.lock().unwrap().is_some());
+    let unchanged = read_registration(&root).unwrap().unwrap();
+    assert_eq!(unchanged.app_path, app);
+    assert_eq!(
+        unchanged.generation,
+        first.generation.load(Ordering::Acquire)
+    );
+    assert_eq!(
+        fs::read(&location.entry).unwrap(),
+        b"[Desktop Entry]\nName=User entry\n"
+    );
+    fs::write(&location.entry, owned_launcher).unwrap();
+    let retried = prepare_image(
+        root.clone(),
+        selected.clone(),
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    assert!(retried.integration_error.lock().unwrap().is_none());
+    assert_eq!(
+        read_registration(&root).unwrap().unwrap().app_path,
+        selected
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn moving_a_disabled_app_does_not_recreate_its_desktop_launcher() {
+    let (directory, root, app, source) = fixture();
+    let first = prepare_image(
+        root.clone(),
+        app.clone(),
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    desktop_entry::remove(directory.path(), &first.identifier, &app).unwrap();
+    let mut disabled = read_registration(&root).unwrap().unwrap();
+    disabled.enabled = false;
+    disabled.generation += 1;
+    write_registration(&root, &disabled).unwrap();
+    let selected = directory.path().join("Moved Rhizome.AppImage");
+    fs::rename(&app, &selected).unwrap();
+    prepare_image(
+        root.clone(),
+        selected,
+        "com.atomicobject.rhizome".into(),
+        "1.0.0".into(),
+        &source,
+        Some(directory.path()),
+    )
+    .unwrap();
+    let after = read_registration(&root).unwrap().unwrap();
+    assert!(!after.enabled);
+    assert_eq!(after.app_path, disabled.app_path);
+    assert_eq!(after.generation, disabled.generation);
+    assert!(
+        !desktop_entry::location(directory.path(), &first.identifier)
+            .unwrap()
+            .entry
+            .exists()
+    );
 }
