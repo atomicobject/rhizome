@@ -1,0 +1,165 @@
+# Knowledge convention adapter for AO KB schemaVersion 8, toolkit e9dce951.
+# TODO(SPEC-0133 lane B): @policy is advisory, not source-ownership enforcement.
+# TODO(SPEC-0133 lane D): provenance.source/locator/speaker/speaker_role/quote_hash/
+# extracted_by remain in source content. Indexed frontmatter currently drops objects;
+# a coherent durable raw-metadata read is a named platform deficiency.
+# Deficiencies: flat section-scoped/ordered links and frontmatter connection-shape
+# adaptation are unavailable. The explicit section nodes below preserve authored data.
+
+"""An atomic AO KB claim. The note body is the claim, not an evidence quotation. Structured sections remain separately addressable."""
+type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @display(group: "Knowledge") {
+  """AO logical identity, distinct from the native nodeId and physical note path."""
+  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
+  headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
+  abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored kind; absent and unknown values are preserved without inferred defaults."""
+  kind: String @field(source: "kind") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored confidence; absent and unknown values are preserved without inferred defaults."""
+  confidence: String @field(source: "confidence") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored attestation; absent and unknown values are preserved without inferred defaults."""
+  attestation: String @field(source: "attestation") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored status; absent and unknown values are preserved without inferred defaults."""
+  status: String @field(source: "status") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored horizon; absent and unknown values are preserved without inferred defaults."""
+  horizon: String @field(source: "horizon") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored priority; absent and unknown values are preserved without inferred defaults."""
+  priority: String @field(source: "priority") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored sensitivity; absent and unknown values are preserved without inferred defaults."""
+  sensitivity: String @field(source: "sensitivity") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored layer; absent and unknown values are preserved without inferred defaults."""
+  layer: String @field(sources: ["layer", "phase"]) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored phase; absent and unknown values are preserved without inferred defaults."""
+  phase: String @field(source: "phase") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored validFrom; absent and unknown values are preserved without inferred defaults."""
+  validFrom: String @field(source: "validFrom") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored validUntil; absent and unknown values are preserved without inferred defaults."""
+  validUntil: String @field(source: "validUntil") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored reviewedBy; absent and unknown values are preserved without inferred defaults."""
+  reviewedBy: String @field(source: "reviewedBy") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored reviewedAt; absent and unknown values are preserved without inferred defaults."""
+  reviewedAt: String @field(source: "reviewedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored withdrawnAt; absent and unknown values are preserved without inferred defaults."""
+  withdrawnAt: String @field(source: "withdrawnAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored withdrawnReason; absent and unknown values are preserved without inferred defaults."""
+  withdrawnReason: String @field(source: "withdrawnReason") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored createdAt; absent and unknown values are preserved without inferred defaults."""
+  createdAt: String @field(source: "createdAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO authored update timestamp, independent of the index or filesystem timestamp."""
+  updatedAt: String @field(source: "updatedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored createdVia; absent and unknown values are preserved without inferred defaults."""
+  createdVia: String @field(source: "createdVia") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored lenses; absent and unknown values are preserved without inferred defaults."""
+  lenses: [String!] @field(source: "lenses") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored products; absent and unknown values are preserved without inferred defaults."""
+  products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored extracted_by; absent and unknown values are preserved without inferred defaults."""
+  extractedBy: String @field(source: "extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored speaker; absent and unknown values are preserved without inferred defaults."""
+  speaker: String @field(source: "speaker") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored speaker_role; absent and unknown values are preserved without inferred defaults."""
+  speakerRole: String @field(source: "speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Raw AO demo-feedback kind:id references; these are not claim-to-claim edges."""
+  contradictsRows: [String!] @field(source: "contradicts_rows") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Raw AO demo-feedback kind:id references; these are not claim-to-claim edges."""
+  supportsRows: [String!] @field(source: "supports_rows") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Ordered citation rows from ## Sources only. Repeated links remain separate rows; incidental links elsewhere are excluded. TODO: flat sources: [Source!] needs ordered section-link support."""
+  sourcesSection: AssertionSources @contains(level: H2, heading: "Sources") @policy(reason: "AO KB owns this authored structure. TODO(SPEC-0133 lane B): write admission.")
+  """AO typed bullets in ## Connections. Read content for unknown declarations; frontmatter connections remain inspectable in the full source content."""
+  connectionsSection: AssertionConnections @contains(level: H2, heading: "Connections") @policy(reason: "AO KB owns this authored structure. TODO(SPEC-0133 lane B): write admission.")
+  """Every outgoing assertion link to a concept, without inventing a primary concept."""
+  concepts: [Concept!] @neighbors(direction: OUTBOUND, type: "Concept")
+  """Incoming authored supports declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  supportedBy: [AssertionConnections!] @reverse(field: "supports")
+  """Incoming authored refines declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  refinedBy: [AssertionConnections!] @reverse(field: "refines")
+  """Incoming authored depends-on declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  dependedOnBy: [AssertionConnections!] @reverse(field: "dependsOn")
+  """Incoming authored contradicts declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  contradictedBy: [AssertionConnections!] @reverse(field: "contradicts")
+  """Incoming authored supersedes declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  supersededBy: [AssertionConnections!] @reverse(field: "supersedes")
+  """Incoming authored resolves declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  resolvedBy: [AssertionConnections!] @reverse(field: "resolves")
+  """Incoming authored duplicate declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  duplicatedBy: [AssertionConnections!] @reverse(field: "duplicate")
+  """Incoming authored relates-to declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  relatedFrom: [AssertionConnections!] @reverse(field: "relatesTo")
+  """Incoming authored traces-to declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  tracedFrom: [AssertionConnections!] @reverse(field: "tracesTo")
+  """Incoming authored grounds declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  groundedBy: [AssertionConnections!] @reverse(field: "grounds")
+  """Incoming authored exemplifies declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  exemplifiedBy: [AssertionConnections!] @reverse(field: "exemplifies")
+  """Incoming authored implements declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  implementedBy: [AssertionConnections!] @reverse(field: "implements")
+  """Incoming authored actor-of declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  hasActor: [AssertionConnections!] @reverse(field: "actorOf")
+  """Incoming authored element-depends-on declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
+  elementDependedOnBy: [AssertionConnections!] @reverse(field: "elementDependsOn")
+}
+
+"""Only an assertion's ## Sources section. Citations retain list order and multiplicity."""
+type AssertionSources implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
+  """Each authored Sources bullet, including unresolved and repeated citations. Inspect content for its exact authored reference."""
+  citations: [SourceCitation!] @contains(shape: LIST_ITEM) @policy(reason: "AO KB owns this authored structure. TODO(SPEC-0133 lane B): write admission.")
+}
+
+"""One citation bullet; this native embedded row preserves an authored citation occurrence, not a deduplicated evidence set."""
+type SourceCitation implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
+  """Exact authored bullet text without the list marker. Preserves repeated or unresolved link spellings independently of target resolution."""
+  recordedLink: String @field(sourceKind: ITEM_SUMMARY) @policy(reason: "AO KB owns this authored citation.")
+  """Source nodes resolved from this bullet. Empty for a missing source or an ambiguous repeated unanchored occurrence; recordedLink preserves the target so these states can be distinguished."""
+  sources: [Source!] @neighbors(direction: OUTBOUND, type: "Source", scope: SUBTREE)
+}
+
+"""AO's ## Connections section. Canonical fields point from the declaring assertion's section to the target. Declared inverse fields point the other way semantically; consumers must reverse them. Frontmatter connections require an adapter and are not silently treated as bound."""
+type AssertionConnections implements Section @node(locator: EMBEDDED, propertyCase: KEBAB) @display(group: "Knowledge") {
+  """Authored supports target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  supports: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored refines target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  refines: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored depends-on target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  dependsOn: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored contradicts target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  contradicts: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored supersedes target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  supersedes: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored resolves target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  resolves: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored duplicate target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  duplicate: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored relates-to target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  relatesTo: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored traces-to target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  tracesTo: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored grounds target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  grounds: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored exemplifies target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  exemplifies: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored implements target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  implements: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored actor-of target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  actorOf: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Authored element-depends-on target from typed Connections bullets. Duplicate field targets form one graph edge."""
+  elementDependsOn: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse supported-by: the target assertion is the source of the canonical supports edge. Reverse this declaration when interpreting direction."""
+  supportedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse refined-by: the target assertion is the source of the canonical refines edge. Reverse this declaration when interpreting direction."""
+  refinedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse contradicted-by: the target assertion is the source of the canonical contradicts edge. Reverse this declaration when interpreting direction."""
+  contradictedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse superseded-by: the target assertion is the source of the canonical supersedes edge. Reverse this declaration when interpreting direction."""
+  supersededBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse resolved-by: the target assertion is the source of the canonical resolves edge. Reverse this declaration when interpreting direction."""
+  resolvedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse addressed-by: the target assertion is the source of the canonical resolves edge. Reverse this declaration when interpreting direction."""
+  addressedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse blocks: the target assertion is the source of the canonical depends-on edge. Reverse this declaration when interpreting direction."""
+  blocks: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Declared inverse grounded-by: the target assertion is the source of the canonical grounds edge. Reverse this declaration when interpreting direction."""
+  groundedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """External or generated corroborating sources. This is distinct from origin, Sources citations, and extraction history."""
+  corroboratedBy: [Source!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+}

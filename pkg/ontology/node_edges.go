@@ -69,7 +69,11 @@ func nodeScopedNeighborEdges(schema *ontoschema.Schema, cache *obsidian.NotePath
 		return nil
 	}
 	section := projection.Snapshot.SectionsByID[projection.Ref.NodeID]
-	if section == nil {
+	content := SectionBody(section)
+	if span := projection.Snapshot.SourceSpansByID[projection.Ref.NodeID]; section == nil && span != nil {
+		content = span.Content
+	}
+	if content == "" {
 		return nil
 	}
 	out := make([]semdb.OntologyEdgeRow, 0)
@@ -81,7 +85,7 @@ func nodeScopedNeighborEdges(schema *ontoschema.Schema, cache *obsidian.NotePath
 		if field.Direction == ontoschema.NeighborDirectionInbound {
 			continue
 		}
-		for _, scanned := range ScanMarkdownBodyLinks(SectionBody(section), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
+		for _, scanned := range ScanMarkdownBodyLinks(content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
 			target := scanned.Detail
 			var (
 				targetPath string

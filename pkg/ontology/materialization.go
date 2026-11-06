@@ -31,7 +31,8 @@ import (
 // Alias retirement invalidates unresolved dependencies before old aliases vanish.
 // v16: note titles derived from an H1 drop a trailing Obsidian block ID.
 // v17: embedded display labels retain the full headline without changing indexed titles or fields.
-const OntologyMaterializationVersion = 17
+// v18: list-item neighbor edges include links on the item headline.
+const OntologyMaterializationVersion = 18
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

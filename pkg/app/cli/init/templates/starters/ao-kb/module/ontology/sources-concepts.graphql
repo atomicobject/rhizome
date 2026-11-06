@@ -1,0 +1,73 @@
+"""An AO KB source record. Archived files under sources/_raw are evidence bytes, never Source records."""
+type Source @node(matches: ["sources AND NOT sources/_raw"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
+  """AO logical source identity; native nodeId and path retain physical identity."""
+  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored name; absent and unknown values are preserved without inferred defaults."""
+  name: String @field(source: "name") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
+  headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
+  abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored kind; absent and unknown values are preserved without inferred defaults."""
+  kind: String @field(source: "kind") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored sourceKind; absent and unknown values are preserved without inferred defaults."""
+  sourceKind: String @field(source: "sourceKind") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored status; absent and unknown values are preserved without inferred defaults."""
+  status: String @field(source: "status") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored ingestedAt; absent and unknown values are preserved without inferred defaults."""
+  ingestedAt: String @field(source: "ingestedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored convertedFrom; absent and unknown values are preserved without inferred defaults."""
+  convertedFrom: String @field(source: "convertedFrom") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored hash; absent and unknown values are preserved without inferred defaults."""
+  hash: String @field(source: "hash") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored sensitivity; absent and unknown values are preserved without inferred defaults."""
+  sensitivity: String @field(source: "sensitivity") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored topics; absent and unknown values are preserved without inferred defaults."""
+  topics: [String!] @field(source: "topics") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored products; absent and unknown values are preserved without inferred defaults."""
+  products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored extractedAssertionIds; absent and unknown values are preserved without inferred defaults."""
+  extractedAssertionIds: [String!] @field(source: "extractedAssertionIds") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Ordered AO path entries; a scalar becomes a one-item list. Native path is the source note address, so the authored path cannot use that reserved GraphQL field name. Blank slots are retained only in frontmatter JSON."""
+  sourcePaths: [String!] @field(source: "path") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored locator_scheme; absent and unknown values are preserved without inferred defaults."""
+  locatorScheme: String @field(source: "locator_scheme") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored speaker_role; absent and unknown values are preserved without inferred defaults."""
+  speakerRole: String @field(source: "speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored extracted_by; absent and unknown values are preserved without inferred defaults."""
+  extractedBy: String @field(source: "extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Source-to-assertion extraction declarations from extractedAssertionIds, independent of evidential citation and corroboration. Slug targets bind; logical-ID targets are inspectable in extractedAssertionIds but require indexer identifier-resolution support."""
+  extractedAssertions: [Assertion!] @link(source: "extractedAssertionIds", includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+}
+
+"""AO KB concept membership comes from authored links, never an inferred primary-concept assignment."""
+type Concept @node(paths: ["concepts/**/*.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
+  """AO KB authored id; absent and unknown values are preserved without inferred defaults."""
+  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored name; absent and unknown values are preserved without inferred defaults."""
+  name: String @field(source: "name") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
+  headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
+  abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored createdAt; absent and unknown values are preserved without inferred defaults."""
+  createdAt: String @field(source: "createdAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored updatedAt; absent and unknown values are preserved without inferred defaults."""
+  updatedAt: String @field(source: "updatedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored aliases; absent and unknown values are preserved without inferred defaults."""
+  aliases: [String!] @field(source: "aliases") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored layers; absent and unknown values are preserved without inferred defaults."""
+  layers: [String!] @field(sources: ["layers", "phases"]) @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored tags; absent and unknown values are preserved without inferred defaults."""
+  tags: [String!] @field(source: "tags") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """AO KB authored products; absent and unknown values are preserved without inferred defaults."""
+  products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB. TODO(SPEC-0133 lane B): server-side write admission.")
+  """Only ## Related Concepts; the section's relatedConcepts field excludes incidental links in other sections."""
+  relatedConceptsSection: RelatedConcepts @contains(level: H2, heading: "Related Concepts") @policy(reason: "AO KB owns this authored structure. TODO(SPEC-0133 lane B): write admission.")
+}
+
+"""A concept's explicit ## Related Concepts section; these links are relatedness, not support."""
+type RelatedConcepts implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
+  """Resolved concept links in this section only. Graph membership deduplicates repeated targets."""
+  relatedConcepts: [Concept!] @neighbors(direction: OUTBOUND, type: "Concept", scope: SUBTREE)
+}
