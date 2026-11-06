@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 	"sort"
 	"strings"
 )

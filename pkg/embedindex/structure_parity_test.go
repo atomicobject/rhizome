@@ -92,6 +92,10 @@ func TestStructureParityBaseline(t *testing.T) {
 			facts, err := runtime.Project(source)
 			require.NoError(t, err)
 			result.Links = facts.Facts.Links
+			// Source-local owner attribution is additive; compare the pre-existing public link contract.
+			for i := range result.Links {
+				result.Links[i].Owner = ""
+			}
 			service := ontology.NodeLinkService{Schema: schema, NoteReader: &obsidian.Note{}, VaultDef: obsidian.VaultDefinition{Path: root}, LoadSnapshot: func(context.Context, string) (*ontology.DocumentSnapshot, error) { return snapshot, nil }}
 			links, err := service.LinkTargets(context.Background(), ontology.LinkTargetRequest{Refs: refs, Ensure: ontology.EnsureLinkTargetNever})
 			require.NoError(t, err)

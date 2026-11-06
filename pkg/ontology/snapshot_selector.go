@@ -19,10 +19,10 @@ func BuildMarkdownDocumentSnapshot(root *RootDocumentSnapshot) (*DocumentSnapsho
 	if root.Mtime > 0 {
 		modTime = time.Unix(root.Mtime, 0)
 	}
-	snapshot, err := BuildDocumentSnapshot(root.NotePath.String(), string(root.RawSource), modTime)
-	if err != nil {
-		return nil, err
+	if root.Projection.Facts.Structure == nil {
+		return nil, fmt.Errorf("Markdown provider did not supply structure")
 	}
+	snapshot := markdownSnapshotFromStructure(root.NotePath.String(), string(root.RawSource), modTime, root.Projection.Facts.Structure, root.Metadata)
 	snapshot.selectorFacts = cloneSelectorFacts(&ontoschema.Subject{
 		Path: root.NotePath.String(), Title: root.Title, Tags: root.Tags,
 		Frontmatter: root.Metadata, Inline: root.InlineProperties,

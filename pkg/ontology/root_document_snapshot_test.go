@@ -3,6 +3,7 @@ package ontology
 import (
 	"testing"
 
+	mdstructure "github.com/atomicobject/rhizome/pkg/markdownsyntax/structure"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -42,13 +43,13 @@ func TestMarkdownProjectionAttachesGenuineMarkdownSnapshot(t *testing.T) {
 	content := "---\ntitle: Example\n---\n# Heading\n"
 	projection, err := noteformat.NewProjectionWithFacts(
 		"markdown-provider-v1", "markdown-projection-v3", noteformat.ProjectionStatusCurrent, nil,
-		noteformat.MustCapabilities(noteformat.CapabilitySourceReading), noteformat.ProjectionFacts{},
+		noteformat.MustCapabilities(noteformat.CapabilitySourceReading), noteformat.ProjectionFacts{Structure: mdstructure.Parse("notes/example.md", content)},
 	)
 	require.NoError(t, err)
 
 	source := notemeta.NoteSourceSnapshot{
 		Path: paths.NotePath("notes/example.md"), Format: "markdown",
-		Content: content, RawSource: []byte(content), Projection: projection,
+		Content: content, RawSource: []byte(content), Projection: projection, Frontmatter: map[string]any{"title": "Example"},
 	}
 	doc, err := projectMarkdownNoteSource(source)
 	require.NoError(t, err)

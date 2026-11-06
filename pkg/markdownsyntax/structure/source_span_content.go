@@ -1,21 +1,21 @@
-package ontology
+package structure
 
 import (
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 
 	"strings"
 )
 
 func sourceSpanItemTitle(content string, contentRange ByteRange, markers []MarkerSpan) string {
-	headline := sourceSpanItemHeadline(content, contentRange, markers)
-	if title, _, ok := splitTitledItemHeadline(headline); ok {
+	headline := SourceSpanItemHeadline(content, contentRange, markers)
+	if title, _, ok := SplitTitledItemHeadline(headline); ok {
 		return title
 	}
 	return firstLineTitle(headline)
 }
 
-func sourceSpanItemHeadline(content string, contentRange ByteRange, markers []MarkerSpan) string {
+func SourceSpanItemHeadline(content string, contentRange ByteRange, markers []MarkerSpan) string {
 	if !contentRange.Valid(len(content)) || contentRange.Len() == 0 {
 		return ""
 	}
@@ -29,27 +29,27 @@ func sourceSpanItemHeadline(content string, contentRange ByteRange, markers []Ma
 			titleEnd = marker.Range.Start
 		}
 	}
-	for _, inline := range scanInlineFieldsInListSegment(content[contentRange.Start:lineEnd], contentRange.Start) {
+	for _, inline := range ScanInlineFieldsInListSegment(content[contentRange.Start:lineEnd], contentRange.Start) {
 		if inline.WholeRange.Start >= contentRange.Start && inline.WholeRange.Start < titleEnd {
 			titleEnd = inline.WholeRange.Start
 		}
 	}
-	if tokenStart := trailingListMetadataTokenStart(content[contentRange.Start:lineEnd], 0, lineEnd-contentRange.Start); tokenStart >= 0 {
+	if tokenStart := TrailingListMetadataTokenStart(content[contentRange.Start:lineEnd], 0, lineEnd-contentRange.Start); tokenStart >= 0 {
 		absolute := contentRange.Start + tokenStart
 		if absolute < titleEnd {
 			titleEnd = absolute
 		}
 	}
-	titleEnd = trimSpaceLeftBounded(content, contentRange.Start, titleEnd)
+	titleEnd = TrimSpaceLeftBounded(content, contentRange.Start, titleEnd)
 	return strings.TrimSpace(content[contentRange.Start:titleEnd])
 }
 
-func sourceSpanItemParts(content string, span *MarkdownSourceSpan) (title string, summary string, detail string) {
+func SourceSpanItemParts(content string, span *SourceSpan) (title string, summary string, detail string) {
 	if span == nil || !span.ContentRange.Valid(len(content)) || span.ContentRange.Len() == 0 {
 		return "", "", ""
 	}
-	headline := sourceSpanItemHeadline(content, span.ContentRange, span.Markers)
-	if itemTitle, itemSummary, ok := splitTitledItemHeadline(headline); ok {
+	headline := SourceSpanItemHeadline(content, span.ContentRange, span.Markers)
+	if itemTitle, itemSummary, ok := SplitTitledItemHeadline(headline); ok {
 		title = itemTitle
 		summary = itemSummary
 	} else {
@@ -62,7 +62,7 @@ func sourceSpanItemParts(content string, span *MarkdownSourceSpan) (title string
 	return title, summary, detail
 }
 
-func splitTitledItemHeadline(headline string) (title string, summary string, ok bool) {
+func SplitTitledItemHeadline(headline string) (title string, summary string, ok bool) {
 	headline = strings.TrimSpace(headline)
 	if !strings.HasPrefix(headline, "**") {
 		return "", "", false

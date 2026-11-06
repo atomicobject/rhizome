@@ -1,10 +1,9 @@
-package ontology
+package structure
 
 import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 
 	"strings"
 	"unicode"
@@ -165,10 +164,10 @@ func blockIDFromItemLine(line string) (string, string) {
 	return "", ""
 }
 
-func markdownSourceSpanFromRaw(notePath, content string, item rawMarkdownItem) *MarkdownSourceSpan {
-	shape := ontoschema.EmbeddedSourceShapeListItem
+func markdownSourceSpanFromRaw(notePath, content string, item rawMarkdownItem) *SourceSpan {
+	shape := ListItem
 	if item.checkbox != nil {
-		shape = ontoschema.EmbeddedSourceShapeCheckboxItem
+		shape = CheckboxItem
 	}
 	contentRange := ByteRange{Start: item.contentStart, End: item.sourceEndByte}
 	if contentRange.Start > contentRange.End {
@@ -185,7 +184,7 @@ func markdownSourceSpanFromRaw(notePath, content string, item rawMarkdownItem) *
 	if title == "" {
 		title = firstLineTitle(itemContent)
 	}
-	return &MarkdownSourceSpan{
+	return &SourceSpan{
 		ID:               id,
 		NotePath:         notePath,
 		Shape:            shape,

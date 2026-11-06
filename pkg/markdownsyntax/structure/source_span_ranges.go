@@ -1,7 +1,7 @@
-package ontology
+package structure
 
 import (
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 	"sort"
 	"strings"
 	"unicode"

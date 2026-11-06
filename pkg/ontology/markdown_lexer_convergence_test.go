@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	mdstructure "github.com/atomicobject/rhizome/pkg/markdownsyntax/structure"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +27,7 @@ func TestOntologyLexersRespectExactFenceBoundaries(t *testing.T) {
 			links := ScanMarkdownBodyLinks(content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions)
 			require.Len(t, links, 1)
 			require.Equal(t, "Visible", links[0].Detail.Target)
-			nodes := ParseMarkdownListSourceSpans("notes/source.md", content)
+			nodes := mdstructure.ParseMarkdownListSourceSpans("notes/source.md", content)
 			require.Len(t, nodes, 1)
 			require.Equal(t, "visible", nodes[0].BlockID)
 		})

@@ -10,7 +10,9 @@ import (
 func TestDisplayTitlePreservesEmbeddingInputs(t *testing.T) {
 	title := "Review the complete native desktop workflow " + strings.Repeat("and its keyboard shortcuts ", 5) + "before publishing"
 	content := "- [ ] " + title + " #action-item\n  assignee:: Drew\n"
-	spans := ParseMarkdownListSourceSpans("meeting.md", content)
+	snapshot, err := BuildDocumentSnapshot("meeting.md", content, time.Time{})
+	require.NoError(t, err)
+	spans := snapshot.SourceSpans
 	require.Len(t, spans, 1)
 	span := spans[0]
 	require.Equal(t, strings.TrimSpace(title[:80]), span.Title)
@@ -20,8 +22,6 @@ func TestDisplayTitlePreservesEmbeddingInputs(t *testing.T) {
 	require.Equal(t, strings.TrimSpace(title[:80]), summary)
 	require.Empty(t, detail)
 	require.Equal(t, content, span.Content)
-	snapshot, err := BuildDocumentSnapshot("meeting.md", content, time.Time{})
-	require.NoError(t, err)
 	projection := &NodeProjection{Snapshot: snapshot, Ref: NodeRef{NotePath: "meeting.md", NodeID: span.ID, Kind: NodeKindEmbedded}}
 	row, err := IntelOntologyNodeForProjection(nil, projection, nil, 1)
 	require.NoError(t, err)

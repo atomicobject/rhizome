@@ -54,6 +54,7 @@ type OwnerLocatorFact struct {
 }
 
 type MarkdownOwnerFact struct {
+	SourceID                           string
 	HeadingLevel                       int
 	Markers                            []TagFact
 	Checkbox                           *CheckboxFact

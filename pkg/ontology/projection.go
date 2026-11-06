@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	mdstructure "github.com/atomicobject/rhizome/pkg/markdownsyntax/structure"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -202,42 +203,7 @@ func BuildDocumentSnapshot(notePath, content string, modTime time.Time) (*Docume
 		// projecting headings/embedded nodes from the markdown body.
 		fm = nil
 	}
-	sections := ParseSections(notePath, content)
-	sectionsByID := make(map[string]*SectionNode, len(sections))
-	var walk func(nodes []*SectionNode)
-	walk = func(nodes []*SectionNode) {
-		for _, node := range nodes {
-			if node == nil {
-				continue
-			}
-			sectionsByID[node.ID] = node
-			walk(node.Children)
-		}
-	}
-	walk(sections)
-	sourceSpans := append(sectionMarkdownSourceSpans(sections), ParseMarkdownListSourceSpans(notePath, content)...)
-	linkListSourceSpansToSections(sourceSpans)
-	sourceSpansByID := make(map[string]*MarkdownSourceSpan, len(sourceSpans))
-	for _, span := range sourceSpans {
-		if span == nil || strings.TrimSpace(span.ID) == "" {
-			continue
-		}
-		sourceSpansByID[span.ID] = span
-	}
-	return &DocumentSnapshot{
-		NotePath:             notePath,
-		Content:              content,
-		Frontmatter:          cloneAnyMap(fm),
-		FrontmatterRange:     frontmatterRange(content),
-		Sections:             sections,
-		SectionsByID:         sectionsByID,
-		SourceSpans:          sourceSpans,
-		SourceSpansByID:      sourceSpansByID,
-		ModTime:              modTime,
-		ContentFingerprint:   hashText(content),
-		StructureFingerprint: hashText(structureFingerprintText(notePath, sections)),
-		selectorFacts:        markdownSelectorFacts(notePath, content, fm),
-	}, nil
+	return markdownSnapshotFromStructure(notePath, content, modTime, mdstructure.Parse(notePath, content), fm), nil
 }
 
 // ProjectNote resolves the file-backed note node for the given path.

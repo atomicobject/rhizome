@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/atomicobject/rhizome/internal/testkit"
+	mdstructure "github.com/atomicobject/rhizome/pkg/markdownsyntax/structure"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -22,6 +23,7 @@ func TestProjectMarkdownNoteSourcePreservesMarkdownIdentityAndMtime(t *testing.T
 	content := "---\nname: Roadmap\n---\n\n## Stories\n\n### First\n^story-one\n"
 	doc, err := projectMarkdownNoteSource(notemeta.NoteSourceSnapshot{
 		Path:        "projects/roadmap.md",
+		Projection:  noteformat.Projection{Facts: noteformat.ProjectionFacts{Structure: mdstructure.Parse("projects/roadmap.md", content)}},
 		Format:      noteformat.FormatID("markdown"),
 		Content:     content,
 		ContentHash: "raw-hash",
