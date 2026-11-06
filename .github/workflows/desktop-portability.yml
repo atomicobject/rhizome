@@ -180,13 +180,48 @@ jobs:
             desktop/src-tauri/target
           key: ${{ steps.rust-cache.outputs.cache-primary-key }}
 
-      - name: Exercise Windows startup and New Window
+      - name: Census Windows startup and New Window with tracing off and on
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          ./desktop/scripts/portability-smoke.ps1 `
-            -AppPath desktop/src-tauri/target/release/rhizome-desktop.exe `
-            -OutputDir .tmp/desktop-portability/smoke
+          $PSNativeCommandUseErrorActionPreference = $false
+          $results = @()
+          for ($index = 1; $index -le 8; $index++) {
+            $traceEnabled = $index % 2 -eq 0
+            $traceName = if ($traceEnabled) { 'on' } else { 'off' }
+            $caseId = 'case-{0:00}-trace-{1}' -f $index, $traceName
+            $caseOutput = Join-Path .tmp/desktop-portability/smoke $caseId
+            $result = [ordered]@{
+              caseId = $caseId
+              traceEnabled = $traceEnabled
+              outputDirectory = $caseOutput
+              startedUtc = [DateTime]::UtcNow.ToString('O')
+              outcome = 'failed'
+              exitCode = $null
+            }
+            try {
+              $arguments = @(
+                '-NoProfile', '-File', './desktop/scripts/portability-smoke.ps1',
+                '-AppPath', 'desktop/src-tauri/target/release/rhizome-desktop.exe',
+                '-OutputDir', $caseOutput
+              )
+              if ($traceEnabled) { $arguments += '-TraceKeys' }
+              & pwsh @arguments
+              $result.exitCode = $LASTEXITCODE
+              if ($LASTEXITCODE -ne 0) { throw "Smoke child exited with status $LASTEXITCODE." }
+              $result.outcome = 'passed'
+            } catch {
+              $result.error = $_ | Out-String
+              $null = New-Item -ItemType Directory -Force -Path $caseOutput
+              $result.error | Set-Content -LiteralPath (Join-Path $caseOutput 'primary-error.log')
+            } finally {
+              $result.finishedUtc = [DateTime]::UtcNow.ToString('O')
+              $results += [pscustomobject]$result
+              $results | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath .tmp/desktop-portability/smoke/census.json
+            }
+          }
+          $failed = @($results | Where-Object { $_.outcome -ne 'passed' })
+          if ($failed.Count -gt 0) { throw "$($failed.Count) of 8 independent desktop smoke cases failed." }
 
       - name: Exercise Linux X11 startup and New Window
         if: runner.os == 'Linux'
@@ -229,9 +264,9 @@ jobs:
             .tmp/desktop-portability/candidate/*
             .tmp/desktop-portability/build-evidence/**/*.log
             .tmp/desktop-portability/EVIDENCE.txt
-            .tmp/desktop-portability/smoke/*.log
-            .tmp/desktop-portability/smoke/*.json
-            .tmp/desktop-portability/smoke/*.png
+            .tmp/desktop-portability/smoke/**/*.log
+            .tmp/desktop-portability/smoke/**/*.json
+            .tmp/desktop-portability/smoke/**/*.png
             .tmp/desktop-portability/keyring/*.log
             .tmp/desktop-portability/keyring/*.json
 

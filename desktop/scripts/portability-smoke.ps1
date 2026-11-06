@@ -1,12 +1,19 @@
 param(
     [Parameter(Mandatory = $true)][string]$AppPath,
-    [Parameter(Mandatory = $true)][string]$OutputDir
+    [Parameter(Mandatory = $true)][string]$OutputDir,
+    [switch]$TraceKeys
 )
 
 $ErrorActionPreference = 'Stop'
 $app = (Resolve-Path -LiteralPath $AppPath).ProviderPath
 $output = [IO.Path]::GetFullPath($OutputDir)
 $null = New-Item -ItemType Directory -Force -Path $output
+$caseInfo = @{
+    caseId = [IO.DirectoryInfo]::new($output).Name
+    traceEnabled = [bool]$TraceKeys
+    startedUtc = [DateTime]::UtcNow.ToString('O')
+}
+$caseInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'case.json')
 $name = [IO.Path]::GetFileNameWithoutExtension($app)
 if (Get-Process -Name $name -ErrorAction SilentlyContinue) {
     throw 'Another desktop app is running; refusing to control it.'
@@ -137,11 +144,14 @@ $process = $null
 $targetWindow = [IntPtr]::Zero
 $visibleChildKeyAttempted = $false
 try {
-    $env:RZM_DESKTOP_KEY_TRACE = 'ctrl-n'
+    $traceValue = if ($TraceKeys) { 'ctrl-n' } else { $null }
+    [Environment]::SetEnvironmentVariable('RZM_DESKTOP_KEY_TRACE', $traceValue, 'Process')
     $process = Start-Process -FilePath $app -PassThru `
         -RedirectStandardOutput (Join-Path $output 'stdout.log') `
         -RedirectStandardError (Join-Path $output 'stderr.log')
     [Environment]::SetEnvironmentVariable('RZM_DESKTOP_KEY_TRACE', $previousKeyTrace, 'Process')
+    $caseInfo.pid = $process.Id
+    $caseInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'case.json')
     $windows = @(Wait-Windows $process 1)
     Save-WindowEvidence $process 'initial'
     if ($windows.Count -ne 1) { throw "Fresh desktop state opened $($windows.Count) windows instead of one." }
