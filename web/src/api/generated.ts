@@ -1600,7 +1600,6 @@ export interface components {
       edges: components["schemas"]["GraphEdge"][];
       truncated?: boolean;
       omittedNodeIDs?: string[];
-      omittedLinks?: components["schemas"]["GraphEdge"][];
       omittedNodes?: number;
       omittedEdges?: number;
       centerID?: string;

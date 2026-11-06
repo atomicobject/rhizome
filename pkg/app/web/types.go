@@ -226,7 +226,6 @@ type SearchMatch struct {
 // GraphResponse provides nodes/edges for visualization.
 type GraphResponse struct {
 	OmittedNodeIDs []string                   `json:"omittedNodeIDs,omitempty"`
-	OmittedLinks   []GraphEdge                `json:"omittedLinks,omitempty"`
 	OmittedNodes   int                        `json:"omittedNodes,omitempty"`
 	OmittedEdges   int                        `json:"omittedEdges,omitempty"`
 	Nodes          []GraphNode                `json:"nodes"`

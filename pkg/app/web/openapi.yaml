@@ -2605,10 +2605,8 @@ components:
         truncated: { type: boolean }
         omittedNodeIDs:
           type: array
+          maxItems: 200
           items: { type: string }
-        omittedLinks:
-          type: array
-          items: { $ref: '#/components/schemas/GraphEdge' }
         omittedNodes: { type: integer }
         omittedEdges: { type: integer }
         centerID: { type: string }

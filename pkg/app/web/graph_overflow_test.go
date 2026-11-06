@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLocalGraphCountsThreeHundredNeighbours(t *testing.T) {
+func TestLocalGraphCountsThousandNeighbours(t *testing.T) {
 	root := t.TempDir()
 	store, err := semdb.Open(filepath.Join(root, "db.sqlite"))
 	require.NoError(t, err)
@@ -23,7 +24,7 @@ func TestLocalGraphCountsThreeHundredNeighbours(t *testing.T) {
 		return []codeanchor.IntelAnchor{{AnchorID: id, Path: path, Lang: codeanchor.LangGo, Kind: "function", Symbol: id, FQN: id, Fingerprint: id}}
 	}
 	require.NoError(t, store.ReplaceIntelCodeFile(ctx, "center.go", anchor("center", "center.go"), nil, nil))
-	for i := 0; i < 300; i++ {
+	for i := 0; i < 1000; i++ {
 		id := fmt.Sprintf("neighbour%03d", i)
 		path := id + ".go"
 		require.NoError(t, store.ReplaceIntelCodeFile(ctx, path, anchor(id, path), []codeanchor.IntelEdge{{SrcID: id, DstID: "center", Kind: "calls"}}, nil))
@@ -35,12 +36,12 @@ func TestLocalGraphCountsThreeHundredNeighbours(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, graph.Truncated)
 	require.Len(t, graph.Nodes, 200)
-	require.Equal(t, 101, graph.OmittedNodes)
-	require.Equal(t, 101, graph.OmittedEdges)
-	require.Len(t, graph.OmittedNodeIDs, 101)
-	require.Len(t, graph.OmittedLinks, 101)
-	for _, edge := range graph.OmittedLinks {
-		require.Contains(t, graph.OmittedNodeIDs, edge.Source)
-	}
+	require.Equal(t, 801, graph.OmittedNodes)
+	require.Equal(t, 801, graph.OmittedEdges)
+	require.Len(t, graph.Edges, 199)
+	require.Len(t, graph.OmittedNodeIDs, 200)
+	payload, err := json.Marshal(graph)
+	require.NoError(t, err)
+	require.NotContains(t, string(payload), `"omittedLinks"`)
 	requireGraphNode(t, graph, "code:center.go", "code")
 }

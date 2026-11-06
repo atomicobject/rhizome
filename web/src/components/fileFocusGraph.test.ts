@@ -288,12 +288,14 @@ it("reconciles the omitted neighbour when file details load all 201 notes", () =
     omittedNodes: 1,
     omittedEdges: 1,
     omittedNodeIDs: ["note:notes/200.md"],
-    omittedLinks: [{ source: "note:notes/200.md", target: "f", kind: "coderef" }],
   };
 
   const file = { path: "src/main.go", kind: "code", relatedNotes };
   const result = fileFocusGraph(input, file.path, file);
-  expect(result.nodes.some((node) => node.id === "file-omitted")).toBe(false);
+  expect(result.nodes.find((node) => node.id === "file-omitted")).toMatchObject({
+    label: "+0 more not loaded",
+    labelDetail: "1 links not loaded",
+  });
   expect(result.nodes.find((node) => node.id === "file-group:Documented by")?.labelDetail).toBe(
     "201 notes",
   );
@@ -308,4 +310,31 @@ it("reconciles the omitted neighbour when file details load all 201 notes", () =
     fileFocusGraph(input, file.path, unrelated).nodes.find((node) => node.id === "file-omitted")
       ?.label,
   ).toBe("+1 more not loaded");
+});
+
+it("keeps the unreconciled floor when omitted identities are capped", () => {
+  const relatedNotes = Array.from({ length: 801 }, (_, i) => ({
+    path: `notes/${i}.md`,
+    title: `Note ${i}`,
+    reason: "coderef",
+  }));
+
+  const input = {
+    nodes: [graph.nodes[0]],
+    edges: [],
+    omittedNodes: 801,
+    omittedEdges: 801,
+    omittedNodeIDs: relatedNotes.slice(0, 200).map((note) => `note:${note.path}`),
+    // A legacy response's links must not reduce the conservative link count.
+    omittedLinks: [{ source: "note:notes/0.md", target: "f", kind: "coderef" }],
+  };
+
+  const file = { path: "src/main.go", kind: "code", relatedNotes };
+  const merged = mergeFileNotes(input, file);
+  expect(merged.omittedNodes).toBe(601);
+  expect(merged.omittedEdges).toBe(801);
+  expect(mergeFileNotes(merged, file).omittedNodes).toBe(601);
+  expect(
+    fileFocusGraph(input, file.path, file).nodes.find((n) => n.id === "file-omitted"),
+  ).toMatchObject({ label: "+601 more not loaded", labelDetail: "801 links not loaded" });
 });

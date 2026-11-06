@@ -358,13 +358,8 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 		retained[node.ID] = true
 	}
 	for _, node := range sortedNodes(nodes) {
-		if !retained[node.ID] {
+		if !retained[node.ID] && len(resp.OmittedNodeIDs) < defaultLocalNodeLimit {
 			resp.OmittedNodeIDs = append(resp.OmittedNodeIDs, node.ID)
-		}
-	}
-	for _, edge := range edgeList {
-		if !retained[edge.Source] || !retained[edge.Target] {
-			resp.OmittedLinks = append(resp.OmittedLinks, edge)
 		}
 	}
 	resp.Truncated = resp.OmittedNodes > 0 || resp.OmittedEdges > 0
