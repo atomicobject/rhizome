@@ -34,6 +34,8 @@
 
 ### Fixed
 
+- Keep ordinary folder names on one line in Overview while wrapping unusually long names.
+
 - Keep indexing visible while an existing workspace republishes its index. Overview tables now keep readable columns, Members spans the page, and crowded maps stay compact. Cards have space below the view tabs, and graph nodes are easier to hover and select.
 
 - Windows harness shutdown accepts an already-reaped child while retaining errors for a child that has not exited.
