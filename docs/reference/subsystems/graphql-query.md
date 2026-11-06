@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the typed GraphQL query layer: SDL-driven execution, SQLite pushdown, and saved query recipes."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/ontology/query
   - pkg/ontology/pushdown
@@ -26,6 +26,8 @@ The typed query layer executes read-only GraphQL-shaped queries over the note gr
 Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVariables`, `query.Execute` (`pkg/ontology/query/schema.go`, `prepare.go`, `execute.go`); `pushdown.Planner` (`pkg/ontology/pushdown/planner.go`); `queryrecipe.NewRegistry` / `Registry.Catalog` / `Run` / `Validate` / `Compile` (`pkg/ontology/queryrecipe/load.go`, `validate.go`, `bind.go`). CLI surfaces: `rzm agent ontology-query` / `ontology-query-schema` (`cmd/agent_ontology.go`, `cmd/ontology_query.go`) and `rzm query-recipe` / `rzm agent query-recipe` (`cmd/query_recipe.go`). MCP: `pkg/app/mcp/tool_ontology.go`. Web/public API: `pkg/app/web/ontology.go`, `public_api.go`.
 
 ## Design constraints
+
+- **Nested frontmatter paths share scalar semantics.** Compiled `@field(path:)` values flow through catalog field rows for indexed filtering and sorting; residual reads use the same owner-local mapping lookup as projection. Runtime ontology fields expose `sourcePath` separately from the literal `source` key. See [[ontology]] for traversal and read-only rules.
 
 - Section bindings use `ontology.MatchSectionNodesForField`. Preview interpolation is shared through `ontology.InterpolatePreviewTemplate`, with caller-owned missing-value fallback; query previews retain empty text for absent values while HTTP previews retain the placeholder.
 

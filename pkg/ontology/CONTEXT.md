@@ -52,3 +52,5 @@ Uses the immutable typed model from `pkg/ontology/schema`, projects source-prese
 - **Source ownership**: list parsing lives in `source_spans_list.go`, item content in `source_span_content.go`, and marker/range helpers in `source_span_ranges.go`; `source_spans.go` retains the span model and parser orchestration.
 
 `markdownsyntax.UnorderedListItemContentStart` owns the exact unordered metadata-bullet prefix predicate shared by projection and block-ID repair. Callers retain their existing trimming and content-span policy; ordered lists and other Markdown marker rules remain separate.
+
+`@field(path:)` and `@link(path:)` declare read-only owner-local frontmatter mapping paths. Literal `source:` and `sources:` remain flat keys; schema.FrontmatterPathValue owns traversal, while projection, catalog hydration and typed reads preserve the field contract without rewriting metadata.

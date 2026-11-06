@@ -488,6 +488,7 @@ const (
 type ReadOverlay = noderead.ReadOverlay
 
 type noteRecord struct {
+	IndexedFields          map[string][]readmodel.FieldValueRow
 	Path                   string
 	Title                  string
 	Content                string
@@ -596,6 +597,13 @@ func (n *noteRecord) hasField(field *ontoschema.Field) bool {
 	if n == nil || field == nil {
 		return false
 	}
+	if field.SourcePath != "" {
+		if len(n.IndexedFields[strings.ToLower(field.Name)]) > 0 {
+			return true
+		}
+		_, present := ontoschema.FrontmatterPathValue(n.Frontmatter, field.SourcePath)
+		return present
+	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:
 		for _, name := range ontoschema.FieldSourceNames(field) {
@@ -637,6 +645,17 @@ func (n *noteRecord) cloneTags() []string {
 func (n *noteRecord) fieldValues(field *ontoschema.Field) []string {
 	if n == nil || field == nil {
 		return nil
+	}
+	if field.SourcePath != "" {
+		if rows := n.IndexedFields[strings.ToLower(field.Name)]; len(rows) > 0 {
+			values := make([]string, len(rows))
+			for i, row := range rows {
+				values[i] = row.ValueText
+			}
+			return values
+		}
+		value, _ := ontoschema.FrontmatterPathValue(n.Frontmatter, field.SourcePath)
+		return ontology.FieldTextValues(field, value)
 	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:

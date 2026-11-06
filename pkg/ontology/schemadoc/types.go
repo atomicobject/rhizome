@@ -52,6 +52,7 @@ type FieldDoc struct {
 	Required             bool                           `json:"required"`
 	List                 bool                           `json:"list"`
 	Source               string                         `json:"source,omitempty"`
+	SourcePath           string                         `json:"sourcePath,omitempty"`
 	SourceAliases        []string                       `json:"sourceAliases,omitempty"`
 	SourceKind           ontoschema.FieldSource         `json:"sourceKind,omitempty"`
 	Inverse              string                         `json:"inverse,omitempty"`

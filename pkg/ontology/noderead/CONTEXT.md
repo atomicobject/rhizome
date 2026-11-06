@@ -50,3 +50,5 @@
 
 - Preferred identifier lookup uses bounded catalog field predicates and caches normalized hits/misses. Scope owns note/embedded ID ambiguity, including basename notes claiming the same ID; consumers must not add a second resolver.
 - Staged link predicates resolve target paths through the shared staged-aware note-path/alias cache before shared scalar matching, preserving committed target membership semantics.
+
+Root summary hydration batches catalog values for declared nested frontmatter paths alongside section summaries. Scalar property rows do not retain mappings. Nested fields stay in `FieldValues`; preview records traverse their current mapping instead of borrowing committed values.

@@ -71,7 +71,9 @@ func noteFieldBinding(snapshot *DocumentSnapshot, doc *noteDoc, field *ontoschem
 		binding.Present = fieldPresent(doc, field)
 		binding.Values = normalizeFieldValues(field, values)
 		binding.Range = snapshot.FrontmatterRange
-		binding.ValueRanges, binding.ValueRangesExact = exactFrontmatterValueRanges(snapshot, field, binding.Values)
+		if field.SourcePath == "" {
+			binding.ValueRanges, binding.ValueRangesExact = exactFrontmatterValueRanges(snapshot, field, binding.Values)
+		}
 	}
 	return binding
 }

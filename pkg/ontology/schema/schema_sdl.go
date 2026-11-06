@@ -32,11 +32,11 @@ enum IdentifierPopulate { MANUAL ON_CREATE ON_LINK }
 enum IdentifierStrategy { SEQUENTIAL DATETIME }
 input RequiredFieldCondition { field: String!, equals: String }
 directive @node(matches: [String!], paths: [String!], label: String, color: String, keyField: String, propertyCase: OntologyPropertyCase = KEBAB, locator: NodeLocator = FILE, default: Boolean = false) on OBJECT
-directive @field(source: String, sources: [String!], sourceKind: FieldSource = FRONTMATTER) on FIELD_DEFINITION
+directive @field(source: String, sources: [String!], path: String, sourceKind: FieldSource = FRONTMATTER) on FIELD_DEFINITION
 directive @authoring(style: FieldAuthoringStyle!) on FIELD_DEFINITION
 directive @format(pattern: String, notPattern: String) on FIELD_DEFINITION
 directive @identifier(preferred: Boolean = false, strategy: IdentifierStrategy = SEQUENTIAL, prefix: String, pad: Int = 4, separator: String = "-", derivable: Boolean, derivedSuffix: String, populate: IdentifierPopulate) on FIELD_DEFINITION
-directive @link(source: String, sources: [String!], sourceKind: FieldSource = FRONTMATTER, inverse: String, includeBodyLinks: Boolean = true, includeBacklinks: Boolean = true, contextInclude: Boolean = false) on FIELD_DEFINITION
+directive @link(source: String, sources: [String!], path: String, sourceKind: FieldSource = FRONTMATTER, inverse: String, includeBodyLinks: Boolean = true, includeBacklinks: Boolean = true, contextInclude: Boolean = false) on FIELD_DEFINITION
 directive @reverse(field: String!) on FIELD_DEFINITION
 directive @workspaceMember(label: String) on FIELD_DEFINITION
 directive @neighbors(direction: NeighborDirection!, type: String!, scope: NeighborScope = NOTE, contextInclude: Boolean = false) on FIELD_DEFINITION

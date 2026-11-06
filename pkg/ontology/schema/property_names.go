@@ -135,7 +135,7 @@ func dedupePropertyNames(in []string) []string {
 
 // FieldSourceNames returns the primary authored property name plus any aliases.
 func FieldSourceNames(field *Field) []string {
-	if field == nil {
+	if field == nil || field.SourcePath != "" {
 		return nil
 	}
 	names := make([]string, 0, 1+len(field.SourceAliases))

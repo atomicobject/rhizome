@@ -115,6 +115,10 @@ func (s *Scope) schemaFieldValues(record NodeRecord, field *ontoschema.Field) ([
 	if field == nil {
 		return nil, false, false
 	}
+	if field.SourcePath != "" {
+		value, present := ontoschema.FrontmatterPathValue(record.Frontmatter, field.SourcePath)
+		return ontology.FieldTextValues(field, value), present, true
+	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:
 		for _, name := range ontoschema.FieldSourceNames(field) {

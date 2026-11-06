@@ -46,6 +46,12 @@ func addSemanticFields(fields map[string]any, noteType *ontoschema.NoteType, rec
 			}
 			continue
 		}
+		if field.SourcePath != "" {
+			if value, ok := nestedRecordValue(record, field); ok {
+				fields[field.Name] = value
+			}
+			continue
+		}
 		switch field.SourceKind {
 		case ontoschema.FieldSourceFrontmatter:
 			source := firstNonEmpty(field.Source, field.Name)
@@ -152,4 +158,18 @@ func cloneInline(in map[string][]string) map[string]any {
 		out[key] = append([]string(nil), values...)
 	}
 	return out
+}
+
+func nestedRecordValue(record noderead.NodeRecord, field *ontoschema.Field) (any, bool) {
+	if rows := record.FieldValues[strings.ToLower(field.Name)]; len(rows) > 0 {
+		values := make([]string, len(rows))
+		for i, row := range rows {
+			values[i] = row.ValueText
+		}
+		if field.List {
+			return values, true
+		}
+		return values[0], true
+	}
+	return ontoschema.FrontmatterPathValue(record.Frontmatter, field.SourcePath)
 }

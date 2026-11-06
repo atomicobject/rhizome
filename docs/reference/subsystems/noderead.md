@@ -108,3 +108,5 @@ code-anchors:
 - [[noderef-batch-traversal-read-api]]
 - [[structural-node-model-and-ontology-read-path]]
 - [[Use NodeRef as the canonical browser identity]]
+
+Root summary hydration batches catalog values for declared nested frontmatter paths alongside section summaries. Scalar property rows do not retain mappings. Nested fields stay in `FieldValues`; preview records traverse their current mapping instead of borrowing committed values.

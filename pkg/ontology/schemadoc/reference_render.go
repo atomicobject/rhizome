@@ -103,7 +103,10 @@ func RenderReferenceMarkdown(schema *ontoschema.Schema, typeName string, personT
 				b.WriteString(string(field.Semantics))
 				b.WriteString(")")
 			}
-			if field.Source != "" {
+			if field.SourcePath != "" {
+				b.WriteString("\n  source path (read-only): ")
+				b.WriteString(field.SourcePath)
+			} else if field.Source != "" {
 				b.WriteString("\n  source: ")
 				b.WriteString(field.Source)
 				if field.SourceKind != "" {

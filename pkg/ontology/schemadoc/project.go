@@ -131,6 +131,7 @@ func SchemaDocs(schema *ontoschema.Schema, typeName string, personType string) (
 				Required:             field.Required,
 				List:                 field.List,
 				Source:               field.Source,
+				SourcePath:           field.SourcePath,
 				SourceAliases:        append([]string(nil), field.SourceAliases...),
 				SourceKind:           field.SourceKind,
 				Inverse:              field.Inverse,

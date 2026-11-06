@@ -168,6 +168,9 @@ func validateSetFieldOperation(projection *NodeProjection, op setFieldOp, schema
 		}
 		return nil, fmt.Errorf("%w: field %s not found on %s", errMissingField, op.Field, projection.Ref.String())
 	}
+	if field.SourcePath != "" {
+		return nil, fmt.Errorf("%w: nested frontmatter path %s is read-only", errUnsupportedTarget, field.SourcePath)
+	}
 	if field.IsIdentifier && !allowIdentifierRepair {
 		return nil, fmt.Errorf("%w: identifier field %s requires the graph-safe identifier rename workflow", errUnsupportedTarget, op.Field)
 	}
