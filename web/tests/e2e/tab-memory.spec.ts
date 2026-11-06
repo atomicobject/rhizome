@@ -190,6 +190,73 @@ test("fresh fragment navigation selects the requested node after its old body wa
   await expect(page.getByRole("navigation", { name: "Node path" })).toContainText("Search Rewrite");
 });
 
+test("keeps collection filters when an older note body is restored", async ({ page }) => {
+  await installNotes(page);
+  const reply = noteReply(0, false);
+  const node = reply.node!;
+
+  const children = ["Alpha", "Beta", "Gamma", "Delta"].map((title, index) => ({
+    ref: {
+      ref: `${notePath(0)}#item-${index}`,
+      nodeId: `${notePath(0)}#item-${index}`,
+      notePath: notePath(0),
+      fragment: `item-${index}`,
+      kind: "EMBEDDED",
+    },
+    title,
+    locator: "EMBEDDED",
+    fields: [],
+    collections: [],
+    blocks: [],
+  }));
+
+  node.workspace!.bodies = [
+    {
+      ref: node.ref,
+      title: node.title,
+      locator: "FILE",
+      fields: [],
+      collections: [],
+      blocks: [
+        {
+          kind: "collection",
+          fieldName: "items",
+          range: { start: 0, end: 1 },
+          childRefs: children.map((child) => child.ref),
+        },
+      ],
+    },
+    ...children,
+  ];
+  await page.route("**/api/v1/graphql", async (route) => {
+    const body: unknown = JSON.parse(route.request().postData() || "{}");
+
+    if (
+      !isJsonObject(body) ||
+      !isJsonObject(body.variables) ||
+      body.variables.ref !== notePath(0)
+    ) {
+      return route.fallback();
+    }
+
+    await route.fulfill({ json: { data: reply } });
+  });
+  await page.goto(`/notes?note=${encodeURIComponent(notePath(0))}`);
+  const filter = page.getByRole("searchbox", { name: "Filter items" });
+  await filter.fill("Beta");
+  await expect(page.getByRole("button", { name: "Beta", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Alpha", exact: true })).toHaveCount(0);
+
+  for (let index = 1; index < 8; index++) await openNote(page, index);
+  await expect(
+    page.locator('[id="panel-note:memory-fixture/note-0.md"] .body-collection'),
+  ).toHaveCount(0);
+  await page.getByRole("tab", { name: "Memory note 0", exact: true }).click();
+  await expect(filter).toHaveValue("Beta");
+  await expect(page.getByRole("button", { name: "Beta", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Alpha", exact: true })).toHaveCount(0);
+});
+
 test("keeps an active editor and its undo history when more than five other notes are visited", async ({
   page,
 }) => {

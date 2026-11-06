@@ -7,7 +7,13 @@ import type {
   PublicNodeDetailData,
   PublicNodeWorkspaceProjection,
 } from "../api/publicGraphQLTypes";
-import type { NodeKind, NodeRef, NodeWorkspace, RenderedSection } from "../api/types";
+import type {
+  NodeKind,
+  NodeRef,
+  NodeWorkspace,
+  RenderedSection,
+  WorkspaceContentNode,
+} from "../api/types";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { OntologyNotePane } from "./OntologyNotePane";
 import type { NoteTabContext } from "./noteTabContext";
@@ -2825,6 +2831,71 @@ describe("note body retention", () => {
   });
 
   const sourceContent = "## Heading\n\noriginal content";
+
+  it("preserves each collection filter when its note body is restored", () => {
+    const rootRef: NodeRef = { notePath: "note.md", nodeId: "note.md", kind: "NOTE" };
+
+    const children = ["Alpha", "Beta", "Gamma", "Delta"].map(
+      (title, index): WorkspaceContentNode => ({
+        id: `child-${index}`,
+        kind: "embedded",
+        ref: { notePath: "note.md", nodeId: `note.md#child-${index}`, kind: "EMBEDDED" },
+        notePath: "note.md",
+        status: workspace.status,
+        capabilities: workspace.capabilities,
+        data: { title },
+      }),
+    );
+
+    const root: WorkspaceContentNode = {
+      id: "root",
+      kind: "note",
+      ref: rootRef,
+      notePath: "note.md",
+      status: workspace.status,
+      capabilities: workspace.capabilities,
+      data: { title: "Retained note" },
+      body: ["stories", "references"].map((fieldName) => ({
+        kind: "collection",
+        fieldName,
+        range: { start: 0, end: 1 },
+        childRefs: children.map((child) => child.ref),
+      })),
+    };
+
+    const collectionWorkspace: NodeWorkspace = {
+      ...workspace,
+      node: { ...workspace.node, ref: rootRef },
+      focusedNodeId: root.id,
+      nodes: [root, ...children],
+    };
+
+    const pane = (active: boolean, bodyResident: boolean) => (
+      <OntologyNotePane
+        workspace={collectionWorkspace}
+        active={active}
+        bodyResident={bodyResident}
+        onOpen={() => undefined}
+      />
+    );
+
+    const view = render(pane(true, true));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter stories" }), {
+      target: { value: "Beta" },
+    });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter references" }), {
+      target: { value: "Delta" },
+    });
+    view.rerender(pane(false, true));
+    view.rerender(pane(false, false));
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    view.rerender(pane(true, true));
+    expect(screen.getByRole("searchbox", { name: "Filter stories" })).toHaveValue("Beta");
+    expect(screen.getByRole("searchbox", { name: "Filter references" })).toHaveValue("Delta");
+    expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Beta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delta" })).toBeInTheDocument();
+  });
 
   function refreshedWorkspace(fingerprint: string, content = sourceContent): NodeWorkspace {
     return {

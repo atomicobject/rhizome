@@ -18,6 +18,7 @@ type ReadingState = {
   navigation: string;
   position?: ReadingPosition;
   disclosures: Map<string, boolean>;
+  collectionFilters: Map<string, string>;
   suspended: boolean;
 };
 
@@ -112,7 +113,12 @@ export function useNoteReadingState({
     let remembered = memories.current.get(identity);
 
     if (!remembered) {
-      remembered = { navigation, disclosures: new Map(), suspended: false };
+      remembered = {
+        navigation,
+        disclosures: new Map(),
+        collectionFilters: new Map(),
+        suspended: false,
+      };
       memories.current.set(identity, remembered);
     }
 
