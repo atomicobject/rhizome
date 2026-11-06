@@ -90,7 +90,7 @@ func (s Store) recorded(canonical string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read repository trust: %w", err)
 	}
-	return strings.TrimSpace(string(record)) == canonical, nil
+	return string(record) == canonical+"\n", nil
 }
 
 // Trust records explicit local trust for checkout and returns its canonical path.

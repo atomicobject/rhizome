@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -48,15 +49,54 @@ func TestStoreTrustIsCanonicalAndPerCheckout(t *testing.T) {
 func TestStoreRejectsMismatchedRecordContents(t *testing.T) {
 	store := Store{Dir: filepath.Join(t.TempDir(), "trust")}
 	checkout := t.TempDir()
-	_, err := store.Trust(checkout)
+	canonical, err := store.Trust(checkout)
 	require.NoError(t, err)
 
 	records, err := os.ReadDir(store.Dir)
 	require.NoError(t, err)
 	require.Len(t, records, 1)
-	require.NoError(t, os.WriteFile(filepath.Join(store.Dir, records[0].Name()), []byte("another checkout\n"), 0o600))
+	for _, tc := range []struct{ name, record string }{
+		{"different_path", "another checkout\n"},
+		{"leading_whitespace", " " + canonical + "\n"},
+		{"trailing_whitespace", canonical + " \n"},
+		{"extra_line", canonical + "\n\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, os.WriteFile(filepath.Join(store.Dir, records[0].Name()), []byte(tc.record), 0o600))
+			trusted, err := store.Trusted(checkout)
+			require.NoError(t, err)
+			require.False(t, trusted)
+		})
+	}
+}
 
-	trusted, err := store.Trusted(checkout)
+func TestStorePreservesTrailingSpaceCheckoutTrust(t *testing.T) {
+	root := t.TempDir()
+	ordinary := filepath.Join(root, "checkout")
+	spaced := filepath.Join(root, "checkout ")
+	if runtime.GOOS == "windows" {
+		spaced = `\\?\` + spaced
+	}
+	require.NoError(t, os.Mkdir(ordinary, 0o755))
+	require.NoError(t, os.Mkdir(spaced, 0o755))
+	store := Store{Dir: filepath.Join(t.TempDir(), "trust")}
+	_, err := store.Trust(spaced)
+	require.NoError(t, err)
+	trusted, err := store.Trusted(spaced)
+	require.NoError(t, err)
+	require.True(t, trusted)
+	trusted, err = store.Trusted(ordinary)
+	require.NoError(t, err)
+	require.False(t, trusted)
+	_, err = store.Trust(ordinary)
+	require.NoError(t, err)
+	_, removed, err := store.Untrust(spaced)
+	require.NoError(t, err)
+	require.True(t, removed)
+	trusted, err = store.Trusted(ordinary)
+	require.NoError(t, err)
+	require.True(t, trusted)
+	trusted, err = store.Trusted(spaced)
 	require.NoError(t, err)
 	require.False(t, trusted)
 }

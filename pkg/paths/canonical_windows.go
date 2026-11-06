@@ -8,6 +8,15 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func needsVerbatimDOSPath(path string) bool {
+	for component := range strings.SplitSeq(path, `\`) {
+		if strings.HasSuffix(component, ".") || strings.HasSuffix(component, " ") {
+			return true
+		}
+	}
+	return false
+}
+
 func canonicalExistingPath(path string) (string, error) {
 	// A verbatim input must reach CreateFile unchanged. In particular, do not
 	// pass its significant final dots or spaces through lexical normalization.

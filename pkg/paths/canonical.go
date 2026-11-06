@@ -13,15 +13,6 @@ func CanonicalExistingPath(path string) (AbsPath, error) {
 	return AbsPath(canonical), nil
 }
 
-func needsVerbatimDOSPath(path string) bool {
-	for component := range strings.SplitSeq(path, `\`) {
-		if strings.HasSuffix(component, ".") || strings.HasSuffix(component, " ") {
-			return true
-		}
-	}
-	return false
-}
-
 func verbatimDOSPath(path string) string {
 	if len(path) >= 3 && path[1] == ':' && path[2] == '\\' &&
 		(path[0] >= 'A' && path[0] <= 'Z' || path[0] >= 'a' && path[0] <= 'z') {
