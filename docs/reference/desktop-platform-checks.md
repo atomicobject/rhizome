@@ -36,7 +36,7 @@ Use a disposable Git repository whose path includes spaces, an apostrophe, a sem
 | Check | Required result |
 | --- | --- |
 | Repository setup | Add, trust, initialize, index, and open the fixture. Repository pins and explicit executable overrides retain their authority. |
-| Windows and focus | Create windows from the native menu and Ctrl+N repeatedly; close and reopen finders; switch focus between shell and content. No deadlock, lost input, blank content, or child console flashes. |
+| Windows and focus | Create windows from the native menu and Ctrl+N immediately after launch and after clicking the shell, content, or finder. Close and reopen finders. On Windows, test F11 entering/leaving full screen, menu Minimize, and editor Ctrl+H/Ctrl+M without hiding or minimizing the app. Disabled app commands must leave keys to the page. No deadlock, lost input, blank content, or child console flashes. |
 | Normal editing | Keyboard-only navigation, undo/redo, Copy Page URL, clipboard paste, file drag/drop, search, and repository/worktree switching work. |
 | Session recovery | Move and resize multiple windows, select different worktrees, quit, and relaunch. Layout and selection return. Closing the last window exits on Windows/Linux. |
 | Team sign-in | Complete browser login, restart, refresh the session, and sign out. Canceling login leaves no running helper. Linux locked/unavailable Secret Service and canceled unlocking show a useful error without plaintext storage. |

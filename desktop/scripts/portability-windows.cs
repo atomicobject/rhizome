@@ -39,15 +39,11 @@ public static class DesktopPortabilityWindows {
     [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(Point point);
     [DllImport("user32.dll", SetLastError = true)] private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, Input[] inputs, int size);
-    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
-    [DllImport("user32.dll", SetLastError = true)] private static extern bool AttachThreadInput(uint from, uint to, bool attach);
-    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetFocus(IntPtr window);
     [DllImport("user32.dll")] private static extern IntPtr GetMenu(IntPtr window);
     [DllImport("user32.dll")] private static extern IntPtr GetSubMenu(IntPtr menu, int index);
     [DllImport("user32.dll")] private static extern int GetMenuItemCount(IntPtr menu);
     [DllImport("user32.dll")] private static extern uint GetMenuItemID(IntPtr menu, int index);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetMenuString(IntPtr menu, uint index, StringBuilder text, int count, uint flags);
-    [DllImport("user32.dll", EntryPoint = "PostMessageW")] public static extern bool PostMessage(IntPtr window, uint message, UIntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW", SetLastError = true)] private static extern IntPtr SendMessageTimeout(
         IntPtr window, uint message, UIntPtr wParam, IntPtr lParam,
         uint flags, uint milliseconds, out UIntPtr result);
@@ -179,38 +175,11 @@ public static class DesktopPortabilityWindows {
             insertedEvents = inserted, expectedEvents = inputs.Length, error = error
         };
     }
-    public static object RootFocusExperiment(IntPtr window, uint expectedProcess) {
-        uint process;
-        var applicationThread = GetWindowThreadProcessId(window, out process);
-        if (process != expectedProcess || applicationThread == 0 || GetForegroundWindow() != window)
-            return new { eligible = false, error = "The owned application window is not foreground." };
-        var callerThread = GetCurrentThreadId();
-        if (callerThread == applicationThread)
-            return new { eligible = false, error = "The diagnostic must be outside the application thread." };
-        var beforeAttachment = FocusEvidence(window);
-        var attached = AttachThreadInput(callerThread, applicationThread, true);
-        var attachError = attached ? 0 : Marshal.GetLastWin32Error();
-        var detached = !attached;
-        var detachError = 0;
-        var previousFocus = IntPtr.Zero;
-        try {
-            if (attached) previousFocus = SetFocus(window);
-        } finally {
-            if (attached) {
-                detached = AttachThreadInput(callerThread, applicationThread, false);
-                if (!detached) detachError = Marshal.GetLastWin32Error();
-            }
-        }
+    public static IntPtr VisibleFocusedChild(IntPtr window) {
+        if (GetForegroundWindow() != window) return IntPtr.Zero;
         GuiThreadInfo info;
-        var rootFocus = attached && detached && ReadThreadInfo(applicationThread, out info) && info.Focus == window;
-        return new {
-            eligible = true, callerThreadId = callerThread, applicationThreadId = applicationThread,
-            attached = attached, attachError = attachError, detached = detached, detachError = detachError,
-            previousFocus = Describe(previousFocus), rootFocusVerified = rootFocus,
-            beforeAttachment = beforeAttachment,
-            afterDetach = FocusEvidence(window),
-            limits = "Artificial input-queue attachment resets keyboard state; success does not demonstrate normal focus behavior."
-        };
+        if (!ReadThreadInfo(0, out info) || info.Focus == IntPtr.Zero || info.Focus == window ||
+            !IsChild(window, info.Focus) || !IsWindowVisible(info.Focus)) return IntPtr.Zero;
+        return info.Focus;
     }
-
 }

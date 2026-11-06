@@ -18,6 +18,41 @@ use tauri::{
 };
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
+#[cfg(any(windows, test))]
+#[path = "windows_keyboard.rs"]
+mod windows_keyboard;
+
+const SHORTCUTS: &[(&str, &str)] = &[
+    ("settings", "CmdOrCtrl+,"),
+    ("new-window", "CmdOrCtrl+N"),
+    ("close-tab", "CmdOrCtrl+W"),
+    ("close-window", "CmdOrCtrl+Shift+W"),
+    ("copy-url", "CmdOrCtrl+Shift+C"),
+    ("search", "CmdOrCtrl+K"),
+    ("repositories", "CmdOrCtrl+O"),
+    ("worktrees", "CmdOrCtrl+Shift+O"),
+    ("find", "CmdOrCtrl+P"),
+    ("reload", "CmdOrCtrl+R"),
+    ("sidebar", SIDEBAR_SHORTCUT),
+    ("fullscreen", "F11"),
+];
+
+struct ShortcutItems(Vec<MenuItem<Wry>>);
+
+fn shortcut_enabled(app: &AppHandle, id: &str) -> bool {
+    app.state::<ShortcutItems>()
+        .0
+        .iter()
+        .find(|item| item.id().as_ref() == id)
+        .is_some_and(|item| item.is_enabled().unwrap_or(false))
+}
+
+pub fn install_shortcuts(_view: &tauri::Webview) -> tauri::Result<()> {
+    #[cfg(windows)]
+    windows_keyboard::install(_view)?;
+    Ok(())
+}
+
 /// A native popup entry. The shell supplies its own item identifiers, which
 /// return to that shell when chosen. Native menus draw above the content view.
 #[derive(Deserialize)]
@@ -199,8 +234,8 @@ pub fn refresh_sidebar(app: &AppHandle) {
     let _ = item.0.set_enabled(enabled);
 }
 
-fn toggle_sidebar(app: &AppHandle) {
-    let Some(window) = focused_window(app) else {
+fn toggle_sidebar(app: &AppHandle, window: Option<Window>) {
+    let Some(window) = window else {
         return;
     };
     let toggles = app
@@ -219,8 +254,8 @@ fn toggle_sidebar(app: &AppHandle) {
     }
 }
 
-fn command(app: &AppHandle, name: &str) {
-    match focused_window(app) {
+fn command(app: &AppHandle, name: &str, window: Option<Window>) {
+    match window {
         Some(window) => {
             app.state::<Panes>().with(window.label(), |pane| {
                 pane.send(json!({"type": "command", "command": name}))
@@ -233,7 +268,17 @@ fn command(app: &AppHandle, name: &str) {
 }
 
 pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+    let mut shortcuts = Vec::new();
+    let mut item = |id: &str, label: &str, enabled: bool| -> tauri::Result<MenuItem<Wry>> {
+        let accelerator = SHORTCUTS
+            .iter()
+            .find(|(name, _)| *name == id)
+            .map(|(_, key)| *key);
+        let item = MenuItem::with_id(app, id, label, enabled, accelerator)?;
+        shortcuts.push(item.clone());
+        Ok(item)
+    };
+    let settings = item("settings", "Settings…", true)?;
     let updates = MenuItem::with_id(
         app,
         "check-updates",
@@ -241,52 +286,16 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         crate::updater::enabled_for(app),
         None::<&str>,
     )?;
-    let new_window = MenuItem::with_id(app, "new-window", "New Window", true, Some("CmdOrCtrl+N"))?;
-    let close_tab = MenuItem::with_id(app, "close-tab", "Close Tab", true, Some("CmdOrCtrl+W"))?;
-    let close_window = MenuItem::with_id(
-        app,
-        "close-window",
-        "Close Window",
-        true,
-        Some("CmdOrCtrl+Shift+W"),
-    )?;
-    let copy_url = MenuItem::with_id(
-        app,
-        "copy-url",
-        "Copy Page URL",
-        true,
-        Some("CmdOrCtrl+Shift+C"),
-    )?;
-    let search = MenuItem::with_id(
-        app,
-        "search",
-        "Search This Project",
-        true,
-        Some("CmdOrCtrl+K"),
-    )?;
+    let new_window = item("new-window", "New Window", true)?;
+    let close_tab = item("close-tab", "Close Tab", true)?;
+    let close_window = item("close-window", "Close Window", true)?;
+    let copy_url = item("copy-url", "Copy Page URL", true)?;
+    let search = item("search", "Search This Project", true)?;
     // Add Repository has no shortcut: ⌘O switches repositories (SPEC-0126).
     let add = MenuItem::with_id(app, "add-repository", "Add Repository…", true, None::<&str>)?;
-    let repositories = MenuItem::with_id(
-        app,
-        "repositories",
-        "Switch Repository…",
-        true,
-        Some("CmdOrCtrl+O"),
-    )?;
-    let worktrees = MenuItem::with_id(
-        app,
-        "worktrees",
-        "Switch Worktree…",
-        true,
-        Some("CmdOrCtrl+Shift+O"),
-    )?;
-    let find = MenuItem::with_id(
-        app,
-        "find",
-        "Go to Note or File…",
-        true,
-        Some("CmdOrCtrl+P"),
-    )?;
+    let repositories = item("repositories", "Switch Repository…", true)?;
+    let worktrees = item("worktrees", "Switch Worktree…", true)?;
+    let find = item("find", "Go to Note or File…", true)?;
     let (appearance_menu, theme_menu) = appearance::submenus(app)?;
     let app_menu = Submenu::with_items(
         app,
@@ -298,9 +307,13 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &PredefinedMenuItem::separator(app)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::hide(app, None)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::hide_others(app, None)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::show_all(app, None)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::quit(app, None)?,
         ],
@@ -337,18 +350,20 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &copy_url,
         ],
     )?;
-    let reload = MenuItem::with_id(app, "reload", "Reload Page", true, Some("CmdOrCtrl+R"))?;
+    let reload = item("reload", "Reload Page", true)?;
     // No shortcuts: the editor uses Cmd-[ and Cmd-] for indentation.
     let back = MenuItem::with_id(app, "back", "Back", true, None::<&str>)?;
     let forward = MenuItem::with_id(app, "forward", "Forward", true, None::<&str>)?;
-    let sidebar = MenuItem::with_id(
-        app,
+    let sidebar = item(
         "sidebar",
         sidebar_label(Preferences::load(&app.state::<Desktop>().directory).sidebar_collapsed),
         false,
-        Some(SIDEBAR_SHORTCUT),
     )?;
     app.manage(SidebarItem(sidebar.clone()));
+    #[cfg(not(windows))]
+    let fullscreen = PredefinedMenuItem::fullscreen(app, None)?;
+    #[cfg(windows)]
+    let fullscreen = item("fullscreen", "Toggle Full Screen", true)?;
     let view_menu = Submenu::with_items(
         app,
         "View",
@@ -362,123 +377,117 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &theme_menu,
             &PredefinedMenuItem::separator(app)?,
             &sidebar,
-            &PredefinedMenuItem::fullscreen(app, None)?,
+            &fullscreen,
         ],
     )?;
+    let minimize = PredefinedMenuItem::minimize(app, None)?;
+    #[cfg(windows)]
+    let minimize = MenuItem::with_id(app, "minimize", minimize.text()?, true, None::<&str>)?;
     let window_menu = Submenu::with_items(
         app,
         "Window",
         true,
-        &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
-        ],
+        &[&minimize, &PredefinedMenuItem::maximize(app, None)?],
     )?;
     app.set_menu(Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
     )?)?;
-    app.on_menu_event(|app, event| {
-        let id = event.id().as_ref();
-        if let Some((window, item)) = id
-            .strip_prefix("popup:")
-            .and_then(|rest| rest.split_once(':'))
-        {
-            app.state::<Panes>().with(window, |pane| {
-                pane.send(json!({"type": "menu", "id": item}))
-            });
-            return;
-        }
-        if appearance::menu_event(app, id) {
-            return;
-        }
-        match id {
-            "new-window" => {
-                let session = match app.windows().is_empty() {
-                    true => app.state::<Sessions>().last_closed(),
-                    false => WindowSession::default(),
-                };
-                create_from_event(app, session);
-            }
-            "add-repository" | "repositories" | "worktrees" | "settings" => command(app, id),
-            "find" => {
-                if let Some(window) = focused_window(app) {
-                    find_in_page(&window);
-                }
-            }
-            "check-updates" => crate::updater::check_from_menu(app),
-            "sidebar" => toggle_sidebar(app),
-            "search" => {
-                if let Some(window) = focused_window(app) {
-                    dismiss_finder(&window);
-                    focus_search(&window);
-                }
-            }
-            "close-tab" => {
-                if let Some(window) = focused_window(app) {
-                    dismiss_finder(&window);
-                    close_active_tab(&window);
-                }
-            }
-            "close-window" => {
-                if let Some(window) = focused_window(app) {
-                    let _ = window.close();
-                }
-            }
-            "copy-url" => {
-                if let Some(window) = focused_window(app) {
-                    let message = match copy_page_url(&window) {
-                        Ok(()) => json!({"type": "notice", "message": "Copied the page URL"}),
-                        Err(message) => {
-                            json!({"type": "alert", "code": "desktop_error", "message": message})
-                        }
-                    };
-                    app.state::<Panes>()
-                        .with(window.label(), |pane| pane.send(message));
-                }
-            }
-            "reload" | "back" | "forward" => {
-                let to = match id {
-                    "reload" => Browse::Reload,
-                    "back" => Browse::Back,
-                    _ => Browse::Forward,
-                };
-                if let Some(window) = focused_window(app) {
-                    dismiss_finder(&window);
-                    let _ = browse(&window, to);
-                }
-            }
-            _ => {}
-        }
-    });
+    app.manage(ShortcutItems(shortcuts));
+    app.on_menu_event(|app, event| dispatch(app, event.id().as_ref(), focused_window(app)));
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shell_menu_entries_deserialize() {
-        let entries: Vec<MenuEntry> = serde_json::from_str(
-            r#"[{"label":"Primary worktree","disabled":false,"id":"m0","items":[
-                {"label":"Automatic (main)","checked":true,"id":"m1"},
-                {"separator":true,"id":"m2"}]},
-               {"label":"Remove from Library","id":"m3"}]"#,
-        )
-        .unwrap();
-        assert_eq!(entries[0].items.len(), 2);
-        assert_eq!(entries[0].items[0].checked, Some(true));
-        assert!(entries[0].items[1].separator);
-        assert_eq!(entries[1].id, "m3");
-        assert!(serde_json::from_str::<Vec<MenuEntry>>(r#"[{"label":"x","run":1}]"#).is_err());
+fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
+    if SHORTCUTS.iter().any(|(name, _)| *name == id) && !shortcut_enabled(app, id) {
+        return;
     }
-
-    #[test]
-    fn the_sidebar_item_names_what_it_will_do() {
-        assert_eq!(sidebar_label(false), "Hide Sidebar");
-        assert_eq!(sidebar_label(true), "Show Sidebar");
-        #[cfg(target_os = "macos")]
-        assert_eq!(SIDEBAR_SHORTCUT, "Ctrl+CmdOrCtrl+S");
+    if let Some((window, item)) = id
+        .strip_prefix("popup:")
+        .and_then(|rest| rest.split_once(':'))
+    {
+        app.state::<Panes>().with(window, |pane| {
+            pane.send(json!({"type": "menu", "id": item}))
+        });
+        return;
+    }
+    if appearance::menu_event(app, id) {
+        return;
+    }
+    match id {
+        "new-window" => {
+            let session = match app.windows().is_empty() {
+                true => app.state::<Sessions>().last_closed(),
+                false => WindowSession::default(),
+            };
+            create_from_event(app, session);
+        }
+        "add-repository" | "repositories" | "worktrees" | "settings" => command(app, id, window),
+        "find" => {
+            if let Some(window) = window {
+                find_in_page(&window);
+            }
+        }
+        "check-updates" => crate::updater::check_from_menu(app),
+        "sidebar" => toggle_sidebar(app, window),
+        "search" => {
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                focus_search(&window);
+            }
+        }
+        "close-tab" => {
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                close_active_tab(&window);
+            }
+        }
+        "close-window" => {
+            if let Some(window) = window {
+                let _ = window.close();
+            }
+        }
+        "copy-url" => {
+            if let Some(window) = window {
+                let message = match copy_page_url(&window) {
+                    Ok(()) => json!({"type": "notice", "message": "Copied the page URL"}),
+                    Err(message) => {
+                        json!({"type": "alert", "code": "desktop_error", "message": message})
+                    }
+                };
+                app.state::<Panes>()
+                    .with(window.label(), |pane| pane.send(message));
+            }
+        }
+        "reload" | "back" | "forward" => {
+            let to = match id {
+                "reload" => Browse::Reload,
+                "back" => Browse::Back,
+                _ => Browse::Forward,
+            };
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                let _ = browse(&window, to);
+            }
+        }
+        #[cfg(windows)]
+        "minimize" => {
+            if let Some(window) = window {
+                let _ = window.minimize();
+            }
+        }
+        #[cfg(windows)]
+        "fullscreen" => {
+            if let Some(window) = window {
+                let _ = window
+                    .is_fullscreen()
+                    .and_then(|value| window.set_fullscreen(!value));
+            }
+        }
+        _ => {}
     }
 }
+
+#[cfg(test)]
+#[path = "menu_tests.rs"]
+mod tests;

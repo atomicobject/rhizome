@@ -85,26 +85,32 @@ fn ensure_view(window: &Window) -> Result<Webview, String> {
         .map_err(|e| e.to_string())?
         .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
     let allowed = finder.clone();
-    window
-        .add_child(
-            WebviewBuilder::new(&finder, WebviewUrl::App("index.html".into()))
-                .disable_drag_drop_handler()
-                // Transparent outside the palette, so the scrim lets the page show.
-                .transparent(true)
-                .auto_resize()
-                .initialization_script(format!(
-                    "{} window.__RHIZOME_MACOS__ = {};",
-                    MARKER,
-                    cfg!(target_os = "macos")
-                ))
-                .on_navigation(move |url| {
-                    security::shell_authorized(&allowed, url, cfg!(debug_assertions))
-                }),
-            LogicalPosition::new(0.0, 0.0),
-            LogicalSize::new(size.width, size.height),
-        )
-        // A concurrent request may have created it first.
-        .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))
+    let view = match window.add_child(
+        WebviewBuilder::new(&finder, WebviewUrl::App("index.html".into()))
+            .disable_drag_drop_handler()
+            // Transparent outside the palette, so the scrim lets the page show.
+            .transparent(true)
+            .auto_resize()
+            .initialization_script(format!(
+                "{} window.__RHIZOME_MACOS__ = {};",
+                MARKER,
+                cfg!(target_os = "macos")
+            ))
+            .on_navigation(move |url| {
+                security::shell_authorized(&allowed, url, cfg!(debug_assertions))
+            }),
+        LogicalPosition::new(0.0, 0.0),
+        LogicalSize::new(size.width, size.height),
+    ) {
+        Ok(view) => view,
+        // A concurrent request may have created and hooked it first.
+        Err(error) => return window.get_webview(&finder).ok_or(error.to_string()),
+    };
+    if let Err(error) = crate::menu::install_shortcuts(&view) {
+        let _ = view.close();
+        return Err(error.to_string());
+    }
+    Ok(view)
 }
 
 /// Hides the finder for opening `opening`, or the one on screen. Focus returns

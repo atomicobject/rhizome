@@ -258,6 +258,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .title_bar_style(tauri::TitleBarStyle::Overlay)
             .hidden_title(true);
     }
+    #[cfg(windows)]
+    {
+        builder = builder.visible(false);
+    }
     if let (Some(x), Some(y)) = (session.x, session.y) {
         if on_screen(app, x + 40.0, y + 20.0) {
             builder = builder.position(x, y);
@@ -277,7 +281,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     app.state::<Panes>().insert(label.clone(), pane);
 
     let shell = shell_label(&label);
-    window.add_child(
+    let shell_view = window.add_child(
         WebviewBuilder::new(&shell, WebviewUrl::App("index.html".into()))
             .disable_drag_drop_handler()
             .auto_resize()
@@ -294,6 +298,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(width, height),
     )?;
+    crate::menu::install_shortcuts(&shell_view).inspect_err(|_| discard_failed_window(&window))?;
     let popup_app = app.clone();
     let mut view = WebviewBuilder::new(
         content_label(&label),
@@ -312,6 +317,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .map_or(0, |since| since.as_millis())
     ))
     .background_color(surface);
+    #[cfg(windows)]
+    {
+        view = view.focused(false);
+    }
     // Scripts are fixed when the view is created, so a changed setting
     // reaches only windows opened afterward.
     if page::profiling_for(app).enabled {
@@ -429,6 +438,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalSize::new(1.0, 1.0),
     )?;
     content.hide()?;
+    crate::menu::install_shortcuts(&content).inspect_err(|_| discard_failed_window(&window))?;
 
     let app = app.clone();
     let events = window.clone();
@@ -458,7 +468,22 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         }
         _ => {}
     });
+    #[cfg(windows)]
+    {
+        window.show()?;
+        window.set_focus()?;
+        shell_view.set_focus()?;
+    }
     Ok(window)
+}
+
+fn discard_failed_window(window: &Window) {
+    let app = window.app_handle();
+    app.state::<Panes>().remove(window.label());
+    app.state::<Sessions>().close(window.label(), None);
+    if let Err(error) = window.destroy() {
+        eprintln!("Rhizome Desktop could not discard a failed window: {error}");
+    }
 }
 
 /// Applies the shell's content region and whether the shell is drawing over it.
@@ -591,7 +616,9 @@ pub fn reopen(app: &AppHandle) {
 pub fn create_from_event(app: &AppHandle, session: WindowSession) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let _ = create(&app, session);
+        if let Err(error) = create(&app, session) {
+            eprintln!("Rhizome Desktop could not create a window: {error}");
+        }
     });
 }
 

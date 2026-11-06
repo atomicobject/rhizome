@@ -66,215 +66,22 @@ function Wait-Windows([Diagnostics.Process]$Process, [int]$Expected) {
     throw "Expected $Expected top-level windows; found $($windows.Count)."
 }
 
-function Test-IndependentInput($Shell) {
-    $directory = Join-Path $output ('input-calibration-' + [Guid]::NewGuid().ToString('N'))
-    $null = New-Item -ItemType Directory -Path $directory
-    $script = Join-Path $directory 'control.ps1'
-    @'
-param([string]$EvidenceDir)
-$ErrorActionPreference = 'Stop'
-try {
-Add-Type -AssemblyName System.Windows.Forms
-$form = [Windows.Forms.Form]::new()
-$form.Text = 'Rhizome input calibration'
-$form.KeyPreview = $true
-$textBox = [Windows.Forms.TextBox]::new()
-$textBox.Dock = 'Fill'
-$textBox.Add_TextChanged({
-    param($sender, $change)
-    if ($sender.Text -eq 'rhizomeinput') {
-        [IO.File]::WriteAllText((Join-Path $EvidenceDir 'text.txt'), $sender.Text)
-    }
-})
-$form.Add_KeyDown({
-    param($sender, $key)
-    if ($key.Control -and $key.KeyCode -eq [Windows.Forms.Keys]::N) {
-        [IO.File]::WriteAllText((Join-Path $EvidenceDir 'chord.txt'), 'Ctrl+N')
-        $key.SuppressKeyPress = $true
-    }
-})
-$form.Controls.Add($textBox)
-$form.Add_Shown({
-    try {
-        if (-not $textBox.Focus()) { throw 'Calibration textbox could not receive focus.' }
-        [IO.File]::WriteAllText((Join-Path $EvidenceDir 'ready.tmp'), $textBox.Handle.ToInt64().ToString())
-        [IO.File]::Move((Join-Path $EvidenceDir 'ready.tmp'), (Join-Path $EvidenceDir 'ready.txt'))
-    } catch {
-        [IO.File]::WriteAllText((Join-Path $EvidenceDir 'control-error.txt'), $_.Exception.Message)
-        $form.Close()
-    }
-})
-$null = $form.ShowDialog()
-} catch {
-    [IO.File]::WriteAllText((Join-Path $EvidenceDir 'control-error.txt'), $_.Exception.Message)
-    exit 1
-}
-'@ | Set-Content -LiteralPath $script
-    $start = [Diagnostics.ProcessStartInfo]::new([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
-    foreach ($argument in @('-NoProfile', '-STA', '-File', $script, '-EvidenceDir', $directory)) {
-        $start.ArgumentList.Add($argument)
-    }
-    $control = [Diagnostics.Process]::Start($start)
-    $evidence = @{ pid = $control.Id; evidenceDirectory = $directory; ready = $false; inputAttempted = $false }
-    try {
-        $deadline = [DateTime]::UtcNow.AddSeconds(5)
-        do {
-            $errorFile = Join-Path $directory 'control-error.txt'
-            if (Test-Path -LiteralPath $errorFile) { throw [IO.File]::ReadAllText($errorFile) }
-            $control.Refresh()
-            if ($control.HasExited) { throw 'Independent native input control exited before readiness.' }
-            $windows = @([DesktopPortabilityWindows]::Visible($control.Id) | Where-Object {
-                -not [DesktopPortabilityWindows]::ToolWindow($_)
-            })
-            $ready = Test-Path -LiteralPath (Join-Path $directory 'ready.txt')
-            if ($windows.Count -eq 1 -and $ready) { break }
-            Start-Sleep -Milliseconds 100
-        } while ([DateTime]::UtcNow -lt $deadline)
-        if ($windows.Count -ne 1) { throw 'Independent native input control did not open.' }
-        if (-not $ready) { throw 'Independent native input control did not report textbox readiness.' }
-        $evidence.ready = $true
-        $evidence.textBoxHandle = [IO.File]::ReadAllText((Join-Path $directory 'ready.txt'))
-        $target = $windows[0]
-        $evidence.controlWindow = [DesktopPortabilityWindows]::Describe($target)
-        $null = $Shell.AppActivate($control.Id)
-        $null = [DesktopPortabilityWindows]::SetForegroundWindow($target)
-        while ([DesktopPortabilityWindows]::GetForegroundWindow() -ne $target -and [DateTime]::UtcNow -lt $deadline) {
-            Start-Sleep -Milliseconds 100
-        }
-        $evidence.foregroundBeforeInput = [DesktopPortabilityWindows]::Describe([DesktopPortabilityWindows]::GetForegroundWindow())
-        if ([DesktopPortabilityWindows]::GetForegroundWindow() -ne $target) {
-            throw 'Independent native input control did not become foreground.'
-        }
-        $evidence.inputAttempted = $true
-        $Shell.SendKeys('rhizomeinput')
-        $Shell.SendKeys('^n')
-        $deadline = [DateTime]::UtcNow.AddSeconds(2)
-        do {
-            $text = Test-Path -LiteralPath (Join-Path $directory 'text.txt')
-            $chord = Test-Path -LiteralPath (Join-Path $directory 'chord.txt')
-            if ($text -and $chord) { break }
-            Start-Sleep -Milliseconds 100
-        } while ([DateTime]::UtcNow -lt $deadline)
-        $evidence.textReceived = $text
-        $evidence.ctrlNReceived = $chord
-        $evidence.foregroundAfterInput = [DesktopPortabilityWindows]::Describe([DesktopPortabilityWindows]::GetForegroundWindow())
-    } catch {
-        $evidence.error = $_.Exception.Message
-    } finally {
-        $control.Refresh()
-        if (-not $control.HasExited) {
-            $control.Kill()
-            $null = $control.WaitForExit(5000)
-        }
-        $control.Dispose()
-    }
-    return $evidence
-}
-
-function Invoke-DiagnosticShortcut([Diagnostics.Process]$Process, [IntPtr]$Window, $Shell, [string]$Name, [bool]$RequireRootFocus = $false) {
-    Save-WindowEvidence $Process "$Name-before" $Window
-    $before = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
-    $probe = @{ name = $Name; beforeWindows = $before.Count; beforeFocus = [DesktopPortabilityWindows]::FocusEvidence($Window); keyAttempted = $false }
-    if ($before.Count -ne 1) {
-        $probe.stopRemaining = $true
-        $probe.skipped = 'The original window count changed before this key attempt.'
-        return $probe
-    }
-    if ([DesktopPortabilityWindows]::GetForegroundWindow() -ne $Window) {
-        $probe.skipped = 'The original application window is not foreground.'
-        return $probe
-    }
-    if ($RequireRootFocus) {
-        $probe.beforeFocus = [DesktopPortabilityWindows]::FocusEvidence($Window)
-        $root = [DesktopPortabilityWindows]::Describe($Window)
-        if ($probe.beforeFocus.applicationThread.focus.handle -ne $root.handle) {
-            $probe.skipped = 'Root focus did not remain after detaching input queues.'
-            return $probe
-        }
-    }
-    $probe.keyAttempted = $true
-    $Shell.SendKeys('^n')
+function Wait-VisibleChildFocus([Diagnostics.Process]$Process, [IntPtr]$Window) {
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
     do {
-        $windows = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
-        if ($windows.Count -ne $before.Count) { break }
+        $Process.Refresh()
+        if ($Process.HasExited) { throw 'Desktop exited before the visible child received focus.' }
+        $focused = [DesktopPortabilityWindows]::VisibleFocusedChild($Window)
+        if ($focused -ne [IntPtr]::Zero) { return $focused }
         Start-Sleep -Milliseconds 100
     } while ([DateTime]::UtcNow -lt $deadline)
-    $probe.afterWindows = $windows.Count
-    $probe.windowDelta = $windows.Count - $before.Count
-    $probe.windowIncreaseObserved = $windows.Count -gt $before.Count
-    $probe.stopRemaining = $windows.Count -ne 1
-    $probe.afterFocus = [DesktopPortabilityWindows]::FocusEvidence($Window)
-    Save-WindowEvidence $Process "$Name-after" $Window
-    return $probe
-}
-
-function Save-ShortcutDiagnostic([Diagnostics.Process]$Process, [IntPtr]$Window, $Shell) {
-    $diagnostic = @{ applicationResponsive = [DesktopPortabilityWindows]::Responsive($Window); keyboardProbes = @() }
-    try {
-        $probe = Invoke-DiagnosticShortcut $Process $Window $Shell 'unchanged-focus'
-        $diagnostic.keyboardProbes += $probe
-        if ($probe.stopRemaining) { return }
-
-        Save-WindowEvidence $Process 'before-blank-shell-click' $Window
-        $diagnostic.blankShellClick = [DesktopPortabilityWindows]::ClickBlankShell($Window)
-        Save-WindowEvidence $Process 'blank-shell-click' $Window
-        if ($diagnostic.blankShellClick.eligible -and $diagnostic.blankShellClick.insertedEvents -eq 2) {
-            $probe = Invoke-DiagnosticShortcut $Process $Window $Shell 'after-shell-click'
-            $diagnostic.keyboardProbes += $probe
-            if ($probe.stopRemaining) { return }
-        }
-
-        $beforeRoot = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
-        if ($beforeRoot.Count -ne 1) {
-            $diagnostic.delayedWindowBeforeRootControl = $beforeRoot.Count
-            return
-        }
-        $diagnostic.artificialRootFocus = [DesktopPortabilityWindows]::RootFocusExperiment($Window, $Process.Id)
-        Save-WindowEvidence $Process 'artificial-root-focus' $Window
-        if ($diagnostic.artificialRootFocus.attached -and -not $diagnostic.artificialRootFocus.detached) { return }
-        if ($diagnostic.artificialRootFocus.attached -and $diagnostic.artificialRootFocus.detached -and $diagnostic.artificialRootFocus.rootFocusVerified) {
-            $probe = Invoke-DiagnosticShortcut $Process $Window $Shell 'after-artificial-root-focus' $true
-            $diagnostic.keyboardProbes += $probe
-            if ($probe.stopRemaining) { return }
-        }
-
-        $diagnostic.calibrationAfterArtificialAttachment = [bool]$diagnostic.artificialRootFocus.attached
-        try { $diagnostic.inputControl = Test-IndependentInput $Shell }
-        catch { $diagnostic.inputControl = @{ error = $_.Exception.Message } }
-        $menu = [DesktopPortabilityWindows]::NewWindowMenu($Window)
-        $diagnostic.menu = $menu
-        if ($null -ne $menu) {
-            Save-WindowEvidence $Process 'before-menu-diagnostic' $Window
-            $beforeMenu = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
-            $diagnostic.applicationWindowsBeforeMenu = $beforeMenu.Count
-            $diagnostic.additionalWindowBeforeMenu = $beforeMenu.Count -gt 1
-            if ($beforeMenu.Count -ne 1) { return }
-            $diagnostic.menuCommandQueued = [DesktopPortabilityWindows]::PostMessage($Window, 0x111, [UIntPtr]$menu.id, [IntPtr]::Zero)
-            $deadline = [DateTime]::UtcNow.AddSeconds(5)
-            do {
-                $windows = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
-                if ($windows.Count -ge $beforeMenu.Count + 1) { break }
-                Start-Sleep -Milliseconds 100
-            } while ([DateTime]::UtcNow -lt $deadline)
-            $diagnostic.menuApplicationWindows = $windows.Count
-            $diagnostic.menuWindowDelta = $windows.Count - $beforeMenu.Count
-            $diagnostic.menuWindowIncreaseObserved = $windows.Count -ge $beforeMenu.Count + 1
-            $diagnostic.applicationResponsiveAfterMenu = [DesktopPortabilityWindows]::Responsive($Window)
-            Save-WindowEvidence $Process 'menu-diagnostic' $Window
-        }
-    } finally {
-        Save-WindowEvidence $Process 'diagnostic-final' $Window
-        $diagnostic | ConvertTo-Json -Depth 9 | Set-Content -LiteralPath (Join-Path $output 'shortcut-diagnostic.json')
-    }
+    throw 'The new desktop window did not focus a visible child after the shell click.'
 }
 
 $previousState = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', 'Process')
 $env:RHIZOME_DESKTOP_DATA_DIR = Join-Path $output ('state-' + [Guid]::NewGuid().ToString('N'))
 $process = $null
-$keyboardAttempted = $false
+$targetWindow = [IntPtr]::Zero
 try {
     $process = Start-Process -FilePath $app -PassThru `
         -RedirectStandardOutput (Join-Path $output 'stdout.log') `
@@ -282,6 +89,7 @@ try {
     $windows = @(Wait-Windows $process 1)
     Save-WindowEvidence $process 'initial'
     if ($windows.Count -ne 1) { throw "Fresh desktop state opened $($windows.Count) windows instead of one." }
+    $initialWindows = $windows.Count
     if (-not [DesktopPortabilityWindows]::Responsive($windows[0])) { throw 'Initial desktop window is unresponsive.' }
     $shell = New-Object -ComObject WScript.Shell
     if (-not $shell.AppActivate($process.Id)) { throw 'Could not focus the desktop app.' }
@@ -293,34 +101,57 @@ try {
         if ([DateTime]::UtcNow -ge $focusDeadline) { throw 'The desktop application window did not become foreground.' }
         Start-Sleep -Milliseconds 100
     }
-    Save-WindowEvidence $process 'focused'
-    $keyboardAttempted = $true
+    Save-WindowEvidence $process 'focused' $targetWindow
     $shell.SendKeys('^n')
     $windows = @(Wait-Windows $process 2)
-    Save-WindowEvidence $process 'new-window'
+    Save-WindowEvidence $process 'new-window' $targetWindow
     if ($windows.Count -ne 2) { throw "New Window opened $($windows.Count) application windows instead of two." }
+    $firstKeyWindows = $windows.Count
     foreach ($window in $windows) {
         if (-not [DesktopPortabilityWindows]::Responsive($window)) { throw 'Desktop stopped responding after New Window.' }
     }
+
+    $newWindows = @($windows | Where-Object { $_ -ne $targetWindow })
+    if ($newWindows.Count -ne 1) { throw 'Could not identify the newly created desktop window.' }
+    $targetWindow = $newWindows[0]
+    $null = [DesktopPortabilityWindows]::SetForegroundWindow($targetWindow)
+    $focusDeadline = [DateTime]::UtcNow.AddSeconds(5)
+    while ([DesktopPortabilityWindows]::GetForegroundWindow() -ne $targetWindow) {
+        if ([DateTime]::UtcNow -ge $focusDeadline) { throw 'The new desktop window did not become foreground.' }
+        Start-Sleep -Milliseconds 100
+    }
+    Save-WindowEvidence $process 'visible-child-before-click' $targetWindow
+    $click = [DesktopPortabilityWindows]::ClickBlankShell($targetWindow)
+    $click | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'visible-child-click.json')
+    if (-not $click.eligible -or $click.insertedEvents -ne 2) { throw 'Could not click the new window visible shell.' }
+    $focusedChild = Wait-VisibleChildFocus $process $targetWindow
+    Save-WindowEvidence $process 'visible-child-focused' $targetWindow
+    $beforeChildKey = @([DesktopPortabilityWindows]::ApplicationWindows($process.Id))
+    if ($beforeChildKey.Count -ne 2) { throw 'Desktop window count changed before the visible-child shortcut.' }
+    $shell.SendKeys('^n')
+    $windows = @(Wait-Windows $process 3)
+    Save-WindowEvidence $process 'visible-child-new-window' $targetWindow
+    if ($windows.Count -ne 3) { throw "The visible-child shortcut opened $($windows.Count) application windows instead of three." }
+    foreach ($window in $windows) {
+        if (-not [DesktopPortabilityWindows]::Responsive($window)) { throw 'Desktop stopped responding after the visible-child shortcut.' }
+    }
     @{
         platform = 'windows'
-        initialWindows = 1
-        newWindowCount = $windows.Count
+        firstKeyBeforeWindows = $initialWindows
+        firstKeyAfterWindows = $firstKeyWindows
+        visibleChildKeyBeforeWindows = $beforeChildKey.Count
+        visibleChildKeyAfterWindows = $windows.Count
+        visibleChildHandle = [DesktopPortabilityWindows]::Describe($focusedChild).handle
         pid = $process.Id
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'smoke.json')
-    Write-Host 'Native desktop startup and New Window passed.'
+    Write-Host 'Native desktop startup and both New Window keyboard paths passed.'
 } catch {
     $failure = $_
     if ($null -ne $process) {
-        try { Save-WindowEvidence $process 'failure' }
+        try { Save-WindowEvidence $process 'failure' $targetWindow }
         catch { $_ | Out-String | Set-Content -LiteralPath (Join-Path $output 'window-evidence.log') }
     }
     Save-FailureScreenshot
-    # Diagnostics cannot turn the original keyboard failure into a passing smoke check.
-    if ($keyboardAttempted) {
-        try { Save-ShortcutDiagnostic $process $targetWindow $shell }
-        catch { $_ | Out-String | Set-Content -LiteralPath (Join-Path $output 'shortcut-diagnostic.log') }
-    }
     throw $failure
 } finally {
     [Environment]::SetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', $previousState, 'Process')

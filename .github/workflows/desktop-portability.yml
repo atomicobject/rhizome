@@ -97,6 +97,7 @@ jobs:
             ~/.cargo/git
             desktop/src-tauri/target
           key: desktop-portability-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: desktop-portability-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
