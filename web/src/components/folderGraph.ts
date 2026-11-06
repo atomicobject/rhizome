@@ -205,6 +205,8 @@ export function visibleFolderGraph(
   visit(root);
   const aggregated = new Map<string, GraphEdge>();
 
+  const visibleIds = new Set(nodes.map((node) => node.id));
+
   const endpoint = (id: string) => {
     const file = tree.files.get(id);
 
@@ -214,7 +216,7 @@ export function visibleFolderGraph(
     if (focusedPath && path.startsWith(`${focusedPath}/`)) return representatives.get(id);
     const top = path.includes("/") ? `folder:${path.split("/")[0]}` : "more:";
 
-    return nodes.some((node) => node.id === top) ? top : representatives.get(id);
+    return visibleIds.has(top) ? top : representatives.get(id);
   };
 
   for (const link of tree.links) {
