@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import Sigma from "sigma";
 import { buildSigmaGraph } from "./sigmaGraphData";
 import { installFakeWebGL } from "../test/fakeWebGL";
@@ -164,6 +165,101 @@ it("places colliding folder names, counts and overflow clear of unrelated nodes"
         ).toBe(false);
       }
     }
+  } finally {
+    sigma.kill();
+    container.remove();
+    vi.restoreAllMocks();
+    restore();
+  }
+});
+
+it("bounds placement work for 300 folders and preserves the PR-head positions", () => {
+  const restore = installFakeWebGL();
+  const container = document.createElement("div");
+  document.body.append(container);
+
+  const { graph } = buildSigmaGraph({
+    nodes: Array.from({ length: 300 }, (_, i) => ({
+      id: `folder:${i}`,
+      kind: "module",
+      label: "f",
+      labelDetail: "1",
+      x: 64 + (i % 20) * 90,
+      y: 40 + Math.floor(i / 20) * 68,
+    })),
+    edges: [],
+    scope: { mode: "global" },
+    fixed: true,
+    explorer: true,
+    connectionCounts: new Map(),
+    globalLayout: new Map(),
+    communityColors: new Map(),
+    problemCounts: new Map(),
+    edgeFaint: "#ccc",
+  });
+
+  const sigma = new Sigma(graph, container);
+  const context = document.createElement("canvas").getContext("2d")!;
+
+  try {
+    vi.spyOn(sigma, "getDimensions").mockReturnValue({ width: 1920, height: 1080 });
+    vi.spyOn(sigma, "framedGraphToViewport").mockImplementation((point) => point);
+    vi.spyOn(sigma, "scaleSize").mockImplementation((size = 2) => size);
+    vi.spyOn(sigma, "getNodeDisplayData").mockImplementation((id) => {
+      const i = Number(String(id).slice(7));
+
+      return {
+        x: 64 + (i % 20) * 90,
+        y: 40 + Math.floor(i / 20) * 68,
+        size: 2,
+        color: "blue",
+        label: "f",
+        forceLabel: true,
+        hidden: false,
+        highlighted: false,
+        zIndex: 0,
+        type: "circle",
+      };
+    });
+    vi.spyOn(context, "measureText").mockImplementation((text) => ({
+      width: text.length * 8,
+      actualBoundingBoxAscent: 0,
+      actualBoundingBoxDescent: 0,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight: 0,
+      fontBoundingBoxAscent: 0,
+      fontBoundingBoxDescent: 0,
+      alphabeticBaseline: 0,
+      hangingBaseline: 0,
+      ideographicBaseline: 0,
+      emHeightAscent: 0,
+      emHeightDescent: 0,
+    }));
+
+    const painter = createLabelPainter(
+      () => sigma,
+      () => ({ label: "black", canvas: "white" }),
+    );
+
+    const maps = vi.spyOn(Array.prototype, "map");
+    painter.draw(
+      context,
+      { key: "folder:0", label: "f", color: "blue", x: 64, y: 40, size: 2 },
+      sigma.getSettings(),
+    );
+
+    const transformed = maps.mock.results.reduce<number>(
+      (count, result) =>
+        count + (Array.isArray(result.value) && result.value[0]?.box ? result.value.length : 0),
+      0,
+    );
+
+    maps.mockRestore();
+    expect(painter.occupied()).toHaveLength(300);
+    expect(createHash("sha256").update(JSON.stringify(painter.occupied())).digest("hex")).toBe(
+      "e6c7a72eb52e1087b561f4daa93fa1adfe68abf579acd5ad50c532ddd2c55a68",
+    );
+    expect(transformed).toBeLessThanOrEqual(900);
   } finally {
     sigma.kill();
     container.remove();

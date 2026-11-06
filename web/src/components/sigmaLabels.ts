@@ -1,3 +1,4 @@
+import { LabelBlockers } from "./labelBlockers";
 import { resolveCssColor } from "../lib/themeColors";
 import { noteLabelLines, selectedNoteSpot } from "./sigmaLabelText";
 import type { ExplorerNodeAttrs as SigmaNodeAttrs } from "./explorerGraph";
@@ -201,6 +202,13 @@ export function createLabelPainter(
 
     labeled.sort((a, b) => b.priority - a.priority || b.r - a.r || a.id.localeCompare(b.id));
 
+    const blockerIndex = new LabelBlockers(discs);
+
+    const addPlaced = (box: Box) => {
+      placed.push(box);
+      blockerIndex.add({ id: "", box });
+    };
+
     const font = context.font;
 
     for (const node of labeled) {
@@ -241,7 +249,7 @@ export function createLabelPainter(
               )[0];
 
         chosen.box[3] += (lines.length - 1) * (size + 3);
-        placed.push(chosen.box);
+        addPlaced(chosen.box);
         spots.set(at(node.x, node.y), chosen);
         continue;
       }
@@ -250,44 +258,53 @@ export function createLabelPainter(
         const detail = Boolean(node.detail);
         const width = Math.max(measure(context, node.label), measure(context, node.detail));
 
-        const candidates = [
-          ...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy),
-          ...spotsAround(node.x, node.y, node.r, width, size, node.left, true),
-        ];
+        function* candidates() {
+          yield* outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy);
+          yield* spotsAround(node.x, node.y, node.r, width, size, node.left, true);
 
-        // Dense fans may need a free label position elsewhere in the viewport.
-        for (let y = size + PAD_Y; y < viewHeight - size - 8; y += size + 12) {
-          for (let x = PAD_X; x + width + PAD_X <= viewWidth; x += 16) {
-            candidates.push({
-              x,
-              y,
-              box: [x - PAD_X, y - size - PAD_Y + 1, x + width + PAD_X, y + PAD_Y + 3],
-            });
+          // Dense fans may need a free label position elsewhere in the viewport.
+          for (let y = size + PAD_Y; y < viewHeight - size - 8; y += size + 12) {
+            for (let x = PAD_X; x + width + PAD_X <= viewWidth; x += 16) {
+              yield {
+                x,
+                y,
+                box: [
+                  x - PAD_X,
+                  y - size - PAD_Y + 1,
+                  x + width + PAD_X,
+                  y + PAD_Y + 3,
+                ] satisfies Box,
+              };
+            }
           }
         }
 
-        const chosen =
-          candidates
-            .map((spot) => {
-              if (detail && spot.box[3] < node.y) {
-                spot.y -= size + 3;
-                spot.box[1] -= size + 3;
-              } else if (detail) spot.box[3] += size + 3;
+        let chosen: Spot | undefined;
+        let first: Spot | undefined;
 
-              return spot;
-            })
-            .find(
-              ({ box }) =>
-                box[0] >= 0 &&
-                box[2] <= viewWidth &&
-                box[1] >= 0 &&
-                box[3] <= viewHeight &&
-                !discs.some((disc) => disc.id !== node.id && overlaps(disc.box, box, 8)) &&
-                !placed.some((other) => overlaps(other, box, 8)),
-            ) ?? candidates[0];
+        for (const spot of candidates()) {
+          if (detail && spot.box[3] < node.y) {
+            spot.y -= size + 3;
+            spot.box[1] -= size + 3;
+          } else if (detail) spot.box[3] += size + 3;
+          first ??= spot;
+
+          if (
+            spot.box[0] >= 0 &&
+            spot.box[2] <= viewWidth &&
+            spot.box[1] >= 0 &&
+            spot.box[3] <= viewHeight &&
+            !blockerIndex.overlaps(spot.box, node.id)
+          ) {
+            chosen = spot;
+            break;
+          }
+        }
+
+        chosen ??= first!;
 
         chosen.detail = detail;
-        placed.push(chosen.box);
+        addPlaced(chosen.box);
         spots.set(at(node.x, node.y), chosen);
         continue;
       }
@@ -353,7 +370,7 @@ export function createLabelPainter(
         }
       }
 
-      if (chosen) placed.push(chosen.box);
+      if (chosen) addPlaced(chosen.box);
       spots.set(at(node.x, node.y), chosen);
     }
 
