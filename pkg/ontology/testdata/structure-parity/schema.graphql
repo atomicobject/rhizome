@@ -1,0 +1,19 @@
+type Document @node(paths: ["notes/*.md"]) {
+  status: String @field
+  chapters: [Chapter!] @contains(level: H2)
+}
+type Chapter implements Section @node(locator: EMBEDDED) {
+  status: String @field
+  owner: Note @link
+  items: [Item!] @contains(shape: LIST_ITEM)
+}
+type Item implements Section @node(locator: EMBEDDED) {
+  itemTitle: String @field(sourceKind: ITEM_TITLE)
+  summary: String @field(sourceKind: ITEM_SUMMARY)
+  detail: String @field(sourceKind: ITEM_DETAIL)
+  subitems: [Item!] @contains(shape: LIST_ITEM)
+}
+type Task implements Section @node(locator: EMBEDDED)
+  @source(shape: CHECKBOX_ITEM, marker: "#task", paths: ["**/*.md"]) {
+  done: Boolean! @field(sourceKind: CHECKBOX)
+}
