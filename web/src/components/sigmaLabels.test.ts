@@ -28,150 +28,174 @@ it("keeps labels on the outward side with labels within 8px", () => {
   }
 });
 
-it("places colliding folder names, counts and overflow clear of unrelated nodes", () => {
-  const restore = installFakeWebGL();
-  const container = document.createElement("div");
-  document.body.append(container);
+it.each([false, true])(
+  "keeps colliding labels attached and dims outside details (focus: %s)",
+  (focus) => {
+    const restore = installFakeWebGL();
+    const container = document.createElement("div");
+    document.body.append(container);
 
-  const { graph } = buildSigmaGraph({
-    nodes: [
-      {
-        id: "overflow:pkg",
-        kind: "module",
-        label: "+12 notes · 1 file in Vault",
-        aggregate: true,
-        x: 300,
-        y: 220,
-      },
-      {
-        id: "folder:embedindex",
-        kind: "module",
-        label: "embedindex",
-        labelDetail: "3 notes · 20 files",
-        x: 300,
-        y: 240,
-      },
-      { id: "folder:pkg", kind: "module", label: "pkg", x: 400, y: 200 },
-      { id: "blocker", kind: "module", label: "blocker", x: 120, y: 200 },
-      {
-        id: "folder:pkg/app",
-        kind: "module",
-        path: "pkg/app",
-        label: "app",
-        labelDetail: "111 notes · 1,184 files",
-        x: 300,
-        y: 200,
-      },
-    ],
-    edges: [],
-    scope: { mode: "global" },
-    fixed: true,
-    explorer: true,
-    connectionCounts: new Map(),
-    globalLayout: new Map(),
-    communityColors: new Map(),
-    problemCounts: new Map(),
-    edgeFaint: "#ccc",
-  });
+    const { graph } = buildSigmaGraph({
+      nodes: [
+        {
+          id: "overflow:pkg",
+          kind: "module",
+          label: "+12 notes · 1 file in Vault",
+          aggregate: true,
+          x: 300,
+          y: 220,
+        },
+        {
+          id: "folder:embedindex",
+          kind: "module",
+          label: "embedindex",
+          path: "pkg/embedindex",
+          labelDetail: "3 notes · 20 files",
+          x: 300,
+          y: 240,
+        },
+        { id: "folder:pkg", kind: "module", label: "pkg", x: 400, y: 200 },
+        { id: "blocker", kind: "module", label: "blocker", x: 120, y: 200 },
+        {
+          id: "folder:pkg/app",
+          kind: "module",
+          path: "pkg/app",
+          center: focus,
+          label: "app",
+          labelDetail: "111 notes · 1,184 files",
+          x: 300,
+          y: 200,
+        },
+      ],
+      edges: [],
+      scope: { mode: "global" },
+      fixed: true,
+      explorer: true,
+      connectionCounts: new Map(),
+      globalLayout: new Map(),
+      communityColors: new Map(),
+      problemCounts: new Map(),
+      edgeFaint: "#ccc",
+    });
 
-  const sigma = new Sigma(graph, container);
-  const context = document.createElement("canvas").getContext("2d")!;
+    const sigma = new Sigma(graph, container);
+    const context = document.createElement("canvas").getContext("2d")!;
 
-  try {
-    vi.spyOn(sigma, "getDimensions").mockReturnValue({ width: 400, height: 400 });
-    vi.spyOn(sigma, "framedGraphToViewport").mockImplementation((point) => point);
-    vi.spyOn(sigma, "scaleSize").mockImplementation((size = 10) => size);
-    vi.spyOn(sigma, "getNodeDisplayData").mockImplementation((id) => ({
-      x: id === "blocker" ? 120 : id === "folder:pkg" ? 400 : 300,
-      y: id === "overflow:pkg" ? 220 : id === "folder:embedindex" ? 240 : 200,
-      size: id === "blocker" ? 60 : 10,
-      color: "blue",
-      label:
-        id === "folder:pkg/app"
-          ? "app"
-          : id === "overflow:pkg"
-            ? "+12 notes · 1 file in Vault"
-            : id === "folder:embedindex"
-              ? "embedindex"
-              : null,
-      forceLabel: true,
-      hidden: false,
-      highlighted: false,
-      zIndex: 0,
-      type: "circle",
-    }));
-    vi.spyOn(context, "measureText").mockImplementation((text) => ({
-      width: text.length * 8,
-      actualBoundingBoxAscent: 0,
-      actualBoundingBoxDescent: 0,
-      actualBoundingBoxLeft: 0,
-      actualBoundingBoxRight: 0,
-      fontBoundingBoxAscent: 0,
-      fontBoundingBoxDescent: 0,
-      alphabeticBaseline: 0,
-      hangingBaseline: 0,
-      ideographicBaseline: 0,
-      emHeightAscent: 0,
-      emHeightDescent: 0,
-    }));
-    const fillText = vi.spyOn(context, "fillText");
-
-    const painter = createLabelPainter(
-      () => sigma,
-      () => ({ label: "black", canvas: "white" }),
-    );
-
-    painter.draw(
-      context,
-      {
-        key: "folder:pkg/app",
-        label: "app",
+    try {
+      vi.spyOn(sigma, "getDimensions").mockReturnValue({ width: 400, height: 400 });
+      vi.spyOn(sigma, "framedGraphToViewport").mockImplementation((point) => point);
+      vi.spyOn(sigma, "scaleSize").mockImplementation((size = 10) => size);
+      vi.spyOn(sigma, "getNodeDisplayData").mockImplementation((id) => ({
+        x: id === "blocker" ? 120 : id === "folder:pkg" ? 400 : 300,
+        y: id === "overflow:pkg" ? 220 : id === "folder:embedindex" ? 240 : 200,
+        size: id === "blocker" ? 60 : 10,
         color: "blue",
-        x: 300,
-        y: 200,
-        size: 10,
-      },
-      sigma.getSettings(),
-    );
+        label:
+          id === "folder:pkg/app"
+            ? "app"
+            : id === "overflow:pkg"
+              ? "+12 notes · 1 file in Vault"
+              : id === "folder:embedindex"
+                ? "embedindex"
+                : null,
+        forceLabel: true,
+        hidden: false,
+        highlighted: false,
+        zIndex: 0,
+        type: "circle",
+      }));
+      vi.spyOn(context, "measureText").mockImplementation((text) => ({
+        width: text.length * 8,
+        actualBoundingBoxAscent: 0,
+        actualBoundingBoxDescent: 0,
+        actualBoundingBoxLeft: 0,
+        actualBoundingBoxRight: 0,
+        fontBoundingBoxAscent: 0,
+        fontBoundingBoxDescent: 0,
+        alphabeticBaseline: 0,
+        hangingBaseline: 0,
+        ideographicBaseline: 0,
+        emHeightAscent: 0,
+        emHeightDescent: 0,
+      }));
+      const fillText = vi.spyOn(context, "fillText");
+      const stroke = vi.spyOn(context, "stroke");
+      const fillRect = vi.spyOn(context, "fillRect");
 
-    for (const [key, label, y] of [
-      ["overflow:pkg", "+12 notes · 1 file in Vault", 220],
-      ["folder:embedindex", "embedindex", 240],
-    ] as const) {
+      const painter = createLabelPainter(
+        () => sigma,
+        () => ({ label: "black", canvas: "white" }),
+      );
+
       painter.draw(
         context,
-        { key, label, color: "blue", x: 300, y, size: 10 },
+        {
+          key: "folder:pkg/app",
+          label: "app",
+          color: "blue",
+          x: 300,
+          y: 200,
+          size: 10,
+        },
         sigma.getSettings(),
       );
-    }
 
-    expect(fillText.mock.calls.map(([text]) => text)).toEqual(
-      expect.arrayContaining([
-        "app",
-        "111 notes · 1,184 files",
-        "embedindex",
-        "3 notes · 20 files",
-        "+12 notes · 1 file in Vault",
-      ]),
-    );
-    const boxes = painter.occupied();
-    expect(boxes).toHaveLength(3);
+      const [left, top, width, height] = fillRect.mock.calls.at(-1)!;
+      const appBox = [left, top, left + width, top + height];
 
-    for (let i = 0; i < boxes.length; i++) {
-      for (const other of boxes.slice(i + 1)) {
-        const box = boxes[i];
-        expect(
-          box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1],
-        ).toBe(false);
+      const distance =
+        Math.hypot(
+          Math.max(appBox[0], Math.min(300, appBox[2])) - 300,
+          Math.max(appBox[1], Math.min(200, appBox[3])) - 200,
+        ) - 10;
+
+      expect(distance).toBeLessThanOrEqual(2 * sigma.getSettings().labelSize);
+
+      if (distance > 4) expect(stroke).toHaveBeenCalled();
+
+      for (const [key, label, y] of [
+        ["overflow:pkg", "+12 notes · 1 file in Vault", 220],
+        ["folder:embedindex", "embedindex", 240],
+      ] as const) {
+        painter.draw(
+          context,
+          { key, label, color: "blue", x: 300, y, size: 10 },
+          sigma.getSettings(),
+        );
+
+        if (key === "overflow:pkg") {
+          const [ox, oy, ow, oh] = fillRect.mock.calls.at(-1)!;
+          const box = [ox, oy, ox + ow, oy + oh];
+
+          const distance =
+            Math.hypot(
+              Math.max(box[0], Math.min(300, box[2])) - 300,
+              Math.max(box[1], Math.min(y, box[3])) - y,
+            ) - 10;
+
+          expect(distance).toBeLessThanOrEqual(2 * sigma.getSettings().labelSize);
+        }
       }
+
+      expect(fillText.mock.calls.map(([text]) => text)).toEqual(
+        expect.arrayContaining([
+          "app",
+          "111 notes · 1,184 files",
+          ...(focus ? [] : ["embedindex", "3 notes · 20 files"]),
+          "+12 notes · 1 file in Vault",
+        ]),
+      );
+
+      if (focus)
+        expect(fillText.mock.calls.map(([text]) => text)).not.toContain("3 notes · 20 files");
+    } finally {
+      sigma.kill();
+      container.remove();
+      vi.restoreAllMocks();
+      restore();
     }
-  } finally {
-    sigma.kill();
-    container.remove();
-    vi.restoreAllMocks();
-    restore();
-  }
-});
+  },
+);
 
 it("bounds placement work for 300 folders and preserves the PR-head positions", () => {
   const restore = installFakeWebGL();

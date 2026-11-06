@@ -55,6 +55,7 @@ function spotsAround(
   size: number,
   left = false,
   landmark = false,
+  nearby = false,
 ): Spot[] {
   const gap = r + 12;
   const middle = y + size * 0.35;
@@ -67,7 +68,11 @@ function spotsAround(
   });
 
   return (
-    landmark ? [0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256] : [0, 16, 32, 48, 64, 80, 96]
+    nearby
+      ? [0, size, size * 2]
+      : landmark
+        ? [0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256]
+        : [0, 16, 32, 48, 64, 80, 96]
   ).flatMap((offset) => [
     at(left ? x - gap - offset - width : x + gap + offset, middle),
     at(left ? x + gap + offset : x - gap - offset - width, middle),
@@ -179,9 +184,9 @@ export function createLabelPainter(
           x,
           y,
           r,
-          detail: attrs.labelDetail || "",
+          detail: attrs.muted && !attrs.aggregate ? "" : attrs.labelDetail || "",
           left: Boolean(attrs.fixed && attrs.x < 0),
-          priority: attrs.priority ?? 0,
+          priority: attrs.fixed && attrs.muted && !attrs.aggregate ? -1 : (attrs.priority ?? 0),
           center: Boolean(attrs.explorerLabels && attrs.center),
           landmark: Boolean(attrs.fixed && attrs.kind === "module"),
           fixed: Boolean(attrs.fixed),
@@ -260,23 +265,7 @@ export function createLabelPainter(
 
         function* candidates() {
           yield* outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy);
-          yield* spotsAround(node.x, node.y, node.r, width, size, node.left, true);
-
-          // Dense fans may need a free label position elsewhere in the viewport.
-          for (let y = size + PAD_Y; y < viewHeight - size - 8; y += size + 12) {
-            for (let x = PAD_X; x + width + PAD_X <= viewWidth; x += 16) {
-              yield {
-                x,
-                y,
-                box: [
-                  x - PAD_X,
-                  y - size - PAD_Y + 1,
-                  x + width + PAD_X,
-                  y + PAD_Y + 3,
-                ] satisfies Box,
-              };
-            }
-          }
+          yield* spotsAround(node.x, node.y, node.r, width, size, node.left, false, true);
         }
 
         let chosen: Spot | undefined;
@@ -299,6 +288,11 @@ export function createLabelPainter(
             chosen = spot;
             break;
           }
+        }
+
+        if (!chosen && attrs.muted && !attrs.aggregate) {
+          spots.set(at(node.x, node.y), null);
+          continue;
         }
 
         chosen ??= first!;
@@ -416,11 +410,7 @@ export function createLabelPainter(
     const endY = Math.max(top, Math.min(data.y, bottom));
     const distance = Math.hypot(endX - data.x, endY - data.y);
 
-    if (
-      !attrs?.selected &&
-      distance > data.size + 4 &&
-      (!attrs?.explorerLabels || attrs.kind === "module" || distance <= data.size + 24)
-    ) {
+    if (distance > data.size + 4) {
       if (attrs?.explorerLabels) context.setLineDash([1, 3]);
       context.strokeStyle = attrs?.fixed ? colors().edgeLabel || label : label;
       context.globalAlpha = attrs?.fixed ? 0.4 : 1;

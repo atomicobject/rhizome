@@ -79,9 +79,8 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
 
         const labelWidth = Math.max(...lines.map((text) => context.measureText(text).width));
 
-        const detailWidth = attrs.labelDetail
-          ? context.measureText("  " + attrs.labelDetail).width
-          : 0;
+        const detail = attrs.muted && !attrs.aggregate ? "" : attrs.labelDetail;
+        const detailWidth = detail ? context.measureText("  " + detail).width : 0;
 
         const stacked = attrs.fixed && attrs.kind === "module";
         const textWidth = stacked ? Math.max(labelWidth, detailWidth) : labelWidth + detailWidth;
@@ -109,9 +108,8 @@ export function fitFixedGraph(sigma: Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>, inst
                     : point.y - origin.y,
               )[0];
 
-        if (stacked && attrs.labelDetail && spot.box[3] < point.y) spot.box[1] -= size + 3;
-        else
-          spot.box[3] += (lines.length - 1 + (stacked && attrs.labelDetail ? 1 : 0)) * (size + 3);
+        if (stacked && detail && spot.box[3] < point.y) spot.box[1] -= size + 3;
+        else spot.box[3] += (lines.length - 1 + (stacked && detail ? 1 : 0)) * (size + 3);
         boxes.push(spot.box, [point.x - 16, point.y - 16, point.x + 16, point.y + 16]);
       });
 

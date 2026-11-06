@@ -30,6 +30,8 @@ export function themedNodeHover(
   colors: () => ThemeColors,
 ): NodeHoverDrawingFunction<ExplorerNodeAttrs, SigmaEdgeAttrs> {
   return (context, data, settings) => {
+    if (data.muted && data.labelDetail)
+      data = { ...data, label: `${data.label} · ${data.labelDetail}` };
     const size = settings.labelSize;
     const padding = 2;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
