@@ -48,7 +48,7 @@ status:: TODO
 		editRegressionCollectionPath,
 	)
 	require.NoError(t, err)
-	containerRefs := note.Fields["userStoriesSection"].SectionNodes
+	containerRefs := note.Fields["userStoriesSection"].ChildRefs
 	require.Len(t, containerRefs, 1)
 	return root, schema, containerRefs[0]
 }

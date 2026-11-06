@@ -9,7 +9,7 @@ import (
 )
 
 func markdownSnapshotFromStructure(path, content string, modTime time.Time, facts *noteformat.StructureFacts, fm map[string]any) *DocumentSnapshot {
-	snapshot := &DocumentSnapshot{NotePath: path, Content: content, ModTime: modTime, Frontmatter: cloneAnyMap(fm), FrontmatterRange: frontmatterRange(content), ContentFingerprint: hashText(content), SectionsByID: map[string]*SectionNode{}, SourceSpansByID: map[string]*MarkdownSourceSpan{}, selectorFacts: markdownSelectorFacts(path, content, fm)}
+	snapshot := &DocumentSnapshot{structure: facts, NotePath: path, Content: content, ModTime: modTime, Frontmatter: cloneAnyMap(fm), FrontmatterRange: frontmatterRange(content), ContentFingerprint: hashText(content), SectionsByID: map[string]*SectionNode{}, SourceSpansByID: map[string]*MarkdownSourceSpan{}, selectorFacts: markdownSelectorFacts(path, content, fm)}
 	spans := map[noteformat.OwnerKey]*MarkdownSourceSpan{}
 	sections := map[noteformat.OwnerKey]*SectionNode{}
 	for _, o := range facts.Owners {

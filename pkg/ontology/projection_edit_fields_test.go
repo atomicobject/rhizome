@@ -32,10 +32,10 @@ status:: TODO
 
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 	container, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
-	storyRef := container.Fields["stories"].SectionNodes[0]
+	storyRef := container.Fields["stories"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	err = session.SetScalarField(storyRef, "status", "DONE")
@@ -80,8 +80,8 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	firstRef := note.Fields["actionItems"].SectionNodes[0]
-	secondRef := note.Fields["actionItems"].SectionNodes[1]
+	firstRef := note.Fields["actionItems"].ChildRefs[0]
+	secondRef := note.Fields["actionItems"].ChildRefs[1]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(firstRef, "due", "2026-05-12"))
@@ -145,15 +145,15 @@ labels:: OPEN, CLOSED
 			require.NoError(t, err)
 			note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 			require.NoError(t, err)
-			require.Len(t, note.Fields["actionItemsSection"].SectionNodes, 1)
+			require.Len(t, note.Fields["actionItemsSection"].ChildRefs, 1)
 			section, err := ProjectNodeFromSnapshot(
 				note.Snapshot,
 				schema,
-				note.Fields["actionItemsSection"].SectionNodes[0],
+				note.Fields["actionItemsSection"].ChildRefs[0],
 			)
 			require.NoError(t, err)
-			require.Len(t, section.Fields["actionItems"].SectionNodes, 1)
-			ref := section.Fields["actionItems"].SectionNodes[0]
+			require.Len(t, section.Fields["actionItems"].ChildRefs, 1)
+			ref := section.Fields["actionItems"].ChildRefs[0]
 			session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 			require.NoError(t, session.SetScalarField(ref, "status", "CLOSED"))
 			require.NoError(t, session.SetScalarField(ref, "due", tc.due))
@@ -230,7 +230,7 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	itemRef := note.Fields["actionItems"].SectionNodes[0]
+	itemRef := note.Fields["actionItems"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(itemRef, "done", "true"))
@@ -282,7 +282,7 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	itemRef := note.Fields["actionItems"].SectionNodes[0]
+	itemRef := note.Fields["actionItems"].ChildRefs[0]
 	item, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, itemRef)
 	require.NoError(t, err)
 	require.Equal(t, []string{"people/alice"}, item.Fields["assignedTo"].Values)

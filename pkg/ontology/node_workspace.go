@@ -30,18 +30,18 @@ type NodeInlineFieldSpan struct {
 }
 
 type NodeFieldState struct {
-	Name         string                 `json:"name"`
-	Kind         BindingKind            `json:"kind"`
-	SourceKind   ontoschema.FieldSource `json:"sourceKind,omitempty"`
-	Present      bool                   `json:"present"`
-	Status       NodeStatus             `json:"status"`
-	Range        ByteRange              `json:"range"`
-	ValueRanges  []ByteRange            `json:"valueRanges,omitempty"`
-	Values       []string               `json:"values,omitempty"`
-	InlineSpans  []NodeInlineFieldSpan  `json:"inlineSpans,omitempty"`
-	SectionNodes []NodeRef              `json:"sectionNodes,omitempty"`
-	Capability   NodeFieldCapability    `json:"capability"`
-	Issues       []ValidationIssue      `json:"issues,omitempty"`
+	Name        string                 `json:"name"`
+	Kind        BindingKind            `json:"kind"`
+	SourceKind  ontoschema.FieldSource `json:"sourceKind,omitempty"`
+	Present     bool                   `json:"present"`
+	Status      NodeStatus             `json:"status"`
+	Range       ByteRange              `json:"range"`
+	ValueRanges []ByteRange            `json:"valueRanges,omitempty"`
+	Values      []string               `json:"values,omitempty"`
+	InlineSpans []NodeInlineFieldSpan  `json:"inlineSpans,omitempty"`
+	ChildRefs   []NodeRef              `json:"sectionNodes,omitempty"`
+	Capability  NodeFieldCapability    `json:"capability"`
+	Issues      []ValidationIssue      `json:"issues,omitempty"`
 }
 
 type NodeSourceRevision struct {
@@ -167,6 +167,12 @@ func buildNodeDescriptor(schema *ontoschema.Schema, projection *NodeProjection) 
 		Title:        nodeProjectionTitle(projection),
 		Locator:      string(ref.Kind),
 	}
+	if projection.Prepared != nil && ref.Kind != NodeKindNote {
+		if parent, ok, err := projection.Prepared.SemanticParent(ref); err == nil && ok {
+			desc.ParentRef = &parent
+			return desc
+		}
+	}
 	if schema != nil && ref.Kind != NodeKindNote {
 		if parent, ok, err := SemanticParentRef(projection.Snapshot, schema, ref); err == nil && ok {
 			desc.ParentRef = &parent
@@ -234,7 +240,7 @@ func buildNodeFieldStates(schema *ontoschema.Schema, projection *NodeProjection)
 				PropertyKey: span.PropertyKey,
 			})
 		}
-		state.SectionNodes = append([]NodeRef(nil), binding.SectionNodes...)
+		state.ChildRefs = append([]NodeRef(nil), binding.ChildRefs...)
 		out = append(out, state)
 	}
 	return out
@@ -297,7 +303,7 @@ func buildNodeCapabilities(projection *NodeProjection) NodeCapabilities {
 	canNavigateChildren := canEditCollections
 	if !canNavigateChildren {
 		for _, field := range projection.Fields {
-			if len(field.SectionNodes) > 0 {
+			if len(field.ChildRefs) > 0 {
 				canNavigateChildren = true
 				break
 			}
@@ -330,6 +336,9 @@ func buildNodeVersion(workspace *NodeWorkspace) string {
 }
 
 func nodeProjectionTitle(projection *NodeProjection) string {
+	if projection != nil && projection.Record != nil {
+		return projection.sourceTitle
+	}
 	if projection == nil {
 		return ""
 	}

@@ -130,7 +130,7 @@ func ontologyContextIncludeValues(ctx context.Context, p *DefaultPacker, scope *
 		for _, span := range binding.InlineSpans {
 			values = append(values, span.Value)
 		}
-		for _, ref := range binding.SectionNodes {
+		for _, ref := range binding.ChildRefs {
 			values = append(values, ref.String())
 		}
 	}

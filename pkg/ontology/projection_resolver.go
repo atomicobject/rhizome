@@ -57,6 +57,7 @@ func (r *projectionResolver) projectNote() *NodeProjection {
 	}
 	projection := &NodeProjection{
 		Ref:          ref,
+		Prepared:     r.prepared,
 		Snapshot:     r.snapshot,
 		ResolvedType: typeNameOrEmpty(r.noteType),
 		Type:         r.noteType,

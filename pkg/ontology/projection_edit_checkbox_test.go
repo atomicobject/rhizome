@@ -39,7 +39,7 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	itemRef := note.Fields["actionItems"].SectionNodes[0]
+	itemRef := note.Fields["actionItems"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(itemRef, "done", "true"))
@@ -125,7 +125,7 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	itemRef := note.Fields["actionItems"].SectionNodes[0]
+	itemRef := note.Fields["actionItems"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.EnsureBlockID(itemRef, "ai-1"))

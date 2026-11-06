@@ -67,10 +67,7 @@ func BuildRootDocumentSnapshot(source notemeta.NoteSourceSnapshot) (*RootDocumen
 		return nil, fmt.Errorf("build root document snapshot: source is not valid UTF-8")
 	}
 	digest := sha256.Sum256(raw)
-	contentHash := source.ContentHash
-	if contentHash == "" {
-		contentHash = hex.EncodeToString(digest[:])
-	}
+	contentHash := hex.EncodeToString(digest[:])
 	snapshot := &RootDocumentSnapshot{
 		NotePath: path, Format: source.Format, RawSource: raw,
 		ContentHash: contentHash, Mtime: source.Mtime,

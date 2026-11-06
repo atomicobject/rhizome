@@ -160,7 +160,7 @@ func (e *executor) itemProjectionRecordsForNote(ctx context.Context, note *noteR
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			for _, ref := range parent.Fields[name].SectionNodes {
+			for _, ref := range parent.Fields[name].ChildRefs {
 				child, err := ontology.ProjectBoundNodeFromSnapshot(parent.Snapshot, e.schema, ref)
 				if err != nil {
 					return err
@@ -241,8 +241,8 @@ func (e *executor) sectionRecordsFromProjectionField(projection *ontology.NodePr
 		return nil
 	}
 	binding := projection.Fields[field.Name]
-	out := make([]*sectionRecord, 0, len(binding.SectionNodes))
-	for _, ref := range binding.SectionNodes {
+	out := make([]*sectionRecord, 0, len(binding.ChildRefs))
+	for _, ref := range binding.ChildRefs {
 		child, err := ontology.ProjectBoundNodeFromSnapshot(projection.Snapshot, e.schema, ref)
 		if err != nil {
 			continue

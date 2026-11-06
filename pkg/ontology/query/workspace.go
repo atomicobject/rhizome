@@ -247,7 +247,7 @@ func workspaceStructure(projection *ontology.NodeProjection, workspace *ontology
 	known := make(map[string]ontology.NodeRef)
 	if workspace != nil {
 		for _, field := range workspace.Fields {
-			for _, ref := range field.SectionNodes {
+			for _, ref := range field.ChildRefs {
 				known[ref.NodeID] = ref
 			}
 		}

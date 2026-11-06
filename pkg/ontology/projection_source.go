@@ -5,7 +5,6 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"strings"
-	"time"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -31,7 +30,7 @@ func projectNoteSource(source notemeta.NoteSourceSnapshot) (*noteDoc, error) {
 	if source.Format == "" {
 		return nil, fmt.Errorf("ontology source format is required")
 	}
-	if source.Projection.Capabilities.Has(noteformat.CapabilityStructuralContentMutation) {
+	if source.Format == "markdown" && source.Projection.Facts.Structure != nil {
 		return projectMarkdownNoteSource(source)
 	}
 	return projectRootNoteSource(source)
@@ -93,7 +92,7 @@ func documentSnapshotForDoc(doc *noteDoc) (*DocumentSnapshot, error) {
 	if doc.Snapshot != nil {
 		return doc.Snapshot, nil
 	}
-	return BuildDocumentSnapshot(doc.Path, doc.Content, time.Time{})
+	return nil, fmt.Errorf("source provider has no Markdown edit view")
 }
 
 func noteDocFromSnapshot(snapshot *DocumentSnapshot) *noteDoc {

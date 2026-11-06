@@ -87,15 +87,16 @@ func graphNodeRowFromIntel(row readmodel.NodeRow) readmodel.GraphNodeRow {
 
 func graphTypedEdgeRowFromSQLite(row OntologyEdgeRow) readmodel.GraphTypedEdgeRow {
 	return readmodel.GraphTypedEdgeRow{
-		SrcPath:      row.SrcPath,
-		SrcNodeID:    row.SrcNodeID,
-		RelationName: row.RelationName,
-		DstPath:      row.DstPath,
-		DstNodeID:    row.DstNodeID,
-		DstType:      row.DstType,
-		Provenance:   row.Provenance,
-		Structural:   row.Structural,
-		UpdatedAt:    row.UpdatedAt,
+		OccurrencesJSON: row.OccurrencesJSON,
+		SrcPath:         row.SrcPath,
+		SrcNodeID:       row.SrcNodeID,
+		RelationName:    row.RelationName,
+		DstPath:         row.DstPath,
+		DstNodeID:       row.DstNodeID,
+		DstType:         row.DstType,
+		Provenance:      row.Provenance,
+		Structural:      row.Structural,
+		UpdatedAt:       row.UpdatedAt,
 	}
 }
 

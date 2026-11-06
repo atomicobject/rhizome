@@ -87,7 +87,7 @@ func TestIntegrationNamespaceApplicationHelper(t *testing.T) {
 		}()
 		projection, projectErr := ontology.ProjectNote(ctx, vaultDef, noteReader, schema, "edit.md")
 		require.NoError(t, projectErr)
-		refs := projection.Fields["topics"].SectionNodes
+		refs := projection.Fields["topics"].ChildRefs
 		require.Len(t, refs, 1)
 		service := ontology.NodeLinkService{VaultDef: vaultDef, NoteReader: noteReader, Schema: schema, WriteLease: lease}
 		result, linkErr := service.LinkTargets(ctx, ontology.LinkTargetRequest{Refs: refs, Ensure: ontology.EnsureLinkTargetApply})

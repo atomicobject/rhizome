@@ -78,7 +78,7 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	refs := note.Fields["actionItems"].SectionNodes
+	refs := note.Fields["actionItems"].ChildRefs
 	require.Len(t, refs, 2)
 
 	result, err := (&NodeLinkService{
@@ -174,10 +174,10 @@ status:: TODO
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	stories := note.Fields["userStoriesSection"].SectionNodes[0]
+	stories := note.Fields["userStoriesSection"].ChildRefs[0]
 	container, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, stories)
 	require.NoError(t, err)
-	refs := append([]NodeRef(nil), container.Fields["stories"].SectionNodes...)
+	refs := append([]NodeRef(nil), container.Fields["stories"].ChildRefs...)
 	require.Len(t, refs, 2)
 	for i := range refs {
 		refs[i].Fragment = ""
@@ -446,14 +446,14 @@ id:: ^SPEC-0042-US1
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	note, err := ProjectNote(context.Background(), vaultDef, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	storiesRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	storiesRef := note.Fields["userStoriesSection"].ChildRefs[0]
 	stories, err := ProjectNode(context.Background(), vaultDef, &obsidian.Note{}, schema, storiesRef)
 	require.NoError(t, err)
-	story, err := ProjectNode(context.Background(), vaultDef, &obsidian.Note{}, schema, stories.Fields["stories"].SectionNodes[0])
+	story, err := ProjectNode(context.Background(), vaultDef, &obsidian.Note{}, schema, stories.Fields["stories"].ChildRefs[0])
 	require.NoError(t, err)
-	criteria, err := ProjectNode(context.Background(), vaultDef, &obsidian.Note{}, schema, story.Fields["acceptanceCriteria"].SectionNodes[0])
+	criteria, err := ProjectNode(context.Background(), vaultDef, &obsidian.Note{}, schema, story.Fields["acceptanceCriteria"].ChildRefs[0])
 	require.NoError(t, err)
-	ac2Ref := criteria.Fields["criteria"].SectionNodes[1]
+	ac2Ref := criteria.Fields["criteria"].ChildRefs[1]
 	service := &NodeLinkService{
 		VaultDef:   vaultDef,
 		NoteReader: &obsidian.Note{},
@@ -802,10 +802,10 @@ func firstStoryRef(t *testing.T, root string, schema *ontoschema.Schema) NodeRef
 	t.Helper()
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 	container, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
-	return container.Fields["stories"].SectionNodes[0]
+	return container.Fields["stories"].ChildRefs[0]
 }
 
 func requireBlockIDIssueCode(t *testing.T, issues []BlockIDValidationIssue, code string) {

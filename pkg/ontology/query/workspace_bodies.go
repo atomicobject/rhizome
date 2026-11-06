@@ -182,7 +182,7 @@ func workspaceBodyProperties(projection *ontology.NodeProjection) map[string]str
 	}
 	properties := make(map[string]string)
 	for _, field := range workspace.Fields {
-		if len(field.SectionNodes) > 0 || len(field.Values) == 0 {
+		if len(field.ChildRefs) > 0 || len(field.Values) == 0 {
 			continue
 		}
 		properties[field.Name] = strings.Join(field.Values, ", ")

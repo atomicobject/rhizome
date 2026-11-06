@@ -41,7 +41,7 @@ func (s *Store) ontologyNodeFieldValuesByNodeIDsBatch(ctx context.Context, nodeI
 		SELECT node_id, note_path, type_name, field_name, field_kind, source_kind,
 			value_kind, value_text, value_norm, value_bool, value_int, value_real,
 			value_date, value_datetime, target_node_id, target_ref_json, target_note_path,
-			target_type_name, target_source_locator, list_ordinal, schema_hash, updated_at
+			target_type_name, target_source_locator, list_ordinal, schema_hash, updated_at, source_presence, source_value_kind, reference_at
 		FROM ontology_node_field_values
 		WHERE %s
 		ORDER BY node_id, field_name, list_ordinal, value_norm, target_node_id

@@ -36,10 +36,10 @@ func (op addSectionFieldOp) apply(state *documentState) error {
 			return fmt.Errorf("%w: section field %s not found on %s", errMissingField, fieldName, parent.Ref.String())
 		}
 		binding := parent.Fields[fieldName]
-		if len(binding.SectionNodes) != 1 {
+		if len(binding.ChildRefs) != 1 {
 			return fmt.Errorf("%w: section field %s does not resolve to one parent node", errCollectionDrift, fieldName)
 		}
-		parent, err = ProjectBoundNodeFromSnapshot(snapshot, state.schema, binding.SectionNodes[0])
+		parent, err = ProjectBoundNodeFromSnapshot(snapshot, state.schema, binding.ChildRefs[0])
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func (op addSectionFieldOp) apply(state *documentState) error {
 	if target == nil || target.Kind != ontoschema.FieldKindSection {
 		return fmt.Errorf("%w: section field %s not found on %s", errMissingField, targetName, parent.Ref.String())
 	}
-	if binding, ok := parent.Fields[targetName]; ok && len(binding.SectionNodes) > 0 {
+	if binding, ok := parent.Fields[targetName]; ok && len(binding.ChildRefs) > 0 {
 		return nil
 	}
 	heading := strings.TrimSpace(target.SectionHeading)
@@ -97,7 +97,7 @@ func orderedSectionInsertOffset(snapshot *DocumentSnapshot, parent *NodeProjecti
 		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
-		for _, ref := range parent.Fields[field.Name].SectionNodes {
+		for _, ref := range parent.Fields[field.Name].ChildRefs {
 			if ref.StartByte >= 0 && (insertAt < 0 || ref.StartByte < insertAt) {
 				insertAt = ref.StartByte
 			}

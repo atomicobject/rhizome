@@ -16,7 +16,7 @@ func Match(predicate readmodel.FieldPredicate, rows []readmodel.FieldValueRow) b
 	if op == "exists" || op == "missing" {
 		present := false
 		for _, row := range rows {
-			present = present || row.ValueNorm != ""
+			present = present || row.ValueNorm != "" || row.SourcePresence == "value"
 		}
 		return present == (op == "exists")
 	}
@@ -24,6 +24,9 @@ func Match(predicate readmodel.FieldPredicate, rows []readmodel.FieldValueRow) b
 		kind := PredicateValueKind(operand)
 		right := ScalarFromRow(operand, kind)
 		for _, row := range rows {
+			if row.SourcePresence == "null" || (row.SourceValueKind == "array" && row.ValueText == "") || row.SourceValueKind == "object" {
+				continue
+			}
 			matched := false
 			switch {
 			case op == "contains":

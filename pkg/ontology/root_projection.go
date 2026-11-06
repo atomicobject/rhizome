@@ -77,15 +77,11 @@ func ProjectRootDocumentSnapshot(root *RootDocumentSnapshot, schema *ontoschema.
 	if root == nil {
 		return nil, nil
 	}
-	doc := &noteDoc{
-		Path: root.NotePath.String(), Title: root.Title,
-		Content: string(root.RawSource), Frontmatter: cloneAnyMap(root.Metadata),
-		Inline: cloneNoteInline(root.InlineProperties), Tags: append([]string(nil), root.Tags...),
-		Links:      append([]notemeta.ResolvedNoteLink(nil), root.Links...),
-		Projection: root.Projection.Copy(), TypeName: stringValue(root.Metadata[ontoschema.TypeFieldName()]),
-		Root: root, Snapshot: root.MarkdownStructure,
+	prepared, err := PrepareDocument(root, schema)
+	if err != nil {
+		return nil, err
 	}
-	return projectRootNodeForDoc(doc, schema)
+	return prepared.Project(root.Root)
 }
 
 func rootMetadataFieldBinding(doc *noteDoc, field *ontoschema.Field) FieldBinding {

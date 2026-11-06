@@ -23,6 +23,7 @@ func BuildMarkdownDocumentSnapshot(root *RootDocumentSnapshot) (*DocumentSnapsho
 		return nil, fmt.Errorf("Markdown provider did not supply structure")
 	}
 	snapshot := markdownSnapshotFromStructure(root.NotePath.String(), string(root.RawSource), modTime, root.Projection.Facts.Structure, root.Metadata)
+	snapshot.root = root
 	snapshot.selectorFacts = cloneSelectorFacts(&ontoschema.Subject{
 		Path: root.NotePath.String(), Title: root.Title, Tags: root.Tags,
 		Frontmatter: root.Metadata, Inline: root.InlineProperties,

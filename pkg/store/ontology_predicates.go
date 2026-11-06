@@ -21,6 +21,7 @@ func ontologyNodePathPredicateSQL(predicate readmodel.FieldPredicate) (string, [
 	if op == "" {
 		op = readmodel.FieldOpEq
 	}
+
 	switch op {
 	case readmodel.FieldOpExists:
 		return "n.note_path != ''", nil, nil
@@ -88,14 +89,15 @@ func ontologyFieldPredicateSQL(idx int, typeNames []string, predicate readmodel.
 	if op == "" {
 		op = readmodel.FieldOpEq
 	}
+	if op != readmodel.FieldOpExists {
+		conditions = append(conditions, fmt.Sprintf("%s.source_presence != 'null' AND %s.source_value_kind != 'object' AND NOT (%s.source_value_kind = 'array' AND %s.value_text = '')", alias, alias, alias, alias))
+	}
 	switch op {
 	case readmodel.FieldOpExists:
-		// "exists" means "field row present with non-empty normalized value".
-		// The value_norm != '' filter lets SQLite use the partial index
-		// idx_ontology_node_field_values_norm. Empty-value rows are deliberately
-		// excluded so a Person with `assignee:` blank does not match
-		// `assignee_exists: true`.
-		conditions = append(conditions, fmt.Sprintf("%s.value_norm != ''", alias))
+		// Keep both presence sources indexed; an OR would lose the existing partial index.
+		base := strings.Join(conditions, " AND ")
+		sql := fmt.Sprintf("n.node_id IN (SELECT %s.node_id FROM ontology_node_field_values %s WHERE %s AND %s.value_norm != '' UNION SELECT %s.node_id FROM ontology_node_field_values %s WHERE %s AND %s.source_presence = 'value')", alias, alias, base, alias, alias, alias, base, alias)
+		return sql, append(append([]any(nil), args...), args...), nil
 	case readmodel.FieldOpEq:
 		if len(predicate.Values) == 0 {
 			return "", nil, fmt.Errorf("eq predicate for %s requires value", fieldName)

@@ -60,6 +60,9 @@ func PredicateValueKind(row readmodel.FieldValueRow) string {
 	}
 }
 func ScalarFromRow(row readmodel.FieldValueRow, kind string) Scalar {
+	if row.SourcePresence == "null" || row.SourceValueKind == "object" || (row.SourceValueKind == "array" && row.ValueText == "") {
+		return Scalar{}
+	}
 	kind = strings.ToLower(strings.TrimSpace(kind))
 	switch kind {
 	case "boolean":

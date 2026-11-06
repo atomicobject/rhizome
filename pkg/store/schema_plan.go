@@ -9,9 +9,9 @@ import (
 
 const (
 	intelBaselineVersion          = 56
-	currentSchemaVersion          = 78
+	currentSchemaVersion          = 79
 	intelVecTablePrefix           = "intel_embeddings_vec_d"
-	currentIntelSchemaFingerprint = "intel-schema-v78-2026-11-01-intel-embedding-cache"
+	currentIntelSchemaFingerprint = "intel-schema-v79-2026-11-06-structural-values"
 )
 
 // forwardSchemaMigrations contains only migrations added after the consolidated
@@ -84,6 +84,7 @@ var forwardSchemaMigrations = []domains.TxStep{
 	},
 	addIntelSectionSourceIdentitySchema, // v76 -> v77
 	backfillEmbeddingCacheSchema,        // v77 -> v78
+	addOntologyStructureSchema,          // v78 -> v79
 }
 
 func (s *Store) ensureSchemaVersion(ctx context.Context, target int) error {

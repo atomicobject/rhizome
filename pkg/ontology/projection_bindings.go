@@ -175,11 +175,11 @@ func sourceSpanItemFieldValue(content string, span *MarkdownSourceSpan, sourceKi
 
 func sectionNodesBinding(r *projectionResolver, field *ontoschema.Field, matches []*SectionNode) FieldBinding {
 	binding := FieldBinding{
-		FieldName:    field.Name,
-		Kind:         BindingKindSectionField,
-		SourceKind:   ontoschema.FieldSourceInline,
-		Present:      len(matches) > 0,
-		SectionNodes: make([]NodeRef, 0, len(matches)),
+		FieldName:  field.Name,
+		Kind:       BindingKindSectionField,
+		SourceKind: ontoschema.FieldSourceInline,
+		Present:    len(matches) > 0,
+		ChildRefs:  make([]NodeRef, 0, len(matches)),
 	}
 	if field.List {
 		binding.Kind = BindingKindSectionList
@@ -190,7 +190,7 @@ func sectionNodesBinding(r *projectionResolver, field *ontoschema.Field, matches
 			continue
 		}
 		ref := r.sectionNodeRef(match)
-		binding.SectionNodes = append(binding.SectionNodes, ref)
+		binding.ChildRefs = append(binding.ChildRefs, ref)
 		binding.Values = append(binding.Values, ref.String())
 		ranges = append(ranges, ByteRange{Start: match.StartByte, End: match.EndByte})
 	}
@@ -201,11 +201,11 @@ func sectionNodesBinding(r *projectionResolver, field *ontoschema.Field, matches
 
 func sourceSpanNodesBinding(r *projectionResolver, field *ontoschema.Field, matches []*MarkdownSourceSpan) FieldBinding {
 	binding := FieldBinding{
-		FieldName:    field.Name,
-		Kind:         BindingKindSectionField,
-		SourceKind:   ontoschema.FieldSourceInline,
-		Present:      len(matches) > 0,
-		SectionNodes: make([]NodeRef, 0, len(matches)),
+		FieldName:  field.Name,
+		Kind:       BindingKindSectionField,
+		SourceKind: ontoschema.FieldSourceInline,
+		Present:    len(matches) > 0,
+		ChildRefs:  make([]NodeRef, 0, len(matches)),
 	}
 	if field.List {
 		binding.Kind = BindingKindSectionList
@@ -216,7 +216,7 @@ func sourceSpanNodesBinding(r *projectionResolver, field *ontoschema.Field, matc
 			continue
 		}
 		ref := r.sourceSpanNodeRef(match)
-		binding.SectionNodes = append(binding.SectionNodes, ref)
+		binding.ChildRefs = append(binding.ChildRefs, ref)
 		binding.Values = append(binding.Values, ref.String())
 		ranges = append(ranges, match.Range)
 	}
@@ -226,8 +226,8 @@ func sourceSpanNodesBinding(r *projectionResolver, field *ontoschema.Field, matc
 }
 
 func collectionFromFieldBinding(fieldName string, binding FieldBinding) CollectionBinding {
-	items := make([]CollectionItem, 0, len(binding.SectionNodes))
-	for _, ref := range binding.SectionNodes {
+	items := make([]CollectionItem, 0, len(binding.ChildRefs))
+	for _, ref := range binding.ChildRefs {
 		items = append(items, CollectionItem{
 			Ref:   ref,
 			Range: ByteRange{Start: ref.StartByte, End: ref.EndByte},
