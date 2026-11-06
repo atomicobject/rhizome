@@ -73,13 +73,15 @@ surface-specific ownership rules. Unrelated Markdown retains existing behavior.
 
 ## Capability reporting and UI
 
-Workspace construction overlays current source ownership on node and field
-capabilities. Owned nodes advertise all native edit capabilities as false and
+Workspace construction captures one ownership policy per read scope and overlays
+its node and field capabilities. Owned nodes advertise all native edit capabilities as false and
 carry `readOnlyReason`; fields remove `writeOperation` and carry the same reason.
 The web workspace API and typed GraphQL workspace selection use this overlay,
 including nested body workspaces. Browser edit mode and body controls honor the
 node reason, and the existing property editor honors field capabilities.
 Capability reporting is advisory to the UI; server admission is authoritative.
+Captured policies retain load errors, so unreadable/malformed declarations fail
+closed. Staging and commit capture separate policies; commit sees later changes.
 
 ## Observable verification
 
@@ -88,3 +90,23 @@ current reason reporting, staging refusal, commit after ownership changes,
 whole-operation graph move refusal without source byte changes, direct CLI/MCP
 mutation routes, metadata/coderef refusal, and disabled browser editing. Run
 focused Go and web tests, repository gates, and the requested E2E suite.
+
+## Bypass audit and integration notes
+
+- `pkg/app/operations/create.go` is the content-bearing Obsidian URI route.
+  It admits both the supplied path and Markdown destination, resolves physical
+  parent aliases even for new files, and dispatches a canonical destination.
+  Refusal tests cover append, overwrite, and creation without constructing or
+  executing a URI. Open/search/daily URIs launch the external editor without
+  supplying authored content, which remains permitted by R5.
+- Native agent code-mode moves and heading changes delegate to the same
+  application operations. MCP heading changes use those operations; node-link
+  fixes use `EditSession.EnsureBlockID` and the shared writer. SDK generation
+  writes generated agent artifacts, rather than authored knowledge records.
+- The desktop bridge handles runtime/setup/configuration. Its note editor uses
+  the same web API; the native bridge has no separate authored-note write path.
+- Coderef patches now publish inside the namespace transaction, including when
+  later projection refresh fails. They are no longer optional postcommit writes.
+- Lane A should retain the workspace ownership overlay when changing workspace
+  construction. Starter setup must write the declaration before bindings,
+  covering known authored sources in unselected products as well.

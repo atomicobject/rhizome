@@ -44,6 +44,8 @@ The primitives every other subsystem builds on: canonical path normalization (`p
 
 ## Design constraints
 
+- **Source write ownership is separate from discovery.** `pkg/sourceownership` reads committed `.rhizome/source-ownership.yml` declarations of owner, reason, and vault-relative exact paths/doublestar globs. Refresh never removes declarations; invalid configuration refuses native source writes. Explicit configuration removal is the ejection route. The managed init ignore file tracks this document.
+
 - **Shared lexical helpers belong to Markdown syntax.** `markdownsyntax.NextLineStart`, `ByteRun`, and `FenceLine` supply byte-level scanning to skill slots, template embeds, and Markdown consumers. `FenceLine` recognizes delimiter candidates with at most three leading spaces; callers retain their own opening/closing fence state. Keep this lexical contract distinct from stateful fence-close validation.
 
 - **Health retains ontology issue evidence.** `HealthReport.OntologyIssues` uses `ontology.ValidationIssue` directly, including node identity, repair targets, variants, and ambiguity candidates. Optional fields remain omitted from JSON when empty.
