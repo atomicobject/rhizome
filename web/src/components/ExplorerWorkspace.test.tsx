@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import Sigma from "sigma";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FileView, GraphResponse, SearchResponse, TreeResponse } from "../api/types";
@@ -59,7 +59,6 @@ describe("ExplorerWorkspace", () => {
 
   beforeEach(() => {
     restoreWebGL = installFakeWebGL();
-    // Empty, well-formed reads for everything a test does not care about.
     http
       .json("GET", "/api/v1/files/tree", tree())
       .json("GET", "/api/v1/graphs/global", graphWith())
@@ -72,6 +71,7 @@ describe("ExplorerWorkspace", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
     restoreWebGL();
     window.history.replaceState({}, "", "/explorer");
@@ -83,7 +83,7 @@ describe("ExplorerWorkspace", () => {
     const utils = render(<ExplorerWorkspace vaultName="rhizome" />);
 
     async function renderer() {
-      await screen.findByRole("img", { name: /^Graph of / });
+      await waitFor(() => expect(sigmaOn).toHaveBeenCalled());
       const sigma = sigmaOn.mock.contexts.at(-1);
 
       if (!(sigma instanceof Sigma)) throw new Error("graph pane never mounted a renderer");
