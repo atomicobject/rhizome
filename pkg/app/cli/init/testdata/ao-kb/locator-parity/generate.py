@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 
+sys.dont_write_bytecode = True
 root = Path(sys.argv[1]).resolve()
 spec = importlib.util.spec_from_file_location('ao_locators', root / 'plugins/ao-kb/skills/process/locators.py')
 ao = importlib.util.module_from_spec(spec)

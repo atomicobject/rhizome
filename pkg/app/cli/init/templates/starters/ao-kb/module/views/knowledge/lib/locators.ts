@@ -40,24 +40,32 @@ export function linkReference(ref: string): string {
 }
 const linePattern = /^L(\d+)(?:-L(\d+))?$/;
 const timestampPattern = /^\d{1,2}:\d{2}(?::\d{2})?(?:-\d{1,2}:\d{2}(?::\d{2})?)?$/;
-export function resolvePassage(source: SourceText | undefined, locator: string | undefined, files: ReadonlyMap<string, string>, sourceRef?: string): PassageResult {
-  const result = <T extends object>(value: T): T & { hashStatus: typeof HASH_STATUS } => ({ ...value, hashStatus: HASH_STATUS });
-  if (sourceRef?.startsWith('view:') || sourceRef?.startsWith('review:')) return result({ status: 'unsupported', scheme: sourceRef.split(':')[0] });
-  if (locator === undefined || locator === '') return result({ status: 'document-only' });
-  if (!source) return result({ status: 'unresolved', reason: 'unknown source' });
+export type LocatorSelection = { status: 'selected'; span: string; entry: string | undefined } | { status: 'malformed' } | { status: 'unresolved'; reason: 'selector names nothing' };
+/** Parse the selector without IO; undefined entry means AO's default-file rule. */
+export function selectLocator(paths: string[], locator: string): LocatorSelection {
   let span = locator, entry: string | undefined;
   if (locator.includes('::')) {
     const at = locator.indexOf('::'), prefix = locator.slice(0, at).trim();
-    const basenameMatches = source.paths.filter(p => p.split('/').pop() === prefix);
-    if (!prefix || /^[-+]\d+$/.test(prefix) || /^0+$/.test(prefix)) return result({ status: 'malformed' });
-    if (/^\d+$/.test(prefix) || source.paths.includes(prefix) || basenameMatches.length) {
+    const basenameMatches = paths.filter(p => p.split('/').pop() === prefix);
+    if (!prefix || /^[-+]\d+$/.test(prefix) || /^0+$/.test(prefix)) return { status: 'malformed' };
+    if (/^\d+$/.test(prefix) || paths.includes(prefix) || basenameMatches.length) {
       span = locator.slice(at + 2);
-      if (!span.trim()) return result({ status: 'malformed' });
-      entry = /^\d+$/.test(prefix) ? source.paths[Number(prefix) - 1] : source.paths.includes(prefix) ? prefix : basenameMatches.length === 1 ? basenameMatches[0] : undefined;
-      if (!entry) return result({ status: 'unresolved', reason: 'selector names nothing' });
-      if (!safeLocalPath(entry) || !/\.(md|txt)$/i.test(entry) || !files.has(entry)) return result({ status: 'unresolved', reason: 'not a local text file' });
+      if (!span.trim()) return { status: 'malformed' };
+      entry = /^\d+$/.test(prefix) ? paths[Number(prefix) - 1] : paths.includes(prefix) ? prefix : basenameMatches.length === 1 ? basenameMatches[0] : undefined;
+      if (!entry) return { status: 'unresolved', reason: 'selector names nothing' };
     }
   }
+  return { status: 'selected', span, entry };
+}
+export function resolvePassage(source: SourceText | undefined, locator: string | undefined, files: ReadonlyMap<string, string>, sourceRef?: string): PassageResult {
+  const result = <T extends object>(value: T): T & { hashStatus: typeof HASH_STATUS } => ({ ...value, hashStatus: HASH_STATUS });
+  if (sourceRef?.startsWith('view:') || sourceRef?.startsWith('review:')) return result({ status: 'unsupported', scheme: sourceRef.split(':')[0] });
+  if (!source) return result({ status: 'unresolved', reason: 'unknown source' });
+  if (locator === undefined || locator === '') return result({ status: 'document-only' });
+  const selected = selectLocator(source.paths, locator);
+  if (selected.status !== 'selected') return result(selected);
+  let { span, entry } = selected;
+  if (entry && (!safeLocalPath(entry) || !/\.(md|txt)$/i.test(entry) || !files.has(entry))) return result({ status: 'unresolved', reason: 'not a local text file' });
   entry ??= source.paths.find(p => safeLocalPath(p) && /\.(md|txt)$/i.test(p) && files.has(p));
   const text = entry === undefined ? source.body.replace(/^(?:[ \t]*\n)+/, '') : files.get(entry);
   if (text === undefined || (!entry && !text.trim())) return result({ status: 'source-text-missing' });
