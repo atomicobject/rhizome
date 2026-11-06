@@ -1,7 +1,14 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 
-import { OPEN_NOTE_MESSAGE, OPEN_VIEW_MESSAGE } from "../../src/lib/customViewMessages";
+import {
+  OPEN_NODE_MESSAGE,
+  OPEN_NOTE_MESSAGE,
+  OPEN_VIEW_MESSAGE,
+} from "../../src/lib/customViewMessages";
+import { isJsonObject } from "../../src/api/parse";
+import { jsonReply } from "../../src/test/fakeFetch";
+import { COLLECTION_DATA } from "./__fixtures__/collections";
 import { PLANNING_GUIDE } from "./__fixtures__/groups.ts";
 import { collectionRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
 
@@ -39,11 +46,14 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
     "Degraded health: 1 story",
   ]);
 
-  // Newest first, using the same two-line template as Recent changes.
+  // Shared metadata moves into the heading for a homogeneous list.
   const motion = await region("In motion");
+  expect(within(motion).getByText("Last changed")).toBeVisible();
 
   expect(recordTitles(motion)).toEqual(["Checkout redesign", "Saved carts"]);
-  expect(motion.querySelector(".gv-change-meta")).toHaveTextContent("Story");
+  expect(motion.querySelector(".gv-change-meta")).toBeNull();
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · work/");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(2);
   expect(motion.querySelector(".gv-mark")).toBeNull();
   expect(motion.querySelector(".rz-info")).toBeNull();
   expect(within(motion).getByRole("heading")).toHaveAttribute(
@@ -53,9 +63,10 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
 
   expect(within(await region("Recent changes")).getByText("Checkout redesign")).toBeVisible();
 
-  const spread = await region("Shape");
+  expect(document.querySelector(".gv-facts-list")).not.toHaveTextContent(/records/);
+  const spread = await region("Composition");
 
-  expect(within(spread).getByRole("heading", { name: "Stage lifecycle" })).toBeVisible();
+  expect(within(spread).getByRole("heading", { name: "Stage" })).toBeVisible();
   expect(within(spread).getByRole("heading", { name: "Health ordered" })).toBeVisible();
   expect(within(spread).getByRole("heading", { name: "Kind category" })).toBeVisible();
   expect(within(spread).getByText("Empty")).toHaveTextContent("Empty 2");
@@ -65,13 +76,19 @@ it("briefs a declared-stage type: attention, motion, changes, spread, connection
   // People, relation, then reverse fields: fill, then the most common targets.
   expect(itemTexts(connections)).toEqual([
     // Each target is a row: its name, then its count in a right-aligned column.
-    "Owner→ People1 of 4 stories linkedAda Lovelace1",
-    "Area→ Areas3 of 4 stories linkedPayments2Wishlists1",
-    "Blocked by→ Work items1 of 4 stories linkedCheckout redesign1",
-    "Meetings← Meetings2 of 4 stories linkedKickoff sync2Design review1",
+    "Owner→ People1 of 4 stories linkedLinked storiesAda Lovelace1",
+    "Area→ Areas3 of 4 stories linkedLinked storiesPayments2Wishlists1",
+    "Blocked by→ Work items1 of 4 stories linkedLinked storiesCheckout redesign1",
+    "Meetings← Meetings2 of 4 stories linkedLinked storiesKickoff sync2Design review1",
   ]);
 
   const linked = await region("Linked from outside");
+
+  expect(
+    [...linked.querySelectorAll(".gv-outside-totals > span > span")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Person", "Area", "Untyped note"]);
 
   expect(itemTexts(linked)).toEqual([
     expect.stringMatching(/^Kickoff/),
@@ -100,7 +117,7 @@ it("briefs an interface across its implementors and flags reverse links most rec
     "No meetings link to 2 of 6 work items",
   );
 
-  const spread = await region("Shape");
+  const spread = await region("Composition");
 
   expect(within(spread).getByRole("heading", { name: "Work item types" })).toBeVisible();
   expect(within(spread).getByText("Story")).toBeVisible();
@@ -118,7 +135,7 @@ it("leaves out In motion for a lifecycle without an active stage", async () => {
 
   // A contract-shaped type has nothing in motion by design; no hint to change the schema.
   expect(
-    within(await region("Shape")).getByRole("heading", { name: "Memo status lifecycle" }),
+    within(await region("Composition")).getByRole("heading", { name: "Memo status" }),
   ).toBeVisible();
   expect(screen.queryByRole("region", { name: "In motion" })).toBeNull();
   expect(screen.queryByText(/has no active stage/)).toBeNull();
@@ -127,17 +144,17 @@ it("leaves out In motion for a lifecycle without an active stage", async () => {
 it("leaves out In motion for a type without a lifecycle", async () => {
   await openType("Area");
 
-  await region("Shape");
+  await region("Composition");
   expect(screen.queryByRole("region", { name: "In motion" })).toBeNull();
   expect(
-    within(await region("Shape")).getByRole("heading", { name: "Category category" }),
+    within(await region("Composition")).getByRole("heading", { name: "Category category" }),
   ).toBeVisible();
 });
 
 it("charts a dated type's primary date by month and collapses a burst of changes", async () => {
   await openType("Meeting");
 
-  const spread = await region("Shape");
+  const spread = await region("Composition");
 
   expect(
     within(spread).getByRole("img", {
@@ -156,7 +173,7 @@ it("charts a dated type's primary date by month and collapses a burst of changes
   const connections = await region("Connections");
 
   expect(itemTexts(connections)[0]).toBe(
-    "Attendees→ People4 of 5 meetings linkedAda Lovelace3Grace Hopper2",
+    "Attendees→ People4 of 5 meetings linkedLinked meetingsAda Lovelace3Grace Hopper2",
   );
 });
 
@@ -187,4 +204,41 @@ it("says which type it could not find", async () => {
   await openType("Gone");
 
   expect(await screen.findByText("No type or interface named Gone in navigation.")).toBeVisible();
+});
+
+it("opens the embedded identity from an unchanged record link", async () => {
+  const ref = {
+    kind: "EMBEDDED",
+    notePath: "work/items.md",
+    nodeId: "saved-carts",
+    fragment: "^saved-carts",
+    typeName: "Story",
+  };
+
+  const stories = COLLECTION_DATA.Story;
+
+  const data = {
+    ...COLLECTION_DATA,
+    Story: Array.isArray(stories)
+      ? stories.map((row) =>
+          isJsonObject(row) && row.title === "Saved carts"
+            ? { ...row, ref, path: ref.notePath }
+            : row,
+        )
+      : [],
+  };
+
+  const { posted } = await renderGroupView(loadBriefing, {
+    context: { kind: "type", type: "Story" },
+    routes: collectionRoutes({ "POST /api/v1/graphql": () => jsonReply({ data }) }),
+    embedded: true,
+  });
+
+  const motion = await region("In motion");
+  const details = motion.querySelector("details");
+
+  if (!details) throw new Error("No unchanged records");
+  details.open = true;
+  fireEvent.click(within(details).getByRole("button", { name: "Saved carts" }));
+  expect(posted.at(-1)).toMatchObject({ type: OPEN_NODE_MESSAGE, ref });
 });

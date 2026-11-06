@@ -14,7 +14,7 @@ import {
   useState,
 } from "react";
 
-import { typeAccentColor } from "../lib/typeAccent";
+import { typeAccentColor, useTypePalette } from "../lib/typeAccent";
 import { DisclosureChevron } from "./DisclosureChevron";
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
 import { flattenRailNodes, label, type RailGroup, type RailNode } from "./noteRailGroups";
@@ -332,6 +332,7 @@ export function TypeTree({
     validationScopes,
   );
 
+  useTypePalette();
   const health = validationHealth(validationQuery.data ?? null);
 
   const renderNode = (node: RailNode, depth = 0) => {

@@ -1,0 +1,169 @@
+/* ---- Overview table ---- */
+
+.tasks-overview {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tasks-overview .view-header__title-row {
+  padding-right: var(--gutter);
+}
+
+.tasks-overview__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.task-table {
+  width: 100%;
+  table-layout: fixed;
+  margin-top: 8px;
+  border-collapse: collapse;
+}
+
+.task-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.task-table :is(th, td):first-child {
+  box-sizing: border-box;
+  width: clamp(280px, 32cqw, 440px);
+  padding-left: var(--gutter);
+}
+
+.task-table :is(th, td):nth-child(2) {
+  box-sizing: border-box;
+  width: 176px;
+  padding-right: 16px;
+}
+
+.task-table :is(th, td):last-child {
+  padding-right: var(--gutter);
+}
+
+/* Rows hold two lines: the task name over its id. */
+.task-table tbody :is(th, td) {
+  height: 52px;
+  padding: 8px 10px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-faint);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.task-table tbody tr:hover {
+  background: var(--bg-tint);
+}
+
+/* The task name is a quiet teal link; its id is a muted mono second line. */
+.task-table__open {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-table__open:is(:hover, :focus-visible) .link-quiet {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+/* The row's secondary line: the task id, then a new task's quiet "What it
+   does" disclosure, so the row's prominent action stays the inbox one. */
+.task-table__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 1px;
+  font-size: var(--fs-sm);
+}
+
+.task-table__meta code {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.task-table__meta code,
+.task-table__aside,
+.task-table__none {
+  color: var(--text-muted);
+}
+
+/* Intervals and relative times are sans, like every relative time. */
+.task-table__time,
+.task-table__due {
+  font-variant-numeric: tabular-nums;
+}
+
+.task-table__due.is-due {
+  color: var(--info-ink);
+  font-weight: 500;
+}
+
+.task-table__last {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-table__aside {
+  font-size: var(--fs-sm);
+}
+
+.task-table__run-link {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.task-table__local {
+  display: inline-flex;
+  margin-left: 12px;
+  vertical-align: baseline;
+  font-weight: 400;
+}
+
+/* A Test once run: the neutral chip, so a test never reads as a status. */
+.task-test-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.tasks-overview > * {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+}

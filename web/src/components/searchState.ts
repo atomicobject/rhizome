@@ -1,3 +1,6 @@
+import { useEffectEvent, useLayoutEffect, useRef } from "react";
+import type { SearchTab } from "./useNoteTabs";
+
 export type SearchScope = "all" | "notes" | "code";
 
 export type SearchFilters = {
@@ -57,4 +60,28 @@ export function searchTabIdentity(query: string, filters?: Partial<SearchFilters
 
 export function searchTabLabel(query: string, folder?: string | null): string {
   return normalizeSearchQuery(query) || (folder ? folderLabel(folder) : "Search");
+}
+
+export function useSearchScrollRestoration(tab: SearchTab, active: boolean, ready: boolean) {
+  const scrollRef = useRef<HTMLElement>(null);
+
+  const restoreScroll = useEffectEvent(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = tab.scrollTop;
+  });
+
+  // Restore on activation or refinement, after content loads. Scroll events only save
+  // position: replaying them can rewind native scrolling before React catches up.
+  useLayoutEffect(() => {
+    if (active && ready) restoreScroll();
+  }, [
+    active,
+    ready,
+    tab.id,
+    tab.query,
+    tab.filters.folder,
+    tab.filters.noteType,
+    tab.filters.scope,
+  ]);
+
+  return scrollRef;
 }

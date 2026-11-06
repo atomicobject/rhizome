@@ -13,6 +13,8 @@ test("⌘P finds a note by a typo'd query and opens it as a tab, then a code fil
   const input = page.getByRole("combobox", { name: "Find a note or file" });
 
   await expect(input).toBeFocused();
+  await expect(page.locator(".finder__input kbd")).toHaveCount(0);
+  await expect(page.locator(".finder__foot kbd").filter({ hasText: /esc/i })).toHaveCount(1);
   // One swapped pair: "Stratgey" still finds "Sync Strategy".
   await input.fill("sync stratgey");
   const option = page.getByRole("option", { name: /Sync Strategy/ });

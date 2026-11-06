@@ -1,13 +1,8 @@
 import { DisclosureChevron } from "./DisclosureChevron";
+import { LocatorWidget } from "./body/PropertyLocatorWidget";
+import { EditablePropertyMark } from "./body/EditablePropertyMark";
 import { ChevronRight } from "lucide-react";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type {
   NodeRef,
   NodeWorkspace,
@@ -397,7 +392,12 @@ function PropertyRow({
       data-field={name}
     >
       <dt className="ontology-properties__key" title={name}>
-        {humanizeName(name)}
+        {name === "summary" ? "Note summary" : humanizeName(name)}
+        {editing &&
+          (isLocator ||
+            (node.field.capability?.writeOperation && !node.field.capability.readOnlyReason)) && (
+            <EditablePropertyMark />
+          )}
       </dt>
       <dd className="ontology-properties__value">
         {preview ? (
@@ -494,82 +494,4 @@ function nodeRefPath(ref?: NodeRef): string {
   if (ref.fragment) return `${ref.notePath}#${ref.fragment}`;
 
   return ref.notePath;
-}
-
-function isValidLocator(value: string): boolean {
-  return /^[A-Za-z0-9_-]+$/.test(value.trim());
-}
-
-function LocatorWidget({
-  value,
-  editing,
-  dirty,
-  present,
-  onStage,
-  ariaLabel,
-}: {
-  value: string;
-  editing: boolean;
-  dirty: boolean;
-  present: boolean;
-  onStage: (value: string) => void;
-  ariaLabel: string;
-}) {
-  const [draft, setDraft] = useState(value);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const valid = isValidLocator(draft);
-
-  useEffect(() => {
-    if (document.activeElement !== inputRef.current) {
-      setDraft(value);
-    }
-  }, [value]);
-
-  const commit = useCallback(() => {
-    const next = draft.trim();
-
-    if (next === value || !isValidLocator(next)) return;
-    onStage(next);
-  }, [draft, onStage, value]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        commit();
-        inputRef.current?.blur();
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        setDraft(value);
-        inputRef.current?.blur();
-      }
-    },
-    [commit, value],
-  );
-
-  if (!editing) {
-    if (!present || value.trim() === "") {
-      return <span className="widget-text widget-text--empty">Empty</span>;
-    }
-
-    return <span className={`widget-text${dirty ? " is-dirty" : ""}`}>^{value}</span>;
-  }
-
-  return (
-    <span className="ontology-properties__locator-edit">
-      <span aria-hidden="true">^</span>
-      <input
-        ref={inputRef}
-        type="text"
-        className={`widget-text widget-text--input${dirty ? " is-dirty" : ""}`}
-        value={draft}
-        aria-label={ariaLabel}
-        aria-invalid={!valid}
-        pattern="[A-Za-z0-9_-]+"
-        onChange={(event) => setDraft(event.target.value.replace(/^\^+/, ""))}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-      />
-    </span>
-  );
 }

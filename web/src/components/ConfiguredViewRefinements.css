@@ -1,0 +1,114 @@
+.configured-view__density-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-left: auto;
+  height: 28px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 13px var(--font-sans);
+  cursor: pointer;
+}
+.configured-view__density-button:hover {
+  background: var(--bg-tint);
+}
+.configured-view__density-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.configured-view__table tr > :is(th, td):last-child {
+  padding-right: var(--sp-5);
+}
+/* The last column's gutter widens it, so "Changed" and its arrow stay whole. */
+.configured-view__table th.configured-view__cell--age:last-child {
+  width: calc(92px + var(--sp-5));
+}
+.configured-view__table .configured-view__cell--age {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.configured-view__table .configured-view__cell--age > button {
+  justify-content: flex-end;
+}
+.configured-brief__chips > .configured-brief__more {
+  flex-basis: 100%;
+  padding-left: 13px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.view-record__context .ontology-sidebar-context__group {
+  padding-inline: 0;
+}
+.view-record__context :is(.rail-row__dir, .rail-legend__dir) {
+  display: none;
+}
+.view-record__context .rail-legend {
+  color: var(--text-muted);
+  font: 500 13px var(--font-sans);
+}
+/* An editable status the card's group already names waits for hover or focus. */
+.configured-brief__group-echo {
+  display: inline-flex;
+  opacity: 0;
+}
+.configured-card:is(:hover, :focus-within) .configured-brief__group-echo {
+  opacity: 1;
+}
+
+.configured-view .configured-view__footer-status > span {
+  flex: none;
+}
+.configured-view .configured-view__column-notes {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.configured-view .configured-view__column-notes > summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Match the table's 8px group gutter while keeping cards inset by 22px. */
+.configured-view__cards .configured-view__card-section-header {
+  margin-left: -14px;
+}
+.configured-view .configured-view__board {
+  padding-left: 0;
+}
+.configured-view__board-columns,
+.configured-view__board-cells {
+  margin-left: var(--sp-5);
+}
+
+.configured-view__board-column-header {
+  grid-template-rows: 24px 28px;
+}
+.configured-view__board-column-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.configured-view__board-column-details .configured-view__board-stale {
+  font-size: 13px;
+}
+.configured-brief__chips > .configured-brief__relation-more {
+  flex-basis: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.view-record__context .ontology-sidebar-context__group > h3 {
+  margin-bottom: 10px;
+  font: 600 15px var(--font-sans);
+}
+.view-record__context .rail-legend:has(> span:only-child) {
+  display: none;
+}
+
+.configured-brief__chips:has(> .configured-brief__relation-more) {
+  row-gap: 0;
+}

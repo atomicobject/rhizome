@@ -66,7 +66,7 @@ export const queryKeys = {
   },
   graph: {
     all: () => [...queryKeys.all, "graph"] as const,
-    global: (options: { notesOnly?: boolean; diagnostics?: boolean }) =>
+    global: (options: { notesOnly?: boolean; diagnostics?: boolean; limit?: number }) =>
       [...queryKeys.graph.all(), "global", options] as const,
     local: (
       ref: string | NodeRef,

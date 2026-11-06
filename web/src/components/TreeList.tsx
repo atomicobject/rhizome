@@ -8,7 +8,11 @@ export function TreeList({
   selectedPath,
   onSelect,
   onToggle,
+  more = {},
+  path = "",
 }: {
+  more?: Record<string, React.ReactNode>;
+  path?: string;
   entries: TreeEntry[];
   expanded: Record<string, TreeEntry[]>;
   selectedPath: string | null;
@@ -57,6 +61,8 @@ export function TreeList({
             {isExpanded && expanded[entry.path] && (
               <TreeList
                 entries={expanded[entry.path]}
+                more={more}
+                path={entry.path}
                 expanded={expanded}
                 selectedPath={selectedPath}
                 onSelect={onSelect}
@@ -66,6 +72,7 @@ export function TreeList({
           </li>
         );
       })}
+      {more[path]}
     </ul>
   );
 }

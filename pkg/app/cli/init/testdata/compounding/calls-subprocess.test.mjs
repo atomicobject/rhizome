@@ -9,7 +9,7 @@ const calls = new URL("../../templates/starters/compounding/module/scripts/lib/c
 const noWindows = { skip: process.platform === "win32" && "the fake rzm uses a shebang" };
 
 for (const exitCode of [1, 0]) {
-  test(`rzmClients rejects unread request input when the child exits ${exitCode}`, noWindows, (t) => {
+  test(`rzmClients preserves the response when stdin closes early with exit ${exitCode}`, noWindows, (t) => {
     const root = mkdtempSync(join(tmpdir(), "sm-early-exit-"));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const fake = join(root, "rzm");
@@ -33,7 +33,11 @@ try {
     assert.equal(result.error, undefined, result.error?.message);
     assert.equal(result.status, 0, result.stderr);
     const outcome = JSON.parse(result.stdout);
-    assert.equal(outcome.status, "rejected", result.stdout);
-    assert.match(outcome.message, exitCode === 0 ? /stdin|input|EPIPE/i : /HTTP 401 unauthorized/);
+    if (exitCode === 0) {
+      assert.deepEqual(outcome, { status: "fulfilled", result: { items: [] } });
+    } else {
+      assert.equal(outcome.status, "rejected", result.stdout);
+      assert.match(outcome.message, /HTTP 401 unauthorized/);
+    }
   });
 }

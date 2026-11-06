@@ -142,7 +142,11 @@ await client.close();`, "FAKE_HANG_INIT=1")
 	call := runNode(t, artifact.ModulePath, warmFake, vault, `
 const client = createClient({executablePath, vaultPath});
 await client.files({warmup:true});
+// Freeze queue elapsed time so this exercises the dispatched request's timer.
+const now = Date.now;
+Date.now = () => 0;
 try { await client.files({inputs:["a.go"]}, {timeoutMs:10}); } catch (error) { console.log(JSON.stringify({code:error.code, mayHaveExecuted:error.details.mayHaveExecuted})); }
+finally { Date.now = now; }
 await client.close();`)
 	require.Equal(t, "deadline_exceeded", call["code"])
 	require.True(t, call["mayHaveExecuted"].(bool))

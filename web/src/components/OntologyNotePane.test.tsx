@@ -1875,8 +1875,8 @@ describe("OntologyNotePane", () => {
     expect(screen.getByRole("heading", { name: "Summary" })).toBeInTheDocument();
     // "Body." appears in the rendered markdown body and the canonical field value.
     expect(screen.getAllByText("Body.")).toHaveLength(2);
-    // The field's display name is rendered in the property panel above the body.
-    expect(screen.getAllByText("Summary").length).toBeGreaterThanOrEqual(2);
+    // The property is labelled "Note summary" so it can't be confused with the body's Summary heading.
+    expect(screen.getByText("Note summary")).toBeInTheDocument();
   });
 
   it("renders collection rows from content nodes when owner field nodes share the same ref", () => {

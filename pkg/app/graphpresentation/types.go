@@ -7,12 +7,15 @@ import (
 
 // GraphResponse provides nodes/edges for visualization.
 type GraphResponse struct {
-	Nodes       []GraphNode                `json:"nodes"`
-	Edges       []GraphEdge                `json:"edges"`
-	Truncated   bool                       `json:"truncated,omitempty"`
-	CenterID    string                     `json:"centerID,omitempty"`
-	NeedsIndex  bool                       `json:"needsIndex,omitempty"`
-	Diagnostics *noderead.GraphDiagnostics `json:"diagnostics,omitempty"`
+	OmittedNodeIDs []string                   `json:"omittedNodeIDs,omitempty"`
+	OmittedNodes   int                        `json:"omittedNodes,omitempty"`
+	OmittedEdges   int                        `json:"omittedEdges,omitempty"`
+	Nodes          []GraphNode                `json:"nodes"`
+	Edges          []GraphEdge                `json:"edges"`
+	Truncated      bool                       `json:"truncated,omitempty"`
+	CenterID       string                     `json:"centerID,omitempty"`
+	NeedsIndex     bool                       `json:"needsIndex,omitempty"`
+	Diagnostics    *noderead.GraphDiagnostics `json:"diagnostics,omitempty"`
 }
 
 // GraphNode represents a graph node (note, code, or module).

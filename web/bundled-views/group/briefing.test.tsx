@@ -7,10 +7,10 @@ import {
   OPEN_NODE_MESSAGE,
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
-import { NOW, PATHS, RECORDS_DATA, TYPE_DOCS } from "./__fixtures__/groups.ts";
+import { NOW, PATHS, RECORDS_DATA, TYPE_DOCS, TYPE_SUMMARIES } from "./__fixtures__/groups.ts";
 import { VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { groupRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
-import { isJsonObject } from "./api.ts";
+import { isJsonObject, type JsonValue } from "./api.ts";
 import { SIGNAL_RECORDS } from "./briefing-attention.tsx";
 
 const loadBriefing = () => import("./briefing.tsx");
@@ -37,6 +37,11 @@ const opened = (posted: readonly { type: string }[]) =>
 it("lists what needs attention with counts, records, and policy reasons", async () => {
   await renderGroupView(loadBriefing);
   const attention = await screen.findByRole("region", { name: "Needs attention" });
+  const guide = document.querySelector(".gv-facts-note button");
+
+  expect(guide).toHaveAttribute("title", expect.stringContaining("Shared by"));
+  expect(guide).toHaveAttribute("aria-description", guide?.getAttribute("title"));
+  expect(document.querySelector(".gv-facts-note")).not.toHaveTextContent("shared by");
 
   expect(items(attention).map((entry) => entry.querySelector(".gv-sig-text")?.textContent)).toEqual(
     [
@@ -58,7 +63,13 @@ it("lists what needs attention with counts, records, and policy reasons", async 
   expect(region("Review suggested").querySelector('[data-severity="warning"]')).toBeNull();
   expect(attention).not.toHaveTextContent("Area empty");
   // Update age is context, not evidence of an obligation.
-  expect(item(region("Review suggested"), "unchanged for").getByText("40d")).toBeVisible();
+  const stale = item(region("Review suggested"), "unchanged for");
+  const toggle = stale.getByRole("button", { name: /^Show \d+ / });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(stale.queryByText("40d")).toBeNull();
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(stale.getByText("40d")).toBeVisible();
 
   // No clean line while a record has issues.
   expect(within(attention).queryByText("No validation issues")).toBeNull();
@@ -88,10 +99,17 @@ it("gives every signal an action: its member's collection or issues, or each mem
 it("names a bounded number of records per signal and reveals the rest in place", async () => {
   // Areas without parents: Commerce, Loop A, and Loop B leave the tree and
   // link with nothing else.
-  const areas = (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map((area) =>
-    isJsonObject(area) ? { ...area, parent: null } : area,
+  const areas: JsonValue[] = (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map(
+    (area) => (isJsonObject(area) ? { ...area, parent: null } : area),
   );
 
+  areas.push({
+    path: "areas/extra.md",
+    title: "Extra area",
+    parent: null,
+    updatedAt: NOW / 1000,
+    issueCount: 0,
+  });
   await renderGroupView(loadBriefing, {
     routes: groupRoutes({
       "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Area: areas } }),
@@ -107,20 +125,28 @@ it("names a bounded number of records per signal and reveals the rest in place",
       .filter((button) => button.className.includes("gv-inline"))
       .map((button) => button.textContent);
 
-  expect(named()).toEqual(["Gift cards", "Commerce", "Loop A"].slice(0, SIGNAL_RECORDS));
-  fireEvent.click(unlinked.getByRole("button", { name: "Show 2 more unlinked notes" }));
   expect(named()).toEqual(["Gift cards", "Commerce", "Loop A", "Loop B", "Winter release"]);
+  fireEvent.click(unlinked.getByRole("button", { name: "Show 1 more" }));
+  expect(named()).toEqual([
+    "Gift cards",
+    "Commerce",
+    "Loop A",
+    "Loop B",
+    "Extra area",
+    "Winter release",
+  ]);
   fireEvent.click(unlinked.getByRole("button", { name: "Show fewer" }));
-  expect(named()).toHaveLength(SIGNAL_RECORDS);
+  expect(named()).toHaveLength(SIGNAL_RECORDS + 2);
 });
 
 it("says there are no validation issues, and skips unlinked records in a group without links", async () => {
   await renderGroupView(loadBriefing, { group: "Library" });
   await screen.findByRole("region", { name: "Review suggested" });
 
-  // The status strip says "✓ No issues" once; the body adds no Validation row.
-  expect(screen.getByText("✓ No issues")).toBeVisible();
+  // The status strip says "No validation issues" once; the body adds no Validation row.
+  expect(screen.getByText("No validation issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
+  expect(document.querySelector(".gv-facts-list")).toHaveTextContent(/Last changed .* ago/);
   expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
   expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
   expect(region("Review suggested")).toHaveTextContent("Term empty on 1 of 3 glossaries");
@@ -130,6 +156,7 @@ it("says there are no validation issues, and skips unlinked records in a group w
 it("lists active-stage records newest first in flat rows with type metadata", async () => {
   await renderGroupView(loadBriefing);
   const motion = await screen.findByRole("region", { name: "In motion" });
+  expect(within(motion).getByText("Last changed")).toBeVisible();
 
   expect(within(motion).queryByRole("heading", { level: 3 })).toBeNull();
   expect(items(motion).map((entry) => within(entry).getByRole("button").textContent)).toEqual([
@@ -137,7 +164,14 @@ it("lists active-stage records newest first in flat rows with type metadata", as
     "Tax rounding",
     "Saved carts",
   ]);
-  expect(items(motion).every((entry) => entry.querySelector(".gv-change-meta"))).toBe(true);
+  expect(
+    [...motion.parentElement!.querySelectorAll(":scope > section")].map(
+      (section) =>
+        section.getAttribute("aria-labelledby") && section.querySelector("h2 > span")?.textContent,
+    ),
+  ).toEqual(["Needs attention", "Review suggested", "In motion", "Link coverage"]);
+  expect(motion.querySelector(".gv-motion-metadata")).not.toBeNull();
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(1);
   expect(motion.querySelectorAll(".gv-mark").length).toBeGreaterThan(0);
   expect(motion.querySelector(".gv-hint-lead")).toHaveTextContent(
     "Areas, Checklists have no lifecycle.",
@@ -149,10 +183,15 @@ it("names lifecycles without an active stage", async () => {
   const motion = await screen.findByRole("region", { name: "In motion" });
 
   expect(within(motion).getByText("Nothing in an active stage.")).toBeVisible();
-  // Setup notes wait behind a labelled Configuration disclosure in the heading row.
+  // Setup help stays attached to the heading, behind the info disclosure.
+  expect(motion.querySelector("h2 .gv-hint")).not.toBeNull();
+  expect(motion.querySelector(".gv-stage-note")).not.toHaveTextContent("shows active");
   const config = motion.querySelector("details")!;
-  expect(within(motion).getByText("Configuration")).toBeVisible();
+  const summary = within(motion).getByLabelText("Why some types are not listed");
+  expect(summary).toBeVisible();
   expect(config).not.toHaveAttribute("open");
+  fireEvent.click(summary);
+  expect(config).toHaveAttribute("open");
   expect(config.querySelector(".gv-hint-lead")).toHaveTextContent(
     "Memos have no active stage configured. Glossaries have no lifecycle.",
   );
@@ -194,7 +233,7 @@ it("does not call an out-of-date validation run clean", async () => {
   });
 
   expect(await screen.findByText("Validation out of date")).toBeVisible();
-  expect(screen.queryByText("✓ No issues")).toBeNull();
+  expect(screen.queryByText("No validation issues")).toBeNull();
 });
 
 it("shows only activity: Needs attention, In motion, and Recent changes", async () => {
@@ -203,7 +242,7 @@ it("shows only activity: Needs attention, In motion, and Recent changes", async 
   expect(
     screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
   ).toEqual(["In motion", "Recent changes"]);
-  expect(await screen.findByText("✓ No issues")).toBeVisible();
+  expect(await screen.findByText("No validation issues")).toBeVisible();
   expect(await screen.findByText("Checked 2h ago")).toBeVisible();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
@@ -346,7 +385,7 @@ it("refreshes when records change", async () => {
   data = { ...RECORDS_DATA, Story: [], Bug: [] };
   await view.emit("node.changed");
 
-  // The issues signal leaves; the strip, not the block, says "✓ No issues".
+  // The issues signal leaves; the strip, not the block, says "No validation issues".
   await waitFor(() =>
     expect(within(region("Needs attention")).queryByText("Validation issues")).toBeNull(),
   );
@@ -413,4 +452,37 @@ it("retries type documentation that failed to load", async () => {
   await waitFor(() =>
     expect(within(region("In motion")).getByText("Checkout redesign")).toBeVisible(),
   );
+});
+
+it.each(["Area", "Special area"])("shows subtype metadata only when useful: %s", async (label) => {
+  const summaries = Array.isArray(TYPE_SUMMARIES) ? TYPE_SUMMARIES : [];
+  await renderGroupView(loadBriefing, {
+    routes: groupRoutes({
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            ...RECORDS_DATA,
+            Area: (Array.isArray(RECORDS_DATA.Area) ? RECORDS_DATA.Area : []).map((area) =>
+              isJsonObject(area) ? { ...area, parent: null } : area,
+            ),
+          },
+        }),
+      "GET /api/v1/ontology/types": () =>
+        jsonReply(
+          summaries.map((entry) =>
+            isJsonObject(entry) && entry.name === "Area" ? { ...entry, label } : entry,
+          ),
+        ),
+    }),
+  });
+  const coverage = await screen.findByRole("region", { name: "Link coverage" });
+  const areaGroup = within(coverage).getByRole("heading", { name: /^Areas/ }).parentElement;
+  const metadata = areaGroup?.querySelectorAll(".gv-coverage-subtype") ?? [];
+
+  if (label === "Area") expect(metadata).toHaveLength(0);
+  else {
+    expect(metadata.length).toBeGreaterThan(0);
+    expect(metadata[0]).toHaveTextContent(label);
+    expect(metadata[0]?.closest("ul")).toHaveAttribute("data-subtypes", "true");
+  }
 });

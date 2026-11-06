@@ -1,0 +1,329 @@
+/* HTML notes: viewer, frame, refresh status, and the HTML note head.
+   Moved verbatim from notes-shell.css. */
+
+.ontology-markdown--html {
+  width: 100%;
+  max-width: none;
+}
+
+.ontology-pane__main--html {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ontology-pane__main--html > * {
+  flex-shrink: 0;
+}
+
+.ontology-pane__main--html > .ontology-markdown--html {
+  display: flex;
+  flex: 1;
+  /* Cancel the pane padding so the viewer runs edge to edge and reaches the pane bottom. */
+  width: auto;
+  margin: 0 calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6));
+  min-height: min(70vh, 640px);
+  max-width: none;
+}
+
+/* "Metadata" is the shared ghost disclosure: label, then the chevron. */
+.ontology-properties__html-summary {
+  gap: 2px;
+  padding: 0 4px 0 8px;
+  list-style: none;
+}
+
+.ontology-properties__html-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ontology-properties__html-summary:hover {
+  color: var(--text);
+}
+
+.ontology-properties__html-summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.html-note-viewer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.html-note-viewer.is-hidden {
+  display: none;
+}
+
+/* Chrome-free note page (`?bare=1`): the viewer is the whole window. */
+.bare-html-note {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-alt);
+}
+
+.html-note-viewer__toolbar,
+.html-note-viewer__action {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.html-note-viewer__format {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.html-note-viewer__state {
+  color: var(--text-faint);
+}
+
+.html-note-viewer__spacer {
+  flex: 1;
+}
+
+/* Viewer actions are neutral ghost buttons; red stays for risk. */
+.html-note-viewer__ghost,
+.html-note-viewer__action button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 26px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.html-note-viewer__ghost svg {
+  width: 14px;
+  height: 14px;
+}
+
+a.html-note-viewer__ghost svg {
+  margin-left: 5px;
+}
+
+button.html-note-viewer__ghost svg {
+  margin: 0 5px 0 0;
+}
+
+.html-note-viewer__ghost:hover,
+.html-note-viewer__action button:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.html-note-viewer__problem {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--fs-xs);
+}
+
+.html-note-viewer__action {
+  justify-content: flex-end;
+  background: var(--surface);
+}
+
+.html-note-viewer__action > span {
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.html-note-viewer__frame {
+  flex: 1;
+  width: 100%;
+  height: 0;
+  min-height: 0;
+  border: 0;
+  background: var(--surface);
+}
+
+@media (max-width: 700px) {
+  .html-note-viewer__state {
+    display: none;
+  }
+}
+
+.ontology-pane__refresh-status {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 3px var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+/* The refreshing pill floats over the content so a refetch does not shift it. */
+.ontology-pane__refresh-status:not(.is-error) {
+  width: max-content;
+  height: 22px;
+  margin: 0 0 -22px auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  line-height: 14px;
+}
+
+.ontology-pane__refresh-status.is-error {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+/* ---- HTML note head ----
+   With a preview showing, the host header lives in the 40px control row:
+   the type, a 14/600 title, its identity, the metadata disclosure, then the
+   presentation switch and the viewer's Refresh and Open. The authored page
+   starts right below and carries its own heading. */
+.notes-shell .ontology-pane__controls:has(> .ontology-pane__html-head) {
+  overflow: visible;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.notes-shell .ontology-pane__controls > .ontology-pane__html-head {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.notes-shell .ontology-pane__html-head > .ontology-identity {
+  flex: 0 1 auto;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* The tab and the authored page already carry the title, and Metadata lists
+   it in full, so the row keeps it for assistive tech only. */
+.notes-shell .ontology-pane__html-head .ontology-identity__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__row {
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* With the title hidden, the short ID names the document beside its type
+   and status. It is the one part that gives way, before the actions do. */
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--id {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--id * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-shell .ontology-pane__html-head .ontology-identity__flex {
+  display: none;
+}
+
+/* The metadata opens as a panel over the page instead of pushing it down. */
+.notes-shell .ontology-pane__html-head > .ontology-properties--html-root {
+  position: relative;
+  flex: none;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* The ghost button's padding bleeds into the row gap, so the ID keeps its
+   room. */
+.notes-shell .ontology-pane__html-head .ontology-properties__html-summary {
+  margin: 0 0 0 -8px;
+  color: var(--text-muted);
+}
+
+.notes-shell .ontology-pane__html-head .ontology-properties__html-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(520px, 80vw);
+  max-height: min(70vh, 640px);
+  padding: var(--sp-3) var(--sp-4);
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.notes-shell
+  .ontology-pane__html-head
+  .ontology-properties__html-body
+  :is(input, select, textarea) {
+  max-width: 100%;
+}
+
+.notes-shell .ontology-pane__html-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-right: calc(-1 * var(--sp-2));
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.notes-shell .ontology-pane__html-actions:empty {
+  display: none;
+}
+
+/* The page starts directly under the control row. */
+.notes-shell .ontology-pane__main--html {
+  padding-top: 0;
+}
+
+.notes-shell .ontology-pane__main--html > .ontology-markdown--html {
+  margin-top: 0;
+}
+
+/* The authored page carries its own status. */
+.notes-shell .ontology-pane__html-head .ontology-identity__slot--status {
+  display: none;
+}

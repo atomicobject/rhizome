@@ -1,3 +1,4 @@
+import { rawFieldValue } from "./ConfiguredTableCellHelpers";
 import { isJsonObject, isString } from "../api/parse";
 import { enumLabel } from "../lib/labels";
 import type {
@@ -127,7 +128,7 @@ export function groupValueLabel(
   if (value && capability && viewFieldControl(capability).kind === "enum")
     return enumLabel(value, label);
 
-  return label || value || "Empty";
+  return label || value || "—";
 }
 
 /** A group's name; a link or month group names a note or a period, not a status, so it has no status marker. */
@@ -237,4 +238,27 @@ function capabilityControlRank(capability: ViewFieldCapability) {
   if (capability.key.startsWith("frontmatter.")) return 60;
 
   return 50;
+}
+
+/** A heading covers one value; lists and date buckets still carry row-specific facts. */
+export function coveredGroupField(
+  row: ViewTableRow,
+  field: string | undefined,
+  capabilities: ViewFieldCapability[],
+) {
+  if (!field) return undefined;
+  const capability = capabilityFor(capabilities, field);
+  const kind = capability?.valueKind;
+
+  if (
+    kind === "date" ||
+    kind === "datetime" ||
+    kind === "list" ||
+    capability?.edit?.list ||
+    Array.isArray(rawFieldValue(row, field)) ||
+    (row.relationValues?.[field]?.length ?? 0) > 1
+  )
+    return undefined;
+
+  return field;
 }

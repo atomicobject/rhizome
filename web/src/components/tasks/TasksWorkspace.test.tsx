@@ -58,10 +58,10 @@ describe("TasksWorkspace", () => {
     const table = await screen.findByRole("table");
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows.map((row) => within(row).getByRole("rowheader").textContent)).toEqual([
-      "Docs drift checkdocs-drift",
-      "Dependency updatesdependency-updates",
-      "Flaky test triageflaky-tests",
-      "Changelog draftchangelog",
+      "Docs drift check",
+      "Dependency updates",
+      "Flaky test triage",
+      "Changelog draft",
     ]);
 
     expect(screen.getByText(/1 failed run/)).toBeVisible();
@@ -120,7 +120,7 @@ describe("TasksWorkspace", () => {
 
     // The notice folds into the task's row: a New tag, with schedule and purpose behind a toggle.
     const row = (await screen.findByRole("rowheader", { name: /Changelog draft/ })).closest("tr")!;
-    expect(within(row).getByText("New")).toBeVisible();
+    expect(within(row).getByText("New definition")).toBeVisible();
     expect(screen.queryByText(/Drafts release notes/)).toBeNull();
     fireEvent.click(within(row).getByRole("button", { name: "What it does" }));
     expect(screen.getByText("Runs every 1 day in Off mode. Drafts release notes.")).toBeVisible();

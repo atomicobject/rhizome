@@ -45,6 +45,8 @@ export function ConfiguredViewTableHeader({
   onToggleAll,
 }: Props) {
   const widths = columnWidths ?? {};
+  const visibleSort = sort.filter((item) => columns.some((column) => column.field === item.field));
+  const sortOrder = `Sorted by ${sort.map((item) => columnLabel({ field: item.field }, capabilities)).join(", then ")}`;
 
   const resize = (field: string, width: number) =>
     onColumnWidthsChange?.({ ...widths, [field]: width });
@@ -111,7 +113,7 @@ export function ConfiguredViewTableHeader({
         </th>
         {columns.map((column, columnIndex) => {
           const direction = sortDirection(sort, column.field);
-          const sortIndex = sort.findIndex((item) => item.field === column.field);
+          const sortIndex = visibleSort.findIndex((item) => item.field === column.field);
           const label = columnLabel(column, capabilities);
           const primary = columnIndex === primaryColumnIndex;
 
@@ -137,7 +139,7 @@ export function ConfiguredViewTableHeader({
               }`}
               title={
                 sortable
-                  ? `${direction ? `${label}: ${sortDescription(direction, sortIndex, sort.length)}. ` : `${label}. `}Shift-click to add a sort key`
+                  ? `${direction ? `${label}: ${sortDescription(direction, sortIndex, visibleSort.length)}. ` : `${label}. `}Shift-click to add a sort key`
                   : label
               }
               // Cells announce this as their header; the sort button's
@@ -151,14 +153,16 @@ export function ConfiguredViewTableHeader({
                 <button
                   type="button"
                   onClick={(event) => onSort(column, event.shiftKey)}
-                  aria-label={`Sort ${label} ${direction === "asc" ? "descending" : "ascending"}${direction ? `; ${sortDescription(direction, sortIndex, sort.length)}` : ""}`}
+                  aria-label={`Sort ${label} ${direction === "asc" ? "descending" : "ascending"}${direction ? `; ${sortDescription(direction, sortIndex, visibleSort.length)}` : ""}`}
                 >
                   <span className="configured-view__header-label">{label}</span>
                   {direction && (
                     <span className="configured-view__sort-arrow" aria-hidden="true">
                       {direction === "asc" ? "↑" : "↓"}
-                      {sort.length > 1 && (
-                        <span className="configured-view__sort-rank">{sortIndex + 1}</span>
+                      {visibleSort.length > 1 && (
+                        <span className="configured-view__sort-rank" title={sortOrder}>
+                          {sortIndex + 1}
+                        </span>
                       )}
                     </span>
                   )}

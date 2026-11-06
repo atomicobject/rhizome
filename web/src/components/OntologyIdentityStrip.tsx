@@ -30,7 +30,7 @@ type Props = {
 
 /**
  * Top strip of the structural view. It condenses the identity-bearing facts
- * — type badge, preferred identifier, status pill, version, last-updated —
+ * — type badge, preferred identifier, status mark, version, last-updated —
  * into a single row above the property panel. Clicking any widget in edit
  * mode stages a setField op via onStageOps; all ops go through the same
  * builder so the identity strip and the property panel stay interchangeable.
@@ -124,6 +124,11 @@ export function OntologyIdentityStrip({
           />
         )}
         {status}
+        {status && identity.lastUpdated && (
+          <span className="note-identity-separator" aria-hidden="true">
+            ·
+          </span>
+        )}
         {identity.lastUpdated && (
           <FieldSlot
             node={identity.lastUpdated}
@@ -199,7 +204,10 @@ function FieldSlot({
   const dirty = changedFieldNames.has(name);
 
   return (
-    <span className={`ontology-identity__slot ontology-identity__slot--${name}`} data-field={name}>
+    <span
+      className={`ontology-identity__slot ontology-identity__slot--${name}${node.field.capability?.preferredIdentifier ? " note-identity-id" : ""}`}
+      data-field={name}
+    >
       {labelPrefix && <span className="ontology-identity__slot-label">{labelPrefix}</span>}
       {prefix && !editing && value && (
         <span className="ontology-identity__slot-prefix">{prefix}</span>

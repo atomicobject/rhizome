@@ -7,6 +7,7 @@ import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
   formatAgo,
+  formatRunAge,
   formatDue,
   formatEvery,
   formatRelative,
@@ -188,8 +189,7 @@ function TaskLink({ task, run, label }: { task: TaskStatus; run?: string; label:
 }
 
 /**
- * Two or more failed last runs lead the page as one aggregate alert; a single
- * failure is told by its row, which carries the "Review failed run" action.
+ * Multiple failures share an alert; a single failure's row offers "Review failed run".
  */
 function FailureBanner({ tasks }: { tasks: TaskStatus[] }) {
   if (tasks.length < 2) return null;
@@ -282,10 +282,9 @@ function TaskRow({
           ) : null}
           {task.name || announcement ? (
             <span className="task-table__meta">
-              {task.name ? <code>{task.id}</code> : null}
               {announcement ? (
                 <>
-                  <span className="task-table__new-tag">New</span>
+                  <span className="task-table__new-tag">New definition</span>
                   <button
                     type="button"
                     className="task-notice__more"
@@ -313,7 +312,12 @@ function TaskRow({
           {last && task.lastRun ? (
             <span className="task-table__last">
               <StatusMark tone={last.tone} label={last.label} />
-              <span className="task-table__aside">{formatRelative(task.lastRun.at)}</span>
+              <span className="task-table__aside">
+                ·{" "}
+                <time dateTime={task.lastRun.at} title={task.lastRun.at}>
+                  {formatRunAge(task.lastRun.at)}
+                </time>
+              </span>
             </span>
           ) : (
             <span className="task-table__none">Never run</span>
@@ -329,6 +333,7 @@ function TaskRow({
       {announcement && open ? (
         <tr className="task-table__purpose" id={purposeId}>
           <td colSpan={6}>
+            <code>{task.id}</code>
             <p>
               Runs every {formatEvery(task.every)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
               {purpose ? ` ${purpose}` : ""}
@@ -466,11 +471,11 @@ export function TasksOverview({
                 <th scope="col">Task</th>
                 <th scope="col">Mode</th>
                 <th scope="col" className="is-optional">
-                  Every
+                  Frequency
                 </th>
                 <th scope="col">Last run</th>
                 <th scope="col">Next due</th>
-                <th scope="col">Inbox</th>
+                <th scope="col">Action</th>
               </tr>
             </thead>
             <tbody>

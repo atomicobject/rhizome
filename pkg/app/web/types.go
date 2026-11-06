@@ -224,6 +224,7 @@ type SearchMatch struct {
 
 // TreeResponse provides children for a directory.
 type TreeResponse struct {
+	Omitted   int         `json:"omitted,omitempty"`
 	Path      string      `json:"path"`
 	Entries   []TreeEntry `json:"entries"`
 	Truncated bool        `json:"truncated,omitempty"`

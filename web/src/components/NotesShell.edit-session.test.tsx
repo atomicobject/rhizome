@@ -673,7 +673,7 @@ describe("NotesShell restored edit sessions", () => {
     committed = true;
     save.resolve(session("clean"));
 
-    await waitFor(() => expect(screen.getByText("Draft")).toBeVisible());
+    await waitFor(() => expect(screen.getByText("Unsaved changes")).toBeVisible());
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Discard" })).toBeEnabled();
   });

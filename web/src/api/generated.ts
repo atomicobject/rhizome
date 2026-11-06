@@ -1490,6 +1490,7 @@ export interface components {
       path: string;
       entries: components["schemas"]["TreeEntry"][];
       truncated?: boolean;
+      omitted?: number;
     };
     RelatedNote: {
       path: string;
@@ -1598,6 +1599,9 @@ export interface components {
       nodes: components["schemas"]["GraphNode"][];
       edges: components["schemas"]["GraphEdge"][];
       truncated?: boolean;
+      omittedNodeIDs?: string[];
+      omittedNodes?: number;
+      omittedEdges?: number;
       centerID?: string;
       needsIndex?: boolean;
       diagnostics?: components["schemas"]["GraphDiagnostics"];

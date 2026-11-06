@@ -4,14 +4,17 @@ import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { execution, firstRow, rendererProps } from "./ConfiguredView.testFixtures";
 
-function table(sorted: boolean, { totalCount = 3, status = "active", groupField = "done" } = {}) {
+function table(
+  sorted: boolean,
+  { totalCount = 3, status = "active", groupField = "done", secondDue = "2000-01-01" } = {},
+) {
   const rows = ["a", "b", "c"].map((id, index) => ({
     ...firstRow,
     ref: { notePath: `${id}.md`, kind: "NOTE" },
     path: `${id}.md`,
     title: id,
     fields: {
-      due: index < 2 ? "2000-01-01" : "",
+      due: index === 0 ? "2000-01-01" : index === 1 ? secondDue : "",
       done: false,
       status: index === 0 ? status : "active",
     },
@@ -79,7 +82,20 @@ describe("sorted table repetitions", () => {
     expect(repeats[0]).toHaveTextContent("Jan 1, 2000");
     expect(within(repeats[0]).getByText("Overdue")).toBeVisible();
     expect(screen.getByRole("button", { name: "Open 3 · 2 overdue" })).toBeVisible();
-    expect(screen.getAllByText("Overdue")).toHaveLength(2);
+    const overdue = screen.getAllByText("Overdue");
+    expect(overdue).toHaveLength(2);
+    expect(overdue[0]).not.toHaveClass("is-repeat");
+    expect(overdue[1]).toHaveClass("is-repeat");
+  });
+
+  it("dims consecutive overdue labels even when their dates differ", () => {
+    render(table(true, { secondDue: "2000-01-02" }));
+    expect(screen.getAllByText("Overdue")[1]).toHaveClass("is-repeat");
+  });
+
+  it("starts with normal emphasis after a row that is not overdue", () => {
+    render(table(true, { status: "complete" }));
+    expect(screen.getByText("Overdue")).not.toHaveClass("is-repeat");
   });
 
   it("leaves the overdue count off a group whose rows are not all loaded", () => {
@@ -106,5 +122,8 @@ describe("sorted table repetitions", () => {
   it("keeps equal values at normal emphasis when their column is not sorted", () => {
     const { container } = render(table(false));
     expect(container.querySelectorAll<HTMLTableCellElement>("td.is-repeat")).toHaveLength(0);
+    expect(
+      screen.getAllByText("Overdue").every((word) => !word.classList.contains("is-repeat")),
+    ).toBe(true);
   });
 });

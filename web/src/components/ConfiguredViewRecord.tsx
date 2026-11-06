@@ -1,3 +1,4 @@
+import { TypeChip } from "./TypeChip";
 import { Copy } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -13,8 +14,17 @@ import type {
 import { displayTitle, enumLabel } from "../lib/labels";
 import { getNodeWorkspace, publicWorkspaceRef } from "../api/client";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
-import { relationDisplayValue, relationTargetRow } from "./ConfiguredTableCellReadOnly";
-import { cellValues, fieldValue, markCutTitle, rawFieldValue } from "./ConfiguredTableCellHelpers";
+import {
+  readableDate,
+  relationDisplayValue,
+  relationTargetRow,
+} from "./ConfiguredTableCellReadOnly";
+import {
+  cellValues,
+  fieldValue,
+  recordDisplayTitle,
+  rawFieldValue,
+} from "./ConfiguredTableCellHelpers";
 import {
   capabilityFor,
   capabilityLabel,
@@ -22,7 +32,7 @@ import {
   fieldCapability,
 } from "./ConfiguredViewModel";
 import { DisclosureChevron } from "./DisclosureChevron";
-import { StatusMark } from "./StatusMark";
+import { StatusMark, statusWordTone } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
   useOntologySummaryQuery,
@@ -71,7 +81,10 @@ export function ConfiguredViewRecord({
   onOpenRow,
 }: Props) {
   const typeLabel = useTypeLabel();
-  const title = markCutTitle(row, displayTitle(row.title)) || row.path || row.ref.notePath;
+
+  const title =
+    recordDisplayTitle(row, "title", displayTitle(row.title)) || row.path || row.ref.notePath;
+
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
   const path = row.path || row.ref.notePath;
   const identifier = recordIdentifier(row, capabilities);
@@ -86,7 +99,9 @@ export function ConfiguredViewRecord({
   return (
     <article className="view-record" aria-label={`Selected record ${title}`}>
       <header className="view-record__head">
-        <span className="type-chip">{typeLabel(row.resolvedType || row.ref.typeName)}</span>
+        <TypeChip name={row.resolvedType || row.ref.typeName || ""}>
+          {typeLabel(row.resolvedType || row.ref.typeName)}
+        </TypeChip>
         <button
           type="button"
           className="configured-view__tool-button"
@@ -110,7 +125,10 @@ export function ConfiguredViewRecord({
           {fields.map((capability) => (
             <div key={capability.key}>
               <dt>{capabilityLabel(capability)}</dt>
-              <dd>
+              <dd
+                title={!fieldValue(row, capability.key) ? "—" : undefined}
+                aria-label={!fieldValue(row, capability.key) ? "—" : undefined}
+              >
                 <ConfiguredTableCellContent
                   viewID={viewID}
                   vaultKey={vaultKey}
@@ -128,18 +146,28 @@ export function ConfiguredViewRecord({
           {moved.map((column) => (
             <div key={column.field}>
               <dt>{columnLabel(column, capabilities)}</dt>
-              <dd>
-                <ConfiguredTableCellContent
-                  viewID={viewID}
-                  vaultKey={vaultKey}
-                  row={row}
-                  field={column.field}
-                  columnIndex={1}
-                  capability={capabilityFor(capabilities, column.field)}
-                  editSession={editSession}
-                  onStageOps={onStageOps}
-                  onOpenRelation={onOpenRow}
-                />
+              <dd
+                title={!fieldValue(row, column.field) ? "—" : undefined}
+                aria-label={!fieldValue(row, column.field) ? "—" : undefined}
+              >
+                {column.field === "updatedAt" &&
+                /^\d{4}-\d{2}-\d{2}/.test(fieldValue(row, column.field)) ? (
+                  <time dateTime={fieldValue(row, column.field)}>
+                    {readableDate(fieldValue(row, column.field))}
+                  </time>
+                ) : (
+                  <ConfiguredTableCellContent
+                    viewID={viewID}
+                    vaultKey={vaultKey}
+                    row={row}
+                    field={column.field}
+                    columnIndex={1}
+                    capability={capabilityFor(capabilities, column.field)}
+                    editSession={editSession}
+                    onStageOps={onStageOps}
+                    onOpenRelation={onOpenRow}
+                  />
+                )}
               </dd>
             </div>
           ))}
@@ -217,7 +245,7 @@ function CopyPath({ path }: { path: string }) {
       }}
     >
       <Copy size={13} aria-hidden />
-      {copied ? "Copied" : "Path"}
+      {copied ? "Copied" : "Copy path"}
     </button>
   );
 }
@@ -372,7 +400,7 @@ function ReverseRecords({
             return (
               <li key={item.key}>
                 {item.status ? (
-                  <StatusMark tone={item.status.tone} label="" />
+                  <StatusMark tone={statusWordTone(stage, item.status.tone)} label="" />
                 ) : (
                   <span className="view-record__no-mark" aria-hidden="true" />
                 )}

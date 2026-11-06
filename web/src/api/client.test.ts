@@ -644,7 +644,7 @@ describe("api client", () => {
     expect(fetchMock.mock.calls).toEqual([
       ["/api/v1/status", undefined],
       ["/api/v2/validate", undefined],
-      ["/api/v1/files/tree?path=docs&limit=25", undefined],
+      ["/api/v1/files/tree?limit=25&path=docs", undefined],
       ["/api/v1/suggest?q=spe&limit=7", undefined],
       ["/api/v1/search?q=spec&limit=9", undefined],
       ["/api/v1/search/notes?q=spec&limit=11&offset=0&type=Spec", undefined],

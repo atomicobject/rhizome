@@ -37,7 +37,7 @@ export const COLUMN_WIDTHS: Record<Exclude<ColumnKind, "title">, number> = {
 
 export const TITLE_MIN_ONE_LINE = 320;
 
-export const TITLE_MIN_TWO_LINE = 320;
+export const TITLE_MIN_TWO_LINE = 480;
 
 /** The select-and-drag cell before the first column. */
 export const CHECK_CELL_WIDTH = 30;
@@ -94,7 +94,19 @@ export function allocateColumns(
   twoLine: boolean,
   userWidths: Readonly<Record<string, number>>,
 ): ColumnAllocation {
-  const titleMin = twoLine ? TITLE_MIN_TWO_LINE : TITLE_MIN_ONE_LINE;
+  const titleMin = twoLine
+    ? Math.max(
+        TITLE_MIN_ONE_LINE,
+        Math.min(
+          TITLE_MIN_TWO_LINE,
+          available -
+            CHECK_CELL_WIDTH -
+            columns
+              .filter((column) => column.kind === "age")
+              .reduce((sum, column) => sum + (userWidths[column.field] ?? COLUMN_WIDTHS.age), 0),
+        ),
+      )
+    : TITLE_MIN_ONE_LINE;
 
   const width = (column: { field: string; kind: ColumnKind }) =>
     column.kind === "title"

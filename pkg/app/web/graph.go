@@ -327,6 +327,8 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 	}
 	nodes, edgeList, graphDiagnostics, err := s.buildGraphWithNodeRead(ctx, noderead.GraphRequest{
 		Sources:          []ontology.NodeRef{ref},
+		NodeLimit:        -1,
+		EdgeLimit:        -1,
 		Profile:          profile,
 		Limit:            limit,
 		IncludeCodeEdges: !notesOnly,
@@ -350,7 +352,17 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 	resp := graphpresentation.GraphResponse{CenterID: centerID, Diagnostics: graphDiagnostics}
 	s.attachGraphScores(ctx, nodes)
 	s.attachGraphTypes(ctx, nodes)
-	resp.Nodes, resp.Edges, resp.Truncated = finalizeGraph(nodes, edgeList, limit, notesOnly)
+	resp.Nodes, resp.Edges, resp.OmittedNodes, resp.OmittedEdges = limitLocalGraph(nodes, edgeList, centerID, limit)
+	retained := make(map[string]bool, len(resp.Nodes))
+	for _, node := range resp.Nodes {
+		retained[node.ID] = true
+	}
+	for _, node := range sortedNodes(nodes) {
+		if !retained[node.ID] && len(resp.OmittedNodeIDs) < defaultLocalNodeLimit {
+			resp.OmittedNodeIDs = append(resp.OmittedNodeIDs, node.ID)
+		}
+	}
+	resp.Truncated = resp.OmittedNodes > 0 || resp.OmittedEdges > 0
 	return resp, nil
 }
 

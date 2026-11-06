@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { ViewTableRow } from "../api/types";
-import { type EditCandidate, candidateForInput, markCutTitle } from "./ConfiguredTableCellHelpers";
+import {
+  type EditCandidate,
+  candidateForInput,
+  recordDisplayTitle,
+} from "./ConfiguredTableCellHelpers";
 
 function candidate(path: string, label: string): EditCandidate {
   return { ref: { notePath: path, kind: "NOTE" }, value: `[[${path}|${label}]]`, label, path };
@@ -29,18 +33,21 @@ describe("candidateForInput", () => {
   });
 });
 
-describe("markCutTitle", () => {
-  // SAFETY: markCutTitle reads only `ref.kind`.
-  const embedded = { ref: { kind: "EMBEDDED" } } as ViewTableRow;
+describe("recordDisplayTitle", () => {
+  it("uses the full embedded display label while leaving the summary untouched", () => {
+    const summary = "The capped summary";
+    const title = "The full title " + "with more words ".repeat(10) + "end";
 
-  it("ends a cut title at a word boundary", () => {
-    const title = "Walk through Rhizome Desktop's native menus, keyboard shortcuts, ⌘W session re";
-    expect(markCutTitle(embedded, title)).toBe(
-      "Walk through Rhizome Desktop's native menus, keyboard shortcuts, ⌘W session…",
-    );
-  });
+    const row = {
+      ref: { notePath: "note.md", kind: "EMBEDDED" },
+      title,
+      fields: { summary },
+    } satisfies ViewTableRow;
 
-  it("leaves a short title alone", () => {
-    expect(markCutTitle(embedded, "Buy ice")).toBe("Buy ice");
+    expect(recordDisplayTitle(row, "title", summary)).toBe(title);
+    expect(row.fields.summary).toBe(summary);
+
+    for (const field of ["name", "identifier", "custom"])
+      expect(recordDisplayTitle(row, field, "Authored value")).toBe("Authored value");
   });
 });

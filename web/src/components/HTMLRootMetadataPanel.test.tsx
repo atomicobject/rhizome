@@ -30,6 +30,8 @@ describe("HTMLRootMetadataPanel", () => {
     fireEvent.click(screen.getByText("Metadata"));
     expect(disclosure).toHaveAttribute("open");
 
+    expect(screen.getByText("type").querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+
     const type = screen.getByRole("textbox", { name: "type" });
     fireEvent.change(type, { target: { value: "Report" } });
     fireEvent.blur(type);
@@ -102,6 +104,7 @@ describe("HTMLRootMetadataPanel", () => {
     fireEvent.click(screen.getByText("Metadata"));
     expect(screen.queryByText("title")).not.toBeInTheDocument();
     expect(screen.queryByText("tags")).not.toBeInTheDocument();
+    expect(screen.getByText("type").querySelector("svg")).toBeNull();
     expect(screen.getByText("Report")).toBeVisible();
     expect(screen.getByText("T")).toBeVisible();
   });

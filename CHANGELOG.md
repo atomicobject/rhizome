@@ -10,6 +10,7 @@
 
 - Refreshed the workbench with clearer tables and boards, calmer note and search pages, consistent type colours, and more readable graph labels.
 - GraphQL now shares the workbench sidebar and page layout.
+- Explorer now shows the whole vault: every note and code file is counted, with large folders aggregated rather than cut off, folders expand in place without the rest of the graph moving, and links between code and notes are drawn. Each status word and each type now keep one mark and one colour everywhere, Action Items show their full titles, and collections, notes and search read more calmly. After updating, each repository refreshes its ontology catalog once to pick up the full titles; nothing is re-embedded.
 
 - Authored note-only ontology interfaces now get typed GraphQL roots, so a shared collection such as `meeting` can filter, sort and page across its concrete types while retaining concrete identity.
 

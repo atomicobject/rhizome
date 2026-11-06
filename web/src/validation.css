@@ -1,0 +1,55 @@
+/* Problems: moved verbatim from notes-shell.css. */
+
+/* Problems, clean: the checks that ran, listed in place of an empty panel.
+   Each row leads with the check's name, then a compact success mark and what
+   the check found; the zero issue count is already in the strip. */
+.validation-checks {
+  padding: var(--sp-2) 0;
+}
+
+.validation-checks__list {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.validation-checks__list li {
+  display: contents;
+}
+
+.validation-checks__list li > * {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding-right: var(--sp-7);
+  border-bottom: 1px solid var(--border-faint);
+  font-size: var(--fs-base);
+}
+
+.validation-checks__list strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.validation-checks__list .validation-checks__result {
+  font-size: var(--fs-sm);
+  gap: var(--sp-2);
+  overflow: hidden;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.validation-checks__mark {
+  flex: none;
+  font-size: var(--fs-base);
+  color: var(--success);
+  font-weight: 700;
+}
+
+.problems-workspace > * {
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+}

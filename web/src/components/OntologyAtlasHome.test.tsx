@@ -1,11 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { withFakeLayout } from "../test/fakeLayout";
 import { OntologyAtlasHome } from "./OntologyAtlasHome";
 
 describe("OntologyAtlasHome", () => {
   withFakeLayout();
+
+  beforeEach(async () => {
+    // Load the real lazy dependency before assertions, regardless of test order.
+    await import("./OntologyGraph");
+  });
 
   it("uses the visualization as the atlas survey surface", async () => {
     const { container } = render(
@@ -37,7 +42,7 @@ describe("OntologyAtlasHome", () => {
     expect(screen.queryByRole("heading", { name: "Types" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Interfaces" })).toBeNull();
     // The header counts types and interfaces together, then names each.
-    expect(screen.getByText("2")).toHaveClass("view-header__count");
+    expect(document.querySelector(".view-header__count")).toBeNull();
     expect(screen.getByText("1 type and 1 interface · 3 records")).toBeVisible();
     const find = await screen.findByRole("searchbox", { name: "Find a type" });
     fireEvent.change(find, { target: { value: "spec" } });
