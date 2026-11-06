@@ -5,11 +5,13 @@ mod commands;
 mod credentials;
 mod finder;
 mod inbox;
+mod installation;
 mod menu;
 mod page;
 mod pane;
 mod pipeline;
 mod presence;
+mod process;
 mod security;
 mod setup;
 mod state;
@@ -21,6 +23,29 @@ mod windows;
 use tauri::Manager;
 
 fn main() {
+    let context = tauri::generate_context!();
+    let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
+    let integration = if installation::install::requested(&arguments) {
+        Some(installation::install::run(
+            &context.config().identifier,
+            &context.package_info().version.to_string(),
+            &arguments,
+        ))
+    } else if installation::uninstall::requested(&arguments) {
+        Some(installation::uninstall::run(
+            &context.config().identifier,
+            &arguments,
+        ))
+    } else {
+        None
+    };
+    if let Some(result) = integration {
+        if let Err(message) = result {
+            eprintln!("Cannot change Rhizome desktop integration: {message}");
+            std::process::exit(1);
+        }
+        return;
+    }
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if !terminal::handle(app, &args) && !updater::handle(app, &args, false) {
@@ -28,6 +53,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -36,6 +62,7 @@ fn main() {
             commands::desktop_attach
         ])
         .setup(|app| {
+            installation::prepare(app.handle())?;
             let directory = state::data_directory(app.path().app_data_dir()?)?;
             std::fs::create_dir_all(&directory)?;
             let session = state::Session::load(&directory);
@@ -61,7 +88,7 @@ fn main() {
             presence::start(app.handle().clone());
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("Cannot launch Rhizome Desktop");
     app.run(|app, event| match event {
         #[cfg(target_os = "macos")]

@@ -104,6 +104,9 @@ github.com/go-git/go-git/v5/internal/path_util
 github.com/go-git/go-git/v5/plumbing/format/config
 github.com/go-git/go-git/v5/plumbing/format/gitignore
 github.com/go-git/go-git/v5/utils/ioutil
+# github.com/godbus/dbus/v5 v5.2.4
+## explicit; go 1.20
+github.com/godbus/dbus/v5
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid

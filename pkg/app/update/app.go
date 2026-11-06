@@ -30,6 +30,13 @@ func defaultAppUpdateDependencies(env vaultconfig.Env) appUpdateDependencies {
 	return appUpdateDependencies{
 		feedURL: firstNonEmpty(strings.TrimSpace(feedURL), desktopUpdateFeed),
 		launch: func(ctx context.Context, name string, args ...string) error {
+			if name != "open" {
+				command := exec.Command(name, args...)
+				if err := command.Start(); err != nil {
+					return err
+				}
+				return command.Process.Release()
+			}
 			out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
@@ -55,10 +62,16 @@ func defaultAppUpdateDependencies(env vaultconfig.Env) appUpdateDependencies {
 // A failed hand-off is retained alongside the independent repository outcome.
 func updateApp(ctx context.Context, opts Options, bundle appbundle.Info) (TargetResult, error) {
 	outcome := TargetResult{Role: UpdateTargetGlobal, Path: bundle.Root, Version: NormalizeVersion(bundle.Version)}
+	if bundle.Portable {
+		outcome.Path = bundle.AppPath
+	}
 	failed := func(stage string, err error) (TargetResult, error) {
 		return outcome, fmt.Errorf("global target %s not updated (%s stage): %w; download %s", bundle.Root, stage, err, desktopDownloadURL)
 	}
 	if bundle.Dev {
+		if bundle.Portable {
+			return failed("app", fmt.Errorf("Rhizome Dev is updated from its source build"))
+		}
 		return failed("app", fmt.Errorf("the Dev app is updated with make desktop-install-dev"))
 	}
 	if !bundle.Rhizome() {
@@ -82,7 +95,11 @@ func updateApp(ctx context.Context, opts Options, bundle appbundle.Info) (Target
 		fmt.Fprintf(opts.Stdout, "Global app %s is up to date (Rhizome %s)\n", bundle.Root, outcome.Version)
 		return outcome, nil
 	}
-	if err := deps.launch(ctx, "open", "-n", "-a", bundle.Root, "--args", "--install-update"); err != nil {
+	name, args := "open", []string{"-n", "-a", bundle.Root, "--args", "--install-update"}
+	if bundle.Portable {
+		name, args = bundle.AppPath, []string{"--install-update"}
+	}
+	if err := deps.launch(ctx, name, args...); err != nil {
 		return failed("launch", err)
 	}
 	for elapsed := time.Duration(0); elapsed < deps.timeout; elapsed += time.Second {

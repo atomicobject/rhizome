@@ -20,6 +20,7 @@ Full license and notice text is stored in `licenses/**`. The browser notice is `
 | github.com/go-git/gcfg | v1.5.1-0.20230307220236-3a3c6141e376 | vendored source | `licenses/go/github.com_go-git_gcfg@v1.5.1-0.20230307220236-3a3c6141e376` | vendor/github.com/go-git/gcfg |
 | github.com/go-git/go-billy/v5 | v5.6.2 | vendored source | `licenses/go/github.com_go-git_go-billy_v5@v5.6.2` | vendor/github.com/go-git/go-billy/v5 |
 | github.com/go-git/go-git/v5 | v5.16.4 | vendored source | `licenses/go/github.com_go-git_go-git_v5@v5.16.4` | vendor/github.com/go-git/go-git/v5 |
+| github.com/godbus/dbus/v5 | v5.2.4 | vendored source | `licenses/go/github.com_godbus_dbus_v5@v5.2.4` | vendor/github.com/godbus/dbus/v5 |
 | github.com/google/uuid | v1.6.0 | vendored source | `licenses/go/github.com_google_uuid@v1.6.0` | vendor/github.com/google/uuid |
 | github.com/inconshreveable/mousetrap | v1.1.0 | vendored source | `licenses/go/github.com_inconshreveable_mousetrap@v1.1.0` | vendor/github.com/inconshreveable/mousetrap |
 | github.com/jbenet/go-context | v0.0.0-20150711004518-d14ea06fba99 | vendored source | `licenses/go/github.com_jbenet_go-context@v0.0.0-20150711004518-d14ea06fba99` | vendor/github.com/jbenet/go-context |

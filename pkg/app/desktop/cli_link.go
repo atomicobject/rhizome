@@ -57,6 +57,9 @@ func cliLinkBundle() (*appbundle.Info, error) {
 }
 
 func cliLinkInspect(bundle *appbundle.Info) (CLILinkInfo, error) {
+	if bundle != nil && bundle.Portable {
+		return portableCLILinkInspect(bundle)
+	}
 	info := CLILinkInfo{LinkPath: filepath.Join(cliLinkDirectory, "rzm"), State: "unsupported"}
 	if bundle == nil || bundle.Dev || !bundle.Rhizome() {
 		return info, nil
@@ -110,6 +113,9 @@ func cliLinkInspect(bundle *appbundle.Info) (CLILinkInfo, error) {
 }
 
 func (s *Service) cliLinkShell(ctx context.Context, bundle *appbundle.Info) CLILinkShell {
+	if bundle != nil && bundle.Portable {
+		return s.portableCLILinkShell(ctx, bundle)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shell, _ := s.env.Lookup("SHELL")
@@ -171,6 +177,20 @@ func (s *Service) CLILinkRemove(ctx context.Context) (CLILinkInfo, error) {
 	return s.mutateCLILink(ctx, true)
 }
 
+func (s *Service) CLILinkRemoveExpected(ctx context.Context, generation uint64) (CLILinkInfo, error) {
+	if generation == 0 {
+		return s.CLILinkRemove(ctx)
+	}
+	bundle, err := cliLinkBundle()
+	if err != nil {
+		return CLILinkInfo{}, problem("link_failed", err.Error())
+	}
+	if bundle == nil || !bundle.Portable {
+		return CLILinkInfo{}, problem("invalid_request", "An installation generation requires a portable desktop installation.")
+	}
+	return s.mutatePortableCLILink(ctx, bundle, true, generation)
+}
+
 func cliLinkQuote(path string) string { return "'" + strings.ReplaceAll(path, "'", "'\"'\"'") + "'" }
 
 func cliLinkCommand(info CLILinkInfo, target string, remove bool) string {
@@ -210,6 +230,9 @@ func (s *Service) mutateCLILink(ctx context.Context, remove bool) (CLILinkInfo, 
 	bundle, err := cliLinkBundle()
 	if err != nil {
 		return CLILinkInfo{}, problem("link_failed", err.Error())
+	}
+	if bundle != nil && bundle.Portable {
+		return s.mutatePortableCLILink(ctx, bundle, remove, 0)
 	}
 	info, err := cliLinkInspect(bundle)
 	if err != nil {

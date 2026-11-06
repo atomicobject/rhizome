@@ -13,6 +13,8 @@ The CLI owns prompting and process handoff in `cmd/repo_delegate*.go`. Desktop
 owns its explicit trust interaction and uses `Select` directly. Informational
 probes are bounded and disable both re-delegation guards; callers supply their
 working directory so an external manager's shim resolves the selected folder.
+Probes run without a Windows console window; this does not detach them or change
+their output, cancellation, or exit status.
 
 `credentials`, `auth`, `desktop`, and `desktop-bridge` remain on the invoking executable and bypass
 repository trust prompting and delegation. The bridge owns explicit trust

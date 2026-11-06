@@ -585,8 +585,8 @@ mod tests {
     #[test]
     fn legacy_file_is_read_but_never_rewritten() {
         let directory = tempfile::tempdir().unwrap();
-        let legacy = r#"{"version":1,"folders":[{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","path":"/work/project","name":"project","lastOpened":4}]}"#;
-        fs::write(directory.path().join(LEGACY), legacy).unwrap();
+        let legacy = serde_json::json!({"version":1,"folders":[{"id":"a".repeat(64),"path":directory.path().join("project"),"name":"project","lastOpened":4}]}).to_string();
+        fs::write(directory.path().join(LEGACY), &legacy).unwrap();
         let Stored::Legacy(registry) = Library::load(directory.path()).unwrap() else {
             panic!("expected the legacy library");
         };
@@ -623,12 +623,11 @@ mod tests {
     #[test]
     fn missing_repository_survives_save_and_reload() {
         let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("no-longer-mounted").join("project");
+        assert!(!missing.exists());
+        let missing = missing.to_str().unwrap();
         let mut library = Library::default();
-        library.add(&discovery(
-            'a',
-            "/no-longer-mounted/project",
-            &["/no-longer-mounted/project"],
-        ));
+        library.add(&discovery('a', missing, &[missing]));
         library.save(directory.path()).unwrap();
         let Stored::Current(loaded) = Library::load(directory.path()).unwrap() else {
             panic!("expected the saved library");

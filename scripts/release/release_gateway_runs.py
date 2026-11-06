@@ -36,9 +36,9 @@ def api(runner: Callable, endpoint: str, *options: str):
     return value
 
 
-def workflow_id(runner: Callable) -> int:
-    result = api(runner, f"{API}/workflows/{WORKFLOW}")
-    if (not isinstance(result, dict) or result.get("path") != WORKFLOW_PATH
+def workflow_id(runner: Callable, *, workflow: str = WORKFLOW) -> int:
+    result = api(runner, f"{API}/workflows/{workflow}")
+    if (not isinstance(result, dict) or result.get("path") != f".github/workflows/{workflow}"
             or type(result.get("id")) is not int or result["id"] <= 0):
         raise GatewayError("GitHub returned an unexpected gateway workflow")
     return result["id"]
@@ -48,17 +48,18 @@ def run_title(attempt: dict, source: dict) -> str:
     return f"Deploy team API {attempt['request_id']} {source['source_commit']}"
 
 
-def validate_run(run: dict, attempt: dict, source: dict, expected_workflow: int) -> dict:
+def validate_run(run: dict, attempt: dict, source: dict, expected_workflow: int, *,
+                 workflow: str = WORKFLOW, title: str | None = None) -> dict:
     if not isinstance(run, dict):
         raise GatewayError("GitHub returned an invalid deployment run")
     run_id = run.get("id")
     expected_url = f"https://github.com/{REPOSITORY}/actions/runs/{run_id}"
     if (type(run_id) is not int or run_id <= 0
-            or run.get("display_title") != run_title(attempt, source)
+            or run.get("display_title") != (title if title is not None else run_title(attempt, source))
             or run.get("event") != "workflow_dispatch"
             or run.get("head_branch") != "main"
             or run.get("workflow_id") != expected_workflow
-            or run.get("path") != WORKFLOW_PATH
+            or run.get("path") != f".github/workflows/{workflow}"
             or not isinstance(run.get("repository"), dict)
             or run["repository"].get("full_name") != REPOSITORY
             or run.get("html_url") != expected_url
@@ -68,8 +69,9 @@ def validate_run(run: dict, attempt: dict, source: dict, expected_workflow: int)
     return run
 
 
-def find_run(runner: Callable, attempt: dict, source: dict, expected_workflow: int):
-    pages = api(runner, f"{API}/workflows/{WORKFLOW}/runs?event=workflow_dispatch&branch=main&per_page=100",
+def find_run(runner: Callable, attempt: dict, source: dict, expected_workflow: int, *,
+             workflow: str = WORKFLOW, title: str | None = None):
+    pages = api(runner, f"{API}/workflows/{workflow}/runs?event=workflow_dispatch&branch=main&per_page=100",
                 "--paginate", "--slurp")
     if not isinstance(pages, list) or not pages:
         raise GatewayError("GitHub returned an invalid deployment run listing")
@@ -85,14 +87,17 @@ def find_run(runner: Callable, attempt: dict, source: dict, expected_workflow: i
         raise GatewayError("GitHub deployment run listing was truncated")
     # Match the title before checking other identity fields: a wrong-ref/title collision
     # must fail instead of being silently ignored as an unrelated run.
-    matches = [run for run in runs if run.get("display_title") == run_title(attempt, source)]
+    expected_title = title if title is not None else run_title(attempt, source)
+    matches = [run for run in runs if run.get("display_title") == expected_title]
     if len(matches) > 1:
         raise GatewayError("Multiple deployment runs match the saved gateway request")
-    return validate_run(matches[0], attempt, source, expected_workflow) if matches else None
+    return validate_run(matches[0], attempt, source, expected_workflow, workflow=workflow, title=title) if matches else None
 
 
-def fetch_run(runner: Callable, attempt: dict, source: dict, expected_workflow: int):
-    return validate_run(api(runner, f"{API}/runs/{attempt['run_id']}"), attempt, source, expected_workflow)
+def fetch_run(runner: Callable, attempt: dict, source: dict, expected_workflow: int, *,
+              workflow: str = WORKFLOW, title: str | None = None):
+    return validate_run(api(runner, f"{API}/runs/{attempt['run_id']}"), attempt, source, expected_workflow,
+                        workflow=workflow, title=title)
 
 
 def successful(run: dict) -> bool:

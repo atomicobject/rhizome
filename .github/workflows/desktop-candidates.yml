@@ -1,0 +1,214 @@
+name: Native desktop candidates
+run-name: Desktop candidates ${{ inputs.request_id }} ${{ inputs.source_commit }} ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact canonical public release commit
+        required: true
+        type: string
+      version:
+        description: Exact source version without v
+        required: true
+        type: string
+      request_id:
+        description: Coordinator correlation ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  select:
+    if: github.ref == 'refs/heads/main' && github.repository == 'atomicobject/rhizome'
+    runs-on: ubuntu-24.04
+    environment: release
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+      version: ${{ steps.source.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: release
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate source and production readiness
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_VERSION: ${{ inputs.version }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          WINDOWS_SIGNING_CONFIG: ${{ vars.WINDOWS_SIGNING_CONFIG }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+          sys.path.insert(0, 'trusted/scripts/release')
+          from desktop_source import validate_source
+          from windows_sign import configuration
+          if not re.fullmatch('[0-9a-f]{32}', os.environ['REQUEST_ID']):
+              raise SystemExit('Invalid coordinator request identity')
+          config = os.environ.get('WINDOWS_SIGNING_CONFIG', '').strip()
+          if not config:
+              raise SystemExit('Windows production signing is not configured; unsigned candidates remain available in Desktop portability CI')
+          path = Path(os.environ['RUNNER_TEMP']) / 'windows-signing.json'
+          path.write_text(config)
+          configuration(path)
+          selected = validate_source(Path('source'), os.environ['SOURCE_COMMIT'], os.environ['SOURCE_VERSION'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"commit={selected['source_commit']}\nversion={selected['version']}\n")
+          PY
+
+  native:
+    needs: select
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x86_64
+            runner: windows-2025
+            goos: windows
+            id: rzm-windows-amd64
+            binary: rzm.exe
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+            goos: linux
+            id: rzm-linux
+            binary: rzm
+    runs-on: ${{ matrix.runner }}
+    environment: release
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.commit }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          install-only: true
+      - uses: goto-bus-stop/setup-zig@v2
+        if: runner.os == 'Linux'
+        with:
+          version: 0.13.0
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64
+      - name: Prepare clean build inputs
+        working-directory: source
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ needs.select.outputs.commit }}
+          SOURCE_VERSION: ${{ needs.select.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_SIGNING_CONFIG: ${{ vars.WINDOWS_SIGNING_CONFIG }}
+        run: |
+          set -euo pipefail
+          python3 ../trusted/scripts/release/desktop_source.py --repo-root . --commit "$SOURCE_COMMIT" --version "$SOURCE_VERSION"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          if os.environ.get('WINDOWS_SIGNING_CONFIG', '').strip():
+              (Path(os.environ['RUNNER_TEMP']) / 'windows-signing.json').write_text(os.environ['WINDOWS_SIGNING_CONFIG'])
+          PY
+      - name: Prepare dependency and frontend build inputs
+        working-directory: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/vendor/ensure_tree_sitter_sources.sh
+          make web-build
+          npm ci --prefix desktop
+      - name: Install credential scanner
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        env:
+          GOTOOLCHAIN: go1.24.11
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - name: Build canonical CLI without release hooks or publication
+        working-directory: source
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: amd64
+          GORELEASER_CURRENT_TAG: v${{ needs.select.outputs.version }}
+          BUILD_ID: ${{ matrix.id }}
+          CLI_NAME: ${{ matrix.binary }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/canonical"
+          goreleaser build --clean --single-target --id "$BUILD_ID" --skip=before,post-hooks,validate --output "$RUNNER_TEMP/canonical/$CLI_NAME"
+          python3 scripts/teamkeys/release.py --check-artifact "$RUNNER_TEMP/canonical/$CLI_NAME"
+      - name: Sign canonical Windows CLI once
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          WINDOWS_SIGNING_SECRET: ${{ secrets.WINDOWS_SIGNING_SECRET }}
+        run: python3 trusted/scripts/release/windows_sign.py --config "$RUNNER_TEMP/windows-signing.json" --initial-cli "$RUNNER_TEMP/canonical/rzm.exe"
+      - name: Compile GUI without signing credentials
+        working-directory: source
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ needs.select.outputs.commit }}
+          SOURCE_VERSION: ${{ needs.select.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          CLI_NAME: ${{ matrix.binary }}
+        run: |
+          set -euo pipefail
+          digest="$(python3 -c 'import hashlib,sys; print(hashlib.file_digest(open(sys.argv[1],"rb"),"sha256").hexdigest())' "$RUNNER_TEMP/canonical/$CLI_NAME")"
+          extra=()
+          if [[ "$TARGET" == windows-* ]]; then extra=(--windows-sign-config "$RUNNER_TEMP/windows-signing.json"); fi
+          python3 ../trusted/scripts/release/build_native_desktop.py --repo-root . --target "$TARGET" --rzm "$RUNNER_TEMP/canonical/$CLI_NAME" --canonical-sha256 "$digest" --version "$SOURCE_VERSION" --commit "$SOURCE_COMMIT" --output "$RUNNER_TEMP/candidate" --production --phase compile "${extra[@]}"
+      - name: Package and verify finalized candidate
+        working-directory: source
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ needs.select.outputs.commit }}
+          SOURCE_VERSION: ${{ needs.select.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          CLI_NAME: ${{ matrix.binary }}
+          WINDOWS_SIGNING_SECRET: ${{ runner.os == 'Windows' && secrets.WINDOWS_SIGNING_SECRET || '' }}
+        run: |
+          set -euo pipefail
+          digest="$(python3 -c 'import hashlib,sys; print(hashlib.file_digest(open(sys.argv[1],"rb"),"sha256").hexdigest())' "$RUNNER_TEMP/canonical/$CLI_NAME")"
+          extra=()
+          if [[ "$TARGET" == windows-* ]]; then extra=(--windows-sign-config "$RUNNER_TEMP/windows-signing.json"); fi
+          python3 ../trusted/scripts/release/build_native_desktop.py --repo-root . --target "$TARGET" --rzm "$RUNNER_TEMP/canonical/$CLI_NAME" --canonical-sha256 "$digest" --version "$SOURCE_VERSION" --commit "$SOURCE_COMMIT" --output "$RUNNER_TEMP/candidate" --production --phase package "${extra[@]}"
+      - name: Revalidate canonical source before retaining artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ needs.select.outputs.commit }}
+          SOURCE_VERSION: ${{ needs.select.outputs.version }}
+        run: python3 trusted/scripts/release/desktop_source.py --repo-root source --commit "$SOURCE_COMMIT" --version "$SOURCE_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-desktop-${{ matrix.target }}
+          path: ${{ runner.temp }}/candidate/*
+          if-no-files-found: error
+          retention-days: 30

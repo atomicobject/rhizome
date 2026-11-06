@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add Windows 11 x64 and Ubuntu 24.04 GNOME x64 desktop candidates, native credential storage, app-owned CLI installation, and joined release verification. Windows production signing and installed GUI acceptance remain required before publication.
+
 - Require Developer ID signing and Apple notarization for public desktop releases, with protected CI recovery and non-publishing candidate verification.
 
 - Refreshed the workbench with clearer tables and boards, calmer note and search pages, consistent type colours, and more readable graph labels.

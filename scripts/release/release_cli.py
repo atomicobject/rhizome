@@ -29,6 +29,10 @@ from release_actions import RELEASE_FILE_PATHS, VERSION_PATH, apply_release_file
 from release_command import run_cli
 from release_git import ReleaseGit, ReleaseGitError
 from release_gateway import GatewayError, ensure_gateway
+from desktop_candidates import CandidateError
+from prepare_native_desktop import ensure_candidates
+from release_gateway_source import SourceError
+from release_advertise import advertisement_resume_available
 from release_preconditions import ReleasePreconditionError, validate_stored_apply_boundary, verify_base_tag
 from build_desktop import SIGNING_KEY
 from release_publish import PUBLISH_TOKEN_ENV, publish_command
@@ -75,6 +79,7 @@ class Orchestrator:
         today_fn: Callable[[], str] = lambda: date.today().isoformat(),
         environ: Mapping[str, str] | None = None,
         gateway: Callable[..., dict] = ensure_gateway,
+        native_candidates: Callable[..., Path] = ensure_candidates,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.command_runner = command_runner
@@ -85,6 +90,7 @@ class Orchestrator:
         self.today_fn = today_fn
         self.environ = os.environ if environ is None else environ
         self.gateway = gateway
+        self.native_candidates = native_candidates
         self.store = ReleaseStore(
             self.repo_root,
             command_runner=lambda command: self._run(command),
@@ -467,11 +473,13 @@ class Orchestrator:
             try:
                 if self.release_git.remote_tag_target(version) is not None:
                     self.release_git.verify_remote_tag(version, release_commit)
-                    raise OrchestrationError(
-                        "remote tag exists without a GitHub publication checkpoint; "
-                        "inspect the GitHub release before retrying",
-                        next_command=retry,
-                    )
+                    if not advertisement_resume_available(run.run_dir / "advertisement-receipt.json",
+                            expected_commit=release_commit, expected_version=version):
+                        raise OrchestrationError(
+                            "remote tag exists without a verified advertisement receipt; "
+                            "inspect the GitHub release before retrying",
+                            next_command=retry,
+                        )
             except ReleaseGitError as error:
                 raise OrchestrationError(str(error), next_command=retry) from error
         if "canonical_branches_published" not in run.state.completed_checkpoints:
@@ -497,6 +505,16 @@ class Orchestrator:
                 next_command=retry,
             )
         receipt_path = run.run_dir / "gateway-receipt.json"
+        native_path = run.run_dir / "native-desktop"
+        native_receipt = run.run_dir / "native-desktop-receipt.json"
+        if not self._internal_release() and "github_published" not in run.state.completed_checkpoints:
+            try:
+                self.native_candidates(self.repo_root, release_commit, version, native_receipt, native_path,
+                                       output_fn=self.output_fn)
+                if not self.release_git.publication_complete(release_commit, run.evidence.release_branch):
+                    raise ReleaseGitError("canonical release branches changed while waiting for native desktop builds")
+            except (CandidateError, GatewayError, SourceError, ReleaseGitError, OSError) as error:
+                raise OrchestrationError(str(error), next_command=retry) from error
         if ("github_published" not in run.state.completed_checkpoints
                 or (self._internal_release() and "s3_published" not in run.state.completed_checkpoints)):
             try:
@@ -507,7 +525,11 @@ class Orchestrator:
             except (GatewayError, ReleaseGitError, OSError) as error:
                 raise OrchestrationError(str(error), next_command=retry) from error
         if "github_published" not in run.state.completed_checkpoints:
-            self._run(publish_command(self.repo_root, notes_path, receipt_path), next_command=retry)
+            native_args = {} if self._internal_release() else {
+                "desktop_candidates": native_path, "desktop_receipt": native_receipt}
+            self._run(publish_command(self.repo_root, notes_path, receipt_path,
+                                     advertisement_receipt=run.run_dir / "advertisement-receipt.json",
+                                     **native_args), next_command=retry)
             try:
                 self.release_git.verify_remote_tag(version, release_commit)
             except ReleaseGitError as error:

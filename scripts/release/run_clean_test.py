@@ -73,6 +73,16 @@ class CleanReleaseEnvironmentTest(unittest.TestCase):
                     if expected:
                         self.assertFalse(Path(env[SIGNING_FILE]).exists())
 
+    def test_public_desktop_upload_never_receives_or_requires_the_deferred_tap_token(self):
+        self.source["RZM_RELEASE_DESKTOP"] = "1"
+        environment = scoped_environment(self.source, "publish")
+        self.assertNotIn("BREW_GITHUB_TOKEN", environment)
+        self.source.pop("BREW_GITHUB_TOKEN")
+        with patch("run_clean.subprocess.run") as runner:
+            runner.return_value.returncode = 0
+            self.assertEqual(0, run("publish", ["goreleaser", "release", "--draft"], self.source))
+        self.assertNotIn("BREW_GITHUB_TOKEN", runner.call_args.kwargs["env"])
+
     def test_direct_wrapper_rejects_public_overlay_and_preserves_internal_overlay(self):
         self.source["GOFLAGS"] = "-overlay=/synthetic/overlay.json"
         with self.assertRaisesRegex(ValueError, "compiler overlay"):

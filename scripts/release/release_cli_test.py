@@ -197,6 +197,7 @@ class Fixture:
             self.repo,
             command_runner=self.commands,
             gateway=self.gate,
+            native_candidates=self.native,
             evidence_collector=self.collect,
             note_generator=self.generate,
             input_fn=self.ask,
@@ -208,6 +209,10 @@ class Fixture:
     def gate(self, repo, release_commit, receipt_path, **kwargs):
         self.commands.calls.append(("gateway", release_commit, str(receipt_path)))
         return {"attempt": {"state": "success"}}
+
+    def native(self, repo, commit, version, receipt, output, **kwargs):
+        self.commands.calls.append(("native", commit, version, str(receipt), str(output)))
+        return output
 
     def collect(self, repo, base, head, **kwargs):
         return self.evidence
@@ -641,7 +646,7 @@ class OrchestratorTest(unittest.TestCase):
         fixture.commands.remote_release = RELEASE_SHA
         fixture.commands.remote_tags[VERSION] = RELEASE_SHA
 
-        with self.assertRaisesRegex(OrchestrationError, "without a GitHub publication checkpoint"):
+        with self.assertRaisesRegex(OrchestrationError, "without a verified advertisement receipt"):
             fixture.orchestrator.publish(BASE, HEAD_SHA)
 
         self.assertFalse(

@@ -1,7 +1,7 @@
 ---
 summary: "Operational design constraints and review checklist for vault core: path normalization through pkg/paths, vault/link/tag primitives in pkg/vault/obsidian, config discovery, blessed frontmatter, and unified ignore matching."
 reference-kind: guide
-last-verified: 2026-11-03
+last-verified: 2026-11-05
 code-paths:
   - pkg/fileio
   - pkg/noteformat
@@ -147,6 +147,7 @@ The optional `diagnostics` block uses `pkg/diagnostics.Config`. Config loads and
 - `pkg/markdownsyntax` owns exact frontmatter boundaries, byte spans, code protection and target enumeration. Frontmatter opens with an exact first-line `---`, with an optional UTF-8 BOM, and accepts CRLF. Consumers use the returned byte bounds instead of reparsing delimiters.
 - Generic code protection excludes fenced, indented and inline code. Valid frontmatter property links remain authored links. Hashtags, inline-property extraction, body-only validation and fragment targets explicitly exclude frontmatter according to their own contracts.
 - `paths.Normalize` is idempotent lexical normalization. It preserves absolute roots and parent escapes; only `CleanRelPath`, `CleanNotePath` and strict vault/input APIs admit storage or filesystem keys. Non-strict relative-path methods and deprecated Markdown path resolvers are removed. An explicit `EnsureNoteExtension` call owns any authoring suffix default.
+- `paths.CanonicalExistingPath` resolves an existing filesystem identity without a missing-path fallback. Windows extended DOS drive/UNC spellings use ordinary identity only after `os.SameFile` proves equivalence; distinct verbatim names and other device namespaces retain their spelling. Repository trust and desktop discovery share that boundary, while ordinary Go I/O retains long-path support.
 - Link lookup uses `paths.LinkKey` on every platform. Exact NFC spelling has precedence only when unique within its folded tier. Case or Unicode collisions retain all original candidates and remain ambiguous when no unique exact spelling exists.
 
 Invocation configuration paths are carried by `config.Env`. Entry points capture

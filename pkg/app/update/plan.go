@@ -80,7 +80,7 @@ func BuildUpdatePlan(invocation Invocation, opts UpdatePlanOptions) (UpdatePlan,
 		})
 	}
 	addRepo := func(version string, writePin bool) error {
-		if invocation.RepoTargetAppOwned || appbundle.Root(repoPath) != "" || (invocation.Bundle != nil && sameInvocationPath(repoPath, globalPath)) {
+		if invocation.RepoTargetAppOwned || appbundle.OwnsPath(repoPath) || (invocation.Bundle != nil && appbundle.SamePath(repoPath, globalPath)) {
 			return fmt.Errorf("repository target %s is owned by the app and cannot be replaced", repoPath)
 		}
 		return appendUpdateTarget(&plan, UpdateTarget{

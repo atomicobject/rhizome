@@ -7,13 +7,13 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 )
 
 var appCommandLineLinkPath = "/usr/local/bin/rzm"
+var registeredAppPaths = appbundle.RegisteredAppPaths
 
 // Invocation identifies the executable handling an update and the repository
 // target selected by the pin, if any. Paths remain logical install
@@ -80,8 +80,11 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfi
 		return Invocation{}, fmt.Errorf("resolve repository target directory: %w", err)
 	}
 	entry := filepath.Join(resolvedDir, filepath.Base(target))
-	invocation.RepoTargetAppOwned = appbundle.Root(entry) != ""
-	var appEntries []string
+	invocation.RepoTargetAppOwned = appbundle.OwnsPath(entry)
+	appEntries, err := registeredAppPaths()
+	if err != nil {
+		return Invocation{}, fmt.Errorf("read desktop installation ownership: %w", err)
+	}
 	if bundle != nil {
 		appEntries = append(appEntries, invocation.ExecutablePath)
 	}
@@ -95,7 +98,7 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfi
 		if err != nil {
 			return Invocation{}, fmt.Errorf("resolve app command directory: %w", err)
 		}
-		invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || sameInvocationPath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
+		invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || appbundle.SamePath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
 	}
 	invocation.RepoTargetPath = target
 	invocation.RepoPinned = true
@@ -148,17 +151,10 @@ func sameInvocationFile(a, b string) bool {
 
 	aResolved, aResolveErr := filepath.EvalSymlinks(a)
 	bResolved, bResolveErr := filepath.EvalSymlinks(b)
-	if aResolveErr == nil && bResolveErr == nil && sameInvocationPath(aResolved, bResolved) {
+	if aResolveErr == nil && bResolveErr == nil && appbundle.SamePath(aResolved, bResolved) {
 		return true
 	}
-	return sameInvocationPath(a, b)
-}
-
-func sameInvocationPath(a, b string) bool {
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
-	}
-	return filepath.Clean(a) == filepath.Clean(b)
+	return appbundle.SamePath(a, b)
 }
 
 // Resolve only the destination directory: rename replaces a final symlink,

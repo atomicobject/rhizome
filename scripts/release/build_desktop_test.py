@@ -122,7 +122,12 @@ class BuildTest(unittest.TestCase):
         stale.parent.mkdir(parents=True)
         stale.write_text("old")
 
-        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"):
+        def joined(root, rzm, version, output, **kwargs):
+            (output / "latest.json").write_text(json.dumps(update_feed(version, "c2lnbmF0dXJl", PUBLISHED)))
+            return [output / "latest.json"]
+
+        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"), \
+                patch.object(build_desktop, "join", side_effect=joined) as join:
             staged = self.build({
                 **APPLE,
                 "RZM_RELEASE_DESKTOP": "1",
@@ -131,6 +136,7 @@ class BuildTest(unittest.TestCase):
                 "GITHUB_TOKEN": "synthetic-github",
             })
         verify.assert_called_once()
+        join.assert_called_once()
 
         self.assertEqual(
             ["Rhizome-macos-arm64.dmg", "Rhizome-macos-arm64.app.tar.gz",
@@ -160,6 +166,15 @@ class BuildTest(unittest.TestCase):
         self.assertEqual("--check-artifact", content_check[2])
         self.assertTrue(content_check[1].endswith("scripts/teamkeys/release.py"))
         self.assertTrue(content_check[3].endswith("Rhizome.app/Contents/MacOS/rhizome-desktop"))
+
+    def test_existing_notarization_snapshot_does_not_require_native_candidates(self):
+        with patch.object(build_desktop, "verify_distribution"), patch.object(build_desktop, "notarize_dmg"), \
+                patch.object(build_desktop, "join") as join:
+            build(self.rzm, "0.51.0-SNAPSHOT-test", environ={"PATH": "/usr/bin", **APPLE,
+                "RZM_RELEASE_DESKTOP": "1", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key"}, root=self.root,
+                runner=self.runner, machine="arm64", home=self.home, snapshot=True)
+        join.assert_not_called()
+        self.assertTrue((self.output / "latest.json").is_file())
 
     def test_missing_dependencies_are_installed_first(self) -> None:
         (self.root / "desktop/node_modules").rmdir()

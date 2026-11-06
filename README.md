@@ -36,7 +36,7 @@ brew tap atomicobject/homebrew-tap
 brew install rhizome
 ```
 
-For Linux, Windows, Intel Macs, or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
+Windows 11 x64 and Ubuntu 24.04 GNOME x64 desktop candidates are under native verification; see [Rhizome Desktop](desktop/README.md#distribution-and-updates) for their installation and acceptance status. For the standalone CLI on Linux, Windows, Intel Macs, or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
 
 ### 2. Initialize your project
 
@@ -52,7 +52,7 @@ Atomic Object employees can import shared provider keys from a team 1Password En
 
 A team API gateway provides per-person Google sign-in for the initial Atomic pilot:
 
-- `rzm auth login --server <gateway URL>` signs in once for every Rhizome process on your Mac.
+- `rzm auth login --server <gateway URL>` signs in once for every Rhizome process on your computer.
 - `rzm auth status` and `rzm auth logout` manage the session.
 - `rzm auth admin` lets admins check usage and manage people, sessions, and limits.
 

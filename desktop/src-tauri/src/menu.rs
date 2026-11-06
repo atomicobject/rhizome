@@ -6,8 +6,8 @@ use crate::{
     pane::Panes,
     state::{Preferences, WindowSession},
     windows::{
-        browse, content_label, create, focused_window, page_command, shell_label, visible_page_url,
-        Browse, Sessions,
+        browse, content_label, create_from_event, focused_window, page_command, shell_label,
+        visible_page_url, Browse, Sessions,
     },
 };
 use serde::Deserialize;
@@ -16,6 +16,7 @@ use tauri::{
     menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
     AppHandle, LogicalPosition, Manager, Window, Wry,
 };
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
 /// A native popup entry. The shell supplies its own item identifiers, which
 /// return to that shell when chosen. Native menus draw above the content view.
@@ -157,32 +158,11 @@ fn find_in_page(window: &Window) {
 
 fn copy_page_url(window: &Window) -> Result<(), String> {
     let url = visible_page_url(window).ok_or("No Rhizome page is open in this window.")?;
-    copy_text(url.as_str())
-}
-
-#[cfg(target_os = "macos")]
-fn copy_text(text: &str) -> Result<(), String> {
-    use std::{io::Write, process::Stdio};
-    let mut child = std::process::Command::new("/usr/bin/pbcopy")
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Cannot copy the address: {e}"))?;
-    child
-        .stdin
-        .take()
-        .ok_or("Cannot copy the address.")?
-        .write_all(text.as_bytes())
-        .map_err(|e| format!("Cannot copy the address: {e}"))?;
-    let status = child.wait().map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err("Cannot copy the address.".into());
-    }
-    Ok(())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn copy_text(_: &str) -> Result<(), String> {
-    Err("Copying the page address is available only on macOS.".into())
+    window
+        .app_handle()
+        .clipboard()
+        .write_text(url.as_str())
+        .map_err(|e| format!("Cannot copy the address: {e}"))
 }
 
 /// ⌃⌘S on macOS; ⌃⌥S elsewhere, where ⌘ is Ctrl and ⌃S would be Save.
@@ -247,7 +227,7 @@ fn command(app: &AppHandle, name: &str) {
             });
         }
         None => {
-            let _ = create(app, WindowSession::default());
+            create_from_event(app, WindowSession::default());
         }
     }
 }
@@ -418,7 +398,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                     true => app.state::<Sessions>().last_closed(),
                     false => WindowSession::default(),
                 };
-                let _ = create(app, session);
+                create_from_event(app, session);
             }
             "add-repository" | "repositories" | "worktrees" | "settings" => command(app, id),
             "find" => {

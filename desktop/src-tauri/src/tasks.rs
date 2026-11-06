@@ -39,21 +39,82 @@ async fn act(app: &AppHandle, repository: &str, worktree: &str, ask: Ask) -> Res
         }
         Ask::StartTask { item } => {
             let rzm = executable(app, repository, &main).await?;
-            let script = start_script(&main, &rzm, &item)?;
-            let output = Command::new("osascript")
-                .arg("-e")
-                .arg(script)
-                .output()
-                .await
-                .map_err(|e| format!("Cannot open Terminal: {e}"))?;
-            if !output.status.success() {
-                return Err(format!(
-                    "Cannot open Terminal: {}",
-                    String::from_utf8_lossy(&output.stderr).trim()
-                ));
-            }
-            Ok(())
+            start_task(&main, &rzm, &item).await
         }
+    }
+}
+
+async fn start_task(main: &Path, rzm: &Path, item: &str) -> Result<(), String> {
+    let mut command = start_command(main, rzm, item)?;
+    #[cfg(windows)]
+    {
+        // PowerShell owns the interactive console; waiting would hold the page action open.
+        command
+            .spawn()
+            .map_err(|e| format!("Cannot open PowerShell: {e}"))?;
+    }
+    #[cfg(not(windows))]
+    {
+        let output = command
+            .output()
+            .await
+            .map_err(|e| {
+                if cfg!(target_os = "linux") {
+                    format!("Cannot open GNOME Terminal. Install gnome-terminal or start the task from a terminal: {e}")
+                } else {
+                    format!("Cannot open Terminal: {e}")
+                }
+            })?;
+        if !output.status.success() {
+            return Err(format!(
+                "Cannot open a task terminal: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn start_command(main: &Path, rzm: &Path, item: &str) -> Result<Command, String> {
+    item_number(item)?;
+    #[cfg(not(target_os = "macos"))]
+    let (main_text, rzm_text) = (command_path(main)?, command_path(rzm)?);
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = crate::process::command("osascript");
+        command.args(["-e", &start_script(main, rzm, item)?]);
+        Ok(command)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut command = crate::process::command("gnome-terminal");
+        command.args([
+            "--working-directory",
+            main_text,
+            "--",
+            rzm_text,
+            "tasks",
+            "start",
+            item,
+        ]);
+        Ok(command)
+    }
+    #[cfg(windows)]
+    {
+        let mut command = Command::new("powershell.exe");
+        command
+            .args([
+                "-NoLogo",
+                "-NoProfile",
+                "-NoExit",
+                "-Command",
+                POWERSHELL_START,
+            ])
+            .env("RHIZOME_TASK_DIRECTORY", main_text)
+            .env("RHIZOME_TASK_EXECUTABLE", rzm_text)
+            .env("RHIZOME_TASK_ITEM", item)
+            .creation_flags(0x00000010); // CREATE_NEW_CONSOLE
+        Ok(command)
     }
 }
 
@@ -71,7 +132,7 @@ async fn main_checkout(worktree: &Path) -> Result<(PathBuf, PathBuf), String> {
 
 /// The canonical common directory and top level of the Git worktree at `dir`.
 async fn rev_parse(dir: &Path) -> Result<(PathBuf, PathBuf), String> {
-    let output = Command::new("git")
+    let output = crate::process::command("git")
         .arg("-C")
         .arg(dir)
         .args([
@@ -138,25 +199,38 @@ async fn executable(app: &AppHandle, repository: &str, main: &Path) -> Result<Pa
         .await
         .map_err(|failure| failure.message)?
         .1;
-    let chosen = main.to_str().and_then(|main| {
-        library
-            .repository(repository)
-            .ok()
-            .and_then(|r| r.executables.get(main).cloned())
-    });
+    let chosen = library
+        .repository(repository)
+        .ok()
+        .and_then(|repository| selected_executable(repository, main))
+        .map(str::to_owned);
     match chosen.or(library.global_executable) {
         Some(path) => Ok(PathBuf::from(path)),
         None => bridge::sidecar(),
     }
 }
 
+fn selected_executable<'a>(
+    repository: &'a crate::state::Repository,
+    main: &Path,
+) -> Option<&'a str> {
+    repository
+        .executables
+        .iter()
+        .find_map(|(path, executable)| {
+            std::fs::canonicalize(path)
+                .ok()
+                .filter(|path| path == main)
+                .map(|_| executable.as_str())
+        })
+}
+
 /// The AppleScript that opens Terminal in `main` running `rzm tasks start
 /// <item>`. The item must be a number; the paths are quoted for the shell,
 /// then the command is quoted as an AppleScript string.
+#[cfg(any(target_os = "macos", all(test, unix)))]
 pub fn start_script(main: &Path, rzm: &Path, item: &str) -> Result<String, String> {
-    if item.is_empty() || item.len() > 9 || !item.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(format!("{item:?} is not a task item number."));
-    }
+    item_number(item)?;
     let command = format!(
         "cd {} && {} tasks start {item}",
         shell_quote(command_path(main)?),
@@ -168,6 +242,13 @@ pub fn start_script(main: &Path, rzm: &Path, item: &str) -> Result<String, Strin
     ))
 }
 
+fn item_number(item: &str) -> Result<(), String> {
+    if item.is_empty() || item.len() > 9 || !item.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(format!("{item:?} is not a task item number."));
+    }
+    Ok(())
+}
+
 /// An absolute path the Terminal command may name: no control characters,
 /// which Terminal would type as keystrokes.
 fn command_path(path: &Path) -> Result<&str, String> {
@@ -176,154 +257,20 @@ fn command_path(path: &Path) -> Result<&str, String> {
         .ok_or_else(|| format!("Cannot start a task from {}.", path.display()))
 }
 
+#[cfg(any(target_os = "macos", all(test, unix)))]
 fn shell_quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', r"'\''"))
 }
 
+#[cfg(any(target_os = "macos", all(test, unix)))]
 fn applescript_string(text: &str) -> String {
     format!("\"{}\"", text.replace('\\', r"\\").replace('"', "\\\""))
 }
 
+#[cfg(windows)]
+const POWERSHELL_START: &str = "Set-Location -LiteralPath $env:RHIZOME_TASK_DIRECTORY -ErrorAction Stop; & $env:RHIZOME_TASK_EXECUTABLE tasks start $env:RHIZOME_TASK_ITEM";
+
+#[cfg(test)]
+mod command_tests;
 #[cfg(all(test, unix))]
-mod tests {
-    use super::*;
-    use std::{fs, os::unix::fs::symlink};
-
-    /// A main checkout with a task worktree folder `a`, and a folder outside.
-    fn checkout() -> (tempfile::TempDir, PathBuf, PathBuf) {
-        let dir = tempfile::tempdir().unwrap();
-        let main = dir.path().join("main checkout");
-        let worktrees = main.join(".rhizome/task-state/worktrees");
-        fs::create_dir_all(worktrees.join("a/sub")).unwrap();
-        let outside = dir.path().join("outside");
-        fs::create_dir_all(&outside).unwrap();
-        (dir, main, worktrees)
-    }
-
-    #[test]
-    fn only_a_folder_directly_inside_the_task_worktrees_opens() {
-        let (dir, main, worktrees) = checkout();
-        let inside = worktrees.join("a");
-        assert_eq!(
-            task_worktree(&main, inside.to_str().unwrap()).unwrap(),
-            fs::canonicalize(&inside).unwrap()
-        );
-        let outside = dir.path().join("outside");
-        for path in [
-            outside.clone(),
-            worktrees.clone(),
-            worktrees.join("a/sub"),
-            worktrees.join("missing"),
-            worktrees.join("../../../../outside"),
-            worktrees.join("a/../../worktrees/../../task-state"),
-            main.clone(),
-        ] {
-            assert!(
-                task_worktree(&main, path.to_str().unwrap()).is_err(),
-                "{path:?}"
-            );
-        }
-        assert!(task_worktree(&main, ".rhizome/task-state/worktrees/a").is_err());
-        assert!(
-            task_worktree(&main, worktrees.join("a/../a").to_str().unwrap()).is_ok(),
-            "a path that resolves inside is the folder itself"
-        );
-    }
-
-    #[test]
-    fn a_symlink_out_of_the_task_worktrees_is_refused() {
-        let (dir, main, worktrees) = checkout();
-        symlink(dir.path().join("outside"), worktrees.join("escape")).unwrap();
-        assert!(task_worktree(&main, worktrees.join("escape").to_str().unwrap()).is_err());
-        // A symlinked state folder still resolves; what matters is where it leads.
-        let linked = dir.path().join("linked");
-        symlink(&main, &linked).unwrap();
-        assert!(task_worktree(&linked, worktrees.join("a").to_str().unwrap()).is_ok());
-    }
-
-    #[test]
-    fn a_symlinked_worktrees_folder_cannot_move_the_root() {
-        let (dir, main, worktrees) = checkout();
-        let elsewhere = dir.path().join("elsewhere");
-        fs::create_dir_all(elsewhere.join("b")).unwrap();
-        fs::remove_dir_all(&worktrees).unwrap();
-        symlink(&elsewhere, &worktrees).unwrap();
-        assert!(task_worktree(&main, worktrees.join("b").to_str().unwrap()).is_err());
-    }
-
-    #[test]
-    fn only_a_worktree_of_the_same_repository_passes_the_git_check() {
-        tauri::async_runtime::block_on(same_repository_check());
-    }
-
-    async fn same_repository_check() {
-        let dir = tempfile::tempdir().unwrap();
-        let git = |cwd: &Path, args: &[&str]| {
-            let status = std::process::Command::new("git")
-                .current_dir(cwd)
-                .args(args)
-                .status()
-                .unwrap();
-            assert!(status.success(), "git {args:?}");
-        };
-        let main = dir.path().join("repo");
-        fs::create_dir_all(&main).unwrap();
-        git(&main, &["init", "-q"]);
-        git(
-            &main,
-            &[
-                "-c",
-                "user.name=t",
-                "-c",
-                "user.email=t@example.com",
-                "commit",
-                "-q",
-                "--allow-empty",
-                "-m",
-                "init",
-            ],
-        );
-        let worktree = main.join(".rhizome/task-state/worktrees/w");
-        git(
-            &main,
-            &["worktree", "add", "-q", worktree.to_str().unwrap()],
-        );
-        let other = dir.path().join("other");
-        fs::create_dir_all(&other).unwrap();
-        git(&other, &["init", "-q"]);
-        let stray = main.join(".rhizome/task-state/worktrees/plain");
-        fs::create_dir_all(&stray).unwrap();
-
-        let (common, found) = main_checkout(&worktree).await.unwrap();
-        assert_eq!(found, fs::canonicalize(&main).unwrap());
-        let worktree = task_worktree(&found, worktree.to_str().unwrap()).unwrap();
-        assert!(git_worktree_of(&worktree, &common).await.is_ok());
-        let (other_common, _) = main_checkout(&other).await.unwrap();
-        assert!(git_worktree_of(&worktree, &other_common).await.is_err());
-        // A plain folder inside the main checkout is that checkout's subfolder,
-        // not a worktree root.
-        let stray = task_worktree(&found, stray.to_str().unwrap()).unwrap();
-        assert!(git_worktree_of(&stray, &common).await.is_err());
-    }
-
-    #[test]
-    fn the_start_command_quotes_paths_for_the_shell_and_applescript() {
-        let script = start_script(
-            Path::new(r#"/Users/a b/it's "here"\x"#),
-            Path::new("/Applications/Rhizome Dev.app/Contents/MacOS/rzm"),
-            "12",
-        )
-        .unwrap();
-        assert_eq!(
-            script,
-            "tell application \"Terminal\"\n\tdo script \"cd '/Users/a b/it'\\\\''s \\\"here\\\"\\\\x' && '/Applications/Rhizome Dev.app/Contents/MacOS/rzm' tasks start 12\"\n\tactivate\nend tell"
-        );
-        let main = Path::new("/work/repo");
-        let rzm = Path::new("/bin/rzm");
-        for item in ["", "1;rm -rf ~", "1 2", "-1", "1\n", "1234567890", "１"] {
-            assert!(start_script(main, rzm, item).is_err(), "{item:?}");
-        }
-        assert!(start_script(Path::new("/work/re\npo"), rzm, "1").is_err());
-        assert!(start_script(main, Path::new("rzm"), "1").is_err());
-    }
-}
+mod tests;

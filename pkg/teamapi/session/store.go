@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// Store keeps one opaque record per origin. Keychain implements it on macOS;
+// Store keeps one opaque record per origin in the user's native protected store.
 // MemoryStore serves tests.
 type Store interface {
 	Load(origin string) ([]byte, error)

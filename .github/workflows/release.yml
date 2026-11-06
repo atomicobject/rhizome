@@ -125,9 +125,49 @@ jobs:
       - name: Test
         run: make test
 
+  native_desktop:
+    name: Prepare exact native desktop candidates
+    needs: [probe, test]
+    if: needs.probe.outputs.release_exists == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 270
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.probe.outputs.release_commit }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build and verify correlated native candidates
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 trusted/scripts/release/prepare_native_desktop.py \
+            --repo-root source --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG" \
+            --receipt "$RUNNER_TEMP/prepared/native-desktop-receipt.json" \
+            --output "$RUNNER_TEMP/prepared/native-desktop"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prepared-native-desktop
+          path: ${{ runner.temp }}/prepared/
+          if-no-files-found: error
+          retention-days: 30
+
   gateway:
     name: Deploy and verify release gateway
-    needs: [probe, test]
+    needs: [probe, test, native_desktop]
     if: needs.probe.outputs.release_exists == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 270
@@ -161,20 +201,49 @@ jobs:
             --release-commit "$RELEASE_COMMIT" \
             --receipt "$RUNNER_TEMP/release-gateway.json"
 
+      - name: Retain this run's terminal gateway proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gateway-receipt
+          path: ${{ runner.temp }}/release-gateway.json
+          if-no-files-found: error
+          retention-days: 30
+
   goreleaser:
-    needs: [probe, test, gateway]
+    needs: [probe, test, native_desktop, gateway]
     if: needs.probe.outputs.release_exists == 'false'
     # macos-15 is Apple Silicon; the desktop bundle is arm64-only.
     runs-on: macos-15
     environment: release
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ needs.probe.outputs.release_commit }}
+      - name: Download this run's verified native candidates
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-native-desktop
+          path: ${{ runner.temp }}/prepared
+      - name: Download this run's terminal gateway proof
+        uses: actions/download-artifact@v4
+        with:
+          name: release-gateway-receipt
+          path: ${{ runner.temp }}/gateway
+      - name: Revalidate native producer and retained bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/release/prepare_native_desktop.py --verify-only \
+            --repo-root . --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG" \
+            --receipt "$RUNNER_TEMP/prepared/native-desktop-receipt.json" \
+            --output "$RUNNER_TEMP/prepared/native-desktop"
       - name: Revalidate release tag
         shell: bash
         env:
@@ -251,20 +320,85 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
       - name: Run GoReleaser
-        run: python3 scripts/release/run_clean.py publish -- goreleaser release --clean
+        run: python3 scripts/release/run_clean.py publish -- goreleaser release --clean --draft
         env:
           GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
           GITHUB_TOKEN: ${{ github.token }}
-          BREW_GITHUB_TOKEN: ${{ secrets.BREW_GITHUB_TOKEN }}
           RZM_RELEASE_DESKTOP: "1"
+          RZM_DESKTOP_CANDIDATES_DIR: ${{ runner.temp }}/prepared/native-desktop
+          RZM_DESKTOP_CANDIDATES_RECEIPT: ${{ runner.temp }}/prepared/native-desktop-receipt.json
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Verify assets and advertise the complete desktop release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/release/release_advertise.py --repo-root . \
+            --receipt "$RUNNER_TEMP/advertisement-receipt.json" \
+            --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG" \
+            --dist-dir dist --desktop-dir .tmp/goreleaser-extra \
+            --terminal-gateway-receipt "$RUNNER_TEMP/gateway/release-gateway.json"
+      - name: Retain advertisement recovery proof
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-advertisement-receipt
+          path: ${{ runner.temp }}/advertisement-receipt*
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Clean up desktop signing
         if: ${{ always() }}
         run: python3 scripts/release/ci_desktop_signing.py cleanup
+
+  homebrew:
+    name: Publish verified Homebrew formula
+    needs: [probe, goreleaser]
+    if: needs.probe.outputs.release_exists == 'false'
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 270
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.probe.outputs.release_commit }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-advertisement-receipt
+          path: ${{ runner.temp }}/advertisement
+      - name: Gate and publish the exact retained formula
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BREW_GITHUB_TOKEN: ${{ secrets.BREW_GITHUB_TOKEN }}
+          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 trusted/scripts/release/release_homebrew.py --repo-root source \
+            --advertisement-receipt "$RUNNER_TEMP/advertisement/advertisement-receipt.json" \
+            --commit "$RELEASE_COMMIT" --version "$RELEASE_TAG"
+      - name: Retain tap recovery proof
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-homebrew-receipt
+          path: ${{ runner.temp }}/advertisement/advertisement-receipt*
+          if-no-files-found: ignore
+          retention-days: 30
 
   notarization_candidate:
     name: Verify notarized desktop candidate without publishing

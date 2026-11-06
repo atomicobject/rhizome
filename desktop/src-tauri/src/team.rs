@@ -71,7 +71,7 @@ fn failure(code: &str, message: &str) -> Failure {
 }
 
 fn auth(sidecar: &Path, directory: &Path, subcommand: &str) -> Command {
-    let mut command = Command::new(sidecar);
+    let mut command = crate::process::command(sidecar);
     command
         .args(["auth", subcommand, "--json"])
         .current_dir(directory)

@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use std::path::Path;
 use tauri::{ipc::Channel, AppHandle, LogicalPosition, LogicalSize, Manager, Rect, State, Webview};
 use tauri_plugin_opener::OpenerExt;
+mod integration;
 mod state;
 pub use state::Desktop;
 
@@ -121,6 +122,7 @@ pub enum Action {
     CliLinkStatus,
     CliLinkInstall,
     CliLinkRemove,
+    DesktopIntegrationRemove,
     PinAdvance {
         id: String,
         worktree: String,
@@ -482,23 +484,11 @@ pub async fn desktop_request(
             updater::install(&app)?;
             Ok(Value::Null)
         }
-        Action::CliLinkStatus | Action::CliLinkInstall | Action::CliLinkRemove => {
-            let operation = match action {
-                Action::CliLinkStatus => "cli-link-status",
-                Action::CliLinkInstall => "cli-link-install",
-                _ => "cli-link-remove",
-            };
-            // Installing waits on the administrator prompt, so it gets the long timeout.
-            let _linking = state.global.lock().await;
-            bridge::call(
-                &state.directory,
-                Request {
-                    operation,
-                    ..Request::default()
-                },
-                bridge::TIMEOUT,
-            )
-            .await
+        Action::CliLinkStatus => integration::run(&state, integration::Action::Status).await,
+        Action::CliLinkInstall => integration::run(&state, integration::Action::Install).await,
+        Action::CliLinkRemove => integration::run(&state, integration::Action::RemoveCli).await,
+        Action::DesktopIntegrationRemove => {
+            integration::run(&state, integration::Action::RemoveDesktop).await
         }
         Action::PinAdvance { id, worktree } => {
             worktree_action(

@@ -123,6 +123,11 @@ impl Sessions {
         self.save();
     }
 
+    pub fn cancel_quit(&self) {
+        self.quitting.store(false, Ordering::SeqCst);
+        self.save();
+    }
+
     pub fn save(&self) {
         let _writing = self.writing.lock().unwrap();
         self.dirty.store(false, Ordering::SeqCst);
@@ -278,8 +283,9 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .auto_resize()
             // The shell paints the saved theme before it can ask for settings.
             .initialization_script(format!(
-                "window.__RHIZOME_SHELL_SETTINGS__ = {};",
-                serde_json::json!(settings)
+                "window.__RHIZOME_SHELL_SETTINGS__ = {}; window.__RHIZOME_MACOS__ = {};",
+                serde_json::json!(settings),
+                cfg!(target_os = "macos")
             ))
             .background_color(chrome)
             .on_navigation(move |url| {
@@ -576,14 +582,44 @@ pub fn reopen(app: &AppHandle) {
             let _ = window.set_focus();
         }
         None => {
-            let _ = create(app, app.state::<Sessions>().last_closed());
+            create_from_event(app, app.state::<Sessions>().last_closed());
         }
     }
+}
+
+/// Windows child webviews cannot be created inside a synchronous event callback.
+pub fn create_from_event(app: &AppHandle, session: WindowSession) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = create(&app, session);
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_update_allows_later_window_closes_and_session_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let sessions = Sessions::new(directory.path().into());
+        sessions.apply("window-1", |saved| saved.worktree = Some("/w/one".into()));
+        sessions.apply("window-2", |saved| saved.worktree = Some("/w/two".into()));
+        sessions.quit([]);
+        sessions.dirty.store(true, Ordering::SeqCst);
+        sessions.cancel_quit();
+        assert!(
+            !sessions.dirty.load(Ordering::SeqCst),
+            "a save deferred during installation must not suppress later saves"
+        );
+        sessions.close("window-1", None);
+        sessions.apply("window-2", |saved| saved.width = Some(900.0));
+        sessions.save();
+        let saved = Session::load(directory.path()).windows;
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].worktree.as_deref(), Some("/w/two"));
+        assert_eq!(saved[0].width, Some(900.0));
+    }
 
     #[test]
     fn quitting_saves_geometry_of_windows_that_never_moved() {

@@ -9,6 +9,8 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 const storeDirectoryName = "trusted-repositories"
@@ -54,15 +56,11 @@ func CanonicalCheckout(path string) (string, error) {
 	if path == "" {
 		return "", errors.New("repository checkout path is required")
 	}
-	abs, err := filepath.Abs(path)
+	canonical, err := paths.CanonicalExistingPath(path)
 	if err != nil {
 		return "", fmt.Errorf("resolve repository checkout: %w", err)
 	}
-	canonical, err := filepath.EvalSymlinks(abs)
-	if err != nil {
-		return "", fmt.Errorf("resolve repository checkout: %w", err)
-	}
-	return filepath.Clean(canonical), nil
+	return canonical.String(), nil
 }
 
 // Trusted reports whether checkout, or the main checkout of the linked Git
@@ -232,8 +230,8 @@ func resolveFrom(base, path string) string {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(base, path)
 	}
-	if canonical, err := filepath.EvalSymlinks(path); err == nil {
-		return canonical
+	if canonical, err := paths.CanonicalExistingPath(path); err == nil {
+		return canonical.String()
 	}
 	return filepath.Clean(path)
 }

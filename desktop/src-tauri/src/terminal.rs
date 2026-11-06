@@ -86,6 +86,7 @@ impl Focus {
 /// subfolder vault opens that vault; then any worktree containing it, whose
 /// open asks for setup or reports why it is unavailable.
 pub fn choose(candidates: &[Discovery], path: &Path) -> Option<(usize, String)> {
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let worktrees = candidates
         .iter()
         .enumerate()
@@ -93,13 +94,17 @@ pub fn choose(candidates: &[Discovery], path: &Path) -> Option<(usize, String)> 
     let (mut inside, mut beside, mut any) = (vec![], vec![], vec![]);
     for (i, found, w) in worktrees {
         let usable = w.configured && w.error.is_none();
-        if path.starts_with(&w.path) {
+        let worktree = Path::new(&w.path)
+            .canonicalize()
+            .unwrap_or_else(|_| PathBuf::from(&w.path));
+        if path.starts_with(&worktree) {
             if usable {
-                inside.push((i, Path::new(&w.path), &w.path));
+                inside.push((i, worktree.clone(), &w.path));
             }
-            any.push((i, Path::new(&w.path), &w.path));
+            any.push((i, worktree, &w.path));
         } else if let Some(root) = git_root(&w.path, &found.subpath) {
-            if usable && path.starts_with(root) {
+            let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+            if usable && path.starts_with(&root) {
                 beside.push((i, root, &w.path));
             }
         }
@@ -271,24 +276,25 @@ mod tests {
 
     #[test]
     fn open_requests_come_from_forwarded_and_startup_arguments() {
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("rhizome-desktop");
+        let feature = directory.path().join("project-feature");
         let forwarded = args(&[
-            "/Applications/Rhizome.app/Contents/MacOS/rhizome-desktop",
+            executable.to_str().unwrap(),
             "--open",
-            "/work/project-feature",
+            feature.to_str().unwrap(),
         ]);
-        assert_eq!(
-            requested(&forwarded),
-            Some(Ok(PathBuf::from("/work/project-feature")))
-        );
+        assert_eq!(requested(&forwarded), Some(Ok(feature)));
+        let (first, last) = (directory.path().join("a"), directory.path().join("b"));
         let startup = args(&[
             "rhizome-desktop",
             "-psn_0_1",
             "--open",
-            "/work/a",
+            first.to_str().unwrap(),
             "--open",
-            "/work/b",
+            last.to_str().unwrap(),
         ]);
-        assert_eq!(requested(&startup), Some(Ok(PathBuf::from("/work/b"))));
+        assert_eq!(requested(&startup), Some(Ok(last)));
         assert_eq!(requested(&args(&["rhizome-desktop"])), None);
         assert_eq!(requested(&args(&["rhizome-desktop", "--other", "x"])), None);
     }
@@ -353,6 +359,26 @@ mod tests {
 
     fn chosen(candidates: &[Discovery], path: &str) -> Option<(usize, String)> {
         choose(candidates, Path::new(path))
+    }
+
+    #[test]
+    fn canonical_targets_match_discovered_paths_and_subfolder_vaults() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("Drew's; 开发");
+        let vault = root.join("vault");
+        std::fs::create_dir_all(&vault).unwrap();
+        let root_text = root.to_str().unwrap();
+        let vault_text = vault.to_str().unwrap();
+        let plain = found('a', "", &[(root_text, true)]);
+        assert_eq!(
+            choose(&[plain], &vault.canonicalize().unwrap()),
+            Some((0, root_text.into()))
+        );
+        let subfolder = found('b', "vault", &[(vault_text, true)]);
+        assert_eq!(
+            choose(&[subfolder], &root.canonicalize().unwrap()),
+            Some((0, vault_text.into()))
+        );
     }
 
     #[test]

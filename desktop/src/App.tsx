@@ -800,7 +800,7 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell" data-macos={window.__RHIZOME_MACOS__ ?? false}>
       <header className="toolbar" data-tauri-drag-region>
         <div className="toolbar-start" data-tauri-drag-region>
           <button

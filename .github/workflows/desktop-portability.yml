@@ -2,6 +2,7 @@ name: Desktop portability
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.github/workflows/desktop-portability.yml'
       - 'desktop/**'
@@ -11,6 +12,9 @@ on:
       - 'pkg/app/runtime/**'
       - 'pkg/app/update/**'
       - 'pkg/fileio/**'
+      - 'pkg/hiddencommand/**'
+      - 'pkg/paths/**'
+      - 'pkg/repositorytrust/**'
       - 'pkg/teamapi/**'
       - 'cmd/**'
       - 'main.go'
@@ -19,6 +23,15 @@ on:
       - 'vendor/**'
       - 'web/**'
   workflow_dispatch:
+    inputs:
+      team_api_origin:
+        description: Optional root HTTPS team API URL for login checks; default is a non-working fixture origin
+        type: string
+        default: ''
+      upgrade_fixtures:
+        description: Also build two-version unsigned installed-upgrade fixtures
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -37,10 +50,10 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            bundle: nsis
+            target: windows-x86_64
             artifact: windows-x64
           - os: ubuntu-24.04
-            bundle: appimage
+            target: linux-x86_64
             artifact: linux-x64
     defaults:
       run:
@@ -48,7 +61,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       CGO_ENABLED: '1'
-      RZM_DESKTOP_TEAM_API_ORIGIN: https://team.example.test
+      RZM_DESKTOP_TEAM_API_ORIGIN: ${{ inputs.team_api_origin || 'https://team.example.test' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,8 +99,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             build-essential curl file libayatana-appindicator3-dev libssl-dev \
-            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
-            libfuse2t64 xvfb dbus-x11 xdotool imagemagick
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev libglib2.0-bin patchelf \
+            libfuse2t64 xvfb dbus-x11 gnome-keyring xdotool imagemagick
 
       - name: Install JavaScript dependencies
         run: |
@@ -95,14 +108,27 @@ jobs:
           npm ci --prefix desktop
 
       - name: Test native file publication and session stores
-        run: go test -mod=vendor -tags fts5 -count=1 -v ./pkg/fileio ./pkg/teamapi/session
+        run: |
+          go test -mod=vendor -tags fts5 -count=1 -v \
+            ./pkg/fileio ./pkg/app/appbundle ./pkg/app/desktop ./pkg/app/repoexec ./pkg/app/update ./pkg/teamapi/session ./pkg/paths ./pkg/repositorytrust
+
+      - name: Exercise Windows Credential Manager
+        if: runner.os == 'Windows'
+        env:
+          TEAMAPI_NATIVE_STORE_TEST: '1'
+        run: go test -mod=vendor -tags fts5 -count=1 -timeout 60s -v ./pkg/teamapi/session -run '^TestNativeStore'
+
+      - name: Exercise Linux Secret Service
+        if: runner.os == 'Linux'
+        run: bash desktop/scripts/portability-keyring.sh .tmp/desktop-portability/keyring
 
       - name: Build the workspace and native CLI
         run: |
+          team_origin="$(node --input-type=module -e 'import {desktopTeamAPIOrigin} from "./desktop/scripts/team-api-origin.mjs"; console.log(desktopTeamAPIOrigin())')"
           mkdir -p .tmp/desktop-portability
           npm run build --prefix web
           go build -mod=vendor -tags fts5 \
-            -ldflags '-X github.com/atomicobject/rhizome/pkg/vault/version.Version=0.0.0 -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://team.example.test' \
+            -ldflags "-X github.com/atomicobject/rhizome/pkg/vault/version.Version=0.0.0 -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=$team_origin" \
             -o ".tmp/desktop-portability/rzm$(go env GOEXE)" .
           node --input-type=module -e 'import { resolve } from "node:path"; console.log("RZM_DESKTOP_PREBUILT_RZM=" + resolve(".tmp/desktop-portability/rzm" + (process.platform === "win32" ? ".exe" : "")))' >> "$GITHUB_ENV"
 
@@ -126,12 +152,15 @@ jobs:
           fi
           cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 
-      - name: Build unsigned native candidate
-        working-directory: desktop
+      - name: Build and inspect the unsigned native candidate
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
-          npm run tauri -- build --bundles '${{ matrix.bundle }}' \
-            --config src-tauri/tauri.release.conf.json \
-            --config '{"bundle":{"externalBin":["binaries/rzm"],"createUpdaterArtifacts":false,"windows":{"nsis":{"installMode":"currentUser"}}}}'
+          commit="$(git rev-parse HEAD)"
+          digest="$(python3 -c 'import hashlib,sys; print(hashlib.file_digest(open(sys.argv[1],"rb"),"sha256").hexdigest())' "$RZM_DESKTOP_PREBUILT_RZM")"
+          python3 scripts/release/build_native_desktop.py --target "$TARGET" \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version 0.0.0 --commit "$commit" --output .tmp/desktop-portability/candidate
 
       - name: Exercise Windows startup and New Window
         if: runner.os == 'Windows'
@@ -155,14 +184,17 @@ jobs:
           mkdir -p .tmp/desktop-portability
           cat > .tmp/desktop-portability/EVIDENCE.txt <<'EOF'
           Unsigned native portability candidate. Not a public release.
+          Default team.example.test origin cannot complete login. Manual builds may
+          select a working nonsecret team_api_origin URL for login acceptance.
           The app and companion use fixture version 0.0.0; automatic updates are disabled.
           The external smoke check exercises the unpackaged release executable.
+          Native credential-store checks use isolated synthetic records only.
           Linux GUI evidence covers software-rendered X11 under Xvfb only.
           Installed GUI behavior, Wayland/GPU behavior, trusted OS signing and
           signed N-to-N+1 upgrades require their separate acceptance checks.
           EOF
 
-      - name: Upload unsigned candidates and smoke evidence
+      - name: Upload unsigned candidates and native evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -170,9 +202,75 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           path: |
-            desktop/src-tauri/target/release/bundle/nsis/*.exe
-            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            .tmp/desktop-portability/candidate/*
             .tmp/desktop-portability/EVIDENCE.txt
             .tmp/desktop-portability/smoke/*.log
             .tmp/desktop-portability/smoke/*.json
             .tmp/desktop-portability/smoke/*.png
+            .tmp/desktop-portability/keyring/*.log
+            .tmp/desktop-portability/keyring/*.json
+
+  upgrade_fixture:
+    name: Installed upgrade fixture (${{ matrix.target }})
+    if: (github.event_name == 'workflow_dispatch' && inputs.upgrade_fixtures) || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'desktop-upgrade-fixtures'))
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: windows-x86_64
+            artifact: windows-x64
+          - runner: ubuntu-24.04
+            target: linux-x86_64
+            artifact: linux-x64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          install-only: true
+      - uses: goto-bus-stop/setup-zig@v2
+        if: runner.os == 'Linux'
+        with:
+          version: 0.13.0
+      - name: Install Linux packaging prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential curl file \
+            libayatana-appindicator3-dev libssl-dev librsvg2-dev libwebkit2gtk-4.1-dev \
+            libxdo-dev patchelf libfuse2t64
+      - name: Prepare build inputs
+        run: |
+          ./scripts/vendor/ensure_tree_sitter_sources.sh
+          make web-build
+          npm ci --prefix desktop
+      - name: Build two exact fixture versions and sign their updater payloads
+        env:
+          TARGET: ${{ matrix.target }}
+          TEAM_API_ORIGIN: ${{ inputs.team_api_origin || 'https://team.example.test' }}
+        run: |
+          python3 scripts/release/build_upgrade_fixture.py --target "$TARGET" \
+            --team-api-origin "$TEAM_API_ORIGIN" --output "$RUNNER_TEMP/upgrade-fixture"
+      - name: Retain public fixture packages and acceptance instructions
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-upgrade-fixture-${{ matrix.artifact }}
+          path: ${{ runner.temp }}/upgrade-fixture/
+          if-no-files-found: error
+          retention-days: 14

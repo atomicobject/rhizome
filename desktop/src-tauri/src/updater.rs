@@ -174,11 +174,17 @@ async fn download<R: Runtime>(
 /// Installs the downloaded release and relaunches, restoring the windows.
 /// Running Rhizome runtimes are separate processes and keep running.
 pub fn install(app: &AppHandle) -> Result<(), String> {
+    crate::installation::prepare_update()?;
     let ready = app.state::<Updates>().ready.lock().unwrap().take();
     let Some((update, bytes)) = ready else {
         return Err("No downloaded update is ready to install.".into());
     };
+    app.state::<crate::credentials::Imports>().cancel(None);
+    app.state::<crate::team::Team>().cancel(None);
+    // Windows installation exits the process before this function returns.
+    windows::quit(app);
     if let Err(error) = update.install(bytes) {
+        app.state::<windows::Sessions>().cancel_quit();
         let message = format!("Cannot install Rhizome {}: {error}", update.version);
         set(
             app,
@@ -188,7 +194,6 @@ pub fn install(app: &AppHandle) -> Result<(), String> {
         );
         return Err(message);
     }
-    windows::quit(app);
     std::env::set_var(RESTARTED, "1");
     app.restart();
 }

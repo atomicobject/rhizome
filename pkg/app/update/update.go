@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"io"
@@ -423,6 +424,7 @@ func writeExecutable(path string, r io.Reader) error {
 
 func smokeTest(ctx context.Context, path string) error {
 	cmd := exec.CommandContext(ctx, path, "--version")
+	hiddencommand.Configure(cmd)
 	cmd.Dir = filepath.Dir(path)
 	cmd.Env = envWithOverride(os.Environ(), "RZM_SKIP_REPO_DELEGATE", "1")
 	if out, err := cmd.CombinedOutput(); err != nil {
