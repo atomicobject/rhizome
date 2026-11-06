@@ -6,6 +6,11 @@ import {
   type FolderGraph,
 } from "./folderGraph";
 
+export type FolderAnchors = {
+  positions: Map<string, { x: number; y: number }>;
+  free: { x: number; y: number }[];
+};
+
 const extents = new WeakMap<FolderTree, number>();
 
 /** A stable camera frame sized for the overview, rather than every possible expansion. */
@@ -39,36 +44,48 @@ function orderedChildren(tree: FolderTree, path: string, children: FolderChild[]
     return [...children].sort(
       (a, b) =>
         Number(Boolean(a.node.aggregate)) - Number(Boolean(b.node.aggregate)) ||
-        a.node.label.localeCompare(b.node.label),
+        a.node.id.localeCompare(b.node.id),
     );
 
-  const remaining = [...children].sort(
-    (a, b) => folderWeight(b.totals) - folderWeight(a.totals) || a.node.id.localeCompare(b.node.id),
+  const first = children.reduce<FolderChild | undefined>(
+    (best, child) =>
+      !best ||
+      folderWeight(child.totals) > folderWeight(best.totals) ||
+      (folderWeight(child.totals) === folderWeight(best.totals) &&
+        child.node.id.localeCompare(best.node.id) < 0)
+        ? child
+        : best,
+    undefined,
   );
 
-  const result: FolderChild[] = [];
   const affinity = tree.affinity.get(path);
 
-  while (remaining.length) {
-    const last = result.at(-1);
-
-    if (last)
-      remaining.sort(
-        (a, b) =>
-          (affinity?.get(JSON.stringify([last.node.id, b.node.id].sort())) ?? 0) -
-            (affinity?.get(JSON.stringify([last.node.id, a.node.id].sort())) ?? 0) ||
-          a.node.id.localeCompare(b.node.id),
-      );
-    const next = remaining.shift();
-
-    if (next) result.push(next);
-  }
-
-  return result;
+  return [...children].sort(
+    (a, b) =>
+      Number(b === first) - Number(a === first) ||
+      (affinity?.get(JSON.stringify([first?.node.id, b.node.id].sort())) ?? 0) -
+        (affinity?.get(JSON.stringify([first?.node.id, a.node.id].sort())) ?? 0) ||
+      a.node.id.localeCompare(b.node.id),
+  );
 }
 
 /** Child fans depend only on their parent's anchor and child list. */
-function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
+function positionFolderGraph(
+  tree: FolderTree,
+  graph: FolderGraph,
+  anchorState: FolderAnchors = { positions: new Map(), free: [] },
+) {
+  const { positions: anchors, free } = anchorState;
+  const valid = new Set([...tree.root.folders.map((f) => `folder:${f.path}`), "more:"]);
+
+  for (const [id, point] of anchors) {
+    if (!valid.has(id)) {
+      free.push(point);
+      anchors.delete(id);
+    }
+  }
+
+  const updating = anchors.size > 0;
   const positions = new Map<string, { x: number; y: number }>([["folder:", { x: 0, y: 0 }]]);
 
   const visit = (path: string, x: number, y: number, direction: number) => {
@@ -127,7 +144,7 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
       const axial = Math.cos(local) * distance * (depth > 2 ? 3.5 : depth > 1 ? 1.3 : 0.65);
       const lateral = Math.sin(local) * distance * 1.4;
 
-      const point = root
+      let point = root
         ? {
             x: x + Math.cos(angle) * distance * (major < 0 && dominant.length === 2 ? 0.65 : 1),
             y: y + Math.sin(angle) * distance,
@@ -137,9 +154,39 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
             y: y + Math.sin(direction) * axial + Math.cos(direction) * lateral,
           };
 
+      if (root) {
+        const existing = anchors.get(child.node.id);
+
+        if (existing) point = existing;
+        else if (updating || free.length) {
+          const vacant = free.shift();
+
+          if (vacant) point = vacant;
+          else {
+            let slot = 0;
+
+            do {
+              const radius = 800 + 200 * Math.floor(slot / 10);
+              const angle = slot++ * Math.PI * (3 - Math.sqrt(5));
+              point = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+            } while (
+              [...anchors.values()].some((p) => Math.hypot(p.x - point.x, p.y - point.y) < 100)
+            );
+          }
+        }
+
+        anchors.set(child.node.id, point);
+      }
+
       positions.set(child.node.id, point);
 
-      if (child.folder) visit(child.folder.path, point.x, point.y, root ? angle : direction);
+      if (child.folder)
+        visit(
+          child.folder.path,
+          point.x,
+          point.y,
+          root ? Math.atan2(point.y - y, point.x - x) : direction,
+        );
       start += wedge;
     });
   };
@@ -153,10 +200,15 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
     files.forEach((child, index) => {
       const angle = index * Math.PI * (3 - Math.sqrt(5));
       const radius = 65 * Math.sqrt(index + 1);
-      positions.set(child.node.id, {
+
+      const point = {
         x: overflow.x + Math.cos(angle) * radius,
         y: overflow.y + Math.sin(angle) * radius,
-      });
+      };
+
+      positions.set(child.node.id, point);
+
+      if (child.folder) visit(child.folder.path, point.x, point.y, angle);
     });
   }
 
@@ -166,10 +218,11 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
 export function layoutFolderGraph(
   tree: FolderTree,
   graph: FolderGraph,
+  anchors?: FolderAnchors,
 ): FolderGraph & { layoutExtent: number } {
   return {
     ...graph,
-    nodes: positionFolderGraph(tree, graph),
+    nodes: positionFolderGraph(tree, graph, anchors),
     layoutExtent: folderLayoutExtent(tree),
   };
 }

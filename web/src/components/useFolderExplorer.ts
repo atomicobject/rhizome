@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GraphResponse } from "../api/types";
 import { buildFolderTree, initialOpenFolders } from "./folderTree";
 import { visibleFolderChildren, visibleFolderGraph } from "./folderGraph";
-import { layoutFolderGraph } from "./folderLayout";
+import { layoutFolderGraph, type FolderAnchors } from "./folderLayout";
 
 export function useFolderExplorer(
   graph: GraphResponse,
   colors: Map<string, string>,
   focusedPath?: string,
 ) {
+  const anchors = useRef<FolderAnchors>({ positions: new Map(), free: [] });
   const tree = useMemo(() => buildFolderTree(graph), [graph]);
   const initial = useMemo(() => initialOpenFolders(tree), [tree]);
   const [overrides, setOverrides] = useState(new Map<string, boolean>());
@@ -39,6 +40,7 @@ export function useFolderExplorer(
           (type) => colors.get(type),
           focusedPath,
         ),
+        anchors.current,
       ),
     [tree, open, explicit, revealed, colors, focusedPath],
   );
@@ -74,9 +76,6 @@ export function useFolderExplorer(
       setOverrides((previous) => {
         const next = new Map(previous);
 
-        for (const auto of initial)
-          if (auto && auto !== path && !path.startsWith(`${auto}/`) && !explicit.has(auto))
-            next.set(auto, false);
         const parts = path.split("/");
         parts.forEach((_, index) => next.set(parts.slice(0, index + 1).join("/"), true));
 
