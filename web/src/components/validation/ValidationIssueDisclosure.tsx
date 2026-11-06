@@ -1,4 +1,5 @@
 import type { ValidationCheckSnapshot, ValidationSnapshot } from "../../api/types";
+import { ValidationCheck } from "../StatusMark";
 import { humanizeName } from "../../lib/labels";
 
 export function ValidationIssueDisclosure({ snapshot }: { snapshot?: ValidationSnapshot }) {
@@ -73,10 +74,15 @@ export function CleanCheckList({ checks }: { checks: ValidationCheckSnapshot[] }
         <li key={check.check}>
           <strong>{humanizeName(check.check)}</strong>
           <span className="validation-checks__result">
-            <span className="validation-checks__mark" aria-hidden="true">
-              ✓
-            </span>
-            {check.summary ? sentence(check.summary) : "Passed"}
+            <ValidationCheck
+              label={
+                check.summary
+                  ? sentence(
+                      check.summary.replace("identifier nodes checked", "identifiers checked"),
+                    )
+                  : "Passed"
+              }
+            />
           </span>
         </li>
       ))}

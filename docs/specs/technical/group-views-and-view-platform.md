@@ -4,8 +4,8 @@ id: SPEC-0111
 aliases: [SPEC-0111, Group views and view platform]
 summary: "Rhizome ships Briefing, Trace, and Sections display-group views as ordinary kit views, and closes the custom-view platform gaps those views expose so a repository can build views of the same complexity."
 spec-status: active
-last-updated: 2026-11-04
-last-verified: 2026-11-04 # Round 7
+last-updated: 2026-11-05
+last-verified: 2026-11-05 # Parallel hill climb
 ---
 
 # Group views and view platform
@@ -48,7 +48,7 @@ This extends [[unified-view-contract|SPEC-0110]], which reserved a bundled gener
 ### Shared derivations
 
 - A member type's lifecycle field, each value's stage, and its gap fields come from the type profile and enum value stages in type documentation ([[type-collection-views|SPEC-0112]]); the views MUST NOT derive them from field names or tones.
-- Lifecycle values MUST render with a status mark whose fill encodes the value's position among non-terminal values and whose color encodes its tone, paired with the value's label. Values in the `done` or `dropped` stage are terminal.
+- Lifecycle values MUST render with a status mark paired with the value's label. A recognized status word keeps one mark everywhere (for example, Active is always the blue half circle), whatever its schema tone or position; other values use a fill that encodes their position among non-terminal values and a color that encodes their tone. Values in the `done` or `dropped` stage are terminal.
 - When every member's plural label starts with the same word, views MAY drop that word inside the group page. Record labels MUST otherwise use schema labels.
 - Links are the forward `@link` fields among member types, excluding links from a type to itself and links whose declared target is outside the group's roots. A member type that links to no other member type is a reference type.
 

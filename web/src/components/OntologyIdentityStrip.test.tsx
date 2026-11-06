@@ -145,6 +145,10 @@ describe("OntologyIdentityStrip", () => {
     expect(screen.getByText("Proposed")).toBeInTheDocument();
     expect(screen.getByText("Apr 12, 2026")).toBeInTheDocument();
     expect(screen.getByText("Updated")).toBeInTheDocument();
+    const separator = document.querySelector(".note-identity-separator");
+    expect(separator).toHaveTextContent("·");
+    expect(separator).toHaveAttribute("aria-hidden", "true");
+    expect(separator?.nextElementSibling).toHaveAttribute("data-field", "lastUpdated");
   });
 
   it("keeps the title visible when the note has no identity fields", () => {

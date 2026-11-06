@@ -1,3 +1,4 @@
+import { StatusMark } from "../StatusMark";
 import { useState } from "react";
 import { DisclosureChevron } from "../DisclosureChevron";
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSession } from "../../api/types";
@@ -8,6 +9,7 @@ type Props = {
   status: AgentHarnessStatus | undefined;
   resolutionReason: string;
   messageCount: number;
+  model: string | undefined;
 };
 
 const harnessName = (kind?: AgentHarnessKind) =>
@@ -32,6 +34,7 @@ export function AgentStatusHeader({
   status,
   resolutionReason,
   messageCount,
+  model,
 }: Props) {
   let state = "Checking harness status…";
 
@@ -68,7 +71,8 @@ export function AgentStatusHeader({
           </span>
         ) : null}
         <span className="view-header__about">
-          <strong>{harnessName(session?.harness || harness)}</strong> · {state}
+          {harnessName(session?.harness || harness)} · {model ? `${model} · ` : ""}
+          {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
         </span>
         {details.length ? (
           <div className="view-header__actions">

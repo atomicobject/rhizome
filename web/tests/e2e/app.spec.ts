@@ -8,7 +8,10 @@ test("loads the graph and navigates notes/code from the tree", async ({ page }) 
   await expect(page.getByText("Graph unavailable")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Explorer", exact: true })).toBeVisible();
 
-  await rail.getByRole("button", { name: /notes/i }).click();
+  await expect(rail.getByRole("button", { name: "notes", exact: true })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   await rail.getByRole("button", { name: /task-flow\.md/i }).click();
   await expect(page).toHaveURL(/\/notes\?note=notes%2Ftask-flow\.md$/);
   await expect(page.locator(".ontology-identity__title")).toHaveText("Task Flow");
@@ -16,7 +19,10 @@ test("loads the graph and navigates notes/code from the tree", async ({ page }) 
   await page.goto("/explorer");
   await expect(page.getByRole("heading", { name: "Explorer", exact: true })).toBeVisible();
 
-  await rail.getByRole("button", { name: /\bsrc$/i }).click();
+  await rail
+    .locator(".explorer-rail__body > .tree-list > .tree-item > .tree-row")
+    .filter({ hasText: /^src$/ })
+    .click();
   await rail.getByRole("button", { name: /todoapp/i }).click();
   await rail.getByRole("button", { name: /main\.py/i }).click();
   await expect(page.getByRole("heading", { name: "main.py" })).toBeVisible();
@@ -27,11 +33,12 @@ test("focuses folders and supports search suggestions", async ({ page }) => {
   await page.goto("/explorer");
   const rail = page.locator(".explorer-rail");
 
-  await rail.getByRole("button", { name: /\bsrc$/i }).click();
-  await expect(rail.getByRole("button", { name: /\bsrc$/i })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  const src = rail
+    .locator(".explorer-rail__body > .tree-list > .tree-item > .tree-row")
+    .filter({ hasText: /^src$/ });
+
+  await src.click();
+  await expect(src).toHaveAttribute("aria-current", "page");
   await expect(page.locator(".explorer-pane")).toHaveCount(0);
 
   const search = page.getByRole("searchbox", { name: "Search notes and code" });
@@ -52,7 +59,10 @@ test("does not revive a collapsed specs folder after a delayed read", async ({ p
 
   await page.goto("/explorer");
   const rail = page.locator(".explorer-rail");
-  await rail.getByRole("button", { name: /notes/i }).click();
+  await expect(rail.getByRole("button", { name: "notes", exact: true })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   const specs = rail.getByRole("button", { name: /specs/i });
   await specs.click();
   await specs.click();
@@ -125,7 +135,7 @@ test("edits configured view enum checkbox and relation cells", async ({ page }) 
   await assignee.selectOption({ value: bobValue! });
   await expect(row.getByRole("link", { name: "Bob" })).toBeVisible();
 
-  await expect(page.locator(".ontology-edit-bar")).toContainText("Ready to save");
+  await expect(page.locator(".ontology-edit-bar")).toContainText("Unsaved changes");
   await expect(page.locator(".ontology-edit-bar")).toContainText("1 note");
   await expect(page.locator(".ontology-edit-bar")).toContainText("3 changes");
 

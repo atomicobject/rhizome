@@ -162,7 +162,9 @@ describe("relative time", () => {
   it.each([
     ["2026-10-03T11:59:30Z", "now"],
     ["2026-10-03T11:55:00Z", "5m"],
-    ["2026-10-02T09:00:00Z", "27h"],
+    ["2026-10-02T12:01:00Z", "23h"],
+    ["2026-10-02T12:00:00Z", "1d"],
+    ["2026-10-02T09:00:00Z", "1d"],
     ["2026-09-21T12:00:00Z", "12d"],
   ])("shows %s compactly as %s with the exact time attached", (value, text) => {
     render(<RelativeTime value={value} now={now} />);

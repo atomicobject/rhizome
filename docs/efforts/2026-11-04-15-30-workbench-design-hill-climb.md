@@ -174,10 +174,12 @@ The rubric, fixed-vault capture, and before/after comparisons are reusable. The 
 
 ## Follow-ups
 
-- [ ] Open a graph redesign effort for Explorer, Overview maps, and Atlas. #action-item
+- [x] Open a graph redesign effort for Explorer, Overview maps, and Atlas. #action-item
   Base the redesign on mock-ups. Explorer should choose a smart initial view, expand a node on click, give an overview of everything Rhizome knows, and aggregate rather than truncate.
+  Delivered in [[docs/efforts/2026-11-05-17-11-parallel-design-hill-climb|EFF-2026-11-05-17-11]], under Drew's revised direction: the existing Explorer was rebuilt, and Atlas was left as it is.
   assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
-- [ ] Fix the backend action-item embedded-title 80-byte cut. #action-item
+- [x] Fix the backend action-item embedded-title 80-byte cut. #action-item
+  Delivered in [[docs/efforts/2026-11-05-17-11-parallel-design-hill-climb|EFF-2026-11-05-17-11]]: Action Items show the full title through `display_label`, and the parser title and embedding text stay capped, as Drew decided.
   assignee:: [[docs/people/Drew Colthorp|Drew Colthorp]]
 - [ ] Resolve SPEC-0117's 176 versus 177 record count. #action-item
   Investigate ambiguous-note counting under [[docs/specs/experience/scope-overview|SPEC-0117]].

@@ -355,7 +355,7 @@ func nodeProjectionTitle(projection *NodeProjection) string {
 		// already extracted by the parser; surface it here so views and
 		// workspaces don't fall through to the host file's basename.
 		if span := projection.Snapshot.SourceSpansByID[projection.Ref.NodeID]; span != nil {
-			return strings.TrimSpace(span.Title)
+			return sourceSpanDisplayTitle(projection.Snapshot.Content, span)
 		}
 	}
 	return ""

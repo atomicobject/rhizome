@@ -1,0 +1,105 @@
+/* Keep the spine wide enough for summaries beside linked columns. */
+.gv-trace .gv-col-spine,
+.gv-trace thead th.gv-trace-spine {
+  width: calc(34% + 80px);
+}
+
+/* Related titles and coverage need enough room to stay readable. */
+.gv-trace .gv-trace-related {
+  width: 280px;
+  min-width: 280px;
+}
+.gv-trace .gv-trace-related .gv-head > .gv-member {
+  flex: none;
+}
+
+.gv-jump {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 20px;
+  gap: 0 8px;
+  font-size: 14px;
+}
+
+.gv-jump-label {
+  margin-right: 4px;
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-jump > button + button::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--text-faint);
+}
+
+.gv-jump .num {
+  color: var(--text-muted);
+}
+
+.gv-trace-rows {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gv-trace-rows-label {
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+
+.gv-page .gv-trace thead th .gv-cov {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Materials carry no lifecycle: no placeholder mark, so their titles start
+   on the cell's inset like the empty-cell dash. */
+.gv-trace td .gv-square {
+  display: none;
+}
+
+.gv-jump > button:disabled,
+.gv-jump > button:disabled .num {
+  color: var(--text-faint);
+}
+
+.gv-section .gv-table td.gv-col-type,
+.gv-section .gv-table td.gv-col-type > span {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.gv-trace-rows {
+  flex-wrap: wrap;
+}
+.gv-trace-rows-label {
+  flex: none;
+}
+.gv-page .gv-trace thead th .gv-col-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.gv-trace thead th.gv-trace-related {
+  width: 280px;
+}
+
+.gv-trace .rz-dash {
+  color: var(--text-muted);
+  opacity: 1;
+}
+.gv-section .gv-summary {
+  max-width: 720px;
+}
+.gv-trace .gv-head {
+  flex-wrap: wrap;
+}
+.gv-trace .gv-cov-count {
+  white-space: normal;
+  flex: 0 1 auto;
+  max-width: 100%;
+}

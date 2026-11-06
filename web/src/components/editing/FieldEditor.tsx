@@ -347,7 +347,7 @@ export function FieldEditor({
             present={node.field.present}
             vaultKey={vaultKey}
             operationTarget={operationTarget}
-            placeholder="Empty"
+            placeholder="—"
             onStage={(next) => {
               if (stage(fieldValueFromScalar(next)))
                 clearPersistedEditorDraft(vaultKey, operationTarget);

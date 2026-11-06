@@ -1,16 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type {
-  OntologyEditSessionResponse,
-  OntologyNoteListItem,
-  OntologySummaryResponse,
-  OntologyTypeResponse,
-  ViewCatalogEntry,
-  ViewExecuteResponse,
-  ViewFieldCapability,
-  ViewTableRow,
-} from "../api/types";
+import type { ViewCatalogEntry } from "../api/types";
 import { jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { NotesShell } from "./NotesShell";
@@ -21,153 +12,20 @@ import {
   type ViewMessage,
 } from "../lib/customViewMessages";
 
+import {
+  emptyGraph,
+  productType,
+  interfaceSummary,
+  summary,
+  typeResponse,
+  noteRow,
+  viewEntry,
+  capability,
+  execution,
+  editSession,
+} from "./NotesShell.views.fixtures";
+
 const http = withFakeFetch();
-
-const emptyGraph = { nodes: [], edges: [], truncated: false };
-
-const productType = {
-  name: "ProductSpec",
-  label: "ProductSpec",
-  count: 1,
-  issueCount: 0,
-};
-
-const interfaceSummary = {
-  name: "SpecLike",
-  label: "SpecLike",
-  count: 1,
-  issueCount: 0,
-  implementors: ["ProductSpec"],
-};
-
-function summary(overrides: Partial<OntologySummaryResponse> = {}): OntologySummaryResponse {
-  return {
-    schemaPresent: true,
-    totalNotes: 1,
-    typedNotes: 1,
-    untypedNotes: 0,
-    ambiguousNotes: 0,
-    issueNotes: 0,
-    types: [],
-    interfaces: [],
-    ...overrides,
-  };
-}
-
-function typeResponse(name = "ProductSpec"): OntologyTypeResponse {
-  const row = noteRow(name === "ProductSpec" ? "specs/alpha.md" : "notes/all.md");
-
-  return {
-    count: 1,
-    issueCount: 0,
-    type: { name, label: name, fields: [] },
-    notes: [row],
-  };
-}
-
-function noteRow(path: string, title = "Alpha Spec"): ViewTableRow & OntologyNoteListItem {
-  return {
-    ref: { notePath: path, kind: "NOTE" },
-    path,
-    title,
-    resolvedType: "ProductSpec",
-    updatedAt: 1_713_000_000,
-    hasIssues: false,
-    fields: {},
-  };
-}
-
-function viewEntry(
-  id: string,
-  name: string,
-  mount: ViewCatalogEntry["mount"],
-  field = "title",
-): ViewCatalogEntry {
-  const source: ViewCatalogEntry["source"] = {
-    kind: mount.kind === "standalone" ? "query_recipe" : "ontology_type",
-  };
-
-  if (mount.type) source.type = mount.type;
-
-  if (mount.interface) source.interface = mount.interface;
-
-  const variants = {
-    table: { columns: [{ field, label: field === "status" ? "Status" : "Title" }] },
-  };
-
-  return {
-    id,
-    name,
-    source,
-    mount,
-    defaults: { variant: "table" },
-    variants,
-    definition: {
-      apiVersion: "rhizome.view.v1",
-      id,
-      name,
-      source,
-      mount,
-      variants,
-    },
-  };
-}
-
-function capability(field: string, edit?: ViewFieldCapability["edit"]): ViewFieldCapability {
-  const result: ViewFieldCapability = {
-    key: field,
-    label: field === "status" ? "Status" : "Title",
-    valueKind: field === "status" ? "enum" : "string",
-    sortable: true,
-    groupable: false,
-    filterOps: ["eq", "contains"],
-  };
-
-  if (edit) result.edit = edit;
-
-  return result;
-}
-
-function execution(
-  view: ViewCatalogEntry,
-  rows: ViewTableRow[],
-  capabilities: ViewFieldCapability[] = [],
-): ViewExecuteResponse {
-  return {
-    view,
-    variant: "table",
-    state: {},
-    capabilities,
-    columns: view.variants.table?.columns ?? [],
-    rows,
-    pageInfo: {
-      total: rows.length,
-      offset: 0,
-      first: 25,
-      returned: rows.length,
-      hasMore: false,
-    },
-    definitionFingerprint: "definition",
-    sourceFingerprint: "source",
-    executionFingerprint: `execution-${rows.map((row) => row.title).join(",")}`,
-  };
-}
-
-function editSession(
-  status: "dirty" | "clean",
-  hasUncommittedChanges: boolean,
-): OntologyEditSessionResponse {
-  return {
-    sessionId: "edit-1",
-    status,
-    revision: 1,
-    ops: [],
-    hasUncommittedChanges,
-    touchedPaths: hasUncommittedChanges ? ["specs/alpha.md"] : [],
-    createdAt: "2026-09-06T00:00:00Z",
-    updatedAt: "2026-09-06T00:00:01Z",
-  };
-}
 
 function registerReads(catalog: ViewCatalogEntry[], summaryResponse = summary()) {
   http
@@ -177,6 +35,33 @@ function registerReads(catalog: ViewCatalogEntry[], summaryResponse = summary())
     .json("GET", "/api/v1/ontology/types/ProductSpec", typeResponse())
     .json("POST", "/api/v1/ontology/types/ProductSpec", typeResponse())
     .json("GET", "/api/v1/graphs/global", emptyGraph)
+    // Editing focuses the row and loads its record context, including after save.
+    .onGraphQL("PublicNodeDetail", () =>
+      jsonReply({
+        data: {
+          node: {
+            ref: {
+              ref: "specs/alpha.md",
+              kind: "NOTE",
+              notePath: "specs/alpha.md",
+              path: "specs/alpha.md",
+            },
+            nodeId: "note:specs/alpha.md",
+            nodeKind: "NOTE",
+            path: "specs/alpha.md",
+            title: "Alpha Spec",
+            locator: {
+              sourceLocator: "specs/alpha.md",
+              status: "linkable",
+              exists: true,
+              requiresFix: false,
+            },
+            content: "# Alpha Spec",
+            localGraph: emptyGraph,
+          },
+        },
+      }),
+    )
     .json("GET", "/api/v1/views", {
       views: catalog,
       targets: catalog.map((view) => ({
@@ -311,6 +196,7 @@ describe("NotesShell configured views", () => {
     window.history.replaceState({}, "", "/notes?view=editable.notes");
     render(<NotesShell />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit Status" }));
+    await waitFor(() => expect(http.count("POST", "/api/v1/graphql")).toBeGreaterThan(0));
     fireEvent.change(await screen.findByRole("combobox", { name: "Edit Status" }), {
       target: { value: "published" },
     });
@@ -368,6 +254,7 @@ describe("NotesShell configured views", () => {
     render(<NotesShell />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit Status" }));
     const statusEditor = await screen.findByRole("combobox", { name: "Edit Status" });
+    await waitFor(() => expect(http.count("POST", "/api/v1/graphql")).toBeGreaterThan(0));
     fireEvent.change(statusEditor, { target: { value: "published" } });
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled());
 

@@ -52,6 +52,10 @@ func TestDevStack(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("embed: status %d, %v", resp.StatusCode, err)
 	}
+	// JSON can arrive before settlement; HTTP EOF follows the handler's return.
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		t.Fatalf("finish embed response: %v", err)
+	}
 	resp.Body.Close()
 	if len(out.Data) != 2 || len(out.Data[0].Embedding) != 1024 || out.Usage.TotalTokens == 0 {
 		t.Fatalf("embed response: %d vectors, %d dims, %d tokens", len(out.Data), len(out.Data[0].Embedding), out.Usage.TotalTokens)

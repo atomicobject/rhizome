@@ -40,11 +40,8 @@ async function chooseRows(label: string) {
   fireEvent.click(await screen.findByRole("radio", { name: new RegExp(`^${label}`) }));
 }
 
-/** A column's label: its first button's text without the record count. */
-const columnName = (header: HTMLElement) =>
-  within(header)
-    .getAllByRole("button")[0]
-    .textContent?.replace(/\u00a0\d+$/, "");
+/** The visible column label, independent of toolbar controls. */
+const columnName = (header: HTMLElement) => header.querySelector(".gv-member")?.textContent;
 
 const columnNames = () => screen.getAllByRole("columnheader").map(columnName);
 
@@ -115,7 +112,15 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
     "Checklists 1",
   ]);
   expect(screen.getByRole("radio", { name: /^Areas/ })).toBeChecked();
-  // The toolbar holds only the row choice; why the default is the default sits in the footer.
+  expect(
+    screen.getByRole("radiogroup", { name: "Rows" }).querySelector(".gv-default-dot"),
+  ).toBeNull();
+  expect(columnHeader("Areas")).toHaveTextContent("— No link");
+  expect(screen.getByRole("radiogroup", { name: "Rows" }).closest("th")).toBeNull();
+  expect(document.querySelector(".gv-toolbar")).toContainElement(
+    screen.getByRole("radiogroup", { name: "Rows" }),
+  );
+  // Why the default is the default sits in the footer.
   expect(
     screen.getByText(/Areas are the default rows: the tree other types link to/),
   ).toBeVisible();
@@ -165,12 +170,15 @@ it("fills cells with records linked to anything in the row, marking indirect one
   expect(within(row("Payments")).getAllByText("(indirect)")).toHaveLength(2);
 
   // Coverage beside the name; under it, the field that joins the column to the rows.
-  expect(columnHeader("Work items")).toHaveTextContent("3 of 6 areas linked");
-  // Under that, the column's own status key, naming only the statuses it holds.
-  expect(columnHeader("Work items")).toHaveTextContent(/linkedArea.*Doing.*Done/);
+  expect(columnHeader("Work items")).toHaveTextContent("3 of 6 areas have work items");
+  // The second line names only the mixed statuses the column holds.
+  expect(columnHeader("Work items")).toHaveTextContent(/itemsDoing.*Done/);
   expect(columnHeader("Work items")).not.toHaveTextContent(/Backlog/);
-  expect(columnHeader("Releases")).toHaveTextContent("1 of 6 areas linked");
-  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 areas linkedthrough other columns");
+  expect(
+    within(columnHeader("Work items")).getByLabelText("Work items status marks"),
+  ).toBeVisible();
+  expect(columnHeader("Releases")).toHaveTextContent("1 of 6 areas have releases");
+  expect(columnHeader("Checklists")).toHaveTextContent("1 of 6 areas have checklists");
   expect(screen.getByText("2 records appear in no row: 1 work item and 1 release.")).toBeVisible();
 });
 
@@ -180,8 +188,8 @@ it("switches rows and orders columns by contract with outside links last", async
   await chooseRows("Work items");
   expect(screen.getByRole("radio", { name: /^Work items/ })).toBeChecked();
   expect(columnNames()).toEqual(["Work items", "Areas", "Releases", "Checklists", "Owner"]);
-  expect(columnHeader("Areas")).toHaveTextContent("5 of 6 work items linked");
-  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 work items linkedin People");
+  expect(columnHeader("Areas")).toHaveTextContent("5 of 6 work items have areas");
+  expect(columnHeader("Owner")).toHaveTextContent("1 of 6 work items have owner");
   expect(cellTitles("Checkout redesign")).toEqual([
     ["Payments"],
     ["Fall release"],
@@ -190,7 +198,7 @@ it("switches rows and orders columns by contract with outside links last", async
   ]);
 });
 
-it("bands rows by lifecycle, most advanced first and closed values last, naming empty values", async () => {
+it("bands rows by lifecycle, most advanced first and closed values last, summarizing held values", async () => {
   const data = {
     ...RECORDS_DATA,
     Story: changed("Story", (story) =>
@@ -202,8 +210,8 @@ it("bands rows by lifecycle, most advanced first and closed values last, naming 
   await chooseRows("Work items");
 
   expect(bands()).toEqual(["Blocked1", "Doing2", "Done2", "No stage1"]);
-  expect(columnHeader("Work items")).toHaveTextContent("by stage, most advanced first");
-  expect(columnHeader("Work items")).toHaveTextContent("none Backlog, Dropped");
+  expect(columnHeader("Work items")).not.toHaveTextContent("most advanced first");
+  expect(columnHeader("Work items").querySelector(".gv-counts")).toBeNull();
   expect(rowTitles().map(([title]) => title)).toEqual([
     "Tax rounding",
     "Checkout redesign",
@@ -350,9 +358,10 @@ it("opens records, outside notes, and collections through the workspace", async 
   fireEvent.click(screen.getByRole("button", { name: "Checkout redesign" }));
   fireEvent.click(within(row("Checkout redesign")).getByRole("button", { name: "Payments" }));
   fireEvent.click(within(row("Checkout redesign")).getByRole("button", { name: "Ada Lovelace" }));
-  fireEvent.click(within(columnHeader("Work items")).getByRole("button", { name: "Work items" }));
   fireEvent.click(within(columnHeader("Areas")).getByRole("button", { name: /^Areas/ }));
   fireEvent.click(within(columnHeader("Owner")).getByRole("button", { name: "Owner" }));
+  await chooseRows("Areas");
+  fireEvent.click(within(columnHeader("Work items")).getByRole("button", { name: "Work items" }));
 
   expect(posted.filter((message) => message.type.startsWith("rhizome:open-"))).toEqual([
     {
@@ -361,8 +370,32 @@ it("opens records, outside notes, and collections through the workspace", async 
     },
     { type: OPEN_NODE_MESSAGE, ref: { notePath: PATHS.payments, kind: "NOTE", typeName: "Area" } },
     { type: OPEN_NOTE_MESSAGE, path: PATHS.ada, beside: false },
-    { type: OPEN_COLLECTION_MESSAGE, name: "Work" },
     { type: OPEN_COLLECTION_MESSAGE, name: "Area" },
     { type: OPEN_COLLECTION_MESSAGE, name: "Person" },
+    { type: OPEN_COLLECTION_MESSAGE, name: "Work" },
   ]);
+});
+
+it("gives a column joined by multiple fields room for its full relation caption", async () => {
+  const release = {
+    ...TYPE_DOCS.Release,
+    fields: TYPE_DOCS.Release.fields.flatMap((field) =>
+      field.name === "area"
+        ? [field, { ...field, name: "otherArea", label: "Other area" }]
+        : [field],
+    ),
+  };
+
+  const routes = groupRoutes({
+    "GET /api/v1/ontology/types/Release": () => jsonReply({ type: release, count: 2 }),
+  });
+
+  await renderGroupView(loadTrace, { routes });
+  await screen.findByRole("table");
+  const related = columnHeader("Related releases");
+  expect(related).toHaveClass("gv-trace-related");
+  expect(related).not.toHaveClass("gv-col-sparse");
+  expect(related.querySelector(".gv-cov")).toBeNull();
+  expect(related).toHaveTextContent(/have related releases$/);
+  expect(screen.getByRole("table").querySelector("col.gv-trace-related")).toBeInTheDocument();
 });

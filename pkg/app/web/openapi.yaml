@@ -2446,6 +2446,7 @@ components:
           items:
             $ref: "#/components/schemas/TreeEntry"
         truncated: { type: boolean }
+        omitted: { type: integer }
     RelatedNote:
       type: object
       required: [path]
@@ -2602,6 +2603,12 @@ components:
           items:
             $ref: "#/components/schemas/GraphEdge"
         truncated: { type: boolean }
+        omittedNodeIDs:
+          type: array
+          maxItems: 200
+          items: { type: string }
+        omittedNodes: { type: integer }
+        omittedEdges: { type: integer }
         centerID: { type: string }
         needsIndex: { type: boolean }
         diagnostics:

@@ -138,3 +138,26 @@ test("keeps Explorer suggestions available for keyboard activation", async ({ pa
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/notes\?note=notes%2Ftask-flow\.md/);
 });
+
+test("date editors reveal ISO text and calendar only while focused", async ({ page }) => {
+  await page.goto("/notes?note=notes/type-views/meetings/2026-10-02-lantern.md");
+  await page.getByRole("button", { name: "Edit", exact: true }).first().click();
+  const editor = page.locator(".widget-date-editor").first();
+  const input = editor.locator(".widget-date--input");
+  const words = editor.locator(".widget-date-editor__rest");
+  const calendar = editor.getByRole("button", { name: /from a calendar/ });
+  await expect(words).toHaveText("Oct 2, 2026");
+  await expect(input).toHaveCSS("opacity", "0");
+  await expect(calendar).toBeHidden();
+  await input.focus();
+  await expect(input).toHaveValue("2026-10-02");
+  await expect(input).toHaveCSS("opacity", "1");
+  await expect(words).toBeHidden();
+  await expect(calendar).toBeVisible();
+  await calendar.focus();
+  await expect(words).toBeHidden();
+  await input.focus();
+  await page.keyboard.press("Escape");
+  await expect(words).toBeVisible();
+  await expect(calendar).toBeHidden();
+});

@@ -1,4 +1,12 @@
-import type { DragEvent, KeyboardEvent, ReactNode } from "react";
+import "../collection-view-refinements.css";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import type {
   OntologyEditSessionResponse,
@@ -58,6 +66,7 @@ type Props = {
   body?: ReactNode;
   /** Title and markers only, for crowded board columns. */
   compact?: boolean;
+  summary?: string;
 };
 
 export function ConfiguredViewCard({
@@ -85,15 +94,29 @@ export function ConfiguredViewCard({
   header,
   body,
   compact = false,
+  summary,
 }: Props) {
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const [twoLineTitle, setTwoLineTitle] = useState(false);
+  useLayoutEffect(() => {
+    const title = titleRef.current;
+
+    if (mode !== "cards" || !title) return;
+    const measure = () => setTwoLineTitle(title.getBoundingClientRect().height > 19);
+    const observer = new ResizeObserver(measure);
+    measure();
+    observer.observe(title);
+
+    return () => observer.disconnect();
+  }, [mode]);
   const custom = header !== undefined || body !== undefined;
   // A compact card keeps its title; the layout's slots would crowd the column.
   const layoutSlots = !custom && !compact;
   const titleField = layout?.title.field ?? "title";
   const title = displayTitle(fieldValue(row, titleField) || row.title) || "Untitled";
-  const eyebrow = layout?.eyebrow;
+  const eyebrow = layout?.eyebrow?.field === omitField ? undefined : layout?.eyebrow;
   const eyebrowValue = eyebrow ? fieldValue(row, eyebrow.field) : "";
-  const preview = layout?.preview;
+  const preview = layout?.preview?.field === omitField ? undefined : layout?.preview;
   const previewValue = preview ? fieldValue(row, preview.field) : "";
   const dirty = configuredTableRowHasChanges(row, editSession);
   const titleTarget = publicWorkspaceRef(row.ref);
@@ -150,7 +173,7 @@ export function ConfiguredViewCard({
 
   return (
     <article
-      className={`configured-card configured-card--${mode}${compact ? " configured-card--compact" : ""}${dirty ? " is-staged" : ""}${dragging ? " is-dragging" : ""}${className}`}
+      className={`configured-card configured-card--${mode}${twoLineTitle ? " configured-card--two-line-title" : ""}${compact ? " configured-card--compact" : ""}${dirty ? " is-staged" : ""}${dragging ? " is-dragging" : ""}${className}`}
       data-configured-card={configuredTableRowKey(row)}
       tabIndex={busy ? -1 : 0}
       inert={busy ? true : undefined}
@@ -174,41 +197,74 @@ export function ConfiguredViewCard({
       onDragEnd={onDragEnd}
       {...dropTarget}
     >
-      <div
-        // Only the hover-revealed actions may float over the title.
-        className={`configured-card__topline${(custom ? header : layoutSlots && eyebrowValue) || dirty ? "" : " configured-card__topline--bare"}`}
-      >
-        {custom && header}
-        {layoutSlots && eyebrow && eyebrowValue && (
-          <span className="configured-card__eyebrow">
+      <CardContent mode={mode}>
+        <div
+          // Only the hover-revealed actions may float over the title.
+          className={`configured-card__topline${(custom ? header : layoutSlots && eyebrowValue) ? "" : " configured-card__topline--bare"}`}
+        >
+          {custom && header}
+          {layoutSlots && eyebrow && eyebrowValue && (
+            <span className="configured-card__eyebrow">
+              <ConfiguredTableCellContent
+                viewID={viewID}
+                vaultKey={vaultKey}
+                row={row}
+                field={eyebrow.field}
+                columnIndex={0}
+                capability={capabilityFor(capabilities, eyebrow.field)}
+                editSession={editSession}
+                onOpenRelation={onOpenRow}
+              />
+            </span>
+          )}
+          {dirty && (
+            // A dot, like the table's, so staging never pushes the title down.
+            <span
+              className="configured-card__staged configured-view__staged-dot"
+              role="img"
+              aria-label="Staged changes"
+              title="Staged changes"
+            />
+          )}
+          {actions}
+        </div>
+        <button
+          {...titlePreview.triggerProps}
+          type="button"
+          className="configured-card__title"
+          onClick={(event) => {
+            titlePreview.close();
+            onOpenRow(row, openModeFor(event));
+          }}
+          disabled={busy}
+        >
+          <span ref={titleRef} className="configured-card__title-text">
+            {title}
+          </span>
+        </button>
+        {titlePreview.preview}
+        {summary && (
+          <p className="configured-brief__summary configured-brief__summary--brief configured-card__summary">
+            {summary}
+          </p>
+        )}
+        {layoutSlots && preview && previewValue && (
+          <p
+            className={`configured-card__preview${mode === "cards" ? " configured-card__summary" : ""}`}
+          >
             <ConfiguredTableCellContent
               viewID={viewID}
               vaultKey={vaultKey}
               row={row}
-              field={eyebrow.field}
-              columnIndex={0}
-              capability={capabilityFor(capabilities, eyebrow.field)}
+              field={preview.field}
+              columnIndex={1}
+              capability={capabilityFor(capabilities, preview.field)}
               editSession={editSession}
               onOpenRelation={onOpenRow}
             />
-          </span>
+          </p>
         )}
-        {dirty && <span className="configured-card__staged">staged</span>}
-        {actions}
-      </div>
-      <button
-        {...titlePreview.triggerProps}
-        type="button"
-        className="configured-card__title"
-        onClick={(event) => {
-          titlePreview.close();
-          onOpenRow(row, openModeFor(event));
-        }}
-        disabled={busy}
-      >
-        <span className="configured-card__title-text">{title}</span>
-      </button>
-      {titlePreview.preview}
+      </CardContent>
       {custom && body}
       {custom && issueCount !== undefined && issueCount > 0 && (
         <span className="configured-card__issues">
@@ -220,20 +276,6 @@ export function ConfiguredViewCard({
             {issueCount} {issueCount === 1 ? "issue" : "issues"}
           </button>
         </span>
-      )}
-      {layoutSlots && preview && previewValue && (
-        <p className="configured-card__preview">
-          <ConfiguredTableCellContent
-            viewID={viewID}
-            vaultKey={vaultKey}
-            row={row}
-            field={preview.field}
-            columnIndex={1}
-            capability={capabilityFor(capabilities, preview.field)}
-            editSession={editSession}
-            onOpenRelation={onOpenRow}
-          />
-        </p>
       )}
       {layoutSlots &&
         (visibleFields.length > 0 || (issueCount !== undefined && issueCount > 0)) && (
@@ -279,5 +321,13 @@ export function ConfiguredViewCard({
 export function focusCard(rowKey: string) {
   window.requestAnimationFrame(() =>
     document.querySelector<HTMLElement>(`[data-configured-card="${CSS.escape(rowKey)}"]`)?.focus(),
+  );
+}
+
+function CardContent({ mode, children }: { mode: Props["mode"]; children: ReactNode }) {
+  return mode === "cards" ? (
+    <div className="configured-card__content">{children}</div>
+  ) : (
+    <>{children}</>
   );
 }

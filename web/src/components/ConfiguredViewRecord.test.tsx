@@ -50,3 +50,25 @@ it("offers the full summary when resizing causes overflow", () => {
   unmount();
   expect(disconnect).toHaveBeenCalled();
 });
+
+it("uses the shared word date format for a change date moved into Record", () => {
+  render(
+    <ConfiguredViewRecord
+      row={{ ...firstRow, updatedAt: new Date(2026, 10, 1, 12).getTime() / 1000 }}
+      capabilities={[
+        {
+          key: "updatedAt",
+          label: "Changed",
+          valueKind: "datetime",
+          sortable: true,
+          groupable: false,
+        },
+      ]}
+      movedColumns={[{ field: "updatedAt", label: "Changed" }]}
+      source={baseView.source}
+      viewID="test"
+      onOpenRow={() => {}}
+    />,
+  );
+  expect(screen.getByText("Nov 1, 2026")).toHaveAttribute("datetime", "2026-11-01");
+});

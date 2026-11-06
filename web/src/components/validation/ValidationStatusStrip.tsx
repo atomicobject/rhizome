@@ -1,4 +1,5 @@
 import type { ValidateEnvelope } from "../../api/types";
+import { ValidationCheck } from "../StatusMark";
 import {
   CleanCheckList,
   formatDuration,
@@ -29,10 +30,18 @@ export function ValidationStatusStrip({
   const strip = (
     <div className={`validation-status-strip validation-status-strip--${presentation.tone}`}>
       <div className="validation-status-strip__summary" role="status" aria-live="polite">
-        <span className="validation-status-strip__mark" aria-hidden="true">
-          {mark(presentation.health)}
-        </span>
-        <strong>{presentation.label}</strong>
+        {presentation.health === "current_clean" ? (
+          <strong>
+            <ValidationCheck label={presentation.label} />
+          </strong>
+        ) : (
+          <>
+            <span className="validation-status-strip__mark" aria-hidden="true">
+              {mark(presentation.health)}
+            </span>
+            <strong>{presentation.label}</strong>
+          </>
+        )}
         {clean && snapshot && (
           <>
             <span aria-hidden="true">·</span>

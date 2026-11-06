@@ -7,8 +7,9 @@
 import { HighlightProvider, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
+import { MotionCount } from "./briefing-motion.tsx";
 import { inMotion, needsAttention } from "./activity.ts";
-import { MotionList, RecentChanges, StageHints } from "./briefing-activity.tsx";
+import { useMotionMetadata, MotionList, RecentChanges, StageHints } from "./briefing-activity.tsx";
 import { NeedsAttention } from "./briefing-attention.tsx";
 import { Block, ModelBlock } from "./briefing-parts.tsx";
 import { GroupFrame } from "./components.tsx";
@@ -46,20 +47,32 @@ function InMotion({ model }: { model: GroupModel }) {
     .flatMap((group) => group.entries)
     .sort((a, b) => (b.record.updatedAt ?? 0) - (a.record.updatedAt ?? 0));
 
+  const metadata = useMotionMetadata(model, entries);
+
+  const title =
+    motion.groups.length === 1 &&
+    model.memberIndex.get(motion.groups[0].member)?.pluralLabel.toLowerCase() === "efforts"
+      ? "Active efforts"
+      : "In motion";
+
   return (
     <Block
-      title="In motion"
-      count={entries.length}
+      title={title}
+      className="gv-motion"
+      count={<MotionCount count={entries.length} metadata={metadata} />}
       info={{
         text: "Records whose lifecycle value is in the active stage, newest change first.",
         display: "title",
       }}
       controls={
-        <StageHints
-          model={model}
-          withoutActiveStage={motion.withoutActiveStage}
-          withoutLifecycle={motion.withoutLifecycle}
-        />
+        <>
+          <StageHints
+            model={model}
+            withoutActiveStage={motion.withoutActiveStage}
+            withoutLifecycle={motion.withoutLifecycle}
+          />
+          <span className="gv-motion-age-label">Last changed</span>
+        </>
       }
     >
       {motion.groups.length === 0 && <p className="gv-quiet">Nothing in an active stage.</p>}
@@ -68,7 +81,13 @@ function InMotion({ model }: { model: GroupModel }) {
   );
 }
 
-function GroupAttention({ model, part }: { model: GroupModel; part: "attention" | "review" }) {
+function GroupAttention({
+  model,
+  part,
+}: {
+  model: GroupModel;
+  part: "attention" | "review" | "coverage";
+}) {
   const signals = useMemo(() => needsAttention(model, linkGraph(model), Date.now()), [model]);
 
   return (
@@ -82,10 +101,10 @@ function GroupAttention({ model, part }: { model: GroupModel; part: "attention" 
 }
 
 /** Needs attention leads, then the optional review signals, then work in motion. */
-function AttentionBlock({ part }: { part: "attention" | "review" }) {
+function AttentionBlock({ part }: { part: "attention" | "review" | "coverage" }) {
   const state = useGroupModel({ views: false, read: ATTENTION_READ });
 
-  if (part === "review" && state.status !== "ready") return null;
+  if (part !== "attention" && state.status !== "ready") return null;
 
   return (
     <ModelBlock state={state} title="Needs attention" what="what needs attention">
@@ -125,6 +144,7 @@ export default function Briefing(_props: ViewModuleProps) {
             <AttentionBlock part="attention" />
             <AttentionBlock part="review" />
             <MotionBlock />
+            <AttentionBlock part="coverage" />
           </div>
           <div className="gv-brief-col">
             <RecentBlock />

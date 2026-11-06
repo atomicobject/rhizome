@@ -1,3 +1,4 @@
+import { TypeChip } from "./TypeChip";
 import { publicTypeName } from "../lib/typeNames";
 import type { MutableRefObject, ReactNode } from "react";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1566,9 +1567,9 @@ export function OntologyNotePane({
         <div
           className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}
         >
-          <span className={`ontology-pane__type type-chip${resolvedType ? "" : " is-untyped"}`}>
+          <TypeChip name={resolvedType || ""} className="ontology-pane__type">
             {resolvedType ? typeLabel(resolvedType) : "Untyped"}
-          </span>
+          </TypeChip>
           {htmlHead ||
             (toolbarPath && (
               <MiddleTruncate

@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Repeat2, Search } from "lucide-react";
 import {
   Background,
   Controls,
@@ -14,7 +14,7 @@ import "@xyflow/react/dist/style.css";
 
 import type { OntologyAtlasResponse } from "../api/types";
 import { buildOntologyGraph, layoutOntologyGraph } from "../lib/ontologyGraph";
-import { typeAccentColor } from "../lib/typeAccent";
+import { typeAccentColor, useTypePalette } from "../lib/typeAccent";
 import { OntologyRoutedEdge } from "./OntologyRoutedEdge";
 import { OntologyTypeNode } from "./OntologyTypeNode";
 import { useTypeLabel } from "./typeLabels";
@@ -31,6 +31,7 @@ type AtlasEdgeData = {
   targetOffset?: number;
   kind: EdgeKind;
   accent: string;
+  fieldName?: string;
 };
 
 type AtlasEdge = Edge<AtlasEdgeData>;
@@ -85,6 +86,7 @@ function FocusViewport({ ids, selected }: { ids: string[]; selected: string | nu
 }
 
 export function OntologyGraph({ atlas }: Props) {
+  const palette = useTypePalette();
   const typeLabel = useTypeLabel();
   const [selection, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -106,6 +108,13 @@ export function OntologyGraph({ atlas }: Props) {
       if (cancelled) return;
       setError(null);
       const built = buildOntologyGraph(atlas);
+
+      for (const node of built.nodes) {
+        node.width = Math.max(node.width, typeLabel(node.id).length * 12 + 40);
+        const outgoing = built.edges.filter((edge) => edge.source === node.id).length;
+        const incoming = built.edges.filter((edge) => edge.target === node.id).length;
+        node.height = Math.max(node.height, Math.max(outgoing, incoming) * 18 + 20);
+      }
 
       if (cancelled) return;
       void layoutOntologyGraph(built)
@@ -145,6 +154,7 @@ export function OntologyGraph({ atlas }: Props) {
                 sourceOffset: e.sourceOffset,
                 targetOffset: e.targetOffset,
                 kind,
+                fieldName: e.data?.fieldName,
                 accent: typeAccentColor(e.source),
               },
             };
@@ -164,7 +174,7 @@ export function OntologyGraph({ atlas }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [atlas, attempt]);
+  }, [atlas, attempt, palette]);
 
   const focusedIds = useMemo(() => {
     if (!selected || !graph.nodes.some((node) => node.id === selected))
@@ -211,6 +221,9 @@ export function OntologyGraph({ atlas }: Props) {
     return [
       {
         ...edge,
+        label: lit ? edge.data?.fieldName : undefined,
+        labelStyle: { fill: "var(--text)", fontSize: 14 },
+        labelBgStyle: { fill: "var(--surface)" },
         style: {
           stroke: color,
           strokeWidth: 1.5,
@@ -340,6 +353,9 @@ export function OntologyGraph({ atlas }: Props) {
         </span>
         <span>
           <s data-kind="neighbor" /> Neighbor, shown while tracing
+        </span>
+        <span>
+          <Repeat2 size={16} aria-hidden="true" /> Self relation
         </span>
         <span className="atlas-legend__hint">Hover a card to trace it in its color</span>
       </div>

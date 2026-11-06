@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology."
 reference-kind: guide
-last-verified: 2026-11-01
+last-verified: 2026-11-05
 code-paths:
   - pkg/ontology
   - pkg/ontology/schema
@@ -31,6 +31,8 @@ The ontology core owns Rhizome's typed note contract: compile GraphQL SDL from `
 **Boundary**: the GraphQL query layer (`pkg/ontology/query`, `pushdown`, `queryrecipe`) and the batched read seam (`pkg/ontology/noderead`, `readmodel`) are covered by sibling subsystem notes — this note ends where indexed rows are handed to those consumers.
 
 ## Design constraints
+
+- **Embedded display labels are independent of embedding inputs.** Catalog display labels and workspace titles use the complete item headline, with metadata removed. The parser title and `ITEM_SUMMARY` keep their existing capped values. Materialization version 17 refreshes display labels without adding embedding text.
 
 - **Presentation and workspace membership are schema declarations.** Type-level `@display(group:, parent:)` organizes navigation. Field-level `@display(role:, importance:, hover:)` controls compact presentation and inherits through implemented interfaces. Field capabilities expose effective importance with NORMAL as the zero-value behavior; `hover: false` applies only to hover previews. These hints do not change membership, queries, or counts. `@workspaceMember` is valid only on explicit concrete-type link fields and identifies owner-selected workspace members; interfaces cannot declare it because navigation resolves the concrete owner's schema. Directory proximity and type presentation never establish instance membership.
 

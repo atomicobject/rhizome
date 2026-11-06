@@ -4,14 +4,18 @@ package tasks
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckTimeoutKillsTheWholeTree(t *testing.T) {
@@ -57,26 +61,75 @@ func TestCheckTimeoutWithAnEscapedDescendantReleasesTheLock(t *testing.T) {
 	}
 }
 
-// A check that starts a child in a session of its own just before its
-// timeout must not leave that child running.
+// Drive deadline expiry after readiness; the configured elapsed timeout is
+// covered by TestCheckTimeoutKillsTheWholeTree.
+type checkDeadlineContext struct {
+	context.Context
+	waiting chan struct{}
+	expired chan struct{}
+	once    sync.Once
+}
+
+func (c *checkDeadlineContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.expired
+}
+
+func (c *checkDeadlineContext) Err() error {
+	select {
+	case <-c.expired:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
 func TestCheckTimeoutKillsALateOwnSessionChild(t *testing.T) {
-	shellAvailable(t)
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("needs python3 to call setsid")
-	}
+	python, err := exec.LookPath("python3")
+	require.NoError(t, err)
 	pidFile := filepath.Join(t.TempDir(), "pid")
-	check := "name: Late\nevery: 1d\ntimeout: 1s\ncheck:\n  command: [sh, -c, 'sleep 0.5; python3 -c \"import os,subprocess; p=subprocess.Popen([\\\"sleep\\\",\\\"300\\\"], start_new_session=True); open(\\\"" + pidFile + "\\\",\\\"w\\\").write(str(p.pid)); p.wait()\"']\nprompt: x\n"
-	dir := newRepo(t, map[string]string{"late.yml": check})
-	svc := newService(t, dir, &fakeAgent{}, "auto")
-	s, _ := svc.RunDue(context.Background())
-	if len(s.Outcomes) != 1 || s.Outcomes[0].Outcome != OutcomeFailed {
-		t.Fatalf("expected the check to time out: %+v", s)
+	input, trigger, err := os.Pipe()
+	require.NoError(t, err)
+	defer input.Close()
+	defer trigger.Close()
+	cmd := exec.Command(python, "-c", `import subprocess, sys
+sys.stdin.readline()
+p = subprocess.Popen(["sleep", "300"], start_new_session=True)
+with open(sys.argv[1], "w") as f:
+    f.write(str(p.pid))
+p.wait()
+`, pidFile)
+	cmd.Stdin = input
+	ctx := &checkDeadlineContext{Context: context.Background(), waiting: make(chan struct{}), expired: make(chan struct{})}
+	expire := sync.OnceFunc(func() { close(ctx.expired) })
+	done := make(chan struct{})
+	var runErr error
+	go func() {
+		_, runErr = runBounded(ctx, cmd, io.Discard)
+		close(done)
+	}()
+	t.Cleanup(func() { expire(); <-done })
+	// Run observes cancellation only after its initial process-tree snapshot.
+	select {
+	case <-ctx.waiting:
+	case <-done:
+		t.Fatalf("check exited before waiting for its deadline: %v", runErr)
 	}
-	data, err := os.ReadFile(pidFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
+	_, err = trigger.Write([]byte("\n"))
+	require.NoError(t, err)
+	var pid int
+	require.Eventually(t, func() bool {
+		data, err := os.ReadFile(pidFile)
+		if err != nil {
+			return false
+		}
+		pid, err = strconv.Atoi(string(data))
+		return err == nil && pid > 0
+	}, 5*time.Second, time.Millisecond, "fixture did not publish its own-session child")
+	require.NoError(t, syscall.Kill(pid, 0), "child must exist before the deadline")
+	expire()
+	<-done
+	require.ErrorIs(t, runErr, context.DeadlineExceeded)
 	deadline := time.Now().Add(3 * time.Second)
 	for syscall.Kill(pid, 0) == nil {
 		if time.Now().After(deadline) {

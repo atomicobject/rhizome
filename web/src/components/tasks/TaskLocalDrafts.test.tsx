@@ -48,7 +48,14 @@ describe("TasksWorkspace local task drafts", () => {
 
     const table = await screen.findByRole("table");
     const rows = within(table).getAllByRole("row").slice(1);
-    const row = (id: string) => rows.find((candidate) => within(candidate).queryByText(id))!;
+
+    // Named tasks show their name, not their id, so find each row by its title button.
+    const titles = new Map(
+      localDraftsReportFixture(NOW).tasks.map((task) => [task.id, task.name || task.id]),
+    );
+
+    const row = (id: string) =>
+      rows.find((candidate) => within(candidate).queryByRole("button", { name: titles.get(id) }))!;
 
     expect(rows).toHaveLength(5);
     expect(within(row("docs-drift")).getByText("Local changes")).toBeVisible();

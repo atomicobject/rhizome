@@ -1,3 +1,4 @@
+import { type BoardDensity, defaultBoardDensity } from "./BoardDensityControl";
 import { ChevronRight } from "lucide-react";
 import { type ComponentProps, type DragEvent, useEffect, useState } from "react";
 
@@ -6,7 +7,12 @@ import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { editOpForCell, fieldValue } from "./ConfiguredTableCellHelpers";
 import { ConfiguredViewCard, focusCard } from "./ConfiguredViewCard";
 import { BoardColumnHeaders, BoardMoveMenu, LaneMark } from "./ConfiguredViewBoardParts";
-import { capabilityFor, fieldCapability, groupValueLabel } from "./ConfiguredViewModel";
+import {
+  capabilityFor,
+  coveredGroupField,
+  fieldCapability,
+  groupValueLabel,
+} from "./ConfiguredViewModel";
 import { BoardCardBody } from "./ConfiguredViewBrief";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { type BoardColumn, type BoardLane, boardLanes, placeStagedCards } from "./boardLayout";
@@ -15,12 +21,9 @@ import { useRememberedExpansion } from "./useRememberedExpansion";
 import { mostCommon } from "./useViewLayout";
 import { isStaleRow } from "./viewProfile";
 
-type Props = ComponentProps<typeof ConfiguredViewTable>;
+type Props = ComponentProps<typeof ConfiguredViewTable> & { boardDensity?: BoardDensity };
 
 type DraggedCard = { row: ViewTableRow; columnKey: string };
-
-/** Columns holding more cards than this show compact cards. */
-const COMPACT_ABOVE = 24;
 
 export function ConfiguredViewBoard(props: Props) {
   const { execution, onCollapsedGroupCountChange, capabilities } = props;
@@ -29,13 +32,6 @@ export function ConfiguredViewBoard(props: Props) {
   const stagedSession = props.loading || props.showStagedEdits ? props.editSession : null;
   const laneCapability = fieldCapability(capabilities, board?.laneField);
   const lanes = boardLanes(execution, laneCapability?.edit?.field, stagedSession);
-
-  const columnExpansion = useRememberedExpansion(
-    props.preferenceScope,
-    props.vaultKey,
-    "native.boardColumns",
-    board?.columnField ?? "",
-  );
 
   const laneExpansion = useRememberedExpansion(
     props.preferenceScope,
@@ -136,7 +132,7 @@ export function ConfiguredViewBoard(props: Props) {
       // Empty values retain a narrow drop track.
       strip: count === 0,
       stale: profile ? rows.filter((row) => isStaleRow(row, profile, capabilities, now)).length : 0,
-      compact: !columnExpansion.isExpanded(column.key, rows.length <= COMPACT_ABOVE),
+      compact: (props.boardDensity ?? defaultBoardDensity(board)) === "compact",
       label: labelFor(column),
     };
   });
@@ -205,13 +201,6 @@ export function ConfiguredViewBoard(props: Props) {
     }
   }
 
-  function toggleColumn(key: string) {
-    const column = board?.columns.find((item) => item.key === key);
-
-    if (!column) return;
-    columnExpansion.toggle(key, (placement?.rows.get(key)?.length ?? 0) <= COMPACT_ABOVE);
-  }
-
   /** Drop handlers for one cell: a column, or a column within a lane. */
   function dropProps(column: BoardColumn, lane: BoardLane | null, cellKey: string) {
     const accepts = () => dragged !== null && dropOps(dragged, column, lane) !== null;
@@ -256,10 +245,11 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // Fixed tracks, shared by the header row and every lane, keep headers over
-  // their cards: open columns run 260–360px, an empty or collapsed value a
-  // compact 140px strip. A narrow window scrolls.
-  const template = columns.map((item) => (item.strip ? "140px" : "minmax(260px, 360px)")).join(" ");
+  // Headers and lanes share tracks, leaving most space to populated columns.
+  const template = columns.map((item) => (item.strip ? "96px" : "minmax(260px, 1fr)")).join(" ");
+
+  const maxWidth =
+    columns.reduce((width, item) => width + (item.strip ? 96 : 440), 0) + (columns.length - 1) * 12;
 
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
@@ -278,7 +268,7 @@ export function ConfiguredViewBoard(props: Props) {
         row={row}
         layout={execution.card}
         mode="board"
-        omitField={columnField}
+        omitField={coveredGroupField(row, columnField, capabilities)}
         busy={busy}
         compact={item.compact}
         body={
@@ -287,7 +277,9 @@ export function ConfiguredViewBoard(props: Props) {
               row={row}
               profile={profile}
               capabilities={capabilities}
-              hiddenFields={hiddenFields}
+              hiddenFields={hiddenFields.filter((field) =>
+                coveredGroupField(row, field, capabilities),
+              )}
               otherLanes={Math.max(0, memberships - 1)}
               stale={isStaleRow(row, profile, capabilities, now)}
               compact={item.compact}
@@ -404,12 +396,15 @@ export function ConfiguredViewBoard(props: Props) {
         </div>
       )}
       <div className="configured-view__board-scroll">
-        <div className="configured-view__board-columns" style={{ gridTemplateColumns: template }}>
-          <BoardColumnHeaders
-            items={columns}
-            capability={columnCapability}
-            onToggle={toggleColumn}
-          />
+        <div
+          className="configured-view__board-columns"
+          style={{
+            gridTemplateColumns: template,
+            maxWidth,
+          }}
+        >
+          <BoardColumnHeaders items={columns} capability={columnCapability} />
+          <div className="configured-view__board-age-label">Last changed</div>
         </div>
         {laneList.map((lane) => {
           const collapsed = lane ? !laneExpansion.isExpanded(lane.key, true) : false;
@@ -446,7 +441,10 @@ export function ConfiguredViewBoard(props: Props) {
               {!collapsed && (
                 <div
                   className="configured-view__board-cells"
-                  style={{ gridTemplateColumns: template }}
+                  style={{
+                    gridTemplateColumns: template,
+                    maxWidth,
+                  }}
                 >
                   {columns.map((item) => renderCell(item, lane))}
                 </div>

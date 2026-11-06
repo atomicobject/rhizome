@@ -16,6 +16,10 @@ import "./configured-view.css";
 import "./markdown-editor.css";
 import "./workbench.css";
 import "./notes-shell.css";
+import "./note-reader.css";
+import "./html-note.css";
+import "./search.css";
+import "./validation.css";
 import "./finder.css";
 import "./components/notePreview/notePreview.css";
 

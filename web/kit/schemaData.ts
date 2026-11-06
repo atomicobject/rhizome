@@ -45,7 +45,7 @@ export function useDisplayGroup(name?: string) {
 
 /**
  * A type's palette color, the same hue the Atlas, Explorer, and type pages
- * give it: `(name) => "var(--type-N)"`, with interfaces in the neutral. Until
+ * give it: `(name) => "var(--type-N)"`, with interfaces sharing their leading implementor. Until
  * the ontology summary loads, names fall back to a stable hash.
  */
 export function useTypeColors() {

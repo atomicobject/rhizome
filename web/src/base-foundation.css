@@ -1,0 +1,434 @@
+/* ==========================================================================
+   Rhizome UI — base tokens, resets, app shell, shared chrome
+   Brand: red #FD4F57 · warm black #4C4845 · teal #16CBC4
+   Fonts: Merriweather (display) · Inter (UI) · JetBrains Mono
+   ==========================================================================
+
+   This stylesheet owns everything that is shared across workspaces:
+   - Design tokens (colors, spacing, typography, motion)
+   - Document reset + typography defaults
+   - The top-level `.app-shell` nav chrome
+   - The sigma-powered `.graph-*` chrome (GraphView)
+   - Markdown / frontmatter / code-viewer primitives shared by file panes
+
+   Workspace-specific layout lives in `explorer.css` and `ontology.css`.
+   ========================================================================== */
+
+@import "./fonts.css";
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  font-size: var(--fs-base);
+}
+
+textarea {
+  font-size: var(--fs-md);
+}
+
+/* Mono is always JetBrains Mono, never the browser's Courier fallback. */
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* ---- Native form controls ----
+   One Rhizome treatment for select, text, search, and date inputs app-wide:
+   28px, border-strong, 6px corners, the surface in either appearance, and a
+   chevron that reads on light and dark surfaces (3:1 or better on both).
+   Element-level specificity, so any component class still wins. */
+select,
+input:where(
+  :not([type]),
+  [type="text"],
+  [type="search"],
+  [type="date"],
+  [type="datetime-local"],
+  [type="number"],
+  [type="email"],
+  [type="url"]
+) {
+  height: 28px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: normal;
+}
+
+/* The chevron rule outranks a component's single-class background
+   shorthand, so every single-value select keeps the design-system chevron. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237d7872' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 6.5 3 3 3-3'/%3E%3C/svg%3E");
+  background-position: right 7px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+select:where([multiple], [size]) {
+  height: auto;
+}
+
+input:where([type="search"]) {
+  appearance: none;
+}
+
+select:where(:hover:enabled),
+input:where(
+    :not([type]),
+    [type="text"],
+    [type="search"],
+    [type="date"],
+    [type="datetime-local"],
+    [type="number"],
+    [type="email"],
+    [type="url"]
+  ):where(:hover:enabled) {
+  border-color: var(--text-faint);
+}
+
+select:where(:disabled),
+input:where(
+    :not([type]),
+    [type="text"],
+    [type="search"],
+    [type="date"],
+    [type="datetime-local"],
+    [type="number"],
+    [type="email"],
+    [type="url"]
+  ):where(:disabled) {
+  background-color: var(--surface-sunk);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+select:not([multiple]):not([size]):disabled {
+  cursor: default;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+input:where([type="checkbox"], [type="radio"]) {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--text);
+}
+
+/* ---- Buttons (DESIGN.md, Buttons) ----
+   .button is the 28px secondary; --primary is the one commit action on a
+   surface; --ghost is transparent until hover. Selection is never red. */
+.button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.button:hover:enabled {
+  background: var(--bg-tint);
+}
+
+.button--primary {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.button--primary:hover:enabled {
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
+}
+
+.button--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.button--ghost:hover:enabled {
+  color: var(--text);
+}
+
+.button:disabled {
+  border-color: var(--border);
+  background: var(--surface-sunk);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.button--ghost:disabled {
+  border-color: transparent;
+  background: transparent;
+}
+
+.button svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* ---- Banner (DESIGN.md, Banners) ----
+   One 36px tinted band: a mark, concise text, and an optional action at the
+   right. Repeated conditions merge into one banner with a disclosure. */
+.banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 36px;
+  padding: 4px var(--sp-3) 4px var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-tint);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.banner--warning {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  background: var(--warning-soft);
+}
+
+.banner--risk {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.banner__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.banner__aside {
+  color: var(--text-muted);
+}
+
+.banner > .button,
+.banner__actions {
+  margin-left: auto;
+}
+
+.banner__actions {
+  display: flex;
+  flex: none;
+  gap: var(--sp-2);
+}
+
+.view-header__about code {
+  font-size: var(--fs-xs);
+}
+
+/* A nonzero problem count is the one count in red ink; zero stays muted. */
+.view-header__count.is-risk {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* ---- Risk status mark ----
+   Risk (Failed, Needs attention, errors) is an 11px red disc with an
+   exclamation cut out, so it never reads as the brand diamond. The other
+   status shapes live with .status-mark in configured-view.css; this rule
+   outranks the older rotated square there until that rule moves here. */
+.status-mark.status-mark--risk .status-mark__shape {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 0;
+  background: var(--accent);
+  transform: none;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill-rule='evenodd' d='M6 0a6 6 0 1 0 0 12A6 6 0 0 0 6 0ZM5.25 2.5h1.5v4.75h-1.5ZM5.25 8.25h1.5v1.5h-1.5Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/* ---- View header layout outside collections ----
+   Screens that are not configured views (Problems, Agent, Tasks) reuse the
+   .view-header classes from configured-view.css; this lets the title row
+   carry its own actions at the right. */
+.view-header__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+/* Header Details: diagnostics a reader rarely needs (versions, refs, commit
+   hashes, fetch times) sit behind one ghost "Details" button at the right of
+   the title row, as a small definition list. */
+.header-details {
+  position: relative;
+}
+
+.header-details > summary {
+  list-style: none;
+}
+
+.header-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-details[open] > summary {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.header-details dl {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-5);
+  min-width: 240px;
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: var(--fs-sm);
+}
+
+.header-details dt {
+  color: var(--text-muted);
+}
+
+.header-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   App shell — top nav + workspace wrapper
+   ========================================================================== */
+
+.app-shell {
+  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell__nav {
+  display: grid;
+  /* Brand, the sidebar toggle and sections, the search, then tools. The
+     sections and tools split the free space, so the search stays put when
+     the tools' counts load. */
+  grid-template-columns: auto auto minmax(max-content, 1fr) minmax(0, 560px) minmax(
+      max-content,
+      1fr
+    );
+  align-items: center;
+  height: 44px;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4) 0 var(--sp-5);
+  background: var(--chrome-top);
+  color: var(--chrome-text);
+  flex-shrink: 0;
+}
+
+/* The page before the status loads: empty, with a line only if it is slow. */
+.app-boot {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.app-boot p,
+.delayed-status {
+  opacity: 0;
+  animation: delayed-appear 0s linear 400ms forwards;
+}
+
+@keyframes delayed-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+.app-shell__brand {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-right: var(--sp-4);
+  line-height: 1;
+}
+
+.app-shell__brand::before {
+  content: "";
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}

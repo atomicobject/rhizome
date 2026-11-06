@@ -1,6 +1,24 @@
-import type { AgentHarnessKind, AgentHarnessStatus, AgentSettings } from "../../api/types";
+import type {
+  AgentHarnessKind,
+  AgentHarnessStatus,
+  AgentSettings,
+  AgentSettingsResponse,
+} from "../../api/types";
 import { humanizeName } from "../../lib/labels";
 import { DisclosureChevron } from "../DisclosureChevron";
+
+const defaultSettings: AgentSettings = {
+  harnesses: {
+    codex: { permissionMode: "approval-required" },
+    claude: { permissionMode: "approval-required" },
+  },
+};
+
+export const emptySettingsResponse: AgentSettingsResponse = {
+  settings: defaultSettings,
+  resolved: { reason: "none available" },
+  harnesses: [],
+};
 
 type StatusEntry = { kind: AgentHarnessKind; status: AgentHarnessStatus };
 
@@ -109,11 +127,15 @@ export function AgentSettingsPanel({
       {/* Effort and permission are per-session tuning: behind one disclosure
           whose summary still names the active permission. */}
       <details className="agent-session-settings">
-        <summary>
+        <summary
+          aria-label={`Settings: ${configured.permissionMode === "approval-required" ? "Tool approval: ask first" : `Tool approval: ${humanizeName(configured.permissionMode)}`}`}
+        >
           <DisclosureChevron />
-          <span>Session settings</span>
+          <span>Settings</span>
           <span className="agent-session-settings__active">
-            {humanizeName(configured.permissionMode)}
+            {configured.permissionMode === "approval-required"
+              ? "Tool approval: ask first"
+              : `Tool approval: ${humanizeName(configured.permissionMode)}`}
           </span>
         </summary>
         <div className="agent-model-controls">

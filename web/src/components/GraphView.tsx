@@ -4,62 +4,23 @@ import { useMemo, useState } from "react";
 import { humanizeName } from "../lib/labels";
 import { publicTypeName } from "../lib/typeNames";
 import type { GraphEdge, GraphNode } from "../api/types";
-import {
-  CODE_COLOR,
-  FOLDER_COLOR,
-  type GraphScope,
-  type GraphViewNode,
-  kindLabel,
-  truncatePath,
-  UNTYPED_COLOR,
-} from "./graphViewShared";
+import { type GraphScope, type GraphViewNode, kindLabel } from "./graphViewShared";
 import { type GraphDisplay, type GraphNodeClickOptions, useSigmaGraph } from "./useSigmaGraph";
 
-const UNTYPED_NODE_TYPE = "__untyped__";
-
-/** Legend keys for nodes that are not notes; their colors match `nodeColor` under a type-color map. */
-const CODE_NODE_TYPE = "__code__";
-
-const FOLDER_NODE_TYPE = "__module__";
-
-const KIND_ENTRIES = new Map([
-  [UNTYPED_NODE_TYPE, { label: "Untyped notes", color: UNTYPED_COLOR }],
-  [CODE_NODE_TYPE, { label: "Code files", color: CODE_COLOR }],
-  [FOLDER_NODE_TYPE, { label: "Folders", color: FOLDER_COLOR }],
-]);
-
-/** Legend groups, in order: what the colors of notes mean, then code, then folders. */
-const LEGEND_GROUPS = [
-  { key: "typed", title: "Notes by type" },
-  { key: "code", title: "Code" },
-  { key: "folder", title: "Folders" },
-] as const;
-
-function legendGroup(name: string) {
-  if (name === CODE_NODE_TYPE) return "code";
-
-  if (name === FOLDER_NODE_TYPE) return "folder";
-
-  return "typed";
-}
-
-const EMPTY_PROBLEM_COUNTS: ReadonlyMap<string, number> = new Map();
-
-type GraphTypeEntry = {
-  name: string;
-  label: string;
-  count: number;
-  color: string;
-  selected: boolean;
-};
-
-function graphTypeName(node: GraphNode): string {
-  if (node.kind === "code") return CODE_NODE_TYPE;
-
-  if (node.kind === "module") return FOLDER_NODE_TYPE;
-
-  return publicTypeName(node.resolvedType) || UNTYPED_NODE_TYPE;
-}
+import {
+  FolderLegend,
+  EdgeLegend,
+  LEGEND_GROUPS,
+  KIND_ENTRIES,
+  UNTYPED_NODE_TYPE,
+  CODE_NODE_TYPE,
+  FOLDER_NODE_TYPE,
+  EMPTY_PROBLEM_COUNTS,
+  graphTypeName,
+  legendGroup,
+  legendItem,
+  type GraphTypeEntry,
+} from "./graphLegend";
 
 export function GraphView({
   nodes,
@@ -87,6 +48,7 @@ export function GraphView({
   folderCaption,
   sizeCaption,
   edgeCaption,
+  layoutExtent,
 }: {
   /** Nodes to draw; a summarized view may give each its own `fill`. */
   nodes: GraphViewNode[];
@@ -122,6 +84,7 @@ export function GraphView({
   sizeCaption?: string;
   /** What a drawn line means, keyed beside the folders it joins. */
   edgeCaption?: string;
+  layoutExtent?: number;
 }) {
   const [localShowProblems, setLocalShowProblems] = useState(false);
   const showProblems = display?.showProblems ?? localShowProblems;
@@ -151,6 +114,8 @@ export function GraphView({
   } = useSigmaGraph({
     nodes,
     edges,
+    layoutExtent,
+    explorer: scope.mode === "local" || nodes.some((node) => Boolean(node.fill)),
     needsIndex,
     onNodeClick,
     scope,
@@ -194,7 +159,13 @@ export function GraphView({
       Array.from(counts.entries())
         .map(([name, count]) => {
           const kind = KIND_ENTRIES.get(name);
-          const color = kind?.color ?? (typeColors?.get(name) || "var(--text-faint)");
+
+          const color =
+            name === CODE_NODE_TYPE &&
+            scope.mode !== "local" &&
+            !nodes.some((node) => node.fill || node.x !== undefined)
+              ? "var(--graph-code)"
+              : (kind?.color ?? (typeColors?.get(name) || "var(--text-faint)"));
 
           return {
             name,
@@ -212,7 +183,7 @@ export function GraphView({
           return rank(left) - rank(right) || left.label.localeCompare(right.label);
         })
     );
-  }, [highlightTypes, legendNodes, nodes, typeColors, typeLabels]);
+  }, [highlightTypes, legendNodes, nodes, typeColors, typeLabels, scope.mode]);
 
   const highlightedNodeCount = useMemo(() => {
     if (!highlightTypes?.size) return nodes.length;
@@ -252,7 +223,7 @@ export function GraphView({
                 checked={scaleByAuthority}
                 onChange={(e) => setScaleByAuthority(e.target.checked)}
               />
-              Size by authority
+              {sizeCaption || "Size by authority"}
             </label>
             <label className="graph-toggle">
               <input
@@ -449,22 +420,24 @@ export function GraphView({
                 </span>
               )}
             </div>
-            {hover.path && <div className="graph-hover-path">{truncatePath(hover.path)}</div>}
+            {hover.path && <div className="graph-hover-path">{hover.path}</div>}
           </div>
         )}
       </div>
       {showTypeLegend &&
         (legendNodes ? (
           <FolderLegend
+            nodes={nodes}
             entries={typeEntries}
-            shown={new Set(nodes.flatMap((node) => (node.fillKey ? [node.fillKey] : [])))}
+            shown={new Set(nodes.map((node) => node.fillKey || graphTypeName(node)))}
             caption={folderCaption}
-            sizeCaption={sizeCaption}
             edgeCaption={edgeCaption}
+            edges={edges}
           />
         ) : (
           <aside className="graph-type-legend" aria-label="Graph type legend">
             <div className="graph-type-legend__caption">{nodeCaption}</div>
+            <EdgeLegend edges={edges} />
             {LEGEND_GROUPS.map((group) => {
               const entries = typeEntries.filter((entry) => legendGroup(entry.name) === group.key);
 
@@ -477,7 +450,9 @@ export function GraphView({
                   data-group={group.key}
                 >
                   <h3 className="graph-type-legend__title">{group.title}</h3>
-                  <ul className="graph-type-legend__list">{entries.map(legendItem)}</ul>
+                  <ul className="graph-type-legend__list">
+                    {entries.map((entry) => legendItem(entry))}
+                  </ul>
                 </section>
               );
             })}
@@ -485,96 +460,6 @@ export function GraphView({
         ))}
       {displaySlot && createPortal(displayMenu, displaySlot)}
     </div>
-  );
-}
-
-function legendItem(entry: GraphTypeEntry) {
-  return (
-    <li
-      key={entry.name}
-      className={`graph-type-legend__item ${entry.selected ? "is-highlighted" : ""}`}
-      data-type={entry.name}
-    >
-      <span
-        className="graph-type-legend__swatch"
-        style={entry.name === FOLDER_NODE_TYPE ? undefined : { backgroundColor: entry.color }}
-        aria-hidden="true"
-      />
-      <span className="graph-type-legend__label">{entry.label}</span>
-      <span className="graph-type-legend__count num">{entry.count.toLocaleString("en-US")}</span>
-    </li>
-  );
-}
-
-/**
- * The folder view's key: the hues its folders actually take first, then what
- * size and lines mean; every type in the graph waits behind "All types".
- */
-function FolderLegend({
-  entries,
-  shown,
-  caption,
-  sizeCaption,
-  edgeCaption,
-}: {
-  entries: readonly GraphTypeEntry[];
-  /** The fill keys the drawn folders use. */
-  shown: ReadonlySet<string>;
-  caption?: string;
-  sizeCaption?: string;
-  edgeCaption?: string;
-}) {
-  const [all, setAll] = useState(false);
-  const inventory = entries.filter((entry) => entry.name !== FOLDER_NODE_TYPE);
-
-  return (
-    <aside className="graph-type-legend graph-type-legend--folders" aria-label="Graph type legend">
-      <div className="graph-type-legend__row">
-        <h3 className="graph-type-legend__title">Types</h3>
-        <ul className="graph-type-legend__list">
-          {inventory
-            .filter((entry) => shown.has(entry.name) && legendGroup(entry.name) !== "code")
-            .map(legendItem)}
-        </ul>
-        <button
-          type="button"
-          className="graph-type-legend__more"
-          aria-expanded={all}
-          aria-controls="graph-type-legend-all"
-          onClick={() => setAll((open) => !open)}
-        >
-          <span className="graph-type-legend__chevron" aria-hidden="true">
-            <ChevronDown size={16} strokeWidth={1.75} />
-          </span>
-          All types
-        </button>
-      </div>
-      <div className="graph-type-legend__row graph-type-legend__keys">
-        <h3 className="graph-type-legend__title">Graph</h3>
-        <ul className="graph-type-legend__list">
-          {inventory.filter((entry) => legendGroup(entry.name) === "code").map(legendItem)}
-        </ul>
-        {sizeCaption && (
-          <span className="graph-type-legend__key">
-            <span className="graph-type-legend__size" aria-hidden="true" />
-            {sizeCaption}
-          </span>
-        )}
-        {edgeCaption && (
-          <span className="graph-type-legend__key">
-            <span className="graph-type-legend__line" aria-hidden="true" />
-            {edgeCaption}
-          </span>
-        )}
-      </div>
-      {caption && <p className="graph-type-legend__caption">{caption}</p>}
-      {all && (
-        <section id="graph-type-legend-all" className="graph-type-legend__all">
-          <h3 className="graph-type-legend__title">Everything in the graph</h3>
-          <ul className="graph-type-legend__list">{inventory.map(legendItem)}</ul>
-        </section>
-      )}
-    </aside>
   );
 }
 

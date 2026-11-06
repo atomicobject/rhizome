@@ -1,3 +1,4 @@
+import { confirmDiscard } from "./editing/confirmDiscard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -515,18 +516,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   }, [editSession, queryClient, refreshSidebar]);
 
   const discard = useCallback(async () => {
-    const { opCount, touchedPaths } = editSession.summary;
-
-    // Discard drops every staged edit in every note, with no undo.
-    if (
-      opCount > 0 &&
-      !window.confirm(
-        `Discard ${opCount} staged change${opCount === 1 ? "" : "s"} to ${touchedPaths.size || 1} note${
-          touchedPaths.size === 1 ? "" : "s"
-        }? This cannot be undone.`,
-      )
-    )
-      return;
+    if (!confirmDiscard(editSession.summary, editSession.vaultKey)) return;
 
     clearPersistedEditorDrafts(editSession.vaultKey);
     window.dispatchEvent(new Event("rhizome:discard-editor-drafts"));

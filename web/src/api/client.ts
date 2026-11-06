@@ -376,10 +376,10 @@ function normalizeGraph(data: GraphResponse): GraphResponse {
 }
 
 export function getGlobalGraph(
-  options: { notesOnly?: boolean; diagnostics?: boolean } = {},
+  options: { notesOnly?: boolean; diagnostics?: boolean; limit?: number } = {},
   requestOptions: RequestOptions = {},
 ) {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams(options.limit ? { limit: String(options.limit) } : {});
 
   if (options.notesOnly) params.set("notesOnly", "true");
 
@@ -667,7 +667,11 @@ export function listPublicViewFieldCandidates(
 }
 
 export function getTree(path?: string, limit: number = 200, requestOptions: RequestOptions = {}) {
-  const suffix = path ? `?path=${encodeURIComponent(path)}&limit=${limit}` : "";
+  const params = new URLSearchParams({ limit: String(limit) });
+
+  if (path) params.set("path", path);
+
+  const suffix = `?${params}`;
 
   return fetchJSON<TreeResponse>(`/api/v1/files/tree${suffix}`, requestInit(requestOptions));
 }

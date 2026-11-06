@@ -37,9 +37,9 @@ test("moves a board card, reports the staged change, and opens a card", async ({
   ).toHaveCount(0);
 
   await expect(
-    page.locator(".configured-card", { hasText: movedTitle }).getByText("staged", {
-      exact: true,
-    }),
+    page
+      .locator(".configured-card", { hasText: movedTitle })
+      .getByRole("img", { name: "Staged changes" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Changes 1" })).toBeVisible();
   await expect(page.getByText("1 staged change", { exact: true })).toBeVisible();

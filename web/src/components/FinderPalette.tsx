@@ -210,7 +210,6 @@ export function FinderPalette<T extends FinderPaletteItem>({
             }}
             onKeyDown={onKeyDown}
           />
-          <kbd>esc</kbd>
         </div>
         {!query.trim() && recentHeading && items.length > 0 && (
           <div className="finder__heading" aria-hidden="true">

@@ -55,66 +55,16 @@ colors:
   indigo-chrome: "#3c3d63"
   white: "#ffffff"
 typography:
-  display:
-    fontFamily: "Merriweather, Georgia, Times New Roman, serif"
-    fontSize: "24px"
-    fontWeight: 900
-    lineHeight: 1.18
-    letterSpacing: "-0.015em"
-  headline:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "18px"
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: "-0.01em"
-  section:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "18px"
-    fontWeight: 600
-    lineHeight: 1.35
-    letterSpacing: "-0.005em"
-  section-heading:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "15px"
-    fontWeight: 600
-    lineHeight: 1.35
-    letterSpacing: "0"
-  title:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "16px"
-    fontWeight: 600
-    lineHeight: 1.25
-    letterSpacing: "-0.005em"
-  prose:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "15px"
-    fontWeight: 400
-    lineHeight: 1.6
-    letterSpacing: "0"
-  body:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "14px"
-    fontWeight: 400
-    lineHeight: 1.45
-    letterSpacing: "0"
-  secondary:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "13px"
-    fontWeight: 500
-    lineHeight: 1.3
-    letterSpacing: "0"
-  label:
-    fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif"
-    fontSize: "13px"
-    fontWeight: 500
-    lineHeight: 1.35
-    letterSpacing: "0"
-  mono:
-    fontFamily: "JetBrains Mono, ui-monospace, Menlo, Consolas, monospace"
-    fontSize: "12px"
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: "0"
+  display: { fontFamily: "Merriweather, Georgia, Times New Roman, serif", fontSize: "24px", fontWeight: 900, lineHeight: 1.18, letterSpacing: "-0.015em" }
+  headline: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "18px", fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.01em" }
+  section: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "18px", fontWeight: 600, lineHeight: 1.35, letterSpacing: "-0.005em" }
+  section-heading: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "15px", fontWeight: 600, lineHeight: 1.35, letterSpacing: "0" }
+  title: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "16px", fontWeight: 600, lineHeight: 1.25, letterSpacing: "-0.005em" }
+  prose: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "15px", fontWeight: 400, lineHeight: 1.6, letterSpacing: "0" }
+  body: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "14px", fontWeight: 400, lineHeight: 1.45, letterSpacing: "0" }
+  secondary: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "13px", fontWeight: 500, lineHeight: 1.3, letterSpacing: "0" }
+  label: { fontFamily: "Inter, -apple-system, system-ui, Segoe UI, sans-serif", fontSize: "13px", fontWeight: 500, lineHeight: 1.35, letterSpacing: "0" }
+  mono: { fontFamily: "JetBrains Mono, ui-monospace, Menlo, Consolas, monospace", fontSize: "12px", fontWeight: 500, lineHeight: 1.4, letterSpacing: "0" }
 rounded:
   sm: "3px"
   base: "4px"
@@ -131,81 +81,18 @@ spacing:
   xxl: "24px"
   xxxl: "32px"
 components:
-  button-primary:
-    backgroundColor: "{colors.primary-red-deep}"
-    textColor: "{colors.white}"
-    typography: "{typography.secondary}"
-    rounded: "{rounded.base}"
-    padding: "4px 10px"
-  button-secondary:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.secondary}"
-    rounded: "{rounded.md}"
-    padding: "0 10px"
-    height: "28px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 8px"
-    height: "30px"
-  input-find:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 10px"
-    height: "30px"
-  chip-type:
-    backgroundColor: "{colors.surface-tint}"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.label}"
-    rounded: "{rounded.sm}"
-    padding: "1px 6px"
-  sidebar-row:
-    backgroundColor: "{colors.graphite-chrome}"
-    textColor: "{colors.graphite-muted}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 10px 0 8px"
-    height: "30px"
-  sidebar-row-active:
-    backgroundColor: "{colors.graphite-pill}"
-    textColor: "{colors.graphite-pill-text}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    height: "30px"
-  table-row:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body}"
-    padding: "0 10px"
-    height: "36px"
-  finder-palette:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body}"
-    rounded: "{rounded.palette}"
-    width: "640px"
-  segmented-track:
-    backgroundColor: "{colors.surface-tint}"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.secondary}"
-    rounded: "{rounded.md}"
-    padding: "2px"
-    height: "28px"
-  segmented-selected:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.secondary}"
-    rounded: "{rounded.base}"
-    padding: "0 9px"
-    height: "22px"
-  link-quiet:
-    textColor: "{colors.connection-teal-ink}"
-    typography: "{typography.body}"
+  button-primary: { backgroundColor: "{colors.primary-red-deep}", textColor: "{colors.white}", typography: "{typography.secondary}", rounded: "{rounded.base}", padding: "4px 10px" }
+  button-secondary: { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.secondary}", rounded: "{rounded.md}", padding: "0 10px", height: "28px" }
+  button-ghost: { backgroundColor: "transparent", textColor: "{colors.ink-muted}", typography: "{typography.body}", rounded: "{rounded.md}", padding: "0 8px", height: "30px" }
+  input-find: { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.body}", rounded: "{rounded.md}", padding: "0 10px", height: "30px" }
+  chip-type: { backgroundColor: "{colors.surface-tint}", textColor: "{colors.ink-muted}", typography: "{typography.label}", rounded: "{rounded.sm}", padding: "1px 6px" }
+  sidebar-row: { backgroundColor: "{colors.graphite-chrome}", textColor: "{colors.graphite-muted}", typography: "{typography.body}", rounded: "{rounded.md}", padding: "0 10px 0 8px", height: "30px" }
+  sidebar-row-active: { backgroundColor: "{colors.graphite-pill}", textColor: "{colors.graphite-pill-text}", typography: "{typography.body}", rounded: "{rounded.md}", height: "30px" }
+  table-row: { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.body}", padding: "0 10px", height: "36px" }
+  finder-palette: { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.body}", rounded: "{rounded.palette}", width: "640px" }
+  segmented-track: { backgroundColor: "{colors.surface-tint}", textColor: "{colors.ink-muted}", typography: "{typography.secondary}", rounded: "{rounded.md}", padding: "2px", height: "28px" }
+  segmented-selected: { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.secondary}", rounded: "{rounded.base}", padding: "0 9px", height: "22px" }
+  link-quiet: { textColor: "{colors.connection-teal-ink}", typography: "{typography.body}" }
 ---
 
 # Design System: Rhizome
@@ -228,7 +115,7 @@ The supported product surface is desktop web and Rhizome Desktop. Optimize for 1
 - One tinted chrome layer, white work surfaces, one tinted neutral, and hairlines.
 - Typography that separates roles: Merriweather for document titles, Inter for UI, prose, and every number, JetBrains Mono for identifiers, paths, and code.
 - Red is rare; selection is a neutral chrome tint, never red.
-- Status always pairs colour with shape, text, or position.
+- Status always pairs colour with shape, text, or position. Each status word keeps one mark everywhere: Active is a blue half circle; Complete, Done and Success are green filled dots; unsaved changes use gold triangles; failure, Blocked and Risk use red exclamation discs; Draft, Planned and Proposed use neutral rings; Archived, Dropped and Cancelled use muted dashed rings. Schema tones and lifecycle positions cannot override these words.
 
 ## 2. Colors
 
@@ -255,7 +142,8 @@ Every colour in `web/src/tokens.css` is a `light-dark()` pair resolved by the ro
 
 - **Info Blue** (`info-blue`): the in-progress status mark and informational tints.
 - **Warning Gold** (`warning-gold`, `warning-soft`, `warning-ink`): staged (unsaved) edits everywhere, the dirty tab dot, warnings, and the connection banner. Gold means "changed, not yet saved", never "problem".
-- **Type palette** (`--type-1` … `--type-13`, each with an `-ink` text variant): twelve saturated categorical hues, plus slot 8, the warm-gray neutral for interfaces, untyped notes, and essential edges. Code keeps its separate `--graph-code` gray. Fills and dots clear 3:1 and text variants clear 4.5:1 against all three content surfaces in each appearance. Dark mode uses its own brighter, saturated colours. Teal stays reserved for links and connections, and red for risk.
+- **Type palette** (`--type-1` … `--type-13`, each with an `-ink` text variant): twelve saturated categorical hues, plus slot 8, the warm-gray neutral for untyped notes and essential edges. Code keeps its separate `--graph-code` gray. Fills and dots clear 3:1 and text variants clear 4.5:1 against all three content surfaces in each appearance. Dark mode uses its own brighter, saturated colours. Teal stays reserved for links and connections, and red for risk.
+- **One colour per type.** `web/src/lib/typePalette.ts` owns type tokens for the sidebar, Finder, Atlas, ontology pages, chips, Explorer and Overview legends. Concrete types use one vivid token everywhere. An interface shares the token of its implementor with the most records (name order breaks ties); an interface without implementors uses the name hash. Code retains its separate Explorer colour. Labels and shapes accompany colour.
 - Keep the assignment order `1, 6, 7, 5, 2, 3, 4, 11, 10, 12, 13, 9`: name order, types with records first, with a hash fallback for unlisted names. Hue families remain stable. Grass, chartreuse, and emerald differ in hue and lightness; gold, orange, and copper replace overlapping browns. Twelve hues cannot all remain distinct under common colour-vision deficiencies: retain labels, legends, and shapes, and never encode meaning through colour alone.
 
 | Slot | Hue        | Light fill | Light ink | Dark fill / ink       |
@@ -287,6 +175,8 @@ The content area uses white plus one tinted neutral per appearance, separated by
 - **Strong Tint** (`surface-strong`; `surface-strong-dark`): count badges on tool buttons.
 - **Borders** (`border`, `border-strong`, `border-faint`; dark counterparts): `border` separates regions and outlines controls, `border-strong` outlines inputs, segmented controls, and overlays, and `border-faint` separates table rows and the properties block.
 
+In dark mode the content panel has a 1px inset outline at 8% white; cards and board cards use the strong dark border (`#45433f`). Light mode retains its existing panel and card edges.
+
 ### Chrome themes
 
 A theme sets only the chrome tokens on `html[data-theme]`: `--chrome-bg` (sidebar and inset frame), `--chrome-top` (top bar, one step darker), `--chrome-text`, `--chrome-muted`, `--chrome-pill` with `--chrome-pill-text` (the active sidebar row), and the derived `--chrome-raised` (hover, 9% text mix) and `--chrome-active` (current top-bar tab, 16% mix). Selection (`--selection`, `--selection-edge`) is tinted from the chrome, so it changes with the theme.
@@ -305,7 +195,7 @@ Every theme clears 4.5:1 for chrome text and muted chrome text in both appearanc
 
 **The Teal Means Connection Rule.** Teal means a link, a relationship, or provenance. It is never decoration and never a status: success is green (`--success`), and people (assignees) are ink, not links.
 
-**The One Validation State Rule.** A clean validation result reads "✓ No issues" everywhere it appears (the Problems status line, Briefing, strips), once per screen, with the ✓ in `--success` and the words in `--success-ink` or ink. A result with problems reads as a count, "3 issues". Never "No issues found", "0 issues", "Valid", or a second clean badge on the same screen.
+**The One Validation State Rule.** Clean validation uses the shared `ValidationCheck` green check-circle. A clean validation result reads "✓ No validation issues" in Briefings and "✓ No issues" on Problems (the Problems status line, Briefing, strips), once per screen, with the ✓ in `--success` and the words in `--success-ink` or ink. A result with problems reads as a count, "3 issues". Never "No issues found", "0 issues", "Valid", or a second clean badge on the same screen.
 
 **The Chrome Owns the Theme Rule.** Themes recolour the top bar, sidebar, and selection only. Content surfaces never take a theme colour, so every theme reads the same inside the panel.
 
@@ -374,7 +264,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **Table column policy.** Every column except the title has a fixed width and never takes a share of extra space: ids 176px, enums and short text 136px, relations 220px, people 160px, dates 116px, due dates 188px (room for an Overdue label), ages 92px, numbers and flags 72px, plus a 30px select cell. The title takes all remaining width and never drops below 320px. When the columns cannot fit at those minimums, relation columns leave first, then ids, then dates; they show in the Record pane, and the footer names them. Rows are 36px in one-line density and 56px in two-line density with the summary.
 
-**Reading and data surfaces.** A note is a capped reading surface: a centred 540px column for prose, properties, and body blocks, while the note's control row runs edge to edge with the panel gutter, as an HTML note's does. The built-in views are capped and centred on wide screens: Briefing in one centred column of about 1320px and Overview in one of about 1520px, shared by the header, tabs, status line, and body so all four start on the same edge. Data surfaces fill the width with bounded columns: tables stretch, and board columns are fixed tracks of 260–360px shared by header and cards, so a wider window shows more columns rather than wider ones. Empty board values are 140px strips above dashed drop lanes; populated columns keep their tracks when switching card density. Cards fill an auto-fill grid with a 260px minimum.
+**Reading and data surfaces.** A note is a capped reading surface: a centred 540px column for prose, properties, and body blocks, while the note's control row runs edge to edge with the panel gutter, as an HTML note's does. The built-in views are capped and centred on wide screens: Briefing in one centred column of about 1320px and Overview in one of about 1520px, shared by the header, tabs, status line, and body so all four start on the same edge. Search reads as a list of excerpts, so it caps at 960. Data surfaces fill the width with bounded columns: tables stretch, and board columns are fixed tracks of 260–360px shared by header and cards, so a wider window shows more columns rather than wider ones. Empty board values are 140px strips above dashed drop lanes; populated columns keep their tracks when switching card density. Cards fill an auto-fill grid with a 260px minimum.
 
 **Note rhythm.** Sections separate by space, not rules: 28px above an H2 and 24px above an H3, 8px below any heading, and paragraphs 0.75em apart (about 11px), well under the section gap. The note's lead line of links reads as 13px muted metadata above the body.
 
@@ -398,9 +288,11 @@ Rhizome is flat by default and layered by structure. Depth comes from the chrome
 - **Low Lift** (`--shadow-sm`, `0 1px 2px rgba(42, 39, 36, 0.06)`): compact controls that need tactile definition.
 - **Overlay Lift** (`--shadow`, `0 1px 3px rgba(42, 39, 36, 0.08), 0 2px 6px rgba(42, 39, 36, 0.04)`): menus, popovers, and editor autocomplete.
 - **Command Lift** (`--shadow-lg`, `0 10px 28px rgba(42, 39, 36, 0.1)`): the ⌘P finder, the Appearance panel, and the right pane when it overlays the content below 1200px.
-- **Scrim** (`--scrim`, ink at 32% in light and black at 55% in dark): behind the ⌘P finder. The desktop ⌘O and ⇧⌘O finders use it at 65% strength so the page stays readable beneath.
+- **Scrim** (`--scrim`, ink at 40% in light and black at 60% in dark): behind the ⌘P finder. The desktop ⌘O and ⇧⌘O finders use it at 65% strength so the page stays readable beneath.
 
 In dark appearance every shadow switches to black at 30–60% through `light-dark()`.
+
+Hairlines span the view's column: capped views cap their rules, while full-width tables run full width. Empty values everywhere, including the Record pane, show "—" in muted ink.
 
 ### Named Rules
 
@@ -455,7 +347,9 @@ The classes live in `base.css`; use them rather than restyling a button per scre
 
 ### Collections and the View Header
 
-A configured view is one result set with presentations chosen from text tabs (Briefing, Table, Cards, Board, and saved views); switching presentation never resets search, filters, or sort. The title row shows the 18/700 title, a 14px muted count, a 13px muted description that truncates first, the type or interface identity ("Interface: Effort") in the header's info tooltip, which links to its Ontology detail, then Find in view, Filter, and View. View opens a popover with Group by, Sort, Rows, Columns, Reset to shared (only while the view holds personal settings), and Save view. Active filters appear as removable chips in a tinted band under the header only while a filter is active. The footer is a status line: row count, collapsed groups, and any columns moved to the Record pane.
+A configured view is one result set with presentations chosen from text tabs (Briefing, Table, Cards, Board, and saved views); switching presentation never resets search, filters, or sort. The title row shows the 18/700 title, a 14px muted count, a 13px muted description that truncates first, the type or interface identity ("Interface: Effort") in the header's info tooltip, which links to its Ontology detail, then Find in view, Filter, and View. View opens a popover with Group by, Sort, Rows, Columns, Reset to shared (only while the view holds personal settings), and Save view. Active filters appear as removable chips in a tinted band under the header only while a filter is active. The footer is a status line: counts appear only where the header has none, followed by collapsed groups and any columns moved to the Record pane.
+
+Trace uses a two-line header band: column identity above coverage and relation labels.
 
 ### Tables
 
@@ -463,7 +357,7 @@ Column heads are sticky, 34px, 13/500 muted, with an ink sort arrow. Rows are 36
 
 ### Board and Cards
 
-Board columns are tinted bands without a border (6px corners) holding flat white bordered cards, in schema enum order. Empty values are 140px horizontal headers above visible dashed drop lanes at least 160px tall. Populated columns stay open; the per-column chevron switches card density and is labelled "Compact cards" or "Full cards". Columns with more than 24 cards default to compact cards. Staleness is a muted header line ("12 unchanged 30+ days") and a plain age on each card, never a gold pill or a clock on ages, and relation values on cards are muted secondary links (`.link-secondary`), so card titles lead. A move stages an edit until commit or discard, and every drag has a keyboard equivalent. Cards are for low-cardinality types: dense hairline cards in aligned rows of a 260px auto-fill grid, with summaries clamped to three lines. A group header is the label followed by its count ("Proposed 16").
+Board columns are tinted bands without a border (6px corners) holding flat white bordered cards, in schema enum order. Empty values are 140px horizontal headers above visible dashed drop lanes at least 160px tall. Populated columns stay open; one Board density setting in Display switches every column between compact and full cards. Staleness is a muted header line ("12 unchanged 30+ days") and a plain age on each card, never a gold pill or a clock on ages, and relation values on cards are muted secondary links (`.link-secondary`), so card titles lead. A move stages an edit until commit or discard, and every drag has a keyboard equivalent. Cards are for low-cardinality types: dense hairline cards in aligned rows of a 260px auto-fill grid, with a fixed line budget: a one-line title shows four summary lines, and a two-line title leaves three. A group header is the label followed by its count ("Proposed 16").
 
 ### Status Marks
 
@@ -473,19 +367,21 @@ Status is a 9px shape plus a label driven by the schema tone: hollow ring for ne
 
 ### Banners
 
-A condition that affects a whole screen (a new task, a paused queue, unavailable search sources, a refused ref) is one `.banner`: a 36px band on the content gutter with 6px corners, a status mark with its label, concise 13px text (`.banner__text`, `.banner__aside` for a muted time), and an optional 28px `.button` action at the right (`.banner__actions` for two). Tones: neutral tint by default, `.banner--warning` (warning-soft, gold border), and `.banner--risk` (red soft, red line). Repeated conditions merge into one banner whose details sit behind a disclosure; never stack several bands. A banner is never louder than the failure it sits above. On Tasks a failed run is told by its row: the risk mark in Last run, and in the Inbox cell one quiet action, "Review failed run", the only label a failed run's action ever takes. The risk banner is reserved for an aggregate, two or more failed tasks ("2 tasks failed" and their names); one failure never repeats in a banner. A new task's notice is no banner: the row's secondary line, after the task id, carries the neutral "New" chip (as `.type-chip`, never info blue) and a muted "What it does" disclosure (muted ink with the shared chevron, never teal) that opens the schedule and purpose, with Dismiss, in a full-width row below; the failed run's action stays the row's prominent one. The Tasks header's description is a plain scheduling summary ("Next run in 6 days · 1 failed run", "A task is due now", or "Paused"); the primary ref, commit, when the repository last fetched ("Fetched 2m ago"), and where each task's mode comes from (its task default or set here) sit behind Details. The Mode column names the mode alone.
+A condition that affects a whole screen (a new task, a paused queue, unavailable search sources, a refused ref) is one `.banner`: a 36px band on the content gutter with 6px corners, a status mark with its label, concise 13px text (`.banner__text`, `.banner__aside` for a muted time), and an optional 28px `.button` action at the right (`.banner__actions` for two). Tones: neutral tint by default, `.banner--warning` (warning-soft, gold border), and `.banner--risk` (red soft, red line). Repeated conditions merge into one banner whose details sit behind a disclosure; never stack several bands. A banner is never louder than the failure it sits above. On Tasks a failed run is told by its row: the risk mark in Last run, and in the Action cell one quiet action, "Review failed run", the only label a failed run's action ever takes. The risk banner is reserved for an aggregate, two or more failed tasks ("2 tasks failed" and their names); one failure never repeats in a banner. A new task's notice is no banner: the row's secondary line, after the task id, carries the neutral "New" chip (as `.type-chip`, never info blue) and a muted "What it does" disclosure (muted ink with the shared chevron, never teal) that opens the schedule and purpose, with Dismiss, in a full-width row below; the failed run's action stays the row's prominent one. The Tasks header's description is a plain scheduling summary ("Next run in 6 days · 1 failed run", "A task is due now", or "Paused"); the primary ref, commit, when the repository last fetched ("Fetched 2m ago"), and where each task's mode comes from (its task default or set here) sit behind Details. The Mode column names the mode alone.
 
 ### Right Pane
 
-The pane has a 40px header with its 15/600 title or Info / Outline / Graph tabs (13/500, ink underline when selected) and a close button. Record shows the row's 16/600 title, a muted summary, and 30px field rows with 13/500 muted labels in a 120px column. The id sits on its own 12px mono line under the title with Open at the right, and an empty value reads "Not set" in muted ink with its edit control on hover or focus. Below the fields, Record shows the same Relations and Linked notes blocks as the note Info rail, without repeating the note identity. At 1100px the collection overlay still starts below its toolbar.
+The pane has a 40px header with its 15/600 title or Info / Outline / Graph tabs (13/500, ink underline when selected) and a close button. Record shows the row's 16/600 title, a muted summary, and 30px field rows with 13/500 muted labels in a 120px column. The id sits on its own 12px mono line under the title with Open at the right, and an empty value reads "—" in muted ink with its edit control on hover or focus. Below the fields, Record shows the same Relations and Linked notes blocks as the note Info rail, without repeating the note identity. At 1100px the collection overlay still starts below its toolbar.
+
+Relations and Linked notes share 16px lucide arrow-left, arrow-right, and arrow-left-right icons at 1.5 stroke in faint ink, including their legends and the Record pane.
 
 ### Note Reader
 
-A note opens in a centred 540px column. Above it, an edge-to-edge control row holds the type chip, the mono path (which truncates before any control does), the note's presentations (Structure, Markdown, and any saved view) as a segmented control with no default-view dot (the tooltip names the default), and Copy link as a ghost button with a link icon. The title is Merriweather 24/900. Properties sit directly under the identity line with no visible label (an sr-only heading keeps the landmark), capped at the 540px prose measure so their edges line up with the body, as a two-column grid with a 120px column of 13/500 muted labels and 14px values in 30px rows; a long text value (such as Summary) runs full width beneath its label, showing up to six lines in read mode; only overflow offers "Show full summary", followed by "Show less" when open. Edit mode shows the full field editor. There is no rule on every row; empty properties wait behind a "Show N empty fields" toggle, and a `border-faint` hairline closes the block. Body headings are Inter 600 with more space above than below; a collapsible section's 14px chevron sits in the gutter and shows on hover, on focus, and while collapsed. Prose is 15/1.6 at the 540px measure. Inline code and code blocks use the tint and mono.
+A note opens in a centred 540px column. Above it, an edge-to-edge control row holds the type chip, the mono path (which truncates before any control does), the note's presentations (Structure, Markdown, and any saved view) as a segmented control with no default-view dot (the tooltip names the default), and Copy link as a ghost button with a link icon. The title is Merriweather 24/900. Properties sit directly under the identity line with no visible label (an sr-only heading keeps the landmark), capped at the 540px prose measure so their edges line up with the body, as a two-column grid with a 120px column of 13/500 muted labels and 14px values in 30px rows; a long text value (such as Summary) runs full width beneath its label, showing up to six lines in read mode; only overflow offers "Show full summary", followed by "Show less" when open. Edit mode shows the full field editor. There is no rule on every row; empty properties wait behind a "Show N empty fields" toggle, and a `border-faint` hairline closes the block. Body headings are Inter 600 with more space above than below; a collapsible section's 14px chevron sits in the gutter and shows on hover, on focus, and while collapsed. Prose is 15/1.6 at the 540px measure. Inline code and code blocks use the tint and mono; prose inline code has 2px horizontal padding.
 
 ### Section Editor
 
-In edit mode each section body becomes an editor in the same place, with read mode's typography and measure, so toggling Edit does not move the text. It has no box at rest, takes the tint on hover, and draws the red focus ring (1px border plus 1px ring) only while focused. Its padding bleeds outward through negative margins. A changed block turns warning-soft with a gold border. Empty properties stay behind "Show N empty fields" in edit mode too, unless a field has staged changes or an issue, and identifier guidance sits behind an info mark, so entering edit mode barely moves the body. Dates are edited as ISO text (`2026-10-26`) with a calendar button for the native picker.
+In edit mode each section body becomes an editor in the same place, with read mode's typography and measure, so toggling Edit does not move the text. It has no box at rest, takes the tint on hover, and draws the red focus ring (1px border plus 1px ring) only while focused. Its padding bleeds outward through negative margins. A changed block turns warning-soft with a gold border. Empty properties stay behind "Show N empty fields" in edit mode too, unless a field has staged changes or an issue, and identifier guidance sits behind an info mark, so entering edit mode barely moves the body. Dates stay in words at rest in edit mode; focus reveals the ISO field (`2026-10-26`) and calendar button, and leaving the field restores words.
 
 ### HTML Notes
 
@@ -511,7 +407,7 @@ Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay 
 
 ### Agent
 
-The Agent screen uses the shared view header: the session title, its message count, and the harness and its state ("Claude · Ready") as the description. The harness version and account are diagnostics behind a ghost "Details" disclosure at the right of the title row. Harness settings sit at the foot of the sidebar as one labelled 28px chrome-tinted select per row at full sidebar width: Harness and Model always show, and Reasoning effort and Permission mode sit under a compact "Session settings" disclosure (the shared chevron, 13/500 label) whose summary still names the active permission at its right. The conversation and the composer share one centred 760px column (`--agent-column`), so a wide window never stretches the thread. The composer is one framed field (`border-strong`, 10px corners, no resize grip) whose message grows with its content up to 240px, then scrolls, above a bar with the send hint, or, when no harness can take a turn, the reason and next step (install, or log in with a copyable command), beside a 28px primary Send. The sidebar's 28px "New session" button is chrome-tinted like the selects. An empty thread that can take a turn shows "Try asking" (the section label) and three example questions directly above the composer, as quiet 32px action rows with a 16px arrow in faint ink 8px after the question, that fill the composer and focus it. The questions and the composer move together to about 40% of the panel's height (the free space splits 2 above to 3 below), so the panel never opens on a void; the composer's placeholder ("Ask Rhizome…") is its only label. The empty thread never invites a question that cannot be sent.
+The Agent screen uses the shared view header: the session title, its message count, and the harness and its state ("Claude · Ready") as the description. The harness version and account are diagnostics behind a ghost "Details" disclosure at the right of the title row. Harness settings sit at the foot of the sidebar as one labelled 28px chrome-tinted select per row at full sidebar width: Harness and Model always show, and Reasoning effort and Permission mode sit under a compact "Settings" disclosure (the shared chevron, 13/500 label) whose summary still names the active permission at its right. The conversation and the composer share one centred 760px column (`--agent-column`), so a wide window never stretches the thread. The composer is one framed field (`border-strong`, 10px corners, no resize grip) whose message grows with its content up to 240px, then scrolls, above a bar with the send hint, or, when no harness can take a turn, the reason and next step (install, or log in with a copyable command), beside a 28px primary Send. The sidebar's 28px "New session" button is chrome-tinted like the selects. An empty thread that can take a turn shows "Try asking" (the section label) and three example questions directly above the composer, as quiet 32px action rows with a 16px arrow in faint ink 8px after the question, that fill the composer and focus it. The questions and the composer move together to about 40% of the panel's height (the free space splits 2 above to 3 below), so the panel never opens on a void; the composer's placeholder ("Ask Rhizome…") is its only label. The empty thread never invites a question that cannot be sent.
 
 ### GraphQL
 

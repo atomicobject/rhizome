@@ -19,7 +19,7 @@ describe("DateWidget", () => {
 
   it("renders an empty placeholder when missing", () => {
     render(<DateWidget value="" editing={false} />);
-    expect(screen.getByText("Empty")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("renders a date input pre-populated with ISO form in edit mode", () => {

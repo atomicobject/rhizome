@@ -16,7 +16,7 @@ import {
   cellValues,
   editPathForRow,
   firstScalar,
-  markCutTitle,
+  recordDisplayTitle,
   stringifyCell,
   workspaceFieldNodeForTableCell,
 } from "./ConfiguredTableCellHelpers";
@@ -397,7 +397,7 @@ export function ScalarEditableCell({
           row,
           field,
           columnIndex,
-          onOpenRow ? markCutTitle(row, displayValue) : displayValue,
+          onOpenRow ? recordDisplayTitle(row, field, displayValue) : displayValue,
           capability,
         )}
       </button>

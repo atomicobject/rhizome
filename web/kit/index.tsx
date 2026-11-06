@@ -93,6 +93,8 @@ export {
 
 export type { IssueScope };
 
+export { ValidationCheck } from "../src/components/StatusMark";
+
 export {
   StatusMark,
   isTerminalValue,
