@@ -100,6 +100,8 @@ SQLite query plans use the existing type index, note-path keys, assessment prima
 - Explorer's built app requests `/api/v1/graphs/folders`; its file counts, legend and folder presentation were visually checked against the baseline. Differential fixture tests cover ownership, self-pairs, missing hosts, nested types, default weights, maximum category weights and first-seen order.
 - The first full web run found three AppShell fixture failures because the mock server lacked the new folders route. The fixture was corrected and the complete run passed. The local Node runtime's experimental web-storage globals required the explicit `NODE_OPTIONS` override above; no product code was changed for that environment issue.
 
+- After all 22 CI checks passed, main advanced to `d4973a47` (workspace presentation fixes). Rebased without conflicts. `git range-diff` confirmed all three task commits unchanged. Re-ran `make check` (243 files / 1,983 web tests) and `make web-e2e` (124 tests), both passing, and refreshed the generated asset manifest. The prior `make check-full` remains applicable to the unchanged Go source; final CI repeats its cross-platform gates.
+
 ## Independent review
 
 Two providers were available. Source-level foundation reviews accepted canonical streaming summaries and the compact file-pair projection before dependent integration.
@@ -122,7 +124,7 @@ Greptile reviewed implementation commit `bc6f5782237d956887561fe8a10e6a1aea5c6f0
 - [x] Implementation and measurements complete.
 - [x] Final local tests and documentation validation pass. CI on the PR remains the merge-readiness gate.
 - [x] Independent reviews cover the final behavior diff and Greptile reports 5/5 with no unresolved findings.
-- [x] Full implementation diff reviewed; delivery commit is `bc6f5782237d956887561fe8a10e6a1aea5c6f0c`. Delivered in [PR #103](https://github.com/atomicobject/rhizome/pull/103), which remains open and unmerged with auto-merge disabled. Final CI verification is the handoff gate; no merge is authorized.
+- [x] Full implementation diff reviewed; delivery commit is `0b69c29caef3bbe8e987051278bdd10e925b6efb`. Delivered in [PR #103](https://github.com/atomicobject/rhizome/pull/103), which remains open and unmerged with auto-merge disabled. Final CI verification is the handoff gate; no merge is authorized.
 
 ## Compounding Follow-ups
 
