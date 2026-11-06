@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
@@ -93,6 +94,7 @@ func (s *Server) nodeWorkspace(ctx context.Context, requestedRef ontology.NodeRe
 		)
 	}
 	core := ontology.BuildNodeWorkspaceFromProjectionWithSchema(defs.schema, projection)
+	ontology.ApplySourceOwnership(sourceownership.Load(s.cfg.VaultDef.BasePath()), core)
 	traceStep("build-core")
 	if core == nil {
 		return NodeWorkspaceResponse{}, fmt.Errorf("failed to build node workspace")

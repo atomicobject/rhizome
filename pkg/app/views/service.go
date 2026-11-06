@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/diag"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 )
 
 func New(opts ServiceOptions) *Service {
@@ -196,6 +197,10 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	}
 	if relationErr != nil {
 		warnings = append(warnings, diag.Warning{Code: "view_relation_hydration_failed", Message: relationErr.Error()})
+	}
+	ownership := sourceownership.Load(s.opts.VaultPath)
+	for i := range pageRows {
+		pageRows[i].ReadOnlyReason = ownership.ReadOnlyReason(pageRows[i].Ref.NotePath)
 	}
 	groups := groupsForPage(allGroups, pageInfo.Offset, pageInfo.Returned)
 	columns := tableColumns(def, capabilities)

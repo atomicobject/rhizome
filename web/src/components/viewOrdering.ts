@@ -81,6 +81,9 @@ export function orderingBlockedReason(
   canStage: boolean,
 ): string | null {
   if (keys.length === 0 || !canStage) return "unsupported";
+  const readOnlyReason = rows.find((row) => row.readOnlyReason)?.readOnlyReason;
+
+  if (readOnlyReason) return readOnlyReason;
 
   const pageInfo = execution.pageInfo;
 

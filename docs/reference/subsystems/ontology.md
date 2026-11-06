@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/ontology
   - pkg/ontology/schema
@@ -31,6 +31,8 @@ The ontology core owns Rhizome's typed note contract: compile GraphQL SDL from `
 **Boundary**: the GraphQL query layer (`pkg/ontology/query`, `pushdown`, `queryrecipe`) and the batched read seam (`pkg/ontology/noderead`, `readmodel`) are covered by sibling subsystem notes — this note ends where indexed rows are handed to those consumers.
 
 ## Design constraints
+
+- **Source ownership is independent of projection.** `.rhizome/source-ownership.yml` declares externally authored host paths. Native edit staging checks it before resolving a type or record. Shared source transactions check the full affected set at preparation and current ownership again at publication. `ApplySourceOwnership` overlays node and field capability reasons for HTTP and GraphQL workspace clients, including fallback and nested nodes.
 
 - `MatchSectionNodesForField` owns section selection for projection, query and web. `presentation.go` owns identifier-field selection and preview interpolation; callers retain source extraction and missing-value policy.
 

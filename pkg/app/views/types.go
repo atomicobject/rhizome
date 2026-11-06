@@ -347,6 +347,7 @@ type TableRelationStatus struct {
 	Stage ontoschema.LifecycleStage `json:"stage,omitempty"`
 }
 type TableRow struct {
+	ReadOnlyReason string                          `json:"readOnlyReason,omitempty"`
 	Ref            ontology.NodeRef                `json:"ref"`
 	Path           string                          `json:"path,omitempty"`
 	Title          string                          `json:"title,omitempty"`

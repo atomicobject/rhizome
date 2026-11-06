@@ -48,7 +48,7 @@ func TestCodeOperationSchemaContracts(t *testing.T) {
 		"validate":                 "9b2d099bac57b1faa899e69a8a575b6d0086cebb91edf237ffd19f7844e72d73",
 		"vault_context":            "30533e3662deffcc9dc7e78f0bd6be5f6795b08d3b922820eb680e4ed59a52f4",
 		"vault_health":             "04f7bf82759586c8a4f9882bb544d3b0ef519df1401f04d30f40a556dbe09370",
-		"view":                     "72a1d49cf169f9ec22949a2f0f7e20acf0b9f8b0ad36a32e56e799814a6d33f5",
+		"view":                     "82434e1abbc96d87274697ae0f3ab3074ee58dbf6f471894d24f2b0a877bfa8b",
 	}
 	require.Len(t, CodeOperationDescriptors(), len(expected))
 	for _, descriptor := range CodeOperationDescriptors() {
