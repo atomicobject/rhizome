@@ -10,16 +10,9 @@ CI owns native builds, process tests, package inventory, hashes, and signature v
 
 ## Verified candidate handoff
 
-Application source `b6f1f497348cca4d889d56a4cf0cd16219dbdc3d` passes all 26 CI checks and Greptile at 5/5 with zero findings. [Native run 42180276876](https://github.com/atomicobject/rhizome/actions/runs/42180276876) packages merge source `68ad46dffded413797d9fbdd4b8dd8d457c8057f`, whose second parent is that exact application revision. Windows CI proves real Ctrl+N transitions from one to two windows on launch and from two to three after a visible-webview click; Linux proves X11/Xvfb startup and New Window. Installed GUI and upgrade behavior remain to be checked below.
+Use the exact Windows/Linux fixture links, source revision and archive hashes recorded in the implementation handoff. Each paired `0.0.1`/`0.0.2` fixture includes its source and package manifests; compare those identities before starting the checks below. A later workflow run creates a distinct candidate and does not automatically replace the selected packages.
 
-Use these paired `0.0.1`/`0.0.2` fixtures for the installed checks and local test-feed upgrade:
-
-| Target | Fixture download | Archive SHA256 |
-| --- | --- | --- |
-| Windows 11 x64 | [Windows upgrade fixture](https://github.com/atomicobject/rhizome/actions/runs/42180276876/artifacts/13485527098) | `0e2ce41676efad0728a700cd581492626cd7214ad3e6a9d9157885c74f01a613` |
-| Ubuntu 24.04 GNOME x64 | [Linux upgrade fixture](https://github.com/atomicobject/rhizome/actions/runs/42180276876/artifacts/13485985318) | `27e9d4c4cfff88788b488e004416ad0949167ec7f7d7e3a00886b47ec459840e` |
-
-These fixtures use the production application identifier and a disposable updater key. Use a separate OS test account or VM, verify the archive hash, and follow the test-feed instructions below. Windows packages lack production Authenticode signing. Later documentation changes do not change these pinned packages.
+The fixtures use the production application identifier and a disposable updater key. Use a separate OS test account or VM, verify the archive hash, and follow the test-feed instructions below. Windows packages lack production Authenticode signing. Native smoke, signature verification and successful package assembly do not complete installed GUI or upgrade acceptance.
 
 ## Install a candidate
 

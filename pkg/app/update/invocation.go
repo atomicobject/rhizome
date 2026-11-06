@@ -10,14 +10,16 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
+	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 var appCommandLineLinkPath = "/usr/local/bin/rzm"
 var registeredAppPaths = appbundle.RegisteredAppPaths
+var canonicalAppEntryPath = paths.CanonicalExistingPath
 
 // Invocation identifies the executable handling an update and the repository
 // target selected by the pin, if any. Paths remain logical install
-// destinations; filesystem identity is used only to classify RepoScoped.
+// destinations; filesystem identity classifies RepoScoped and app ownership.
 type Invocation struct {
 	ExecutablePath     string
 	RepoTargetPath     string
@@ -98,13 +100,50 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfi
 		if err != nil {
 			return Invocation{}, fmt.Errorf("resolve app command directory: %w", err)
 		}
-		invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || appbundle.SamePath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
+		owned, err := sameAppOwnedEntry(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
+		if err != nil {
+			return Invocation{}, fmt.Errorf("resolve app ownership: %w", err)
+		}
+		invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || owned
 	}
 	invocation.RepoTargetPath = target
 	invocation.RepoPinned = true
 	invocation.RepoPinVersion = pin
 	invocation.RepoScoped = sameInvocationFile(invocation.ExecutablePath, target)
 	return invocation, nil
+}
+
+func sameAppOwnedEntry(destination, appEntry string) (bool, error) {
+	if appbundle.SamePath(destination, appEntry) {
+		return true, nil
+	}
+	info, err := os.Lstat(destination)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.Mode().IsRegular() {
+		return false, nil
+	}
+	// Resolve native filename aliases, but keep separate hardlink and final
+	// symlink entries independent: replacing them leaves the app in place.
+	destinationPath, err := canonicalAppEntryPath(destination)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	appPath, err := canonicalAppEntryPath(appEntry)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return appbundle.SamePath(destinationPath.String(), appPath.String()), nil
 }
 
 func findRepoConfig(env vaultconfig.Env, workDir string) (string, *repoconfig.LocalConfig, error) {

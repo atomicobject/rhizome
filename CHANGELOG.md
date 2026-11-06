@@ -33,6 +33,8 @@
 
 ### Fixed
 
+- Repository updates on Windows protect installed desktop apps reached through short filename aliases.
+
 - Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
 
 - The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.

@@ -106,6 +106,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   remain executable for independent runtime helpers and restarts after removal.
   `appbundle` protects the registration, images, entry, and registered
   GUI targets from repository pin replacement even from a standalone CLI.
+  Existing regular destinations use native canonical filenames, including Windows
+  short names; lookup failures stop planning. Separate final symlink and hardlink
+  entries remain replaceable without changing the installed app.
 - macOS command-line integration owns `/usr/local/bin/rzm` only when it points to
   a Rhizome app's `rzm`. A missing app's link is recognized by its structural
   `*.app/Contents/.../rzm` path because deleted metadata cannot prove identity.
