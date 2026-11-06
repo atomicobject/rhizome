@@ -22,7 +22,8 @@ public static class DesktopPortabilityWindows {
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindow callback, IntPtr parameter);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
-    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] private static extern int GetWindowLong(IntPtr window, int index);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int count);
@@ -46,6 +47,7 @@ public static class DesktopPortabilityWindows {
         return (GetWindowLong(window, -20) & 0x80) != 0;
     }
     public static object Describe(IntPtr window) {
+        if (window == IntPtr.Zero) return null;
         var name = new StringBuilder(256);
         var title = new StringBuilder(512);
         GetClassName(window, name, name.Capacity);
@@ -66,11 +68,6 @@ public static class DesktopPortabilityWindows {
         UIntPtr result;
         return SendMessageTimeout(window, 0, UIntPtr.Zero, IntPtr.Zero, 2, 2000, out result) != IntPtr.Zero;
     }
-    public static uint ForegroundProcess() {
-        uint owner;
-        GetWindowThreadProcessId(GetForegroundWindow(), out owner);
-        return owner;
-    }
 }
 '@
 
@@ -78,6 +75,7 @@ function Save-WindowEvidence([Diagnostics.Process]$Process, [string]$Stage) {
     @{
         stage = $Stage
         pid = $Process.Id
+        foregroundWindow = [DesktopPortabilityWindows]::Describe([DesktopPortabilityWindows]::GetForegroundWindow())
         visibleWindows = @([DesktopPortabilityWindows]::Visible($Process.Id) | ForEach-Object {
             [DesktopPortabilityWindows]::Describe($_)
         })
@@ -130,11 +128,15 @@ try {
     if (-not [DesktopPortabilityWindows]::Responsive($windows[0])) { throw 'Initial desktop window is unresponsive.' }
     $shell = New-Object -ComObject WScript.Shell
     if (-not $shell.AppActivate($process.Id)) { throw 'Could not focus the desktop app.' }
+    # A process also owns IPC tool windows; target the classified application HWND.
+    $targetWindow = $windows[0]
+    $null = [DesktopPortabilityWindows]::SetForegroundWindow($targetWindow)
     $focusDeadline = [DateTime]::UtcNow.AddSeconds(5)
-    while ([DesktopPortabilityWindows]::ForegroundProcess() -ne $process.Id) {
-        if ([DateTime]::UtcNow -ge $focusDeadline) { throw 'Desktop did not become the foreground app.' }
+    while ([DesktopPortabilityWindows]::GetForegroundWindow() -ne $targetWindow) {
+        if ([DateTime]::UtcNow -ge $focusDeadline) { throw 'The desktop application window did not become foreground.' }
         Start-Sleep -Milliseconds 100
     }
+    Save-WindowEvidence $process 'focused'
     $shell.SendKeys('^n')
     $windows = @(Wait-Windows $process 2)
     Save-WindowEvidence $process 'new-window'
