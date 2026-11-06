@@ -1,0 +1,6 @@
+description: Read archived AO source text or the saved weights snapshot without indexing it
+inputs:
+  path: { kind: string, required: true }
+run:
+  command: [node, "{module}/scripts/read-evidence.mjs"]
+timeout: 10s
