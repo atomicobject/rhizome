@@ -403,6 +403,7 @@ export function ConfiguredView({
 
       {execution && (
         <ConfiguredViewFooter
+          duplicateCount={!paged}
           summary={
             paged && pageInfo
               ? `${offset + 1}–${Math.min(offset + first, pageInfo.total)} of ${rowCountLabel(pageInfo.total)}`

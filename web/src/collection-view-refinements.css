@@ -44,17 +44,17 @@
 
 .notes-shell:has(.view-header__count)
   .configured-view__footer-status
-  > [role="status"]:first-child {
+  > .configured-view__duplicate-count {
   display: none;
 }
 
 .notes-shell:has(.view-header__count)
   .configured-view__footer-status
-  > [role="status"]:first-child
+  > .configured-view__duplicate-count
   + span::before,
 .notes-shell:has(.view-header__count)
   .configured-view__footer-status
-  > [role="status"]:first-child
+  > .configured-view__duplicate-count
   + .configured-view__column-notes
   > summary::before {
   content: none;

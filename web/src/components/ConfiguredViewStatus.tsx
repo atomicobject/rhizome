@@ -28,6 +28,7 @@ export function ViewErrorStatus({ error }: { error: ErrorInfo }) {
  */
 export function ConfiguredViewFooter({
   summary,
+  duplicateCount = false,
   loadingMore,
   collapsed,
   collapsedGroups = [],
@@ -38,6 +39,7 @@ export function ConfiguredViewFooter({
   onPage,
 }: {
   summary: string;
+  duplicateCount?: boolean;
   loadingMore: boolean;
   /** Such as "2 columns collapsed"; empty when nothing is. */
   collapsed: string;
@@ -53,7 +55,12 @@ export function ConfiguredViewFooter({
   return (
     <footer className="configured-view__footer">
       <div className="configured-view__footer-status">
-        <span role="status">{summary}</span>
+        <span
+          role="status"
+          className={duplicateCount ? "configured-view__duplicate-count" : undefined}
+        >
+          {summary}
+        </span>
         {loadingMore && <span role="status">Loading more rows…</span>}
         {collapsedGroups.length > 0
           ? collapsedGroups.map((group) => (
