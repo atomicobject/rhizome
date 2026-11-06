@@ -2,7 +2,6 @@ package operations
 
 import (
 	"context"
-	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -32,23 +31,11 @@ func applyNoteNamespace(ctx context.Context, vault repoconfig.VaultManager, meta
 	}
 	planner := &noteNamespacePlanner{
 		root: root, definition: definition, metadata: metadata, moves: moves,
-		overwrite: overwrite, updateBacklinks: backlinks,
+		overwrite: overwrite, updateBacklinks: backlinks, codeRefConfig: codeRefConfig,
 	}
 	reader := &obsidian.Note{}
 	run := validate.RunContext{VaultPath: root, VaultDef: definition, NoteMetadata: metadata, NoteReader: reader}
-	var rewritten coderefs.RewriteResult
-	var postCommit validate.NamespacePostCommit
-	if backlinks && codeRefConfig != nil && codeRefConfig.Enabled {
-		postCommit = func(ctx context.Context, lease *indexlock.Lease) {
-			if ctx.Err() != nil || lease.Validate(root) != nil {
-				return
-			}
-			if result, err := coderefs.RewriteBatch(root, codeRefConfig, planner.codeMappings); err == nil {
-				rewritten = result
-			}
-		}
-	}
-	mutation, applyErr := validate.ApplyNamespaceMutation(ctx, run, planner, refresher, postCommit)
+	mutation, applyErr := validate.ApplyNamespaceMutation(ctx, run, planner, refresher, nil)
 	summary.Mutation = mutation
 	if mutation.Current.Decision == validate.NamespaceCommitted {
 		planned := planner.summary
@@ -56,7 +43,7 @@ func applyNoteNamespace(ctx context.Context, vault repoconfig.VaultManager, meta
 		summary.TotalLinkUpdates = planned.TotalLinkUpdates
 		summary.Skipped = planned.Skipped
 		summary.HeadingPointers = planned.HeadingPointers
-		summary.TotalCodeRefUpdates, summary.CodeFilesUpdated = rewritten.RefsUpdated, rewritten.FilesUpdated
+		summary.TotalCodeRefUpdates, summary.CodeFilesUpdated = planner.codeResult.RefsUpdated, planner.codeResult.FilesUpdated
 		for i := range summary.Results {
 			for _, move := range mutation.Current.GitMoves {
 				if move.From == summary.Results[i].Source && move.To == summary.Results[i].Target {

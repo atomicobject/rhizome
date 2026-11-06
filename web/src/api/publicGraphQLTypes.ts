@@ -233,6 +233,7 @@ export type PublicNodeWorkspaceProjection = {
   collections: PublicWorkspaceCollectionState[];
   bodies: PublicWorkspaceBodyProjection[];
   capabilities: {
+    readOnlyReason?: string | null;
     canEdit: boolean;
     canEditFields: boolean;
     canEditCollections: boolean;

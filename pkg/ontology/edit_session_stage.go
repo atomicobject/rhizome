@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"strings"
 )
 
@@ -174,6 +175,9 @@ func (s *EditSession) stage(op editOp) error {
 	}
 	canonical, err := canonicalizeEditOp(op)
 	if err != nil {
+		return err
+	}
+	if err := sourceownership.Check(s.vaultDef.BasePath(), []string{canonical.notePath()}); err != nil {
 		return err
 	}
 	s.ops = append(s.ops, canonical)

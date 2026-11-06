@@ -451,6 +451,7 @@ export const PUBLIC_NODE_DETAIL_QUERY = /* GraphQL */ `
           }
         }
         capabilities {
+          readOnlyReason
           canEdit
           canEditFields
           canEditCollections

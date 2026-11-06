@@ -27,6 +27,9 @@ func DeleteTagsWithWorkers(ctx context.Context, vault repoconfig.VaultManager, n
 	}
 	defer release()
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), allNotes, processDeleteFile(vaultPaths, tagsToDelete, true), workers); err != nil {
+		return TagMutationSummary{}, err
+	}
 	return runTagMutations(ctx, allNotes, processDeleteFile(vaultPaths, tagsToDelete, dryRun), workers)
 }
 
@@ -65,6 +68,9 @@ func RenameTagsWithWorkers(ctx context.Context, vault repoconfig.VaultManager, n
 	}
 	defer release()
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), allNotes, processRenameFile(vaultPaths, fromTags, toTag, true), workers); err != nil {
+		return TagMutationSummary{}, err
+	}
 	return runTagMutations(ctx, allNotes, processRenameFile(vaultPaths, fromTags, toTag, dryRun), workers)
 }
 
@@ -87,6 +93,9 @@ func AddTagsWithWorkers(ctx context.Context, vault repoconfig.VaultManager, note
 	}
 	defer release()
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), allNotes, processAddFile(vaultPaths, tagsToAdd, true), workers); err != nil {
+		return TagMutationSummary{}, err
+	}
 	return runTagMutations(ctx, allNotes, processAddFile(vaultPaths, tagsToAdd, dryRun), workers)
 }
 
@@ -122,5 +131,8 @@ func AddTagsToFilesWithWorkers(ctx context.Context, vault repoconfig.VaultManage
 		return TagMutationSummary{}, err
 	}
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), files, processAddFile(vaultPaths, tagsToAdd, true), workers); err != nil {
+		return TagMutationSummary{}, err
+	}
 	return runTagMutations(ctx, files, processAddFile(vaultPaths, tagsToAdd, dryRun), workers)
 }

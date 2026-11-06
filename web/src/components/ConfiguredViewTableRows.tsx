@@ -388,7 +388,7 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
         // An interface's rows name their implementing type by its schema label.
         if (column.field === "resolvedType") {
           return (
-            <td key={column.field} className={className} title={value}>
+            <td key={column.field} className={className} title={row.readOnlyReason || value}>
               {typeLabel(row.resolvedType)}
             </td>
           );
@@ -404,7 +404,7 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
             capability={capability}
             editSession={editSession}
             changedFields={changedFields}
-            onStageOps={onStageOps}
+            onStageOps={row.readOnlyReason ? undefined : onStageOps}
             onOpenRow={columnIndex === primaryColumnIndex ? onOpenRow : undefined}
             onOpenRelation={onOpenRow}
           />
@@ -414,7 +414,7 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
           <td
             key={column.field}
             className={`${className}${capability?.semanticRole === "count" && value === "0" ? " is-zero" : ""}${categoryFields.has(column.field) ? " is-category" : ""}`}
-            title={value || undefined}
+            title={row.readOnlyReason || value || undefined}
           >
             {className.includes("configured-view__cell--deadline") &&
             isOverdue(row, value, capabilities) ? (

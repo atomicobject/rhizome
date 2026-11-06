@@ -4,7 +4,7 @@ id: SPEC-0133
 aliases:
   - SPEC-0133
 summary: "Proposes format-neutral embedded nodes and a thin AO KB starter that reads existing knowledge and product-model files while AO KB retains its authoring and publishing workflows."
-spec-status: approved
+spec-status: active
 last-updated: 2026-11-06
 ---
 

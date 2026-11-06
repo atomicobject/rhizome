@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/diag"
@@ -74,6 +75,7 @@ func ExecutePrepared(ctx context.Context, deps Deps, schema *ontoschema.Schema, 
 }
 
 type executor struct {
+	ownership      *sourceownership.Policy
 	rootTypes      map[string]string
 	schema         *ontoschema.Schema
 	deps           Deps

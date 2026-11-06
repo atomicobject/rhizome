@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"os"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -44,6 +45,9 @@ func DeleteNote(vault repoconfig.VaultManager, params DeleteParams) error {
 		if err := params.Context.Err(); err != nil {
 			return err
 		}
+	}
+	if err := sourceownership.Check(vaultPath, []string{abs.String()}); err != nil {
+		return err
 	}
 	if err := os.Remove(abs.String()); err != nil {
 		if os.IsNotExist(err) {

@@ -806,7 +806,12 @@ export function nodeWorkspaceFromPublicGraphQL(
       structure: false,
       relations: false,
     },
-    capabilities: projection?.capabilities || emptyCapabilities(),
+    capabilities: projection?.capabilities
+      ? {
+          ...projection.capabilities,
+          readOnlyReason: projection.capabilities.readOnlyReason || undefined,
+        }
+      : emptyCapabilities(),
     status: statusFromPublic(projection?.status),
     version: projection?.version || "",
     sourceRevision: projection?.sourceRevision,

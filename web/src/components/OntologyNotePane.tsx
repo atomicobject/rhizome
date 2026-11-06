@@ -1004,7 +1004,7 @@ export function OntologyNotePane({
   presentationControls,
   renderPresentation,
   breadcrumbs,
-  editing = false,
+  editing: requestedEditing = false,
   editSession,
   issueTarget,
   issueFallback = false,
@@ -1012,6 +1012,8 @@ export function OntologyNotePane({
   validationHealth,
   onOpenIssues,
 }: Props) {
+  const readOnlyReason = workspace?.capabilities.readOnlyReason;
+  const editing = requestedEditing && !readOnlyReason;
   const paneRef = useRef<HTMLElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [focusUnavailable, setFocusUnavailable] = useState(false);
@@ -1080,6 +1082,8 @@ export function OntologyNotePane({
     }
 
     if (locator.status === "requires_fix") {
+      if (readOnlyReason) return;
+
       const ops =
         canonicalWorkspace?.linkFixOps && canonicalWorkspace.linkFixOps.length > 0
           ? canonicalWorkspace.linkFixOps
@@ -1603,6 +1607,7 @@ export function OntologyNotePane({
   return (
     <article className={`ontology-pane${editing ? " is-editing" : ""}`} ref={paneRef}>
       <header className="ontology-pane__header">
+        {readOnlyReason ? <p className="field-editor__reason">{readOnlyReason}</p> : null}
         <div
           className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}
         >
@@ -1688,7 +1693,12 @@ export function OntologyNotePane({
                 event.stopPropagation();
                 void handleCopyLocatorLink();
               }}
-              title={locatorDiagnostic(locator)}
+              disabled={Boolean(readOnlyReason && locator.status === "requires_fix")}
+              title={
+                locator.status === "requires_fix" && readOnlyReason
+                  ? readOnlyReason
+                  : locatorDiagnostic(locator)
+              }
             >
               <svg
                 viewBox="0 0 16 16"

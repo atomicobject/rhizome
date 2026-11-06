@@ -44,3 +44,5 @@ Provider-authored section backlinks are authoritative for all incoming sources, 
 Execution is organized by root family in `roots_*.go`, with shared planning in `pushdown.Planner.Plan`. A plan carries its executable predicates, residual inputs, coherent full residual sort, and warnings together. Views retain compiled predicates through source execution and collapse interface plans only when their typed predicates and sorts agree.
 
 Nested frontmatter `@field(path:)` and `@link(path:)` bindings use schema-owned mapping traversal in projection and note-record residual reads. Indexed field rows keep the canonical field name. Runtime ontology discovery exposes `sourcePath`; workspace capabilities and edit replay enforce read-only access.
+
+Workspace and nested-body capabilities overlay current source ownership independently of projection; `NodeCapabilities.readOnlyReason` agrees with field capability refusals.

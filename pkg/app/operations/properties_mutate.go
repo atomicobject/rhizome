@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"os"
 
 	"strings"
@@ -41,6 +42,10 @@ func findExistingKey(fm map[string]interface{}, target string) string {
 }
 
 func processSetProperty(vaultPaths paths.VaultPaths, property string, value interface{}, overwrite, dryRun bool) fileMutationProcessor {
+	var ownership *sourceownership.Policy
+	if !dryRun {
+		ownership = sourceownership.Load(vaultPaths.Root())
+	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -66,6 +71,10 @@ func processSetProperty(vaultPaths paths.VaultPaths, property string, value inte
 		}
 
 		if !dryRun {
+			if err := ownership.Check([]string{rel.String()}); err != nil {
+				return fileMutation{err: err}
+			}
+
 			if err := ctx.Err(); err != nil {
 				return fileMutation{err: err}
 			}
@@ -83,6 +92,10 @@ func processSetProperty(vaultPaths paths.VaultPaths, property string, value inte
 }
 
 func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, dryRun bool) fileMutationProcessor {
+	var ownership *sourceownership.Policy
+	if !dryRun {
+		ownership = sourceownership.Load(vaultPaths.Root())
+	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -119,6 +132,10 @@ func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, d
 		}
 
 		if !dryRun {
+			if err := ownership.Check([]string{rel.String()}); err != nil {
+				return fileMutation{err: err}
+			}
+
 			if err := ctx.Err(); err != nil {
 				return fileMutation{err: err}
 			}
@@ -141,6 +158,10 @@ func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, d
 }
 
 func processRenameProperties(vaultPaths paths.VaultPaths, from []string, to string, merge, dryRun bool) fileMutationProcessor {
+	var ownership *sourceownership.Policy
+	if !dryRun {
+		ownership = sourceownership.Load(vaultPaths.Root())
+	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -183,6 +204,10 @@ func processRenameProperties(vaultPaths paths.VaultPaths, from []string, to stri
 		}
 
 		if !dryRun {
+			if err := ownership.Check([]string{rel.String()}); err != nil {
+				return fileMutation{err: err}
+			}
+
 			if err := ctx.Err(); err != nil {
 				return fileMutation{err: err}
 			}
@@ -229,6 +254,9 @@ func SetPropertyOnFilesWithWorkers(ctx context.Context, vault repoconfig.VaultMa
 	if err != nil {
 		return PropertyMutationSummary{}, err
 	}
+	if err := admitFileMutations(ctx, vaultPaths.Root(), files, processSetProperty(vaultPaths, property, value, overwrite, true), workerCount); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	return runPropertyMutations(ctx, files, processSetProperty(vaultPaths, property, value, overwrite, dryRun), workerCount)
 }
 
@@ -260,6 +288,9 @@ func DeletePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processDeleteProperties(vaultPaths, properties, true), workerCount); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	return runPropertyMutations(ctx, targetFiles, processDeleteProperties(vaultPaths, properties, dryRun), workerCount)
 }
 
@@ -294,5 +325,8 @@ func RenamePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processRenameProperties(vaultPaths, from, to, merge, true), workerCount); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	return runPropertyMutations(ctx, targetFiles, processRenameProperties(vaultPaths, from, to, merge, dryRun), workerCount)
 }
