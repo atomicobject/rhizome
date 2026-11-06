@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Protocol, Sequence
@@ -352,13 +353,15 @@ class GhGitHubClient:
     def associated_prs(
         self, commit_shas: Sequence[str]
     ) -> Mapping[str, Sequence[PullRequestRecord]]:
-        result = {}
-        for sha in commit_shas:
-            payload = self._api(
-                f"repos/{self.repo_slug}/commits/{sha}/pulls"
-            )
-            result[sha] = tuple(_pr_from_rest(item) for item in payload)
-        return result
+        # Each lookup is one gh process; sequential calls took ~10 minutes for
+        # a release spanning 1,300 PR commits.
+        def lookup(sha: str) -> tuple[PullRequestRecord, ...]:
+            payload = self._api(f"repos/{self.repo_slug}/commits/{sha}/pulls")
+            return tuple(_pr_from_rest(item) for item in payload)
+
+        shas = list(commit_shas)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            return dict(zip(shas, pool.map(lookup, shas)))
 
     def pr_commits(self, number: int) -> Sequence[str]:
         payload = self._api(f"repos/{self.repo_slug}/pulls/{number}/commits")
