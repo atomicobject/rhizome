@@ -265,7 +265,7 @@ func (s *Scope) recordsFromMetadata(ctx context.Context, pathsList []string) ([]
 		record.HasIssues = s.issueByPath[path]
 		out = append(out, record)
 	}
-	if err := s.hydrateSectionSummaries(ctx, out); err != nil {
+	if err := s.hydrateCatalogFields(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, nil

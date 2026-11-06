@@ -10,6 +10,10 @@ func extractFieldValues(doc *noteDoc, field *ontoschema.Field) []string {
 	if doc == nil || field == nil {
 		return nil
 	}
+	if field.SourcePath != "" {
+		value, _ := ontoschema.FrontmatterPathValue(doc.Frontmatter, field.SourcePath)
+		return FieldTextValues(field, value)
+	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:
 		for _, name := range ontoschema.FieldSourceNames(field) {
@@ -80,6 +84,10 @@ func caseInsensitiveInlineValues(values map[string][]string, key string) []strin
 func fieldPresent(doc *noteDoc, field *ontoschema.Field) bool {
 	if doc == nil || field == nil {
 		return false
+	}
+	if field.SourcePath != "" {
+		_, present := ontoschema.FrontmatterPathValue(doc.Frontmatter, field.SourcePath)
+		return present
 	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:

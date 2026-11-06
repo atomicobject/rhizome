@@ -83,6 +83,14 @@ func recordRank(schema *ontoschema.Schema, record noderead.NodeRecord) (float64,
 	if field == nil {
 		return 0, false
 	}
+	if field.SourcePath != "" {
+		value, present := nestedRecordValue(record, field)
+		if !present {
+			return 0, false
+		}
+		rank, ok := numberValue(value)
+		return rank, ok && !math.IsNaN(rank)
+	}
 	// The first authored source decides, as in indexed field extraction.
 	for _, source := range append(ontoschema.FieldSourceNames(field), field.Name) {
 		value, ok := rankSourceValue(record, field.SourceKind, source)

@@ -35,6 +35,16 @@ func compileField(parent *ast.Definition, parentRole TypeRole, propertyCase Prop
 		Annotations:      directiveAnnotations(fieldDef.Directives),
 		position:         fieldDef.Position,
 	}
+	for _, directiveName := range []string{"field", "link"} {
+		if dir := fieldDef.Directives.ForName(directiveName); dir != nil && dir.Arguments.ForName("path") != nil {
+			args := dir.ArgumentMap(nil)
+			path := stringArg(args["path"], "")
+			if (parentRole != TypeRoleNote && parentRole != TypeRoleInterface) || fieldSourceArg(args["sourceKind"]) != FieldSourceFrontmatter || dir.Arguments.ForName("source") != nil || dir.Arguments.ForName("sources") != nil || fieldDef.Directives.ForName("identifier") != nil || !validPropertyPath(path) {
+				return nil, compileError(dir.Position, "invalid_property_path", parent.Name, fieldDef.Name, "@%s path on %s.%s requires a nonempty dot-separated mapping path on a root frontmatter field, without source, sources, or @identifier", directiveName, parent.Name, fieldDef.Name)
+			}
+			field.SourcePath = path
+		}
+	}
 	field.Policy = policyHintFromDirective(fieldDef.Directives.ForName("policy"))
 	displayDir := fieldDef.Directives.ForName("display")
 	if err := validateFieldDisplayLocation(parent, fieldDef, displayDir); err != nil {

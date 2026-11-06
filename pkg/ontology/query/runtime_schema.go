@@ -43,6 +43,7 @@ type OntologyField {
   required: Boolean!
   list: Boolean!
   source: String
+  sourcePath: String
   description: String
   identifierFormat: IdentifierFormat
   capability: OntologyFieldCapability!
