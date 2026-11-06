@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ from desktop_candidates import (CandidateError, MANIFEST, ROOT, TARGETS, candida
 from run_clean import scoped_environment, sensitive_name
 from windows_sign import configuration, signing_source
 from desktop_dependencies import inspect_dependencies
+from linux_sidecar import bundle_environment, mismatch_evidence
 
 
 def build_failure(error, command, diagnostic_path):
@@ -133,8 +135,15 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
         bundle_env.update({name: native_source[name] for name in signer.get("environment", []) if name in native_source})
     bundle_dir = root / "desktop/src-tauri/target/release/bundle"
     shutil.rmtree(bundle_dir / settings["bundle"], ignore_errors=True)
-    run([*command, "bundle", "--bundles", settings["bundle"], *configs],
-        root=root / "desktop", env=bundle_env, runner=runner)
+    linux_environment = bundle_environment(root, bundle_dir, canonical_hash, bundle_env) if target.startswith("linux-") else nullcontext(bundle_env)
+    with linux_environment as package_env:
+        try:
+            run([*command, "bundle", "--bundles", settings["bundle"], *configs],
+                root=root / "desktop", env=package_env, runner=runner)
+        except CandidateError:
+            if target.startswith("linux-") and evidence_dir is not None:
+                mismatch_evidence(rzm, bundle_dir / "appimage", evidence_dir / "sidecar-packaging.log", env=env, runner=runner)
+            raise
     package = package_file(bundle_dir, target)
     if production and target.startswith("windows-"):
         windows_signature(package, root=root, env=env, runner=runner, thumbprint=signing["thumbprint"])
@@ -151,7 +160,12 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
         extracted = staging / "extracted"
         extracted.mkdir()
         contents = extract(package, target, extracted, root=root, env=env, runner=runner)
-        inventory = sidecar_inventory(contents, target, canonical_hash)
+        try:
+            inventory = sidecar_inventory(contents, target, canonical_hash)
+        except CandidateError:
+            if target.startswith("linux-") and evidence_dir is not None:
+                mismatch_evidence(rzm, contents, evidence_dir / "sidecar-mismatch.log", env=env, runner=runner)
+            raise
         sidecar = next(path for path in contents.rglob(settings["cli"]) if path.is_file())
         dependencies = inspect_dependencies(sidecar, target, version, root=root, env=env, runner=runner)
         toolchains = {name: run(args, root=root, env=env, runner=runner, timeout=30)

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from build_native_desktop import build
 from desktop_candidates import CandidateError, MANIFEST, ROOT, TARGETS, sha256
@@ -20,6 +21,12 @@ class NativeBuilderTests(unittest.TestCase):
             destination = self.root / f"desktop/src-tauri/tauri.release.{platform}.conf.json"
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / destination.relative_to(self.root), destination)
+        shutil.copyfile(ROOT / 'desktop/src-tauri/tauri.conf.json', self.root / 'desktop/src-tauri/tauri.conf.json')
+        self.patchelf = self.root / 'patchelf'
+        self.patchelf.write_text('synthetic tool')
+        lookup = patch('linux_sidecar.shutil.which', return_value=str(self.patchelf))
+        lookup.start()
+        self.addCleanup(lookup.stop)
         self.rzm = self.root / "canonical/rzm.exe"
         self.rzm.parent.mkdir()
         self.rzm.write_bytes(b"canonical executable")
@@ -28,6 +35,7 @@ class NativeBuilderTests(unittest.TestCase):
         self.calls = []
         self.extracted_gateway = False
         self.prebuilt_frontend = False
+        self.mutated_sidecar = False
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -55,6 +63,8 @@ class NativeBuilderTests(unittest.TestCase):
             stdout = "glibc 2.39"
         elif command[:2] == ["readelf", "-d"]:
             stdout = "0x0000000000000001 (NEEDED) Shared library: [libc.so.6]"
+        elif command[:2] == ["readelf", "-h"]:
+            stdout = "Class: ELF64\nMachine: AMD x86-64\n0x1 (NEEDED) Shared library: [libc.so.6]"
         elif command[:2] == ["readelf", "-l"]:
             stdout = "[Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]"
         elif command[:2] == ["readelf", "--version-info"]:
@@ -77,7 +87,7 @@ class NativeBuilderTests(unittest.TestCase):
         elif command[-1] == "--appimage-extract":
             directory = kwargs["cwd"] / "squashfs-root/usr/bin"
             directory.mkdir(parents=True)
-            (directory / "rzm").write_bytes(self.rzm.read_bytes())
+            (directory / "rzm").write_bytes(b'mutated package sidecar' if self.mutated_sidecar else self.rzm.read_bytes())
         return subprocess.CompletedProcess(command, 0, stdout, "")
 
     def build(self, target="windows-x86_64", **kwargs):
@@ -111,6 +121,25 @@ class NativeBuilderTests(unittest.TestCase):
         self.assertEqual("Rhizome-linux-x64.AppImage", manifest["artifact"]["file"])
         self.assertTrue(any(command[-1] == "--appimage-extract" for command, _ in self.calls))
         self.assertEqual("2.17", manifest["nativeDependencies"]["minimumGlibc"])
+        for command, call in self.calls:
+            if 'bundle' in command:
+                self.assertEqual('1', call['env']['NO_STRIP'])
+                self.assertNotEqual(str(self.patchelf), call['env']['PATCHELF'])
+            else:
+                self.assertNotIn('NO_STRIP', call['env'])
+                self.assertNotIn('PATCHELF', call['env'])
+
+    def test_linux_mutation_still_rejects_package_and_retains_only_public_metadata(self):
+        self.mutated_sidecar = True
+        evidence = self.root / 'evidence'
+        with self.assertRaisesRegex(CandidateError, 'differs from the canonical'):
+            self.build('linux-x86_64', evidence_dir=evidence)
+        self.assertFalse(self.output.exists())
+        value = json.loads((evidence / 'sidecar-mismatch.log').read_text(encoding='utf-8'))
+        self.assertEqual(self.digest, value['canonical']['sha256'])
+        self.assertNotEqual(self.digest, value['extracted'][0]['sha256'])
+        self.assertEqual(['libc.so.6'], value['extracted'][0]['needed'])
+        self.assertNotIn('mutated package sidecar', json.dumps(value))
 
     def test_native_production_signing_is_required_and_only_passed_to_bundle(self):
         with self.assertRaisesRegex(CandidateError, "signing is not configured"):
