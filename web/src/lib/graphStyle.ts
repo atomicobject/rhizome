@@ -7,6 +7,7 @@ export type SigmaNodeAttrs = {
   kind: string;
   center?: boolean;
   labelDetail?: string;
+  searchMatchCount?: number;
   aggregate?: boolean;
   fixed?: boolean;
   explorerLabels?: boolean;
@@ -371,7 +372,7 @@ export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
     const deemphAlpha = lerp(NODE_ALPHA.deemphHover.normal, NODE_ALPHA.deemphHover.zoomed, lod);
     color = colorWithAlpha(deemphColor, Math.min(alpha, deemphAlpha));
     label = "";
-  } else if (hasHighlighting && !isFocus) {
+  } else if (hasHighlighting && !isFocus && attrs.searchMatchCount === undefined) {
     const desatAmount = lerp(DESAT.normal.normal, DESAT.normal.zoomed, lod);
     const deemphColor = mixColors(baseColor, neutral, desatAmount);
     const deemphAlpha = lerp(NODE_ALPHA.deemph.normal, NODE_ALPHA.deemph.zoomed, lod);

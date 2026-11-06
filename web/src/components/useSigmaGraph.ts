@@ -20,7 +20,6 @@ import {
   type HoverInfo,
 } from "./graphViewShared";
 import { type LayoutPositions } from "./graphLayout";
-
 import { buildSigmaGraph, layoutSigmaGraph } from "./sigmaGraphData";
 import { fitFixedGraph, zoomGraph } from "./sigmaCamera";
 
@@ -165,6 +164,7 @@ export function useSigmaGraph({
       const path = node.path || "";
 
       const matched =
+        searchModules.has(node.id) ||
         (node.kind !== "module" && path && searchPaths.has(path)) ||
         (node.kind === "module" &&
           (searchModules.has(node.id) || searchModules.has(path) || searchModules.has(node.label)));

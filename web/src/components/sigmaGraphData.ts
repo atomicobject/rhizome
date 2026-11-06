@@ -118,12 +118,20 @@ export function buildSigmaGraph({
         explorer && scope.mode === "local" && n.x === undefined
           ? (n.path || n.label).split("/").pop() || n.label
           : n.label,
-      labelDetail: n.labelDetail,
+      labelDetail: n.searchMatchCount
+        ? `${n.searchMatchCount} ${n.searchMatchCount === 1 ? "match" : "matches"}`
+        : n.labelDetail,
+      searchMatchCount: n.searchMatchCount,
       selected: explorer && center,
       branch:
         Boolean(branch) &&
         (branch === "" || (n.path || "").startsWith(`${branch}/`) || n.path === branch),
-      muted: branch ? !onBranch(n.path || "", branch) : false,
+      muted:
+        n.searchMatchCount !== undefined
+          ? n.searchMatchCount === 0
+          : branch
+            ? !onBranch(n.path || "", branch)
+            : false,
       aggregate: n.aggregate,
       fixed,
       priority:

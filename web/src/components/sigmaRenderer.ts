@@ -196,11 +196,13 @@ export function mountSigmaRenderer({
       const point = sigma.framedGraphToViewport(node);
       const palette = colorsRef.current ?? readThemeColors();
       context.globalAlpha = 1;
-      context.strokeStyle = attrs.aggregate
-        ? attrs.baseColor
-        : attrs.explorerLabels && (attrs.kind === "note" || attrs.kind === "embedded")
+      context.strokeStyle = attrs.muted
+        ? node.color
+        : attrs.aggregate
           ? attrs.baseColor
-          : (colorsRef.current ?? readThemeColors()).label;
+          : attrs.explorerLabels && (attrs.kind === "note" || attrs.kind === "embedded")
+            ? attrs.baseColor
+            : (colorsRef.current ?? readThemeColors()).label;
 
       context.beginPath();
       const r = sigma.scaleSize(node.size);
@@ -220,7 +222,7 @@ export function mountSigmaRenderer({
       context.stroke();
       context.setLineDash([]);
 
-      if (attrs.selected) {
+      if (attrs.selected || attrs.searchMatchCount) {
         context.beginPath();
         context.strokeStyle = palette.label;
         context.lineWidth = 2;

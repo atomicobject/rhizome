@@ -79,6 +79,20 @@ describe("graph style reducers", () => {
     expect(
       computeEdgeStyle({ ...input, attrs, state: reducerState({ hoverNodeID: "folder:docs" }) }),
     ).toMatchObject({ hidden: false, label: "12 links" });
+
+    for (const semanticMatches of [
+      new Set(["folder:docs"]),
+      new Set(["folder:docs", "folder:pkg"]),
+    ]) {
+      expect(
+        computeEdgeStyle({
+          ...input,
+          attrs,
+          state: reducerState({ searchActive: true, semanticMatches }),
+        }),
+      ).toMatchObject({ hidden: true, label: "" });
+    }
+
     expect(
       computeEdgeStyle({ ...input, attrs: edgeAttrs({ kind: "folder-containment" }) }),
     ).toMatchObject({ hidden: true, label: "" }); // sigmaFolderLinks draws it, clipped to node edges

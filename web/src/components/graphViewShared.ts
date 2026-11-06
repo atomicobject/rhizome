@@ -20,6 +20,7 @@ export type GraphViewNode = GraphNode & {
   /** Secondary label text drawn after `label` in the muted label colour
    * (for a count such as `1,295 files`). `label` is the name only. */
   labelDetail?: string;
+  searchMatchCount?: number;
   /** The node stands for several files or folders ("12 more folders"); drawn as
    * a dashed or hollow ring in its fill colour so it reads as a group, not a file. */
   aggregate?: boolean;

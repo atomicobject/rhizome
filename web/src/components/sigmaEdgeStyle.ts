@@ -119,7 +119,7 @@ export function computeEdgeStyle(
   // The folder overview draws few links, so each is essential: opaque in the
   // 3:1 neutral at 1–2px, fading only when the reader points at another folder.
   // Minor folder links (folderGraph's MINOR_FOLDER_LINK) wait for a hover on one of their folders.
-  if (attrs.kind === "folder-minor" && !isFocus)
+  if (attrs.kind === "folder-minor" && !isHoverEdge)
     return { hidden: true, color: edgeFaint, size: 0.5, label: "" };
 
   if (attrs.kind === "folder-containment" || attrs.kind === "folder-minor") {

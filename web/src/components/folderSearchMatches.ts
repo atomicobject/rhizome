@@ -7,17 +7,25 @@ export function folderSearchMatches(
   graph: GraphResponse,
   paths: Set<string>,
 ) {
-  const ids = new Set(
+  const pathsByID = new Map(
     graph.nodes
       .filter((node) => paths.has(node.notePath || node.path || ""))
-      .map((node) => node.id),
+      .map((node) => [node.id, node.notePath || node.path || node.id]),
   );
 
-  const matches = new Set<string>();
+  const matches = new Map<string, number>();
 
   for (const children of folders?.children.values() ?? []) {
     for (const child of children) {
-      if (child.members.some((id) => ids.has(id))) matches.add(child.node.id);
+      const count = new Set(
+        child.members.flatMap((id) => {
+          const path = pathsByID.get(id);
+
+          return path ? [path] : [];
+        }),
+      ).size;
+
+      if (count) matches.set(child.node.id, count);
     }
   }
 

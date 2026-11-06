@@ -298,9 +298,22 @@ export function ExplorerWorkspace({
   const hasPanel = selection.kind === "file";
   const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
 
-  const searchModuleSet = useMemo(
+  const searchCounts = useMemo(
     () => folderSearchMatches(folders, graph, searchPathSet),
     [folders, graph, searchPathSet],
+  );
+
+  const searchNodes = useMemo(
+    () =>
+      searchActive
+        ? drawn.nodes.map((node) => ({
+            ...node,
+            searchMatchCount:
+              searchCounts.get(node.id) ??
+              (searchPathSet.has(node.notePath || node.path || "") ? 1 : 0),
+          }))
+        : drawn.nodes,
+    [drawn.nodes, searchActive, searchCounts, searchPathSet],
   );
 
   const graphScopeLabel =
@@ -402,7 +415,7 @@ export function ExplorerWorkspace({
                   }
                 >
                   <GraphView
-                    nodes={drawn.nodes}
+                    nodes={searchNodes}
                     edges={drawn.edges}
                     truncated={drawn.truncated}
                     legendNodes={folders ? graph.nodes : drawn.sourceGraph?.nodes}
@@ -418,7 +431,7 @@ export function ExplorerWorkspace({
                     onNodeClick={onNodeClick}
                     searchActive={searchActive}
                     searchPaths={searchPathSet}
-                    searchModules={searchModuleSet}
+                    searchModules={new Set(searchCounts.keys())}
                     searchOnlyMatches={searchOnlyMatches}
                     typeColors={typeColors}
                     showTypeLegend

@@ -55,7 +55,18 @@ it("keeps a large search aggregated before building the renderer graph", async (
   await waitFor(() => {
     const graph = sigma.getGraph();
     expect(graph.order).toBeLessThan(40);
-    expect(graph.export()).toEqual(before);
+    expect(graph.export().edges).toEqual(before.edges);
+    expect(graph.nodes()).toEqual(before.nodes.map((node) => node.key));
+
+    for (const node of before.nodes) {
+      expect(graph.getNodeAttributes(node.key)).toMatchObject({
+        x: node.attributes?.x,
+        y: node.attributes?.y,
+      });
+    }
+
+    expect(graph.getNodeAttribute("folder:docs", "searchMatchCount")).toBe(1);
+    expect(graph.getNodeAttribute("folder:src", "labelDetail")).toBe("1 match");
     expect(graph.getNodeAttribute("folder:docs", "childCount")).toBe(5000);
     expect(graph.getNodeAttribute("folder:src", "childCount")).toBe(5000);
   });
