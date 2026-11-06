@@ -27,7 +27,7 @@ written:
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .agents/skills/custom-views/references/kit-api.md: bafce3a53d05696d
+  .agents/skills/custom-views/references/kit-api.md: 1e0d3ef9032a6842
   .agents/skills/custom-views/references/module-example.md: 444c0ff4a81e3061
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -81,7 +81,7 @@ written:
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .claude/skills/custom-views/references/kit-api.md: bafce3a53d05696d
+  .claude/skills/custom-views/references/kit-api.md: 1e0d3ef9032a6842
   .claude/skills/custom-views/references/module-example.md: 444c0ff4a81e3061
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -136,7 +136,7 @@ written:
   .rhizome/modules/compounding/scripts/lib/calibration-data.mjs: 50c7ba8e358f3780
   .rhizome/modules/compounding/scripts/lib/calibration-models.mjs: 040bd397ef1cbe0c
   .rhizome/modules/compounding/scripts/lib/calibration-score.mjs: 56b8330db4ad1099
-  .rhizome/modules/compounding/scripts/lib/calls.mjs: e43c954d88f347d7
+  .rhizome/modules/compounding/scripts/lib/calls.mjs: 28c3e3f9fca34af2
   .rhizome/modules/compounding/scripts/lib/episodes.mjs: 192fa78eda45082b
   .rhizome/modules/compounding/scripts/lib/estimate.mjs: 2a1caa922f7295f2
   .rhizome/modules/compounding/scripts/lib/extract.mjs: b7e8d59f161d707b
