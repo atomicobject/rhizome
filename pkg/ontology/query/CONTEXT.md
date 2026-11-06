@@ -42,3 +42,5 @@ Builds GraphQL-shaped query results from compiled SDL, indexed note metadata, on
 Provider-authored section backlinks are authoritative for all incoming sources, including Markdown. `addProviderInboundSectionNeighbors` uses canonical cache membership, current metadata, executable projection and authored-link capability, then resolves link facts through the shared resolver. Skip sources already scanned; do not select providers by format name.
 
 Execution is organized by root family in `roots_*.go`, with shared planning in `pushdown.Planner.Plan`. A plan carries its executable predicates, residual inputs, coherent full residual sort, and warnings together. Views retain compiled predicates through source execution and collapse interface plans only when their typed predicates and sorts agree.
+
+Nested frontmatter `@field(path:)` and `@link(path:)` bindings use schema-owned mapping traversal in projection and note-record residual reads. Indexed field rows keep the canonical field name. Runtime ontology discovery exposes `sourcePath`; workspace capabilities and edit replay enforce read-only access.

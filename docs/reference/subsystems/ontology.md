@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/ontology
   - pkg/ontology/schema
@@ -29,6 +29,14 @@ code-anchors:
 The ontology core owns Rhizome's typed note contract: compile GraphQL SDL from `.rhizome/ontology/*.graphql` and each module's `.rhizome/modules/<module>/ontology/*.graphql` into a typed-note model, project provider-current authored roots into source-preserving `NodeRef` snapshots, add structural nodes only for Markdown, build the indexed read model (`ontology_nodes` / `ontology_edges` / `ontology_node_field_values`), and replay supported edits as minimal span patches. Entry points: `schema.LoadSchema` (`pkg/ontology/schema/schema_cache.go`), `ProjectNode` / `ProjectNodeFromSnapshot` / `ProjectRootDocumentSnapshot` (`pkg/ontology/projection.go`, `root_projection.go`), `BuildIndexFromNoteSources` / `SyncPublishedPaths` (`pkg/ontology/index.go`, `sync.go`), `BuildIntelOntologyNodes` (`pkg/ontology/node_catalog.go`), `NewEditSession` (`pkg/ontology/edit_session.go`), `BuildNodeWorkspace` (`pkg/ontology/node_workspace.go`), `idalloc.Allocate` (`pkg/ontology/idalloc/allocator.go`), `schemadoc.RenderGuideMarkdown` / `RenderReferenceMarkdown` (`pkg/ontology/schemadoc/`).
 
 **Boundary**: the GraphQL query layer (`pkg/ontology/query`, `pushdown`, `queryrecipe`) and the batched read seam (`pkg/ontology/noderead`, `readmodel`) are covered by sibling subsystem notes — this note ends where indexed rows are handed to those consumers.
+
+## Frontmatter field directives
+
+`@field(source: "provenance.speaker")` and `@link(source: "provenance.source")` read literal frontmatter keys, including dots, exactly as before. `sources:` supplies literal aliases.
+
+`@field(path: "provenance.speaker")` and `@link(path: "provenance.source")` instead traverse the owning root's frontmatter mappings one dot-separated segment at a time. `path:` is mutually exclusive with `source:` and `sources:` and requires `sourceKind: FRONTMATTER` (the default). It is unavailable on section/embedded fields and identifiers. Empty segments, wildcards and bracket indexes are rejected; no expressions are evaluated. Each segment prefers an exact key, then the lexically first case-insensitive match. A literal dotted root key never shadows a `path:` traversal, and `source:` never traverses. Missing keys, null values and non-mapping intermediates are missing values, without errors.
+
+Path fields use the common projection, catalog rows, typed reads, filtering, sorting and display. Their capabilities report them as read-only, and edit replay rejects set/unset operations. Authoring skeletons omit them rather than emitting flattened keys. Authored metadata is never rewritten to expose a nested value.
 
 ## Design constraints
 

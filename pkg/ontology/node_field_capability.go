@@ -153,6 +153,9 @@ func nodeFieldValueKind(field *ontoschema.Field) NodeFieldValueKind {
 }
 
 func nodeFieldReadOnlyReason(field *ontoschema.Field, binding FieldBinding) string {
+	if field.SourcePath != "" {
+		return "Nested frontmatter paths are read-only."
+	}
 	if field.IsIdentifier {
 		return "Identifiers are graph keys and must stay unique. Change them through identifier reconciliation."
 	}

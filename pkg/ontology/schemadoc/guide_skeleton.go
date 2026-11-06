@@ -54,7 +54,7 @@ func skeletonWithID(schema *ontoschema.Schema, noteType *guideType, suggestedID 
 	fields := authoredGuideTypeFields(noteType)
 	orderedFields := append(fields.required, fields.optional...)
 	for _, field := range orderedFields {
-		if field.SourceKind == ontoschema.FieldSourceInline {
+		if field.SourcePath != "" || field.SourceKind == ontoschema.FieldSourceInline {
 			continue
 		}
 		if field.Kind == ontoschema.FieldKindSection {

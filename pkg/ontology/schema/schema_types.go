@@ -298,6 +298,7 @@ type Field struct {
 	TypeName             string
 	List                 bool
 	Required             bool
+	SourcePath           string
 	Source               string
 	SourceAliases        []string
 	SourceKind           FieldSource
