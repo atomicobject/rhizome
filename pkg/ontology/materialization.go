@@ -32,7 +32,8 @@ import (
 // v16: note titles derived from an H1 drop a trailing Obsidian block ID.
 // v17: embedded display labels retain the full headline without changing indexed titles or fields.
 // v18: list-item neighbor edges include links on the item headline.
-const OntologyMaterializationVersion = 18
+// v19: a declared type that differs only in case from its selector-matched type resolves to it.
+const OntologyMaterializationVersion = 19
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

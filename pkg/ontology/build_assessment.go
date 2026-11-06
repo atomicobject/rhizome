@@ -32,9 +32,28 @@ func resolveNoteAssessment(doc *noteDoc, schema *ontoschema.Schema) *NoteAssessm
 		return &NoteAssessment{NotePath: doc.Path, SelectorCandidateTypes: selectorCandidates}
 	}
 
+	// A declared type that differs only in case from the one selector-matched type
+	// is that type: external conventions write `type: assertion` for Assertion.
+	// The assessment keeps the authored spelling.
+	authoredType := declaredType
+	if declaredType != "" && schema.Types[declaredType] == nil {
+		folded := ""
+		for _, candidate := range candidates {
+			if strings.EqualFold(candidate, declaredType) {
+				if folded != "" {
+					folded = ""
+					break
+				}
+				folded = candidate
+			}
+		}
+		if folded != "" {
+			declaredType = folded
+		}
+	}
 	assessment := &NoteAssessment{
 		NotePath:               doc.Path,
-		DeclaredType:           declaredType,
+		DeclaredType:           authoredType,
 		CandidateTypes:         candidates,
 		SelectorCandidateTypes: selectorCandidates,
 	}
