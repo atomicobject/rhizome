@@ -68,7 +68,7 @@ type runtimeVault struct {
 	home        string
 	binary      string
 	spawnedMu   sync.Mutex
-	spawnedPIDs map[int]struct{}
+	spawnedPIDs map[int]*os.Process
 }
 
 type commandResult struct {
@@ -98,7 +98,7 @@ func newRuntimeVaultIn(t *testing.T, home, extraConfig string) *runtimeVault {
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 		require.NoError(t, os.WriteFile(path, []byte(contents), 0o644))
 	}
-	vault := &runtimeVault{t: t, root: root, home: home, binary: rzmBinary(t), spawnedPIDs: make(map[int]struct{})}
+	vault := &runtimeVault{t: t, root: root, home: home, binary: rzmBinary(t), spawnedPIDs: make(map[int]*os.Process)}
 	// Runtimes are detached; stop this vault's before its directory is removed.
 	t.Cleanup(vault.stopRuntime)
 	return vault
@@ -233,18 +233,25 @@ func (v *runtimeVault) rememberRuntimePID(pid int) {
 		return
 	}
 	v.spawnedMu.Lock()
-	v.spawnedPIDs[pid] = struct{}{}
-	v.spawnedMu.Unlock()
+	defer v.spawnedMu.Unlock()
+	if _, tracked := v.spawnedPIDs[pid]; tracked {
+		return
+	}
+	// Holding the process handle prevents Windows from recycling this PID during cleanup.
+	if process, err := os.FindProcess(pid); err == nil {
+		v.spawnedPIDs[pid] = process
+	}
 }
 
 func (v *runtimeVault) activeRuntimePIDs() []int {
 	v.spawnedMu.Lock()
 	defer v.spawnedMu.Unlock()
 	active := make([]int, 0, len(v.spawnedPIDs))
-	for pid := range v.spawnedPIDs {
-		if indexlock.PIDExists(pid) {
+	for pid, process := range v.spawnedPIDs {
+		if indexlock.PIDExists(process.Pid) {
 			active = append(active, pid)
 		} else {
+			_ = process.Release()
 			delete(v.spawnedPIDs, pid)
 		}
 	}
@@ -252,8 +259,9 @@ func (v *runtimeVault) activeRuntimePIDs() []int {
 }
 
 func (v *runtimeVault) killRuntimePID(pid int) {
-	process, err := os.FindProcess(pid)
-	if err == nil {
+	v.spawnedMu.Lock()
+	defer v.spawnedMu.Unlock()
+	if process := v.spawnedPIDs[pid]; process != nil {
 		_ = process.Kill()
 	}
 }
