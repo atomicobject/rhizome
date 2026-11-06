@@ -70,18 +70,20 @@ export function ExplorerWorkspace({
 
   const file: FileView | null = selection.kind === "file" ? (fileQuery.data ?? null) : null;
 
-  const graphQuery = useQuery({
-    queryKey:
-      selection.kind === "file"
-        ? queryKeys.graph.local(selection.path, 200, {})
-        : queryKeys.graph.global({ limit: 200000 }),
-    queryFn: ({ signal }) =>
-      selection.kind === "file"
-        ? getLocalGraph(selection.path, 200, {}, { signal })
-        : getGlobalGraph({ limit: 200000 }, { signal }),
+  const globalGraphQuery = useQuery({
+    queryKey: queryKeys.graph.global({ limit: 200000 }),
+    queryFn: ({ signal }) => getGlobalGraph({ limit: 200000 }, { signal }),
   });
 
+  const localGraphQuery = useQuery({
+    queryKey: queryKeys.graph.local(selectedFilePath, 200, {}),
+    queryFn: ({ signal }) => getLocalGraph(selectedFilePath, 200, {}, { signal }),
+    enabled: selection.kind === "file",
+  });
+
+  const graphQuery = selection.kind === "file" ? localGraphQuery : globalGraphQuery;
   const graph = graphQuery.data ?? EMPTY_GRAPH;
+  const folderGraph = globalGraphQuery.data ?? EMPTY_GRAPH;
   const atRoot = selection.kind !== "file";
   const [displaySlot, setDisplaySlot] = useState<HTMLDivElement | null>(null);
 
@@ -168,16 +170,18 @@ export function ExplorerWorkspace({
   const typeColors = useMemo(
     () =>
       buildTypeColors([
-        ...new Set(graph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean)),
+        ...new Set(
+          folderGraph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean),
+        ),
       ]),
     // The summary decides each type's palette slot.
-    [graph.nodes, accentKey],
+    [folderGraph.nodes, accentKey],
   );
 
   const byFolder = atRoot;
 
   const folderExplorer = useFolderExplorer(
-    graph,
+    folderGraph,
     typeColors,
     selection.kind === "module" ? selection.path : undefined,
   );
