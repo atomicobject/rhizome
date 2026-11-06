@@ -380,3 +380,22 @@ it("keeps showing the group while a type that joined it loads its documentation"
   doc.resolve({ type: TYPE_DOCS.Glossary, count: 3 });
   expect(await screen.findByRole("region", { name: "Library glossaries" })).toBeVisible();
 });
+
+it("keeps Status when only the hidden records have another status", async () => {
+  const releases = Array.from({ length: SECTION_ROWS + 1 }, (_, index) => ({
+    path: `releases/${index}.md`,
+    title: `Release ${index}`,
+    releaseStatus: index < SECTION_ROWS ? "at_risk" : "planned",
+  }));
+
+  await renderGroupView(loadSections, {
+    routes: groupRoutes({
+      "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Release: releases } }),
+    }),
+  });
+  const region = await screen.findByRole("region", { name: "Releases" });
+  expect(rowTitles(region)).toHaveLength(SECTION_ROWS);
+  expect(headers(region)).toContain("Status");
+  fireEvent.click(within(region).getByRole("button", { name: /Show .*more/ }));
+  expect(headers(region)).toContain("Status");
+});
