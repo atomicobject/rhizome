@@ -90,3 +90,11 @@ Fresh [Windows](windows-review.md) and [supervisor](supervisor-review.md) source
 | Reviews | Three second-pass integration reviews, the subprocess-delta review and two CI-delta reviews approved without actionable findings. Source reviews did not claim independent test execution. |
 
 All commands used the installed repository-pinned Go 1.27.3, golangci-lint 2.15.0, Node 22.23.1 and gitleaks 8.30.1 via `/tmp/rhizome-untangle-pinned`. Billing tests used the disposable DynamoDB Local endpoint, never a live provider. Detailed local logs and the command/result manifest are under `/tmp/rhizome-untangle-pass2-*`; packaged init evidence is `/tmp/rhizome-untangle-pass2-packaged-init-result.json`. The generated web build output was restored to its tracked source version rather than committing hashed build assets.
+
+## Windows handle-release follow-through
+
+CI on `e0527544ca1f6e58b0bdc45e44b7289c7cbc0c0f` passed 21 checks but failed `TestSessionEnvironmentDoesNotLeak` with `kill process: invalid argument`. The exact log is `/tmp/rhizome-untangle-windows-rest-failure.log`, from job `127676042459`. The previous access-denied correction covered termination racing with process exit, but not a completed Wait releasing the Windows handle.
+
+The repository-pinned Go source and [official Windows process implementation](https://go.dev/src/os/exec_windows.go) both show that Wait releases the handle and a subsequent Kill returns `syscall.EINVAL`. The existing Windows exception now accepts that error only after observing the same child's closed reaping signal. It still rejects missing/open signals and unrelated errors. A Windows regression launches a real child, waits for it, and verifies the resulting Kill error; the existing boundary cases now cover both Windows outcomes. No shutdown deadline, environment behavior, process-tree policy or Unix error handling changes.
+
+The [focused Sol review](windows-handle-review.md) approved this delta without findings. `make check` passed with local OS access; the first sandboxed attempt could not bind fixture sockets or read macOS boot time and was stopped. `go test -race -tags fts5 ./pkg/harness/... -count=1` passed, and the updated Windows test binary cross-compiled. Logs are `/tmp/rhizome-untangle-windows-handle-{check-unrestricted,harness,compile}.log`. Actual Windows execution remains a PR CI requirement.

@@ -8,10 +8,10 @@ import (
 )
 
 func reapedKillErrorIsBenign(exited <-chan struct{}, err error) bool {
-	if !errors.Is(err, syscall.ERROR_ACCESS_DENIED) {
+	if !errors.Is(err, syscall.ERROR_ACCESS_DENIED) && !errors.Is(err, syscall.EINVAL) {
 		return false
 	}
-	// TerminateProcess reports access denied when the process has already exited.
+	// Windows reports access denied after exit, or EINVAL after Wait releases the handle.
 	select {
 	case <-exited:
 		return true

@@ -8,4 +8,4 @@
 
 `Recv` returns framing failures and stdout EOF immediately with already-captured stderr. It must not wait for stderr EOF: the session needs that error to resolve its active turn and approvals and begin cleanup. Stderr draining can complete during bounded `Close`.
 
-On Windows, TerminateProcess can report access denied after the process has already exited. The transport accepts that specific error only after observing the exact child’s reaped signal; errors for an unreaped child and Unix process-group failures remain failures.
+On Windows, TerminateProcess can report access denied after the process has already exited, and Go returns EINVAL after Wait releases its handle. The transport accepts those specific errors only after observing the exact child’s reaped signal; errors for an unreaped child and Unix process-group failures remain failures.
