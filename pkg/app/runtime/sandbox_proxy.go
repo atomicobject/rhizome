@@ -13,7 +13,9 @@ import (
 // Codex's loopback-only permission profile admits 127.0.0.1 only through its
 // proxy, and Go never sends loopback requests to a proxy on its own. The
 // retry happens only after a permission denial and only through a loopback
-// proxy, so a person's ordinary proxy never sees runtime traffic.
+// proxy, so a remote proxy never sees runtime traffic. Both hosts replace
+// HTTP_PROXY with their own sandbox proxy; a person's own loopback proxy is
+// reached only if their sandbox admits it while refusing the runtime.
 type loopbackTransport struct{}
 
 var directTransport = http.DefaultTransport.(*http.Transport).Clone()
@@ -56,7 +58,7 @@ func (loopbackTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // sandboxProxy is the loopback HTTP proxy the environment names, or nil.
-// Sandbox proxies (Codex's, Claude Code's) listen on loopback; any other
+// Sandbox proxies (Codex's, Claude Code's) listen on loopback; a remote
 // proxy is a person's own, which must never receive the runtime's token.
 func sandboxProxy() *url.URL {
 	for _, name := range []string{"HTTP_PROXY", "http_proxy"} {

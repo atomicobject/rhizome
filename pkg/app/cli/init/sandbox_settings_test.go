@@ -50,9 +50,24 @@ func TestClaudeSandboxSettingIsAPersonsToTurnOff(t *testing.T) {
 func TestClaudeSandboxSettingRhizomeDidNotWriteStays(t *testing.T) {
 	root := machineRunRepo(t)
 	writeFixtureFile(t, root, ".claude/settings.json", `{"sandbox":{"network":{"allowLocalBinding":true}}}`)
-	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Agents: "codex", Search: "off"})
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Agents: "claude", Search: "off"})
 	require.NoError(t, err)
-	require.Equal(t, "true", localBinding(t, root), "a person's own value is never removed")
+	_, err = runInit(t, RunOptions{Dir: root, Agents: "codex"})
+	require.NoError(t, err)
+	require.Equal(t, "true", localBinding(t, root), "a matching value someone else set stays theirs")
+}
+
+func TestCodexProfileConflictsWithQuotedOrTabbedKeys(t *testing.T) {
+	block := tomlBlock("codex-sandbox")
+	for _, text := range []string{
+		"\"default_permissions\" = \":read-only\"\n",
+		"default_permissions\t= \":read-only\"\n",
+		"[ features ]\nx = true\n",
+		"[\"permissions\".mine]\n",
+	} {
+		require.NotEmpty(t, block.conflict([]byte(text)), text)
+	}
+	require.Empty(t, block.conflict([]byte("[projects.\"/x\"]\nfeatures_extra = 1\n")), "a longer key is not a conflict")
 }
 
 func TestCodexGetsALoopbackOnlyProfileAboveAPersonsSettings(t *testing.T) {

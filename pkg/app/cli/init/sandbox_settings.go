@@ -195,10 +195,10 @@ func (b tomlBlock) write(data, part []byte) ([]byte, error) {
 func (b tomlBlock) conflict(data []byte) string {
 	before, _, after, _ := b.split(data)
 	for _, line := range strings.Split(before+after, "\n") {
-		line = strings.TrimSpace(line)
+		// The first key of a table header or assignment, without quotes.
+		key := strings.TrimLeft(strings.TrimSpace(line), "[ \t\"'")
 		for _, name := range []string{"default_permissions", "features", "permissions"} {
-			if strings.HasPrefix(line, "["+name) || strings.HasPrefix(line, "[["+name) ||
-				strings.HasPrefix(line, name+" ") || strings.HasPrefix(line, name+"=") || strings.HasPrefix(line, name+".") {
+			if rest, ok := strings.CutPrefix(key, name); ok && (rest == "" || strings.ContainsRune(" \t=.]\"'", rune(rest[0]))) {
 				return fmt.Sprintf("it already defines %s; add the loopback profile Rhizome writes by hand", name)
 			}
 		}
@@ -288,7 +288,11 @@ func applySetting(projectRoot string, s generatedSetting, c *change, record *gen
 		return nil
 	}
 	if c.state == stateCurrent {
-		record.recordWritten(c.key, c.desiredF)
+		// A matching value Rhizome has no record of writing stays the
+		// person's, so a later run never removes it.
+		if _, recorded := record.Written[c.key]; recorded {
+			record.recordWritten(c.key, c.desiredF)
+		}
 		return nil
 	}
 	if !c.take {
