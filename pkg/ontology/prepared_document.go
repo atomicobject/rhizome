@@ -54,13 +54,11 @@ func PrepareDocument(root *RootDocumentSnapshot, schema *ontoschema.Schema) (*Pr
 		return nil, fmt.Errorf("source and schema are required")
 	}
 	doc := noteDocForRoot(root)
-	if root.Format == "markdown" && root.Projection.Facts.Structure != nil {
-		snapshot, err := BuildMarkdownDocumentSnapshot(root)
-		if err != nil {
-			return nil, err
-		}
-		doc.Snapshot = snapshot
+	snapshot, err := markdownEditView(root)
+	if err != nil {
+		return nil, err
 	}
+	doc.Snapshot = snapshot
 	prepared, err := prepareDocumentForDoc(doc, schema, resolveNoteAssessment(doc, schema))
 	if err != nil {
 		return nil, err
@@ -324,4 +322,22 @@ func (p *PreparedDocument) Owner(key noteformat.OwnerKey) (noteformat.OwnerFact,
 }
 func (p *PreparedDocument) Diagnostics() []RecordDiagnostic {
 	return append([]RecordDiagnostic(nil), p.diagnostics...)
+}
+
+// Prepare adapts an explicitly Markdown edit/preview snapshot, preserving its captured facts.
+func (s *DocumentSnapshot) Prepare(schema *ontoschema.Schema) (*PreparedDocument, error) {
+	return prepareMarkdownSnapshot(s, schema)
+}
+
+func (p *PreparedDocument) GlobalSourceRefs() ([]NodeRef, error) {
+	var refs []NodeRef
+	if p.markdown != nil {
+		refs = append(refs, p.markdown.globalSourceNodeRefs()...)
+	}
+	for _, record := range p.records {
+		if record.valid {
+			refs = append(refs, record.projection.Ref)
+		}
+	}
+	return refs, nil
 }

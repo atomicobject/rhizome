@@ -17,11 +17,16 @@ type NativeSourceEntry struct {
 	Value NativeSourceValue        `json:"value"`
 }
 type NodeSourceContent struct {
-	Text           string             `json:"text"`
-	MediaType      string             `json:"mediaType"`
-	Representation string             `json:"representation"`
-	Address        string             `json:"address,omitempty"`
-	Value          *NativeSourceValue `json:"value,omitempty"`
+	Text            string              `json:"text"`
+	MediaType       string              `json:"mediaType"`
+	Representation  string              `json:"representation"`
+	Format          noteformat.FormatID `json:"format,omitempty"`
+	ProviderVersion string              `json:"providerVersion,omitempty"`
+	SourceHash      string              `json:"sourceHash,omitempty"`
+	Owner           noteformat.OwnerKey `json:"owner,omitempty"`
+	Binding         string              `json:"binding,omitempty"`
+	Address         string              `json:"address,omitempty"`
+	Value           *NativeSourceValue  `json:"value,omitempty"`
 }
 
 func (p *PreparedDocument) nativeValue(id noteformat.ValueID) NativeSourceValue {
@@ -42,7 +47,19 @@ func (p *PreparedDocument) nativeValue(id noteformat.ValueID) NativeSourceValue 
 
 // SourceContent keeps native values and their text representation distinct from
 // Markdown prose. Content reads never require an edit engine.
-func (projection *NodeProjection) SourceContent() NodeSourceContent {
+func (projection *NodeProjection) SourceContent() (content NodeSourceContent) {
+	defer func() {
+		if projection != nil && projection.RootSnapshot != nil {
+			root := projection.RootSnapshot
+			content.Format = root.Format
+			content.ProviderVersion = root.Projection.ProviderVersion
+			content.SourceHash = root.ContentHash
+			content.Owner = projection.OwnerKey
+			if projection.Record != nil {
+				content.Binding = projection.Record.Binding
+			}
+		}
+	}()
 	if projection == nil {
 		return NodeSourceContent{}
 	}
@@ -115,4 +132,27 @@ func recordOwnText(projection *NodeProjection, maxBytes int) []string {
 		text = text[end:]
 	}
 	return out
+}
+
+func (content NodeSourceContent) Copy() NodeSourceContent {
+	if content.Value != nil {
+		value := content.Value.Copy()
+		content.Value = &value
+	}
+	return content
+}
+func (value NativeSourceValue) Copy() NativeSourceValue {
+	if value.Scalar != nil {
+		scalar := *value.Scalar
+		value.Scalar = &scalar
+	}
+	value.Items = append([]NativeSourceValue(nil), value.Items...)
+	for i := range value.Items {
+		value.Items[i] = value.Items[i].Copy()
+	}
+	value.Entries = append([]NativeSourceEntry(nil), value.Entries...)
+	for i := range value.Entries {
+		value.Entries[i].Value = value.Entries[i].Value.Copy()
+	}
+	return value
 }

@@ -10,14 +10,20 @@ import (
 // capabilities on note-root projections. A root snapshot is authoritative even
 // when its provider declares an empty capability set.
 func (s *Scope) withProjectionSource(record NodeRecord, projection *ontology.NodeProjection) NodeRecord {
-	if projection.Ref.Kind != ontology.NodeKindNote {
-		return record
-	}
 	if root := projection.RootSnapshot; root != nil {
 		record.Format = root.Format
 		record.SourceRepresentation = root.SourceRepresentation
+		if record.SourceRepresentation == "" {
+			record.SourceRepresentation = ontology.SourceRepresentationUTF8
+		}
 		record.EvidenceRepresentation = root.EvidenceRepresentation
+		if record.EvidenceRepresentation == "" {
+			record.EvidenceRepresentation = ontology.EvidenceRepresentationProviderProjection
+		}
 		record.Capabilities = root.Projection.Capabilities.Values()
+		if projection.Snapshot != nil && len(record.Capabilities) == 0 {
+			record.Capabilities = s.providerCapabilities(root.Format)
+		}
 		return record
 	}
 	return s.withSourceContract(record)

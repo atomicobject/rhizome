@@ -95,7 +95,8 @@ type NodeStatus struct {
 }
 
 type NodeContent struct {
-	Markdown string `json:"markdown,omitempty"`
+	Source   *NodeSourceContent `json:"source,omitempty"`
+	Markdown string             `json:"markdown,omitempty"`
 }
 
 type NodeEvent struct {
@@ -151,7 +152,7 @@ func BuildNodeWorkspaceFromProjectionWithSchema(schema *ontoschema.Schema, proje
 	}
 	workspace := &NodeWorkspace{
 		Node:           buildNodeDescriptor(schema, projection),
-		Content:        NodeContent{Markdown: nodeProjectionMarkdown(projection)},
+		Content:        nodeWorkspaceContent(projection),
 		Fields:         buildNodeFieldStates(schema, projection),
 		Collections:    buildNodeCollectionStates(projection),
 		Capabilities:   buildNodeCapabilities(projection),
@@ -302,9 +303,9 @@ func buildNodeCollectionStates(projection *NodeProjection) []NodeCollectionState
 }
 
 func buildNodeCapabilities(projection *NodeProjection) NodeCapabilities {
-	canEditFields := len(projection.Fields) > 0
-	canEditCollections := len(projection.Collections) > 0
-	canNavigateChildren := canEditCollections
+	canEditFields := (projection.Snapshot != nil || projection.RootSnapshot != nil && projection.RootSnapshot.RootMetadataMutationSupported) && len(projection.Fields) > 0
+	canEditCollections := projection.Snapshot != nil && len(projection.Collections) > 0
+	canNavigateChildren := len(projection.Collections) > 0
 	if !canNavigateChildren {
 		for _, field := range projection.Fields {
 			if len(field.ChildRefs) > 0 {
@@ -399,4 +400,12 @@ func firstNonEmptyNodeValue(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func nodeWorkspaceContent(p *NodeProjection) NodeContent {
+	if p.Record != nil {
+		source := p.SourceContent()
+		return NodeContent{Source: &source}
+	}
+	return NodeContent{Markdown: nodeProjectionMarkdown(p)}
 }

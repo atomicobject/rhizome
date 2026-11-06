@@ -328,6 +328,14 @@ func sectionNodeFieldsSDL(noteType *ontoschema.NoteType) []string {
 	}
 	out := make([]string, 0, len(fields))
 	for _, field := range fields {
+		if noteType != nil && noteType.Record != nil {
+			if field.name == "level" {
+				continue
+			}
+			if field.name == "children" {
+				field.sdl = "children(first: Int = 20): [Node!]!"
+			}
+		}
 		if noteType != nil && noteType.ByName[field.name] != nil {
 			continue
 		}
@@ -400,7 +408,9 @@ func typeInterfaces(noteType *ontoschema.NoteType) []string {
 		add("Node")
 		add("Note")
 	case ontoschema.TypeRoleSection, ontoschema.TypeRoleEmbeddedNode:
-		add("Section")
+		if noteType.Record == nil {
+			add("Section")
+		}
 		add("Node")
 	}
 	for _, name := range noteType.Implements {

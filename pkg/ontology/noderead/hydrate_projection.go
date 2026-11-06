@@ -76,7 +76,7 @@ func (s *Scope) embeddedRecordsFromProjectionNoOverlay(ctx context.Context, refs
 		}
 	}
 	for path, pending := range pendingByPath {
-		snapshot, err := s.snapshotForPathLocked(ctx, path)
+		prepared, err := s.preparedForPathLocked(ctx, path)
 		if canceled := readCancellation(ctx, err); canceled != nil {
 			return nil, canceled
 		}
@@ -89,7 +89,7 @@ func (s *Scope) embeddedRecordsFromProjectionNoOverlay(ctx context.Context, refs
 			s.diagnostics.UnsupportedRefs += len(pending)
 			continue
 		}
-		if snapshot == nil {
+		if prepared == nil {
 			for _, p := range pending {
 				s.projectionKnown[RefIdentityKey(p.original)] = true
 			}
@@ -97,7 +97,7 @@ func (s *Scope) embeddedRecordsFromProjectionNoOverlay(ctx context.Context, refs
 			continue
 		}
 		for _, p := range pending {
-			projection, err := ontology.ProjectNodeFromSnapshot(snapshot, s.service.Schema, p.original)
+			projection, err := prepared.Project(p.original)
 			if canceled := readCancellation(ctx, err); canceled != nil {
 				return nil, canceled
 			}
@@ -156,7 +156,7 @@ func (s *Scope) nodeRecordFromProjectionLocked(ctx context.Context, projection *
 		title = workspace.Node.Title
 	}
 	content := ""
-	if projection.Ref.StartByte >= 0 && projection.Ref.EndByte > projection.Ref.StartByte && projection.Ref.EndByte <= len(projection.Snapshot.Content) {
+	if projection.Snapshot != nil && projection.Ref.StartByte >= 0 && projection.Ref.EndByte > projection.Ref.StartByte && projection.Ref.EndByte <= len(projection.Snapshot.Content) {
 		content = strings.TrimSpace(projection.Snapshot.Content[projection.Ref.StartByte:projection.Ref.EndByte])
 	}
 	// FieldValues is intentionally left nil on projection-backed records:
@@ -168,14 +168,19 @@ func (s *Scope) nodeRecordFromProjectionLocked(ctx context.Context, projection *
 		Path:            projection.Ref.NotePath,
 		Title:           title,
 		Content:         content,
-		Frontmatter:     frontmatterWithTemporalText(projection.Snapshot.Frontmatter, projection.Type),
+		Frontmatter:     projectionFrontmatter(projection),
 		InlineProps:     projectionInlineProps(projection),
-		Tags:            snapshotTags(projection.Snapshot),
+		Tags:            projectionTags(projection),
 		FieldValues:     nil,
 		projectedFields: captureProjectedFieldValues(projection),
 		TypeName:        projection.ResolvedType,
 		UpdatedAt:       s.noteRowByPath[projection.Ref.NotePath].Mtime,
 		HasIssues:       s.issueByPath[projection.Ref.NotePath],
+	}
+	if projection.Record != nil {
+		native := projection.SourceContent()
+		record.Content = native.Text
+		record.SourceContent = &native
 	}
 	return s.withProjectionSource(record, projection)
 }
@@ -257,4 +262,26 @@ func projectionInlineProps(projection *ontology.NodeProjection) map[string][]str
 		return nil
 	}
 	return out
+}
+
+func projectionFrontmatter(p *ontology.NodeProjection) map[string]any {
+	if p.Record != nil {
+		return nil
+	}
+	if p.Snapshot != nil {
+		return frontmatterWithTemporalText(p.Snapshot.Frontmatter, p.Type)
+	}
+	if p.RootSnapshot != nil {
+		return frontmatterWithTemporalText(p.RootSnapshot.Metadata, p.Type)
+	}
+	return nil
+}
+func projectionTags(p *ontology.NodeProjection) []string {
+	if p.Snapshot != nil {
+		return snapshotTags(p.Snapshot)
+	}
+	if p.RootSnapshot != nil {
+		return append([]string(nil), p.RootSnapshot.Tags...)
+	}
+	return nil
 }

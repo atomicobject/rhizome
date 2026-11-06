@@ -56,7 +56,19 @@ func catalogLinkTarget(row readmodel.NodeRow, ref ontology.NodeRef) *ontology.No
 	if row.SourceLocator == "" {
 		return nil
 	}
+	durability, revision := "", ""
+	if ontology.IsRecordSelector(ref.Fragment) {
+		durability = "durable"
+		if strings.HasPrefix(ref.Fragment, "record-pos:") {
+			durability = "revision_bound"
+			parts := strings.SplitN(ref.Fragment, ":", 4)
+			if len(parts) == 4 {
+				revision = parts[2]
+			}
+		}
+	}
 	return &ontology.NodeLinkTarget{
+		Durability: durability, Revision: revision,
 		Ref:          ref,
 		Markdown:     row.SourceLocator,
 		Wikilink:     "",

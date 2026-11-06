@@ -83,7 +83,6 @@ func (s *Scope) snapshotForPathLocked(ctx context.Context, notePath string) (*on
 		return nil, err
 	}
 	if root != nil {
-		root.MarkdownStructure = snapshot
 		s.rootSnapshotByPath[notePath] = root
 	}
 	s.snapshotByPath[notePath] = snapshot

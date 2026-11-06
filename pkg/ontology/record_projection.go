@@ -302,3 +302,8 @@ func (p *PreparedDocument) projectRecord(ref NodeRef, bound bool) (*NodeProjecti
 	}
 	return record.projection, nil
 }
+
+func IsReservedNodeSelector(fragment string) bool {
+	return strings.HasPrefix(fragment, "struct:") || strings.HasPrefix(fragment, "node:") || isRecordSelector(fragment)
+}
+func IsRecordSelector(fragment string) bool { return isRecordSelector(fragment) }

@@ -79,6 +79,10 @@ func cloneNodeRecord(record NodeRecord) NodeRecord {
 		fields[name] = field
 	}
 	record.projectedFields = fields
+	if record.SourceContent != nil {
+		content := record.SourceContent.Copy()
+		record.SourceContent = &content
+	}
 	record.Capabilities = append([]noteformat.Capability(nil), record.Capabilities...)
 	if record.LinkTarget != nil {
 		target := *record.LinkTarget

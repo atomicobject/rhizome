@@ -31,6 +31,14 @@ func BuildMarkdownDocumentSnapshot(root *RootDocumentSnapshot) (*DocumentSnapsho
 	return snapshot, nil
 }
 
+// markdownEditView is the syntax boundary used after neutral source capture.
+func markdownEditView(root *RootDocumentSnapshot) (*DocumentSnapshot, error) {
+	if root == nil || root.Format != "markdown" || root.Projection.Facts.Structure == nil {
+		return nil, nil
+	}
+	return BuildMarkdownDocumentSnapshot(root)
+}
+
 // SelectorFacts returns a defensive copy of the facts captured when this
 // snapshot was built. Reading facts never parses source or replaces provider facts.
 func (s *DocumentSnapshot) SelectorFacts() ontoschema.Subject {

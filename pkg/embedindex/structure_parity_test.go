@@ -123,5 +123,5 @@ func TestStructureParityHTMLRootOnly(t *testing.T) {
 	require.NoError(t, err)
 	root, err := ontology.BuildRootDocumentSnapshot(notemeta.NoteSourceSnapshot{Path: "notes/root.html", Format: "html", RawSource: raw, Projection: projected})
 	require.NoError(t, err)
-	require.Nil(t, root.MarkdownStructure)
+	require.Nil(t, root.Projection.Facts.Structure)
 }

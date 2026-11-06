@@ -23,6 +23,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	htmlformat "github.com/atomicobject/rhizome/pkg/noteformat/html"
+	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -507,7 +508,7 @@ func newViewerTestServer(root, template string) *Server {
 	if err != nil {
 		panic(err)
 	}
-	formatRuntime, err := noteformat.NewRuntime(registry, htmlformat.New())
+	formatRuntime, err := noteformat.NewRuntime(registry, markdown.New(), htmlformat.New())
 	if err != nil {
 		panic(err)
 	}

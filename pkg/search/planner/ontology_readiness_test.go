@@ -32,7 +32,7 @@ func TestPlannerOntologyLaneRequiresCurrentProviderPublication(t *testing.T) {
 	require.True(t, planHasRetrieverNamed(plan, "ontology"))
 	// Descriptor identity alone cannot reuse a proof from executable providers.
 	descriptorOnly, err := noteformat.NewRuntime(formats.Registry())
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "executable projector")
 	p.Deps.NoteFormats = descriptorOnly
 	plan, err = p.Plan(t.Context(), spec)
 	require.NoError(t, err)

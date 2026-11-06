@@ -30,10 +30,12 @@ func projectNoteSource(source notemeta.NoteSourceSnapshot) (*noteDoc, error) {
 	if source.Format == "" {
 		return nil, fmt.Errorf("ontology source format is required")
 	}
-	if source.Format == "markdown" && source.Projection.Facts.Structure != nil {
-		return projectMarkdownNoteSource(source)
+	doc, err := projectRootNoteSource(source)
+	if err != nil {
+		return nil, err
 	}
-	return projectRootNoteSource(source)
+	doc.Snapshot, err = markdownEditView(doc.Root)
+	return doc, err
 }
 
 func projectRootNoteSource(source notemeta.NoteSourceSnapshot) (*noteDoc, error) {
@@ -72,7 +74,6 @@ func projectMarkdownNoteSource(source notemeta.NoteSourceSnapshot) (*noteDoc, er
 	if err != nil {
 		return nil, err
 	}
-	doc.Root.MarkdownStructure = snapshot
 	doc.Snapshot = snapshot
 	return doc, nil
 }

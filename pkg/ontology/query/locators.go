@@ -83,7 +83,10 @@ func nodeCatalogTitleFromProjection(projection *ontology.NodeProjection) string 
 	if projection == nil {
 		return ""
 	}
-	if projection.Ref.NodeID != "" {
+	if projection.Record != nil {
+		return projection.DisplayTitle()
+	}
+	if projection.Snapshot != nil && projection.Ref.NodeID != "" {
 		if span := projection.Snapshot.SourceSpansByID[projection.Ref.NodeID]; span != nil {
 			return span.Title
 		}
@@ -92,6 +95,9 @@ func nodeCatalogTitleFromProjection(projection *ontology.NodeProjection) string 
 }
 
 func projectionRecordContent(projection *ontology.NodeProjection) string {
+	if projection != nil && projection.Record != nil {
+		return projection.SourceContent().Text
+	}
 	if projection == nil || projection.Snapshot == nil {
 		return ""
 	}
@@ -153,6 +159,8 @@ func locatorGraphQLValue(locator ontology.NodeLocator) map[string]any {
 		"requiresFix":   locator.Status == ontology.NodeLocatorRequiresFix,
 	}
 	if locator.LinkTarget != nil {
+		out["durability"] = emptyNil(locator.LinkTarget.Durability)
+		out["revision"] = emptyNil(locator.LinkTarget.Revision)
 		out["linkTarget"] = linkTargetGraphQLValue(*locator.LinkTarget)
 		out["wikilink"] = locator.LinkTarget.Wikilink
 		out["markdown"] = locator.LinkTarget.Markdown
@@ -220,6 +228,8 @@ func linkTargetGraphQLValue(target ontology.NodeLinkTarget) map[string]any {
 		"exists":       target.Exists,
 		"requiresFix":  target.RequiresFix,
 		"blockId":      target.BlockID,
+		"durability":   emptyNil(target.Durability),
+		"revision":     emptyNil(target.Revision),
 	}
 }
 

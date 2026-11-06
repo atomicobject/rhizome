@@ -41,7 +41,7 @@ func TestStructuralSnapshotBoundaryUsesSelectedProviderCapabilities(t *testing.T
 				require.Equal(t, fixture.providerID, string(projection.RootSnapshot.Format))
 				require.Equal(t, "Provider title", projection.RootSnapshot.Title)
 				require.Nil(t, projection.Snapshot)
-				require.Nil(t, projection.RootSnapshot.MarkdownStructure)
+				require.Nil(t, projection.RootSnapshot.Projection.Facts.Structure)
 			} else {
 				require.Nil(t, projection)
 			}

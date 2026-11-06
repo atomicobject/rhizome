@@ -239,6 +239,9 @@ func ontologyNodeFieldValueForValueWithOptions(schema *ontoschema.Schema, node r
 	row := FieldValueRow(field, value)
 	row.SourcePresence = string(binding.Presence)
 	row.SourceValueKind = string(binding.ValueKind)
+	if binding.SourceKind == ontoschema.FieldSourceProperty && len(binding.Values) == 0 && binding.ValueKind != "" {
+		row.ValueKind = string(binding.ValueKind)
+	}
 	row.NodeID = node.NodeID
 	row.NotePath = node.NotePath
 	row.TypeName = node.TypeName

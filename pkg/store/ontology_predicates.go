@@ -90,7 +90,7 @@ func ontologyFieldPredicateSQL(idx int, typeNames []string, predicate readmodel.
 		op = readmodel.FieldOpEq
 	}
 	if op != readmodel.FieldOpExists {
-		conditions = append(conditions, fmt.Sprintf("%s.source_presence != 'null' AND %s.source_value_kind != 'object' AND NOT (%s.source_value_kind = 'array' AND %s.value_text = '')", alias, alias, alias, alias))
+		conditions = append(conditions, fmt.Sprintf("%s.source_presence != 'null' AND %s.value_kind != 'object' AND %s.value_kind != 'array'", alias, alias, alias))
 	}
 	switch op {
 	case readmodel.FieldOpExists:

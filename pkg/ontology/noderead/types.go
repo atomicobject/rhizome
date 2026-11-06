@@ -27,6 +27,7 @@ type NodeRecord struct {
 	Ref                    ontology.NodeRef
 	Path                   string
 	Title                  string
+	SourceContent          *ontology.NodeSourceContent
 	Content                string
 	Frontmatter            map[string]any
 	InlineProps            map[string][]string

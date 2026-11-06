@@ -24,7 +24,7 @@ func Match(predicate readmodel.FieldPredicate, rows []readmodel.FieldValueRow) b
 		kind := PredicateValueKind(operand)
 		right := ScalarFromRow(operand, kind)
 		for _, row := range rows {
-			if row.SourcePresence == "null" || (row.SourceValueKind == "array" && row.ValueText == "") || row.SourceValueKind == "object" {
+			if row.SourcePresence == "null" || (row.ValueKind == "array") || row.ValueKind == "object" {
 				continue
 			}
 			matched := false

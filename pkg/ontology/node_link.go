@@ -34,6 +34,7 @@ const (
 type NodeLinkService struct {
 	notePaths    []string
 	renderer     *wikilinkRenderer
+	LoadPrepared func(context.Context, string) (*PreparedDocument, error)
 	LoadSnapshot func(context.Context, string) (*DocumentSnapshot, error)
 	VaultDef     obsidian.VaultDefinition
 	NoteReader   obsidian.NoteReader
@@ -70,6 +71,8 @@ type NodeLinkTarget struct {
 	Markdown     string  `json:"markdown,omitempty"`
 	Wikilink     string  `json:"wikilink,omitempty"`
 	DisplayLabel string  `json:"displayLabel,omitempty"`
+	Durability   string  `json:"durability,omitempty"`
+	Revision     string  `json:"revision,omitempty"`
 	Exists       bool    `json:"exists"`
 	RequiresFix  bool    `json:"requiresFix,omitempty"`
 	BlockID      string  `json:"blockId,omitempty"`
@@ -234,6 +237,40 @@ func (s *NodeLinkService) LinkTargets(ctx context.Context, req LinkTargetRequest
 			continue
 		}
 		key := nodeLocatorMapKey(ref)
+		if isRecordSelector(ref.Fragment) {
+			if s.LoadPrepared == nil {
+				result.Diagnostics = append(result.Diagnostics, NodeLinkDiagnostic{Code: "record_source_unavailable", Ref: ref, NotePath: ref.NotePath, Message: "provider-backed record source is unavailable"})
+				continue
+			}
+			prepared, err := s.LoadPrepared(ctx, ref.NotePath)
+			if err != nil {
+				if canceled := ctx.Err(); canceled != nil {
+					return result, canceled
+				}
+				result.Diagnostics = append(result.Diagnostics, NodeLinkDiagnostic{Code: "record_source_unavailable", Ref: ref, NotePath: ref.NotePath, Message: err.Error()})
+				continue
+			}
+			if prepared == nil {
+				result.Diagnostics = append(result.Diagnostics, NodeLinkDiagnostic{Code: "record_source_unavailable", Ref: ref, NotePath: ref.NotePath, Message: "record source is missing"})
+				continue
+			}
+			projection, err := prepared.Project(ref)
+			if err != nil {
+				code := "record_locator_unresolved"
+				if strings.Contains(err.Error(), "record_locator_stale") {
+					code = "record_locator_stale"
+				}
+				result.Diagnostics = append(result.Diagnostics, NodeLinkDiagnostic{Code: code, Ref: ref, NotePath: ref.NotePath, Message: err.Error()})
+				continue
+			}
+			target := NodeLinkTarget{Ref: projection.Ref, Markdown: projection.Ref.String(), DisplayLabel: projection.DisplayTitle(), Exists: true, Durability: "durable"}
+			if strings.HasPrefix(projection.Ref.Fragment, "record-pos:") {
+				target.Durability = "revision_bound"
+				target.Revision = prepared.root.ContentHash
+			}
+			result.Targets[key] = target
+			continue
+		}
 		if ref.Kind == "" || ref.Kind == NodeKindNote {
 			target := noteLinkTarget(ref, renderer)
 			result.Targets[key] = target

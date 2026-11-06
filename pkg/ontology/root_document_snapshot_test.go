@@ -33,7 +33,7 @@ func TestBuildRootDocumentSnapshotSeparatesProviderRootFromMarkdownStructure(t *
 	assert.Equal(t, SourceRepresentationUTF8, root.SourceRepresentation)
 	assert.Equal(t, EvidenceRepresentationProviderProjection, root.EvidenceRepresentation)
 	assert.Equal(t, []noteformat.SearchRegionFact{region}, root.SearchRegions)
-	assert.Nil(t, root.MarkdownStructure)
+	assert.Nil(t, root.Projection.Facts.Structure)
 
 	root.RawSource[0] = 'X'
 	assert.Equal(t, byte('<'), htmlSource[0], "root source must be sealed from caller mutation")

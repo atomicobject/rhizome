@@ -514,7 +514,8 @@ type sectionRecord struct {
 	// SectionNode struct does not preserve the structural fingerprint, so
 	// without this field sectionNodeRef would rebuild a Structural-less ref and
 	// downstream identity matching (e.g. view hydrateRows) would miss.
-	catalogRef ontology.NodeRef
+	catalogTitle string
+	catalogRef   ontology.NodeRef
 
 	// PropertyCase is the enclosing note type's case convention. Section types
 	// themselves have no propertyCase — their inline-key derivation is driven
@@ -551,13 +552,22 @@ func (s *sectionRecord) fieldValues(field *ontoschema.Field, propertyCase ontosc
 		if rows := s.indexedFields[strings.ToLower(strings.TrimSpace(field.Name))]; len(rows) > 0 {
 			out := make([]string, 0, len(rows))
 			for _, row := range rows {
+				if field.Record != nil && (row.SourcePresence == "null" || row.ValueKind == "null" || row.ValueKind == "array" || row.ValueKind == "object") {
+					continue
+				}
 				out = append(out, row.ValueText)
+			}
+			if field.Record != nil {
+				return out
 			}
 			return normalizeStrings(out)
 		}
 	}
 	if s.Projection != nil {
 		if binding, ok := s.Projection.Fields[field.Name]; ok {
+			if field.Record != nil {
+				return append([]string(nil), binding.Values...)
+			}
 			return normalizeStrings(binding.Values)
 		}
 	}
@@ -570,6 +580,11 @@ func (s *sectionRecord) fieldValues(field *ontoschema.Field, propertyCase ontosc
 func (s *sectionRecord) hasFieldValue(field *ontoschema.Field, propertyCase ontoschema.PropertyCase) bool {
 	if s == nil || field == nil {
 		return false
+	}
+	if field.Record != nil {
+		if rows := s.indexedFields[strings.ToLower(field.Name)]; len(rows) > 0 {
+			return rows[0].SourcePresence != "missing"
+		}
 	}
 	if s.Projection != nil {
 		if binding, ok := s.Projection.Fields[field.Name]; ok {

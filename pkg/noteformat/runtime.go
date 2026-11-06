@@ -95,6 +95,7 @@ func NewRuntime(registry Registry, projectors ...Projector) (Runtime, error) {
 			return Runtime{}, fmt.Errorf("structural reading requires an executable projector for %q", id)
 		}
 	}
+
 	return runtime, nil
 }
 

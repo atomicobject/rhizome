@@ -105,6 +105,20 @@ func (e *executor) workspaceBodyNodes(ctx context.Context, root *ontology.NodePr
 			Parent:     current.parent,
 		})
 
+		if current.projection.Snapshot == nil && current.projection.Prepared != nil {
+			refs, err := current.projection.Prepared.Children(current.projection.Ref)
+			if err != nil {
+				e.addError(path, err.Error())
+			}
+			for _, ref := range refs {
+				child, err := current.projection.Prepared.ProjectBound(ref)
+				if err != nil {
+					e.addError(path, err.Error())
+					continue
+				}
+				queue = append(queue, pendingBody{projection: child})
+			}
+		}
 		for _, block := range allBlocks {
 			for _, child := range workspaceBodyBlockRefs(block) {
 				childProjection, err := e.loaders.scope.Projection(ctx, child)
@@ -229,6 +243,8 @@ func (e *executor) resolveWorkspaceBodyNode(item workspaceBodyNode, links fieldL
 			default:
 				out[key] = nil
 			}
+		case "source":
+			out[key] = item.Projection.SourceContent()
 		case "markdown":
 			out[key] = item.Workspace.Content.Markdown
 		case "level":
