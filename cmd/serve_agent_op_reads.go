@@ -51,6 +51,10 @@ func (l liveCodeModeReads) ProjectionReadiness(ctx context.Context) (semdb.Ontol
 	return store.GetOntologyReadiness(ctx, ontology.OntologyProviderHash(formats))
 }
 
+func (l liveCodeModeReads) RequestOntologyRefresh() bool {
+	return l.rt.RequestOntologyRefresh()
+}
+
 // QueryDeps composes the same query dependencies the host's one-shot runtime
 // builds, over the runtime's open store.
 func (l liveCodeModeReads) QueryDeps(schema *ontoschema.Schema, exec *ontologyquery.ExecutableSchema) (ontologyquery.Deps, error) {

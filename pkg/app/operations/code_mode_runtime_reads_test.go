@@ -27,6 +27,7 @@ type fakeReadRuntime struct {
 	readiness       semdb.OntologyReadinessState
 	readinessSource func(context.Context) (semdb.OntologyReadinessState, error)
 	depsCalled      bool
+	refreshRequests int
 }
 
 func (f *fakeReadRuntime) VaultPath() string                      { return f.vault }
@@ -45,6 +46,10 @@ func (f *fakeReadRuntime) ProjectionReadiness(ctx context.Context) (semdb.Ontolo
 		return f.readinessSource(ctx)
 	}
 	return f.readiness, nil
+}
+func (f *fakeReadRuntime) RequestOntologyRefresh() bool {
+	f.refreshRequests++
+	return true
 }
 func (f *fakeReadRuntime) Views(*ontoschema.Schema, *ontologyquery.ExecutableSchema) (CodeModeViewRuntime, error) {
 	return fakeCatalogViews{}, nil
@@ -83,6 +88,7 @@ func TestCodeModeRuntimeReadsReportPendingUntilTheyCanProveCurrent(t *testing.T)
 	runtime.syncPending = true
 	require.True(t, pending(runtime, "ontology_query", query))
 	require.False(t, runtime.depsCalled)
+	require.Zero(t, runtime.refreshRequests)
 
 	for name, mutate := range map[string]func(*fakeReadRuntime){
 		"schema changed":                            func(f *fakeReadRuntime) { f.readiness.SchemaState.SchemaHash = "old" },
@@ -92,6 +98,7 @@ func TestCodeModeRuntimeReadsReportPendingUntilTheyCanProveCurrent(t *testing.T)
 		runtime = current()
 		mutate(runtime)
 		require.True(t, pending(runtime, "ontology_query", query), name)
+		require.Equal(t, 1, runtime.refreshRequests, "an invalid proof must request repair from its owner")
 	}
 
 	// An invalid query is the caller's error, not a reason to hand it back.
@@ -111,6 +118,7 @@ func TestCodeModeRuntimeReadsReportPendingUntilTheyCanProveCurrent(t *testing.T)
 	outcome = (&CodeModeRuntimeReads{Runtime: runtime}).Call(context.Background(), "ontology_query", query)
 	require.True(t, runtime.depsCalled, "a current projection is read from the runtime")
 	require.False(t, IsCodeModeRuntimeReadPending(outcome.Diagnostic))
+	require.Zero(t, runtime.refreshRequests)
 }
 
 func TestCodeModeRuntimeReadsRejectsOnlyTheInvalidatedProof(t *testing.T) {
@@ -129,13 +137,15 @@ func TestCodeModeRuntimeReadsRejectsOnlyTheInvalidatedProof(t *testing.T) {
 	formats, err := metadata.FormatRuntime()
 	require.NoError(t, err)
 	providerHash := ontology.OntologyProviderHash(formats)
-	reads := CodeModeRuntimeReads{Runtime: &fakeReadRuntime{vault: root,
+	owner := &fakeReadRuntime{vault: root,
 		readinessSource: func(ctx context.Context) (semdb.OntologyReadinessState, error) {
 			return runtime.Store.GetOntologyReadiness(ctx, providerHash)
-		}}}
+		}}
+	reads := CodeModeRuntimeReads{Runtime: owner}
 	current, err := reads.projectionCurrent(ctx, runtime.Schema)
 	require.NoError(t, err)
 	require.True(t, current)
+	require.Zero(t, owner.refreshRequests)
 	before, err := runtime.Store.GetOntologyReadiness(ctx, providerHash)
 	require.NoError(t, err)
 	_, err = runtime.Store.DB().ExecContext(ctx, `DELETE FROM ontology_readiness`)
@@ -143,6 +153,7 @@ func TestCodeModeRuntimeReadsRejectsOnlyTheInvalidatedProof(t *testing.T) {
 	current, err = reads.projectionCurrent(ctx, runtime.Schema)
 	require.NoError(t, err)
 	require.False(t, current)
+	require.Equal(t, 1, owner.refreshRequests, "the live owner must repair the missing proof even when metadata is unchanged")
 	after, err := runtime.Store.GetOntologyReadiness(ctx, providerHash)
 	require.NoError(t, err)
 	require.Equal(t, before.SchemaState, after.SchemaState)
@@ -184,6 +195,7 @@ func TestCodeModeRuntimeReadsPreserveTerminalReadinessErrors(t *testing.T) {
 			require.False(t, IsCodeModeRuntimeReadPending(outcome.Diagnostic), "permanent failure must not enter the host retry loop")
 			require.Contains(t, outcome.Stderr, terminal.Error())
 			require.False(t, runtime.depsCalled)
+			require.Zero(t, runtime.refreshRequests)
 		})
 	}
 }

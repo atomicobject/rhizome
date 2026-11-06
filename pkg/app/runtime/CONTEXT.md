@@ -11,6 +11,8 @@ Owns how a vault runtime (`rzm serve`, attached or headless) publishes itself an
 
 Runtime manifests, registry entries, and port preferences read through `pkg/fileio` and publish through its shared replacement primitive. It owns Windows deletion sharing, extended paths, and POSIX replacement, also used by repo config. Runtime writers still own temporary-file cleanup and private permissions; a failed replacement preserves the published discovery file.
 
+- **Typed-read proof repair**: code-mode reads request ontology refresh from the live owner when the persisted proof is missing or stale, including when source synchronization finds no changed notes. The reader stays read-only while the existing writer repairs the proof.
+
 - **Diagnostics**: `Ensure` records one correlated decision report with spawn, attachment, replacement, probe, unresponsive and lease-wait counts. `Client.NewRequest` propagates validated opaque diagnostic identities independently of the bearer token. Headless startup output uses `.rhizome/diagnostics/runtime-output.log`; Windows keeps null inherited descriptors so elected rotation remains possible. Legacy logs are preserved but no longer written.
 
 `Stop` and `StopVault` in `stop_command.go` own stop and stop-all orchestration for CLI and desktop callers. Registry discovery includes pending starts, cancellation names the observed token, and incomplete discovery still stops known targets. Unresponsive headless owners may be terminated after grace; attached owners are reported without termination. The runtime client package remains independent of the server.

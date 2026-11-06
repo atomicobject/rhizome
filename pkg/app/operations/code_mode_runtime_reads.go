@@ -40,6 +40,8 @@ type CodeModeReadRuntime interface {
 	SyncSources(context.Context) (bool, error)
 	// ProjectionReadiness checks the persisted proof for this runtime's selected providers.
 	ProjectionReadiness(context.Context) (semdb.OntologyReadinessState, error)
+	// RequestOntologyRefresh queues proof repair with the existing writer.
+	RequestOntologyRefresh() bool
 	QueryDeps(*ontoschema.Schema, *ontologyquery.ExecutableSchema) (ontologyquery.Deps, error)
 	Views(*ontoschema.Schema, *ontologyquery.ExecutableSchema) (CodeModeViewRuntime, error)
 }
@@ -148,8 +150,12 @@ func (r *CodeModeRuntimeReads) projectionCurrent(ctx context.Context, schema *on
 	if err != nil {
 		return false, err
 	}
-	return state.Ready && state.SchemaState.SchemaHash == schema.Hash &&
-		state.SchemaState.MaterializationVersion == ontology.OntologyMaterializationVersion, nil
+	if !state.Ready || state.SchemaState.SchemaHash != schema.Hash ||
+		state.SchemaState.MaterializationVersion != ontology.OntologyMaterializationVersion {
+		r.Runtime.RequestOntologyRefresh()
+		return false, nil
+	}
+	return true, nil
 }
 
 type codeModeRuntimeQuery struct{ r *CodeModeRuntimeReads }
