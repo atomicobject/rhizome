@@ -1,6 +1,6 @@
 // The probe must load before react-dom.
 import { renderCount, resetRenderCounts } from "../test/renderProbe";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import ReactMarkdown from "react-markdown";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -150,5 +150,42 @@ describe("NotesShell render boundaries", () => {
     expect(switchParses).toBe(0);
     expect(collapseRenders).toBe(0);
     expect(totalParses).toBe(0);
+  });
+
+  it("releases older note bodies while keeping their tabs and cached workspaces", async () => {
+    render(<NotesShell />);
+    const paths = ["a.md", "b.md", "c.md", "d.md", "e.md", "f.md", "g.md"];
+
+    for (const path of paths) {
+      act(() => {
+        window.history.pushState({}, "", `/notes?note=${path}`);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await waitFor(() =>
+        expect(
+          document.querySelector(".notes-shell__panel.is-active .ontology-pane__main"),
+        ).toHaveTextContent(path),
+      );
+    }
+
+    expect(
+      within(screen.getByRole("tablist", { name: "Open notes" })).getAllByRole("tab"),
+    ).toHaveLength(8);
+    expect(screen.getAllByText(/with a/)).toHaveLength(5);
+
+    const nodeReads = () =>
+      http
+        .requests("POST", "/api/v1/graphql")
+        .filter((request) => graphQLRequestBody(request).query?.includes("PublicNodeDetail"))
+        .length;
+
+    expect(nodeReads()).toBe(7);
+
+    fireEvent.click(screen.getByRole("tab", { name: /a\.md/i }));
+    await waitFor(() =>
+      expect(document.querySelector(".notes-shell__panel.is-active")).toHaveTextContent("with a"),
+    );
+    expect(screen.getAllByText(/with a/)).toHaveLength(5);
+    expect(nodeReads()).toBe(7);
   });
 });

@@ -36,6 +36,7 @@ type OpenTarget = "current" | "stack" | "beside";
 export const NoteTab = memo(function NoteTab({
   tab,
   active,
+  bodyResident = true,
   anchor,
   editSession,
   readLifecycle,
@@ -60,6 +61,7 @@ export const NoteTab = memo(function NoteTab({
 }: {
   tab: NoteTabModel;
   active: boolean;
+  bodyResident?: boolean;
   anchor: string | null;
   editSession: OntologyEditSessionResponse | null;
   readLifecycle?: EditReadLifecycle;
@@ -347,6 +349,8 @@ export const NoteTab = memo(function NoteTab({
   return (
     <div className="notes-note-tab">
       <OntologyNotePane
+        active={active}
+        bodyResident={bodyResident || rootWorkspace?.content.format === "html"}
         loading={current.loading}
         error={current.error}
         onRetry={() =>

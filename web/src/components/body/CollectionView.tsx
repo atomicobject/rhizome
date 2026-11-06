@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { isContentNode, type NodeRef } from "../../api/types";
 import { publicWorkspaceRef } from "../../api/client";
 import { useNotePreviewTrigger } from "../notePreview/NoteLinkPreview";
 import { useTypeLabel } from "../typeLabels";
+import { NoteReadingStateContext } from "../noteReadingState";
 import { extractChildIdentity, structuralNodeFromWorkspace } from "./childIdentity";
 import type { BodyRendererProps } from "./registry";
 
@@ -19,8 +20,10 @@ const SEARCH_THRESHOLD = 3;
  * Rows are always compact — inline expansion is a future iteration. The
  * one-click "open pane" is the standard way to see full item content.
  */
-export function CollectionView({ block, context }: BodyRendererProps) {
-  const [filter, setFilter] = useState("");
+export function CollectionView({ block, context, node, kindOrdinal }: BodyRendererProps) {
+  const reading = useContext(NoteReadingStateContext);
+  const filterKey = JSON.stringify([node.ref.nodeId || node.id, block.fieldName ?? kindOrdinal]);
+  const [filter, setFilter] = useState(() => reading?.collectionFilters.get(filterKey) ?? "");
 
   const rows = useMemo(() => {
     const refs = block.childRefs || [];
@@ -56,7 +59,11 @@ export function CollectionView({ block, context }: BodyRendererProps) {
             className="body-collection__search"
             placeholder={`Filter ${rows.length} items`}
             value={filter}
-            onChange={(event) => setFilter(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              reading?.collectionFilters.set(filterKey, value);
+              setFilter(value);
+            }}
             aria-label={`Filter ${block.fieldName || "items"}`}
           />
         )}

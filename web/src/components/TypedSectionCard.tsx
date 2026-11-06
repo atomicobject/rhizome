@@ -3,6 +3,7 @@ import type { Components as MarkdownComponents } from "react-markdown";
 import type { RenderedSection } from "../api/types";
 import { convertWikilinks } from "../lib/content";
 import { Markdown } from "./markdown/Markdown";
+import { NoteDisclosure } from "./noteReadingState";
 
 type Props = {
   section: RenderedSection;
@@ -30,7 +31,11 @@ export function TypedSectionCard({ section, children, markdownComponents }: Prop
 
   return (
     <div className="typed-section-card">
-      <details className="typed-section-card__details" open={open}>
+      <NoteDisclosure
+        disclosureId={`section:${section.id}`}
+        className="typed-section-card__details"
+        open={open}
+      >
         <summary className="typed-section-card__summary">
           <span className="typed-section-card__preview">
             {preview ? (
@@ -61,7 +66,7 @@ export function TypedSectionCard({ section, children, markdownComponents }: Prop
           )}
         </summary>
         <div className="typed-section-card__body">{children}</div>
-      </details>
+      </NoteDisclosure>
     </div>
   );
 }

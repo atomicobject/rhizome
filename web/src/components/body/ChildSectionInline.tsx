@@ -29,6 +29,7 @@ export function ChildSectionInline({ block, context }: BodyRendererProps) {
 
   return (
     <section
+      data-reading-anchor={childNodeID || child.id}
       className="body-section"
       data-field={block.fieldName}
       ref={(element) => {

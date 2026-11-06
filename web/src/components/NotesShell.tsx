@@ -45,6 +45,7 @@ import {
 } from "./notesRoute";
 import { OntologyEditSessionPanel } from "./OntologyEditSessionPanel";
 import { type CollectionTab, type OpenMode, useNoteTabs } from "./useNoteTabs";
+import { useRetainedNoteTabs } from "./useRetainedNoteTabs";
 import { useFinderNoteRequests } from "./FinderQuickOpen";
 import {
   useOntologySummaryQuery,
@@ -222,6 +223,19 @@ export function NotesShell({ active = true }: { active?: boolean }) {
 
     return () => window.removeEventListener(EDITOR_DRAFTS_CHANGED_EVENT, update);
   }, [editSession.vaultKey]);
+
+  const residentNoteTabs = useRetainedNoteTabs({
+    tabs: tabs.tabs,
+    activeId: tabs.activeId,
+    protectEditors:
+      editSession.editing ||
+      editSession.busy ||
+      editSession.saving ||
+      editSession.unacknowledged ||
+      hasLocalDrafts ||
+      Boolean(editSession.session?.hasUncommittedChanges),
+  });
+
   const viewCatalogQuery = useViewCatalogQuery(active);
   const [contexts, setContexts] = useState<Map<string, NoteTabContext>>(new Map());
   const panes = useShellPanes();
@@ -975,6 +989,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                             onOpenView={openView}
                             onOpenSearch={openSearch}
                             active={noteSurfacesActive && tabs.activeId === tab.id}
+                            bodyResident={tabs.activeId === tab.id || residentNoteTabs.has(tab.id)}
                             anchor={
                               tabs.activeId === tab.id &&
                               location.note !== null &&
