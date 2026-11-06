@@ -11,8 +11,24 @@ export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResp
   const nodes = [...graph.nodes];
   const edges = [...graph.edges];
 
+  const notesByPath = new Map<string | undefined, GraphNode>();
+
+  for (const node of nodes) {
+    const path = node.notePath || node.path;
+
+    if (node.kind === "note" && !notesByPath.has(path)) notesByPath.set(path, node);
+  }
+
+  const linked = new Set<string>();
+
+  for (const edge of edges) {
+    if (edge.source === focused.id) linked.add(edge.target);
+
+    if (edge.target === focused.id) linked.add(edge.source);
+  }
+
   for (const note of file.relatedNotes ?? []) {
-    let node = nodes.find((n) => (n.notePath || n.path) === note.path && n.kind === "note");
+    let node = notesByPath.get(note.path);
 
     if (!node) {
       node = {
@@ -22,16 +38,12 @@ export function mergeFileNotes(graph: GraphResponse, file?: FileView): GraphResp
         label: note.title || note.path.split("/").pop() || note.path,
       };
       nodes.push(node);
+      notesByPath.set(note.path, node);
     }
 
-    if (
-      !edges.some(
-        (edge) =>
-          [edge.source, edge.target].includes(node.id) &&
-          [edge.source, edge.target].includes(focused.id),
-      )
-    ) {
+    if (!linked.has(node.id)) {
       edges.push({ source: node.id, target: focused.id, kind: note.reason || "related" });
+      linked.add(node.id);
     }
   }
 
@@ -66,33 +78,46 @@ export function fileFocusGraph(
       nodes: graph.nodes.map((node, index) => ({ ...node, x: index * 100, y: 0 })),
     };
   const groups = new Map<string, GraphNode[]>();
+  const reasonsByPath = new Map<string, Set<string>>();
+
+  for (const note of file?.relatedNotes ?? []) {
+    const reasons = reasonsByPath.get(note.path) ?? new Set<string>();
+
+    if (note.reason) reasons.add(note.reason);
+    reasonsByPath.set(note.path, reasons);
+  }
+
+  const calledIDs = new Set<string>();
+  const testedIDs = new Set<string>();
+
+  for (const edge of graph.edges) {
+    const other =
+      edge.source === focused.id
+        ? edge.target
+        : edge.target === focused.id
+          ? edge.source
+          : undefined;
+
+    if (other === undefined) continue;
+
+    if (/call|import|depend|reference/.test(edge.kind)) calledIDs.add(other);
+
+    if (edge.kind === "tests") testedIDs.add(other);
+  }
+
+  const groupByID = new Map<string, string>();
 
   for (const node of graph.nodes) {
     if (node === focused) continue;
 
-    const reasons =
-      file?.relatedNotes?.filter((note) => note.path === (node.notePath || node.path)) ?? [];
-
-    const called = graph.edges.some(
-      (edge) =>
-        [edge.source, edge.target].includes(focused.id) &&
-        [edge.source, edge.target].includes(node.id) &&
-        /call|import|depend|reference/.test(edge.kind),
-    );
-
-    const tested =
-      isTest(node) ||
-      graph.edges.some(
-        (edge) =>
-          edge.kind === "tests" &&
-          [edge.source, edge.target].includes(focused.id) &&
-          [edge.source, edge.target].includes(node.id),
-      );
+    const reasons = reasonsByPath.get(node.notePath || node.path || "");
+    const called = calledIDs.has(node.id);
+    const tested = isTest(node) || testedIDs.has(node.id);
 
     const label = isNote(node)
-      ? reasons.some((note) => note.reason === "coderef")
+      ? reasons?.has("coderef")
         ? "Documented by"
-        : reasons.some((note) => note.reason === "codeanchor")
+        : reasons?.has("codeanchor")
           ? "Mentioned in"
           : file?.kind === "code"
             ? "Related in graph"
@@ -106,6 +131,7 @@ export function fileFocusGraph(
     const members = groups.get(label) ?? [];
     members.push(node);
     groups.set(label, members);
+    groupByID.set(node.id, label);
   }
 
   const nodes: GraphViewNode[] = [
@@ -210,9 +236,9 @@ export function fileFocusGraph(
 
   const aggregateID = (id: string) => {
     if (drawnIDs.has(id)) return id;
-    const entry = [...groups].find(([, members]) => members.some((node) => node.id === id));
+    const label = groupByID.get(id);
 
-    return entry ? `file-more:${entry[0]}` : id;
+    return label ? `file-more:${label}` : id;
   };
 
   for (const edge of graph.edges) {

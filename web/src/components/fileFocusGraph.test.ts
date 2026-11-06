@@ -110,6 +110,71 @@ describe("file neighbour groups", () => {
     ).toBe(1);
   });
 
+  it("prepares 10,000 anchor neighbours with a bounded number of property reads", () => {
+    let reads = 0;
+
+    const counted = <T extends object>(value: T): T =>
+      new Proxy(value, {
+        get(target, key, receiver) {
+          reads++;
+
+          // Preserve normal property access while counting work on the input.
+          // oxlint-disable-next-line anti-slop/no-reflect-get
+          return Reflect.get(target, key, receiver);
+        },
+      });
+
+    const relatedNotes = Array.from({ length: 10_000 }, (_, i) =>
+      counted({
+        path: `notes/${i}.md`,
+        title: `Note ${i}`,
+        reason: "codeanchor",
+      }),
+    );
+
+    const nodes = [
+      graph.nodes[0],
+      ...relatedNotes.map((note, i) =>
+        counted({
+          id: `n${i}`,
+          kind: "note",
+          path: note.path,
+          label: note.title,
+        }),
+      ),
+    ];
+
+    const edges = relatedNotes.map((_, i) =>
+      counted({ source: `n${i}`, target: "f", kind: "codeanchor" }),
+    );
+
+    // Include neighbour links so representative lookup is covered too.
+    edges.push(
+      ...relatedNotes
+        .slice(1)
+        .map((_, i) => counted({ source: `n${i}`, target: `n${i + 1}`, kind: "link" })),
+    );
+    reads = 0;
+
+    const result = fileFocusGraph({ nodes, edges }, "src/main.go", {
+      path: "src/main.go",
+      kind: "code",
+      relatedNotes,
+    });
+
+    expect(result.nodes).toHaveLength(11);
+    expect(reads).toBeLessThan(2_000_000);
+
+    const merged = mergeFileNotes(
+      { nodes: [graph.nodes[0]], edges: [] },
+      { path: "src/main.go", kind: "code", relatedNotes },
+    );
+
+    expect(merged.nodes).toHaveLength(10_001);
+    expect(merged.edges).toHaveLength(10_000);
+    expect(reads).toBeLessThan(4_000_000);
+  });
+
   it("unions inspector anchor notes and references with graph notes, without duplicates", () => {
     const input = {
       ...graph,
