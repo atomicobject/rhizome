@@ -4,7 +4,7 @@ id: EFF-2026-11-06-09-09
 aliases: [EFF-2026-11-06-09-09]
 name: Bound native note body memory
 created-at: 2026-11-06T14:10:09Z
-status: active
+status: complete
 summary: "Keep note data and reading state while releasing older native note bodies without slowing ordinary tab switching."
 governing-specs:
   - "[[docs/specs/experience/notes-workspace-shell]]"
@@ -61,10 +61,13 @@ A reviewable implementation in this worktree with preserved tab data and reading
 
 ## Actual Delivered
 
-Implemented bounded native note-body retention with existing tab data and live refresh ownership. Five recent bodies remain mounted; editing sessions and isolated HTML viewers are protected. Reading positions, disclosures and drill history survive body recreation without a new note query. Chromium retained heap fell 57.7% on the matched 24-note workload; recent-tab switching was effectively unchanged. The full Chromium browser suite passes all 124 cases, and all six focused Chromium/WebKit retention cases pass. The final `make check` passes 1,978 web tests plus the Go, lint, type, content and team API gates. Default documentation validation and frozen-scope drift validation each report zero issues. Implementation remains an uncommitted worktree delivery; no installed app was replaced.
+Implemented bounded native note-body retention with existing tab data and live refresh ownership. Five recent bodies remain mounted; editing sessions and isolated HTML viewers are protected. Reading positions, disclosures and drill history survive body recreation without a new note query. Chromium retained heap fell 57.7% on the matched 24-note workload; recent-tab switching was effectively unchanged. The rebased Chromium browser suite passes all 127 cases, and all six focused Chromium/WebKit retention cases pass. The current rebased `make check` passes 1,985 web tests plus the Go, lint, type, content and team API gates. Default documentation validation and frozen-scope drift validation each report zero issues. The implementation is committed as `0705be63f` with the stable-identity correction in `3b236e912`. Full Send now carries it through PR review and merge; no installed app has been replaced yet.
 
 ## Execution Notes
 
+- Sol Loop completed two rounds with GPT-6.1 Sol (xhigh). Round 1 S1 was fixed; round 2 approved with no open findings. Usage was not exposed. The added test fixture then received its required explicit note path without changing the tested behavior. Current `make check` passes 1,985 web tests; the rebased browser suite passed 127 tests.
+- Sol Loop round 1 requested changes for S1: mutable structural fingerprints remounted protected editors and separated saved reading states during ordinary refreshes. Removed the fingerprint from the reading identity while retaining stable node identity and presentation. Both editor-undo and suspended-scroll regressions failed before the fix; all 60 focused tests passed afterward.
+- 2026-11-06T14:49:21Z: Full Send authorized shipment. Committed the implementation and rebased onto `d4973a47004818cba30c5fa48d24ee2d6b494aa5`; the only conflict was adjacent changelog entries, and both were preserved. Current rebased implementation commit: `0705be63f`. Refreshed build/check evidence is being gathered before Sol review.
 - 2026-11-06T14:10:09Z: Recorded explicit user implementation approval and split work among native agents: tab residency/wiring, reading-state/body disposal, and browser/performance verification. Parent owns integration, records and final review.
 - Preserved baseline executable at `/tmp/rhizome-tab-memory-before-rzm` before source implementation. Baseline fixture resides under the path recorded in `/tmp/rhizome-tab-memory-root`.
 - Regression was red against the old binary: after visiting eight notes the oldest body was still rendered. Existing editor/undo browser preservation test passed against the old binary.
@@ -83,6 +86,8 @@ Implemented bounded native note-body retention with existing tab data and live r
 
 ## Deviations
 
+- 2026-11-06T14:49:21Z: User requested `$sol-loop` and `$full-send`, extending delivery authorization through local commits, PR review, CI, merge and the repository-required Rhizome Dev update from main. Earlier no-publication scope describes the initial implementation phase; public releases and unrelated production changes remain outside this effort.
+
 - Loaded isolated HTML viewers are exempt from body disposal. Their internal reading state cannot be restored by the parent without a new cross-origin protocol; preserving it takes priority over forcing a five-body cap for HTML. Native Markdown remains the measured target.
 
 ## Closure Checklist
@@ -92,11 +97,11 @@ Implemented bounded native note-body retention with existing tab data and live r
 - [x] Required local gates and documentation validation recorded.
 - [x] Independent integrated review resolved.
 - [x] Actual delivery and durable docs reconciled.
-- [ ] Commit or PR delivery reference recorded when publication is authorized.
+- [x] Committed delivery references: `0705be63f`, `3b236e912`; PR link is added when the PR is opened.
 
 ## Status
 
-Implementation and verification are complete in the approved worktree. The effort stays active pending a committed delivery reference under release policy. No commit, PR, merge or release was authorized or performed.
+Complete for PR delivery on `t3/reduce-web-app-memory`. All implementation scope is delivered and local verification passes. PR review, CI, merge and the main-checkout Rhizome Dev update remain the authorized Full Send delivery steps.
 
 ## Compounding Follow-ups
 
