@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Install Rhizome Desktop and its matching command-line tool through the `rhizome-desktop` Homebrew cask. Public releases update the cask alongside the existing CLI-only formula.
+
+- Prepare release notes and version changes with the local `rhizome-release` skill, then merge the reviewed release PR to build and publish in CI. Shared assets, Linux/Windows builds and publication run on Linux; Mac runners handle native Mac builds and notarization.
+
 - Require Developer ID signing and Apple notarization for public desktop releases, with protected CI recovery and non-publishing candidate verification.
 
 - Refreshed the workbench with clearer tables and boards, calmer note and search pages, consistent type colours, and more readable graph labels.
@@ -24,7 +28,17 @@
 
 - Client release commands now deploy and verify the exact release gateway source before uploading artifacts, with pinned retries and private/public source agreement. Ordinary main merges no longer deploy the gateway.
 
+- Development, CI, and release builds now use Go 1.27.3.
+
 ### Fixed
+
+- Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
+
+- Code-mode reads wait for a warming runtime to publish current data instead of starting a competing local refresh and waiting on its writer lock.
+
+- GraphQL node queries now return `__typename` for concrete note, section, and code identities, including nested links, aliases, and the `UntypedNote` and `UntypedSection` fallback types.
+
+- Agent session start now reports runtime connectivity, and denied local access returns an actionable error immediately instead of waiting or opening a fallback writer. Code-mode guidance and the new `open-efforts` recipe shorten effort discovery in Claude and Codex.
 
 - The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.
 
@@ -39,7 +53,11 @@
 - Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
 - Team API deployment verifies Express service revisions using the revision field AWS returns, allowing a healthy deployment to pass its final check.
 
+- Stopping agent sessions on macOS avoids shutdown timeouts caused by slow process discovery.
+
 ### Added
+
+- Agent schema discovery can fetch several types together or include related types by depth, with bounded output and explicit remaining-type metadata in CLI, code mode, and MCP.
 
 - The Tasks page shows local task versions before merge and can run **Test once** against a captured checkout, including uncommitted changes and nonignored helper files. Test outcomes and transcripts are visible with separate data and history; scheduled execution continues to use the primary ref. Compounding tests use fresh mining state rather than changing real proposals or cursors.
 

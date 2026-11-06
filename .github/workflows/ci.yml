@@ -51,7 +51,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
 
       - name: Check formatting
@@ -72,7 +72,7 @@ jobs:
       - name: Analyze Go correctness and unused code
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.12.2
+          version: v2.15.0
           args: --config .golangci-gate.yml
 
   unit-tests:
@@ -98,7 +98,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           # setup-go keys its cache on go.sum alone, so it never refreshes.
           cache: false
 
@@ -160,7 +160,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
           cache-dependency-path: services/team-api/go.sum
 
@@ -189,7 +189,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
 
       - name: Set up Node
@@ -228,7 +228,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
 
       - name: Check repository content contracts
@@ -258,7 +258,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           # setup-go keys its cache on go.sum alone, so it never refreshes.
           cache: false
 
@@ -333,7 +333,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
 
       - name: Set up Node
@@ -388,7 +388,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
 
       - name: Build
@@ -408,7 +408,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version: "1.27.3"
           cache: true
 
       - name: Set up Node

@@ -578,8 +578,12 @@ class Orchestrator:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if (arguments and arguments[0] in {"cut-release", "apply", "publish", "resume"}
+            and not os.environ.get("RZM_INTERNAL_S3_BUCKET", "").strip()):
+        raise OrchestrationError("Public releases use the rhizome-release skill and reviewed release-PR CI; local mutation/publication is disabled")
     root = Path(__file__).resolve().parents[2]
-    return run_cli(Orchestrator(root), argv)
+    return run_cli(Orchestrator(root), arguments)
 
 
 if __name__ == "__main__":

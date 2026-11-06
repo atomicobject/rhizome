@@ -8,11 +8,15 @@ derived-from:
   - docs/reference/analysis/Indexing pipeline - Concurrency + batching requirements.md
   - pkg/vault/indexlock/lock.go
   - pkg/app/bootstrap/lane/lane.go
-last-verified: 2026-10-04
+last-verified: 2026-11-05
 status: active
 ---
 
 # Index lock and background coordination runbook
+
+## Sandboxed clients
+
+`runtime_access_denied` means the caller lacks access, not that the runtime is absent or wedged. Rerun the same authorized operation through the host's permission mechanism. A warm runtime needs local networking; cold startup and lock recovery may additionally need OS/filesystem access, including the macOS boot-time read. Starting the desktop app does not grant another process local-network access. Preserve live locks and their ownership; a longer timeout cannot fix a denied operation.
 
 ## Summary
 
@@ -72,7 +76,7 @@ Heartbeats and release verify the full ownership token. Metadata creation, stale
 ## Runtime lifecycle files
 
 - `.rhizome/runtime.json` (0600): instance id, run id, PID, mode, version, build id, executable, HTTP URL, control token, readiness. Trusted by clients only after `GET /api/v1/runtime` answers with the same run id and PID.
-- `.rhizome/runtime-spawn.lock`: client lease while spawning `rzm serve --headless`; live owners retain it regardless of heartbeat age. A dead owner can be reclaimed.
+- `.rhizome/runtime-spawn.lock`: client lease while spawning `rzm serve --headless`; live owners retain it regardless of heartbeat age. A dead owner can be reclaimed. Nonwaiting readers report startup in progress when this lease is held, including before the child acquires the runtime election lock.
 - Per-vault `.intent.lock` in the user-local instance registry: serializes startup registration, cancellation, manifest publication, and pending-record reads. Polling and stop-all readers use this gate so they cannot block cancellation's file replacement on Windows. Waits honor the caller's context and startup or stop deadline. The registry records each pending start before a detached process is launched, so `stop --all` can find it before HTTP publication. Cancellation targets that start's token; a replacement start has its own token.
 - `.rhizome/runtime.log`: headless stdout/stderr, 5 MiB cap, one rotation to `runtime.log.1`.
 

@@ -80,9 +80,9 @@ pub struct Pane {
     pub channel: Option<Channel<Value>>,
     /// A message for a shell that has not attached yet.
     held: Option<Value>,
-    /// The finder overlay (⌘O, ⇧⌘O), with the model it shows until it attaches.
+    /// The finder overlay (⌘O, ⇧⌘O), with the latest model for a recreated view.
     finder: Option<Channel<Value>>,
-    finder_held: Option<Value>,
+    finder_model: Option<Value>,
     /// The finder is on screen; Esc returns focus to the content view when
     /// `return_to_content`, else to the shell.
     pub finder_open: bool,
@@ -128,10 +128,15 @@ impl Pane {
     /// The finder overlay attached. Unlike the shell's, its attach keeps the
     /// selection count, since it makes no selections of its own.
     pub fn attach_finder(&mut self, channel: Channel<Value>) {
-        if let Some(model) = self.finder_held.take() {
-            let _ = channel.send(model);
+        if let Some(model) = &self.finder_model {
+            let _ = channel.send(model.clone());
         }
         self.finder = Some(channel);
+    }
+
+    /// The native view closed; an opening already queued keeps its latest model.
+    pub fn detach_finder(&mut self) {
+        self.finder = None;
     }
 
     /// Takes the shell's `revision`th model, for finder opening `opened`.
@@ -184,11 +189,9 @@ impl Pane {
 
     /// Hands the finder the model the shell built, now or when it attaches.
     fn show_finder(&mut self, model: Value) {
-        match &self.finder {
-            Some(channel) => {
-                let _ = channel.send(model);
-            }
-            None => self.finder_held = Some(model),
+        self.finder_model = Some(model.clone());
+        if let Some(channel) = &self.finder {
+            let _ = channel.send(model);
         }
     }
 
@@ -712,8 +715,46 @@ mod tests {
         // The app's own close, after a choice, closes what is on screen and
         // clears the model it showed.
         assert!(pane.close_finder(None));
-        assert_eq!(pane.finder_held, Some(Value::Null));
+        assert_eq!(pane.finder_model, Some(Value::Null));
         assert_eq!(pane.open_finder(model(), 5.0, 9, false), None);
+    }
+
+    #[test]
+    fn a_recreated_finder_receives_the_latest_model_when_reopened_during_close() {
+        fn channel() -> (Channel<Value>, std::sync::mpsc::Receiver<Value>) {
+            let (sent, received) = std::sync::mpsc::channel();
+            let channel = Channel::new(move |body| {
+                if let tauri::ipc::InvokeResponseBody::Json(text) = body {
+                    sent.send(serde_json::from_str(&text).unwrap()).unwrap();
+                }
+                Ok(())
+            });
+            (channel, received)
+        }
+
+        let mut pane = Pane::default();
+        let first = json!({"opened": 1.0, "rows": ["first"]});
+        pane.open_finder(first.clone(), 1.0, 1, true);
+        let (old_channel, old_messages) = channel();
+        pane.attach_finder(old_channel);
+        assert_eq!(old_messages.try_recv().unwrap(), first);
+        assert!(pane.close_finder(Some(1.0)));
+        assert_eq!(old_messages.try_recv().unwrap(), Value::Null);
+
+        // A new opening and its update arrive before the old native view closes.
+        pane.open_finder(json!({"opened": 2.0, "rows": []}), 2.0, 2, true);
+        let latest = json!({"opened": 2.0, "rows": ["newest"]});
+        pane.open_finder(latest.clone(), 2.0, 3, true);
+        assert!(!pane.close_finder(Some(1.0)));
+        pane.detach_finder();
+
+        let (new_channel, new_messages) = channel();
+        pane.attach_finder(new_channel);
+        assert_eq!(new_messages.try_recv().unwrap(), latest);
+        assert!(new_messages.try_recv().is_err());
+        assert!(pane.finder_shows(2.0));
+        assert!(pane.close_finder(Some(2.0)));
+        assert_eq!(new_messages.try_recv().unwrap(), Value::Null);
     }
 
     #[test]

@@ -98,6 +98,8 @@ The readable-information extension adds singular section summaries across typed 
 
 ## Deviations
 
+- (frozen-scope-drift acknowledged via EFF-2026-11-05-16-27) SPEC-0115 was amended on November 5 by [[2026-11-05-16-27-code-mode-reliability|Code mode reliability and discovery]]. Pending reads now remain with the live runtime owner instead of starting a competing local writer; permanent readiness errors return directly. This later correction does not change the delivery evidence or frozen historical scope recorded below.
+
 The brief suggested forwarding typed reads to the runtime with its cached ontology. Forwarding alone could not keep SPEC-0092's freshness guarantee, so the effort added the disk-checked barrier, per-call in-process fallback, and connection write tracking.
 
 ## Closure Checklist

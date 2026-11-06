@@ -352,6 +352,48 @@ func TestAgentOntologyQuerySchemaCommandOutputsJSON(t *testing.T) {
 	require.Contains(t, payload["schema"], `project(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Project!]!`)
 }
 
+func TestAgentOntologyQuerySchemaIncludesRelatedAndSelectedTypes(t *testing.T) {
+	vault := setupAgentTestVault(t, map[string]string{
+		".rhizome/ontology/schema.graphql": `
+type Project @node(paths: ["projects/*.md"]) { owner: Person @link }
+type Person @node(paths: ["people/*.md"]) { name: String! team: Team @link }
+type Team @node(paths: ["teams/*.md"]) { name: String! }
+`,
+	})
+	for _, flags := range [][]string{
+		{"--type", "Project", "--depth", "1", "--max-bytes", "131072"},
+		{"--types", "Project,Person"},
+	} {
+		t.Run(flags[0], func(t *testing.T) {
+			args := append([]string{"agent", "ontology-query-schema", "--vault", vault.name}, flags...)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
+			require.NoError(t, err, stderr)
+			require.Empty(t, stderr)
+			var result query.SchemaDiscovery
+			require.NoError(t, json.Unmarshal([]byte(stdout), &result))
+			require.Contains(t, result.IncludedTypes, "Project")
+			require.Contains(t, result.IncludedTypes, "Person")
+			require.Contains(t, result.Schema, "owner: Person")
+			require.Contains(t, result.Schema, "name: String!")
+			require.Contains(t, result.ReferencedTypes, "Team")
+			require.NotContains(t, result.IncludedTypes, "Team")
+			require.NotNil(t, result.Limits)
+		})
+	}
+	for _, flags := range [][]string{
+		{"--type", "Project", "--types", "Person"},
+		{"--depth", "1"},
+		{"--type", "Project", "--depth", "3"},
+		{"--type", "Project", "--max-bytes", "-1"},
+	} {
+		t.Run("invalid/"+flags[len(flags)-1], func(t *testing.T) {
+			args := append([]string{"agent", "ontology-query-schema", "--vault", vault.name}, flags...)
+			_, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestOntologyReferenceCommandRendersMarkdown(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 

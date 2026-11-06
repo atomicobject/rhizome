@@ -110,14 +110,25 @@ func (commandOptions *vaultCommandOptions) newAgentCodeInvoker(ctx context.Conte
 			return codeModeFailure(err), true
 		}
 		defer release()
-		if outcome, changed := changed(ctx); changed {
-			return outcome, true
+		for {
+			if outcome, changed := changed(ctx); changed {
+				return outcome, true
+			}
+			outcome, handled := forwarder.call(ctx, name, input, readWrite)
+			if !handled || !actions.IsCodeModeRuntimeReadPending(outcome.Diagnostic) {
+				return outcome, handled
+			}
+			// The live owner is warming or publishing its projection. Opening
+			// another writer here would wait on that owner's lock instead of
+			// benefiting from its progress. Keep the read with the owner.
+			timer := time.NewTimer(100 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return codeModeFailure(ctx.Err()), true
+			case <-timer.C:
+			}
 		}
-		outcome, handled := forwarder.call(ctx, name, input, readWrite)
-		if !handled || actions.IsCodeModeRuntimeReadPending(outcome.Diagnostic) {
-			return agentcode.CallOutcome{}, false
-		}
-		return outcome, true
 	}
 	connectionEnv := commandEnvFromContext(ctx)
 	metrics := codeCallMetricsFromContext(ctx)
@@ -183,6 +194,7 @@ type agentOpForwarder struct {
 	initializing chan struct{}
 	generation   uint64
 	reason       string
+	accessErr    error
 	reported     bool
 }
 
@@ -238,6 +250,13 @@ func (f *agentOpForwarder) call(ctx context.Context, name string, input map[stri
 			// Cancellation and deadlines belong to this call, not to the runtime.
 			return codeModeFailure(err), true
 		}
+		if errors.Is(err, os.ErrPermission) {
+			err = fmt.Errorf("%w: allow local networking or rerun this Rhizome command with the required permissions: %w", appruntime.ErrRuntimeAccessDenied, err)
+			f.mu.Lock()
+			f.accessErr = err
+			f.mu.Unlock()
+			return codeModeFailure(err), true
+		}
 		f.fallback(client, err.Error())
 		return agentcode.CallOutcome{}, false
 	}
@@ -253,10 +272,10 @@ func (f *agentOpForwarder) call(ctx context.Context, name string, input map[stri
 func (f *agentOpForwarder) clientForCall(ctx context.Context) (*appruntime.Client, error) {
 	for {
 		f.mu.Lock()
-		if f.client != nil || f.reason != "" {
-			client := f.client
+		if f.client != nil || f.reason != "" || f.accessErr != nil {
+			client, err := f.client, f.accessErr
 			f.mu.Unlock()
-			return client, nil
+			return client, err
 		}
 		if waiting := f.initializing; waiting != nil {
 			f.mu.Unlock()
@@ -275,7 +294,9 @@ func (f *agentOpForwarder) clientForCall(ctx context.Context) (*appruntime.Clien
 		result, err := appruntime.Ensure(ctx, options)
 		f.mu.Lock()
 		if ctx.Err() == nil {
-			if err != nil || result.Client == nil {
+			if errors.Is(err, appruntime.ErrRuntimeAccessDenied) {
+				f.accessErr = err
+			} else if err != nil || result.Client == nil {
 				f.reason = agentOpFallbackReason(err)
 			} else {
 				f.client = result.Client
@@ -283,12 +304,12 @@ func (f *agentOpForwarder) clientForCall(ctx context.Context) (*appruntime.Clien
 		}
 		f.initializing = nil
 		close(waiting)
-		client := f.client
+		client, accessErr := f.client, f.accessErr
 		f.mu.Unlock()
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return client, nil
+		return client, accessErr
 	}
 }
 
@@ -417,7 +438,9 @@ func (commandOptions *vaultCommandOptions) callAgentCodeOperation(ctx context.Co
 
 func codeModeFailure(err error) agentcode.CallOutcome {
 	var diagnostic any
-	if json.Unmarshal([]byte(err.Error()), &diagnostic) != nil {
+	if errors.Is(err, appruntime.ErrRuntimeAccessDenied) {
+		diagnostic = map[string]any{"code": "runtime_access_denied", "message": err.Error()}
+	} else if json.Unmarshal([]byte(err.Error()), &diagnostic) != nil {
 		diagnostic = map[string]any{"error": err.Error()}
 	}
 	data, _ := json.Marshal(diagnostic)

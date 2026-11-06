@@ -1,8 +1,6 @@
 module github.com/atomicobject/rhizome/services/team-api
 
-go 1.24.0
-
-toolchain go1.24.2
+go 1.27.3
 
 require (
 	github.com/atomicobject/rhizome v0.0.0
