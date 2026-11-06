@@ -22,7 +22,7 @@ code-anchors:
 
 ## Design constraints
 
-- **Summaries stream canonical identities.** Current committed type summaries use `SummaryStore` to stream the selected catalog with small metadata and flag joins, retaining distinct canonical refs and only the requested examples. Interface unions count canonical refs once and issue-bearing host paths once; stable sample ordering matches full listings. Staged overlays, custom metadata loaders, and stale flag materializations retain the full semantic path. `SummaryTotals` obtains committed whole-vault scalar counts from one read snapshot.
+- **Summaries stream canonical identities.** Current committed type summaries use `SummaryStore` to stream the selected catalog with small metadata and flag joins, retaining distinct canonical refs and only the requested examples. Interface unions count canonical refs once and issue-bearing host paths once; stable sample ordering matches full listings. Staged overlays, custom metadata loaders, and stale flag materializations retain the full semantic path. `SummaryTotals` obtains committed whole-vault scalar counts from one read snapshot. These web inventory reads preserve their existing metadata/materialized-flag admission and do not certify a provider-complete publication; the separate provider-bound `IndexedOntologySummary` retains its complete-proof gate.
 
 - **Authored relative wikilinks resolve from their source.** Resolve `./` and `../` against `FromPath` before canonical reads, allowing an omitted extension. A missing explicit relative target must not fall back to a same-named note in another directory.
 

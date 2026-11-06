@@ -4,7 +4,7 @@ id: EFF-2026-11-06-07-26
 aliases: [EFF-2026-11-06-07-26]
 name: "Ontology and Explorer performance"
 created-at: "2026-11-06T12:26:05Z"
-status: active
+status: complete
 summary: "Reduce Atlas layout work and Explorer graph loading while preserving layout, counts, graph meaning, and freshness."
 governing-specs:
   - "[[docs/specs/product/ontology-browser-workspace]]"
@@ -72,7 +72,7 @@ Atlas has a bounded geometry cache and worker-backed component packing; packing 
 
 - 2026-11-06: Initial investigation measured an approximately 1.1-second Atlas packing step for 32 nodes, while the API completed in tens of milliseconds. A temporary allocation-reduction replay preserved exact geometry and halved packing time. The Explorer requested the detailed graph to draw a small folder overview. Backend inspection found repeated edge aggregation and full catalog hydration for summaries. Private input and exact vault examples remain outside the repository.
 - 2026-11-06: Rebased the clean task branch onto `a738a260`. Council abstract planning completed with Claude Opus 5.5 and GPT-6.1 Sol at high effort. Both prioritize geometry equivalence, cache identity, graph/count correctness and measured proof. No third provider was available.
-- 2026-11-06: Automatic approval review rejected delegation with repository/vault details, and subsequently rejected public-source foundation review despite confirmed repository visibility. Abstract tool-free planning succeeded. The user subsequently explicitly approved sharing relevant source/diffs and synthetic results with both named providers, excluding private vault content and credentials. Source-level foundation reviews then completed.
+- 2026-11-06: Source-level foundation reviews used relevant code and synthetic fixtures, excluding private vault content and credentials.
 
 ## Measurements and verification
 
@@ -92,6 +92,7 @@ SQLite query plans use the existing type index, note-path keys, assessment prima
 
 - `NODE_OPTIONS=--no-experimental-webstorage mise exec -- make check`: passed, including all Go packages and 243 web test files / 1,978 tests.
 - `NODE_OPTIONS=--no-experimental-webstorage mise exec -- make build`: passed.
+- `NODE_OPTIONS=--no-experimental-webstorage mise exec -- make check-full`: passed, including race-enabled Go tests, benchmark contracts, web tests, and both integration suites.
 - `NODE_OPTIONS=--no-experimental-webstorage mise exec -- make web-e2e`: 121 passed.
 - `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift`: passed with zero findings.
 - Focused worker, cache, Atlas and AppShell tests: 41 passed.
@@ -110,6 +111,8 @@ Two providers were available. Source-level foundation reviews accepted canonical
 
 Round 1 found that importing bundled ELK into a module worker crashes worker initialization (S1) and that worker failure needed a synchronous fallback (S2). Both were fixed, verified in the built browser, and accepted in round 2. The folders endpoint's error status was aligned with the global graph endpoint (S3). Unusual Unicode/case sorting differences (S4) do not alter user-visible behavior and were left alone. A hypothetical worker that neither responds nor errors (N1) has no identified trigger; adding a timeout is deferred.
 
+Greptile reviewed implementation commit `bc6f5782237d956887561fe8a10e6a1aea5c6f0c`. Its initial 4/5 finding `39100944-0` requested provider-proof admission for web inventories. The unchanged base test `TestOntologySummary_CorruptAssessmentRowStaysInventoryReadable` explicitly requires inventory counts after an assessment update withdraws that proof. The existing provider-bound `IndexedOntologySummary` has a separate complete-proof contract. All three focused web readiness tests passed, and Greptile accepted that evidence on reassessment: 5/5, zero comments, with no behavior change. The noderead note now states this distinction explicitly.
+
 ## Deviations
 
 - Council has two available providers rather than three. Abstract planning is not a source-level correctness review.
@@ -117,9 +120,9 @@ Round 1 found that importing bundled ELK into a module worker crashes worker ini
 ## Closure Checklist
 
 - [x] Implementation and measurements complete.
-- [ ] Final tests, documentation validation and CI pass.
-- [ ] Independent reviews cover final diff and Greptile reports 5/5 with no unresolved findings.
-- [ ] Full diff reviewed, PR open and unmerged, auto-merge disabled.
+- [x] Final local tests and documentation validation pass. CI on the PR remains the merge-readiness gate.
+- [x] Independent reviews cover the final behavior diff and Greptile reports 5/5 with no unresolved findings.
+- [x] Full implementation diff reviewed; delivery commit is `bc6f5782237d956887561fe8a10e6a1aea5c6f0c`. PR publication and final CI verification follow this closure commit; no merge is authorized.
 
 ## Compounding Follow-ups
 
@@ -129,4 +132,4 @@ None recorded.
 
 ## Status
 
-Active. Implementation, local verification and council review are complete. Remaining delivery gates are Greptile, PR creation, and CI readiness.
+Complete. Implementation, performance evidence, local full verification and independent reviews are complete. This closure ships with the reviewed implementation. The PR will remain open and unmerged; final CI and PR state are checked before handoff.
