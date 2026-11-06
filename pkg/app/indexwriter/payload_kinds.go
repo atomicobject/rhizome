@@ -74,13 +74,13 @@ func (k *typedPayloadKind[T]) offer(q *Writer, s *queueState, cmd queuedPayload,
 	if k.observe != nil {
 		k.observe(ctx, batch)
 	}
-	if k.op == "intel.replace_code_file" {
+	if k == s.codeKind {
 		s.lastCodeAt = now
 	}
 	if !k.immediate || !s.shouldFlushNow(k.pendingRows, k.pendingBytes, k.policy, k.hold, k.drain) {
 		return true, nil
 	}
-	codeHot := q.cfg.codePriorityActive(now, s.lastCodeAt, s.kinds[0].pending()+len(q.codeCmdCh))
+	codeHot := q.cfg.codePriorityActive(now, s.lastCodeAt, s.codeKind.pending()+len(q.codeCmdCh))
 	if k.deferred && codeHot && !q.cfg.semanticUrgent(k.policy, k.pendingRows, k.pendingBytes) {
 		indexingperf.ObserveLatency(ctx, indexingperf.NodeWriteDeferred, 0)
 		return true, nil
@@ -120,7 +120,7 @@ func applyItems[T any](q *Writer, apply func(context.Context, []T) error) func(c
 
 // Slice order is the durable flush order. Raw metadata precedes ontology deltas;
 // destructive full deltas precede read-model publication and semantic states.
-func newPayloadKinds(q *Writer) []payloadKind {
+func newQueueState(q *Writer) *queueState {
 	basic := func(op string, ready bool) kindPolicy {
 		return kindPolicy{op: op, policy: q.cfg.DefaultPolicy, ready: ready, idle: true, immediate: true}
 	}
@@ -160,8 +160,9 @@ func newPayloadKinds(q *Writer) []payloadKind {
 	metadataKind.observe = func(ctx context.Context, b *queueBatch[noteMetadataDeltaWrite]) {
 		indexingperf.SetGauge(ctx, noteMetadataQueueDepthName, int64(b.rows))
 	}
-	return []payloadKind{
-		payload(code, func(codeanchor.CodeIndexWork) int { return 1 }, applyItems(q, q.applyCodeIndexBatch)),
+	codeKind := payload(code, func(codeanchor.CodeIndexWork) int { return 1 }, applyItems(q, q.applyCodeIndexBatch))
+	return &queueState{codeKind: codeKind, kinds: []payloadKind{
+		codeKind,
 		payload(basic("intel.replace_doc_sections", q.handlers.ApplyNoteIndexBatch != nil), func(codeanchor.NoteIndexWork) int { return 1 }, applyItems(q, q.applyNoteIndexBatch)),
 		metas,
 		payload(itemEmb, func(codeindex.ItemEmbeddingUpsert) int { return 1 }, applyItems(q, q.handlers.ApplyCodeItemEmbeddingBatch)),
@@ -179,7 +180,7 @@ func newPayloadKinds(q *Writer) []payloadKind {
 		payload(states, func(codeanchor.IntelOntologyNodeEmbeddingState) int { return 1 }, applyItems(q, q.handlers.ApplyOntologyNodeStates)),
 		payload(vectorCache, func(semdb.EmbeddingCacheEntry) int { return 1 }, applyItems(q, q.handlers.ApplyEmbeddingCache)),
 		payload(validation, func(ValidationStateWrite) int { return 1 }, q.flushValidationState),
-	}
+	}}
 }
 
 func normalizePayload(value any) any {

@@ -8,7 +8,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -62,25 +61,10 @@ func TestServiceRefreshUpdatesModifiedFile(t *testing.T) {
 
 	// Modify file content and send a write event.
 	require.NoError(t, os.WriteFile(filePath, []byte("#newtag"), 0o644))
-	svc.markDirty(filePath, DirtyModified)
+	svc.MarkDirty("Note.md", DirtyModified)
+	require.NoError(t, svc.Refresh(context.Background()))
 
-	ctx := context.Background()
-	var entry Entry
-	var ok bool
-	svc.mu.RLock()
-	dirtyLen := len(svc.dirty)
-	svc.mu.RUnlock()
-	require.Equal(t, 1, dirtyLen)
-
-	for i := 0; i < 5; i++ {
-		require.NoError(t, svc.Refresh(ctx))
-		entry, ok = svc.Entry("Note.md")
-		if ok && strings.Contains(entry.Content, "#newtag") {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
+	entry, ok := svc.Entry("Note.md")
 	require.True(t, ok)
 	assert.Contains(t, entry.Tags, "newtag")
 	assert.NotContains(t, entry.Tags, "old")
@@ -404,7 +388,6 @@ func TestServiceStaleRevalidation(t *testing.T) {
 	require.NoError(t, svc.EnsureReady(context.Background()))
 
 	// Modify the file behind the watcher's back
-	time.Sleep(10 * time.Millisecond) // Ensure mtime changes
 	require.NoError(t, os.WriteFile(filePath, []byte("#updated"), 0o644))
 
 	// Manually mark cache as stale (simulating watcher failure)

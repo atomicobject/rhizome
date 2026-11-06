@@ -18,7 +18,7 @@ func TestPublishedReadSummaryPreparesRepairOnlyWhenReviewIsRequested(t *testing.
 	require.NoError(t, os.WriteFile(filepath.Join(root, "target.md"), []byte("# Target\n"), 0o644))
 	definition := obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth}
 	metadata := testProjectionNoteMetadata(t)
-	prepared, err := validationrun.Prepare(definition, metadata, []string{"link-hygiene"}, 20)
+	prepared, err := validationrun.Prepare(definition, metadata, []string{"link-hygiene"}, 20, nil)
 	require.NoError(t, err)
 	var published AuthoritativeRun
 	store := openCoordinatorStore(t)

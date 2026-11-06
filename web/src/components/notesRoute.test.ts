@@ -1,3 +1,4 @@
+import { joinNoteTarget, splitNoteTarget } from "../lib/noteTarget";
 import { describe, expect, it } from "vitest";
 
 import type { OntologyInterfaceSummary, OntologyTypeSummary } from "../api/types";
@@ -8,7 +9,6 @@ import {
   parseNotesLocation,
   parseNotesRoute,
   resolveTypeNameFromSlug,
-  splitNoteTarget,
 } from "./notesRoute";
 
 const makeType = (name: string): OntologyTypeSummary => ({
@@ -343,6 +343,35 @@ describe("normalizeNotePath", () => {
 });
 
 describe("splitNoteTarget", () => {
+  it.each([
+    [
+      "report.html?filter=active#results?detail",
+      { path: "report.html", query: "filter=active", fragment: "results?detail" },
+    ],
+    [
+      "report.html#results?detail",
+      { path: "report.html", query: null, fragment: "results?detail" },
+    ],
+    ["report.html?#", { path: "report.html", query: null, fragment: null }],
+    [
+      "report.html?filter=a%20b#literal%20heading",
+      { path: "report.html", query: "filter=a%20b", fragment: "literal%20heading" },
+    ],
+  ])("splits %s without decoding document state", (input, expected) => {
+    expect(splitNoteTarget(input)).toEqual(expected);
+  });
+
+  it.each([
+    [
+      { path: "report.html", query: "filter=active", fragment: "results?detail" },
+      "report.html?filter=active#results?detail",
+    ],
+    [{ path: "report.html", query: "", fragment: "" }, "report.html"],
+    [{ path: "report.html", fragment: "literal%20heading" }, "report.html#literal%20heading"],
+  ])("serializes document state as %s", (target, expected) => {
+    expect(joinNoteTarget(target)).toBe(expected);
+  });
+
   it("decodes a literal percent escape exactly once at the browser boundary", () => {
     const target = splitNoteTarget("docs/spec.md#section%201");
 

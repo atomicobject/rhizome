@@ -291,13 +291,16 @@ func TestInterruptedRunWaitsForItsCadence(t *testing.T) {
 
 func TestMergedOlderTaggedWorkClosesTheItem(t *testing.T) {
 	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nscope: team\nprompt: Look around.\n"})
+	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
+	t.Setenv("GIT_AUTHOR_DATE", now.Add(-time.Hour).Format(time.RFC3339))
+	t.Setenv("GIT_COMMITTER_DATE", now.Add(-time.Hour).Format(time.RFC3339))
 	// A teammate commits tagged work on a branch before the item exists.
 	run(t, dir, "switch", "--quiet", "-c", "teammate")
 	commitFile(t, dir, "x.md", "x\n", "teammate did it\n\nRhizome-Task: look")
 	run(t, dir, "switch", "--quiet", "main")
 	svc := newService(t, dir, editingAgent(), "")
+	svc.opts.Now = func() time.Time { return now }
 	ctx := context.Background()
-	time.Sleep(1100 * time.Millisecond)
 	if _, err := svc.RunDue(ctx); err != nil {
 		t.Fatal(err)
 	}

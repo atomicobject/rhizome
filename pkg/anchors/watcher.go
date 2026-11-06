@@ -16,20 +16,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/codefile"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fsnotify/fsnotify"
 )
-
-var defaultLangExts = map[Lang][]string{
-	LangPy:  {".py"},
-	LangGo:  {".go"},
-	LangTS:  codefile.TypeScriptJavaScriptExtensions(),
-	LangCs:  {".cs"},
-	LangPhp: {".php"},
-}
 
 var defaultExcludeDirs = ignore.DefaultIgnoreDirnames()
 
@@ -331,20 +322,6 @@ func normalizeRoots(roots []string) []string {
 		result = append(result, abs)
 	}
 	return result
-}
-
-// LangForPath returns the language a code file is indexed as, from its
-// extension.
-func LangForPath(path string) (Lang, bool) {
-	ext := strings.ToLower(filepath.Ext(path))
-	for lang, exts := range defaultLangExts {
-		for _, candidate := range exts {
-			if candidate == ext {
-				return lang, true
-			}
-		}
-	}
-	return "", false
 }
 
 func supportedLangByExt(service *Service) (map[string]Lang, []string) {

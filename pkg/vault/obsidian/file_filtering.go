@@ -97,35 +97,7 @@ func matchesContent(contentPattern string, content string) bool {
 		return wildcardMatch(contentPattern, content)
 	}
 
-	patternWords := splitWords(contentPattern)
-
-	// No words to match
-	if len(patternWords) == 0 {
-		return true
-	}
-
-	// Try to match all pattern words in order
-	searchText := content
-	for _, word := range patternWords {
-		found := false
-		for {
-			index := strings.Index(searchText, word)
-			if index == -1 {
-				return false // Word not found
-			}
-			if isWordBoundary(searchText, index) {
-				searchText = searchText[index+len(word):]
-				found = true
-				break
-			}
-			searchText = searchText[index+1:]
-		}
-		if !found {
-			return false
-		}
-	}
-
-	return true
+	return matchesOrderedWords(contentPattern, content)
 }
 
 // matchesContentOnly checks if a pattern matches anywhere in the path
@@ -135,12 +107,11 @@ func matchesContentOnly(pattern string, path string) bool {
 		return wildcardMatchAnywhere(pattern, path)
 	}
 
-	patternWords := splitWords(pattern)
+	return matchesOrderedWords(pattern, path)
+}
 
-	// Try to match all pattern words in order
-	searchText := path
-	for _, word := range patternWords {
-		found := false
+func matchesOrderedWords(pattern, searchText string) bool {
+	for _, word := range splitWords(pattern) {
 		for {
 			index := strings.Index(searchText, word)
 			if index == -1 {
@@ -148,13 +119,9 @@ func matchesContentOnly(pattern string, path string) bool {
 			}
 			if isWordBoundary(searchText, index) {
 				searchText = searchText[index+len(word):]
-				found = true
 				break
 			}
 			searchText = searchText[index+1:]
-		}
-		if !found {
-			return false
 		}
 	}
 

@@ -47,11 +47,9 @@ type Service struct {
 	warmMu      sync.Mutex
 	warmRunning bool
 
-	runtimeCodeMu       sync.RWMutex
-	runtimeCodeSources  map[string]runtimeCodeIndexSource
-	runtimeCallFiles    map[string]map[string]struct{}
-	runtimeCodeVersions map[string]uint64
-	runtimeCodeSeq      uint64
+	runtimeCodeMu      sync.RWMutex
+	runtimeCodeSources map[string]runtimeCodeIndexSource
+	runtimeCallFiles   map[string]map[string]struct{}
 
 	// writeAccess enables index updates (scope recompute, call edge rebuild, warming).
 	// By default, services are read-only. Use WithWriteAccess() for indexing commands.
@@ -84,20 +82,19 @@ func NewServiceWithOptions(store Store, indexers []LanguageIndexer, opts ...Serv
 		basePath = vaultPaths.Root()
 	}
 	svc := &Service{
-		store:               store,
-		indexers:            idxMap,
-		basePath:            basePath,
-		vault:               vaultPaths,
-		tailIdx:             cfg.tailIdx,
-		fileCtxCache:        make(map[string]*list.Element),
-		fileCtxList:         list.New(),
-		cacheLimit:          128,
-		dirtyAnchors:        make(map[int64]bool),
-		linker:              cfg.linker,
-		writeAccess:         cfg.writeAccess,
-		runtimeCodeSources:  make(map[string]runtimeCodeIndexSource),
-		runtimeCallFiles:    make(map[string]map[string]struct{}),
-		runtimeCodeVersions: make(map[string]uint64),
+		store:              store,
+		indexers:           idxMap,
+		basePath:           basePath,
+		vault:              vaultPaths,
+		tailIdx:            cfg.tailIdx,
+		fileCtxCache:       make(map[string]*list.Element),
+		fileCtxList:        list.New(),
+		cacheLimit:         128,
+		dirtyAnchors:       make(map[int64]bool),
+		linker:             cfg.linker,
+		writeAccess:        cfg.writeAccess,
+		runtimeCodeSources: make(map[string]runtimeCodeIndexSource),
+		runtimeCallFiles:   make(map[string]map[string]struct{}),
 	}
 	return svc
 }

@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the vault runtime: one auto-started serve process per vault root that wins the runtime lock, publishes a probe-verified manifest, runs every indexing job on one lane, and serves the loopback control API that rzm index and code mode execute through."
 reference-kind: guide
-last-verified: 2026-11-02
+last-verified: 2026-11-05
 code-paths:
   - pkg/app/runtime
   - pkg/app/bootstrap
@@ -103,7 +103,7 @@ Shared embedding nodes retain physical provider/batch metrics in a bounded runti
 ## Key files
 
 - `pkg/app/runtime/manifest.go`, `client.go`, `ensure.go`, `control.go`, `autostart.go`, `registry.go`
-- `pkg/app/bootstrap/live.go`, `live_election.go`, `live_indexing.go`, `lane/lane.go`
+- `pkg/app/bootstrap/live.go` (construction), `live_{search,semantic,code,capabilities,leader,sessions,embeddings,diagnostics}.go` (phase/readiness/lifecycle concerns), `live_election.go`, `live_indexing.go`, `lane/lane.go`
 - `pkg/app/cli/serve/control.go`, `readiness.go`, `startup.go`
 - `pkg/app/web/runtime_control.go`
 - `cmd/serve.go`, `cmd/stop.go`, `cmd/index.go`, `cmd/agent_code_serve.go`

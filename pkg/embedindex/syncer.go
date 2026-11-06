@@ -105,7 +105,6 @@ type EmbeddingWriter interface {
 // single writer lane during batch indexing.
 type SyncWriteQueue interface {
 	CodeWritebackBatchConfig() embeddings.CodeWritebackBatchConfig
-	SubmitCodeItemEmbedding(context.Context, codeindex.ItemEmbeddingUpsert) error
 	SubmitCodeItemEmbeddingBatch(context.Context, []codeindex.ItemEmbeddingUpsert) error
 	SubmitCodeItemChunks(context.Context, codeindex.AnchorID, []codeindex.ChunkInput, []string, []embeddings.Embedding) error
 	SubmitCodeItemChunkBatch(context.Context, []codeindex.ItemChunksUpsert) error
@@ -179,7 +178,6 @@ type Syncer struct {
 	// StaleItemThreshold controls lazy pruning of items not seen in current sync.
 	// If the fraction of stale items is below this threshold, they're preserved
 	// to avoid re-embedding costs when switching branches. Default is 0.3 (30%).
-	// Set to 0 for immediate pruning (old behavior).
 	StaleItemThreshold float64
 
 	// ChunkWriter optionally persists intel chunk records prior to embedding.

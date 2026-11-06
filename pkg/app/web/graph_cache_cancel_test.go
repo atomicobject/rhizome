@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -33,7 +34,7 @@ type graphCacheWaiter struct {
 	cancel context.CancelFunc
 	joined chan struct{}
 	done   chan struct{}
-	resp   GraphResponse
+	resp   graphpresentation.GraphResponse
 	err    error
 }
 
@@ -52,17 +53,17 @@ type graphCacheHarness struct {
 	t     *testing.T
 	cache *graphResponseCache
 	wg    sync.WaitGroup
-	build func(context.Context) (GraphResponse, error)
+	build func(context.Context) (graphpresentation.GraphResponse, error)
 }
 
-func newGraphCacheHarness(t *testing.T, build func(context.Context) (GraphResponse, error)) *graphCacheHarness {
+func newGraphCacheHarness(t *testing.T, build func(context.Context) (graphpresentation.GraphResponse, error)) *graphCacheHarness {
 	t.Helper()
 	cache := newGraphResponseCache(defaultScopedGraphCacheEntries)
 	t.Cleanup(cache.Close)
 	return &graphCacheHarness{t: t, cache: cache, build: build}
 }
 
-func (h *graphCacheHarness) get(ctx context.Context) (GraphResponse, error) {
+func (h *graphCacheHarness) get(ctx context.Context) (graphpresentation.GraphResponse, error) {
 	return h.cache.getOrBuild(ctx, graphCacheCancelScope, true, h.build)
 }
 
@@ -125,22 +126,22 @@ func newGraphCacheServer(t *testing.T) *Server {
 	return &Server{runtime: &Runtime{IntelStore: store}, graphCache: cache}
 }
 
-func graphCacheBuiltResponse() GraphResponse {
-	return GraphResponse{Nodes: []GraphNode{{ID: "note:a", Kind: "note", Label: "a"}}}
+func graphCacheBuiltResponse() graphpresentation.GraphResponse {
+	return graphpresentation.GraphResponse{Nodes: []graphpresentation.GraphNode{{ID: "note:a", Kind: "note", Label: "a"}}}
 }
 
 // blockingGraphBuild reports entry on ready, then finishes on release or returns
 // its own context's error, whichever comes first.
-func blockingGraphBuild(calls *atomic.Int32, ready chan struct{}, release chan struct{}) func(context.Context) (GraphResponse, error) {
+func blockingGraphBuild(calls *atomic.Int32, ready chan struct{}, release chan struct{}) func(context.Context) (graphpresentation.GraphResponse, error) {
 	var started sync.Once
-	return func(ctx context.Context) (GraphResponse, error) {
+	return func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		calls.Add(1)
 		started.Do(func() { close(ready) })
 		select {
 		case <-release:
 			return graphCacheBuiltResponse(), nil
 		case <-ctx.Done():
-			return GraphResponse{}, ctx.Err()
+			return graphpresentation.GraphResponse{}, ctx.Err()
 		}
 	}
 }
@@ -220,7 +221,7 @@ func TestCachedGraphResponse_WaiterCancellationIsIndependent(t *testing.T) {
 		var builtOnce sync.Once
 
 		shared := blockingGraphBuild(&calls, ready, release)
-		h := newGraphCacheHarness(t, func(ctx context.Context) (GraphResponse, error) {
+		h := newGraphCacheHarness(t, func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 			resp, err := shared(ctx)
 			if err == nil {
 				builtOnce.Do(func() { close(built) })
@@ -262,11 +263,11 @@ func TestCachedGraphResponse_WaiterCancellationIsIndependent(t *testing.T) {
 		ready := make(chan struct{})
 		release := make(chan struct{})
 
-		h := newGraphCacheHarness(t, func(ctx context.Context) (GraphResponse, error) {
+		h := newGraphCacheHarness(t, func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 			calls.Add(1)
 			started.Do(func() { close(ready) })
 			<-release
-			return GraphResponse{}, buildErr
+			return graphpresentation.GraphResponse{}, buildErr
 		})
 
 		leader := h.start(false)
@@ -332,7 +333,7 @@ func TestGetOrBuild_BuildContextIsNotTheCallerContext(t *testing.T) {
 
 	callerCtx := context.WithValue(context.Background(), ctxKey{}, "request-scoped")
 	var buildValue any
-	_, err := cache.getOrBuild(callerCtx, "global|key", true, func(ctx context.Context) (GraphResponse, error) {
+	_, err := cache.getOrBuild(callerCtx, "global|key", true, func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		buildValue = ctx.Value(ctxKey{})
 		return graphCacheBuiltResponse(), nil
 	})
@@ -369,7 +370,7 @@ func TestCachedGraphResponse_CancelledCallerDoesNotBuild(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := srv.cachedGraphResponse(ctx, graphCacheCancelScope, true, func(context.Context) (GraphResponse, error) {
+	_, err := srv.cachedGraphResponse(ctx, graphCacheCancelScope, true, func(context.Context) (graphpresentation.GraphResponse, error) {
 		calls.Add(1)
 		return graphCacheBuiltResponse(), nil
 	})
@@ -383,7 +384,7 @@ func TestCachedGraphResponse_FallsBackToUncachedBuildWithoutCache(t *testing.T) 
 	srv := newGraphCacheServer(t)
 	srv.graphCache = nil
 
-	resp, err := srv.cachedGraphResponse(context.Background(), graphCacheCancelScope, true, func(context.Context) (GraphResponse, error) {
+	resp, err := srv.cachedGraphResponse(context.Background(), graphCacheCancelScope, true, func(context.Context) (graphpresentation.GraphResponse, error) {
 		calls.Add(1)
 		return graphCacheBuiltResponse(), nil
 	})

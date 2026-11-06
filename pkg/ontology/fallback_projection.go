@@ -74,7 +74,7 @@ func AsFallbackSectionProjection(projection *NodeProjection) (*NodeProjection, b
 	clone.PropertyCase = ""
 	clone.Fields = map[string]FieldBinding{}
 	clone.Collections = map[string]CollectionBinding{}
-	clone.Ref = fallbackSectionNodeRef(projection.Snapshot.NotePath, section, parentID)
+	clone.Ref = fallbackSectionNodeRef(projection.Snapshot, section, parentID)
 	return &clone, true
 }
 
@@ -126,7 +126,7 @@ func FallbackSectionProjections(root *NodeProjection) []*NodeProjection {
 			if section == nil {
 				continue
 			}
-			ref := fallbackSectionNodeRef(root.Snapshot.NotePath, section, parentID)
+			ref := fallbackSectionNodeRef(root.Snapshot, section, parentID)
 			out = append(out, &NodeProjection{
 				Snapshot:     root.Snapshot,
 				Ref:          ref,
@@ -141,12 +141,15 @@ func FallbackSectionProjections(root *NodeProjection) []*NodeProjection {
 	return out
 }
 
-func fallbackSectionNodeRef(notePath string, section *SectionNode, parentID string) NodeRef {
+func fallbackSectionNodeRef(snapshot *DocumentSnapshot, section *SectionNode, parentID string) NodeRef {
 	if section == nil {
 		return NodeRef{}
 	}
+	if len(snapshot.Sections) == 1 && isFallbackRootH1(snapshot.Sections, snapshot.Sections[0]) && parentID == snapshot.Sections[0].ID {
+		parentID = ""
+	}
 	return NodeRef{
-		NotePath:   notePath,
+		NotePath:   snapshot.NotePath,
 		Fragment:   sectionFragment(section),
 		NodeID:     section.ID,
 		TypeName:   ontoschema.FallbackSectionTypeName,

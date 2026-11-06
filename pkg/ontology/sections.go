@@ -78,6 +78,29 @@ func FindMatchingSections(nodes []*SectionNode, level ontoschema.SectionLevel, h
 	return out
 }
 
+// MatchSectionNodesForField binds @contains fields to sections. A heading
+// matches recursively within the supplied scope; a heading-free list selects
+// direct children at its level, unwrapping a lone H1 note title.
+func MatchSectionNodesForField(nodes []*SectionNode, field *ontoschema.Field) []*SectionNode {
+	if field == nil {
+		return nil
+	}
+	if strings.TrimSpace(field.SectionHeading) != "" {
+		return FindMatchingSections(nodes, field.SectionLevel, field.SectionHeading)
+	}
+	if !field.List {
+		return nil
+	}
+	nodes = UnwrapSingleH1SectionRoot(nodes)
+	out := make([]*SectionNode, 0, len(nodes))
+	for _, node := range nodes {
+		if node != nil && node.Level == field.SectionLevel {
+			out = append(out, node)
+		}
+	}
+	return out
+}
+
 // UnwrapSingleH1SectionRoot returns the children of a lone top-level H1 when
 // present. Notes commonly use `# Title` as a wrapper around the real structure,
 // and note-scoped section matching should treat those child headings as the

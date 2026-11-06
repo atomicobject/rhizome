@@ -2,6 +2,26 @@ package markdownsyntax
 
 import "strings"
 
+// FenceState tracks template fences: at most three leading spaces and matching
+// delimiter runs. Unlike code-link protection, trailing delimiter text is allowed.
+type FenceState struct {
+	char   byte
+	length int
+}
+
+// ConsumeLine advances at a line start and reports whether the line is fenced.
+func (f *FenceState) ConsumeLine(s string, start int) bool {
+	if ok, char, length, _ := FenceLine(s, start); ok {
+		if f.length == 0 {
+			f.char, f.length = char, length
+		} else if char == f.char && length >= f.length {
+			f.char, f.length = 0, 0
+		}
+		return true
+	}
+	return f.length != 0
+}
+
 func NextLineStart(s string, start int) int {
 	if start >= len(s) {
 		return len(s)

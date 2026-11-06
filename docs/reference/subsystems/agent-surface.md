@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-11-02
+last-verified: 2026-11-05
 code-paths:
   - pkg/app/agentchat
   - pkg/app/agentapi
@@ -41,6 +41,8 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 - `pkg/app/presentation/`: implements `Packer` for `pkg/search.Service`; renders ranked results into budgeted text via contextpack.
 
 ## Design constraints
+
+- Each code operation is constructed with its routing, schemas, metadata and conditional input validation in `pkg/app/agentapi/code_operations_*.go`. The final catalog is the shared immutable surface; do not recreate name-keyed contract tables.
 
 - **Jev evaluates explicit state.** `evaluate` reuses the native TypeSafe client through one shared handler and an empty one-shot runtime plan. Credentials resolve through `pkg/app/provideraccess`: environment/global configuration, then the team API session (managed base URL and transport, one idempotency key per logical call), then the Atomic bundle. A gateway error is returned with its typed code and never falls back to another billing source. Catalog schemas preserve question and answer discriminators; discovery teaches independent questions and probability semantics. Evaluation sends only supplied state/questions, incurs provider usage, and preserves usage and request IDs. Session dedupe and response budgets do not alter evaluations.
 - **Generate is one tool-free model call.** `generate` (`rzm agent generate`, `rzm.generate`) reuses one shared handler over `pkg/harness` with an empty one-shot runtime plan. It sends only the supplied prompt and optional schema, persists no session, and returns output, provider-reported usage, the model that ran, and `toolPolicy`: `none` when the CLI removed every tool, `sandboxed` when configuration removed what it can and a read-only, network-less sandbox bounds the rest. A provider that can do neither reports unsupported instead of running. An omitted provider uses the `agent.harness` setting, else the only provider installed and signed in. See [[session-memory-starter|SPEC-0124]].
@@ -106,7 +108,7 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 - `cmd/agent.go` (subtree wiring, `agentCLIBudgetFloor`, `runAgentJSONTool`, `--session-id` / `--session`)
 - `cmd/agent_start.go`, `cmd/agent_surface.go` (bootstrap + descriptor-projected command surface)
 - `cmd/agent_context.go` (file-context/vault-context/semantic-query/code-* fronts), `cmd/agent_query.go` (files/list-*), `cmd/validation_product.go` + `cmd/validation_product_runner.go` (shared validation front)
-- `pkg/app/agentapi/catalog.go` (`ToolDescriptor`, surface/mutation metadata, handler factories), `pkg/app/agentapi/agentapi.go` (`CallJSON`, `SemanticQueryUnified`, type re-exports)
+- `pkg/app/agentapi/catalog.go`, `code_operations_*.go` (`ToolDescriptor`, complete operation contracts, handler factories), `pkg/app/agentapi/agentapi.go` (`CallJSON`, `SemanticQueryUnified`, type re-exports)
 - `pkg/app/agentchat/planner.go`, `pkg/app/agentchat/planner_types.go`, `pkg/app/agentchat/planner_parse.go`
 - `pkg/app/contextpack/pack.go` (`Piece`, `Pack`, `DefaultBudgetChars`), `pkg/app/contextpack/compress/`
 - `pkg/app/answer/answer.go`, `pkg/app/answer/adapt/`

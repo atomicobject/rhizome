@@ -87,70 +87,51 @@ type ToolDescriptor struct {
 	CodeContract    *CodeOperationContract
 	// CodeCLILeaves lists the concrete command paths represented by this code
 	// operation. It is coverage metadata; callers still select Name.
-	CodeCLILeaves []string
-	CodeAccess    CodeAccess
+	CodeCLILeaves     []string
+	CodeAccess        CodeAccess
+	validateCodeInput func(map[string]any) error
 }
 
 var toolCatalog = []ToolDescriptor{
-	agentCLI(agentCapability(descriptor("check_paths", "check-paths", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.CheckPathsTool), 28), 32, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("evaluate_batch", "evaluate-batch", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.EvaluateBatchTool), 29), 33, AgentCLICategoryAnalysis),
+	codeCheckPathsDescriptor(),
+	codeEvaluateBatchDescriptor(),
 	descriptor("capabilities", "", SurfaceAgentAPI|SurfaceCapabilities, MutationNever, capabilitiesTool),
-	agentCLI(agentCapability(descriptor("files", "files", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.FilesTool), 7), 9, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("list_tags", "list-tags", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.ListTagsTool), 11), 14, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("list_properties", "list-properties", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.ListPropertiesTool), 10), 15, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("community_list", "community-list", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.CommunityListTool), 5), 16, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("file_context", "file-context", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.FileContextTool), 6), 10, AgentCLICategoryContext),
-	agentCLI(agentCapability(descriptor("vault_context", "vault-context", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.VaultContextTool), 24), 11, AgentCLICategoryContext),
-	agentCLI(agentCapability(descriptor("semantic_query", "semantic-query", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.SemanticQueryTool), 21), 5, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("code_symbol", "code-symbol", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.CodeSymbolTool), 3), 6, AgentCLICategoryCode),
-	agentCLI(agentCapability(descriptor("code_references", "code-references", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.CodeReferencesTool), 2), 7, AgentCLICategoryCode),
-	agentCLI(agentCapability(descriptor("code_symbol_context", "code-symbol-context", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.CodeSymbolContextTool), 4), 8, AgentCLICategoryCode),
-	agentCLI(agentCapability(descriptor("external_references", "external-references", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.ExternalReferencesTool), 26), 29, AgentCLICategoryCode),
-	agentCLI(agentCapability(descriptor("find_connections", "find-connections", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.FindConnectionsTool), 8), 17, AgentCLICategoryDiscovery),
-	agentCLI(agentCapability(descriptor("report", "report", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.ReportTool), 20), 12, AgentCLICategoryAnalysis),
-	agentCLI(agentCapability(descriptor("node_link", "node-link", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationReadWrite, mcpapi.NodeLinkTool), 12), 3, AgentCLICategoryOntology),
-	codeLocal(agentCLI(agentCapability(descriptor("note_rename_heading", "note-rename-heading", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationAlways, mcpapi.RenameHeadingTool), 13), 4, AgentCLICategorySafeMutation), CodeLocalService.RenameHeading),
-	agentCLI(agentCapability(descriptor("vault_health", "vault-health", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.VaultHealthTool), 25), 13, AgentCLICategoryAnalysis),
-	codeLocal(agentCLI(agentCapability(descriptor("ontology_query_schema", "ontology-query-schema", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.OntologyQuerySchemaTool), 16), 21, AgentCLICategoryOntology), CodeLocalService.OntologyQuerySchema),
-	runtimeRead(codeLocal(agentCLI(agentCapability(descriptor("ontology_query", "ontology-query", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.OntologyQueryTool), 15), 22, AgentCLICategoryOntology), CodeLocalService.OntologyQuery), func(map[string]any) bool { return true }),
-	runtimeRead(codeLocal(agentCLI(agentCapability(descriptor("query_recipe", "query-recipe", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.QueryRecipeTool), 18), 23, AgentCLICategoryOntology), CodeLocalService.QueryRecipe), runtimeReadActions("run")),
-	agentCLI(agentCapability(descriptor("graph_path", "graph-path", SurfaceAgentAPI|SurfaceAgentCLI, MutationNever, mcpapi.GraphPathTool), 9), 27, AgentCLICategoryNavigation),
-	agentCLI(agentCapability(descriptor("evaluate", "evaluate", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.EvaluateTool), 27), 31, AgentCLICategoryAnalysis),
-	agentCLI(agentCapability(descriptor("generate", "generate", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.GenerateTool), 30), 34, AgentCLICategoryAnalysis),
-	codeLocal(localDescriptor("code_rationale", "code-rationale", 28, AgentCLICategoryAnalysis), CodeLocalService.CodeRationale),
-	codeLocal(localDescriptor("ontology_authoring_guide", "ontology-authoring-guide", 19, AgentCLICategoryOntology), CodeLocalService.OntologyAuthoringGuide),
-	codeLocal(localDescriptor("ontology_inspect", "ontology-inspect", 20, AgentCLICategoryOntology), CodeLocalService.OntologyInspect),
-	codeLocal(localDescriptor("ontology_reference", "ontology-reference", 18, AgentCLICategoryOntology), CodeLocalService.OntologyReference),
-	runtimeRead(codeLocal(localMutatingDescriptor("view", "view", 24, AgentCLICategoryOntology), CodeLocalService.View), runtimeReadActions("list", "show", "validate", "run")),
-	codeLocal(localDescriptor("start", "start", 1, AgentCLICategorySession), CodeLocalService.Start),
-	codeLocal(localMutatingDescriptor("validate", "validate", 2, AgentCLICategoryValidation), CodeLocalService.Validate),
-	codeLocal(localMutatingDescriptor("current_user", "current-user", 25, AgentCLICategoryIdentity), CodeLocalService.CurrentUser),
-	codeLocal(localDescriptor("next_id", "next-id", 26, AgentCLICategoryOntology), CodeLocalService.NextID),
+	codeFilesDescriptor(),
+	codeListTagsDescriptor(),
+	codeListPropertiesDescriptor(),
+	codeCommunityListDescriptor(),
+	codeFileContextDescriptor(),
+	codeVaultContextDescriptor(),
+	codeSemanticQueryDescriptor(),
+	codeCodeSymbolDescriptor(),
+	codeCodeReferencesDescriptor(),
+	codeCodeSymbolContextDescriptor(),
+	codeExternalReferencesDescriptor(),
+	codeFindConnectionsDescriptor(),
+	codeReportDescriptor(),
+	codeNodeLinkDescriptor(),
+	codeNoteRenameHeadingDescriptor(),
+	codeVaultHealthDescriptor(),
+	codeOntologyQuerySchemaDescriptor(),
+	codeOntologyQueryDescriptor(),
+	codeQueryRecipeDescriptor(),
+	codeGraphPathDescriptor(),
+	codeEvaluateDescriptor(),
+	codeGenerateDescriptor(),
+	codeCodeRationaleDescriptor(),
+	codeOntologyAuthoringGuideDescriptor(),
+	codeOntologyInspectDescriptor(),
+	codeOntologyReferenceDescriptor(),
+	codeViewDescriptor(),
+	codeStartDescriptor(),
+	codeValidateDescriptor(),
+	codeCurrentUserDescriptor(),
+	codeNextIdDescriptor(),
 	localDescriptor("code", "code", 30, AgentCLICategoryDiscovery),
-	{Name: "surface", Kind: ToolKindLocal, Surfaces: SurfaceCodeMode, Availability: AvailabilityAlways, Mutation: MutationNever, CodeLocal: CodeLocalService.Surface},
-	{
-		Name: "note_move", AgentCommand: "note move", Kind: ToolKindLocal,
-		Surfaces: SurfaceCodeMode, Availability: AvailabilityReadWrite, Mutation: MutationReadWrite,
-		CodeLocal: CodeLocalService.NoteMove,
-	},
-	{Name: "action_list", Kind: ToolKindLocal, Surfaces: SurfaceCodeMode, Availability: AvailabilityAlways, Mutation: MutationNever, CodeLocal: CodeLocalService.ActionList},
-	// An action runs whatever its module's command does, so it may write.
-	{Name: "action_run", Kind: ToolKindLocal, Surfaces: SurfaceCodeMode, Availability: AvailabilityAlways, Mutation: MutationAlways, CodeLocal: CodeLocalService.ActionRun},
-}
-
-func init() {
-	initializeCodeContracts()
-	for i := range toolCatalog {
-		if toolCatalog[i].CodeContract != nil {
-			toolCatalog[i].Surfaces |= SurfaceCodeMode
-			switch toolCatalog[i].Name {
-			case "evaluate", "evaluate_batch", "check_paths", "generate":
-				toolCatalog[i].CodeAccess = CodeIndependent
-			case "code_symbol", "code_references", "external_references", "graph_path", "code_rationale":
-				toolCatalog[i].CodeAccess = CodeVaultRead
-			}
-		}
-	}
+	codeSurfaceDescriptor(),
+	codeNoteMoveDescriptor(),
+	codeActionListDescriptor(),
+	codeActionRunDescriptor(),
 }
 
 type catalogInventory struct{}

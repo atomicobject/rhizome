@@ -115,6 +115,40 @@ describe("usePaneStack", () => {
   const http = withFakeFetch();
   const sources = withFakeEventSource();
 
+  it.each([
+    [
+      "reports/status.html?filter=active#results?detail",
+      "reports/status.html?filter=active",
+      "results?detail",
+    ],
+    ["reports/status.html?#results", "reports/status.html?", "results"],
+  ])("retains the authored document query in pending pane %s", async (target, path, anchor) => {
+    const reply = deferredReply<NodeDetailReply>();
+    http.onGraphQL("PublicNodeDetail", () => reply.promise);
+    const { result } = renderHook(() => usePaneStack());
+
+    act(() => {
+      void result.current.openRootPane(target);
+    });
+
+    expect(result.current.paneStack[0]).toMatchObject({
+      path,
+      anchor,
+      loading: true,
+    });
+    await waitFor(() => expect(workspaceReads()).toHaveLength(1));
+    expect(requestedRef(workspaceReads()[0])).toBe(target);
+
+    await act(async () => {
+      reply.resolve(nodeDetailReply(target));
+    });
+    expect(result.current.paneStack[0]).toMatchObject({
+      path,
+      anchor,
+      loading: false,
+    });
+  });
+
   it.each(["before failure", "after failure"])(
     "recovers a failed pane when indexing finishes %s",
     async (timing) => {

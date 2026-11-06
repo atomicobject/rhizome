@@ -12,6 +12,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/web"
@@ -379,7 +380,7 @@ func (c *ReadinessCoordinator) refreshValidation(ctx context.Context, live *boot
 				Context: c.liveContext(ctx), Store: store, VaultDef: live.VaultDef,
 				NoteMetadata: live.NoteMetadataIndexer(), RepairStore: c.repairReviews, MaxIssues: 500,
 				Run: func(ctx context.Context) (validationproduct.AuthoritativeRun, error) {
-					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, live.Lane())
+					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, initactions.ValidateBundledSkillOverlays, live.Lane())
 				},
 				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
 					VaultPath: live.VaultPath, VaultDef: live.VaultDef,

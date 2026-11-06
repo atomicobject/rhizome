@@ -4,7 +4,7 @@ summary: "How source-owned code and ontology primary chunks plus compatibility n
 reference-kind: analysis
 derived-from:
   - docs/reference-notes/Embeddings - indexing pipeline.md
-last-verified: 2026-10-17
+last-verified: 2026-11-05
 status: active
 ---
 
@@ -45,4 +45,4 @@ For large edits or broad churn, one deliberate `rzm index` resync is usually saf
 - `pkg/embedindex.OntologyNodeSyncer` renders source-owned ontology primary chunks, embeds changed text through the supplied shared node when available, and writes chunks/embeddings through the writer surface.
 - [[primary-semantic-chunks-and-noderef-search]] defines primary chunk identity/context, bounded enrichment, and invalidation.
 - `pkg/app/indexing.write_queue` keeps semantic writeback batched before SQLite instead of submitting one durable write per provider task.
-- `pkg/embeddings/indexer.go` remains the raw-note compatibility path when ontology projection is unavailable.
+- `pkg/embedindex.NoteSyncer` plans and embeds persisted authored sections when ontology projection is unavailable. Batch indexing and live derived work use this same path after ownership discovery and note ingestion; ignored notes never enter its source sections.

@@ -3,10 +3,51 @@ package views
 import (
 	"context"
 	"github.com/atomicobject/rhizome/pkg/diag"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
+
+func TestOntologyTypeSourceUsesViewStoreWithoutQueryRuntime(t *testing.T) {
+	service := scalarSortService(t, "Int", `# Actions
+
+- [ ] First #action-item
+  rank:: 1
+- [ ] Middle #action-item
+  rank:: 2
+- [ ] Last #action-item
+  rank:: 3
+`)
+	opts := service.opts
+	opts.ExecSchema = nil
+	opts.QueryDeps = ontologyquery.Deps{}
+	opts.SourceResolver = nil
+	service = New(opts)
+
+	for _, tc := range []struct {
+		name    string
+		filters []viewconfig.FilterSpec
+		sort    []viewconfig.SortSpec
+	}{
+		{name: "filter", filters: []viewconfig.FilterSpec{{Field: "rank", Op: "eq", Value: "3"}}},
+		{name: "sort", sort: []viewconfig.SortSpec{{Field: "rank", Direction: "desc"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response, err := service.Execute(context.Background(), "actions", ExecuteRequest{
+				Filters: tc.filters,
+				Sort:    tc.sort,
+				Source:  SourceRequest{MaxRows: 1},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []string{"Last"}, rowTitles(response.Rows))
+			require.Equal(t, tc.filters, response.PushedConstraints.Filters)
+			require.Equal(t, tc.sort, response.PushedConstraints.Sort)
+			require.Empty(t, response.ResidualConstraints.Filters)
+			require.Empty(t, response.ResidualConstraints.Sort)
+		})
+	}
+}
 
 func TestOntologySourceRepeatedRangeFilterAgreesWithResidual(t *testing.T) {
 	for _, tc := range []struct{ scalar, low, middle, high string }{{"Int", "2", "5", "10"}, {"Float", "2", "5", "10"}, {"Date", "2026-01-01", "2026-02-01", "2026-03-01"}} {

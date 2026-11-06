@@ -1,14 +1,17 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-11-04
+last-verified: 2026-11-05
 code-paths:
   - pkg/app/web
+  - pkg/app/graphpresentation
 tags: [subsystem/web]
 code-anchors:
   go:
     - label: subsystem.web.guidance
       ref: glob:pkg/app/web/**/*.go
+    - label: subsystem.web.graphpresentation
+      ref: glob:pkg/app/graphpresentation/**/*.go
 ---
 
 # Web and HTTP guidance
@@ -18,6 +21,8 @@ code-anchors:
 `pkg/app/web.NewServer` composes explorer, public query, configured view, edit-session, and event routes around an explicit vault, metadata provider runtime, and available live capabilities. It owns HTTP admission and response behavior. Domain reads, query execution, source mutation, and persistence retain their existing owners.
 
 ## Design constraints
+
+- `pkg/app/graphpresentation` owns graph DTOs and shared pure projection/collapse mechanisms. CLI and HTTP retain their own module, language, ordering and enrichment policy. Browser note-target parsing is shared in `web/src/lib/noteTarget.ts`; synchronous first-paint appearance is generated from the shared theme/settings definitions.
 
 - Browser navigation retains note tabs beside one replaceable collection, view, Problems, Changes, or search page; the tab strip appears only while a note is open. GraphQL uses the shared workbench sidebar and inset panel. Its browser toggle works; Desktop's remaining GraphQL toggle exclusion is tracked in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]]. These 2026-11-04 presentation changes preserve the HTTP, query, and mutation ownership below.
 
@@ -47,6 +52,9 @@ Exercise public HTTP routes with real fixture stores and configured providers. F
 - Web-only mutation logic, unbounded response bodies, or failure to refresh canonical node identity after source changes.
 
 ## Key files
+
+- `pkg/app/graphpresentation/` for shared graph DTOs and pure transforms.
+- `web/src/lib/noteTarget.ts`, `appearanceSettings.ts`, and `web/themeBootstrap.ts` for shared browser target and prepaint policy.
 
 - `pkg/app/web/server.go` and `handlers.go` for composition and HTTP adapters.
 - `pkg/app/web/public_api.go`, `ontology.go`, and `node_workspace.go` for shared query and node reads.

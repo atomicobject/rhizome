@@ -63,8 +63,7 @@ func (r *WeightedRanker) Rank(ctx context.Context, spec QuerySpec, candidates []
 	type scored struct {
 		RankedResult
 		ownerKey string
-		primary  bool
-		exactNav bool
+		tier     int
 	}
 
 	scoredItems := make([]scored, 0, len(candidates))
@@ -73,17 +72,13 @@ func (r *WeightedRanker) Rank(ctx context.Context, spec QuerySpec, candidates []
 		scoredItems = append(scoredItems, scored{
 			RankedResult: RankedResult{Candidate: c, FinalScore: final},
 			ownerKey:     c.Owner.String(),
-			primary:      HasPrimaryEvidence(spec.Intent, c.Evidence),
-			exactNav:     !IsPrecisionIntent(spec.Intent) && HasEvidence(c.Evidence, "note_title_exact", "path_exact"),
+			tier:         rankingTier(spec.Intent, c.Evidence),
 		})
 	}
 
 	sort.SliceStable(scoredItems, func(i, j int) bool {
-		if scoredItems[i].exactNav != scoredItems[j].exactNav {
-			return scoredItems[i].exactNav
-		}
-		if scoredItems[i].primary != scoredItems[j].primary {
-			return scoredItems[i].primary
+		if scoredItems[i].tier != scoredItems[j].tier {
+			return scoredItems[i].tier > scoredItems[j].tier
 		}
 		if scoredItems[i].FinalScore != scoredItems[j].FinalScore {
 			return scoredItems[i].FinalScore > scoredItems[j].FinalScore

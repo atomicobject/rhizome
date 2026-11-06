@@ -19,7 +19,7 @@ const voyageHold int64 = 20_001_300
 
 func (h *harness) providerUsage(provider string) wire.ProviderUsage {
 	h.t.Helper()
-	global, people, err := h.tr.ProviderUsage(context.Background(), "2026-10-31")
+	global, people, err := h.tr.ledger.ProviderUsage(context.Background(), "2026-10-31")
 	require.NoError(h.t, err)
 	if len(people) == 1 {
 		for _, p := range people {

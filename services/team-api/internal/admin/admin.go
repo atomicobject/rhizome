@@ -310,10 +310,6 @@ func (h *Handler) done(ctx context.Context, w http.ResponseWriter, actor core.Pr
 	return err == nil
 }
 
-func negative(l wire.DailyLimits) bool {
-	return l.Requests < 0 || l.InputBytes < 0 || l.ChargeCredits < 0
-}
-
 func limitsText(l wire.DailyLimits) string {
 	return fmt.Sprintf("requests:%d,input_bytes:%d,charge_credits:%d", l.Requests, l.InputBytes, l.ChargeCredits)
 }

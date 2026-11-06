@@ -82,7 +82,7 @@ Three layers sit under that flow:
 - `pkg/graph/index` — `ComputeDocScores`, `ComputeAnchorPageRank` (persisted graph signals)
 - `pkg/app/indexing/lock.go`, `pkg/vault/indexlock/lock.go` — `TryAcquireIndexLock` and the cross-process lock primitive
 - `cmd/runtime_helpers.go` — `runBackgroundIndex`, best-effort boot-time index on the live leader
-- `pkg/app/bootstrap/live.go`, `pkg/app/bootstrap/schedulers.go` — `LiveRuntime` leader work + embed/graph schedulers
+- `pkg/app/bootstrap/live_leader.go`, `pkg/app/bootstrap/schedulers.go` — `LiveRuntime` leader work + embed/graph schedulers
 - `cmd/index_timings.go`, `pkg/indexingperf/collector.go` — `--timings` phase/queue/provider/DB diagnostics
 - `pkg/app/indexing/maintenance.go`, `pkg/anchors/sqlite/maintenance.go` — freelist-gated `VACUUM`; routine `ANALYZE`/`PRAGMA optimize`/checkpoint
 

@@ -32,7 +32,7 @@ func (commandOptions *codeInvocationOptions) makeCodeOverviewCmd() *cobra.Comman
 				if strings.TrimSpace(a) == "" {
 					continue
 				}
-				absRoot, err := resolveCodeRoot(vaultPath, a)
+				absRoot, err := codeintel.ResolveRoot(vaultPath, a)
 				if err != nil {
 					return err
 				}

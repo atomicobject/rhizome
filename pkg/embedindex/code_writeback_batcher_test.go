@@ -36,13 +36,6 @@ func (q *recordingWritebackQueue) CodeWritebackBatchConfig() embeddings.CodeWrit
 	return q.cfg
 }
 
-func (q *recordingWritebackQueue) SubmitCodeItemEmbedding(context.Context, codeidx.ItemEmbeddingUpsert) error {
-	if q.singleErr != nil {
-		return q.singleErr
-	}
-	return errors.New("unexpected single item write")
-}
-
 func (q *recordingWritebackQueue) SubmitCodeItemEmbeddingBatch(ctx context.Context, items []codeidx.ItemEmbeddingUpsert) error {
 	if q.rejectCanceled && ctx.Err() != nil {
 		return ctx.Err()

@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, fixture pattern, and review checklist for the code intelligence subsystem: code anchors (note→code), coderefs (code→note), and code pattern globs."
 reference-kind: guide
-last-verified: 2026-10-19
+last-verified: 2026-11-05
 code-paths:
   - pkg/anchors
   - pkg/app/codeintel
@@ -35,6 +35,8 @@ Three directional layers, plus orchestration:
 The unified database implementation lives in `pkg/store` and belongs to the [stores](stores.md) subsystem. This subsystem owns code ingestion, code-anchor contracts, and matching; ontology node/field/query-plan DTOs live in `pkg/ontology/readmodel`. Store domain methods retain one pool, one shared writer mutex, and atomic publication across their table families.
 
 ## Design constraints
+
+- `pkg/anchors.LangForPath` is the structural language-by-extension authority. Watchers, command discovery and ingest share it; coderef-only formats must not become structural languages through a broader extension table.
 
 - **Source spans belong to anchors.** `codeanchor.ExtractSpan` reads an anchor's byte span or line fallback. Both embedding synthesis and CLI rendering use this shared helper; rendering does not depend on embedding indexing.
 
@@ -100,7 +102,7 @@ The unified database implementation lives in `pkg/store` and belongs to the [sto
 
 ## Key files
 
-- `pkg/anchors/indexer.go` — `LanguageIndexer` contract, version constants
+- `pkg/anchors/indexer.go` — `LanguageIndexer` contract, `LangForPath`, version constants
 - `pkg/anchors/indexer_{go,python,ts,cs}.go` — per-language symbol/call/annotation extraction
 - `pkg/anchors/frontmatter.go` — `code-anchors:` parsing, `ref:` shorthand
 - `pkg/anchors/types.go` — `AnchorKind`, `SymbolKind`, `FileSummary`

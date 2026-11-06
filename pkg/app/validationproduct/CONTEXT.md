@@ -1,6 +1,6 @@
 ## Validation product projection orchestration
 
-Composes suite selection with validation projection evidence and prepared-runtime execution. `RunWithProjection` stays read-only; production command wiring resolves one canonical vault/config/runtime and calls `validate.PrepareRepair` for an explicit repair preview or apply, then hands the source-backed result to `pkg/validate.ApplyRepairSession`.
+Composes suite selection with validation projection evidence and prepared-runtime execution. Command and serve composition supply the bundled overlay checker to `RunLive`, refresh options, and fallback `ValidationProjectionRequest.SkillOverlays`; supplied run contexts retain their own checker. This package owns no embedded template discovery. `RunWithProjection` stays read-only; production command wiring resolves one canonical vault/config/runtime and calls `validate.PrepareRepair` for an explicit repair preview or apply, then hands the source-backed result to `pkg/validate.ApplyRepairSession`.
 
 - **Entry point**: `RunWithProjection`.
 - **Refresh admission**: `RefreshCoordinator` records the replacement generation before canceling the active run. A replacement that fails admission leaves the active run in control; an admitted replacement makes older completion return `ErrRefreshSuperseded`.

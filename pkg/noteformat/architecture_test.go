@@ -450,7 +450,6 @@ func providerSelectionBoundaryFunction(path, function string) bool {
 		"pkg/ontology/query/sections.go:projectNoteRecord",
 		"pkg/ontology/queryrecipe/load.go:loadSources", "pkg/ontology/queryrecipe/load.go:isRecipeFile",
 		"pkg/validate/identifierreconcile/rewrite/link_rewrite.go:stripMarkdownExtension",
-		"pkg/embeddings/indexer.go:scanVaultByWalk",
 		"pkg/validate/check_link_hygiene.go:wikilinkReplacement", "pkg/validate/check_link_hygiene.go:isMarkdownNoteLink",
 		"pkg/validate/check_fragile_external.go:normalizeScopePath",
 		"pkg/validate/identifierreconcile/repair_intents_validation.go:stripRepairMarkdownExtension":

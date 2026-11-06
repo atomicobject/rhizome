@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -28,7 +28,7 @@ type Prepared struct {
 
 // Prepare reads only the selected vault's configuration. Projection acquisition
 // belongs to the caller; this step never opens an index or refreshes a runtime.
-func Prepare(vaultDef obsidian.VaultDefinition, noteMetadata notemeta.Indexer, selectors []string, maxIssues int) (Prepared, error) {
+func Prepare(vaultDef obsidian.VaultDefinition, noteMetadata notemeta.Indexer, selectors []string, maxIssues int, skillOverlays func() (skilloverlay.Manifest, error)) (Prepared, error) {
 	if err := noteMetadata.Validate(); err != nil {
 		return Prepared{}, fmt.Errorf("validation note metadata indexer: %w", err)
 	}
@@ -63,7 +63,7 @@ func Prepare(vaultDef obsidian.VaultDefinition, noteMetadata notemeta.Indexer, s
 		Request: ValidationRunRequest{Selectors: slices.Clone(selectors), Config: config, Features: features, selection: &selection},
 		RunContext: validate.RunContext{
 			VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: noteMetadata, MaxIssues: maxIssues,
-			SkillOverlays: initactions.ValidateBundledSkillOverlays,
+			SkillOverlays: skillOverlays,
 		},
 	}, nil
 }

@@ -74,13 +74,6 @@ export type NotesLocationOptions = {
   issueKey?: string | null;
 };
 
-export type NoteTarget = {
-  path: string;
-  /** Query authored by the target document, without the leading `?`. */
-  query: string | null;
-  fragment: string | null;
-};
-
 export function parseNotesRoute(pathname: string): NotesRouteSelection {
   if (!pathname.startsWith(NOTES_ROOT_PATH)) {
     return { kind: "all" };
@@ -281,26 +274,6 @@ function parseIssueScope(kind: string | null, key: string | undefined): Validati
   }
 
   return null;
-}
-
-export function splitNoteTarget(target: string): NoteTarget {
-  const hashIndex = target.indexOf("#");
-  const beforeFragment = hashIndex === -1 ? target : target.slice(0, hashIndex);
-  const queryIndex = beforeFragment.indexOf("?");
-
-  if (queryIndex === -1) {
-    return {
-      path: beforeFragment,
-      query: null,
-      fragment: hashIndex === -1 ? null : target.slice(hashIndex + 1) || null,
-    };
-  }
-
-  return {
-    path: beforeFragment.slice(0, queryIndex),
-    query: beforeFragment.slice(queryIndex + 1) || null,
-    fragment: hashIndex === -1 ? null : target.slice(hashIndex + 1) || null,
-  };
 }
 
 export function resolveTypeNameFromSlug(

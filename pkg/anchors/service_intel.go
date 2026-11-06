@@ -11,10 +11,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/codefile"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
@@ -748,7 +746,6 @@ func (s *Service) RebuildAllCallEdges(ctx context.Context) (returnErr error) {
 	workCh := make(chan callEdgeRebuildItem, workerCount*2)
 	resultCh := make(chan CallEdgesBatch, workerCount*2)
 	errCh := make(chan error, 1)
-	var processed atomic.Int64
 	reportErr := func(err error) {
 		if err == nil {
 			return
@@ -805,8 +802,6 @@ func (s *Service) RebuildAllCallEdges(ctx context.Context) (returnErr error) {
 					return
 				default:
 				}
-
-				processed.Add(1)
 
 				batch, preserveExisting, err := s.buildCallEdgesForItem(rebuildCtx, item, sources)
 				if err != nil {
@@ -1144,7 +1139,7 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 		if err != nil || strings.TrimSpace(relPath) == "" {
 			continue
 		}
-		lang := detectLangFromPath(relPath)
+		lang, _ := LangForPath(relPath)
 		if lang == "" {
 			continue
 		}
@@ -1161,12 +1156,6 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 	indexingperf.AddCount(ctx, indexingperf.CalledgePlannedPaths, int64(len(items)-len(sources.runtimeByPath)))
 
 	total := len(items)
-	progress := callEdgeProgressFromContext(ctx)
-	if progress != nil {
-		// Surface rebuild progress through the command/context progress hook instead
-		// of the global logger so indexing stays quiet on interactive terminals.
-		progress.Start(total)
-	}
 
 	// For small numbers of files, process sequentially to avoid goroutine overhead.
 	if total <= 4 {
@@ -1174,9 +1163,6 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 		for _, item := range items {
 			if ctx.Err() != nil {
 				return ctx.Err()
-			}
-			if progress != nil {
-				progress.Advance(1)
 			}
 			batch, preserveExisting, err := s.buildCallEdgesForItem(ctx, item, sources)
 			if err != nil {
@@ -1212,7 +1198,6 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 	workCh := make(chan callEdgeRebuildItem, workerCount*2)
 	resultCh := make(chan CallEdgesBatch, workerCount*2)
 	errCh := make(chan error, 1)
-	var processed atomic.Int64
 	reportErr := func(err error) {
 		if err == nil {
 			return
@@ -1266,11 +1251,6 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 				case <-rebuildCtx.Done():
 					return
 				default:
-				}
-
-				processed.Add(1)
-				if progress != nil {
-					progress.Advance(1)
 				}
 
 				batch, preserveExisting, err := s.buildCallEdgesForItem(rebuildCtx, item, sources)
@@ -1547,26 +1527,6 @@ func uniqueStrings(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-// detectLangFromPath returns the language for a file path based on extension.
-func detectLangFromPath(path string) Lang {
-	ext := strings.ToLower(filepath.Ext(path))
-	if codefile.IsTypeScriptJavaScriptExtension(ext) {
-		return LangTS
-	}
-	switch ext {
-	case ".py":
-		return LangPy
-	case ".go":
-		return LangGo
-	case ".cs":
-		return LangCs
-	case ".php":
-		return LangPhp
-	default:
-		return ""
-	}
 }
 
 // updateIntelForMarkdownSource persists Markdown intel doc sections + mentions

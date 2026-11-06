@@ -144,7 +144,7 @@ func TestExactGraphQLReadWaitsForLateLiveIntelPublication(t *testing.T) {
 	}
 	done := make(chan execution, 1)
 	go func() {
-		result, err := srv.executeOntologyQuery(context.Background(), `{ node(ref: "specs/100-demo/plan.md") { path title } }`)
+		result, err := srv.executeOntologyQueryOperation(context.Background(), `{ node(ref: "specs/100-demo/plan.md") { path title } }`, nil, "", nil)
 		done <- execution{result: result.Data, err: err}
 	}()
 	select {
@@ -176,7 +176,7 @@ func TestExactGraphQLUsesTheStoreThatPassedTheAvailabilityGate(t *testing.T) {
 	srv := newFixtureServer(t, fixture, runtime)
 	view.calls.Store(0)
 
-	result, err := srv.executeOntologyQuery(context.Background(), `{ node(ref: "specs/100-demo/plan.md") { path title } }`)
+	result, err := srv.executeOntologyQueryOperation(context.Background(), `{ node(ref: "specs/100-demo/plan.md") { path title } }`, nil, "", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result.Data["node"])
 	require.Greater(t, view.calls.Load(), int32(1), "test must exercise a live store swap after the gate probe")
@@ -195,7 +195,7 @@ func TestExactGraphQLUsesTheOwnershipDecisionThatPassedTheAvailabilityGate(t *te
 	view.calls.Store(0)
 	view.onSecond = func() { owned.Store(false) }
 
-	result, err := srv.executeOntologyQuery(context.Background(), `{ node: note(path: "specs/100-demo/plan.md") { path frontmatter tags } }`)
+	result, err := srv.executeOntologyQueryOperation(context.Background(), `{ node: note(path: "specs/100-demo/plan.md") { path frontmatter tags } }`, nil, "", nil)
 	require.NoError(t, err)
 	require.False(t, owned.Load(), "test must change ownership after the gate probe")
 	node := result.Data["node"].(map[string]any)
@@ -219,7 +219,7 @@ func TestExactGraphQLHydratesOneDurableFactSnapshot(t *testing.T) {
 		mutationErr = replaceDurableNoteFacts(context.Background(), fixture.intelStore, notePath, "Generation B title", "Generation B summary", "generation-b")
 	}
 
-	result, err := srv.executeOntologyQuery(context.Background(), `{ node: note(path: "specs/100-demo/plan.md") { title frontmatter tags } }`)
+	result, err := srv.executeOntologyQueryOperation(context.Background(), `{ node: note(path: "specs/100-demo/plan.md") { title frontmatter tags } }`, nil, "", nil)
 	require.NoError(t, err)
 	require.NoError(t, mutationErr)
 	require.GreaterOrEqual(t, view.calls.Load(), int32(2), "test must replace durable facts after admission")

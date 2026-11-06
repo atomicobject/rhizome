@@ -25,6 +25,13 @@
 
 ### Fixed
 
+- Untyped heading links survive reload by resolving the same section identity that navigation emits, including existing links made under a single document title.
+- Configured type views use their indexed read store even when no GraphQL query runtime is configured, preserving filters and ordering beyond the source cap.
+- Cached code references recognize timestamp-valued note aliases consistently with other note readers.
+- Development-server crash recovery updates Vite to the replacement backend and survives a replacement that exits before publishing its address.
+- Harness shutdown reports process reaping before diagnostic logging and reserves time for forced shutdown within the caller's deadline.
+- Agent search-continuation guidance now states that later pages must repeat the original queries.
+
 - Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
 
 - The Overview map now lays out at its block's real width with a fixed 400px height, so it no longer leaves a blank band below a small drawing and its labels draw at full size. The Matrix spans the block's width.

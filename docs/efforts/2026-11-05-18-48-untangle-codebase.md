@@ -1,0 +1,93 @@
+---
+type: EffortNote
+id: EFF-2026-11-05-18-48
+aliases: [EFF-2026-11-05-18-48]
+name: Untangle shared policy and obsolete code
+created-at: 2026-11-05T23:53:07Z
+status: active
+summary: "Execute the approved 46-group untangle plan, preserving behavior while removing duplicated policy, dead paths and hidden dependencies."
+governing-specs: ["[[codebase-untangling]]"]
+---
+
+# Untangle shared policy and obsolete code
+
+## Scope
+
+The user-approved [execution plan](../reviews/2026-11-05-untangle-codebase/plan.md) covers all 46 candidate groups in the [audit inventory](../reviews/2026-11-05-untangle-codebase/README.md), with the corrections from the [independent review](../reviews/2026-11-05-untangle-codebase/inventory-review.md). Both comment and test cleanup passes are included. Implementation, caller migration, focused verification, documentation, integrated gates and fresh review are in scope. Publishing, merging and deployment are excluded.
+
+## Spec Set (Frozen)
+
+- [[codebase-untangling|SPEC-0132]], SHA-256 `1eae73369214ead3ab5e64f669219cb1b7ab629ccddda2db21e0758272db8384`.
+- Implementation-plan approval snapshot SHA-256 `955cf36d56944e9524bbe4281d4867ea1968c2290bfc8d47488fe19a6a04045e`.
+- Starting code revision: `900eee0b0036ee2699d84d5d02d5ffe6a39a4441`.
+
+## Stories In Scope (Frozen)
+
+Requirements-only technical work: [[codebase-untangling#Requirements|SPEC-0132 requirements R1-R12]]. No invented user stories or acceptance-criterion identifiers.
+
+## Plan Approval
+
+The user explicitly wrote "Approves" in the working conversation before implementation. Approval covers the recorded plan, its narrowed view-store fix, preserved graph/preview policies, characterized Markdown parser work, API retirements, and verification obligations. Approval was recorded in the plan before this effort was created. The current-user configuration is absent, so no configured Person identity or `plan-approved-by` metadata is inferred.
+
+## Spec Coverage Checklist
+
+- [x] R1 shared rules: batch 1.
+- [x] R2 retirements: batch 2.
+- [x] R3 indexing: batch 3.
+- [x] R4 views: batch 4.
+- [x] R5 application boundaries: batch 5.
+- [x] R6 browser contracts: batch 6.
+- [x] R7 runtime: batch 7.
+- [x] R8 tooling: batch 8.
+- [x] R9 team service: batch 9.
+- [x] R10 test/comment cleanup: batch 10 and each owning batch.
+- [x] R11 final evidence: focused checks, full integration and independent review.
+- [ ] R12 documentation and authority: owning documents, bindings, validated effort and final delivery record.
+
+## Plan
+
+Execute the [approved ten-batch plan](../reviews/2026-11-05-untangle-codebase/plan.md#batches-and-ownership). Eight workers own core/cache, search/code intelligence, queries/views, agent/graph surfaces, browser code, runtime/harness, tooling, and the team service. The lead owns validation composition (Q5), global subsystem documentation, integration, test execution and final review. Shared files have one owner. Workers must request root execution of focused tests, especially red-before behavior tests; no concurrent independent build or verification commands.
+
+Preserve all decisions in the plan. Review found the large view-constructor redesign unnecessary; fix the actual store gate. Share graph and preview mechanisms without standardizing currently distinct behavior. Test Markdown protection differences before changing semantics. Share only pure billing decisions, with both backend contracts executed.
+
+At each batch exit, record files, candidate IDs, actual verification and remaining risks. Run `make check-fast` and `make check` as appropriate, then `make verify`, desktop checks/package fixture, disposable init convergence and DynamoDB Local contracts. Fresh review must account for all candidates and integration boundaries. Complete closure only after those obligations are proven or explicitly recorded as unresolved.
+
+## Original Intended Delivery
+
+Complete the approved structural refactor and both cleanup passes in this branch, with preserved supported behavior, current owning documentation, meaningful regression coverage, passing required checks and an independent final review. No external publication is authorized.
+
+## Actual Delivered
+
+All 46 approved candidate groups and both selected cleanup passes are implemented. Shared alias, section, language, ranking, preview, graph, trust, validation and billing rules have one appropriate owner; obsolete APIs/state are removed; cache/bootstrap/view source files are split by responsibility. The required packaged test additionally exposed a pre-existing fallback heading identity mismatch, now fixed with shared construction and lookup plus typed and historical-selector controls. See the [delivery evidence](../reviews/2026-11-05-untangle-codebase/delivery-evidence.md) for every candidate and retained exception.
+
+The final code passed the full build, race, integration, web and browser gate. SQLite and DynamoDB Local contracts executed, desktop checks and packaging passed, init converged in a disposable fixture and this checkout, and the actual packaged app passed heading navigation/reload and appearance persistence. The final `make check` passed. Carrying-commit recording and final documentation closure are in progress.
+
+## Deviations
+
+No material change to the approved scope, wire schemas, persistence or provider policy. The packaged W4/R6 node-identity check revealed that untyped headings emitted a different structural fingerprint from the one lookup accepted. That additional shared-rule defect was reproduced, fixed, independently reviewed and covered by a fresh full gate. Existing selectors remain readable; typed section identity is unchanged.
+
+The narrowed Q4 constructor choice, distinct graph/preview policies, characterized Markdown syntax and optional SVC/test retentions remain as approved. Slow typed authoring was resolved through supported direct identifier commands; [baseline evidence](../reviews/2026-11-05-untangle-codebase/baseline-evidence.md) records those attempts. A flaky new shutdown fixture was replaced with deterministic policy coverage while preserving real process tests, rather than increasing its timeout. The final pre-commit pass also exposed an existing wall-clock redaction guard under concurrent host load. A controlled process pause reproduced the false failure; the test now measures CPU work against the same two-second budget, with production redaction unchanged.
+
+## Closure Checklist
+
+- [ ] All 46 candidates fixed or retained with reviewed evidence.
+- [ ] Baseline harness failure diagnosed and resolved without hiding it.
+- [ ] Required code, generated-surface, desktop, DynamoDB and user-interface checks recorded.
+- [ ] Full integrated diff and fresh structural review completed.
+- [ ] Spec, subsystem notes, code bindings and effort validation pass.
+- [ ] Actual delivery and any remaining limitations recorded with carrying commit(s).
+
+## Compounding Follow-ups
+
+Record new reusable lessons only if this work establishes them. Existing runtime authoring delays and sandbox socket restrictions are evidence gaps to track here; they are not permission to bypass source-of-truth or verification requirements.
+
+## Status
+
+Active. Implementation, integrated review and packaged verification are complete. The final pre-commit gate passed; local carrying commits and documentation closure remain. The earlier approval blocker is resolved.
+
+## Execution Notes
+
+- 2026-11-05T23:53:07Z [decision] Recorded explicit chat approval. The spec identifier allocator returned SPEC-0132 and the effort allocator returned EFF-2026-11-05-18-48 for this exact path. No configured current user was fabricated.
+- 2026-11-05T23:53:07Z [validation] Baseline evidence: CLI/web build and team-service build completed; `make check` failed in the unchanged immediate-decode shutdown test; 20 focused reruns passed without resolving the cause. Web tests passed except sandbox-bound socket cases, whose complete file passed with local socket access. Final integrated validation remains pending.
+
+- 2026-11-06T01:01:55Z [delivery] Implemented all approved candidates. Five integrated review passes are resolved; the packaged heading failure was reproduced before the supplemental identity fix. Full `make verify` passed after that fix, including 112 browser tests. Final local commit/closure remains in progress.

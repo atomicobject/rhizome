@@ -12,7 +12,7 @@ import type { NodeEvent } from "../api/types";
 import { deferredReply, graphQLRequestBody, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { NoteTab } from "./NoteTab";
-import { splitNoteTarget } from "./notesRoute";
+import { splitNoteTarget } from "../lib/noteTarget";
 import { viewSegment } from "../test/workspaceView";
 
 type Reply = PublicGraphQLResult<PublicNodeDetailData>;

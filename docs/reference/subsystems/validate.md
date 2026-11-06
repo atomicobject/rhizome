@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for vault validation checks (pkg/validate) and their CLI/agent/web surfaces."
 reference-kind: guide
-last-verified: 2026-11-02
+last-verified: 2026-11-05
 code-paths:
   - pkg/validate
   - pkg/app/validationrun
@@ -49,7 +49,7 @@ Vault-wide validation checks plus the fix-suggestion/apply pipeline. `pkg/valida
 
 ## Design constraints
 
-- **Bundled skill validation is injected.** `RunContext.SkillOverlays` supplies a `skilloverlay.Manifest` from application composition (`validationrun.Prepare` or `validationproduct.projectionRunContext`). The skill-overlays check fails visibly when the callback is absent or fails, clones caller-owned issues before sorting, and preserves full issue counts before centralized truncation. `pkg/validate` never imports init or discovers embedded templates. The pure overlay engine lives in `pkg/skilloverlay`; init owns bundle/starter resolution.
+- **Bundled skill validation is injected.** `RunContext.SkillOverlays` supplies a `skilloverlay.Manifest` selected by command/serve composition and passed through `validationrun.Prepare`, indexing options and projection requests. The skill-overlays check fails visibly when the callback is absent or fails, clones caller-owned issues before sorting, and preserves full issue counts before centralized truncation. `pkg/validate` never imports init or discovers embedded templates. The pure overlay engine lives in `pkg/skilloverlay`; init owns bundle/starter resolution.
 
 - Identifier block-id migration checks cancellation between notes, recursive sections, migrations, and reference-source scans. Cancellation discards partial diagnostics and repairs. The suite joins its checks before returning cancellation, so indexing releases its lease without publishing an incomplete snapshot as complete.
 

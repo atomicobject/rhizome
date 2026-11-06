@@ -1,4 +1,5 @@
 import { noteTabID, locationNodeRef } from "./noteTabIdentity";
+import { joinNoteTarget, splitNoteTarget } from "../lib/noteTarget";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ViewCatalogEntry, NodeRef } from "../api/types";
@@ -13,7 +14,6 @@ import {
   normalizeNotePath,
   normalizeSearchTabID,
   parseNotesLocation,
-  splitNoteTarget,
   type NotesLocation,
 } from "./notesRoute";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
@@ -79,7 +79,6 @@ export type Tab = HomeTab | CollectionTab | NoteTab | SearchTab | ViewTab;
 
 export type OpenMode = "activate" | "beside";
 
-/** ⌘/Ctrl-click opens beside the current tab, as links do elsewhere in the app. */
 const SEARCH_SCROLL_COMMIT_MS = 200;
 
 function withPendingScroll(
@@ -525,7 +524,7 @@ function tabsForLocation(
       openInto(
         withView,
         HOME_TAB.id,
-        targetString(location.note, location.query, location.fragment),
+        joinNoteTarget({ path: location.note, query: location.query, fragment: location.fragment }),
         "activate",
         locationNodeRef(location),
       ).tabs,
@@ -654,7 +653,7 @@ function mergeInitialTabs(
     return openInto(
       withView,
       HOME_TAB.id,
-      targetString(location.note, location.query, location.fragment),
+      joinNoteTarget({ path: location.note, query: location.query, fragment: location.fragment }),
       "activate",
       locationNodeRef(location),
     ).tabs;
@@ -831,14 +830,11 @@ function withPresentation(
 }
 
 function tabTarget(tab: NoteTab): string {
-  return targetString(tab.path, tab.query ?? null, tab.fragment ?? null);
-}
-
-function targetString(path: string, query: string | null, fragment: string | null): string {
-  const documentQuery = query ? `?${query}` : "";
-  const documentFragment = fragment ? `#${fragment}` : "";
-
-  return `${path}${documentQuery}${documentFragment}`;
+  return joinNoteTarget({
+    path: tab.path,
+    query: tab.query ?? null,
+    fragment: tab.fragment ?? null,
+  });
 }
 
 function currentLocationValue(): string {
@@ -1108,7 +1104,7 @@ export function useNoteTabs(
     const result = openInto(
       tabsRef.current,
       HOME_TAB.id,
-      targetString(location.note, location.query, location.fragment),
+      joinNoteTarget({ path: location.note, query: location.query, fragment: location.fragment }),
       "activate",
       locationNodeRef(location),
     );
@@ -1241,7 +1237,7 @@ export function useNoteTabs(
       const { tabs: openedTabs } = openInto(
         tabsRef.current,
         activeIdForLocation(tabsRef.current, locationRef.current),
-        targetString(path, parsed.query, parsed.fragment),
+        joinNoteTarget({ path, query: parsed.query, fragment: parsed.fragment }),
         mode,
         ref,
       );
@@ -1521,7 +1517,8 @@ export function useNoteTabs(
       if (
         current.note &&
         noteTabID(normalizeNotePath(current.note), locationNodeRef(current)) === tab.id &&
-        targetString(tab.path, current.query, current.fragment) === requestedTarget
+        joinNoteTarget({ path: tab.path, query: current.query, fragment: current.fragment }) ===
+          requestedTarget
       ) {
         writeLocation(
           buildNotesLocation({

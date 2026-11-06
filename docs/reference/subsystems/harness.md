@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the coding-agent harness boundary: child-process drivers for Codex app-server and Claude Code stream-json, sessions, approvals, and one-shot generation."
 reference-kind: guide
-last-verified: 2026-11-03
+last-verified: 2026-11-05
 code-paths:
   - pkg/harness
 tags: [subsystem/harness]
@@ -24,6 +24,8 @@ code-anchors:
 - Consumers: `pkg/app/agentchat` (chat), `cmd/harness.go` (`rzm harness status|smoke`), `pkg/app/mcp/tool_generate.go` (`rzm agent generate`, code-mode `rzm.generate`; it resolves an omitted provider from the `agent.harness` setting, else the only provider installed and signed in), future automations and specialized agents. Contract: [[coding-agent-harness|SPEC-0101]].
 
 ## Design constraints
+
+- JSON stdio marks the child exited as soon as `cmd.Wait` completes. Diagnostic logging occurs afterward and must not delay observation of process reaping or bounded shutdown.
 
 - **The CLI is the credential.** Drivers spawn the vendor CLI and inherit the user's login. Rhizome never reads, stores, or forwards OAuth tokens or API keys for harness work, and never overrides `HOME`; isolation, when needed, uses `CODEX_HOME` / `CLAUDE_CONFIG_DIR`.
 - **Short-lived commands have one process owner.** `internal/command.OSRunner` owns lookup, spawn/wait, output capture, context interruption, and process logs for both drivers. It keeps the final 16 KiB of stderr and preserves completed exit results even if the context is canceled afterward. An actual context-triggered kill returns the context error with captured output; each vendor still maps that result to its public phases and owns its version cache.

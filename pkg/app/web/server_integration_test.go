@@ -10,6 +10,7 @@ import (
 	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
@@ -73,7 +74,7 @@ func TestServerFixtureEndpoints(t *testing.T) {
 	require.NotEmpty(t, code.Content)
 	require.NotEmpty(t, code.RelatedNotes)
 
-	var graph GraphResponse
+	var graph graphpresentation.GraphResponse
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/global", &graph)
 	require.False(t, graph.NeedsIndex)
 	require.NotEmpty(t, graph.Nodes)
@@ -546,7 +547,7 @@ func TestServerProvidedRuntimeUsesExistingIntelDBBeforeLiveIndexArrives(t *testi
 	httpSrv := httptest.NewServer(srv.Handler())
 	defer httpSrv.Close()
 
-	var before GraphResponse
+	var before graphpresentation.GraphResponse
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/global", &before)
 	require.False(t, before.NeedsIndex)
 	require.NotEmpty(t, before.Nodes)
@@ -558,7 +559,7 @@ func TestServerProvidedRuntimeUsesExistingIntelDBBeforeLiveIndexArrives(t *testi
 
 	runtime.SetIntelStore(fixture.intelStore)
 
-	var after GraphResponse
+	var after graphpresentation.GraphResponse
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/global", &after)
 	require.False(t, after.NeedsIndex)
 	require.NotEmpty(t, after.Nodes)
@@ -1506,7 +1507,7 @@ fragment TypeRef on __Type {
 	require.NoError(t, err)
 	require.NotContains(t, string(diskAfterOverlay), "Overlay summary")
 
-	var localGraph GraphResponse
+	var localGraph graphpresentation.GraphResponse
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/local?path=specs/100-demo/plan.md&notesOnly=true", &localGraph)
 	for _, node := range localGraph.Nodes {
 		require.NotEqual(t, "section", node.Kind)
@@ -1517,7 +1518,7 @@ fragment TypeRef on __Type {
 		require.NotEqual(t, "section-backlink", edge.Kind)
 	}
 
-	var embeddedLocalGraph GraphResponse
+	var embeddedLocalGraph graphpresentation.GraphResponse
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/local?ref=specs/100-demo/spec.md%23%5Evalidation&kind=EMBEDDED&notesOnly=true&diagnostics=true", &embeddedLocalGraph)
 	require.NotEmpty(t, embeddedLocalGraph.CenterID)
 	require.NotNil(t, embeddedLocalGraph.Diagnostics)
@@ -3058,7 +3059,7 @@ func TestServerGlobalGraphReturnsWithoutPersistedScores(t *testing.T) {
 	httpSrv := httptest.NewServer(srv.Handler())
 	defer httpSrv.Close()
 
-	var graph GraphResponse
+	var graph graphpresentation.GraphResponse
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/global", &graph)
 	require.False(t, graph.NeedsIndex)
 	require.NotEmpty(t, graph.Nodes)
@@ -3248,13 +3249,13 @@ func TestServerGlobalGraphCacheInvalidatesOnSecondHandleSameCountSwap(t *testing
 
 	require.NoError(t, fixture.intelStore.ReplaceGraphDocEdgesForPath(ctx, "swap/a.md", semdb.GraphDocEdgeKindWikilink, []string{"swap/x.md"}))
 	require.NoError(t, fixture.intelStore.ReplaceGraphDocEdgesForPath(ctx, "swap/b.md", semdb.GraphDocEdgeKindWikilink, []string{"swap/y.md"}))
-	readGraph := func() GraphResponse {
+	readGraph := func() graphpresentation.GraphResponse {
 		t.Helper()
 		recorder := httptest.NewRecorder()
 		request := newApplicationRequest(http.MethodGet, "/api/v1/graphs/global", nil)
 		srv.Handler().ServeHTTP(recorder, request)
 		require.Equal(t, http.StatusOK, recorder.Code)
-		var graph GraphResponse
+		var graph graphpresentation.GraphResponse
 		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &graph))
 		return graph
 	}
@@ -3444,7 +3445,7 @@ func TestServerGlobalGraphDoesNotClipCodeEdgesByDefaultLimit(t *testing.T) {
 	requireGraphEdge(t, graph, "code:zz/late_call.go", "code:zz/late_dep.go", "calls", "")
 }
 
-func requireGraphNode(t *testing.T, graph GraphResponse, id, kind string) {
+func requireGraphNode(t *testing.T, graph graphpresentation.GraphResponse, id, kind string) {
 	t.Helper()
 	for _, node := range graph.Nodes {
 		if node.ID == id {
@@ -3455,16 +3456,16 @@ func requireGraphNode(t *testing.T, graph GraphResponse, id, kind string) {
 	require.Failf(t, "missing graph node", "id=%s", id)
 }
 
-func graphNodeByID(nodes []GraphNode, id string) GraphNode {
+func graphNodeByID(nodes []graphpresentation.GraphNode, id string) graphpresentation.GraphNode {
 	for _, node := range nodes {
 		if node.ID == id {
 			return node
 		}
 	}
-	return GraphNode{}
+	return graphpresentation.GraphNode{}
 }
 
-func requireGraphEdge(t *testing.T, graph GraphResponse, source, target, kind, relation string) {
+func requireGraphEdge(t *testing.T, graph graphpresentation.GraphResponse, source, target, kind, relation string) {
 	t.Helper()
 	for _, edge := range graph.Edges {
 		if edge.Source == source && edge.Target == target && edge.Kind == kind && (relation == "" || edge.RelationName == relation) {
@@ -3474,14 +3475,14 @@ func requireGraphEdge(t *testing.T, graph GraphResponse, source, target, kind, r
 	require.Failf(t, "missing graph edge", "source=%s target=%s kind=%s relation=%s", source, target, kind, relation)
 }
 
-func requireNoGraphEdge(t *testing.T, graph GraphResponse, source, target, kind string) {
+func requireNoGraphEdge(t *testing.T, graph graphpresentation.GraphResponse, source, target, kind string) {
 	t.Helper()
 	for _, edge := range graph.Edges {
 		require.Falsef(t, edge.Source == source && edge.Target == target && edge.Kind == kind, "unexpected graph edge %s -> %s kind=%s", source, target, kind)
 	}
 }
 
-func requireGraphUndirectedEdge(t *testing.T, graph GraphResponse, a, b, kind string) {
+func requireGraphUndirectedEdge(t *testing.T, graph graphpresentation.GraphResponse, a, b, kind string) {
 	t.Helper()
 	for _, edge := range graph.Edges {
 		if edge.Kind != kind {

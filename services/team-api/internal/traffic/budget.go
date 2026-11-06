@@ -8,13 +8,8 @@ import (
 	"log/slog"
 	"math"
 
-	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 	"github.com/atomicobject/rhizome/services/team-api/internal/providerbudget"
 )
-
-func (t *Traffic) ProviderUsage(ctx context.Context, date string) (map[string]wire.ProviderUsage, map[string]map[string]wire.ProviderUsage, error) {
-	return t.ledger.ProviderUsage(ctx, date)
-}
 
 // billingTokens rejects ambiguous usage instead of refunding a guessed charge.
 func billingTokens(usage []byte, field string) (int64, bool) {

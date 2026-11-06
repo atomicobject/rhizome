@@ -10,8 +10,7 @@
 // Run from the repository root; RZM selects the binary, as for mine.mjs.
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { resolveRzm } from "./lib/calls.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 // Fewer new episodes than this wait for the next week.
@@ -54,7 +53,7 @@ if (isMain) {
   let root = process.cwd();
   const git = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
   if (git.status === 0) root = git.stdout.trim();
-  const rzm = process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
+  const rzm = resolveRzm(root);
   const mine = fileURLToPath(new URL("mine.mjs", import.meta.url));
   try {
     const result = await check({

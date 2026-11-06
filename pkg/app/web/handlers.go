@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"net/http"
 	"net/url"
 	"path"
@@ -80,7 +81,7 @@ func (s *Server) handleGraphLocal(w http.ResponseWriter, r *http.Request) {
 	notesOnly := parseBool(r.URL.Query().Get("notesOnly"), false)
 	diagnostics := parseBool(r.URL.Query().Get("diagnostics"), false) || parseBool(r.URL.Query().Get("debug"), false)
 	var (
-		resp GraphResponse
+		resp graphpresentation.GraphResponse
 		err  error
 	)
 	if strings.TrimSpace(r.URL.Query().Get("ref")) != "" {

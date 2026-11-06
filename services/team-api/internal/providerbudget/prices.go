@@ -33,7 +33,7 @@ const (
 func Reserve(provider, model string, inputs int) (Price, int64, bool) {
 	p := Price{Provider: provider, Model: model, Version: PriceVersion, ReviewedAt: ReviewedAt}
 	switch {
-	case provider == Voyage && model == "voyage-4-lite" && inputs > 0 && inputs <= 1000:
+	case provider == Voyage && model == "voyage-4-lite" && inputs > 0 && inputs <= wire.MaxVoyageInputs:
 		p.NanodollarsPerToken = 20
 		p.MaxBillableTokens = 1_000_000 + int64(inputs)*int64(voyageInputOverhead)
 	case provider == TypeSafe && IsJevModel(model) && inputs > 0:
@@ -48,7 +48,7 @@ func Reserve(provider, model string, inputs int) (Price, int64, bool) {
 
 // ReviewedPrices returns maximum request bounds for operations reports.
 func ReviewedPrices() map[string]Price {
-	voyage, _, _ := Reserve(Voyage, "voyage-4-lite", 1000)
+	voyage, _, _ := Reserve(Voyage, "voyage-4-lite", wire.MaxVoyageInputs)
 	typesafe, _, _ := Reserve(TypeSafe, "jev-latest", 1)
 	return map[string]Price{Voyage: voyage, TypeSafe: typesafe}
 }

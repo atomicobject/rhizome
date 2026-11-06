@@ -3,148 +3,67 @@ package embedindex
 import (
 	"context"
 	"fmt"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 )
 
-func embedTextsWithProvider(ctx context.Context, provider embeddings.Provider, texts []string, batchSize, maxConcurrent int, globalSem chan struct{}) ([]embeddings.Embedding, error) {
+func embedProviderBatch(ctx context.Context, provider embeddings.Provider, texts []string, batchSize int, gate chan struct{}) ([]embeddings.Embedding, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	if batchSize <= 0 {
-		batchSize = EffectiveBatchSize(provider, 0)
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	if maxConcurrent <= 0 {
-		maxConcurrent = EffectiveMaxConcurrent(provider, 0)
-	}
-
-	type batchResult struct {
-		start int
-		vecs  []embeddings.Embedding
-		err   error
-	}
-
-	resultCh := make(chan batchResult, (len(texts)+batchSize-1)/batchSize)
-	sem := make(chan struct{}, maxConcurrent)
-	var wg sync.WaitGroup
-	var inflight atomic.Int64
-
-	for start := 0; start < len(texts); start += batchSize {
-		end := start + batchSize
-		if end > len(texts) {
-			end = len(texts)
+	texts = append([]string(nil), texts...)
+	gateStarted := time.Now()
+	if gate != nil {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case gate <- struct{}{}:
 		}
-		batchTexts := append([]string(nil), texts[start:end]...)
-		wg.Add(1)
-		go func(start int, batchTexts []string) {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				return
-			case sem <- struct{}{}:
-			}
-			defer func() { <-sem }()
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
+		defer func() { <-gate }()
+	}
+	indexingperf.ObserveLatency(ctx, indexingperf.EmbedGateWait, time.Since(gateStarted))
+	indexingperf.SetGauge(ctx, indexingperf.ProviderInflight, 1)
+	defer indexingperf.SetGauge(ctx, indexingperf.ProviderInflight, 0)
 
-			gateStarted := time.Now()
-			if globalSem != nil {
-				select {
-				case <-ctx.Done():
-					return
-				case globalSem <- struct{}{}:
-				}
-				defer func() { <-globalSem }()
-			}
-			indexingperf.ObserveLatency(ctx, indexingperf.EmbedGateWait, time.Since(gateStarted))
-
-			active := inflight.Add(1)
-			indexingperf.SetGauge(ctx, indexingperf.ProviderInflight, active)
-			defer func() {
-				remaining := inflight.Add(-1)
-				indexingperf.SetGauge(ctx, indexingperf.ProviderInflight, remaining)
-			}()
-
-			totalBytes := 0
-			for _, text := range batchTexts {
-				totalBytes += len(text)
-			}
-			indexingperf.AddCount(ctx, indexingperf.ProviderCalls, 1)
-			indexingperf.AddCount(ctx, indexingperf.ProviderTexts, int64(len(batchTexts)))
-			indexingperf.AddCount(ctx, indexingperf.ProviderLogicalTexts, int64(len(batchTexts)))
-			indexingperf.AddBytes(ctx, indexingperf.ProviderTextBytes, int64(totalBytes))
-			if cap := EffectiveBatchSize(provider, 0); cap > 0 {
-				indexingperf.ObserveSample(ctx, indexingperf.ProviderCapTexts, int64(cap))
-			}
-			if batchSize > 0 {
-				indexingperf.ObserveSample(ctx, indexingperf.ProviderDispatchFloorTexts, int64(batchSize))
-			}
-			indexingperf.ObserveSample(ctx, indexingperf.ProviderCapacity, int64(maxConcurrent))
-			indexingperf.ObserveSample(ctx, indexingperf.ProviderBatchTexts, int64(len(batchTexts)))
-			indexingperf.ObserveSample(ctx, indexingperf.ProviderBatchBytes, int64(totalBytes))
-			indexingperf.ObserveSample(ctx, indexingperf.ProviderInputTexts, int64(len(batchTexts)))
-			indexingperf.ObserveSample(ctx, indexingperf.ProviderInputBytes, int64(totalBytes))
-			if batchSize > 0 {
-				indexingperf.ObserveSample(ctx, indexingperf.ProviderBatchFillRatio, int64(len(batchTexts)*100/batchSize))
-			}
-
-			callStarted := time.Now()
-			vecs, err := provider.EmbedTexts(ctx, batchTexts)
-			callDur := time.Since(callStarted)
-			indexingperf.ObserveLatency(ctx, indexingperf.ProviderLatency, callDur)
-			indexingperf.ObserveInterval(ctx, indexingperf.ProviderLatency, callStarted, callDur)
-			if err == nil && len(vecs) != len(batchTexts) {
-				err = fmt.Errorf("embed: unexpected vector count %d for %d texts", len(vecs), len(batchTexts))
-			}
-			if err != nil {
-				cancel()
-				resultCh <- batchResult{start: start, vecs: vecs, err: err}
-				return
-			}
-
-			// resultCh holds every batch, so this never blocks; a finished
-			// batch is kept even if the context was cancelled meanwhile.
-			resultCh <- batchResult{start: start, vecs: vecs, err: err}
-		}(start, batchTexts)
+	totalBytes := 0
+	for _, text := range texts {
+		totalBytes += len(text)
+	}
+	indexingperf.AddCount(ctx, indexingperf.ProviderCalls, 1)
+	indexingperf.AddCount(ctx, indexingperf.ProviderTexts, int64(len(texts)))
+	indexingperf.AddCount(ctx, indexingperf.ProviderLogicalTexts, int64(len(texts)))
+	indexingperf.AddBytes(ctx, indexingperf.ProviderTextBytes, int64(totalBytes))
+	if cap := EffectiveBatchSize(provider, 0); cap > 0 {
+		indexingperf.ObserveSample(ctx, indexingperf.ProviderCapTexts, int64(cap))
+	}
+	if batchSize > 0 {
+		indexingperf.ObserveSample(ctx, indexingperf.ProviderDispatchFloorTexts, int64(batchSize))
+	}
+	indexingperf.ObserveSample(ctx, indexingperf.ProviderCapacity, 1)
+	indexingperf.ObserveSample(ctx, indexingperf.ProviderBatchTexts, int64(len(texts)))
+	indexingperf.ObserveSample(ctx, indexingperf.ProviderBatchBytes, int64(totalBytes))
+	indexingperf.ObserveSample(ctx, indexingperf.ProviderInputTexts, int64(len(texts)))
+	indexingperf.ObserveSample(ctx, indexingperf.ProviderInputBytes, int64(totalBytes))
+	if batchSize > 0 {
+		indexingperf.ObserveSample(ctx, indexingperf.ProviderBatchFillRatio, int64(len(texts)*100/batchSize))
 	}
 
-	go func() {
-		wg.Wait()
-		close(resultCh)
-	}()
-
-	out := make([]embeddings.Embedding, len(texts))
-	var firstErr error
-	delivered := 0
-	for result := range resultCh {
-		if result.err != nil {
-			if firstErr == nil {
-				firstErr = result.err
-				cancel()
-			}
-			continue
-		}
-		copy(out[result.start:], result.vecs)
-		delivered++
+	callStarted := time.Now()
+	vecs, err := provider.EmbedTexts(ctx, texts)
+	callDur := time.Since(callStarted)
+	indexingperf.ObserveLatency(ctx, indexingperf.ProviderLatency, callDur)
+	indexingperf.ObserveInterval(ctx, indexingperf.ProviderLatency, callStarted, callDur)
+	if err != nil {
+		return nil, err
 	}
-	if firstErr != nil {
-		return nil, firstErr
+	if len(vecs) != len(texts) {
+		return nil, fmt.Errorf("embed: unexpected vector count %d for %d texts", len(vecs), len(texts))
 	}
-	// Batches skipped after cancellation deliver nothing; when every batch
-	// delivered, the provider work is complete and is returned.
-	if delivered < cap(resultCh) {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
+	// Completed provider work remains usable even if cancellation raced its return.
+	return vecs, nil
 }

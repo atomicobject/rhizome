@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli."
 reference-kind: guide
-last-verified: 2026-11-03
+last-verified: 2026-11-05
 code-paths:
   - cmd
   - pkg/app/operations
@@ -32,6 +32,8 @@ code-anchors:
 - `pkg/app/cli/init/`: owns `rzm init` — config detection/migration, managed `AGENTS.md`/`CLAUDE.md` fences, starter scaffolds, and skill templates under `templates/`; RHIZOME.md templates are embedded directly from `docs/rhizome-md-templates/`.
 
 ## Design constraints
+
+- Repository checkout identity and trust denial text are owned by `pkg/repositorytrust`. Actions and scheduled tasks use that owner; command parsing and scheduler state do not own trust policy.
 
 - **Skill composition has explicit owners.** `pkg/skilloverlay` owns the pure YAML decoder, Markdown slot parser, renderer, and skill/overlay/report model. Init discovers embedded core/starter assets and resolves starter dependencies before calling the engine. Template sources remain under `pkg/app/cli/init/templates`; domain packages receive loaded facts or callbacks and never import init. Bootstrap receives `CodexParams.OnboardInstructions` from command composition and calls it only for automatic planning.
 

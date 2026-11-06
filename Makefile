@@ -351,6 +351,7 @@ web-generate: web-deps
 web-test: web-deps
 	@printf '\n==> web-test\n'
 	cd $(WEB_DIR) && npm test
+	node --test scripts/dev_supervisor.test.mjs
 	@printf '<== web-test\n'
 
 web-lint: web-deps

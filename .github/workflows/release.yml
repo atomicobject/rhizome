@@ -116,7 +116,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version-file: go.mod
       # The compounding starter's Node script tests run inside go test.
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -204,7 +204,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version-file: go.mod
       - name: Install zig
         uses: goto-bus-stop/setup-zig@v2
         with:
@@ -285,7 +285,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.2"
+          go-version-file: go.mod
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

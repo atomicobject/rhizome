@@ -113,19 +113,7 @@ func (s *Store) OntologyEdgesForPaths(ctx context.Context, paths []string, inclu
 	return out, nil
 }
 
-func (s *Store) OntologyStructuralEdgesBySources(ctx context.Context, paths []string, relation string, limit int) ([]OntologyEdgeRow, error) {
-	return s.ontologyEdgesByEndpoint(ctx, "src_path", paths, true, relation, limit)
-}
-
-func (s *Store) OntologyAmbientEdgesBySources(ctx context.Context, paths []string, relation string, limit int) ([]OntologyEdgeRow, error) {
-	return s.ontologyEdgesByEndpoint(ctx, "src_path", paths, false, relation, limit)
-}
-
 func (s *Store) OntologyAmbientEdgesByTargets(ctx context.Context, paths []string, relation string, limit int) ([]OntologyEdgeRow, error) {
-	return s.ontologyEdgesByEndpoint(ctx, "dst_path", paths, false, relation, limit)
-}
-
-func (s *Store) ontologyEdgesByEndpoint(ctx context.Context, column string, paths []string, structural bool, relation string, limit int) ([]OntologyEdgeRow, error) {
 	paths = normalizeNonEmptyStrings(paths)
 	if len(paths) == 0 {
 		return nil, nil
@@ -138,10 +126,9 @@ func (s *Store) ontologyEdgesByEndpoint(ctx context.Context, column string, path
 		}
 		batch := paths[start:end]
 		placeholders := strings.TrimSuffix(strings.Repeat("?,", len(batch)), ",")
-		conditions := []string{fmt.Sprintf("%s IN (%s)", column, placeholders), "structural = ?"}
-		args := make([]any, 0, len(batch)+3)
+		conditions := []string{fmt.Sprintf("dst_path IN (%s)", placeholders), "structural = 0"}
+		args := make([]any, 0, len(batch)+1)
 		args = append(args, sliceAny(batch)...)
-		args = append(args, boolToInt(structural))
 		if strings.TrimSpace(relation) != "" {
 			conditions = append(conditions, "relation_name = ?")
 			args = append(args, relation)

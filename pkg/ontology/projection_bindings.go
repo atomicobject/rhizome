@@ -24,7 +24,7 @@ func (r *projectionResolver) noteSectionBinding(field *ontoschema.Field) FieldBi
 	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != ontoschema.EmbeddedSourceShapeSection {
 		return sourceSpanNodesBinding(r, field, matchSourceSpansForField(r.snapshot.SourceSpans, field))
 	}
-	matches := matchSectionsForAssessment(r.snapshot.Sections, field)
+	matches := MatchSectionNodesForField(r.snapshot.Sections, field)
 	return sectionNodesBinding(r, field, matches)
 }
 
@@ -33,7 +33,7 @@ func (r *projectionResolver) sectionFieldBinding(parent *SectionNode, field *ont
 		parentSpan := r.snapshot.SourceSpansByID[parent.ID]
 		return sourceSpanNodesBinding(r, field, matchSourceSpansForField(sourceSpanChildren(parentSpan), field))
 	}
-	matches := matchSectionsForAssessment(parent.Children, field)
+	matches := MatchSectionNodesForField(parent.Children, field)
 	return sectionNodesBinding(r, field, matches)
 }
 

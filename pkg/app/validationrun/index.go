@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -17,12 +18,12 @@ import (
 // IndexValidationSnapshot runs the configured default suite and returns the
 // complete sanitized cache contract. Private repair authority and executable
 // operation payloads remain only in the in-memory Result.
-func IndexValidationSnapshot(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, runtime *ontology.Runtime, runtimeErr error, maxIssues int) (semdb.ValidationSnapshot, int64, error) {
+func IndexValidationSnapshot(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, runtime *ontology.Runtime, runtimeErr error, maxIssues int, skillOverlays func() (skilloverlay.Manifest, error)) (semdb.ValidationSnapshot, int64, error) {
 	started := time.Now()
 	if maxIssues <= 0 {
 		maxIssues = 500
 	}
-	prepared, err := Prepare(vaultDef, noteMetadata, nil, maxIssues)
+	prepared, err := Prepare(vaultDef, noteMetadata, nil, maxIssues, skillOverlays)
 	if err != nil {
 		return semdb.ValidationSnapshot{}, time.Since(started).Milliseconds(), err
 	}

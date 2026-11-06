@@ -29,7 +29,7 @@ flowchart TD
 ```
 
 - `OpenIntelStoreFromConfig*` (in `pkg/vault/obsidian/intel_store.go`) is the canonical entry: it resolves the unified path, opens the anchors store, and returns a cleanup func.
-- In `serve`, `pkg/app/bootstrap/live.go` hands the anchors store's `DB()` to the embeddings and codeindex stores via `OpenWithDB`, and sets a shared write mutex (`SetWriteMu`) so all three serialize commits on the single WAL writer.
+- In `serve`, `pkg/app/bootstrap/live_code.go` and `live_embeddings.go` hand the anchors store's `DB()` to the embeddings and codeindex stores via `OpenWithDB`, and sets a shared write mutex (`SetWriteMu`) so all three serialize commits on the single WAL writer.
 
 ## Reading order
 
@@ -133,7 +133,7 @@ Note: `calls` was removed (anchors store v15→v16); call/reference edges now li
 - `pkg/anchors/sqlite/store.go` — anchors store: `intel_*`, `symbols`, `anchors`, `files`, `doc_links`, `graph_*`, `ontology_*`, `notes`; migration chain; `OpenWithDB` (shared handle); `DB()`/`SetWriteMu`; `intel_embeddings_vec_d{N}` + `EnsureEmbeddingsVecPrimary`.
 - `pkg/embeddings/sqlite/note_schema.go` — note-embedding store: `emb_index_meta`, `emb_notes`, `emb_chunk_embeddings`, `emb_embedding_cache`, `emb_chunk_embeddings_vec_d{N}`; `OpenNotes(ctx, Borrowed(db), Options{Access: WriteIndex, Metadata: &meta})`.
 - `pkg/embeddings/sqlite/code_schema.go` — code-embedding store: `code_index_meta`, `code_items`, `code_item_embeddings`, `code_chunk_embeddings`, `code_chunk_fts`, `code_embedding_cache`, `code_*_vec_d{N}`; `ResetDomain` / `ResetDomainPreservingCache`.
-- `pkg/app/bootstrap/live.go` — `serve` handle sharing: opens the anchors store, then `OpenWithDB(store.DB())` for embeddings/codeindex stores and `SetWriteMu(&sharedWriteMu)`.
+- `pkg/app/bootstrap/live_code.go`, `live_embeddings.go` — `serve` handle sharing: opens the anchors store, then `OpenWithDB(store.DB())` for embeddings/codeindex stores and `SetWriteMu(&sharedWriteMu)`.
 - `cmd/index.go` — orchestrates semantic + code indexing and separable rebuild behavior.
 - `pkg/anchors/service.go` — ingestion/indexing surface that writes the spine tables.
 

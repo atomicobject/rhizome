@@ -11,27 +11,12 @@ import (
 func parseSkillOverlaySlots(skillName, filePath, body string) ([]skillOverlaySlot, error) {
 	var slots []skillOverlaySlot
 	seen := map[string]struct{}{}
-	inFence := false
-	var fenceChar byte
-	var fenceLen int
+	var fence markdownsyntax.FenceState
 	var open *skillOverlaySlot
 	for i := 0; i < len(body); {
 		atLineStart := i == 0 || body[i-1] == '\n'
 		if atLineStart {
-			if ok, fc, fl, next := markdownsyntax.FenceLine(body, i); ok {
-				if !inFence {
-					inFence = true
-					fenceChar = fc
-					fenceLen = fl
-				} else if fc == fenceChar && fl >= fenceLen {
-					inFence = false
-					fenceChar = 0
-					fenceLen = 0
-				}
-				i = next
-				continue
-			}
-			if inFence {
+			if fence.ConsumeLine(body, i) {
 				i = markdownsyntax.NextLineStart(body, i)
 				continue
 			}
@@ -77,24 +62,9 @@ func parseSkillOverlaySlots(skillName, filePath, body string) ([]skillOverlaySlo
 }
 
 func hasUnparsedSkillSlotMarker(body string) bool {
-	inFence := false
-	var fenceChar byte
-	var fenceLen int
+	var fence markdownsyntax.FenceState
 	for i := 0; i < len(body); {
-		if ok, fc, fl, next := markdownsyntax.FenceLine(body, i); ok {
-			if !inFence {
-				inFence = true
-				fenceChar = fc
-				fenceLen = fl
-			} else if fc == fenceChar && fl >= fenceLen {
-				inFence = false
-				fenceChar = 0
-				fenceLen = 0
-			}
-			i = next
-			continue
-		}
-		if !inFence {
+		if !fence.ConsumeLine(body, i) {
 			lineEnd := markdownsyntax.NextLineStart(body, i)
 			line := strings.TrimSpace(strings.TrimSuffix(body[i:lineEnd], "\n"))
 			if strings.HasPrefix(line, "<!-- rzm:skill-slot ") || line == "<!-- /rzm:skill-slot -->" {

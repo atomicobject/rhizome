@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"sync"
 
-	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/validate"
@@ -226,7 +225,7 @@ func projectionRunContext(request ValidationProjectionRequest, maxIssues int) *v
 		VaultPath:     vaultDef.BasePath(),
 		NoteReader:    reader,
 		NoteMetadata:  request.NoteMetadata,
-		SkillOverlays: initactions.ValidateBundledSkillOverlays,
+		SkillOverlays: request.SkillOverlays,
 		MaxIssues:     maxIssues,
 	}
 }

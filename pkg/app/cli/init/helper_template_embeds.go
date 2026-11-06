@@ -11,49 +11,23 @@ func expandAgentTemplateEmbeds(body string) (string, error) {
 		return body, nil
 	}
 
-	// We only expand Obsidian-style embeds (e.g., ![[Title]]) that appear in normal
-	// prose. Ignore anything inside fenced code blocks or inline code spans so
-	// templates can mention embed syntax safely.
-	//
-	// This is intentionally a small, purpose-built markdown scanner rather than
-	// a full parser.
+	// Template embeds retain unmatched and escaped backtick protection; the
+	// broader link parser's paired-span and indented-code rules do not apply.
 	var b strings.Builder
-
-	inFence := false
-	var fenceChar byte
-	var fenceLen int
+	var fence markdownsyntax.FenceState
 
 	inCodeSpan := false
 	var codeSpanLen int
 
 	for i := 0; i < len(body); {
 		atLineStart := i == 0 || body[i-1] == '\n'
-		if atLineStart && !inCodeSpan {
-			if ok, fc, fl, next := markdownsyntax.FenceLine(body, i); ok {
-				// Fence delimiter line; copy as-is and toggle fence state.
-				b.WriteString(body[i:next])
-				if !inFence {
-					inFence = true
-					fenceChar = fc
-					fenceLen = fl
-				} else if fc == fenceChar && fl >= fenceLen {
-					inFence = false
-					fenceChar = 0
-					fenceLen = 0
-				}
-				i = next
-				continue
-			}
-			if inFence {
-				// Inside fenced code block; copy the whole line and keep going.
-				next := markdownsyntax.NextLineStart(body, i)
-				b.WriteString(body[i:next])
-				i = next
-				continue
-			}
+		if atLineStart && !inCodeSpan && fence.ConsumeLine(body, i) {
+			next := markdownsyntax.NextLineStart(body, i)
+			b.WriteString(body[i:next])
+			i = next
+			continue
 		}
 
-		// Not in a fenced code block.
 		if body[i] == '`' {
 			runLen := markdownsyntax.ByteRun(body, i, '`')
 			b.WriteString(body[i : i+runLen])

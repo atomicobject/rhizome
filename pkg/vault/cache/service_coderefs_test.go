@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
@@ -64,6 +63,75 @@ func TestCodeRefs_InitialCrawl(t *testing.T) {
 	assert.Equal(t, coderefs.RefKindWikilink, refs["Note.md"][0].Kind)
 }
 
+func TestCodeRefs_FrontmatterAliases(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		aliases   string
+		code      string
+		duplicate bool
+		want      map[string][]string
+	}{
+		{
+			name:    "scalar string",
+			aliases: `" Plain "`,
+			code:    "// [[Plain]]",
+			want:    map[string][]string{"Note.md": {"Plain"}},
+		},
+		{
+			name:    "string list",
+			aliases: `[" First ", "Second", ""]`,
+			code:    "// [[First]] and [[Second]]",
+			want:    map[string][]string{"Note.md": {"First", "Second"}},
+		},
+		{
+			name:    "timestamp scalar",
+			aliases: "2026-11-05",
+			code:    "// [[2026-11-05 00:00:00 +0000 UTC]]",
+			want:    map[string][]string{"Note.md": {"2026-11-05 00:00:00 +0000 UTC"}},
+		},
+		{
+			name:    "mixed list",
+			aliases: `[2026-11-05, "Plain", 3, true, null]`,
+			code:    "// [[2026-11-05 00:00:00 +0000 UTC]] [[Plain]] [[3]] [[true]]",
+			want:    map[string][]string{"Note.md": {"2026-11-05 00:00:00 +0000 UTC", "Plain"}},
+		},
+		{
+			name:    "nonstring scalar",
+			aliases: "42",
+			code:    "// [[42]]",
+			want:    map[string][]string{},
+		},
+		{
+			name:      "ambiguous alias",
+			aliases:   "Shared",
+			code:      "// [[Shared]]",
+			duplicate: true,
+			want:      map[string][]string{},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			note := "---\naliases: " + tt.aliases + "\n---\n# Note\n"
+			writeFile(t, root, "Note.md", note)
+			if tt.duplicate {
+				writeFile(t, root, "Other.md", note)
+			}
+			writeFile(t, root, "main.go", tt.code)
+			svc := newCodeRefService(t, root, Options{})
+
+			got := map[string][]string{}
+			for target, refs := range svc.CodeRefsByNote() {
+				for _, ref := range refs {
+					assert.Equal(t, "main.go", ref.SourceFile)
+					assert.Equal(t, coderefs.RefKindWikilink, ref.Kind)
+					got[target] = append(got[target], ref.RawTarget)
+				}
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestCodeRefs_IncrementalCodeChange(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -73,7 +141,6 @@ func TestCodeRefs_IncrementalCodeChange(t *testing.T) {
 	svc := newCodeRefService(t, tmp, Options{})
 
 	// Modify code file to add an @mention
-	time.Sleep(10 * time.Millisecond) // ensure mtime changes
 	writeFile(t, tmp, "main.go", "// [[Note]] and @Note")
 	svc.markDirty(codePath, DirtyModified)
 	require.NoError(t, svc.Refresh(context.Background()))

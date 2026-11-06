@@ -127,12 +127,7 @@ func isEmbeddingsCorruption(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
-	// Check for embeddings table names in the error
-	return strings.Contains(msg, "emb_") ||
-		strings.Contains(msg, "emb_index_meta") ||
-		strings.Contains(msg, "emb_notes") ||
-		strings.Contains(msg, "emb_chunk_embeddings") ||
-		strings.Contains(msg, "emb_embedding_cache")
+	return strings.Contains(msg, "emb_")
 }
 
 func tryRepairEmbeddingsDomainWithOptions(indexPath string, opts Options) error {

@@ -39,7 +39,7 @@ func TestOntologySavePublishesFreshReadDomainsOnce(t *testing.T) {
 	default:
 		t.Fatal("save did not publish freshness before returning")
 	}
-	result, err := srv.executeOntologyQuery(ctx, `{ node: note(path: "specs/100-demo/plan.md") { frontmatter } }`)
+	result, err := srv.executeOntologyQueryOperation(ctx, `{ node: note(path: "specs/100-demo/plan.md") { frontmatter } }`, nil, "", nil)
 	require.NoError(t, err)
 	require.Empty(t, result.Errors)
 	require.Equal(t, "Fresh saved summary", result.Data["node"].(map[string]any)["frontmatter"].(map[string]any)["summary"])

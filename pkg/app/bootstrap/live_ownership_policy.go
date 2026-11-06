@@ -143,7 +143,8 @@ func liveCacheSelectionPolicy(vaultDef obsidian.VaultDefinition, runtime notefor
 		Registry:        runtime.Registry(),
 		CodeRoots:       roots,
 		CodeLanguage: func(ref paths.CodePathRef) codeanchor.Lang {
-			return detectCodeLang(ref.Abs.String())
+			lang, _ := codeanchor.LangForPath(ref.Abs.String())
+			return lang
 		},
 	})
 	if err != nil {

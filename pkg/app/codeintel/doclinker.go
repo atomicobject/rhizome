@@ -17,34 +17,6 @@ type DocLinker struct {
 	cache *obsidian.NotePathCache
 }
 
-// NewDocLinker builds a DocLinker that resolves code→note references
-// by filename only. Prefer NewDocLinkerWithStore when a SQLite note
-// index is available so alias-based coderefs (e.g. `[[SPEC-001]]`
-// in a comment) also resolve.
-func NewDocLinker(vaultPath string) *DocLinker {
-	return NewDocLinkerWithStore(vaultPath, nil)
-}
-
-// NewDocLinkerWithStore builds a DocLinker and pulls frontmatter
-// aliases from store so wikilink-style coderefs that target a stable
-// identifier still resolve to the underlying note path.
-func NewDocLinkerWithStore(vaultPath string, store *semdb.Store) *DocLinker {
-	nm := obsidian.Note{}
-	notes, err := nm.GetNotesList(obsidian.VaultDefinition{Path: vaultPath})
-	if err != nil {
-		return nil
-	}
-	notePaths := make([]paths.NotePath, 0, len(notes))
-	for _, note := range notes {
-		notePaths = append(notePaths, paths.NotePath(note))
-	}
-	linker, err := NewDocLinkerFromNotePaths(notePaths, store)
-	if err != nil {
-		return nil
-	}
-	return linker
-}
-
 // NewDocLinkerFromNotePaths builds a DocLinker from an already-discovered,
 // canonical note path snapshot. It does no filesystem discovery, so unified
 // indexing can reuse its single ownership walk rather than starting a second

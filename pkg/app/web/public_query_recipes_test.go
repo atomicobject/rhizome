@@ -66,10 +66,10 @@ func TestPublicOntologyQueryUsesSharedRuntimeCapabilities(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	srv := &Server{cfg: Config{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}}, runtime: &Runtime{IntelStore: store}}
-	result, err := srv.executeOntologyQuery(context.Background(), `{
+	result, err := srv.executeOntologyQueryOperation(context.Background(), `{
  ontology {authoringGuide(type:"Project") {available}}
  code {testsForCode(path:"pkg/thing.go") {available tests {path}}}
- }`)
+ }`, nil, "", nil)
 	require.NoError(t, err)
 	require.Empty(t, result.Errors)
 	require.Equal(t, true, result.Data["ontology"].(map[string]any)["authoringGuide"].(map[string]any)["available"])

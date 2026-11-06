@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
@@ -54,7 +55,7 @@ func (runner *productionValidationRunner) Run(ctx context.Context, request valid
 		return actions.ValidationResult{}, err
 	}
 
-	prepared, err := validationrun.Prepare(vaultDef, noteMetadata, request.Selectors, normalizedValidationMaxIssues(request.MaxIssues))
+	prepared, err := validationrun.Prepare(vaultDef, noteMetadata, request.Selectors, normalizedValidationMaxIssues(request.MaxIssues), initactions.ValidateBundledSkillOverlays)
 	if err != nil {
 		return actions.ValidationResult{}, err
 	}
@@ -65,11 +66,12 @@ func (runner *productionValidationRunner) Run(ctx context.Context, request valid
 	runRequest.ApplyCommand = request.ApplyCommand
 	runRequest.Surface = request.Surface
 	projectionRequest := validationproduct.ValidationProjectionRequest{
-		VaultPath:    vaultPath,
-		VaultDef:     vaultDef,
-		NoteMetadata: noteMetadata,
-		NoteReader:   noteReader,
-		Target:       validationProjectionTarget(request.Surface),
+		VaultPath:     vaultPath,
+		VaultDef:      vaultDef,
+		NoteMetadata:  noteMetadata,
+		NoteReader:    noteReader,
+		Target:        validationProjectionTarget(request.Surface),
+		SkillOverlays: initactions.ValidateBundledSkillOverlays,
 	}
 	planned, err := runner.runProjection(ctx, runRequest, projectionRequest, options)
 	if err != nil {

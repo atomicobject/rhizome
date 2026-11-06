@@ -5,6 +5,7 @@ package ledger
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
@@ -90,6 +91,32 @@ type Ledger interface {
 type codeErr struct{ code wire.ErrorCode }
 
 func (e codeErr) Error() string { return string(e.code) }
+
+func replayCode(r Receipt, route, hash, state string) wire.ErrorCode {
+	switch {
+	case route != r.Route || hash != r.BodyHash:
+		return wire.CodeIdempotencyClash
+	case state == stateReserved || state == stateDispatched:
+		return wire.CodeInProgress
+	case state == stateSucceeded || state == stateRejected:
+		return wire.CodeResultLost
+	case state == stateUnknown:
+		return wire.CodeOutcomeUnknown
+	}
+	return ""
+}
+
+func settlement(outcome Outcome, actualCredits int64) (string, *int64, error) {
+	to, ok := map[Outcome]string{NotDispatched: stateNotDispatched, Succeeded: stateSucceeded, Rejected: stateRejected}[outcome]
+	if !ok {
+		return "", nil, fmt.Errorf("ledger: unknown outcome %d", outcome)
+	}
+	var settled *int64
+	if outcome == Succeeded && actualCredits >= 0 {
+		settled = &actualCredits
+	}
+	return to, settled, nil
+}
 
 func validReceipt(r Receipt) error {
 	if r.Sub == "" || r.Key == "" || r.InputBytes < 0 || r.Credits < 0 {
