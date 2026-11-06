@@ -11,6 +11,17 @@ from release_intent import MANIFEST_PATH, notes_path
 from ci_release_selection import REPOSITORY, select, validate_pull_request
 
 
+class FakePulls:
+    def __init__(self, pr):
+        self.pr = pr
+
+    def pull(self, number):
+        return self.pr if number == self.pr["number"] else {}
+
+    def for_commit(self, sha):
+        return [self.pr] if self.pr["merge_commit_sha"] == sha else []
+
+
 class SelectionTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -83,10 +94,43 @@ class SelectionTest(unittest.TestCase):
               "head": {"ref": "release-prep/v0.51.0", "sha": self.head, "repo": {"full_name": REPOSITORY}}}
         self.assertEqual(validate_pull_request(self.root, pr)["source"], self.head)
 
+    def event(self):
+        return {"repository": {"full_name": REPOSITORY}}
+
+    def test_release_merge_push_to_main_selects_its_pr(self):
+        pr = self.merge()
+        chosen = select(self.root, self.event(), "push", pr["merge_commit_sha"], pulls=FakePulls(pr))
+        self.assertEqual((chosen["source"], chosen["release_pr"]), (pr["merge_commit_sha"], "123"))
+
     def test_ordinary_merge_selects_no_release(self):
         pr = self.merge()
         pr["head"]["ref"] = "feature/ordinary"
-        self.assertIsNone(select(self.root, {"repository": {"full_name": REPOSITORY}, "pull_request": pr}, "pull_request", pr["merge_commit_sha"]))
+        self.assertIsNone(select(self.root, self.event(), "push", pr["merge_commit_sha"], pulls=FakePulls(pr)))
+
+    def with_origin(self):
+        origin = self.root / ".origin.git"
+        subprocess.run(["git", "init", "--bare", "-q", str(origin)], check=True)
+        self.git("remote", "add", "origin", str(origin))
+        (self.root / ".git/info/exclude").write_text(".origin.git\n")
+        return origin
+
+    def test_dispatch_publishes_a_merged_release_pr_whose_merge_started_no_release(self):
+        pr = self.merge()
+        (self.root / "fix.txt").write_text("Later main work\n")
+        self.commit("Main advances after the release merge")
+        self.with_origin()
+        chosen = select(self.root, self.event(), "workflow_dispatch", self.git("rev-parse", "HEAD"),
+                        release_pr=123, pulls=FakePulls(pr))
+        self.assertEqual(chosen["source"], pr["merge_commit_sha"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), pr["merge_commit_sha"])
+
+    def test_dispatch_refuses_a_release_that_already_started_publishing(self):
+        pr = self.merge()
+        self.with_origin()
+        self.git("tag", "v0.51.0")
+        self.git("push", "-q", "origin", "v0.51.0")
+        with self.assertRaisesRegex(ValueError, "already tagged"):
+            select(self.root, self.event(), "workflow_dispatch", pr["merge_commit_sha"], release_pr=123, pulls=FakePulls(pr))
 
     def test_manual_dispatch_cannot_rebuild_a_partially_published_release(self):
         with self.assertRaisesRegex(ValueError, "retrying the original failed publisher"):

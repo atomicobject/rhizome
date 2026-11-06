@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines bounded release evidence, reviewable release plans, and resumable apply/build/publish orchestration for Rhizome releases."
 id: SPEC-0078
 spec-status: active
-last-updated: 2026-11-05
+last-updated: 2026-11-06
 aliases:
   - SPEC-0078
 ---
@@ -94,7 +94,7 @@ CI performs tests, common frontend preparation, Linux/Windows builds, packaging,
 - Preparation starts from a clean checkout exactly matching freshly fetched `origin/main`; no version tag means an empty baseline and the existing source version remains the version floor. ^acceptancecriterion-480087fe
 - A merged same-repository release-prep PR must contain a new valid manifest and only the allowed release files; its recorded source must equal main immediately before that merge. Unmerged, forked, ordinary, spoofed and stale release PRs cannot reach signing or publication. ^acceptancecriterion-5511bb00
 - Every build and publication job consumes that immutable accepted merge SHA. After builds succeed, the publisher advances `release` without force, verifies canonical integration, gates uploads on the exact gateway source and revalidates refs after the wait. Conflicting refs are never replaced. ^acceptancecriterion-bb6e5834
-- Public releases have one CI publisher. Local public commands route to reviewed preparation. Recovery retries the failed publisher in its original approved run with the retained original bundle and gateway receipt; manual dispatch is only for non-publishing candidates. ^acceptancecriterion-55e3fc28
+- Public releases have one CI publisher. Local public commands route to reviewed preparation. Recovery retries the failed publisher in its original approved run with the retained original bundle and gateway receipt; manual dispatch otherwise serves non-publishing candidates, or starts a validated merged release PR whose merge started no release run and whose version is not yet tagged. ^acceptancecriterion-55e3fc28
 
 ## Requirements
 
@@ -104,7 +104,7 @@ CI performs tests, common frontend preparation, Linux/Windows builds, packaging,
 - The local skill MUST use the active Codex or Claude session for editorial judgment, investigate the headline changes and installation/migration implications, and preserve maintainer edits across revisions. Existing optional generation tools MAY remain for private/local uses, but public preparation MUST NOT depend on a particular harness/model or an API key in CI.
 - Public preparation MUST pin freshly fetched main, the previous version tag or empty first-release baseline, and a strictly increasing explicitly selected version. It MUST preserve unrelated work and commit only the root changelog, embedded changelog, compiled version, version-derived notes file and preparation manifest on the release-prep branch.
 - The committed narrative notes MUST be the source used verbatim in the GitHub release. CI MUST NOT regenerate or rewrite them. Changelog copies and the selected/compiled version MUST agree before approval. The manifest MUST contain only non-secret release intent, never credentials or local machine paths.
-- The release-PR merge is publication approval. Eligibility MUST validate a merged same-repository PR into main, its reserved branch, newly changed manifest, exact reviewed source/head/merge relationship, allowed file set and version floor. Main movement before merge MUST require refreshed preparation. Later main movement MUST NOT substitute a new build source.
+- The release-PR merge is publication approval. Publication MUST run from main, triggered by the merge's push of the release manifest, because the protected release environment admits only main. Eligibility MUST validate a merged same-repository PR into main, its reserved branch, newly changed manifest, exact reviewed source/head/merge relationship, allowed file set and version floor. Main movement before merge MUST require refreshed preparation. Later main movement MUST NOT substitute a new build source.
 - Ordinary PR merges, malformed or stale release input, and candidate-only verification MUST NOT create release refs, dispatch a gateway deployment or upload public assets. Validation MUST run with read-only permissions before dependent jobs receive signing or publishing credentials.
 - Linux MUST own common frontend builds, Linux/Windows CLI builds, final packaging/checksums, gateway verification, release uploads and the Homebrew update. A single standard Apple Silicon job MUST own native Darwin CLI builds and desktop compilation, signing/notarization and package verification. Already prepared frontend assets MUST be transferred to Mac rather than rebuilt there. The Mac job MUST receive no model, GitHub publishing or Homebrew token.
 - Artifacts MUST be bound to their source/version and checked for the expected OS/architecture and required asset set before publication. Missing, extra or tampered inputs MUST fail before ref changes, deployment or uploads. Existing archive names, licenses, installer URLs, updater signatures/feed and Homebrew installation behavior MUST be preserved.
