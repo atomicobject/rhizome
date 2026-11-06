@@ -11,6 +11,8 @@ export type GraphEdge = components["schemas"]["GraphEdge"];
 
 export type GraphResponse = components["schemas"]["GraphResponse"];
 
+export type FolderOverview = components["schemas"]["FolderOverview"];
+
 export type FileView = components["schemas"]["FileView"];
 
 export type RenderedFile = components["schemas"]["RenderedFile"];

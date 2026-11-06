@@ -1,6 +1,6 @@
 import Sigma from "sigma";
 import { expect, it, vi } from "vitest";
-import { buildFolderTree } from "./folderTree";
+import { buildFolderTree } from "../test/folderOverview";
 import { visibleFolderGraph } from "./folderGraph";
 import { layoutFolderGraph } from "./folderLayout";
 import { buildSigmaGraph } from "./sigmaGraphData";

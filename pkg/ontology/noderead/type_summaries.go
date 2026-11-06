@@ -50,6 +50,15 @@ func (s *Scope) TypeSummaries(ctx context.Context, typeNames []string, previewLi
 	if len(accepted) == 0 {
 		return results, nil
 	}
+	if !s.hasOverlay() && s.service.ExactNoteMetadataRows == nil {
+		usable, err := s.streamTypeSummariesLocked(ctx, accepted, previewLimit, results)
+		if err != nil {
+			return nil, err
+		}
+		if usable {
+			return results, ctx.Err()
+		}
+	}
 	rows, err := s.service.Store.AllOntologyNodes(ctx)
 	if err != nil {
 		return nil, err

@@ -110,6 +110,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/v1/search", publicGET(s.handleSearch))
 	s.mux.HandleFunc("/api/v1/search/notes", publicGET(s.handleNoteSearch))
 	s.mux.HandleFunc("/api/v1/graphs/global", publicGET(s.requireIndexReady(s.handleGraphGlobal)))
+	s.mux.HandleFunc("/api/v1/graphs/folders", publicGET(s.requireIndexReady(s.handleGraphFolders)))
 	s.mux.HandleFunc("/api/v1/graphs/local", publicGET(s.requireIndexReady(s.handleGraphLocal)))
 	s.mux.HandleFunc("/api/v1/graphs/expand", publicGET(s.requireIndexReady(s.handleGraphExpand)))
 	s.mux.HandleFunc("/api/v1/files/tree", publicGET(s.handleTree))

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Reuse Atlas layouts and move component packing off the UI thread; reduce ontology summary hydration and Explorer graph payloads while preserving counts, links, and folder behavior.
+
 - Install Rhizome Desktop and its matching command-line tool through the `rhizome-desktop` Homebrew cask. Public releases update the cask alongside the existing CLI-only formula.
 
 - Prepare release notes and version changes with the local `rhizome-release` skill, then merge the reviewed release PR to build and publish in CI. Shared assets, Linux/Windows builds and publication run on Linux; Mac runners handle native Mac builds and notarization.

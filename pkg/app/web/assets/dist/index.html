@@ -13,40 +13,37 @@
       type="font/woff2"
       crossorigin
     />
-    <!-- Apply the stored appearance and theme before first paint (src/lib/appearance.ts).
-         Rhizome Desktop owns both: it sets the appearance natively and bakes the
-         window's theme into the page, so its pages skip that storage. A reload
-         prefers a newer theme the page took from the app (desktopHost.ts). -->
     <script>
-      (function () {
-        try {
-          var root = document.documentElement;
-          var themes = /^(graphite|slate|spruce|oxblood|indigo)$/;
-          if (window.__RHIZOME_DESKTOP__) {
-            var desktopTheme = window.__RHIZOME_DESKTOP_THEME__;
-            var later = JSON.parse(localStorage.getItem("rhizome:desktop-theme") || "null");
-            if (later && later.at > (window.__RHIZOME_DESKTOP_THEME_AT__ || 0)) {
-              desktopTheme = later.theme;
-            }
-            if (themes.test(desktopTheme)) root.dataset.theme = desktopTheme;
-            return;
-          }
-          var theme = localStorage.getItem("rhizome:theme");
-          var appearance = localStorage.getItem("rhizome:appearance");
-          if (themes.test(theme)) root.dataset.theme = theme;
-          if (appearance === "light" || appearance === "dark") root.dataset.appearance = appearance;
-        } catch (error) {}
-      })();
-    </script>
-    <script type="module" crossorigin src="/assets/index-7RcTYifJ.js"></script>
+  (function (settings) {
+    try {
+      var root = document.documentElement;
+      if (window.__RHIZOME_DESKTOP__) {
+        var desktopTheme = window.__RHIZOME_DESKTOP_THEME__;
+        var later = JSON.parse(localStorage.getItem(settings.desktopThemeKey) || "null");
+        if (later && later.at > (window.__RHIZOME_DESKTOP_THEME_AT__ || 0)) {
+          desktopTheme = later.theme;
+        }
+        if (settings.themes.includes(desktopTheme)) root.dataset.theme = desktopTheme;
+        return;
+      }
+      var theme = localStorage.getItem(settings.themeKey);
+      var appearance = localStorage.getItem(settings.appearanceKey);
+      if (settings.themes.includes(theme)) root.dataset.theme = theme;
+      if (settings.appearances.includes(appearance)) root.dataset.appearance = appearance;
+    } catch (error) {}
+  })({"themes":["graphite","slate","spruce","oxblood","indigo"],"appearances":["light","dark"],"appearanceKey":"rhizome:appearance","themeKey":"rhizome:theme","desktopThemeKey":"rhizome:desktop-theme"});
+</script>
+    <script type="module" crossorigin src="/assets/index-DxIxsro4.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-DAXXjFlN.js">
     <link rel="modulepreload" crossorigin href="/assets/jsx-runtime-CBD9r_Rc.js">
     <link rel="modulepreload" crossorigin href="/assets/parse-WJt58-9H.js">
-    <link rel="modulepreload" crossorigin href="/assets/typeNames-DJ89WV9c.js">
+    <link rel="modulepreload" crossorigin href="/assets/typeNames-DPxs0WYG.js">
     <link rel="modulepreload" crossorigin href="/assets/labels-CU6gAlYz.js">
     <link rel="modulepreload" crossorigin href="/assets/createLucideIcon-B6OvK6iE.js">
+    <link rel="modulepreload" crossorigin href="/assets/appearance-srRS6_7c.js">
+    <link rel="modulepreload" crossorigin href="/assets/fileFocusGraph-Dkqn6cnD.js">
     <link rel="modulepreload" crossorigin href="/assets/preload-helper-Czpn1I53.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-CoNBJKse.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-C4RlTn1d.css">
   </head>
   <body>
     <div id="root"></div>

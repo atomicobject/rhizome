@@ -4,13 +4,13 @@ import { FolderOpen } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getFileView,
-  getGlobalGraph,
+  getFolderGraph,
   getLocalGraph,
   getSuggestions,
   searchPaths as searchPathMatches,
 } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
-import type { FileView, GraphNode, TreeEntry } from "../api/types";
+import type { FileView, FolderOverview, GraphNode, GraphResponse, TreeEntry } from "../api/types";
 import { vaultLabel } from "../lib/labels";
 import { useTypeAccentKey } from "../lib/typeAccent";
 import { publicTypeName } from "../lib/typeNames";
@@ -24,6 +24,9 @@ import { TreeList } from "./TreeList";
 import { useExplorerListings } from "./useExplorerListings";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
 import { isNoteTarget, openNoteWorkspace, explorerFileFromLocation } from "./explorerNavigation";
+import { UNTYPED_NODE_TYPE } from "./graphLegend";
+
+const EMPTY_OVERVIEW: FolderOverview = { files: [], links: [], nestedTypes: [], truncated: false };
 
 export { folderCoverage } from "./explorerNavigation";
 
@@ -71,9 +74,32 @@ export function ExplorerWorkspace({
   const file: FileView | null = selection.kind === "file" ? (fileQuery.data ?? null) : null;
 
   const globalGraphQuery = useQuery({
-    queryKey: queryKeys.graph.global({ limit: 200000 }),
-    queryFn: ({ signal }) => getGlobalGraph({ limit: 200000 }, { signal }),
+    queryKey: queryKeys.graph.folders(),
+    queryFn: ({ signal }) => getFolderGraph({ signal }),
   });
+
+  const overview = globalGraphQuery.data ?? EMPTY_OVERVIEW;
+
+  const folderGraph = useMemo<GraphResponse>(
+    () => ({
+      nodes: overview.files,
+      edges: [],
+      truncated: overview.truncated,
+      needsIndex: overview.needsIndex,
+    }),
+    [overview],
+  );
+
+  const nestedTypeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const entry of overview.nestedTypes) {
+      const name = publicTypeName(entry.resolvedType) || UNTYPED_NODE_TYPE;
+      counts.set(name, (counts.get(name) ?? 0) + entry.count);
+    }
+
+    return counts;
+  }, [overview]);
 
   const localGraphQuery = useQuery({
     queryKey: queryKeys.graph.local(selectedFilePath, 200, {}),
@@ -82,8 +108,7 @@ export function ExplorerWorkspace({
   });
 
   const graphQuery = selection.kind === "file" ? localGraphQuery : globalGraphQuery;
-  const graph = graphQuery.data ?? EMPTY_GRAPH;
-  const folderGraph = globalGraphQuery.data ?? EMPTY_GRAPH;
+  const graph = selection.kind === "file" ? (localGraphQuery.data ?? EMPTY_GRAPH) : folderGraph;
   const atRoot = selection.kind !== "file";
   const [displaySlot, setDisplaySlot] = useState<HTMLDivElement | null>(null);
 
@@ -171,17 +196,20 @@ export function ExplorerWorkspace({
     () =>
       buildTypeColors([
         ...new Set(
-          folderGraph.nodes.map((node) => publicTypeName(node.resolvedType)).filter(Boolean),
+          [
+            ...folderGraph.nodes.map((node) => publicTypeName(node.resolvedType)),
+            ...overview.nestedTypes.map((entry) => publicTypeName(entry.resolvedType)),
+          ].filter(Boolean),
         ),
       ]),
     // The summary decides each type's palette slot.
-    [folderGraph.nodes, accentKey],
+    [folderGraph.nodes, overview.nestedTypes, accentKey],
   );
 
   const byFolder = atRoot;
 
   const folderExplorer = useFolderExplorer(
-    folderGraph,
+    overview,
     typeColors,
     selection.kind === "module" ? selection.path : undefined,
   );
@@ -400,6 +428,7 @@ export function ExplorerWorkspace({
                     edges={drawn.edges}
                     truncated={drawn.truncated}
                     legendNodes={folders ? graph.nodes : drawn.sourceGraph?.nodes}
+                    legendExtraCounts={folders ? nestedTypeCounts : undefined}
                     folderCaption={undefined}
                     sizeCaption={
                       folders ? "Size counts the notes and code files a folder holds" : undefined

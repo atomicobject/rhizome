@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GraphNode } from "../api/types";
-import { buildFolderTree, initialOpenFolders } from "./folderTree";
+import { initialOpenFolders } from "./folderTree";
+import { buildFolderTree } from "../test/folderOverview";
 import { visibleFolderGraph } from "./folderGraph";
 import { layoutFolderGraph } from "./folderLayout";
 

@@ -1,3 +1,4 @@
+import { folderOverview } from "../test/folderOverview";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import Sigma from "sigma";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -61,7 +62,7 @@ describe("ExplorerWorkspace", () => {
     restoreWebGL = installFakeWebGL();
     http
       .json("GET", "/api/v1/files/tree", tree())
-      .json("GET", "/api/v1/graphs/global", graphWith())
+      .json("GET", "/api/v1/graphs/folders", folderOverview(graphWith()))
       .json("GET", "/api/v1/graphs/local", graphWith())
       .json("GET", "/api/v1/graphs/expand", graphWith())
       .json("GET", "/api/v1/files/view", fileView(""))
@@ -161,14 +162,18 @@ describe("ExplorerWorkspace", () => {
   });
 
   it("starts the whole vault at folder level and opens a folder from its node", async () => {
-    http.json("GET", "/api/v1/graphs/global", {
-      nodes: [
-        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
-        { id: "b", label: "b", kind: "code", path: "pkg/b.go" },
-      ],
-      edges: [{ source: "a", target: "b", kind: "mentions" }],
-      truncated: false,
-    });
+    http.json(
+      "GET",
+      "/api/v1/graphs/folders",
+      folderOverview({
+        nodes: [
+          { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+          { id: "b", label: "b", kind: "code", path: "pkg/b.go" },
+        ],
+        edges: [{ source: "a", target: "b", kind: "mentions" }],
+        truncated: false,
+      }),
+    );
     const explorer = renderExplorer();
     const renderer = await explorer.renderer();
     await waitFor(() =>
@@ -191,20 +196,25 @@ describe("ExplorerWorkspace", () => {
 
     await waitFor(() => expect(renderer.getGraph().hasNode("b")).toBe(true));
     expect(http.count("GET", "/api/v1/graphs/expand")).toBe(0);
-    expect(http.requests("GET", "/api/v1/graphs/global")[0]?.query.get("limit")).toBe("200000");
+    expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
+    expect(http.count("GET", "/api/v1/graphs/folders")).toBe(1);
     expect(document.querySelector(".explorer-pane")).toBeNull();
     expect(document.querySelector(".explorer-grid--with-pane")).toBeNull();
   });
 
   it("keeps note links separate from containment edges", async () => {
-    http.json("GET", "/api/v1/graphs/global", {
-      nodes: [
-        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
-        { id: "b", label: "b", kind: "note", path: "docs/specs/b.md" },
-      ],
-      edges: [{ source: "a", target: "b", kind: "mentions" }],
-      truncated: false,
-    });
+    http.json(
+      "GET",
+      "/api/v1/graphs/folders",
+      folderOverview({
+        nodes: [
+          { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+          { id: "b", label: "b", kind: "note", path: "docs/specs/b.md" },
+        ],
+        edges: [{ source: "a", target: "b", kind: "mentions" }],
+        truncated: false,
+      }),
+    );
     const explorer = renderExplorer();
     const graph = await explorer.graph();
 
@@ -271,7 +281,11 @@ describe("ExplorerWorkspace", () => {
           { path: "src/current.ts", name: "current.ts", kind: "code", hasChildren: false },
         ),
       )
-      .on("GET", "/api/v1/graphs/global", () => global.promise)
+      .on("GET", "/api/v1/graphs/folders", async () => {
+        const reply = await global.promise;
+
+        return jsonReply(folderOverview(await reply.json()));
+      })
       .on("GET", "/api/v1/files/view", (request) =>
         jsonReply(fileView(String(request.query.get("path")))),
       )
@@ -293,7 +307,7 @@ describe("ExplorerWorkspace", () => {
     await act(async () => {
       await global.promise;
     });
-    await waitFor(() => expect(http.count("GET", "/api/v1/graphs/global")).toBe(1));
+    await waitFor(() => expect(http.count("GET", "/api/v1/graphs/folders")).toBe(1));
     const latest = await explorer.graph();
     expect(latest.hasNode("src/current.ts")).toBe(true);
     expect(latest.hasNode("global-late")).toBe(false);
@@ -462,7 +476,11 @@ describe("ExplorerWorkspace", () => {
     const oldSearch = deferredReply<SearchResponse>();
     const currentSearch = deferredReply<SearchResponse>();
     http
-      .json("GET", "/api/v1/graphs/global", graphWith("current/current.md", "old/old.md"))
+      .json(
+        "GET",
+        "/api/v1/graphs/folders",
+        folderOverview(graphWith("current/current.md", "old/old.md")),
+      )
       .on("GET", "/api/v1/search", (request) =>
         request.query.get("q") === "old" ? oldSearch.promise : currentSearch.promise,
       );

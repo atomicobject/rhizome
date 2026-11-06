@@ -269,51 +269,25 @@ func (s *Server) rebuildingSummary(resp OntologySummaryResponse, defs *ontologyD
 }
 
 func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, defs *ontologyDefinitions, resp OntologySummaryResponse) (OntologySummaryResponse, error) {
-	if defs == nil || defs.schema == nil {
-		rows, err := store.CurrentNoteMetadataRows(ctx)
-		if err != nil {
-			return resp, err
-		}
-		resp.TotalNotes = len(rows)
-		resp.UntypedNotes = resp.TotalNotes
+	var schema *ontoschema.Schema
+	if defs != nil {
+		schema = defs.schema
+	}
+	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, schema).NewScope(noderead.ScopeOptions{})
+	totals, err := nodeScope.SummaryTotals(ctx)
+	if err != nil {
+		return resp, err
+	}
+	resp.TotalNotes = totals.Notes
+	resp.UntypedNotes = totals.Notes
+	if schema == nil {
 		return resp, nil
 	}
+	resp.TypedNotes = totals.Typed
+	resp.UntypedNotes -= totals.Typed
+	resp.IssueNotes = totals.Issues
+	resp.AmbiguousNotes = totals.Ambiguous
 
-	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, defs.schema).NewScope(noderead.ScopeOptions{})
-	all, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: ontology.TypeScopeAll})
-	if err != nil {
-		return resp, err
-	}
-	pathsList := make([]string, 0, len(all.Items))
-	for _, item := range all.Items {
-		pathsList = append(pathsList, item.NotePath)
-	}
-	resp.TotalNotes = all.Count
-
-	typeRows, err := nodeScope.TypesByPaths(ctx, pathsList)
-	if err != nil {
-		return resp, err
-	}
-	resp.TypedNotes = len(typeRows)
-	resp.UntypedNotes = resp.TotalNotes - resp.TypedNotes
-
-	flags, err := nodeScope.AssessmentFlags(ctx)
-	if err != nil {
-		return resp, err
-	}
-	ambiguousCount := 0
-	issueCount := 0
-	for _, entry := range flags {
-		if entry.TypeAmbiguous {
-			ambiguousCount++
-		}
-		if entry.HasIssues {
-			issueCount++
-		}
-	}
-
-	resp.AmbiguousNotes = ambiguousCount
-	resp.IssueNotes = issueCount
 	types, interfaces, err := schemaSummaryEntries(defs)
 	if err != nil {
 		return resp, err

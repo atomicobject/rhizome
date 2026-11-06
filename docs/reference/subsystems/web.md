@@ -22,6 +22,8 @@ code-anchors:
 
 ## Design constraints
 
+- Explorer's `/api/v1/graphs/folders` projects the same cached global graph into trimmed file nodes, first-seen undirected file pairs, and nested-type counts. It preserves maximum edge weight separately for note-code and other evidence. Folder placement and expansion stay client-owned; this projection does not introduce another identity resolver or graph cache.
+
 - `pkg/app/graphpresentation` owns graph DTOs and shared pure projection/collapse mechanisms. CLI and HTTP retain their own module, language, ordering and enrichment policy. Browser note-target parsing is shared in `web/src/lib/noteTarget.ts`; synchronous first-paint appearance is generated from the shared theme/settings definitions.
 
 - Browser navigation retains note tabs beside one replaceable collection, view, Problems, Changes, or search page; the tab strip appears only while a note is open. GraphQL uses the shared workbench sidebar and inset panel. Its browser toggle works; Desktop's remaining GraphQL toggle exclusion is tracked in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]]. These 2026-11-04 presentation changes preserve the HTTP, query, and mutation ownership below.

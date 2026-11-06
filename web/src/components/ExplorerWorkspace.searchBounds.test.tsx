@@ -1,3 +1,4 @@
+import { folderOverview } from "../test/folderOverview";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import Sigma from "sigma";
 import { installFakeWebGL } from "../test/fakeWebGL";
@@ -33,7 +34,7 @@ it("keeps a large search aggregated before building the renderer graph", async (
   http
     .json("GET", "/api/v1/ontology/summary", { types: [], interfaces: [] })
     .json("GET", "/api/v1/files/tree", { path: "", entries: [] })
-    .json("GET", "/api/v1/graphs/global", { nodes, edges: [], truncated: false })
+    .json("GET", "/api/v1/graphs/folders", folderOverview({ nodes, edges: [], truncated: false }))
     .json("GET", "/api/v1/search", {
       count: 2,
       matches: [
@@ -100,7 +101,7 @@ it("keeps hidden file matches represented until the user reveals them", async ()
       links: [],
       frontmatter: {},
     })
-    .json("GET", "/api/v1/graphs/global", graph)
+    .json("GET", "/api/v1/graphs/folders", folderOverview(graph))
     .json("GET", "/api/v1/graphs/local", graph)
     .json("GET", "/api/v1/search", {
       count: 2,

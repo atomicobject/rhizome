@@ -45,6 +45,7 @@ export function GraphView({
   onDisplayChange,
   displaySlot,
   legendNodes,
+  legendExtraCounts,
   folderCaption,
   sizeCaption,
   edgeCaption,
@@ -78,6 +79,7 @@ export function GraphView({
   displaySlot?: HTMLElement | null;
   /** The nodes the legend counts when the drawn nodes summarize them (Explorer's folder view). */
   legendNodes?: GraphNode[];
+  legendExtraCounts?: ReadonlyMap<string, number>;
   /** What the folder view's counts cover, under its key. */
   folderCaption?: string;
   /** What a folder's size means, keyed beside its colors. */
@@ -153,6 +155,9 @@ export function GraphView({
     };
 
     (legendNodes ?? nodes).forEach((node) => node.kind !== "module" && count(node));
+
+    for (const [name, extra] of legendExtraCounts ?? [])
+      counts.set(name, (counts.get(name) ?? 0) + extra);
     nodes.forEach((node) => node.kind === "module" && count(node));
 
     return (
@@ -183,7 +188,7 @@ export function GraphView({
           return rank(left) - rank(right) || left.label.localeCompare(right.label);
         })
     );
-  }, [highlightTypes, legendNodes, nodes, typeColors, typeLabels, scope.mode]);
+  }, [highlightTypes, legendNodes, legendExtraCounts, nodes, typeColors, typeLabels, scope.mode]);
 
   const highlightedNodeCount = useMemo(() => {
     if (!highlightTypes?.size) return nodes.length;
@@ -195,7 +200,9 @@ export function GraphView({
     }).length;
   }, [highlightTypes, nodes]);
 
-  const shownCount = (legendNodes ?? nodes).length;
+  const shownCount =
+    (legendNodes ?? nodes).length +
+    [...(legendExtraCounts?.values() ?? [])].reduce((sum, count) => sum + count, 0);
 
   const nodeCaption = highlightTypes?.size
     ? `${highlightedNodeCount.toLocaleString("en-US")} of ${shownCount.toLocaleString("en-US")} nodes highlighted`

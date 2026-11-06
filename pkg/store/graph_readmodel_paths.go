@@ -30,11 +30,10 @@ func (s *Store) GraphIndexedPaths(ctx context.Context, includeCode bool) ([]read
 	for _, row := range out {
 		seenPaths[row.Kind+"\x00"+row.Path] = struct{}{}
 	}
-	edges, err := s.allGraphDocEdgesReadmodel(ctx, 0, true, true)
-	if err != nil {
+	pathKinds := graphReadmodelPathKinds(notePaths, codePaths, nil)
+	if err := s.addGraphEndpointPaths(ctx, pathKinds); err != nil {
 		return nil, err
 	}
-	pathKinds := graphReadmodelPathKinds(notePaths, codePaths, edges)
 	for path, kind := range pathKinds {
 		if !includeCode && kind != "note" {
 			continue

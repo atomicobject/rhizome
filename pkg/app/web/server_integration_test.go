@@ -76,10 +76,13 @@ func TestServerFixtureEndpoints(t *testing.T) {
 	require.NotEmpty(t, code.RelatedNotes)
 
 	var graph graphpresentation.GraphResponse
-	getJSON(t, httpSrv.URL+"/api/v1/graphs/global", &graph)
+	getJSON(t, httpSrv.URL+"/api/v1/graphs/global?limit=200000", &graph)
 	require.False(t, graph.NeedsIndex)
 	require.NotEmpty(t, graph.Nodes)
 	require.NotEmpty(t, graph.Edges)
+	var folders graphpresentation.FolderOverview
+	getJSON(t, httpSrv.URL+"/api/v1/graphs/folders", &folders)
+	require.Equal(t, graphpresentation.ProjectFolderOverview(graph), folders)
 }
 
 func TestSearchHTTPMatchesInteractiveApplicationAdapter(t *testing.T) {

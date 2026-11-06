@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { GraphResponse } from "../api/types";
+import type { FolderOverview } from "../api/types";
 import { buildFolderTree, initialOpenFolders } from "./folderTree";
 import { visibleFolderGraph } from "./folderGraph";
 import { layoutFolderGraph, type FolderAnchors } from "./folderLayout";
 
 export function useFolderExplorer(
-  graph: GraphResponse,
+  graph: FolderOverview,
   colors: Map<string, string>,
   focusedPath?: string,
 ) {

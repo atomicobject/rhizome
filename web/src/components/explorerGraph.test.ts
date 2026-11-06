@@ -1,3 +1,4 @@
+import { folderOverview } from "../test/folderOverview";
 import Graph from "graphology";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -101,7 +102,8 @@ describe("Explorer focus", () => {
       truncated: false,
     };
 
-    const { result } = renderHook(() => useFolderExplorer(graph, new Map()));
+    const overview = folderOverview(graph);
+    const { result } = renderHook(() => useFolderExplorer(overview, new Map()));
     expect(result.current.open.has("docs")).toBe(true);
     const before = result.current.drawn.nodes.find((n) => n.id === "folder:docs/topic");
     expect(before).toBeDefined();

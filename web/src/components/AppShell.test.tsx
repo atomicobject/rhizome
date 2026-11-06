@@ -26,6 +26,12 @@ describe("AppShell", () => {
     http
       .json("GET", "/api/v1/files/tree", { path: "", entries: [] })
       .json("GET", "/api/v1/graphs/global", emptyGraph)
+      .json("GET", "/api/v1/graphs/folders", {
+        files: [],
+        links: [],
+        nestedTypes: [],
+        truncated: false,
+      })
       .json("GET", "/api/v1/ontology/atlas", { schemaPresent: false, types: [] })
       .json("GET", "/api/v1/ontology/summary", { schemaPresent: false, totalNotes: 0 })
       .json("GET", "/api/v1/ontology/types/__all__", { count: 0, notes: [] })

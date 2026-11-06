@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { folderOverview } from "../test/folderOverview";
 import { act, renderHook } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { useFolderExplorer } from "./useFolderExplorer";
@@ -10,7 +12,11 @@ const graph = (paths: string[]) => ({
 
 it("retains root anchors across weight changes, additions and removals", () => {
   const { result, rerender } = renderHook(
-    ({ paths }) => useFolderExplorer(graph(paths), new Map()),
+    ({ paths }) => {
+      const overview = useMemo(() => folderOverview(graph(paths)), [paths]);
+
+      return useFolderExplorer(overview, new Map());
+    },
     {
       initialProps: { paths: ["a/one.ts", "b/one.ts", "c/one.ts"] },
     },

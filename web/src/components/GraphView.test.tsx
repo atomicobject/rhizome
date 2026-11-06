@@ -19,6 +19,21 @@ const baseProps = {
 };
 
 describe("GraphView", () => {
+  it("retains counts for embedded types omitted from a folder overview", () => {
+    render(
+      <GraphView
+        {...baseProps}
+        needsIndex
+        showTypeLegend
+        nodes={[{ id: "folder:", kind: "module", label: "Vault", fill: "red", fillKey: "Spec" }]}
+        legendNodes={[{ id: "a", kind: "note", label: "A", resolvedType: "Spec" }]}
+        legendExtraCounts={new Map([["Story", 17]])}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "All types" }));
+    const item = screen.getByText("Story").closest("li")!;
+    expect(within(item).getByText("17")).toBeVisible();
+  });
   it("keys only drawn kinds and keeps the size toggle in Display", () => {
     const onDisplayChange = vi.fn();
 

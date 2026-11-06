@@ -1,3 +1,4 @@
+import { folderOverview } from "../test/folderOverview";
 import { act, renderHook } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { useFolderExplorer } from "./useFolderExplorer";
@@ -14,7 +15,8 @@ it("reveals the last of 10,000 siblings with bounded sorts and exact overflow", 
   };
 
   const colors = new Map<string, string>();
-  const { result } = renderHook(() => useFolderExplorer(graph, colors));
+  const overview = folderOverview(graph);
+  const { result } = renderHook(() => useFolderExplorer(overview, colors));
   const before = result.current.drawn.nodes;
   const sort = Array.prototype.sort;
   let largeSorts = 0;
