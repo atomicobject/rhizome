@@ -308,3 +308,65 @@ it("computes only root affinity and preserves the linked root ordering", () => {
 
   expect(order).toEqual(["folder:a", "folder:c", "folder:b"]);
 });
+
+it("preserves server-collapsed modules, counts and links as terminal groups", () => {
+  const tree = buildFolderTree({
+    nodes: [
+      {
+        id: "module:pkg/app",
+        path: "pkg/app",
+        label: "pkg/app",
+        kind: "module",
+        collapsed: true,
+        childCount: 12500,
+      },
+      {
+        id: "module:docs/specs",
+        path: "docs/specs",
+        label: "docs/specs",
+        kind: "module",
+        collapsed: true,
+        childCount: 800,
+      },
+      note("README.md"),
+    ],
+    edges: [{ source: "module:pkg/app", target: "module:docs/specs", kind: "mentions", weight: 7 }],
+    truncated: true,
+  });
+
+  expect(tree.root.items).toBe(13300);
+  expect(tree.links).toEqual([
+    { source: "module:docs/specs", target: "module:pkg/app", noteCode: 7, other: 0 },
+  ]);
+  const graph = visibleFolderGraph(tree, state(["pkg", "docs", "pkg/app"]), color);
+
+  expect(graph.nodes.find((node) => node.id === "folder:pkg/app")).toMatchObject({
+    labelDetail: "12,500 items (collapsed)",
+    childCount: 12500,
+    collapsed: true,
+  });
+  expect(graph.children.get("pkg")?.[0].folder).toBeUndefined();
+  expect(graph.children.has("pkg/app")).toBe(false);
+  expect(graph.edges.find((edge) => edge.kind === "folder-crosslink")).toMatchObject({ weight: 7 });
+  expect(graph.truncated).toBe(true);
+
+  const overflowTree = buildFolderTree({
+    nodes: Array.from({ length: 16 }, (_, i) => ({
+      id: `module:src/m${i}`,
+      path: `src/m${i}`,
+      label: `m${i}`,
+      kind: "module",
+      collapsed: true,
+      childCount: 250,
+    })),
+    edges: [],
+  });
+
+  const overflow = visibleFolderGraph(overflowTree, state(["src"]), color);
+
+  expect(overflow.nodes.find((node) => node.aggregate)).toMatchObject({
+    label: "+3 folders",
+    labelDetail: "total 750 items (collapsed)",
+    childCount: 750,
+  });
+});

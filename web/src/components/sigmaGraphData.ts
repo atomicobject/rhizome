@@ -152,6 +152,7 @@ export function buildSigmaGraph({
       community: n.community,
       resolvedType: n.resolvedType,
       childCount: n.childCount,
+      collapsed: n.collapsed,
       authority: n.authority,
       hub: n.hub,
       pageRank: n.pageRank,

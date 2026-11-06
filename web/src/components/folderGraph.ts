@@ -57,8 +57,10 @@ function fill(totals: FolderTotals, color: (type: string) => string | undefined)
 }
 
 function folderChild(folder: Folder, color: (type: string) => string | undefined): FolderChild {
+  const collapsed = folder.direct.some((node) => node.kind === "module");
+
   return {
-    folder,
+    folder: collapsed ? undefined : folder,
     totals: folder,
     members: folder.members,
     node: {
@@ -67,7 +69,8 @@ function folderChild(folder: Folder, color: (type: string) => string | undefined
       path: folder.path,
       label: folder.path.split("/").pop() || "Vault",
       labelDetail: totalsLabel(folder),
-      childCount: folder.notes + folder.files,
+      childCount: folder.notes + folder.files + (folder.items ?? 0),
+      collapsed,
       ...fill(folder, color),
     },
   };
@@ -132,7 +135,7 @@ export function visibleFolderChildren(
 
   if (hidden.length) {
     const totals = sumTotals(hidden.map((c) => c.totals));
-    const hiddenFolders = hidden.filter((c) => c.folder).length;
+    const hiddenFolders = hidden.filter((c) => c.node.kind === "module").length;
 
     const hiddenNotes = hidden.filter((c) => !c.folder && c.node.kind === "note").length;
     const hiddenFiles = hidden.length - hiddenFolders - hiddenNotes;
@@ -154,7 +157,7 @@ export function visibleFolderChildren(
         label: `+${label}`,
         labelDetail: hiddenFolders ? `total ${totalsLabel(totals)}` : undefined,
         aggregate: true,
-        childCount: totals.notes + totals.files,
+        childCount: totals.notes + totals.files + (totals.items ?? 0),
         ...fill(totals, color),
       },
       totals,

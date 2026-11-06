@@ -12,6 +12,7 @@ import type { SigmaNodeAttrs } from "../lib/graphStyle";
 import type { GraphViewNode } from "./graphViewShared";
 
 export type ExplorerNodeAttrs = SigmaNodeAttrs & {
+  collapsed?: boolean;
   selected?: boolean;
   branch?: boolean;
   muted?: boolean;

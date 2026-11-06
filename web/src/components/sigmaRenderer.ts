@@ -88,6 +88,7 @@ function graphNodeFromAttrs(id: string, attrs: SigmaNodeAttrs): GraphNode {
     community: attrs.community,
     resolvedType: attrs.resolvedType,
     childCount: attrs.childCount,
+    collapsed: attrs.collapsed,
     hub: attrs.hub,
     authority: attrs.authority,
     pageRank: attrs.pageRank,
@@ -362,9 +363,9 @@ export function mountSigmaRenderer({
     }
 
     const attrs = sigma.getGraph().getNodeAttributes(nextNode);
-    container.style.cursor = "pointer";
+    container.style.cursor = attrs.collapsed ? "default" : "pointer";
 
-    if (mouseCanvas) mouseCanvas.style.cursor = "pointer";
+    if (mouseCanvas) mouseCanvas.style.cursor = attrs.collapsed ? "default" : "pointer";
     stateRef.current.hoverNodeID = nextNode;
     stateRef.current.hoverNeighbors = new Set(sigma.getGraph().neighbors(nextNode));
     stateRef.current.hoverCommunity =

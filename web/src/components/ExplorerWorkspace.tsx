@@ -247,7 +247,7 @@ export function ExplorerWorkspace({
 
   const onNodeClick = useCallback(
     (node: GraphNode) => {
-      if (drawn.reveal(node)) return;
+      if (node.collapsed || drawn.reveal(node)) return;
 
       if (node.kind === "module") {
         const path = node.path ?? "";

@@ -2,6 +2,7 @@ import type { GraphNode, GraphEdge } from "../api/types";
 import { publicTypeName } from "../lib/typeNames";
 
 export type FolderTotals = {
+  items?: number;
   notes: number;
   files: number;
   types: Map<string, number>;
@@ -29,7 +30,8 @@ export type FolderTree = {
 
 export const filePath = (node: GraphNode) => (node.notePath || node.path || "").replace(/^\/+/, "");
 
-export const folderWeight = (folder: FolderTotals) => folder.notes * 3 + folder.files;
+export const folderWeight = (folder: FolderTotals) =>
+  folder.notes * 3 + folder.files + (folder.items ?? 0);
 
 export function totalsLabel(totals: FolderTotals) {
   const parts: string[] = [];
@@ -40,6 +42,8 @@ export function totalsLabel(totals: FolderTotals) {
   if (totals.files)
     parts.push(`${totals.files.toLocaleString("en-US")} ${totals.files === 1 ? "file" : "files"}`);
 
+  if (totals.items) parts.push(`${totals.items.toLocaleString("en-US")} items (collapsed)`);
+
   return parts.join(" · ") || "0 files";
 }
 
@@ -47,6 +51,7 @@ export function sumTotals(items: readonly FolderTotals[]): FolderTotals {
   const result: FolderTotals = { notes: 0, files: 0, types: new Map(), untyped: 0 };
 
   for (const item of items) {
+    result.items = (result.items ?? 0) + (item.items ?? 0);
     result.notes += item.notes;
     result.files += item.files;
     result.untyped += item.untyped;
@@ -62,6 +67,7 @@ export function nodeTotals(node: GraphNode): FolderTotals {
   const type = publicTypeName(node.resolvedType);
 
   return {
+    items: node.kind === "module" ? (node.childCount ?? 0) : 0,
     notes: node.kind === "note" ? 1 : 0,
     files: node.kind === "code" ? 1 : 0,
     types: node.kind === "note" && type ? new Map([[type, 1]]) : new Map(),
@@ -93,11 +99,13 @@ export function buildFolderTree(graph: {
   const notesByPath = new Map<string, string>();
 
   for (const node of graph.nodes) {
-    if (node.kind !== "note" && node.kind !== "code") continue;
+    if (node.kind !== "note" && node.kind !== "code" && node.kind !== "module") continue;
     files.set(node.id, node);
 
     if (node.kind === "note") notesByPath.set(filePath(node), node.id);
-    ensure(filePath(node).split("/").slice(0, -1).join("/")).direct.push(node);
+    ensure(
+      node.kind === "module" ? filePath(node) : filePath(node).split("/").slice(0, -1).join("/"),
+    ).direct.push(node);
   }
 
   const gather = (folder: Folder) => {
