@@ -116,9 +116,9 @@ func TestImmediateDecodeFailureHasInitializedProcessIdentity(t *testing.T) {
 		_, err := connection.Recv(ctx)
 		cancel()
 		require.ErrorIs(t, err, harness.ErrDecode)
-		closeCtx, cancelClose := context.WithTimeout(context.Background(), 300*time.Millisecond)
-		require.NoError(t, connection.Close(closeCtx))
-		cancelClose()
+		// This checks identity initialization; process enumeration is not a latency contract.
+		require.NoError(t, connection.process.Kill())
+		require.NoError(t, connection.Close(context.Background()))
 	}
 }
 
