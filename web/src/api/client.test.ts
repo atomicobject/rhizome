@@ -658,7 +658,7 @@ describe("api client", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/v2/validate", undefined);
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
-      "/api/v1/files/tree?path=docs&limit=25",
+      "/api/v1/files/tree?limit=25&path=docs",
       undefined,
     );
     expect(fetchMock).toHaveBeenNthCalledWith(

@@ -225,12 +225,14 @@ type SearchMatch struct {
 
 // GraphResponse provides nodes/edges for visualization.
 type GraphResponse struct {
-	Nodes       []GraphNode                `json:"nodes"`
-	Edges       []GraphEdge                `json:"edges"`
-	Truncated   bool                       `json:"truncated,omitempty"`
-	CenterID    string                     `json:"centerID,omitempty"`
-	NeedsIndex  bool                       `json:"needsIndex,omitempty"`
-	Diagnostics *noderead.GraphDiagnostics `json:"diagnostics,omitempty"`
+	OmittedNodes int                        `json:"omittedNodes,omitempty"`
+	OmittedEdges int                        `json:"omittedEdges,omitempty"`
+	Nodes        []GraphNode                `json:"nodes"`
+	Edges        []GraphEdge                `json:"edges"`
+	Truncated    bool                       `json:"truncated,omitempty"`
+	CenterID     string                     `json:"centerID,omitempty"`
+	NeedsIndex   bool                       `json:"needsIndex,omitempty"`
+	Diagnostics  *noderead.GraphDiagnostics `json:"diagnostics,omitempty"`
 }
 
 // GraphNode represents a graph node (note, code, or module).
@@ -273,6 +275,7 @@ type GraphEdge struct {
 
 // TreeResponse provides children for a directory.
 type TreeResponse struct {
+	Omitted   int         `json:"omitted,omitempty"`
 	Path      string      `json:"path"`
 	Entries   []TreeEntry `json:"entries"`
 	Truncated bool        `json:"truncated,omitempty"`

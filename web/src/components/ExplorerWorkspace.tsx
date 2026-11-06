@@ -1,5 +1,5 @@
 import { EMPTY_GRAPH, type ExplorerSelection } from "./ExplorerWorkspaceState";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { FolderOpen } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -7,7 +7,6 @@ import {
   getGlobalGraph,
   getLocalGraph,
   getSuggestions,
-  getTree,
   searchPaths as searchPathMatches,
 } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
@@ -22,6 +21,7 @@ import { ExplorerHeader } from "./ExplorerHeader";
 import { buildTypeColors, graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { TreeList } from "./TreeList";
+import { useExplorerListings } from "./useExplorerListings";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
 import { isNoteTarget, openNoteWorkspace, explorerFileFromLocation } from "./explorerNavigation";
 
@@ -58,30 +58,7 @@ export function ExplorerWorkspace({
   const [searchOnlyMatches, setSearchOnlyMatches] = useState(false);
   const [graphZoomKey, setGraphZoomKey] = useState(0);
 
-  const treeQuery = useQuery({
-    queryKey: queryKeys.files.tree(undefined, 200),
-    queryFn: ({ signal }) => getTree(undefined, 200, { signal }),
-  });
-
-  const tree = treeQuery.data?.entries ?? [];
-
-  const expandedPathList = useMemo(() => Array.from(expandedPaths).sort(), [expandedPaths]);
-
-  const expandedQueries = useQueries({
-    queries: expandedPathList.map((path) => ({
-      queryKey: queryKeys.files.tree(path, 200),
-      queryFn: ({ signal }: { signal: AbortSignal }) => getTree(path, 200, { signal }),
-    })),
-  });
-
-  const expanded = useMemo(() => {
-    const result: Record<string, TreeEntry[]> = {};
-    expandedPathList.forEach((path, index) => {
-      result[path] = expandedQueries[index]?.data?.entries ?? [];
-    });
-
-    return result;
-  }, [expandedPathList, expandedQueries]);
+  const { treeQuery, tree, expanded, more } = useExplorerListings(expandedPaths);
 
   const selectedFilePath = selection.kind === "file" ? selection.path : "";
 
@@ -357,6 +334,8 @@ export function ExplorerWorkspace({
             </button>
             <TreeList
               entries={tree}
+              more={more}
+              path=""
               expanded={expanded}
               selectedPath={selection.kind === "root" ? null : selection.path}
               onSelect={(entry) => onSelectFile(entry.path, entry.kind)}
