@@ -84,21 +84,22 @@ vet:
 	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go vet -mod=vendor $(CGO_TAGS) ./...
 	@printf '<== vet\n'
 
+# Keep test fixtures outside the repository so ancestor discovery stays isolated.
 test:
 	@printf '\n==> test\n'
 	@mkdir -p .gocache .gomodcache .gotmp
-	$(CGO_LDFLAGS_ENV) RZM_CODE_MODE_RUNTIME_FIXTURE="$$( [ -x '$(DEV_BINARY)' ] && echo '$(PWD)/$(DEV_BINARY)' )" GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5" -race -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./...
+	$(CGO_LDFLAGS_ENV) RZM_CODE_MODE_RUNTIME_FIXTURE="$$( [ -x '$(DEV_BINARY)' ] && echo '$(PWD)/$(DEV_BINARY)' )" GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} go test -mod=vendor -tags "fts5" -race -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./...
 	@printf '<== test\n'
 
 test-fast:
 	@printf '\n==> test-fast\n'
 	@mkdir -p .gocache .gomodcache .gotmp
-	$(CGO_LDFLAGS_ENV) RZM_CODE_MODE_RUNTIME_FIXTURE="$$( [ -x '$(DEV_BINARY)' ] && echo '$(PWD)/$(DEV_BINARY)' )" GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5" -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./...
+	$(CGO_LDFLAGS_ENV) RZM_CODE_MODE_RUNTIME_FIXTURE="$$( [ -x '$(DEV_BINARY)' ] && echo '$(PWD)/$(DEV_BINARY)' )" GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} go test -mod=vendor -tags "fts5" -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./...
 	@printf '<== test-fast\n'
 
 test-content:
 	@mkdir -p .gocache .gomodcache .gotmp
-	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5 repo_content" -count=1 ./tests
+	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} go test -mod=vendor -tags "fts5 repo_content" -count=1 ./tests
 
 credential-check:
 	python3 scripts/secrets/check.py
@@ -116,13 +117,13 @@ integration:
 integration-packages:
 	@printf '\n==> integration-packages\n'
 	@mkdir -p .gocache .gomodcache .gotmp
-	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5 integration" -race -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) $(INTEGRATION_PACKAGES)
+	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} go test -mod=vendor -tags "fts5 integration" -race -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) $(INTEGRATION_PACKAGES)
 	@printf '<== integration-packages\n'
 
 integration-mixed:
 	@printf '\n==> integration-mixed\n'
 	@mkdir -p .gocache .gomodcache .gotmp
-	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5 integration" -race -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) -run "$(INTEGRATION_RUN)" $(MIXED_INTEGRATION_PACKAGES)
+	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} go test -mod=vendor -tags "fts5 integration" -race -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) -run "$(INTEGRATION_RUN)" $(MIXED_INTEGRATION_PACKAGES)
 	@printf '<== integration-mixed\n'
 
 # Three tiers. check-fast is the edit loop, check is the pre-commit gate, and
@@ -182,7 +183,7 @@ test_all:
 
 test_coverage:
 	@mkdir -p .gocache .gomodcache .gotmp
-	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5" -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./... -coverprofile=coverage.out
+	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} go test -mod=vendor -tags "fts5" -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./... -coverprofile=coverage.out
 
 greptile-check:
 	@printf '\n==> greptile-check\n'
@@ -403,7 +404,7 @@ desktop-install-dev:
 # team-api-dev runs the whole local stack with fake upstreams on port 8788 and
 # repository-local state; development builds of rzm start their own live
 # gateway on 8787 (pkg/app/teamdev), so the two never share an origin.
-TEAM_API_ENV=GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOFLAGS=-mod=mod GOTOOLCHAIN=local
+TEAM_API_ENV=GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOFLAGS=-mod=mod GOTOOLCHAIN=local
 TEAM_API_BIN=bin/$(GOOS)/team-api$(EXE_SUFFIX)
 TEAM_API_DEV_DIR ?= $(PWD)/.team-api-dev
 TEAM_API_DEV_LISTEN ?= 127.0.0.1:8788

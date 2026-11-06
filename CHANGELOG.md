@@ -27,6 +27,8 @@
 
 - Client release commands now deploy and verify the exact release gateway source before uploading artifacts, with pinned retries and private/public source agreement. Ordinary main merges no longer deploy the gateway.
 
+- Development, CI, and release builds now use Go 1.27.3.
+
 ### Fixed
 
 - Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.
@@ -43,6 +45,8 @@
 - Team API bootstrap takes the repository's exact GitHub OIDC subject so deployment credentials work with immutable organization and repository IDs.
 - Team API deployment grants the scoped role, repository, and ECS revision metadata reads CloudFormation needs to deploy and verify the gateway.
 - Team API deployment verifies Express service revisions using the revision field AWS returns, allowing a healthy deployment to pass its final check.
+
+- Stopping agent sessions on macOS avoids shutdown timeouts caused by slow process discovery.
 
 ### Added
 
