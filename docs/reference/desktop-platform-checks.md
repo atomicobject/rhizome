@@ -8,6 +8,19 @@ last-verified: 2026-11-06
 
 CI owns native builds, process tests, package inventory, hashes, and signature verification. Drew owns the installed GUI checks below. A green CI run alone does not complete native acceptance. Record each result in the [desktop effort](../efforts/2026-11-05-17-50-windows-linux-desktop.md), with the candidate commit and artifact hash.
 
+## Verified candidate handoff
+
+Application source `b6f1f497348cca4d889d56a4cf0cd16219dbdc3d` passes all 26 CI checks and Greptile at 5/5 with zero findings. [Native run 42180276876](https://github.com/atomicobject/rhizome/actions/runs/42180276876) packages merge source `68ad46dffded413797d9fbdd4b8dd8d457c8057f`, whose second parent is that exact application revision. Windows CI proves real Ctrl+N transitions from one to two windows on launch and from two to three after a visible-webview click; Linux proves X11/Xvfb startup and New Window. Installed GUI and upgrade behavior remain to be checked below.
+
+Use these paired `0.0.1`/`0.0.2` fixtures for the installed checks and local test-feed upgrade:
+
+| Target | Fixture download | Archive SHA256 |
+| --- | --- | --- |
+| Windows 11 x64 | [Windows upgrade fixture](https://github.com/atomicobject/rhizome/actions/runs/42180276876/artifacts/13485527098) | `0e2ce41676efad0728a700cd581492626cd7214ad3e6a9d9157885c74f01a613` |
+| Ubuntu 24.04 GNOME x64 | [Linux upgrade fixture](https://github.com/atomicobject/rhizome/actions/runs/42180276876/artifacts/13485985318) | `27e9d4c4cfff88788b488e004416ad0949167ec7f7d7e3a00886b47ec459840e` |
+
+These fixtures use the production application identifier and a disposable updater key. Use a separate OS test account or VM, verify the archive hash, and follow the test-feed instructions below. Windows packages lack production Authenticode signing. Later documentation changes do not change these pinned packages.
+
 ## Install a candidate
 
 Use Windows 11 x64 or Ubuntu 24.04 LTS x64 GNOME. On Ubuntu, run the checks once in Wayland and once in an X11 session on the same host. Record the OS version, session type, GPU, app version, package path, and SHA256. A separate OS test account keeps installation registration and credentials separate; `RHIZOME_DESKTOP_DATA_DIR` isolates only library and window state.
