@@ -12,95 +12,25 @@ if (Get-Process -Name $name -ErrorAction SilentlyContinue) {
     throw 'Another desktop app is running; refusing to control it.'
 }
 
-Add-Type @'
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text;
-public static class DesktopPortabilityWindows {
-    private delegate bool EnumWindow(IntPtr window, IntPtr parameter);
-    [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
-    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindow callback, IntPtr parameter);
-    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
-    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
-    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] private static extern int GetWindowLong(IntPtr window, int index);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int count);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
-    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out Rect bounds);
-    [DllImport("user32.dll")] private static extern IntPtr GetMenu(IntPtr window);
-    [DllImport("user32.dll")] private static extern IntPtr GetSubMenu(IntPtr menu, int index);
-    [DllImport("user32.dll")] private static extern int GetMenuItemCount(IntPtr menu);
-    [DllImport("user32.dll")] private static extern uint GetMenuItemID(IntPtr menu, int index);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetMenuString(IntPtr menu, uint index, StringBuilder text, int count, uint flags);
-    [DllImport("user32.dll", EntryPoint = "PostMessageW")] public static extern bool PostMessage(IntPtr window, uint message, UIntPtr wParam, IntPtr lParam);
-    [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW", SetLastError = true)] private static extern IntPtr SendMessageTimeout(
-        IntPtr window, uint message, UIntPtr wParam, IntPtr lParam,
-        uint flags, uint milliseconds, out UIntPtr result);
-    public static IntPtr[] Visible(uint processId) {
-        var windows = new List<IntPtr>();
-        EnumWindows((window, parameter) => {
-            uint owner;
-            GetWindowThreadProcessId(window, out owner);
-            if (owner == processId && IsWindowVisible(window)) windows.Add(window);
-            return true;
-        }, IntPtr.Zero);
-        return windows.ToArray();
-    }
-    public static bool ToolWindow(IntPtr window) {
-        // The single-instance plugin uses a visible layered tool window for IPC.
-        return (GetWindowLong(window, -20) & 0x80) != 0;
-    }
-    public static object Describe(IntPtr window) {
-        if (window == IntPtr.Zero) return null;
-        var name = new StringBuilder(256);
-        var title = new StringBuilder(512);
-        GetClassName(window, name, name.Capacity);
-        GetWindowText(window, title, title.Capacity);
-        Rect bounds;
-        GetWindowRect(window, out bounds);
-        return new {
-            handle = "0x" + window.ToInt64().ToString("X"),
-            className = name.ToString(),
-            title = title.ToString(),
-            extendedStyle = "0x" + unchecked((uint)GetWindowLong(window, -20)).ToString("X8"),
-            width = bounds.Right - bounds.Left,
-            height = bounds.Bottom - bounds.Top,
-            applicationWindow = !ToolWindow(window)
-        };
-    }
-    public static bool Responsive(IntPtr window) {
-        UIntPtr result;
-        return SendMessageTimeout(window, 0, UIntPtr.Zero, IntPtr.Zero, 2, 2000, out result) != IntPtr.Zero;
-    }
-    public static object NewWindowMenu(IntPtr window) {
-        var menu = GetMenu(window);
-        for (var section = 0; section < GetMenuItemCount(menu); section++) {
-            var submenu = GetSubMenu(menu, section);
-            for (var index = 0; index < GetMenuItemCount(submenu); index++) {
-                var text = new StringBuilder(512);
-                GetMenuString(submenu, (uint)index, text, text.Capacity, 0x400);
-                var caption = text.ToString();
-                if (caption.Split('\t')[0].Replace("&", "") == "New Window") {
-                    return new { id = GetMenuItemID(submenu, index), caption = caption };
-                }
-            }
-        }
-        return null;
-    }
-}
-'@
+Add-Type -Path (Join-Path $PSScriptRoot 'portability-windows.cs')
+[DesktopPortabilityWindows]::ValidateInterop()
 
-function Save-WindowEvidence([Diagnostics.Process]$Process, [string]$Stage) {
+function Save-WindowEvidence([Diagnostics.Process]$Process, [string]$Stage, [IntPtr]$ApplicationWindow = [IntPtr]::Zero) {
+    if ($ApplicationWindow -eq [IntPtr]::Zero) {
+        $applications = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+        if ($applications.Count -gt 0) { $ApplicationWindow = $applications[0] }
+    }
     @{
         stage = $Stage
+        utc = [DateTime]::UtcNow.ToString('O')
         pid = $Process.Id
         foregroundWindow = [DesktopPortabilityWindows]::Describe([DesktopPortabilityWindows]::GetForegroundWindow())
+        focus = [DesktopPortabilityWindows]::FocusEvidence($ApplicationWindow)
+        newWindowMenu = [DesktopPortabilityWindows]::NewWindowMenu($ApplicationWindow)
         visibleWindows = @([DesktopPortabilityWindows]::Visible($Process.Id) | ForEach-Object {
             [DesktopPortabilityWindows]::Describe($_)
         })
-    } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output "$Stage-windows.json")
+    } | ConvertTo-Json -Depth 7 | Set-Content -LiteralPath (Join-Path $output "$Stage-windows.json")
 }
 
 function Save-FailureScreenshot {
@@ -243,35 +173,102 @@ $null = $form.ShowDialog()
     return $evidence
 }
 
-function Save-ShortcutDiagnostic([Diagnostics.Process]$Process, [IntPtr]$Window, $Shell) {
-    $diagnostic = @{ applicationResponsive = [DesktopPortabilityWindows]::Responsive($Window) }
-    try { $diagnostic.inputControl = Test-IndependentInput $Shell }
-    catch { $diagnostic.inputControl = @{ error = $_.Exception.Message } }
-    $menu = [DesktopPortabilityWindows]::NewWindowMenu($Window)
-    $diagnostic.menu = $menu
-    if ($null -ne $menu) {
-        Save-WindowEvidence $Process 'before-menu-diagnostic'
-        $beforeMenu = @([DesktopPortabilityWindows]::Visible($Process.Id) | Where-Object {
-            -not [DesktopPortabilityWindows]::ToolWindow($_)
-        })
-        $diagnostic.applicationWindowsBeforeMenu = $beforeMenu.Count
-        $diagnostic.additionalWindowBeforeMenu = $beforeMenu.Count -gt 1
-        $diagnostic.menuCommandQueued = [DesktopPortabilityWindows]::PostMessage($Window, 0x111, [UIntPtr]$menu.id, [IntPtr]::Zero)
-        $deadline = [DateTime]::UtcNow.AddSeconds(5)
-        do {
-            $windows = @([DesktopPortabilityWindows]::Visible($Process.Id) | Where-Object {
-                -not [DesktopPortabilityWindows]::ToolWindow($_)
-            })
-            if ($windows.Count -ge $beforeMenu.Count + 1) { break }
-            Start-Sleep -Milliseconds 100
-        } while ([DateTime]::UtcNow -lt $deadline)
-        $diagnostic.menuApplicationWindows = $windows.Count
-        $diagnostic.menuWindowDelta = $windows.Count - $beforeMenu.Count
-        $diagnostic.menuWindowIncreaseObserved = $windows.Count -ge $beforeMenu.Count + 1
-        $diagnostic.applicationResponsiveAfterMenu = [DesktopPortabilityWindows]::Responsive($Window)
+function Invoke-DiagnosticShortcut([Diagnostics.Process]$Process, [IntPtr]$Window, $Shell, [string]$Name, [bool]$RequireRootFocus = $false) {
+    Save-WindowEvidence $Process "$Name-before" $Window
+    $before = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+    $probe = @{ name = $Name; beforeWindows = $before.Count; beforeFocus = [DesktopPortabilityWindows]::FocusEvidence($Window); keyAttempted = $false }
+    if ($before.Count -ne 1) {
+        $probe.stopRemaining = $true
+        $probe.skipped = 'The original window count changed before this key attempt.'
+        return $probe
     }
-    Save-WindowEvidence $Process 'menu-diagnostic'
-    $diagnostic | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $output 'shortcut-diagnostic.json')
+    if ([DesktopPortabilityWindows]::GetForegroundWindow() -ne $Window) {
+        $probe.skipped = 'The original application window is not foreground.'
+        return $probe
+    }
+    if ($RequireRootFocus) {
+        $probe.beforeFocus = [DesktopPortabilityWindows]::FocusEvidence($Window)
+        $root = [DesktopPortabilityWindows]::Describe($Window)
+        if ($probe.beforeFocus.applicationThread.focus.handle -ne $root.handle) {
+            $probe.skipped = 'Root focus did not remain after detaching input queues.'
+            return $probe
+        }
+    }
+    $probe.keyAttempted = $true
+    $Shell.SendKeys('^n')
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $windows = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+        if ($windows.Count -ne $before.Count) { break }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    $probe.afterWindows = $windows.Count
+    $probe.windowDelta = $windows.Count - $before.Count
+    $probe.windowIncreaseObserved = $windows.Count -gt $before.Count
+    $probe.stopRemaining = $windows.Count -ne 1
+    $probe.afterFocus = [DesktopPortabilityWindows]::FocusEvidence($Window)
+    Save-WindowEvidence $Process "$Name-after" $Window
+    return $probe
+}
+
+function Save-ShortcutDiagnostic([Diagnostics.Process]$Process, [IntPtr]$Window, $Shell) {
+    $diagnostic = @{ applicationResponsive = [DesktopPortabilityWindows]::Responsive($Window); keyboardProbes = @() }
+    try {
+        $probe = Invoke-DiagnosticShortcut $Process $Window $Shell 'unchanged-focus'
+        $diagnostic.keyboardProbes += $probe
+        if ($probe.stopRemaining) { return }
+
+        Save-WindowEvidence $Process 'before-blank-shell-click' $Window
+        $diagnostic.blankShellClick = [DesktopPortabilityWindows]::ClickBlankShell($Window)
+        Save-WindowEvidence $Process 'blank-shell-click' $Window
+        if ($diagnostic.blankShellClick.eligible -and $diagnostic.blankShellClick.insertedEvents -eq 2) {
+            $probe = Invoke-DiagnosticShortcut $Process $Window $Shell 'after-shell-click'
+            $diagnostic.keyboardProbes += $probe
+            if ($probe.stopRemaining) { return }
+        }
+
+        $beforeRoot = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+        if ($beforeRoot.Count -ne 1) {
+            $diagnostic.delayedWindowBeforeRootControl = $beforeRoot.Count
+            return
+        }
+        $diagnostic.artificialRootFocus = [DesktopPortabilityWindows]::RootFocusExperiment($Window, $Process.Id)
+        Save-WindowEvidence $Process 'artificial-root-focus' $Window
+        if ($diagnostic.artificialRootFocus.attached -and -not $diagnostic.artificialRootFocus.detached) { return }
+        if ($diagnostic.artificialRootFocus.attached -and $diagnostic.artificialRootFocus.detached -and $diagnostic.artificialRootFocus.rootFocusVerified) {
+            $probe = Invoke-DiagnosticShortcut $Process $Window $Shell 'after-artificial-root-focus' $true
+            $diagnostic.keyboardProbes += $probe
+            if ($probe.stopRemaining) { return }
+        }
+
+        $diagnostic.calibrationAfterArtificialAttachment = [bool]$diagnostic.artificialRootFocus.attached
+        try { $diagnostic.inputControl = Test-IndependentInput $Shell }
+        catch { $diagnostic.inputControl = @{ error = $_.Exception.Message } }
+        $menu = [DesktopPortabilityWindows]::NewWindowMenu($Window)
+        $diagnostic.menu = $menu
+        if ($null -ne $menu) {
+            Save-WindowEvidence $Process 'before-menu-diagnostic' $Window
+            $beforeMenu = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+            $diagnostic.applicationWindowsBeforeMenu = $beforeMenu.Count
+            $diagnostic.additionalWindowBeforeMenu = $beforeMenu.Count -gt 1
+            if ($beforeMenu.Count -ne 1) { return }
+            $diagnostic.menuCommandQueued = [DesktopPortabilityWindows]::PostMessage($Window, 0x111, [UIntPtr]$menu.id, [IntPtr]::Zero)
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            do {
+                $windows = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+                if ($windows.Count -ge $beforeMenu.Count + 1) { break }
+                Start-Sleep -Milliseconds 100
+            } while ([DateTime]::UtcNow -lt $deadline)
+            $diagnostic.menuApplicationWindows = $windows.Count
+            $diagnostic.menuWindowDelta = $windows.Count - $beforeMenu.Count
+            $diagnostic.menuWindowIncreaseObserved = $windows.Count -ge $beforeMenu.Count + 1
+            $diagnostic.applicationResponsiveAfterMenu = [DesktopPortabilityWindows]::Responsive($Window)
+            Save-WindowEvidence $Process 'menu-diagnostic' $Window
+        }
+    } finally {
+        Save-WindowEvidence $Process 'diagnostic-final' $Window
+        $diagnostic | ConvertTo-Json -Depth 9 | Set-Content -LiteralPath (Join-Path $output 'shortcut-diagnostic.json')
+    }
 }
 
 $previousState = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', 'Process')
