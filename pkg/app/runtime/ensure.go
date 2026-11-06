@@ -33,8 +33,8 @@ var replacedBuilds sync.Map
 // SpawnLockPath. A headless runtime whose BuildID differs from opts.BuildID is
 // shut down and replaced; an attached one returns ErrAttachedMismatch. With
 // Autostart false and nothing live it returns ErrAutostartDisabled. With Wait
-// false it returns as soon as a spawn was triggered or an elected owner was
-// observed, with no client.
+// false it returns as soon as a spawn was triggered, a spawn lease was held,
+// or an elected owner was observed, with no client.
 func Ensure(ctx context.Context, opts EnsureOptions) (result EnsureResult, resultErr error) {
 	op := diagnostics.NewOperation("runtime.ensure", "client")
 	parent := diagnostics.OperationFromContext(ctx)
@@ -151,9 +151,9 @@ func Ensure(ctx context.Context, opts EnsureOptions) (result EnsureResult, resul
 			}
 			if started {
 				spawned = true
-				if !opts.Wait {
-					return EnsureResult{Spawned: true}, nil
-				}
+			}
+			if !opts.Wait {
+				return EnsureResult{Spawned: spawned}, nil
 			}
 		default:
 			return EnsureResult{}, err
@@ -194,7 +194,10 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 	if err != nil || !acquired {
 		(*leaseWaits)++
 		// A foreign or held lease is not an error for us: another client is
-		// spawning, or we cannot judge its owner. Wait and re-probe.
+		// spawning, or we cannot judge its owner. Only waiting callers re-probe.
+		if !opts.Wait {
+			return false, nil
+		}
 		if !sleepCtx(ctx, ensurePoll) {
 			return false, ctx.Err()
 		}

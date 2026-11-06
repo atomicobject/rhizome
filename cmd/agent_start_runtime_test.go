@@ -39,6 +39,19 @@ func TestAgentStartReportsStartingWithoutWaitingForPublication(t *testing.T) {
 	require.False(t, status.Ready)
 }
 
+func TestAgentStartReportsStartingDuringConcurrentSpawn(t *testing.T) {
+	root := t.TempDir()
+	release, acquired, err := indexlock.TryAcquire(appruntime.SpawnLockPath(root))
+	require.NoError(t, err)
+	require.True(t, acquired)
+	defer release()
+	started := time.Now()
+	status := agentStartRuntimeConnection(context.Background(), appruntime.EnsureOptions{VaultPath: root, Autostart: true})
+	require.Equal(t, "starting", status.State)
+	require.Less(t, time.Since(started), agentStartConnectionBudget)
+	require.False(t, status.Ready)
+}
+
 func TestAgentStartBoundsAnUnresponsiveConnection(t *testing.T) {
 	root := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
