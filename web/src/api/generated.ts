@@ -2747,6 +2747,7 @@ export interface components {
     };
     ViewExecutionState: components["schemas"]["ViewExecuteRequest"] & Record<string, never>;
     ViewTableRow: {
+      readOnlyReason?: string;
       ref: components["schemas"]["NodeRef"];
       path?: string;
       title?: string;

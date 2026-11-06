@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"net/http"
 	"net/url"
 	"strings"
@@ -251,6 +252,7 @@ func (s *Server) handleWatchHubEvents(_ context.Context, events []watchhub.Watch
 		return
 	}
 	nodeScope := s.nodeReadScope(context.Background(), defs)
+	ownership := sourceownership.Load(s.cfg.VaultDef.BasePath())
 	byPath := map[string]watchhub.WatchEvent{}
 	for _, event := range events {
 		notePath := strings.TrimSpace(event.RelPath)
@@ -298,6 +300,7 @@ func (s *Server) handleWatchHubEvents(_ context.Context, events []watchhub.Watch
 				continue
 			}
 			workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(defs.schema, projection)
+			ontology.ApplySourceOwnership(ownership, workspace)
 			if workspace == nil || workspace.Version == state.Version {
 				continue
 			}
@@ -380,6 +383,7 @@ func (s *Server) resolveEventRefs(ctx context.Context, query url.Values) ([]node
 	structurals := query["structural"]
 	kinds := query["kind"]
 	nodeScope := s.nodeReadScope(ctx, defs)
+	ownership := sourceownership.Load(s.cfg.VaultDef.BasePath())
 	for idx, raw := range rawRefs {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
@@ -408,6 +412,7 @@ func (s *Server) resolveEventRefs(ctx context.Context, query url.Values) ([]node
 		}
 		seen[key] = struct{}{}
 		workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(defs.schema, projection)
+		ontology.ApplySourceOwnership(ownership, workspace)
 		out = append(out, nodeEventRefState{
 			Ref:      ref,
 			Resolved: projection.Ref,

@@ -8,6 +8,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"net/url"
 	"strings"
@@ -50,6 +51,7 @@ func (s *Server) untypedNodeWorkspace(ctx context.Context, requestedRef ontology
 	if includes.Rendered {
 		resp.Content.Rendered = &rendered
 	}
+	resp.Capabilities.ReadOnlyReason = sourceownership.ReadOnlyReason(s.cfg.VaultDef.BasePath(), requestedRef.NotePath)
 	resp.FocusedNodeID, resp.Nodes, resp.Edges, resp.Views = buildWorkspaceGraph(&resp, nil, nil)
 	return resp, nil
 }

@@ -28,7 +28,7 @@ func (r cancellingNamespaceRefresher) Refresh(ctx context.Context, lease *indexl
 	return r.refresher.Refresh(ctx, lease, changed, renamed, deleted)
 }
 
-func TestNamespaceCancellationAfterPublicationRetainsDecisionAndDefersOptionalEffects(t *testing.T) {
+func TestNamespaceCancellationAfterPublicationRetainsAllSourceWrites(t *testing.T) {
 	for _, entrypoint := range []string{"rename", "move"} {
 		t.Run(entrypoint, func(t *testing.T) {
 			root := t.TempDir()
@@ -51,7 +51,7 @@ func TestNamespaceCancellationAfterPublicationRetainsDecisionAndDefersOptionalEf
 				require.ErrorIs(t, err, context.Canceled)
 				require.Equal(t, "New.md", result.RenamedPath)
 				require.Equal(t, 2, result.LinkUpdates)
-				require.Zero(t, result.CodeRefUpdates)
+				require.Equal(t, 1, result.CodeRefUpdates)
 				mutation = result.Mutation
 			} else {
 				result, err := actions.MoveNotes(namespaceVault{path: root}, uri, actions.MoveParams{
@@ -63,7 +63,7 @@ func TestNamespaceCancellationAfterPublicationRetainsDecisionAndDefersOptionalEf
 				require.Len(t, result.Results, 1)
 				require.Equal(t, "New.md", result.Results[0].Target)
 				require.Equal(t, 2, result.TotalLinkUpdates)
-				require.Zero(t, result.TotalCodeRefUpdates)
+				require.Equal(t, 1, result.TotalCodeRefUpdates)
 				mutation = result.Mutation
 			}
 			require.Equal(t, validate.NamespaceCommitted, mutation.Current.Decision)
@@ -73,11 +73,11 @@ func TestNamespaceCancellationAfterPublicationRetainsDecisionAndDefersOptionalEf
 			require.NoFileExists(t, filepath.Join(root, "Old.md"))
 			require.Equal(t, "[[New]]\n", readMoveEndpoint(t, filepath.Join(root, "New.md")))
 			require.Equal(t, "[[New]]\n", readMoveEndpoint(t, ref))
-			require.Equal(t, "package fixture\n// [[Old]]\n", readMoveEndpoint(t, code))
+			require.Equal(t, "package fixture\n// [[New]]\n", readMoveEndpoint(t, code))
 			uri.AssertNotCalled(t, "Construct")
 			uri.AssertNotCalled(t, "Execute")
 			// A new call first converges the earlier committed request. It does
-			// not publish this request or replay earlier optional coderef work.
+			// not publish this request or replay earlier coderef work.
 			recovered, err := actions.MoveNotes(namespaceVault{path: root}, uri, actions.MoveParams{
 				NoteMetadata: metadata, PostApplyRefresher: projection,
 				Moves:           []actions.MoveRequest{{Source: "New.md", Target: "Next.md"}},
@@ -90,7 +90,7 @@ func TestNamespaceCancellationAfterPublicationRetainsDecisionAndDefersOptionalEf
 			require.Equal(t, mutation.Current.TransactionID, recovered.Mutation.Recovered[0].TransactionID)
 			require.False(t, recovered.Mutation.Recovered[0].RecoveryPending, "recovery error: %v", err)
 			require.NoFileExists(t, filepath.Join(root, "Next.md"))
-			require.Equal(t, "package fixture\n// [[Old]]\n", readMoveEndpoint(t, code))
+			require.Equal(t, "package fixture\n// [[New]]\n", readMoveEndpoint(t, code))
 			uri.AssertNotCalled(t, "Construct")
 			uri.AssertNotCalled(t, "Execute")
 		})

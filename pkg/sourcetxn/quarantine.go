@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"os"
 	"path/filepath"
 	"strings"
@@ -147,6 +148,9 @@ func admissionOverlap(affected, blocked []string) bool {
 
 // CheckAdmission is the common read-only barrier for every source writer.
 func CheckAdmission(root string, affected []string) error {
+	if err := sourceownership.Check(root, affected); err != nil {
+		return err
+	}
 	vault, err := paths.NewVaultPaths(root)
 	if err != nil {
 		return err

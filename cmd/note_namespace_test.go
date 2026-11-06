@@ -186,7 +186,7 @@ func TestNoteNamespaceCommandsRetainCommittedProjectionFailureAndRecovery(t *tes
 			}
 			code, err := os.ReadFile(filepath.Join(vault.path, "refs.go"))
 			require.NoError(t, err)
-			require.Equal(t, "package fixture\n// [[Old]]\n", string(code))
+			require.Equal(t, "package fixture\n// [[New]]\n", string(code))
 			require.NoError(t, os.Rename(index, filepath.Join(t.TempDir(), "blocked-index")))
 			require.NoError(t, os.Rename(backup, index))
 			call("New.md", "Next.md", true)
@@ -197,7 +197,7 @@ func TestNoteNamespaceCommandsRetainCommittedProjectionFailureAndRecovery(t *tes
 			require.Equal(t, "[[New]]\n", string(got))
 			code, err = os.ReadFile(filepath.Join(vault.path, "refs.go"))
 			require.NoError(t, err)
-			require.Equal(t, "package fixture\n// [[Old]]\n", string(code))
+			require.Equal(t, "package fixture\n// [[New]]\n", string(code))
 		})
 	}
 }

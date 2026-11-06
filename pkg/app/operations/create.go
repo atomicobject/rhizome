@@ -1,6 +1,9 @@
 package operations
 
 import (
+	"fmt"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"strconv"
@@ -21,6 +24,24 @@ func CreateNote(vault repoconfig.VaultManager, uri obsidian.UriManager, params C
 		return err
 	}
 
+	root, err := vault.Path()
+	if err != nil {
+		return err
+	}
+	if err := sourceownership.Check(root, []string{params.NoteName, paths.EnsureNoteExtension(params.NoteName, ".md").String()}); err != nil {
+		return err
+	}
+	vaultPaths, err := paths.NewVaultPaths(root)
+	if err != nil {
+		return err
+	}
+	destination, err := vaultPaths.RelPhysicalStrict(paths.ResolveAgainst(vaultPaths.Root(), params.NoteName))
+	if err != nil {
+		return err
+	}
+	if destination.String() == "" {
+		return fmt.Errorf("note name must name a file")
+	}
 	normalizedContent := NormalizeContent(params.Content)
 
 	obsidianUri := uri.Construct(ObsCreateUrl, map[string]string{
@@ -28,7 +49,7 @@ func CreateNote(vault repoconfig.VaultManager, uri obsidian.UriManager, params C
 		"append":    strconv.FormatBool(params.ShouldAppend),
 		"overwrite": strconv.FormatBool(params.ShouldOverwrite),
 		"content":   normalizedContent,
-		"file":      params.NoteName,
+		"file":      destination.String(),
 		"silent":    strconv.FormatBool(!params.ShouldOpen),
 	})
 

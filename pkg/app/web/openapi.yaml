@@ -4366,6 +4366,7 @@ components:
       type: object
       required: [ref]
       properties:
+        readOnlyReason: { type: string }
         ref:
           $ref: "#/components/schemas/NodeRef"
         path: { type: string }

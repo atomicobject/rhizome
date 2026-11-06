@@ -237,6 +237,7 @@ type NodeInlineFieldSpan = {
 };
 
 export type NodeCapabilities = {
+  readOnlyReason?: string;
   canEdit: boolean;
   canEditFields: boolean;
   canEditCollections: boolean;

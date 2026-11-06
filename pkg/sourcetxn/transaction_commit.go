@@ -2,6 +2,7 @@ package sourcetxn
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"os"
 	"path/filepath"
 )
@@ -11,6 +12,15 @@ func commitPreparedRepairTransaction(runCtx writerContext, prepared *preparedTra
 		return err
 	}
 
+	var affected []string
+	for _, entry := range prepared.Manifest.Entries {
+		if !entry.Internal {
+			affected = append(affected, entry.Path, entry.OriginalPath)
+		}
+	}
+	if err := sourceownership.Check(runCtx.VaultPath, affected); err != nil {
+		return err
+	}
 	if err := rejectSourceSettlement(runCtx, prepared.Manifest); err != nil {
 		return err
 	}

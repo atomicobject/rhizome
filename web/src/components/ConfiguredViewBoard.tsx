@@ -103,7 +103,9 @@ export function ConfiguredViewBoard(props: Props) {
   // Server totals describe the unfiltered set, so a local row filter shows its own counts.
   const locallyFiltered = props.rows.length !== execution.rows.length;
   const columnField = board.columnField;
+
   const canMove = Boolean(board.editable && props.onStageOps && columnCapability?.edit);
+
   const profile = execution.profile;
   const view = execution.view;
   // An authored card layout wins over the profile's; generated boards use the profile.
@@ -141,7 +143,7 @@ export function ConfiguredViewBoard(props: Props) {
     !lane || Boolean(lanes?.membership.get(rowKey)?.includes(lane.key));
 
   const columnOp = (row: ViewTableRow, target: BoardColumn) =>
-    canMove && columnCapability?.edit
+    canMove && !row.readOnlyReason && columnCapability?.edit
       ? editOpForCell(
           row,
           columnField,
@@ -178,7 +180,7 @@ export function ConfiguredViewBoard(props: Props) {
   }
 
   async function stage(row: ViewTableRow, ops: OntologyEditOp[], where: string) {
-    if (!props.onStageOps) return;
+    if (!props.onStageOps || row.readOnlyReason) return;
     const rowKey = configuredTableRowKey(row);
     const title = titleFor(row);
     setPendingRowKeys((current) => new Set(current).add(rowKey));
@@ -254,6 +256,7 @@ export function ConfiguredViewBoard(props: Props) {
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
   function renderCard(row: ViewTableRow, item: (typeof columns)[number], lane: BoardLane | null) {
+    const rowCanMove = canMove && !row.readOnlyReason;
     const rowKey = configuredTableRowKey(row);
     const cardKey = lane ? `${lane.key}\u0000${rowKey}` : rowKey;
     const busy = pendingRowKeys.has(rowKey) || reorder.pendingKeys.has(rowKey);
@@ -288,16 +291,16 @@ export function ConfiguredViewBoard(props: Props) {
             />
           ) : undefined
         }
-        draggable={canMove || source.draggable}
+        draggable={rowCanMove || source.draggable}
         dragging={dragged !== null && configuredTableRowKey(dragged.row) === rowKey}
-        onMoveShortcut={canMove ? () => setMenuCardKey(cardKey) : undefined}
+        onMoveShortcut={rowCanMove ? () => setMenuCardKey(cardKey) : undefined}
         onDragStart={(event: DragEvent<HTMLElement>) => {
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", rowKey);
 
           if (source.draggable) source.onDragStart(event);
 
-          if (canMove) setDragged({ row, columnKey: column.key });
+          if (rowCanMove) setDragged({ row, columnKey: column.key });
         }}
         onDragEnd={() => {
           source.onDragEnd();
@@ -317,7 +320,7 @@ export function ConfiguredViewBoard(props: Props) {
             : undefined
         }
         actions={
-          canMove ? (
+          rowCanMove ? (
             <BoardMoveMenu
               title={titleFor(row)}
               open={menuCardKey === cardKey}

@@ -68,6 +68,19 @@ export function ConfiguredViewBulkBar({
     }
   };
 
+  const readOnlyReason = rows.find((row) => row.readOnlyReason)?.readOnlyReason;
+
+  if (readOnlyReason) {
+    return (
+      <div className="configured-view__bulk-bar" role="toolbar" aria-label="Edit selected rows">
+        <span>{readOnlyReason}</span>
+        <button type="button" onClick={onClear}>
+          Clear selection
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className="configured-view__bulk-bar"

@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"os"
 	"strings"
 
@@ -32,6 +33,10 @@ func runTagMutations(ctx context.Context, notes []string, processor fileMutation
 
 // processDeleteFile handles deletion of tags from a single file
 func processDeleteFile(vaultPaths paths.VaultPaths, tagsToDelete []string, dryRun bool) fileMutationProcessor {
+	var ownership *sourceownership.Policy
+	if !dryRun {
+		ownership = sourceownership.Load(vaultPaths.Root())
+	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -73,6 +78,10 @@ func processDeleteFile(vaultPaths paths.VaultPaths, tagsToDelete []string, dryRu
 
 		// Write the file if not dry run
 		if !dryRun {
+			if err := ownership.Check([]string{rel.String()}); err != nil {
+				return fileMutation{err: err}
+			}
+
 			if err := ctx.Err(); err != nil {
 				return fileMutation{err: err}
 			}
@@ -89,6 +98,10 @@ func processDeleteFile(vaultPaths paths.VaultPaths, tagsToDelete []string, dryRu
 
 // processRenameFile handles renaming of tags in a single file
 func processRenameFile(vaultPaths paths.VaultPaths, fromTags []string, toTag string, dryRun bool) fileMutationProcessor {
+	var ownership *sourceownership.Policy
+	if !dryRun {
+		ownership = sourceownership.Load(vaultPaths.Root())
+	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -130,6 +143,10 @@ func processRenameFile(vaultPaths paths.VaultPaths, fromTags []string, toTag str
 
 		// Write the file if not dry run
 		if !dryRun {
+			if err := ownership.Check([]string{rel.String()}); err != nil {
+				return fileMutation{err: err}
+			}
+
 			if err := ctx.Err(); err != nil {
 				return fileMutation{err: err}
 			}
@@ -249,6 +266,10 @@ func normalizeFrontmatterTags(tags interface{}) []string {
 
 // processAddFile handles addition of tags to a single file
 func processAddFile(vaultPaths paths.VaultPaths, tagsToAdd []string, dryRun bool) fileMutationProcessor {
+	var ownership *sourceownership.Policy
+	if !dryRun {
+		ownership = sourceownership.Load(vaultPaths.Root())
+	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -291,6 +312,10 @@ func processAddFile(vaultPaths paths.VaultPaths, tagsToAdd []string, dryRun bool
 
 		// Write the file if not dry run
 		if !dryRun {
+			if err := ownership.Check([]string{rel.String()}); err != nil {
+				return fileMutation{err: err}
+			}
+
 			if err := ctx.Err(); err != nil {
 				return fileMutation{err: err}
 			}
