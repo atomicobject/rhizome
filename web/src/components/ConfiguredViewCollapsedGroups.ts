@@ -38,6 +38,13 @@ export function useCollapsedGroupNotes(
   }, [groups, choices, capabilities, includeNested]);
 
   const reported = useRef("");
+  useEffect(
+    () => () => {
+      reported.current = "";
+      onChange?.([]);
+    },
+    [onChange],
+  );
   useEffect(() => {
     const serialized = JSON.stringify(notes);
 

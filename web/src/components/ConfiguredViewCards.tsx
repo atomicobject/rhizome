@@ -65,6 +65,8 @@ export function ConfiguredViewCards(props: Props) {
 
   useEffect(() => {
     props.onCollapsedGroupCountChange(collapsedCount);
+
+    return () => props.onCollapsedGroupCountChange(0);
   }, [collapsedCount, props.onCollapsedGroupCountChange]);
 
   function toggleGroup(group: ViewGroup) {

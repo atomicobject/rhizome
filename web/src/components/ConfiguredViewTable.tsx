@@ -251,6 +251,8 @@ export function ConfiguredViewTable({
   const collapsedGroupCount = countCollapsedGroups(groups, expansion.choices);
   useEffect(() => {
     onCollapsedGroupCountChange(collapsedGroupCount);
+
+    return () => onCollapsedGroupCountChange(0);
   }, [collapsedGroupCount, onCollapsedGroupCountChange]);
 
   useCollapsedGroupNotes(groups, expansion.choices, capabilities, onCollapsedGroupsChange);
