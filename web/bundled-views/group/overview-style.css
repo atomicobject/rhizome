@@ -352,6 +352,11 @@
 .gv-page .gv-ov-folders th:first-child {
   width: 60px;
 }
+.gv-ov-folders .gv-ov-folder {
+  max-width: 160px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .gv-page .gv-ov-folders th:nth-child(2) {
   width: 58px;
 }

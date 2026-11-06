@@ -117,6 +117,12 @@ test("All notes opens on its Briefing and offers the Overview", async ({ page })
   // the Overview, and only the Members table scrolls sideways, never the page.
   await page.setViewportSize({ width: 1000, height: 820 });
   await expect(members.getByRole("row", { name: /Untyped/ })).toBeVisible();
+  await frame
+    .locator(".gv-ov-folders tbody button")
+    .first()
+    .evaluate((button) => {
+      button.textContent = "averylongunbrokenfoldername".repeat(8);
+    });
 
   const layout = await members.evaluate((section) => {
     const doc = section.ownerDocument;
