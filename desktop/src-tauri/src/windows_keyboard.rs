@@ -239,6 +239,14 @@ pub fn install(view: &tauri::Webview) -> tauri::Result<()> {
             view.controller()
                 .add_AcceleratorKeyPressed(&handler, &mut token)
         };
+        if enabled_trace {
+            let mut parent = Default::default();
+            let parent_result = unsafe { view.controller().ParentWindow(&mut parent) };
+            trace(trace_window.app_handle(), "parent-window", trace_window.label(), serde_json::json!({
+                "view": view_label, "hwnd": format!("{:p}", parent.0), "ok": parent_result.is_ok(),
+                "hresult": parent_result.as_ref().err().map_or(0, |error| error.code().0),
+            }));
+        }
         trace(trace_window.app_handle(), "install", trace_window.label(), serde_json::json!({
             "view": view_label, "ok": result.is_ok(), "hresult": result.as_ref().err().map(|error| error.code().0), "token": token,
         }));
