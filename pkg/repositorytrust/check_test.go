@@ -68,7 +68,9 @@ func TestUntrustedPreservesLookupFailureAndCancellation(t *testing.T) {
 	require.Equal(t, "repository trust could not be read: unavailable", DenialReason(dir, "actions", func(string) (bool, error) {
 		return false, errors.New("unavailable")
 	}))
-	storeFile := filepath.Join(t.TempDir(), "not-a-directory")
-	require.NoError(t, os.WriteFile(storeFile, nil, 0600))
-	require.Contains(t, Untrusted(context.Background(), dir, "actions", Store{Dir: storeFile}.Trusted), "repository trust could not be read:")
+	store := Store{Dir: t.TempDir()}
+	canonical, err := CanonicalCheckout(dir)
+	require.NoError(t, err)
+	require.NoError(t, os.Mkdir(store.recordPath(canonical), 0700))
+	require.Contains(t, Untrusted(context.Background(), dir, "actions", store.Trusted), "repository trust could not be read:")
 }

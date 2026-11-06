@@ -2,6 +2,7 @@ package serve
 
 import (
 	"context"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -34,9 +35,9 @@ func TestPendingRefreshCanceledAfterReconcileFailure(t *testing.T) {
 	// Deliver both events before starting the worker. This establishes the
 	// offending order without depending on scheduler timing or a sleep.
 	sink := c.GlobalEventSink()
-	sink(web.GlobalEventValidationInvalidated, nil)
-	sink(web.GlobalEventValidationInvalidated, map[string]any{
-		"reason": web.GlobalEventReasonReconcileFailed,
+	sink(appruntime.GlobalEventValidationInvalidated, nil)
+	sink(appruntime.GlobalEventValidationInvalidated, map[string]any{
+		"reason": appruntime.GlobalEventReasonReconcileFailed,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -58,11 +59,11 @@ func TestValidationRequestsRecoverAfterFailedReconcile(t *testing.T) {
 			c.live = &bootstrap.LiveRuntime{}
 			c.validation = r
 			c.RequestValidationRefresh()
-			c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})
+			c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{"reason": appruntime.GlobalEventReasonReconcileFailed})
 			if trigger == "manual save" {
 				c.RequestValidationRefresh()
 			} else {
-				c.GlobalEventSink()(web.GlobalEventValidationInvalidated, nil)
+				c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, nil)
 			}
 			ctx, cancel := context.WithCancel(t.Context())
 			done := make(chan struct{})
@@ -93,7 +94,7 @@ func TestBackgroundValidationAdmissionPrecedesIndexWork(t *testing.T) {
 		done <- c.BackgroundIndexer(t.Context(), notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false)
 	}()
 	<-indexStarted
-	c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})
+	c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{"reason": appruntime.GlobalEventReasonReconcileFailed})
 	close(finishIndex)
 	require.NoError(t, <-done)
 	require.Zero(t, r.calls.Load(), "boot work admitted before failure must not refresh afterward")
@@ -115,7 +116,7 @@ func TestValidationInvalidationFencesStoreBeforeServerBinding(t *testing.T) {
 	require.True(t, ok)
 	running, err := store.SetValidationRunning(ctx)
 	require.NoError(t, err)
-	c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})
+	c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{"reason": appruntime.GlobalEventReasonReconcileFailed})
 	read, err := store.GetValidationStateSnapshot(ctx)
 	require.NoError(t, err)
 	require.Equal(t, running+1, read.State.Generation, "invalidation has exactly one durable owner")
@@ -142,7 +143,7 @@ func TestBridgeValidationAdmissionPrecedesStartupWaits(t *testing.T) {
 	done := make(chan struct{})
 	go func() { defer close(done); c.Bridge(t.Context()) }()
 	<-probe
-	c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})
+	c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{"reason": appruntime.GlobalEventReasonReconcileFailed})
 	close(resume)
 	<-done
 	require.Zero(t, r.calls.Load(), "startup validation admitted before failure must not refresh afterward")
@@ -204,7 +205,7 @@ func TestCanceledRequestCannotAllocateGenerationAfterInvalidation(t *testing.T) 
 	go func() { defer close(done); c.runValidationRefreshRequests(workerCtx) }()
 	c.RequestValidationRefresh()
 	<-gate.entered
-	c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})
+	c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{"reason": appruntime.GlobalEventReasonReconcileFailed})
 	close(gate.proceed)
 	<-gate.finished
 	stopWorker()

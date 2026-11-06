@@ -151,17 +151,6 @@ var _ runtimeview.View = (*LiveRuntime)(nil)
 // GlobalEventSink publishes a vault-wide event to the local web broker.
 type GlobalEventSink func(kind string, data any)
 
-const (
-	globalEventIndexChanged            = "index.changed"
-	globalEventValidationInvalidated   = "validation.invalidated"
-	globalEventSchemaInvalidated       = "schema.invalidated"
-	globalEventQueryRecipeInvalidated  = "query_recipe.invalidated"
-	globalEventIndexInvalidated        = "index.invalidated"
-	globalEventCapabilitiesInvalidated = "capabilities.invalidated"
-	// Mirrors web.GlobalEventReasonReconcileFailed.
-	globalEventReasonReconcileFailed = "reconcile-failed"
-)
-
 func liveSQLitePoolOptions() sqliteutil.Options {
 	return sqliteutil.Options{
 		MaxOpenConns:    4,

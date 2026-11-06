@@ -354,12 +354,6 @@ func ValidateNotes(ctx context.Context, root string) (int, int, error) {
 	return ValidateMarkdownCodeAnchorSyntaxWithWriter(ctx, root, os.Stderr)
 }
 
-// ValidateNotesWithWriter preserves the established command adapter. New
-// callers should name the Markdown compatibility boundary directly.
-func ValidateNotesWithWriter(ctx context.Context, root string, diagnostics io.Writer) (int, int, error) {
-	return ValidateMarkdownCodeAnchorSyntaxWithWriter(ctx, root, diagnostics)
-}
-
 // ValidateMarkdownCodeAnchorSyntaxWithWriter walks legacy Markdown files for
 // code-anchor syntax. It selects Markdown by the historical .md compatibility
 // rule and does not inspect or validate any future provider format.

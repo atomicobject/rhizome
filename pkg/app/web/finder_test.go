@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,13 +70,13 @@ func TestFindCatalogRebuildsOnIndexEvents(t *testing.T) {
 	ctx := context.Background()
 	before, err := srv.finder.Catalog(ctx)
 	require.NoError(t, err)
-	srv.NotifyGlobalEvent(GlobalEventValidateChanged, nil)
+	srv.NotifyGlobalEvent(appruntime.GlobalEventValidateChanged, nil)
 	time.Sleep(2 * finderRebuildDelay)
 	unchanged, err := srv.finder.Catalog(ctx)
 	require.NoError(t, err)
 	require.Same(t, before, unchanged, "unrelated events keep the catalog")
 
-	srv.NotifyGlobalEvent(GlobalEventIndexChanged, nil)
+	srv.NotifyGlobalEvent(appruntime.GlobalEventIndexChanged, nil)
 	require.Eventually(t, func() bool {
 		after, err := srv.finder.Catalog(ctx)
 		return err == nil && after != before && after.Len() == before.Len()

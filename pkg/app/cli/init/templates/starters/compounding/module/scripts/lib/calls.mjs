@@ -73,14 +73,18 @@ export function rzmClients(rzm = "rzm", { cwd } = {}) {
       const child = spawn(rzm, args, { cwd: dir, stdio: ["pipe", "pipe", "pipe"] });
       let out = "";
       let err = "";
+      let inputError = "";
       // A hung CLI would hold the run's lock forever.
       const timer = setTimeout(() => child.kill("SIGKILL"), CALL_TIMEOUT_MS);
       child.stdout.on("data", (d) => (out += d));
       child.stderr.on("data", (d) => (err += d));
+      child.stdin.on("error", (error) => {
+        inputError = error.message;
+      });
       child.on("error", fail);
       child.on("close", (code) => {
         clearTimeout(timer);
-        done({ code, out, err: code === null ? `timed out after ${CALL_TIMEOUT_MS / 60000} minutes` : err });
+        done({ code: code === 0 && inputError ? 1 : code, out, err: code === null ? `timed out after ${CALL_TIMEOUT_MS / 60000} minutes` : err || inputError });
       });
       child.stdin.end(input);
     });

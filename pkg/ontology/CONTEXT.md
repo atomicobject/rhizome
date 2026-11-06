@@ -50,3 +50,5 @@ Uses the immutable typed model from `pkg/ontology/schema`, projects source-prese
 
 - **Snapshot facts**: syntax construction captures canonical neutral Markdown title/tag values once. Provider-backed Markdown construction overrides them with authoritative root facts, including empty tags. `DocumentSnapshot.SelectorFacts` returns defensive copies for projection and noderead consumers without reparsing source.
 - **Source ownership**: list parsing lives in `source_spans_list.go`, item content in `source_span_content.go`, and marker/range helpers in `source_span_ranges.go`; `source_spans.go` retains the span model and parser orchestration.
+
+`markdownsyntax.UnorderedListItemContentStart` owns the exact unordered metadata-bullet prefix predicate shared by projection and block-ID repair. Callers retain their existing trimming and content-span policy; ordered lists and other Markdown marker rules remain separate.

@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -358,36 +357,9 @@ func (s *Server) handleNodeEvents(w http.ResponseWriter, r *http.Request) {
 	defer unsubscribe()
 
 	defer s.holdRuntime()()
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-	_, _ = fmt.Fprint(w, ": connected\n\n")
-	flusher.Flush()
-
-	heartbeat := time.NewTicker(20 * time.Second)
-	defer heartbeat.Stop()
-
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-heartbeat.C:
-			_, _ = fmt.Fprintf(w, ": heartbeat %d\n\n", time.Now().Unix())
-			flusher.Flush()
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-			data, err := json.Marshal(event)
-			if err != nil {
-				continue
-			}
-			_, _ = fmt.Fprintf(w, "id: %s\n", event.ID)
-			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
-			flusher.Flush()
-		}
-	}
+	streamJSONEvents(w, r, flusher, events, func(event ontology.NodeEvent) (string, string) {
+		return event.ID, ""
+	})
 }
 
 func (s *Server) resolveEventRefs(ctx context.Context, query url.Values) ([]nodeEventRefState, error) {

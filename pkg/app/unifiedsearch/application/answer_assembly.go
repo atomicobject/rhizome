@@ -106,10 +106,6 @@ func AvailabilityFromLanes(lanes []search.LaneStatus) Availability {
 	return AvailabilityComplete
 }
 
-func BuildAssessedAnswer(intent search.Intent, query string, target TargetResolution, warnings []search.Warning, availability Availability, sources []SourceAssessment) answer.Response {
-	return buildAssessedAnswer(intent, query, nil, target, warnings, availability, sources)
-}
-
 func buildAssessedAnswer(intent search.Intent, query string, facets []RequiredFacet, target TargetResolution, warnings []search.Warning, availability Availability, sources []SourceAssessment) answer.Response {
 	inputs := make([]answer.Input, 0, len(sources))
 	strong, useful := 0, 0

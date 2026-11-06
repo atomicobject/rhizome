@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -127,21 +129,88 @@ func TestCLILinkClassificationAndLifecycle(t *testing.T) {
 	}
 }
 
-func TestCLILinkPrivilegedCommands(t *testing.T) {
-	for _, state := range []string{"absent", "installed", "other-bundle", "dangling"} {
-		t.Run(state, func(t *testing.T) {
-			info := CLILinkInfo{LinkPath: "/usr/local/bin/rzm", State: state, Target: "/Applications/Old.app/Contents/MacOS/rzm", rawTarget: "/Applications/Old.app/Contents/MacOS/rzm"}
-			unchanged := "[ -L '/usr/local/bin/rzm' ] && [ \"$(readlink '/usr/local/bin/rzm')\" = '/Applications/Old.app/Contents/MacOS/rzm' ]"
-			if state == "absent" {
-				unchanged = "[ ! -e '/usr/local/bin/rzm' ] && [ ! -L '/usr/local/bin/rzm' ]"
+func TestCLILinkAdminArgsKeepsCommandAsOneArgument(t *testing.T) {
+	command := `printf '%s' "a'b $(touch marker)"`
+	require.Equal(t, []string{"-e", "on run argv", "-e", "do shell script item 1 of argv with administrator privileges", "-e", "end run", command}, cliLinkAdminArgs(command))
+}
+
+func TestCLILinkPrivilegedCommandShellBehavior(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("privileged link commands use a POSIX shell")
+	}
+	for _, tc := range []struct {
+		name      string
+		state     string
+		remove    bool
+		relative  bool
+		swap      string
+		wantError bool
+	}{
+		{name: "install absent", state: "absent"},
+		{name: "replace owned", state: "other-bundle"},
+		{name: "remove owned", state: "other-bundle", remove: true},
+		{name: "remove owned relative target", state: "other-bundle", remove: true, relative: true},
+		{name: "refuse swapped link on install", state: "other-bundle", swap: "link", wantError: true},
+		{name: "refuse swapped link on remove", state: "other-bundle", remove: true, swap: "link", wantError: true},
+		{name: "refuse swapped file", state: "other-bundle", swap: "file", wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cliLinkFixture(t)
+			parent := filepath.Dir(cliLinkDirectory)
+			cliLinkDirectory = filepath.Join(parent, "bin's $(touch directory-injected)")
+			link := filepath.Join(cliLinkDirectory, "rzm")
+			target := filepath.Join(parent, "Rhizome's $(touch target-injected).app", "Contents", "MacOS", "rzm")
+			old := filepath.Join(parent, "Old's `touch old-injected`.app", "Contents", "MacOS", "rzm")
+			if tc.relative {
+				var err error
+				old, err = filepath.Rel(cliLinkDirectory, old)
+				require.NoError(t, err)
 			}
-			expected := "mkdir -p '/usr/local/bin' && " + unchanged + " && ln -sfn '/Applications/Rhizome.app/Contents/MacOS/rzm' '/usr/local/bin/rzm'"
-			require.Equal(t, expected, cliLinkCommand(info, "/Applications/Rhizome.app/Contents/MacOS/rzm", false))
-			require.Equal(t, []string{"-e", "on run argv", "-e", "do shell script item 1 of argv with administrator privileges", "-e", "end run", expected}, cliLinkAdminArgs(expected))
-			require.Equal(t, "[ -L '/usr/local/bin/rzm' ] && [ \"$(readlink '/usr/local/bin/rzm')\" = '/Applications/Old.app/Contents/MacOS/rzm' ] && unlink '/usr/local/bin/rzm'", cliLinkCommand(info, "", true))
+			foreign := filepath.Join(parent, "foreign")
+			info := CLILinkInfo{LinkPath: link, State: tc.state, rawTarget: old}
+			if tc.state != "absent" {
+				require.NoError(t, os.MkdirAll(cliLinkDirectory, 0o755))
+				if tc.swap == "file" {
+					require.NoError(t, os.WriteFile(link, []byte("foreign contents"), 0o644))
+				} else {
+					initial := old
+					if tc.swap == "link" {
+						initial = foreign
+					}
+					require.NoError(t, os.Symlink(initial, link))
+				}
+			}
+			command := exec.Command("/bin/sh", "-c", cliLinkCommand(info, target, tc.remove))
+			command.Dir = parent
+			output, err := command.CombinedOutput()
+			if tc.wantError {
+				require.Error(t, err, "%s", output)
+			} else {
+				require.NoError(t, err, "%s", output)
+			}
+			switch {
+			case tc.swap == "file":
+				contents, err := os.ReadFile(link)
+				require.NoError(t, err)
+				require.Equal(t, "foreign contents", string(contents))
+			case tc.swap == "link":
+				actual, err := os.Readlink(link)
+				require.NoError(t, err)
+				require.Equal(t, foreign, actual)
+			case tc.remove:
+				_, err := os.Lstat(link)
+				require.ErrorIs(t, err, os.ErrNotExist)
+			default:
+				actual, err := os.Readlink(link)
+				require.NoError(t, err)
+				require.Equal(t, target, actual)
+			}
+			for _, marker := range []string{"directory-injected", "target-injected", "old-injected"} {
+				_, err := os.Stat(filepath.Join(parent, marker))
+				require.ErrorIs(t, err, os.ErrNotExist)
+			}
 		})
 	}
-	require.Equal(t, `'a'"'"'b $(danger)'`, cliLinkQuote("a'b $(danger)"))
 }
 
 func TestCLILinkPermissionFallbackAndCancellation(t *testing.T) {
@@ -160,17 +229,18 @@ func TestCLILinkPermissionFallbackAndCancellation(t *testing.T) {
 				calls := 0
 				cliLinkPrivileged = func(ctx context.Context, text string) error {
 					calls++
-					// The unprivileged attempt already removed an owned link, so the
-					// administrator command expects nothing at the link path.
-					want := "mkdir -p " + cliLinkQuote(cliLinkDirectory) + " && [ ! -e " + cliLinkQuote(link) + " ] && [ ! -L " + cliLinkQuote(link) + " ] && ln -sfn " + cliLinkQuote(target) + " " + cliLinkQuote(link)
-					require.Equal(t, want, text)
+					_, err := os.Lstat(link)
+					require.ErrorIs(t, err, os.ErrNotExist)
 					switch outcome {
 					case "cancelled":
 						return errors.New("execution error: User canceled. (-128)")
 					case "failure":
 						return errors.New("administrator command failed")
 					default:
-						return os.Symlink(target, link)
+						if runtime.GOOS == "windows" {
+							return os.Symlink(target, link)
+						}
+						return exec.CommandContext(ctx, "/bin/sh", "-c", text).Run()
 					}
 				}
 				info, err := (&Service{}).CLILinkInstall(context.Background())
@@ -198,8 +268,13 @@ func TestCLILinkRemovalPrivilegeAndRelativeTarget(t *testing.T) {
 	calls := 0
 	cliLinkPrivileged = func(ctx context.Context, text string) error {
 		calls++
-		require.Equal(t, "[ -L "+cliLinkQuote(link)+" ] && [ \"$(readlink "+cliLinkQuote(link)+")\" = "+cliLinkQuote(relative)+" ] && unlink "+cliLinkQuote(link), text)
-		return os.Remove(link)
+		actual, err := os.Readlink(link)
+		require.NoError(t, err)
+		require.Equal(t, relative, actual)
+		if runtime.GOOS == "windows" {
+			return os.Remove(link)
+		}
+		return exec.CommandContext(ctx, "/bin/sh", "-c", text).Run()
 	}
 	info, err := (&Service{}).CLILinkRemove(context.Background())
 	require.NoError(t, err)

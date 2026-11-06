@@ -2,13 +2,12 @@ import { decodeJson, isJsonObject, isString } from "../api/parse";
 import { VAULT_EVENT_MESSAGE } from "../lib/customViewMessages";
 import {
   STREAM_RECONNECTED_EVENT,
+  VIEW_PREFERENCES_EVENT,
   subscribeVaultEvents,
   type VaultEvent,
 } from "../query/vaultEvents";
 import { refreshPreferenceStores, invalidatePreferenceFamily } from "./store";
 import { isPreferenceScope } from "./types";
-
-export const VIEW_PREFERENCES_EVENT = "view_preferences.changed";
 
 function receive({ event, data }: VaultEvent) {
   if (event === STREAM_RECONNECTED_EVENT) refreshPreferenceStores();

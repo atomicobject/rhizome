@@ -1,42 +1,25 @@
 package search
 
 import (
-	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizeExplicitSeedPaths_PreservesCanonicalHandles(t *testing.T) {
-	got := NormalizeExplicitSeedPaths("/tmp/vault", []string{"file:pkg/app/mcp/semantic_query_unified.go", "note:docs/hubs/Search (Hub).md"}, nil)
+func TestExplicitSeedPathsFromHandlesPreservesOrderAndDeduplicatesPaths(t *testing.T) {
+	got := ExplicitSeedPathsFromHandles([]knowledge.Handle{
+		knowledge.FileHandle("pkg/app/mcp/semantic_query_unified.go"),
+		knowledge.NoteHandle("docs/hubs/Search (Hub).md"),
+		knowledge.FileHandle("pkg/app/mcp/semantic_query_unified.go"),
+		knowledge.NodeChunkHandle("search", "docs/hubs/Search (Hub).md", "node_body", 0),
+		knowledge.NoteHandle("notes/Decision.MD"),
+	})
 
 	require.Equal(t, []string{
 		"pkg/app/mcp/semantic_query_unified.go",
 		"docs/hubs/Search (Hub).md",
-	}, got)
-}
-
-func TestNormalizeExplicitSeedPaths_DropsOutsideVaultInputs(t *testing.T) {
-	vaultPath := filepath.Join(t.TempDir(), "vault")
-	outsidePath := filepath.Join(t.TempDir(), "outside.go")
-
-	got := NormalizeExplicitSeedPaths(vaultPath,
-		[]string{
-			"pkg/search",
-			"../escape.go",
-			outsidePath,
-			"file:pkg/search/service.go",
-		},
-		[]string{
-			"/tmp/also-outside",
-			"docs/guide.md",
-		},
-	)
-
-	require.Equal(t, []string{
-		"pkg/search",
-		"pkg/search/service.go",
-		"docs/guide.md",
+		"notes/Decision.MD",
 	}, got)
 }
 

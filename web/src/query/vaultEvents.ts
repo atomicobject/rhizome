@@ -17,11 +17,13 @@ export const VALIDATION_EVENTS = ["validate.changed", "validation.invalidated"] 
 /** A view folder under `.rhizome/views` changed. `{ id, kind, data: { folder } }` */
 export const VIEWS_CHANGED_EVENT = "views.changed";
 
+export const VIEW_PREFERENCES_EVENT = "view_preferences.changed";
+
 export const VAULT_EVENTS = [
   ...INDEX_EVENTS,
   ...VALIDATION_EVENTS,
   VIEWS_CHANGED_EVENT,
-  "view_preferences.changed",
+  VIEW_PREFERENCES_EVENT,
 ] as const;
 
 /**

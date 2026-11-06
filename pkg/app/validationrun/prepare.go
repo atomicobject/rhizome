@@ -95,22 +95,13 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 	// for it exists. A folder the locator cannot read counts as present, so
 	// the check that owns it reports the problem and unrelated checks still
 	// run.
-	assetsPresent := func(kind assetroots.Kind) (bool, error) {
+	assetsPresent := func(kind assetroots.Kind) bool {
 		roots, err := assetroots.Roots(root, kind)
-		return len(roots) > 0 || err != nil, nil
+		return len(roots) > 0 || err != nil
 	}
-	ontologyConfigured, err := assetsPresent(assetroots.Ontology)
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect ontology configuration: %w", err)
-	}
-	viewsConfigured, err := assetsPresent(assetroots.Views)
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect view configuration: %w", err)
-	}
-	tasksPresent, err := assetsPresent(assetroots.Tasks)
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect task configuration: %w", err)
-	}
+	ontologyConfigured := assetsPresent(assetroots.Ontology)
+	viewsConfigured := assetsPresent(assetroots.Views)
+	tasksPresent := assetsPresent(assetroots.Tasks)
 	modulesPresent, err := present(filepath.FromSlash(assetroots.ModulesDir))
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect module folders: %w", err)

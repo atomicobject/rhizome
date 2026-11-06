@@ -39,3 +39,7 @@ Template embeds share `markdownsyntax.FenceState` with skill overlays, while ret
 Agentic Engineering provides both inline Markdown efforts and explicitly linked HTML workspaces. Installation adds explicit effort HTML includes, preserving configured Markdown and unrelated patterns. The shared Effort interface has no identifier allocator; concrete siblings share a compatible pool. On upgrade, adopted strategy, prefix, separator, and padding may propagate to a new sibling only through a matching shared-interface/upstream contract. Historical files are not rewritten. Canonical authoring and lifecycle rules remain in the starter templates.
 
 The retired `project-kb` starter is no longer offered or bundled. Existing installed project files are not deleted; repositories selecting that retired template must choose a supported template before refreshing.
+
+Stale command and prompt files use the same generated-file removal plan as other owned files. Only recorded direct-child command paths are candidates; preview and apply share the same decisions, edited or unrecorded files stay by default, and accepted removals update the record and result. Filename prefixes alone grant no deletion authority.
+
+Compounding CLI calls record stdin write errors until the child closes. A rejecting child keeps its own diagnostic; a successful exit with undelivered request input is still a failed call.

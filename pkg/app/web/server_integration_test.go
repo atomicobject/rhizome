@@ -12,6 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
@@ -1248,13 +1249,15 @@ fragment TypeRef on __Type {
 	require.Equal(t, "/api/v1/nodes/events", capabilities.Events.NodeEndpoint)
 	require.Contains(t, capabilities.Events.Heartbeat, "heartbeat")
 	require.Contains(t, capabilities.Events.Reconnect, "refetch")
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventNodeChanged)
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventValidationInvalidated)
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventSchemaInvalidated)
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventQueryRecipeInvalidated)
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventIndexInvalidated)
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventCapabilitiesInvalidated)
-	require.Contains(t, capabilities.Events.SupportedKinds, GlobalEventEditSessionInvalidated)
+	require.Contains(t, capabilities.Events.StreamedKinds, "view_preferences.changed")
+	require.Contains(t, capabilities.Events.SupportedKinds, "view_preferences.changed")
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventNodeChanged)
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventValidationInvalidated)
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventSchemaInvalidated)
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventQueryRecipeInvalidated)
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventIndexInvalidated)
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventCapabilitiesInvalidated)
+	require.Contains(t, capabilities.Events.SupportedKinds, appruntime.GlobalEventEditSessionInvalidated)
 	require.Contains(t, capabilities.Events.NodeStreamedKinds, PublicNodeEventUpdated)
 	require.Contains(t, capabilities.Events.NodeStreamedKinds, PublicNodeEventStale)
 	require.Contains(t, capabilities.Events.NodeStreamedKinds, PublicNodeEventDeleted)
@@ -2223,10 +2226,10 @@ func TestPublicEventsStreamPublishesInvalidationEnvelope(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(strings.TrimSpace(connected), ": connected"))
 
-	srv.NotifyGlobalEvent(GlobalEventSchemaInvalidated, map[string]any{"reason": "test"})
+	srv.NotifyGlobalEvent(appruntime.GlobalEventSchemaInvalidated, map[string]any{"reason": "test"})
 	event, ok := readGlobalSSEEvent(reader)
 	require.True(t, ok)
-	require.Equal(t, GlobalEventSchemaInvalidated, event.Kind)
+	require.Equal(t, appruntime.GlobalEventSchemaInvalidated, event.Kind)
 	require.NotEmpty(t, event.ID)
 	require.NotNil(t, event.Data)
 }

@@ -320,7 +320,7 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	select {
 	case <-exited:
 		t.waitStderr(ctx)
-		if killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
+		if killErr != nil && !errors.Is(killErr, os.ErrProcessDone) && !reapedKillErrorIsBenign(exited, killErr) {
 			return t.decorate(fmt.Errorf("kill process: %w", killErr))
 		}
 		return nil

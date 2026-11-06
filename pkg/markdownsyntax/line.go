@@ -57,3 +57,17 @@ func FenceLine(s string, start int) (ok bool, fenceChar byte, fenceLen int, next
 	}
 	return true, c, run, NextLineStart(s, start)
 }
+
+// UnorderedListItemContentStart recognizes one unordered marker and its first
+// ASCII space or tab. Callers own trimming and any additional whitespace.
+func UnorderedListItemContentStart(trimmed string) (int, bool) {
+	if len(trimmed) < 2 || trimmed[1] != ' ' && trimmed[1] != '\t' {
+		return 0, false
+	}
+	switch trimmed[0] {
+	case '-', '*', '+':
+		return 2, true
+	default:
+		return 0, false
+	}
+}

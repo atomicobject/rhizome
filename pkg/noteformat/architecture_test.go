@@ -442,7 +442,6 @@ func providerSelectionBoundaryFunction(path, function string) bool {
 		"pkg/app/operations/note_namespace_plan.go:PlanNamespaceMutation",
 		"pkg/app/operations/note_namespace_plan.go:setNamespaceBasenameUniqueness",
 		"pkg/app/operations/note_namespace_plan.go:namespaceHeadingPointers",
-		"pkg/app/codeintel/ingest.go:ValidateNotesWithWriter",
 		"pkg/app/codeintel/ingest.go:ValidateMarkdownCodeAnchorSyntaxWithWriter",
 		"pkg/app/codeintel/ingest.go:validateMarkdownCodeAnchorSyntax",
 		"pkg/app/codeintel/authored_anchors.go:ReadAuthoredMarkdownAnchors",

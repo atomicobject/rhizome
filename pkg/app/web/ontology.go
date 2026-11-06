@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/app/queryengine"
 	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
@@ -1376,7 +1377,7 @@ func (s *Server) refreshCommittedOntologyEdit(ctx context.Context, resp Ontology
 	applySessionStatusToWorkspaces(workspaces, resp.Status, resp.StalePaths, resp.Rebased)
 	resp.Workspaces = workspaces
 	if len(resp.Warnings) == 0 && projection != nil {
-		s.NotifyGlobalEvent(GlobalEventNodeChanged, NodeChangedEventData{
+		s.NotifyGlobalEvent(appruntime.GlobalEventNodeChanged, NodeChangedEventData{
 			Paths: projection.Paths, Domains: projection.Domains,
 		})
 	}

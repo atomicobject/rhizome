@@ -93,7 +93,7 @@ func mcpConfig(servers []harness.MCPServer) (string, error) {
 		}
 		entry := map[string]any{"command": server.Command, "args": server.Args}
 		if len(server.Env) > 0 {
-			env, err := envMap(server.Env)
+			env, err := server.Environment()
 			if err != nil {
 				return "", fmt.Errorf("MCP server %q: %w", name, err)
 			}
@@ -103,16 +103,4 @@ func mcpConfig(servers []harness.MCPServer) (string, error) {
 	}
 	encoded, err := json.Marshal(map[string]any{"mcpServers": values})
 	return string(encoded), err
-}
-
-func envMap(entries []string) (map[string]string, error) {
-	env := make(map[string]string, len(entries))
-	for _, entry := range entries {
-		key, value, ok := strings.Cut(entry, "=")
-		if !ok || strings.TrimSpace(key) == "" {
-			return nil, fmt.Errorf("invalid environment entry %q", entry)
-		}
-		env[key] = value
-	}
-	return env, nil
 }

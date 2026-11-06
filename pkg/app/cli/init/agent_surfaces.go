@@ -12,9 +12,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 )
 
-// rhizomePrefix is the prefix for all rhizome-managed artifacts (commands, prompts, skills).
-// All rhizome artifacts use hyphenated names: rhizome-onboard.md, rhizome-notes/, etc.
-const rhizomePrefix = "rhizome-"
 const coreRhizomeSkillName = "rhizome"
 
 var retiredCoreSkillNames = []string{
@@ -131,10 +128,15 @@ func planAgentSurfaces(projectRoot string, harnesses AgentHarnesses, section str
 		currentCommands[cmd.name] = struct{}{}
 	}
 	for _, dir := range commandDirs {
-		plan.commandDirs = append(plan.commandDirs, dir)
-		plan.currentCommands = currentCommands
 		for _, cmd := range commands {
 			plan.addFile(generatedFile{rel: dir + "/" + cmd.name, content: cmd.content, group: "command:" + cmd.name})
+		}
+		for _, rel := range recordedFilesUnder(record, dir) {
+			name := strings.TrimPrefix(rel, dir+"/")
+			if _, current := currentCommands[name]; current || strings.Contains(name, "/") {
+				continue
+			}
+			plan.removals = append(plan.removals, generatedRemoval{rel: rel, group: "command:" + name})
 		}
 	}
 

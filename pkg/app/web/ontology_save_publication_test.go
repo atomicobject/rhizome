@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
@@ -32,7 +33,7 @@ func TestOntologySavePublishesFreshReadDomainsOnce(t *testing.T) {
 	require.Empty(t, committed.Warnings)
 	select {
 	case event := <-events:
-		require.Equal(t, GlobalEventNodeChanged, event.Kind)
+		require.Equal(t, appruntime.GlobalEventNodeChanged, event.Kind)
 		data := event.Data.(NodeChangedEventData)
 		require.Equal(t, []string{"specs/100-demo/plan.md"}, data.Paths)
 		require.ElementsMatch(t, []string{"metadata", "ontology"}, data.Domains)

@@ -465,16 +465,23 @@ func TestEnsureStopsWhenTheCallerCancels(t *testing.T) {
 	spawned := useHelperSpawn(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	executable := testBinary(t)
+	done := make(chan error, 1)
 	go func() {
-		time.Sleep(50 * time.Millisecond)
-		cancel()
+		_, err := Ensure(ctx, EnsureOptions{
+			VaultPath: vault, Executable: executable, Autostart: true, Wait: true,
+			Budget: 30 * time.Second,
+		})
+		done <- err
 	}()
-	started := time.Now()
-	_, err := Ensure(ctx, EnsureOptions{
-		VaultPath: vault, Executable: testBinary(t), Autostart: true, Wait: true,
-		Budget: 30 * time.Second,
-	})
-	require.ErrorIs(t, err, context.Canceled)
-	require.Less(t, time.Since(started), 5*time.Second, "a cancelled caller must not wait out the budget")
+	require.Eventually(t, func() bool { return fake.probes.Load() > 0 }, 5*time.Second, time.Millisecond)
+	cancel()
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(5 * time.Second):
+		t.Fatal("a cancelled caller must not wait out the budget")
+	}
 	require.Nil(t, spawned.Load())
 }

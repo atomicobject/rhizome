@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"github.com/atomicobject/rhizome/pkg/graph/algorithms"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -75,7 +76,7 @@ func (commandOptions *graphInvocationOptions) runGraphPath(cmd *cobra.Command, a
 	if err != nil {
 		return fmt.Errorf("loading graph facts: %w", err)
 	}
-	minEdges, allPaths, canonicalPath := graphFactsPathInputs(facts)
+	minEdges, allPaths, canonicalPath := graphpresentation.PathInputsFromFacts(facts)
 
 	// Resolve fuzzy inputs.
 	fromPath, err := algorithms.ResolvePathFuzzy(allPaths, fromInput)
@@ -89,8 +90,8 @@ func (commandOptions *graphInvocationOptions) runGraphPath(cmd *cobra.Command, a
 		return nil
 	}
 
-	fromPath = canonicalGraphPath(canonicalPath, fromPath)
-	toPath = canonicalGraphPath(canonicalPath, toPath)
+	fromPath = graphpresentation.CanonicalPath(canonicalPath, fromPath)
+	toPath = graphpresentation.CanonicalPath(canonicalPath, toPath)
 
 	result, err := algorithms.ShortestPath(minEdges, fromPath, toPath, commandOptions.graphPathMaxHops)
 	if err != nil {
@@ -101,81 +102,6 @@ func (commandOptions *graphInvocationOptions) runGraphPath(cmd *cobra.Command, a
 
 	printGraphPath(cmd, result)
 	return nil
-}
-
-func graphFactsPathInputs(facts noderead.GraphFactsResult) ([]algorithms.GraphDocEdgeMinimal, []string, map[string]string) {
-	pathSet := make(map[string]struct{}, len(facts.Nodes)*2+len(facts.Edges)*2)
-	canonical := make(map[string]string, len(facts.Nodes)*4)
-	for _, node := range facts.Nodes {
-		if node.Kind != noderead.GraphEndpointNote {
-			addGraphFactAlias(pathSet, canonical, node.ID, node.ID)
-		}
-		addGraphFactAlias(pathSet, canonical, node.NotePath, node.ID)
-		addGraphFactAlias(pathSet, canonical, node.Path, node.ID)
-		addGraphFactAlias(pathSet, canonical, node.SourceLocator, node.ID)
-	}
-	minEdges := make([]algorithms.GraphDocEdgeMinimal, 0, len(facts.Edges))
-	for _, edge := range facts.Edges {
-		src := edge.Source
-		dst := edge.Target
-		if src == "" || dst == "" || src == dst {
-			continue
-		}
-		addGraphFactEndpoint(pathSet, canonical, src)
-		addGraphFactEndpoint(pathSet, canonical, dst)
-		minEdges = append(minEdges, algorithms.GraphDocEdgeMinimal{
-			SrcPath:         src,
-			DstPath:         dst,
-			Kind:            graphFactEdgeKind(edge),
-			Confidence:      graphFactConfidenceLabel(edge),
-			ConfidenceScore: edge.Confidence,
-		})
-	}
-	allPaths := make([]string, 0, len(pathSet))
-	for p := range pathSet {
-		allPaths = append(allPaths, p)
-	}
-	return minEdges, allPaths, canonical
-}
-
-func addGraphFactAlias(pathSet map[string]struct{}, canonical map[string]string, path, endpoint string) {
-	path = strings.TrimSpace(path)
-	if path != "" {
-		pathSet[path] = struct{}{}
-		canonical[path] = strings.TrimSpace(endpoint)
-	}
-}
-
-func addGraphFactEndpoint(pathSet map[string]struct{}, canonical map[string]string, endpoint string) {
-	endpoint = strings.TrimSpace(endpoint)
-	if endpoint == "" {
-		return
-	}
-	canonical[endpoint] = endpoint
-	if !strings.HasPrefix(endpoint, string(noderead.GraphEndpointNote)+":") {
-		pathSet[endpoint] = struct{}{}
-	}
-}
-
-func canonicalGraphPath(canonical map[string]string, path string) string {
-	if endpoint := canonical[strings.TrimSpace(path)]; endpoint != "" {
-		return endpoint
-	}
-	return path
-}
-
-func graphFactEdgeKind(edge noderead.GraphFactEdge) string {
-	if edge.RelationName != "" && edge.Kind == "ontology" {
-		return edge.RelationName
-	}
-	return edge.Kind
-}
-
-func graphFactConfidenceLabel(edge noderead.GraphFactEdge) string {
-	if edge.Confidence > 0 && edge.Confidence < 1 {
-		return semdb.EdgeConfidenceInferred
-	}
-	return semdb.EdgeConfidenceExtracted
 }
 
 func printGraphPath(cmd *cobra.Command, result *algorithms.PathResult) {

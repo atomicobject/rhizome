@@ -144,34 +144,11 @@ func capabilityState(done <-chan struct{}, errPtr *error) runtimeview.Capability
 	return state
 }
 
-// SearchReady returns true if the search capability is ready.
-func (rt *LiveRuntime) SearchReady() bool {
-	select {
-	case <-rt.searchReady:
-		return rt.searchErr.Load() == nil
-	default:
-		return false
-	}
-}
-
 // SemanticReady returns whether semantic capability is ready and any error.
 func (rt *LiveRuntime) SemanticReady() (bool, error) {
 	select {
 	case <-rt.semanticReady:
 		if err := rt.semanticErr.Load(); err != nil {
-			return false, *err
-		}
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-// CodeIndexReady returns whether code index capability is ready and any error.
-func (rt *LiveRuntime) CodeIndexReady() (bool, error) {
-	select {
-	case <-rt.codeReady:
-		if err := rt.codeErr.Load(); err != nil {
 			return false, *err
 		}
 		return true, nil
@@ -282,16 +259,6 @@ func (rt *LiveRuntime) LiveHealth() LiveHealth {
 		health.DegradedReasons = append([]string(nil), last.DegradedReasons...)
 	}
 	return health
-}
-
-// EmbeddingsConfig returns the note embeddings configuration (nil until semantic ready).
-func (rt *LiveRuntime) EmbeddingsConfig() *embeddings.Config {
-	return rt.embCfg.Load()
-}
-
-// CodeEmbeddingsConfig returns the code embeddings configuration (nil until code ready).
-func (rt *LiveRuntime) CodeEmbeddingsConfig() *embeddings.Config {
-	return rt.codeEmbCfg.Load()
 }
 
 // CodeEmbeddings returns the code embeddings store and provider (both nil until code ready).

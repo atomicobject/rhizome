@@ -263,42 +263,9 @@ func (e *executor) typeMatchesOrImplements(typeName, expected string) bool {
 	if expected == "Node" {
 		return true
 	}
-	if expected == "Note" && typeName != "" {
+	if expected == "Note" {
 		noteType := e.schema.Types[typeName]
 		return noteType != nil && noteType.Role == ontoschema.TypeRoleNote
 	}
-	if typeName == expected {
-		return true
-	}
-	noteType := e.schema.Types[typeName]
-	if noteType != nil {
-		for _, iface := range noteType.Implements {
-			if iface == expected {
-				return true
-			}
-			if e.interfaceImplements(iface, expected) {
-				return true
-			}
-		}
-	}
-	return e.interfaceImplements(typeName, expected)
-}
-
-func (e *executor) interfaceImplements(typeName, expected string) bool {
-	if typeName == expected {
-		return true
-	}
-	if typeName == "Section" && expected == "Section" {
-		return true
-	}
-	iface := e.schema.Interfaces[typeName]
-	if iface == nil {
-		return false
-	}
-	for _, name := range iface.Implements {
-		if name == expected || e.interfaceImplements(name, expected) {
-			return true
-		}
-	}
-	return false
+	return ontoschema.TypeMatchesOrImplements(e.schema, typeName, expected)
 }

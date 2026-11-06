@@ -21,49 +21,32 @@ func FuzzyMatch(pattern, path string) bool {
 		return false
 	}
 
-	// Normalize for case sensitivity
 	patternLower := strings.ToLower(pattern)
 	pathLower := strings.ToLower(path)
 
-	// Handle directory-specific search
 	if hasDirectorySpecifier {
-		dirPattern, contentPattern := splitDirectoryAndContent(patternLower)
+		dirPattern, contentPattern, _ := strings.Cut(patternLower, "/")
 
-		// First check if directory part matches
 		if !matchesDirectory(dirPattern, pathLower) {
 			return false
 		}
 
-		// If we have a content part to match as well
 		if contentPattern != "" {
-			// Split path to get content section (everything after first /)
 			parts := strings.SplitN(pathLower, "/", 2)
 			if len(parts) < 2 {
-				return false // No content section in path
+				return false
 			}
 
 			return matchesContent(contentPattern, parts[1])
 		}
 
-		return true // Only directory matched, but that's all we asked for
+		return true
 	}
 
-	// Content-only search (no directory specifier)
 	if strings.Contains(patternLower, ".") {
 		return matchesDottedPattern(patternLower, pathLower)
 	}
 	return matchesContentOnly(patternLower, pathLower)
-}
-
-// splitDirectoryAndContent splits a pattern into directory and content components
-func splitDirectoryAndContent(pattern string) (string, string) {
-	parts := strings.SplitN(pattern, "/", 2)
-	dirPattern := parts[0]
-	contentPattern := ""
-	if len(parts) > 1 {
-		contentPattern = parts[1]
-	}
-	return dirPattern, contentPattern
 }
 
 // matchesDirectory checks if a directory pattern matches the beginning of a path
@@ -76,7 +59,6 @@ func matchesDirectory(dirPattern string, path string) bool {
 
 	firstPathSegment := pathParts[0]
 
-	// Support wildcard matching in directory patterns
 	if containsWildcards(dirPattern) {
 		return wildcardMatch(dirPattern, firstPathSegment)
 	}
@@ -86,7 +68,6 @@ func matchesDirectory(dirPattern string, path string) bool {
 		return strings.HasPrefix(firstPathSegment, dirPattern)
 	}
 
-	// Otherwise, exact directory match is required
 	return firstPathSegment == dirPattern
 }
 
@@ -115,7 +96,7 @@ func matchesOrderedWords(pattern, searchText string) bool {
 		for {
 			index := strings.Index(searchText, word)
 			if index == -1 {
-				return false // Word not found
+				return false
 			}
 			if isWordBoundary(searchText, index) {
 				searchText = searchText[index+len(word):]
@@ -165,7 +146,6 @@ func splitWords(text string) []string {
 	var result []string
 
 	for _, part := range parts {
-		// Split by hyphen, underscore, and dot
 		for _, hp := range strings.Split(part, "-") {
 			for _, up := range strings.Split(hp, "_") {
 				for _, dp := range strings.Split(up, ".") {

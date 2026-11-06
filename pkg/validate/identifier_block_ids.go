@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
@@ -257,7 +258,7 @@ func sectionHasIdentifierBlockID(node *ontology.SectionNode, fieldName, blockID 
 	target := "^" + strings.TrimSpace(strings.TrimPrefix(blockID, "^"))
 	for _, line := range strings.Split(ontology.SectionOwnContent(node), "\n") {
 		trimmed := strings.TrimSpace(line)
-		if itemStart, ok := unorderedListItemContentStart(trimmed); ok {
+		if itemStart, ok := markdownsyntax.UnorderedListItemContentStart(trimmed); ok {
 			trimmed = strings.TrimSpace(trimmed[itemStart:])
 		}
 		idx := strings.Index(trimmed, "::")
@@ -286,18 +287,6 @@ func projectionHasIdentifierBlockID(projection *ontology.NodeProjection, fieldNa
 		}
 	}
 	return false
-}
-
-func unorderedListItemContentStart(trimmed string) (int, bool) {
-	if len(trimmed) < 2 || trimmed[1] != ' ' && trimmed[1] != '\t' {
-		return 0, false
-	}
-	switch trimmed[0] {
-	case '-', '*', '+':
-		return 2, true
-	default:
-		return 0, false
-	}
 }
 
 func blockIDReferenceEdits(inventory *validationSourceLinks, targetNote, oldID, newID string) []FixEdit {

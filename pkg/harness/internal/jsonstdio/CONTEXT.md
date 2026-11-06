@@ -7,3 +7,5 @@
 `Exited` closes as soon as `Wait` reaps the child, before logging its exit. A blocked log destination must not delay the process completion signal or consume the shutdown budget. With a shutdown deadline, graceful waiting reserves the existing one-second kill/reap window for process inventory and cleanup; short deadlines force termination without spending that remaining budget on grace. The no-deadline grace period is unchanged.
 
 `Recv` returns framing failures and stdout EOF immediately with already-captured stderr. It must not wait for stderr EOF: the session needs that error to resolve its active turn and approvals and begin cleanup. Stderr draining can complete during bounded `Close`.
+
+On Windows, TerminateProcess can report access denied after the process has already exited. The transport accepts that specific error only after observing the exact child’s reaped signal; errors for an unreaped child and Unix process-group failures remain failures.

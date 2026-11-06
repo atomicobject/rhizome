@@ -3,6 +3,7 @@ package web
 import (
 	"bufio"
 	"context"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +31,7 @@ func awaitViewsChanged(t *testing.T, events <-chan GlobalEvent, want, never stri
 	for {
 		select {
 		case event := <-events:
-			if event.Kind != GlobalEventViewsChanged {
+			if event.Kind != appruntime.GlobalEventViewsChanged {
 				continue
 			}
 			data, _ := event.Data.(map[string]string)

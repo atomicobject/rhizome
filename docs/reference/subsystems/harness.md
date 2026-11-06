@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the coding-agent harness boundary: child-process drivers for Codex app-server and Claude Code stream-json, sessions, approvals, and one-shot generation."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/harness
 tags: [subsystem/harness]
@@ -75,3 +75,5 @@ code-anchors:
 
 - [[coding-agent-harness|SPEC-0101]]
 - [[mcp-server]] (the `rzm mcp serve` allowlist that specialized agents attach through `SessionOptions.MCPServers`)
+
+`MCPServer.Environment` owns decoding the shared `KEY=value` list: split at the first equals sign, allow empty values and additional equals signs in a value, reject empty or whitespace-only keys, and retain the last duplicate value. Claude and Codex keep separate wire encoders, server-name validation and contextual errors.

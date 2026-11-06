@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - cmd
   - pkg/app/operations
@@ -163,3 +163,5 @@ updates that session and its preference file without changing process environmen
 variables. Provider construction, reranking, compression, evaluation and agent
 settings consume the same invocation environment. Child-process environment
 values must be supplied at the process boundary when needed.
+
+Shared graph-path fact preparation and canonical alias lookup live in `pkg/app/graphpresentation/path.go`; CLI and MCP keep their own admission and output behavior. Desktop CLI-link commands quote each POSIX argument with `pkg/shellquote.Quote`, preserving the expected-old-target check before mutation.

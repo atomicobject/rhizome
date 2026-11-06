@@ -38,7 +38,7 @@ Use this with [[Search - Intent and weight tuning]], [[unified-search-answer-arc
 
 CLI unified search and MCP semantic-query do not enter the planner with the same raw shape.
 
-`pkg/app/unifiedsearch.Run` joins `Query`/`Queries`, merges `Seeds` and `Files`, resolves seed tokens with `ResolveSeedHandles`, normalizes explicit seed paths with `NormalizeExplicitSeedPaths`, and defaults intent to `related_to_seed` only when the request has seeds and no query text. If `IntentInput` is not a known intent, CLI unified search may run embedding-backed intent detection through `InferIntentFromText`; otherwise it falls back to ordinary `search`.
+`pkg/app/unifiedsearch.Run` joins `Query`/`Queries`, merges `Seeds` and `Files`, resolves seed tokens against the request corpus with `resolveSeedHandlesWithCorpus`, derives explicit paths from the resolved handles with `ExplicitSeedPathsFromHandles`, and defaults intent to `related_to_seed` only when the request has seeds and no query text. If `IntentInput` is not a known intent, CLI unified search may run embedding-backed intent detection through `InferIntentFromText`; otherwise it falls back to ordinary `search`.
 
 ### MCP mode contract
 

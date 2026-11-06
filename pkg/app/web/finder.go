@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/finder"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 )
 
 // finderRebuildDelay coalesces bursts of index events into one rebuild.
@@ -50,7 +51,7 @@ func (s *Server) loadFinderCatalog(ctx context.Context) (*finder.Catalog, error)
 // invalidateFinderOnEvent schedules a catalog rebuild when indexed notes or
 // files change.
 func (s *Server) invalidateFinderOnEvent(kind string) {
-	if s.finder != nil && (kind == GlobalEventIndexChanged || kind == GlobalEventNodeChanged) {
+	if s.finder != nil && (kind == appruntime.GlobalEventIndexChanged || kind == appruntime.GlobalEventNodeChanged) {
 		s.finder.Invalidate()
 	}
 }

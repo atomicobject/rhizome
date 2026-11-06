@@ -40,15 +40,6 @@ func AbsFromInputWithVaultPaths(vaultPaths VaultPaths, vaultRoot, input string) 
 	return AbsPath(filepath.Clean(filepath.Join(vaultRoot, input)))
 }
 
-// ResolveNotePathInput converts a user-provided authored note path into
-// vault-relative and absolute paths without inferring an extension.
-// Relative inputs are treated as vault-root-relative; absolute inputs must live
-// under the vault root.
-func ResolveNotePathInput(vaultRoot, input string) (NotePath, AbsPath, error) {
-	vaultPaths, _ := NewVaultPaths(vaultRoot)
-	return ResolveNotePathInputWithVaultPaths(vaultPaths, input)
-}
-
 // ResolveNotePathInputWithVaultPaths converts a user-provided authored note
 // path using a precomputed VaultPaths without inferring an extension.
 func ResolveNotePathInputWithVaultPaths(vaultPaths VaultPaths, input string) (NotePath, AbsPath, error) {
@@ -76,14 +67,6 @@ func ResolveNotePathInputWithVaultPaths(vaultPaths VaultPaths, input string) (No
 	return rel, abs, nil
 }
 
-// ResolveNotePathRef converts a user-provided authored note path into a PathRef
-// without inferring an extension. Rel is for storage/IDs/FQNs; Abs is for
-// filesystem I/O only.
-func ResolveNotePathRef(vaultRoot, input string) (NotePathRef, error) {
-	vaultPaths, _ := NewVaultPaths(vaultRoot)
-	return ResolveNotePathRefWithVaultPaths(vaultPaths, input)
-}
-
 // ResolveNotePathRefWithVaultPaths converts a user-provided authored note path
 // into a PathRef using a precomputed VaultPaths without inferring an extension.
 func ResolveNotePathRefWithVaultPaths(vaultPaths VaultPaths, input string) (NotePathRef, error) {
@@ -92,13 +75,6 @@ func ResolveNotePathRefWithVaultPaths(vaultPaths VaultPaths, input string) (Note
 		return NotePathRef{}, err
 	}
 	return NotePathRef{Rel: rel, Abs: abs}, nil
-}
-
-// ResolveCodeInput converts a user-provided code path into vault-relative and absolute paths.
-// Relative inputs are treated as vault-root-relative; absolute inputs must live under the vault root.
-func ResolveCodeInput(vaultRoot, input string) (CodePath, AbsPath, error) {
-	vaultPaths, _ := NewVaultPaths(vaultRoot)
-	return ResolveCodeInputWithVaultPaths(vaultPaths, input)
 }
 
 // ResolveCodeInputWithVaultPaths converts a user-provided code path using a precomputed VaultPaths.

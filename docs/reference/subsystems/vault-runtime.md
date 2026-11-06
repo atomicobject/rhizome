@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the vault runtime: one auto-started serve process per vault root that wins the runtime lock, publishes a probe-verified manifest, runs every indexing job on one lane, and serves the loopback control API that rzm index and code mode execute through."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/app/runtime
   - pkg/app/bootstrap
@@ -119,3 +119,5 @@ Shared embedding nodes retain physical provider/batch metrics in a bounded runti
 - [[indexing]] (pipeline, writer lane, barriers)
 
 Runtime shutdown drains request handlers, background work, stores, and the election heartbeat before `BeforeOwnershipRelease` finalizes runtime and command diagnostics and closes the headless output capture. All structured recorder writes and elected Go-output capture finish before election ownership is released. The inherited native fallback can still receive process-exit or pre-capture command error prose afterward; it follows the raw-output retention limits above. Attached terminal completion output remains after release. Owner-barrier failures and panics finalize their true error outcome while still releasing the election lock.
+
+Go vault-event names and the reconciliation-failure reason live in `pkg/app/runtime/global_events.go`. Bootstrap producers, HTTP publishers and serve readiness consumers import that vocabulary so validation invalidation and refresh suppression follow the same event identity. Payloads and delivery remain owned by their existing producers and transports.

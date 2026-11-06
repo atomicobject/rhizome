@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/app/web
   - pkg/app/graphpresentation
@@ -64,3 +64,5 @@ Exercise public HTTP routes with real fixture stores and configured providers. F
 ## Related docs
 
 [[noderead]], [[graphql-query]], [[views]], [[ontology]], [[vault-runtime]], and [[stores]].
+
+The global capability list includes the existing `view_preferences.changed` event. Go event values come from `pkg/app/runtime/global_events.go`; the browser and kit share the preference-event constant in `web/src/query/vaultEvents.ts`. Global and node invalidation handlers share only their JSON/SSE transport loop: global events keep named frames, node events keep unnamed frames, and subscriptions, admission and runtime holds remain in each handler.

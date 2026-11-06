@@ -146,7 +146,7 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 	if err := dec.Decode(&result); err != nil || result.Needed == nil {
 		return CheckResult{}, fmt.Errorf("check must print one JSON object with a boolean \"needed\", like {\"needed\": true}; got %.200q", out)
 	}
-	if dec.More() {
+	if _, err := dec.Token(); err != io.EOF {
 		return CheckResult{}, errors.New("check printed more than one JSON value")
 	}
 	return CheckResult{Needed: *result.Needed, Summary: result.Summary, Context: result.Context}, nil

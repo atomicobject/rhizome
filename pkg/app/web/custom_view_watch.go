@@ -9,16 +9,10 @@ import (
 	"sync"
 	"time"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
-
-// GlobalEventViewsChanged announces that a file in a repository view folder
-// changed. Its data is {folder}, the definition folder relative to
-// .rhizome/views ("." for the root), or /module/<module>/<folder> for a
-// module's views folder, matching the folder in the view shell's config.
-// Bundled views change only with the binary and are never announced.
-const GlobalEventViewsChanged = "views.changed"
 
 // WHY: the vault watcher drops .rhizome/ paths by design, and letting view
 // sources through would feed them to indexing and validation reconciliation.
@@ -35,6 +29,8 @@ type viewFolderWatch struct {
 
 const viewFolderPollInterval = time.Second
 
+// Changed events carry the definition folder relative to .rhizome/views, or
+// /module/<module>/<folder>. Bundled views change only with the binary.
 // watchViewFolders keeps the poller running until the returned release is
 // called by every listener. Once the last release returns, nothing more is
 // announced.
@@ -94,12 +90,12 @@ func (s *Server) announceViewFolderChanges(ctx context.Context, interval time.Du
 		}
 		for folder, stamp := range next {
 			if folders[folder] != stamp {
-				s.NotifyGlobalEvent(GlobalEventViewsChanged, map[string]string{"folder": folder})
+				s.NotifyGlobalEvent(appruntime.GlobalEventViewsChanged, map[string]string{"folder": folder})
 			}
 		}
 		for folder := range folders {
 			if _, ok := next[folder]; !ok {
-				s.NotifyGlobalEvent(GlobalEventViewsChanged, map[string]string{"folder": folder})
+				s.NotifyGlobalEvent(appruntime.GlobalEventViewsChanged, map[string]string{"folder": folder})
 			}
 		}
 		folders = next

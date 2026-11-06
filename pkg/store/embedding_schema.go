@@ -6,27 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"sync"
 )
-
-// EnsureEmbeddingsVecPrimary migrates intel_embeddings to vec-primary storage when needed.
-// Safe to call repeatedly; no-op after migration is complete.
-func (s *Store) EnsureEmbeddingsVecPrimary(ctx context.Context) error {
-	ctx = indexingperf.WithOp(ctx, "intel.ensure_vec_primary")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
-		dimsList, err := migrateIntelEmbeddingsToVecPrimaryTx(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if len(dimsList) > 0 {
-			s.vecReady = sync.Map{}
-			for _, dims := range dimsList {
-				s.vecReady.Store(dims, struct{}{})
-			}
-		}
-		return nil
-	})
-}
 
 func (s *Store) requireIntelVecPrimary(ctx context.Context) error {
 	hasEmbeddingBlob, err := s.tableHasColumn(ctx, "intel_embeddings", "embedding")

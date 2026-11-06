@@ -95,15 +95,6 @@ func DefaultExtensions() []string {
 	return out
 }
 
-// DefaultExtensionSet returns a lookup set for default code extensions.
-func DefaultExtensionSet() map[string]struct{} {
-	out := make(map[string]struct{}, len(defaultExtensions))
-	for _, ext := range defaultExtensions {
-		out[ext] = struct{}{}
-	}
-	return out
-}
-
 // DefaultScanGlobs returns the default glob patterns for code scanning.
 //
 // This is coderef-oriented coverage, not the structural code-anchor language

@@ -185,8 +185,11 @@ async function restartingSupervisor(t) {
   const supervisor = new DevSupervisor({ binaryPath, vaultPath: root, skipVite: true }, {});
   supervisor.log = () => {};
   const ready = (pid) => {
-    writeFileSync(path.join(root, ".rhizome/runtime.json"),
+    const manifest = path.join(root, ".rhizome/runtime.json");
+    writeFileSync(manifest,
       JSON.stringify({ PID: pid, HTTPURL: `http://127.0.0.1:${45000 + pid}` }));
+    const readyAt = Math.ceil(Date.now() / 1000);
+    utimesSync(manifest, readyAt, readyAt);
     return { pid };
   };
   return { supervisor, ready };
@@ -253,7 +256,7 @@ test("shutdown while replacing Vite cannot start a new Vite", async (t) => {
   };
   supervisor.startVite = () => { starts++; };
   const pending = supervisor.restartBackend("rebuild");
-  await stopping.promise;
+  await Promise.race([stopping.promise, pending.then(() => assert.fail("restart completed before stopVite"))]);
   supervisor.shuttingDown = true;
   releaseStop.resolve();
   await pending;
