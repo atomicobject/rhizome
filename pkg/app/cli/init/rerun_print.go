@@ -155,6 +155,7 @@ func (r *initRun) printRerun(plan rerunPlan, s setup) {
 		printFinding(out, field.label, field.value)
 	}
 	printHookStatus(out, r.layout.ProjectRoot, plan.res, false)
+	printSettingConflicts(out, r.layout.ProjectRoot, plan.res)
 	if changes := append(append([]planLine{}, plan.settings...), plan.files...); len(changes) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, styleHeading(out, "Changes"))

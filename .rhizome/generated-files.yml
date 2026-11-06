@@ -35,7 +35,7 @@ written:
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .agents/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
   .agents/skills/rhizome/SKILL.md: 255391890ffd96fc
-  .agents/skills/rhizome/references/code-mode.md: 65258a0b63517d25
+  .agents/skills/rhizome/references/code-mode.md: 270b930fc6c7b609
   .agents/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .agents/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .agents/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
@@ -43,7 +43,7 @@ written:
   .agents/skills/rhizome/references/file-context.md: 1128da312ed1c0e6
   .agents/skills/rhizome/references/index-scope.md: f7a0a4041880a119
   .agents/skills/rhizome/references/indexing-and-freshness.md: 3ffde691332c5c3e
-  .agents/skills/rhizome/references/installation-and-integration.md: 254578a7f674d150
+  .agents/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
   .agents/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
   .agents/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
   .agents/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
@@ -56,6 +56,7 @@ written:
   .agents/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .agents/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .agents/skills/rhizome/references/views.md: 26fb7388f96eefbc
+  .claude/settings.json#rhizome-sandbox: a17fcf0a2f50e2d4
   .claude/skills/action-items/SKILL.md: d4eb4805c8cb8fda
   .claude/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
   .claude/skills/agentic-engineering/references/alignment.md: 5270a7ef418a6feb
@@ -89,7 +90,7 @@ written:
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .claude/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
   .claude/skills/rhizome/SKILL.md: 255391890ffd96fc
-  .claude/skills/rhizome/references/code-mode.md: 65258a0b63517d25
+  .claude/skills/rhizome/references/code-mode.md: 270b930fc6c7b609
   .claude/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .claude/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .claude/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
@@ -97,7 +98,7 @@ written:
   .claude/skills/rhizome/references/file-context.md: 1128da312ed1c0e6
   .claude/skills/rhizome/references/index-scope.md: f7a0a4041880a119
   .claude/skills/rhizome/references/indexing-and-freshness.md: 3ffde691332c5c3e
-  .claude/skills/rhizome/references/installation-and-integration.md: 254578a7f674d150
+  .claude/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
   .claude/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
   .claude/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
   .claude/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
@@ -110,6 +111,7 @@ written:
   .claude/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .claude/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .claude/skills/rhizome/references/views.md: 26fb7388f96eefbc
+  .codex/config.toml#rhizome-sandbox: 54d9924328c49a3b
   .rhizome/modules/action-items/ontology/action-items.graphql: b2b177dd9acbd65c
   .rhizome/modules/action-items/recipes/action-items.yaml: 8246a77453eb9071
   .rhizome/modules/action-items/views/action-items.yaml: 8a2b90e98887652d

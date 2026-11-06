@@ -42,7 +42,9 @@ func TestCodeModeAccessDenialDoesNotFallBackOrRetry(t *testing.T) {
 		require.True(t, handled, "permission failure must not select an in-process writer")
 		require.False(t, outcome.OK)
 		require.Contains(t, outcome.Stderr, `"code":"runtime_access_denied"`)
-		require.Contains(t, outcome.Stderr, "required permissions")
+		// The message is what an agent quotes to its host's reviewer.
+		require.Contains(t, outcome.Stderr, "local network access")
+		require.Contains(t, outcome.Stderr, "not a user credential")
 		require.Empty(t, forwarder.reason, "denial is not a runtime fallback reason")
 	}
 }
