@@ -68,7 +68,7 @@ function htmlReply(ref: string): NodeReply {
   return result;
 }
 
-function Harness() {
+function Harness({ bodyResident = true }: { bodyResident?: boolean } = {}) {
   const tabs = useNoteTabs("test-vault");
 
   const location = parseNotesLocation(
@@ -89,6 +89,7 @@ function Harness() {
               <NoteTab
                 tab={tab}
                 active={tabs.activeId === tab.id}
+                bodyResident={bodyResident}
                 anchor={tabs.activeId === tab.id ? location.fragment : null}
                 editSession={null}
                 vaultKey="/test/vault"
@@ -153,7 +154,7 @@ describe("NoteTab navigation", () => {
     await waitFor(() => expect(reads()).toEqual(["notes/a.md"]));
   });
 
-  it("preserves the document query and fragment in the HTML browser tab route", async () => {
+  it("preserves the HTML route and keeps the loaded viewer when its tab becomes inactive", async () => {
     http.onGraphQL("PublicNodeDetail", () => jsonReply(htmlReply("notes/a.md")));
     http.on("POST", "/api/v1/html-viewers", () =>
       jsonReply(
@@ -168,12 +169,18 @@ describe("NoteTab navigation", () => {
     );
     http.on("DELETE", "/api/v1/html-viewers/viewer-1", () => new Response(null, { status: 204 }));
     window.history.replaceState({}, "", "/notes?note=notes%2Fa.md&noteQuery=mode%3Dwide#chart");
-    render(<Harness />);
+    const rendered = render(<Harness />);
 
     expect(await screen.findByRole("link", { name: "Open in browser tab" })).toHaveAttribute(
       "href",
       "/notes?note=notes%2Fa.md&noteQuery=mode%3Dwide&bare=1#chart",
     );
+    await waitFor(() => expect(rendered.container.querySelector("iframe")).not.toBeNull());
+    const frame = rendered.container.querySelector("iframe");
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    rendered.rerender(<Harness bodyResident={false} />);
+    expect(rendered.container.querySelector("iframe")).toBe(frame);
+    expect(http.requests("POST", "/api/v1/html-viewers")).toHaveLength(1);
   });
 
   it("preserves a drill and its URL on ordinary tab activation without refetching", async () => {

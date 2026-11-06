@@ -5,6 +5,7 @@ import { publicWorkspaceRef } from "../../api/client";
 import { ChildSectionBody, hasBodyBlocks, headingTag, resolveChild } from "./ChildSectionInline";
 import { extractChildIdentity, structuralNodeFromWorkspace } from "./childIdentity";
 import type { BodyRendererProps } from "./registry";
+import { NoteDisclosure } from "../noteReadingState";
 
 /**
  * A PANE-display child section (`@contains` default) as a collapsed
@@ -38,7 +39,9 @@ export function ChildSectionDisclosure({ block, context }: BodyRendererProps) {
   };
 
   return (
-    <details
+    <NoteDisclosure
+      disclosureId={`node:${child.ref.nodeId || child.id}`}
+      data-reading-anchor={child.ref.nodeId || child.id}
       className="body-disclosure"
       data-field={block.fieldName}
       ref={(element) => {
@@ -75,6 +78,6 @@ export function ChildSectionDisclosure({ block, context }: BodyRendererProps) {
       <div className="body-disclosure__body">
         <ChildSectionBody child={child} context={context} />
       </div>
-    </details>
+    </NoteDisclosure>
   );
 }

@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { nodeWorkspaceFromPublicGraphQL } from "../api/nodeWorkspaceAdapter";
 import type {
@@ -2795,5 +2795,259 @@ describe("OntologyNotePane", () => {
     expect(screen.getByText("Story narrative.")).toBeInTheDocument();
     expect(screen.getByText("Tools return a link target.")).toBeInTheDocument();
     expect(screen.getByText("Properties", { exact: true })).toBeInTheDocument();
+  });
+});
+
+describe("note body retention", () => {
+  const section: RenderedSection = {
+    id: "note.md#details",
+    title: "Retained details",
+    level: "H2",
+    content: "Preserved body content",
+    children: [],
+    typeName: "Task",
+    previewTemplate: "Details preview",
+    collapsed: true,
+  };
+
+  const workspace = asWorkspace({
+    path: "note.md",
+    title: "Retained note",
+    content: {
+      rendered: {
+        path: "note.md",
+        title: "Retained note",
+        rendered: "## Retained details\n\nPreserved body content",
+        sections: [section],
+      },
+    },
+  });
+
+  it("releases body DOM and outline targets, then restores disclosure and reading position", () => {
+    let context: NoteTabContext | null = null;
+
+    const onContextChange = (next: NoteTabContext | null) => {
+      context = next;
+    };
+
+    const pane = (active: boolean, bodyResident: boolean) => (
+      <OntologyNotePane
+        workspace={workspace}
+        active={active}
+        bodyResident={bodyResident}
+        onOpen={() => undefined}
+        onContextChange={onContextChange}
+      />
+    );
+
+    const view = render(pane(true, true));
+    const body = view.container.querySelector<HTMLDivElement>(".ontology-pane__main")!;
+    const disclosure = view.container.querySelector<HTMLDetailsElement>("details")!;
+    disclosure.open = true;
+    fireEvent(disclosure, new Event("toggle"));
+    body.scrollTop = 130;
+    expect(context!.outline.target?.(section)).not.toBeNull();
+
+    view.rerender(pane(false, true));
+    view.rerender(pane(false, false));
+    expect(screen.queryByText("Preserved body content")).not.toBeInTheDocument();
+    expect(context!.outline.target?.(section)).toBeNull();
+    body.scrollTop = 0;
+
+    view.rerender(pane(true, true));
+    expect(view.container.querySelector<HTMLDetailsElement>("details")!.open).toBe(true);
+    expect(body.scrollTop).toBe(130);
+    expect(context!.outline.target?.(section)?.isConnected).toBe(true);
+  });
+
+  it("lets a new navigation request override an older saved reading position", () => {
+    const pane = (active: boolean, bodyResident: boolean, href = "/notes?note=note.md") => (
+      <OntologyNotePane
+        workspace={workspace}
+        active={active}
+        bodyResident={bodyResident}
+        applicationHref={href}
+        onOpen={() => undefined}
+      />
+    );
+
+    const view = render(pane(true, true));
+    const body = view.container.querySelector<HTMLDivElement>(".ontology-pane__main")!;
+    body.scrollTop = 130;
+    view.rerender(pane(false, true));
+    view.rerender(pane(false, false));
+    body.scrollTop = 0;
+
+    act(() => view.rerender(pane(true, true, "/notes?note=note.md#details")));
+    expect(body.scrollTop).toBe(0);
+    expect(screen.getByText("Preserved body content")).toBeInTheDocument();
+  });
+
+  it("does not replay a source issue when restoring but honors a new issue target", async () => {
+    const source = asWorkspace({
+      requestedRef: "notes/source.md",
+      content: {
+        markdown: "first\nsecond\nthird",
+        rendered: {
+          path: "notes/source.md",
+          title: "Source",
+          rendered: "first\nsecond\nthird",
+          sections: [],
+        },
+      },
+    });
+
+    const pane = (active: boolean, bodyResident: boolean, line = 2) => (
+      <OntologyNotePane
+        workspace={source}
+        active={active}
+        bodyResident={bodyResident}
+        viewMode="source"
+        issueTarget={{ unit: "line", start: line }}
+        onOpen={() => undefined}
+      />
+    );
+
+    const rendered = render(pane(true, true));
+
+    const editor = () => {
+      const view = EditorView.findFromDOM(screen.getByRole("textbox", { name: "Note source" }));
+
+      if (!view) throw new Error("Expected a source editor");
+
+      return view;
+    };
+
+    await waitFor(() => expect(editor().state.selection.main.head).toBe(6));
+    const body = rendered.container.querySelector<HTMLDivElement>(".ontology-pane__main")!;
+    body.scrollTop = 130;
+    rendered.rerender(pane(false, true));
+    rendered.rerender(pane(false, false));
+    body.scrollTop = 0;
+    rendered.rerender(pane(true, true));
+    await waitFor(() => expect(editor().state.selection.main.head).toBe(0));
+    expect(body.scrollTop).toBe(130);
+
+    rendered.rerender(pane(true, true, 3));
+    await waitFor(() => expect(editor().state.selection.main.head).toBe(13));
+  });
+
+  it("keeps a warm body and its existing scroll position when switching back", () => {
+    const pane = (active: boolean) => (
+      <OntologyNotePane workspace={workspace} active={active} onOpen={() => undefined} />
+    );
+
+    const view = render(pane(true));
+    const body = view.container.querySelector<HTMLDivElement>(".ontology-pane__main")!;
+    const content = screen.getByText("Preserved body content");
+    body.scrollTop = 130;
+    view.rerender(pane(false));
+    body.scrollTop = 140;
+    view.rerender(pane(true));
+
+    expect(screen.getByText("Preserved body content")).toBe(content);
+    expect(body.scrollTop).toBe(140);
+  });
+
+  it("corrects a restored content anchor once after late layout and stops on reader input", () => {
+    const observers: Array<{
+      callback: ResizeObserverCallback;
+      observed: Element[];
+      instance: ResizeObserver;
+    }> = [];
+
+    const nativeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class implements ResizeObserver {
+      observed: Element[] = [];
+
+      constructor(callback: ResizeObserverCallback) {
+        observers.push({ callback, observed: this.observed, instance: this });
+      }
+
+      observe(target: Element) {
+        this.observed.push(target);
+      }
+
+      unobserve() {}
+      disconnect() {}
+    };
+    const frames: FrameRequestCallback[] = [];
+
+    const animationFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.push(cb);
+
+      return frames.length;
+    });
+
+    const pane = (active: boolean, bodyResident: boolean) => (
+      <OntologyNotePane
+        workspace={workspace}
+        active={active}
+        bodyResident={bodyResident}
+        onOpen={() => undefined}
+      />
+    );
+
+    try {
+      const view = render(pane(true, true));
+      const body = view.container.querySelector<HTMLDivElement>(".ontology-pane__main")!;
+      let anchorTop = 100;
+      let scrollHeight = 1000;
+      vi.spyOn(body, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 400, 400));
+      Object.defineProperty(body, "scrollHeight", { configurable: true, get: () => scrollHeight });
+
+      const measureAnchor = () => {
+        const anchor = view.container.querySelector<HTMLElement>("[data-reading-anchor]")!;
+        vi.spyOn(anchor, "getBoundingClientRect").mockImplementation(
+          () => new DOMRect(0, anchorTop - body.scrollTop, 400, 20),
+        );
+      };
+
+      measureAnchor();
+      body.scrollTop = 130;
+      view.rerender(pane(false, true));
+      view.rerender(pane(false, false));
+      body.scrollTop = 0;
+      view.rerender(pane(true, true));
+      measureAnchor();
+
+      const observer = [...observers]
+        .reverse()
+        .find((entry) =>
+          entry.observed.some((element) => element.classList.contains("ontology-markdown")),
+        )!;
+
+      anchorTop = 200;
+      scrollHeight = 1100;
+      act(() => observer.callback([], observer.instance));
+      act(() => frames.at(-1)?.(0));
+      expect(body.scrollTop).toBe(230);
+
+      anchorTop = 300;
+      scrollHeight = 1200;
+      act(() => observer.callback([], observer.instance));
+      expect(body.scrollTop).toBe(230);
+
+      view.rerender(pane(false, true));
+      view.rerender(pane(false, false));
+      body.scrollTop = 0;
+      view.rerender(pane(true, true));
+
+      const nextObserver = [...observers]
+        .reverse()
+        .find((entry) =>
+          entry.observed.some((element) => element.classList.contains("ontology-markdown")),
+        )!;
+
+      fireEvent.wheel(body);
+      body.scrollTop = 45;
+      scrollHeight = 1300;
+      act(() => nextObserver.callback([], nextObserver.instance));
+      expect(body.scrollTop).toBe(45);
+      view.unmount();
+    } finally {
+      globalThis.ResizeObserver = nativeObserver;
+      animationFrame.mockRestore();
+    }
   });
 });
