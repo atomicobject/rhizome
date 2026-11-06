@@ -616,8 +616,28 @@ pub fn reopen(app: &AppHandle) {
 pub fn create_from_event(app: &AppHandle, session: WindowSession) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        if let Err(error) = create(&app, session) {
-            eprintln!("Rhizome Desktop could not create a window: {error}");
+        #[cfg(windows)]
+        crate::menu::windows_keyboard::trace(&app, "create-begin", "", serde_json::json!({}));
+        match create(&app, session) {
+            Ok(_window) => {
+                #[cfg(windows)]
+                crate::menu::windows_keyboard::trace(
+                    &app,
+                    "create-end",
+                    _window.label(),
+                    serde_json::json!({}),
+                );
+            }
+            Err(error) => {
+                #[cfg(windows)]
+                crate::menu::windows_keyboard::trace(
+                    &app,
+                    "create-error",
+                    "",
+                    serde_json::json!({ "kind": format!("{:?}", std::mem::discriminant(&error)) }),
+                );
+                eprintln!("Rhizome Desktop could not create a window: {error}");
+            }
         }
     });
 }
