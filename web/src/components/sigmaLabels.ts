@@ -201,25 +201,6 @@ export function createLabelPainter(
 
     labeled.sort((a, b) => b.priority - a.priority || b.r - a.r || a.id.localeCompare(b.id));
 
-    const names = labeled.flatMap((node) =>
-      node.fixed && node.landmark
-        ? [
-            {
-              id: node.id,
-              box: outwardSpots(
-                node.x,
-                node.y,
-                node.r,
-                measure(context, node.label),
-                size,
-                node.dx,
-                node.dy,
-              )[0].box,
-            },
-          ]
-        : [],
-    );
-
     const font = context.font;
 
     for (const node of labeled) {
@@ -266,43 +247,47 @@ export function createLabelPainter(
       }
 
       if (node.fixed) {
-        let chosen: Spot | null = null;
+        const detail = Boolean(node.detail);
+        const width = Math.max(measure(context, node.label), measure(context, node.detail));
 
-        for (const detail of node.detail ? [true, false] : [false]) {
-          const width = Math.max(
-            measure(context, node.label),
-            detail ? measure(context, node.detail) : 0,
-          );
+        const candidates = [
+          ...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy),
+          ...spotsAround(node.x, node.y, node.r, width, size, node.left, true),
+        ];
 
-          chosen =
-            [...outwardSpots(node.x, node.y, node.r, width, size, node.dx, node.dy)]
-              .map((spot) => {
-                if (detail && spot.box[3] < node.y) {
-                  spot.y -= size + 3;
-                  spot.box[1] -= size + 3;
-                } else if (detail) spot.box[3] += size + 3;
-
-                return spot;
-              })
-              .find(
-                ({ box }) =>
-                  box[0] >= 0 &&
-                  box[2] <= viewWidth &&
-                  box[1] >= 0 &&
-                  box[3] <= viewHeight &&
-                  !discs.some((disc) => disc.id !== node.id && overlaps(disc.box, box, 8)) &&
-                  !placed.some((other) => overlaps(other, box, 8)) &&
-                  (!detail ||
-                    !names.some((other) => other.id !== node.id && overlaps(other.box, box, 8))),
-              ) ?? null;
-
-          if (chosen) {
-            chosen.detail = detail;
-            break;
+        // Dense fans may need a free label position elsewhere in the viewport.
+        for (let y = size + PAD_Y; y < viewHeight - size - 8; y += size + 12) {
+          for (let x = PAD_X; x + width + PAD_X <= viewWidth; x += 16) {
+            candidates.push({
+              x,
+              y,
+              box: [x - PAD_X, y - size - PAD_Y + 1, x + width + PAD_X, y + PAD_Y + 3],
+            });
           }
         }
 
-        if (chosen) placed.push(chosen.box);
+        const chosen =
+          candidates
+            .map((spot) => {
+              if (detail && spot.box[3] < node.y) {
+                spot.y -= size + 3;
+                spot.box[1] -= size + 3;
+              } else if (detail) spot.box[3] += size + 3;
+
+              return spot;
+            })
+            .find(
+              ({ box }) =>
+                box[0] >= 0 &&
+                box[2] <= viewWidth &&
+                box[1] >= 0 &&
+                box[3] <= viewHeight &&
+                !discs.some((disc) => disc.id !== node.id && overlaps(disc.box, box, 8)) &&
+                !placed.some((other) => overlaps(other, box, 8)),
+            ) ?? candidates[0];
+
+        chosen.detail = detail;
+        placed.push(chosen.box);
         spots.set(at(node.x, node.y), chosen);
         continue;
       }
@@ -417,7 +402,7 @@ export function createLabelPainter(
     if (
       !attrs?.selected &&
       distance > data.size + 4 &&
-      (!attrs?.explorerLabels || distance <= data.size + 24)
+      (!attrs?.explorerLabels || attrs.kind === "module" || distance <= data.size + 24)
     ) {
       if (attrs?.explorerLabels) context.setLineDash([1, 3]);
       context.strokeStyle = attrs?.fixed ? colors().edgeLabel || label : label;

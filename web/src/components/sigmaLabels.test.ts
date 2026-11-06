@@ -27,13 +27,29 @@ it("keeps labels on the outward side with labels within 8px", () => {
   }
 });
 
-it("places fixed Explorer detail clear of unrelated nodes", () => {
+it("places colliding folder names, counts and overflow clear of unrelated nodes", () => {
   const restore = installFakeWebGL();
   const container = document.createElement("div");
   document.body.append(container);
 
   const { graph } = buildSigmaGraph({
     nodes: [
+      {
+        id: "overflow:pkg",
+        kind: "module",
+        label: "+12 notes · 1 file in Vault",
+        aggregate: true,
+        x: 300,
+        y: 220,
+      },
+      {
+        id: "folder:embedindex",
+        kind: "module",
+        label: "embedindex",
+        labelDetail: "3 notes · 20 files",
+        x: 300,
+        y: 240,
+      },
       { id: "folder:pkg", kind: "module", label: "pkg", x: 400, y: 200 },
       { id: "blocker", kind: "module", label: "blocker", x: 120, y: 200 },
       {
@@ -65,11 +81,18 @@ it("places fixed Explorer detail clear of unrelated nodes", () => {
     vi.spyOn(sigma, "framedGraphToViewport").mockImplementation((point) => point);
     vi.spyOn(sigma, "scaleSize").mockImplementation((size = 10) => size);
     vi.spyOn(sigma, "getNodeDisplayData").mockImplementation((id) => ({
-      x: id === "folder:pkg/app" ? 300 : id === "blocker" ? 120 : 400,
-      y: 200,
+      x: id === "blocker" ? 120 : id === "folder:pkg" ? 400 : 300,
+      y: id === "overflow:pkg" ? 220 : id === "folder:embedindex" ? 240 : 200,
       size: id === "blocker" ? 60 : 10,
       color: "blue",
-      label: id === "folder:pkg/app" ? "app" : null,
+      label:
+        id === "folder:pkg/app"
+          ? "app"
+          : id === "overflow:pkg"
+            ? "+12 notes · 1 file in Vault"
+            : id === "folder:embedindex"
+              ? "embedindex"
+              : null,
       forceLabel: true,
       hidden: false,
       highlighted: false,
@@ -109,7 +132,38 @@ it("places fixed Explorer detail clear of unrelated nodes", () => {
       },
       sigma.getSettings(),
     );
-    expect(fillText.mock.calls.map(([text]) => text)).toContain("app");
+
+    for (const [key, label, y] of [
+      ["overflow:pkg", "+12 notes · 1 file in Vault", 220],
+      ["folder:embedindex", "embedindex", 240],
+    ] as const) {
+      painter.draw(
+        context,
+        { key, label, color: "blue", x: 300, y, size: 10 },
+        sigma.getSettings(),
+      );
+    }
+
+    expect(fillText.mock.calls.map(([text]) => text)).toEqual(
+      expect.arrayContaining([
+        "app",
+        "111 notes · 1,184 files",
+        "embedindex",
+        "3 notes · 20 files",
+        "+12 notes · 1 file in Vault",
+      ]),
+    );
+    const boxes = painter.occupied();
+    expect(boxes).toHaveLength(3);
+
+    for (let i = 0; i < boxes.length; i++) {
+      for (const other of boxes.slice(i + 1)) {
+        const box = boxes[i];
+        expect(
+          box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1],
+        ).toBe(false);
+      }
+    }
   } finally {
     sigma.kill();
     container.remove();

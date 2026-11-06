@@ -12,7 +12,7 @@ import {
 import { useFolderExplorer } from "./useFolderExplorer";
 
 describe("Explorer focus", () => {
-  it("retains the Vault totals at root and hides them in an expanded branch", () => {
+  it("retains the Vault totals at root and in an expanded branch", () => {
     const root = {
       id: "folder:",
       kind: "module",
@@ -22,7 +22,7 @@ describe("Explorer focus", () => {
     };
 
     expect(focusFolderNodes([root], "")[0].labelDetail).toBe(root.labelDetail);
-    expect(focusFolderNodes([root], "pkg/app")[0].labelDetail).toBeUndefined();
+    expect(focusFolderNodes([root], "pkg/app")[0].labelDetail).toBe(root.labelDetail);
   });
   it("keeps positions while selecting a branch and retaining child counts", () => {
     const nodes = [
@@ -59,7 +59,7 @@ describe("Explorer focus", () => {
     expect(focusFolderNodes(nodes, "pkg")).toEqual([
       { ...nodes[0], center: true },
       { ...nodes[1], center: false },
-      { ...nodes[2], center: false, labelDetail: undefined },
+      { ...nodes[2], center: false },
     ]);
     expect(
       ["", "pkg", "pkg/app", "docs", "pkg-other"].map((path) => onBranch(path, "pkg/app")),

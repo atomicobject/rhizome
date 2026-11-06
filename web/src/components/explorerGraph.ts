@@ -26,15 +26,6 @@ export function focusFolderNodes(nodes: GraphViewNode[], path: string): GraphVie
   return nodes.map((node) => ({
     ...node,
     center: node.id === `folder:${path}`,
-    labelDetail:
-      node.id === "folder:" && path
-        ? undefined
-        : !path ||
-            node.id === `folder:${path}` ||
-            (node.aggregate && node.path === path) ||
-            (node.path || "").split("/").slice(0, -1).join("/") === path
-          ? node.labelDetail
-          : undefined,
   }));
 }
 
