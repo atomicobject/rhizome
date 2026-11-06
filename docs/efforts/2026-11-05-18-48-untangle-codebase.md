@@ -93,3 +93,10 @@ Complete. All approved candidates, selected cleanup, independent review and appl
 - 2026-11-06T01:01:55Z [delivery] Implemented all approved candidates. Five integrated review passes are resolved; the packaged heading failure was reproduced before the supplemental identity fix. Full `make verify` passed after that fix, including 112 browser tests. Final local commit/closure remains in progress.
 
 - 2026-11-06T01:11:53Z [closure] Final `make check` passed after replacing the redaction wall-clock assertion with the same CPU budget. Full `make verify`, explicit SQLite/DynamoDB contracts, desktop checks/package/interaction and init convergence passed. The approved spec and plan hashes still match. Code committed as `ed628b75c7845345e5624e495a07f51a40de011b`; closing documentation records the completed result on this branch.
+
+
+## Publication Follow-through
+
+After closure, the user requested a Sol review loop and pull request. Two GPT-6.1 Sol xhigh rounds approved the first-pass behavior and its integration with current main, with no findings. The integrated code is carried by `b0d0cf824a9b7b7fc9e1832fd31aa5e7555e2f0e`; [PR #101](https://github.com/atomicobject/rhizome/pull/101) carries the work and review evidence. The merged branch passed `make verify`, `make check`, generated-file convergence, documentation validation and frozen-scope validation. The [Sol ledger](../reviews/2026-11-05-untangle-codebase/sol-loop.md) records the exact review and verification scope.
+
+The user also requested a new untangle pass with both cleanup options retained. That follow-on work is separate from this completed effort's frozen scope and delivery history. No merge or deployment has been performed.
