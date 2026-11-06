@@ -44,7 +44,7 @@ function orderedChildren(tree: FolderTree, path: string, children: FolderChild[]
     return [...children].sort(
       (a, b) =>
         Number(Boolean(a.node.aggregate)) - Number(Boolean(b.node.aggregate)) ||
-        a.node.label.localeCompare(b.node.label),
+        a.node.id.localeCompare(b.node.id),
     );
 
   const first = children.reduce<FolderChild | undefined>(
