@@ -131,6 +131,24 @@ def clear_outputs(output_dir: Path) -> None:
         (output_dir / name).unlink(missing_ok=True)
 
 
+def clear_bundle(bundle_dir: Path) -> None:
+    # Earlier builds leave differently named DMGs and stale updater archives.
+    for kind in ("dmg", "macos"):
+        shutil.rmtree(bundle_dir / kind, ignore_errors=True)
+
+
+def stapled(app: Path, *, runner: Runner, env: Mapping[str, str]) -> bool:
+    result = runner(["xcrun", "stapler", "validate", str(app)], env=env, check=False, capture_output=True, text=True)
+    return result.returncode == 0
+
+
+def report_notarization(result: Any) -> None:
+    """Echo Tauri's notarization status lines, which name no credentials."""
+    for line in f"{getattr(result, 'stdout', '') or ''}\n{getattr(result, 'stderr', '') or ''}".splitlines():
+        if "otariz" in line or "Stapling" in line:
+            print(f"desktop: tauri: {line.strip()}", flush=True)
+
+
 def build_environment(environ: Mapping[str, str], rzm: Path, home: Path) -> dict[str, str]:
     """The Tauri build gets the signing key, not the publishing tokens."""
     env = {
@@ -185,16 +203,24 @@ def build(
     if prebuilt_frontend and not (desktop / "dist/index.html").is_file():
         raise DesktopBuildError("prepared desktop frontend is missing; restore the verified CI frontend artifact")
     bundle_dir = root / BUNDLE_DIR
-    # Earlier builds leave differently named DMGs and stale updater archives.
-    for kind in ("dmg", "macos"):
-        shutil.rmtree(bundle_dir / kind, ignore_errors=True)
+    clear_bundle(bundle_dir)
     runner(tauri_command(version, updater=updater, notarize=notarize, prebuilt_frontend=prebuilt_frontend), cwd=desktop, env=clean_env, check=True)
     command = tauri_command(version, updater=updater, notarize=notarize, bundle=True, prebuilt_frontend=prebuilt_frontend)
     if notarize:
         with credentials(env) as signing_env:
             # A signer failure must not expose credentials through captured output.
             try:
-                runner(command, cwd=desktop, env=signing_env, check=True, capture_output=True, text=True, timeout=3600)
+                for attempt in range(2):
+                    result = runner(command, cwd=desktop, env=signing_env, check=True, capture_output=True, text=True, timeout=3600)
+                    report_notarization(result)
+                    if attempt or stapled(bundle_dir / "macos/Rhizome.app", runner=runner, env=clean_env):
+                        break
+                    # Tauri ignores `xcrun stapler staple` failures (tauri-macos-sign
+                    # 2.12), so a ticket Apple has not yet propagated leaves the app,
+                    # DMG and updater archive unstapled. A rebuild resubmits the same
+                    # app; distribution verification below still requires the ticket.
+                    print("desktop: Tauri left Rhizome.app without a stapled ticket; rebuilding the bundle once", flush=True)
+                    clear_bundle(bundle_dir)
                 outputs = bundle_outputs(bundle_dir, updater=updater)
                 notarize_dmg(outputs[DMG], runner=runner, env=signing_env)
             except subprocess.SubprocessError as error:

@@ -111,7 +111,7 @@ Base64 is encoding, so `APPLE_CERTIFICATE` remains a secret. GitHub supplies the
 
 CI imports the identity and Apple intermediate certificate into a temporary Keychain. Notarization keys and signing handoffs use owner-only temporary files. The general build environment contains a protected file reference, and only bundling/notarization receives the relevant credentials. Cleanup restores the Keychain search list and removes temporary files and keys even after failure; runner destruction is the final boundary after forced termination.
 
-Tauri notarizes and staples the app before producing its updater archive; the hook separately submits and staples the outer DMG. Only ticket-service network failures identified as stapler error 68 with an NSURLErrorDomain diagnostic receive bounded retries. Invalid signatures or tickets fail immediately.
+Tauri notarizes and staples the app before producing its updater archive; the hook separately submits and staples the outer DMG. Only ticket-service network failures identified as stapler error 68 with an NSURLErrorDomain diagnostic receive bounded retries. Tauri does not check its own `stapler staple` result, so when the bundled app has no stapled ticket the hook rebuilds the bundle once and prints Tauri's notarization status lines. Invalid signatures or tickets, or a second unstapled app, fail immediately.
 
 To test the full build without publishing, manually run the **Release** workflow on the reviewed source ref with `candidate_only=true`. It submits to Apple's notary service and retains the verified bundle for 30 days, but does not change release refs, deploy the gateway, create a GitHub Release or update Homebrew. The protected Environment's branch restriction still applies.
 

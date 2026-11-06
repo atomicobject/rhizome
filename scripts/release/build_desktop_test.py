@@ -47,9 +47,14 @@ class FakeTauri:
     def __init__(self, root: Path) -> None:
         self.root = root
         self.calls: list[tuple[list[str], dict]] = []
+        self.unstapled_checks = 0
 
     def __call__(self, command, **kwargs):
         self.calls.append((list(command), kwargs))
+        if command[:3] == ["xcrun", "stapler", "validate"]:
+            code = 65 if self.unstapled_checks else 0
+            self.unstapled_checks = max(0, self.unstapled_checks - 1)
+            return subprocess.CompletedProcess(command, code, "", "")
         if command[:3] == ["xcrun", "notarytool", "submit"]:
             return subprocess.CompletedProcess(command, 0, '{"status":"Accepted"}', "")
         if command[:3] == ["npm", "run", "tauri"]:
@@ -177,13 +182,25 @@ class BuildTest(unittest.TestCase):
         self.assertEqual("synthetic-password", env["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"])
         self.assertNotIn("GITHUB_TOKEN", env)
         self.assertTrue(env["PATH"].startswith(str(self.home / ".cargo/bin")))
-        codesign = self.runner.commands()[2]
+        self.assertEqual(["xcrun", "stapler", "validate"], self.runner.commands()[2][:3])
+        codesign = self.runner.commands()[3]
         self.assertEqual(["codesign", "--verify", "--deep", "--strict"], codesign[:4])
         self.assertTrue(codesign[4].endswith("bundle/macos/Rhizome.app"))
-        content_check = self.runner.commands()[3]
+        content_check = self.runner.commands()[4]
         self.assertEqual("--check-artifact", content_check[2])
         self.assertTrue(content_check[1].endswith("scripts/teamkeys/release.py"))
         self.assertTrue(content_check[3].endswith("Rhizome.app/Contents/MacOS/rhizome-desktop"))
+
+    def test_unstapled_app_rebuilds_the_bundle_once(self) -> None:
+        # Tauri ignores stapler failures, so the build checks the ticket itself.
+        self.runner.unstapled_checks = 1
+        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"):
+            self.build({**APPLE, "RZM_RELEASE_DESKTOP": "1",
+                        "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
+                        "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password"})
+        bundles = [c for c in self.runner.commands() if c[:3] == ["npm", "run", "tauri"] and "bundle" in c]
+        self.assertEqual(2, len(bundles))
+        verify.assert_called_once()
 
     def test_missing_dependencies_are_installed_first(self) -> None:
         (self.root / "desktop/node_modules").rmdir()
