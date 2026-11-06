@@ -1,4 +1,47 @@
 apiVersion: rhizome.query-recipe.v1
+id: open-efforts
+name: Open efforts by creation date
+problem: List planned and active efforts across Markdown notes and HTML workspaces, oldest-created first, without discovering the ontology or filtering by a person.
+inputSpec:
+  mode: none
+  inputs:
+    - name: offset
+      kind: integer
+      description: Rows to skip; use extensions.typedRoots.effort.nextOffset for the next page.
+query:
+  graphQL: |
+    query OpenEfforts($offset: Int = 0) {
+      effort(first: 100, offset: $offset, filters: [{ field: "status", op: in, values: ["planned", "active"] }], sort: [{ field: "createdAt", direction: asc }]) {
+        id
+        name
+        status
+        createdAt
+        summary
+        ... on EffortNote { path }
+        ... on EffortWorkspace { path }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - effort.id
+    - effort.path
+    - effort.status
+    - effort.createdAt
+  empty: No planned or active efforts were found. Check query errors and coverage before claiming none exist.
+  partial: When extensions.typedRoots.effort.hasMore is true, repeat with offset set to nextOffset.
+  highVolume: Keep paging until hasMore is false before reporting a complete inventory.
+adaptationGuidance:
+  summary: Recorded status establishes open state; creation time establishes age, not inactivity or delivery completeness.
+  rules:
+    - Preserve both effort representations through the shared effort root.
+    - Use createdAt for age; filesystem timestamps do not establish when substantive work happened.
+    - Read selected effort execution contexts when the question needs remaining work or closure evidence.
+tags:
+  - agentic-engineering
+  - effort
+  - inventory
+---
+apiVersion: rhizome.query-recipe.v1
 id: note-by-path
 name: Note by path
 problem: Load one known note and its immediate note neighborhood before reshaping prose, frontmatter, links, or typed structure.

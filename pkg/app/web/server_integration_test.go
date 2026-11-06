@@ -42,6 +42,7 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"testing/synctest"
 	"time"
 )
 
@@ -325,31 +326,34 @@ adaptationGuidance:
 	writeRecipe("Exact note recipe", "exact-note-recipe", "path title")
 	writeRecipe("Type-dependent note recipe", "typed-note-recipe", "__typename path")
 
-	runtime := &Runtime{IntelStore: fixture.intelStore}
-	runtime.EnableIndexGate()
-	runtime.MarkNoteReadReady()
-	srv := newFixtureServer(t, fixture, runtime)
-	require.False(t, runtime.IndexReady())
+	// Advance the deadline only once the selected readiness gate blocks.
+	synctest.Test(t, func(t *testing.T) {
+		runtime := &Runtime{IntelStore: fixture.intelStore}
+		runtime.EnableIndexGate()
+		runtime.MarkNoteReadReady()
+		srv := newFixtureServer(t, fixture, runtime)
+		require.False(t, runtime.IndexReady())
 
-	exactReq := newApplicationRequest(http.MethodPost, "/api/v1/query-recipes/exact-note-recipe/execute", bytes.NewBufferString(`{"inputs":{"path":"specs/100-demo/plan.md"}}`))
-	exactReq.Header.Set("Content-Type", "application/json")
-	exactRes := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(exactRes, exactReq)
-	require.Equal(t, http.StatusOK, exactRes.Code)
-	var exactRun queryrecipe.RunResult
-	require.NoError(t, json.Unmarshal(exactRes.Body.Bytes(), &exactRun))
-	require.Empty(t, exactRun.Result.Errors)
-	require.Equal(t, "specs/100-demo/plan.md", exactRun.Result.Data["note"].(map[string]any)["path"])
+		exactReq := newApplicationRequest(http.MethodPost, "/api/v1/query-recipes/exact-note-recipe/execute", bytes.NewBufferString(`{"inputs":{"path":"specs/100-demo/plan.md"}}`))
+		exactReq.Header.Set("Content-Type", "application/json")
+		exactRes := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(exactRes, exactReq)
+		require.Equal(t, http.StatusOK, exactRes.Code)
+		var exactRun queryrecipe.RunResult
+		require.NoError(t, json.Unmarshal(exactRes.Body.Bytes(), &exactRun))
+		require.Empty(t, exactRun.Result.Errors)
+		require.Equal(t, "specs/100-demo/plan.md", exactRun.Result.Data["note"].(map[string]any)["path"])
 
-	typedReq := newApplicationRequest(http.MethodPost, "/api/v1/query-recipes/typed-note-recipe/execute", bytes.NewBufferString(`{"inputs":{"path":"specs/100-demo/plan.md"}}`))
-	typedReq.Header.Set("Content-Type", "application/json")
-	typedCtx, typedCancel := context.WithTimeout(typedReq.Context(), 10*time.Millisecond)
-	defer typedCancel()
-	typedRes := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(typedRes, typedReq.WithContext(typedCtx))
-	require.Equal(t, http.StatusServiceUnavailable, typedRes.Code)
-	require.Equal(t, "5", typedRes.Header().Get("Retry-After"))
-	require.Contains(t, typedRes.Body.String(), PublicErrorIndexInitializing)
+		typedReq := newApplicationRequest(http.MethodPost, "/api/v1/query-recipes/typed-note-recipe/execute", bytes.NewBufferString(`{"inputs":{"path":"specs/100-demo/plan.md"}}`))
+		typedReq.Header.Set("Content-Type", "application/json")
+		typedCtx, typedCancel := context.WithTimeout(typedReq.Context(), 10*time.Millisecond)
+		defer typedCancel()
+		typedRes := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(typedRes, typedReq.WithContext(typedCtx))
+		require.Equal(t, http.StatusServiceUnavailable, typedRes.Code)
+		require.Equal(t, "5", typedRes.Header().Get("Retry-After"))
+		require.Contains(t, typedRes.Body.String(), PublicErrorIndexInitializing)
+	})
 }
 
 func TestPublicConfiguredViews(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// Fingerprints captured from the public describe response before the ownership
-// move protect every input and output schema, including descriptions/defaults.
+// Public describe fingerprints protect schemas and metadata through ownership
+// moves; the start/discovery entries include the current upstream contracts.
 func TestCodeOperationSchemaContracts(t *testing.T) {
 	expected := map[string]string{
 		"action_list":              "4820fff520932dee20c55d9a89d3870aef4b40464ed1ef67b058e82b981f2230",
@@ -38,12 +38,12 @@ func TestCodeOperationSchemaContracts(t *testing.T) {
 		"ontology_authoring_guide": "dcb3f6fe49740d76676bdc2df4b9dd3ff73b6d37d8d130905c9d1aafd5a07796",
 		"ontology_inspect":         "90824155ba971993f36d403509726ddb87e858ab0e2efe25e3b089b7f7d49ba9",
 		"ontology_query":           "442785dfcd5e37e4349ce015124f6cc2f9c75c020c87a96aa7af1fda4e42d977",
-		"ontology_query_schema":    "d5be84354075a8027cb5db3dfed41602f2c6fca82421e5ac87ce829f34054541",
+		"ontology_query_schema":    "c8beb45593fdaaddcaf9ac985eb6dc587f39d6c7afc7cc6f3901a95cd018c7a5",
 		"ontology_reference":       "7018bceee355bcf32389610c8791ccf057d5c3e6ef48282f15db1502b2550bf2",
 		"query_recipe":             "765d86d2e8ba7ba492a8a7df242b6cf22a97a3da3fe1e5f163e3b15cb0af7987",
 		"report":                   "2316162fabf2d714efde17c1d942903104cf706548c1e0cf37fa9be311fb73cc",
 		"semantic_query":           "1a8c5e22d67160aa363afbe19df948987a6a614db8df1873d86d640653ecf8ba",
-		"start":                    "3dbafaa5efde424eb200e7d2078fb9c1e8235ebfe474f6497b688b11b07ff022",
+		"start":                    "fe4555ab6167b603fd1781e439ebfb62419d16f3f04cf1ba5b0c0cc6daa2b525",
 		"surface":                  "b048502ec8bc44e071ba002343ba9065a48b6686b887363d19301d07c6f71c9f",
 		"validate":                 "9b2d099bac57b1faa899e69a8a575b6d0086cebb91edf237ffd19f7844e72d73",
 		"vault_context":            "30533e3662deffcc9dc7e78f0bd6be5f6795b08d3b922820eb680e4ed59a52f4",

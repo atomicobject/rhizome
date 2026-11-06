@@ -52,6 +52,8 @@ def publish_github_release(
 ) -> None:
     source = os.environ if environ is None else environ
     require_publish_token(source)
+    if not source.get("RZM_INTERNAL_S3_BUCKET", "").strip():
+        raise PublishCredentialError("Public releases publish through reviewed release-PR CI; use the rhizome-release skill")
     repo_root = Path(repo_root or Path.cwd()).resolve()
     gate(repo_root, internal=bool(source.get("RZM_INTERNAL_S3_BUCKET", "").strip()),
          receipt_path=gateway_receipt)
@@ -59,9 +61,6 @@ def publish_github_release(
     publish_source["GITHUB_TOKEN"] = require_publish_token(source)
     publish_env = scoped_environment(publish_source, "publish")
     publish_env.update({key: source[key] for key in (*TEAM_KEY_INPUTS, *DESKTOP_SIGNING, *APPLE_SIGNING) if key in source})
-    if not source.get("RZM_INTERNAL_S3_BUCKET", "").strip():
-        # A public release must ship the desktop app; the build hook fails without it.
-        publish_env["RZM_RELEASE_DESKTOP"] = "1"
     bundler = Path(__file__).resolve().parents[1] / "teamkeys/release.py"
     wrapper = Path(__file__).with_name("run_clean.py")
     command = (

@@ -18,7 +18,7 @@ import (
 )
 
 func (commandOptions *vaultCommandOptions) newAgentOntologyQuerySchemaCmd() *cobra.Command {
-	var typeName string
+	var options ontologyquery.SchemaDiscoveryOptions
 	cmd := &cobra.Command{
 		Use:   "ontology-query-schema",
 		Short: "Print ontology query schema as JSON",
@@ -37,7 +37,7 @@ func (commandOptions *vaultCommandOptions) newAgentOntologyQuerySchemaCmd() *cob
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			payload, err := ontologyquery.DiscoverSchema(schema, execSchema, typeName)
+			payload, err := ontologyquery.DiscoverSchema(schema, execSchema, options)
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -48,7 +48,10 @@ func (commandOptions *vaultCommandOptions) newAgentOntologyQuerySchemaCmd() *cob
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&typeName, "type", "", "return a selected executable type fragment and its root arguments")
+	cmd.Flags().StringVar(&options.Type, "type", "", "return a selected executable type fragment and its root arguments")
+	cmd.Flags().StringSliceVar(&options.Types, "types", nil, "return fragments for selected types (comma-separated; excludes --type)")
+	cmd.Flags().IntVar(&options.Depth, "depth", 0, "include related output types up to this depth (0..2; requires --type or --types)")
+	cmd.Flags().IntVar(&options.MaxBytes, "max-bytes", 0, "maximum selected schema bytes (0 uses 32768; maximum 131072)")
 	return cmd
 }
 

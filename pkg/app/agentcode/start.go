@@ -31,6 +31,15 @@ type StartResponse struct {
 	Ontology       *actions.OntologyVaultSummary       `json:"ontology,omitempty"`
 	OntologyError  string                              `json:"ontologyError,omitempty"`
 	Diagnostics    *indexingperf.AgentStartDiagnostics `json:"diagnostics,omitempty"`
+	Runtime        *RuntimeConnection                  `json:"runtime,omitempty"`
+}
+
+// RuntimeConnection reports reachability separately from session creation.
+type RuntimeConnection struct {
+	State   string `json:"state"`
+	Ready   bool   `json:"ready"`
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 type StartRequest struct {
@@ -48,6 +57,7 @@ type StartDependencies struct {
 	ResolveVault func(context.Context) (obsidian.VaultDefinition, error)
 	Formats      func() (noteformat.Runtime, error)
 	BuildConfig  func(context.Context, int, bootstrap.RuntimeRequirements) (agentapi.Config, func(), error)
+	CheckRuntime func(context.Context, obsidian.VaultDefinition) RuntimeConnection
 }
 
 func Start(ctx context.Context, deps StartDependencies, request StartRequest) (StartResponse, error) {
@@ -89,7 +99,16 @@ func Start(ctx context.Context, deps StartDependencies, request StartRequest) (S
 	var vaultErr error
 	var ontologySummary *actions.OntologyVaultSummary
 	var ontologyErr error
+	var connection *RuntimeConnection
 	var wg sync.WaitGroup
+	if deps.CheckRuntime != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			status := deps.CheckRuntime(ctx, vaultDef)
+			connection = &status
+		}()
+	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -113,6 +132,7 @@ func Start(ctx context.Context, deps StartDependencies, request StartRequest) (S
 	}
 	code := Surface()
 	response := StartResponse{SessionID: vaultResult.SessionID, DurationMs: time.Since(started).Milliseconds(), SurfaceCommand: "rzm agent surface", Notes: []string{"Run `rzm agent surface` only when you need detailed command flags, examples, or subcommands."}, Code: code, VaultContext: vaultResult, Ontology: ontologySummary}
+	response.Runtime = connection
 	if ontologyErr != nil {
 		response.OntologyError = ontologyErr.Error()
 	}

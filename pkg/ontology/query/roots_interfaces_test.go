@@ -57,7 +57,7 @@ func TestInterfaceRootSchemaDiscoveryAndBounds(t *testing.T) {
 	for _, name := range []string{"empty", "section", "noteNode"} {
 		require.Nil(t, env.execSchema.Schema.Query.Fields.ForName(name))
 	}
-	discovery, err := DiscoverSchema(env.schema, env.execSchema, "Meeting")
+	discovery, err := DiscoverSchema(env.schema, env.execSchema, SchemaDiscoveryOptions{Type: "Meeting"})
 	require.NoError(t, err)
 	require.Equal(t, []DiscoveredRoot{{Name: "meeting", MaxFirst: publicRootFirstMax, ExclusiveSelectors: []string{"path", "find", "property", "semantic"}}}, discovery.Roots)
 	require.Contains(t, discovery.Schema, "offset: Int = 0")
@@ -104,6 +104,20 @@ func TestInterfaceRootGlobalPagesAndConcreteBindings(t *testing.T) {
 	require.Equal(t, 2, *coverage["first"].NextOffset)
 	require.Equal(t, "complete", coverage["next"].Status)
 	require.False(t, *coverage["next"].HasMore)
+}
+
+func TestInterfaceRootReturnsConcreteTypeNames(t *testing.T) {
+	env := meetingRootEnv(t)
+	result := executeMeetingRoot(t, env, `{
+      meeting(first: 2, sort: [{field: "date", direction: desc}]) {
+        kind: __typename
+        date
+      }
+    }`)
+	require.Equal(t, []any{
+		map[string]any{"kind": "GeneralMeeting", "date": "2026-01-04"},
+		map[string]any{"kind": "CoachingSession", "date": "2026-01-03"},
+	}, result.Data["meeting"])
 }
 
 func TestInterfaceRootSelectorsResidualSortAndOverlayParity(t *testing.T) {

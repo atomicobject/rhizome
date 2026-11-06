@@ -907,6 +907,7 @@ describe("desktop shell", () => {
   it("keeps the worktree label quiet on the primary worktree only", async () => {
     start();
     expect(await screen.findByRole("button", { name: "Worktree main" })).not.toHaveClass("other");
+    await showFinder(/^Worktree /);
     choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
     expect(await screen.findByRole("button", { name: "Worktree feature" })).toHaveClass("other");
   });

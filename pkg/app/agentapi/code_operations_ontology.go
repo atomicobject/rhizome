@@ -13,10 +13,13 @@ import (
 
 func codeOntologyQuerySchemaDescriptor() ToolDescriptor {
 	d := codeLocal(agentCLI(agentCapability(descriptor("ontology_query_schema", "ontology-query-schema", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.OntologyQuerySchemaTool), 16), 21, AgentCLICategoryOntology), CodeLocalService.OntologyQuerySchema)
-	c := contract("Return the full executable schema or one selected type fragment with root arguments.", input(map[string]codeSchema{"type": str()}), schemaForType(reflect.TypeOf(ontologyquery.SchemaDiscovery{}), map[reflect.Type]bool{}), map[string]any{}, "reads ontology configuration")
+	c := contract("Return the full executable schema or bounded type fragments with related output types.", input(map[string]codeSchema{"type": str(), "types": codeSchema{"type": "array", "items": str(), "maxItems": ontologyquery.SchemaDiscoveryMaxTypes}, "depth": codeSchema{"type": "integer", "minimum": 0, "maximum": ontologyquery.SchemaDiscoveryMaxDepth}, "maxBytes": codeSchema{"type": "integer", "minimum": 0, "maximum": ontologyquery.SchemaDiscoveryMaxBytes}}), schemaForType(reflect.TypeOf(ontologyquery.SchemaDiscovery{}), map[reflect.Type]bool{}), map[string]any{"type": "Project", "depth": 1}, "reads ontology configuration")
 	return completeCodeDescriptor(d, c, []string{"agent ontology-query-schema"}, map[string]codeInputFieldMetadata{
-		"type": {Description: "Optional type name. Omit for the full executable schema; supply it for one type fragment and root arguments."},
-	}, "Without type this returns full discovery; with type it returns the selected fragment and root arguments needed to query it.")
+		"type":     {Description: "One public type to discover; mutually exclusive with types. Omit both for the full executable schema."},
+		"types":    {Description: "Public types to discover together, at most 32; mutually exclusive with type."},
+		"depth":    {Description: "Related output-type hops to include, 0..2; requires type or types. Inputs, enums, and scalars are always included.", Default: 0, HasDefault: true},
+		"maxBytes": {Description: "Maximum bytes of selected SDL, at most 131072; zero uses 32768. Requires type or types. Whole definitions are retained; omitted related types remain in referencedTypes.", Default: 0, HasDefault: true},
+	}, "Omitting type and types preserves full discovery. Selected discovery includes root arguments and input dependencies; depth includes related output types within maxBytes and the 32-type ceiling. Inspect includedTypes, referencedTypes, limits, truncated, and limitReasons before assuming a related type was returned.")
 }
 
 func codeOntologyQueryDescriptor() ToolDescriptor {

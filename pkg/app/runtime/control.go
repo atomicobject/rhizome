@@ -81,6 +81,7 @@ type AgentOpRequest struct {
 // Error classes clients branch on.
 var (
 	ErrNoRuntime           = errors.New("no live vault runtime")
+	ErrRuntimeAccessDenied = errors.New("runtime access denied")
 	ErrRuntimeUnresponsive = errors.New("vault runtime is alive but not responding")
 	ErrAttachedMismatch    = errors.New("attached vault runtime runs a different build")
 	ErrBuildMismatch       = errors.New("vault runtime from another executable runs a different build")

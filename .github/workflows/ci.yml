@@ -72,7 +72,7 @@ jobs:
       - name: Analyze Go correctness and unused code
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.12.2
+          version: v2.15.0
           args: --config .golangci-gate.yml
 
   unit-tests:
