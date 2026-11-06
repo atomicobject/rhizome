@@ -185,15 +185,23 @@ export function fileFocusGraph(
       edges.push({ source: focused.id, target: groupID, kind });
 
       const shown = fileFocusLabels(visible(members, label));
-      const rows = shown.length > 20 ? Math.ceil(shown.length / 2) : shown.length;
+
+      // Grow sideways when another group occupies the space below this one.
+      const rows =
+        entries.at(-1)?.[0] !== label
+          ? Math.min(members.length, GROUP_LIMIT + 1)
+          : shown.length > 20
+            ? Math.ceil(shown.length / 2)
+            : shown.length;
+
       let itemY = groupY - HEADING_GAP;
       shown.forEach((node, index) => {
-        if (index === rows) itemY = groupY - HEADING_GAP;
+        if (index % rows === 0) itemY = groupY - HEADING_GAP;
         nodes.push({ ...node, x: direction * (280 + Math.floor(index / rows) * 1000), y: itemY });
         itemY -= fileFocusRowHeight(node);
         edges.push({ source: groupID, target: node.id, kind });
       });
-      top -= height(members, label);
+      top -= height(members, label, true);
     }
   }
 

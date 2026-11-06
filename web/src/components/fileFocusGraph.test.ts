@@ -52,12 +52,40 @@ describe("file neighbour groups", () => {
       columns.set(node.x, ys);
     }
 
-    expect(columns.size).toBe(2);
+    expect(columns.size).toBe(4);
 
     for (const ys of columns.values()) {
       ys.sort((a, b) => a - b);
       expect(ys.slice(1).every((y, i) => y - ys[i] >= 24)).toBe(true);
     }
+  });
+
+  it("keeps unrelated groups and their members fixed when calls are revealed", () => {
+    const input = {
+      nodes: [
+        ...graph.nodes.slice(0, 13),
+        { id: "other", kind: "code", path: "src/other.go", label: "other.go" },
+        graph.nodes[31],
+      ],
+      edges: graph.edges.slice(0, 12),
+    };
+
+    const before = fileFocusGraph(input, "src/main.go");
+    const after = fileFocusGraph(input, "src/main.go", undefined, new Set(["Calls / imports"]));
+
+    for (const id of ["file-group:Other code", "other", "file-group:Tests", "t"]) {
+      const anchor = before.nodes.find((node) => node.id === id);
+      expect(after.nodes.find((node) => node.id === id)).toMatchObject({
+        x: anchor?.x,
+        y: anchor?.y,
+      });
+    }
+
+    const positions = after.nodes
+      .filter((node) => node.id !== "f")
+      .map((node) => `${node.x}:${node.y}`);
+
+    expect(new Set(positions).size).toBe(positions.length);
   });
 
   it("keeps eleven tests in one lane when their disclosure expands", () => {
