@@ -54,3 +54,5 @@ Uses the immutable typed model from `pkg/ontology/schema`, projects source-prese
 `markdownsyntax.UnorderedListItemContentStart` owns the exact unordered metadata-bullet prefix predicate shared by projection and block-ID repair. Callers retain their existing trimming and content-span policy; ordered lists and other Markdown marker rules remain separate.
 
 `@field(path:)` and `@link(path:)` declare read-only owner-local frontmatter mapping paths. Literal `source:` and `sources:` remain flat keys; schema.FrontmatterPathValue owns traversal, while projection, catalog hydration and typed reads preserve the field contract without rewriting metadata.
+
+Native edit staging checks host-source ownership before projection. Workspace clients call `ApplySourceOwnership` with a loaded ownership policy to overlay current node/field refusal reasons, including fallback and nested body nodes. Commit uses the shared source transaction ownership recheck.

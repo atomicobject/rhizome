@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
@@ -21,6 +22,7 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 		return nil
 	}
 	workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(e.schema, projection)
+	ontology.ApplySourceOwnership(e.sourceOwnership(), workspace)
 	if workspace == nil {
 		return nil
 	}
@@ -301,4 +303,11 @@ func (e *executor) resolveWorkspaceStructure(item workspaceStructureNode, set as
 		}
 	})
 	return out
+}
+
+func (e *executor) sourceOwnership() *sourceownership.Policy {
+	if e.ownership == nil {
+		e.ownership = sourceownership.Load(e.deps.VaultDef.BasePath())
+	}
+	return e.ownership
 }

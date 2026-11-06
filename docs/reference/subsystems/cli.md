@@ -33,6 +33,8 @@ code-anchors:
 
 ## Design constraints
 
+- **Native source mutation respects configured ownership.** Create/append/overwrite, delete, metadata/tag batches, heading edits, and namespace operations check the common host-path ownership boundary. Init tracks `.rhizome/source-ownership.yml` as authored configuration and never derives it from projection.
+
 - Repository checkout identity and trust denial text are owned by `pkg/repositorytrust`. Actions and scheduled tasks use that owner; command parsing and scheduler state do not own trust policy.
 
 - **Skill composition has explicit owners.** `pkg/skilloverlay` owns the pure YAML decoder, Markdown slot parser, renderer, and skill/overlay/report model. Init discovers embedded core/starter assets and resolves starter dependencies before calling the engine. Template sources remain under `pkg/app/cli/init/templates`; domain packages receive loaded facts or callbacks and never import init. Bootstrap receives `CodexParams.OnboardInstructions` from command composition and calls it only for automatic planning.

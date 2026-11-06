@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"sort"
 	"strings"
 
@@ -65,11 +66,12 @@ type NodeCollectionState struct {
 }
 
 type NodeCapabilities struct {
-	CanEdit             bool `json:"canEdit"`
-	CanEditFields       bool `json:"canEditFields"`
-	CanEditCollections  bool `json:"canEditCollections"`
-	CanNavigateChildren bool `json:"canNavigateChildren"`
-	CanSubscribe        bool `json:"canSubscribe"`
+	ReadOnlyReason      string `json:"readOnlyReason,omitempty"`
+	CanEdit             bool   `json:"canEdit"`
+	CanEditFields       bool   `json:"canEditFields"`
+	CanEditCollections  bool   `json:"canEditCollections"`
+	CanNavigateChildren bool   `json:"canNavigateChildren"`
+	CanSubscribe        bool   `json:"canSubscribe"`
 }
 
 type NodeValidationStatus struct {
@@ -130,7 +132,9 @@ func BuildNodeWorkspace(ctx context.Context, vaultDef obsidian.VaultDefinition, 
 	if err != nil {
 		return nil, err
 	}
-	return BuildNodeWorkspaceFromProjectionWithSchema(schema, projection), nil
+	workspace := BuildNodeWorkspaceFromProjectionWithSchema(schema, projection)
+	ApplySourceOwnership(sourceownership.Load(vaultDef.BasePath()), workspace)
+	return workspace, nil
 }
 
 func BuildNodeWorkspaceFromProjection(projection *NodeProjection) *NodeWorkspace {

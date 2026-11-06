@@ -28,6 +28,7 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 ## Design constraints
 
 - **Nested frontmatter paths share scalar semantics.** Compiled `@field(path:)` values flow through catalog field rows for indexed filtering and sorting; residual reads use the same owner-local mapping lookup as projection. Runtime ontology fields expose `sourcePath` separately from the literal `source` key. See [[ontology]] for traversal and read-only rules.
+- **Workspace capabilities reflect current source ownership.** Root and nested body workspaces overlay `.rhizome/source-ownership.yml` host-path restrictions on node and field capabilities; `NodeCapabilities.readOnlyReason` exposes the same reason used by write admission.
 
 - Section bindings use `ontology.MatchSectionNodesForField`. Preview interpolation is shared through `ontology.InterpolatePreviewTemplate`, with caller-owned missing-value fallback; query previews retain empty text for absent values while HTTP previews retain the placeholder.
 

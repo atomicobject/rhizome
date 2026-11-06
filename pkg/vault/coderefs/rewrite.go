@@ -15,6 +15,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -49,62 +50,79 @@ type compiledMapping struct {
 // Rewrite only touches extracted comment/doc blocks for known languages. Unknown
 // extensions fall back to text-wide rewrite for compatibility, so keep Config
 // includes pointed at code/comment formats rather than arbitrary generated data.
-func RewriteBatch(vaultPath string, config *Config, mappings []RefMapping) (RewriteResult, error) {
-	var result RewriteResult
+// FileRewrite captures one source-preserving rewrite before publication.
+type FileRewrite struct {
+	Path              string
+	Original, Updated []byte
+	Mode              os.FileMode
+	RefsUpdated       int
+}
 
+// PlanRewriteBatch discovers and admits the complete write set without changing bytes.
+func PlanRewriteBatch(vaultPath string, config *Config, mappings []RefMapping) ([]FileRewrite, error) {
 	if config == nil || !config.Enabled || len(mappings) == 0 {
-		return result, nil
+		return nil, nil
 	}
-
-	// Prepare paths and mention regexes once; every file uses the same mappings.
 	compiled := make([]compiledMapping, 0, len(mappings))
-	for _, m := range mappings {
-		cm := compileMapping(m)
-		compiled = append(compiled, cm)
+	for _, mapping := range mappings {
+		compiled = append(compiled, compileMapping(mapping))
 	}
-
-	// Discover code files
 	codeFiles, err := discoverCodeFilesForRewrite(vaultPath, config)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
-
+	var rewrites []FileRewrite
+	var affected []string
 	for _, relPath := range codeFiles {
 		absPath := filepath.Join(vaultPath, relPath)
 		content, err := os.ReadFile(absPath)
 		if err != nil {
 			continue
 		}
-
-		// Retain the size guard in case a file grew after discovery.
-		if len(content) > MaxFileSizeBytes {
+		if len(content) > MaxFileSizeBytes || isBinary(content) {
 			continue
 		}
-		if isBinary(content) {
+		updated, count := rewriteRefsInPath(relPath, string(content), compiled)
+		if count == 0 {
 			continue
 		}
-
-		updatedContent, totalUpdates := rewriteRefsInPath(relPath, string(content), compiled)
-
-		if totalUpdates > 0 {
-			info, err := os.Stat(absPath)
-			if err != nil {
-				continue
-			}
-			perm := info.Mode().Perm()
-			if err := os.WriteFile(absPath, []byte(updatedContent), perm); err != nil {
-				continue
-			}
-			// Preserve original permissions even on platforms where WriteFile may
-			// not honor them for existing files.
-			if err := os.Chmod(absPath, perm); err != nil {
-				continue
-			}
-			result.FilesUpdated++
-			result.RefsUpdated += totalUpdates
+		info, err := os.Stat(absPath)
+		if err != nil {
+			continue
 		}
+		rewrites = append(rewrites, FileRewrite{Path: relPath, Original: content, Updated: []byte(updated), Mode: info.Mode().Perm(), RefsUpdated: count})
+		affected = append(affected, relPath)
 	}
+	if err := sourceownership.Check(vaultPath, affected); err != nil {
+		return nil, err
+	}
+	return rewrites, nil
+}
 
+func RewriteBatch(vaultPath string, config *Config, mappings []RefMapping) (RewriteResult, error) {
+	var result RewriteResult
+	rewrites, err := PlanRewriteBatch(vaultPath, config, mappings)
+	if err != nil {
+		return result, err
+	}
+	var affected []string
+	for _, rewrite := range rewrites {
+		affected = append(affected, rewrite.Path)
+	}
+	if err := sourceownership.Check(vaultPath, affected); err != nil {
+		return result, err
+	}
+	for _, rewrite := range rewrites {
+		absPath := filepath.Join(vaultPath, rewrite.Path)
+		if err := os.WriteFile(absPath, rewrite.Updated, rewrite.Mode); err != nil {
+			continue
+		}
+		if err := os.Chmod(absPath, rewrite.Mode); err != nil {
+			continue
+		}
+		result.FilesUpdated++
+		result.RefsUpdated += rewrite.RefsUpdated
+	}
 	return result, nil
 }
 

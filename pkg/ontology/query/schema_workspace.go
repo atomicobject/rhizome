@@ -165,6 +165,7 @@ type NodeCollectionItem {
 }
 
 type NodeCapabilities {
+  readOnlyReason: String
   canEdit: Boolean!
   canEditFields: Boolean!
   canEditCollections: Boolean!

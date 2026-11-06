@@ -40,6 +40,8 @@ Path fields use the common projection, catalog rows, typed reads, filtering, sor
 
 ## Design constraints
 
+- **Source ownership is independent of projection.** `.rhizome/source-ownership.yml` declares externally authored host paths. Native edit staging checks it before resolving a type or record. Shared source transactions check the full affected set at preparation and current ownership again at publication. `ApplySourceOwnership` overlays node and field capability reasons for HTTP and GraphQL workspace clients, including fallback and nested nodes.
+
 - `MatchSectionNodesForField` owns section selection for projection, query and web. `presentation.go` owns identifier-field selection and preview interpolation; callers retain source extraction and missing-value policy.
 
 - **Embedded display labels are independent of embedding inputs.** Catalog display labels and workspace titles use the complete item headline, with metadata removed. The parser title and `ITEM_SUMMARY` keep their existing capped values. Materialization version 17 refreshes display labels without adding embedding text.

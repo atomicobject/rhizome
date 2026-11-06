@@ -11,3 +11,5 @@ Extract and rewrite **code → note** references (coderefs) from comments/docstr
 ### Deep docs
 
 - [[Coderefs (Hub)]]
+
+`PlanRewriteBatch` captures and admits all rewritten hosts before publication. Namespace operations include these code rewrites in the same source transaction as endpoints and backlinks, so owned hosts refuse the whole move.

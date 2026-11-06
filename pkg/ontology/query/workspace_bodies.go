@@ -88,6 +88,7 @@ func (e *executor) workspaceBodyNodes(ctx context.Context, root *ontology.NodePr
 		seen[key] = struct{}{}
 
 		workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(e.schema, current.projection)
+		ontology.ApplySourceOwnership(e.sourceOwnership(), workspace)
 		if workspace == nil {
 			continue
 		}

@@ -879,6 +879,7 @@ func TestEnsureRhizomeGitIgnoreWritesManagedFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, rhizomeGitIgnoreBody(), string(data))
 	require.Contains(t, string(data), "!workflows.yml")
+	require.Contains(t, string(data), "!source-ownership.yml")
 	require.Contains(t, string(data), "!query-recipes/")
 	require.Contains(t, string(data), "!query-recipes/**")
 	require.Contains(t, string(data), "!views/")
@@ -899,6 +900,7 @@ func TestRhizomeGitIgnoreTracksTaskFilesButNotTaskState(t *testing.T) {
 	ignored := func(rel string) bool {
 		return exec.Command("git", "-C", root, "check-ignore", "--quiet", "--no-index", rel).Run() == nil
 	}
+	require.False(t, ignored(".rhizome/source-ownership.yml"), "source ownership is shared configuration")
 	require.False(t, ignored(".rhizome/tasks/update-memory.yml"), "task files are tracked")
 	require.False(t, ignored(".rhizome/modules/compounding/scripts/hook.mjs"), "module files are tracked")
 	require.True(t, ignored(".rhizome/task-state/state.json"), "task state is personal")

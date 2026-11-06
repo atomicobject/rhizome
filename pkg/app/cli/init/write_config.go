@@ -279,6 +279,7 @@ func rhizomeGitIgnoreBody() string {
 		"!.gitignore",
 		"!" + repoconfig.RhizomeConfigFilename,
 		"!workflows.yml",
+		"!source-ownership.yml",
 		"!" + repoconfig.RhizomeIgnoreFilename,
 		"!" + generatedFilesName,
 		"!migrations/",

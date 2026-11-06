@@ -170,7 +170,7 @@ func (e *executor) resolveWorkspaceRange(item ontology.ByteRange, set ast.Select
 }
 
 func (e *executor) resolveWorkspaceCapabilities(item ontology.NodeCapabilities, set ast.SelectionSet, path []string) map[string]any {
-	values := map[string]bool{"canEdit": item.CanEdit, "canEditFields": item.CanEditFields, "canEditCollections": item.CanEditCollections, "canNavigateChildren": item.CanNavigateChildren, "canSubscribe": item.CanSubscribe}
+	values := map[string]any{"readOnlyReason": emptyNil(item.ReadOnlyReason), "canEdit": item.CanEdit, "canEditFields": item.CanEditFields, "canEditCollections": item.CanEditCollections, "canNavigateChildren": item.CanNavigateChildren, "canSubscribe": item.CanSubscribe}
 	out := make(map[string]any)
 	e.eachSelectionField(set, func(field *ast.Field) {
 		key := responseKey(field)

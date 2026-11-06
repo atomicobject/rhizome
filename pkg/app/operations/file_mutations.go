@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"sync"
 )
 
@@ -89,4 +90,12 @@ func runFileMutations(ctx context.Context, notes []string, processor fileMutatio
 		firstErr = ctx.Err()
 	}
 	return summary, firstErr
+}
+
+func admitFileMutations(ctx context.Context, root string, notes []string, preview fileMutationProcessor, workers int) error {
+	summary, err := runFileMutations(ctx, notes, preview, workers)
+	if err != nil {
+		return err
+	}
+	return sourceownership.Check(root, summary.filesChanged)
 }
