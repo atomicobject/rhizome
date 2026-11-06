@@ -247,6 +247,19 @@ export function fileFocusGraph(
     }
   }
 
+  if (graph.omittedNodes || graph.omittedEdges) {
+    nodes.push({
+      id: "file-omitted",
+      collapsed: true,
+      kind: "module",
+      label: `+${graph.omittedNodes ?? 0} more not loaded`,
+      labelDetail: `${graph.omittedEdges ?? 0} links not loaded`,
+      aggregate: true,
+      x: 0,
+      y: Math.min(0, ...nodes.map((node) => node.y ?? 0)) - GROUP_GAP,
+    });
+  }
+
   // Preserve neighbour-to-neighbour links, including links to aggregated members.
   const drawnIDs = new Set(nodes.map((node) => node.id));
 

@@ -244,3 +244,23 @@ describe("file neighbour groups", () => {
     expect(mergeFileNotes(merged, file)).toEqual(merged);
   });
 });
+
+it("shows server omissions as a remainder that cannot be revealed", () => {
+  const result = fileFocusGraph(
+    {
+      nodes: [{ id: "main", kind: "code", path: "src/main.go", label: "main.go" }],
+      edges: [],
+      omittedNodes: 101,
+      omittedEdges: 123,
+    },
+    "src/main.go",
+  );
+
+  expect(result.nodes.find((node) => node.id === "file-omitted")).toMatchObject({
+    collapsed: true,
+    label: "+101 more not loaded",
+    labelDetail: "123 links not loaded",
+    aggregate: true,
+  });
+  expect(result.nodes.some((node) => node.id.startsWith("file-more:"))).toBe(false);
+});
