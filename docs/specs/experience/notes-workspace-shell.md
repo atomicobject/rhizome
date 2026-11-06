@@ -3,7 +3,7 @@ type: ExperienceSpec
 summary: "Defines the Notes workspace shell: retained note tabs, one replaceable collection/view/search page, note-browser rails, Structure/Markdown modes, and a graph-dominant Home whose type selection dims rather than filters."
 id: SPEC-0090
 spec-status: active
-last-updated: 2026-11-04
+last-updated: 2026-11-06
 last-verified: 2026-11-04
 aliases:
   - SPEC-0090
@@ -64,7 +64,7 @@ This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries f
 
 - Opening a note from the rail, Home, a relation, or a wikilink activates a note tab whose body spans the full content width between the rails. ^SPEC-0090-US2-AC1
 - A single click creates or activates the file's regular tab without replacing or closing another file's tab. ^SPEC-0090-US2-AC2
-- Every opened file is retained as a regular tab. A modifier click (Cmd/Ctrl) opens or reuses its tab without leaving the current one. ^SPEC-0090-US2-AC3
+- Every opened file is retained as a regular tab. A modifier click (Cmd/Ctrl) opens or reuses its tab without leaving the current one. Native read-only bodies may be released beyond the five most recent presentations while preserving tab data, navigation and reading state. Editing presentations and loaded isolated HTML viewers stay resident to preserve their interaction state. ^SPEC-0090-US2-AC3
 - Opening a note that already has a tab activates that tab instead of creating a second one, and does not refetch its workspace. ^SPEC-0090-US2-AC4
 - Closing a tab activates the nearest remaining tab and never closes other tabs. ^SPEC-0090-US2-AC5
 - A tab with unsaved staged edits shows a dirty marker and closing it asks for confirmation. ^SPEC-0090-US2-AC6
