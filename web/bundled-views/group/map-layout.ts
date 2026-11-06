@@ -455,16 +455,25 @@ function layoutAtSize(input: LayoutInput): MapLayout {
   };
 }
 
-/** Add room for crowded expansions rather than silently dropping their labels. */
+/**
+ * The most a crowded map grows to fit its labels. Every pass re-spreads the
+ * drawing over the taller box, so more height rarely fits more labels and
+ * instead strands weakly linked members far from the rest.
+ */
+const MAX_GROWTH = 120;
+
+/** Add some room for crowded expansions, keeping the shortest box that labels the most members. */
 export function layoutMap(input: LayoutInput): MapLayout {
   let result = layoutAtSize(input);
 
   for (
-    let attempt = 1;
-    result.labels.size < result.positions.size && attempt <= result.positions.size;
-    attempt++
+    let extra = 60;
+    result.labels.size < result.positions.size && extra <= MAX_GROWTH;
+    extra += 60
   ) {
-    result = layoutAtSize({ ...input, height: input.height + attempt * 60 });
+    const taller = layoutAtSize({ ...input, height: input.height + extra });
+
+    if (taller.labels.size > result.labels.size) result = taller;
   }
 
   return result;

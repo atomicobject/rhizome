@@ -32,6 +32,8 @@
 
 ### Fixed
 
+- Keep indexing visible while an existing workspace republishes its index. Overview tables now keep readable columns, Members spans the page, and crowded maps stay compact. Cards have space below the view tabs, and graph nodes are easier to hover and select.
+
 - Windows harness shutdown accepts an already-reaped child while retaining errors for a child that has not exited.
 - Compounding reports early subprocess rejections instead of crashing with a broken-pipe error.
 - `rzm init` preserves custom and edited command files, and previews and reports removal of unmodified generated commands.

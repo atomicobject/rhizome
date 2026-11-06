@@ -351,15 +351,10 @@ function OverviewPage({ scope }: { scope: Scope }) {
       <ScopeFacts scope={scope} data={data} status={status} />
       {!data.missing && (
         <>
-          {/* Group Members span both columns; All notes keeps its compact main column. */}
+          {/* Members span both columns, so the table has room for every column. */}
           <div className={`gv-ov gv-ov--workspace${scope.kind === "group" ? " gv-ov--group" : ""}`}>
             <div className="gv-ov-main">
               <MapBlock data={data} {...expansion} />
-              {scope.kind === "workspace" && (
-                <div className="gv-ov-members">
-                  <MembersBlock data={data} {...expansion} />
-                </div>
-              )}
             </div>
             <div className="gv-ov-side">
               {scope.kind === "workspace" ? (
@@ -374,15 +369,13 @@ function OverviewPage({ scope }: { scope: Scope }) {
                 </>
               )}
             </div>
+            <div className="gv-ov-members">
+              <MembersBlock data={data} {...expansion} />
+            </div>
             {scope.kind === "group" && (
-              <>
-                <div className="gv-ov-members">
-                  <MembersBlock data={data} {...expansion} />
-                </div>
-                <div className="gv-ov-below">
-                  <GroupRecordsBlocks />
-                </div>
-              </>
+              <div className="gv-ov-below">
+                <GroupRecordsBlocks />
+              </div>
             )}
           </div>
         </>

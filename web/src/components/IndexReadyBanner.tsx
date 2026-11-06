@@ -9,16 +9,19 @@ type IndexReadyBannerProps = {
   // omit it and let this component own the fetch.
   status?: StatusResponse | null;
   onStatusChange?: (status: StatusResponse) => void;
+  rebuilding?: boolean;
 };
 
 // IndexReadyBanner renders a non-blocking "Preparing index…" affordance under
 // the AppShell nav whenever `/api/v1/status` reports `indexState ===
-// "initializing"`. It hides as soon as status flips to `ready` (or on the
-// existing `index.changed` SSE invalidation event), so the gate transition
-// surfaces in the UI without forcing a manual refresh. Routes render normally
-// beneath the banner; gated endpoints surface their own in-pane loading
-// states until the backend gate opens.
-export function IndexReadyBanner({ status, onStatusChange }: IndexReadyBannerProps = {}) {
+// "initializing"`, or the shared ontology summary reports republication.
+// Startup readiness stays true during later indexing, so it cannot describe
+// whether the current index snapshot is available.
+export function IndexReadyBanner({
+  status,
+  onStatusChange,
+  rebuilding = false,
+}: IndexReadyBannerProps = {}) {
   const controlled = status !== undefined;
   const [fetchedState, setFetchedState] = useState<StatusResponse["indexState"] | null>(null);
   const state = controlled ? (status?.indexState ?? null) : fetchedState;
@@ -80,7 +83,7 @@ export function IndexReadyBanner({ status, onStatusChange }: IndexReadyBannerPro
     };
   }, [controlled, onStatusChange, status]);
 
-  if (state !== "initializing") return null;
+  if (state !== "initializing" && !rebuilding) return null;
 
   return (
     <div
@@ -90,8 +93,14 @@ export function IndexReadyBanner({ status, onStatusChange }: IndexReadyBannerPro
       data-testid="index-ready-banner"
     >
       <span className="index-ready-banner__spinner" aria-hidden="true" />
-      <span className="index-ready-banner__label">Preparing index…</span>
-      <span className="index-ready-banner__hint">First-launch reads will retry automatically.</span>
+      <span className="index-ready-banner__label">
+        {state === "initializing" ? "Preparing index…" : "Updating index…"}
+      </span>
+      {state === "initializing" && (
+        <span className="index-ready-banner__hint">
+          First-launch reads will retry automatically.
+        </span>
+      )}
     </div>
   );
 }

@@ -110,7 +110,48 @@ test("All notes opens on its Briefing and offers the Overview", async ({ page })
   await chooseView(page, "Overview");
   await expect(frame.getByRole("region", { name: "Map" })).toBeVisible();
   await expect(frame.getByRole("region", { name: "Untyped notes by folder" })).toBeVisible();
-  await expect(frame.getByRole("region", { name: "Members" })).toBeVisible();
+  const members = frame.getByRole("region", { name: "Members" });
+  await expect(members).toBeVisible();
+
+  // In a narrow window every table cell keeps its own content, Members spans
+  // the Overview, and only the Members table scrolls sideways, never the page.
+  await page.setViewportSize({ width: 1000, height: 820 });
+  await expect(members.getByRole("row", { name: /Untyped/ })).toBeVisible();
+  await frame
+    .locator(".gv-ov-folders tbody button")
+    .first()
+    .evaluate((button) => {
+      button.textContent = "averylongunbrokenfoldername".repeat(8);
+    });
+
+  const layout = await members.evaluate((section) => {
+    const doc = section.ownerDocument;
+
+    const spills = [...doc.querySelectorAll(".gv-ov-table td, .gv-ov-folders td")].flatMap(
+      (cell) => {
+        const right = cell.getBoundingClientRect().right;
+
+        return [...cell.querySelectorAll("*")].some(
+          (child) =>
+            child.getBoundingClientRect().width > 0 &&
+            child.getBoundingClientRect().right > right + 1,
+        )
+          ? [cell.closest("tr")?.textContent?.trim() ?? ""]
+          : [];
+      },
+    );
+
+    return {
+      spills,
+      width: section.getBoundingClientRect().width,
+      overview: section.closest(".gv-ov")!.getBoundingClientRect().width,
+      pageOverflow: doc.documentElement.scrollWidth - doc.documentElement.clientWidth,
+    };
+  });
+
+  expect(layout.spills).toEqual([]);
+  expect(layout.width).toBe(layout.overview);
+  expect(layout.pageOverflow).toBe(0);
 });
 
 for (const { time, heading } of [

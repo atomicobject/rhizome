@@ -131,11 +131,15 @@
 .gv-ov-side > .rz-section {
   margin-top: 0;
 }
-.gv-ov-members {
+/* A scroller must also be the containing block of the hidden .sr-only text in
+   its cells, or that text escapes the clip and widens the whole page. */
+.gv-ov-members,
+.gv-mx-wrap {
+  position: relative;
   overflow-x: auto;
 }
 
-.gv-ov--group > .gv-ov-members,
+.gv-ov > .gv-ov-members,
 .gv-ov-below {
   grid-column: 1 / -1;
   border-top: 1px solid var(--border);
@@ -206,8 +210,10 @@
 .gv-map-legend dd > span {
   white-space: nowrap;
 }
+/* Automatic layout: the fixed column widths below are minimums, so the name
+   column keeps its content's width instead of collapsing under the others. */
 .gv-page .gv-ov-table {
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
 }
 .gv-ov-table .gv-col-number {
@@ -224,7 +230,7 @@
 }
 .gv-page .gv-ov-table th,
 .gv-page .gv-ov-table td {
-  padding: 5px 8px;
+  padding: 5px 6px;
   white-space: nowrap;
 }
 .gv-page .gv-ov-table th:first-child {
@@ -338,11 +344,18 @@
 .gv-ov .gv-outside-actions .list-more {
   margin: 0;
 }
+/* Automatic layout, as in the member table: a long folder name widens its
+   column, and "links to" wraps in what is left. */
 .gv-page .gv-ov-folders {
-  table-layout: fixed;
+  table-layout: auto;
 }
 .gv-page .gv-ov-folders th:first-child {
   width: 60px;
+}
+.gv-ov-folders .gv-ov-folder {
+  max-width: 160px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .gv-page .gv-ov-folders th:nth-child(2) {
   width: 58px;

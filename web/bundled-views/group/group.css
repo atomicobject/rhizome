@@ -1495,12 +1495,6 @@
   padding: 0 20px;
 }
 
-/* All notes: Members sit under the map in the main column. */
-.gv-ov--workspace .gv-ov-main .gv-ov-members {
-  margin: 4px -20px -16px;
-  border-top: 1px solid var(--border);
-}
-
 @media (min-width: 960px) {
   .gv-ov {
     grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
@@ -1512,7 +1506,7 @@
   }
 }
 
-/* The map. Its canvas takes the block's width and a 280px height, so labels draw
+/* The map. Its canvas takes the block's width and a 260-380px height, so labels draw
    at their real size and the Members table starts above the fold. Edges and node
    outlines clear 3:1 against the surface in both themes. */
 .gv-map-canvas {
