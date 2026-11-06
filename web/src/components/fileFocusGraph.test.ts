@@ -42,8 +42,10 @@ describe("file neighbour groups", () => {
       x: result.nodes.find((node) => node.id === "file-group:Calls / imports")?.x,
       y: result.nodes.find((node) => node.id === "file-group:Calls / imports")?.y,
     });
-    expect(expanded.nodes.filter((node) => node.path?.startsWith("src/c"))).toHaveLength(30);
-    expect(expanded.nodes.some((node) => node.id.startsWith("file-more:"))).toBe(false);
+    expect(expanded.nodes.filter((node) => node.path?.startsWith("src/c"))).toHaveLength(22);
+    expect(expanded.nodes.find((node) => node.id.startsWith("file-more:"))).toMatchObject({
+      childCount: 8,
+    });
     const columns = new Map<number | undefined, number[]>();
 
     for (const node of expanded.nodes.filter((node) => node.path?.startsWith("src/c"))) {
@@ -52,12 +54,40 @@ describe("file neighbour groups", () => {
       columns.set(node.x, ys);
     }
 
-    expect(columns.size).toBe(2);
+    expect(columns.size).toBe(3);
 
     for (const ys of columns.values()) {
       ys.sort((a, b) => a - b);
       expect(ys.slice(1).every((y, i) => y - ys[i] >= 24)).toBe(true);
     }
+  });
+
+  it("keeps unrelated groups and their members fixed when calls are revealed", () => {
+    const input = {
+      nodes: [
+        ...graph.nodes.slice(0, 13),
+        { id: "other", kind: "code", path: "src/other.go", label: "other.go" },
+        graph.nodes[31],
+      ],
+      edges: graph.edges.slice(0, 12),
+    };
+
+    const before = fileFocusGraph(input, "src/main.go");
+    const after = fileFocusGraph(input, "src/main.go", undefined, new Set(["Calls / imports"]));
+
+    for (const id of ["file-group:Other code", "other", "file-group:Tests", "t"]) {
+      const anchor = before.nodes.find((node) => node.id === id);
+      expect(after.nodes.find((node) => node.id === id)).toMatchObject({
+        x: anchor?.x,
+        y: anchor?.y,
+      });
+    }
+
+    const positions = after.nodes
+      .filter((node) => node.id !== "f")
+      .map((node) => `${node.x}:${node.y}`);
+
+    expect(new Set(positions).size).toBe(positions.length);
   });
 
   it("keeps eleven tests in one lane when their disclosure expands", () => {
@@ -80,6 +110,101 @@ describe("file neighbour groups", () => {
       new Set(result.nodes.filter((node) => node.path?.endsWith("_test.go")).map((node) => node.x))
         .size,
     ).toBe(1);
+  });
+
+  it("prepares 10,000 anchor neighbours with a bounded number of property reads", () => {
+    let reads = 0;
+
+    const counted = <T extends object>(value: T): T =>
+      new Proxy(value, {
+        get(target, key, receiver) {
+          reads++;
+
+          // Preserve normal property access while counting work on the input.
+          // oxlint-disable-next-line anti-slop/no-reflect-get
+          return Reflect.get(target, key, receiver);
+        },
+      });
+
+    const relatedNotes = Array.from({ length: 10_000 }, (_, i) =>
+      counted({
+        path: `notes/${i}.md`,
+        title: `Note ${i}`,
+        reason: "codeanchor",
+      }),
+    );
+
+    const nodes = [
+      graph.nodes[0],
+      ...relatedNotes.map((note, i) =>
+        counted({
+          id: `n${i}`,
+          kind: "note",
+          path: note.path,
+          label: note.title,
+        }),
+      ),
+    ];
+
+    const edges = relatedNotes.map((_, i) =>
+      counted({ source: `n${i}`, target: "f", kind: "codeanchor" }),
+    );
+
+    // Include neighbour links so representative lookup is covered too.
+    edges.push(
+      ...relatedNotes
+        .slice(1)
+        .map((_, i) => counted({ source: `n${i}`, target: `n${i + 1}`, kind: "link" })),
+    );
+    reads = 0;
+
+    const result = fileFocusGraph({ nodes, edges }, "src/main.go", {
+      path: "src/main.go",
+      kind: "code",
+      relatedNotes,
+    });
+
+    expect(result.nodes).toHaveLength(11);
+    expect(reads).toBeLessThan(2_000_000);
+
+    const merged = mergeFileNotes(
+      { nodes: [graph.nodes[0]], edges: [] },
+      { path: "src/main.go", kind: "code", relatedNotes },
+    );
+
+    expect(merged.nodes).toHaveLength(10_001);
+    expect(merged.edges).toHaveLength(10_000);
+    expect(reads).toBeLessThan(4_000_000);
+  });
+
+  it("reveals 10,000 notes in bounded batches with an exact clickable remainder", () => {
+    const file = {
+      path: "src/main.go",
+      kind: "code",
+      relatedNotes: Array.from({ length: 10_000 }, (_, i) => ({
+        path: `notes/${i}.md`,
+        title: `Note ${i}`,
+        reason: "codeanchor",
+      })),
+    };
+
+    const input = { nodes: [graph.nodes[0]], edges: [] };
+    const expanded = new Set<string>();
+
+    for (let batch = 0; batch < 4; batch++) {
+      const result = fileFocusGraph(input, file.path, file, expanded);
+      const shown = result.nodes.filter((node) => !node.aggregate && !node.center);
+      expect(shown).toHaveLength(8 + batch * 14);
+      const more = result.nodes.find((node) => node.id.startsWith("file-more:"));
+      expect(more).toMatchObject({
+        label: `Show ${10_000 - shown.length} more`,
+        childCount: 10_000 - shown.length,
+      });
+      expect(
+        result.edges.every((edge) => result.nodes.some((node) => node.id === edge.target)),
+      ).toBe(true);
+      expanded.add(more!.id.slice("file-more:".length));
+    }
   });
 
   it("unions inspector anchor notes and references with graph notes, without duplicates", () => {
