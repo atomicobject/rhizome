@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GraphResponse } from "../api/types";
 import { buildFolderTree, initialOpenFolders } from "./folderTree";
-import { visibleFolderChildren, visibleFolderGraph } from "./folderGraph";
+import { visibleFolderGraph } from "./folderGraph";
 import { layoutFolderGraph, type FolderAnchors } from "./folderLayout";
 
 export function useFolderExplorer(
@@ -54,25 +54,6 @@ export function useFolderExplorer(
     },
     expand(path: string) {
       setExplicit((previous) => new Set([...previous, path]));
-      const parts = path.split("/");
-      setRevealed((previous) => {
-        const next = new Map(previous);
-        parts.forEach((_, index) => {
-          const parent = parts.slice(0, index).join("/");
-          const child = parts.slice(0, index + 1).join("/");
-          const folder = tree.folders.get(parent);
-
-          while (
-            folder?.folders.some((candidate) => candidate.path === child) &&
-            !visibleFolderChildren(tree, folder, { open, explicit, revealed: next }, (type) =>
-              colors.get(type),
-            ).some((c) => c.node.id === `folder:${child}`)
-          )
-            next.set(parent, (next.get(parent) ?? 0) + 1);
-        });
-
-        return next;
-      });
       setOverrides((previous) => {
         const next = new Map(previous);
 

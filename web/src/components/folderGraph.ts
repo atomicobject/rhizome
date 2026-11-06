@@ -133,7 +133,20 @@ export function visibleFolderChildren(
   const remaining = [...folders, ...files].filter((c) => !keptIds.has(c.node.id));
   const revealedCount = (state.revealed.get(folder.path) ?? 0) * budget;
   kept.push(...remaining.slice(0, revealedCount));
-  const hidden = remaining.slice(revealedCount);
+  const selected = new Set<string>();
+
+  for (const path of state.explicit) {
+    const parts = path.split("/");
+
+    parts.forEach((_, index) => selected.add(`folder:${parts.slice(0, index + 1).join("/")}`));
+  }
+
+  const hidden = remaining.slice(revealedCount).filter((child) => {
+    if (!selected.has(child.node.id)) return true;
+    kept.push(child);
+
+    return false;
+  });
 
   if (hidden.length) {
     const totals = sumTotals(hidden.map((c) => c.totals));
