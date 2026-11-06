@@ -165,7 +165,8 @@ jobs:
           digest="$(python3 -c 'import hashlib,sys; print(hashlib.file_digest(open(sys.argv[1],"rb"),"sha256").hexdigest())' "$RZM_DESKTOP_PREBUILT_RZM")"
           python3 scripts/release/build_native_desktop.py --target "$TARGET" \
             --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
-            --version 0.0.0 --commit "$commit" --output .tmp/desktop-portability/candidate
+            --version 0.0.0 --commit "$commit" --output .tmp/desktop-portability/candidate \
+            --evidence-dir .tmp/desktop-portability/build-evidence
 
       - name: Exercise Windows startup and New Window
         if: runner.os == 'Windows'
@@ -214,6 +215,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/desktop-portability/candidate/*
+            .tmp/desktop-portability/build-evidence/**/*.log
             .tmp/desktop-portability/EVIDENCE.txt
             .tmp/desktop-portability/smoke/*.log
             .tmp/desktop-portability/smoke/*.json

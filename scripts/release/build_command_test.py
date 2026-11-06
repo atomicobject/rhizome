@@ -42,11 +42,36 @@ class BuildCommandTests(unittest.TestCase):
             self.assertNotIn('synthetic-private-signing-value', str(raised.exception))
             for command, env in ((['node','tauri.js','signer','sign'], {}),
                                  (['node','tauri.js','bundle'], {}),
+                                 (['node','tauri.js','bundle','--bundles','nsis'], {}),
+                                 (['npm','run','tauri','--','bundle','--bundles','appimage'], {'AZURE_CLIENT_SECRET':'synthetic'}),
                                  (['goreleaser','build'], {'TAURI_SIGNING_PRIVATE_KEY':'synthetic-private-signing-value'})):
                 with self.subTest(command=command), self.assertRaisesRegex(CandidateError, 'unavailable'):
                     run(command, root=root, env=env, runner=failed, diagnostic_path=evidence)
             self.assertEqual(1, len(calls))
             self.assertFalse(evidence.exists())
+
+    def test_credential_free_linux_bundle_records_sanitized_stage_and_status(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            evidence = root / 'tauri-bundle.log'
+            def failed(command, **kwargs):
+                raise subprocess.CalledProcessError(23, command,
+                    stderr='linuxdeploy failed\npassword=synthetic-private-value')
+            with self.assertRaises(CandidateError) as raised:
+                run(['npm','run','tauri','--','bundle','--bundles','appimage'], root=root,
+                    env={}, runner=failed, diagnostic_path=evidence)
+            self.assertIn('npm bundle failed (exit 23)', str(raised.exception))
+            self.assertIn('linuxdeploy failed', evidence.read_text(encoding='utf-8'))
+            self.assertNotIn('synthetic-private-value', evidence.read_text(encoding='utf-8'))
+
+    def test_suppressed_toolchain_failure_still_identifies_operation_and_exit_status(self):
+        def failed(command, **kwargs):
+            raise subprocess.CalledProcessError(254, command, stderr='synthetic-private-value')
+        with self.assertRaises(CandidateError) as raised:
+            run(['npm','run','tauri','--','--version'], root=Path('.'), env={}, runner=failed,
+                operation='tauri-toolchain')
+        self.assertIn('npm tauri-toolchain failed (exit 254)', str(raised.exception))
+        self.assertNotIn('synthetic-private-value', str(raised.exception))
 
 
 if __name__ == '__main__':

@@ -22,6 +22,7 @@ class NativeBuilderTests(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / destination.relative_to(self.root), destination)
         shutil.copyfile(ROOT / 'desktop/src-tauri/tauri.conf.json', self.root / 'desktop/src-tauri/tauri.conf.json')
+        shutil.copyfile(ROOT / 'desktop/package.json', self.root / 'desktop/package.json')
         self.patchelf = self.root / 'patchelf'
         self.patchelf.write_text('synthetic tool')
         lookup = patch('linux_sidecar.shutil.which', return_value=str(self.patchelf))
@@ -36,6 +37,7 @@ class NativeBuilderTests(unittest.TestCase):
         self.extracted_gateway = False
         self.prebuilt_frontend = False
         self.mutated_sidecar = False
+        self.bundle_failure = False
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -73,7 +75,13 @@ class NativeBuilderTests(unittest.TestCase):
             stdout = "libc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x1234)"
         elif command[-1] == "--version" and Path(command[0]).name == "rzm":
             stdout = "rzm version v" + VERSION
+        elif command[0] == 'npm' and command[-1] == '--version':
+            self.assertEqual(self.root / 'desktop', kwargs['cwd'])
+            self.assertIn('tauri', json.loads((kwargs['cwd'] / 'package.json').read_text(encoding='utf-8'))['scripts'])
         elif "bundle" in command and command[0] in {"npm", "node"}:
+            if self.bundle_failure:
+                raise subprocess.CalledProcessError(23, command,
+                    stderr='synthetic Linux bundler failure\npassword=synthetic-secret')
             target = command[command.index("--bundles") + 1]
             directory = self.root / "desktop/src-tauri/target/release/bundle" / target
             directory.mkdir(parents=True)
@@ -121,6 +129,9 @@ class NativeBuilderTests(unittest.TestCase):
         self.assertEqual("Rhizome-linux-x64.AppImage", manifest["artifact"]["file"])
         self.assertTrue(any(command[-1] == "--appimage-extract" for command, _ in self.calls))
         self.assertEqual("2.17", manifest["nativeDependencies"]["minimumGlibc"])
+        version_probe = next(index for index, (command, _) in enumerate(self.calls)
+                             if command[0] == 'npm' and command[-1] == '--version')
+        self.assertTrue(any(command[0] == 'ldd' for command, _ in self.calls[:version_probe]))
         for command, call in self.calls:
             if 'bundle' in command:
                 self.assertEqual('1', call['env']['NO_STRIP'])
@@ -128,6 +139,17 @@ class NativeBuilderTests(unittest.TestCase):
             else:
                 self.assertNotIn('NO_STRIP', call['env'])
                 self.assertNotIn('PATCHELF', call['env'])
+
+    def test_linux_bundle_failure_retains_sanitized_output_and_sidecar_evidence(self):
+        self.bundle_failure = True
+        evidence = self.root / 'evidence'
+        with self.assertRaisesRegex(CandidateError, 'npm bundle failed \\(exit 23\\)'):
+            self.build('linux-x86_64', evidence_dir=evidence)
+        content = (evidence / 'tauri-bundle.log').read_text(encoding='utf-8')
+        self.assertIn('synthetic Linux bundler failure', content)
+        self.assertNotIn('synthetic-secret', content)
+        self.assertTrue((evidence / 'sidecar-packaging.log').is_file())
+        self.assertFalse(self.output.exists())
 
     def test_linux_mutation_still_rejects_package_and_retains_only_public_metadata(self):
         self.mutated_sidecar = True

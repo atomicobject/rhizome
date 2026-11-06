@@ -23,7 +23,14 @@ from desktop_dependencies import inspect_dependencies
 from linux_sidecar import bundle_environment, mismatch_evidence
 
 
-def build_failure(error, command, diagnostic_path):
+def command_failure(error, command, operation=None):
+    operation = operation or next((word.removeprefix('--') for word in command[1:]
+        if word in {'build', 'bundle', 'signer', 'sign', '--version', '--appimage-extract'}), 'command')
+    status = getattr(error, 'returncode', None)
+    return f"{Path(command[0]).name} {operation} failed ({'exit ' + str(status) if status is not None else type(error).__name__})"
+
+
+def build_failure(error, command, diagnostic_path, operation=None):
     def decoded(value):
         return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else (value or "")
     output = "\n".join(filter(None, (decoded(getattr(error, "stdout", None)), decoded(getattr(error, "stderr", None)))))
@@ -33,15 +40,18 @@ def build_failure(error, command, diagnostic_path):
     output = re.sub(r"(?i)(\b(?:token|secret|password|api[_-]?key)\s*[:=]\s*)[^\s]+", r"\1[redacted]", output)
     output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
     output = "".join(character for character in output if character in "\n\t" or ord(character) >= 32)[-12000:]
-    status = getattr(error, "returncode", None)
-    detail = f"{Path(command[0]).name} failed ({'exit ' + str(status) if status is not None else type(error).__name__})"
+    detail = command_failure(error, command, operation)
     diagnostic_path.parent.mkdir(parents=True, exist_ok=True)
     diagnostic_path.write_text(detail + "\n" + output + "\n", encoding="utf-8")
     return detail + f"; build evidence: {diagnostic_path}" + ("\n" + output[-4000:] if output else "")
 
 
-def run(command, *, root: Path, env: dict, runner=subprocess.run, timeout=1200, diagnostic_path: Path | None = None) -> str:
-    if diagnostic_path is not None and (any(word in {"bundle", "signer", "sign"} for word in command)
+def run(command, *, root: Path, env: dict, runner=subprocess.run, timeout=1200,
+        diagnostic_path: Path | None = None, operation=None) -> str:
+    linux_bundle = 'bundle' in command and any(command[index:index + 2] == ['--bundles', 'appimage']
+                                               for index in range(len(command) - 1))
+    if diagnostic_path is not None and (any(word in {"signer", "sign"} for word in command)
+            or ('bundle' in command and not linux_bundle)
             or any(value and sensitive_name(name) for name, value in env.items())):
         raise CandidateError("build diagnostics are unavailable for signing commands or credentialed environments")
     try:
@@ -49,9 +59,9 @@ def run(command, *, root: Path, env: dict, runner=subprocess.run, timeout=1200, 
                         encoding="utf-8", errors="replace", timeout=timeout)
     except (subprocess.SubprocessError, OSError) as error:
         if diagnostic_path is not None:
-            raise CandidateError(build_failure(error, command, diagnostic_path)) from error
+            raise CandidateError(build_failure(error, command, diagnostic_path, operation)) from error
         # Build/signing tools may echo credentials on failure.
-        raise CandidateError(f"desktop command failed: {Path(command[0]).name}; inspect the isolated native job") from error
+        raise CandidateError(command_failure(error, command, operation) + '; inspect the isolated native job') from error
     return (getattr(result, "stdout", "") or "").strip()
 
 
@@ -139,7 +149,8 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
     with linux_environment as package_env:
         try:
             run([*command, "bundle", "--bundles", settings["bundle"], *configs],
-                root=root / "desktop", env=package_env, runner=runner)
+                root=root / "desktop", env=package_env, runner=runner,
+                diagnostic_path=evidence_dir / "tauri-bundle.log" if target.startswith("linux-") and evidence_dir else None)
         except CandidateError:
             if target.startswith("linux-") and evidence_dir is not None:
                 mismatch_evidence(rzm, bundle_dir / "appimage", evidence_dir / "sidecar-packaging.log", env=env, runner=runner)
@@ -168,7 +179,9 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
             raise
         sidecar = next(path for path in contents.rglob(settings["cli"]) if path.is_file())
         dependencies = inspect_dependencies(sidecar, target, version, root=root, env=env, runner=runner)
-        toolchains = {name: run(args, root=root, env=env, runner=runner, timeout=30)
+        toolchains = {name: run(args, root=root / "desktop" if name == "tauri" else root,
+                               env=env, runner=runner, timeout=30, operation=name + '-toolchain',
+                               diagnostic_path=evidence_dir / (name + '-toolchain.log') if evidence_dir else None)
                       for name, args in (("go", ["go", "version"]), ("rust", ["rustc", "--version"]),
                                          ("tauri", [*command, "--version"]))}
         manifest = candidate_manifest(target=target, version=version, commit=commit, package=package,
