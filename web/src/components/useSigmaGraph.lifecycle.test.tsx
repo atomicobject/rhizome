@@ -384,6 +384,59 @@ describe("useSigmaGraph renderer lifecycle", () => {
     }
   });
 
+  it.each(["clickStage", "clickEdge"] as const)(
+    "opens a nearby node on %s, but ignores farther clicks",
+    (eventName) => {
+      // The pixel pick misses, as it does a few pixels off a 2-3px Explorer node.
+      // Sigma keeps getNodeAtPosition private; element access reaches it, as in the renderer.
+      const exactPick = Sigma.prototype["getNodeAtPosition"];
+      Sigma.prototype["getNodeAtPosition"] = () => null;
+
+      try {
+        const onSpy = vi.spyOn(Sigma.prototype, "on");
+        const callback = vi.fn();
+
+        const view = render(
+          <Harness nodes={[{ ...firstNode, x: 0, y: 0 }]} onNodeClick={callback} />,
+        );
+
+        const renderer = Array.from(new Set(onSpy.mock.contexts)).filter(isSigma).at(-1);
+
+        if (!renderer) throw new Error("Sigma renderer did not mount");
+        const display = renderer.getNodeDisplayData("one");
+
+        if (!display) throw new Error("node one is not drawn");
+        const center = renderer.framedGraphToViewport(display);
+        const edge = center.x + renderer.scaleSize(display.size);
+
+        const clickAt = (x: number) =>
+          act(() => {
+            renderer.emit(eventName, {
+              edge: "link",
+              event: {
+                x,
+                y: center.y,
+                sigmaDefaultPrevented: false,
+                preventSigmaDefault: () => undefined,
+                original: new MouseEvent("click"),
+              },
+              preventSigmaDefault: () => undefined,
+            });
+          });
+
+        clickAt(edge + 20);
+        expect(callback).not.toHaveBeenCalled();
+        clickAt(edge + 6);
+        expect(callback).toHaveBeenCalledWith(expect.objectContaining({ id: "one" }), {
+          beside: false,
+        });
+        view.unmount();
+      } finally {
+        Sigma.prototype["getNodeAtPosition"] = exactPick;
+      }
+    },
+  );
+
   it("keeps a faded node hoverable and clickable, including beside modifier", () => {
     const onSpy = vi.spyOn(Sigma.prototype, "on");
     const renderers = () => Array.from(new Set(onSpy.mock.contexts)).filter(isSigma);

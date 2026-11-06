@@ -497,3 +497,32 @@ it("fits a label wider than the canvas without adding height", () => {
   expect(layout.labels.has("wide")).toBe(true);
   expect(layout.height).toBe(260);
 });
+
+it("keeps a crowded map near its height when its labels cannot all fit", () => {
+  // Shaped like a large vault: a dense, fully linked core and one member with a single link.
+  const core = Array.from({ length: 11 }, (_, index) => ({
+    id: `T${index}`,
+    radius: index ? 6 + index : 30,
+    label: `Member type ${index}\n${(index + 1) * 37} notes`,
+  }));
+
+  const edges = core.flatMap((a, i) =>
+    core.slice(i + 1).map((b, j) => ({
+      a: a.id,
+      b: b.id,
+      links: (i + j) * 13 + 1,
+      label: { key: `${a.id}|${b.id}`, text: String((i + j) * 13 + 1) },
+    })),
+  );
+
+  const input: LayoutInput = {
+    width: 560,
+    height: 260,
+    nodes: [...core, { id: "Leaf", radius: 5, label: "Coaching\n1 note" }],
+    edges: [...edges, { a: "T0", b: "Leaf", links: 1, label: { key: "T0|Leaf", text: "1" } }],
+    outside: [],
+  };
+
+  // Growing to fit every label would make this map over 2,000px tall.
+  expect(layoutMap(input).height).toBeLessThanOrEqual(input.height + 120);
+});

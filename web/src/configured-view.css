@@ -1813,6 +1813,12 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   padding: 0 22px 10px;
 }
 
+/* Ungrouped cards start one card gap below the view tabs' divider, not on it.
+   Grouped cards already start with their section header's own top padding. */
+.configured-view__cards > .configured-view__card-grid {
+  margin-top: var(--sp-3);
+}
+
 .configured-view__card-section-header {
   margin: 0 0 12px;
   border-bottom: 1px solid var(--border);

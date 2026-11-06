@@ -38,6 +38,9 @@ const NodeImageProgram = createNodeImageProgram<SigmaNodeAttrs, SigmaEdgeAttrs>(
 // back to enterNode/leaveNode events if a future Sigma drops it.
 type NodePicker = (position: { x: number; y: number }) => string | null;
 
+/** How far outside a node's disc, in CSS pixels, the pointer still picks it. */
+const HIT_SLOP = 8;
+
 export type ThemeColors = GraphColors & {
   label: string;
   edgeLabel: string;
@@ -304,7 +307,43 @@ export function mountSigmaRenderer({
 
   const pickCandidate = sigma["getNodeAtPosition"];
 
-  const picker: NodePicker | null = isNodePicker(pickCandidate) ? pickCandidate.bind(sigma) : null;
+  const exactPicker: NodePicker | null = isNodePicker(pickCandidate)
+    ? pickCandidate.bind(sigma)
+    : null;
+
+  // Explorer draws nodes at 2-3px, too small to hover or click by their pixels
+  // alone. A miss falls back to the node whose label is under the pointer, then
+  // to the nearest node within HIT_SLOP of its edge.
+  // ponytail: a linear scan per animation frame; index the points if graphs grow far past NODE_AVOID_ORDER.
+  const picker: NodePicker | null = exactPicker
+    ? (position) => {
+        const exact = exactPicker(position);
+
+        if (exact) return exact;
+        const label = labels.labelAt(position.x, position.y);
+
+        if (label) return label;
+        let nearest: string | null = null;
+        let gap: number = HIT_SLOP;
+
+        sigma.getGraph().forEachNode((id) => {
+          const data = sigma.getNodeDisplayData(id);
+
+          if (!data || data.hidden) return;
+          const point = sigma.framedGraphToViewport(data);
+
+          const distance =
+            Math.hypot(point.x - position.x, point.y - position.y) - sigma.scaleSize(data.size);
+
+          if (distance <= gap) {
+            nearest = id;
+            gap = distance;
+          }
+        });
+
+        return nearest;
+      }
+    : null;
 
   const mouseCaptor = sigma.getMouseCaptor();
   const mouseCanvas = sigma.getCanvases().mouse;
@@ -383,7 +422,10 @@ export function mountSigmaRenderer({
   };
 
   sigma.on("enterNode", ({ node }) => syncHoverNode(node));
-  sigma.on("leaveNode", () => syncHoverNode(null));
+
+  // With a picker, pointer moves clear hover, so Sigma's pixel-exact leaveNode
+  // cannot drop a hover the wider target still holds.
+  if (!picker) sigma.on("leaveNode", () => syncHoverNode(null));
 
   const clearHoverFrame = () => {
     if (hoverFrameID === null) return;
@@ -439,15 +481,26 @@ export function mountSigmaRenderer({
 
   camera.on("updated", onCameraUpdated);
 
-  sigma.on("clickNode", ({ node, event }) => {
+  const clickNode = (node: string, original: MouseEvent | TouchEvent) => {
     const attrs = sigma.getGraph().getNodeAttributes(node);
-    const original = event.original;
 
     const beside =
       original instanceof MouseEvent && (original.metaKey || original.ctrlKey) ? true : false;
 
     onNodeClickRef.current(graphNodeFromAttrs(node, attrs), { beside });
-  });
+  };
+
+  sigma.on("clickNode", ({ node, event }) => clickNode(node, event.original));
+
+  // A click near a node, or on its label, opens it like a click on the node.
+  const clickNearbyNode = (event: { x: number; y: number; original: MouseEvent | TouchEvent }) => {
+    const node = picker?.({ x: event.x, y: event.y });
+
+    if (node) clickNode(node, event.original);
+  };
+
+  sigma.on("clickStage", ({ event }) => clickNearbyNode(event));
+  sigma.on("clickEdge", ({ event }) => clickNearbyNode(event));
 
   return () => {
     camera.off("updated", onCameraUpdated);

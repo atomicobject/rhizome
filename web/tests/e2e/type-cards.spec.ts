@@ -1,5 +1,41 @@
 import { expect, test } from "./fixtures";
-import { chooseView, expectViewSettled } from "./workspaceView";
+import { chooseView, expectViewSettled, openViewOptions } from "./workspaceView";
+
+test("cards keep their top gap while a background refresh is pending", async ({ page }) => {
+  await page.goto("/notes/tv-work-item");
+  await chooseView(page, "Cards");
+  await expectViewSettled(page);
+  await openViewOptions(page);
+  await page.getByRole("combobox", { name: "Group by" }).selectOption("");
+  await expectViewSettled(page);
+  const grid = page.locator(".configured-view__cards > .configured-view__card-grid");
+  const topGap = () => grid.evaluate((element) => parseFloat(getComputedStyle(element).marginTop));
+
+  expect(await topGap()).toBe(8);
+
+  let release = () => {};
+
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await page.route("**/api/v1/views/*/execute", async (route) => {
+    await pending;
+    await route.continue();
+  });
+
+  try {
+    await openViewOptions(page);
+    await page.getByRole("button", { name: "Refresh view", exact: true }).click();
+    await expect(page.locator(".configured-view__loading-overlay")).toBeAttached();
+    expect(await topGap()).toBe(8);
+  } finally {
+    release();
+  }
+
+  await expectViewSettled(page);
+  expect(await topGap()).toBe(8);
+});
 
 test("cards place metadata below reserved two-line title areas and align grid row heights", async ({
   page,

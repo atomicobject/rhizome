@@ -86,6 +86,8 @@ export function createLabelPainter(
 ) {
   let planned: Map<string, Spot | null> | null = null;
   const placed: Box[] = [];
+  /** Each node's drawn label this frame, so the label is a pointer target too. */
+  const drawn = new Map<string, Box>();
   const widths = new Map<string, number>();
 
   const measure = (context: CanvasRenderingContext2D, text: string) => {
@@ -102,6 +104,7 @@ export function createLabelPainter(
   const beginFrame = () => {
     planned = null;
     placed.length = 0;
+    drawn.clear();
   };
 
   /** Place every label this frame will draw, largest node first, clear of discs, labels, and edges. */
@@ -409,6 +412,7 @@ export function createLabelPainter(
     }
 
     if (!spot) return;
+    drawn.set(data.key, spot.box);
     const [left, top, right, bottom] = spot.box;
     const { label, canvas } = colors();
     const endX = Math.max(left, Math.min(data.x, right));
@@ -490,5 +494,13 @@ export function createLabelPainter(
     context.globalAlpha = 1;
   };
 
-  return { draw, beginFrame, occupied: () => placed };
+  /** The node whose drawn label covers the viewport point, if any. */
+  const labelAt = (x: number, y: number) => {
+    for (const [id, [left, top, right, bottom]] of drawn)
+      if (x >= left && x <= right && y >= top && y <= bottom) return id;
+
+    return null;
+  };
+
+  return { draw, beginFrame, labelAt, occupied: () => placed };
 }
