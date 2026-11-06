@@ -7,8 +7,8 @@
 
 """An atomic AO KB claim. The note body is the claim, not an evidence quotation. Structured sections remain separately addressable."""
 type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @display(group: "Knowledge") {
-  """AO logical identity, distinct from the native nodeId and physical note path."""
-  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """AO logical identity (frontmatter id), distinct from the native nodeId and physical note path. Not a Rhizome identifier: AO notes carry no aliases, so look records up by an exact aoId filter."""
+  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
   headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""

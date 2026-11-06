@@ -96,18 +96,17 @@ func TestAOKBKnowledgeFixture(t *testing.T) {
 		require.Len(t, n["supportedBy"], 2)
 	})
 	t.Run("raw source exclusion and extraction identity gap", func(t *testing.T) {
-		rawNode := query(t, `{ node(ref:"a-000000000001") { path } }`)["node"]
-		require.NotNil(t, rawNode)
-		n := rawNode.(map[string]any)
-		require.Equal(t, "assertions/clinic-patient-books-own-slot.md", n["path"])
-		sources := query(t, `{ source(first:30) { aoId path extractedAssertionIds extractedAssertions { aoId } } }`)["source"].([]any)
+		// AO notes carry no aliases, so aoId is not a Rhizome identifier: look it up by exact filter.
+		byID := query(t, `{ assertion(first:2, filters:[{field:"aoId", op:eq, value:"a-000000000001"}]) { path } }`)["assertion"].([]any)
+		require.Len(t, byID, 1)
+		require.Equal(t, "assertions/clinic-patient-books-own-slot.md", byID[0].(map[string]any)["path"])
+		sources := query(t, `{ source(first:30) { aoId path extractedAssertionIds } }`)["source"].([]any)
 		require.Len(t, sources, 9)
 		for _, raw := range sources {
 			n := raw.(map[string]any)
 			require.NotContains(t, n["path"], "/_raw/")
 			if n["aoId"] == "s-000000000001" {
 				require.Len(t, n["extractedAssertionIds"], 14)
-				require.Empty(t, n["extractedAssertions"], "logical ID extraction is an evidenced indexer deficiency, not a slug/alias fixture workaround")
 			}
 		}
 	})
@@ -151,11 +150,11 @@ func TestAOKBKnowledgeFixture(t *testing.T) {
 		rows := query(t, `{ conflictRegistry(first:5) { groups { entries { title locator { sourceLocator } assertions { aoId } fields { label value } } } } }`)["conflictRegistry"].([]any)
 		require.Len(t, rows, 1)
 		groups := rows[0].(map[string]any)["groups"].([]any)
-		require.Len(t, groups, 2)
+		require.Len(t, groups, 1, "AO renders every entry under ## Entries")
 		entries := groups[0].(map[string]any)["entries"].([]any)
-		require.Len(t, entries, 1)
+		require.Len(t, entries, 2)
 		entry := entries[0].(map[string]any)
-		require.Equal(t, "cf-001: Same-day cancellation policy", entry["title"])
+		require.Equal(t, "cf-001: same-day-cancellation-fee ↔ same-day-cancellation-free", entry["title"])
 		require.ElementsMatch(t, []any{map[string]any{"aoId": "a-000000000005"}, map[string]any{"aoId": "a-000000000006"}}, entry["assertions"])
 		require.Contains(t, entry["locator"].(map[string]any)["sourceLocator"], ".kb/curation/_conflicts.md#")
 		fields := entry["fields"].([]any)

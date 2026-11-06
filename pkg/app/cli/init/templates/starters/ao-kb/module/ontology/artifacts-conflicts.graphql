@@ -1,7 +1,7 @@
 """An AO-authored synthesis artifact; references are navigation and do not manufacture evidence claims."""
 type Artifact @node(paths: ["artifacts/**/*.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """AO KB authored id; absent and unknown values are preserved without inferred defaults."""
-  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored name; absent and unknown values are preserved without inferred defaults."""
   name: String @field(source: "name") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""

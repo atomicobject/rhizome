@@ -1,7 +1,7 @@
 """An AO KB source record. Archived files under sources/_raw are evidence bytes, never Source records."""
 type Source @node(matches: ["sources AND NOT sources/_raw"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """AO logical source identity; native nodeId and path retain physical identity."""
-  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored name; absent and unknown values are preserved without inferred defaults."""
   name: String @field(source: "name") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
@@ -26,7 +26,7 @@ type Source @node(matches: ["sources AND NOT sources/_raw"], propertyCase: AS_DE
   topics: [String!] @field(source: "topics") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored products; absent and unknown values are preserved without inferred defaults."""
   products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  """AO KB authored extractedAssertionIds; absent and unknown values are preserved without inferred defaults."""
+  """AO ids of the claims extracted from this source, in authored order. Extraction history, never evidential support or corroboration. Resolve each id by an exact aoId filter; reference bindings that resolve logical ids natively arrive with the structured-data batch."""
   extractedAssertionIds: [String!] @field(source: "extractedAssertionIds") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """Ordered AO path entries; a scalar becomes a one-item list. Native path is the source note address, so the authored path cannot use that reserved GraphQL field name. Blank slots are retained only in frontmatter JSON."""
   sourcePaths: [String!] @field(source: "path") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
@@ -36,14 +36,12 @@ type Source @node(matches: ["sources AND NOT sources/_raw"], propertyCase: AS_DE
   speakerRole: String @field(source: "speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored extracted_by; absent and unknown values are preserved without inferred defaults."""
   extractedBy: String @field(source: "extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  """Source-to-assertion extraction declarations from extractedAssertionIds, independent of evidential citation and corroboration. Slug targets bind; logical-ID targets are inspectable in extractedAssertionIds but require indexer identifier-resolution support."""
-  extractedAssertions: [Assertion!] @link(source: "extractedAssertionIds", includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
 }
 
 """AO KB concept membership comes from authored links, never an inferred primary-concept assignment."""
 type Concept @node(paths: ["concepts/**/*.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """AO KB authored id; absent and unknown values are preserved without inferred defaults."""
-  aoId: String @field(source: "id") @identifier(preferred: true, populate: MANUAL) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored name; absent and unknown values are preserved without inferred defaults."""
   name: String @field(source: "name") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
