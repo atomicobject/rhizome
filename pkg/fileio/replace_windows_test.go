@@ -2,7 +2,9 @@ package fileio
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 const imageProbeArgument = "fileio-running-image-probe"
@@ -23,18 +27,21 @@ func TestReplaceRunningExecutable(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name        string
-		replace     func(string, string) error
-		mustSucceed bool
+		name    string
+		replace func(string, string) error
 	}{
 		{name: "ordinary_rename_diagnostic", replace: os.Rename},
-		{name: "cooperative_replace", replace: Replace, mustSucceed: true},
+		{name: "cooperative_replace", replace: Replace},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			target, staged := filepath.Join(dir, "running.exe"), filepath.Join(dir, "staged.exe")
 			copyProbeImage(t, target, "old")
 			copyProbeImage(t, staged, "new")
+			oldBytes, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatal(err)
+			}
 			stagedInfo, err := os.Stat(staged)
 			if err != nil {
 				t.Fatal(err)
@@ -71,8 +78,8 @@ func TestReplaceRunningExecutable(t *testing.T) {
 			probeReply(t, output, oldReply)
 
 			replaceErr := tc.replace(staged, target)
-			if replaceErr != nil && tc.mustSucceed {
-				t.Fatalf("replace running executable: %v", replaceErr)
+			if replaceErr != nil && !errors.Is(replaceErr, os.ErrPermission) && !errors.Is(replaceErr, windows.ERROR_SHARING_VIOLATION) {
+				t.Fatalf("unexpected replacement failure: %v", replaceErr)
 			}
 			t.Logf("replacement while process %d is running: %v", cmd.Process.Pid, replaceErr)
 			if _, err := fmt.Fprintln(stdin, "ping"); err != nil {
@@ -90,26 +97,43 @@ func TestReplaceRunningExecutable(t *testing.T) {
 				if !os.SameFile(stagedInfo, current) {
 					t.Fatal("target does not name the staged executable after successful replacement")
 				}
-			} else if _, err := os.Stat(staged); err != nil {
-				t.Fatalf("failed rename did not preserve its staged source: %v", err)
+			} else {
+				if _, err := os.Stat(staged); err != nil {
+					t.Fatalf("failed rename did not preserve its staged source: %v", err)
+				}
+				currentBytes, err := os.ReadFile(target)
+				if err != nil || !bytes.Equal(oldBytes, currentBytes) {
+					t.Fatalf("failed replacement changed the old executable: %v", err)
+				}
 			}
 
-			next := exec.CommandContext(ctx, target, "-test.run=^TestReplaceRunningExecutable$", "--", imageProbeArgument)
-			newOutput, err := next.CombinedOutput()
-			if err != nil {
-				t.Fatalf("launch executable after replacement: %v\n%s", err, newOutput)
-			}
-			newReply := fmt.Sprintf("%s %d\n", wantMarker, next.Process.Pid)
-			if !strings.HasPrefix(string(newOutput), newReply) {
-				t.Fatalf("new invocation = %q, want prefix %q", newOutput, newReply)
-			}
+			probeInvocation(t, ctx, target, wantMarker)
 			if err := stdin.Close(); err != nil {
 				t.Fatal(err)
 			}
 			if err := cmd.Wait(); err != nil {
 				t.Fatalf("old executable failed after replacement: %v", err)
 			}
+			if replaceErr != nil {
+				if err := tc.replace(staged, target); err != nil {
+					t.Fatalf("replacement after the old process exits: %v", err)
+				}
+				probeInvocation(t, ctx, target, "new")
+			}
 		})
+	}
+}
+
+func probeInvocation(t *testing.T, ctx context.Context, target, marker string) {
+	t.Helper()
+	next := exec.CommandContext(ctx, target, "-test.run=^TestReplaceRunningExecutable$", "--", imageProbeArgument)
+	output, err := next.CombinedOutput()
+	if err != nil {
+		t.Fatalf("launch executable after replacement: %v\n%s", err, output)
+	}
+	want := fmt.Sprintf("%s %d\n", marker, next.Process.Pid)
+	if !strings.HasPrefix(string(output), want) {
+		t.Fatalf("new invocation = %q, want prefix %q", output, want)
 	}
 }
 

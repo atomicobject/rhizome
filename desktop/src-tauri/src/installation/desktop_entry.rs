@@ -143,8 +143,10 @@ fn entry_text(
     let app = path_text(app_path)?;
     let icon = icon_path(home, identifier, icon_hash);
     let icon = string_value(path_text(&icon)?);
+    // GIO validates argv[0] before expanding %%, so pass the AppImage as an
+    // argument to env. No shell interprets its path.
     Ok(format!(
-        "[Desktop Entry]\nType=Application\nName={name}\nComment=Open your repositories in Rhizome\nExec={}\nTryExec={}\nIcon={icon}\nTerminal=false\nCategories=Development;\nX-Rhizome-Identifier={identifier}\n{ICON_HASH_KEY}{icon_hash}\n",
+        "[Desktop Entry]\nType=Application\nName={name}\nComment=Open your repositories in Rhizome\nExec=/usr/bin/env -- {}\nTryExec={}\nIcon={icon}\nTerminal=false\nCategories=Development;\nX-Rhizome-Identifier={identifier}\n{ICON_HASH_KEY}{icon_hash}\n",
         executable_value(app_path)?, string_value(app),
     ))
 }
@@ -349,15 +351,22 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let app = app(
             home.path(),
-            "Rhi \"quoted\" ; $cash `tick` %f \\雪.AppImage",
+            "Rhi 'single' \"quoted\" ; $cash `tick` %f \\雪.AppImage",
         );
-        fs::write(&app, b"#!/bin/sh\nprintf '%s' \"$0\" > \"${0}.launched\"\n").unwrap();
+        fs::write(
+            &app,
+            b"#!/bin/sh\nprintf '%s\\0' \"$0\" \"$@\" > \"${0}.launched\"\n",
+        )
+        .unwrap();
         fs::set_permissions(&app, fs::Permissions::from_mode(0o700)).unwrap();
+        let argument = home.path().join("repository 'single' ; $cash \\雪");
+        fs::write(&argument, b"synthetic repository argument").unwrap();
         register(home.path(), RELEASE, &app, None).unwrap();
         let paths = location(home.path(), RELEASE).unwrap();
         let launched = Command::new("gio")
             .arg("launch")
             .arg(&paths.entry)
+            .arg(&argument)
             .output()
             .expect("gio is required for native launcher tests (libglib2.0-bin)");
         assert!(
@@ -370,6 +379,9 @@ mod tests {
         while !marker.exists() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(10));
         }
-        assert_eq!(fs::read_to_string(marker).unwrap(), app.to_str().unwrap());
+        assert_eq!(
+            fs::read(marker).unwrap(),
+            format!("{}\0{}\0", app.display(), argument.display()).as_bytes(),
+        );
     }
 }

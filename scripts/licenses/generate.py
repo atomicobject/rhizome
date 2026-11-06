@@ -282,7 +282,7 @@ def render_index(entries: list[NoticeEntry]) -> bytes:
     for group in ("Go", "Web", "Fonts", "Skills"):
         lines.extend([f"## {group}", "", "| Package | Version | Declared license | Full text directory | Source |", "| --- | --- | --- | --- | --- |"])
         for entry in (item for item in entries if item.group == group):
-            lines.append(f"| {entry.title} | {entry.version} | {entry.declared} | `{entry.directory.relative_to(ROOT)}` | {entry.source} |")
+            lines.append(f"| {entry.title} | {entry.version} | {entry.declared} | `{entry.directory.relative_to(ROOT).as_posix()}` | {entry.source} |")
         lines.append("")
     return ("\n".join(lines).rstrip() + "\n").encode()
 

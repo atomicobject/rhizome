@@ -123,7 +123,7 @@ func TestPortableWindowsDispatcherRefusesDisabledRegistration(t *testing.T) {
 	record.Enabled = false
 	writePortableFixture(t, root, record)
 	var stderr bytes.Buffer
-	handled, code := dispatchEntry(entry, []string{"--version"}, strings.NewReader(""), &bytes.Buffer{}, &stderr)
+	handled, code := dispatchEntry(entry, entry, entry, []string{"--version"}, strings.NewReader(""), &bytes.Buffer{}, &stderr)
 	require.True(t, handled)
 	require.Equal(t, 1, code)
 	require.Contains(t, stderr.String(), "integration is unavailable")

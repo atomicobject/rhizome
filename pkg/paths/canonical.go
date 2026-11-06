@@ -1,38 +1,14 @@
 package paths
 
-import (
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-)
+import "strings"
 
 // CanonicalExistingPath resolves an existing path for filesystem identity.
 // Windows DOS namespace aliases use ordinary spelling only when both name the
 // same file and Win32 parsing cannot change a component's name.
 func CanonicalExistingPath(path string) (AbsPath, error) {
-	abs, err := filepath.Abs(path)
+	canonical, err := canonicalExistingPath(path)
 	if err != nil {
 		return "", err
-	}
-	canonical, err := filepath.EvalSymlinks(abs)
-	if err != nil {
-		return "", err
-	}
-	canonical = filepath.Clean(canonical)
-	if runtime.GOOS == "windows" {
-		ordinary := ordinaryDOSPath(canonical)
-		if needsVerbatimDOSPath(ordinary) {
-			// Go's long-path handling can make an ordinary spelling name the
-			// same file even when another Win32 caller parses it differently.
-			canonical = verbatimDOSPath(ordinary)
-		} else if ordinary != canonical {
-			original, originalErr := os.Stat(canonical)
-			alias, aliasErr := os.Stat(ordinary)
-			if originalErr == nil && aliasErr == nil && os.SameFile(original, alias) {
-				canonical = ordinary
-			}
-		}
 	}
 	return AbsPath(canonical), nil
 }

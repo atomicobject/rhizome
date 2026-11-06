@@ -78,22 +78,20 @@ func TestPortableRegistrationRejectsMalformedOwnership(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPortableInvocationFailsAfterOwnerRemovalAndHonorsDisabledRegistration(t *testing.T) {
+func TestPortableImageRetainsRuntimeLifetimeAfterOwnerRemoval(t *testing.T) {
 	root, record, image := portableFixture(t)
 	var errors bytes.Buffer
-	handled, _ := dispatchEntry(image, []string{"search", "x"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
+	handled, _ := dispatchEntry(image, image, "", []string{"search", "x"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
 	require.False(t, handled)
 	record.Enabled = false
 	writePortableFixture(t, root, record)
-	handled, _ = dispatchEntry(image, []string{"serve", "--headless"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
+	handled, _ = dispatchEntry(image, image, "", []string{"serve", "--headless"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
 	require.False(t, handled, "removing desktop integration must not stop the still-open GUI's runtime launch")
-	handled, _ = dispatchEntry(image, []string{"desktop-bridge"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
+	handled, _ = dispatchEntry(image, image, "", []string{"desktop-bridge"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
 	require.False(t, handled, "the open GUI can explicitly restore integration")
 	require.NoError(t, os.Remove(record.AppPath))
-	handled, code := dispatchEntry(image, []string{"desktop-bridge"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
-	require.True(t, handled)
-	require.Equal(t, 1, code)
-	require.Contains(t, errors.String(), "missing")
+	handled, _ = dispatchEntry(image, image, "", []string{"tasks", "run-due"}, bytes.NewReader(nil), &bytes.Buffer{}, &errors)
+	require.False(t, handled, "existing runtimes retain their immutable executable for helpers and restarts")
 }
 
 func TestPortableEntryPreservesForeignFiles(t *testing.T) {

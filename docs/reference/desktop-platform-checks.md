@@ -12,7 +12,7 @@ CI owns native builds, process tests, package inventory, hashes, and signature v
 
 Use Windows 11 x64 or Ubuntu 24.04 LTS x64 GNOME. On Ubuntu, run the checks once in Wayland and once in an X11 session on the same host. Record the OS version, session type, GPU, app version, package path, and SHA256. A separate OS test account keeps installation registration and credentials separate; `RHIZOME_DESKTOP_DATA_DIR` isolates only library and window state.
 
-The Desktop portability workflow retains `desktop-portability-unsigned-windows-x64` and `desktop-portability-unsigned-linux-x64`. These packages use version `0.0.0` and cannot demonstrate updates. Windows candidates lack production Authenticode signing; the release pipeline rejects them for public publication.
+The Desktop portability workflow retains `desktop-portability-unsigned-windows-x64` and `desktop-portability-unsigned-linux-x64`. These packages use version `0.0.0` and cannot demonstrate updates. Their default team API origin comes from the checked-in release configuration, so they can be used for browser sign-in checks. Confirm the selected origin in `EVIDENCE.txt`; older artifacts may still use a synthetic origin that cannot complete sign-in. Windows candidates lack production Authenticode signing; the release pipeline rejects them for public publication.
 
 On Windows, run the NSIS installer for the current user and open its installed shortcut. Confirm the WebView2 bootstrap succeeds if the runtime is absent; without network access, its failure should explain the missing prerequisite. Full offline installation is outside this first support set.
 
@@ -48,7 +48,7 @@ Check PATH from an already open shell, a new shell, and a new tab in an already 
 
 The native upgrade fixture builder produces versions `0.0.1` and `0.0.2` from one source revision. It changes only the test version, updater endpoint/key, and loopback HTTP permission. Packaging and native signing policy stay the same; Windows fixture packages remain unsigned. The updater private key is discarded after assembly.
 
-Run Desktop portability manually with `upgrade_fixtures: true`, or add the `desktop-upgrade-fixtures` label to a pull request. Download `desktop-upgrade-fixture-windows-x64` or `desktop-upgrade-fixture-linux-x64`. The extracted root contains `0.0.1/` and `0.0.2/` packages, a feed advertising `0.0.2`, public key, overlay, and `EVIDENCE.txt`. Each version has its candidate and assembly manifests. These are the production app identifier, so use a disposable OS account or VM. The default team origin is synthetic; select a working nonsecret `team_api_origin` in a manual run before checking browser sign-in. In the extracted root, start the feed:
+Add the `desktop-upgrade-fixtures` label to a pull request, or run Desktop portability manually with `upgrade_fixtures: true` once the workflow is on the default branch. Download `desktop-upgrade-fixture-windows-x64` or `desktop-upgrade-fixture-linux-x64`. The extracted root contains `0.0.1/` and `0.0.2/` packages, a feed advertising `0.0.2`, public key, overlay, and `EVIDENCE.txt`. Each version has its candidate and assembly manifests. These use the production app identifier, so use a disposable OS account or VM. The default team API origin is the checked-in release origin; a manual run can override it with a nonsecret `team_api_origin`. Check `EVIDENCE.txt` for the actual origin before browser sign-in. In the extracted root, start the feed:
 
 ```sh
 python3 -m http.server 9444 --bind 127.0.0.1
@@ -58,7 +58,7 @@ python3 -m http.server 9444 --bind 127.0.0.1
 2. Install its CLI entry, open two windows, and start both the app-owned and independent runtimes. Keep a terminal command active through the stable CLI entry.
 3. Choose Check for Updates, then Restart to Update. Leave the loopback server running. Confirm version `0.0.2`, restored windows, current CLI selection, and continued independent runtime operation. Repeated bridge/auth requests must not block installer replacement.
 4. Quit the GUI. On Linux confirm the AppImage mount disappears and the copied runtime can still serve requests, restart, and spawn helpers. Reopen through `rzm desktop`.
-5. On Windows, advance a repository pin while that repository's old runtime is running. Confirm success or a recoverable failure that preserves the previous working binary and truthful pin metadata.
+5. On Windows, advance a repository pin while that repository's old runtime is running. Confirm success or a recoverable failure that preserves the previous working binary and truthful pin metadata. When Windows blocks the replacement, stop that repository's runtime and retry from the app's Update Pin action or its installed global CLI; the update must then complete. Running the repository binary itself would keep it locked during the retry. App-owned immutable images avoid this installation lock during app updates.
 6. Test interrupted download, an invalid package signature, installer cancellation/failure, and a retry. The working installation and recoverable window session must remain available.
 
 This proves the test feed only. The first upgrade through the production feed stays open until the second public Windows/Linux release; the release owner must record that result separately.

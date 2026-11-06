@@ -461,7 +461,11 @@ func replaceFile(src, target string) error {
 	if err := copyFile(src, staged, 0o755); err != nil {
 		return err
 	}
-	return os.Rename(staged, target)
+	err = os.Rename(staged, target)
+	if runtime.GOOS == "windows" && errors.Is(err, os.ErrPermission) {
+		return fmt.Errorf("Windows refused executable replacement; the existing executable was left in place. Close commands using it and run `rzm stop` in that repository. Retry a repository update using the app's Update Pin action or an installed global CLI: %w", err)
+	}
+	return err
 }
 
 func copyFile(src, dst string, perm os.FileMode) error {

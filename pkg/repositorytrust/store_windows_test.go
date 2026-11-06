@@ -1,6 +1,7 @@
 package repositorytrust
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,6 +108,38 @@ func TestCanonicalCheckoutDoesNotMergeDistinctVerbatimWindowsNames(t *testing.T)
 			require.NoError(t, err)
 			require.True(t, removed)
 			trusted, err = store.Trusted(verbatim)
+			require.NoError(t, err)
+			require.True(t, trusted)
+		})
+	}
+}
+
+func TestCanonicalCheckoutResolvesWindowsDirectorySymlinks(t *testing.T) {
+	for _, name := range []string{"checkout", "checkout."} {
+		t.Run(name, func(t *testing.T) {
+			base, err := filepath.EvalSymlinks(t.TempDir())
+			require.NoError(t, err)
+			target := filepath.Join(base, name)
+			if strings.HasSuffix(name, ".") {
+				target = `\\?\` + target
+			}
+			require.NoError(t, os.Mkdir(target, 0o755))
+			alias := filepath.Join(base, "alias")
+			if err := os.Symlink(target, alias); errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) {
+				t.Skip("directory symlinks require Windows developer mode or symlink privilege")
+			} else {
+				require.NoError(t, err)
+			}
+			for _, spelling := range []string{alias, `\\?\` + alias} {
+				canonical, err := CanonicalCheckout(spelling)
+				require.NoError(t, err)
+				require.Equal(t, target, canonical)
+				require.Equal(t, win32DirectoryIdentity(t, target), win32DirectoryIdentity(t, canonical))
+			}
+			store := Store{Dir: filepath.Join(t.TempDir(), "trust")}
+			_, err = store.Trust(alias)
+			require.NoError(t, err)
+			trusted, err := store.Trusted(target)
 			require.NoError(t, err)
 			require.True(t, trusted)
 		})

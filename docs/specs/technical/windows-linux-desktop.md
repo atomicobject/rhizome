@@ -41,7 +41,7 @@ Before any app-owned Go process runs, the native application MUST materialize an
 
 Only installation/update or explicit user selection may change the current installation registration. Publication MUST be serialized and protect against an older process replacing newer or disabled state. Removal MUST retain enough generation state to prevent old-app resurrection. Uncertain active images MUST be retained.
 
-A stable owned CLI entry MUST select the current installed image without changing repository selection. It MUST preserve arguments, cwd, streams, exit status and interactive interrupt behavior. It MUST NOT require a version-specific PATH update on each app upgrade. Removal or direct deletion of the owning app MUST prevent a new orphan CLI invocation, while already-running independent runtimes remain valid.
+A stable owned CLI entry MUST select the current installed image without changing repository selection. It MUST preserve arguments, cwd, streams, exit status and interactive interrupt behavior. It MUST NOT require a version-specific PATH update on each app upgrade. Removal or direct deletion of the owning app MUST prevent new invocations through that entry, while retained runtime images remain usable for independent runtime helpers and restarts.
 
 App-owned images, entrypoints and metadata MUST be excluded from repository update replacement targets, including aliases and missing paths. User overrides, development executables and externally managed entries MUST retain their current behavior.
 
@@ -55,7 +55,7 @@ AppImage installation MUST provide an explicit integration-removal action and di
 
 ### Update and publication
 
-Windows MUST save session state before the native updater can exit. App updates MUST preserve independently owned runtimes and fail recoverably if a required replacement cannot be performed. Repository pin advancement on Windows MUST be tested with its runtime executing; failed replacement MUST retain runnable files and truthful metadata.
+Windows MUST save session state before the native updater can exit. App updates MUST preserve independently owned runtimes and fail recoverably if a required replacement cannot be performed. Repository pin advancement on Windows MUST be tested with its runtime executing; failed replacement MUST retain runnable files and truthful metadata. An in-use repository executable may require stopping that runtime and retrying through the app or its global CLI; the error MUST explain the recovery, and the retry MUST succeed after the lock is released.
 
 Native jobs MUST produce immutable candidate artifacts/manifests without updater signing credentials or publication rights. One protected coordinator MUST verify source, version, target, sidecar inventory, canonical CLI bytes and signatures before creating the complete updater feed. The Windows CLI MUST be Authenticode-signed before canonical archiving and MUST NOT be re-signed during desktop bundling. Updater signatures MUST cover final bytes.
 

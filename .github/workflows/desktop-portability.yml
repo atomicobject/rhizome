@@ -5,6 +5,10 @@ on:
     types: [opened, synchronize, reopened, labeled]
     paths:
       - '.github/workflows/desktop-portability.yml'
+      - '.goreleaser.yml'
+      - '.gitattributes'
+      - 'scripts/release/**'
+      - 'scripts/licenses/**'
       - 'desktop/**'
       - 'pkg/app/appbundle/**'
       - 'pkg/app/desktop/**'
@@ -25,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       team_api_origin:
-        description: Optional root HTTPS team API URL for login checks; default is a non-working fixture origin
+        description: Optional team API origin override; defaults to the checked-in release origin
         type: string
         default: ''
       upgrade_fixtures:
@@ -61,7 +65,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       CGO_ENABLED: '1'
-      RZM_DESKTOP_TEAM_API_ORIGIN: ${{ inputs.team_api_origin || 'https://team.example.test' }}
+      RZM_DESKTOP_TEAM_API_ORIGIN: ${{ inputs.team_api_origin }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -124,8 +128,9 @@ jobs:
 
       - name: Build the workspace and native CLI
         run: |
-          team_origin="$(node --input-type=module -e 'import {desktopTeamAPIOrigin} from "./desktop/scripts/team-api-origin.mjs"; console.log(desktopTeamAPIOrigin())')"
+          team_origin="$(node --input-type=module -e 'import {desktopTeamAPIOrigin,releaseTeamAPIOrigin} from "./desktop/scripts/team-api-origin.mjs"; console.log(desktopTeamAPIOrigin(process.env,releaseTeamAPIOrigin))')"
           mkdir -p .tmp/desktop-portability
+          printf '%s\n' "$team_origin" > .tmp/desktop-portability/team-api-origin.txt
           npm run build --prefix web
           go build -mod=vendor -tags fts5 \
             -ldflags "-X github.com/atomicobject/rhizome/pkg/vault/version.Version=0.0.0 -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=$team_origin" \
@@ -184,8 +189,9 @@ jobs:
           mkdir -p .tmp/desktop-portability
           cat > .tmp/desktop-portability/EVIDENCE.txt <<'EOF'
           Unsigned native portability candidate. Not a public release.
-          Default team.example.test origin cannot complete login. Manual builds may
-          select a working nonsecret team_api_origin URL for login acceptance.
+          The default team API origin comes from matching checked-in release builds.
+          Manual builds may override it with a working nonsecret team_api_origin URL.
+          Browser sign-in remains an interactive installed-app acceptance check.
           The app and companion use fixture version 0.0.0; automatic updates are disabled.
           The external smoke check exercises the unpackaged release executable.
           Native credential-store checks use isolated synthetic records only.
@@ -193,6 +199,11 @@ jobs:
           Installed GUI behavior, Wayland/GPU behavior, trusted OS signing and
           signed N-to-N+1 upgrades require their separate acceptance checks.
           EOF
+          if [[ -f .tmp/desktop-portability/team-api-origin.txt ]]; then
+            printf 'Team API origin: %s\n' "$(cat .tmp/desktop-portability/team-api-origin.txt)" >> .tmp/desktop-portability/EVIDENCE.txt
+          else
+            printf 'Team API origin: unavailable; build did not reach origin selection.\n' >> .tmp/desktop-portability/EVIDENCE.txt
+          fi
 
       - name: Upload unsigned candidates and native evidence
         if: always()
@@ -264,7 +275,7 @@ jobs:
       - name: Build two exact fixture versions and sign their updater payloads
         env:
           TARGET: ${{ matrix.target }}
-          TEAM_API_ORIGIN: ${{ inputs.team_api_origin || 'https://team.example.test' }}
+          TEAM_API_ORIGIN: ${{ inputs.team_api_origin }}
         run: |
           python3 scripts/release/build_upgrade_fixture.py --target "$TARGET" \
             --team-api-origin "$TEAM_API_ORIGIN" --output "$RUNNER_TEMP/upgrade-fixture" \

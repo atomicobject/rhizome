@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/fileio"
 )
@@ -201,8 +202,8 @@ func hashFile(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// DispatchEntry runs before dotenv loading. A Windows entry is a stable copy
-// of rzm; all substantive work runs in the current immutable image instead.
+// DispatchEntry validates the public CLI entry before dotenv loading. Direct
+// immutable images remain available to independently owned runtime children.
 func DispatchEntry(args []string, stdin io.Reader, stdout, stderr io.Writer) (bool, int) {
 	if runtime.GOOS == "darwin" {
 		return false, 0
@@ -211,17 +212,17 @@ func DispatchEntry(args []string, stdin io.Reader, stdout, stderr io.Writer) (bo
 	if err != nil {
 		return false, 0
 	}
-	return dispatchEntry(self, args, stdin, stdout, stderr)
-}
-
-func dispatchEntry(self string, args []string, stdin io.Reader, stdout, stderr io.Writer) (bool, int) {
-	fail := func(err error) (bool, int) {
-		fmt.Fprintln(stderr, err)
-		return true, 1
-	}
 	entry, err := EntryPath()
 	if err != nil {
 		return false, 0
+	}
+	return dispatchEntry(self, os.Args[0], entry, args, stdin, stdout, stderr)
+}
+
+func dispatchEntry(self, invoked, entry string, args []string, stdin io.Reader, stdout, stderr io.Writer) (bool, int) {
+	fail := func(err error) (bool, int) {
+		fmt.Fprintln(stderr, err)
+		return true, 1
 	}
 	if runtime.GOOS == "windows" && SamePath(self, entry) {
 		root, err := PortableRoot(ReleaseIdentifier)
@@ -251,15 +252,85 @@ func dispatchEntry(self string, args []string, stdin io.Reader, stdout, stderr i
 		}
 		return true, childExitCode(err)
 	}
-	resolved, err := filepath.EvalSymlinks(self)
-	if err != nil || ImageRoot(resolved) == "" {
-		return false, 0
-	}
-	root := ImageRoot(resolved)
-	if _, err := readPortable(root); err != nil {
-		return fail(err)
+	if runtime.GOOS != "windows" {
+		if root := invokedImageEntryRoot(self, invoked, entry); root != "" {
+			record, err := ReadInstallation(root)
+			if err != nil || !record.Enabled {
+				return fail(errors.New("Rhizome desktop integration is unavailable; open or reinstall the app"))
+			}
+			if _, err := readPortable(root); err != nil {
+				return fail(err)
+			}
+		}
 	}
 	return false, 0
+}
+
+// Linux resolves os.Executable through the CLI symlink. Follow original argv[0]
+// aliases to the shared entry, leaving links directly to an image independent.
+func invokedImageEntryRoot(self, invoked, entry string) string {
+	if invoked == "" || entry == "" {
+		return ""
+	}
+	if !strings.ContainsRune(invoked, filepath.Separator) {
+		path, err := exec.LookPath(invoked)
+		if err != nil && !errors.Is(err, exec.ErrDot) {
+			return ""
+		}
+		invoked = path
+	}
+	invoked, err := filepath.Abs(invoked)
+	if err != nil {
+		return ""
+	}
+	entryDir, err := canonicalDirectory(filepath.Dir(entry))
+	if err != nil {
+		return ""
+	}
+	entry = filepath.Join(entryDir, filepath.Base(entry))
+	matched := false
+	for hops := 0; hops < 40; hops++ {
+		invokedDir, err := canonicalDirectory(filepath.Dir(invoked))
+		if err != nil {
+			return ""
+		}
+		invoked = filepath.Join(invokedDir, filepath.Base(invoked))
+		if SamePath(invoked, entry) {
+			matched = true
+			break
+		}
+		target, err := os.Readlink(invoked)
+		if err != nil {
+			return ""
+		}
+		invoked = target
+		if !filepath.IsAbs(invoked) {
+			invoked = filepath.Join(invokedDir, invoked)
+		}
+	}
+	if !matched {
+		return ""
+	}
+	target, err := os.Readlink(entry)
+	if err != nil {
+		return ""
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(entry), target)
+	}
+	root := ImageRoot(filepath.Clean(target))
+	if root == "" {
+		return ""
+	}
+	resolved, err := filepath.EvalSymlinks(self)
+	if err != nil {
+		return ""
+	}
+	target, err = filepath.EvalSymlinks(target)
+	if err != nil || !SamePath(resolved, target) {
+		return ""
+	}
+	return root
 }
 
 func childExitCode(err error) int {

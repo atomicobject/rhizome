@@ -101,9 +101,10 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   publication under the installation lock and rejects stale generations; Go reads
   and validates it. App updates select a new image without replacing a running
   executable. Old images are retained; cleanup must first prove active-use safety.
-  Repository settings and dotenv never choose the registration root. New CLI
-  invocations refuse a deleted GUI owner, while existing runtimes keep their normal
-  ownership. `appbundle` protects the registration, images, entry, and registered
+  Repository settings and dotenv never choose the registration root. New public
+  CLI entry invocations refuse a missing or disabled GUI owner. Retained images
+  remain executable for independent runtime helpers and restarts after removal.
+  `appbundle` protects the registration, images, entry, and registered
   GUI targets from repository pin replacement even from a standalone CLI.
 - macOS command-line integration owns `/usr/local/bin/rzm` only when it points to
   a Rhizome app's `rzm`. A missing app's link is recognized by its structural

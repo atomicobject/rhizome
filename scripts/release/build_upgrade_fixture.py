@@ -23,7 +23,7 @@ VERSIONS = ('0.0.1', '0.0.2')
 
 def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.0.0.1:9444', source=None,
                   runner=subprocess.run, builder=build, assembler=assemble, prepare_key=prepare,
-                  team_api_origin='https://team.example.test', evidence_dir: Path | None = None) -> Path:
+                  team_api_origin='', evidence_dir: Path | None = None) -> Path:
     if target not in NATIVE_TARGETS:
         raise CandidateError('upgrade fixtures support the two initial native desktop targets')
     base_url = fixture_base_url(base_url)
@@ -34,7 +34,7 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
     env = scoped_environment(os.environ if source is None else source, 'build')
     env.pop('GORELEASER_CURRENT_TAG', None)
     team_api_origin = run(['node', '--input-type=module', '-e',
-        'import {desktopTeamAPIOrigin} from "./desktop/scripts/team-api-origin.mjs"; console.log(desktopTeamAPIOrigin())'],
+        'import {desktopTeamAPIOrigin,releaseTeamAPIOrigin} from "./desktop/scripts/team-api-origin.mjs"; console.log(desktopTeamAPIOrigin(process.env,releaseTeamAPIOrigin))'],
         root=root, env={**env, 'RZM_DESKTOP_TEAM_API_ORIGIN': team_api_origin}, runner=runner)
     commit = run(['git', 'rev-parse', 'HEAD'], root=root, env=env, runner=runner)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -59,6 +59,8 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
             cli = work / ('rzm-' + version + ('.exe' if target.startswith('windows-') else ''))
             build_env = {**env, 'GOOS': target.split('-')[0], 'GOARCH': 'amd64',
                          'RZM_CI_RELEASE_VERSION': version}
+            # GoReleaser's TARGET overrides GOOS/GOARCH; the workflow uses Tauri's spelling.
+            build_env.pop('TARGET', None)
             build_id = 'rzm-windows-amd64' if target.startswith('windows-') else 'rzm-linux'
             run(['goreleaser', 'build', '--snapshot', '--clean', '--single-target', '--id', build_id,
                  '--skip=before,post-hooks', '--config', str(fixture_config), '--output', str(cli)],
@@ -75,7 +77,7 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
         (staged / 'EVIDENCE.txt').write_text(
             f'Unsigned {target} installed-upgrade fixture, source {commit}.\n'
             f'Test versions {VERSIONS[0]} and {VERSIONS[1]}; updater key is ephemeral and private key is discarded.\n'
-            f'Team API origin: {team_api_origin}. team.example.test cannot complete login.\n'
+            f'Team API origin: {team_api_origin}. Browser sign-in is an interactive installed-app check.\n'
             'Allowed config differences: version, loopback updater endpoint, test public key, loopback HTTP transport.\n'
             'Native release package format and installer mode are preserved.\n'
             'Windows fixture packages are unsigned; production publishing rejects them.\n'
@@ -92,7 +94,7 @@ def main() -> int:
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--repo-root', type=Path, default=ROOT)
     parser.add_argument('--base-url', default='http://127.0.0.1:9444')
-    parser.add_argument('--team-api-origin', default='https://team.example.test')
+    parser.add_argument('--team-api-origin', default='', help='override the checked-in canonical release origin')
     parser.add_argument('--evidence-dir', type=Path)
     args = parser.parse_args()
     try:

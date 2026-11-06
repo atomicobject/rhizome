@@ -6,3 +6,18 @@ tools/searchquality/internal/qualityeval/testdata/corpus-v2.json text eol=lf
 
 # Keep native desktop formatter input stable on Windows.
 desktop/** text=auto eol=lf
+
+# Generated notices and their pinned text sources are compared as canonical bytes.
+licenses/** text eol=lf
+THIRD_PARTY_LICENSES.md text eol=lf
+web/public/third-party-licenses.txt text eol=lf
+.agents/skills/impeccable/LICENSE text eol=lf
+.agents/skills/impeccable/NOTICE text eol=lf
+.claude/skills/impeccable/LICENSE text eol=lf
+.claude/skills/impeccable/NOTICE text eol=lf
+.github/skills/impeccable/LICENSE text eol=lf
+.github/skills/impeccable/NOTICE text eol=lf
+.agents/skills/check-pr/LICENSE text eol=lf
+.agents/skills/greploop/LICENSE text eol=lf
+.claude/skills/check-pr/LICENSE text eol=lf
+.claude/skills/greploop/LICENSE text eol=lf
