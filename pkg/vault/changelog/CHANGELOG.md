@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [v0.51.0] - 2026-11-06
+
+- Rhizome Desktop for Apple silicon Macs: one window per repository, ⌘O and ⇧⌘O finders for repositories and worktrees, runtime controls, and a bundled `rzm`. The app is signed, notarized, and updates itself.
+- Install the app and its CLI with `brew install --cask atomicobject/tap/rhizome-desktop`, or download the DMG. The CLI-only formula remains for Linux, Intel Macs, and headless use. `rzm desktop [path]` opens a folder in the app.
+- Releases are prepared as a reviewed pull request with the `rhizome-release` skill and built, signed, notarized, and published by CI from the public repository.
+- Redesigned workbench: themes with Light, Dark, or Match System appearance, one persistent sidebar, ⌘P to find notes and code, calmer notes, and cleaner collection headers with Find, Filter, and View menus.
+- Types and All notes open on a Briefing of what needs attention, what is in motion, and what changed. Display groups get an Overview map.
+- Explorer shows the whole vault, groups large folders, expands folders in place, and draws links between code and notes.
+- Atomic Object staff can sign in with `rzm auth login` or **Sign in with Atomic Object** to use Voyage and Jev through the team server. Desktop Settings shows which provider each repository uses and imports keys from 1Password.
+- Scheduled tasks: declare periodic agent work in `.rhizome/tasks/*.yml`, run it in each teammate's Claude Code or Codex after a free check, and review runs on the Tasks page. **Test once** tries a task before merge.
+- Optional `compounding` add-on turns past agent sessions into reviewed fixes, documentation edits, guard rules, and context shards. With `rzm init --hooks on`, shards reach agents as they work and guard rules block matching tool calls.
+- Starters install as modules under `.rhizome/modules/<name>/` with their ontology, recipes, views, tasks, actions, and scripts.
+- Search finds notes by the link text other notes use for them and ranks short title matches higher.
+- Custom views can render live Mermaid diagrams, run module actions, and keep state in the URL.
+- Note interfaces get typed GraphQL roots that filter, sort, and page across their concrete types.
+- `rzm` commands work from any subdirectory of a repository.
+- `rzm init` reruns show a change list, ask once, and only ask about generated files someone edited. Optional add-ons can be turned on or off from its settings menu.
+- Rhizome no longer re-embeds unchanged text, cold embedding passes no longer flood the indexing queue, idle runtimes do far less background work, open note tabs use much less memory, and the ontology and Explorer load faster.
+- `rzm diagnostics perf` summarizes the last day of runtime and web UI performance offline.
+- Removed `rzm code index` and `rzm code index-anchors`; `rzm index` refreshes code and notes together.
+- `rzm note rename-heading` never adds block IDs, and its `--upgrade-to-block-id` and `--fallback` options are removed.
+- Each repository rebuilds derived ontology data once on first use after upgrading. Nothing is re-embedded.
+
 ## [v0.50.5] - 2026-08-11
 
 - Make `rzm index --rebuild` clobber and recreate the unified SQLite index, including stale WAL/SHM sidecars.
