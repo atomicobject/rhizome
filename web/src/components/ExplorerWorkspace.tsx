@@ -188,8 +188,8 @@ export function ExplorerWorkspace({
 
   useRevealRail(folderExplorer.initial, atRoot, selectedFilePath, setExpandedPaths);
   const folders = byFolder ? folderExplorer.drawn : null;
-
-  const drawn = useExplorerGraph(folders, graph, selection);
+  const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
+  const drawn = useExplorerGraph(folders, graph, selection, searchPathSet);
 
   const focusModule = useCallback(
     (path: string) => {
@@ -277,25 +277,23 @@ export function ExplorerWorkspace({
   }, [query, clearSearch]);
 
   const hasPanel = selection.kind === "file";
-  const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
 
   const searchCounts = useMemo(
     () => folderSearchMatches(folders, graph, searchPathSet),
     [folders, graph, searchPathSet],
   );
 
-  const searchNodes = useMemo(
-    () =>
-      searchActive
-        ? drawn.nodes.map((node) => ({
-            ...node,
-            searchMatchCount:
-              searchCounts.get(node.id) ??
-              (searchPathSet.has(node.notePath || node.path || "") ? 1 : 0),
-          }))
-        : drawn.nodes,
-    [drawn.nodes, searchActive, searchCounts, searchPathSet],
-  );
+  const searchNodes = useMemo(() => {
+    if (!searchActive) return drawn.nodes;
+
+    return drawn.nodes.map((node) => ({
+      ...node,
+      searchMatchCount:
+        searchCounts.get(node.id) ??
+        node.searchMatchCount ??
+        (searchPathSet.has(node.notePath || node.path || "") ? 1 : 0),
+    }));
+  }, [drawn.nodes, searchActive, searchCounts, searchPathSet]);
 
   const graphScopeLabel =
     graphScope.mode === "global"
@@ -414,7 +412,11 @@ export function ExplorerWorkspace({
                     onNodeClick={onNodeClick}
                     searchActive={searchActive}
                     searchPaths={searchPathSet}
-                    searchModules={new Set(searchCounts.keys())}
+                    searchModules={
+                      new Set(
+                        searchNodes.filter((node) => node.searchMatchCount).map((node) => node.id),
+                      )
+                    }
                     searchOnlyMatches={searchOnlyMatches}
                     typeColors={typeColors}
                     showTypeLegend

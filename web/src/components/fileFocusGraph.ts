@@ -83,6 +83,7 @@ export function fileFocusGraph(
   path: string,
   file?: FileView,
   expanded: ReadonlySet<string> = new Set(),
+  searchPaths: ReadonlySet<string> = new Set(),
 ): Omit<GraphResponse, "nodes"> & { nodes: GraphViewNode[] } {
   const graph = mergeFileNotes(input, file);
   const focused = graph.nodes.find((node) => node.path === path || node.notePath === path);
@@ -167,6 +168,15 @@ export function fileFocusGraph(
       .filter(([, members]) => isNote(members[0]) === (side === "notes"))
       .sort(([a], [b]) => FILE_NOTE_RELATIONS.indexOf(a) - FILE_NOTE_RELATIONS.indexOf(b));
 
+    const matchCount = (members: GraphNode[]) =>
+      new Set(
+        members.flatMap((node) => {
+          const path = node.notePath || node.path;
+
+          return path && searchPaths.has(path) ? [path] : [];
+        }),
+      ).size;
+
     const visible = (members: GraphNode[], label: string): GraphViewNode[] => {
       const batch = batches.get(label) ?? 0;
       const limit = GROUP_LIMIT + batch * REVEAL_BATCH;
@@ -183,6 +193,7 @@ export function fileFocusGraph(
           kind: side === "notes" ? "note" : "code",
           label: `Show ${members.length - limit} more`,
           childCount: members.length - limit,
+          searchMatchCount: searchPaths.size ? matchCount(members.slice(limit)) : undefined,
           aggregate: true,
         },
       ];
@@ -232,6 +243,7 @@ export function fileFocusGraph(
         id: groupID,
         kind: side === "notes" ? "note" : "code",
         label,
+        searchMatchCount: searchPaths.size ? matchCount(members) : undefined,
         labelDetail: `${members.length} ${side === "notes" ? "notes" : "files"}`,
         aggregate: true,
         x: direction * 210,

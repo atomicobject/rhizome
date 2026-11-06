@@ -73,6 +73,7 @@ export function useExplorerGraph(
   folders: FolderGraph | null,
   graph: GraphResponse,
   selection: { kind: "root" } | { kind: "module" | "file"; path: string },
+  searchPaths: ReadonlySet<string> = new Set(),
 ) {
   const path = selection.kind === "file" ? selection.path : "";
 
@@ -89,7 +90,7 @@ export function useExplorerGraph(
 
   const sourceGraph = useMemo(() => mergeFileNotes(graph, file), [graph, file]);
 
-  const drawn = useMemo(
+  const drawn = useMemo<Omit<GraphResponse, "nodes"> & { nodes: GraphViewNode[] }>(
     () =>
       folders
         ? {
@@ -105,9 +106,10 @@ export function useExplorerGraph(
               selection.path,
               file,
               revealed.path === path ? revealed.groups : new Set(),
+              searchPaths,
             )
           : graph,
-    [folders, graph, selection, sourceGraph, file, revealed, path],
+    [folders, graph, selection, sourceGraph, file, revealed, path, searchPaths],
   );
 
   const reveal = (node: GraphNode) => {
