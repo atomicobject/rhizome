@@ -3,6 +3,12 @@ import type { ExplorerNodeAttrs } from "./explorerGraph";
 import type { ReducerState, SigmaEdgeAttrs } from "../lib/graphStyle";
 import { resolveCssColor } from "../lib/themeColors";
 
+import { FolderObstacles } from "./folderObstacles";
+
+const obstacleCaches = new WeakMap<Sigma<ExplorerNodeAttrs, SigmaEdgeAttrs>, FolderObstacles>();
+
+const observed = new WeakSet<Sigma<ExplorerNodeAttrs, SigmaEdgeAttrs>>();
+
 export function folderLinkLength(child: boolean, active: boolean, distance: number) {
   return child && !active ? 0 : distance;
 }
@@ -11,21 +17,45 @@ export function folderLinkLength(child: boolean, active: boolean, distance: numb
 export function drawFolderLinks(
   sigma: Sigma<ExplorerNodeAttrs, SigmaEdgeAttrs>,
   context: CanvasRenderingContext2D,
-  state: ReducerState,
+  state: Pick<ReducerState, "hoverNodeID">,
 ) {
   const graph = sigma.getGraph();
-  const points = new Map<string, { x: number; y: number; r: number }>();
-  graph.forEachNode((id) => {
+
+  if (!observed.has(sigma)) {
+    observed.add(sigma);
+    sigma.on("afterProcess", () => obstacleCaches.delete(sigma));
+  }
+
+  let obstacles = obstacleCaches.get(sigma);
+
+  if (!obstacles) {
+    const positions: { id: string; x: number; y: number; size: number }[] = [];
+    graph.forEachNode((id) => {
+      const data = sigma.getNodeDisplayData(id);
+
+      if (data && !data.hidden) positions.push({ id, x: data.x, y: data.y, size: data.size });
+    });
+    obstacles = new FolderObstacles(positions);
+    obstacleCaches.set(sigma, obstacles);
+  }
+
+  const point = (id: string) => {
     const data = sigma.getNodeDisplayData(id);
 
-    if (data && !data.hidden)
-      points.set(id, { ...sigma.framedGraphToViewport(data), r: sigma.scaleSize(data.size) });
-  });
+    return data && !data.hidden
+      ? { ...sigma.framedGraphToViewport(data), r: sigma.scaleSize(data.size) }
+      : undefined;
+  };
+
+  const dimensions = sigma.getDimensions();
+  const origin = sigma.viewportToFramedGraph({ x: 0, y: 0 });
+  const unit = sigma.viewportToFramedGraph({ x: 1, y: 0 });
+  const unitsPerPixel = Math.hypot(unit.x - origin.x, unit.y - origin.y);
   context.strokeStyle = resolveCssColor("var(--explorer-link)");
   graph.forEachEdge((_id, attrs, source, target) => {
     if (attrs.kind === "folder-containment") {
-      const a = points.get(source),
-        b = points.get(target);
+      const a = point(source),
+        b = point(target);
 
       if (!a || !b) return;
       const distance = Math.hypot(b.x - a.x, b.y - a.y);
@@ -50,8 +80,8 @@ export function drawFolderLinks(
     if (attrs.kind === "folder-child-crosslink" && !graph.getNodeAttribute(from, "branch"))
       [from, to] = [to, from];
 
-    const a = points.get(from),
-      b = points.get(to);
+    const a = point(from),
+      b = point(to);
 
     if (!a || !b) return;
     const distance = Math.hypot(b.x - a.x, b.y - a.y);
@@ -69,6 +99,15 @@ export function drawFolderLinks(
 
     if (!length) return;
 
+    // The quadratic control point bends at most 80px beyond the endpoint box.
+    if (
+      Math.max(a.x, b.x) < -82 ||
+      Math.min(a.x, b.x) > dimensions.width + 82 ||
+      Math.max(a.y, b.y) < -82 ||
+      Math.min(a.y, b.y) > dimensions.height + 82
+    )
+      return;
+
     const end = {
       x: a.x + ((b.x - a.x) * length) / distance,
       y: a.y + ((b.y - a.y) * length) / distance,
@@ -79,8 +118,14 @@ export function drawFolderLinks(
     context.beginPath();
     context.moveTo(a.x, a.y);
 
-    const crossesNode = [...points].some(([id, p]) => {
-      if (id === from || id === to) return false;
+    const startGraph = sigma.viewportToFramedGraph(a);
+    const endGraph = sigma.viewportToFramedGraph(end);
+    const padding = (sigma.scaleSize(obstacles.maxSize) + 8) * unitsPerPixel;
+    let crossesNode = false;
+
+    for (const obstacle of obstacles.nearRoute(startGraph, endGraph, padding)) {
+      if (obstacle.id === from || obstacle.id === to) continue;
+      const p = { ...sigma.framedGraphToViewport(obstacle), r: sigma.scaleSize(obstacle.size) };
 
       const t = Math.max(
         0,
@@ -90,8 +135,11 @@ export function drawFolderLinks(
         ),
       );
 
-      return Math.hypot(p.x - a.x - (end.x - a.x) * t, p.y - a.y - (end.y - a.y) * t) < p.r + 8;
-    });
+      if (Math.hypot(p.x - a.x - (end.x - a.x) * t, p.y - a.y - (end.y - a.y) * t) < p.r + 8) {
+        crossesNode = true;
+        break;
+      }
+    }
 
     if (crossesNode) {
       const cx = (a.x + end.x) / 2 - ((end.y - a.y) / length) * 80;
