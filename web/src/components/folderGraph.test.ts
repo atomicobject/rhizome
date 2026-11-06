@@ -89,20 +89,20 @@ describe("complete folder model", () => {
 
     const graph = visibleFolderGraph(tree, state(), color);
     expect(graph.nodes.find((node) => node.id === "more:")).toMatchObject({
-      label: "+1 note",
-      labelDetail: undefined,
-      childCount: 1,
+      label: "+21 folders · 1 note",
+      labelDetail: "total 1 note · 21 files",
+      childCount: 22,
     });
     expect(graph.children.get("")?.reduce((sum, child) => sum + child.members.length, 0)).toBe(31);
   });
-  it("keeps every top-level folder visible beside root files", () => {
+  it("budgets top-level folders beside counted root files", () => {
     const tree = buildFolderTree({
       nodes: [note("README.md"), ...Array.from({ length: 30 }, (_, i) => code(`part${i}/a.ts`))],
       edges: [],
     });
 
     const graph = visibleFolderGraph(tree, state(), color);
-    expect(graph.children.get("")?.filter((child) => child.folder)).toHaveLength(30);
+    expect(graph.children.get("")?.filter((child) => child.folder)).toHaveLength(9);
   });
   it("auto-opens only dominant top-level folders", () => {
     const tree = buildFolderTree({
@@ -400,7 +400,12 @@ it("reveals thousands of direct files in bounded batches and counts duplicate na
   const get = vi.spyOn(Map.prototype, "get");
 
   try {
-    const graph = visibleFolderGraph(folders, state(), color);
+    const graph = visibleFolderGraph(
+      folders,
+      { ...state(), revealed: new Map([["", 100]]) },
+      color,
+    );
+
     expect(get.mock.calls.length).toBeLessThan(graph.nodes.length * 20);
   } finally {
     get.mockRestore();

@@ -126,7 +126,7 @@ export function visibleFolderChildren(
 
   const kept =
     folder.path === ""
-      ? [...folders]
+      ? folders.slice(0, allCount > budget ? budget - 1 : budget)
       : candidates.slice(0, allCount > budget ? budget - 1 : budget);
 
   const keptIds = new Set(kept.map((c) => c.node.id));

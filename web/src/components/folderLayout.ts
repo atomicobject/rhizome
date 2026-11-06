@@ -42,29 +42,25 @@ function orderedChildren(tree: FolderTree, path: string, children: FolderChild[]
         a.node.label.localeCompare(b.node.label),
     );
 
-  const remaining = [...children].sort(
-    (a, b) => folderWeight(b.totals) - folderWeight(a.totals) || a.node.id.localeCompare(b.node.id),
+  const first = children.reduce<FolderChild | undefined>(
+    (best, child) =>
+      !best ||
+      folderWeight(child.totals) > folderWeight(best.totals) ||
+      (folderWeight(child.totals) === folderWeight(best.totals) &&
+        child.node.id.localeCompare(best.node.id) < 0)
+        ? child
+        : best,
+    undefined,
   );
-
-  const result: FolderChild[] = [];
   const affinity = tree.affinity.get(path);
 
-  while (remaining.length) {
-    const last = result.at(-1);
-
-    if (last)
-      remaining.sort(
-        (a, b) =>
-          (affinity?.get(JSON.stringify([last.node.id, b.node.id].sort())) ?? 0) -
-            (affinity?.get(JSON.stringify([last.node.id, a.node.id].sort())) ?? 0) ||
-          a.node.id.localeCompare(b.node.id),
-      );
-    const next = remaining.shift();
-
-    if (next) result.push(next);
-  }
-
-  return result;
+  return [...children].sort(
+    (a, b) =>
+      Number(b === first) - Number(a === first) ||
+      (affinity?.get(JSON.stringify([first?.node.id, b.node.id].sort())) ?? 0) -
+        (affinity?.get(JSON.stringify([first?.node.id, a.node.id].sort())) ?? 0) ||
+      a.node.id.localeCompare(b.node.id),
+  );
 }
 
 /** Child fans depend only on their parent's anchor and child list. */
@@ -153,10 +149,12 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
     files.forEach((child, index) => {
       const angle = index * Math.PI * (3 - Math.sqrt(5));
       const radius = 65 * Math.sqrt(index + 1);
-      positions.set(child.node.id, {
+      const point = {
         x: overflow.x + Math.cos(angle) * radius,
         y: overflow.y + Math.sin(angle) * radius,
-      });
+      };
+      positions.set(child.node.id, point);
+      if (child.folder) visit(child.folder.path, point.x, point.y, angle);
     });
   }
 
