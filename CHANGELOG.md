@@ -33,6 +33,8 @@
 
 ### Fixed
 
+- Desktop Settings on Linux skips non-executable files when finding the command-line tool on PATH.
+
 - Repository updates on Windows protect installed desktop apps reached through short filename aliases.
 
 - Desktop card dragging keeps working after using the repository or worktree picker. Closing a picker now removes its native webview so it cannot intercept later drops.

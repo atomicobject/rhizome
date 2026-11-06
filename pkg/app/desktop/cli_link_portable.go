@@ -2,7 +2,6 @@ package desktop
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -34,7 +33,7 @@ func (s *Service) portableCLILinkShell(ctx context.Context, bundle *appbundle.In
 			continue
 		}
 		path := filepath.Join(directory, repoexec.ExecutableName())
-		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+		if executable(path) == nil {
 			result.Path = path
 			break
 		}
