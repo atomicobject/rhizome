@@ -1,5 +1,10 @@
 import { folderWeight, initialOpenFolders, type FolderTree } from "./folderTree";
-import { visibleFolderGraph, type FolderChild, type FolderGraph } from "./folderGraph";
+import {
+  visibleFolderChildren,
+  visibleFolderGraph,
+  type FolderChild,
+  type FolderGraph,
+} from "./folderGraph";
 
 const extents = new WeakMap<FolderTree, number>();
 
@@ -67,7 +72,24 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
   const positions = new Map<string, { x: number; y: number }>([["folder:", { x: 0, y: 0 }]]);
 
   const visit = (path: string, x: number, y: number, direction: number) => {
-    const children = orderedChildren(tree, path, graph.children.get(path) ?? []);
+    // Root anchors always use the overview; revealed files fan out from its overflow.
+    const children = orderedChildren(
+      tree,
+      path,
+      path === ""
+        ? visibleFolderChildren(
+            tree,
+            tree.root,
+            {
+              open: new Set([""]),
+              explicit: new Set(),
+              revealed: new Map(),
+            },
+            () => undefined,
+          )
+        : (graph.children.get(path) ?? []),
+    );
+
     const n = children.length;
 
     if (!n) return;
@@ -123,6 +145,20 @@ function positionFolderGraph(tree: FolderTree, graph: FolderGraph) {
   };
 
   visit("", 0, 0, 0);
+
+  const overflow = positions.get("more:");
+
+  if (overflow) {
+    const files = (graph.children.get("") ?? []).filter((child) => !positions.has(child.node.id));
+    files.forEach((child, index) => {
+      const angle = index * Math.PI * (3 - Math.sqrt(5));
+      const radius = 65 * Math.sqrt(index + 1);
+      positions.set(child.node.id, {
+        x: overflow.x + Math.cos(angle) * radius,
+        y: overflow.y + Math.sin(angle) * radius,
+      });
+    });
+  }
 
   return graph.nodes.map((node) => ({ ...node, ...positions.get(node.id) }));
 }
