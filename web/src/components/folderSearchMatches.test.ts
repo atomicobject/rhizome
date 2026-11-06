@@ -18,7 +18,7 @@ it("counts matches on visible folders, files and overflow representatives withou
 
   const folders = visibleFolderGraph(
     buildFolderTree(graph),
-    { open: new Set(["", "docs"]), explicit: new Set(["docs"]), showAll: new Set() },
+    { open: new Set(["", "docs"]), explicit: new Set(["docs"]), revealed: new Map() },
     () => undefined,
   );
 

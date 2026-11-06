@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GraphNode } from "../api/types";
 import { buildFolderTree, initialOpenFolders } from "./folderTree";
 import { visibleFolderGraph } from "./folderGraph";
@@ -16,10 +16,10 @@ const note = (path: string): GraphNode => ({
 
 const color = () => "red";
 
-const state = (paths: string[] = [], showAll: string[] = []) => ({
+const state = (paths: string[] = [], revealed: string[] = []) => ({
   open: new Set(["", ...paths]),
   explicit: new Set(paths),
-  showAll: new Set(showAll),
+  revealed: new Map(revealed.map((path) => [path, 1])),
 });
 
 describe("complete folder model", () => {
@@ -53,7 +53,7 @@ describe("complete folder model", () => {
       relationLabel: "1 note–code links",
     });
   });
-  it("budgets children without losing any file and reveals every aggregate member", () => {
+  it("budgets children without losing any file and reveals another bounded batch", () => {
     const tree = buildFolderTree({
       nodes: Array.from({ length: 40 }, (_, i) => code(`src/part${i}/a.ts`)),
       edges: [],
@@ -66,7 +66,7 @@ describe("complete folder model", () => {
     expect(children.reduce((sum, c) => sum + c.members.length, 0)).toBe(40);
     expect(children.find((c) => c.node.aggregate)?.node.id).toBe("more:src");
     const all = visibleFolderGraph(tree, state(["src"], ["src"]), color);
-    expect(all.children.get("src")).toHaveLength(40);
+    expect(all.children.get("src")).toHaveLength(28);
     expect(all.truncated).toBe(true);
   });
   it("makes direct files reachable even in a folder containing subfolders", () => {
@@ -78,7 +78,7 @@ describe("complete folder model", () => {
     const collapsed = visibleFolderGraph(tree, state(), color);
     expect(collapsed.nodes.map((n) => n.id)).toEqual(["folder:", "folder:src"]);
     const open = visibleFolderGraph(tree, state(["src"], ["src"]), color);
-    expect(open.nodes.filter((n) => n.kind === "code")).toHaveLength(35);
+    expect(open.nodes.filter((n) => n.kind === "code")).toHaveLength(22);
     expect(open.children.get("src")?.reduce((sum, c) => sum + c.members.length, 0)).toBe(36);
   });
   it("folds root files into a labelled reachable aggregate beside folders", () => {
@@ -151,14 +151,18 @@ describe("stable radial containment", () => {
 
     const before = layoutFolderGraph(
       tree,
-      visibleFolderGraph(tree, { open, explicit: new Set(), showAll: new Set() }, color),
+      visibleFolderGraph(tree, { open, explicit: new Set(), revealed: new Map() }, color),
     );
 
     const after = layoutFolderGraph(
       tree,
       visibleFolderGraph(
         tree,
-        { open: new Set([...open, "pkg/app"]), explicit: new Set(["pkg/app"]), showAll: new Set() },
+        {
+          open: new Set([...open, "pkg/app"]),
+          explicit: new Set(["pkg/app"]),
+          revealed: new Map(),
+        },
         color,
       ),
     );
@@ -369,4 +373,36 @@ it("preserves server-collapsed modules, counts and links as terminal groups", ()
     labelDetail: "total 750 items (collapsed)",
     childCount: 750,
   });
+});
+
+it("reveals thousands of direct files in bounded batches and counts duplicate names linearly", () => {
+  const tree = buildFolderTree({
+    nodes: Array.from({ length: 4000 }, (_, i) => code(`f${i}.ts`)),
+    edges: [],
+  });
+
+  const before = visibleFolderGraph(tree, state(), color);
+  const first = visibleFolderGraph(tree, state([], [""]), color);
+  expect(first.nodes.length - before.nodes.length).toBeLessThanOrEqual(11);
+  expect(first.nodes.filter((n) => n.kind === "code")).toHaveLength(10);
+  expect(first.nodes.find((n) => n.aggregate)).toMatchObject({ childCount: 3990 });
+
+  const second = visibleFolderGraph(tree, { ...state(), revealed: new Map([["", 2]]) }, color);
+  expect(second.nodes.filter((n) => n.kind === "code")).toHaveLength(20);
+  expect(second.nodes.find((n) => n.aggregate)).toMatchObject({ childCount: 3980 });
+
+  // Count name-map lookups with many visible folders, independently of the file budget.
+  const folders = buildFolderTree({
+    nodes: Array.from({ length: 1000 }, (_, i) => code(`folder${i}/same.ts`)),
+    edges: [],
+  });
+
+  const get = vi.spyOn(Map.prototype, "get");
+
+  try {
+    const graph = visibleFolderGraph(folders, state(), color);
+    expect(get.mock.calls.length).toBeLessThan(graph.nodes.length * 20);
+  } finally {
+    get.mockRestore();
+  }
 });

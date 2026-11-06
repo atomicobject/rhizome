@@ -12,7 +12,7 @@ export function useFolderExplorer(
   const tree = useMemo(() => buildFolderTree(graph), [graph]);
   const initial = useMemo(() => initialOpenFolders(tree), [tree]);
   const [overrides, setOverrides] = useState(new Map<string, boolean>());
-  const [showAll, setShowAll] = useState(new Set<string>());
+  const [revealed, setRevealed] = useState(new Map<string, number>());
 
   const [explicit, setExplicit] = useState(new Set<string>());
 
@@ -35,12 +35,12 @@ export function useFolderExplorer(
         tree,
         visibleFolderGraph(
           tree,
-          { open, explicit, showAll },
+          { open, explicit, revealed },
           (type) => colors.get(type),
           focusedPath,
         ),
       ),
-    [tree, open, explicit, showAll, colors, focusedPath],
+    [tree, open, explicit, revealed, colors, focusedPath],
   );
 
   return {
@@ -48,25 +48,25 @@ export function useFolderExplorer(
     initial,
     open,
     reveal(path: string) {
-      setShowAll((previous) => new Set([...previous, path]));
+      setRevealed((previous) => new Map(previous).set(path, (previous.get(path) ?? 0) + 1));
     },
     expand(path: string) {
       setExplicit((previous) => new Set([...previous, path]));
       const parts = path.split("/");
-      setShowAll((previous) => {
-        const next = new Set(previous);
+      setRevealed((previous) => {
+        const next = new Map(previous);
         parts.forEach((_, index) => {
           const parent = parts.slice(0, index).join("/");
           const child = parts.slice(0, index + 1).join("/");
           const folder = tree.folders.get(parent);
 
-          if (
-            folder &&
-            !visibleFolderChildren(tree, folder, { open, explicit, showAll: next }, (type) =>
+          while (
+            folder?.folders.some((candidate) => candidate.path === child) &&
+            !visibleFolderChildren(tree, folder, { open, explicit, revealed: next }, (type) =>
               colors.get(type),
             ).some((c) => c.node.id === `folder:${child}`)
           )
-            next.add(parent);
+            next.set(parent, (next.get(parent) ?? 0) + 1);
         });
 
         return next;
@@ -96,7 +96,7 @@ export function useFolderExplorer(
     reset() {
       setOverrides(new Map());
       setExplicit(new Set());
-      setShowAll(new Set());
+      setRevealed(new Map());
     },
   };
 }

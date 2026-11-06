@@ -42,7 +42,7 @@ export type FolderGraph = {
 export type FolderExpansion = {
   open: ReadonlySet<string>;
   explicit: ReadonlySet<string>;
-  showAll: ReadonlySet<string>;
+  revealed: ReadonlyMap<string, number>;
 };
 
 function fill(totals: FolderTotals, color: (type: string) => string | undefined) {
@@ -124,14 +124,16 @@ export function visibleFolderChildren(
 
   const allCount = folders.length + files.length;
 
-  const kept = state.showAll.has(folder.path)
-    ? [...folders, ...files]
-    : folder.path === ""
+  const kept =
+    folder.path === ""
       ? [...folders]
       : candidates.slice(0, allCount > budget ? budget - 1 : budget);
 
   const keptIds = new Set(kept.map((c) => c.node.id));
-  const hidden = [...folders, ...files].filter((c) => !keptIds.has(c.node.id));
+  const remaining = [...folders, ...files].filter((c) => !keptIds.has(c.node.id));
+  const revealedCount = (state.revealed.get(folder.path) ?? 0) * budget;
+  kept.push(...remaining.slice(0, revealedCount));
+  const hidden = remaining.slice(revealedCount);
 
   if (hidden.length) {
     const totals = sumTotals(hidden.map((c) => c.totals));
@@ -292,16 +294,18 @@ export function visibleFolderGraph(
   if (overflows.length > 1)
     for (const node of overflows) node.label += ` in ${node.path?.split("/").pop() || "Vault"}`;
 
-  const names = new Map(nodes.map((node) => [node.id, node.label.toLowerCase()]));
+  const names = new Map<string, number>();
+
+  for (const node of nodes) {
+    if (node.aggregate) continue;
+    const name = node.label.toLowerCase();
+    names.set(name, (names.get(name) ?? 0) + 1);
+  }
 
   for (const node of nodes) {
     if (node.aggregate) continue;
 
-    const duplicates = nodes.filter(
-      (other) => !other.aggregate && names.get(other.id) === names.get(node.id),
-    );
-
-    if (duplicates.length > 1 && node.path) {
+    if ((names.get(node.label.toLowerCase()) ?? 0) > 1 && node.path) {
       const parent = node.path.split("/").slice(0, -1).join("/");
       node.label = `${parent || "Vault"}/ ${node.label}`;
     }

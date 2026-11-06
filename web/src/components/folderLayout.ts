@@ -17,7 +17,7 @@ export function folderLayoutExtent(tree: FolderTree) {
       {
         open,
         explicit: new Set(),
-        showAll: new Set(),
+        revealed: new Map(),
       },
       () => undefined,
     ),
