@@ -61,10 +61,11 @@ A reviewable implementation in this worktree with preserved tab data and reading
 
 ## Actual Delivered
 
-Implemented bounded native note-body retention with existing tab data and live refresh ownership. Five recent bodies remain mounted; editing sessions and isolated HTML viewers are protected. Reading positions, disclosures and drill history survive body recreation without a new note query. Chromium retained heap fell 57.7% on the matched 24-note workload; recent-tab switching was effectively unchanged. The rebased Chromium browser suite passes all 127 cases, and all six focused Chromium/WebKit retention cases pass. The current rebased `make check` passes 1,985 web tests plus the Go, lint, type, content and team API gates. Default documentation validation and frozen-scope drift validation each report zero issues. The implementation is committed as `0705be63f` with the stable-identity correction in `3b236e912`. Full Send now carries it through PR review and merge; no installed app has been replaced yet.
+Implemented bounded native note-body retention with existing tab data and live refresh ownership. Five recent bodies remain mounted; editing sessions and isolated HTML viewers are protected. Reading positions, disclosures and drill history survive body recreation without a new note query. Chromium retained heap fell 57.7% on the matched 24-note workload; recent-tab switching was effectively unchanged. The rebased Chromium browser suite passes all 127 cases, and all six focused Chromium/WebKit retention cases pass. The current rebased `make check` passes 1,995 web tests plus the Go, lint, type, content and team API gates. Default documentation validation and frozen-scope drift validation each report zero issues. The implementation is committed as `a8b1a88d1` with the stable-identity correction in `275f2eb44`. Full Send now carries it through PR review and merge; no installed app has been replaced yet.
 
 ## Execution Notes
 
+- Rebased cleanly onto `aa8d5d384` after the ontology/Explorer performance PR landed. The combined build passed; `make check` passes 1,995 web tests and the full `make web-e2e` suite passes all 127 cases. The first local check attempt was stopped because sandbox restrictions prevented test fixture listeners and macOS runtime identity access; the complete check passed outside that restriction.
 - Sol Loop completed two rounds with GPT-6.1 Sol (xhigh). Round 1 S1 was fixed; round 2 approved with no open findings. Usage was not exposed. The added test fixture then received its required explicit note path without changing the tested behavior. Current `make check` passes 1,985 web tests; the rebased browser suite passed 127 tests.
 - Sol Loop round 1 requested changes for S1: mutable structural fingerprints remounted protected editors and separated saved reading states during ordinary refreshes. Removed the fingerprint from the reading identity while retaining stable node identity and presentation. Both editor-undo and suspended-scroll regressions failed before the fix; all 60 focused tests passed afterward.
 - 2026-11-06T14:49:21Z: Full Send authorized shipment. Committed the implementation and rebased onto `d4973a47004818cba30c5fa48d24ee2d6b494aa5`; the only conflict was adjacent changelog entries, and both were preserved. Current rebased implementation commit: `0705be63f`. Refreshed build/check evidence is being gathered before Sol review.
@@ -97,7 +98,7 @@ Implemented bounded native note-body retention with existing tab data and live r
 - [x] Required local gates and documentation validation recorded.
 - [x] Independent integrated review resolved.
 - [x] Actual delivery and durable docs reconciled.
-- [x] Committed delivery references: `0705be63f`, `3b236e912`; PR delivery reference: [#105](https://github.com/atomicobject/rhizome/pull/105).
+- [x] Committed delivery references: `a8b1a88d1`, `275f2eb44`; PR delivery reference: [#105](https://github.com/atomicobject/rhizome/pull/105).
 
 ## Status
 
