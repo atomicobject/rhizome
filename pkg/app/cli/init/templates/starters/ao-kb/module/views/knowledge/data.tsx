@@ -13,7 +13,7 @@ import {
 import type { Knowledge, Assertion, Coverage, Endpoint, Ref } from "./lib/knowledge.ts";
 import { readPassage } from "./lib/passage.ts";
 import { readSavedAnalysis } from "./lib/saved-analysis.ts";
-import { EVIDENCED_BY, typeSpec } from "./lib/model.ts";
+import { EVIDENCED_BY, readBindingFreshness, typeSpec } from "./lib/model.ts";
 import type { FieldLink, ModelFile, ModelRecord, SourceValue, TypeSpec } from "./lib/model.ts";
 
 // Composite section-scoped citations and normalized AO relations need GraphQL;
@@ -121,6 +121,14 @@ export function useModelBindings() {
       types: query.data.__type?.possibleTypes.map((t) => t.name) ?? [],
     },
   };
+}
+
+/** The compiler's published binding status; ready only when its manifests say so. */
+export function useBindingFreshness() {
+  return useQuery({
+    queryKey: ["ao-kb", "binding-freshness"],
+    queryFn: () => readBindingFreshness(),
+  });
 }
 
 export const REF =

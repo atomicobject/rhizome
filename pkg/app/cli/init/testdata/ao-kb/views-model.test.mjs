@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { isPositional, ownerKey } from "../../templates/starters/ao-kb/module/views/knowledge/lib/knowledge.ts";
 import {
+  BINDING_MANIFESTS,
   codePath,
   declaredEvidence,
   declarer,
   fieldRows,
   modelObservations,
+  readBindingFreshness,
   syncCompare,
   typeSpec,
 } from "../../templates/starters/ao-kb/module/views/knowledge/lib/model.ts";
@@ -154,4 +156,26 @@ test("declared evidence follows each value's native resolution, including file-s
   ]);
   const result = modelObservations([], [record], { AOKBModel_flow_single: spec }, [claim]);
   assert.deepEqual(result.dangling.map((d) => d.id), ["a-gone"], "a citation by file stem is not dangling");
+});
+
+test("binding freshness is the compiler's published status, and only ready reads as current", async () => {
+  const read = (model, knowledge = { status: "ready" }) => async (path) => {
+    const doc = { [BINDING_MANIFESTS.model]: model, [BINDING_MANIFESTS.knowledge]: knowledge }[path];
+    return doc === undefined || typeof doc === "string" ? doc : JSON.stringify(doc);
+  };
+  assert.deepEqual(await readBindingFreshness(read({ status: "ready" })), { state: "ready" });
+  const failed = { status: "stale", sdlHash: "previous", diagnostics: [{ severity: "error", message: "metamodel.yaml: bad indentation" }] };
+  const stale = await readBindingFreshness(read(failed));
+  assert.equal(stale.state, "stale", "a failed refresh retains the previous generation, marked stale");
+  assert.match(stale.notice, /^Product model bindings are stale/);
+  assert.equal((await readBindingFreshness(read({ status: "ready" }, failed))).state, "stale", "stale knowledge admission is not current either");
+  const error = await readBindingFreshness(read({ status: "error" }));
+  assert.equal(error.state, "error");
+  assert.match(error.notice, /^Product model bindings are incomplete/);
+  for (const unreadable of [undefined, "{not json", { status: "pending" }]) {
+    const unknown = await readBindingFreshness(read(unreadable));
+    assert.equal(unknown.state, "unknown", JSON.stringify(unreadable));
+    assert.match(unknown.notice, /could not be read/);
+  }
+  assert.equal((await readBindingFreshness(async () => { throw new Error("refused"); })).state, "unknown");
 });

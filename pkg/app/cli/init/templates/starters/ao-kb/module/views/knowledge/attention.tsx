@@ -12,6 +12,7 @@ import {
   Filters,
   DateValue,
   Fold,
+  ModelFreshness,
   Page,
   Record,
   today,
@@ -221,6 +222,7 @@ function AttentionBody({ data }: { data: Knowledge }) {
           not checked.
         </p>
       )}
+      {ready && <ModelFreshness />}
       {ready && index.isPending && <p className="ak-footnote">Reading product-model records…</p>}
       {index.error && (
         <p role="alert" className="text-risk text-sm">

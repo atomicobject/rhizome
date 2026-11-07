@@ -50,7 +50,7 @@ import {
   readTypeSpecs,
   useCoverage,
 } from "./data.tsx";
-import { DateValue, Page, Record, TraceLink, today } from "./parts.tsx";
+import { DateValue, ModelFreshness, Page, Record, TraceLink, today } from "./parts.tsx";
 import { FileLink } from "./evidence.tsx";
 import { AOHandoff } from "./record-parts.tsx";
 
@@ -372,6 +372,7 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
         {!embedded && node.workspace?.capabilities.readOnlyReason && (
           <p className="ak-footnote">{node.workspace.capabilities.readOnlyReason}</p>
         )}
+        <ModelFreshness />
       </header>
       <div className="ak-record-layout ak-model-layout">
         <div className="ak-record-column">

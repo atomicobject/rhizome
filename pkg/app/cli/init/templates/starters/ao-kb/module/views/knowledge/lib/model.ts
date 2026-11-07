@@ -3,6 +3,41 @@
  * attributes them back to the authored values that declared them. */
 import { dateNumber, refKey } from "./knowledge.ts";
 import type { Assertion, Ref } from "./knowledge.ts";
+import { readVaultText } from "./passage.ts";
+import type { ReadText } from "./passage.ts";
+
+/** The binding compiler's manifests: each records the status of its published generation. */
+export const BINDING_MANIFESTS = {
+  model: ".rhizome/modules/ao-kb/bindings/manifest.json",
+  knowledge: ".rhizome/modules/ao-kb/bindings/knowledge-manifest.json",
+};
+export type BindingFreshness =
+  | { state: "ready" }
+  | { state: "stale" | "error" | "unknown"; notice: string };
+const CHECK = "Run rzm ao-kb check for the cause.";
+const NOTICES = {
+  stale: `Product model bindings are stale: the last refresh did not publish, so model records come from the previous generation. ${CHECK}`,
+  error: `Product model bindings are incomplete: the last refresh failed. ${CHECK}`,
+  unknown: `Product model binding status could not be read, so model records may not be current. ${CHECK}`,
+};
+/** The compiler's published status (SPEC-0133 F5). Views never infer freshness and never
+ * present a generation as current unless both manifests say ready. */
+export async function readBindingFreshness(
+  readText: ReadText = readVaultText,
+): Promise<BindingFreshness> {
+  for (const path of [BINDING_MANIFESTS.model, BINDING_MANIFESTS.knowledge]) {
+    let status: unknown;
+    try {
+      status = JSON.parse((await readText(path)) ?? "null")?.status;
+    } catch {
+      status = undefined;
+    }
+    if (status === "ready") continue;
+    const state = status === "stale" || status === "error" ? status : "unknown";
+    return { state, notice: NOTICES[state] };
+  }
+  return { state: "ready" };
+}
 
 /** A native RECORD source value (`workspace.source.value`), in authored order. */
 export type SourceValue = {

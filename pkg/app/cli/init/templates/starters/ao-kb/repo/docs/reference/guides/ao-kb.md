@@ -46,7 +46,7 @@ This is an application boundary, not a file permission: AO skills and external e
 
 ## Recovery
 
-- A failed refresh keeps the previous generated schema and marks its manifest stale; the check shows the AO error, such as a YAML parse error with its file. Fix the AO file, refresh, and run the index wrapper. Do not delete authored sources to repair bindings.
+- A failed refresh keeps the previous generated schema and marks its manifest stale; the check shows the AO error, such as a YAML parse error with its file. Wherever model data appears, the Knowledge views read both manifests and say when bindings are stale, incomplete, or unreadable, so the retained generation never reads as current. Fix the AO file, refresh, and run the index wrapper. Do not delete authored sources to repair bindings.
 - `ao_index_inputs_changed` means AO files or configuration changed while the wrapper indexed: refresh, then run the wrapper again.
 - `ao_refresh_locked`: remove `.rhizome/modules/ao-kb/bindings/refresh.lock/` only after confirming no refresh or index wrapper is running.
 - A collision in `knowledge bindings`: retire or rename the named local types, then refresh.
