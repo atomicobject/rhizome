@@ -57,7 +57,9 @@ class DependencyTests(unittest.TestCase):
             self.assertNotIn('GLIBC_TUNABLES',call['env'])
 
     def test_linux_arm64_records_its_own_baseline_and_architecture(self):
-        self.listing='libc.so.6 => /lib/aarch64-linux-gnu/libc.so.6 (0x1234)'
+        # aarch64 glibc binaries also list the loader as NEEDED; ldd names it by path only.
+        self.needed+='\n0x1 (NEEDED) Shared library: [ld-linux-aarch64.so.1]'
+        self.listing='libc.so.6 => /lib/aarch64-linux-gnu/libc.so.6 (0x1234)\n\t/lib/ld-linux-aarch64.so.1 (0x5678)'
         self.interpreter='[Requesting program interpreter: /lib/ld-linux-aarch64.so.1]'
         result=self.inspect('linux-aarch64')
         self.assertEqual('ubuntu-24.04-aarch64',result['baseline'])

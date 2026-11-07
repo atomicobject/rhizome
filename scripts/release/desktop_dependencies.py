@@ -63,6 +63,10 @@ def linux_dependencies(cli: Path, target: str, version: str, *, root: Path, env:
             if not any(actual.is_relative_to(base) for base in (Path('/lib'), Path('/lib64'), Path('/usr/lib'), Path('/usr/lib64'))):
                 raise CandidateError('extracted CLI resolves a library outside the baseline system directories')
             resolved[name] = str(actual)
+        # aarch64 glibc binaries list their loader as NEEDED, and ldd names it only
+        # by path. It is the ELF interpreter already checked above.
+        if interpreter and Path(interpreter[0]).name in needed:
+            resolved.setdefault(Path(interpreter[0]).name, str(Path(interpreter[0]).resolve()))
         if set(needed) - resolved.keys():
             raise CandidateError('ldd did not resolve every declared CLI dependency')
         imports = [{'name': name, 'path': path, 'origin': 'system'} for name, path in sorted(resolved.items())]
