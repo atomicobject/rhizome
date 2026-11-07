@@ -3,14 +3,54 @@ package operations
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/stretchr/testify/require"
 )
+
+// A property edit keeps the note's permissions instead of widening them.
+func TestPublishFileMutationKeepsFileMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no Unix permission bits")
+	}
+	root := t.TempDir()
+	note := filepath.Join(root, "private.md")
+	require.NoError(t, os.WriteFile(note, []byte("---\nstatus: old\n---\n"), 0o600))
+	vaultPaths, err := paths.NewVaultPaths(root)
+	require.NoError(t, err)
+
+	result := processSetProperty(vaultPaths, "status", "new", true, false)(t.Context(), "private.md")
+	require.NoError(t, result.err)
+	info, err := os.Stat(note)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+// A save that lands after the edit read the note must not be overwritten.
+func TestPublishFileMutationRefusesNoteChangedSinceRead(t *testing.T) {
+	root := t.TempDir()
+	note := filepath.Join(root, "note.md")
+	saved := "---\nstatus: saved by Obsidian\n---\n"
+	require.NoError(t, os.WriteFile(note, []byte(saved), 0o644))
+	vaultPaths, err := paths.NewVaultPaths(root)
+	require.NoError(t, err)
+	rel, abs, err := paths.ResolveNotePathInputWithVaultPaths(vaultPaths, "note.md")
+	require.NoError(t, err)
+
+	err = publishFileMutation(t.Context(), vaultPaths, rel, abs, "note.md", "---\nstatus: old\n---\n", "---\nstatus: new\n---\n")
+	require.ErrorContains(t, err, "note.md changed on disk")
+	data, err := os.ReadFile(note)
+	require.NoError(t, err)
+	require.Equal(t, saved, string(data))
+}
 
 func TestRunFileMutationsAggregatesInCompletionOrder(t *testing.T) {
 	slowStarted := make(chan struct{})

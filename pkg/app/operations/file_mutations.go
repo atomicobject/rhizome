@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/fileio"
@@ -106,15 +107,27 @@ func admitFileMutations(ctx context.Context, root string, notes []string, previe
 
 // publishFileMutation is the publication barrier for direct property and tag
 // writers. It loads the current ownership declaration immediately before the
-// write, so a declaration made after admission still refuses the file.
-func publishFileMutation(ctx context.Context, vaultPaths paths.VaultPaths, rel paths.NotePath, abs paths.AbsPath, notePath, content string) error {
+// write, so a declaration made after admission still refuses the file. It
+// refuses when the file no longer holds original, the bytes the edit was
+// computed from, so a concurrent save is not overwritten, and it keeps the
+// file's mode.
+// ponytail: an editor outside rzm can still write between the check and the
+// rename; closing that needs a cooperating editor lock.
+func publishFileMutation(ctx context.Context, vaultPaths paths.VaultPaths, rel paths.NotePath, abs paths.AbsPath, notePath, original, content string) error {
 	if err := sourceownership.Check(vaultPaths.Root(), []string{rel.String()}); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := fileio.WriteFileAtomic(abs.String(), []byte(content), 0644); err != nil {
+	current, err := os.ReadFile(abs.String())
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", notePath, err)
+	}
+	if string(current) != original {
+		return fmt.Errorf("%s changed on disk while it was being edited; it was left as is, so rerun the command", notePath)
+	}
+	if err := fileio.WriteFileAtomicPreservingMode(abs.String(), []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write file %s: %w", notePath, err)
 	}
 	return nil
