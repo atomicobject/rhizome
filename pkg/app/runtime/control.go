@@ -89,6 +89,14 @@ var (
 	ErrUnauthorized        = errors.New("control token rejected")
 )
 
+// LocalConnectionAccess follows ErrRuntimeAccessDenied when a sandbox refuses
+// the local connection. Agents quote it when asking their host for access,
+// so it says exactly what the connection does and does not do.
+const LocalConnectionAccess = "rerun this Rhizome command with local network access. " +
+	"It connects only to this repository's own Rhizome process on 127.0.0.1 and authenticates with a per-run token from .rhizome/runtime.json, not a user credential. " +
+	"The connection itself sends nothing off this machine. Operations that call an external provider (semantic search and reranking through the embedding provider, evaluate through TypeSafe) send that provider the text they need, as each operation's contract states. " +
+	"`rzm init` writes repository settings that allow it: Claude Code's sandbox (macOS) and, in trusted projects, a Codex profile that admits 127.0.0.1 and no other host"
+
 // BearerToken extracts the control token from a request, or "" when absent.
 func BearerToken(r *http.Request) string {
 	value := strings.TrimSpace(r.Header.Get("Authorization"))

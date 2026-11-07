@@ -90,7 +90,7 @@ Diagnose with `rzm init --check`, `rzm index --status`, and `rzm index --explain
 
 | Symptom | Route |
 | --- | --- |
-| `runtime_access_denied`, or a local connection or boot-time read denied by the sandbox | Follow `references/code-mode.md`; rerun the same authorized command through the host's permission mechanism. Longer timeouts and rebuilding the index do not grant access |
+| `runtime_access_denied`, or a local connection or boot-time read denied by the sandbox | Follow `references/code-mode.md`; `rzm init --check` shows whether the loopback sandbox settings are missing, otherwise rerun the same authorized command through the host's permission mechanism. Longer timeouts and rebuilding the index do not grant access |
 | Code is not indexed, or code was added after setup | `rzm index --explain <file>` names the setting that keeps it out; `rzm init --check` shows the fix, often under Suggestions (removing folder limits); with consent, run `rzm init --accept-suggestions`, then `rzm index` |
 | A file is missing from search | `rzm index --explain <path>`, then fix the ignore rules or what gets indexed (`references/index-scope.md`) |
 | Semantic search is off or a key is missing | `rzm index --status` (read `Enabled`); have the user set the key, or run `rzm init --search <provider>` |

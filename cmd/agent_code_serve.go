@@ -251,7 +251,7 @@ func (f *agentOpForwarder) call(ctx context.Context, name string, input map[stri
 			return codeModeFailure(err), true
 		}
 		if errors.Is(err, os.ErrPermission) {
-			err = fmt.Errorf("%w: allow local networking or rerun this Rhizome command with the required permissions: %w", appruntime.ErrRuntimeAccessDenied, err)
+			err = fmt.Errorf("%w: %s: %w", appruntime.ErrRuntimeAccessDenied, appruntime.LocalConnectionAccess, err)
 			f.mu.Lock()
 			f.accessErr = err
 			f.mu.Unlock()
