@@ -187,6 +187,6 @@ Coverage remains bounded: retained-prefix percentiles and interval unions have e
 - [[Index lock and background coordination runbook]]
 - [[semantic-runtime-lane-policy]] (SPEC-0044) · [[indexing-observability-and-maintenance-policy]] (SPEC-0047)
 
-Native semantic chunks cover every selected RECORD, including children selected globally without a parent contains field. The prepared semantic parent supplies attribution, and sibling/child evidence remains owner-local.
+Native semantic chunks cover every selected RECORD, including children selected globally without a parent contains field. The prepared semantic parent supplies attribution, and sibling/child evidence remains owner-local. RECORD chunk titles come from the composed record context the catalog published: preparation reads the hosts' indexed catalog rows in one batch and applies them as scoped reads do, so a host prepared alone keeps its source set's positional numbering. A touched RECORD host also refreshes every current RECORD host's chunks (`ontology.RecordSourceSetPaths`, shared by the explicit body pass and the live derived ticket), so incremental chunks equal a fresh full index; only changed chunk text reaches the provider. Materialization version 23 replans chunks built with per-host numbering.
 
 Structural publication starts one operation-local metadata source scope before provider preparation and reuses matching captures after the metadata barrier. Later jobs get fresh scopes. The writer queue, replacement transactions and drain order are unchanged.

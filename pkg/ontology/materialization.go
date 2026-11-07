@@ -39,7 +39,8 @@ import (
 // v22: scalar path fields reject structured leaves instead of formatting Go collections, and typed body-link
 // candidates exclude incompatible basename claimants before uniqueness.
 // v23: descendants of an invalid RECORD container are invalid too, so no catalog row or chunk
-// names a parent without identity.
+// names a parent without identity, and RECORD chunks take positional logical IDs from the composed
+// record context.
 const OntologyMaterializationVersion = 23
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
