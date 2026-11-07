@@ -86,7 +86,10 @@ test('AO generated snapshot stays verbatim and never implies freshness',()=>{
 });
 test('missing and malformed snapshots stay unavailable',async()=>{
  for(const input of [undefined,'not JSON','{}','null','[]',JSON.stringify({...sample,meta:{asOf:42}}),JSON.stringify({...sample,assertions:{bad:{band:'firm'}}})])assert.equal(parseSavedAnalysis(input),undefined);
- assert.equal(await readSavedAnalysis(async()=>{throw new Error('unreadable');}),undefined);
- assert.equal(await readSavedAnalysis(async()=>undefined),undefined);
+ // The view's query resolves this value; TanStack Query treats undefined data as an error, so
+ // an absent or unreadable snapshot must resolve null to render as unavailable (a real KB without kb-weights.json).
+ assert.equal(await readSavedAnalysis(async()=>{throw new Error('unreadable');}),null);
+ assert.equal(await readSavedAnalysis(async()=>undefined),null);
+ assert.equal(await readSavedAnalysis(async()=>'not JSON'),null);
  let path;assert.ok(await readSavedAnalysis(async p=>{path=p;return JSON.stringify(sample);}));assert.equal(path,'.kb/index/kb-weights.json');
 });

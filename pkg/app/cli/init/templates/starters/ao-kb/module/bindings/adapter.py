@@ -79,13 +79,18 @@ def export(root, slug):
     mm = engine.resolve_vault(str(site))
     schema = engine.load_schema()
     manifest = site / ".kb/config/manifest.json"
-    pin = json.loads(manifest.read_text()).get("siteEngine", {})
-    if str(pin.get("version")) not in (PIN["version"], PIN["revision"]):
-        raise ValueError("ao_toolkit_pin: manifest siteEngine.version is not the supported baseline")
-    sources = (PIN["source"], "git+ssh://git@github.com/atomicobject/atomic-ai-prompt-toolkit")
-    if pin.get("source", PIN["source"]).removesuffix(".git") not in sources:
-        raise ValueError("ao_toolkit_pin: manifest siteEngine.source is not the supported toolkit")
     diagnostics = []
+    if not slug and not manifest.is_file():
+        # A knowledge-only KB that never enabled AO's site engine: the pinned reader is the only one.
+        diagnostics.append({"code": "ao_site_engine_absent", "severity": "note", "path": ".kb/config/manifest.json",
+                            "message": "No AO site engine is pinned; the model is read with the inspected baseline reader"})
+    else:
+        pin = json.loads(manifest.read_text()).get("siteEngine", {}) if manifest.is_file() else {}
+        if str(pin.get("version")) not in (PIN["version"], PIN["revision"]):
+            raise ValueError("ao_toolkit_pin: manifest siteEngine.version is not the supported baseline")
+        sources = (PIN["source"], "git+ssh://git@github.com/atomicobject/atomic-ai-prompt-toolkit")
+        if pin.get("source", PIN["source"]).removesuffix(".git") not in sources:
+            raise ValueError("ao_toolkit_pin: manifest siteEngine.source is not the supported toolkit")
     inputs = {}
 
     def relative(path):

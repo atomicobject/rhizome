@@ -16,8 +16,12 @@ function json(root, path) {
   const text = read(root, path);
   return text === null ? null : JSON.parse(text);
 }
+// Discovery treats an absent notes.includes as every Markdown file.
+const DEFAULT_INCLUDES = ['**/*.md'];
 function includes(text) {
+  if (text !== null && !/^notes:/m.test(text)) return DEFAULT_INCLUDES;
   const notes = text?.match(/^notes:\s*\n((?:[ \t]+[^\n]*\n|\s*\n)*)/m)?.[1];
+  if (notes !== undefined && !/^ +includes:/m.test(notes)) return DEFAULT_INCLUDES;
   const block = notes?.match(/^ +includes:\s*(\[[^\n]*\]|\n(?: +-[^\n]*\n)*)/m)?.[1];
   if (!block) return null;
   if (block.startsWith('[')) return block.slice(1, -1).split(',').map(v => v.trim().replace(/^(['"])(.*)\1$/, '$2'));
@@ -66,13 +70,15 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     const model = (json(root, `${module}/bindings/manifest.json`)?.sources ?? []).map(s => s.path);
     const unincluded = [...new Set(model)].filter(path => !patterns?.some(p => p === path
       || (globMatch(p, path) && p.endsWith(path.slice(path.lastIndexOf('.')))))).sort();
+    // A first includes list replaces the default, so it must restate it.
+    const first = patterns === DEFAULT_INCLUDES ? ' notes.includes is absent, so discovery covers every Markdown file; start the new list with **/*.md so the rest of the repository stays indexed.' : '';
     add('note includes', knowledge && registry && !unincluded.length ? 'ok' : 'warning', knowledge && registry && !unincluded.length
       ? 'Includes cover the AO knowledge paths, the conflict registry, and the compiled model sources. Ignore rules may still exclude files; prove projection after indexing.'
       : knowledge && registry
-      ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}`
+      ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}.${first}`
       : !knowledge
       ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
-      : 'Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.', configPath);
+      : `Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.${first}`, configPath);
   });
   const ownershipPath = '.rhizome/source-ownership.yml';
   inspect('source ownership', ownershipPath, () => {
@@ -89,9 +95,26 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
   inspect('knowledge bindings', `${module}/ontology`, () => {
     const dir = join(root, module, 'ontology');
     const installed = existsSync(dir) && readdirSync(dir).some(name => name.endsWith('.graphql'));
-    add('knowledge bindings', installed ? 'ok' : 'error', installed
-      ? 'Static Markdown knowledge schema installed. Refresh generates product admission; index and typed query still required.'
-      : 'Static knowledge bindings missing; install the starter.', `${module}/ontology`);
+    // A repository's own types for the same AO notes produce the same query roots, so the
+    // combined schema stops compiling and the local types would claim the notes anyway.
+    const queryRoot = name => name[0].toLowerCase() + name.slice(1);
+    const declared = text => [...text.matchAll(/^(?:type|interface)\s+([A-Za-z_]\w*)/gm)].map(m => m[1]);
+    const starter = new Set(installed ? readdirSync(dir).filter(n => n.endsWith('.graphql')).flatMap(n => declared(read(root, `${module}/ontology/${n}`))).map(queryRoot) : []);
+    const others = [];
+    for (const base of ['.rhizome/ontology', ...(existsSync(join(root, '.rhizome/modules')) ? readdirSync(join(root, '.rhizome/modules')).filter(m => m !== 'ao-kb').map(m => `.rhizome/modules/${m}/ontology`) : [])]) {
+      if (!existsSync(join(root, base))) continue;
+      for (const name of readdirSync(join(root, base), { recursive: true })) {
+        const path = `${base}/${String(name).split('\\').join('/')}`;
+        if (!path.endsWith('.graphql')) continue;
+        const clash = declared(read(root, path)).filter(type => starter.has(queryRoot(type)));
+        if (clash.length) others.push(`${path} declares ${clash.join(', ')}`);
+      }
+    }
+    add('knowledge bindings', installed && !others.length ? 'ok' : 'error', !installed
+      ? 'Static knowledge bindings missing; install the starter.'
+      : others.length
+      ? `${others.join('; ')}. These types collide with the AO KB starter's knowledge types (same query roots), so the combined schema cannot compile. Retire or rename them, and update anything that references them, before refresh; the starter's types replace them.`
+      : 'Static Markdown knowledge schema installed. Refresh generates product admission; index and typed query still required.', `${module}/ontology`);
   });
   inspect('frontmatter connections', 'assertions', () => {
     // A sequence under `connections:` ([{type, target}] or a bare id list) is not projected

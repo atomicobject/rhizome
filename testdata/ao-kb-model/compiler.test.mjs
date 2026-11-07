@@ -347,3 +347,36 @@ test('ordinary knowledge edits stay ready while a new artifact phase requires ad
   assert.equal(final.bindingsReady, true);
   assert.equal(final.indexReady, false, 'a new admission generation requires a new index receipt');
 });
+
+test('a knowledge-only single-product KB without a site engine pin publishes knowledge admission', async t => {
+  const options = await fixture(t);
+  await rm(path.join(options.root, 'products'), {recursive: true, force: true});
+  await rm(path.join(options.root, '.kb/config/manifest.json'));
+  await writeFile(path.join(options.root, '.kb/config/vault.md'), '---\nschemaVersion: 8\nproductMode: single\nproducts: ["solo"]\n---\n');
+  const single = {formatVersion: 1, product: null, toolkit: null};
+  const reached = async () => { throw new Error('model stage reached'); };
+  await assert.rejects(refresh({...options, selection: single, exportModel: reached}), error => error.knowledgeReady && /model stage reached/.test(error.message));
+  const saved = await readJSON(path.join(options.directory, 'knowledge-manifest.json'));
+  assert.equal(saved.status, 'ready');
+  assert.deepEqual(saved.inputs.find(input => input.path === '.kb/config/manifest.json'), {path: '.kb/config/manifest.json', hash: null});
+  // Enabling AO's site engine later adds a pin, which stales the admission until refresh.
+  await writeFile(path.join(options.root, '.kb/config/manifest.json'), '{"siteEngine": {"version": "3.137.0"}}');
+  const stale = await check({...options, exportModel: reached, checkDependencies: deps});
+  assert.equal(stale.knowledgeReady, false);
+  assert.ok(stale.diagnostics.some(d => d.code === 'ao_knowledge_stale'));
+  await writeFile(path.join(options.root, '.kb/config/manifest.json'), '{"siteEngine": {"version": "9.0.0"}}');
+  await assert.rejects(refresh({...options, selection: single, exportModel: reached}), /ao_toolkit_pin/);
+});
+
+test('a selected product still requires its site engine pin', async t => {
+  const options = await fixture(t);
+  await rm(path.join(options.root, 'products/alpha/.kb/config/manifest.json'));
+  await assert.rejects(refresh(options), /ao_toolkit_pin/);
+});
+
+test('a block-list product registry keeps its last product like AO does', async t => {
+  const options = await fixture(t);
+  await writeFile(path.join(options.root, '.kb/config/vault.md'), '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts:\n  - alpha\n  - beta\n---\nSynthetic compiler fixture.\n');
+  await refresh(options);
+  assert.equal((await check({...options, checkDependencies: deps})).knowledgeReady, true);
+});

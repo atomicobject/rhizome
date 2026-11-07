@@ -172,6 +172,20 @@ class AdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ao_toolkit_pin"):
             export(self.root, "alpha")
 
+    def test_knowledge_only_single_kb_without_site_engine_reads_no_model(self):
+        shutil.rmtree(self.root / "products")
+        shutil.rmtree(self.root / "artifacts")
+        for name in ("manifest.json", "metamodel.yaml"):
+            (self.root / ".kb/config" / name).unlink()
+        (self.root / ".kb/config/vault.md").write_text('---\nschemaVersion: 8\nproductMode: single\nproducts: ["solo"]\n---\n')
+        got = export(self.root, None)
+        self.assertEqual(got["records"], [])
+        self.assertIn({"path": ".kb/config/manifest.json", "hash": None}, got["inputs"])
+        self.assertTrue(any(d["code"] == "ao_site_engine_absent" for d in got["diagnostics"]))
+        (self.root / ".kb/config/manifest.json").write_text('{"siteEngine":{"version":"9.0.0"}}')
+        with self.assertRaisesRegex(ValueError, "ao_toolkit_pin"):
+            export(self.root, None)
+
 
 if __name__ == "__main__":
     unittest.main()
