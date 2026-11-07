@@ -41,6 +41,8 @@ export function fileGroups(
 
 type RowProps = {
   selectedKey: string | null;
+  /** Under All issues each row names its kind; within one kind, its target. */
+  showKind: boolean;
   /** The one issue row in the Tab order; arrow keys move between rows. */
   tabbableKey: string | undefined;
   onSelect: (diagnostic: ValidationDiagnostic) => void;
@@ -52,12 +54,7 @@ export function FileGroupSection({ group, ...rowProps }: RowProps & { group: Fil
   if (group.diagnostics.length === 1) {
     const [diagnostic] = group.diagnostics;
 
-    return (
-      <IssueRow diagnostic={diagnostic} {...rowProps}>
-        <PathLabel path={path} />
-        <span className="problems-row__kind">{issueLabel(diagnostic.code)}</span>
-      </IssueRow>
-    );
+    return <IssueRow diagnostic={diagnostic} path={path} {...rowProps} />;
   }
 
   return (
@@ -68,9 +65,7 @@ export function FileGroupSection({ group, ...rowProps }: RowProps & { group: Fil
       </summary>
       <div className="problems-group__items">
         {group.diagnostics.map((diagnostic) => (
-          <IssueRow key={diagnostic.issueKey} diagnostic={diagnostic} {...rowProps}>
-            <span className="problems-row__kind">{issueLabel(diagnostic.code)}</span>
-          </IssueRow>
+          <IssueRow key={diagnostic.issueKey} diagnostic={diagnostic} {...rowProps} />
         ))}
       </div>
     </details>
@@ -80,11 +75,14 @@ export function FileGroupSection({ group, ...rowProps }: RowProps & { group: Fil
 /** Column 2's heading: the selected kind or variant, what it means, and bulk actions. */
 export function FindingsHeader({
   row,
+  kindPicker,
   fixableActionIds,
   onSelectActions,
   children,
 }: {
   row: KindRow;
+  /** Replaces the kind title when the panel is too narrow for the kind column. */
+  kindPicker?: ReactNode;
   /** Browser-applicable repairs of the loaded findings that are not selected yet. */
   fixableActionIds: string[];
   onSelectActions: (ids: string[]) => void;
@@ -96,6 +94,7 @@ export function FindingsHeader({
   return (
     <header className="problems-findings__head">
       <div className="problems-findings__title">
+        {kindPicker}
         <strong>{row.kindLabel}</strong>
         {row.variantLabel && <span className="problems-findings__variant">{row.variantLabel}</span>}
         {row.check && <span className="problems-kind__check">{checkLabel(row.check)}</span>}
@@ -116,30 +115,43 @@ export function FindingsHeader({
   );
 }
 
+/** One finding: its file (when not grouped under one), its kind or summary, and its line. */
 export function IssueRow({
   diagnostic,
+  path,
+  showKind,
   selectedKey,
   tabbableKey,
   onSelect,
-  children,
-}: RowProps & { diagnostic: ValidationDiagnostic; children: ReactNode }) {
+}: RowProps & { diagnostic: ValidationDiagnostic; path?: string }) {
   const summary = issueSummary(diagnostic);
+  // Within one kind the summary alone tells rows apart; under All issues the
+  // kind leads and the summary follows in the same column.
+  const kind = showKind || !summary ? issueLabel(diagnostic.code) : null;
   const line = diagnostic.location?.unit === "line" ? diagnostic.location.start : null;
   const selected = diagnostic.issueKey === selectedKey;
 
   return (
     <button
       type="button"
-      className={`problems-row${selected ? " is-selected" : ""}`}
+      className={`problems-row${path ? " has-path" : ""}${selected ? " is-selected" : ""}`}
       aria-current={selected ? "true" : undefined}
       tabIndex={diagnostic.issueKey === tabbableKey ? 0 : -1}
       data-issue-key={diagnostic.issueKey}
       title={diagnostic.message}
       onClick={() => onSelect(diagnostic)}
     >
-      {children}
-      {summary && <span className="problems-row__summary">{summary}</span>}
-      {line !== null && <span className="problems-row__line">L{line}</span>}
+      {path && <PathLabel path={path} />}
+      <span className="problems-row__detail">
+        {kind && <span className="problems-row__kind">{kind}</span>}
+        {summary && (
+          <span className="problems-row__summary">
+            {kind ? " " : ""}
+            {summary}
+          </span>
+        )}
+      </span>
+      <span className="problems-row__line">{line !== null && `L${line}`}</span>
     </button>
   );
 }

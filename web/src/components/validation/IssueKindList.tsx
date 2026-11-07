@@ -111,6 +111,38 @@ export function kindRows(groups: ValidationIssueGroup[], total: number): KindRow
   ];
 }
 
+/** The kind column as one control, for panels too narrow to show the column. */
+export function KindSelect({
+  rows,
+  selectedKey,
+  onSelect,
+}: {
+  rows: KindRow[];
+  selectedKey: string;
+  onSelect: (row: KindRow) => void;
+}) {
+  return (
+    <select
+      className="problems-kind-select"
+      aria-label="Issue kind"
+      value={selectedKey}
+      onChange={(event) => {
+        const row = rows.find((candidate) => candidate.key === event.target.value);
+
+        if (row) onSelect(row);
+      }}
+    >
+      {rows.map((row) => (
+        <option key={row.key} value={row.key}>
+          {/* Native options drop padding, so an em space indents variants. */}
+          {row.nested ? ` ${row.label}` : row.label}
+          {!row.nested && row.variantLabel ? ` · ${row.variantLabel}` : ""} ({row.count})
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function IssueKindList({
   rows,
   selectedKey,
