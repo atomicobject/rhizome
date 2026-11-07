@@ -20,6 +20,30 @@ export type Ref = {
   typeName?: string | null;
   structuralFingerprint?: string | null;
 };
+/** A relationship endpoint as GraphQL returns it (`NodeRef`, selected with `structural`). */
+export type Endpoint = {
+  notePath: string;
+  kind?: string | null;
+  fragment?: string | null;
+  nodeId?: string | null;
+  typeName?: string | null;
+  structural?: string | null;
+};
+/** The identity key of a ref: its note path, plus the fragment for an embedded node.
+ * It is also the string `node(ref:)` resolves, and it equals a record's GraphQL `path`. */
+export const refKey = (ref: { notePath: string; fragment?: string | null }) =>
+  ref.fragment ? `${ref.notePath}#${ref.fragment}` : ref.notePath;
+/** Whether an endpoint is a structured RECORD node rather than a Markdown note or section. */
+export const isRecord = (e: { fragment?: string | null }) =>
+  /^record(-pos)?:/.test(e.fragment ?? "");
+/** A positional RECORD (AO `key: null`): its locator is bound to the file revision read. */
+export const isPositional = (e: { fragment?: string | null }) =>
+  (e.fragment ?? "").startsWith("record-pos:");
+/** How a positional record is labelled wherever it is listed (SPEC-0133 R3). */
+export const POSITIONAL = "Positional record: its link names this revision of the file";
+/** The key of the record an endpoint belongs to: a RECORD node is its own record, while a
+ * Markdown section (such as a claim's Connections) belongs to its note. */
+export const ownerKey = (e: Endpoint) => (isRecord(e) ? refKey(e) : e.notePath);
 export type RecordLink = {
   ref: Ref;
   path: string;

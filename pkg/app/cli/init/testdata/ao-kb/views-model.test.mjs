@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { owner, recordRef } from "../../templates/starters/ao-kb/module/views/knowledge/lib/refs.ts";
+import { isPositional, ownerKey } from "../../templates/starters/ao-kb/module/views/knowledge/lib/knowledge.ts";
 import {
   codePath,
   declarer,
@@ -21,19 +21,16 @@ const obj = (entries) => ({
 });
 const FEATURES = "artifacts/_assets/_model/features.yaml";
 
-test("endpoints open as canonical refs; positional records never guess one", () => {
-  const keyed = recordRef({ notePath: FEATURES, kind: "EMBEDDED", fragment: null, nodeId: "record-v1-abc" });
-  assert.equal(keyed.key, `${FEATURES}#record:v1:abc`);
-  assert.equal(keyed.ref.fragment, "record:v1:abc");
-  const given = recordRef({ notePath: FEATURES, kind: "EMBEDDED", fragment: "record:v1:def", nodeId: "record-v1-def" });
-  assert.equal(given.key, `${FEATURES}#record:v1:def`);
-  const positional = recordRef({ notePath: FEATURES, kind: "EMBEDDED", nodeId: "record-pos-v1-123" });
-  assert.equal(positional.positional, true);
-  assert.equal(positional.ref, undefined);
-  assert.deepEqual(positional.host, { notePath: FEATURES, kind: "NOTE" });
-  const section = owner({ notePath: "assertions/a.md", kind: "EMBEDDED", fragment: "connections-805", nodeId: "assertions/a.md#connections-805" });
-  assert.equal(section.key, "assertions/a.md", "a Markdown section belongs to its note");
-  assert.equal(owner({ notePath: "assertions/a.md", kind: "NOTE" }).key, "assertions/a.md");
+test("endpoints open by their own fragment; positional records open as records", () => {
+  const keyed = { notePath: FEATURES, kind: "EMBEDDED", fragment: "record:v1:def", nodeId: "record-v1-def" };
+  assert.equal(ownerKey(keyed), `${FEATURES}#record:v1:def`);
+  assert.equal(isPositional(keyed), false);
+  const positional = { notePath: FEATURES, kind: "EMBEDDED", fragment: "record-pos:v1:h:123", nodeId: "record-pos-v1-123" };
+  assert.equal(ownerKey(positional), `${FEATURES}#record-pos:v1:h:123`);
+  assert.equal(isPositional(positional), true);
+  const section = { notePath: "assertions/a.md", kind: "EMBEDDED", fragment: "connections-805", nodeId: "assertions/a.md#connections-805" };
+  assert.equal(ownerKey(section), "assertions/a.md", "a Markdown section belongs to its note");
+  assert.equal(ownerKey({ notePath: "assertions/a.md", kind: "NOTE" }), "assertions/a.md");
 });
 
 const spec = typeSpec(

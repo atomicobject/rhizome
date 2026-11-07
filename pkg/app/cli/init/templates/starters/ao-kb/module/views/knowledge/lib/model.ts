@@ -2,8 +2,7 @@
  * `node --test` can import it. Relationships come from native edges; this module only
  * attributes them back to the authored values that declared them. */
 import { dateNumber } from "./knowledge.ts";
-import type { Assertion } from "./knowledge.ts";
-import type { Ref } from "./refs.ts";
+import type { Assertion, Ref } from "./knowledge.ts";
 
 /** A native RECORD source value (`workspace.source.value`), in authored order. */
 export type SourceValue = {

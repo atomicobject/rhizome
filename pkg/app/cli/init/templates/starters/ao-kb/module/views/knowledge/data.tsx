@@ -6,16 +6,15 @@ import {
   citations,
   coverage,
   origin,
+  ownerKey,
   relationships,
   sourceText,
 } from "./lib/knowledge.ts";
-import type { Knowledge, Assertion, Coverage } from "./lib/knowledge.ts";
+import type { Knowledge, Assertion, Coverage, Endpoint, Ref } from "./lib/knowledge.ts";
 import { readPassage } from "./lib/passage.ts";
 import { readSavedAnalysis } from "./lib/saved-analysis.ts";
 import { EVIDENCED_BY, typeSpec } from "./lib/model.ts";
 import type { ModelFile, ModelRecord, SourceValue, TypeSpec } from "./lib/model.ts";
-import { owner } from "./lib/refs.ts";
-import type { Endpoint, Ref } from "./lib/refs.ts";
 
 // Composite section-scoped citations and normalized AO relations need GraphQL;
 // a native collection row does not carry the origin-citation coverage contract.
@@ -158,7 +157,7 @@ export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
             typeName: r.__typename,
             aoValue: r.aoValue,
             value: r.workspace?.source?.value,
-            evidence: r.evidence?.edges.map((e) => owner(e.target).key) ?? [],
+            evidence: r.evidence?.edges.map((e) => ownerKey(e.target)) ?? [],
             evidenceTruncated: !!r.evidence?.truncated,
           },
         ]
@@ -202,15 +201,14 @@ export function useModelCiters(path: string, ready: boolean) {
         `query Citers($ref: String!) { node(ref: $ref) { neighborhood(direction: INBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } } }`,
         { ref: path },
       );
-      const ends = (data.node?.neighborhood.edges ?? []).map((e) => owner(e.target));
+      const ends = (data.node?.neighborhood.edges ?? []).map((e) => ownerKey(e.target));
       const [records, files] = await Promise.all([
-        readModelRecords([...new Set(ends.flatMap((e) => (e.positional ? [] : [e.key])))]),
+        readModelRecords([...new Set(ends)]),
         readModelFiles(),
       ]);
       return {
         records,
         files,
-        positional: ends.filter((e) => e.positional).length,
         truncated: !!data.node?.neighborhood.truncated,
         specs: await readTypeSpecs(records.map((r) => r.typeName)),
       };
