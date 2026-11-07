@@ -106,6 +106,19 @@ func runFileMutations(ctx context.Context, notes []string, processor fileMutatio
 	return summary, firstErr
 }
 
+// refuseOwnedInputs refuses notes the person named when another tool owns
+// them, even when the edit would leave them unchanged or cannot parse them.
+func refuseOwnedInputs(vaultPaths paths.VaultPaths, notes []string) error {
+	rels := make([]string, 0, len(notes))
+	for _, notePath := range notes {
+		rel, _, err := paths.ResolveNotePathInputWithVaultPaths(vaultPaths, paths.EnsureNoteExtension(notePath, ".md").String())
+		if err == nil && rel != "" {
+			rels = append(rels, rel.String())
+		}
+	}
+	return sourceownership.Check(vaultPaths.Root(), rels)
+}
+
 func admitFileMutations(ctx context.Context, root string, notes []string, preview fileMutationProcessor, workers int) error {
 	summary, err := runFileMutations(ctx, notes, preview, workers)
 	if err != nil {

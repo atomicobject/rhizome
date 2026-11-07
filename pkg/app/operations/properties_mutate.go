@@ -219,6 +219,9 @@ func SetPropertyOnFilesWithWorkers(ctx context.Context, vault repoconfig.VaultMa
 	if err != nil {
 		return PropertyMutationSummary{}, err
 	}
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), files, processSetProperty(vaultPaths, property, value, overwrite, true), workerCount); err != nil {
 		return PropertyMutationSummary{}, err
 	}
