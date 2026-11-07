@@ -6,6 +6,12 @@
       "command": "GOCACHE=\"$PWD/.gocache\" go clean -cache",
       "icon": "configure",
       "runOnSettle": true
+    },
+    {
+      "name": "Clean desktop Rust build",
+      "command": "if [ -d desktop/src-tauri/target ]; then CARGO_TARGET_DIR=\"$PWD/desktop/src-tauri/target\" cargo clean --manifest-path desktop/src-tauri/Cargo.toml; fi",
+      "icon": "configure",
+      "runOnSettle": true
     }
   ]
 }
