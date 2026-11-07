@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { isContentNode, type NodeBodyBlock, type NodeRef } from "../../api/types";
 import { publicWorkspaceRef } from "../../api/client";
+import { humanizeName } from "../../lib/labels";
 import { useNotePreviewTrigger } from "../notePreview/NoteLinkPreview";
 import { useTypeLabel } from "../typeLabels";
 import { NoteReadingStateContext } from "../noteReadingState";
@@ -47,15 +48,27 @@ export function CollectionView({ block, context, node, kindOrdinal }: Props) {
     return rows.filter((row) => row.haystack.includes(needle));
   }, [filter, rows]);
 
-  if (rows.length === 0) return null;
+  const missingCount = context.workspace.content.source
+    ? (block.childRefs?.length || 0) - rows.length
+    : 0;
+
+  const total = rows.length + missingCount;
+
+  if (total === 0) return null;
 
   return (
     <section className="body-collection" data-field={block.fieldName}>
       <header className="body-collection__header">
-        <span className="body-collection__label">{block.fieldName || "Included"}</span>
+        <span className="body-collection__label">
+          {block.fieldName
+            ? context.workspace.content.source
+              ? humanizeName(block.fieldName)
+              : block.fieldName
+            : "Included"}
+        </span>
         <span className="body-collection__count">
-          {filtered.length}
-          {filtered.length !== rows.length ? ` / ${rows.length}` : ""}
+          {filter.trim() ? filtered.length : total}
+          {filter.trim() && filtered.length !== total ? ` / ${total}` : ""}
         </span>
         {rows.length > SEARCH_THRESHOLD && (
           <input
@@ -73,7 +86,11 @@ export function CollectionView({ block, context, node, kindOrdinal }: Props) {
         )}
       </header>
       {filtered.length === 0 ? (
-        <div className="body-collection__empty">No matching items.</div>
+        filter.trim() ? (
+          <div className="body-collection__empty">
+            {missingCount > 0 ? "No matching loaded items." : "No matching items."}
+          </div>
+        ) : null
       ) : (
         <ul className="body-collection__rows">
           {filtered.map((row) => (
@@ -82,6 +99,12 @@ export function CollectionView({ block, context, node, kindOrdinal }: Props) {
             </li>
           ))}
         </ul>
+      )}
+      {missingCount > 0 && (
+        <p className="body-collection__empty" role="status">
+          {missingCount} more not loaded. View the complete collection in Source.
+          {filter.trim() ? " Filtering covers loaded items only." : ""}
+        </p>
       )}
     </section>
   );
@@ -124,7 +147,9 @@ function CollectionItem({
               {typeLabel(row.typeName)}
             </span>
           )}
-          {row.id && <span className="body-collection__id">{row.id}</span>}
+          {row.id && (!row.native || row.id !== row.title) && (
+            <span className="body-collection__id">{row.id}</span>
+          )}
           <span className="body-collection__title">{row.title}</span>
           {row.status && (
             <span
@@ -154,6 +179,7 @@ type CollectionRow = {
   id: string;
   status: string;
   summary: string;
+  native: boolean;
   haystack: string;
   open: () => void;
 };
@@ -184,6 +210,7 @@ function buildRow(ref: NodeRef, context: BodyRendererProps["context"]): Collecti
     id: identity.id,
     status: identity.status,
     summary: identity.summary,
+    native: isContentNode(child) && Boolean(child.data.source),
     haystack,
     open: () => {
       const structural = structuralNodeFromWorkspace(child);

@@ -1,4 +1,5 @@
 @import "./note-info.css";
+@import "./native-record.css";
 
 /* Note reader: toolbar, measure, control bar, properties, and the Info pane.
    Moved verbatim from notes-shell.css. */
@@ -47,20 +48,6 @@
   font-size: var(--fs-sm);
   line-height: 1.55;
   white-space: pre-wrap;
-}
-
-.ontology-native-value {
-  padding: var(--sp-4);
-  background: var(--surface-sunk);
-  color: var(--text);
-  font-size: var(--fs-sm);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.ontology-native-value__address {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
 }
 
 .ontology-source__line {
