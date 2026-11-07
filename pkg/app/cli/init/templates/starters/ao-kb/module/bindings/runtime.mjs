@@ -13,7 +13,7 @@ export async function readJSON(file) {
 export function run(command, args, options = {}) {
   const result = spawnSync(command, args, {encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120000, ...options});
   if (result.error?.code === 'ENOENT') throw new Error(`ao_dependency_missing: ${path.basename(command)} must be on PATH (or set RZM to the Rhizome executable)`);
-  if (result.error || result.status !== 0) throw Object.assign(new Error(`${path.basename(command)} failed: ${result.error?.message || result.stdout || result.stderr}`), {stdout: result.stdout});
+  if (result.error || result.status !== 0) throw Object.assign(new Error(`${path.basename(command)} failed: ${result.error?.message || result.stdout || result.stderr}`), {stdout: result.stdout, stderr: result.stderr});
   return result.stdout;
 }
 export async function adapter(root, directory, selection, {offline = false} = {}) {
@@ -31,7 +31,14 @@ export async function adapter(root, directory, selection, {offline = false} = {}
   try { return JSON.parse(run('uv', argv, {cwd: root})); }
   catch (error) {
     let payload;
-    try { payload = JSON.parse(error.stdout); } catch { throw error; }
+    try { payload = JSON.parse(error.stdout); }
+    catch {
+      // uv exits before the adapter runs when it cannot resolve or build the pinned packages; an adapter crash is not that.
+      if (!error.stderr?.trim() || /Traceback \(most recent call last\)/.test(error.stderr)) throw error;
+      const message = `ao_dependency_unavailable: uv could not prepare Python with AO's pinned kb-site package and PyYAML 6.0.3${offline
+        ? " from its cache (the check runs uv offline; `rzm ao-kb refresh-bindings` downloads them for the same Python)" : ''}: ${error.stderr.trim()}`;
+      throw Object.assign(new Error(message), {diagnostics: [{code: 'ao_dependency_unavailable', severity: 'error', message}]});
+    }
     throw Object.assign(new Error(payload.diagnostics?.[0]?.message || error.message), {diagnostics: payload.diagnostics});
   }
 }

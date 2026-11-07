@@ -45,9 +45,12 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
   add('AO KB root', vault === null ? 'error' : 'ok', vault === null
     ? 'AO KB must be at the vault root; missing .kb/config/vault.md.' : 'AO KB configuration found at the vault root.', vaultPath);
   const frontmatter = vault?.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1] ?? '';
-  const schema = scalar(frontmatter, 'schemaVersion');
-  add('schemaVersion', schema === '8' ? 'ok' : 'unsupported', schema === '8'
-    ? 'Inspected schemaVersion 8 baseline.' : `Unsupported schemaVersion ${schema || '(missing)'}; ${Number(schema) < 8 ? 'upgrade AO KB first' : 'requires a compatible knowledge adapter'}.`, vaultPath);
+  // AO's own reading (metamodel.vault_schema_version): a vault.md that records no schemaVersion is current.
+  const schema = vault?.match(/^schemaVersion:[ \t]*['"]?(\d+)/m)?.[1];
+  const current = schema === undefined || Number(schema) === 8;
+  add('schemaVersion', current ? 'ok' : 'unsupported', schema === undefined
+    ? 'No schemaVersion recorded; AO reads such a vault as current, so the schemaVersion 8 baseline applies.'
+    : current ? 'Inspected schemaVersion 8 baseline.' : `Unsupported schemaVersion ${schema}; ${Number(schema) < 8 ? 'upgrade AO KB first' : 'requires a compatible knowledge adapter'}.`, vaultPath);
   const mode = scalar(frontmatter, 'productMode');
   add('product mode', mode === 'single' ? 'ok' : 'warning', mode === 'single'
     ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: setup requires one explicit product for knowledge admission and model bindings. Before refresh, static knowledge typing is unscoped; run rzm ao-kb refresh-bindings --product <slug>.`, vaultPath);

@@ -47,6 +47,11 @@ test('checks static readiness, limitations and unavailable analysis without writ
 
 test('missing root, unsupported versions and product modes are explicit', t => {
   assert.equal(named(fixture(t, { '.kb/config/vault.md': null }), 'AO KB root').status, 'error');
+  // AO reads a vault.md that records no schemaVersion as current, and so does the check.
+  const unrecorded = named(fixture(t, { '.kb/config/vault.md': '---\nproductMode: single\n---\n' }), 'schemaVersion');
+  assert.equal(unrecorded.status, 'ok');
+  assert.match(unrecorded.message, /no schemaVersion/i);
+  assert.equal(named(fixture(t, { '.kb/config/vault.md': "---\nschemaVersion: '8'\n---\n" }), 'schemaVersion').status, 'ok');
   for (const version of [7, 9]) {
     const root = fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: multi-flat\n---\n` });
     assert.equal(named(root, 'schemaVersion').status, 'unsupported');
@@ -161,13 +166,35 @@ test('reports binding freshness beside the knowledge checks without trusting the
 
   const missingUv = () => ({ ...unselected(), dependencies: { uv: { ready: false, message: 'spawn uv ENOENT' }, rzm: { ready: true } },
     diagnostics: [{ code: 'ao_dependency_missing', severity: 'error', message: 'ao_dependency_missing: install the reported dependencies' }] });
-  assert.equal(named(root, 'model compiler dependencies', missingUv).status, 'error');
+  assert.equal(named(root, 'model compiler dependencies', missingUv).status, 'dependency missing');
   assert.match(named(root, 'model compiler dependencies', missingUv).message, /uv/);
-  assert.equal(named(root, 'model bindings', missingUv).status, 'pending');
+  assert.equal(named(root, 'model bindings', missingUv).status, 'dependency missing');
+
+  // uv is on PATH but cannot prepare AO's pinned packages offline: a dependency, not stale bindings.
+  const offline = () => ({ bindingsReady: false, indexReady: false, status: 'dependency missing',
+    dependencies: { uv: { ready: true, version: 'uv 0.13.7' }, rzm: { ready: true, version: 'rzm 0.51.0' } },
+    diagnostics: [{ code: 'ao_dependency_unavailable', severity: 'error', message: 'ao_dependency_unavailable: uv could not prepare AO\'s pinned kb-site package and PyYAML: the network was disabled' }] });
+  for (const name of ['model compiler dependencies', 'model bindings']) {
+    assert.equal(named(root, name, offline).status, 'dependency missing', name);
+    assert.match(named(root, name, offline).message, /network was disabled/, name);
+    assert.doesNotMatch(named(root, name, offline).message, /stale/, name);
+  }
+
+  const duplicate = () => ({ bindingsReady: false, indexReady: false, status: 'duplicate IDs', dependencies: {},
+    diagnostics: [{ code: 'ao_duplicate_record', severity: 'error', kind: 'feature', key: 'FEAT-added', count: 2,
+      message: '2 feature records use the ID FEAT-added: products/alpha/features.yaml#/features/0, products/alpha/features.yaml#/features/2' }] });
+  assert.equal(named(root, 'model bindings', duplicate).status, 'duplicate IDs');
+  assert.match(named(root, 'model bindings', duplicate).message, /FEAT-added.*features\/0.*features\/2/);
+  assert.doesNotMatch(named(root, 'model bindings', duplicate).message, /stale/);
 
   const stale = () => ({ bindingsReady: false, indexReady: false, status: 'stale', dependencies: {},
     diagnostics: [{ code: 'ao_bindings_stale', severity: 'error', message: 'ao_bindings_stale: refresh-bindings is required' }] });
-  assert.equal(named(root, 'model bindings', stale).status, 'warning');
+  assert.equal(named(root, 'model bindings', stale).status, 'stale');
+
+  const failed = () => ({ bindingsReady: false, indexReady: false, status: 'error', dependencies: {},
+    diagnostics: [{ code: 'ao_toolkit_pin', severity: 'error', message: 'ao_toolkit_pin: manifest siteEngine.version is not the supported baseline' }] });
+  assert.equal(named(root, 'model bindings', failed).status, 'error');
+  assert.match(named(root, 'model bindings', failed).message, /siteEngine/);
 
   const ready = () => ({ bindingsReady: true, indexReady: true, status: 'ready', dependencies: {}, diagnostics: [] });
   result = check(root, { runCompiler: ready });

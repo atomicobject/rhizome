@@ -40,7 +40,9 @@ export async function knowledge(root, directory, selection) {
   const config = await text(root, '.kb/config/vault.md');
   if (config === null) throw new Error('ao_root_missing: expected .kb/config/vault.md at the AO account root');
   const fm = config.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] || '';
-  if (scalar(fm, 'schemaVersion') !== '8') throw new Error('ao_schema_unsupported: schemaVersion 8 is required');
+  // AO reads a vault.md that records no schemaVersion as current (metamodel.vault_schema_version).
+  const schema = config.match(/^schemaVersion:[ \t]*['"]?(\d+)/m)?.[1];
+  if (schema !== undefined && Number(schema) !== 8) throw new Error(`ao_schema_unsupported: schemaVersion ${schema}; schemaVersion 8 is required`);
   const mode = scalar(fm, 'productMode') || 'single';
   const registered = registry(fm);
   if (registered.some(s => !/^[A-Za-z0-9_-]+$/.test(s)) || new Set(registered).size !== registered.length) throw new Error('ao_product_invalid: registry slugs must be unique simple directory names');
