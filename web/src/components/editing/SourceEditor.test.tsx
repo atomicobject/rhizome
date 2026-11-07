@@ -2,6 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { OntologyEditOp } from "../../api/types";
 import { readPersistedEditorDraftRecord, writePersistedEditorDraft } from "./draftStorage";
 import { flushEditors } from "./editorFlush";
 import { EmptyNarrativeEditor, SourceEditor } from "./SourceEditor";
@@ -375,11 +376,17 @@ describe("SourceEditor", () => {
       }),
     ]);
   });
-  it("keeps newer narrative typing recoverable when an earlier insertion finishes staging", async () => {
-    let finishStage!: () => void;
-    const stage = vi.fn(() => new Promise<void>((resolve) => (finishStage = resolve)));
+
+  it("stages newer narrative typing after an earlier insertion replaces the editor", async () => {
+    const finishes: Array<() => void> = [];
+
+    const stage = vi.fn(
+      (_ops: OntologyEditOp[]) => new Promise<void>((resolve) => finishes.push(resolve)),
+    );
+
     const target = "narrative-insert:notes%2Fa.md:root";
-    render(
+
+    const { unmount } = render(
       <EmptyNarrativeEditor
         revision={revision}
         nodeRef={{ notePath: "notes/a.md", kind: "NOTE" }}
@@ -387,13 +394,22 @@ describe("SourceEditor", () => {
         onStageOps={stage}
       />,
     );
+
     const input = screen.getByRole("textbox", { name: "Add narrative" });
     fireEvent.change(input, { target: { value: "A" } });
     fireEvent.blur(input);
     fireEvent.change(input, { target: { value: "A then B" } });
+    // The staged insertion renders as narrative, replacing this editor.
+    unmount();
 
-    await act(async () => finishStage());
+    await act(async () => finishes[0]());
 
+    expect(stage).toHaveBeenCalledTimes(2);
+    expect(stage.mock.calls[1][0]).toMatchObject([{ id: target, markdown: "A then B" }]);
     expect(readPersistedEditorDraftRecord("/vault", target)?.value).toBe("A then B");
+
+    await act(async () => finishes[1]());
+
+    expect(readPersistedEditorDraftRecord("/vault", target)).toBeNull();
   });
 });
