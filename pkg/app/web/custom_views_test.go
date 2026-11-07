@@ -38,7 +38,7 @@ func newCustomViewTestServer(t *testing.T, entry string, files map[string]string
 		t.Fatal(err)
 	}
 	return &Server{
-		cfg:    Config{VaultPath: root},
+		cfg:    Config{VaultPath: root, RepositoryTrusted: func(string) (bool, error) { return true, nil }},
 		assets: fstest.MapFS{customViewKitBoot: &fstest.MapFile{Data: []byte("//")}},
 	}
 }

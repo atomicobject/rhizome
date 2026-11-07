@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
@@ -16,21 +17,53 @@ import (
 // one repository views folder. A module folder has only these routes; it
 // reports false for anything else so the flat folder can try its own.
 func (s *Server) serveRepositoryViewRoute(w http.ResponseWriter, r *http.Request, root viewRoot, rest string) bool {
+	var serve func()
 	switch {
 	case strings.HasPrefix(rest, customViewFilesPrefix):
-		s.serveRepositoryViewFile(w, r, root, strings.TrimPrefix(rest, customViewFilesPrefix))
+		serve = func() { s.serveRepositoryViewFile(w, r, root, strings.TrimPrefix(rest, customViewFilesPrefix)) }
 	case strings.HasPrefix(rest, customViewStampPrefix):
-		w.Header().Set("Cache-Control", "no-store")
-		s.serveCustomViewStamp(w, root, strings.TrimPrefix(rest, customViewStampPrefix))
+		serve = func() {
+			w.Header().Set("Cache-Control", "no-store")
+			s.serveCustomViewStamp(w, root, strings.TrimPrefix(rest, customViewStampPrefix))
+		}
 	case strings.HasPrefix(rest, customViewCheckPrefix):
-		w.Header().Set("Cache-Control", "no-store")
-		s.serveCustomViewCheck(w, root, strings.TrimPrefix(rest, customViewCheckPrefix))
+		serve = func() {
+			w.Header().Set("Cache-Control", "no-store")
+			s.serveCustomViewCheck(w, root, strings.TrimPrefix(rest, customViewCheckPrefix))
+		}
 	case root.module != "":
 		http.NotFound(w, r)
+		return true
 	default:
 		return false
 	}
+	if reason := s.viewsUntrusted(); reason != "" {
+		w.Header().Set("Cache-Control", "no-store")
+		http.Error(w, reason, http.StatusForbidden)
+		return true
+	}
+	serve()
 	return true
+}
+
+// defaultRepositoryTrusted reads the person's repository trust store.
+var defaultRepositoryTrusted = func(checkout string) (bool, error) {
+	store, err := repositorytrust.DefaultStore()
+	if err != nil {
+		return false, err
+	}
+	return store.Trusted(checkout)
+}
+
+// viewsUntrusted explains why the vault's repository and module views may not
+// run, or returns "". Their code runs same-origin with the whole API, so they
+// get the trust check actions and tasks get, on the folder `rzm trust` records.
+func (s *Server) viewsUntrusted() string {
+	trusted := s.cfg.RepositoryTrusted
+	if trusted == nil {
+		trusted = defaultRepositoryTrusted
+	}
+	return repositorytrust.DenialReason(s.cfg.VaultPath, "views", trusted)
 }
 
 // viewRoot is one repository views folder as the browser reaches it: the flat

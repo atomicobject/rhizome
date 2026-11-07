@@ -77,6 +77,9 @@ type Config struct {
 	// Actions runs the vault's module actions; nil uses actions.New on
 	// VaultPath, which checks the person's repository trust.
 	Actions *actions.Runner
+	// RepositoryTrusted reports whether a checkout may run its repository and
+	// module views; nil uses the person's repository trust store.
+	RepositoryTrusted func(checkout string) (bool, error)
 }
 
 // Server serves the API and bundled UI.
