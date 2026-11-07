@@ -91,7 +91,14 @@ function Branch({ value, depth }: { value: NativeSourceValue; depth: number }) {
       <summary>
         <DisclosureChevron />
         <span>
-          {count} {value.kind === "object" ? "properties" : count === 1 ? "item" : "items"}
+          {count}{" "}
+          {value.kind === "object"
+            ? count === 1
+              ? "property"
+              : "properties"
+            : count === 1
+              ? "item"
+              : "items"}
         </span>
       </summary>
       <Value value={value} depth={depth + 1} />
