@@ -1,100 +1,62 @@
-# AO model binding compiler
+# AO KB binding compiler
 
-This directory is Lane M2's complete installable compiler. Node uses only its standard library. `uv run --no-project --with <pinned kb-site package> --with pyyaml==6.0.3 python adapter.py` supplies Python >=3.11 and AO's `pyproject.toml` environment without creating or changing the toolkit's `.venv`. The default package is the toolkit Git source at `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, version 3.137.0. `--toolkit /absolute/path/to/packages/kb-site` selects a local checkout at that revision. The adapter checks the actual imported engine, schema, standard and module bytes against `toolkit-pin.json` on every call. It never invokes AO ingestion, curation, generation, sync, or publication.
+Node uses its standard library. The model adapter imports the pinned AO `kb-site` reader, version 3.137.0 at `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, through `uv`. It never invokes AO ingestion, curation, generation, sync, or publishing. Authored Markdown, YAML and JSON stay in place and remain AO-owned.
 
-Run these from the Rhizome vault's AO account root after ordinary starter installation and source-ownership registration:
+## Setup and recovery
+
+Run from the AO account root, which must also be the Rhizome vault root:
 
 ```sh
-node .rhizome/modules/ao-kb/bindings/cli.mjs refresh-bindings --product alpha
-node .rhizome/modules/ao-kb/bindings/cli.mjs check
+rzm init --add-addon ao-kb
+rzm init --check
+rzm ao-kb check
+rzm ao-kb refresh-bindings --product alpha
 node .rhizome/modules/ao-kb/bindings/cli.mjs index
+rzm ao-kb check
 ```
 
-For a single-product-layout vault, use `refresh-bindings --single`. Product roots always require an explicit product. Refresh persists it in `bindings/selection.json`; check and index never use `KB_PRODUCT`, `.kb/local.yaml`, or the caller's working directory to change context. The installed module locates its vault root. `--root` explicitly supplies that same AO/Rhizome root. An AO account nested inside a different Rhizome vault is outside this compiler's current root contract.
+First init may use `rzm init --workflow none --addons ao-kb`. For a single-mode KB use `--single true` on the module action, or `--single` on the direct Node CLI. The direct fallback for an untrusted repository is `node .rhizome/modules/ao-kb/bindings/cli.mjs refresh-bindings --product alpha`; `node .rhizome/modules/ao-kb/scripts/check.mjs` runs the same checks without granting trust. Trust remains a human decision.
 
-`RZM` optionally names the Rhizome executable. `uv` must be on PATH. Refresh may acquire the pinned Python package; check runs uv offline and reports missing cached dependencies. Python/package acquisition failure leaves the last bindings intact. Source inputs stay at their original locations. The compiler never creates an effective YAML/JSON copy or alters `.rhizome/source-ownership.yml`.
+Install `uv` on PATH before model refresh. `RZM` may name an absolute Rhizome executable. `--toolkit /absolute/path/to/packages/kb-site` selects a read-only local checkout at the pinned revision. Otherwise uv acquires the pinned package. It never creates a toolkit `.venv`. `check` runs the adapter offline and names uncached or missing dependencies.
 
-## Lane K integration
+Refresh requires AO root `.kb/config/vault.md`, schemaVersion 8, supported manifest `siteEngine` pins, a consistent product registry and product markers, and an explicit selected product in product mode. Single-mode registries may list their product without nested roots. Selection persists in `bindings/selection.json`; ambient `KB_PRODUCT`, `.kb/local.yaml` and cwd never change it. Source ownership must already cover every knowledge type root and compiled model source. Add custom AO locations to `.rhizome/source-ownership.yml` before refreshing; the compiler never modifies it.
 
-Add these families to the existing starter's `template.yaml` `installedAssetTypes` list:
+Keep unrelated note includes. When adding include paths after an initial refresh, refresh again because configuration participates in the fingerprint. Add `.kb/curation/_conflicts.md` explicitly and the exact model source paths listed in the manifest, including generated JSON. The index wrapper runs real `rzm index`, checks each concrete model root against the current AO source inventory through paginated typed queries, then writes an index receipt. A plain index has no compiler receipt and remains unverified by this check.
 
-```yaml
-  - scripts
-  - actions
-```
+`init --check` certifies managed assets only. The check independently reports `starterInstalled`, `bindingsReady`, `knowledgeReady`, `modelReady`, `bindings.knowledge`, `bindings.model`, and `indexReady`. Installation alone is incomplete setup. Before the first refresh in a multi-product account, the static knowledge types are unscoped; check names the exact refresh command rather than claiming that product scope is ready.
 
-The AO KB starter is an explicit add-on. Keep these entries in its metadata, alongside Lane K's other asset families:
+Fix the named prerequisite or compatibility diagnostic, refresh, then index. A failed model stage keeps the current knowledge admission and previous model generation, advertising model setup as incomplete. A failed knowledge stage retains its previous generation. Do not delete authored sources to repair bindings. Remove `bindings/refresh.lock/` only after confirming no refresh or index wrapper is running.
 
-```yaml
-requires:
-  - core
-optionalAddon: true
-```
+## Knowledge scope
 
-Retain the starter's other existing dependencies and asset families; the compiler adds no dependency beyond core. The `module/bindings/**` files install automatically through the existing module file walker. No execution hook, task, or loader change is needed.
+Static knowledge SDL stays in `module/ontology/`, so installed views and recipes validate before refresh. Node independently generates `ontology/ao-knowledge.generated.graphql`: a comment in single mode; four `extend type ... @admit(matches: ...)` definitions in product mode. Admission intersects the existing root selectors, preserving every field, embedded type and `ConflictRegistry` path.
 
-Add `module/actions/check.yaml`:
+AO keeps knowledge at account `<type>/<product>/`, including `artifacts/<phase>/<product>/` and `artifacts/<product>/`, rather than under `products/<product>/`. A registered product folder determines scope regardless of frontmatter. Outside every registered folder, `products` must include the selected slug or `"*"`; absent, null and empty-string values mean shared. An explicit `products: []` selects no product. Broader source search may still find unselected notes; they cannot satisfy typed model evidence references.
 
-```yaml
-description: Check AO dependencies, selected product and binding freshness
-run:
-  command: [node, "{module}/bindings/cli.mjs", check]
-timeout: 3m
-```
+The matcher supports directory prefixes. Artifact phase directory names therefore participate in the admission fingerprint; adding or renaming a phase directory requires refresh. The AO graph's `placed()` restricts assertions/concepts to files directly under the type root or a registered product folder. Prefix matchers cannot express that depth restriction: nested assertions/concepts within those admitted roots remain a declared compatibility limit. Keep those notes at AO's documented positions. Source `_raw` exclusion continues to use the static knowledge selector.
 
-Add `module/actions/refresh-bindings.yaml`:
+## Generated model contract for views
 
-```yaml
-description: Compile the selected AO effective model into read-only Rhizome bindings
-inputs:
-  product: {kind: string}
-  single: {kind: bool}
-  toolkit: {kind: string}
-run:
-  command: [node, "{module}/bindings/cli.mjs", refresh-bindings]
-timeout: 5m
-```
+- Each concrete `AOKBModel_<mangled-kind>_<origin>` implements both `AOKBModel_<mangled-kind>` and `AOKBModelRecord { aoValue: String }`, has `@node(locator: EMBEDDED, label: "<AO kind label>")`, and `@display(group: "Product model")`. Fields retain the M2 `v_<mangled-field>` spelling; underscores and punctuation are encoded by hexadecimal codepoint.
+- `AOKBModelFile` selects each model document root with existing RECORD syntax. Its `synced: String` exposes the file's top-level authored timestamp. Built-in `notePath` gives the physical source path; no YAML parsing is needed in a view. These positional file observations are separate from model records and the umbrella interface.
+- Each concrete model type gets a YAML under `views/knowledge/`, with `source: {kind: custom, entry: model.tsx}` and `mount: {kind: node, type: <ConcreteType>, default: true}`. Node mounts are exact-type matches. Views are published with model SDL, removed when kinds disappear, and excluded from binding fingerprints. `views/knowledge/model.tsx` is the static presentation entry and is never overwritten by refresh.
+- Model fields targeting AO `kb:assertions` use `@references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})`. The existing edge helper preserves reverse vocabulary direction. Other `kb:` targets fail explicitly. Markdown logical-ID fields such as `extractedAssertionIds` and `provenance.source` remain authored strings.
+- Account model membership includes the selected slug or wildcard `"*"`, excludes untagged rows, and is inherited by children through their container. This differs intentionally from the knowledge missing-products rule.
 
-Actions supply their declared input object on stdin. The CLI also accepts flags for direct use. The first product action is `rzm ao-kb refresh-bindings --product alpha`; later refreshes reuse selection. Setup must establish ownership for every product's AO sources before refresh. Setup should call the explicit `index` script above for a receipt, or report normal indexing separately as unverified. No `index` module action is required.
+## Intermediate and publication
 
-The generated SDL is `module/ontology/ao-model.generated.graphql`. It is compiler-owned runtime output, so do not ship a static template at that path. Ensure new source include patterns cover only the inventory's paths and preserve unrelated include rules. Keep the compiler files and persisted selection in Git. Ignore `bindings/refresh.lock/`, `bindings/*.tmp`, `bindings/*.previous`, and `bindings/index-receipt.json` in the target repository; the generated SDL and manifest may be committed as disposable derived artifacts. Never ship a live selection or manifest in this template directory.
+`adapter.py --root <account> [--product <slug>]` emits deterministic JSON: `formatVersion: 1`, `compilerVersion: "1"`, `providerContract: "RECORD-1"`, `knowledgeAdapterVersion: "1"`; pinned `toolkit`; explicit `context`; complete `effectiveMetamodel`; expanded `kinds`; physical `sources`; selected `knowledgeSources`; configuration `inputs`; `referenceVocabulary`; physically attributed `records`; `diagnostics`; and AO `oracle: {rows, edges, unresolvedEdges}`. Source revisions are evidence, not binding-fingerprint inputs. Compatibility errors retain the intermediate and prevent model publication.
 
-Views consume `bindings/manifest.json` and the check action result. `manifest.status: ready` is the last successful refresh, not proof that current files still match. Use the check's computed `status`/`bindingsReady` for current freshness; a read-only check does not rewrite the saved manifest. Report `starterInstalled`, `bindingsReady`, and `indexReady` independently. The index wrapper runs ordinary `rzm index`, checks every concrete model root against the expected source counts through paginated typed queries, verifies unchanged inputs, then writes `index-receipt.json`. A direct index without that receipt remains unverified by the compiler check. Provider-level projection readiness is the coordinator's Lane Y2 integration gate.
+Fingerprints cover configuration/metamodel bytes, registry/markers, manifest pin, selection, compiler, other SDL, ownership, `.rhizome/config.yml`, and the set of model source paths. They exclude note and row bytes, generated SDL, manifests, receipts and generated views. Ordinary authored edits flow through normal indexing. Every check still reruns AO's adapter offline: mixed-origin rows, duplicate IDs and unsupported membership remain source compatibility errors, distinct from stale configuration. The first refresh and later source changes use the same compatibility path.
 
-## Version 1 JSON contracts
+`manifest.json` describes the model generation; `knowledge-manifest.json` describes admission. Each stores context, fingerprint, input evidence, SDL hash, status and generated file inventory. Model metadata additionally stores toolkit, sources, knowledgeSources, typeMap and diagnostics. `selection.json` records product and optional local toolkit path. `index-receipt.json` records the verified model fingerprint/SDL hash and an authored-source signature. An ordinary source edit expires index readiness while bindings remain ready.
 
-`adapter.py --root <account> [--product <slug>]` emits the intermediate on stdout. A dependency/root/pin error emits a diagnostics envelope and exits 1. Compatibility errors retain a complete intermediate, then make the renderer refuse publication.
+One checkout-local lock protects refresh/index. Each stage validates complete SDL through `rzm ontology query-schema` in a disposable vault containing static/other SDL plus generated admission. Publication stages files and manifest, marks pending metadata stale, then renames each live file. Recoverable failure restores the prior stage's files. Interruption never advertises a ready mismatched generation. Knowledge publishes before Python begins; the stages deliberately have independent failure states.
 
-| Intermediate field | Shape |
-| --- | --- |
-| `formatVersion`, `compilerVersion`, `providerContract`, `knowledgeAdapterVersion` | `1`, `"1"`, `"RECORD-1"`, `"1"` |
-| `toolkit` | `{version, revision, schemaVersion, pyYamlVersion}` |
-| `context` | `{accountRoot: ".", product: string or null, productRoot: relative path}` |
-| `effectiveMetamodel` | Complete AO-resolved dictionary, including operation/module provenance and original declarations |
-| `kinds` | `[{name, declaration, fields, idPatterns, selector, container, sources}]`; `fields` includes expanded traits; `sources` contains inventory IDs |
-| `sources` | `[{id, kind, path, format, origin, compositionOrigin, readOnly, membership, sourceOrder, revision}]`; source revision is SHA-256 or null for absent files |
-| `knowledgeSources` | AO-selected account note inventory, `[{path, kind, origin}]`; discovery and byte hashes participate in freshness |
-| `inputs` | Sorted `[{path, hash}]`; repository-relative names, exact byte SHA-256, null absent-file sentinel |
-| `referenceVocabulary` | AO canonical/reverse edge map and typed-reference pseudo-target configuration |
-| `records` | `[{kind, key, path, address, origin, container}]`; original source JSON-pointer address, distinct from effective logical identity |
-| `diagnostics` | `[{code, severity, message, ...evidence}]`; severity `note` or `error`; mixed-origin errors include kind, key, both paths and effective address |
-| `oracle` | `{rows, edges, unresolvedEdges}` from AO's actual reader; generated `reads_fields` excluded by name |
+Generated SDL, views and manifests are compiler output outside init's managed-file inventory. Re-init preserves them; ejection keeps them and source ownership, along with installed assets. Add-on removal leaves generated/unrecorded files and ownership in place: review these explicitly if removing the projection. Deleting the ownership declaration ends native mutation protection independently of binding state. Local toolkit paths need adjustment on another machine; the default remote pin is portable.
 
-The manifest has `formatVersion: 1`, `compilerVersion: "1"`, `providerContract`, `status: ready|stale|error`, `toolkit`, `context`, `fingerprint`, `inputs`, `sdlHash`, `sources`, `knowledgeSources`, `typeMap`, and `diagnostics`. `typeMap[kind]` is `{interface, types}`. `fingerprint` hashes inputs, compiler/renderer/pin bytes, selected context and root, other active SDL, and project configuration. Both schema inputs and source bytes are checked again before publication. Moving the root intentionally invalidates the manifest. A first failure may have only version/status/diagnostics; a failed later refresh preserves the previous successful generation metadata and appends failure diagnostics.
+## Compatibility and tests
 
-`selection.json` has `{formatVersion: 1, accountRoot: ".", product: string|null, toolkit: absolute package path|null}`. Local toolkit paths require adjustment on another machine. The default remote pin is portable. `index-receipt.json` has `{formatVersion: 1, fingerprint, sdlHash}` and is written only after the explicit normal-index wrapper succeeds, projected source counts agree, and compiler inputs are unchanged.
+AO mapping merges are product-key-first; lists concatenate account-first. RECORD `sourceOrder` supplies account-first positional numbering. Overlapping mapping rows are conservatively rejected with kind/key/both source paths; interleaved cross-file grouped positional composition is also rejected. Configuration scalar conflicts outside rows remain notes. Missing optional generated JSON stays declared at its original path. Generated `reads_fields` is omitted by name; required overlays fail until contributing-source provenance exists. Complex fields stay available as native content; AO validation declarations are retained without reimplementing AO judgments.
 
-Publication takes one checkout-local lock, validates the complete SDL through `rzm ontology query-schema` in a disposable vault containing the other schemas, and stages both output files. Each live file is replaced with temp-and-rename. A stale manifest is published before the SDL changes, so interruption between renames cannot advertise a ready mismatched pair. Recoverable rename errors restore the old SDL and metadata, then mark stale/error. `.previous` copies are diagnostic only and never use a `.graphql` extension. Remove an abandoned lock only after confirming no compiler/index wrapper is running.
-
-## Compatibility limits and coordinator requests
-
-- **Lane Y2: wildcard membership.** Current core `PreparedDocument.membershipIncludes` checks only exact `includes`. AO's filter also admits `products: ["*"]`. `ao_membership_wildcard_unsupported` prevents a false ready set when those rows occur. Core needs an explicit bounded wildcard membership contract before that diagnostic can be removed. Child bindings inherit admission through their selected container; they do not independently filter the child's `products`.
-- **Knowledge references.** Model fields targeting `kb:` kinds remain authored ID fields with `ao_knowledge_reference_external` notes. The current core RECORD resolver indexes RECORD candidates only. Lane K must connect the knowledge adapter's evidence relations to model records through a supported shared resolver; this compiler does not fabricate a Markdown target binding. This is separate from the structural AO `edges()` oracle, which excludes claim targets.
-- AO mapping merges are product-key-first; lists concatenate account-first. The intermediate preserves AO's effective order and original attribution. RECORD `sourceOrder` supplies account-first list numbering. Positional grouped mapping compositions that require interleaved cross-file order fail with `ao_source_order_unsupported`.
-- Overlapping mapping records are conservatively rejected, even if their values coincide. `ao_mixed_origin_record` includes the kind, effective key and both source paths. Configuration scalar conflicts outside selected rows remain AO compatibility notes.
-- Generated `reads_fields` is omitted by name, with a note. If the declaration requires it, setup fails with `ao_required_generated_field`. Generated JSON stays bound to its original path. A missing optional generated file is fingerprinted as absent.
-- Complex native fields and AO-only validation algorithms remain inspectable source/metadata with explicit notes. Dates and non-native enums remain authored text. The compiler does not execute AO truth, curation, or analysis algorithms.
-
-## Verification
-
-The synthetic fixture, offline intermediate, literal SDL and all tests live at `testdata/ao-kb-model/` in the source repository. See its README for commands and the deferred provider parity harness. No test or fixture is embedded in this starter directory.
+Synthetic fixtures, checked AO intermediates, literal SDL, Node publication/lifecycle tests, and real-provider Go parity live in `testdata/ao-kb-model`, `testdata/ao-kb`, and `testdata/ao-kb-product`. CI runs no Python. AO structural `edges()` omits claim targets, so the evidence oracle separately resolves each AO row's ordered evidence IDs against AO-selected assertions, including missing and ambiguous cases.

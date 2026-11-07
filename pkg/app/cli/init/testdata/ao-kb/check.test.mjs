@@ -40,7 +40,7 @@ test('checks static readiness, limitations and unavailable analysis without writ
   assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
   assert.equal(named(root, 'product-model bindings'), undefined, 'the knowledge check leaves model bindings to their own check');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 14);
+  assert.equal(result.checks.length, 15);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
@@ -51,7 +51,7 @@ test('missing root, unsupported versions and product modes are explicit', t => {
     const root = fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: multi-flat\n---\n` });
     assert.equal(named(root, 'schemaVersion').status, 'unsupported');
     assert.equal(named(root, 'product mode').status, 'warning');
-    assert.match(named(root, 'product mode').message, /model bindings only/);
+    assert.match(named(root, 'product mode').message, /knowledge admission and model bindings/);
     if (version === 7) assert.match(named(root, 'schemaVersion').message, /upgrade AO KB first/);
   }
 });
@@ -163,4 +163,16 @@ test('a missing compiler is an error, not a ready result', t => {
   const report = runCompilerCheck(fixture(t));
   assert.equal(report.bindingsReady, false);
   assert.equal(report.diagnostics[0].code, 'ao_compiler_missing');
+});
+
+test('public check preserves independent knowledge and model readiness', t => {
+  const root = fixture(t);
+  const runCompiler = () => ({...unselected(), knowledgeReady: true, modelReady: false,
+    bindings: {knowledge: {ready: true, status: 'ready'}, model: {ready: false, status: 'incomplete'}}});
+  const report = check(root, {runCompiler});
+  assert.equal(report.knowledgeReady, true);
+  assert.equal(report.modelReady, false);
+  assert.equal(report.bindingsReady, false);
+  assert.equal(report.bindings.knowledge.status, 'ready');
+  assert.equal(report.bindings.model.status, 'incomplete');
 });

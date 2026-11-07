@@ -1,4 +1,4 @@
-description: Compile the selected AO effective model into read-only Rhizome bindings
+description: Refresh selected-product knowledge admission and read-only model bindings
 inputs:
   product: {kind: string}
   single: {kind: bool}

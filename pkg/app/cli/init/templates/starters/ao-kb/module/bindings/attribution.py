@@ -127,10 +127,6 @@ def inventory(engine, mm, docs, diagnostics):
             match = matches[slot]
             origin, _, _, path, physical_at = match
             row_physical[id(raw)] = (path, physical_at)
-            if origin == "account" and not parent and "*" in (row.get("products") or []):
-                diagnostics.append({"code": "ao_membership_wildcard_unsupported", "severity": "error", "kind": kind,
-                                    "key": key, "path": path,
-                                    "message": "RECORD membership needs wildcard support before AO '*' account rows can be admitted"})
             if mk is not None and parts[-1].endswith("{}[]") and "group" not in row:
                 row["group"] = mk
             got[key] = engine.account.unscoped(row)

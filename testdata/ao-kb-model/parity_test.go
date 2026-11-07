@@ -90,7 +90,7 @@ func assertProviderParity(t *testing.T, runtime noteformat.Runtime) {
 		nodes, err := document.Nodes()
 		require.NoError(t, err)
 		for _, node := range nodes {
-			if node.Record == nil {
+			if node.Record == nil || node.Record.LogicalKind == "model-file" {
 				continue
 			}
 			identity := node.Record.LogicalKind + ":" + node.Record.LogicalKey

@@ -25,7 +25,23 @@ export function runCompilerCheck(root) {
 
 /** Path patterns listed in the ownership declaration (simple `- path` list items). */
 export function ownedPatterns(text) {
-  return (text ?? '').split('\n').map(line => line.match(/^\s*-\s*['"]?([^'"#\s]+)['"]?\s*(?:#.*)?$/)?.[1]).filter(Boolean);
+  if (!/^sources:\s*$/m.test(text || '')) return [];
+  // Restrict the preflight reader to the policy's scalar/block-list form.
+  // Uncertain YAML never certifies that an AO source is protected.
+  for (const line of text.split('\n')) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    if (!/^(?:sources:\s*|\s*-\s*owner:.*|\s+reason:.*|\s+paths:.*|\s+-\s*[^:]+)\s*$/.test(line)) return [];
+  }
+  const patterns = [];
+  for (const block of text.split(/^\s*-\s+owner:\s*/m).slice(1)) {
+    const plain = value => value?.trim().replace(/^(['"])(.*)\1$/, '$2');
+    if (!plain(block.split('\n')[0]) || !plain(block.match(/^\s+reason:[ \t]*([^\n]+)/m)?.[1])) return [];
+    const value = block.match(/^\s+paths:\s*(\[[^\n]*\]|\n(?:\s+-[^\n]*\n?)*)/m)?.[1];
+    if (!value) continue;
+    const entries = value.startsWith('[') ? value.slice(1, -1).split(',') : value.split('\n').filter(s => s.trim()).map(s => s.replace(/^\s*-\s*/, ''));
+    patterns.push(...entries.map(s => s.trim().replace(/\s+#.*$/, '').replace(/^(['"])(.*)\1$/, '$2')).filter(Boolean));
+  }
+  return patterns;
 }
 
 /** Matches a vault path against an ownership pattern the way the declaration does, ignoring case.
@@ -66,7 +82,7 @@ export function bindingRows(root, report) {
 
   const bindingsPath = `${MODULE}/bindings/manifest.json`;
   if (report.bindingsReady) {
-    add('model bindings', 'ok', `Bindings match the selected product's current model. Model records are not indexed or shown in this release.`, bindingsPath);
+    add('model bindings', 'ok', `Bindings match the selected product's model configuration. Authored values refresh through normal indexing.`, bindingsPath);
   } else if (codes.includes('ao_selection_required')) {
     add('model bindings', 'pending', `No product selected yet. ${SELECT}`, bindingsPath);
   } else if (codes.includes('ao_dependency_missing')) {
@@ -80,6 +96,10 @@ export function bindingRows(root, report) {
   add('model index', report.indexReady ? 'ok' : 'pending', report.indexReady
     ? 'A verified index receipt matches these bindings.'
     : 'No verified index receipt for the current bindings; `node .rhizome/modules/ao-kb/bindings/cli.mjs index` indexes and writes one.', `${MODULE}/bindings/index-receipt.json`);
+
+  add('knowledge admission', report.knowledgeReady ? 'ok' : 'pending', report.knowledgeReady
+    ? 'The generated knowledge admission matches the persisted product selection.'
+    : `Knowledge typing is unscoped or stale until setup completes. ${SELECT}`, `${MODULE}/ontology/ao-knowledge.generated.graphql`);
 
   const manifest = JSON.parse(read(root, bindingsPath) ?? 'null');
   if (!manifest?.sources && !manifest?.knowledgeSources) {

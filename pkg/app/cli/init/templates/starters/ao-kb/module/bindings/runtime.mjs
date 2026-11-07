@@ -42,10 +42,11 @@ export async function fingerprint(root, directory, ir, selection) {
     inputs.push({path: path.relative(root, file).split(path.sep).join('/'), hash: bytes === null ? null : hash(bytes)});
   }
   for (const entry of await readdir(directory)) {
-    if (/\.(mjs|py|json)$/.test(entry) && !['manifest.json', 'selection.json', 'index-receipt.json'].includes(entry)) {
+    if (/\.(mjs|py)$/.test(entry) || entry === 'toolkit-pin.json') {
       inputs.push({path: `@compiler/${entry}`, hash: hash(await readFile(path.join(directory, entry)))});
     }
   }
+  inputs.push({path: '@compiler/ownership-check', hash: hash(await readFile(path.join(directory, '../scripts/lib/bindings-check.mjs')))});
   for (const input of ir.inputs) {
     const full = path.resolve(root, input.path);
     if (!full.startsWith(root + path.sep)) throw new Error(`ao_input_escape: ${input.path}`);
@@ -58,9 +59,21 @@ export async function fingerprint(root, directory, ir, selection) {
     if (current !== input.hash) throw new Error(`ao_input_changed: ${input.path}`);
   }
   inputs.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-  return {inputs, fingerprint: hash(json({inputs, selection, toolkit: ir.toolkit, contract: ir.providerContract, root}))};
+  return {inputs, fingerprint: hash(json({inputs, selection, toolkit: ir.toolkit, contract: ir.providerContract, root,
+    sources: [...new Set(ir.sources.map(s => s.path))].sort()}))};
 }
-async function schemaFiles(root) {
+export async function indexSignature(root, ir) {
+  const files = [...new Set([...ir.sources, ...(ir.knowledgeSources || [])].map(s => s.path))].sort();
+  const revisions = [];
+  for (const name of files) {
+    let revision = null;
+    try { revision = hash(await readFile(path.join(root, name))); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    revisions.push([name, revision]);
+  }
+  return hash(json(revisions));
+}
+export async function schemaFiles(root) {
   const dirs = [path.join(root, '.rhizome/ontology')];
   try {
     for (const entry of await readdir(path.join(root, '.rhizome/modules'), {withFileTypes: true})) {
@@ -71,11 +84,11 @@ async function schemaFiles(root) {
   for (const dir of dirs) {
     let entries;
     try { entries = await readdir(dir); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-    for (const file of entries) if (file.endsWith('.graphql') && file !== 'ao-model.generated.graphql') files.push(path.join(dir, file));
+    for (const file of entries) if (file.endsWith('.graphql') && !['ao-model.generated.graphql', 'ao-knowledge.generated.graphql'].includes(file)) files.push(path.join(dir, file));
   }
   return files.sort();
 }
-export async function validateSDL(root, sdl, binary = process.env.RZM || 'rzm') {
+export async function validateSDL(root, sdl, binary = process.env.RZM || 'rzm', knowledgeSDL) {
   const scratch = await mkdtemp(path.join(os.tmpdir(), 'aokb-bindings-'));
   try {
     const target = path.join(scratch, '.rhizome/ontology');
@@ -83,7 +96,12 @@ export async function validateSDL(root, sdl, binary = process.env.RZM || 'rzm') 
     await writeFile(path.join(scratch, '.rhizome/config.yml'), '{}\n');
     let count = 0;
     for (const file of await schemaFiles(root)) await writeFile(path.join(target, `schema-${count++}.graphql`), await readFile(file));
-    await writeFile(path.join(target, 'ao-model.generated.graphql'), sdl);
+    if (knowledgeSDL === undefined) {
+      try { knowledgeSDL = await readFile(path.join(root, '.rhizome/modules/ao-kb/ontology/ao-knowledge.generated.graphql'), 'utf8'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    if (knowledgeSDL) await writeFile(path.join(target, 'ao-knowledge.generated.graphql'), knowledgeSDL);
+    if (sdl) await writeFile(path.join(target, 'ao-model.generated.graphql'), sdl);
     run(binary, ['ontology', 'query-schema'], {cwd: scratch});
   } finally { await rm(scratch, {recursive: true, force: true}); }
 }

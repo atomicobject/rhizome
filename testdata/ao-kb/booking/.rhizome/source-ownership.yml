@@ -1,0 +1,27 @@
+# Installed by the ao-kb starter. AO KB writes these files; Rhizome reads them and
+# refuses native edits to them. Paths follow AO KB's standard layout for a single-product
+# KB at the vault root and for every product root of a multi-product account
+# (products/<slug>/). Add any other AO-authored location your KB uses. Removing this
+# file (or removing the ao-kb add-on) removes the protection.
+sources:
+  - owner: AO KB
+    reason: Managed by AO KB. Change it with the AO KB skills (/ao-kb:process, /ao-kb:curate, /ao-kb:suggest).
+    paths:
+      - .kb/**
+      - assertions/**
+      - sources/**
+      - concepts/**
+      - artifacts/**
+      - decisions.md
+      - _moc.md
+      - MOCs/**
+      - _improvements/**
+      - products/*/.kb/**
+      - products/*/assertions/**
+      - products/*/sources/**
+      - products/*/concepts/**
+      - products/*/artifacts/**
+      - products/*/decisions.md
+      - products/*/_moc.md
+      - products/*/MOCs/**
+      - products/*/_improvements/**

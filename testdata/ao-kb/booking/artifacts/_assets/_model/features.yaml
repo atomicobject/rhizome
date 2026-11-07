@@ -1,0 +1,13 @@
+synced: "2026-10-20T09:00:00Z"
+features:
+  - id: FEAT-book
+    t: Book an appointment
+    capability: CAP-booking
+    flows: [FLOW-book]
+    supported_by: [a-000000000001, a-000000000001, a-missing]
+    journey_note: Synthetic project override
+  - id: FEAT-cancel
+    t: Cancel an appointment
+    capability: CAP-booking
+    flows: [FLOW-cancel]
+    supported_by: [a-000000000008]

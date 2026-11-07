@@ -46,7 +46,7 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     ? 'Inspected schemaVersion 8 baseline.' : `Unsupported schemaVersion ${schema || '(missing)'}; ${Number(schema) < 8 ? 'upgrade AO KB first' : 'requires a compatible knowledge adapter'}.`, vaultPath);
   const mode = scalar(frontmatter, 'productMode');
   add('product mode', mode === 'single' ? 'ok' : 'warning', mode === 'single'
-    ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: the selected product scopes model bindings only. Knowledge views show every product's knowledge at the vault root in this release.`, vaultPath);
+    ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: setup requires one explicit product for knowledge admission and model bindings. Before refresh, static knowledge typing is unscoped; run rzm ao-kb refresh-bindings --product <slug>.`, vaultPath);
   const stampPath = '.kb/config/manifest.json';
   inspect('toolkit stamp', stampPath, () => {
     const stamp = json(root, stampPath)?.toolkit;
@@ -84,7 +84,7 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     const dir = join(root, module, 'ontology');
     const installed = existsSync(dir) && readdirSync(dir).some(name => name.endsWith('.graphql'));
     add('knowledge bindings', installed ? 'ok' : 'error', installed
-      ? 'Static Markdown knowledge bindings installed; no compiler required. Index and typed query still required.'
+      ? 'Static Markdown knowledge schema installed. Refresh generates product admission; index and typed query still required.'
       : 'Static knowledge bindings missing; install the starter.', `${module}/ontology`);
   });
   inspect('frontmatter connections', 'assertions', () => {
@@ -118,8 +118,11 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     checks,
     starterInstalled: checks.find(c => c.name === 'starter installed')?.status === 'ok',
     bindingsReady: Boolean(bindings.bindingsReady),
+    knowledgeReady: Boolean(bindings.knowledgeReady),
+    modelReady: Boolean(bindings.modelReady),
     indexReady: Boolean(bindings.indexReady),
-    bindings: { status: bindings.status, bindingsReady: Boolean(bindings.bindingsReady), indexReady: Boolean(bindings.indexReady), dependencies: bindings.dependencies, diagnostics: bindings.diagnostics ?? [] },
+    bindings: { status: bindings.status, bindingsReady: Boolean(bindings.bindingsReady), knowledge: bindings.bindings?.knowledge,
+      model: bindings.bindings?.model, indexReady: Boolean(bindings.indexReady), dependencies: bindings.dependencies, diagnostics: bindings.diagnostics ?? [] },
   };
 }
 

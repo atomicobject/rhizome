@@ -2,10 +2,12 @@
 // installed, for the AO KB journey specs (playwright.ao-kb.config.ts). It installs
 // the starter through ordinary `rzm init`, exactly as the setup skill does, adds the
 // conflict registry include, indexes, and serves.
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import { refresh } from "../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/publish.mjs";
 
 const repoRoot = process.env.RHIZOME_REPO_ROOT;
 
@@ -20,6 +22,19 @@ if (!repoRoot || !port) {
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "rhizome-ao-kb-e2e-"));
 
 const vault = path.join(scratch, "booking");
+
+const rzm = path.join(scratch, "rzm");
+
+process.on("exit", () => {
+  if (fs.existsSync(rzm))
+    spawnSync(rzm, ["stop", "--vault", vault], {
+      cwd: vault,
+      env: { ...process.env, RZM_SKIP_REPO_DELEGATE: "1" },
+      stdio: "ignore",
+      timeout: 10000,
+    });
+  fs.rmSync(scratch, { recursive: true, force: true });
+});
 
 fs.cpSync(path.join(repoRoot, "testdata", "ao-kb", "booking"), vault, { recursive: true });
 
@@ -42,9 +57,7 @@ const run = (cmd, args, cwd = repoRoot) => {
 if (!process.env.RHIZOME_E2E_SKIP_WEB_BUILD)
   run("npm", ["run", "build"], path.join(repoRoot, "web"));
 
-const rzm = path.join(scratch, "rzm");
-
-run("go", ["build", "-o", rzm, "."]);
+run("go", ["build", "-mod=vendor", "-tags", "fts5", "-o", rzm, "."]);
 
 run("git", ["init", "-q"], vault);
 
@@ -69,8 +82,42 @@ run(
 // Discovery skips hidden directories unless an include names the path (the setup skill's step).
 const config = path.join(vault, ".rhizome", "config.yml");
 
-fs.appendFileSync(config, '\nnotes:\n  includes: ["**/*.md", ".kb/curation/_conflicts.md"]\n');
+const intermediate = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "testdata/ao-kb/model-intermediate.json"), "utf8"),
+);
+
+const includes = [
+  "**/*.md",
+  ".kb/curation/_conflicts.md",
+  ...new Set(intermediate.sources.map((source) => source.path)),
+];
+
+fs.appendFileSync(config, `\nnotes:\n  includes: ${JSON.stringify(includes)}\n`);
+
+process.env.RZM = rzm;
+
+// CI uses the checked AO intermediate, with the production renderer and publisher.
+await refresh({
+  root: fs.realpathSync(vault),
+  directory: path.join(vault, ".rhizome/modules/ao-kb/bindings"),
+  selection: { formatVersion: 1, accountRoot: ".", product: null, toolkit: null },
+  exportModel: async () => structuredClone(intermediate),
+});
 
 run(rzm, ["index", "--vault", vault]);
 
-run(rzm, ["serve", "--host", "127.0.0.1", "--port", port, "--vault", vault]);
+const server = spawn(rzm, ["serve", "--host", "127.0.0.1", "--port", port, "--vault", vault], {
+  cwd: repoRoot,
+  env: { ...process.env, ...goEnv },
+  stdio: "inherit",
+});
+
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => server.kill(signal));
+
+await new Promise((resolve, reject) => {
+  server.once("error", reject);
+  server.once("exit", (code) => {
+    process.exitCode = code || 0;
+    resolve();
+  });
+});

@@ -19,6 +19,7 @@ async function fixture(t) {
   await cp(path.join(here, 'account'), root, {recursive: true});
   const directory = path.join(root, '.rhizome/modules/ao-kb/bindings');
   await cp(compiler, directory, {recursive: true});
+  await cp(path.join(compiler, '../scripts'), path.join(directory, '../scripts'), {recursive: true});
   const exportModel = async () => {
     const ir = structuredClone(recorded);
     for (const input of ir.inputs) {
@@ -35,14 +36,14 @@ test('renderer is deterministic and matches the SDL compiled by Go', () => {
   assert.equal(render(recorded).sdl, expected);
   assert.deepEqual(render(JSON.parse(JSON.stringify(recorded))), render(recorded));
   assert.ok(!expected.includes('products/beta'));
-  assert.match(expected, /membership: \{path: "products", includes: "alpha", includeMissing: false\}/);
+  assert.match(expected, /membership: \{path: "products", includes: "alpha", includeMissing: false, wildcard: "\*"\}/);
   assert.match(expected, /sourceOrder: 0/);
   assert.ok(recorded.oracle.rows.service.SHARED);
   assert.ok(!recorded.oracle.rows.user.HIDDEN);
   assert.deepEqual(Object.keys(recorded.oracle.rows.position), ['1', '2']);
 });
 
-test('ready, stale input, and successful refresh remain distinct from index readiness', async t => {
+test('authored edits stay ready; config edits need refresh; index readiness stays separate', async t => {
   const options = await fixture(t);
   let report = await check({...options, checkDependencies: deps});
   assert.equal(report.bindingsReady, false);
@@ -52,6 +53,10 @@ test('ready, stale input, and successful refresh remain distinct from index read
   assert.equal(report.indexReady, false);
   const model = path.join(options.root, 'products/alpha/artifacts/_assets/_model/lane.yaml');
   await writeFile(model, (await readFile(model, 'utf8')) + '\n# input changed\n');
+  report = await check({...options, checkDependencies: deps});
+  assert.equal(report.bindingsReady, true);
+  const config = path.join(options.root, 'products/alpha/.kb/config/metamodel.yaml');
+  await writeFile(config, (await readFile(config, 'utf8')) + '\n# configuration changed\n');
   report = await check({...options, checkDependencies: deps});
   assert.equal(report.bindingsReady, false);
   assert.equal(report.status, 'stale');
@@ -65,7 +70,8 @@ test('validation failure preserves old SDL, selection, and ownership while marki
   const sdl = path.join(options.directory, '../ontology/ao-model.generated.graphql');
   const before = await readFile(sdl);
   const owner = await readFile(path.join(options.root, '.rhizome/source-ownership.yml'));
-  await assert.rejects(refresh({...options, validate: async () => { throw new Error('bad schema'); }}), /bad schema/);
+  let validations = 0;
+  await assert.rejects(refresh({...options, validate: async () => { if (++validations === 2) throw new Error('bad schema'); }}), /bad schema/);
   assert.deepEqual(await readFile(sdl), before);
   assert.equal((await readJSON(path.join(options.directory, 'manifest.json'))).status, 'stale');
   assert.deepEqual(await readFile(path.join(options.root, '.rhizome/source-ownership.yml')), owner);
@@ -73,15 +79,14 @@ test('validation failure preserves old SDL, selection, and ownership while marki
 });
 
 test('a failure at either live rename rolls the pair back', async t => {
-  for (const failAt of [1, 2]) {
+  for (const failTarget of ['ao-model.generated.graphql', 'bindings/manifest.json']) {
     const options = await fixture(t);
     await refresh(options);
     const old = await readJSON(path.join(options.directory, 'manifest.json'));
     const file = path.join(options.directory, '../ontology/ao-model.generated.graphql');
     const before = await readFile(file);
-    let calls = 0;
     await assert.rejects(refresh({...options, renameFile: async (...args) => {
-      if (++calls === failAt) throw new Error('injected disk failure');
+      if (args[1].endsWith(failTarget)) throw new Error('injected disk failure');
       await rename(...args);
     }}), /injected disk failure/);
     assert.deepEqual(await readFile(file), before);
@@ -96,6 +101,7 @@ test('mid-compile input change, concurrent refresh, and initial failure never pu
   const change = path.join(options.root, 'products/alpha/.kb/config/metamodel.yaml');
   await assert.rejects(refresh({...options, beforePublish: async () => writeFile(change, 'changed')}), /ao_input_changed/);
   assert.equal((await readJSON(path.join(options.directory, 'manifest.json'))).status, 'error');
+  assert.equal((await readJSON(path.join(options.directory, 'knowledge-manifest.json'))).status, 'ready');
   await mkdir(path.join(options.directory, 'refresh.lock'));
   await assert.rejects(refresh(options), /ao_refresh_locked/);
 });
@@ -154,4 +160,130 @@ test('mapping key scope restarts at a declared container and group fallback stay
   const group = sdl.slice(sdl.indexOf('type AOKBModel_group_product'), sdl.indexOf('interface AOKBModel_job'));
   assert.match(group, /key: \{mappingKey: true\}/);
   assert.ok(!group.includes('fallback: MAPPING_KEY'));
+});
+
+test('standard model contracts expose native evidence, file sync, labels, and exact node mounts', async () => {
+  const ir = JSON.parse(await readFile(path.resolve(here, '../ao-kb/model-intermediate.json')));
+  const result = render(ir);
+  assert.match(result.sdl, /targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: \{name: "evidenced-by", direction: OUTBOUND\}/);
+  assert.match(result.sdl, /implements AOKBModel_feature & AOKBModelRecord @node\(locator: EMBEDDED, label: "Feature"\)/);
+  assert.match(result.sdl, /type AOKBModelFile[\s\S]*select: ""[\s\S]*synced: String @field\(path: "synced"\)/);
+  assert.match(result.views['AOKBModel_feature_single.yaml'], /entry: model.tsx[\s\S]*kind: node, type: AOKBModel_feature_single, default: true/);
+  const unsupported = structuredClone(ir);
+  unsupported.kinds.find(k => k.name === 'assertion').declaration.file = 'kb:concepts';
+  assert.throws(() => render(unsupported), /ao_knowledge_target_unsupported/);
+});
+
+test('knowledge admission is generated without Python and survives a model dependency failure', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const model = await readFile(path.join(options.directory, '../ontology/ao-model.generated.graphql'));
+  await assert.rejects(refresh({...options, exportModel: async () => { throw new Error('uv unavailable'); }}), error => error.knowledgeReady && /uv unavailable/.test(error.message));
+  const knowledge = await readFile(path.join(options.directory, '../ontology/ao-knowledge.generated.graphql'), 'utf8');
+  assert.match(knowledge, /extend type Assertion @admit/);
+  assert.match(knowledge, /has:products/);
+  assert.deepEqual(await readFile(path.join(options.directory, '../ontology/ao-model.generated.graphql')), model);
+  const report = await check({...options, checkDependencies: async () => ({uv: {ready: false}})});
+  assert.equal(report.knowledgeReady, true);
+  assert.equal(report.modelReady, false);
+});
+
+test('ownership is enforced before publication and source compatibility is distinct from staleness', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const before = await readFile(path.join(options.directory, '../ontology/ao-model.generated.graphql'));
+  const incompatible = async () => {
+    const ir = await options.exportModel();
+    ir.diagnostics.push({code: 'ao_duplicate_record', severity: 'error', kind: 'service', key: 'S1', message: 'Duplicate source records'});
+    return ir;
+  };
+  const report = await check({...options, exportModel: incompatible, checkDependencies: deps});
+  assert.equal(report.bindings.model.status, 'incomplete');
+  assert.ok(report.diagnostics.some(d => d.code === 'ao_duplicate_record'));
+  await assert.rejects(refresh({...options, exportModel: async () => {
+    const ir = await options.exportModel();
+    ir.sources[0].path = 'outside/model.yaml';
+    return ir;
+  }}), /ao_ownership_missing:.*outside\/model.yaml/);
+  assert.deepEqual(await readFile(path.join(options.directory, '../ontology/ao-model.generated.graphql')), before);
+});
+
+test('model publication removes disappeared kind views and keeps authored presentation entries', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const entry = path.join(options.directory, '../views/knowledge/model.tsx');
+  await writeFile(entry, '// authored presentation');
+  const generated = path.join(options.directory, '../views/knowledge/AOKBModel_group_product.yaml');
+  assert.ok(await readFile(generated));
+  await refresh({...options, exportModel: async () => {
+    const ir = await options.exportModel();
+    ir.sources = ir.sources.filter(s => s.kind !== 'group');
+    ir.kinds = ir.kinds.filter(k => k.name !== 'group');
+    ir.records = ir.records.filter(r => r.kind !== 'group');
+    return ir;
+  }});
+  await assert.rejects(readFile(generated), {code: 'ENOENT'});
+  assert.equal(await readFile(entry, 'utf8'), '// authored presentation');
+});
+
+test('product preflight and checked admission match AO registry and folder selection', async () => {
+  const {knowledge} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/knowledge.mjs');
+  const root = await realpath(path.resolve(here, '../ao-kb-product/account'));
+  const selected = {formatVersion: 1, product: 'alpha'};
+  await assert.rejects(knowledge(root, compiler, null), /ao_selection_required:.*--product <slug>/);
+  await assert.rejects(knowledge(root, compiler, {formatVersion: 1, product: null}), /ao_product_required/);
+  const result = await knowledge(root, compiler, selected);
+  assert.equal(result.sdl, await readFile(path.resolve(here, '../ao-kb-product/expected-knowledge.graphql'), 'utf8'));
+  assert.match(result.sdl, /artifacts\/01_define\/alpha/);
+  assert.match(result.sdl, /NOT assertions\/beta/);
+  const single = await knowledge(await realpath(path.resolve(here, '../ao-kb/booking')), compiler, {formatVersion: 1, product: null});
+  assert.doesNotMatch(single.sdl, /extend type/);
+});
+
+test('an authored edit expires the index receipt without expiring bindings', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
+  const manifest = await readJSON(path.join(options.directory, 'manifest.json'));
+  const receipt = {fingerprint: manifest.fingerprint, sdlHash: manifest.sdlHash,
+    sourceSignature: await indexSignature(options.root, await options.exportModel())};
+  await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
+  assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
+  const source = path.join(options.root, 'products/alpha/artifacts/_assets/_model/lane.yaml');
+  await writeFile(source, (await readFile(source, 'utf8')) + '\n# an ordinary AO edit\n');
+  const report = await check({...options, checkDependencies: deps});
+  assert.equal(report.bindingsReady, true);
+  assert.equal(report.indexReady, false);
+});
+
+test('Node preflight refuses incompatible schema, registry, markers, stamp, and ownership', async t => {
+  for (const [file, bytes, code] of [
+    ['.kb/config/vault.md', '---\nschemaVersion: 7\n---\n', 'ao_schema_unsupported'],
+    ['products/alpha/.kb/config/product.yaml', 'slug: beta\naccount: ../..\n', 'ao_product_invalid'],
+    ['products/orphan/.kb/config/product.yaml', 'slug: orphan\naccount: ../..\n', 'ao_product_unregistered'],
+    ['products/alpha/.kb/config/manifest.json', '{"siteEngine":{"version":"unsupported"}}', 'ao_toolkit_pin'],
+    ['.rhizome/source-ownership.yml', 'sources:\n  - owner: AO KB\n    reason: AO\n    paths: ["artifacts/**"]\n', 'ao_ownership_missing'],
+  ]) {
+    const options = await fixture(t);
+    const full = path.join(options.root, file);
+    await mkdir(path.dirname(full), {recursive: true});
+    await writeFile(full, bytes);
+    let called = false;
+    await assert.rejects(refresh({...options, exportModel: async () => {called = true; return options.exportModel();}}), new RegExp(code));
+    assert.equal(called, false, 'preflight runs before Python/model export');
+    await assert.rejects(readFile(path.join(options.directory, '../ontology/ao-knowledge.generated.graphql')), {code: 'ENOENT'});
+  }
+});
+
+test('a tampered generated-file inventory cannot delete authored files', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const authored = path.join(options.root, 'assertions/shared.md');
+  const before = await readFile(authored);
+  const file = path.join(options.directory, 'manifest.json');
+  const manifest = await readJSON(file);
+  manifest.generatedFiles.push('../../../../assertions/shared.md');
+  await writeFile(file, JSON.stringify(manifest));
+  await assert.rejects(refresh(options), /ao_generated_path_invalid/);
+  assert.deepEqual(await readFile(authored), before);
 });

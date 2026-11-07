@@ -58,7 +58,7 @@ def selected_context(root, slug, product):
     roots = product.product_roots(str(root))
     if roots and not slug:
         raise ValueError("ao_product_required: product roots found; refresh-bindings --product <slug> persists selection")
-    if not roots and (registered or fm.get("productMode", "single") != "single"):
+    if not roots and fm.get("productMode", "single") != "single":
         raise ValueError("ao_product_setup_incomplete: registry has no marked product roots")
     if slug:
         if slug not in roots:
@@ -115,11 +115,12 @@ def export(root, slug):
                                     "message": "AO resolves the selected product file; account config was not overlaid"})
     knowledge = []
     for name in ("assertions", "sources", "concepts", "artifacts"):
-        selected = engine.account.product_notes(str(site), name, recursive=True)
+        selected = engine.account.product_notes(str(site), name, recursive=name not in ("assertions", "concepts"))
         paths = [Path(p) for p, _ in selected] if selected is not None else sorted((site / name).rglob("*.md"))
         for path in paths:
-            knowledge.append({"path": capture(path), "kind": name, "origin": "account" if slug else "single"})
-    capture(root / ".kb/curation/_conflicts.md")
+            if "_raw" in path.relative_to(root).parts or path.name.startswith("_"):
+                continue
+            knowledge.append({"path": relative(path), "kind": name, "origin": "account" if slug else "single"})
     sources, kinds, docs = [], [], {}
     model = site / engine.MODEL_REL
     for name, declaration in sorted(mm["kinds"].items()):
@@ -135,13 +136,12 @@ def export(root, slug):
             raise ValueError(f"ao_source_unsupported: {name}: {fname}")
         if fname not in docs:
             own_path = model / fname
-            own_rel = capture(own_path)
+            own_rel = relative(own_path)
             raw = None
             own = engine._yaml(str(own_path)) if own_path.is_file() else None
             acct, acct_path = None, root / engine.MODEL_REL / fname
             paths = engine.account.row_paths(mm, fname)
             if slug and Path(fname).name == fname:
-                capture(acct_path)
                 # Keep the original objects/addresses; reuse AO's exact filtering and merge.
                 if acct_path.is_file():
                     raw = engine._yaml(str(acct_path))
@@ -168,13 +168,13 @@ def export(root, slug):
             sources.append({"id": sid, "kind": name, "path": path, "format": Path(path).suffix[1:],
                             "origin": "generated" if Path(fname).suffix == ".json" else origin,
                             "compositionOrigin": origin, "readOnly": True, "membership": membership,
-                            "sourceOrder": 0 if origin == "account" else 1, "revision": inputs[path]})
+                            "sourceOrder": 0 if origin == "account" else 1,
+                            "revision": digest((root / path).read_bytes()) if (root / path).is_file() else None})
             kind["sources"].append(sid)
     rows, evidence = inventory(engine, mm, docs, diagnostics)
     overlaid = engine._generated_field_kind(mm)
     if overlaid:
         path = model.joinpath(*engine.GENERATED_FIELDS_REL)
-        capture(path)
         diagnostics.append({"code": "ao_generated_field_overlay", "severity": "note", "kind": overlaid,
                             "field": "reads_fields", "path": relative(path),
                             "message": "reads_fields is omitted from bindings and parity; open saved output separately"})
