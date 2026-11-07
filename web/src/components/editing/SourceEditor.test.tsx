@@ -412,4 +412,33 @@ describe("SourceEditor", () => {
 
     expect(readPersistedEditorDraftRecord("/vault", target)).toBeNull();
   });
+
+  it("clears a narrative draft emptied while its insertion stages", async () => {
+    let finishStage!: () => void;
+
+    const stage = vi.fn(
+      (_ops: OntologyEditOp[]) => new Promise<void>((resolve) => (finishStage = resolve)),
+    );
+
+    render(
+      <EmptyNarrativeEditor
+        revision={revision}
+        nodeRef={{ notePath: "notes/a.md", kind: "NOTE" }}
+        vaultKey="/vault"
+        onStageOps={stage}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Add narrative" });
+    fireEvent.change(input, { target: { value: "A" } });
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: "" } });
+
+    await act(async () => finishStage());
+
+    expect(stage).toHaveBeenCalledTimes(1);
+    expect(
+      readPersistedEditorDraftRecord("/vault", "narrative-insert:notes%2Fa.md:root"),
+    ).toBeNull();
+  });
 });

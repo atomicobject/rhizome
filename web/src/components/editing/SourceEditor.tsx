@@ -274,10 +274,10 @@ export function EmptyNarrativeEditor({
       () => {
         const current = readPersistedEditorDraft(vaultKey, operationTarget);
 
-        if (current === markdown) clearPersistedEditorDraft(vaultKey, operationTarget);
         // Typing after the blur is newer, and the staged narrative may already
         // have replaced this editor, so stage it under the same operation id.
-        else if (current?.trim()) stage(current);
+        if (current?.trim() && current !== markdown) stage(current);
+        else clearPersistedEditorDraft(vaultKey, operationTarget);
       },
     );
   };
