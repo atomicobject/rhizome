@@ -6,6 +6,23 @@
 
 ### Fixed
 
+- Fixes for state that could go wrong after an interruption or overlapping updates:
+  - Renaming or removing a tag no longer rewrites text inside `~~~` code blocks, or inside fences that contain a shorter fence.
+  - Escape in a property locator field undoes the edit instead of saving it.
+  - Marking a running scheduled task Done keeps it done.
+  - When a turn ends, approvals nobody answered are recorded as cancelled, so their buttons no longer stay active.
+  - A cancelled or timed-out code-intel recompute no longer skips call-edge catch-up or drops pending scope work.
+  - One cancelled embedding setup no longer turns off semantic sync until restart.
+  - Cancelled vault refreshes no longer drop notes that were recreated meanwhile.
+  - Subscribers are told when file watching fails to start.
+  - Deleting an edit session during a commit no longer stalls other sessions.
+  - The Changes view, collection filters, and the index banner ignore replies that arrive after a newer update.
+  - An embedding provider failure, or failing semantic-connection lookups, no longer hang indexing or search.
+  - Edits made while Discard is running are refused instead of being silently wiped, and text typed while a new note's first paragraph is saving is kept.
+  - A late send reply no longer disables the chat composer after the turn has finished. Concurrent interrupts no longer hang or stop the next turn.
+  - Read-only Source panes show content that changed outside the editor.
+  - Closing a desktop window cancels its pending 1Password import, and a slow `rzm desktop` open no longer replaces a worktree chosen afterwards.
+  - A slow `claude` or `codex` version check no longer makes other requests wait past their deadlines, and cleaning up a stopped runtime no longer removes a newer runtime's registration.
 - Rhizome Dev uses its own `rzm`. On Linux it no longer picks up another installed CLI, and a Rhizome source worktree without a `make build` runs the Dev app's `rzm` from the app or a terminal instead of failing or downloading a pinned release. `rzm init` no longer pins a Rhizome source checkout, and this repository drops `rhizome.devBinaryDir`.
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
 - Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.

@@ -50,10 +50,19 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	}
 	// The worktree's location must be saved before any work starts, or a
 	// later pass could not find it.
+	closed := false
 	if err := s.store.Update(ctx, func(st *State) error {
 		it, err := st.Item(itemID)
 		if err != nil {
 			return err
+		}
+		if it.State != StateRunning {
+			// The person closed the item while the worktree was made.
+			closed = true
+			r := a.record(def.ID, OutcomeSkipped, s.opts.Now())
+			r.Message, r.Item, r.Commit = "the item was closed before the prompt ran", itemID, commit
+			st.Record(r)
+			return nil
 		}
 		it.set(StateRunning, s.opts.Now())
 		it.Branch, it.Worktree, it.Commit, it.Run = branch, dir, commit, a.id
@@ -64,6 +73,10 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	}); err != nil {
 		_ = s.removeWorktree(ctx, branch, dir)
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: "save the run's worktree: " + err.Error()}
+	}
+	if closed {
+		_ = s.removeWorktree(ctx, branch, dir)
+		return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Item: itemID, Reason: "the item was closed before the prompt ran"}
 	}
 	loc := s.locations(def, commit)
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
@@ -95,7 +108,9 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		cleanupErr = s.removeWorktree(ctx, branch, dir)
 	}
 	if err := s.store.Update(ctx, func(st *State) error {
-		if it, err := st.Item(itemID); err == nil {
+		// The person may have closed the item during the run; keep their
+		// state, dropping only a worktree this run removed.
+		if it, err := st.Item(itemID); err == nil && it.State == StateRunning {
 			it.Message, it.Tokens, it.Changed = message, res.Tokens, changed
 			switch {
 			case outcome == OutcomeReady:
@@ -108,6 +123,8 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 				it.set(StateDone, now)
 				it.Branch, it.Worktree = "", ""
 			}
+		} else if err == nil && !committed && cleanupErr == nil {
+			it.Branch, it.Worktree = "", ""
 		}
 		r := a.record(def.ID, outcome, now)
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, commit, changed

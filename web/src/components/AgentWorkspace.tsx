@@ -128,6 +128,8 @@ export function AgentWorkspace({
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const latestEventIDRef = useRef(0);
+  // Counts terminal turn events per session, so a slow send reply cannot revive a finished turn.
+  const terminalEventsRef = useRef(new Map<string, number>());
 
   const sessionsQuery = useQuery({
     queryKey: queryKeys.agent.sessions(),
@@ -257,6 +259,10 @@ export function AgentWorkspace({
         event.type === "turn-completed" ||
         (event.type === "error" && event.result?.status !== "retrying")
       ) {
+        terminalEventsRef.current.set(
+          selectedID,
+          (terminalEventsRef.current.get(selectedID) ?? 0) + 1,
+        );
         updateSession(selectedID, { turnRunning: false });
         queryClient.invalidateQueries({ queryKey: queryKeys.agent.session(selectedID) });
       }
@@ -364,8 +370,11 @@ export function AgentWorkspace({
       }));
       setDraft("");
       updateSession(sessionID, { turnRunning: true });
+      const terminalsBefore = terminalEventsRef.current.get(sessionID) ?? 0;
       const response = await sendAgentMessage(sessionID, trimmed);
-      updateSession(sessionID, response.session);
+      const { turnRunning: _stale, ...settled } = response.session;
+      const turnEnded = (terminalEventsRef.current.get(sessionID) ?? 0) !== terminalsBefore;
+      updateSession(sessionID, turnEnded ? settled : response.session);
     } catch (cause) {
       if (sessionID) updateSession(sessionID, { turnRunning: false });
       setError(cause instanceof Error ? cause.message : String(cause));

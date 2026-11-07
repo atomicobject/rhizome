@@ -58,6 +58,9 @@ function useOntologyEditSessionState(vaultKey: string | null) {
   const [restoredVaultKey, setRestoredVaultKey] = useState(vaultKey);
   const restoringRef = useRef(restoring);
   const [saving, setSaving] = useState(false);
+  // Discard deletes the whole session, so edits made while it runs are refused
+  // rather than queued behind it and then wiped.
+  const discardsRef = useRef(0);
 
   const [readLifecycle, setReadLifecycle] = useState<EditReadLifecycle>(
     INITIAL_EDIT_READ_LIFECYCLE,
@@ -306,6 +309,12 @@ function useOntologyEditSessionState(vaultKey: string | null) {
   const stageOps = useCallback(
     async (ops: OntologyEditOp[], options: { replace?: boolean } = {}) => {
       if (ops.length === 0) return sessionRef.current;
+
+      if (discardsRef.current > 0) {
+        setError(DISCARD_IN_FLIGHT);
+        throw new Error(DISCARD_IN_FLIGHT);
+      }
+
       setSavedWorkspaces(NO_WORKSPACES);
       const previous = sessionRef.current;
 
@@ -686,6 +695,7 @@ function useOntologyEditSessionState(vaultKey: string | null) {
 
   const discard = useCallback(async () => {
     beginOperation();
+    discardsRef.current += 1;
 
     const pending = actionChainRef.current
       .catch(() => undefined)
@@ -714,9 +724,12 @@ function useOntologyEditSessionState(vaultKey: string | null) {
         localOpsRef.current = [];
         localRevisionsRef.current.clear();
         pendingCommitRef.current = undefined;
-        setError(null);
+        setError((current) => (current === DISCARD_IN_FLIGHT ? current : null));
       })
-      .finally(finishOperation);
+      .finally(() => {
+        discardsRef.current -= 1;
+        finishOperation();
+      });
 
     actionChainRef.current = pending.then(
       () => undefined,
@@ -812,6 +825,8 @@ function useOntologyEditSessionState(vaultKey: string | null) {
 }
 
 const NO_WORKSPACES: NodeWorkspace[] = [];
+
+const DISCARD_IN_FLIGHT = "Discard was in progress, so the latest edit was not staged.";
 
 function describeOps(ops: OntologyEditOp[]) {
   const fields = [...new Set(ops.flatMap((op) => (op.field ? [op.field] : [])))];

@@ -12,6 +12,7 @@ use crate::{
 };
 use serde_json::{json, Value};
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     sync::Mutex,
     time::Duration,
@@ -77,6 +78,26 @@ impl Focus {
             .find(|w| open.contains(w))
             .or_else(|| open.iter().min_by_key(|w| windows::number(w)))
             .cloned()
+    }
+}
+
+/// Numbers each window's terminal opens, so one that resolves after a newer
+/// one began cannot select over it.
+#[derive(Default)]
+struct Opens(Mutex<BTreeMap<String, u64>>);
+
+static OPENS: Opens = Opens(Mutex::new(BTreeMap::new()));
+
+impl Opens {
+    fn begin(&self, window: &str) -> u64 {
+        let mut latest = self.0.lock().unwrap();
+        let request = latest.get(window).map_or(1, |n| n + 1);
+        latest.insert(window.into(), request);
+        request
+    }
+
+    fn newest(&self, window: &str, request: u64) -> bool {
+        self.0.lock().unwrap().get(window) == Some(&request)
     }
 }
 
@@ -160,13 +181,18 @@ fn fresh_session(app: &AppHandle) -> crate::state::WindowSession {
 }
 
 async fn open_in(app: &AppHandle, window: &Window, path: &Path) {
+    let request = OPENS.begin(window.label());
+    // The shell ignores a select begun before the user's latest choice there.
+    let started = crate::pipeline::started();
     bring_forward(app, window);
     let message = match resolve(app, path).await {
+        Ok(_) if !OPENS.newest(window.label(), request) => return,
         Ok((library, repository, worktree)) => json!({
             "type": "select",
             "library": library,
             "repository": repository,
             "worktree": worktree,
+            "started": started,
         }),
         Err(failure) => {
             eprintln!(
@@ -302,6 +328,17 @@ mod tests {
             .unwrap()
             .is_err());
         assert!(requested(&args(&["app", "--open"])).unwrap().is_err());
+    }
+
+    #[test]
+    fn only_a_windows_newest_terminal_open_may_select() {
+        let opens = Opens::default();
+        let first = opens.begin("window-1");
+        let other = opens.begin("window-2");
+        let second = opens.begin("window-1");
+        assert!(!opens.newest("window-1", first), "a newer open began");
+        assert!(opens.newest("window-1", second));
+        assert!(opens.newest("window-2", other), "windows number apart");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import type {
@@ -6,7 +6,7 @@ import type {
   OntologyEditOp,
   OntologyEditSessionResponse,
 } from "../api/types";
-import { jsonReply, withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { NotesModifiedHome } from "./NotesModifiedHome";
 
 const http = withFakeFetch();
@@ -153,5 +153,23 @@ it("reports an empty session as nothing staged", async () => {
   render(<NotesModifiedHome session={session([])} onOpenNote={vi.fn()} onReplaceOps={vi.fn()} />);
 
   await screen.findByText("Nothing staged");
+  expect(screen.queryByRole("status")).toBeNull();
+});
+
+it("ignores a diff that resolves after the session is discarded", async () => {
+  const pending = deferredReply<ModifiedNotesResponse>();
+  http.on("POST", DIFF_PATH, () => pending.promise);
+
+  const { rerender } = render(
+    <NotesModifiedHome session={session(ops)} onOpenNote={vi.fn()} onReplaceOps={vi.fn()} />,
+  );
+
+  await waitFor(() => expect(http.calls).toHaveLength(1));
+  expect(screen.getByRole("status")).toHaveTextContent("Computing diff…");
+
+  rerender(<NotesModifiedHome session={null} onOpenNote={vi.fn()} onReplaceOps={vi.fn()} />);
+  await act(async () => pending.resolve(twoNotes));
+
+  expect(screen.getByText("Nothing staged")).toBeTruthy();
   expect(screen.queryByRole("status")).toBeNull();
 });
