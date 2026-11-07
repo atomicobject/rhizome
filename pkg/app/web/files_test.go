@@ -495,12 +495,12 @@ aliases: [FIRST-ALIAS]
 		catalog: catalog,
 	}
 
-	cache := srv.notePathCache(t.Context())
+	srv.notePathCache(t.Context()) // load the cache so watch events update it
 	srv.updateNotePathCacheForWatchEvents(t.Context(), []watchhub.WatchEvent{{
 		RelPath: "notes/first.md",
 		Op:      watchhub.OpWrite,
 	}})
-	cache = srv.notePathCache(t.Context())
+	cache := srv.notePathCache(t.Context())
 	resolved, ok := cache.ResolveNote("FIRST-ALIAS")
 	require.True(t, ok)
 	require.Equal(t, "notes/first.md", resolved)
