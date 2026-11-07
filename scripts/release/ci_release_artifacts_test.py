@@ -12,7 +12,7 @@ from desktop_candidates_test import make_candidate
 from desktop_candidates import TARGETS as DESKTOP_TARGETS
 import os
 
-from ci_release_artifacts import (ArtifactError, BUNDLE_FILES, DESKTOP, GROUPS, PAYLOADS,
+from ci_release_artifacts import (ArtifactError, BUNDLE_FILES, DESKTOP, DESKTOP_CLI, GROUPS, NATIVE_GROUPS, PAYLOADS,
     assemble, binary_name, build_info, collect, digest, prepare_native, validate_native_inputs,
     verify_bundle, write_manifest)
 
@@ -59,8 +59,7 @@ def fixture(root, *, candidate_only=False):
             name = f"bin/{target}/{binary_name(target)}"
             path = directory / name
             path.parent.mkdir(parents=True)
-            desktop_target = {'darwin-arm64':'darwin-aarch64', 'linux-amd64':'linux-x86_64',
-                              'windows-amd64':'windows-x86_64'}.get(target)
+            desktop_target = {cli: desktop for desktop, cli in DESKTOP_CLI.items()}.get(target)
             path.write_bytes((candidates[desktop_target] / binary_name(target)).read_bytes() if desktop_target
                              else ("synthetic binary " + target).encode())
             path.chmod(0o755)
@@ -72,7 +71,7 @@ def fixture(root, *, candidate_only=False):
                 files.append("desktop/" + name)
         else:
             import shutil
-            target = 'linux-x86_64' if platform == 'linux' else 'windows-x86_64'
+            target = NATIVE_GROUPS[platform]
             shutil.copytree(candidates[target], directory / 'candidate')
             files.extend('candidate/' + path.name for path in candidates[target].iterdir())
         write_manifest(directory, SOURCE, VERSION, files, platform, candidate_only=candidate_only)
@@ -222,6 +221,16 @@ class ArtifactTests(unittest.TestCase):
                 with self.assertRaisesRegex(ArtifactError, "archive contents"):
                     verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=ignore_signature)
 
+    def test_arm64_appimage_sidecar_must_match_the_archived_arm64_cli(self):
+        inputs, _ = fixture(self.root)
+        linux = next(path for path in inputs if path.name == "linux")
+        (linux / "bin/linux-arm64/rzm").write_bytes(b"a different arm64 build")
+        files = json.loads((linux / "manifest.json").read_text())["files"]
+        write_manifest(linux, SOURCE, VERSION, files, "linux")
+        with self.assertRaisesRegex(ArtifactError, "canonical desktop sidecar"):
+            assemble(SOURCE, VERSION, inputs, self.root / "mismatched", root=self.root,
+                     scanner=lambda path: None, verifier=ignore_signature)
+
     def test_public_scan_failure_stops_assembly(self):
         inputs, _ = fixture(self.root)
         def reject(path): raise ArtifactError("synthetic scanner rejection")
@@ -229,14 +238,14 @@ class ArtifactTests(unittest.TestCase):
             assemble(SOURCE, VERSION, inputs, self.root / "rejected", root=self.root, scanner=reject, verifier=ignore_signature)
         self.assertFalse((self.root / "rejected/release-manifest.json").exists())
 
-    def test_same_run_native_staging_binds_both_platforms_before_coordinator_signing(self):
+    def test_same_run_native_staging_binds_every_native_platform_before_coordinator_signing(self):
         inputs, _ = fixture(self.root)
-        native = [path for path in inputs if path.name in {"linux", "windows"}]
+        native = [path for path in inputs if path.name in NATIVE_GROUPS]
         output = self.root / "native-inputs"
         prepare_native(SOURCE, VERSION, native, output)
         validate_native_inputs(output, SOURCE, VERSION)
-        self.assertTrue((output / "linux-x86_64/desktop-candidate.json").is_file())
-        self.assertTrue((output / "windows-x86_64/desktop-candidate.json").is_file())
+        for target in ("linux-x86_64", "linux-aarch64", "windows-x86_64"):
+            self.assertTrue((output / target / "desktop-candidate.json").is_file())
         with self.assertRaisesRegex(ArtifactError, "missing"):
             prepare_native(SOURCE, VERSION, native[:1], self.root / "missing-native")
         (output / "windows-x86_64/rzm.exe").write_bytes(b"changed")

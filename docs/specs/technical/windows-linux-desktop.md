@@ -1,11 +1,11 @@
 ---
 type: TechnicalSpec
-id: SPEC-0132
+id: SPEC-0133
 summary: Complete Windows and Linux desktop installation, native identity, executable ownership and safe multi-platform updates.
 spec-status: active
-last-updated: 2026-11-05
+last-updated: 2026-11-07
 aliases:
-  - SPEC-0132
+  - SPEC-0133
 ---
 
 # Windows and Linux desktop support
@@ -31,7 +31,7 @@ Additional architectures/distributions, Windows 10, MSI, app stores, a tray, a u
 
 ### Supported installations
 
-The initial target MUST be Windows 11 x64 with a per-user NSIS installation and Ubuntu 24.04 LTS x64 GNOME. Ubuntu X11 and Wayland GUI behavior MUST be checked before claiming both. One AppImage installation/update model is preferred. A package-managed .deb fallback requires a recorded decision before dependent implementation and equivalent package-owner upgrade evidence.
+The initial target MUST be Windows 11 x64 with a per-user NSIS installation and Ubuntu 24.04 LTS GNOME on x64 and Arm64 (aarch64). Each Linux architecture MUST be packaged and dependency-checked on its own native host, and its AppImage MUST carry the same canonical CLI bytes as that architecture's release archive. Ubuntu X11 and Wayland GUI behavior MUST be checked before claiming both. One AppImage installation/update model is preferred. A package-managed .deb fallback requires a recorded decision before dependent implementation and equivalent package-owner upgrade evidence.
 
 The release configurations MUST package only rzm; team-api remains development-only. Candidate builds MUST be possible without production signing credentials. Production Windows publishing MUST fail when trusted code signing is unavailable.
 

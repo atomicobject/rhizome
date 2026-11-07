@@ -8,9 +8,7 @@ import subprocess
 import shutil
 import tempfile
 
-from desktop_candidates import CandidateError, validate_dependencies
-
-BASELINES = {'linux-x86_64': 'ubuntu-24.04-x86_64', 'windows-x86_64': 'windows-11-x86_64'}
+from desktop_candidates import BASELINES, CandidateError, validate_dependencies
 
 
 def _run(command, *, root, env, runner):
@@ -26,7 +24,7 @@ def _version(value):
     return tuple(int(part) for part in value.split('.'))
 
 
-def linux_dependencies(cli: Path, version: str, *, root: Path, env: dict, runner) -> dict:
+def linux_dependencies(cli: Path, target: str, version: str, *, root: Path, env: dict, runner) -> dict:
     env = {key: value for key, value in env.items() if not key.startswith(('LD_', 'DYLD_')) and key != 'GLIBC_TUNABLES'}
     host = _run(['cat', '/etc/os-release'], root=root, env=env, runner=runner)
     fields = dict(re.findall(r'^([A-Z_]+)="?([^"\n]*)"?$', host, re.MULTILINE))
@@ -77,12 +75,12 @@ def linux_dependencies(cli: Path, version: str, *, root: Path, env: dict, runner
                         env={**env, 'PATH': '/usr/bin:/bin'}, runner=runner)
     if not reported.split() or reported.split()[-1].removeprefix('v') != version:
         raise CandidateError('extracted Linux CLI cannot run with the baseline system environment')
-    evidence = {'status': 'verified', 'baseline': BASELINES['linux-x86_64'],
-            'host': {'os': 'Ubuntu', 'version': '24.04', 'architecture': 'x86_64', 'libc': libc},
+    evidence = {'status': 'verified', 'baseline': BASELINES[target],
+            'host': {'os': 'Ubuntu', 'version': '24.04', 'architecture': target.split('-', 1)[1], 'libc': libc},
             'minimumGlibc': glibc[-1] if glibc else None, 'imports': imports, 'interpreter': interpreter[0] if interpreter else None,
             'probeVersion': reported,
             'methods': ['readelf-dynamic', 'readelf-symbol-versions', 'ldd-without-loader-overrides', 'system-path-version']}
-    validate_dependencies(evidence, 'linux-x86_64', version)
+    validate_dependencies(evidence, target, version)
     return evidence
 
 
@@ -116,8 +114,8 @@ def windows_dependencies(cli: Path, version: str, *, root: Path, env: dict, runn
 
 
 def inspect_dependencies(cli: Path, target: str, version: str, *, root: Path, env: dict, runner=subprocess.run) -> dict:
-    if target == 'linux-x86_64':
-        return linux_dependencies(cli, version, root=root, env=env, runner=runner)
+    if target in ('linux-x86_64', 'linux-aarch64'):
+        return linux_dependencies(cli, target, version, root=root, env=env, runner=runner)
     if target == 'windows-x86_64':
         return windows_dependencies(cli, version, root=root, env=env, runner=runner)
     raise CandidateError('dependency inspection is only defined for the native desktop targets')

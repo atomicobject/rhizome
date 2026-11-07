@@ -51,7 +51,7 @@ class AssemblerTests(unittest.TestCase):
         feed = json.loads(feed_path.read_text())
         self.assertEqual(REQUIRED_TARGETS, set(feed["platforms"]))
         self.assertEqual(VERSION, feed["version"])
-        self.assertEqual(3, len(self.sign_calls))
+        self.assertEqual(len(REQUIRED_TARGETS), len(self.sign_calls))
         for command, kwargs in self.sign_calls:
             self.assertIn("--app-version", command)
             self.assertEqual("synthetic-key", kwargs["env"]["TAURI_SIGNING_PRIVATE_KEY"])
@@ -60,8 +60,9 @@ class AssemblerTests(unittest.TestCase):
         for _, _, _, kwargs in self.verify_calls:
             self.assertNotIn("TAURI_SIGNING_PRIVATE_KEY", kwargs["environ"])
         self.assertEqual(feed_path, self.build())
-        self.assertEqual(3, len(self.sign_calls))
-        self.assertEqual(6, len(self.verify_calls))
+        self.assertEqual(len(REQUIRED_TARGETS), len(self.sign_calls))
+        # Each package is verified after signing and again on resume.
+        self.assertEqual(2 * len(REQUIRED_TARGETS), len(self.verify_calls))
         self.assertTrue(all((directory / "desktop-candidate.json").exists() for directory in self.candidates))
         self.assertTrue(all(not list(directory.glob("*.sig")) for directory in self.candidates))
 

@@ -8,7 +8,7 @@ import tempfile
 import tarfile
 import unittest
 
-from desktop_candidates import (CandidateError, MANIFEST, ROOT, TARGETS, candidate_manifest, identity,
+from desktop_candidates import (BASELINES, CandidateError, MANIFEST, ROOT, TARGETS, candidate_manifest, identity,
                                 profile, read_candidate, sha256, sidecar_inventory, validate_profile)
 from desktop_candidates import tauri_cli
 
@@ -19,11 +19,13 @@ VERSION = "1.2.3"
 
 def dependency_fixture(target):
     windows = target.startswith("windows-")
-    return {"status": "verified", "baseline": "windows-11-x86_64" if windows else "ubuntu-24.04-x86_64",
+    architecture = target.split("-", 1)[1]
+    return {"status": "verified", "baseline": BASELINES[target],
             "host": {"os": "synthetic-Windows" if windows else "Ubuntu", "version": "10.0.26100" if windows else "24.04",
-                     **({"systemDirectory": "C:\\Windows\\System32"} if windows else {"libc": "glibc 2.39"})},
+                     **({"systemDirectory": "C:\\Windows\\System32"} if windows else
+                        {"libc": "glibc 2.39", "architecture": architecture})},
             "imports": [{"name": "kernel32.dll" if windows else "libc.so.6", "origin": "system",
-                         "path": "C:\\Windows\\System32\\kernel32.dll" if windows else "/usr/lib/x86_64-linux-gnu/libc.so.6",
+                         "path": "C:\\Windows\\System32\\kernel32.dll" if windows else f"/usr/lib/{architecture}-linux-gnu/libc.so.6",
                          **({"signature": "microsoft-valid"} if windows else {})}],
             "probeVersion": "rzm version v" + VERSION, "methods": ["synthetic-dependency-fixture"]}
 
@@ -65,8 +67,19 @@ class CandidateTests(unittest.TestCase):
                          tauri_cli(ROOT, windows=True))
 
     def test_native_profiles_have_one_package_and_no_updater_key_requirement(self):
-        for target in ("windows-x86_64", "linux-x86_64"):
+        for target in ("windows-x86_64", "linux-x86_64", "linux-aarch64"):
             validate_profile(profile(ROOT, target), target)
+
+    def test_linux_dependency_evidence_must_come_from_the_target_architecture(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory, digest = make_candidate(Path(temporary), "linux-aarch64")
+            read_candidate(directory, version=VERSION, commit=COMMIT, canonical_hash=digest, production=True)
+            manifest = json.loads((directory / MANIFEST).read_text())
+            x64 = dependency_fixture("linux-x86_64")
+            for evidence in (x64, {**x64, "baseline": BASELINES["linux-aarch64"]}):
+                (directory / MANIFEST).write_text(json.dumps({**manifest, "nativeDependencies": evidence}))
+                with self.subTest(baseline=evidence["baseline"]), self.assertRaises(CandidateError):
+                    read_candidate(directory, version=VERSION, commit=COMMIT, canonical_hash=digest, production=True)
 
     def test_identity_refuses_ambiguous_versions_and_commits(self):
         self.assertEqual((VERSION, COMMIT), identity("v" + VERSION, COMMIT))

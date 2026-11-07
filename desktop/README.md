@@ -50,9 +50,9 @@ The Linux shell uses a GTK overlay host so the toolbar and runtime content do no
 
 ## Distribution and updates
 
-[SPEC-0122](../docs/specs/technical/desktop-distribution-and-updates.md) owns the original macOS distribution. [SPEC-0132](../docs/specs/technical/windows-linux-desktop.md) extends it to Windows and Linux.
+[SPEC-0122](../docs/specs/technical/desktop-distribution-and-updates.md) owns the original macOS distribution. [SPEC-0133](../docs/specs/technical/windows-linux-desktop.md) extends it to Windows and Linux.
 
-The initial native targets are Windows 11 x64 with a per-user NSIS installer and Ubuntu 24.04 LTS x64 GNOME with an AppImage. Windows/Linux packages are currently test candidates: production Windows signing is not configured and installed GUI acceptance is still pending. CI builds and process tests do not establish Wayland, graphics, focus, or installed-upgrade behavior. See the [native acceptance checklist](../docs/reference/desktop-platform-checks.md).
+The initial native targets are Windows 11 x64 with a per-user NSIS installer and Ubuntu 24.04 LTS GNOME with an AppImage for x64 (`Rhizome-linux-x64.AppImage`) or Arm64 (`Rhizome-linux-arm64.AppImage`). Windows/Linux packages are currently test candidates: production Windows signing is not configured and installed GUI acceptance is still pending. CI builds and process tests do not establish Wayland, graphics, focus, or installed-upgrade behavior. See the [native acceptance checklist](../docs/reference/desktop-platform-checks.md).
 
 - The app contains the release's `rzm` and uses it as the global executable unless Settings selects another. Folders the app sets up therefore pin the app's version. The app and its bundled CLI have one update owner, the app updater. Repository pins, local builds, and external managers retain their own ownership.
 - On Windows and Linux, the app verifies and copies its bundled `rzm` into an immutable per-user image before starting any bridge, sign-in helper, or background runtime. Those processes run from that image, so they can outlive the GUI or AppImage mount. Updates select a new image; an active old runtime keeps its executable. Old images are retained until safe cleanup can be proved.

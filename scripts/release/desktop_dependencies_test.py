@@ -56,6 +56,14 @@ class DependencyTests(unittest.TestCase):
             self.assertNotIn('LD_LIBRARY_PATH',call['env']); self.assertNotIn('LD_PRELOAD',call['env'])
             self.assertNotIn('GLIBC_TUNABLES',call['env'])
 
+    def test_linux_arm64_records_its_own_baseline_and_architecture(self):
+        self.listing='libc.so.6 => /lib/aarch64-linux-gnu/libc.so.6 (0x1234)'
+        self.interpreter='[Requesting program interpreter: /lib/ld-linux-aarch64.so.1]'
+        result=self.inspect('linux-aarch64')
+        self.assertEqual('ubuntu-24.04-aarch64',result['baseline'])
+        self.assertEqual('aarch64',result['host']['architecture'])
+        self.assertEqual('/lib/ld-linux-aarch64.so.1',result['interpreter'])
+
     def test_linux_rejects_missing_toolchain_local_library_newer_glibc_and_local_interpreter(self):
         for attribute,value,message in (
             ('listing','libc.so.6 => not found','unresolved'),

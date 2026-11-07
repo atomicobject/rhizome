@@ -17,7 +17,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         import re
 
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        sections = re.split(r"\n  ([a-z_]+):\n", "\n" + workflow.split("\njobs:\n", 1)[1])
+        sections = re.split(r"\n  ([a-z0-9_-]+):\n", "\n" + workflow.split("\njobs:\n", 1)[1])
         return dict(zip(sections[1::2], sections[2::2]))
 
     def test_only_release_plan_pushes_to_main_or_explicit_dispatch_start_builds(self) -> None:
@@ -39,7 +39,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
 
     def test_every_worker_uses_the_validated_source_without_persisted_credentials(self) -> None:
         jobs = self.jobs()
-        self.assertEqual({"select", "common", "linux", "windows", "mac", "assemble", "publish"}, set(jobs))
+        self.assertEqual({"select", "common", "linux", "linux-arm64", "windows", "mac", "assemble", "publish"}, set(jobs))
         for name, job in jobs.items():
             with self.subTest(job=name):
                 self.assertIn("persist-credentials: false", job)
@@ -63,7 +63,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("name: release-gateway-receipt", publish)
         self.assertIn("retention-days: 30", jobs["assemble"])
         self.assertIn("retention-days: 30", publish)
-        self.assertIn("needs: [select, linux, windows, mac]", jobs["assemble"])
+        self.assertIn("needs: [select, linux, linux-arm64, windows, mac]", jobs["assemble"])
         self.assertIn("ci_release_artifacts.py assemble", jobs["assemble"])
         self.assertIn("ci_release_artifacts.py verify", jobs["assemble"])
         for name, job in jobs.items():
@@ -91,7 +91,18 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("runs-on: ubuntu-24.04", linux)
         self.assertIn("build_native_desktop.py --target linux-x86_64", linux)
         self.assertIn("--id rzm-windows-amd64", jobs["windows"])
-        self.assertIn("needs: [select, common, linux, windows]", mac)
+        self.assertIn("needs: [select, common, linux, linux-arm64, windows]", mac)
+        arm = jobs["linux-arm64"]
+        self.assertIn("runs-on: ubuntu-24.04-arm", arm)
+        self.assertIn("needs: [select, common, linux]", arm)
+        # The Arm job packages the canonical arm64 CLI built by the x64 Linux job.
+        self.assertIn("name: release-linux-arm64-cli", linux)
+        self.assertIn("name: release-linux-arm64-cli", arm)
+        self.assertNotIn("goreleaser", arm)
+        self.assertIn("build_native_desktop.py --target linux-aarch64", arm)
+        self.assertIn("collect --platform linux-arm64", arm)
+        self.assertIn("ci_release_frontend.py extract", arm)
+        self.assertNotIn("npm --prefix desktop run build", arm)
         self.assertIn("ci_release_artifacts.py prepare-native", mac)
         self.assertIn("--id rzm-darwin", mac)
         for job in (linux, mac):
@@ -147,7 +158,8 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         for obsolete in ('prepare_native_desktop.py', 'desktop-candidates.yml', 'goreleaser release', 'scripts/release/release_publish.py'):
             self.assertNotIn(obsolete, workflow)
         self.assertIn('path: ${{ runner.temp }}/release-state/', jobs['publish'])
-        for job in (jobs['linux'], windows, mac, jobs['assemble']):
+        self.assertIn('name: release-linux-arm64', mac)
+        for job in (jobs['linux'], jobs['linux-arm64'], windows, mac, jobs['assemble']):
             self.assertIn('CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}', job)
             self.assertIn('--candidate-only', job)
         signing = windows.split('- name: Sign the canonical Windows CLI once', 1)[1].split('- name:', 1)[0]

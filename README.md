@@ -47,7 +47,7 @@ For Linux, Intel Macs, or a headless installation, the CLI-only formula remains 
 brew install --formula atomicobject/tap/rhizome
 ```
 
-Windows 11 x64 and Ubuntu 24.04 GNOME x64 desktop candidates are under native verification; see [Rhizome Desktop](desktop/README.md#distribution-and-updates) for their installation and acceptance status. For the Windows CLI or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
+Windows 11 x64 and Ubuntu 24.04 GNOME (x64 and Arm64) desktop candidates are under native verification; see [Rhizome Desktop](desktop/README.md#distribution-and-updates) for their installation and acceptance status. For the Windows CLI or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
 
 ### 2. Initialize your project
 

@@ -34,7 +34,8 @@ ARCHIVE = "Rhizome-macos-arm64.app.tar.gz"
 SIGNATURE = ARCHIVE + ".sig"
 FEED = "latest.json"
 OUTPUTS = (DMG, ARCHIVE, SIGNATURE, FEED, "Rhizome-windows-x64-setup.exe", "Rhizome-windows-x64-setup.exe.sig",
-           "Rhizome-linux-x64.AppImage", "Rhizome-linux-x64.AppImage.sig", "desktop-assembly.json")
+           "Rhizome-linux-x64.AppImage", "Rhizome-linux-x64.AppImage.sig", "Rhizome-linux-arm64.AppImage",
+           "Rhizome-linux-arm64.AppImage.sig", "desktop-assembly.json")
 DOWNLOAD_URL = "https://github.com/atomicobject/rhizome/releases/download/v{version}/" + ARCHIVE
 SIGNING_KEY = "TAURI_SIGNING_PRIVATE_KEY"
 # The Tauri CLI reads both from its environment to sign the updater archive.

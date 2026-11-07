@@ -19,13 +19,14 @@ from run_clean import scoped_environment
 from updater_fixture import prepare
 
 VERSIONS = ('0.0.1', '0.0.2')
+GOARCH = {'x86_64': 'amd64', 'aarch64': 'arm64'}
 
 
 def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.0.0.1:9444', source=None,
                   runner=subprocess.run, builder=build, assembler=assemble, prepare_key=prepare,
                   team_api_origin='', evidence_dir: Path | None = None) -> Path:
     if target not in NATIVE_TARGETS:
-        raise CandidateError('upgrade fixtures support the two initial native desktop targets')
+        raise CandidateError('upgrade fixtures support only the native desktop targets')
     base_url = fixture_base_url(base_url)
     output = output.resolve()
     if output.exists():
@@ -57,7 +58,7 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
         (staged / 'updater.pub').write_text(public_key + '\n')
         for version in VERSIONS:
             cli = work / ('rzm-' + version + ('.exe' if target.startswith('windows-') else ''))
-            build_env = {**env, 'GOOS': target.split('-')[0], 'GOARCH': 'amd64',
+            build_env = {**env, 'GOOS': target.split('-')[0], 'GOARCH': GOARCH[target.split('-', 1)[1]],
                          'RZM_CI_RELEASE_VERSION': version}
             # GoReleaser's TARGET overrides GOOS/GOARCH; the workflow uses Tauri's spelling.
             build_env.pop('TARGET', None)

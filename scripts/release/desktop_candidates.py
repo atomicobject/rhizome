@@ -17,10 +17,15 @@ TARGETS = {
                        "glob": "nsis/*-setup.exe", "asset": "Rhizome-windows-x64-setup.exe", "cli": "rzm.exe"},
     "linux-x86_64": {"host": "Linux", "machine": {"x86_64", "AMD64"}, "bundle": "appimage",
                      "glob": "appimage/*.AppImage", "asset": "Rhizome-linux-x64.AppImage", "cli": "rzm"},
+    "linux-aarch64": {"host": "Linux", "machine": {"aarch64", "arm64"}, "bundle": "appimage",
+                      "glob": "appimage/*.AppImage", "asset": "Rhizome-linux-arm64.AppImage", "cli": "rzm"},
     "darwin-aarch64": {"host": "Darwin", "machine": {"arm64", "aarch64"}, "bundle": "app,dmg",
                        "asset": "Rhizome-macos-arm64.app.tar.gz", "cli": "rzm"},
 }
-NATIVE_TARGETS = frozenset(("windows-x86_64", "linux-x86_64"))
+NATIVE_TARGETS = frozenset(("windows-x86_64", "linux-x86_64", "linux-aarch64"))
+# Each native target's dependency evidence must come from this baseline host.
+BASELINES = {"windows-x86_64": "windows-11-x86_64", "linux-x86_64": "ubuntu-24.04-x86_64",
+             "linux-aarch64": "ubuntu-24.04-aarch64"}
 REQUIRED_TARGETS = frozenset(TARGETS)
 MANIFEST = "desktop-candidate.json"
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -57,7 +62,7 @@ def identity(version: str, commit: str) -> tuple[str, str]:
 
 def profile(root: Path, target: str) -> Path:
     if target not in NATIVE_TARGETS:
-        raise CandidateError("native packaging supports windows-x86_64 and linux-x86_64")
+        raise CandidateError("native packaging supports " + ", ".join(sorted(NATIVE_TARGETS)))
     return root / f"desktop/src-tauri/tauri.release.{target.split('-')[0]}.conf.json"
 
 
@@ -107,7 +112,7 @@ def mac_sidecar_inventory(archive: Path) -> list[dict]:
 
 
 def validate_dependencies(dependencies: object, target: str, version: str) -> None:
-    baseline = {"windows-x86_64": "windows-11-x86_64", "linux-x86_64": "ubuntu-24.04-x86_64"}[target]
+    baseline = BASELINES[target]
     if not isinstance(dependencies, dict):
         raise CandidateError("native candidate lacks measured dependency evidence")
     host, imports, probe = dependencies.get("host"), dependencies.get("imports"), dependencies.get("probeVersion")
@@ -128,7 +133,8 @@ def validate_dependencies(dependencies: object, target: str, version: str) -> No
         if not re.fullmatch(r"10\.0\.[0-9]+(?:\.[0-9]+)?", str(host["version"])) or int(str(host["version"]).split(".")[2]) < 22000:
             raise CandidateError("Windows dependency host is below the Windows 11 baseline")
     else:
-        if host.get("os") != "Ubuntu" or host.get("version") != "24.04" or host.get("libc") != "glibc 2.39":
+        if (host.get("os") != "Ubuntu" or host.get("version") != "24.04" or host.get("libc") != "glibc 2.39"
+                or host.get("architecture") != target.split("-", 1)[1]):
             raise CandidateError("Linux dependency host differs from the Ubuntu 24.04 baseline")
         for item in imports:
             path = PurePosixPath(item["path"])

@@ -198,6 +198,84 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           include-hidden-files: true
+      # The Arm job packages these exact bytes; it never rebuilds the CLI.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-arm64-cli
+          path: |
+            dist/metadata.json
+            dist/rzm-linux_linux_arm64*/rzm
+          retention-days: 1
+          if-no-files-found: error
+
+  linux-arm64:
+    name: Package the Linux Arm64 AppImage
+    needs: [select, common, linux]
+    runs-on: ubuntu-24.04-arm
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+      RZM_DESKTOP_PREBUILT_FRONTEND: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install native Linux packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64
+      - name: Install credential scanner
+        working-directory: ${{ runner.temp }}
+        env:
+          GOTOOLCHAIN: local
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-frontend
+          path: .tmp/ci-release
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux-arm64-cli
+          path: dist
+      - name: Restore verified common assets and the canonical Arm64 CLI
+        run: |
+          python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+          npm --prefix desktop ci
+          python3 - <<'PYCLI'
+          import os
+          from pathlib import Path
+          files = list(Path('dist').glob('rzm-linux_linux_arm64*/rzm'))
+          if len(files) != 1:
+              raise SystemExit('Expected one canonical Linux Arm64 CLI')
+          # Artifact transfer drops the executable bit, not the bytes.
+          files[0].chmod(0o755)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
+          PYCLI
+      - name: Package and inspect the native Linux Arm64 desktop
+        run: |
+          production=(); candidate=()
+          if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); else production=(--production); fi
+          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
+          python3 scripts/release/build_native_desktop.py --target linux-aarch64 \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version "$RELEASE_VERSION" --commit "$SOURCE" "${production[@]}" --output .tmp/ci-native/linux-arm64
+          python3 scripts/release/ci_release_artifacts.py collect --platform linux-arm64 --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --candidate .tmp/ci-native/linux-arm64 --output .tmp/ci-release/linux-arm64 "${candidate[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-arm64
+          path: .tmp/ci-release/linux-arm64
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
 
   windows:
     name: Build signed Windows CLI and NSIS
@@ -314,7 +392,7 @@ jobs:
 
   mac:
     name: Build and notarize native Mac assets
-    needs: [select, common, linux, windows]
+    needs: [select, common, linux, linux-arm64, windows]
     runs-on: macos-15
     environment: release
     env:
@@ -373,13 +451,18 @@ jobs:
           path: .tmp/ci-release/linux
       - uses: actions/download-artifact@v4
         with:
+          name: release-linux-arm64
+          path: .tmp/ci-release/linux-arm64
+      - uses: actions/download-artifact@v4
+        with:
           name: release-windows
           path: .tmp/ci-release/windows
       - name: Verify this run's native inputs before signing
         run: |
           candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
           python3 scripts/release/ci_release_artifacts.py prepare-native --source "$SOURCE" --version "$RELEASE_VERSION" \
-            --input .tmp/ci-release/linux --input .tmp/ci-release/windows --output .tmp/ci-release/native "${candidate[@]}"
+            --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/windows \
+            --output .tmp/ci-release/native "${candidate[@]}"
       - name: Prepare desktop signing
         run: python3 scripts/release/ci_desktop_signing.py prepare
         env:
@@ -418,7 +501,7 @@ jobs:
 
   assemble:
     name: Assemble and verify complete release on Linux
-    needs: [select, linux, windows, mac]
+    needs: [select, linux, linux-arm64, windows, mac]
     runs-on: ubuntu-latest
     env:
       SOURCE: ${{ needs.select.outputs.source }}
@@ -442,6 +525,10 @@ jobs:
           path: .tmp/ci-release/linux
       - uses: actions/download-artifact@v4
         with:
+          name: release-linux-arm64
+          path: .tmp/ci-release/linux-arm64
+      - uses: actions/download-artifact@v4
+        with:
           name: release-macos
           path: .tmp/ci-release/macos
       - uses: actions/download-artifact@v4
@@ -453,7 +540,7 @@ jobs:
       - name: Assemble and verify the exact built artifacts
         run: |
           candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
-          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/windows --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
+          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/windows --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
           python3 scripts/release/ci_release_artifacts.py verify --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/publish "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:

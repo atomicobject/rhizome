@@ -46,7 +46,8 @@ class JoinTests(unittest.TestCase):
             self.assertEqual('existing Mac signature',feed['platforms']['darwin-aarch64']['signature'])
             manifest=json.loads((output/'desktop-assembly.json').read_text())['candidates']['darwin-aarch64']
             self.assertNotEqual(manifest['canonicalCliSha256'],manifest['packagedCliSha256'])
-            self.assertEqual(2,sum('signer' in command for command in calls))
+            # The Mac archive arrives signed; every other target is signed once.
+            self.assertEqual(len(REQUIRED_TARGETS)-1,sum('signer' in command for command in calls))
             shutil.rmtree(prepared/'windows-x86_64')
             with self.assertRaises((OSError, ValueError)):
                 join_desktop.join(root,mac/'rzm',VERSION,output,source=source,runner=runner)

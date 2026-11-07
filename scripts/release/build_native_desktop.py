@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 
-from desktop_candidates import (CandidateError, MANIFEST, ROOT, TARGETS, candidate_manifest, identity,
+from desktop_candidates import (CandidateError, MANIFEST, NATIVE_TARGETS, ROOT, TARGETS, candidate_manifest, identity,
                                 package_file, profile, sha256, sidecar_inventory, tauri_cli, validate_profile)
 from run_clean import scoped_environment, sensitive_name
 from windows_sign import configuration, signing_source
@@ -199,7 +199,7 @@ def build(rzm: Path, version: str, commit: str, target: str, output: Path, *, ca
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=ROOT)
-    parser.add_argument("--target", choices=("windows-x86_64", "linux-x86_64"), required=True)
+    parser.add_argument("--target", choices=sorted(NATIVE_TARGETS), required=True)
     parser.add_argument("--rzm", type=Path, required=True)
     parser.add_argument("--canonical-sha256", required=True)
     parser.add_argument("--version", required=True)

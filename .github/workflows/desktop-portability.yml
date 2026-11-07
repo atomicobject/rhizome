@@ -59,6 +59,9 @@ jobs:
           - os: ubuntu-24.04
             target: linux-x86_64
             artifact: linux-x64
+          - os: ubuntu-24.04-arm
+            target: linux-aarch64
+            artifact: linux-arm64
     defaults:
       run:
         shell: bash
@@ -106,7 +109,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             build-essential curl file libayatana-appindicator3-dev libssl-dev \
             librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev libglib2.0-bin patchelf \
-            libfuse2t64 xvfb dbus-x11 gnome-keyring xdotool imagemagick
+            libfuse2t64 libsecret-tools xvfb dbus-x11 gnome-keyring xdotool imagemagick
 
       - name: Install JavaScript dependencies
         run: |
@@ -250,6 +253,9 @@ jobs:
           - runner: ubuntu-24.04
             target: linux-x86_64
             artifact: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux-aarch64
+            artifact: linux-arm64
     defaults:
       run:
         shell: bash

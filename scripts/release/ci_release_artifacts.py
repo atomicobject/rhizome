@@ -25,12 +25,17 @@ from verify_desktop_signing import DesktopSigningError, verify_archive
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ("darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64", "windows-amd64")
-GROUPS = {"linux": TARGETS[2:4], "windows": TARGETS[4:], "macos": TARGETS[:2]}
-NATIVE_GROUPS = {"linux": "linux-x86_64", "windows": "windows-x86_64"}
+# The linux group builds both Linux CLIs. The linux-arm64 group packages the
+# arm64 one on an Arm host, so it carries a copy of those same canonical bytes.
+GROUPS = {"linux": TARGETS[2:4], "linux-arm64": TARGETS[2:3], "windows": TARGETS[4:], "macos": TARGETS[:2]}
+NATIVE_GROUPS = {"linux": "linux-x86_64", "linux-arm64": "linux-aarch64", "windows": "windows-x86_64"}
+# The CLI archive whose bytes each desktop package carries as its sidecar.
+DESKTOP_CLI = {"darwin-aarch64": "darwin-arm64", "linux-x86_64": "linux-amd64", "linux-aarch64": "linux-arm64",
+               "windows-x86_64": "windows-amd64"}
 DESKTOP = ("Rhizome-macos-arm64.dmg", "Rhizome-macos-arm64.app.tar.gz",
            "Rhizome-macos-arm64.app.tar.gz.sig", "latest.json", "Rhizome-windows-x64-setup.exe",
            "Rhizome-windows-x64-setup.exe.sig", "Rhizome-linux-x64.AppImage", "Rhizome-linux-x64.AppImage.sig",
-           "desktop-assembly.json")
+           "Rhizome-linux-arm64.AppImage", "Rhizome-linux-arm64.AppImage.sig", "desktop-assembly.json")
 PAYLOADS = tuple(f"rhizome-{target}.tar.gz" for target in TARGETS) + ("install-rzm.sh", "install-rzm.sh.sha256", *DESKTOP)
 BUNDLE_FILES = {*PAYLOADS, "release-manifest.json", "checksums.txt"}
 
@@ -173,7 +178,7 @@ def validate_manifest(directory, source, version, *, platform=None, candidate_on
             raise ArtifactError(f"artifact checksum mismatch: {relative}")
     if platform in NATIVE_GROUPS:
         target = NATIVE_GROUPS[platform]
-        cli_target = "linux-amd64" if platform == "linux" else "windows-amd64"
+        cli_target = DESKTOP_CLI[target]
         canonical = digest(directory / "bin" / cli_target / binary_name(cli_target))
         candidate, _ = read_candidate(directory / "candidate", version=version, commit=source,
                                       canonical_hash=canonical, production=not candidate_only)
@@ -267,7 +272,7 @@ def prepare_native(source, version, inputs, output, *, candidate_only=False):
     for directory in inputs:
         platform = json.loads(regular(directory, directory / "manifest.json").read_text()).get("platform")
         if platform not in NATIVE_GROUPS or platform in groups:
-            raise ArtifactError("coordinator requires exactly one Linux and one Windows native group")
+            raise ArtifactError("coordinator requires exactly one group per native desktop target")
         validate_manifest(directory, source, version, platform=platform, candidate_only=candidate_only)
         groups[platform] = directory
     if set(groups) != set(NATIVE_GROUPS):
@@ -331,7 +336,7 @@ def assemble(source, version, inputs, output, *, root=ROOT, scanner=scan, verifi
         validate_manifest(directory, source, version, platform=platform, candidate_only=candidate_only)
         groups[platform] = directory
     if set(groups) != set(GROUPS) or output.exists():
-        raise ArtifactError("assembly needs Linux, Windows and macOS groups and a new output directory")
+        raise ArtifactError("assembly needs every native build group and a new output directory")
     licenses = license_files(root)
     output.mkdir(parents=True)
     for target in TARGETS:
@@ -378,7 +383,7 @@ def verify_bundle(source, version, directory, *, root=ROOT, verifier=verify_arch
                            or "\\" in item.name or ":" in item.name or Path(item.name).as_posix() != item.name
                            or (item.name not in {binary_name(target), "LICENSE", "THIRD_PARTY_LICENSES.md"} and not item.name.startswith("licenses/")) for item in members)):
                 raise ArtifactError(f"archive contents do not match the release contract: {target}")
-            desktop_target = {"darwin-arm64": "darwin-aarch64", "linux-amd64": "linux-x86_64", "windows-amd64": "windows-x86_64"}.get(target)
+            desktop_target = {cli: desktop for desktop, cli in DESKTOP_CLI.items()}.get(target)
             if desktop_target:
                 stream = archive.extractfile(binary_name(target))
                 if stream is None or hashlib.file_digest(stream, "sha256").hexdigest() != desktop["canonicalCliSha256"][desktop_target]:

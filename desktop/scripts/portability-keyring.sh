@@ -7,7 +7,7 @@ if [[ $# != 1 || "${GITHUB_ACTIONS:-}" != true || "$(uname -s)" != Linux ]]; the
   echo "usage (disposable Linux CI only): portability-keyring.sh <evidence directory>" >&2
   exit 2
 fi
-for tool in dbus-daemon dbus-send gnome-keyring-daemon go timeout; do
+for tool in dbus-daemon dbus-send gnome-keyring-daemon go secret-tool timeout; do
   command -v "$tool" >/dev/null || { echo "missing native keyring dependency: $tool" >&2; exit 2; }
 done
 root="$(cd "$(dirname "$0")/../.." && pwd)"
