@@ -94,6 +94,14 @@ func spliceFrontmatter(content string, original, updated map[string]interface{})
 			continue
 		}
 		src := authoredKeyIndex(keys, name)
+		if src >= 0 && keys[src].Value != name {
+			// A case-folded match stands for this name only when the decoder
+			// renamed the authored key; a key decoded under its own spelling
+			// (Tags beside a new tags) is a different entry.
+			if _, decodedAsAuthored := original[keys[src].Value]; decodedAsAuthored {
+				src = -1
+			}
+		}
 		if _, taken := edits[src]; src >= 0 && taken {
 			return remarshalFrontmatter(content, updated)
 		}
@@ -190,5 +198,9 @@ func remarshalFrontmatter(content string, updated map[string]interface{}) (strin
 	if err != nil {
 		return content, false
 	}
-	return "---\n" + string(yamlBytes) + "---\n" + content[bodyStart:], true
+	block := "---\n" + string(yamlBytes) + "---\n"
+	if strings.Contains(content[:bodyStart], "\r\n") {
+		block = strings.ReplaceAll(block, "\n", "\r\n")
+	}
+	return block + content[bodyStart:], true
 }

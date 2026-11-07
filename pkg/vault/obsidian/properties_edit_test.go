@@ -124,6 +124,15 @@ func TestFrontmatterEditsKeepOtherLinesByteIdentical(t *testing.T) {
 			want: with(map[string]any{"Tags": nil, "tags": []any{"a", "b"}}),
 			kept: append([]string{"status: open"}, untouched...),
 		},
+		"add tag beside capitalized Tags": {
+			content: strings.Replace(authored, "Tags: a, b", "Tags: [a]", 1),
+			edit: func(c string) (string, bool, error) {
+				out, changed := AddTags(c, []string{"b"})
+				return out, changed, nil
+			},
+			want: with(map[string]any{"Tags": []any{"a"}, "tags": []any{"b"}}),
+			kept: append([]string{"Tags: [a]", "status: open"}, untouched...),
+		},
 		"indented root keys": {
 			content: "---\n  title: X\n  status: old\n---\nbody\n",
 			edit:    func(c string) (string, bool, error) { return SetFrontmatterProperty(c, "status", "new", true) },
@@ -148,7 +157,7 @@ func TestFrontmatterEditsKeepOtherLinesByteIdentical(t *testing.T) {
 					decoded["due"] = due.Format(time.DateOnly)
 				}
 				require.Equal(t, tc.want, decoded)
-				require.Equal(t, "body\n", parts[2])
+				require.True(t, strings.HasSuffix(got, "---"+eol+"body"+eol), "the body keeps its bytes: %q", got)
 				for _, line := range tc.kept {
 					require.Contains(t, got, line+eol)
 				}
