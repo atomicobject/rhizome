@@ -180,6 +180,14 @@ func NodeChunkHandle(nodeID, noteID, granularity string, chunkIndex int) Handle 
 	return Handle{Kind: KindNodeChunk, ID: nodeID, Fragments: fragments}
 }
 
+// RecordOwnerHandle is the diversity owner for every chunk of one embedded
+// record. Records are results in their own right, so records sharing a host
+// file do not share its owner. The host path stays the first fragment, as in
+// NodeChunkHandle, for seed path derivation.
+func RecordOwnerHandle(nodeID, noteID string) Handle {
+	return Handle{Kind: KindNodeChunk, ID: nodeID, Fragments: []string{strings.TrimSpace(noteID)}}
+}
+
 // AnchorHandle constructs a handle for a code anchor (symbol, function, etc.).
 // anchorID is the stable identifier from the intel store (typically a hash-based ID).
 func AnchorHandle(anchorID string) Handle {

@@ -106,6 +106,18 @@ func structuredSnapshot(t *testing.T, store *semdb.Store) []string {
 		row.NoteID = 0
 		add("diagnostic", row)
 	}
+	// Record lexical rows follow their nodes, with no orphaned FTS rows.
+	rows, err := store.DB().QueryContext(ctx, `SELECT r.item_id, f.path, f.title, f.body FROM intel_fts_rowid r JOIN intel_fts f ON f.rowid = r.fts_rowid WHERE r.item_type = 'ontology_record'`)
+	require.NoError(t, err)
+	for rows.Next() {
+		var row [4]string
+		require.NoError(t, rows.Scan(&row[0], &row[1], &row[2], &row[3]))
+		add("record_fts", row)
+	}
+	require.NoError(t, rows.Close())
+	var ftsRows int
+	require.NoError(t, store.DB().QueryRowContext(ctx, `SELECT count(*) FROM intel_fts WHERE item_type = 'ontology_record'`).Scan(&ftsRows))
+	add("record_fts_rows", ftsRows)
 	sort.Strings(out)
 	return out
 }

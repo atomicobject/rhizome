@@ -8,6 +8,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	codeindex "github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
@@ -125,7 +126,7 @@ func estimateOntologyDelta(delta semdb.OntologyDelta) int {
 	delta = semdb.NormalizeOntologyDelta(delta)
 	n := len(delta.DeletePaths)*48 + len(delta.ReplacePaths)*48 + len(delta.EdgeSources)*48
 	for _, model := range delta.ReadModels {
-		n += len(model.NotePaths)*48 + len(model.Nodes)*256 + len(model.FieldValues)*192 + len(model.LinkDependencies)*192
+		n += len(model.NotePaths)*48 + len(model.Nodes)*256 + len(model.FieldValues)*192 + len(model.LinkDependencies)*192 + estimateRecordSearchTexts(model.RecordSearchTexts)
 	}
 	for _, row := range delta.Assessments {
 		n += len(row.NotePath) + len(row.DeclaredType) + len(row.ResolvedType) + len(row.AssessmentJSON) + len(row.SchemaHash) + 64
@@ -167,5 +168,13 @@ func estimateNoteMetadataDelta(delta semdb.NoteMetadataDelta) int {
 		n += len(touch.Path) + 24
 	}
 	n += len(delta.WikilinkEdges) * 96
+	return n
+}
+
+func estimateRecordSearchTexts(texts []readmodel.RecordSearchText) int {
+	n := 0
+	for _, text := range texts {
+		n += 96 + len(text.Title) + len(text.Body)
+	}
 	return n
 }

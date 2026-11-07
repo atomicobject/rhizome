@@ -45,7 +45,9 @@ import (
 // and @admit preserve selected-product admission without authored identifier aliases.
 // v25: quoted property matcher values compare frontmatter strings exactly, so notes admitted
 // under the looser inline or case-folded comparison are retyped.
-const OntologyMaterializationVersion = 25
+// v26: embedded records publish lexical search rows with their catalog nodes, so existing
+// indexes republish records for search without embeddings.
+const OntologyMaterializationVersion = 26
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

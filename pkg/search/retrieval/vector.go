@@ -80,9 +80,13 @@ func candidateFromSemanticResult(res semantic.Result) (search.Candidate, error) 
 		return search.Candidate{}, fmt.Errorf("unsupported semantic result type %q", res.Type)
 	}
 	evidence := []search.Evidence{{Type: evType, RawScore: res.Score, Source: "pkg/semantic"}}
+	owner := h.Owner()
+	if res.Record {
+		owner = knowledge.RecordOwnerHandle(res.NodeID, res.Path)
+	}
 	return search.Candidate{
 		Handle:    h,
-		Owner:     h.Owner(),
+		Owner:     owner,
 		Evidence:  evidence,
 		Type:      res.Type,
 		SourceRef: res.SourceRef,

@@ -170,13 +170,14 @@ func (q *Writer) SubmitOntologyNodeReadModel(ctx context.Context, model readmode
 	indexingperf.AddCount(ctx, indexingperf.OntologyFieldRowsPlanned, int64(len(model.FieldValues)))
 	return q.submit(ctx, ontologyNodeWrite{
 		model: readmodel.NodeReadModel{
-			FullReplace:      model.FullReplace,
-			NotePaths:        append([]string(nil), model.NotePaths...),
-			Nodes:            append([]readmodel.NodeRow(nil), model.Nodes...),
-			FieldValues:      append([]readmodel.FieldValueRow(nil), model.FieldValues...),
-			LinkDependencies: append([]readmodel.LinkDependencyRow(nil), model.LinkDependencies...),
+			FullReplace:       model.FullReplace,
+			NotePaths:         append([]string(nil), model.NotePaths...),
+			Nodes:             append([]readmodel.NodeRow(nil), model.Nodes...),
+			FieldValues:       append([]readmodel.FieldValueRow(nil), model.FieldValues...),
+			LinkDependencies:  append([]readmodel.LinkDependencyRow(nil), model.LinkDependencies...),
+			RecordSearchTexts: append([]readmodel.RecordSearchText(nil), model.RecordSearchTexts...),
 		},
-	}, len(model.NotePaths)*48+len(model.Nodes)*256+len(model.FieldValues)*192)
+	}, len(model.NotePaths)*48+len(model.Nodes)*256+len(model.FieldValues)*192+estimateRecordSearchTexts(model.RecordSearchTexts))
 }
 
 func (q *Writer) SubmitOntologyNodes(ctx context.Context, notePaths []string, nodes []readmodel.NodeRow) error {
