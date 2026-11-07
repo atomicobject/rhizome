@@ -259,7 +259,8 @@ test("Open in Trace preserves native focus and lands on its presentation", async
   await frame(page).getByRole("link", { name: "Open in Trace", exact: true }).click();
   await expect(page).toHaveURL(/presentation=ao-kb.trace/);
   await expect(page).toHaveURL(/focus=assertions%2Fclinic-patient-books-own-slot.md/);
-  await expect(
-    frame(page).getByText("Patients book their own slots", { exact: true }).first(),
-  ).toBeVisible();
+  await expect(frame(page).getByRole("combobox", { name: "Trace focus" })).toHaveValue(
+    "assertions/clinic-patient-books-own-slot.md",
+  );
+  await expect(frame(page).getByText("Focus · open the record").first()).toBeVisible();
 });
