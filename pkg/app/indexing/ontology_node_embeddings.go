@@ -58,7 +58,13 @@ func syncOntologyNodeEmbeddings(
 	if err != nil {
 		return err
 	}
-	paths := retainOntologyBodyPaths(changedPaths, projectablePaths)
+	// A RECORD host change renumbers its whole source set in the catalog;
+	// its unchanged sibling hosts' chunks follow.
+	touched, err := ontology.RecordSourceSetPaths(schema, append(append([]string(nil), changedPaths...), deletedPaths...), func() ([]string, error) { return projectablePaths, nil })
+	if err != nil {
+		return err
+	}
+	paths := retainOntologyBodyPaths(touched, projectablePaths)
 	if rebuilt {
 		// IMPORTANT: ontology rebuild changes structural/schema fingerprints for
 		// semantic surface. Use the same projectable path set as ontology sync,
