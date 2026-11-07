@@ -292,7 +292,7 @@ export function Settings({
         <div className="development-builds">
           <h2>Developer builds</h2>
           <p>
-            These worktrees run a local build instead of the global installation. When a build
+            These worktrees run a development build instead of the global installation. When a build
             changes, its running worktrees restart on it.
           </p>
           <ul>

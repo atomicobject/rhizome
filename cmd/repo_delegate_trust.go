@@ -36,7 +36,8 @@ func maybeDelegateToRepoBinary(args []string) repoDelegateDecision {
 	if !required {
 		// The preflight proved this invocation has no repository-selected handoff.
 		// Do not resolve it again: repository files may change between checks.
-		return repoDelegateDecision{}
+		// Only the Dev app's rzm, which the checkout never chooses, remains.
+		return devAppDecision(args, cwd, exe)
 	}
 	store, err := repositorytrust.DefaultStore()
 	if err != nil {
@@ -64,9 +65,16 @@ func repoDelegateDecisionForTrust(
 		return repoDelegateDecision{Err: err}
 	}
 	if !required {
-		return repoDelegateDecision{}
+		return devAppDecision(args, cwd, exe)
 	}
 	return repoDelegateDecisionForRequiredTrust(args, cwd, exe, checkout, store, confirm)
+}
+
+func devAppDecision(args []string, cwd, exe string) repoDelegateDecision {
+	if target := repoexec.DevAppHandoff(args, cwd, exe); target != "" {
+		return repoDelegateDecision{Delegate: true, Target: target}
+	}
+	return repoDelegateDecision{}
 }
 
 func repoDelegateDecisionForRequiredTrust(

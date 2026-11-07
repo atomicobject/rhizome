@@ -140,3 +140,31 @@ func TestLoadDotEnvUpwards_IgnoresInvalidLinesInDotEnv(t *testing.T) {
 		t.Fatalf("set keys = %v, want 3 keys", keys)
 	}
 }
+
+func TestLoadDotEnvUpwardsKeeping_LeavesKeptKeysAsTheProcessHadThem(t *testing.T) {
+	dir := t.TempDir()
+	content := "RZM_TEST_KEPT_UNSET=/repo/rzm\nRZM_TEST_KEPT_SET=/repo/home\nRZM_TEST_LOADED=yes\n"
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	unsetDotEnvKey(t, "RZM_TEST_KEPT_UNSET")
+	unsetDotEnvKey(t, "RZM_TEST_LOADED")
+	t.Setenv("RZM_TEST_KEPT_SET", "/person/home")
+
+	set, err := LoadDotEnvUpwardsKeeping(dir, "RZM_TEST_KEPT_UNSET", "RZM_TEST_KEPT_SET")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := os.LookupEnv("RZM_TEST_KEPT_UNSET"); ok {
+		t.Fatal("a repository dotenv set a kept key the process left unset")
+	}
+	if got := os.Getenv("RZM_TEST_KEPT_SET"); got != "/person/home" {
+		t.Fatalf("kept key = %q, want the process value", got)
+	}
+	if got := os.Getenv("RZM_TEST_LOADED"); got != "yes" {
+		t.Fatalf("other keys still load, got %q", got)
+	}
+	if len(set) != 1 || set[0] != "RZM_TEST_LOADED" {
+		t.Fatalf("set = %v, want only RZM_TEST_LOADED", set)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,4 +35,32 @@ func TestBundledGlobalExecutableUsesInvokingBundleUnlessOverridden(t *testing.T)
 	status, err = s.GlobalStatus(context.Background(), override)
 	require.NoError(t, err)
 	require.False(t, status.Bundled)
+}
+
+func TestLinuxGlobalExecutableIsTheRzmBesideTheDesktopApp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the Windows desktop executable is rhizome-desktop.exe")
+	}
+	s := testService(t)
+	original := desktopExecutable
+	t.Cleanup(func() { desktopExecutable = original })
+	dir := t.TempDir()
+	own := workingScript(t, filepath.Join(dir, "rzm"))
+	// A release on the search path must not displace the app's own rzm.
+	workingScript(t, filepath.Join(s.env.HomeDir, ".local", "bin", "rzm"))
+	desktopExecutable = func() (string, error) { return own, nil }
+
+	chosen, err := s.globalExecutable("")
+	require.NoError(t, err)
+	require.NotEqual(t, own, chosen, "without the desktop executable beside it, rzm is not bundled")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rhizome-desktop"), []byte("app"), 0o755))
+	chosen, err = s.globalExecutable("")
+	require.NoError(t, err)
+	resolved, err := filepath.EvalSymlinks(own)
+	require.NoError(t, err)
+	require.Equal(t, resolved, chosen)
+	status, err := s.GlobalStatus(context.Background(), "")
+	require.NoError(t, err)
+	require.True(t, status.Bundled)
 }

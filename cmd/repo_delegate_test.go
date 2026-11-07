@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -942,4 +943,36 @@ func requireSameExecutablePath(t *testing.T, expected, actual string) {
 	actualAbs, err := filepath.Abs(actual)
 	require.NoError(t, err)
 	require.True(t, sameExecutablePath(expectedAbs, actualAbs), "expected %q and actual %q to resolve to the same executable", expectedAbs, actualAbs)
+}
+
+func TestRepoDelegateDecisionForTrust_HandsAnUntrustedSourceCheckoutToTheDevApp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executable-bit fixture is Unix-only")
+	}
+	repo := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{}))
+	devApp := filepath.Join(t.TempDir(), "rzm")
+	require.NoError(t, os.WriteFile(devApp, []byte("#!/bin/sh\n"), 0o755))
+	t.Setenv(repoexec.DevAppEnv, devApp)
+	store := repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
+	release := filepath.Join(t.TempDir(), "rzm")
+	noPrompt := func(string) (bool, error) {
+		t.Fatal("the Dev app needs no checkout trust")
+		return false, nil
+	}
+
+	decision := repoDelegateDecisionForTrust([]string{"search", "x"}, repo, release, store, noPrompt)
+	require.NoError(t, decision.Err)
+	require.True(t, decision.Delegate)
+	require.Equal(t, devApp, decision.Target)
+	require.False(t, repoDelegateDecisionForTrust([]string{"update"}, repo, release, store, noPrompt).Delegate, "update never replaces the Dev app's rzm")
+	require.False(t, repoDelegateDecisionForTrust([]string{"search", "x"}, repo, devApp, store, noPrompt).Delegate)
+
+	// A build that appears later is the checkout's own code and needs trust again.
+	build := filepath.Join(repo, "bin", runtime.GOOS, repoExecutableName())
+	require.NoError(t, os.MkdirAll(filepath.Dir(build), 0o755))
+	require.NoError(t, os.WriteFile(build, []byte("#!/bin/sh\n"), 0o755))
+	decision = repoDelegateDecisionForTrust([]string{"search", "x"}, repo, release, store, nil)
+	require.ErrorContains(t, decision.Err, "not trusted")
 }
