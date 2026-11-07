@@ -51,6 +51,7 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 		recordFactScopes:   make(map[semdb.ValidationScope]struct{}),
 	}
 	data := exec.resolveQuerySelectionSet(ctx, prepared.Operation.SelectionSet, nil)
+	exec.fillRecordReferences(ctx, data)
 	exec.fillRelationCounts(ctx, data)
 	exec.fillRecordFacts(ctx, data)
 	result := Result{

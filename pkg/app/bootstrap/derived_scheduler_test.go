@@ -463,3 +463,61 @@ func TestDerivedOntologyProviderFailureCachesSucceededSlices(t *testing.T) {
 	require.NoError(t, d.execute(ticket))
 	require.Len(t, provider.texts, sent+1, "the retry sends only the text whose slice failed")
 }
+
+func TestDerivedOntologyRecordTicketRefreshesRenumberedSiblingHosts(t *testing.T) {
+	root := t.TempDir()
+	writeWatcherSchema(t, root, `type Host @node(default:true){status:String}
+type Entry @node(locator:EMBEDDED) @source(shape:RECORD,paths:["entries/*.yaml"],select:"entries",key:null,title:["$key"],space:"test",logicalKind:"entry"){ name:String @field(path:"name") }
+`)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "entries"), 0o755))
+	write := func(name, body string) {
+		require.NoError(t, os.WriteFile(filepath.Join(root, "entries", name), []byte(body), 0o644))
+	}
+	write("a.yaml", "entries: [{name: alpha}]\n")
+	write("b.yaml", "entries: [{name: beta}]\n")
+	w, c, store := newLiveOwnershipTestWatcher(t, root, obsidian.VaultDefinition{Root: root, Includes: []string{"entries/*.yaml"}})
+	defer store.Close()
+	defer c.Close()
+	w.nodeSyncer = &embedindex.OntologyNodeSyncer{Store: store, Provider: &recordingEmbeddingProvider{}, ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "recording"}}
+	d := &derivedScheduler{watcher: w, ctx: t.Context()}
+	runOntologyTickets := func() {
+		work, err := store.PendingDerivedWork(t.Context(), time.Now().Add(time.Hour), 100)
+		require.NoError(t, err)
+		for _, ticket := range work {
+			if ticket.Kind == codeanchor.DerivedOntology {
+				require.NoError(t, d.execute(ticket))
+			}
+		}
+	}
+	headingsMatchCatalog := func(want ...string) {
+		nodes, err := store.OntologyNodesByPaths(t.Context(), []string{"entries/a.yaml", "entries/b.yaml"})
+		require.NoError(t, err)
+		titles, headings := map[string]string{}, map[string]string{}
+		var owners, got []string
+		for _, node := range nodes {
+			if node.TypeName == "Entry" {
+				titles[node.NodeID] = node.Title
+				owners = append(owners, node.NodeID)
+				got = append(got, node.Title)
+			}
+		}
+		require.ElementsMatch(t, want, got)
+		chunks, err := store.IntelChunksByOwners(t.Context(), owners)
+		require.NoError(t, err)
+		for _, chunk := range chunks {
+			headings[chunk.OwnerID] = chunk.Heading
+		}
+		require.Equal(t, titles, headings)
+	}
+	c.MarkDirty("entries/a.yaml", cache.DirtyModified)
+	c.MarkDirty("entries/b.yaml", cache.DirtyModified)
+	runOwnershipBatch(t, w)
+	runOntologyTickets()
+	headingsMatchCatalog("1", "2")
+
+	write("a.yaml", "entries: [{name: alpha}, {name: gamma}]\n")
+	c.MarkDirty("entries/a.yaml", cache.DirtyModified)
+	runOwnershipBatch(t, w)
+	runOntologyTickets()
+	headingsMatchCatalog("1", "2", "3")
+}
