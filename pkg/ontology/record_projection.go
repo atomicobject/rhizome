@@ -165,6 +165,15 @@ func (p *PreparedDocument) compileRecordProjections(doc *noteDoc) error {
 			}
 		}
 	}
+	// A descendant's identity and semantic parent derive from its container,
+	// so an invalid container invalidates its whole subtree. Records are in
+	// container-depth order, so each parent is settled before its children.
+	for _, r := range p.records {
+		if r.valid && r.parent != nil && !r.parent.valid {
+			r.valid = false
+			p.recordDiagnostic(r, "", "record_container_invalid", "selected container has no valid identity")
+		}
+	}
 	for _, record := range p.records {
 		for _, field := range record.typ.Fields {
 			if field.Record != nil {
