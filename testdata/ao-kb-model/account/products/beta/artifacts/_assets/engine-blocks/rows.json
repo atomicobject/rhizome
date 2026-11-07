@@ -1,0 +1,11 @@
+{
+  "rules": [
+    {
+      "id": "R1",
+      "name": "Generated rule",
+      "services": [
+        "S1"
+      ]
+    }
+  ]
+}
