@@ -336,7 +336,13 @@ func ontologyNodeChunkText(ctx context.Context, config Config, store *semdb.Stor
 			if err != nil || schema == nil {
 				return nil
 			}
-			scope = noderead.NewService(config.VaultDef, &obsidian.Note{}, store, schema).NewScope(noderead.ScopeOptions{})
+			service := noderead.NewService(config.VaultDef, &obsidian.Note{}, store, schema)
+			// RECORD nodes in YAML and JSON sources project only through their
+			// format provider; without the runtime their body is empty.
+			if formats, err := config.NoteMetadata.FormatRuntime(); err == nil {
+				service = service.WithNoteFormats(formats)
+			}
+			scope = service.NewScope(noderead.ScopeOptions{})
 		}
 		projection, err := scope.Projection(ctx, ref)
 		if err != nil || projection == nil {

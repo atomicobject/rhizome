@@ -123,3 +123,72 @@ Beta story body.
 	}
 	require.Equal(t, map[string]string{"Alpha": "Alpha story body.", "Beta": "Beta story body."}, got)
 }
+
+// RECORD nodes in YAML sources project through their format provider, so a
+// connection hit on one must still show that record's own text.
+func TestFindConnections_RecordNodeHitsShowTheirText(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+		require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
+	}
+	write(".rhizome/config.yml", "notes:\n  includes: [\"**/*.md\", \"model/*.yaml\"]\n")
+	write(".rhizome/ontology/schema.graphql", `
+type Service @node(locator: EMBEDDED) @source(shape: RECORD, paths: ["model/services.yaml"], select: "services", key: {field: "id"}, title: ["name", "$key"], space: "selected", logicalKind: "service") {
+  id: ID @field(path: "id")
+  name: String @field(path: "name")
+}
+`)
+	write("model/services.yaml", "services:\n  - id: A\n    name: Alpha\n    purpose: Books rooms for guests.\n")
+	write("Notes/Q.md", "# Q\n\nalpha\n")
+
+	ctx := context.Background()
+	cfg := Config{
+		VaultPath:    root,
+		VaultDef:     obsidian.VaultDefinition{Root: root, Links: obsidian.LinkTypeBoth, Includes: []string{"**/*.md", "model/*.yaml"}},
+		NoteMetadata: configuredMCPNoteMetadata(t),
+	}
+	store := newIntelStore(t)
+	_, err := ontologytest.Publish(ctx, cfg.NoteMetadata, cfg.VaultDef, &obsidian.Note{}, store)
+	require.NoError(t, err)
+	nodes, err := store.OntologyNodesByPaths(ctx, []string{"model/services.yaml"})
+	require.NoError(t, err)
+	prov := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8})
+	vecs, err := prov.EmbedTexts(ctx, []string{"alpha"})
+	require.NoError(t, err)
+	var service string
+	for _, node := range nodes {
+		if node.TypeName == "Service" {
+			service = node.NodeID
+		}
+	}
+	require.NotEmpty(t, service)
+	chunkID := codeanchor.IntelChunkID(service, 0, embeddings.GranularityOntologyNodeBody)
+	require.NoError(t, store.ReplaceIntelChunks(ctx, []string{service}, []codeanchor.IntelChunk{{
+		ChunkID: chunkID, OwnerID: service, OwnerType: embeddings.OntologyNodeOwnerType,
+		Ord: 0, Granularity: embeddings.GranularityOntologyNodeBody, Heading: "Alpha", ContentHash: "h-" + chunkID,
+	}}))
+	require.NoError(t, store.UpsertEmbeddings(ctx, map[string]embeddings.Embedding{chunkID: vecs[0]}))
+	addDocSection(t, store, prov, "Notes/Q.md", "Q", "alpha", "section-q", "chunk-q")
+
+	cfg.IntelStore, cfg.EmbedProvider, cfg.EmbeddingsOn = store, prov, true
+	res, err := FindConnectionsTool(cfg)(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Name:      "find_connections",
+		Arguments: map[string]any{"note": "Notes/Q.md", "limit": 5},
+	}})
+	require.NoError(t, err)
+	require.False(t, res.IsError, res.Content)
+	var payload struct {
+		Matches []struct {
+			Path   string `json:"path"`
+			Chunks []struct {
+				Text string `json:"text"`
+			} `json:"chunks"`
+		} `json:"matches"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &payload))
+	require.Len(t, payload.Matches, 1)
+	require.Len(t, payload.Matches[0].Chunks, 1)
+	require.Contains(t, payload.Matches[0].Chunks[0].Text, "Books rooms for guests.")
+}
