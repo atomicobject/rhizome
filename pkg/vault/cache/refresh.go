@@ -250,6 +250,10 @@ func (s *Service) recrawl() {
 // A case-insensitive filesystem also finds `Note.md` after it was replaced by
 // `note.md`, which must still count as removed.
 func existsWithSpelling(abs string) bool {
+	// Most removals are real; skip the folder read when nothing is there.
+	if _, err := os.Stat(abs); err != nil {
+		return false
+	}
 	entries, err := os.ReadDir(filepath.Dir(abs))
 	if err != nil {
 		return false
