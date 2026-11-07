@@ -255,12 +255,13 @@ it("bounds rows per band and records per cell", async () => {
   expect(within(work).getAllByRole("button")).toHaveLength(extra + 3);
 
   await chooseRows("Work items");
+  const table = screen.getByRole("table");
   expect(bands()[1]).toBe(`Doing${extra + 2}`);
   // Blocked 1, Doing capped, Backlog 1, Done 2.
-  expect(rowTitles()).toHaveLength(1 + BAND_ROWS + 1 + 2);
+  expect(table.querySelectorAll("tr[data-record-key]")).toHaveLength(1 + BAND_ROWS + 1 + 2);
 
   fireEvent.click(screen.getByRole("button", { name: "Show 7 more" }));
-  expect(rowTitles()).toHaveLength(1 + extra + 2 + 1 + 2);
+  expect(table.querySelectorAll("tr[data-record-key]")).toHaveLength(1 + extra + 2 + 1 + 2);
 
   expect(screen.queryByRole("button", { name: /^Show \d+ more/ })).toBeNull();
 });
