@@ -780,9 +780,18 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   const showsCollection = usePanelShowsCollection(tabs.activeId);
   const noteActive = tabs.activeTab.kind === "note";
 
+  const noteReadOnly = Boolean(
+    activeContext?.workspace.content.source &&
+    (activeContext.workspace.capabilities.readOnlyReason ||
+      !activeContext.workspace.capabilities.canEdit),
+  );
+
   const editApplies =
     !searchActive &&
-    (noteActive || showsCollection || editSession.editing || Boolean(editSession.session));
+    ((noteActive && !noteReadOnly) ||
+      showsCollection ||
+      editSession.editing ||
+      Boolean(editSession.session));
 
   const paneApplies = !searchActive && (noteActive || recordRail.showing);
   // The strip holds note tabs. With none open it has nothing to switch between:

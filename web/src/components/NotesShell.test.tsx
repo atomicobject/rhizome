@@ -25,6 +25,7 @@ import { withFakeEventSource } from "../test/fakeEventSource";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { NotesShell } from "./NotesShell";
 import { viewSegment } from "../test/workspaceView";
+import { nativeRecordNode } from "../test/nativeRecordFixture";
 
 const emptyGraph = { nodes: [], edges: [], truncated: false };
 
@@ -175,6 +176,19 @@ describe("NotesShell", () => {
       .onGraphQL("PublicNodeDetail", (request) =>
         jsonReply(nodeDetailReply(requestedRef(request))),
       );
+  });
+
+  it("hides Edit for an owned record using workspace capabilities", async () => {
+    http.onGraphQL("PublicNodeDetail", (request) =>
+      jsonReply({ data: { node: nativeRecordNode(requestedRef(request)) } }),
+    );
+    window.history.replaceState({}, "", "/notes?note=services.yaml#record:v1:booking");
+    render(<NotesShell />);
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Booking service" })).toBeVisible();
+      expect(screen.getByText("Managed by AO KB. Change it with the AO KB skills.")).toBeVisible();
+    });
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   });
 
   it("loads sidebar and home data and retains each opened note tab", async () => {

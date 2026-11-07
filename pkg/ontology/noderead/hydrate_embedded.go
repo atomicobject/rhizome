@@ -168,6 +168,9 @@ func (s *Scope) embeddedRecordsFromCatalog(ctx context.Context, refs []ontology.
 			}
 		}
 	}
+	if err := s.fillCatalogRowsBySourceNodeID(ctx, refs, rows); err != nil {
+		return nil, nil, err
+	}
 	hosts := make([]string, 0, len(rows))
 	for _, row := range rows {
 		hosts = append(hosts, row.NotePath)

@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the typed GraphQL query layer: SDL-driven execution, SQLite pushdown, and saved query recipes."
 reference-kind: guide
-last-verified: 2026-11-06
+last-verified: 2026-11-07
 code-paths:
   - pkg/ontology/query
   - pkg/ontology/pushdown
@@ -28,6 +28,10 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 ## Design constraints
 
 **Native RECORD reads (SPEC-0133).** RECORD types implement Node without Section or fabricated levels. Summary roots use indexed source presence/value rows and preserve empty strings and repeated occurrences. Rich content, child collections, workspace and locators use the scoped prepared host. `workspace.source` and `bodies.source` expose native source-value JSON with representation, media type and source provenance; web adapters keep it out of Markdown and heading projections. `LocalGraphEdge.occurrences` exposes authored reference occurrence/member evidence. Every workspace/body capability overlay calls the existing `ApplySourceOwnership`.
+
+RECORD workspace relation groups include the prepared record's parent and immediate children even without declared semantic edges. Containment stays distinct from authored references and backlinks; the existing shared relation components display all of them. Related record titles and locators come from batched summary hydration.
+
+Native source values expose optional `scalarText` for numbers and `keyText` for integer mapping keys, preserving exact canonical spelling when a browser's JSON numbers cannot represent the integer. Full source bytes remain available separately.
 
 - **Nested frontmatter paths share scalar semantics.** Compiled `@field(path:)` values flow through catalog field rows for indexed filtering and sorting; residual reads use the same owner-local mapping lookup as projection. Runtime ontology fields expose `sourcePath` separately from the literal `source` key. See [[ontology]] for traversal and read-only rules.
 - **Workspace capabilities reflect current source ownership.** Root and nested body workspaces overlay `.rhizome/source-ownership.yml` host-path restrictions on node and field capabilities; `NodeCapabilities.readOnlyReason` exposes the same reason used by write admission.
