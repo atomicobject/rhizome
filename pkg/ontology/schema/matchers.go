@@ -17,6 +17,7 @@ const (
 	matchInputTag
 	matchInputFind
 	matchInputProperty
+	matchInputHas
 )
 
 type matchInput struct {
@@ -225,6 +226,13 @@ func evalMatchInput(input *matchInput, doc *Subject) bool {
 		return hasTag(doc.Tags, input.Value)
 	case matchInputProperty:
 		return docPropertyHasValue(doc, input.Property, input.Value)
+	case matchInputHas:
+		for key, value := range doc.Frontmatter {
+			if strings.EqualFold(strings.TrimSpace(key), input.Property) && value != nil && value != "" {
+				return true
+			}
+		}
+		return false
 	default:
 		return false
 	}
@@ -300,6 +308,13 @@ func normalizeMatchPropertyValue(v string) string {
 }
 
 func parseMatchInput(arg string) (matchInput, error) {
+	if property, ok := strings.CutPrefix(arg, "has:"); ok {
+		property = strings.TrimSpace(property)
+		if property == "" {
+			return matchInput{}, fmt.Errorf("invalid presence input %q", arg)
+		}
+		return matchInput{Type: matchInputHas, Property: property}, nil
+	}
 	if strings.HasPrefix(arg, "tag:") {
 		tag := strings.Trim(strings.TrimPrefix(arg, "tag:"), "\"")
 		if tag == "" || tag == "*" {
@@ -320,6 +335,9 @@ func parseMatchInput(arg string) (matchInput, error) {
 		val := strings.TrimSpace(parts[1])
 		if key == "" || val == "" || val == "*" {
 			return matchInput{}, fmt.Errorf("invalid property input %q", arg)
+		}
+		if len(val) >= 2 && strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`) {
+			val = val[1 : len(val)-1]
 		}
 		return matchInput{Type: matchInputProperty, Property: key, Value: val}, nil
 	}

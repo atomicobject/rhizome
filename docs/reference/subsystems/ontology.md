@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology."
 reference-kind: guide
-last-verified: 2026-11-06
+last-verified: 2026-11-07
 code-paths:
   - pkg/ontology
   - pkg/ontology/schema
@@ -39,6 +39,8 @@ The ontology core owns Rhizome's typed note contract: compile GraphQL SDL from `
 Path fields use the common projection, catalog rows, typed reads, filtering, sorting and display. Their capabilities report them as read-only, and edit replay rejects set/unset operations. Authoring skeletons omit them rather than emitting flattened keys. Authored metadata is never rewritten to expose a nested value.
 
 ## Design constraints
+
+- **Property selectors distinguish presence from values.** `has:<property>` checks frontmatter keys case-insensitively and excludes only absent, null and empty-string values; even an empty list is present. It does not consult inline properties and is non-comparable for selector specificity. Double-quoted property values remove their outer quotes before the ordinary property comparison, so `products:"*"` matches a literal star; unquoted `products:*` remains invalid.
 
 **Neutral structural preparation (SPEC-0133).** `PrepareDocument` binds one captured `StructureFacts` owner/value tree per host. `PreparedDocument` owns traversal, semantic parents, record lookup and reference resolution; `DocumentSnapshot` is the explicit Markdown edit/body adapter. RECORD sources use explicit selectors, keys, titles, containment and references, with `@field(path:)` as the only property-path spelling. They inherit Node, not Section. Positional NodeIDs exclude the source hash, but their locators require the captured hash. Changing a RECORD host rebinds its declared source set so unchanged and unresolved targets converge. Ownership overlays continue through `ApplySourceOwnership`.
 

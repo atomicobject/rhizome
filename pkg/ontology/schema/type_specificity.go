@@ -182,6 +182,8 @@ func selectorAtomFromInput(input *matchInput) (selectorAtom, bool) {
 			Property: strings.ToLower(strings.TrimSpace(input.Property)),
 			Value:    normalizeMatchPropertyValue(input.Value),
 		}, true
+	case matchInputHas:
+		return selectorAtom{}, false
 	case matchInputFind:
 		return selectorAtom{
 			Kind:  selectorAtomFind,

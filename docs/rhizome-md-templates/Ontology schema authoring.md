@@ -29,6 +29,8 @@ Ontology files live in `.rhizome/ontology/*.graphql`. They are committed to git.
     - `notes/projects`
     - `tag:type/decision`
     - `classification:project`
+    - `has:products` checks for a frontmatter key with a non-null, non-empty-string value. Empty lists are present; inline properties do not count. Key matching is case-insensitive.
+    - `products:"*"` matches a literal star, including a list element. Double quotes are removed before ordinary property comparison; unquoted `products:*` is invalid. Combine atoms with `AND`, `OR`, and `NOT`, for example `products:alpha OR products:"*" OR NOT has:products` (escape inner quotes as `\"` in SDL).
 - `interface` / `implements`
   - defines shared query contracts across concrete note types.
   - use when several concrete types share the same authored fields or query shape.
