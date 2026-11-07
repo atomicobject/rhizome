@@ -39,21 +39,34 @@ function sortRailNodes(nodes: RailNode[]): RailNode[] {
     .sort((left, right) => railNodeLabel(left).localeCompare(railNodeLabel(right)));
 }
 
-/** Drops empty embedded type rows, lifting their children into their place. */
+/**
+ * Drops empty embedded type rows, lifting their children into their place, and
+ * an empty interface whose members were all such rows.
+ */
 function withoutEmptyEmbedded(nodes: RailNode[]): RailNode[] {
   return nodes.flatMap((node) => {
     const children = withoutEmptyEmbedded(node.children);
 
-    return node.kind === "type" && node.type.role === "embedded" && node.type.count === 0
-      ? children
-      : [{ ...node, children }];
+    if (node.kind === "type" && node.type.role === "embedded" && node.type.count === 0)
+      return children;
+
+    if (
+      node.kind === "interface" &&
+      node.interface.count === 0 &&
+      node.children.length &&
+      !children.length
+    )
+      return [];
+
+    return [{ ...node, children }];
   });
 }
 
 /**
  * Groups types and interfaces for a sidebar tree. Notes leaves out standalone
- * embedded types, and embedded types without records (they cannot be selected
- * there); Ontology passes `includeEmbedded` so every type has a row.
+ * embedded types, embedded types without records (they cannot be selected
+ * there), and a group left with nothing to select; Ontology passes
+ * `includeEmbedded` so every type has a row.
  */
 export function buildRailGroups(
   summary: OntologySummaryResponse | null,
@@ -124,10 +137,11 @@ export function buildRailGroups(
   }
 
   return [...grouped.entries()]
-    .map(([name, children]) => ({
-      name,
-      children: sortRailNodes(includeEmbedded ? children : withoutEmptyEmbedded(children)),
-    }))
+    .flatMap(([name, children]) => {
+      const rows = sortRailNodes(includeEmbedded ? children : withoutEmptyEmbedded(children));
+
+      return rows.length ? [{ name, children: rows }] : [];
+    })
     .sort((left, right) => {
       if (left.name === "Other") return 1;
 
