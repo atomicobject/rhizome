@@ -121,3 +121,5 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 - [[configured-view-engine-and-repo-config]] — the other pushdown consumer
 - [[Ontology (Hub)]] — subsystem hub
 - [[ontology]], [[noderead]] — sibling subsystem notes (upstream schema/index; downstream batched reads)
+
+Relation counts resolve after the complete response selection tree, sharing one batched count request per relation field across note and embedded records at every depth. Missing prefetch state must never be interpreted as an empty relation.

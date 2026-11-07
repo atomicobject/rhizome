@@ -9,7 +9,6 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -269,13 +268,6 @@ func (e *executor) resolveNodeList(ctx context.Context, records []*noteRecord, s
 }
 
 func (e *executor) resolveSectionList(ctx context.Context, records []*sectionRecord, set ast.SelectionSet, path []string) []any {
-	refs := make([]ontology.NodeRef, 0, len(records))
-	for _, record := range records {
-		if record != nil {
-			refs = append(refs, e.sectionNodeRef(record))
-		}
-	}
-	e.prefetchRelationCounts(ctx, refs, set)
 	out := make([]any, 0, len(records))
 	for _, record := range records {
 		out = append(out, e.resolveSectionSelectionSet(ctx, record, set, path))

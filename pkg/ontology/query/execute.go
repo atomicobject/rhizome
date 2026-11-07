@@ -45,13 +45,13 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 		variables:          prepared.Variables,
 		fragments:          prepared.Document.Fragments,
 		sectionsByPath:     make(map[string][]*ontology.SectionNode),
-		relationCounts:     make(map[string]map[string]int),
 		typedRootCoverage:  make(map[string]typedRootCoverage),
 		linkTargetResolver: pushdown.NewCatalogLinkResolver(schema, deps.Store),
 		recordFactPaths:    make(map[string]struct{}),
 		recordFactScopes:   make(map[semdb.ValidationScope]struct{}),
 	}
 	data := exec.resolveQuerySelectionSet(ctx, prepared.Operation.SelectionSet, nil)
+	exec.fillRelationCounts(ctx, data)
 	exec.fillRecordFacts(ctx, data)
 	result := Result{
 		Data:        data,
@@ -88,7 +88,6 @@ type executor struct {
 
 	inboundSectionNeighbors map[string]map[string][]string
 
-	relationCounts     map[string]map[string]int
 	reverseRelations   map[string]map[string][]ontology.NodeRef
 	typedRootCoverage  map[string]typedRootCoverage
 	linkTargetResolver pushdown.LinkResolver
