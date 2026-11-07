@@ -39,7 +39,7 @@ def load_engine():
     module("_kbcore", "_kbcore.py")
     module("account", "account.py")
     engine = module("ao_binding_metamodel", "metamodel.py")
-    for name in ("resolve_vault", "_fields_of", "_find_container_for", "_leaf_id", "model_doc"):
+    for name in ("resolve", "load_standard", "_yaml", "_fields_of", "_find_container_for", "_leaf_id", "model_doc"):
         if not callable(getattr(engine, name, None)):
             raise ValueError(f"ao_adapter_contract: missing {name}")
     return engine, product, package
@@ -72,11 +72,24 @@ def selected_context(root, slug, product):
     return site, registered
 
 
+def owned_config(site, product):
+    """The mirrored config names a product root keeps, read as AO's product.mirror_config reads them."""
+    owns = product._yaml(str(site / product.PRODUCT_YAML)).get("owns") or []
+    return [owns] if isinstance(owns, str) else list(owns)
+
+
 def export(root, slug):
     engine, product, package = load_engine()
     site, registered = selected_context(root, slug, product)
     engine.require_current_schema(str(site))
-    mm = engine.resolve_vault(str(site))
+    owns = owned_config(site, product) if slug else []
+    # AO's site-scoped commands mirror the account's config over the product root before reading it
+    # (product.mirror_config), so the account's metamodel.yaml wins unless the product owns its copy.
+    project_file = site / engine.PROJECT_REL
+    if slug and "metamodel.yaml" not in owns and (root / engine.PROJECT_REL).is_file():
+        project_file = root / engine.PROJECT_REL
+    # resolve_vault(project root), without writing the mirror.
+    mm = engine.resolve(engine.load_standard(), (engine._yaml(str(project_file)) or {}) if project_file.is_file() else None)
     schema = engine.load_schema()
     manifest = site / ".kb/config/manifest.json"
     diagnostics = []
@@ -115,9 +128,10 @@ def export(root, slug):
             acct, own = root / ".kb/config" / name, site / ".kb/config" / name
             capture(acct)
             capture(own)
-            if acct.is_file() and (not own.is_file() or acct.read_bytes() != own.read_bytes()):
+            if name not in owns and acct.is_file() and (not own.is_file() or acct.read_bytes() != own.read_bytes()):
                 diagnostics.append({"code": "ao_config_mirror_differs", "severity": "note", "path": relative(own),
-                                    "message": "AO resolves the selected product file; account config was not overlaid"})
+                                    "message": "AO's next product command copies the account file over this copy, because product.yaml "
+                                               "does not list it under owns; Rhizome reads the account file as AO will"})
     knowledge = []
     for name in ("assertions", "sources", "concepts", "artifacts"):
         selected = engine.account.product_notes(str(site), name, recursive=name not in ("assertions", "concepts"))
@@ -197,8 +211,11 @@ def export(root, slug):
                 diagnostics.append({"code": "ao_identity_parity_unsupported", "severity": "error", "kind": kind,
                                     "message": "physical attribution keys disagree with the pinned AO reader"})
     for kind, key, count in duplicates:
+        occurrences = [r for r in evidence if r["kind"] == kind and r["key"] == key]
         diagnostics.append({"code": "ao_duplicate_record", "severity": "error", "kind": kind, "key": key,
-                            "count": count, "occurrences": [r for r in evidence if r["kind"] == kind and r["key"] == key]})
+                            "count": count, "occurrences": occurrences,
+                            "message": f"{count} {kind} records use the ID {key}: "
+                                       + ", ".join(f'{o["path"]}#{o["address"]}' for o in occurrences)})
     live = {f"{k}:{rid}" for k, values in oracle_rows.items() for rid in values}
     edges = engine.edges(mm, oracle_rows, schema)
     resolved_edges = [e for e in edges if e["from"] in live and e["to"] in live]

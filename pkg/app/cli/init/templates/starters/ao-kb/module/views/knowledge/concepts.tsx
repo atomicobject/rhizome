@@ -61,19 +61,23 @@ function ConceptsBody({ data }: { data: Knowledge }) {
               ))}
             </div>
             <div className="ak-table-wrap">
-              <table className="ak-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Concept</th>
-                    <th scope="col">Assertions</th>
+              <table className="ak-table" role="table">
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th role="columnheader" scope="col">
+                      Concept
+                    </th>
+                    <th role="columnheader" scope="col">
+                      Assertions
+                    </th>
                     {COVERAGE.map((s) => (
-                      <th scope="col" key={s}>
+                      <th role="columnheader" scope="col" key={s}>
                         {s}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   {visible.map((c) => {
                     const members = assertions.filter((a) =>
                       a.concepts.some((v) => v.path === c.path),
@@ -82,8 +86,8 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                       (label) => members.filter((a) => coverage.data?.get(a.path) === label).length,
                     );
                     return (
-                      <tr key={c.path}>
-                        <td>
+                      <tr key={c.path} role="row">
+                        <td role="cell">
                           <Record record={c} />
                           {members.length > 0 && (
                             <div
@@ -113,7 +117,7 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                               : "concepts"}
                           </span>
                         </td>
-                        <td>
+                        <td role="cell">
                           <a
                             className="text-link hover:underline"
                             href={workspaceViewHref(
@@ -137,7 +141,7 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                           </a>
                         </td>
                         {counts.map((n, i) => (
-                          <td key={COVERAGE[i]}>
+                          <td key={COVERAGE[i]} role="cell" data-label={COVERAGE[i]}>
                             <Count>{n}</Count>
                           </td>
                         ))}

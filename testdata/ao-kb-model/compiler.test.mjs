@@ -126,6 +126,41 @@ test('source and compiler tampering, missing dependency, and stale manifest fail
   assert.equal((await check({...options, checkDependencies: deps})).bindingsReady, false);
   const result = await check({...options, checkDependencies: async () => ({uv: {ready: false}})});
   assert.equal(result.diagnostics[0].code, 'ao_dependency_missing');
+  assert.equal(result.status, 'dependency missing', 'previous bindings exist, but a missing dependency is not staleness');
+});
+
+test('the check names the actual model state instead of calling every failure stale', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const unavailable = async () => { throw Object.assign(new Error('ao_dependency_unavailable: uv could not prepare packages'),
+    {diagnostics: [{code: 'ao_dependency_unavailable', severity: 'error', message: 'ao_dependency_unavailable: uv could not prepare packages'}]}); };
+  let report = await check({...options, exportModel: unavailable, checkDependencies: deps});
+  assert.equal(report.status, 'dependency missing');
+  assert.equal(report.bindingsReady, false);
+  const pinned = async () => { throw new Error('ao_toolkit_pin: manifest siteEngine.version is not the supported baseline'); };
+  report = await check({...options, exportModel: pinned, checkDependencies: deps});
+  assert.equal(report.status, 'error');
+  // An unsupported schema is an error even though the same edit also stales the model.
+  await writeFile(path.join(options.root, '.kb/config/vault.md'), '---\nschemaVersion: 7\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n');
+  report = await check({...options, checkDependencies: deps});
+  assert.ok(report.diagnostics.some(d => d.code === 'ao_bindings_stale'));
+  assert.equal(report.status, 'error');
+});
+
+test('a uv environment failure is reported as a missing dependency', {skip: process.platform === 'win32'}, async t => {
+  const {adapter} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
+  const bin = await mkdtemp(path.join(os.tmpdir(), 'aokb-fake-uv-'));
+  t.after(() => rm(bin, {recursive: true, force: true}));
+  const uv = path.join(bin, 'uv');
+  await writeFile(uv, '#!/bin/sh\necho "error: No solution found; the network was disabled" >&2\nexit 1\n', {mode: 0o755});
+  const saved = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${saved}`;
+  t.after(() => { process.env.PATH = saved; });
+  await assert.rejects(adapter(bin, compiler, selection, {offline: true}),
+    error => error.diagnostics?.[0]?.code === 'ao_dependency_unavailable' && /network was disabled/.test(error.message));
+  // A crash inside the adapter is the adapter's error, not a missing dependency.
+  await writeFile(uv, '#!/bin/sh\necho "Traceback (most recent call last):" >&2\nexit 1\n', {mode: 0o755});
+  await assert.rejects(adapter(bin, compiler, selection, {offline: true}), error => !error.diagnostics && /Traceback/.test(error.message));
 });
 
 test('index certification rejects an index that silently omitted native sources', async () => {
@@ -216,6 +251,7 @@ test('ownership is enforced before publication and source compatibility is disti
   };
   const report = await check({...options, exportModel: incompatible, checkDependencies: deps});
   assert.equal(report.bindings.model.status, 'incomplete');
+  assert.equal(report.status, 'duplicate IDs');
   assert.ok(report.diagnostics.some(d => d.code === 'ao_duplicate_record'));
   await assert.rejects(refresh({...options, exportModel: async () => {
     const ir = await options.exportModel();
@@ -292,6 +328,15 @@ test('Node preflight refuses incompatible schema, registry, markers, stamp, and 
     assert.equal(called, false, 'preflight runs before Python/model export');
     await assert.rejects(readFile(path.join(options.directory, '../ontology/ao-knowledge.generated.graphql')), {code: 'ENOENT'});
   }
+});
+
+test('a vault.md without schemaVersion is current, as AO reads it', async t => {
+  const options = await fixture(t);
+  const vault = path.join(options.root, '.kb/config/vault.md');
+  await writeFile(vault, (await readFile(vault, 'utf8')).replace(/^schemaVersion:.*\n/m, ''));
+  assert.doesNotMatch(await readFile(vault, 'utf8'), /schemaVersion/);
+  await refresh(options);
+  assert.equal((await check({...options, checkDependencies: deps})).bindingsReady, true);
 });
 
 test('a tampered generated-file inventory cannot delete authored files', async t => {

@@ -171,6 +171,7 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 		if err != nil {
 			return err
 		}
+		planDroppedModuleFiles(template, moduleFiles, record, plan)
 		for _, file := range moduleFiles {
 			fresh, err := register(file.target, file.content, template)
 			if err != nil {
@@ -221,6 +222,27 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 		}
 	}
 	return nil
+}
+
+// planDroppedModuleFiles removes the files of an active starter's module
+// that Rhizome wrote and this version no longer ships. The ownership rule
+// removes an unedited copy and keeps and reports an edited one; files init
+// has no record of writing, such as compiled bindings, are never candidates.
+func planDroppedModuleFiles(template string, shipped []starterModuleFile, record *generatedFiles, plan *filePlan) {
+	current := map[string]bool{}
+	for _, file := range shipped {
+		current[file.target] = true
+	}
+	for _, rel := range recordedFilesUnder(record, assetroots.ModuleRoot(template)) {
+		if current[rel] {
+			continue
+		}
+		fingerprint := contentFingerprint
+		if _, kind, _, ok := assetroots.Classify(rel); ok && kind == assetroots.Ontology {
+			fingerprint = ontologyFingerprint
+		}
+		plan.removals = append(plan.removals, generatedRemoval{rel: rel, fingerprint: fingerprint})
+	}
 }
 
 // planLegacyFlatCopy handles the flat copy of a module file that init

@@ -153,6 +153,24 @@
   white-space: nowrap;
 }
 
+/* Once the path is down to its minimum, the controls wrap onto a second line
+   instead of being cut off. The path's zero basis keeps it from wrapping a
+   control early, and it takes the free width itself, so the spacer stands down. */
+.notes-shell .ontology-pane__controls:has(> .ontology-pane__toolbar-path) {
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
+  height: auto;
+  padding-block: var(--sp-2);
+}
+
+.notes-shell .ontology-pane__controls > .ontology-pane__toolbar-path {
+  flex: 1 1 0;
+}
+
+.notes-shell .ontology-pane__toolbar-path ~ .ontology-pane__controls-spacer {
+  display: none;
+}
+
 /* ---- Note control bar ----
    The note's presentations (Structure | Markdown, plus saved views) read as
    one segmented control, like every other mode switch; the default view is

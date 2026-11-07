@@ -93,9 +93,38 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(error["key"], "SHARED")
         self.assertEqual(len(error["occurrences"]), 2)
         self.assertNotEqual(error["occurrences"][0]["path"], error["occurrences"][1]["path"])
+        self.assertIn("SHARED", error["message"])
+        for occurrence in error["occurrences"]:
+            self.assertIn(f'{occurrence["path"]}#{occurrence["address"]}', error["message"])
+
+    def account_metamodel_override(self, field):
+        import yaml
+        path = self.root / ".kb/config/metamodel.yaml"
+        doc = yaml.safe_load(path.read_text())
+        doc["override"]["service"]["fields"][field] = {"type": "text"}
+        path.write_text(yaml.safe_dump(doc, sort_keys=False))
+
+    def service_fields(self):
+        return next(k for k in export(self.root, "alpha")["kinds"] if k["name"] == "service")["fields"]
+
+    def test_account_metamodel_wins_unless_the_product_owns_its_copy(self):
+        # AO's site-scoped commands mirror the account's metamodel.yaml over the product copy first.
+        self.account_metamodel_override("account_detail")
+        self.assertIn("account_detail", self.service_fields())
+        got = export(self.root, "alpha")
+        self.assertTrue(any(d["code"] == "ao_config_mirror_differs" and d["path"] == "products/alpha/.kb/config/metamodel.yaml"
+                            for d in got["diagnostics"]))
+        # A product that owns metamodel.yaml keeps its own copy, as AO's mirror_config does.
+        marker = self.root / "products/alpha/.kb/config/product.yaml"
+        marker.write_text(marker.read_text() + "owns: metamodel.yaml\n")
+        self.assertNotIn("account_detail", self.service_fields())
+        self.assertIn("project_detail", self.service_fields())
+        got = export(self.root, "alpha")
+        self.assertFalse(any(d["code"] == "ao_config_mirror_differs" and d["path"].endswith("metamodel.yaml") for d in got["diagnostics"]))
 
     def test_overlaid_fields_are_notes_unless_required(self):
-        path = self.root / "products/alpha/.kb/config/metamodel.yaml"
+        # Alpha does not own its metamodel copy, so AO (and the adapter) resolve the account file.
+        path = self.root / ".kb/config/metamodel.yaml"
         doc = self.engine._yaml(str(path))
         doc["override"]["service"]["fields"]["reads_fields"] = {"type": "text[]"}
         self.write(path, doc)
@@ -150,7 +179,8 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(got["oracle"]["rows"]["job"]["SHARED.1"]["products"], ["*"])
 
     def test_positional_grouped_mapping_order_is_not_faked_by_source_order(self):
-        path = self.root / "products/alpha/.kb/config/metamodel.yaml"
+        # Alpha does not own its metamodel copy, so AO (and the adapter) resolve the account file.
+        path = self.root / ".kb/config/metamodel.yaml"
         project = self.engine._yaml(str(path))
         project["add"]["kinds"]["group"]["key"] = None
         self.write(path, project)

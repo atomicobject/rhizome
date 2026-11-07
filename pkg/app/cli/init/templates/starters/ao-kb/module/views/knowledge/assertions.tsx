@@ -57,12 +57,13 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
         {() =>
           rows.length ? (
             <div className="ak-table-wrap">
-              <table className="ak-table">
-                <thead>
-                  <tr>
+              <table className="ak-table" role="table">
+                <thead role="rowgroup">
+                  <tr role="row">
                     {columns.map(([field, label]) => (
                       <th
                         key={field}
+                        role="columnheader"
                         scope="col"
                         aria-sort={
                           key === field
@@ -86,33 +87,41 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   {rows.map((a) => (
-                    <tr key={a.path}>
-                      <td>
+                    <tr key={a.path} role="row">
+                      <td role="cell">
                         <Record record={a} />
                         <StatusBadges a={a} edges={edges} />
                         <span className="ak-meta">
                           {a.concepts.map(name).join(" · ") || "No concepts recorded"}
                         </span>
                       </td>
-                      <td>{a.kind || "Not recorded"}</td>
-                      <td>{a.confidence || "Not recorded"}</td>
-                      <td>
+                      <td role="cell" data-label="Kind">
+                        {a.kind || "Not recorded"}
+                      </td>
+                      <td role="cell" data-label="Stored confidence">
+                        {a.confidence || "Not recorded"}
+                      </td>
+                      <td role="cell" data-label="Status">
                         {a.status ? <StatusMark value={a.status} values={[]} /> : "Not recorded"}
                       </td>
-                      <td>
+                      <td role="cell">
                         <Count>{a.sourcesSection?.citations.length || 0}</Count> Sources{" "}
                         {a.sourcesSection?.citations.length === 1 ? "link" : "links"}
                         <span className="ak-meta">
                           {citations.data?.get(a.path) || "Not recorded"}
                         </span>
                       </td>
-                      <td>
+                      <td role="cell" data-label="Updated">
                         <DateValue value={a.updatedAt} />
                       </td>
-                      <td>{a.priority || "Not recorded"}</td>
-                      <td>{a.horizon || "Not recorded"}</td>
+                      <td role="cell" data-label="Priority">
+                        {a.priority || "Not recorded"}
+                      </td>
+                      <td role="cell" data-label="Horizon">
+                        {a.horizon || "Not recorded"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -97,14 +97,17 @@ export function bindingRows(root, report) {
   const rows = [];
   const add = (name, status, message, path) => rows.push({ name, status, message, path });
   const codes = (report.diagnostics ?? []).map(d => d.code);
-  const detail = (report.diagnostics ?? []).filter(d => d.severity === 'error').map(d => d.message).join(' ');
+  const detail = (report.diagnostics ?? []).filter(d => d.severity === 'error').map(d => d.message || d.code).join(' ');
+  // The compiler's state names what failed; a missing dependency or duplicate IDs is never reported as stale.
+  const dependency = report.status === 'dependency missing' || codes.includes('ao_dependency_missing');
 
   const deps = Object.entries(report.dependencies ?? {});
   if (deps.length) {
     const missing = deps.filter(([, d]) => !d.ready).map(([name]) => name);
-    add('model compiler dependencies', missing.length ? 'error' : 'ok', missing.length
+    const found = deps.map(([name, d]) => `${name} ${d.version || ''}`.trim()).join(', ');
+    add('model compiler dependencies', missing.length || dependency ? 'dependency missing' : 'ok', missing.length
       ? `Missing ${missing.join(' and ')}. The binding compiler needs uv on PATH (it supplies Python and AO's pinned kb-site package) and the Rhizome executable.`
-      : `Found ${deps.map(([name, d]) => `${name} ${d.version || ''}`.trim()).join(', ')}.`, `${MODULE}/bindings`);
+      : dependency ? `Found ${found}, but the compiler's Python packages are unavailable. ${detail}` : `Found ${found}.`, `${MODULE}/bindings`);
   }
 
   const bindingsPath = `${MODULE}/bindings/manifest.json`;
@@ -112,10 +115,12 @@ export function bindingRows(root, report) {
     add('model bindings', 'ok', `Bindings match the selected product's model configuration. Authored values refresh through normal indexing.`, bindingsPath);
   } else if (codes.includes('ao_selection_required')) {
     add('model bindings', 'pending', `No product selected yet. ${SELECT}`, bindingsPath);
-  } else if (codes.includes('ao_dependency_missing')) {
-    add('model bindings', 'pending', 'Install the missing compiler dependencies, then refresh bindings.', bindingsPath);
+  } else if (dependency) {
+    add('model bindings', 'dependency missing', `Bindings cannot be checked until the compiler dependencies are available; any previous bindings stay in place. ${detail}`.trim(), bindingsPath);
+  } else if (report.status === 'duplicate IDs') {
+    add('model bindings', 'duplicate IDs', `AO model records share an ID, so refresh keeps the previous bindings instead of choosing one. ${detail} Make each ID unique in its AO source, then run \`rzm ao-kb refresh-bindings\`.`, bindingsPath);
   } else if (report.status === 'stale') {
-    add('model bindings', 'warning', `Bindings are stale: run \`rzm ao-kb refresh-bindings\`. ${detail}`.trim(), bindingsPath);
+    add('model bindings', 'stale', `Bindings are stale: run \`rzm ao-kb refresh-bindings\`. ${detail}`.trim(), bindingsPath);
   } else {
     add('model bindings', 'error', detail || 'The binding compiler reported an error.', bindingsPath);
   }

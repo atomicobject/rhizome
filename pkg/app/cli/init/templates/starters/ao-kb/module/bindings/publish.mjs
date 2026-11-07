@@ -61,6 +61,16 @@ export async function refresh({root, directory, selection, exportModel = adapter
     throw error;
   } finally { await rm(lock, {recursive: true, force: true}); }
 }
+// A failed check names its actual state: a missing dependency or duplicate source IDs is not staleness.
+const STALE = new Set(['ao_bindings_stale', 'ao_knowledge_stale', 'ao_artifact_phases_stale', 'ao_input_changed']);
+const DEPENDENCY = new Set(['ao_dependency_missing', 'ao_dependency_unavailable', 'ao_python_dependency']);
+function state(diagnostics) {
+  const codes = diagnostics.filter(d => d.severity === 'error').map(d => d.code);
+  if (codes.some(code => DEPENDENCY.has(code))) return 'dependency missing';
+  if (codes.includes('ao_duplicate_record')) return 'duplicate IDs';
+  if (codes.includes('ao_selection_required')) return 'selection required';
+  return codes.length && codes.every(code => STALE.has(code)) ? 'stale' : 'error';
+}
 export async function check({root, directory, exportModel = adapter, checkDependencies = dependencies}) {
   const prerequisites = await checkDependencies();
   const result = {starterInstalled: true, bindingsReady: false, knowledgeReady: false, modelReady: false, indexReady: false,
@@ -69,7 +79,6 @@ export async function check({root, directory, exportModel = adapter, checkDepend
   const selection = await readJSON(path.join(directory, 'selection.json'));
   const manifest = await readJSON(manifestPath(directory, 'model'));
   const knowledgeManifest = await readJSON(manifestPath(directory, 'knowledge'));
-  result.status = manifest?.status || 'missing';
   try {
     const scoped = await knowledge(root, directory, selection);
     const saved = knowledgeManifest;
@@ -101,13 +110,12 @@ export async function check({root, directory, exportModel = adapter, checkDepend
     const receipt = await readJSON(path.join(directory, 'index-receipt.json'));
     result.indexReady = result.knowledgeReady && receipt?.knowledgeFingerprint === knowledgeManifest?.fingerprint && receipt?.fingerprint === manifest.fingerprint && receipt?.sdlHash === manifest.sdlHash && receipt?.sourceSignature === await indexSignature(root, ir);
   } catch (error) {
-    result.status = manifest?.sdlHash ? 'stale' : 'error';
-    result.bindings.model.status = error.diagnostics?.some(d => d.severity === 'error') ? 'incomplete' : result.status;
-    result.diagnostics.push(...(error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}]));
+    const diagnostics = error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}];
+    result.bindings.model.status = error.diagnostics?.some(d => d.severity === 'error') ? 'incomplete' : state(diagnostics);
+    result.diagnostics.push(...diagnostics);
   }
   result.bindingsReady = result.knowledgeReady && result.modelReady;
-  if (result.bindingsReady) result.status = 'ready';
-  else if (result.modelReady) result.status = 'stale';
+  result.status = result.bindingsReady ? 'ready' : state(result.diagnostics);
   if (result.bindingsReady && !result.indexReady) result.next = 'node .rhizome/modules/ao-kb/bindings/cli.mjs index';
   return result;
 }

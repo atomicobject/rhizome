@@ -65,12 +65,13 @@
   text-align: left;
   font-size: 13px;
 }
+/* Heads wrap, so a long head over short values never forces the table wider. */
 .ak-table th {
   padding: 8px;
   font-weight: 500;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  vertical-align: bottom;
 }
 .ak-table td {
   padding: 9px 8px;
@@ -94,6 +95,60 @@
 }
 .ak-table tbody tr:hover {
   background: var(--surface-tint);
+}
+/* Below the tables' natural width, a row reads as a block instead of scrolling
+   sideways: its title cell, then the other cells as labelled values that wrap.
+   Sortable heads stay as a wrapped row of sort buttons; other heads leave,
+   since every value carries its label. */
+@container knowledge (max-width: 899px) {
+  .ak-table,
+  .ak-table :is(thead, tbody, tr, th, td) {
+    display: block;
+  }
+  .ak-table thead:not(:has(button)) {
+    display: none;
+  }
+  .ak-table thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .ak-table thead tr::before {
+    content: "Sort by";
+  }
+  .ak-table th {
+    padding: 0;
+    border: 0;
+  }
+  .ak-table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .ak-table td:nth-child(n) {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .ak-table td:first-child {
+    flex-basis: 100%;
+  }
+  .ak-table td[data-label]::before {
+    content: attr(data-label);
+    margin-right: 6px;
+    color: var(--text-muted);
+  }
+  .ak-table td:not(:first-child) .ak-meta {
+    display: inline;
+    margin-left: 6px;
+  }
 }
 .ak-meta {
   display: block;

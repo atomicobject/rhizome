@@ -7,12 +7,6 @@
   },
   "diagnostics": [
     {
-      "code": "ao_config_mirror_differs",
-      "message": "AO resolves the selected product file; account config was not overlaid",
-      "path": "products/alpha/.kb/config/metamodel.yaml",
-      "severity": "note"
-    },
-    {
       "code": "ao_generated_field_overlay",
       "field": "reads_fields",
       "kind": "endpoint",
@@ -4933,7 +4927,7 @@
       "path": "products/alpha/.kb/config/phases.md"
     },
     {
-      "hash": "sha256:b8f4f87c98c03df16ffb869643cff025c4864ed9ff5adf8dc84244301ccd1039",
+      "hash": "sha256:d4984b0d266b2e48b3d43419e06d0d0725f35bac79389654c346f7906221ecb7",
       "path": "products/alpha/.kb/config/product.yaml"
     },
     {
@@ -4961,7 +4955,7 @@
       "path": "products/alpha/.kb/config/vault.md"
     },
     {
-      "hash": "sha256:154eeb9de126a9b8a8ae9b7591387799321869bd7b3c4def506ae9111c78c771",
+      "hash": "sha256:a706f8a47581a901e76b32664ce37a4148ca662b10f962038eb14f89929976be",
       "path": "products/beta/.kb/config/product.yaml"
     }
   ],
