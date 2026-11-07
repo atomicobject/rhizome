@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -13,6 +14,7 @@ func TestBrokenLinksAgreeWithProviderResolvedEdges(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		files       map[string]string
+		includes    []string
 		wantBroken  []string
 		wantIndexed bool
 	}{
@@ -24,12 +26,24 @@ func TestBrokenLinksAgreeWithProviderResolvedEdges(t *testing.T) {
 		{name: "ignored note intentionally has no indexed edge", files: map[string]string{"source.md": "[[ignored/hidden#Inside]]\n", "ignored/hidden.md": "## Inside\n", ".rhizome/ignore": "ignored/**\n"}},
 		{name: "HTML broken href", files: map[string]string{"source.html": "<html><body><a href=\"missing.html\">missing</a></body></html>"}, wantBroken: []string{"missing.html"}},
 		{name: "Markdown fragment into HTML", files: map[string]string{"source.md": "[[effort.html#Deviations]]\n", "effort.html": "<html><body><h2 id=\"Deviations\">Deviations</h2></body></html>"}, wantIndexed: true},
+		// Without an explicit include, YAML and JSON stay attachments, as before structured providers existed.
+		{name: "YAML and JSON outside structured includes", files: map[string]string{
+			"docs/source.md":           "[ci](../.github/workflows/ci.yml) [gate](../.golangci-gate.yml) [app](../config/app.yml) [package](../package.json) [gone](../config/missing.yml)\n",
+			".github/workflows/ci.yml": "on: push\n", ".golangci-gate.yml": "linters: {}\n", "config/app.yml": "name: app\n", "package.json": "{}\n",
+		}, includes: []string{"**/*.md", "model/*.yaml"}},
+		{name: "wikilink to a missing YAML file", files: map[string]string{"source.md": "[[missing.yml]]\n"}, wantBroken: []string{"missing.yml"}},
+		{name: "explicitly included YAML host", files: map[string]string{
+			"source.md": "[services](model/services.yaml) [gone](model/missing.yaml)\n", "model/services.yaml": "services: [{id: A}]\n",
+		}, includes: []string{"**/*.md", "model/*.yaml"}, wantBroken: []string{"model/missing.yaml"}, wantIndexed: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
-			tc.files[".rhizome/config.yml"] = "notes:\n  includes: [\"**/*.md\", \"**/*.html\"]\n"
+			if tc.includes == nil {
+				tc.includes = []string{"**/*.md", "**/*.html"}
+			}
+			tc.files[".rhizome/config.yml"] = "notes:\n  includes: [\"" + strings.Join(tc.includes, "\", \"") + "\"]\n"
 			require.NoError(t, writeFixtureFiles(root, tc.files))
-			run := RunContext{VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root, Includes: []string{"**/*.md", "**/*.html"}, Links: obsidian.LinkTypeBoth}, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t)}
+			run := RunContext{VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root, Includes: tc.includes, Links: obsidian.LinkTypeBoth}, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t)}
 			snapshot, err := captureValidationRunSnapshot(context.Background(), run)
 			require.NoError(t, err)
 			run.sourceSnapshot = snapshot

@@ -51,3 +51,17 @@ func TestStructuredSourcesRequireExplicitIncludes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, notediscovery.Ignored, got.Owner)
 }
+
+func TestNoteFormatKeepsUnselectedStructuredFilesAsAttachments(t *testing.T) {
+	registry, err := builtin.NewRegistry()
+	require.NoError(t, err)
+	plan, err := notediscovery.Compile(notediscovery.Config{Mode: notediscovery.CollectionVault, Includes: []string{"notes/**/*.md", "model/*.yaml"}, Registry: registry})
+	require.NoError(t, err)
+	for path, want := range map[string]bool{
+		"model/missing.yaml": true, "elsewhere/readme.md": true,
+		".github/workflows/ci.yml": false, "config/app.yml": false, "package.json": false, "report.html": false,
+	} {
+		_, got := plan.NoteFormat(paths.RelPath(path))
+		require.Equal(t, want, got, path)
+	}
+}
