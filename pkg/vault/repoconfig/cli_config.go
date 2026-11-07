@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"gopkg.in/yaml.v3"
@@ -34,32 +33,6 @@ func readCliConfig(env config.Env, allowMissing bool) (CliConfig, error) {
 	}
 
 	return cfg, nil
-}
-
-func writeCliConfig(env config.Env, cfg CliConfig) error {
-	obsConfigDir, obsConfigFile, err := env.CliPath()
-	if err != nil {
-		return err
-	}
-
-	if obsConfigDir == "" {
-		return errors.New(RhizomeConfigDirWriteError)
-	}
-
-	if err := os.MkdirAll(obsConfigDir, 0o700); err != nil {
-		return errors.New(RhizomeConfigDirWriteError)
-	}
-
-	yamlContent, err := yaml.Marshal(cfg)
-	if err != nil {
-		return errors.New(RhizomeConfigGenerateError)
-	}
-
-	if err := fileio.WriteFileAtomic(obsConfigFile, yamlContent, 0o600); err != nil {
-		return errors.New(RhizomeConfigWriteError)
-	}
-
-	return nil
 }
 
 func validateVaultPath(path string) error {
@@ -99,21 +72,16 @@ func setCliVaultDefinition(env config.Env, def obsidian.VaultDefinition, force b
 		def.Root = filepath.Clean(def.Root)
 	}
 
-	cfg, err := readCliConfig(env, true)
-	if err != nil {
-		return err
-	}
-
-	if cfg.Vaults == nil {
-		cfg.Vaults = make(map[string]obsidian.VaultDefinition)
-	}
-
-	if existing, ok := cfg.Vaults[def.Name]; ok && existing.BasePath() != basePath && !force {
-		return fmt.Errorf("%s: %s", RhizomeVaultExistsError, def.Name)
-	}
-
-	cfg.Vaults[def.Name] = def
-	return writeCliConfig(env, cfg)
+	return UpdateCliConfig(env, func(cfg *CliConfig) error {
+		if cfg.Vaults == nil {
+			cfg.Vaults = make(map[string]obsidian.VaultDefinition)
+		}
+		if existing, ok := cfg.Vaults[def.Name]; ok && existing.BasePath() != basePath && !force {
+			return fmt.Errorf("%s: %s", RhizomeVaultExistsError, def.Name)
+		}
+		cfg.Vaults[def.Name] = def
+		return nil
+	})
 }
 
 // removeCliVaultPath removes a vault entry from CLI preferences.
@@ -122,21 +90,13 @@ func removeCliVaultPath(env config.Env, name string) error {
 		return errors.New(RhizomeVaultNameRequiredError)
 	}
 
-	cfg, err := readCliConfig(env, true)
-	if err != nil {
-		return err
-	}
-
-	if len(cfg.Vaults) == 0 {
-		return fmt.Errorf("%s: %s", RhizomeVaultNotFoundError, name)
-	}
-
-	if _, ok := cfg.Vaults[name]; !ok {
-		return fmt.Errorf("%s: %s", RhizomeVaultNotFoundError, name)
-	}
-
-	delete(cfg.Vaults, name)
-	return writeCliConfig(env, cfg)
+	return UpdateCliConfig(env, func(cfg *CliConfig) error {
+		if _, ok := cfg.Vaults[name]; !ok {
+			return fmt.Errorf("%s: %s", RhizomeVaultNotFoundError, name)
+		}
+		delete(cfg.Vaults, name)
+		return nil
+	})
 }
 
 // listCliVaults returns manual vault mappings stored in preferences.
@@ -159,7 +119,12 @@ func LoadCliConfig(env config.Env, allowMissing bool) (CliConfig, error) {
 	return readCliConfig(env, allowMissing)
 }
 
-// SaveCliConfig writes rhizome CLI preferences.
+// SaveCliConfig replaces the modeled fields of the CLI preferences with cfg,
+// keeping unmodeled keys. Read-modify-write callers use UpdateCliConfig so a
+// stale copy cannot overwrite a concurrent change.
 func SaveCliConfig(env config.Env, cfg CliConfig) error {
-	return writeCliConfig(env, cfg)
+	return UpdateCliConfig(env, func(current *CliConfig) error {
+		*current = cfg
+		return nil
+	})
 }

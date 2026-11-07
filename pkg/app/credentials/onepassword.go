@@ -40,23 +40,20 @@ func (c OnePasswordCLI) Read(ctx context.Context, account, reference string) (st
 func ImportFromOnePassword(ctx context.Context, account string, mappings []string) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, ImportTimeout)
 	defer cancel()
-	return Import(ctx, OnePasswordCLI{}, account, mappings, func(allowMissing bool) (repoconfig.CliConfig, error) {
-		return repoconfig.LoadCliConfig(vaultconfig.FromContext(ctx), allowMissing)
-	}, func(cfg repoconfig.CliConfig) error {
-		return repoconfig.SaveCliConfig(vaultconfig.FromContext(ctx), cfg)
+	return Import(ctx, OnePasswordCLI{}, account, mappings, func(mutate func(*repoconfig.CliConfig) error) error {
+		return repoconfig.UpdateCliConfig(vaultconfig.FromContext(ctx), mutate)
 	})
 }
 
 // Import validates mappings before reading 1Password, then persists their
-// values in one atomic config save. Callers can supply synthetic readers and
+// values in one atomic config update. Callers can supply synthetic readers and
 // config IO for tests.
 func Import(
 	ctx context.Context,
 	reader OnePasswordReader,
 	account string,
 	mappings []string,
-	load func(bool) (repoconfig.CliConfig, error),
-	save func(repoconfig.CliConfig) error,
+	update func(mutate func(*repoconfig.CliConfig) error) error,
 ) (int, error) {
 	account = strings.TrimSpace(account)
 	if account == "" {
@@ -65,7 +62,7 @@ func Import(
 	if reader == nil {
 		return 0, fmt.Errorf("1Password reader is required")
 	}
-	if load == nil || save == nil {
+	if update == nil {
 		return 0, fmt.Errorf("credential config IO is required")
 	}
 
@@ -82,21 +79,24 @@ func Import(
 		values[mapping.key] = value
 	}
 
-	cfg, err := load(true)
-	if err != nil {
-		return 0, fmt.Errorf("load CLI config: %w", err)
-	}
-	if cfg.Env == nil {
-		cfg.Env = map[string]string{}
-	}
-	for key, value := range values {
-		cfg.Env[key] = value
-		delete(cfg.CredentialSkips, key)
-	}
 	if err := ctx.Err(); err != nil {
 		return 0, fmt.Errorf("1Password import was canceled or timed out; try again")
 	}
-	if err := save(cfg); err != nil {
+	loaded := false
+	if err := update(func(cfg *repoconfig.CliConfig) error {
+		loaded = true
+		if cfg.Env == nil {
+			cfg.Env = map[string]string{}
+		}
+		for key, value := range values {
+			cfg.Env[key] = value
+			delete(cfg.CredentialSkips, key)
+		}
+		return nil
+	}); err != nil {
+		if !loaded {
+			return 0, fmt.Errorf("load CLI config: %w", err)
+		}
 		return 0, fmt.Errorf("save CLI config: %w", err)
 	}
 	return len(values), nil
