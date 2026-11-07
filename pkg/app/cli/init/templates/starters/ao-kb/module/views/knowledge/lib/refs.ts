@@ -43,9 +43,10 @@ export function recordRef(e: Endpoint): Resolved {
     structuralFingerprint: e.structuralFingerprint ?? e.structural ?? undefined,
   };
   if (e.fragment) return { key: refKey(e), ref: { ...base, fragment: e.fragment } };
-  // ponytail: neighborhood edges omit the fragment of RECORD endpoints. A keyed record's
-  // fragment is a fixed encoding of its nodeId (pkg/ontology/record_projection.go).
-  // Delete this branch when RECORD endpoints carry their canonical fragment.
+  // ponytail: INBOUND neighborhood edges omit the fragment of RECORD endpoints, because
+  // noderead's fillCatalogRowsBySourceNodeID skips endpoints with an empty TypeName. A
+  // keyed record's fragment is a fixed encoding of its nodeId
+  // (pkg/ontology/record_projection.go). Delete this branch once that platform fix lands.
   const keyed = /^record-v1-([0-9a-f]+)$/.exec(e.nodeId ?? "");
   if (keyed) {
     const fragment = `record:v1:${keyed[1]}`;

@@ -1,18 +1,11 @@
-import { embedded, Section, useViewContext } from "@rhizome/kit";
+import { embedded, Section, sectionStatus, useViewContext } from "@rhizome/kit";
 import { claimText, dateNumber, relationships } from "./lib/knowledge.ts";
 import { collapseContradictions } from "./lib/relations.ts";
 import { ClaimProse } from "./prose.tsx";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
-import {
-  DateValue,
-  Field,
-  LinkList,
-  ModelUnavailable,
-  Page,
-  Record,
-  StatusBadges,
-  TraceLink,
-} from "./parts.tsx";
+import { useModelBindings, useModelCiters } from "./data.tsx";
+import { syncCompare } from "./lib/model.ts";
+import { DateValue, Field, LinkList, Page, Record, StatusBadges, TraceLink } from "./parts.tsx";
 import { Evidence } from "./evidence.tsx";
 import { AOHandoff, Conflicts, History, SavedAssessment } from "./record-parts.tsx";
 
@@ -156,7 +149,6 @@ function AssertionRecord({ a, data }: { a: Assertion; data: Knowledge }) {
           ) : null}
         </div>
       </div>
-      <ModelUnavailable />
     </>
   );
 }
@@ -172,45 +164,107 @@ function CitedBy({
   const rows = graph.edges.filter(
     (e) => e.to === a.path && ["references", "supported-by-claim", "cites"].includes(e.rel),
   );
+  const bindings = useModelBindings();
+  const ready = !!bindings.data?.ready;
+  const model = useModelCiters(a.path, ready);
+  const records = model.data?.records ?? [];
+  const count = rows.length + records.length + (model.data?.positional ?? 0);
   return (
-    <Section title="Cited by" count={rows.length} empty={rows.length ? undefined : "None recorded"}>
-      <ul className="ak-list">
-        {rows.map((e) => {
-          const record = graph.all.find((r) => r.path === e.from);
-          const artifact = data.artifact.find((r) => r.path === e.from);
-          const synced = dateNumber(artifact?.graphSyncedAt);
-          return (
-            record && (
-              <li key={`${e.from}-${e.rel}`}>
-                {e.rel === "supported-by-claim"
-                  ? "Supports"
-                  : e.rel === "references"
-                    ? "Referenced by"
-                    : "Cited by"}{" "}
-                <Record record={record} /> · {record.ref.typeName || "Record"} ·{" "}
-                <span className="font-mono text-xs">{record.aoId || "Not recorded"}</span>
-                {artifact && (
+    <Section
+      title="Cited by"
+      count={model.data || !ready ? count : undefined}
+      caption="Artifacts and product-model records that name this claim. Extraction is separate, on the source."
+      status={ready ? sectionStatus(bindings, model) : sectionStatus(bindings)}
+      what="citing records"
+      empty={count || (bindings.data && !ready) ? undefined : "None recorded"}
+    >
+      {() => (
+        <>
+          <ul className="ak-list">
+            {rows.map((e) => {
+              const record = graph.all.find((r) => r.path === e.from);
+              const artifact = data.artifact.find((r) => r.path === e.from);
+              const synced = dateNumber(artifact?.graphSyncedAt);
+              return (
+                record && (
+                  <li key={`${e.from}-${e.rel}`}>
+                    {e.rel === "supported-by-claim"
+                      ? "Supports"
+                      : e.rel === "references"
+                        ? "Referenced by"
+                        : "Cited by"}{" "}
+                    <Record record={record} /> · {record.ref.typeName || "Record"} ·{" "}
+                    <span className="font-mono text-xs">{record.aoId || "Not recorded"}</span>
+                    {artifact && (
+                      <span className="ak-meta">
+                        {!artifact.graphSyncedAt ? (
+                          "sync date not recorded"
+                        ) : !Number.isFinite(synced) ||
+                          !Number.isFinite(dateNumber(a.updatedAt)) ? (
+                          "sync comparison unknown"
+                        ) : dateNumber(a.updatedAt) > synced ? (
+                          <>
+                            knowledge updated since sync (
+                            <DateValue value={artifact.graphSyncedAt} />)
+                          </>
+                        ) : (
+                          <>
+                            Knowledge sync recorded <DateValue value={artifact.graphSyncedAt} />
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </li>
+                )
+              );
+            })}
+            {records.map((r) => {
+              const file = model.data?.files.find((f) => f.notePath === r.ref.notePath);
+              const sync = syncCompare(a.updatedAt, file?.synced);
+              return (
+                <li key={r.key}>
+                  Evidence for <Record record={{ ref: r.ref, path: r.key, title: r.title }} /> ·{" "}
+                  {model.data?.specs[r.typeName]?.label ?? r.typeName} ·{" "}
+                  <span className="font-mono text-xs">{r.aoValue || "Not recorded"}</span>
                   <span className="ak-meta">
-                    {!artifact.graphSyncedAt ? (
-                      "sync date not recorded"
-                    ) : !Number.isFinite(synced) || !Number.isFinite(dateNumber(a.updatedAt)) ? (
+                    {!file?.synced ? (
+                      `file sync date not recorded in ${r.ref.notePath.split("/").pop()}`
+                    ) : sync === "unknown" ? (
                       "sync comparison unknown"
-                    ) : dateNumber(a.updatedAt) > synced ? (
+                    ) : sync === "later" ? (
                       <>
-                        knowledge updated since sync (<DateValue value={artifact.graphSyncedAt} />)
+                        knowledge updated since file synced (<DateValue value={file.synced} />)
                       </>
                     ) : (
                       <>
-                        Knowledge sync recorded <DateValue value={artifact.graphSyncedAt} />
+                        File synced <DateValue value={file.synced} />
                       </>
                     )}
                   </span>
-                )}
-              </li>
-            )
-          );
-        })}
-      </ul>
+                </li>
+              );
+            })}
+          </ul>
+          {!ready && (
+            <p className="ak-footnote">
+              Product model bindings are not ready, so model records that rest on this claim are not
+              shown.
+            </p>
+          )}
+          {!!model.data?.positional && (
+            <p className="ak-footnote">
+              {model.data.positional} positional model{" "}
+              {model.data.positional === 1 ? "record cites" : "records cite"} this claim; they have
+              no durable identity to open.
+            </p>
+          )}
+          {model.data?.truncated && (
+            <p className="ak-footnote text-risk">
+              Incomplete: more model records cite this claim than one read returns.
+            </p>
+          )}
+        </>
+      )}
     </Section>
   );
 }

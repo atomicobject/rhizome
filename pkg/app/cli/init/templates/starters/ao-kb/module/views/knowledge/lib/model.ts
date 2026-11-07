@@ -24,14 +24,23 @@ export type ReferenceSpec = {
   values: string;
   edge?: { name: string; direction: string };
 };
-export type TypeSpec = { label: string; references: ReferenceSpec[] };
+export type TypeSpec = {
+  label: string;
+  references: ReferenceSpec[];
+  /** The authored identity field and title fallbacks the header already shows. */
+  keyField?: string;
+  titleFields: string[];
+};
 
 /** The label and reference declarations in `GET /api/v1/ontology/types/{name}`. */
 export function typeSpec(response: unknown, name: string): TypeSpec {
   const type = (response as { type?: Record<string, unknown> } | null)?.type ?? {};
   const fields = Array.isArray(type.fields) ? (type.fields as Record<string, any>[]) : [];
+  const source = (type.annotations as Record<string, any> | undefined)?.source;
   return {
     label: typeof type.label === "string" && type.label ? type.label : name,
+    keyField: typeof source?.key?.field === "string" ? source.key.field : undefined,
+    titleFields: Array.isArray(source?.title) ? source.title : [],
     references: fields.flatMap((f) => {
       const ref = f.annotations?.references;
       const path = f.annotations?.field?.path ?? f.sourcePath;
@@ -59,7 +68,10 @@ export function atoms(value?: SourceValue | null): string[] {
   return value.scalar == null ? [] : [value.scalar];
 }
 /** The authored entry that names `key`, or undefined. */
-export function declaringEntry(value: SourceValue | null | undefined, key: string | null | undefined) {
+export function declaringEntry(
+  value: SourceValue | null | undefined,
+  key: string | null | undefined,
+) {
   return key ? entries(value).find((e) => atoms(e.value).includes(key)) : undefined;
 }
 
@@ -161,4 +173,62 @@ export function modelObservations(
     for (const d of declaredEvidence(record, specs[record.typeName], assertions))
       if (!d.assertion) dangling.push({ record, field: d.field, id: d.id });
   return { sync, unknown, dangling };
+}
+
+/** A record this one reaches through a native edge, in either stored direction. */
+export type Neighbor = {
+  relation: string;
+  /** The edge is stored from this record to the neighbor. */
+  out: boolean;
+  key: string;
+  ref: Ref;
+  title: string;
+  typeName: string;
+  /** The neighbor's AO key: a model record's `aoValue` or an assertion's `aoId`. */
+  aoValue?: string | null;
+  value?: SourceValue | null;
+};
+export type Atom = {
+  text: string;
+  target?: Neighbor;
+  /** Why an authored reference value links nowhere. */
+  state?: "unresolved" | "ambiguous" | "wildcard" | "no edge";
+};
+export type FieldRow = { key: string; value: SourceValue; spec?: ReferenceSpec; atoms?: Atom[] };
+
+/** Authored fields in order, except identity, the title the header shows, and code paths.
+ * A reference field's values link to the native edge target with that key; other values
+ * stay as authored, with the reason they link nowhere. */
+export function fieldRows(
+  value: SourceValue | null | undefined,
+  spec: TypeSpec | undefined,
+  neighbors: Neighbor[],
+): FieldRow[] {
+  const all = entries(value);
+  const title = spec?.titleFields.find((f) =>
+    all.some((e) => e.key === f && scalars(e.value).length),
+  );
+  return all
+    .filter((e) => e.key !== spec?.keyField && e.key !== title && e.key !== CODE_FIELD)
+    .map((e) => {
+      const ref = spec?.references.find((r) => r.path === e.key);
+      const flat =
+        e.value.kind !== "object" &&
+        !(e.value.items ?? []).some((i) => i.kind === "object" || i.kind === "array");
+      if (!ref || !flat || ref.values === "MAPPING_KEYS")
+        return { key: e.key, value: e.value, spec: ref };
+      return {
+        key: e.key,
+        value: e.value,
+        spec: ref,
+        atoms: scalars(e.value).map((text): Atom => {
+          if (text === "*") return { text, state: "wildcard" };
+          if (!ref.edge) return { text, state: "no edge" };
+          const hits = neighbors.filter((n) => n.relation === ref.edge?.name && n.aoValue === text);
+          return hits.length === 1
+            ? { text, target: hits[0] }
+            : { text, state: hits.length ? "ambiguous" : "unresolved" };
+        }),
+      };
+    });
 }

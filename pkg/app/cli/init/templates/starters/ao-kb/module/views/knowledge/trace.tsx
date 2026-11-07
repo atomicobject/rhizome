@@ -58,14 +58,14 @@ function TraceBody({
       ? params.focus
       : listedRecords.find((r) => r.__typename === "Assertion")?.path;
   const listedFocus = listedRecords.find((r) => r.path === focusPath);
-  const lookup = useGraphQL<{ node: (KnowledgeRecord & { aoId?: string | null }) | null }>(
-    focusQuery(model),
-    { ref: focusPath ?? "" },
-    { enabled: !!focusPath && !listedFocus },
-  );
+  const lookup = useGraphQL<{
+    node: (Omit<KnowledgeRecord, "aoId"> & { aoId?: string | null }) | null;
+  }>(focusQuery(model), { ref: focusPath ?? "" }, { enabled: !!focusPath && !listedFocus });
   const found = lookup.data?.node;
-  const extra =
-    found?.path === focusPath && (KNOWLEDGE.includes(found.__typename) || found.aoId !== undefined)
+  const extra: KnowledgeRecord | undefined =
+    found &&
+    found.path === focusPath &&
+    (KNOWLEDGE.includes(found.__typename) || found.aoId !== undefined)
       ? { ...found, aoId: found.aoId ?? null }
       : undefined;
   const records = extra && !listedFocus ? [...listedRecords, extra] : listedRecords;
@@ -206,8 +206,12 @@ function TraceBody({
             trace && (
               <>
                 <Facts note="Unique records include the focus. Counts cover the requested scope.">
-                  <Fact value={trace.nodes.size}>{trace.nodes.size === 1 ? "record" : "records"}</Fact>
-                  <Fact value={trace.edges.length}>{trace.edges.length === 1 ? "relationship" : "relationships"}</Fact>
+                  <Fact value={trace.nodes.size}>
+                    {trace.nodes.size === 1 ? "record" : "records"}
+                  </Fact>
+                  <Fact value={trace.edges.length}>
+                    {trace.edges.length === 1 ? "relationship" : "relationships"}
+                  </Fact>
                 </Facts>
                 <p className="ao-trace-count" aria-live="polite">
                   <Count>{counts("up")}</Count> upstream within {up} {up === 1 ? "hop" : "hops"} ·{" "}

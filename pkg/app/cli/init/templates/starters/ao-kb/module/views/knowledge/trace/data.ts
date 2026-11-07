@@ -101,7 +101,8 @@ type Artifact = KnowledgeRecord & {
   sourceReferencesCount: number;
   artifactReferencesCount: number;
 };
-type Model = KnowledgeRecord & {
+type Model = Omit<KnowledgeRecord, "__typename"> & {
+  __typename: `AOKBModel_${string}`;
   aoValue: string | null;
   workspace: { source: { value?: SourceValue } | null } | null;
   modelOut: Neighborhood;
@@ -237,8 +238,7 @@ export function createReader(
           `${path}: ${record.conceptsCount - record.concepts.length} more concept targets beyond the read cap.`,
         );
       }
-      if (record.conceptsCount > record.concepts.length)
-        limited.add(path);
+      if (record.conceptsCount > record.concepts.length) limited.add(path);
       const declarations: Declaration[] = [];
       const connections = record.connectionsSection;
       if (connections) {
@@ -314,11 +314,12 @@ export function createReader(
   ];
   const end = (key: string) => {
     const d = cache.get(key) ?? byPath.get(key);
+    const model = d && "modelOut" in d ? (d as Model) : undefined;
     return {
       key,
       record: d,
-      aoValue: d && "aoValue" in d ? d.aoValue : d?.aoId,
-      value: d && "modelOut" in d ? d.workspace?.source?.value : undefined,
+      aoValue: model ? model.aoValue : d?.aoId,
+      value: model?.workspace?.source?.value,
     };
   };
   const linkModels = () => {
