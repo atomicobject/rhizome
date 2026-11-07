@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
@@ -35,7 +36,9 @@ func NewCodeAnchorService(cfg CodeAnchorServiceConfig) (*codeanchor.Service, *co
 		pyRoots := []string{"src", "lib"}
 		phpRoots := []string{"src", "app", "lib"}
 		if !cfg.CodeCfg.AutomaticScope {
-			if configured := ResolveRoots(cfg.VaultPath, cfg.CodeCfg.PythonRoots); len(configured) > 0 {
+			// The Python indexer names modules from vault-relative paths, so
+			// its roots must be vault-relative too.
+			if configured := vaultRelativeRoots(cfg.VaultPath, cfg.CodeCfg.PythonRoots); len(configured) > 0 {
 				pyRoots = configured
 			}
 			if configured := ResolveRoots(cfg.VaultPath, cfg.CodeCfg.PHPRoots); len(configured) > 0 {
@@ -80,6 +83,26 @@ func NewCodeAnchorService(cfg CodeAnchorServiceConfig) (*codeanchor.Service, *co
 	}
 
 	return codeanchor.NewServiceWithOptions(cfg.Store, indexers, opts...), tailIdx
+}
+
+// vaultRelativeRoots converts configured roots to vault-relative form,
+// dropping absolute roots that lie outside the vault.
+func vaultRelativeRoots(vaultPath string, roots []string) []string {
+	var result []string
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		if filepath.IsAbs(root) {
+			ref, err := paths.ResolveCodeRef(vaultPath, root)
+			if err != nil {
+				continue
+			}
+			root = ref.Rel.String()
+		}
+		result = append(result, paths.Normalize(root).String())
+	}
+	return result
 }
 
 // ResolveRoots converts relative paths to absolute paths based on the vault path.

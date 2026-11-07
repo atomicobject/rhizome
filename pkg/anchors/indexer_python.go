@@ -1151,8 +1151,9 @@ func pythonModuleFromPath(path string, roots []string) string {
 			noExt = strings.TrimPrefix(noExt, rootSlash)
 			break
 		}
-		// Handle absolute paths by checking if the path contains the root.
-		if idx := strings.Index(noExt, rootSlash); idx >= 0 {
+		// Handle nested and absolute paths: the root must start a path segment,
+		// so "src/" does not match inside "mysrc/".
+		if idx := strings.Index("/"+noExt, "/"+rootSlash); idx >= 0 {
 			noExt = noExt[idx+len(rootSlash):]
 			break
 		}
