@@ -1,0 +1,166 @@
+apiVersion: rhizome.query-recipe.v1
+id: ao-kb-claim-to-source
+name: Claim to source
+problem: Read ordered authored citations, recorded origin and locator, with corroboration separate.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative AO record path in the selected product.
+query:
+  graphQL: |
+    query AOKBClaimToSource($path: String!) {
+      assertion(first: 1, path: $path) { aoId path provenanceSource provenanceLocator
+        sourcesSection { citations { recordedLink sources(first: 20) { aoId path sourcePaths locatorScheme } } }
+        connectionsSection { corroboratedBy { aoId path } } }
+    }
+outputContract:
+  expectedPaths:
+    - assertion.path
+  empty: No matching records; confirm the selected product, record path and index readiness.
+  partial: Lists are bounded; preserve unresolved references and disclose missing or ambiguous bindings. Narrow full pages before widening.
+  highVolume: Narrow the selected product and path; never silently treat a full page as complete.
+adaptationGuidance:
+  summary: Native @link lists follow authored record size and cannot be paged with first or count arguments. Preserve authored relationships, origin precedence, ordered citations and explicit query bounds.
+  rules:
+    - Use provenanceSource as origin when recorded, otherwise the first citation. Resolve logical IDs by exact aoId filters, never node(ref:).
+    - Preserve citation order and repeats. Empty sources may mean repeated unanchored occurrence ambiguity; resolve recordedLink target before calling it missing.
+    - Keep corroboration separate from origin and extraction. A missing locator means document-only evidence.
+tags:
+  - ao-kb
+  - evidence
+---
+apiVersion: rhizome.query-recipe.v1
+id: ao-kb-reverse-impact
+name: Reverse impact
+problem: Navigate incoming authored claims and a bounded artifact neighborhood; these links are navigation, not new evidence.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative AO record path in the selected product.
+query:
+  graphQL: |
+    query AOKBReverseImpact($path: String!) {
+      assertion(first: 1, path: $path) {
+        aoId path
+        supportedBy(first: 50) { notePath } supportedByCount
+        dependedOnBy(first: 50) { notePath } dependedOnByCount
+        refinedBy(first: 50) { notePath } refinedByCount
+        supersededBy(first: 50) { notePath } supersededByCount
+        resolvedBy(first: 50) { notePath } resolvedByCount
+      }
+      node(ref: $path) {
+        neighborhood(direction: INBOUND, type: "Artifact", first: 100) {
+          truncated
+          edges { source { notePath } target { notePath } relation direction }
+          nodes { ... on Artifact { path supportedBy { path } } }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - node.neighborhood.truncated
+  empty: No matching records; confirm the selected product, record path and index readiness.
+  partial: Lists are bounded; preserve unresolved references and disclose missing or ambiguous bindings. Narrow full pages before widening.
+  highVolume: Narrow the selected product and path; never silently treat a full page as complete.
+adaptationGuidance:
+  summary: Native @link lists follow authored record size and cannot be paged with first or count arguments. Preserve authored relationships, origin precedence, ordered citations and explicit query bounds.
+  rules:
+    - Read incoming artifact edges using relation and direction; native INBOUND edges put the focus in source and the citing artifact in target. supportedBy distinguishes listed support from body references.
+    - Assertion reverse fields return declaring Connections sections; notePath identifies the claim. Label each relation separately.
+    - Inverse aliases and frontmatter declarations are not included by native reverse fields. This is partial navigation; use the shared relation adapter for complete normalized impact.
+    - Disclose neighborhood.truncated or any relation count above its first limit; narrow the query before claiming coverage.
+tags:
+  - ao-kb
+  - evidence
+---
+apiVersion: rhizome.query-recipe.v1
+id: ao-kb-concept-evidence
+name: Concept evidence
+problem: Read claims linking a concept and their ordered origin citations.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative AO record path in the selected product.
+query:
+  graphQL: |
+    query AOKBConceptEvidence($path: String!) {
+      concept(first: 1, path: $path) {
+        aoId path
+        neighborhood(direction: INBOUND, type: "Assertion", first: 100) {
+          truncated
+          nodes { ... on Assertion {
+            aoId path provenanceSource provenanceLocator
+            sourcesSection { citations { recordedLink sources(first: 20) { aoId path sourcePaths locatorScheme } } }
+            connectionsSection { corroboratedBy { aoId path } }
+          } }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - concept.path
+  empty: No matching records; confirm the selected product, record path and index readiness.
+  partial: Lists are bounded; preserve unresolved references and disclose missing or ambiguous bindings. Narrow full pages before widening.
+  highVolume: Narrow the selected product and path; never silently treat a full page as complete.
+adaptationGuidance:
+  summary: Native @link lists follow authored record size and cannot be paged with first or count arguments. Preserve authored relationships, origin precedence, ordered citations and explicit query bounds.
+  rules:
+    - Read the bounded incoming Assertion neighborhood; disclose truncated before claiming complete concept coverage.
+    - Concept membership includes every outgoing concept link; it is navigation, not evidential support.
+    - Use recorded provenanceSource before first-citation origin fallback and resolve IDs by exact aoId filters.
+    - Preserve repeated citations and resolve recordedLink when occurrence targets are empty.
+tags:
+  - ao-kb
+  - evidence
+---
+apiVersion: rhizome.query-recipe.v1
+id: ao-kb-artifact-evidence
+name: Artifact evidence
+problem: Read supporting and additional referenced claims with their ordered sources.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative AO record path in the selected product.
+query:
+  graphQL: |
+    query AOKBArtifactEvidence($path: String!) {
+      artifact(first: 1, path: $path) {
+        path supportedBy { aoId path provenanceSource provenanceLocator
+        sourcesSection { citations { recordedLink sources(first: 20) { aoId path sourcePaths locatorScheme } } }
+        connectionsSection { corroboratedBy { aoId path } } }
+        additionalAssertionReferences(first: 50) { aoId path provenanceSource provenanceLocator
+        sourcesSection { citations { recordedLink sources(first: 20) { aoId path sourcePaths locatorScheme } } }
+        connectionsSection { corroboratedBy { aoId path } } } additionalAssertionReferencesCount
+      }
+    }
+outputContract:
+  expectedPaths:
+    - artifact.path
+  empty: No matching records; confirm the selected product, record path and index readiness.
+  partial: Lists are bounded; preserve unresolved references and disclose missing or ambiguous bindings. Narrow full pages before widening.
+  highVolume: Narrow the selected product and path; never silently treat a full page as complete.
+adaptationGuidance:
+  summary: Native @link lists follow authored record size and cannot be paged with first or count arguments. Preserve authored relationships, origin precedence, ordered citations and explicit query bounds.
+  rules:
+    - Combine supportedBy and additionalAssertionReferences for navigation, deduplicating by path while keeping the authored relation labels.
+    - References are navigation, never newly inferred evidence. Apply recorded-origin precedence and preserve citation order and repeats.
+    - Product model-to-evidence arrives with model bindings in a later batch; no product-model type exists in this batch.
+tags:
+  - ao-kb
+  - evidence

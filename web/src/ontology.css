@@ -297,6 +297,20 @@
   flex: 1;
 }
 
+/* A record's read-only reason spans the pane above its controls. */
+.ontology-pane__reason {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
+.notes-shell .ontology-pane__reason {
+  padding-inline: var(--sp-6);
+}
+
 .ontology-chip {
   display: inline-flex;
   align-items: center;

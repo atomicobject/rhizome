@@ -88,6 +88,9 @@ func NotePathMatchesIncludes(cfg VaultDefinition, relPath string) bool {
 		includes = []string{"**/*.md"}
 	}
 	for _, pattern := range includes {
+		if !explicitlyIncludesHiddenParents(pattern, relPath) {
+			continue
+		}
 		variants := markdownExtensionPatternVariants(pattern)
 		if pattern == ignore.SystemContextFilename || strings.HasSuffix(filepath.ToSlash(pattern), "/"+ignore.SystemContextFilename) {
 			variants = []string{pattern}
@@ -99,6 +102,16 @@ func NotePathMatchesIncludes(cfg VaultDefinition, relPath string) bool {
 		}
 	}
 	return false
+}
+
+func explicitlyIncludesHiddenParents(pattern, relPath string) bool {
+	parts := strings.Split(relPath, "/")
+	for i, part := range parts[:len(parts)-1] {
+		if strings.HasPrefix(part, ".") && !strings.HasPrefix(filepath.ToSlash(pattern), strings.Join(parts[:i+1], "/")+"/") {
+			return false
+		}
+	}
+	return true
 }
 
 // NotePathMatchesSelection admits Rhizome's system context convention even
@@ -132,7 +145,16 @@ func discoverByWalk(cfg VaultDefinition, root string) ([]string, error) {
 				return nil
 			}
 			if strings.HasPrefix(d.Name(), ".") {
-				return fs.SkipDir
+				explicit := false
+				for _, pattern := range cfg.Includes {
+					if strings.HasPrefix(filepath.ToSlash(pattern), relPath+"/") {
+						explicit = true
+						break
+					}
+				}
+				if !explicit {
+					return fs.SkipDir
+				}
 			}
 			if matcher.IsIgnoredShallow(relPath, true) && hardMatcher.IsIgnoredShallow(relPath, true) {
 				return fs.SkipDir

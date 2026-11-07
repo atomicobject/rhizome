@@ -1,0 +1,14 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.concepts
+name: Concepts
+source:
+  kind: custom
+  entry: concepts.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 20
+params:
+  - { name: find, kind: string }
+  - { name: concept, kind: string }
+  - { name: sort, kind: string, default: title-asc }

@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.source
+name: Source
+source:
+  kind: custom
+  entry: source.tsx
+mount:
+  kind: node
+  type: Source
+  default: true

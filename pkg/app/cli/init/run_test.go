@@ -905,6 +905,13 @@ func TestRhizomeGitIgnoreTracksTaskFilesButNotTaskState(t *testing.T) {
 	require.False(t, ignored(".rhizome/modules/compounding/scripts/hook.mjs"), "module files are tracked")
 	require.True(t, ignored(".rhizome/task-state/state.json"), "task state is personal")
 	require.True(t, ignored(".rhizome/task-state/worktrees/x/notes.md"), "background worktrees are personal")
+	for _, tracked := range []string{"selection.json", "manifest.json", "cli.mjs"} {
+		require.False(t, ignored(".rhizome/modules/ao-kb/bindings/"+tracked), tracked)
+	}
+	require.False(t, ignored(".rhizome/modules/ao-kb/ontology/ao-model.generated.graphql"), "generated bindings may be committed")
+	for _, local := range []string{"refresh.lock/owner", "sdl.tmp", "manifest.previous", "index-receipt.json"} {
+		require.True(t, ignored(".rhizome/modules/ao-kb/bindings/"+local), local)
+	}
 }
 
 func TestRun_NonInteractiveFirstRunUsesTheRecommendedSetup(t *testing.T) {

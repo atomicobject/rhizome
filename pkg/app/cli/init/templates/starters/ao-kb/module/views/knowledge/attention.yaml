@@ -1,0 +1,15 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.attention
+name: Attention
+source:
+  kind: custom
+  entry: attention.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 10
+  default: true
+params:
+  - { name: find, kind: string }
+  - { name: concept, kind: string }
+  - { name: sort, kind: string, default: title-asc }

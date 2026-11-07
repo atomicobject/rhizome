@@ -1,0 +1,4 @@
+00:00 Alex, patient participant: I arrive early but the check-in form takes time.
+01:10 Alex, patient participant: I need ten minutes to complete check-in before my appointment.
+01:30 Riley, reception coordinator: We can show an arrival reminder with the booking.
+02:00 End of illustrative arrival interview.
