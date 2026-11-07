@@ -23,35 +23,62 @@ export function runCompilerCheck(root) {
   }
 }
 
-/** Path patterns listed in the ownership declaration (simple `- path` list items). */
+/** Read the policy's block sources and scalar path lists; uncertain YAML certifies no ownership. */
 export function ownedPatterns(text) {
-  if (!/^sources:\s*$/m.test(text || '')) return [];
-  // Restrict the preflight reader to the policy's scalar/block-list form.
-  // Uncertain YAML never certifies that an AO source is protected.
+  if ((text?.match(/^sources:[ \t]*$/gm) || []).length !== 1) return [];
+  let ownerIndent;
   for (const line of text.split('\n')) {
-    if (!line.trim() || /^\s*#/.test(line)) continue;
-    if (!/^(?:sources:\s*|\s*-\s*owner:.*|\s+reason:.*|\s+paths:.*|\s+-\s*[^:]+)\s*$/.test(line)) return [];
+    if (!line.trim() || /^\s*#/.test(line) || /^sources:[ \t]*$/.test(line)) continue;
+    const indent = line.match(/^ */)[0].length;
+    if (/^ *- +owner:/.test(line)) {
+      if (ownerIndent !== undefined && indent !== ownerIndent) return [];
+      ownerIndent = indent;
+    } else if (/^ +(?:reason|paths):/.test(line)) {
+      if (ownerIndent === undefined || indent !== ownerIndent + 2) return [];
+    } else if (/^ +- /.test(line)) {
+      if (ownerIndent === undefined || indent !== ownerIndent + 4) return [];
+    } else return [];
   }
+  const scalar = raw => {
+    if (raw === undefined) return null;
+    const value = raw.trim().replace(/\s+#.*$/, '');
+    if (value.startsWith('"')) {
+      try { const parsed = JSON.parse(value); return typeof parsed === 'string' && parsed.trim() ? parsed : null; }
+      catch { return null; }
+    }
+    if (value.startsWith("'")) {
+      if (!/^'(?:[^']|'')*'$/.test(value)) return null;
+      const parsed = value.slice(1, -1).replace(/''/g, "'");
+      return parsed.trim() ? parsed : null;
+    }
+    if (!value || /^(?:null|~)$/i.test(value) || /^[&*!|>#]/.test(value) || /^[-?:]\s/.test(value) || /[\[\]{}]|:\s/.test(value)) return null;
+    return value;
+  };
   const patterns = [];
-  for (const block of text.split(/^\s*-\s+owner:\s*/m).slice(1)) {
-    const plain = value => value?.trim().replace(/^(['"])(.*)\1$/, '$2');
-    if (!plain(block.split('\n')[0]) || !plain(block.match(/^\s+reason:[ \t]*([^\n]+)/m)?.[1])) return [];
-    const value = block.match(/^\s+paths:\s*(\[[^\n]*\]|\n(?:\s+-[^\n]*\n?)*)/m)?.[1];
-    if (!value) continue;
-    const entries = value.startsWith('[') ? value.slice(1, -1).split(',') : value.split('\n').filter(s => s.trim()).map(s => s.replace(/^\s*-\s*/, ''));
-    patterns.push(...entries.map(s => s.trim().replace(/\s+#.*$/, '').replace(/^(['"])(.*)\1$/, '$2')).filter(Boolean));
+  for (const block of text.split(/^ *- +owner:[ \t]*/m).slice(1)) {
+    if ((block.match(/^ +reason:/gm) || []).length !== 1 || (block.match(/^ +paths:/gm) || []).length !== 1) return [];
+    if (!scalar(block.split('\n')[0]) || !scalar(block.match(/^ +reason:[ \t]*([^\n]+)/m)?.[1])) return [];
+    const value = block.match(/^ +paths:[ \t]*(\[[^\n]*\]|\n(?: +- [^\n]*\n?)*)/m)?.[1];
+    if (!value) return [];
+    const entries = value.startsWith('[') ? value.slice(1, -1).trim() ? value.slice(1, -1).split(',') : []
+      : value.split('\n').filter(s => s.trim()).map(s => s.replace(/^ +- /, ''));
+    const decoded = entries.map(scalar);
+    if (decoded.some(value => value === null || /[\[\]{}\\\x00-\x1f]/.test(value))) return [];
+    patterns.push(...decoded);
   }
   return patterns;
 }
 
-/** Matches a vault path against an ownership pattern the way the declaration does, ignoring case.
- * ponytail: covers `*`, `**`, and `?`; brace and class patterns read literally. */
+/** Matches the preflight's bounded ownership patterns, ignoring case.
+ * shortcut: brace/class policies are not certified; extend parsing before supporting those patterns. */
 export function globMatch(pattern, path) {
   let re = '';
   for (let i = 0; i < pattern.length; i++) {
     const c = pattern[i];
     if (c === '*' && pattern[i + 1] === '*') {
+      const recursive = (i === 0 || pattern[i - 1] === '/') && (i + 2 === pattern.length || pattern[i + 2] === '/');
       i++;
+      if (!recursive) { re += '[^/]*'; continue; }
       if (pattern[i + 1] === '/') { i++; re += '(?:.*/)?'; } else re += '.*';
     } else if (c === '*') re += '[^/]*';
     else if (c === '?') re += '[^/]';

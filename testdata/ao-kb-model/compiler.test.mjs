@@ -246,6 +246,7 @@ test('an authored edit expires the index receipt without expiring bindings', asy
   const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
   const manifest = await readJSON(path.join(options.directory, 'manifest.json'));
   const receipt = {fingerprint: manifest.fingerprint, sdlHash: manifest.sdlHash,
+    knowledgeFingerprint: (await readJSON(path.join(options.directory, 'knowledge-manifest.json'))).fingerprint,
     sourceSignature: await indexSignature(options.root, await options.exportModel())};
   await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
   assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
@@ -263,6 +264,7 @@ test('Node preflight refuses incompatible schema, registry, markers, stamp, and 
     ['products/orphan/.kb/config/product.yaml', 'slug: orphan\naccount: ../..\n', 'ao_product_unregistered'],
     ['products/alpha/.kb/config/manifest.json', '{"siteEngine":{"version":"unsupported"}}', 'ao_toolkit_pin'],
     ['.rhizome/source-ownership.yml', 'sources:\n  - owner: AO KB\n    reason: AO\n    paths: ["artifacts/**"]\n', 'ao_ownership_missing'],
+    ['.rhizome/source-ownership.yml', 'sources:\n  - owner: AO KB\n reason: invalid indentation\n    paths: ["artifacts/**", "assertions/**", "sources/**", "concepts/**", ".kb/**", "products/*/artifacts/**"]\n', 'ao_ownership_missing'],
   ]) {
     const options = await fixture(t);
     const full = path.join(options.root, file);
@@ -286,4 +288,45 @@ test('a tampered generated-file inventory cannot delete authored files', async t
   await writeFile(file, JSON.stringify(manifest));
   await assert.rejects(refresh(options), /ao_generated_path_invalid/);
   assert.deepEqual(await readFile(authored), before);
+});
+
+test('missing executables have an actionable dependency diagnostic', async () => {
+  const {run} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
+  assert.throws(() => run('/aokb-synthetic-missing-rzm', ['--version']), /ao_dependency_missing: aokb-synthetic-missing-rzm/);
+});
+
+test('missing Rhizome keeps knowledge readiness separate from model prerequisites', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const report = await check({...options, checkDependencies: async () => ({rzm: {ready: false}})});
+  assert.equal(report.knowledgeReady, true);
+  assert.equal(report.modelReady, false);
+  assert.ok(report.diagnostics.some(d => d.code === 'ao_dependency_missing'));
+});
+
+test('ordinary knowledge edits stay ready while a new artifact phase requires admission refresh', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
+  const model = await readJSON(path.join(options.directory, 'manifest.json'));
+  const scope = await readJSON(path.join(options.directory, 'knowledge-manifest.json'));
+  const receipt = {fingerprint: model.fingerprint, knowledgeFingerprint: scope.fingerprint, sdlHash: model.sdlHash, sourceSignature: await indexSignature(options.root, await options.exportModel())};
+  await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
+  assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
+  const note = path.join(options.root, 'assertions/shared.md');
+  await writeFile(note, (await readFile(note, 'utf8')) + '\nOrdinary authored evidence edit.\n');
+  assert.equal((await check({...options, checkDependencies: deps})).bindingsReady, true);
+  receipt.sourceSignature = await indexSignature(options.root, await options.exportModel());
+  await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
+  assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
+  await mkdir(path.join(options.root, 'artifacts/01_define/alpha'), {recursive: true});
+  const stale = await check({...options, checkDependencies: deps});
+  assert.equal(stale.knowledgeReady, false);
+  assert.equal(stale.modelReady, true);
+  assert.equal(stale.status, 'stale');
+  assert.ok(stale.diagnostics.some(d => d.code === 'ao_artifact_phases_stale' && d.message.includes('01_define')));
+  await refresh(options);
+  const final = await check({...options, checkDependencies: deps});
+  assert.equal(final.bindingsReady, true);
+  assert.equal(final.indexReady, false, 'a new admission generation requires a new index receipt');
 });

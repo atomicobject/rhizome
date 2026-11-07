@@ -157,6 +157,7 @@ test('ownership patterns match like the declaration', () => {
   assert.ok(!globMatch('products/*/artifacts/**', 'products/alpha/beta/artifacts/x.yaml'));
   assert.ok(globMatch('decisions.md', 'DECISIONS.md'), 'case-insensitive like the server');
   assert.ok(!globMatch('artifacts/**', 'notes/artifacts.md'));
+  assert.ok(!globMatch('**.md', 'assertions/note.md'), 'globstar is recursive only as a whole path segment');
 });
 
 test('a missing compiler is an error, not a ready result', t => {

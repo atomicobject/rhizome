@@ -23,7 +23,7 @@ export async function refresh({root, directory, selection, exportModel = adapter
     const verify = await knowledge(root, directory, selection);
     if (verify.fingerprint !== scoped.fingerprint) throw new Error('ao_input_changed: knowledge configuration changed during compilation');
     await publishSet(directory, 'knowledge', {'../ontology/ao-knowledge.generated.graphql': scoped.sdl, 'selection.json': json(selection)},
-      {formatVersion: 1, status: 'ready', context: scoped.context, fingerprint: scoped.fingerprint, inputs: scoped.inputs, sdlHash: hash(scoped.sdl), diagnostics: []}, renameFile);
+      {formatVersion: 1, status: 'ready', context: scoped.context, artifactPhases: scoped.artifactPhases, fingerprint: scoped.fingerprint, inputs: scoped.inputs, sdlHash: hash(scoped.sdl), diagnostics: []}, renameFile);
     stage = 'model';
     const ir = await exportModel(root, directory, selection);
     await ownership(root, ir.sources.map(s => s.path));
@@ -54,13 +54,15 @@ export async function check({root, directory, exportModel = adapter, checkDepend
     next: 'rzm ao-kb refresh-bindings --product <slug> (or --single true); node .rhizome/modules/ao-kb/bindings/cli.mjs index'};
   const selection = await readJSON(path.join(directory, 'selection.json'));
   const manifest = await readJSON(manifestPath(directory, 'model'));
+  const knowledgeManifest = await readJSON(manifestPath(directory, 'knowledge'));
   result.status = manifest?.status || 'missing';
   try {
     const scoped = await knowledge(root, directory, selection);
-    const saved = await readJSON(manifestPath(directory, 'knowledge'));
+    const saved = knowledgeManifest;
+    if (saved && JSON.stringify(saved.artifactPhases) !== JSON.stringify(scoped.artifactPhases)) throw new Error(`ao_artifact_phases_stale: artifact phase folder inventory is missing or changed; previous ${JSON.stringify(saved.artifactPhases)}, current ${JSON.stringify(scoped.artifactPhases)}. Run rzm ao-kb refresh-bindings before indexing`);
     if (!saved || saved.status !== 'ready' || saved.fingerprint !== scoped.fingerprint || saved.sdlHash !== hash(await readSDL(directory, 'knowledge')) || saved.sdlHash !== hash(scoped.sdl)) throw new Error('ao_knowledge_stale: refresh-bindings is required');
     result.knowledgeReady = true;
-    result.bindings.knowledge = {ready: true, status: 'ready', product: scoped.context.product};
+    result.bindings.knowledge = {ready: true, status: 'ready', product: scoped.context.product, artifactPhases: scoped.artifactPhases};
   } catch (error) {
     result.bindings.knowledge.status = 'incomplete';
     result.diagnostics.push(...(error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}]));
@@ -83,7 +85,7 @@ export async function check({root, directory, exportModel = adapter, checkDepend
     result.bindings.model = {ready: true, status: 'ready'};
     result.diagnostics.push(...manifest.diagnostics);
     const receipt = await readJSON(path.join(directory, 'index-receipt.json'));
-    result.indexReady = result.knowledgeReady && receipt?.fingerprint === manifest.fingerprint && receipt?.sdlHash === manifest.sdlHash && receipt?.sourceSignature === await indexSignature(root, ir);
+    result.indexReady = result.knowledgeReady && receipt?.knowledgeFingerprint === knowledgeManifest?.fingerprint && receipt?.fingerprint === manifest.fingerprint && receipt?.sdlHash === manifest.sdlHash && receipt?.sourceSignature === await indexSignature(root, ir);
   } catch (error) {
     result.status = manifest?.sdlHash ? 'stale' : 'error';
     result.bindings.model.status = error.diagnostics?.some(d => d.severity === 'error') ? 'incomplete' : result.status;
@@ -91,6 +93,7 @@ export async function check({root, directory, exportModel = adapter, checkDepend
   }
   result.bindingsReady = result.knowledgeReady && result.modelReady;
   if (result.bindingsReady) result.status = 'ready';
+  else if (result.modelReady) result.status = 'stale';
   if (result.bindingsReady && !result.indexReady) result.next = 'node .rhizome/modules/ao-kb/bindings/cli.mjs index';
   return result;
 }

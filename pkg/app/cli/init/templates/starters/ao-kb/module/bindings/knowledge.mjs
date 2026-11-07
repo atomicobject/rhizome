@@ -73,6 +73,7 @@ export async function knowledge(root, directory, selection) {
   await ownership(root);
   let phases = [];
   try { phases = (await readdir(path.join(root, 'artifacts'), {withFileTypes: true})).filter(e => e.isDirectory() && !registered.includes(e.name) && !e.name.startsWith('_')).map(e => e.name).sort(); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (!product) phases = [];
   if (phases.some(name => !/^[A-Za-z0-9_.-]+$/.test(name))) throw new Error('ao_product_path_unsupported: artifact phase directory names must be matcher path atoms');
   const lines = ['# Generated AO KB knowledge admission. Static knowledge types remain installed.'];
   if (product) for (const [type, dir] of [['Assertion', 'assertions'], ['Source', 'sources'], ['Concept', 'concepts'], ['Artifact', 'artifacts']]) {
@@ -90,6 +91,6 @@ export async function knowledge(root, directory, selection) {
   for (const file of await schemaFiles(root)) inputs.push({path: path.relative(root, file), hash: hash(await readFile(file))});
   const compiler = {};
   for (const file of ['knowledge.mjs', 'runtime.mjs', 'generation.mjs', 'toolkit-pin.json', '../scripts/lib/bindings-check.mjs']) compiler[file] = hash(await readFile(path.join(directory, file)));
-  return {sdl, context: {accountRoot: '.', product: product || null, productRoot: product ? `products/${product}` : '.'},
+  return {sdl, artifactPhases: phases, context: {accountRoot: '.', product: product || null, productRoot: product ? `products/${product}` : '.'},
     fingerprint: hash(json({inputs, compiler, selection, phases, root})), inputs};
 }

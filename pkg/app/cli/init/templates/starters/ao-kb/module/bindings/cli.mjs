@@ -41,15 +41,17 @@ try {
       const before = await check({root, directory});
       if (!before.bindingsReady) throw new Error('ao_bindings_stale: refresh bindings before indexing');
       const manifest = await readJSON(path.join(directory, 'manifest.json'));
+      const knowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
       const selected = await readJSON(path.join(directory, 'selection.json'));
       const signature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
       run(process.env.RZM || 'rzm', ['index'], {cwd: root, timeout: 0});
       await verifyIndex(root, await adapter(root, directory, selected, {offline: true}));
       const after = await check({root, directory});
       const current = await readJSON(path.join(directory, 'manifest.json'));
+      const currentKnowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
       const sourceSignature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
-      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index readiness could not be certified');
-      await atomic(path.join(directory, 'index-receipt.json'), json({formatVersion: 1, fingerprint: manifest.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}));
+      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint || currentKnowledge.fingerprint !== knowledge.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index inputs changed; review .rhizome/config.yml (the first index may persist defaults), run rzm ao-kb refresh-bindings, then node .rhizome/modules/ao-kb/bindings/cli.mjs index. No index receipt was issued');
+      await atomic(path.join(directory, 'index-receipt.json'), json({formatVersion: 1, fingerprint: manifest.fingerprint, knowledgeFingerprint: knowledge.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}));
       process.stdout.write(json({...after, indexReady: true}));
     } finally { await rm(lock, {recursive: true, force: true}); }
   }

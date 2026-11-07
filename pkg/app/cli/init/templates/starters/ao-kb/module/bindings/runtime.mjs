@@ -12,6 +12,7 @@ export async function readJSON(file) {
 }
 export function run(command, args, options = {}) {
   const result = spawnSync(command, args, {encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120000, ...options});
+  if (result.error?.code === 'ENOENT') throw new Error(`ao_dependency_missing: ${path.basename(command)} must be on PATH (or set RZM to the Rhizome executable)`);
   if (result.error || result.status !== 0) throw Object.assign(new Error(`${path.basename(command)} failed: ${result.error?.message || result.stdout || result.stderr}`), {stdout: result.stdout});
   return result.stdout;
 }
