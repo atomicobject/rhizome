@@ -21,12 +21,12 @@ CI owns native builds and process checks; the user explicitly chose to perform i
 
 ## Spec Set (Frozen)
 
-- [[windows-linux-desktop|SPEC-0133]], the complete requirements-only platform contract authored with this effort. The approved council proposal at source baseline db91322a11310fd641002b977f4c08c08af18fe2 defines the implementation plan below.
+- [[windows-linux-desktop|SPEC-0134]], the complete requirements-only platform contract authored with this effort. The approved council proposal at source baseline db91322a11310fd641002b977f4c08c08af18fe2 defines the implementation plan below.
 - [[rhizome-desktop|SPEC-0113]] and [[desktop-distribution-and-updates|SPEC-0122]] remain linked dependencies for existing macOS and shared behavior; their historical Mac-only exclusions are not edited or reopened here.
 
 ## Stories In Scope (Frozen)
 
-Requirements-only work: [[windows-linux-desktop#Requirements|SPEC-0133 requirements]]. No embedded user stories are invented.
+Requirements-only work: [[windows-linux-desktop#Requirements|SPEC-0134 requirements]]. No embedded user stories are invented.
 
 ## Spec Coverage Checklist
 
@@ -212,7 +212,7 @@ Evidence: native CI builds, real credential-store, window-launch and two-version
 - The installed Linux upgrade check (0.0.1 test package updated to 0.0.2 through the app) was not run. By Drew Colthorp's decision on 2026-11-07, it is carried forward to the second public release that ships Linux AppImages, which is the first real production-feed upgrade.
 - Scope addition at the user's request: Ubuntu 24.04 Arm64 (`linux-aarch64`) joined the supported Linux targets.
 - macOS retains its existing signing path. Manifests distinguish the canonical CLI hash from the signed bundled CLI hash there; Windows and Linux require exact canonical bytes in their packages.
-- Main advanced during implementation, adding Go 1.27.3, CI-owned public publication through reviewed release-preparation PRs, and its own Linux desktop work. This branch keeps main's `secret-tool` Secret Service store in place of its own D-Bus store, and its spec is renumbered SPEC-0133. The original plan remains the planning baseline; current release authorization policy governs implementation.
+- Main advanced during implementation, adding Go 1.27.3, CI-owned public publication through reviewed release-preparation PRs, and its own Linux desktop work. This branch keeps main's `secret-tool` Secret Service store in place of its own D-Bus store, and its spec is renumbered SPEC-0134. The original plan remains the planning baseline; current release authorization policy governs implementation.
 
 ## Closure Checklist
 
@@ -347,3 +347,4 @@ Complete on [PR #98](https://github.com/atomicobject/rhizome/pull/98). Linux x64
 - 2026-11-07T15:05:00Z [validation] On a local Arch Linux aarch64 host, the release AppImage profile bundles `Rhizome_0.0.0_aarch64.AppImage` with linuxdeploy `07333c6` for aarch64, and the full release script suite passes except the S3 preflight test that needs the AWS CLI. Ubuntu Arm64 dependency evidence, GUI smoke and upgrade fixtures remain CI and installed-GUI checks.
 - 2026-11-07T16:05:00Z [decision] Drew Colthorp accepted the Linux UI from daily use on Arch Linux ARM (Hyprland, Wayland) and deferred Windows. Public releases now omit Windows desktop packages: the release workflow has no Windows job, `REQUIRED_TARGETS` covers macOS and both Linux AppImages, and the x64 Linux job cross-compiles the unsigned Windows CLI as main did. Without this, an unconfigured Windows signer would have blocked every production release.
 - 2026-11-07T16:05:00Z [closure] Closed on PR #98. The installed Linux upgrade check is carried forward to the second public release that ships Linux AppImages, as an action item for Drew Colthorp.
+- 2026-11-07T17:10:00Z [decision] Renumbered this effort's spec to SPEC-0134 when PR #112 merged main: the AO KB adoption spec (`format-neutral-embedded-nodes-and-ao-kb-adoption`) has held SPEC-0133 since 2026-11-06.
