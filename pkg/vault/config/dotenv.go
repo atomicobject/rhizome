@@ -124,6 +124,36 @@ func LoadDotEnvUpwards(startDir string) ([]string, error) {
 	}
 }
 
+// LoadDotEnvUpwardsKeeping is LoadDotEnvUpwards for keys only the calling
+// process may set: each kept key ends as the process had it, set or unset,
+// because a repository's dotenv must not choose it.
+func LoadDotEnvUpwardsKeeping(startDir string, keep ...string) ([]string, error) {
+	type saved struct {
+		value string
+		set   bool
+	}
+	before := make(map[string]saved, len(keep))
+	for _, key := range keep {
+		value, set := os.LookupEnv(key)
+		before[key] = saved{value, set}
+	}
+	set, err := LoadDotEnvUpwards(startDir)
+	for key, was := range before {
+		if was.set {
+			_ = os.Setenv(key, was.value)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	}
+	kept := set[:0]
+	for _, key := range set {
+		if _, ok := before[key]; !ok {
+			kept = append(kept, key)
+		}
+	}
+	return kept, err
+}
+
 func isEnvKey(s string) bool {
 	if s == "" {
 		return false

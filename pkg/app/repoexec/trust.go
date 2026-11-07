@@ -29,6 +29,21 @@ func TrustRequirement(args []string, cwd, exe string) (string, bool, error) {
 	return root, true, nil
 }
 
+// DevAppHandoff returns the installed Rhizome Dev app's rzm when dispatch
+// hands args to it without checkout trust, or "". Callers use it once
+// TrustRequirement reports no trust is needed. Resolving again is safe here,
+// unlike for repository builds: the checkout never chooses this target.
+func DevAppHandoff(args []string, cwd, exe string) string {
+	if isRepositoryTrustControlInvocation(args) || isExplicitExternalBinaryManagerMigration(args) || isUpdateControlPlaneInvocation(args) {
+		return ""
+	}
+	plan, err := Select(cwd, exe)
+	if err != nil || !plan.DevApp || SameExecutablePath(plan.Target, exe) {
+		return ""
+	}
+	return plan.Target
+}
+
 // isRepositoryTrustControlInvocation covers commands that stay on the invoking
 // executable: trust control, user credentials, team sign-in, and desktop
 // entrypoints. The desktop bridge applies explicit trust before running any

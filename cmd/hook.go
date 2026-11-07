@@ -140,11 +140,7 @@ func hookDelegateTarget(cwd, exe string, store repositorytrust.Store) string {
 		return ""
 	}
 	if !required {
-		plan, err := repoexec.Select(cwd, exe)
-		if err != nil || !plan.DevApp || repoexec.SameExecutablePath(plan.Target, exe) {
-			return ""
-		}
-		return plan.Target
+		return repoexec.DevAppHandoff([]string{"hook"}, cwd, exe)
 	}
 	if trusted, err := store.Trusted(checkout); err != nil || !trusted {
 		return ""
