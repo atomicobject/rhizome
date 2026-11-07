@@ -87,9 +87,11 @@ func (kb *aoKB) env() []string {
 
 func (kb *aoKB) rzm(args ...string) (string, error) {
 	kb.t.Helper()
+	// Build first: the deadline is for rzm, and a cold-cache build can take minutes.
+	binary := rzmBinary(kb.t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	command := exec.CommandContext(ctx, rzmBinary(kb.t), args...)
+	command := exec.CommandContext(ctx, binary, args...)
 	command.Dir, command.Env = kb.root, kb.env()
 	output, err := command.CombinedOutput()
 	return string(output), err
