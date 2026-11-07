@@ -295,12 +295,11 @@ pub async fn sign_out(directory: &Path) -> Result<Value, Failure> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::{os::unix::fs::PermissionsExt, path::PathBuf, sync::Arc};
+    use std::{path::PathBuf, sync::Arc};
 
     fn sidecar(directory: &Path, body: &str) -> PathBuf {
         let path = directory.join("rzm");
-        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        crate::test_support::write_executable(&path, format!("#!/bin/sh\n{body}\n").as_bytes());
         path
     }
 

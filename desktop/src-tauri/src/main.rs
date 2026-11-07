@@ -20,6 +20,8 @@ mod state;
 mod tasks;
 mod team;
 mod terminal;
+#[cfg(all(test, unix))]
+mod test_support;
 mod updater;
 mod windows;
 use tauri::Manager;
