@@ -1,0 +1,74 @@
+{
+  "toolkitRevision": "e9dce951ab4cd6aa9ccc734df96590bde25ccde9",
+  "pyyaml": "6.0.3",
+  "cases": {
+    "valid": {
+      "source": "rows:\n  - {id: A, refs: [B, B, missing]}\n  - {id: B, name: Target}\n",
+      "rows": {
+        "row": {
+          "A": {
+            "id": "A",
+            "refs": [
+              "B",
+              "B",
+              "missing"
+            ]
+          },
+          "B": {
+            "id": "B",
+            "name": "Target"
+          }
+        }
+      },
+      "duplicateRows": [],
+      "edges": [
+        {
+          "from": "row:A",
+          "to": "row:B",
+          "rel": "uses"
+        },
+        {
+          "from": "row:A",
+          "to": "row:B",
+          "rel": "uses"
+        },
+        {
+          "from": "row:A",
+          "to": "row:missing",
+          "rel": "uses"
+        }
+      ]
+    },
+    "duplicate": {
+      "source": "rows:\n  - {id: A, refs: [B]}\n  - {id: B, name: First}\n  - {id: B, name: Second}\n",
+      "rows": {
+        "row": {
+          "A": {
+            "id": "A",
+            "refs": [
+              "B"
+            ]
+          },
+          "B": {
+            "id": "B",
+            "name": "Second"
+          }
+        }
+      },
+      "duplicateRows": [
+        [
+          "row",
+          "B",
+          2
+        ]
+      ],
+      "edges": [
+        {
+          "from": "row:A",
+          "to": "row:B",
+          "rel": "uses"
+        }
+      ]
+    }
+  }
+}

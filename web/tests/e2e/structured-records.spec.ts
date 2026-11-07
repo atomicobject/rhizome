@@ -40,6 +40,7 @@ test("reads owned YAML records as native values in both appearances", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(value.locator("textarea, [contenteditable=true]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(
     page.locator(".body-collection__row").filter({ hasText: "Check availability" }),
   ).toBeVisible();
