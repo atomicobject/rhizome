@@ -83,3 +83,20 @@ func TestPropertyMatcherAtoms(t *testing.T) {
 	require.True(t, comparable)
 	require.Equal(t, unquotedClauses, quotedClauses)
 }
+
+func TestQuotedPropertyAtomsStayLiteralInExpressions(t *testing.T) {
+	doc := &Subject{Path: "people/person.md", Tags: []string{"person"}, Frontmatter: map[string]any{"owner": "Drew AND Colthorp", "products": "(beta)"}}
+	for _, selector := range []string{
+		`owner:"Drew AND Colthorp"`,
+		`owner:"Drew AND Colthorp" AND tag:person`,
+		`(owner:"Drew AND Colthorp" AND (tag:person OR NOT has:owner))`,
+		`products:"(beta)" OR products:"*"`,
+		`(products:"(beta)")`,
+	} {
+		t.Run(selector, func(t *testing.T) {
+			expr, err := parseMatchExpression(selector)
+			require.NoError(t, err)
+			require.True(t, evalMatchExpression(expr, doc))
+		})
+	}
+}

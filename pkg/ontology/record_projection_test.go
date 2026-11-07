@@ -184,6 +184,7 @@ func TestPreparedRecordWildcardMembership(t *testing.T) {
 		map[string]any{"id": "missing"},
 		map[string]any{"id": "other", "products": []any{"beta"}},
 		map[string]any{"id": "empty", "products": ""},
+		map[string]any{"id": "null", "products": nil},
 	}
 	for _, tc := range []struct {
 		name, membership string
@@ -192,6 +193,7 @@ func TestPreparedRecordWildcardMembership(t *testing.T) {
 		{"wildcard", `includes: "alpha", includeMissing: false, wildcard: "*"`, []string{"exact-scalar", "exact-list", "wildcard-scalar", "wildcard-list"}},
 		{"missing", `includes: "alpha", includeMissing: true, wildcard: "*"`, []string{"exact-scalar", "exact-list", "wildcard-scalar", "wildcard-list", "missing"}},
 		{"without wildcard", `includes: "alpha", includeMissing: false`, []string{"exact-scalar", "exact-list"}},
+		{"empty wildcard", `includes: "alpha", includeMissing: false, wildcard: ""`, []string{"exact-scalar", "exact-list", "empty"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sdl := strings.Replace(recordRowsSDL, `shape: RECORD, paths:`, `shape: RECORD, membership: {path: "products", `+tc.membership+`}, paths:`, 1)
