@@ -152,6 +152,10 @@ func (e *executor) addError(path []string, message string) {
 	e.errors = append(e.errors, Error{Message: message, Path: cloneStrings(path)})
 }
 
+func (e *executor) addWarning(path []string, code, message string) {
+	e.warnings = append(e.warnings, Warning{Code: code, Message: message, Path: cloneStrings(path)})
+}
+
 func (e *executor) addErrorWithExtensions(path []string, message string, extensions map[string]any) {
 	e.errors = append(e.errors, Error{Message: message, Path: cloneStrings(path), Extensions: extensions})
 }

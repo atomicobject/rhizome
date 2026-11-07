@@ -13,11 +13,13 @@ import (
 )
 
 func TestStructuredReferencesRefreshWhenMarkdownTargetsChange(t *testing.T) {
-	for _, keyed := range []bool{false, true} {
-		name, target, keyArgument := "path", "evidence/source.md", ""
-		if keyed {
-			name, target, keyArgument = "projected key", "a-000000000001", `targetKey:"aoId",`
-		}
+	for _, variant := range []struct{ name, target, keyArgument string }{
+		{"path", "evidence/source.md", ""},
+		{"projected key", "a-000000000001", `targetKey:"aoId",`},
+		{"file stem", "source", `targetKey:["$fileStem","aoId"],`},
+	} {
+		name, target, keyArgument := variant.name, variant.target, variant.keyArgument
+		keyed, stem := name == "projected key", name == "file stem"
 		t.Run(name, func(t *testing.T) {
 			root := testkit.Vault(t, map[string]string{
 				".rhizome/ontology/schema.graphql": `type Host @node(default:true){status:String}
@@ -29,7 +31,7 @@ evidence:[Evidence!] @field(path:"evidence") @references(to:["Evidence"],` + key
 }`,
 				"model.yaml": "rows: [{id: A, evidence: [" + target + "]}]\n",
 			})
-			vault := obsidian.VaultDefinition{Root: root, Includes: []string{"model.yaml", "evidence/*.md"}}
+			vault := obsidian.VaultDefinition{Root: root, Includes: []string{"model.yaml", "evidence/**/*.md"}}
 			indexer := testkit.NoteMetadataIndexer(t)
 			db := filepath.Join(t.TempDir(), "incremental.sqlite")
 			store, err := semdb.Open(db)
@@ -56,6 +58,8 @@ evidence:[Evidence!] @field(path:"evidence") @references(to:["Evidence"],` + key
 				{"key restored", "evidence/source.md", note("a-000000000001", "assertion"), false, "evidence/source.md", ""},
 				{"duplicate", "evidence/duplicate.md", note("a-000000000001", "assertion"), false, "evidence/source.md", ""},
 				{"duplicate removed", "evidence/duplicate.md", "", true, "evidence/source.md", ""},
+				{"same stem", "evidence/other/source.md", note("a-000000000002", "assertion"), false, "evidence/source.md", ""},
+				{"same stem removed", "evidence/other/source.md", "", true, "evidence/source.md", ""},
 				{"retyped", "evidence/source.md", note("a-000000000001", "other"), false, "", "record_reference_unresolved"},
 				{"type restored", "evidence/source.md", note("a-000000000001", "assertion"), false, "evidence/source.md", ""},
 				{"deleted", "evidence/source.md", "", true, "", "record_reference_unresolved"},
@@ -73,6 +77,9 @@ evidence:[Evidence!] @field(path:"evidence") @references(to:["Evidence"],` + key
 						step.wantTarget, step.diagnostic = "", "record_reference_unresolved"
 					}
 					if keyed && step.name == "duplicate" {
+						step.wantTarget, step.diagnostic = "", "record_reference_ambiguous"
+					}
+					if stem && step.name == "same stem" {
 						step.wantTarget, step.diagnostic = "", "record_reference_ambiguous"
 					}
 					_, err = syncPathsForTest(t.Context(), indexer, vault, &obsidian.Note{}, store, nil, changed, deleted)

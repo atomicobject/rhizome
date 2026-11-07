@@ -28,37 +28,38 @@ func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sect
 		e.addError(path, fmt.Sprintf("field %s.%s has multiple values but is declared as singular", node.TypeName, field.Name))
 		return nil, false
 	}
-	if field.List && first > 0 && len(values) > first {
-		values = values[:first]
-	}
 	cache, err := e.notePathCacheForSections(ctx)
 	if err != nil {
 		e.addError(path, err.Error())
 		return nil, false
 	}
+	// A value that is missing, untyped or another type is left out with a
+	// warning, as note-level links are; workspace links keep its outcome.
 	records := make([]*noteRecord, 0, len(values))
 	for _, raw := range values {
+		if field.List && first > 0 && len(records) == first {
+			break
+		}
 		targetPath, ok := cache.ResolveNote(unwrapSectionLinkValue(raw))
 		if !ok {
-			e.addError(path, fmt.Sprintf("field %s.%s target %q does not resolve to a note", node.TypeName, field.Name, raw))
-			return nil, false
+			e.addWarning(path, "link_target_missing", fmt.Sprintf("field %s.%s target %q does not resolve to a note", node.TypeName, field.Name, raw))
+			continue
 		}
 		record, err := e.rootNote(ctx, targetPath)
 		if err != nil {
 			e.addError(path, err.Error())
 			return nil, false
 		}
-		if record == nil {
-			e.addError(path, fmt.Sprintf("field %s.%s target %q does not resolve to a typed note", node.TypeName, field.Name, raw))
-			return nil, false
+		resolvedType := ""
+		if record != nil {
+			resolvedType = strings.TrimSpace(record.TypeName)
 		}
-		resolvedType := record.TypeName
-		if strings.TrimSpace(resolvedType) == "" {
-			resolvedType = "untyped note"
-		}
-		if !sectionLinkTypeMatchesOrImplements(e.schema, record.TypeName, field.TypeName) {
-			e.addError(path, fmt.Sprintf("field %s.%s expects %s but %q resolves to %s", node.TypeName, field.Name, field.TypeName, raw, resolvedType))
-			return nil, false
+		if record == nil || !sectionLinkTypeMatchesOrImplements(e.schema, record.TypeName, field.TypeName) {
+			if resolvedType == "" {
+				resolvedType = "untyped note"
+			}
+			e.addWarning(path, "wrong_target_type", fmt.Sprintf("field %s.%s expects %s but %q resolves to %s", node.TypeName, field.Name, field.TypeName, raw, resolvedType))
+			continue
 		}
 		records = append(records, record)
 	}
@@ -66,6 +67,10 @@ func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sect
 		return e.resolveNodeList(ctx, records, set, path), true
 	}
 	if len(records) == 0 {
+		if field.Required {
+			e.addError(path, fmt.Sprintf("required relation %s.%s has no %s target", node.TypeName, field.Name, field.TypeName))
+			return nil, false
+		}
 		return nil, true
 	}
 	return e.resolveNodeSelectionSet(ctx, records[0], set, path), true

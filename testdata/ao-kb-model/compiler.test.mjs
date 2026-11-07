@@ -169,7 +169,7 @@ test('mapping key scope restarts at a declared container and group fallback stay
 test('standard model contracts expose native evidence, file sync, labels, and exact node mounts', async () => {
   const ir = JSON.parse(await readFile(path.resolve(here, '../ao-kb/model-intermediate.json')));
   const result = render(ir);
-  assert.match(result.sdl, /targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: \{name: "evidenced-by", direction: OUTBOUND\}/);
+  assert.match(result.sdl, /targetKey: \["\$fileStem", "aoId"\], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: \{name: "evidenced-by", direction: OUTBOUND\}/);
   assert.match(result.sdl, /implements AOKBModel_feature & AOKBModelRecord @node\(locator: EMBEDDED, label: "Feature"\)/);
   assert.match(result.sdl, /type AOKBModelFile[\s\S]*select: ""[\s\S]*synced: String @field\(path: "synced"\)/);
   assert.match(result.views['AOKBModel_feature_single.yaml'], /entry: model.tsx[\s\S]*kind: node, type: AOKBModel_feature_single, default: true/);
