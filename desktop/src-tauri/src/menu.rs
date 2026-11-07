@@ -394,6 +394,38 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::maximize(app, None)?,
         ],
     )?;
+    #[cfg(target_os = "linux")]
+    {
+        // GTK does not implement these predefined menu items.
+        app_menu.append(&MenuItem::with_id(
+            app,
+            "quit",
+            "Quit",
+            true,
+            Some("Ctrl+Q"),
+        )?)?;
+        window_menu.append(&MenuItem::with_id(
+            app,
+            "minimize",
+            "Minimize",
+            true,
+            None::<&str>,
+        )?)?;
+        window_menu.append(&MenuItem::with_id(
+            app,
+            "maximize",
+            "Maximize",
+            true,
+            None::<&str>,
+        )?)?;
+        view_menu.append(&MenuItem::with_id(
+            app,
+            "fullscreen",
+            "Full Screen",
+            true,
+            Some("F11"),
+        )?)?;
+    }
     app.set_menu(Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
@@ -413,6 +445,28 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             return;
         }
         match id {
+            #[cfg(target_os = "linux")]
+            "quit" => app.exit(0),
+            #[cfg(target_os = "linux")]
+            "minimize" | "maximize" | "fullscreen" => {
+                if let Some(window) = focused_window(app) {
+                    match id {
+                        "minimize" => {
+                            let _ = window.minimize();
+                        }
+                        "maximize" => {
+                            let _ = if window.is_maximized().unwrap_or(false) {
+                                window.unmaximize()
+                            } else {
+                                window.maximize()
+                            };
+                        }
+                        _ => {
+                            let _ = window.set_fullscreen(!window.is_fullscreen().unwrap_or(false));
+                        }
+                    }
+                }
+            }
             "new-window" => {
                 let session = match app.windows().is_empty() {
                     true => app.state::<Sessions>().last_closed(),

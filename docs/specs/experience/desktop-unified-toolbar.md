@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0119
 summary: "In Rhizome Desktop, the native toolbar carries the workspace's section tabs, project search, issue badge, and shortcuts, and the web UI hides its own header, so a window has one top bar."
 spec-status: proposed
-last-updated: 2026-10-26
+last-updated: 2026-11-06
 aliases:
   - SPEC-0119
 ---
@@ -83,3 +83,9 @@ None. Drew settled the shape on 2026-10-07: the shell owns the bar, the typed an
 - `desktop/README.md`: the toolbar's page controls, the title report, the page events, and the ⌘K menu item.
 - `web/CONTEXT.md`: `AppShell`'s desktop mode.
 - [[rhizome-desktop|SPEC-0113]] already requires a toolbar with the worktree selector and a separate content webview without permissions; this spec adds to both without changing them, so SPEC-0113 needs no edit.
+
+## Linux adaptation
+
+Linux windows use one app header with a native Application menu popup instead of a persistent GTK menu bar. Keep native keyboard accelerators registered, omit macOS traffic-light spacing, and show platform-appropriate search shortcuts. Section navigation becomes a current-section selector when tabs cannot fit; the project search becomes compact and expands on focus, including Ctrl+K. Linux permits windows down to 100px wide. The header and runtime keep a readable 480px minimum working canvas and expose independent horizontal scrollbars below that width; controls remain reachable by scrolling instead of being squeezed. Compact search may expand over the header tools while focused.
+
+Native Linux layout must keep the shell filling the window and the runtime content below the measured toolbar/content boundary through height, width and scale changes. Settings covers the runtime; finders overlay both without changing their native permission boundary. Do not let GTK distribute shell and content as competing expanding rows. macOS retains its unified title bar.

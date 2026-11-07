@@ -3027,6 +3027,7 @@ dependencies = [
 name = "rhizome-desktop"
 version = "0.0.0"
 dependencies = [
+ "gtk",
  "serde",
  "serde_json",
  "tauri",
