@@ -214,3 +214,14 @@ test('public check preserves independent knowledge and model readiness', t => {
   assert.equal(report.bindings.knowledge.status, 'ready');
   assert.equal(report.bindings.model.status, 'incomplete');
 });
+
+test('local schema types whose query roots collide with the starter knowledge types are named', t => {
+  const local = 'type assertion @node(paths: ["assertions/*.md"]) { id: ID }\ntype hub @node(paths: ["MOCs/*.md"]) { x: String }\n';
+  const row = named(fixture(t, { '.rhizome/ontology/core-knowledge.graphql': local }), 'knowledge bindings');
+  assert.equal(row.status, 'error');
+  assert.match(row.message, /\.rhizome\/ontology\/core-knowledge\.graphql declares assertion/);
+  assert.doesNotMatch(row.message, /hub/);
+  const module = named(fixture(t, { '.rhizome/modules/other/ontology/x.graphql': 'type Assertion @node(paths: ["a/*.md"]) { id: ID }\n' }), 'knowledge bindings');
+  assert.equal(module.status, 'error');
+  assert.equal(named(fixture(t, { '.rhizome/ontology/other.graphql': 'type hub { x: String }\n' }), 'knowledge bindings').status, 'ok');
+});
