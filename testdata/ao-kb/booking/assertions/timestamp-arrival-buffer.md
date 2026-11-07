@@ -2,7 +2,7 @@
 id: "a-000000000011"
 type: "assertion"
 headline: "Arrival buffer is 10m"
-abstract: "Illustrative Booking assertion."
+abstract: "Patients need ten minutes to complete check-in."
 kind: "need"
 confidence: "validated"
 attestation: "direct"
@@ -12,17 +12,17 @@ lenses: ["patient", "operations"]
 products: ["booking"]
 tags: ["booking"]
 priority: "now"
-horizon: "near"
+horizon: "now"
 sensitivity: "company"
-validFrom: "2026-10-20"
-createdAt: "2026-10-20T10:00:00Z"
-updatedAt: "2026-10-20T10:00:00Z"
+validFrom: "2026-10-16"
+createdAt: "2026-10-16T10:00:00Z"
+updatedAt: "2026-10-17T10:00:00Z"
 createdVia: "codex"
 extracted_by: "llm@ao-kb@fixture"
 provenance:
-  quote_hash: "sha256:56a9df49566fb2912d6bf0e307cc0ea3a29d9c776532e5fc3262c0ae9f7df787"
+  quote_hash: "sha256:7577c5481e33b86bad20de0524950ee287991d315ff6854e3125c496baac26ca"
   locator: "01:10-01:30"
-  speaker: "Morgan, clinic operations"
+  speaker: "Alex, patient participant"
   speaker_role: "end-user"
   extracted_by: "llm@ao-kb@fixture"
 ---

@@ -39,21 +39,25 @@ function AttentionBody({ data }: { data: Knowledge }) {
       a,
       assessment: savedAssertion(saved.data, a.aoId || "", a.updatedAt || undefined),
     }));
-  const stale = assessments.filter(
+  const inSnapshot = assessments.filter((s) => s.assessment.status === "available");
+  const missing = assessments.length - inSnapshot.length;
+  const stale = inSnapshot.filter(
     (s) => s.assessment.status === "available" && s.assessment.mayBeStale,
   ).length;
   return (
     <>
       <Facts note="Structural observations from authored links and recorded dates. AO status remains a separate stored fact.">
-        <Fact value={data.assertion.length}>assertions</Fact>
-        <Fact value={data.source.length}>sources</Fact>
+        <Fact value={data.assertion.length}>
+          {data.assertion.length === 1 ? "assertion" : "assertions"}
+        </Fact>
+        <Fact value={data.source.length}>{data.source.length === 1 ? "source" : "sources"}</Fact>
       </Facts>
       <Filters data={data} />
       <p className="ak-basis">
         {saved.isPending
           ? "Reading AO saved analysis…"
           : saved.data
-            ? `AO saved analysis as of ${saved.data.meta.asOf || "Not recorded"} · ${saved.data.meta.builder || "Builder not recorded"} · .kb/index/kb-weights.json. ${stale} claims updated after that date; their saved bands may be stale. No known later edit does not prove freshness.`
+            ? `AO saved analysis as of ${saved.data.meta.asOf || "Not recorded"} · ${saved.data.meta.builder || "Builder not recorded"} · .kb/index/kb-weights.json. ${stale} ${stale === 1 ? "claim" : "claims"} updated after that date; their saved bands may be stale. No known later edit does not prove freshness.`
             : "AO saved analysis unavailable: .kb/index/kb-weights.json. This is not a clean result."}
       </p>
       {Object.entries(groups).map(([title, observations], groupIndex) => {
@@ -89,7 +93,12 @@ function AttentionBody({ data }: { data: Knowledge }) {
         );
       })}
       <p className="ak-saved-divider">From AO's saved analysis</p>
-      <Fold title="Saved assertion bands and basis" defaultOpen={false} count={assessments.length}>
+      {saved.data && missing > 0 && (
+        <p className="ak-footnote">
+          {missing} {missing === 1 ? "claim is" : "claims are"} not in the snapshot.
+        </p>
+      )}
+      <Fold title="Saved assertion bands and basis" defaultOpen={false} count={saved.data ? inSnapshot.length : undefined}>
         <p className="ak-footnote">
           As of {saved.data?.meta.asOf || "Not recorded"} · built{" "}
           {saved.data?.meta.generatedAt || "Not recorded"} ·{" "}
@@ -97,9 +106,9 @@ function AttentionBody({ data }: { data: Knowledge }) {
         </p>
         {!saved.data ? (
           <p>Unavailable. This is not a clean result.</p>
-        ) : assessments.length ? (
+        ) : inSnapshot.length ? (
           <ul className="ak-list">
-            {assessments.map(({ a, assessment }) => (
+            {inSnapshot.map(({ a, assessment }) => (
               <li key={a.path}>
                 <Record record={a} />
                 {assessment.status === "available" ? (

@@ -3,7 +3,7 @@ id: "s-000000000005"
 type: "source"
 name: "Patient arrival recording"
 headline: "Patient arrival recording"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "A patient explains the ten-minute check-in buffer in a timestamped arrival interview."
 kind: "raw-transcript"
 topics: ["booking"]
 status: "complete"
@@ -19,6 +19,6 @@ extractedAssertionIds: []
 
 # Patient arrival recording
 
-Reception checks the referral before confirming a slot.
+A patient explains the ten-minute check-in buffer in a timestamped arrival interview.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

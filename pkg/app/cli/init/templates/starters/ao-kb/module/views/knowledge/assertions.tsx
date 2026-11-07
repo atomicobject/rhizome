@@ -111,7 +111,8 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
                         {a.status ? <StatusMark value={a.status} values={[]} /> : "Not recorded"}
                       </td>
                       <td>
-                        <Count>{a.sourcesSection?.citations.length || 0}</Count> Sources links
+                        <Count>{a.sourcesSection?.citations.length || 0}</Count> Sources{" "}
+                        {a.sourcesSection?.citations.length === 1 ? "link" : "links"}
                         <span className="ak-meta">
                           {citations.data?.get(a.path) || "Not recorded"}
                         </span>

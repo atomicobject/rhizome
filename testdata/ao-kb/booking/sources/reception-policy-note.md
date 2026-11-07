@@ -3,7 +3,7 @@ id: "s-000000000008"
 type: "source"
 name: "Reception policy note"
 headline: "Reception policy note"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "Reception checks the referral before confirming a slot."
 kind: "structured-doc"
 topics: ["booking"]
 status: "complete"
@@ -20,4 +20,4 @@ extractedAssertionIds: []
 
 Reception checks the referral before confirming a slot.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

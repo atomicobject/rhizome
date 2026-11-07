@@ -197,15 +197,15 @@ function TraceBody({
             trace && (
               <>
                 <Facts note="Unique records include the focus. Counts cover the requested scope.">
-                  <Fact value={trace.nodes.size}>records</Fact>
-                  <Fact value={trace.edges.length}>relationships</Fact>
+                  <Fact value={trace.nodes.size}>{trace.nodes.size === 1 ? "record" : "records"}</Fact>
+                  <Fact value={trace.edges.length}>{trace.edges.length === 1 ? "relationship" : "relationships"}</Fact>
                 </Facts>
                 <p className="ao-trace-count" aria-live="polite">
                   <Count>{counts("up")}</Count> upstream within {up} {up === 1 ? "hop" : "hops"} ·{" "}
                   <Count>{counts("related")}</Count> related · <Count>{counts("down")}</Count>{" "}
                   downstream within {down} {down === 1 ? "hop" : "hops"}
                   {trace.nodes.size > visible
-                    ? ` · ${trace.nodes.size - visible} records behind Show more`
+                    ? ` · ${trace.nodes.size - visible} ${trace.nodes.size - visible === 1 ? "record" : "records"} behind Show more`
                     : ""}
                 </p>
                 <p className="ao-trace-model">
@@ -243,7 +243,6 @@ function TraceBody({
                   expanded={expanded}
                   open={params.rows === true}
                   onToggle={() => setViewParams({ rows: params.rows !== true })}
-                  onFocus={refocus}
                   active={active}
                 />
                 {focus.__typename === "Source" && (

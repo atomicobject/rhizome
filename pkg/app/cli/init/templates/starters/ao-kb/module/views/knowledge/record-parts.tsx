@@ -3,8 +3,10 @@ import { NodeLink, Section, sectionStatus } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { useSavedAnalysis } from "./data.tsx";
 import { savedAssertion } from "./lib/saved-analysis.ts";
-import { claimText, conflictPair, name, relationships } from "./lib/knowledge.ts";
+import { claimText, conflictPair, relationships } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
+import { collapseContradictions } from "./lib/relations.ts";
+import { ClaimProse, LinkedText } from "./prose.tsx";
 import { DateValue, Field, Record } from "./parts.tsx";
 
 export function SavedAssessment({ a }: { a: Assertion }) {
@@ -84,8 +86,8 @@ export function Conflicts({ a, data }: { a: Assertion; data: Knowledge }) {
   const conflicts = data.conflictRegistry
     .flatMap((r) => r.groups.flatMap((g) => g.entries))
     .filter((c) => conflictPair(c, graph.resolve).includes(a.path));
-  const contradictions = graph.edges.filter(
-    (e) => e.rel === "contradicts" && (e.from === a.path || e.to === a.path),
+  const contradictions = collapseContradictions(
+    graph.edges.filter((e) => e.rel === "contradicts" && (e.from === a.path || e.to === a.path)),
   );
   return (
     <Section
@@ -101,12 +103,31 @@ export function Conflicts({ a, data }: { a: Assertion; data: Knowledge }) {
       )}
       {conflicts.map((c) => (
         <div key={c.ref.fragment || c.title} className="ak-conflict">
+          <div className="ak-comparison">
+            {conflictPair(c, graph.resolve).map((path) => {
+              const claim = data.assertion.find((v) => v.path === path);
+              return claim ? (
+                <div key={path}>
+                  <Record record={claim} />
+                  <ClaimProse text={claimText(claim)} graph={graph} />
+                </div>
+              ) : (
+                <p key={path}>Unresolved assertion: {path}</p>
+              );
+            })}
+          </div>
           <div>
             <NodeLink node={c.ref}>{c.title}</NodeLink>
             <dl>
               {c.fields.map((f, i) => (
                 <Field key={i} label={f.label.replace(/\*|:$/g, "")}>
-                  {f.value}
+                  {f.value.trim() === "—" || !f.value.trim() ? (
+                    "Not recorded"
+                  ) : f.label === "Winner" && !f.value.includes("[[") && graph.resolve(f.value) ? (
+                    <LinkedText text={`[[${f.value}]]`} graph={graph} />
+                  ) : (
+                    <LinkedText text={f.value} graph={graph} />
+                  )}
                 </Field>
               ))}
             </dl>
@@ -114,19 +135,6 @@ export function Conflicts({ a, data }: { a: Assertion; data: Knowledge }) {
               From .kb/curation/_conflicts.md. People write Resolution and the human states; AO's
               conflicts script writes the rest. Rhizome does not pick a winner.
             </p>
-          </div>
-          <div className="space-y-4">
-            {conflictPair(c, graph.resolve).map((path) => {
-              const claim = data.assertion.find((v) => v.path === path);
-              return claim ? (
-                <div key={path}>
-                  <Record record={claim} />
-                  <p className="ak-claim">{claimText(claim)}</p>
-                </div>
-              ) : (
-                <p key={path}>Unresolved assertion: {path}</p>
-              );
-            })}
           </div>
         </div>
       ))}

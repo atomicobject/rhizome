@@ -3,7 +3,7 @@ id: "s-000000000003"
 type: "source"
 name: "Clinic pricing policy"
 headline: "Clinic pricing policy"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "Published tiers distinguish routine and specialist appointment prices."
 kind: "structured-doc"
 topics: ["booking"]
 status: "complete"
@@ -19,6 +19,6 @@ extractedAssertionIds: []
 
 # Clinic pricing policy
 
-Reception checks the referral before confirming a slot.
+Published tiers distinguish routine and specialist appointment prices.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

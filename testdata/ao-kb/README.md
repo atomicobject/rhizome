@@ -89,24 +89,24 @@ The current SDL cannot faithfully provide the requested flat `Assertion.sources`
 
 ## AO output generation
 
-The toolkit is read-only. All index/report writes ran against `/tmp/ao-kb-worker1/booking`; only the requested outputs were copied here. PyYAML 6.0.3 was installed into `/tmp/ao-kb-worker1/venv` so AO's YAML-backed verifier checks ran, rather than silently skipping them. `PYTHONDONTWRITEBYTECODE=1` prevented bytecode writes into the toolkit.
+Regenerated for Worker 6 on 2026-11-06. The toolkit is read-only. All index/report writes ran against `/private/tmp/ao-kb-worker6/booking`; only the requested outputs were copied here. PyYAML 6.0.3 was installed into `/private/tmp/ao-kb-worker6/venv` so AO's YAML-backed verifier checks ran, rather than silently skipping them. `PYTHONDONTWRITEBYTECODE=1` prevented bytecode writes into the toolkit.
 
 The source and passage hashes were produced by AO, including this exact successful invocation:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 /tmp/ao-kb-worker1/venv/bin/python3 \
+PYTHONDONTWRITEBYTECODE=1 /private/tmp/ao-kb-worker6/venv/bin/python3 \
   /Users/colthorp/Developer/atomic-ai-prompt-toolkit/plugins/ao-kb/skills/process/locators.py \
-  hash /tmp/ao-kb-worker1/booking --source clinic-operations-sync --locator L12-L18
+  hash /private/tmp/ao-kb-worker6/booking --source clinic-operations-sync --locator L12-L18
 ```
 
-It returned `sha256:23a4144b5227c15ab9e62552c7b0c49df9aab1e8e9a1f21df4de984e50da2c2d`. All 17 valid located claims carry AO-generated hashes. The two deliberately invalid locators retain that valid operations passage hash as an intentionally unresolvable recorded reference.
+It returned `sha256:824ae1b326c7d0a61003a33fcb3760d55ce21159f335856687c112ea65bc9dbc`. All 17 valid located claims carry distinct AO-generated hashes. Each valid span states its claim; the operations transcript keeps separate dated passages for reminder revisions, conflicting cancellation policies, eligibility questions, and the late waitlist decision. Priorities, horizons (including absent values), attribution, attestation, confidence, and dates vary across the fixture. The two deliberately invalid locators retain the valid L43-L44 possibilities passage hash as an intentionally unresolvable recorded reference.
 
 For regeneration, copy `booking/` to the scratch root. Before generating historical weights, set the scratch cancellation claim's updatedAt back to `2026-10-20T10:00:00Z`, remove the late waitlist claim from scratch, and remove the self-service claim's link to that later claim. Those are the only historical changes. Run:
 
 ```sh
 TOOL=/Users/colthorp/Developer/atomic-ai-prompt-toolkit/plugins/ao-kb/skills/process
-PY=/tmp/ao-kb-worker1/venv/bin/python3
-SCRATCH=/tmp/ao-kb-worker1/booking
+PY=/private/tmp/ao-kb-worker6/venv/bin/python3
+SCRATCH=/private/tmp/ao-kb-worker6/booking
 PYTHONDONTWRITEBYTECODE=1 "$PY" "$TOOL/claim_weight.py" "$SCRATCH" \
   --build-index --as-of 2026-10-31 --out "$SCRATCH/.kb/index/kb-weights.json"
 cp "$SCRATCH/.kb/index/kb-weights.json" testdata/ao-kb/booking/.kb/index/kb-weights.json
@@ -115,8 +115,8 @@ cp "$SCRATCH/.kb/index/kb-weights.json" testdata/ao-kb/booking/.kb/index/kb-weig
 Restore those three assertion files from the final fixture into scratch, then run:
 
 ```sh
-node "$TOOL/build_kb_index.js" "$SCRATCH" --out testdata/ao-kb/parity/booking.kb-index.json
-node "$TOOL/build_kb_index.js" "$SCRATCH"
+node "$TOOL/build_kb_index.js" "$SCRATCH" --out "$SCRATCH/.kb/index/kb-index.json"
+cp "$SCRATCH/.kb/index/kb-index.json" testdata/ao-kb/parity/booking.kb-index.json
 PYTHONDONTWRITEBYTECODE=1 "$PY" "$TOOL/verify_kb.py" "$SCRATCH" --max-detail 100
 PYTHONDONTWRITEBYTECODE=1 "$PY" "$TOOL/locators.py" check "$SCRATCH" --json
 PYTHONDONTWRITEBYTECODE=1 "$PY" "$TOOL/conflicts.py" "$SCRATCH" --check-first
@@ -127,8 +127,8 @@ cp "$SCRATCH/.kb/curation/_check_first.md" testdata/ao-kb/booking/.kb/curation/_
 
 Expected AO results:
 
-- Weights: exit 0, 21 assertions; 2 contested, 9 firm, 2 thin, 3 history, 2 open, 3 resolved. One claim predates the attestation field.
-- Index builder: exit 0, 22 assertions / 9 sources / 7 concepts / 4 artifacts. Three unresolved graph declarations correspond to the two deliberately missing records (the missing source creates both an incidental relation and an evidence relation). `teleports-to` is the single noncanonical relation.
+- Weights: exit 0, 21 assertions; 2 contested, 7 firm, 4 thin, 3 history, 2 open, 3 resolved. Two claims predate the attestation field.
+- Index builder: exit 0, 22 assertions / 9 sources / 7 concepts / 4 artifacts, 125 edges (23 mentions). Three unresolved graph declarations correspond to the two deliberately missing records (the missing source creates both an incidental relation and an evidence relation). `teleports-to` is the single noncanonical relation.
 - Verifier: exit 1, exactly two broken wikilinks, three schema findings (legacy `layer`, legacy `layers`, archived vocabulary), one missing Sources section, and two typed-label findings (`supported-by` and `teleports-to`). Zero asymmetric contradictions, invalid YAML, unpaired artifact references, unresolved supported_by, confidence-ceiling violations, or origin warnings. AO also emits two stylistic headline warnings for the artifact names; these descriptive artifact headlines deliberately match their names. Site/trace/metamodel checks report unavailable because this Markdown-only fixture has no site engine.
 - Locators: exit 1, 22 checked, 19 located, 17 verified, exactly `locator-malformed` and `locator-unresolved`.
 - Conflicts: exit 1 because one blocking pair remains open; one pair is auto-superseded. `_check_first.md` contains four items. It uses the configured layer section order; the fixture keeps AO's reported direction and does not derive another ranking.

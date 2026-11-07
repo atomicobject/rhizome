@@ -3,7 +3,7 @@ id: "s-000000000002"
 type: "source"
 name: "Patient booking interview"
 headline: "Patient booking interview"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "A patient describes choosing slots after hours, journey reminders, and interest in same-day video visits."
 kind: "raw-transcript"
 topics: ["booking"]
 status: "complete"
@@ -19,6 +19,6 @@ extractedAssertionIds: []
 
 # Patient booking interview
 
-Reception checks the referral before confirming a slot.
+A patient describes choosing slots after hours, journey reminders, and interest in same-day video visits.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

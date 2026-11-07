@@ -1,4 +1,4 @@
-import { Count, MoreToggle, NodeLink, RecordChip, Section } from "@rhizome/kit";
+import { Count, MoreToggle, NodeLink, Section } from "@rhizome/kit";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@rhizome/ui";
 import { columns, edgeRole } from "./layout.ts";
 import {
@@ -18,7 +18,6 @@ export function Relationships({
   expanded,
   open,
   onToggle,
-  onFocus,
   active,
 }: {
   trace: Trace;
@@ -28,7 +27,6 @@ export function Relationships({
   expanded: Set<string>;
   open: boolean;
   onToggle: () => void;
-  onFocus: (path: string) => void;
   active: string | null;
 }) {
   const byPath = new Map(records.map((record) => [record.path, record]));
@@ -40,14 +38,11 @@ export function Relationships({
     if (!record) return <span>{path}</span>;
     return (
       <>
-        <RecordChip recordKey={path} wrap onOpen={() => onFocus(path)}>
+        <NodeLink className="ao-trace-title" node={record.ref} view={presentation(record)}>
           {label(record)}
-        </RecordChip>
+        </NodeLink>
         <span className="ao-trace-row-meta">
-          {record.__typename} ·{" "}
-          <NodeLink node={record.ref} view={presentation(record)}>
-            Open record
-          </NodeLink>
+          {record.__typename} · <span className="ao-trace-id">{record.aoId || "Not recorded"}</span>
         </span>
       </>
     );
@@ -100,7 +95,10 @@ export function Relationships({
                       key={`${location.path}:${location.section}`}
                     >
                       {i > 0 && <span>Also declared in </span>}
-                      <NodeLink node={location.ref ?? byPath.get(location.path)?.ref}>
+                      <NodeLink
+                        className="ao-trace-authored-link"
+                        node={location.ref ?? byPath.get(location.path)?.ref}
+                      >
                         {location.path} › {location.section}
                       </NodeLink>
                     </span>

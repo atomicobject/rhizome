@@ -3,7 +3,7 @@ id: "s-000000000007"
 type: "source"
 name: "Generated booking summary"
 headline: "Generated booking summary"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "A generated synthesis of the booking workshops. It is corroboration, not independent stakeholder testimony."
 kind: "meeting-summary"
 topics: ["booking"]
 status: "complete"
@@ -19,6 +19,6 @@ extractedAssertionIds: []
 
 # Generated booking summary
 
-Reception checks the referral before confirming a slot.
+A generated synthesis of the booking workshops. It is corroboration, not independent stakeholder testimony.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

@@ -13,6 +13,8 @@ import type { Knowledge } from "./lib/knowledge.ts";
 import { useCoverage, useSavedAnalysis } from "./data.tsx";
 import { Empty, Filters, Fold, ModelUnavailable, Page, Record, useFilters } from "./parts.tsx";
 
+const COVERAGE_SERIES = ["link", 2, 3, 5, 6] as const;
+
 function ConceptsBody({ data }: { data: Knowledge }) {
   const filters = useFilters(),
     coverage = useCoverage(data),
@@ -34,8 +36,10 @@ function ConceptsBody({ data }: { data: Knowledge }) {
     <>
       <Filters data={data} />
       <Facts note="Locator coverage of one origin citation per assertion. A claim can belong to several concepts; overall totals count it once.">
-        <Fact value={assertions.length}>assertions in scope</Fact>
-        <Fact value={visible.length}>concepts shown</Fact>
+        <Fact value={assertions.length}>
+          {assertions.length === 1 ? "assertion" : "assertions"} in scope
+        </Fact>
+        <Fact value={visible.length}>{visible.length === 1 ? "concept" : "concepts"} shown</Fact>
       </Facts>
       <Section
         title="Origin-citation coverage"
@@ -44,12 +48,12 @@ function ConceptsBody({ data }: { data: Knowledge }) {
       >
         {() => (
           <>
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <div className="ak-coverage-legend flex flex-wrap gap-x-5 gap-y-2 text-sm">
               {totals.map(({ label, count }, i) => (
                 <span key={label}>
                   <span
                     className="inline-block h-2 w-2 mr-1"
-                    style={{ background: `var(--series-${i + 1})` }}
+                    style={{ background: `var(--series-${COVERAGE_SERIES[i]})` }}
                     aria-hidden="true"
                   />
                   {label} <Count>{count}</Count>
@@ -92,7 +96,10 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                                   n > 0 && (
                                     <span
                                       key={i}
-                                      style={{ flex: n, background: `var(--series-${i + 1})` }}
+                                      style={{
+                                        flex: n,
+                                        background: `var(--series-${COVERAGE_SERIES[i]})`,
+                                      }}
                                     />
                                   ),
                               )}
@@ -100,7 +107,10 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                           )}
                           <span className="ak-meta">
                             {c.relatedConceptsSection?.relatedConcepts.length || 0} explicitly
-                            related concepts
+                            related{" "}
+                            {c.relatedConceptsSection?.relatedConcepts.length === 1
+                              ? "concept"
+                              : "concepts"}
                           </span>
                         </td>
                         <td>
@@ -120,9 +130,10 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                                 { concept: c.path },
                               );
                             }}
-                            aria-label={`Browse ${members.length} assertions for ${name(c)}`}
+                            aria-label={`Browse ${members.length} ${members.length === 1 ? "assertion" : "assertions"} for ${name(c)}`}
                           >
-                            <Count>{members.length}</Count> assertions
+                            <Count>{members.length}</Count>{" "}
+                            {members.length === 1 ? "assertion" : "assertions"}
                           </a>
                         </td>
                         {counts.map((n, i) => (

@@ -152,3 +152,17 @@ export const EXTRACTED = 'extracted';
 export function traversal(rel: string): Traversal {
   return TRAVERSAL[rel] ?? 'unclassified';
 }
+
+/** Collapse only symmetric contradiction pairs for record display; retain other directions. */
+export function collapseContradictions(edges: Edge[]) {
+  const rows = new Map<string, { edge: Edge; bothEnds: boolean }>();
+  for (const edge of edges) {
+    const endpoints =
+      edge.rel === "contradicts" ? [edge.from, edge.to].sort() : [edge.from, edge.to];
+    const key = [edge.rel, ...endpoints].join("\0");
+    const row = rows.get(key);
+    if (row) row.bothEnds ||= row.edge.from !== edge.from;
+    else rows.set(key, { edge, bothEnds: false });
+  }
+  return [...rows.values()];
+}

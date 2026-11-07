@@ -41,6 +41,14 @@ test("bounded depths, authored arrows, and the counted relationship list agree",
   ).toBeVisible();
   await expect(table.getByText(/Sources #2 \(origin\)/)).toBeVisible();
   await expect(table.getByText(/Sources #3/)).toBeVisible();
+  await expect(table.getByRole("link", { name: "Open record", exact: true })).toHaveCount(0);
+  await expect(
+    table.locator(".ao-trace-row-meta").filter({ hasText: "s-000000000001" }).first(),
+  ).toContainText("Source");
+  await expect(table.locator(".ao-trace-authored-link").first()).toHaveCSS(
+    "text-decoration-line",
+    "none",
+  );
 });
 
 test("dense columns disclose hidden types and expand without changing the counted scope", async ({
@@ -157,12 +165,18 @@ test("keyboard cards and list links work, source extraction is separate, and unk
 
   const recordButton = view
     .getByRole("table")
-    .getByRole("button", { name: "Patients book their own slots", exact: true })
+    .getByRole("link", { name: "Patients book their own slots", exact: true })
     .first();
 
   await recordButton.focus();
   await recordButton.press("Enter");
-  await expect(view.getByLabel("Trace focus")).toHaveValue(CLAIM);
+  await expect(page).toHaveURL(/note=assertions%2Fclinic-patient-books-own-slot.md/);
+  await expect(
+    page.frameLocator('iframe[src*="/views/ao-kb.assertion?"]').getByRole("heading", {
+      name: "Patients book their own slots",
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.goto(url({ focus: "not-a-record.md" }));
   await expect(
     frame(page).getByText("No record named not-a-record.md here", { exact: true }),
@@ -221,10 +235,8 @@ test("concept focus follows Related Concepts section links without reinterpretin
     .filter({ has: view.getByRole("cell", { name: "related concepts", exact: true }) });
 
   await expect(related).toHaveCount(2);
+  await expect(related.getByRole("link", { name: "Reminders concept", exact: true })).toBeVisible();
   await expect(
-    related.getByRole("button", { name: "Reminders concept", exact: true }),
-  ).toBeVisible();
-  await expect(
-    related.getByRole("button", { name: "Cancellation concept", exact: true }),
+    related.getByRole("link", { name: "Cancellation concept", exact: true }),
   ).toHaveCount(0);
 });
