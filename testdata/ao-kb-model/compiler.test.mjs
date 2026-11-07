@@ -373,3 +373,10 @@ test('a selected product still requires its site engine pin', async t => {
   await rm(path.join(options.root, 'products/alpha/.kb/config/manifest.json'));
   await assert.rejects(refresh(options), /ao_toolkit_pin/);
 });
+
+test('a block-list product registry keeps its last product like AO does', async t => {
+  const options = await fixture(t);
+  await writeFile(path.join(options.root, '.kb/config/vault.md'), '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts:\n  - alpha\n  - beta\n---\nSynthetic compiler fixture.\n');
+  await refresh(options);
+  assert.equal((await check({...options, checkDependencies: deps})).knowledgeReady, true);
+});

@@ -18,7 +18,8 @@ export function scalar(text, key) {
 function registry(text) {
   const value = text.match(/^products:[ \t]*([^\r\n]*)/m)?.[1]?.trim();
   if (!value) {
-    const block = text.match(/^products:[ \t]*\r?\n((?:[ \t]*-[^\n]*\n)*)/m)?.[1] || '';
+    // The captured frontmatter has no trailing newline, so the last item may end the text.
+    const block = text.match(/^products:[ \t]*\r?\n((?:[ \t]*-[^\r\n]*(?:\r?\n|$))*)/m)?.[1] || '';
     return block.split('\n').filter(s => s.trim()).map(s => scalar(s.replace(/^\s*-\s*/, 'slug: '), 'slug'));
   }
   if (!value.startsWith('[') || !value.endsWith(']')) throw new Error('ao_product_invalid: products must be a scalar list');
