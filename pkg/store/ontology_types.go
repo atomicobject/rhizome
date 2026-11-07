@@ -12,16 +12,17 @@ type OntologyNoteTypeRow struct {
 }
 
 type OntologyEdgeRow struct {
-	SrcPath      string
-	SrcNodeID    string
-	RelationName string
-	DstPath      string
-	DstNodeID    string
-	DstType      string
-	Provenance   string
-	Structural   bool
-	SchemaHash   string
-	UpdatedAt    int64
+	OccurrencesJSON string
+	SrcPath         string
+	SrcNodeID       string
+	RelationName    string
+	DstPath         string
+	DstNodeID       string
+	DstType         string
+	Provenance      string
+	Structural      bool
+	SchemaHash      string
+	UpdatedAt       int64
 }
 
 type OntologyEdgeKind string

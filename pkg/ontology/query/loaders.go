@@ -261,6 +261,7 @@ func noteRecordsFromNodeRecords(records []noderead.NodeRecord) []*noteRecord {
 	out := make([]*noteRecord, 0, len(records))
 	for _, record := range records {
 		out = append(out, &noteRecord{
+			IndexedFields:          record.FieldValues,
 			Path:                   record.Path,
 			Title:                  record.Title,
 			Content:                record.Content,

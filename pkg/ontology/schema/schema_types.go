@@ -9,6 +9,7 @@ import (
 type FieldSource string
 
 const (
+	FieldSourceProperty    FieldSource = "PROPERTY"
 	FieldSourceFrontmatter FieldSource = "FRONTMATTER"
 	FieldSourceInline      FieldSource = "INLINE"
 	FieldSourceCheckbox    FieldSource = "CHECKBOX"
@@ -20,6 +21,7 @@ const (
 type EmbeddedSourceShape string
 
 const (
+	EmbeddedSourceShapeRecord       EmbeddedSourceShape = "RECORD"
 	EmbeddedSourceShapeSection      EmbeddedSourceShape = "SECTION"
 	EmbeddedSourceShapeListItem     EmbeddedSourceShape = "LIST_ITEM"
 	EmbeddedSourceShapeCheckboxItem EmbeddedSourceShape = "CHECKBOX_ITEM"
@@ -226,10 +228,13 @@ type NoteType struct {
 	Annotations    map[string]map[string]any
 	Title          *TitleConstraint
 	RequiresWhen   []ConditionalRequirement
+	Record         *RecordSourceBinding
 	SourceShape    EmbeddedSourceShape
 	SourceMarker   string
 	SourcePaths    []string
 	SourceMatchers []*NoteMatcher
+
+	AdmissionMatchers []*NoteMatcher
 
 	// Preview is set on section-role types that declare @preview. Note-role
 	// types reject @preview at compile time — it only makes sense inside
@@ -298,6 +303,9 @@ type Field struct {
 	TypeName             string
 	List                 bool
 	Required             bool
+	Record               *RecordFieldBinding
+	RecordContains       *RecordContainmentBinding
+	SourcePath           string
 	Source               string
 	SourceAliases        []string
 	SourceKind           FieldSource

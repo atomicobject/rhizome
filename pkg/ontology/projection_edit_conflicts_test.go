@@ -35,7 +35,7 @@ status:: TODO
 
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.ReorderCollection(containerRef, "stories", []string{"^story-b", "^story-a"}))
@@ -151,7 +151,7 @@ status:: TODO
 
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.ReorderCollection(containerRef, "stories", []string{"^story-b", "^story-a"}))

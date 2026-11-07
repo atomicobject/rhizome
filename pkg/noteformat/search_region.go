@@ -29,6 +29,7 @@ const (
 // exact source span; derived regions may omit it when no byte-for-byte source
 // span exists (for example rendered HTML or script-provided note content).
 type SearchRegionFact struct {
+	Owner     OwnerKey `json:",omitempty"`
 	Origin    SearchRegionOrigin
 	Kind      SearchRegionKind
 	Text      string

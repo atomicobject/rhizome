@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
@@ -21,6 +22,7 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 		return nil
 	}
 	workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(e.schema, projection)
+	ontology.ApplySourceOwnership(e.sourceOwnership(), workspace)
 	if workspace == nil {
 		return nil
 	}
@@ -35,7 +37,7 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 	wantsRelations := e.selectionHasField(set, "relationGroups")
 	var relationGroups []workspaceRelationGroup
 	if wantsRelations {
-		relationGroups = e.workspaceRelationGroups(ctx, projection.Ref, path)
+		relationGroups = e.workspaceRelationGroups(ctx, projection, workspace, path)
 	}
 	var structure []workspaceStructureNode
 	if wantsStructure {
@@ -69,6 +71,8 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 	e.eachSelectionField(set, func(field *ast.Field) {
 		key := responseKey(field)
 		switch field.Name {
+		case "source":
+			out[key] = projection.SourceContent()
 		case "parentRef":
 			if workspace.Node.ParentRef == nil {
 				out[key] = nil
@@ -241,13 +245,36 @@ type workspaceStructureNode struct {
 }
 
 func workspaceStructure(projection *ontology.NodeProjection, workspace *ontology.NodeWorkspace) []workspaceStructureNode {
-	if projection == nil || projection.Snapshot == nil {
+	if projection == nil {
 		return nil
+	}
+	if projection.Snapshot == nil {
+		if projection.Prepared == nil {
+			return nil
+		}
+		nodes, err := projection.Prepared.Nodes()
+		if err != nil {
+			return nil
+		}
+		var out []workspaceStructureNode
+		for _, node := range nodes {
+			if node.Record == nil {
+				continue
+			}
+			parent, ok, _ := projection.Prepared.SemanticParent(node.Ref)
+			var parentRef *ontology.NodeRef
+			if ok {
+				p := parent
+				parentRef = &p
+			}
+			out = append(out, workspaceStructureNode{Ref: node.Ref, ParentRef: parentRef, Title: node.DisplayTitle(), Content: node.SourceContent().Text})
+		}
+		return out
 	}
 	known := make(map[string]ontology.NodeRef)
 	if workspace != nil {
 		for _, field := range workspace.Fields {
-			for _, ref := range field.SectionNodes {
+			for _, ref := range field.ChildRefs {
 				known[ref.NodeID] = ref
 			}
 		}
@@ -301,4 +328,11 @@ func (e *executor) resolveWorkspaceStructure(item workspaceStructureNode, set as
 		}
 	})
 	return out
+}
+
+func (e *executor) sourceOwnership() *sourceownership.Policy {
+	if e.ownership == nil {
+		e.ownership = sourceownership.Load(e.deps.VaultDef.BasePath())
+	}
+	return e.ownership
 }

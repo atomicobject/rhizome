@@ -36,6 +36,8 @@ type PublicNodeLocator = {
     markdown?: string | null;
     wikilink?: string | null;
     displayLabel?: string | null;
+    durability?: string | null;
+    revision?: string | null;
     exists: boolean;
     requiresFix: boolean;
     blockId?: string | null;
@@ -178,6 +180,7 @@ type PublicBodyBlock = {
 };
 
 export type PublicWorkspaceBodyProjection = {
+  source?: unknown;
   ref: PublicNodeRef;
   title: string;
   resolvedType?: string | null;
@@ -214,6 +217,7 @@ type PublicAssessmentIssue = {
 };
 
 export type PublicNodeWorkspaceProjection = {
+  source?: unknown;
   parentRef?: PublicNodeRef | null;
   parentTitle?: string | null;
   sourceLinks?: Array<{
@@ -233,6 +237,7 @@ export type PublicNodeWorkspaceProjection = {
   collections: PublicWorkspaceCollectionState[];
   bodies: PublicWorkspaceBodyProjection[];
   capabilities: {
+    readOnlyReason?: string | null;
     canEdit: boolean;
     canEditFields: boolean;
     canEditCollections: boolean;

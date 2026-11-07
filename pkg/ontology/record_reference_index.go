@@ -1,0 +1,140 @@
+package ontology
+
+import (
+	"path"
+	"strings"
+
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+)
+
+type recordReferenceIndex struct {
+	exact      map[string][]recordReferenceCandidate
+	names      map[string][]recordReferenceCandidate
+	physical   map[string][]NodeRef
+	targetKeys map[string]bool
+}
+
+func referenceLookupKey(space, typ, key string) string { return recordDigest(space, typ, key) }
+func buildRecordReferenceIndex(candidates []recordReferenceCandidate) *recordReferenceIndex {
+	index := &recordReferenceIndex{exact: map[string][]recordReferenceCandidate{}, names: map[string][]recordReferenceCandidate{}, targetKeys: map[string]bool{"": true}}
+	paths := map[string]ontoschema.RecordSelector{}
+	for _, c := range candidates {
+		for _, field := range c.record.typ.Fields {
+			if field.Record != nil && field.Record.References != nil {
+				for _, key := range field.Record.References.TargetKeys {
+					index.targetKeys[key] = true
+				}
+			}
+			if field.Record != nil && field.Record.References != nil && field.Record.References.MatchPath.Text != "" {
+				path := field.Record.References.MatchPath
+				paths[path.Text] = path
+			}
+		}
+	}
+	for _, candidate := range candidates {
+		record := candidate.record
+		types := []string{record.typ.Name}
+		for name := range candidate.document.schema.Interfaces {
+			if ontoschema.TypeMatchesOrImplements(candidate.document.schema, record.typ.Name, name) {
+				types = append(types, name)
+			}
+		}
+		for _, name := range types {
+			key := referenceLookupKey(record.identity.Space, name, record.identity.LogicalKey)
+			index.exact[key] = append(index.exact[key], candidate)
+			for _, path := range paths {
+				if value, ok := candidate.document.scalarAt(record, path); ok {
+					key := referenceLookupKey(record.identity.Space, name, path.Text+"\x00"+strings.ToLower(strings.TrimSpace(value)))
+					index.names[key] = append(index.names[key], candidate)
+				}
+			}
+		}
+	}
+	return index
+}
+func (index *recordReferenceIndex) resolve(space string, types []string, id string, matchPath ontoschema.RecordSelector) []recordReferenceCandidate {
+	collect := func(source map[string][]recordReferenceCandidate, key string) []recordReferenceCandidate {
+		var out []recordReferenceCandidate
+		seen := map[*recordProjection]bool{}
+		for _, typ := range types {
+			for _, candidate := range source[referenceLookupKey(space, typ, key)] {
+				if !seen[candidate.record] {
+					seen[candidate.record] = true
+					out = append(out, candidate)
+				}
+			}
+		}
+		return out
+	}
+	matches := collect(index.exact, id)
+	if len(matches) == 0 && matchPath.Text != "" {
+		matches = collect(index.names, matchPath.Text+"\x00"+strings.ToLower(strings.TrimSpace(id)))
+	}
+	return matches
+}
+
+// File targets use the projected key or explicit Markdown path, never a global
+// alias fallback that could select an unselected product's evidence.
+func (index *recordReferenceIndex) addMarkdownTargets(documents []*PreparedDocument) {
+	index.physical = map[string][]NodeRef{}
+	for _, document := range documents {
+		if document == nil {
+			continue
+		}
+		node := document.rootProjection
+		if node == nil || node.Type == nil || ontoschema.EffectiveTypeRole(node.Type) != ontoschema.TypeRoleNote {
+			continue
+		}
+		names := []string{node.Type.Name}
+		for name := range document.schema.Interfaces {
+			if ontoschema.TypeMatchesOrImplements(document.schema, node.Type.Name, name) {
+				names = append(names, name)
+			}
+		}
+		for _, name := range names {
+			for targetKey := range index.targetKeys {
+				value := node.Ref.NotePath
+				if targetKey == "" || targetKey == ontoschema.RecordTargetKeyFileStem {
+					if document.markdown == nil {
+						continue
+					}
+					if targetKey != "" {
+						value = strings.TrimSuffix(path.Base(value), path.Ext(value))
+					}
+				} else {
+					field := node.Fields[targetKey]
+					if len(field.Values) != 1 {
+						continue
+					}
+					value = field.Values[0]
+				}
+				key := referenceLookupKey(targetKey, name, value)
+				index.physical[key] = append(index.physical[key], node.Ref)
+			}
+		}
+	}
+}
+
+// physicalTargets returns the matches of the first target key that has any;
+// several matches stay ambiguous rather than falling through to a later key.
+func (index *recordReferenceIndex) physicalTargets(types []string, id string, targetKeys []string) []NodeRef {
+	if len(targetKeys) == 0 {
+		targetKeys = []string{""}
+	}
+	for _, targetKey := range targetKeys {
+		var out []NodeRef
+		seen := map[NodeRef]bool{}
+		for _, typ := range types {
+			for _, ref := range index.physical[referenceLookupKey(targetKey, typ, id)] {
+				if !seen[ref] {
+					seen[ref] = true
+					out = append(out, ref)
+				}
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return nil
+}

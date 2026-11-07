@@ -10,3 +10,7 @@ The unified SQLite store for `.rhizome/db.sqlite`. The stores subsystem owns thi
 - `ReadCodeStats` reads existing current or legacy index tables without migration. CLI code owns catalog parsing and output formatting.
 
 See `docs/reference/subsystems/stores.md` for the writer, migration, path, and initialization rules.
+
+## SPEC-0133 boundary, last verified 2026-11-06
+
+**Neutral structural persistence (SPEC-0133).** Intel schemas 79 and 80 persist source presence/value kind, reference member qualifiers, relation occurrence JSON, and composition-dependent RECORD identity context through the normal single-writer transaction. Empty structured containers have a presence row; null does not satisfy exists. Query SQL preserves the existing indexed Markdown exists branch and adds a separately indexed structured-presence branch. Migration/restart tests retain all occurrence evidence; no alternate store or compatibility schema is introduced.

@@ -141,6 +141,9 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 		sources = append(sources, &ast.Source{Name: "rhizome-note-interface-extensions.graphql", BuiltIn: true, Input: noteExtensionInput})
 	}
 
+	if err := validateAdmissionLocations(sources); err != nil {
+		return nil, err
+	}
 	doc, err := gqlparser.LoadSchema(sources...)
 	if err != nil {
 		return nil, err
@@ -249,6 +252,9 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 		}
 	}
 
+	if err := validateRecordBindings(schema); err != nil {
+		return nil, err
+	}
 	injectNoteInterfaceFields(schema)
 	if err := applyInheritedFieldDisplay(schema); err != nil {
 		return nil, err
@@ -320,6 +326,9 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 func (s *Schema) MatchDoc(typeName string, doc *Subject) bool {
 	noteType := s.Types[typeName]
 	if noteType == nil || EffectiveTypeRole(noteType) != TypeRoleNote || doc == nil {
+		return false
+	}
+	if !noteType.Admits(doc) {
 		return false
 	}
 	for _, matcher := range noteType.Matchers {

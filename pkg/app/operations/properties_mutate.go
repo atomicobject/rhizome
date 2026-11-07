@@ -7,7 +7,6 @@ import (
 
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -66,11 +65,8 @@ func processSetProperty(vaultPaths paths.VaultPaths, property string, value inte
 		}
 
 		if !dryRun {
-			if err := ctx.Err(); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-			if err := fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644); err != nil {
-				return fileMutation{err: fmt.Errorf("failed to write file %s: %w", notePath, err)}
 			}
 		}
 
@@ -119,11 +115,8 @@ func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, d
 		}
 
 		if !dryRun {
-			if err := ctx.Err(); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-			if err := fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644); err != nil {
-				return fileMutation{err: fmt.Errorf("failed to write file %s: %w", notePath, err)}
 			}
 		}
 
@@ -183,11 +176,8 @@ func processRenameProperties(vaultPaths paths.VaultPaths, from []string, to stri
 		}
 
 		if !dryRun {
-			if err := ctx.Err(); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-			if err := fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644); err != nil {
-				return fileMutation{err: fmt.Errorf("failed to write file %s: %w", notePath, err)}
 			}
 		}
 
@@ -229,6 +219,9 @@ func SetPropertyOnFilesWithWorkers(ctx context.Context, vault repoconfig.VaultMa
 	if err != nil {
 		return PropertyMutationSummary{}, err
 	}
+	if err := admitFileMutations(ctx, vaultPaths.Root(), files, processSetProperty(vaultPaths, property, value, overwrite, true), workerCount); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	return runPropertyMutations(ctx, files, processSetProperty(vaultPaths, property, value, overwrite, dryRun), workerCount)
 }
 
@@ -260,6 +253,9 @@ func DeletePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processDeleteProperties(vaultPaths, properties, true), workerCount); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	return runPropertyMutations(ctx, targetFiles, processDeleteProperties(vaultPaths, properties, dryRun), workerCount)
 }
 
@@ -294,5 +290,8 @@ func RenamePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processRenameProperties(vaultPaths, from, to, merge, true), workerCount); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	return runPropertyMutations(ctx, targetFiles, processRenameProperties(vaultPaths, from, to, merge, dryRun), workerCount)
 }

@@ -1,4 +1,5 @@
 @import "./note-info.css";
+@import "./native-record.css";
 
 /* Note reader: toolbar, measure, control bar, properties, and the Info pane.
    Moved verbatim from notes-shell.css. */
@@ -81,6 +82,17 @@
   padding-inline: var(--note-gutter);
 }
 
+.notes-shell .ontology-pane__main:has(> .custom-view-frames) {
+  padding: 0;
+}
+
+/* A custom presentation runs edge to edge, so the node path above it sits on
+   the control row's gutter, the left edge a view's page also starts on. */
+.notes-shell .ontology-pane__main:has(> .custom-view-frames) > .notes-crumbs {
+  margin: 0;
+  padding: var(--sp-4) var(--sp-6) 0;
+}
+
 /* The control row is pane chrome, not prose: it runs edge to edge as an HTML
    note's does, so the path has the free width. */
 .notes-shell .ontology-pane__controls {
@@ -139,6 +151,24 @@
   > :not(.ontology-pane__toolbar-path, .ontology-pane__controls-spacer) {
   flex: none;
   white-space: nowrap;
+}
+
+/* Once the path is down to its minimum, the controls wrap onto a second line
+   instead of being cut off. The path's zero basis keeps it from wrapping a
+   control early, and it takes the free width itself, so the spacer stands down. */
+.notes-shell .ontology-pane__controls:has(> .ontology-pane__toolbar-path) {
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
+  height: auto;
+  padding-block: var(--sp-2);
+}
+
+.notes-shell .ontology-pane__controls > .ontology-pane__toolbar-path {
+  flex: 1 1 0;
+}
+
+.notes-shell .ontology-pane__toolbar-path ~ .ontology-pane__controls-spacer {
+  display: none;
 }
 
 /* ---- Note control bar ----

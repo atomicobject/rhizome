@@ -1,0 +1,183 @@
+extends: ao-kb/standard-metamodel@1
+remove:
+- driver
+- goal
+- outcome
+- opportunity
+- bet
+- indicator
+- falsifier
+- decision
+- constraint
+- pmf-assessment
+- capability
+- quality
+- persona
+- feature
+- spec
+- effort
+- release
+- journey
+- journey-map
+- org
+- user
+- role
+- flow
+- scenario
+- status-group
+- status
+- flag
+- transition
+- timer
+- status-set
+- app
+- screen
+- non-screen
+- component
+- notification
+- notification-group
+- notification-class
+- notification-channel
+- principle
+- core-system
+- token
+- pattern
+- service
+- worker-job
+- resource
+- endpoint
+- auth-scheme
+- collection
+- event
+- sequence
+- concern
+- action
+- masked-field
+- boundary
+- node
+- environment
+- connection
+- enum
+- rule
+- term
+- jurisdiction
+- requirement
+- stakeholder
+- question
+- scope-question
+- conformance
+- assertion
+add:
+  kinds:
+    service:
+      file: lane.yaml#services
+      key: id
+      traits:
+      - lensed
+      fields:
+        name:
+          type: text
+        uses:
+          type: ref[]
+          to: service
+          edge: serves
+        owner:
+          type: text
+          to: user
+          match_name: true
+        checks:
+          type: list
+          items:
+            user:
+              type: ref
+              to: user
+              edge: reads
+    job:
+      file: lane.yaml#services[].jobs
+      key: null
+      fields:
+        name:
+          type: text
+        user:
+          type: ref
+          to: user
+          edge: serves
+    user:
+      file: lane.yaml#users
+      key: id
+      fields:
+        name:
+          type: text
+    map:
+      file: lane.yaml#mapped{}
+      key: id
+      fields:
+        name:
+          type: text
+        extra:
+          type: text
+    position:
+      file: lane.yaml#positions
+      key: null
+      fields:
+        name:
+          type: text
+    group:
+      file: lane.yaml#groups{}[]
+      key: id
+      fields:
+        name:
+          type: text
+    link:
+      file: lane.yaml#links
+      key: '{from}>{to}'
+      fields:
+        from:
+          type: ref
+          to: service
+          edge: served-by
+        to:
+          type: ref
+          to: service
+    rule:
+      file: ../engine-blocks/rows.json#rules
+      key: id
+      fields:
+        name:
+          type: text
+        services:
+          type: ref[]
+          to: service
+          edge: governs
+    collection:
+      file: lane.yaml#collections
+      key: id
+      fields:
+        fields:
+          type: list
+          items:
+            name:
+              type: text
+    policy:
+      file: lane.yaml#policies
+      key: id
+      fields:
+        governs:
+          type: typed-ref[]
+          to_kinds:
+          - service
+          - field
+          edge: governs
+        any:
+          type: any
+          to: service
+          edge: reads
+        variants:
+          type: variants
+          to: service
+          edge: serves
+override:
+  service:
+    fields:
+      project_detail:
+        type: text

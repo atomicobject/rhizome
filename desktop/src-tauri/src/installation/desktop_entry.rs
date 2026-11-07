@@ -344,7 +344,6 @@ mod tests {
     #[test]
     fn desktop_launcher_preserves_the_executable_path_in_gio() {
         use std::{
-            os::unix::fs::PermissionsExt,
             process::Command,
             time::{Duration, Instant},
         };
@@ -353,12 +352,10 @@ mod tests {
             home.path(),
             "Rhi 'single' \"quoted\" ; $cash `tick` %f \\雪.AppImage",
         );
-        fs::write(
+        crate::test_support::write_executable(
             &app,
             b"#!/bin/sh\nprintf '%s\\0' \"$0\" \"$@\" > \"${0}.launched\"\n",
-        )
-        .unwrap();
-        fs::set_permissions(&app, fs::Permissions::from_mode(0o700)).unwrap();
+        );
         let argument = home.path().join("repository 'single' ; $cash \\雪");
         fs::write(&argument, b"synthetic repository argument").unwrap();
         register(home.path(), RELEASE, &app, None).unwrap();

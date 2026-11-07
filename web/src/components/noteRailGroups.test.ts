@@ -105,4 +105,76 @@ describe("buildRailGroups", () => {
     expect(roots(buildRailGroups(summary))).toEqual(["Spec"]);
     expect(roots(buildRailGroups(summary, { includeEmbedded: true }))).toEqual(["Spec", "Step"]);
   });
+
+  it("leaves out empty embedded types under an interface unless the caller includes them", () => {
+    // A product model declares every kind; Notes lists only kinds that hold records.
+    const summary: OntologySummaryResponse = {
+      schemaPresent: true,
+      totalNotes: 1,
+      typedNotes: 1,
+      untypedNotes: 0,
+      ambiguousNotes: 0,
+      issueNotes: 0,
+      types: [
+        { name: "Feature", label: "Feature", count: 2, role: "embedded" },
+        { name: "Bet", label: "Bet", count: 0, role: "embedded" },
+        { name: "Plan", label: "Plan", count: 0, role: "note" },
+      ],
+      interfaces: [
+        { name: "Record", label: "Model records", count: 2, implementors: ["Feature", "Bet"] },
+        { name: "Doc", label: "Docs", count: 0, implementors: ["Plan"] },
+      ],
+    };
+
+    const children = (groups: ReturnType<typeof buildRailGroups>, name: string) =>
+      groups
+        .flatMap((group) => group.children)
+        .find((node) => nodeName(node) === name)
+        ?.children.map(nodeName);
+
+    expect(children(buildRailGroups(summary), "Record")).toEqual(["Feature"]);
+    expect(children(buildRailGroups(summary), "Doc")).toEqual(["Plan"]);
+    expect(children(buildRailGroups(summary, { includeEmbedded: true }), "Record")).toEqual([
+      "Bet",
+      "Feature",
+    ]);
+  });
+
+  it("leaves out a group whose interface holds only empty embedded types", () => {
+    // A knowledge-only AO KB declares every model kind but holds no model records.
+    const summary: OntologySummaryResponse = {
+      schemaPresent: true,
+      totalNotes: 1,
+      typedNotes: 1,
+      untypedNotes: 0,
+      ambiguousNotes: 0,
+      issueNotes: 0,
+      types: [
+        { name: "Feature", label: "Feature", count: 0, role: "embedded" },
+        { name: "Bet", label: "Bet", count: 0, role: "embedded" },
+        {
+          name: "Assertion",
+          label: "Assertion",
+          count: 1,
+          role: "note",
+          displayGroup: "Knowledge",
+        },
+      ],
+      interfaces: [
+        {
+          name: "Record",
+          label: "Model records",
+          count: 0,
+          implementors: ["Feature", "Bet"],
+          displayGroup: "Product model",
+        },
+      ],
+    };
+
+    expect(buildRailGroups(summary).map((group) => group.name)).toEqual(["Knowledge"]);
+    expect(buildRailGroups(summary, { includeEmbedded: true }).map((group) => group.name)).toEqual([
+      "Knowledge",
+      "Product model",
+    ]);
+  });
 });

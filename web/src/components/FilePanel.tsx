@@ -59,6 +59,9 @@ export function FilePanel({
 }) {
   const selectedLineRef = useRef<HTMLSpanElement>(null);
 
+  const textFile =
+    file?.kind === "code" || file?.kind === "file" || (file?.kind === "note" && line !== undefined);
+
   const markdown = useMemo(() => {
     if (file?.kind !== "note") return "";
 
@@ -111,13 +114,13 @@ export function FilePanel({
   }, [file, graph]);
 
   const codeMarkdown = useMemo(() => {
-    if (file?.kind !== "code") return "";
+    if (!file || !textFile) return "";
     const lang = file.lang ? HIGHLIGHT_LANGS.get(file.lang) : undefined;
 
     return fencedCodeMarkdown(file.content || "", lang);
-  }, [file]);
+  }, [file, textFile]);
 
-  const codeLines = file?.kind === "code" ? (file.content || "").split("\n") : [];
+  const codeLines = textFile ? (file?.content || "").split("\n") : [];
   const targetLine = line && line <= codeLines.length ? line : undefined;
 
   useEffect(() => {
@@ -126,7 +129,7 @@ export function FilePanel({
   }, [file?.path, targetLine]);
 
   if (!file) return null;
-  const label = file.kind === "note" ? "Note" : "Code";
+  const label = file.kind === "note" ? "Note" : file.kind === "code" ? "Code" : "File";
   const name = getFileName(file.path);
   const parent = getParentPath(file.path) || "/";
 
@@ -208,7 +211,7 @@ export function FilePanel({
           </section>
         ))}
 
-        {file?.kind === "note" && (
+        {file?.kind === "note" && !textFile && (
           <section className="explorer-pane__section">
             {file.frontmatter && Object.keys(file.frontmatter).length > 0 && (
               <div className="explorer-pane__frontmatter">
@@ -254,7 +257,7 @@ export function FilePanel({
           </section>
         )}
 
-        {file?.kind === "code" && (
+        {textFile && (
           <section className="explorer-pane__section">
             <div className="explorer-pane__code">
               {targetLine ? (

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	"github.com/atomicobject/rhizome/pkg/noteformat/html"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -21,7 +21,7 @@ func ownershipTransitionVaultPaths(t *testing.T, root string) paths.VaultPaths {
 
 func ownershipTransitionRuntime(t *testing.T) noteformat.Runtime {
 	t.Helper()
-	registry, err := builtin.NewRegistry()
+	registry, err := noteformat.NewRegistry(markdown.New(), html.New())
 	require.NoError(t, err)
 	runtime, err := noteformat.NewRuntime(registry, markdown.New())
 	require.NoError(t, err)

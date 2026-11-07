@@ -1,0 +1,19 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.trace
+name: Knowledge trace
+source:
+  kind: custom
+  entry: trace.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 40
+params:
+  - { name: focus, kind: string }
+  - { name: up, kind: int, default: 2 }
+  - { name: down, kind: int, default: 2 }
+  - { name: expand, kind: string, default: "" }
+  - { name: rows, kind: bool, default: false }
+  - { name: mentions, kind: bool, default: true }
+configuration:
+  queryBudget: 200

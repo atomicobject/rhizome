@@ -56,6 +56,9 @@ func BuildRootEvidenceChunks(root *ontology.RootDocumentSnapshot, owner readmode
 		}
 	}
 	for _, region := range root.SearchRegions {
+		if region.Owner != "" && (root.Projection.Facts.Structure == nil || region.Owner != root.Projection.Facts.Structure.Root) {
+			continue
+		}
 		text := strings.TrimSpace(region.Text)
 		if text == "" {
 			continue

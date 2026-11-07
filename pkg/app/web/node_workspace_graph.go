@@ -142,7 +142,7 @@ func (b *workspaceGraphBuilder) addFieldNodes(ownerID string) {
 			Range:       field.Range,
 			ValueRanges: append([]ontology.ByteRange(nil), field.ValueRanges...),
 			InlineSpans: append([]ontology.NodeInlineFieldSpan(nil), field.InlineSpans...),
-			SectionRefs: append([]ontology.NodeRef(nil), field.SectionNodes...),
+			SectionRefs: append([]ontology.NodeRef(nil), field.ChildRefs...),
 		}
 		if doc, ok := fieldDocs[field.Name]; ok {
 			data.TypeName = doc.TypeName

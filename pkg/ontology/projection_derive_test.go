@@ -190,9 +190,9 @@ title: Sync
 	note, err := ProjectNodeFromSnapshot(snapshot, schema, NodeRef{NotePath: "meetings/sync.md", Kind: NodeKindNote})
 	require.NoError(t, err)
 	binding := note.Fields["actionItems"]
-	require.Len(t, binding.SectionNodes, 2)
+	require.Len(t, binding.ChildRefs, 2)
 
-	first, err := ProjectNodeFromSnapshot(snapshot, schema, binding.SectionNodes[0])
+	first, err := ProjectNodeFromSnapshot(snapshot, schema, binding.ChildRefs[0])
 	require.NoError(t, err)
 	require.Equal(t, NodeKindEmbedded, first.Ref.Kind)
 	require.Equal(t, "ActionItem", first.ResolvedType)
@@ -202,7 +202,7 @@ title: Sync
 	require.NotEmpty(t, first.Ref.ParentID)
 	require.NotEmpty(t, first.Ref.Structural)
 
-	second, err := ProjectNodeFromSnapshot(snapshot, schema, binding.SectionNodes[1])
+	second, err := ProjectNodeFromSnapshot(snapshot, schema, binding.ChildRefs[1])
 	require.NoError(t, err)
 	require.Equal(t, []string{"true"}, second.Fields["done"].Values)
 	require.Equal(t, "^done-1", second.Ref.Fragment)
@@ -241,9 +241,9 @@ title: Sync
 	note, err := ProjectNodeFromSnapshot(snapshot, schema, NodeRef{NotePath: "meetings/sync.md", Kind: NodeKindNote})
 	require.NoError(t, err)
 	binding := note.Fields["actionItems"]
-	require.Len(t, binding.SectionNodes, 1)
+	require.Len(t, binding.ChildRefs, 1)
 
-	item, err := ProjectNodeFromSnapshot(snapshot, schema, binding.SectionNodes[0])
+	item, err := ProjectNodeFromSnapshot(snapshot, schema, binding.ChildRefs[0])
 	require.NoError(t, err)
 	require.Equal(t, "Nested follow-up", item.Snapshot.SourceSpansByID[item.Ref.NodeID].Title)
 	require.Equal(t, []string{"false"}, item.Fields["done"].Values)

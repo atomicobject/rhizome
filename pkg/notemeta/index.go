@@ -19,7 +19,7 @@ type EnsureResult struct {
 	Dirty     bool
 }
 
-const noteMetadataIndexerVersion = "14"
+const noteMetadataIndexerVersion = "15"
 
 type noteEntry struct {
 	Title       string

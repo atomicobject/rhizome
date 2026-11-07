@@ -1,0 +1,7 @@
+synced: "2026-10-01T09:00:00Z"
+features:
+  - id: FEAT-collision
+    t: Alpha feature
+    project_detail: alpha override
+    # AO also cites a claim by its file stem; ".md", path and case variants never resolve.
+    supported_by: [a-shared, a-alpha, a-collision, a-missing, a-ambiguous, claim, collision, untagged, selected, beta-only, claim.md, assertions/shared, Shared]

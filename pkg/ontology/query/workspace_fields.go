@@ -36,8 +36,8 @@ func (e *executor) resolveWorkspaceField(item ontology.NodeFieldState, links fie
 		case "links":
 			out[key] = e.resolveWorkspaceFieldLinks(item, links, field.SelectionSet, append(path, key))
 		case "sectionNodes":
-			values := make([]any, 0, len(item.SectionNodes))
-			for _, value := range item.SectionNodes {
+			values := make([]any, 0, len(item.ChildRefs))
+			for _, value := range item.ChildRefs {
 				values = append(values, nodeRefGraphQLValue(value))
 			}
 			out[key] = values
@@ -170,7 +170,7 @@ func (e *executor) resolveWorkspaceRange(item ontology.ByteRange, set ast.Select
 }
 
 func (e *executor) resolveWorkspaceCapabilities(item ontology.NodeCapabilities, set ast.SelectionSet, path []string) map[string]any {
-	values := map[string]bool{"canEdit": item.CanEdit, "canEditFields": item.CanEditFields, "canEditCollections": item.CanEditCollections, "canNavigateChildren": item.CanNavigateChildren, "canSubscribe": item.CanSubscribe}
+	values := map[string]any{"readOnlyReason": emptyNil(item.ReadOnlyReason), "canEdit": item.CanEdit, "canEditFields": item.CanEditFields, "canEditCollections": item.CanEditCollections, "canNavigateChildren": item.CanNavigateChildren, "canSubscribe": item.CanSubscribe}
 	out := make(map[string]any)
 	e.eachSelectionField(set, func(field *ast.Field) {
 		key := responseKey(field)

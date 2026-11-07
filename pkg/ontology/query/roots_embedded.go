@@ -179,7 +179,7 @@ func (e *executor) ontologyNodeRootFieldNeedsProjection(noteType *ontoschema.Not
 		return false
 	case "workspace":
 		return true
-	case "content", "children", "level":
+	case "content", "source", "children", "level":
 		return true
 	}
 	schemaField := noteType.ByName[field.Name]
@@ -199,8 +199,12 @@ func (e *executor) ontologyNodeRootFieldNeedsProjection(noteType *ontoschema.Not
 
 func (e *executor) sectionMatchesTypeName(typeName, condition string) bool {
 	condition = strings.TrimSpace(condition)
-	if condition == "" || condition == typeName || condition == "Section" || condition == "Node" {
+	if condition == "" || condition == typeName || condition == "Node" {
 		return true
+	}
+	if condition == "Section" {
+		t := e.schema.Types[typeName]
+		return t != nil && t.Record == nil
 	}
 	return e.typeMatchesOrImplements(typeName, condition)
 }

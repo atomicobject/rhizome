@@ -5,10 +5,8 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -20,17 +18,14 @@ func (e *executor) sectionNodes(ctx context.Context, note *noteRecord) ([]*ontol
 	if ok {
 		return nodes, nil
 	}
-	if note.Content == "" {
-		record, err := e.loaders.hydrateContentForPath(ctx, note.Path)
-		if err != nil {
-			return nil, err
-		}
-		if record != nil {
-			note.Content = record.Content
-			note.InlineProps = cloneInlineProps(record.InlineProps)
-		}
+	projection, err := e.projectNoteRecord(ctx, note)
+	if err != nil {
+		return nil, err
 	}
-	nodes = ontology.ParseSections(note.Path, note.Content)
+	if projection == nil || projection.Snapshot == nil {
+		return nil, nil
+	}
+	nodes = projection.Snapshot.Sections
 	e.sectionsByPath[note.Path] = nodes
 	return nodes, nil
 }
@@ -135,12 +130,17 @@ func (e *executor) itemProjectionRecordsForNote(ctx context.Context, note *noteR
 	out := make([]*sectionRecord, 0)
 	seen := map[string]struct{}{}
 	appendItem := func(child *ontology.NodeProjection) {
-		if child == nil || child.Snapshot == nil {
+		if child == nil {
 			return
 		}
-		sourceSpan := child.Snapshot.SourceSpansByID[child.Ref.NodeID]
-		if sourceSpan == nil || sourceSpan.Shape == ontoschema.EmbeddedSourceShapeSection {
-			return
+		if child.Record == nil {
+			if child.Snapshot == nil {
+				return
+			}
+			sourceSpan := child.Snapshot.SourceSpansByID[child.Ref.NodeID]
+			if sourceSpan == nil || sourceSpan.Shape == ontoschema.EmbeddedSourceShapeSection {
+				return
+			}
 		}
 		key := child.Ref.String() + "\x00" + child.Ref.NodeID + "\x00" + child.Ref.TypeName
 		if _, ok := seen[key]; ok {
@@ -160,8 +160,8 @@ func (e *executor) itemProjectionRecordsForNote(ctx context.Context, note *noteR
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			for _, ref := range parent.Fields[name].SectionNodes {
-				child, err := ontology.ProjectBoundNodeFromSnapshot(parent.Snapshot, e.schema, ref)
+			for _, ref := range parent.Fields[name].ChildRefs {
+				child, err := parent.Prepared.ProjectBound(ref)
 				if err != nil {
 					return err
 				}
@@ -173,15 +173,18 @@ func (e *executor) itemProjectionRecordsForNote(ctx context.Context, note *noteR
 		}
 		return nil
 	}
+	if projection == nil || projection.Prepared == nil {
+		return out, nil
+	}
 	if err := walk(projection); err != nil {
 		return nil, err
 	}
-	globalRefs, err := ontology.GlobalSourceNodeRefsFromSnapshot(projection.Snapshot, e.schema)
+	globalRefs, err := projection.Prepared.GlobalSourceRefs()
 	if err != nil {
 		return nil, err
 	}
 	for _, ref := range globalRefs {
-		child, err := ontology.ProjectBoundNodeFromSnapshot(projection.Snapshot, e.schema, ref)
+		child, err := projection.Prepared.ProjectBound(ref)
 		if err != nil {
 			return nil, err
 		}
@@ -194,36 +197,10 @@ func (e *executor) projectNoteRecord(ctx context.Context, note *noteRecord) (*on
 	if note == nil {
 		return nil, nil
 	}
-	if e.deps.Store == nil {
+	if e.loaders == nil || e.loaders.scope == nil {
 		return nil, nil
 	}
-	load := e.deps.Store.CurrentNoteMetadataRowsByPaths
-	if e.deps.ExactNoteMetadataRows != nil {
-		load = e.deps.ExactNoteMetadataRows
-	}
-	metadata, err := load(ctx, []string{note.Path})
-	if err != nil {
-		return nil, err
-	}
-	row, ok := metadata[note.Path]
-	if !ok || row.FormatID != "markdown" || row.Projection.Status != semdb.NoteProjectionStatusCurrent {
-		return nil, nil
-	}
-	if note.Content == "" {
-		record, err := e.loaders.hydrateContentForPath(ctx, note.Path)
-		if err != nil {
-			return nil, err
-		}
-		if record != nil {
-			note.Content = record.Content
-			note.InlineProps = cloneInlineProps(record.InlineProps)
-		}
-	}
-	snapshot, err := ontology.BuildDocumentSnapshot(note.Path, note.Content, time.Time{})
-	if err != nil {
-		return nil, err
-	}
-	return ontology.ProjectNodeFromSnapshot(snapshot, e.schema, ontology.NodeRef{NotePath: note.Path, Kind: ontology.NodeKindNote, TypeName: note.TypeName})
+	return e.loaders.scope.Projection(ctx, ontology.NodeRef{NotePath: note.Path, Kind: ontology.NodeKindNote, TypeName: note.TypeName})
 }
 
 func (e *executor) projectSectionRecord(ctx context.Context, node *sectionRecord) (*ontology.NodeProjection, error) {
@@ -241,9 +218,9 @@ func (e *executor) sectionRecordsFromProjectionField(projection *ontology.NodePr
 		return nil
 	}
 	binding := projection.Fields[field.Name]
-	out := make([]*sectionRecord, 0, len(binding.SectionNodes))
-	for _, ref := range binding.SectionNodes {
-		child, err := ontology.ProjectBoundNodeFromSnapshot(projection.Snapshot, e.schema, ref)
+	out := make([]*sectionRecord, 0, len(binding.ChildRefs))
+	for _, ref := range binding.ChildRefs {
+		child, err := projection.Prepared.ProjectBound(ref)
 		if err != nil {
 			continue
 		}

@@ -23,6 +23,8 @@ import (
 // The engine invokes this read-only planner after recovery under its lease.
 // One source snapshot supplies both backlink content and publication witnesses.
 type noteNamespacePlanner struct {
+	codeRefConfig   *coderefs.Config
+	codeResult      coderefs.RewriteResult
 	root            string
 	definition      obsidian.VaultDefinition
 	metadata        notemeta.Indexer
@@ -164,6 +166,19 @@ func (p *noteNamespacePlanner) PlanNamespaceMutation(ctx context.Context, lease 
 			pointers := namespaceHeadingPointers(hosts, summary.Results[i].Target)
 			summary.Results[i].HeadingPointers = pointers
 			summary.HeadingPointers = append(summary.HeadingPointers, pointers...)
+		}
+	}
+	if p.updateBacklinks {
+		rewrites, err := coderefs.PlanRewriteBatch(p.root, p.codeRefConfig, p.codeMappings)
+		if err != nil {
+			return validate.NamespaceMutationPlan{}, err
+		}
+		p.codeResult = coderefs.RewriteResult{}
+		for _, rewrite := range rewrites {
+			mode := uint32(rewrite.Mode)
+			operations = append(operations, validate.RepairOperation{Kind: validate.RepairOperationWrite, Path: rewrite.Path, Content: rewrite.Updated, SourceHash: validate.SourceHash(rewrite.Original), SourceMode: &mode})
+			p.codeResult.FilesUpdated++
+			p.codeResult.RefsUpdated += rewrite.RefsUpdated
 		}
 	}
 	// Full display diagnostics belong to this invocation. Recovery needs only

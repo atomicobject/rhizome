@@ -19,7 +19,7 @@ func resolveNoteAssessment(doc *noteDoc, schema *ontoschema.Schema) *NoteAssessm
 	selectorCandidates := matchSelectorCandidateTypes(doc, schema)
 	declaredType := strings.TrimSpace(doc.TypeName)
 	if declaredType == "" && len(candidates) == 0 {
-		if schema.DefaultNoteType != "" && schema.Types[schema.DefaultNoteType] != nil {
+		if schema.DefaultNoteType != "" && schema.Types[schema.DefaultNoteType].Admits(selectorSubjectForDoc(doc)) {
 			return &NoteAssessment{
 				NotePath:     doc.Path,
 				DeclaredType: declaredType,
@@ -32,9 +32,28 @@ func resolveNoteAssessment(doc *noteDoc, schema *ontoschema.Schema) *NoteAssessm
 		return &NoteAssessment{NotePath: doc.Path, SelectorCandidateTypes: selectorCandidates}
 	}
 
+	// A declared type that differs only in case from the one selector-matched type
+	// is that type: external conventions write `type: assertion` for Assertion.
+	// The assessment keeps the authored spelling.
+	authoredType := declaredType
+	if declaredType != "" && schema.Types[declaredType] == nil {
+		folded := ""
+		for _, candidate := range candidates {
+			if strings.EqualFold(candidate, declaredType) {
+				if folded != "" {
+					folded = ""
+					break
+				}
+				folded = candidate
+			}
+		}
+		if folded != "" {
+			declaredType = folded
+		}
+	}
 	assessment := &NoteAssessment{
 		NotePath:               doc.Path,
-		DeclaredType:           declaredType,
+		DeclaredType:           authoredType,
 		CandidateTypes:         candidates,
 		SelectorCandidateTypes: selectorCandidates,
 	}
@@ -222,6 +241,10 @@ func appendIssuesToAssessments(assessmentByPath map[string]*NoteAssessment, issu
 
 func assessScalarField(doc *noteDoc, noteType *ontoschema.NoteType, field *ontoschema.Field, schema *ontoschema.Schema) (FieldAssessment, []ValidationIssue) {
 	assessment := AssessScalarFieldValues(doc.Path, noteType.Name, field, schema, extractFieldValues(doc, field), fieldPresent(doc, field))
+	if field.SourcePath != "" {
+		raw, present := ontoschema.FrontmatterPathValue(doc.Frontmatter, field.SourcePath)
+		assessment = AssessScalarFieldSource(doc.Path, noteType.Name, field, schema, raw, present)
+	}
 	return assessment, assessment.Issues
 }
 

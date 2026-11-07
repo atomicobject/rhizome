@@ -210,6 +210,9 @@ func (r defaultSourceResolver) capabilitiesForField(ctx context.Context, scope *
 	filterOps := append(append([]string(nil), plan.FilterOps...), "missing")
 	residualOps := append(append([]string(nil), plan.ResidualFilterOps...), "missing")
 	policyReason := ""
+	if field.SourcePath != "" {
+		policyReason = "Nested frontmatter paths are read-only."
+	}
 	if field.Policy != nil {
 		policyReason = strings.TrimSpace(field.Policy.Reason)
 	}
@@ -259,6 +262,9 @@ func enumValuesForCapability(schema *ontoschema.Schema, typeName string) []Field
 	return out
 }
 func (r defaultSourceResolver) editCapabilityForField(ctx context.Context, scope *noderead.Scope, field *ontoschema.Field) *EditCapability {
+	if field.SourcePath != "" {
+		return nil
+	}
 	switch {
 	case field.Kind == ontoschema.FieldKindEnum:
 		return &EditCapability{Kind: "enum", Operation: "setField", Field: field.Name, List: field.List, InputMode: "direct", ValueKind: "enum", Options: enumOptions(r.opts.Schema, field.TypeName)}
@@ -324,6 +330,9 @@ func safeAuthoredScalarEditField(field *ontoschema.Field) bool {
 }
 func semanticCapabilityKeys(field *ontoschema.Field) []string {
 	keys := []string{field.Name}
+	if field.SourcePath != "" {
+		return keys
+	}
 	source := firstNonEmpty(field.Source, field.Name)
 	switch field.SourceKind {
 	case ontoschema.FieldSourceFrontmatter:
@@ -430,22 +439,28 @@ func (r defaultSourceResolver) FieldCandidates(ctx context.Context, view viewcon
 }
 func editCandidateLabel(record noderead.NodeRecord, noteType *ontoschema.NoteType, fallbackTitle, notePath string) string {
 	for _, preferred := range []string{"displayName", "display-name", "name", "title"} {
-		if value := frontmatterStringForField(record.Frontmatter, noteType, preferred); value != "" {
+		if value := frontmatterStringForField(record, noteType, preferred); value != "" {
 			return value
 		}
 	}
 	return firstNonEmpty(record.Title, fallbackTitle, notePath)
 }
-func frontmatterStringForField(frontmatter map[string]any, noteType *ontoschema.NoteType, fieldName string) string {
-	if len(frontmatter) == 0 || noteType == nil {
+func frontmatterStringForField(record noderead.NodeRecord, noteType *ontoschema.NoteType, fieldName string) string {
+	if noteType == nil {
 		return ""
 	}
 	field := noteType.ByName[fieldName]
 	if field == nil || field.SourceKind != ontoschema.FieldSourceFrontmatter {
 		return ""
 	}
+	if field.SourcePath != "" {
+		if value, ok := nestedRecordValue(record, field); ok {
+			return strings.TrimSpace(fmt.Sprint(value))
+		}
+		return ""
+	}
 	for _, source := range ontoschema.FieldSourceNames(field) {
-		if value := strings.TrimSpace(fmt.Sprint(frontmatter[source])); value != "" && value != "<nil>" {
+		if value := strings.TrimSpace(fmt.Sprint(record.Frontmatter[source])); value != "" && value != "<nil>" {
 			return value
 		}
 	}

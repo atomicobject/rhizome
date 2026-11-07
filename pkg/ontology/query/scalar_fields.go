@@ -12,9 +12,12 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sectionRecord, field *ontoschema.Field, set ast.SelectionSet, path []string) (any, bool) {
+func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sectionRecord, field *ontoschema.Field, set ast.SelectionSet, path []string, first int) (any, bool) {
 	if node == nil {
 		return nil, true
+	}
+	if field.Record != nil && field.Record.References != nil {
+		return e.resolveRecordReferenceField(ctx, node, field, set, path, first)
 	}
 	values := node.fieldValues(field, node.PropertyCase)
 	if field.Required && len(values) == 0 && (!field.List || !node.hasFieldValue(field, node.PropertyCase)) {
@@ -30,29 +33,33 @@ func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sect
 		e.addError(path, err.Error())
 		return nil, false
 	}
+	// A value that is missing, untyped or another type is left out with a
+	// warning, as note-level links are; workspace links keep its outcome.
 	records := make([]*noteRecord, 0, len(values))
 	for _, raw := range values {
+		if field.List && first > 0 && len(records) == first {
+			break
+		}
 		targetPath, ok := cache.ResolveNote(unwrapSectionLinkValue(raw))
 		if !ok {
-			e.addError(path, fmt.Sprintf("field %s.%s target %q does not resolve to a note", node.TypeName, field.Name, raw))
-			return nil, false
+			e.addWarning(path, "link_target_missing", fmt.Sprintf("field %s.%s target %q does not resolve to a note", node.TypeName, field.Name, raw))
+			continue
 		}
 		record, err := e.rootNote(ctx, targetPath)
 		if err != nil {
 			e.addError(path, err.Error())
 			return nil, false
 		}
-		if record == nil {
-			e.addError(path, fmt.Sprintf("field %s.%s target %q does not resolve to a typed note", node.TypeName, field.Name, raw))
-			return nil, false
+		resolvedType := ""
+		if record != nil {
+			resolvedType = strings.TrimSpace(record.TypeName)
 		}
-		resolvedType := record.TypeName
-		if strings.TrimSpace(resolvedType) == "" {
-			resolvedType = "untyped note"
-		}
-		if !sectionLinkTypeMatchesOrImplements(e.schema, record.TypeName, field.TypeName) {
-			e.addError(path, fmt.Sprintf("field %s.%s expects %s but %q resolves to %s", node.TypeName, field.Name, field.TypeName, raw, resolvedType))
-			return nil, false
+		if record == nil || !sectionLinkTypeMatchesOrImplements(e.schema, record.TypeName, field.TypeName) {
+			if resolvedType == "" {
+				resolvedType = "untyped note"
+			}
+			e.addWarning(path, "wrong_target_type", fmt.Sprintf("field %s.%s expects %s but %q resolves to %s", node.TypeName, field.Name, field.TypeName, raw, resolvedType))
+			continue
 		}
 		records = append(records, record)
 	}
@@ -60,6 +67,10 @@ func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sect
 		return e.resolveNodeList(ctx, records, set, path), true
 	}
 	if len(records) == 0 {
+		if field.Required {
+			e.addError(path, fmt.Sprintf("required relation %s.%s has no %s target", node.TypeName, field.Name, field.TypeName))
+			return nil, false
+		}
 		return nil, true
 	}
 	return e.resolveNodeSelectionSet(ctx, records[0], set, path), true
@@ -105,7 +116,7 @@ func validateSectionScalarValues(values []string, field *ontoschema.Field, schem
 	}
 	valid := make([]string, 0, len(values))
 	for _, raw := range values {
-		if !sectionScalarValueMatchesType(raw, field, schema) {
+		if !(field.Record != nil && (field.TypeName == "String" || field.TypeName == "ID")) && !sectionScalarValueMatchesType(raw, field, schema) {
 			return nil, raw, true
 		}
 		valid = append(valid, raw)
@@ -159,6 +170,10 @@ func (e *executor) resolveScalarField(ctx context.Context, node *noteRecord, fie
 	var hasFieldAssessment bool
 	if e.readOverlayTouchesPath(node.Path) {
 		fieldAssessment = ontology.AssessScalarFieldValues(node.Path, node.TypeName, field, e.schema, values, node.hasField(field))
+		if field.SourcePath != "" {
+			raw, present := ontoschema.FrontmatterPathValue(node.Frontmatter, field.SourcePath)
+			fieldAssessment = ontology.AssessScalarFieldSource(node.Path, node.TypeName, field, e.schema, raw, present)
+		}
 		hasFieldAssessment = true
 	} else {
 		assessment := e.noteAssessment(ctx, node.Path)
@@ -204,7 +219,7 @@ func (e *executor) readOverlayTouchesPath(notePath string) bool {
 	return false
 }
 
-func (e *executor) resolveStructuralField(ctx context.Context, node *noteRecord, field *ontoschema.Field, set ast.SelectionSet, path []string) (any, bool) {
+func (e *executor) resolveStructuralField(ctx context.Context, node *noteRecord, field *ontoschema.Field, set ast.SelectionSet, path []string, first int) (any, bool) {
 	// Docs: [[ontology-graphql-query-contract]] keeps
 	// @link fields on structural ontology edges instead of ambient note links.
 	grouped, err := e.loaders.structuralEdges(ctx, []string{node.Path}, field.Name)
@@ -212,7 +227,7 @@ func (e *executor) resolveStructuralField(ctx context.Context, node *noteRecord,
 		e.addError(path, err.Error())
 		return nil, false
 	}
-	rows := dedupeOntologyEdgeRows(grouped[node.Path])
+	rows := e.firstEdgeRows(dedupeOntologyEdgeRows(grouped[node.Path]), field.TypeName, first)
 	records, err := e.edgeRecords(ctx, rows)
 	if err != nil {
 		e.addError(path, err.Error())

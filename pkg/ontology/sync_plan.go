@@ -159,6 +159,11 @@ func prepareOntologyJobs(plan *syncPlan, schema *ontoschema.Schema, docsByPath m
 			meta:        metaByPath[path],
 		})
 	}
+	var preparedDocuments []*PreparedDocument
+	for _, job := range jobs {
+		preparedDocuments = append(preparedDocuments, job.projected.prepared)
+	}
+	BindRecordDocuments(preparedDocuments...)
 	replaceSet := make(map[string]struct{}, len(jobs))
 	for _, job := range jobs {
 		replaceSet[job.doc.Path] = struct{}{}

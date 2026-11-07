@@ -206,6 +206,8 @@ func (e *executor) resolveOntologyFieldSelectionSet(f *ontoschema.Field, set ast
 			out[key] = f.List
 		case "source":
 			out[key] = f.Source
+		case "sourcePath":
+			out[key] = emptyNil(f.SourcePath)
 		case "description":
 			out[key] = f.Description
 		case "identifierFormat":

@@ -114,6 +114,10 @@ func buildNodeFieldCapability(schema *ontoschema.Schema, projection *NodeProject
 	if field.Kind == ontoschema.FieldKindLink {
 		capability.TargetType = field.TypeName
 	}
+	if projection.Snapshot == nil && projection.RootSnapshot != nil && !projection.RootSnapshot.RootMetadataMutationSupported {
+		capability.ReadOnlyReason = "This source supports reading only."
+		return capability
+	}
 	if reason := nodeFieldReadOnlyReason(field, binding); reason != "" {
 		capability.ReadOnlyReason = reason
 	} else if field.Kind == ontoschema.FieldKindLink {
@@ -153,6 +157,12 @@ func nodeFieldValueKind(field *ontoschema.Field) NodeFieldValueKind {
 }
 
 func nodeFieldReadOnlyReason(field *ontoschema.Field, binding FieldBinding) string {
+	if field.Record != nil || field.RecordContains != nil {
+		return "This source supports reading only."
+	}
+	if field.SourcePath != "" {
+		return "Nested frontmatter paths are read-only."
+	}
 	if field.IsIdentifier {
 		return "Identifiers are graph keys and must stay unique. Change them through identifier reconciliation."
 	}

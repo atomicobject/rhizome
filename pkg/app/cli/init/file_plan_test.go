@@ -284,6 +284,30 @@ func TestSyncRemovesDroppedSkillFilesOnlyWhenUnedited(t *testing.T) {
 	require.Contains(t, report.Kept, edited)
 }
 
+func TestSyncRemovesDroppedModuleFilesOnlyWhenUnedited(t *testing.T) {
+	root := t.TempDir()
+	templates := []string{templateCore, "ao-kb"}
+	syncForTest(t, root, templates, failUI{t})
+	// An older ao-kb shipped lib/refs.ts; this version does not.
+	dropped := ".rhizome/modules/ao-kb/views/knowledge/lib/refs.ts"
+	edited := ".rhizome/modules/ao-kb/views/knowledge/lib/edited.ts"
+	generated := ".rhizome/modules/ao-kb/bindings/manifest.json"
+	writeTestFile(t, root, dropped, "shipped once\n")
+	setWritten(t, root, dropped, "shipped once\n")
+	writeTestFile(t, root, edited, "my change\n")
+	setWritten(t, root, edited, "shipped once\n")
+	writeTestFile(t, root, generated, "{}\n")
+
+	report := syncForTest(t, root, templates, nil)
+
+	require.NoFileExists(t, filepath.Join(root, filepath.FromSlash(dropped)))
+	require.Contains(t, report.Removed, dropped)
+	require.FileExists(t, filepath.Join(root, filepath.FromSlash(edited)))
+	require.Contains(t, report.Kept, edited)
+	require.Equal(t, "{}\n", readTestFile(t, root, generated), "files init never wrote stay")
+	require.FileExists(t, filepath.Join(root, ".rhizome/modules/ao-kb/views/knowledge/lib/model.ts"), "shipped files stay")
+}
+
 func TestSyncRemovesAWorkflowThatIsTurnedOff(t *testing.T) {
 	root := t.TempDir()
 	syncForTest(t, root, []string{templateCore, templateAgenticEngineering}, failUI{t})

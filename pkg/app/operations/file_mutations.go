@@ -2,7 +2,12 @@ package operations
 
 import (
 	"context"
+	"fmt"
 	"sync"
+
+	"github.com/atomicobject/rhizome/pkg/fileio"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 )
 
 type fileMutation struct {
@@ -89,4 +94,28 @@ func runFileMutations(ctx context.Context, notes []string, processor fileMutatio
 		firstErr = ctx.Err()
 	}
 	return summary, firstErr
+}
+
+func admitFileMutations(ctx context.Context, root string, notes []string, preview fileMutationProcessor, workers int) error {
+	summary, err := runFileMutations(ctx, notes, preview, workers)
+	if err != nil {
+		return err
+	}
+	return sourceownership.Check(root, summary.filesChanged)
+}
+
+// publishFileMutation is the publication barrier for direct property and tag
+// writers. It loads the current ownership declaration immediately before the
+// write, so a declaration made after admission still refuses the file.
+func publishFileMutation(ctx context.Context, vaultPaths paths.VaultPaths, rel paths.NotePath, abs paths.AbsPath, notePath, content string) error {
+	if err := sourceownership.Check(vaultPaths.Root(), []string{rel.String()}); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := fileio.WriteFileAtomic(abs.String(), []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", notePath, err)
+	}
+	return nil
 }

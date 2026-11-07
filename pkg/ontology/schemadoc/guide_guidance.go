@@ -56,6 +56,17 @@ func toolingNotes(noteType *guideType) []string {
 	return out
 }
 
+func renderAdmission(b *strings.Builder, typ *guideType) {
+	if typ.Admission == nil {
+		return
+	}
+	values := make([]string, 0, len(typ.Admission))
+	for _, matcher := range typ.Admission {
+		values = append(values, matcher.Raw)
+	}
+	fmt.Fprintf(b, "\n- admission: must additionally match at least one @admit expression: `%s`", strings.Join(values, "`, `"))
+}
+
 func fieldToolingNotes(field *ontoschema.Field) []string {
 	if field == nil {
 		return nil

@@ -28,7 +28,7 @@ func codeOntologyQueryDescriptor() ToolDescriptor {
 	return completeCodeDescriptor(d, c, []string{"agent ontology-query"}, map[string]codeInputFieldMetadata{
 		"query":     {Description: "Read-only GraphQL query text."},
 		"variables": {Description: "Optional JSON object of GraphQL variables."},
-	}, "The GraphQL payload may contain execution errors and returns exitCode 1 when it does; query data remains dynamic. Generated typed roots add independent coverage under extensions.typedRoots[responseAlias]; use offset for continuation where nextOffset is present.")
+	}, "The GraphQL payload may contain execution errors and returns exitCode 1 when it does; query data remains dynamic. Generated typed roots add independent coverage under extensions.typedRoots[responseAlias]; use offset for continuation where nextOffset is present. Non-fatal warnings, such as a relation value left out of its list, are in extensions.warnings.")
 }
 
 func codeOntologyReferenceDescriptor() ToolDescriptor {

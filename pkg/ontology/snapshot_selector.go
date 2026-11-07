@@ -19,15 +19,24 @@ func BuildMarkdownDocumentSnapshot(root *RootDocumentSnapshot) (*DocumentSnapsho
 	if root.Mtime > 0 {
 		modTime = time.Unix(root.Mtime, 0)
 	}
-	snapshot, err := BuildDocumentSnapshot(root.NotePath.String(), string(root.RawSource), modTime)
-	if err != nil {
-		return nil, err
+	if root.Projection.Facts.Structure == nil {
+		return nil, fmt.Errorf("Markdown provider did not supply structure")
 	}
+	snapshot := markdownSnapshotFromStructure(root.NotePath.String(), string(root.RawSource), modTime, root.Projection.Facts.Structure, root.Metadata)
+	snapshot.root = root
 	snapshot.selectorFacts = cloneSelectorFacts(&ontoschema.Subject{
 		Path: root.NotePath.String(), Title: root.Title, Tags: root.Tags,
 		Frontmatter: root.Metadata, Inline: root.InlineProperties,
 	})
 	return snapshot, nil
+}
+
+// markdownEditView is the syntax boundary used after neutral source capture.
+func markdownEditView(root *RootDocumentSnapshot) (*DocumentSnapshot, error) {
+	if root == nil || root.Format != "markdown" || root.Projection.Facts.Structure == nil {
+		return nil, nil
+	}
+	return BuildMarkdownDocumentSnapshot(root)
 }
 
 // SelectorFacts returns a defensive copy of the facts captured when this

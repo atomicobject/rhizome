@@ -115,10 +115,7 @@ func projectDocumentNodesWithResolver(snapshot *DocumentSnapshot, schema *ontosc
 	}
 	appendSections(snapshot.Sections)
 
-	globalRefs, err := GlobalSourceNodeRefsFromSnapshot(snapshot, schema)
-	if err != nil {
-		return nil, err
-	}
+	globalRefs := resolver.globalSourceNodeRefs()
 	for _, ref := range globalRefs {
 		appendRef(ref)
 	}

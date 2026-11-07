@@ -43,7 +43,12 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 		return emptyRelationCounts(nil), nil
 	}
 	s.mu.Lock()
-	canonicalSources, err := s.canonicalizeNodeRefsLocked(ctx, sources)
+	bound, err := s.boundProjectionRefsLocked(ctx, req.SourceProjections)
+	if err != nil {
+		s.mu.Unlock()
+		return RelationCountsResult{}, err
+	}
+	canonicalSources, err := s.canonicalizeRelationRefsLocked(ctx, sources, bound)
 	s.mu.Unlock()
 	if err != nil {
 		return RelationCountsResult{}, err
@@ -62,11 +67,12 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 	}
 	targetsBySource := make(map[string]map[string]struct{}, len(sources))
 	for _, selection := range selections {
+		selection.boundSources = bound
 		if len(selection.Sources) == 0 {
 			selection.Sources = sources
 		}
 		s.mu.Lock()
-		canonical, err := s.canonicalizeNodeRefsLocked(ctx, selection.Sources)
+		canonical, err := s.canonicalizeRelationRefsLocked(ctx, selection.Sources, bound)
 		s.mu.Unlock()
 		if err != nil {
 			return RelationCountsResult{}, err

@@ -169,7 +169,7 @@ func (s OntologyNodeSyncer) PrepareProjections(ctx context.Context, projections 
 }
 
 func (s OntologyNodeSyncer) chunkSetForProjection(projection *ontology.NodeProjection, now int64) (OntologyNodeChunkSet, error) {
-	if projection == nil || projection.RootSnapshot == nil || projection.Snapshot != nil {
+	if projection == nil || projection.RootSnapshot == nil || projection.Snapshot != nil || projection.Prepared != nil && projection.RootSnapshot.Projection.Facts.Structure != nil {
 		return BuildOntologyNodeChunks(s.Schema, projection, s.ProviderInfo, now)
 	}
 	if strings.TrimSpace(projection.ResolvedType) == "" {

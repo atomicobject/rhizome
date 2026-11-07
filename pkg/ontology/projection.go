@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	mdstructure "github.com/atomicobject/rhizome/pkg/markdownsyntax/structure"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -43,6 +45,7 @@ const (
 type BindingKind string
 
 const (
+	BindingKindSourceField      BindingKind = "SOURCE_FIELD"
 	BindingKindFrontmatterField BindingKind = "FRONTMATTER_FIELD"
 	BindingKindInlineField      BindingKind = "INLINE_FIELD"
 	BindingKindCheckboxField    BindingKind = "CHECKBOX_FIELD"
@@ -84,6 +87,8 @@ func (r NodeRef) IsZero() bool {
 // DocumentSnapshot preserves the raw markdown plus the syntax ranges needed to
 // project and minimally edit ontology-backed nodes.
 type DocumentSnapshot struct {
+	structure            *noteformat.StructureFacts
+	root                 *RootDocumentSnapshot
 	NotePath             string
 	Content              string
 	Frontmatter          map[string]any
@@ -121,10 +126,15 @@ type FieldBinding struct {
 	// ValueRangesExact reports that ValueRanges maps 1:1 to Values in authored
 	// order. False means the semantic values remain readable, but their YAML or
 	// Markdown spelling is not safe for source patching.
-	ValueRangesExact bool
-	Values           []string
-	InlineSpans      []InlineFieldSpan
-	SectionNodes     []NodeRef
+	ValueRangesExact     bool
+	Values               []string
+	ReferenceOccurrences []RecordReferenceOccurrence  `json:",omitempty"`
+	ReferenceTargets     []NodeRef                    `json:",omitempty"`
+	SourceValues         []SourceValueOccurrence      `json:",omitempty"`
+	Presence             SourcePresence               `json:",omitempty"`
+	ValueKind            noteformat.MetadataValueKind `json:",omitempty"`
+	InlineSpans          []InlineFieldSpan
+	ChildRefs            []NodeRef `json:"SectionNodes"`
 	// Derived is true when Values were synthesized from structure rather than
 	// authored in source — currently only set for derivable preferred-identifier
 	// fields (SPEC-0023.US8).
@@ -148,6 +158,9 @@ type CollectionBinding struct {
 
 // NodeProjection is the source-preserving ontology view over a single node ref.
 type NodeProjection struct {
+	Record   *RecordIdentity     `json:",omitempty"`
+	Prepared *PreparedDocument   `json:"-"`
+	OwnerKey noteformat.OwnerKey `json:"-"`
 	Ref      NodeRef
 	Snapshot *DocumentSnapshot
 	// RootSnapshot is present for every provider-backed note root. Structural
@@ -159,10 +172,12 @@ type NodeProjection struct {
 	PropertyCase          ontoschema.PropertyCase
 	Fields                map[string]FieldBinding
 	Collections           map[string]CollectionBinding
+	sourceTitle           string
 	relocationFingerprint string
 }
 
 type projectionResolver struct {
+	prepared         *PreparedDocument
 	snapshot         *DocumentSnapshot
 	schema           *ontoschema.Schema
 	noteDoc          *noteDoc
@@ -202,42 +217,7 @@ func BuildDocumentSnapshot(notePath, content string, modTime time.Time) (*Docume
 		// projecting headings/embedded nodes from the markdown body.
 		fm = nil
 	}
-	sections := ParseSections(notePath, content)
-	sectionsByID := make(map[string]*SectionNode, len(sections))
-	var walk func(nodes []*SectionNode)
-	walk = func(nodes []*SectionNode) {
-		for _, node := range nodes {
-			if node == nil {
-				continue
-			}
-			sectionsByID[node.ID] = node
-			walk(node.Children)
-		}
-	}
-	walk(sections)
-	sourceSpans := append(sectionMarkdownSourceSpans(sections), ParseMarkdownListSourceSpans(notePath, content)...)
-	linkListSourceSpansToSections(sourceSpans)
-	sourceSpansByID := make(map[string]*MarkdownSourceSpan, len(sourceSpans))
-	for _, span := range sourceSpans {
-		if span == nil || strings.TrimSpace(span.ID) == "" {
-			continue
-		}
-		sourceSpansByID[span.ID] = span
-	}
-	return &DocumentSnapshot{
-		NotePath:             notePath,
-		Content:              content,
-		Frontmatter:          cloneAnyMap(fm),
-		FrontmatterRange:     frontmatterRange(content),
-		Sections:             sections,
-		SectionsByID:         sectionsByID,
-		SourceSpans:          sourceSpans,
-		SourceSpansByID:      sourceSpansByID,
-		ModTime:              modTime,
-		ContentFingerprint:   hashText(content),
-		StructureFingerprint: hashText(structureFingerprintText(notePath, sections)),
-		selectorFacts:        markdownSelectorFacts(notePath, content, fm),
-	}, nil
+	return markdownSnapshotFromStructure(notePath, content, modTime, mdstructure.Parse(notePath, content), fm), nil
 }
 
 // ProjectNote resolves the file-backed note node for the given path.
@@ -270,11 +250,11 @@ func ProjectNodeFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Sche
 	if schema == nil {
 		return nil, fmt.Errorf("ontology schema is required")
 	}
-	resolver, err := newProjectionResolver(snapshot, schema)
+	prepared, err := prepareMarkdownSnapshot(snapshot, schema)
 	if err != nil {
 		return nil, err
 	}
-	return resolver.project(ref)
+	return prepared.Project(ref)
 }
 
 // ProjectBoundNodeFromSnapshot projects a ref emitted by a projection over the
@@ -288,11 +268,11 @@ func ProjectBoundNodeFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema
 	if schema == nil {
 		return nil, fmt.Errorf("ontology schema is required")
 	}
-	resolver, err := newProjectionResolver(snapshot, schema)
+	prepared, err := prepareMarkdownSnapshot(snapshot, schema)
 	if err != nil {
 		return nil, err
 	}
-	return resolver.projectCurrent(ref)
+	return prepared.ProjectBound(ref)
 }
 
 // ProjectNodesFromSnapshot resolves multiple refs against one parsed document
@@ -304,17 +284,17 @@ func ProjectNodesFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Sch
 	if schema == nil {
 		return nil, fmt.Errorf("ontology schema is required")
 	}
-	resolver, err := newProjectionResolver(snapshot, schema)
+	prepared, err := prepareMarkdownSnapshot(snapshot, schema)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]*NodeProjection, 0, len(refs))
 	for _, ref := range refs {
-		projection, err := resolver.project(ref)
+		node, err := prepared.Project(ref)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, projection)
+		out = append(out, node)
 	}
 	return out, nil
 }
@@ -366,6 +346,12 @@ func SemanticParentRef(snapshot *DocumentSnapshot, schema *ontoschema.Schema, re
 	if err != nil {
 		return NodeRef{}, false, err
 	}
+	return semanticMarkdownParent(resolver, ref)
+}
+
+func semanticMarkdownParent(resolver *projectionResolver, ref NodeRef) (NodeRef, bool, error) {
+	snapshot := resolver.snapshot
+	schema := resolver.schema
 	if span, _, ok, resolveErr := resolver.resolveSourceSpanRef(ref); resolveErr != nil {
 		return NodeRef{}, false, resolveErr
 	} else if ok && span.Shape != ontoschema.EmbeddedSourceShapeSection {

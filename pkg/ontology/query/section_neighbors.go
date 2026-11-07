@@ -46,29 +46,25 @@ func (e *executor) subtreeNeighborRecords(ctx context.Context, node *sectionReco
 	pathsSeen := make(map[string]struct{})
 	pathsList := make([]string, 0)
 	if field.Direction != ontoschema.NeighborDirectionInbound {
-		for _, scanned := range ontology.ScanMarkdownBodyLinks(ontology.SectionBody(node.Node), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
-			target := scanned.Detail
-			var (
-				resolved string
-				ok       bool
-			)
-			switch target.LinkType {
-			case "mdlink":
-				resolved, ok = cache.ResolveMdLink(target.Target, node.Note.Path)
-			default:
-				resolved, ok = cache.ResolveNote(target.Target)
+		links := ontology.ScanMarkdownBodyLinks(ontology.SectionBody(node.Node), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions)
+		var candidates []string
+		for _, scanned := range links {
+			for _, target := range ontology.BodyLinkCandidates(cache, scanned.Detail.LinkType, scanned.Detail.Target, node.Note.Path) {
+				candidates = append(candidates, target.Path)
 			}
+		}
+		types, err := e.loaders.scope.TypesByPaths(ctx, candidates)
+		if err != nil {
+			return nil, err
+		}
+		resolveType := func(path string) string { return types[path].TypeName }
+		for _, scanned := range links {
+			targets := ontology.BodyLinkCandidates(cache, scanned.Detail.LinkType, scanned.Detail.Target, node.Note.Path)
+			resolved, ok := ontology.TypedBodyLinkTarget(e.schema, targets, field.TypeName, resolveType)
 			if !ok {
 				continue
 			}
 			if _, seen := pathsSeen[resolved]; seen {
-				continue
-			}
-			row, ok, err := e.resolvedType(ctx, resolved)
-			if err != nil || !ok {
-				continue
-			}
-			if !e.typeMatchesOrImplements(row.TypeName, field.TypeName) {
 				continue
 			}
 			pathsSeen[resolved] = struct{}{}
@@ -231,6 +227,9 @@ func sectionAnchorMatchKey(node *ontology.SectionNode) string {
 }
 
 func resolvedTargetSectionKey(target obsidian.ResolvedNoteTarget) string {
+	if ontology.IsRecordSelector(target.Fragment) {
+		return target.Fragment
+	}
 	fragment := strings.TrimSpace(target.Fragment)
 	if fragment == "" {
 		return ""

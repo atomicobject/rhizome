@@ -20,6 +20,7 @@ type guideType struct {
 	PropertyCase        ontoschema.PropertyCase
 	Paths               []string
 	Matches             []string
+	Admission           []*ontoschema.NoteMatcher
 	Fields              []*ontoschema.Field
 	Semantics           ontoschema.SemanticsKind
 	CompanionDocs       []ontoschema.CompanionDocRef
@@ -27,6 +28,7 @@ type guideType struct {
 	SourceShape         ontoschema.EmbeddedSourceShape
 	SourceMarker        string
 	SourcePaths         []string
+	Record              *ontoschema.RecordSourceBinding
 }
 
 func selectTypes(schema *ontoschema.Schema, requested []string) ([]string, []string, error) {
@@ -175,9 +177,11 @@ func guideTypeFromSchema(schema *ontoschema.Schema, name string) *guideType {
 			Semantics:           noteType.Semantics,
 			CompanionDocs:       append([]ontoschema.CompanionDocRef(nil), noteType.CompanionDocs...),
 			Annotations:         noteType.Annotations,
+			Admission:           noteType.AdmissionMatchers,
 			SourceShape:         noteType.SourceShape,
 			SourceMarker:        noteType.SourceMarker,
 			SourcePaths:         append([]string(nil), noteType.SourcePaths...),
+			Record:              noteType.Record,
 		}
 	}
 	if iface := schema.Interfaces[name]; iface != nil {

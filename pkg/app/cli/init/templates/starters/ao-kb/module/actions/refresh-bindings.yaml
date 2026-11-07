@@ -1,0 +1,8 @@
+description: Refresh selected-product knowledge admission and read-only model bindings
+inputs:
+  product: {kind: string}
+  single: {kind: bool}
+  toolkit: {kind: string}
+run:
+  command: [node, "{module}/bindings/cli.mjs", refresh-bindings]
+timeout: 5m

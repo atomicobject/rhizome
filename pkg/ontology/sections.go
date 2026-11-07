@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 )
 
 type SectionNode struct {
@@ -158,6 +158,9 @@ func sectionLevelInt(level ontoschema.SectionLevel) int {
 func SectionBody(node *SectionNode) string {
 	if node == nil {
 		return ""
+	}
+	if !strings.HasPrefix(strings.TrimSpace(node.Content), "#") {
+		return strings.TrimSpace(node.Content)
 	}
 	if idx := strings.IndexByte(node.Content, '\n'); idx >= 0 {
 		return strings.TrimSpace(node.Content[idx+1:])

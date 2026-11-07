@@ -1504,3 +1504,92 @@ describe("nodeWorkspaceFromPublicGraphQL", () => {
     );
   });
 });
+
+it("keeps native record values out of Markdown and heading projections", () => {
+  const ref = {
+    ref: "model.native#record-pos:v1:captured:L3Jvd3MvMA",
+    kind: "EMBEDDED",
+    notePath: "model.native",
+    nodeId: "record-a",
+    typeName: "Row",
+  };
+
+  const source = {
+    representation: "source_value",
+    format: "yaml",
+    mediaType: "application/json",
+    text: '{"name":"Native"}',
+    value: {
+      kind: "object",
+      entries: [{ key: "name", value: { kind: "string", scalar: "Native" } }],
+    },
+    address: "/rows/0",
+    sourceHash: "captured",
+  };
+
+  const data: PublicNodeDetailData = {
+    node: {
+      ref,
+      nodeId: "record-a",
+      nodeKind: "EMBEDDED",
+      title: "Native",
+      content: source.text,
+      locator: {
+        sourceLocator: ref.ref,
+        status: "linkable",
+        exists: true,
+        requiresFix: false,
+        linkTarget: {
+          exists: true,
+          requiresFix: false,
+          durability: "revision_bound",
+          revision: "captured",
+        },
+      },
+      workspace: publicWorkspace({
+        source,
+        bodies: [
+          {
+            ref,
+            title: "Native",
+            locator: "EMBEDDED",
+            source,
+            markdown: "must not render",
+            fields: [],
+            collections: [],
+            blocks: [],
+          },
+        ],
+        structure: [{ ref, title: "Native", content: source.text }],
+        capabilities: {
+          canEdit: false,
+          canEditFields: false,
+          canEditCollections: false,
+          canNavigateChildren: true,
+          canSubscribe: true,
+        },
+      }),
+    },
+  };
+
+  const workspace = nodeWorkspaceFromPublicGraphQL(data, ref.ref);
+  expect(workspace.node.nodeLocator?.linkTarget).toMatchObject({
+    durability: "revision_bound",
+    revision: "captured",
+  });
+  expect(workspace.content.source).toMatchObject({
+    text: source.text,
+    address: "/rows/0",
+    sourceHash: "captured",
+  });
+  expect(workspace.content.format).toBe("yaml");
+  expect(workspace.content.markdown).toBeUndefined();
+  expect(workspace.content.rendered).toBeUndefined();
+  expect(workspace.content.structural).toBeUndefined();
+  const body = workspace.nodes?.find((node) => node.ref.nodeId === "record-a");
+  expect(body?.data).toMatchObject({ source: { text: source.text } });
+  expect(body?.data?.markdown).toBeUndefined();
+  expect(body?.data?.level).toBeUndefined();
+  expect(workspace.capabilities.canNavigateChildren).toBe(true);
+  expect(workspace.capabilities.canEdit).toBe(false);
+});

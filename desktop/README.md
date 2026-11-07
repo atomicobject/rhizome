@@ -50,7 +50,7 @@ The Linux shell uses a GTK overlay host so the toolbar and runtime content do no
 
 ## Distribution and updates
 
-[SPEC-0122](../docs/specs/technical/desktop-distribution-and-updates.md) owns the original macOS distribution. [SPEC-0133](../docs/specs/technical/windows-linux-desktop.md) extends it to Windows and Linux.
+[SPEC-0122](../docs/specs/technical/desktop-distribution-and-updates.md) owns the original macOS distribution. [SPEC-0134](../docs/specs/technical/windows-linux-desktop.md) extends it to Windows and Linux.
 
 The initial native targets are Windows 11 x64 with a per-user NSIS installer and Ubuntu 24.04 LTS GNOME with an AppImage for x64 (`Rhizome-linux-x64.AppImage`) or Arm64 (`Rhizome-linux-arm64.AppImage`). Releases publish both Linux AppImages. Windows packages remain test candidates and are not published, because production Windows signing is not configured; Windows installed GUI acceptance is also still pending. CI builds and process tests do not establish Wayland, graphics, focus, or installed-upgrade behavior. See the [native acceptance checklist](../docs/reference/desktop-platform-checks.md).
 

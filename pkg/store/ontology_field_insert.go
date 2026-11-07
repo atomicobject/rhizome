@@ -13,9 +13,9 @@ func insertOntologyNodeFieldValuesTx(ctx context.Context, tx *sql.Tx, fieldValue
 			node_id, note_path, type_name, field_name, field_kind, source_kind,
 			value_kind, value_text, value_norm, value_bool, value_int, value_real,
 			value_date, value_datetime, target_node_id, target_ref_json, target_note_path,
-			target_type_name, target_source_locator, list_ordinal, schema_hash, updated_at
+			target_type_name, target_source_locator, list_ordinal, schema_hash, updated_at, source_presence, source_value_kind, reference_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(node_id, field_name, list_ordinal, value_norm, target_node_id) DO UPDATE SET
 			note_path = excluded.note_path,
 			type_name = excluded.type_name,
@@ -33,7 +33,8 @@ func insertOntologyNodeFieldValuesTx(ctx context.Context, tx *sql.Tx, fieldValue
 			target_type_name = excluded.target_type_name,
 			target_source_locator = excluded.target_source_locator,
 			schema_hash = excluded.schema_hash,
-			updated_at = excluded.updated_at
+			updated_at = excluded.updated_at,
+ source_presence=excluded.source_presence,source_value_kind=excluded.source_value_kind,reference_at=excluded.reference_at
 	`)
 	if err != nil {
 		return 0, err
@@ -66,7 +67,7 @@ func insertOntologyNodeFieldValuesTx(ctx context.Context, tx *sql.Tx, fieldValue
 			row.TargetSourceLocator,
 			row.ListOrdinal,
 			row.SchemaHash,
-			row.UpdatedAt,
+			row.UpdatedAt, row.SourcePresence, row.SourceValueKind, row.ReferenceAt,
 		); err != nil {
 			return written, err
 		}

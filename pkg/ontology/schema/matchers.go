@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/bmatcuk/doublestar/v4"
 	"path/filepath"
+	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -17,12 +19,16 @@ const (
 	matchInputTag
 	matchInputFind
 	matchInputProperty
+	matchInputHas
 )
 
 type matchInput struct {
 	Type     matchInputType
 	Value    string
 	Property string
+	// Exact marks a quoted property value: it matches a frontmatter string as
+	// authored, with no inline fields and no case, space, or link folding.
+	Exact bool
 }
 
 type matchExprType int
@@ -224,7 +230,17 @@ func evalMatchInput(input *matchInput, doc *Subject) bool {
 	case matchInputTag:
 		return hasTag(doc.Tags, input.Value)
 	case matchInputProperty:
+		if input.Exact {
+			return docFrontmatterHasExactValue(doc, input.Property, input.Value)
+		}
 		return docPropertyHasValue(doc, input.Property, input.Value)
+	case matchInputHas:
+		for key, value := range doc.Frontmatter {
+			if strings.EqualFold(strings.TrimSpace(key), input.Property) && value != nil && value != "" {
+				return true
+			}
+		}
+		return false
 	default:
 		return false
 	}
@@ -287,6 +303,31 @@ func docPropertyHasValue(doc *Subject, property, target string) bool {
 	return false
 }
 
+// docFrontmatterHasExactValue reports whether a frontmatter property's string
+// scalar, or a string element of its list, equals target byte for byte.
+func docFrontmatterHasExactValue(doc *Subject, property, target string) bool {
+	for key, value := range doc.Frontmatter {
+		if !strings.EqualFold(strings.TrimSpace(key), strings.TrimSpace(property)) {
+			continue
+		}
+		switch value := value.(type) {
+		case string:
+			if value == target {
+				return true
+			}
+		case []string:
+			if slices.Contains(value, target) {
+				return true
+			}
+		case []any:
+			if slices.Contains(value, any(target)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func normalizeMatchPropertyValue(v string) string {
 	val := strings.ToLower(strings.TrimSpace(v))
 	if strings.HasPrefix(val, "[[") && strings.HasSuffix(val, "]]") {
@@ -300,6 +341,13 @@ func normalizeMatchPropertyValue(v string) string {
 }
 
 func parseMatchInput(arg string) (matchInput, error) {
+	if property, ok := strings.CutPrefix(arg, "has:"); ok {
+		property = strings.TrimSpace(property)
+		if property == "" {
+			return matchInput{}, fmt.Errorf("invalid presence input %q", arg)
+		}
+		return matchInput{Type: matchInputHas, Property: property}, nil
+	}
 	if strings.HasPrefix(arg, "tag:") {
 		tag := strings.Trim(strings.TrimPrefix(arg, "tag:"), "\"")
 		if tag == "" || tag == "*" {
@@ -321,7 +369,11 @@ func parseMatchInput(arg string) (matchInput, error) {
 		if key == "" || val == "" || val == "*" {
 			return matchInput{}, fmt.Errorf("invalid property input %q", arg)
 		}
-		return matchInput{Type: matchInputProperty, Property: key, Value: val}, nil
+		exact := len(val) >= 2 && strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)
+		if exact {
+			val = val[1 : len(val)-1]
+		}
+		return matchInput{Type: matchInputProperty, Property: key, Value: val, Exact: exact}, nil
 	}
 	return matchInput{Type: matchInputFile, Value: arg}, nil
 }
@@ -329,21 +381,41 @@ func parseMatchInput(arg string) (matchInput, error) {
 func tokenizeMatchArgs(args []string) []string {
 	var tokens []string
 	for _, arg := range args {
-		for _, piece := range splitMatchParens(arg) {
-			if piece == "" {
-				continue
-			}
-			if containsMatchOperatorWord(piece) {
-				for _, field := range strings.Fields(piece) {
-					if field != "" {
-						tokens = append(tokens, field)
-					}
-				}
-				continue
-			}
-			tokens = append(tokens, piece)
+		fields := matchExpressionTokens(arg)
+		if containsMatchOperatorWord(arg) || (len(fields) > 0 && (fields[0] == "(" || fields[0] == ")")) {
+			tokens = append(tokens, fields...)
+		} else if arg != "" {
+			tokens = append(tokens, arg)
 		}
 	}
+	return tokens
+}
+
+func matchExpressionTokens(raw string) []string {
+	var tokens []string
+	var value strings.Builder
+	quoted := false
+	flush := func() {
+		if value.Len() > 0 {
+			tokens = append(tokens, value.String())
+			value.Reset()
+		}
+	}
+	for _, r := range raw {
+		if r == '"' {
+			quoted = !quoted
+		}
+		switch {
+		case !quoted && (r == '(' || r == ')'):
+			flush()
+			tokens = append(tokens, string(r))
+		case !quoted && unicode.IsSpace(r):
+			flush()
+		default:
+			value.WriteRune(r)
+		}
+	}
+	flush()
 	return tokens
 }
 
@@ -352,7 +424,7 @@ func tokenizeMatchArgs(args []string) []string {
 // Uppercase AND, OR, and NOT always mark an expression; lowercase words only
 // do alongside other operator evidence, so "Notes/Rock and Roll" stays a path.
 func containsMatchOperatorWord(piece string) bool {
-	for _, f := range strings.Fields(piece) {
+	for _, f := range matchExpressionTokens(piece) {
 		switch f {
 		case "AND", "OR", "NOT":
 			return true
@@ -363,37 +435,13 @@ func containsMatchOperatorWord(piece string) bool {
 	if colonCount < 2 && !hasParens && !strings.Contains(piece, "&&") && !strings.Contains(piece, "||") {
 		return false
 	}
-	for _, f := range strings.Fields(piece) {
+	for _, f := range matchExpressionTokens(piece) {
 		switch strings.ToUpper(f) {
 		case "AND", "OR", "NOT", "&&", "||", "!":
 			return true
 		}
 	}
 	return false
-}
-
-func splitMatchParens(token string) []string {
-	if strings.Contains(token, " ") && !containsMatchOperatorWord(token) {
-		return []string{token}
-	}
-	var tokens []string
-	leading := token
-	for len(leading) > 0 && (leading[0] == '(' || leading[0] == ')') {
-		tokens = append(tokens, string(leading[0]))
-		leading = leading[1:]
-	}
-	trailingParens := ""
-	for len(leading) > 0 && (leading[len(leading)-1] == '(' || leading[len(leading)-1] == ')') {
-		trailingParens = string(leading[len(leading)-1]) + trailingParens
-		leading = leading[:len(leading)-1]
-	}
-	if strings.TrimSpace(leading) != "" {
-		tokens = append(tokens, leading)
-	}
-	for i := 0; i < len(trailingParens); i++ {
-		tokens = append(tokens, string(trailingParens[i]))
-	}
-	return tokens
 }
 
 func insertImplicitOrs(tokens []string) []string {

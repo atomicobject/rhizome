@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -73,13 +72,8 @@ func processDeleteFile(vaultPaths paths.VaultPaths, tagsToDelete []string, dryRu
 
 		// Write the file if not dry run
 		if !dryRun {
-			if err := ctx.Err(); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-			err = fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644)
-			if err != nil {
-				result.err = fmt.Errorf("failed to write file %s: %w", notePath, err)
-				return result
 			}
 		}
 
@@ -130,13 +124,8 @@ func processRenameFile(vaultPaths paths.VaultPaths, fromTags []string, toTag str
 
 		// Write the file if not dry run
 		if !dryRun {
-			if err := ctx.Err(); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-			err = fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644)
-			if err != nil {
-				result.err = fmt.Errorf("failed to write file %s: %w", notePath, err)
-				return result
 			}
 		}
 
@@ -291,13 +280,8 @@ func processAddFile(vaultPaths paths.VaultPaths, tagsToAdd []string, dryRun bool
 
 		// Write the file if not dry run
 		if !dryRun {
-			if err := ctx.Err(); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-			err = fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644)
-			if err != nil {
-				result.err = fmt.Errorf("failed to write file %s: %w", notePath, err)
-				return result
 			}
 		}
 

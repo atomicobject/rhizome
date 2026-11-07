@@ -1,0 +1,485 @@
+.ak-page {
+  container: knowledge / inline-size;
+  max-width: 1240px;
+  margin-inline: auto;
+  /* The shell's control-row gutter, so the page starts on the host's left edge. */
+  padding: 14px var(--sp-6, 18px) 28px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.ak-page > * + * {
+  margin-top: 18px;
+}
+.ak-page .link-title {
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+.ak-page .link-title:hover,
+.ak-page .link-title:focus-visible {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+.ak-filters {
+  display: flex;
+  gap: 14px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.ak-filters label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ak-filter-field {
+  display: grid;
+  gap: 4px;
+}
+.ak-filters input {
+  width: 260px;
+  max-width: 100%;
+}
+.ak-filters select {
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 14px;
+}
+.ak-page :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.ak-table-wrap {
+  overflow-x: auto;
+}
+.ak-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+/* Heads wrap, so a long head over short values never forces the table wider. */
+.ak-table th {
+  padding: 8px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  vertical-align: bottom;
+}
+.ak-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--border-faint);
+  vertical-align: top;
+}
+.ak-table td:first-child {
+  min-width: 250px;
+}
+.ak-table td:not(:first-child) {
+  white-space: nowrap;
+}
+.ak-table td:nth-child(5) {
+  white-space: normal;
+  min-width: 130px;
+}
+.ak-table th button {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.ak-table tbody tr:hover {
+  background: var(--surface-tint);
+}
+/* Below the tables' natural width, a row reads as a block instead of scrolling
+   sideways: its title cell, then the other cells as labelled values that wrap.
+   Sortable heads stay as a wrapped row of sort buttons; other heads leave,
+   since every value carries its label. */
+@container knowledge (max-width: 899px) {
+  .ak-table,
+  .ak-table :is(thead, tbody, tr, th, td) {
+    display: block;
+  }
+  .ak-table thead:not(:has(button)) {
+    display: none;
+  }
+  .ak-table thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .ak-table thead tr::before {
+    content: "Sort by";
+  }
+  .ak-table th {
+    padding: 0;
+    border: 0;
+  }
+  .ak-table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .ak-table td:nth-child(n) {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .ak-table td:first-child {
+    flex-basis: 100%;
+  }
+  .ak-table td[data-label]::before {
+    content: attr(data-label);
+    margin-right: 6px;
+    color: var(--text-muted);
+  }
+  .ak-table td:not(:first-child) .ak-meta {
+    display: inline;
+    margin-left: 6px;
+  }
+}
+.ak-meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+.ak-status {
+  display: inline-block;
+  margin-left: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.ak-fold {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.ak-fold-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+}
+.ak-observation {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-observation-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 8px;
+}
+.ak-basis {
+  margin: 5px 0;
+  padding: 8px 10px;
+  background: var(--surface-tint);
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.ak-footnote,
+.ak-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ak-saved-divider {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ak-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ak-list > li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 6px 24px;
+}
+.ak-field {
+  display: grid;
+  grid-template-columns: minmax(100px, 35%) 1fr;
+  column-gap: 12px;
+  font-size: 13px;
+  padding: 3px 0;
+}
+.ak-field dt {
+  color: var(--text-muted);
+}
+.ak-field dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ak-claim {
+  max-width: 75ch;
+  font-size: 16px;
+  line-height: 1.65;
+}
+.ak-claim p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.ak-claim p + p {
+  margin-top: 0.75em;
+}
+.ak-unresolved {
+  text-decoration: underline dotted var(--text-muted);
+  text-underline-offset: 3px;
+}
+.ak-unresolved-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ak-record-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+}
+.ak-record-column {
+  min-width: 0;
+}
+.ak-record-column > * + * {
+  margin-top: 22px;
+}
+@container knowledge (min-width: 1100px) {
+  .ak-record-layout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+/* A model record's facts are short, so its source sits beside them sooner. */
+@container knowledge (min-width: 860px) {
+  .ak-model-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.ak-record-head {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.ak-record-head h1 {
+  font-size: 18px;
+  font-weight: 700;
+}
+.ak-evidence {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ak-evidence h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.ak-passage {
+  margin-top: 8px;
+  background: var(--surface-tint);
+  padding: 8px 0;
+  overflow-x: auto;
+}
+.ak-line {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ak-line-number {
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.ak-line-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-right: 12px;
+}
+.ak-line[data-recorded="true"] {
+  background: var(--surface-strong);
+}
+.ak-conflict {
+  padding: 12px 0;
+}
+.ak-comparison {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+  margin-bottom: 18px;
+}
+.ak-conflict .ak-claim {
+  font-size: 14px;
+}
+.ak-source-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 28%);
+  gap: 16px;
+  border-bottom: 1px solid var(--border-faint);
+  padding: 2px 0;
+}
+.ak-source-line aside {
+  font-size: 12px;
+}
+.ak-source-text {
+  max-height: 650px;
+  overflow-y: auto;
+}
+.ak-coverage {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  gap: 2px;
+  margin-top: 4px;
+}
+.ak-coverage > span {
+  min-width: 3px;
+}
+.ak-lead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.ak-key {
+  font: 13px/1.45 var(--font-mono);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.ak-facts {
+  display: grid;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-fact {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  column-gap: 16px;
+  padding: 5px 0;
+}
+.ak-fact dt {
+  color: var(--text-muted);
+  font: 500 13px/1.35 var(--font-sans);
+  padding-top: 2px;
+}
+.ak-fact dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* An AO ID never breaks inside a field value; the line wraps before it. */
+.ak-fact dd .ak-key {
+  white-space: nowrap;
+}
+.ak-ordered {
+  margin: 0;
+  padding-left: 20px;
+  list-style: decimal;
+}
+.ak-ordered > li::marker {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ak-ordered > li + li {
+  margin-top: 2px;
+}
+.ak-state {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ak-state-risk {
+  color: var(--accent-ink);
+}
+.ak-value {
+  margin: 0;
+  font: 13px/1.6 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ak-source-value {
+  padding: 10px 12px;
+  background: var(--surface-tint);
+  border-radius: 4px;
+}
+.ak-file-rows {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 1px solid var(--border);
+}
+.ak-file-rows > li + li {
+  margin-top: 4px;
+}
+.ak-rels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ak-rel {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-areas: "icon main aside" ". meta meta";
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-rel-icon {
+  grid-area: icon;
+  padding-top: 3px;
+  color: var(--text-muted);
+}
+.ak-rel-main {
+  grid-area: main;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ak-rel-aside {
+  grid-area: aside;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.ak-rel-meta {
+  grid-area: meta;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .ak-comparison {
+    grid-template-columns: 1fr;
+  }
+  .ak-source-line {
+    grid-template-columns: 1fr;
+  }
+  .ak-page {
+    padding: 12px var(--sp-6, 18px);
+  }
+}

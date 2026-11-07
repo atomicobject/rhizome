@@ -158,6 +158,19 @@ func (p *Plan) Classify(rel paths.RelPath, codeCandidate bool) (Decision, error)
 	return decision, nil
 }
 
+// NoteFormat returns the provider that reads rel as a note wherever this vault
+// treats that path as one, regardless of ignore rules or whether it exists. A
+// default format such as Markdown claims its extensions everywhere. An
+// explicit-include format such as YAML, JSON or HTML claims only the paths an
+// include names explicitly, so other files with its extension stay attachments.
+func (p *Plan) NoteFormat(rel paths.RelPath) (noteformat.Provider, bool) {
+	provider, found := p.registry.ProviderForPath(rel)
+	if !found || provider.Descriptor().OwnershipPolicy != noteformat.OwnershipDefault && !p.noteOwns(provider, rel) {
+		return nil, false
+	}
+	return provider, true
+}
+
 func (p *Plan) noteOwns(provider noteformat.Provider, rel paths.RelPath) bool {
 	descriptor := provider.Descriptor()
 	switch descriptor.OwnershipPolicy {

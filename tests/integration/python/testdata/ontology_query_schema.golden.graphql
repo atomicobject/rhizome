@@ -42,6 +42,8 @@ type NodeRefResolution {
 }
 
 type NodeLinkTarget {
+  durability: String
+  revision: String
   ref: NodeRef!
   markdown: String
   wikilink: String
@@ -65,6 +67,8 @@ type NodeLinkFixAction {
 }
 
 type NodeLocator {
+  durability: String
+  revision: String
   ref: NodeRef!
   kind: NodeKind!
   sourceLocator: String!
@@ -116,6 +120,7 @@ type LocalGraphNode {
 }
 
 type LocalGraphEdge {
+  occurrences: JSON
   source: ID!
   target: ID!
   kind: String!
@@ -215,6 +220,7 @@ type ValidationIssue {
 
 "Composable source-preserving metadata used by node workspace clients."
 type NodeWorkspaceProjection {
+  source: JSON
   "Schema-aware semantic parent of the focused node, skipping structural wrappers."
   parentRef: NodeRef
   "Display title of parentRef, read from the index."
@@ -243,6 +249,7 @@ type NodeBodyProjection {
   resolvedType: String
   locator: String!
   parentRef: NodeRef
+  source: JSON
   markdown: String!
   level: String
   blockId: String
@@ -372,6 +379,7 @@ type NodeCollectionItem {
 }
 
 type NodeCapabilities {
+  readOnlyReason: String
   canEdit: Boolean!
   canEditFields: Boolean!
   canEditCollections: Boolean!
@@ -900,7 +908,7 @@ type Person implements NoteNode & Node & Note {
   name: String!
   role: String
   team: Team
-  projects: [Project!]
+  projects(first: Int): [Project!]
   summary: String
   """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
   updatedAt: DateTime
@@ -932,7 +940,7 @@ type Project implements NoteNode & Node & Note {
   connected(type: String, first: Int = 20): [NoteNode!]!
   name: String!
   owner: Person!
-  decisionNotes: [Decision!]
+  decisionNotes(first: Int): [Decision!]
   decisions(first: Int): [Decision!]
   summary: String
   """
@@ -1043,7 +1051,7 @@ type Team implements NoteNode & Node & Note {
   backlinked(type: String, first: Int = 20): [NoteNode!]!
   connected(type: String, first: Int = 20): [NoteNode!]!
   name: String!
-  members: [Person!]
+  members(first: Int): [Person!]
   summary: String
   """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
   updatedAt: DateTime
@@ -1098,6 +1106,7 @@ type OntologyField {
   required: Boolean!
   list: Boolean!
   source: String
+  sourcePath: String
   description: String
   identifierFormat: IdentifierFormat
   capability: OntologyFieldCapability!

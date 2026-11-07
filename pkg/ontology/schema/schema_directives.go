@@ -107,6 +107,8 @@ func embeddedSourceShapeArg(v any) EmbeddedSourceShape {
 		return EmbeddedSourceShapeSection
 	}
 	switch EmbeddedSourceShape(strings.ToUpper(strings.TrimSpace(s))) {
+	case EmbeddedSourceShapeRecord:
+		return EmbeddedSourceShapeRecord
 	case EmbeddedSourceShapeListItem:
 		return EmbeddedSourceShapeListItem
 	case EmbeddedSourceShapeCheckboxItem:

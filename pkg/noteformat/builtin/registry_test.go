@@ -16,9 +16,12 @@ func TestNewRegistryRegistersMarkdownAndHTML(t *testing.T) {
 	}
 
 	for path, wantID := range map[string]string{
-		"notes/one.md":    "markdown",
-		"notes/two.html":  "html",
-		"notes/three.HTM": "html",
+		"notes/one.md":        "markdown",
+		"notes/two.html":      "html",
+		"notes/three.HTM":     "html",
+		"model/data.YAML":     "yaml",
+		"model/data.yml":      "yaml",
+		"generated/data.JSON": "json",
 	} {
 		provider, ok := registry.ProviderForPath(paths.Normalize(path))
 		if !ok {

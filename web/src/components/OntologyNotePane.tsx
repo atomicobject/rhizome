@@ -22,7 +22,10 @@ import {
   resolveRenderedLinkTarget,
 } from "../lib/content";
 import { displayTitle } from "../lib/labels";
+import { nodeReadOnlyReason } from "../lib/readOnly";
 import { BodyWalker } from "./body/BodyWalker";
+import { CollectionView } from "./body/CollectionView";
+import { NativeRecordValue } from "./NativeRecordValue";
 import { MiddleTruncate } from "./MiddleTruncate";
 import { EmptyNarrativeEditor, SourceEditor } from "./editing/SourceEditor";
 import type { BodyRenderContext } from "./body/registry";
@@ -1004,7 +1007,7 @@ export function OntologyNotePane({
   presentationControls,
   renderPresentation,
   breadcrumbs,
-  editing = false,
+  editing: requestedEditing = false,
   editSession,
   issueTarget,
   issueFallback = false,
@@ -1012,6 +1015,9 @@ export function OntologyNotePane({
   validationHealth,
   onOpenIssues,
 }: Props) {
+  const readOnlyReason = nodeReadOnlyReason(workspace);
+
+  const editing = requestedEditing && !readOnlyReason;
   const paneRef = useRef<HTMLElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [focusUnavailable, setFocusUnavailable] = useState(false);
@@ -1022,6 +1028,7 @@ export function OntologyNotePane({
   const [htmlActions, setHTMLActions] = useState<HTMLElement | null>(null);
   const content = canonicalWorkspace?.content || null;
   const renderedBase = content?.rendered || renderedProp || null;
+  const hasReadableContent = Boolean(renderedBase || content?.source);
 
   const renderedSections = useMemo(
     () => selectWorkspaceRenderedSections(canonicalWorkspace, renderedBase),
@@ -1068,9 +1075,11 @@ export function OntologyNotePane({
       return;
     }
 
-    if (locator.status === "linkable" && locator.linkTarget?.wikilink) {
+    const link = locator.linkTarget?.wikilink || locator.linkTarget?.markdown;
+
+    if (locator.status === "linkable" && link) {
       try {
-        await navigator.clipboard.writeText(locator.linkTarget.wikilink);
+        await navigator.clipboard.writeText(link);
         setCopyLinkMessage("Copied link.");
       } catch {
         setCopyLinkMessage("Clipboard unavailable.");
@@ -1080,6 +1089,8 @@ export function OntologyNotePane({
     }
 
     if (locator.status === "requires_fix") {
+      if (readOnlyReason) return;
+
       const ops =
         canonicalWorkspace?.linkFixOps && canonicalWorkspace.linkFixOps.length > 0
           ? canonicalWorkspace.linkFixOps
@@ -1258,8 +1269,11 @@ export function OntologyNotePane({
     content.sourceCapabilities?.includes("active_content_viewing") === true &&
     Boolean(toolbarPath);
 
-  const isMarkdownSource = !content?.format || content.format === "markdown";
-  const sourceText = content?.markdown || rendered?.rendered || "";
+  const isMarkdownSource = !content?.source && (!content?.format || content.format === "markdown");
+
+  const sourceText = content?.source
+    ? canonicalWorkspace?.sourceRevision?.content || content.source.text
+    : content?.markdown || rendered?.rendered || "";
 
   const sourceSections = useMemo(
     () => (rendered?.sections?.length ? rendered.sections : outlineRoots),
@@ -1600,9 +1614,28 @@ export function OntologyNotePane({
     </div>
   );
 
+  const bodyContext: BodyRenderContext | null = canonicalWorkspace && {
+    workspace: canonicalWorkspace,
+    mode: editing ? "edit" : "view",
+    vaultKey,
+    rendered,
+    onStageOps,
+    onOpen,
+    onOpenNode,
+    registerSectionTarget: (nodeId, element) => {
+      if (element) structuralSectionRefs.current.set(nodeId, element);
+      else structuralSectionRefs.current.delete(nodeId);
+    },
+    lookupNode: (id) => canonicalWorkspace.nodes?.find((entry) => entry.id === id),
+  };
+
   return (
-    <article className={`ontology-pane${editing ? " is-editing" : ""}`} ref={paneRef}>
+    <article
+      className={`ontology-pane${content?.source ? " ontology-pane--record" : ""}${editing ? " is-editing" : ""}`}
+      ref={paneRef}
+    >
       <header className="ontology-pane__header">
+        {readOnlyReason ? <p className="ontology-pane__reason">{readOnlyReason}</p> : null}
         <div
           className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}
         >
@@ -1688,7 +1721,12 @@ export function OntologyNotePane({
                 event.stopPropagation();
                 void handleCopyLocatorLink();
               }}
-              title={locatorDiagnostic(locator)}
+              disabled={Boolean(readOnlyReason && locator.status === "requires_fix")}
+              title={
+                locator.status === "requires_fix" && readOnlyReason
+                  ? readOnlyReason
+                  : locatorDiagnostic(locator)
+              }
             >
               <svg
                 viewBox="0 0 16 16"
@@ -1717,9 +1755,11 @@ export function OntologyNotePane({
         </div>
       )}
 
-      {!rendered && breadcrumbs}
-      {loading && !rendered && <div className="ontology-empty">Loading note workspace…</div>}
-      {!loading && error && !rendered && (
+      {!hasReadableContent && breadcrumbs}
+      {loading && !hasReadableContent && (
+        <div className="ontology-empty">Loading note workspace…</div>
+      )}
+      {!loading && error && !hasReadableContent && (
         <div className="ontology-empty" role="alert">
           <div>{error}</div>
           {onRetry && (
@@ -1729,7 +1769,7 @@ export function OntologyNotePane({
           )}
         </div>
       )}
-      {!loading && !error && !rendered && (
+      {!loading && !error && !hasReadableContent && (
         <div className="ontology-empty ontology-empty--pane">
           <span className="ontology-empty__icon" aria-hidden="true" />
           <div>Pick a note to open the ontology workspace.</div>
@@ -1737,7 +1777,7 @@ export function OntologyNotePane({
         </div>
       )}
 
-      {rendered && (
+      {hasReadableContent && (
         <div className="ontology-pane__body">
           <div
             ref={scrollRef}
@@ -1812,6 +1852,30 @@ export function OntologyNotePane({
                     <div
                       className={`ontology-markdown${isActiveHTML ? " ontology-markdown--html" : ""}`}
                     >
+                      {viewMode !== "source" && content?.source ? (
+                        <div>
+                          {focusedWorkspaceNode &&
+                            bodyContext &&
+                            canonicalWorkspace?.collections?.map((collection, index) => (
+                              <CollectionView
+                                key={collection.name}
+                                block={{
+                                  fieldName: collection.name,
+                                  childRefs: (collection.items || []).map((item) => item.ref),
+                                }}
+                                context={bodyContext}
+                                node={focusedWorkspaceNode}
+                                kindOrdinal={index}
+                              />
+                            ))}
+                          {canonicalWorkspace && (
+                            <NativeRecordValue
+                              source={content.source}
+                              workspace={canonicalWorkspace}
+                            />
+                          )}
+                        </div>
+                      ) : null}
                       {viewMode === "source" ? (
                         editing &&
                         canonicalWorkspace?.sourceRevision &&
@@ -1848,34 +1912,12 @@ export function OntologyNotePane({
                         )
                       ) : isActiveHTML ? null : viewMode === "read" &&
                         focusedWorkspaceNode &&
-                        canonicalWorkspace &&
+                        bodyContext &&
                         focusedWorkspaceNode.body?.some(
                           (block) => block.kind !== "inline_field",
                         ) ? (
-                        <BodyWalker
-                          node={focusedWorkspaceNode}
-                          context={
-                            {
-                              workspace: canonicalWorkspace,
-                              mode: editing ? "edit" : "view",
-                              vaultKey,
-                              rendered,
-                              onStageOps,
-                              onOpen,
-                              onOpenNode,
-                              registerSectionTarget: (nodeId, element) => {
-                                if (element) {
-                                  structuralSectionRefs.current.set(nodeId, element);
-                                } else {
-                                  structuralSectionRefs.current.delete(nodeId);
-                                }
-                              },
-                              lookupNode: (id) =>
-                                canonicalWorkspace.nodes?.find((entry) => entry.id === id),
-                            } satisfies BodyRenderContext
-                          }
-                        />
-                      ) : useStructuralMode ? (
+                        <BodyWalker node={focusedWorkspaceNode} context={bodyContext} />
+                      ) : content?.source ? null : useStructuralMode ? (
                         <StructuralNodeView
                           rootNodes={structuralNodes}
                           initialAnchor={readingState.restoring ? null : initialAnchor}
@@ -1891,7 +1933,7 @@ export function OntologyNotePane({
                             </Markdown>
                           )}
                           <SectionWalker
-                            sections={rendered.sections || []}
+                            sections={rendered?.sections || []}
                             registerHeading={registerHeading}
                             markdownComponents={markdownComponents}
                           />
@@ -1930,7 +1972,7 @@ export function OntologyNotePane({
                       )}
                     </div>
 
-                    {viewMode === "read" && rendered.embeds && rendered.embeds.length > 0 && (
+                    {viewMode === "read" && rendered?.embeds && rendered.embeds.length > 0 && (
                       <section className="ontology-inline-previews">
                         <div className="ontology-inline-previews__header">
                           <h3>Inline previews</h3>

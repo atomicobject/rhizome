@@ -62,7 +62,7 @@ export function ConfiguredTableCellContent({
 
   const dirty = cellHasChangedField(field, capability, changedFields);
 
-  if (!edit || !onStageOps) {
+  if (!edit || !onStageOps || row.readOnlyReason) {
     return renderReadOnlyCell(
       row,
       field,

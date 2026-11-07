@@ -36,7 +36,7 @@ func scanOntologyNodeFieldValueRows(rows *sql.Rows) ([]readmodel.FieldValueRow, 
 			&row.TargetSourceLocator,
 			&row.ListOrdinal,
 			&row.SchemaHash,
-			&row.UpdatedAt,
+			&row.UpdatedAt, &row.SourcePresence, &row.SourceValueKind, &row.ReferenceAt,
 		); err != nil {
 			return nil, err
 		}

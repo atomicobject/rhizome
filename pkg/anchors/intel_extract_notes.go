@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 )
 
 // extractMarkdownIntelDocSections splits an already-authorized Markdown source

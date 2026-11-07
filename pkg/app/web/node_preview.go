@@ -16,6 +16,7 @@ import (
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/ontology"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
@@ -93,12 +94,13 @@ func (s *Server) handleNodePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fromPath := strings.TrimSpace(r.URL.Query().Get("from"))
+	unresolvedDiagnostic := ""
 	resolveOne := func(input string) (noderead.ResolvedNode, bool, error) {
 		result, resolveErr := scope.Resolve(r.Context(), noderead.ResolveRequest{
 			// With an edit session, fragments missing from the committed index
 			// may be staged, so resolution may project the note (from its
 			// staged source when touched); canonical paths are known only then.
-			IndexOnly: overlay.Empty(),
+			IndexOnly: overlay.Empty() && !strings.Contains(input, "#record-pos:"),
 			Targets:   []noderead.NodeTarget{{Input: input}},
 			FromPath:  fromPath,
 			Hydrate:   noderead.HydrateOptions{Profile: noderead.HydrateSummary},
@@ -107,6 +109,9 @@ func (s *Server) handleNodePreview(w http.ResponseWriter, r *http.Request) {
 			return noderead.ResolvedNode{}, false, resolveErr
 		}
 		if len(result.Resolved) != 1 || result.Resolved[0].Record.Path == "" {
+			if len(result.Diagnostics) > 0 {
+				unresolvedDiagnostic = result.Diagnostics[0].Code + ": " + result.Diagnostics[0].Message
+			}
 			return noderead.ResolvedNode{}, false, nil
 		}
 		return result.Resolved[0], true, nil
@@ -115,7 +120,7 @@ func (s *Server) handleNodePreview(w http.ResponseWriter, r *http.Request) {
 	node, ok, err := resolveOne(ref)
 	resolvedRequestedRef := ok
 	baseRef, requestedFragment := splitPreviewRef(ref)
-	reservedSelector := strings.HasPrefix(requestedFragment, "struct:") || strings.HasPrefix(requestedFragment, "node:")
+	reservedSelector := ontology.IsReservedNodeSelector(requestedFragment)
 	if err == nil && !ok && !reservedSelector {
 		if baseRef != "" && requestedFragment != "" {
 			node, ok, err = resolveOne(baseRef)
@@ -126,7 +131,11 @@ func (s *Server) handleNodePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		writePublicError(w, http.StatusNotFound, PublicErrorNotFound, fmt.Errorf("node %q did not resolve", ref))
+		if reservedSelector && unresolvedDiagnostic != "" {
+			writePublicError(w, http.StatusNotFound, PublicErrorNotFound, fmt.Errorf("node %q did not resolve: %s", ref, unresolvedDiagnostic))
+		} else {
+			writePublicError(w, http.StatusNotFound, PublicErrorNotFound, fmt.Errorf("node %q did not resolve", ref))
+		}
 		return
 	}
 

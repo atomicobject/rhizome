@@ -166,7 +166,6 @@ pub(crate) async fn call_sidecar(
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn provider_keys_travel_in_stdin_and_echoed_responses_are_rejected() {
@@ -183,8 +182,7 @@ mod tests {
             ] {
                 let directory = tempfile::tempdir().unwrap();
                 let sidecar = directory.path().join("sidecar");
-                std::fs::write(&sidecar, format!("#!/bin/sh\nprintf '%s\\n' \"$@\" > arguments\n/bin/cat > input.json\nprintf '%s' '{response}'\n")).unwrap();
-                std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o700)).unwrap();
+                crate::test_support::write_executable(&sidecar, format!("#!/bin/sh\nprintf '%s\\n' \"$@\" > arguments\n/bin/cat > input.json\nprintf '%s' '{response}'\n").as_bytes());
                 let key: Secret = serde_json::from_str(r#""synthetic-provider-secret""#).unwrap();
                 let result = call_sidecar(directory.path(), Request {
                     operation: "provider-key-set", provider: Some("voyage"), key: Some(&key), ..Request::default()
@@ -215,8 +213,7 @@ mod tests {
                 let marker = directory.path().join("credential-import-1-1");
                 std::fs::write(&marker, []).unwrap();
                 let sidecar = directory.path().join("sidecar");
-                std::fs::write(&sidecar, b"#!/bin/sh\n/bin/cat >/dev/null\nwhile [ -f credential-import-1-1 ]; do /bin/sleep 0.01; done\nprintf done > supervisor-exited\n").unwrap();
-                std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o700)).unwrap();
+                crate::test_support::write_executable(&sidecar, b"#!/bin/sh\n/bin/cat >/dev/null\nwhile [ -f credential-import-1-1 ]; do /bin/sleep 0.01; done\nprintf done > supervisor-exited\n");
                 let request = Request { operation: "credential-import", ..Request::default() };
                 if timeout {
                     assert!(call_sidecar(directory.path(), request, Duration::from_millis(30), &sidecar).await.is_err());

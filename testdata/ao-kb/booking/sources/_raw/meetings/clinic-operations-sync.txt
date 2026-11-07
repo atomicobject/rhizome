@@ -1,0 +1,52 @@
+Clinic operations sync. Illustrative transcript.
+2026-09-15. Early booking workshop.
+Taylor, clinic lead: Start with a reminder 48 hours before each visit.
+Morgan, clinic operations: Reception can use that warning to fill gaps.
+2026-10-01. Reminder review.
+Morgan, clinic operations: Replace the 48-hour reminder with one 24 hours before.
+Taylor, clinic lead: Keep the previous decision in the record.
+2026-10-05. Eligibility discovery.
+Casey, product analyst: What eligibility checks should Booking make?
+Riley, reception coordinator: We need to narrow that question to referrals.
+2026-10-08. Self-service walkthrough.
+Morgan, clinic operations: Patients can choose an available slot.
+Morgan, clinic operations: They should not need to call reception.
+Riley, reception coordinator: Show only appointment types the clinic can deliver.
+Morgan, clinic operations: Keep the times current when someone reserves a slot.
+Riley, reception coordinator: Patients should receive a booking confirmation.
+Morgan, clinic operations: Reception still helps anyone who cannot book online.
+Taylor, clinic lead: Self-service is an additional route into the clinic.
+2026-10-09. Temporary Saturday schedule.
+Morgan, clinic operations: Saturday appointments are available through October 2026.
+Morgan, clinic operations: The extra Saturday sessions stop on October 31.
+2026-10-14. Video appointments.
+Jordan, patient participant: Should Booking offer same-day video appointments?
+Taylor, clinic lead: Yes, same-day video appointments are approved for existing patients.
+Taylor, clinic lead: New patients still need an in-person first appointment.
+2026-10-20. Cancellation policy comparison.
+Devon, finance lead: Patients pay a fee if they cancel on the appointment day.
+Devon, finance lead: That is the policy I want reception to explain.
+2026-10-20. Alternative cancellation policy.
+Morgan, clinic operations: Patients can cancel on the appointment day without a fee.
+Morgan, clinic operations: That is the rule I want reception to explain.
+Taylor, clinic lead: Those two rules conflict. Keep both until I confirm the policy.
+2026-10-21. Reminder decision.
+Taylor, clinic lead: Send the reminder two hours before the visit, replacing the 24-hour version.
+Morgan, clinic operations: A two-hour reminder is easier for patients to act on.
+2026-10-26. Referral workflow question.
+Riley, reception coordinator: Must a referral be verified before a patient reserves an appointment?
+Casey, product analyst: That is the specific eligibility question we need to answer.
+2026-10-27. Guardian scope.
+Casey, product analyst: Must every minor have an account-owning guardian?
+Taylor, clinic lead: Withdraw that question from this release; authorization is a separate policy.
+2026-10-28. Possible later booking rules.
+Casey, product analyst: We may reserve some appointments for referral partners.
+Casey, product analyst: A special booking window is another possibility, not a confirmed rule.
+2026-10-29. Reminder and self-service review.
+Taylor, clinic lead: The two-hour reminder and patient slot selection still stand.
+2026-11-03. Cancellation follow-up.
+Morgan, clinic operations: My no-fee proposal is unchanged; the clinic lead still needs to settle the conflict.
+2026-11-04. Waitlist decision.
+Taylor, clinic lead: An offered waitlist slot expires after one hour without a response.
+Riley, reception coordinator: We can then offer that slot to the next patient.
+End of illustrative transcript.

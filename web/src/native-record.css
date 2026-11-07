@@ -1,0 +1,106 @@
+.native-record {
+  container-type: inline-size;
+  margin-block: var(--sp-6);
+  color: var(--text);
+  font: 400 var(--fs-base)/1.5 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+.native-record__map,
+.native-record__list {
+  margin: 0;
+  padding: 0;
+}
+
+.ontology-markdown .native-record .section-heading {
+  margin: 0 0 var(--section-gap);
+  font: var(--section-font);
+  color: var(--section-color);
+}
+
+.native-record__property {
+  display: grid;
+  grid-template-columns: minmax(80px, 120px) minmax(0, 1fr);
+  gap: var(--sp-3) var(--sp-4);
+  padding-block: var(--sp-2);
+}
+
+.native-record__property dt {
+  color: var(--text-muted);
+}
+.native-record__property dd {
+  min-width: 0;
+  margin: 0;
+}
+.native-record__property code {
+  padding: 0;
+  background: none;
+}
+.native-record__text {
+  white-space: pre-wrap;
+}
+.native-record__null,
+.native-record__location {
+  color: var(--text-faint);
+}
+.native-record__list {
+  padding-left: var(--sp-6);
+}
+.native-record__list > li {
+  padding: var(--sp-1) 0;
+}
+.native-record__list > li::marker {
+  color: var(--text-faint);
+}
+
+.native-record summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 28px;
+  color: var(--text-muted);
+  font: var(--label-structure);
+  cursor: pointer;
+  list-style: none;
+}
+
+.native-record summary::-webkit-details-marker {
+  display: none;
+}
+.native-record__branch > :not(summary) {
+  margin-left: var(--sp-3);
+}
+.native-record__branch .native-record__property {
+  grid-template-columns: minmax(72px, 100px) minmax(0, 1fr);
+}
+.native-record__complete {
+  margin-top: var(--sp-5);
+}
+.native-record__location {
+  margin-block: var(--sp-3);
+}
+
+.ontology-pane--record .body-collection__row-head {
+  flex-wrap: wrap;
+}
+.ontology-pane--record .body-collection__title {
+  flex-basis: 160px;
+  font-weight: var(--title-weight);
+  white-space: normal;
+}
+.ontology-pane--record .body-collection__id {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ontology-pane--record .body-collection__row:is(:hover, :focus-visible) .body-collection__title {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+@container (max-width: 420px) {
+  .native-record__branch .native-record__property {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

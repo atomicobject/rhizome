@@ -1,3 +1,4 @@
+import type { NativeSourceContent, NativeSourceValue } from "./nativeSource";
 /**
  * Boundary parsers and type guards.
  *
@@ -134,5 +135,58 @@ export function isErrorResponse(v: unknown): v is ErrorResponse {
     isString(v.error) &&
     isOptionalString(v.code) &&
     (v.details === undefined || isJsonObject(v.details))
+  );
+}
+
+export function isNativeSourceValue(value: unknown): value is NativeSourceValue {
+  if (!isPlainObject(value)) return false;
+
+  switch (value.kind) {
+    case "null":
+      return value.scalar === undefined || value.scalar === null;
+    case "string":
+    case "date":
+    case "timestamp":
+      return isString(value.scalar);
+    case "integer":
+    case "float":
+      return isFiniteNumber(value.scalar) && isOptionalString(value.scalarText);
+    case "boolean":
+      return isBoolean(value.scalar);
+    case "array":
+      return (
+        value.items === undefined ||
+        (Array.isArray(value.items) && value.items.every(isNativeSourceValue))
+      );
+    case "object":
+      return (
+        value.entries === undefined ||
+        (Array.isArray(value.entries) &&
+          value.entries.every(
+            (entry) =>
+              isPlainObject(entry) &&
+              (isString(entry.key) || isFiniteNumber(entry.key)) &&
+              isOptionalString(entry.keyText) &&
+              isNativeSourceValue(entry.value),
+          ))
+      );
+    default:
+      return false;
+  }
+}
+
+export function isNativeSourceContent(value: unknown): value is NativeSourceContent {
+  return (
+    isPlainObject(value) &&
+    value.representation === "source_value" &&
+    isString(value.text) &&
+    isString(value.mediaType) &&
+    isNativeSourceValue(value.value) &&
+    isOptionalString(value.address) &&
+    isOptionalString(value.sourceHash) &&
+    isOptionalString(value.format) &&
+    isOptionalString(value.providerVersion) &&
+    isOptionalString(value.owner) &&
+    isOptionalString(value.binding)
   );
 }

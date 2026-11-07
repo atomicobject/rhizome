@@ -54,9 +54,13 @@ func (e *executor) sectionRecordsFromCatalogRows(ctx context.Context, rows []rea
 			StartByte: int(row.StartByte),
 			EndByte:   int(row.EndByte),
 		}
+		if typ := e.schema.Types[row.TypeName]; typ != nil && typ.Record != nil {
+			node = nil
+		}
 		noteTypeName := typeRows[row.NotePath].TypeName
 		out = append(out, &sectionRecord{
 			Node:          node,
+			catalogTitle:  row.Title,
 			Note:          &noteRecord{Path: row.NotePath, TypeName: noteTypeName},
 			TypeName:      row.TypeName,
 			catalogRef:    ref,
@@ -88,7 +92,7 @@ func (e *executor) sectionRecordsFromNodeListItems(ctx context.Context, items []
 		if err != nil || noteProjection == nil {
 			return nil, err
 		}
-		projection, err := ontology.ProjectNodeFromSnapshot(noteProjection.Snapshot, e.schema, ref)
+		projection, err := noteProjection.Prepared.Project(ref)
 		if err != nil || projection == nil {
 			continue
 		}
@@ -146,6 +150,10 @@ func nodeRefFromQueryCatalogRow(row readmodel.NodeRow) ontology.NodeRef {
 
 func (e *executor) addError(path []string, message string) {
 	e.errors = append(e.errors, Error{Message: message, Path: cloneStrings(path)})
+}
+
+func (e *executor) addWarning(path []string, code, message string) {
+	e.warnings = append(e.warnings, Warning{Code: code, Message: message, Path: cloneStrings(path)})
 }
 
 func (e *executor) addErrorWithExtensions(path []string, message string, extensions map[string]any) {
@@ -213,8 +221,11 @@ func (e *executor) noteMatchesTypeCondition(node *noteRecord, typeCondition stri
 func (e *executor) sectionMatchesTypeCondition(node *sectionRecord, typeCondition string) bool {
 	typeCondition = strings.TrimSpace(typeCondition)
 	switch typeCondition {
-	case "", "Node", "Section":
+	case "", "Node":
 		return true
+	case "Section":
+		t := e.schema.Types[node.TypeName]
+		return t == nil || t.Record == nil
 	case "EmbeddedNode":
 		return e.sectionNodeRef(node).Kind == ontology.NodeKindEmbedded
 	case "UntypedSection":

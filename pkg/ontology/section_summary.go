@@ -11,10 +11,10 @@ func SectionSummaryValues(projection *NodeProjection, field *ontoschema.Field) [
 		return nil
 	}
 	binding := projection.Fields[field.Name]
-	if len(binding.SectionNodes) != 1 {
+	if len(binding.ChildRefs) != 1 {
 		return nil
 	}
-	ref := binding.SectionNodes[0]
+	ref := binding.ChildRefs[0]
 	for _, section := range projection.Snapshot.SectionsByID {
 		if section.StartByte == ref.StartByte && section.EndByte == ref.EndByte {
 			return []string{strings.Join(strings.Fields(SectionBody(section)), " ")}

@@ -1,3 +1,4 @@
+import type { NativeSourceContent } from "./nativeSource";
 import type { components, operations } from "./generated";
 import type { JsonValue } from "./parse";
 
@@ -237,6 +238,7 @@ type NodeInlineFieldSpan = {
 };
 
 export type NodeCapabilities = {
+  readOnlyReason?: string;
   canEdit: boolean;
   canEditFields: boolean;
   canEditCollections: boolean;
@@ -322,6 +324,7 @@ export type NodeDescriptor = {
 };
 
 export type NodeContent = {
+  source?: NativeSourceContent;
   path: string;
   title: string;
   resolvedType?: string;
@@ -384,6 +387,7 @@ type WorkspaceSectionBinding = {
 };
 
 type WorkspaceNodeData = {
+  source?: NativeSourceContent;
   title?: string;
   resolvedType?: string;
   markdown?: string;

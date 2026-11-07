@@ -38,7 +38,7 @@ func AssessScalarFieldValues(notePath, typeName string, field *ontoschema.Field,
 	}
 
 	for _, raw := range values {
-		if !validateScalarValue(raw, field, schema) {
+		if !(field.Record != nil && (field.TypeName == "String" || field.TypeName == "ID")) && !validateScalarValue(raw, field, schema) {
 			issue := withTypeFieldVariant(ValidationIssue{
 				Code:      "field_type_mismatch",
 				NotePath:  notePath,
@@ -52,4 +52,18 @@ func AssessScalarFieldValues(notePath, typeName string, field *ontoschema.Field,
 		fieldAssessment.ValidValues = append(fieldAssessment.ValidValues, raw)
 	}
 	return fieldAssessment
+}
+
+// AssessScalarFieldSource refuses structured values before scalar coercion.
+func AssessScalarFieldSource(notePath, typeName string, field *ontoschema.Field, schema *ontoschema.Schema, raw any, present bool) FieldAssessment {
+	if scalarFieldSourceSupported(raw) {
+		return AssessScalarFieldValues(notePath, typeName, field, schema, FieldTextValues(field, raw), present)
+	}
+	assessment := baseFieldAssessment(field)
+	assessment.Present = present
+	assessment.Issues = []ValidationIssue{withTypeFieldVariant(ValidationIssue{
+		Code: "field_shape_mismatch", NotePath: notePath, TypeName: typeName, FieldName: field.Name,
+		Message: fmt.Sprintf("field %s expects scalar values; mappings and nested lists are unsupported", field.Name),
+	})}
+	return assessment
 }

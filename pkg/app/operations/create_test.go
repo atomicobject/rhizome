@@ -38,6 +38,7 @@ func TestCreateNote(t *testing.T) {
 			vault := &mocks.VaultManager{}
 			uri := &mocks.MockUriManager{}
 			vault.On("DefaultName").Return("myVault", nil)
+			vault.On("Path").Return(t.TempDir(), nil)
 			uri.On("Construct", "obsidian://new", tt.want).Return(constructed).Once()
 			uri.On("Execute", constructed).Return(nil).Once()
 
@@ -65,6 +66,7 @@ func TestCreateNote(t *testing.T) {
 		uri := &mocks.MockUriManager{}
 		expectedErr := errors.New("Failed to execute URI")
 		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return(t.TempDir(), nil)
 		uri.On("Construct", "obsidian://new", map[string]string{"vault": "myVault", "append": "false", "overwrite": "false", "content": "", "file": "note.md", "silent": "true"}).Return(constructed)
 		uri.On("Execute", constructed).Return(expectedErr)
 

@@ -62,7 +62,7 @@ status:: DONE
 	// type's summaryField/etc. would only stress the note branch.
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 	container, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
 
@@ -139,10 +139,10 @@ status:: DONE
 
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 	container, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
-	storyRef := container.Fields["stories"].SectionNodes[0]
+	storyRef := container.Fields["stories"].ChildRefs[0]
 	story, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, storyRef)
 	require.NoError(t, err)
 

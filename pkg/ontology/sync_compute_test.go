@@ -21,7 +21,7 @@ func TestOntologyComputeReturnsWorkerFailureBeforeCancellation(t *testing.T) {
 	schema := &ontoschema.Schema{}
 	resolver := &projectionResolver{snapshot: snapshot, schema: schema}
 	root := &NodeProjection{Ref: NodeRef{Kind: NodeKindNote, NotePath: snapshot.NotePath}, Fields: map[string]FieldBinding{
-		"children": {SectionNodes: []NodeRef{{Kind: NodeKindSection, NotePath: "notes/foreign.md", Fragment: "Missing"}}},
+		"children": {ChildRefs: []NodeRef{{Kind: NodeKindSection, NotePath: "notes/foreign.md", Fragment: "Missing"}}},
 	}}
 	jobs := make([]noteSyncJob, max(runtime.GOMAXPROCS(0), 2)+1)
 	for i := range jobs {

@@ -31,7 +31,25 @@ import (
 // Alias retirement invalidates unresolved dependencies before old aliases vanish.
 // v16: note titles derived from an H1 drop a trailing Obsidian block ID.
 // v17: embedded display labels retain the full headline without changing indexed titles or fields.
-const OntologyMaterializationVersion = 17
+// v18: provider-neutral owners, record fields/presence, and relation occurrence evidence.
+// v19: persisted RECORD binding context keeps scoped positional reads in the indexed logical namespace.
+// v20: list-item neighbor edges include links on the item headline, and a declared type that
+// differs only in case from its selector-matched type resolves to it.
+// v21: structured providers, empty reference presence, cross-format references, and complete native chunk coverage.
+// v22: scalar path fields reject structured leaves instead of formatting Go collections, and typed body-link
+// candidates exclude incompatible basename claimants before uniqueness.
+// v23: descendants of an invalid RECORD container are invalid too, so no catalog row or chunk
+// names a parent without identity, and RECORD chunks take positional logical IDs from the composed
+// record context.
+// v24: RECORD references resolve projected file keys; property presence and wildcard membership
+// and @admit preserve selected-product admission without authored identifier aliases.
+// v25: quoted property matcher values compare frontmatter strings exactly, so notes admitted
+// under the looser inline or case-folded comparison are retyped.
+// v26: embedded records publish lexical search rows with their catalog nodes, so existing
+// indexes republish records for search without embeddings.
+// v27: relation occurrences name their authoring node and field, and a relation declared from
+// both ends merges into one edge row instead of keeping whichever host wrote last.
+const OntologyMaterializationVersion = 27
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

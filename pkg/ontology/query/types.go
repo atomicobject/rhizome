@@ -39,6 +39,14 @@ type Error struct {
 	Extensions map[string]any `json:"extensions,omitempty"`
 }
 
+// Warning is a non-fatal execution diagnostic in extensions.warnings: the
+// selected data at Path is returned without the value it names.
+type Warning struct {
+	Code    string   `json:"code"`
+	Message string   `json:"message"`
+	Path    []string `json:"path,omitempty"`
+}
+
 type Result struct {
 	Data        map[string]any `json:"data,omitempty"`
 	Errors      []Error        `json:"errors,omitempty"`
@@ -488,6 +496,7 @@ const (
 type ReadOverlay = noderead.ReadOverlay
 
 type noteRecord struct {
+	IndexedFields          map[string][]readmodel.FieldValueRow
 	Path                   string
 	Title                  string
 	Content                string
@@ -513,7 +522,8 @@ type sectionRecord struct {
 	// SectionNode struct does not preserve the structural fingerprint, so
 	// without this field sectionNodeRef would rebuild a Structural-less ref and
 	// downstream identity matching (e.g. view hydrateRows) would miss.
-	catalogRef ontology.NodeRef
+	catalogTitle string
+	catalogRef   ontology.NodeRef
 
 	// PropertyCase is the enclosing note type's case convention. Section types
 	// themselves have no propertyCase — their inline-key derivation is driven
@@ -550,13 +560,22 @@ func (s *sectionRecord) fieldValues(field *ontoschema.Field, propertyCase ontosc
 		if rows := s.indexedFields[strings.ToLower(strings.TrimSpace(field.Name))]; len(rows) > 0 {
 			out := make([]string, 0, len(rows))
 			for _, row := range rows {
+				if field.Record != nil && (row.SourcePresence == "null" || row.ValueKind == "null" || row.ValueKind == "array" || row.ValueKind == "object") {
+					continue
+				}
 				out = append(out, row.ValueText)
+			}
+			if field.Record != nil {
+				return out
 			}
 			return normalizeStrings(out)
 		}
 	}
 	if s.Projection != nil {
 		if binding, ok := s.Projection.Fields[field.Name]; ok {
+			if field.Record != nil {
+				return append([]string(nil), binding.Values...)
+			}
 			return normalizeStrings(binding.Values)
 		}
 	}
@@ -569,6 +588,11 @@ func (s *sectionRecord) fieldValues(field *ontoschema.Field, propertyCase ontosc
 func (s *sectionRecord) hasFieldValue(field *ontoschema.Field, propertyCase ontoschema.PropertyCase) bool {
 	if s == nil || field == nil {
 		return false
+	}
+	if field.Record != nil {
+		if rows := s.indexedFields[strings.ToLower(field.Name)]; len(rows) > 0 {
+			return rows[0].SourcePresence != "missing"
+		}
 	}
 	if s.Projection != nil {
 		if binding, ok := s.Projection.Fields[field.Name]; ok {
@@ -595,6 +619,13 @@ func (s *sectionRecord) ensureInlinePropsLoaded() {
 func (n *noteRecord) hasField(field *ontoschema.Field) bool {
 	if n == nil || field == nil {
 		return false
+	}
+	if field.SourcePath != "" {
+		if len(n.IndexedFields[strings.ToLower(field.Name)]) > 0 {
+			return true
+		}
+		_, present := ontoschema.FrontmatterPathValue(n.Frontmatter, field.SourcePath)
+		return present
 	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:
@@ -637,6 +668,17 @@ func (n *noteRecord) cloneTags() []string {
 func (n *noteRecord) fieldValues(field *ontoschema.Field) []string {
 	if n == nil || field == nil {
 		return nil
+	}
+	if field.SourcePath != "" {
+		if rows := n.IndexedFields[strings.ToLower(field.Name)]; len(rows) > 0 {
+			values := make([]string, len(rows))
+			for i, row := range rows {
+				values[i] = row.ValueText
+			}
+			return values
+		}
+		value, _ := ontoschema.FrontmatterPathValue(n.Frontmatter, field.SourcePath)
+		return ontology.FieldTextValues(field, value)
 	}
 	switch field.SourceKind {
 	case ontoschema.FieldSourceInline:

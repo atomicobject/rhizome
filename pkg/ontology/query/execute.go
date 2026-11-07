@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/diag"
@@ -44,13 +45,14 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 		variables:          prepared.Variables,
 		fragments:          prepared.Document.Fragments,
 		sectionsByPath:     make(map[string][]*ontology.SectionNode),
-		relationCounts:     make(map[string]map[string]int),
 		typedRootCoverage:  make(map[string]typedRootCoverage),
 		linkTargetResolver: pushdown.NewCatalogLinkResolver(schema, deps.Store),
 		recordFactPaths:    make(map[string]struct{}),
 		recordFactScopes:   make(map[semdb.ValidationScope]struct{}),
 	}
 	data := exec.resolveQuerySelectionSet(ctx, prepared.Operation.SelectionSet, nil)
+	exec.fillRecordReferences(ctx, data)
+	exec.fillRelationCounts(ctx, data)
 	exec.fillRecordFacts(ctx, data)
 	result := Result{
 		Data:        data,
@@ -59,6 +61,12 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 	}
 	if len(exec.typedRootCoverage) > 0 {
 		result.Extensions = map[string]any{"typedRoots": exec.typedRootCoverage}
+	}
+	if len(exec.warnings) > 0 {
+		if result.Extensions == nil {
+			result.Extensions = map[string]any{}
+		}
+		result.Extensions["warnings"] = exec.warnings
 	}
 	return result
 }
@@ -74,6 +82,7 @@ func ExecutePrepared(ctx context.Context, deps Deps, schema *ontoschema.Schema, 
 }
 
 type executor struct {
+	ownership      *sourceownership.Policy
 	rootTypes      map[string]string
 	schema         *ontoschema.Schema
 	deps           Deps
@@ -81,12 +90,12 @@ type executor struct {
 	variables      map[string]any
 	fragments      ast.FragmentDefinitionList
 	errors         []Error
+	warnings       []Warning
 	sectionsByPath map[string][]*ontology.SectionNode
 	notePathCache  *obsidian.NotePathCache
 
 	inboundSectionNeighbors map[string]map[string][]string
 
-	relationCounts     map[string]map[string]int
 	reverseRelations   map[string]map[string][]ontology.NodeRef
 	typedRootCoverage  map[string]typedRootCoverage
 	linkTargetResolver pushdown.LinkResolver

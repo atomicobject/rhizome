@@ -60,7 +60,7 @@ func (commandOptions *vaultCommandOptions) newAgentOntologyQueryCmd() *cobra.Com
 	cmd := &cobra.Command{
 		Use:   "ontology-query",
 		Short: "Execute a read-only ontology GraphQL query as JSON",
-		Long:  "Execute a read-only ontology GraphQL query as JSON. Typed-root coverage is returned in extensions.typedRoots by response alias; continue with offset when nextOffset is present.",
+		Long:  "Execute a read-only ontology GraphQL query as JSON. Typed-root coverage is returned in extensions.typedRoots by response alias; continue with offset when nextOffset is present. Non-fatal warnings, such as a relation value left out of its list, are in extensions.warnings.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rawQuery, variables, err := readAgentOntologyQueryInput(queryText, queryFile, jsonPayload)
 			if err != nil {

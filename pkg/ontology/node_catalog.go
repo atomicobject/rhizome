@@ -67,6 +67,16 @@ func buildIntelOntologyNodeReadModel(schema *ontoschema.Schema, projection *Node
 	if projection == nil || (projection.Snapshot == nil && projection.RootSnapshot == nil) || schema == nil {
 		return readmodel.NodeReadModel{}, nil
 	}
+	if projection.Prepared != nil {
+		return buildPreparedNodeReadModel(projection.Prepared, projection, now, opts)
+	}
+	if projection.Snapshot != nil {
+		prepared, err := prepareMarkdownSnapshot(projection.Snapshot, schema)
+		if err != nil {
+			return readmodel.NodeReadModel{}, err
+		}
+		return buildPreparedNodeReadModel(prepared, projection, now, opts)
+	}
 	if projection.Snapshot == nil {
 		rootProjection := projection
 		if strings.TrimSpace(rootProjection.ResolvedType) == "" {
@@ -89,103 +99,7 @@ func buildIntelOntologyNodeReadModel(schema *ontoschema.Schema, projection *Node
 			LinkDependencies: dependencies,
 		}, nil
 	}
-	if resolver == nil {
-		var err error
-		resolver, err = newProjectionResolver(projection.Snapshot, schema)
-		if err != nil {
-			return readmodel.NodeReadModel{}, err
-		}
-	}
-	var nodes []readmodel.NodeRow
-	var fields []readmodel.FieldValueRow
-	var dependencies []readmodel.LinkDependencyRow
-	seen := map[string]struct{}{}
-	rootProjection := projection
-	// WHY: untyped notes that match a global @source (e.g. notes containing
-	// `#action-item` checkbox items) need a FallbackNote NOTE row in the
-	// catalog so downstream writers do not have to repeat the row themselves
-	// with destructive Replace semantics. Without this row the only writer
-	// that knew to emit it (the semantic syncer) would wipe the embedded
-	// child rows along with re-inserting the FallbackNote.
-	if strings.TrimSpace(rootProjection.ResolvedType) == "" {
-		if fallback, ok := AsFallbackNoteProjection(rootProjection); ok {
-			rootProjection = fallback
-		}
-	}
-	if strings.TrimSpace(rootProjection.ResolvedType) != "" {
-		if err := collectIntelOntologyNodeReadModel(resolver, rootProjection, nil, now, opts, &nodes, &fields, &dependencies, seen); err != nil {
-			return readmodel.NodeReadModel{}, err
-		}
-		if IsFallbackNoteProjection(rootProjection) {
-			for _, section := range FallbackSectionProjections(rootProjection) {
-				if err := collectIntelOntologyNodeReadModel(resolver, section, rootProjection, now, opts, &nodes, &fields, &dependencies, seen); err != nil {
-					return readmodel.NodeReadModel{}, err
-				}
-			}
-		}
-	}
-	globalRefs := resolver.globalSourceNodeRefs()
-	for _, ref := range globalRefs {
-		child, err := resolver.projectCurrent(ref)
-		if err != nil {
-			return readmodel.NodeReadModel{}, err
-		}
-		if err := collectIntelOntologyNodeReadModel(resolver, child, rootProjection, now, opts, &nodes, &fields, &dependencies, seen); err != nil {
-			return readmodel.NodeReadModel{}, err
-		}
-	}
-	paths := make([]string, 0, len(nodes))
-	for _, node := range nodes {
-		paths = append(paths, node.NotePath)
-	}
-	return readmodel.NodeReadModel{
-		NotePaths:        uniqueSortedNodeCatalogStrings(paths),
-		Nodes:            nodes,
-		FieldValues:      fields,
-		LinkDependencies: dependencies,
-	}, nil
-}
-
-func collectIntelOntologyNodeReadModel(resolver *projectionResolver, projection *NodeProjection, parent *NodeProjection, now int64, opts BuildIntelOntologyNodeReadModelOptions, out *[]readmodel.NodeRow, fieldOut *[]readmodel.FieldValueRow, dependencyOut *[]readmodel.LinkDependencyRow, seen map[string]struct{}) error {
-	if projection == nil {
-		return nil
-	}
-	node, err := IntelOntologyNodeForProjection(resolver.schema, projection, parent, now)
-	if err != nil {
-		return err
-	}
-	if seen != nil {
-		if _, ok := seen[node.NodeID]; ok {
-			return nil
-		}
-		seen[node.NodeID] = struct{}{}
-	}
-	*out = append(*out, node)
-	if fieldOut != nil {
-		fieldValues, dependencies := IntelOntologyNodeFieldReadModelForProjection(resolver.schema, projection, node, now, opts)
-		*fieldOut = append(*fieldOut, fieldValues...)
-		if dependencyOut != nil {
-			*dependencyOut = append(*dependencyOut, dependencies...)
-		}
-	}
-
-	names := make([]string, 0, len(projection.Fields))
-	for name := range projection.Fields {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		for _, ref := range projection.Fields[name].SectionNodes {
-			child, err := resolver.projectCurrent(ref)
-			if err != nil {
-				return err
-			}
-			if err := collectIntelOntologyNodeReadModel(resolver, child, semanticChildParent(projection, parent), now, opts, out, fieldOut, dependencyOut, seen); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return readmodel.NodeReadModel{}, nil
 }
 
 func semanticChildParent(projection *NodeProjection, parent *NodeProjection) *NodeProjection {
@@ -216,6 +130,15 @@ func IntelOntologyNodeForProjection(schema *ontoschema.Schema, projection *NodeP
 	if err != nil {
 		return readmodel.NodeRow{}, err
 	}
+	recordJSON := ""
+	if projection.Record != nil {
+		encoded, err := json.Marshal(projection.Record)
+		if err != nil {
+			return readmodel.NodeRow{}, err
+		}
+		recordJSON = string(encoded)
+	}
+
 	parentID := ""
 	parentType := ""
 	if parent != nil {
@@ -225,6 +148,7 @@ func IntelOntologyNodeForProjection(schema *ontoschema.Schema, projection *NodeP
 	sourceLocator := NodeSourceLocator(ref)
 	displayLabel := nodeCatalogDisplayLabel(projection)
 	return readmodel.NodeRow{
+		RecordJSON:            recordJSON,
 		NodeID:                nodeID,
 		NotePath:              ref.NotePath,
 		NodeRefJSON:           string(nodeRefJSON),
@@ -275,6 +199,26 @@ func IntelOntologyNodeFieldReadModelForProjection(schema *ontoschema.Schema, pro
 		if !ok {
 			continue
 		}
+		if field.Record != nil && field.Record.References != nil {
+			if binding.Present && len(binding.ReferenceOccurrences) == 0 {
+				out = append(out, ontologyNodeFieldValueForValue(schema, node, field, binding, "", 0, now))
+			}
+			for _, occurrence := range binding.ReferenceOccurrences {
+				row := ontologyNodeFieldValueForValue(schema, node, field, binding, occurrence.Authored, occurrence.Ordinal, now)
+				row.ReferenceAt = occurrence.At
+				if occurrence.Target != nil {
+					ref := *occurrence.Target
+					encoded, _ := json.Marshal(ref)
+					row.TargetNodeID = OntologyNodeID(ref)
+					row.TargetRefJSON = string(encoded)
+					row.TargetNotePath = ref.NotePath
+					row.TargetTypeName = ref.TypeName
+					row.TargetSourceLocator = NodeSourceLocator(ref)
+				}
+				out = append(out, row)
+			}
+			continue
+		}
 		values := binding.Values
 		if ontoschema.IsSectionSummary(field) {
 			values = SectionSummaryValues(projection, field)
@@ -306,6 +250,11 @@ func ontologyNodeFieldValueForValue(schema *ontoschema.Schema, node readmodel.No
 
 func ontologyNodeFieldValueForValueWithOptions(schema *ontoschema.Schema, node readmodel.NodeRow, field *ontoschema.Field, binding FieldBinding, value string, ordinal int, now int64, opts BuildIntelOntologyNodeReadModelOptions) (readmodel.FieldValueRow, *readmodel.LinkDependencyRow) {
 	row := FieldValueRow(field, value)
+	row.SourcePresence = string(binding.Presence)
+	row.SourceValueKind = string(binding.ValueKind)
+	if binding.SourceKind == ontoschema.FieldSourceProperty && len(binding.Values) == 0 && binding.ValueKind != "" {
+		row.ValueKind = string(binding.ValueKind)
+	}
 	row.NodeID = node.NodeID
 	row.NotePath = node.NotePath
 	row.TypeName = node.TypeName
@@ -352,6 +301,9 @@ func normalizeOntologyFieldValue(value string) string {
 // OntologyNodeID is the stable owner id used by the ontology node catalog and
 // ontology-node semantic chunks.
 func OntologyNodeID(ref NodeRef) string {
+	if strings.HasPrefix(ref.NodeID, "record-pos-v1-") {
+		return nodeCatalogHash(ref.NodeID)
+	}
 	return nodeCatalogHash(strings.Join([]string{
 		ref.NotePath,
 		string(ref.Kind),
@@ -407,6 +359,9 @@ func nodeCatalogTitle(projection *NodeProjection) string {
 	if projection == nil {
 		return ""
 	}
+	if projection.Record != nil {
+		return projection.sourceTitle
+	}
 	if projection.Ref.Kind == NodeKindNote {
 		if projection.Snapshot == nil && projection.RootSnapshot != nil && strings.TrimSpace(projection.RootSnapshot.Title) != "" {
 			return strings.TrimSpace(projection.RootSnapshot.Title)
@@ -431,6 +386,9 @@ func fileStemForCatalog(path string) string {
 
 func nodeCatalogLocatorStatus(ref NodeRef, blockID string) string {
 	if ref.Kind == "" || ref.Kind == NodeKindNote {
+		return string(NodeLocatorLinkable)
+	}
+	if isRecordSelector(ref.Fragment) {
 		return string(NodeLocatorLinkable)
 	}
 	if ref.Kind == NodeKindEmbedded {

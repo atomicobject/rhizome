@@ -63,7 +63,7 @@ func (s *Store) OntologyNeighborhood(ctx context.Context, q readmodel.Neighborho
 				args = append(args, sliceAny(filter.values)...)
 			}
 		}
-		columns := "e.src_path, COALESCE(e.src_node_id,'') AS src_node_id, e.relation_name, e.dst_path, COALESCE(e.dst_node_id,'') AS dst_node_id, e.dst_type, e.provenance, e.structural, e.schema_hash, e.updated_at"
+		columns := "e.src_path, COALESCE(e.src_node_id,'') AS src_node_id, e.relation_name, e.dst_path, COALESCE(e.dst_node_id,'') AS dst_node_id, e.dst_type, e.provenance, e.structural, e.schema_hash, e.updated_at, e.occurrences_json"
 		embeddedTarget := "COALESCE(e.dst_node_id,'')<>''"
 		if q.Direction == "inbound" {
 			embeddedTarget = "COALESCE(e.src_node_id,'')<>''"
@@ -71,7 +71,7 @@ func (s *Store) OntologyNeighborhood(ctx context.Context, q readmodel.Neighborho
 		if q.Direction == "both" {
 			embeddedTarget = "COALESCE(e.src_node_id,'')<>'' OR COALESCE(e.dst_node_id,'')<>''"
 		}
-		query := fmt.Sprintf("WITH requested(path,node_id) AS (VALUES %s), matches AS (SELECT %s, ROW_NUMBER() OVER (PARTITION BY r.path,r.node_id ORDER BY e.structural DESC,e.provenance,e.relation_name,e.dst_path,e.dst_node_id,e.src_path,e.src_node_id) AS ordinal, MAX(CASE WHEN %s THEN 1 ELSE 0 END) OVER (PARTITION BY r.path,r.node_id) AS has_embedded_target FROM ontology_edges e JOIN requested r ON %s WHERE %s) SELECT DISTINCT src_path,src_node_id,relation_name,dst_path,dst_node_id,dst_type,provenance,structural,schema_hash,updated_at FROM matches", strings.TrimSuffix(strings.Repeat("(?,?),", len(batch)), ","), columns, embeddedTarget, join, strings.Join(conditions, " AND "))
+		query := fmt.Sprintf("WITH requested(path,node_id) AS (VALUES %s), matches AS (SELECT %s, ROW_NUMBER() OVER (PARTITION BY r.path,r.node_id ORDER BY e.structural DESC,e.provenance,e.relation_name,e.dst_path,e.dst_node_id,e.src_path,e.src_node_id) AS ordinal, MAX(CASE WHEN %s THEN 1 ELSE 0 END) OVER (PARTITION BY r.path,r.node_id) AS has_embedded_target FROM ontology_edges e JOIN requested r ON %s WHERE %s) SELECT DISTINCT src_path,src_node_id,relation_name,dst_path,dst_node_id,dst_type,provenance,structural,schema_hash,updated_at,occurrences_json FROM matches", strings.TrimSuffix(strings.Repeat("(?,?),", len(batch)), ","), columns, embeddedTarget, join, strings.Join(conditions, " AND "))
 		if q.PerSourceLimit > 0 {
 			// Embedded refs need catalog canonicalization before their final ordering.
 			query += " WHERE has_embedded_target=1 OR ordinal<=?"
@@ -84,7 +84,7 @@ func (s *Store) OntologyNeighborhood(ctx context.Context, q readmodel.Neighborho
 		}
 		for rows.Next() {
 			var row OntologyEdgeRow
-			if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &row.Structural, &row.SchemaHash, &row.UpdatedAt); err != nil {
+			if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &row.Structural, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 				rows.Close()
 				return nil, err
 			}

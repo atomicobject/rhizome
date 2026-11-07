@@ -13,6 +13,9 @@ import (
 // providerRootSnapshotLocked captures the selected provider's current facts
 // once before structural projection or root-only projection. The caller holds s.mu.
 func (s *Scope) providerRootSnapshotLocked(ctx context.Context, row semdb.NoteMetadataRow) (*ontology.RootDocumentSnapshot, error) {
+	if root, known := s.rootSnapshotByPath[row.Path]; known {
+		return root, nil
+	}
 	format := noteformat.FormatID(row.FormatID)
 	provider, ok := s.service.NoteFormats.Provider(format)
 	if !ok || !s.service.NoteFormats.CanProject(format) || s.service.NoteReader == nil {
@@ -53,16 +56,19 @@ func (s *Scope) providerRootSnapshotLocked(ctx context.Context, row semdb.NoteMe
 	for _, fact := range projected.Facts.InlineProperties {
 		inline[fact.Key] = append(inline[fact.Key], fact.Value)
 	}
-	return &ontology.RootDocumentSnapshot{
+	root := &ontology.RootDocumentSnapshot{
 		NotePath: notePath, Format: format, RawSource: []byte(content),
-		ContentHash: row.ContentHash, Mtime: row.Mtime,
-		SourceRepresentation:   ontology.SourceRepresentationUTF8,
-		EvidenceRepresentation: ontology.EvidenceRepresentationProviderProjection,
-		Projection:             projected.Copy(), Title: title, Metadata: metadata,
+		ContentHash: source.ContentHash(), Mtime: row.Mtime,
+		SourceRepresentation:          ontology.SourceRepresentationUTF8,
+		EvidenceRepresentation:        ontology.EvidenceRepresentationProviderProjection,
+		RootMetadataMutationSupported: s.service.NoteFormats.CanPatchRootMetadata(format),
+		Projection:                    projected.Copy(), Title: title, Metadata: metadata,
 		Tags: tags, InlineProperties: inline,
 		Root:          ontology.NodeRef{NotePath: row.Path, Kind: ontology.NodeKindNote},
 		RootMetadata:  append([]noteformat.RootMetadataFact(nil), projected.Facts.RootMetadata...),
 		SearchRegions: append([]noteformat.SearchRegionFact(nil), projected.Facts.SearchRegions...),
 		Diagnostics:   append([]noteformat.Diagnostic(nil), projected.Diagnostics...),
-	}, nil
+	}
+	s.rootSnapshotByPath[row.Path] = root
+	return root, nil
 }

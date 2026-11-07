@@ -8,6 +8,10 @@ import (
 )
 
 func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*NoteType, error) {
+	admission, admissionErr := compileAdmission(def)
+	if admissionErr != nil {
+		return nil, admissionErr
+	}
 	if err := validateTypeDisplayLocation(def); err != nil {
 		return nil, err
 	}
@@ -41,7 +45,7 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 			}
 			role = TypeRoleNote
 		case "EMBEDDED":
-			if !sectionType {
+			if !sectionType && !isRecordDefinition(def) {
 				return nil, compileError(def.Position, "embedded_node_section", def.Name, "", "embedded node type %q must implement Section", def.Name)
 			}
 			role = TypeRoleEmbeddedNode
@@ -97,6 +101,7 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 		Semantics:     semanticsKind(def.Directives.ForName("semantics")),
 		Annotations:   directiveAnnotations(def.Directives),
 	}
+	noteType.AdmissionMatchers = admission
 	if titleDir := def.Directives.ForName("title"); titleDir != nil {
 		title, titleErr := titleConstraintFromDirective(titleDir)
 		if titleErr != nil {
@@ -119,7 +124,22 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 		if role != TypeRoleEmbeddedNode {
 			return nil, compileError(def.Position, "source_node_role", def.Name, "", "@source on %s is only supported for embedded node types", def.Name)
 		}
+		if shape != EmbeddedSourceShapeRecord {
+			for _, name := range []string{"select", "key", "title", "scalarAs", "container", "space", "logicalKind", "membership", "sourceOrder"} {
+				if sourceDir.Arguments.ForName(name) != nil {
+					return nil, compileError(sourceDir.Position, "record_source_argument", def.Name, "", "%s requires shape RECORD", name)
+				}
+			}
+		}
 		switch shape {
+		case EmbeddedSourceShapeRecord:
+			if sectionType {
+				return nil, compileError(def.Position, "record_section", def.Name, "", "RECORD cannot implement Section")
+			}
+			noteType.Record, err = compileRecordSource(def, sourceDir)
+			if err != nil {
+				return nil, err
+			}
 		case EmbeddedSourceShapeListItem, EmbeddedSourceShapeCheckboxItem:
 			if marker == "" {
 				return nil, compileError(def.Position, "source_marker", def.Name, "", "@source on item-shaped embedded node %s must declare marker", def.Name)
@@ -139,7 +159,7 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 	noteType.CompanionDocs = companionDocs
 
 	for _, fieldDef := range def.Fields {
-		if (role == TypeRoleSection || role == TypeRoleEmbeddedNode) && isSyntheticSectionBuiltinField(fieldDef) {
+		if sectionType && (role == TypeRoleSection || role == TypeRoleEmbeddedNode) && isSyntheticSectionBuiltinField(fieldDef) {
 			continue
 		}
 		field, compileErr := compileField(def, noteType.Role, noteType.PropertyCase, fieldDef, doc, schema)

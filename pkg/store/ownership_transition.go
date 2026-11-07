@@ -362,6 +362,9 @@ func (s *Store) deleteNoteOwnedArtifactsTx(ctx context.Context, tx *sql.Tx, path
 	if err := deleteOntologyNodeLinkDependenciesForPathsTx(ctx, tx, []string{path}); err != nil {
 		return nil, err
 	}
+	if err := deleteOntologyRecordFTSForPathsTx(ctx, tx, []string{path}); err != nil {
+		return nil, err
+	}
 	if err := deleteStaleOntologyNodesForPathsTx(ctx, tx, []string{path}, nil, false); err != nil {
 		return nil, err
 	}

@@ -297,7 +297,7 @@ code-anchors:
 	projector := &futureNoteProjector{descriptor: descriptor}
 	registry, err := noteformat.NewRegistry(markdown.New(), projector)
 	require.NoError(t, err)
-	formats, err := noteformat.NewRuntime(registry, projector)
+	formats, err := noteformat.NewRuntime(registry, markdown.New(), projector)
 	require.NoError(t, err)
 
 	provider := queryProvidersForTest(&ontologyQueryRuntime{

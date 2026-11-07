@@ -1,0 +1,701 @@
+{
+  "Nodes": [
+    {
+      "Ref": {
+        "notePath": "notes/unicode.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 56,
+        "structuralFingerprint": "c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 16,
+            "end": 56
+          },
+          "ValueRanges": [
+            {
+              "start": 16,
+              "end": 56
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/unicode.md#café-日本-16"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/unicode.md",
+              "fragment": "café-日本-16",
+              "nodeId": "notes/unicode.md#café-日本-16",
+              "typeName": "Chapter",
+              "kind": "EMBEDDED",
+              "startByte": 16,
+              "endByte": 56,
+              "structuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d"
+            }
+          ],
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "FRONTMATTER_FIELD",
+          "SourceKind": "FRONTMATTER",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": [],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 16,
+            "end": 56
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/unicode.md",
+                "fragment": "café-日本-16",
+                "nodeId": "notes/unicode.md#café-日本-16",
+                "typeName": "Chapter",
+                "kind": "EMBEDDED",
+                "startByte": 16,
+                "endByte": 56,
+                "structuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d"
+              },
+              "Range": {
+                "start": 16,
+                "end": 56
+              }
+            }
+          ],
+          "OrderFingerprint": "b74722c927c22ddf44937cc576cd5ea995bc49fa458cf1208376ae9af0c3d823"
+        }
+      },
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 0,
+            "end": 16
+          },
+          "markdown": "﻿# Unicode\r\n\r"
+        },
+        {
+          "kind": "collection",
+          "range": {
+            "start": 16,
+            "end": 56
+          },
+          "fieldName": "chapters",
+          "childRefs": [
+            {
+              "notePath": "notes/unicode.md",
+              "fragment": "café-日本-16",
+              "nodeId": "notes/unicode.md#café-日本-16",
+              "kind": "EMBEDDED"
+            }
+          ],
+          "sectionDisplay": "PANE"
+        }
+      ],
+      "Parts": [
+        "﻿# Unicode"
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "notes/unicode.md",
+        "fragment": "café-日本-16",
+        "nodeId": "notes/unicode.md#café-日本-16",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 16,
+        "endByte": 56,
+        "structuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d"
+      },
+      "Parent": {
+        "notePath": "notes/unicode.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 56,
+        "structuralFingerprint": "c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95"
+      },
+      "Fields": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": [],
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": [],
+          "Derived": false
+        },
+        "owner": {
+          "FieldName": "owner",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "Items": [],
+          "OrderFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 33,
+            "end": 56
+          },
+          "markdown": "- [ ] 👋 item #task\r"
+        }
+      ],
+      "Parts": [
+        "- [ ] 👋 item #task"
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "notes/unicode.md",
+        "fragment": "item-33",
+        "nodeId": "notes/unicode.md#item-33",
+        "typeName": "Task",
+        "kind": "EMBEDDED",
+        "startByte": 33,
+        "endByte": 56,
+        "parentId": "notes/unicode.md#café-日本-16",
+        "structuralFingerprint": "fa68f708b82a19a89e6c2ec180ff47c2ed5b3c45435905d307e31491875e4362"
+      },
+      "Parent": {
+        "notePath": "notes/unicode.md",
+        "fragment": "item-16",
+        "nodeId": "notes/unicode.md#café-日本-16",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 16,
+        "endByte": 56,
+        "structuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d"
+      },
+      "Fields": {
+        "done": {
+          "FieldName": "done",
+          "Kind": "CHECKBOX_FIELD",
+          "SourceKind": "CHECKBOX",
+          "Present": true,
+          "Range": {
+            "start": 35,
+            "end": 38
+          },
+          "ValueRanges": [
+            {
+              "start": 35,
+              "end": 38
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "false"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {},
+      "Body": null,
+      "Parts": null
+    }
+  ],
+  "Catalog": {
+    "FullReplace": false,
+    "NotePaths": [
+      "notes/unicode.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "NotePath": "notes/unicode.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/unicode.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":56,\"structuralFingerprint\":\"c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "unicode",
+        "SourceLocator": "notes/unicode.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "unicode",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 56,
+        "StructuralFingerprint": "c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "ff6d85503d59276a4634e2b198ddabddd09e8d6ab372216ac1a759be3b853cce",
+        "NotePath": "notes/unicode.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/unicode.md\",\"fragment\":\"café-日本-16\",\"nodeId\":\"notes/unicode.md#café-日本-16\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":16,\"endByte\":56,\"structuralFingerprint\":\"b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "ParentTypeName": "Document",
+        "Title": "Café 日本",
+        "SourceLocator": "notes/unicode.md#café-日本-16",
+        "Fragment": "café-日本-16",
+        "BlockID": "",
+        "DisplayLabel": "Café 日本",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 16,
+        "EndByte": 56,
+        "StructuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d",
+        "RelocationFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "aa89d6b9c5151f55fef26bbab7402c4607f19ab21f9eb5f2eb48f90abffd172a",
+        "NotePath": "notes/unicode.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/unicode.md\",\"fragment\":\"item-33\",\"nodeId\":\"notes/unicode.md#item-33\",\"typeName\":\"Task\",\"kind\":\"EMBEDDED\",\"startByte\":33,\"endByte\":56,\"parentId\":\"notes/unicode.md#café-日本-16\",\"structuralFingerprint\":\"fa68f708b82a19a89e6c2ec180ff47c2ed5b3c45435905d307e31491875e4362\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Task",
+        "ParentNodeID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "ParentTypeName": "Document",
+        "Title": "👋 item",
+        "SourceLocator": "notes/unicode.md#item-33",
+        "Fragment": "item-33",
+        "BlockID": "",
+        "DisplayLabel": "👋 item",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 33,
+        "EndByte": 56,
+        "StructuralFingerprint": "fa68f708b82a19a89e6c2ec180ff47c2ed5b3c45435905d307e31491875e4362",
+        "RelocationFingerprint": "fa68f708b82a19a89e6c2ec180ff47c2ed5b3c45435905d307e31491875e4362",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": [
+      {
+        "NodeID": "aa89d6b9c5151f55fef26bbab7402c4607f19ab21f9eb5f2eb48f90abffd172a",
+        "NotePath": "notes/unicode.md",
+        "TypeName": "Task",
+        "FieldName": "done",
+        "FieldKind": "scalar",
+        "SourceKind": "CHECKBOX",
+        "ValueKind": "bool",
+        "ValueText": "false",
+        "ValueNorm": "false",
+        "ValueBool": false,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "LinkDependencies": null
+  },
+  "Spans": [
+    {
+      "ID": "notes/unicode.md#café-日本-16",
+      "NotePath": "notes/unicode.md",
+      "Shape": "SECTION",
+      "Title": "Café 日本",
+      "ParentID": "",
+      "Children": [
+        {
+          "ID": "notes/unicode.md#item-33",
+          "NotePath": "notes/unicode.md",
+          "Shape": "CHECKBOX_ITEM",
+          "Title": "👋 item",
+          "ParentID": "notes/unicode.md#café-日本-16",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 33,
+            "end": 39
+          },
+          "Markers": [
+            {
+              "Value": "#task",
+              "Range": {
+                "start": 49,
+                "end": 54
+              }
+            }
+          ],
+          "Checkbox": {
+            "Checked": false,
+            "TokenRange": {
+              "start": 35,
+              "end": 38
+            }
+          },
+          "Range": {
+            "start": 33,
+            "end": 56
+          },
+          "ContentRange": {
+            "start": 39,
+            "end": 56
+          },
+          "OwnContentRanges": [
+            {
+              "start": 39,
+              "end": 56
+            }
+          ],
+          "Content": "- [ ] 👋 item #task\r\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 16,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 16,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 16,
+          "end": 56
+        }
+      ],
+      "Content": "## Café 日本\r\n- [ ] 👋 item #task\r\n"
+    },
+    {
+      "ID": "notes/unicode.md#item-33",
+      "NotePath": "notes/unicode.md",
+      "Shape": "CHECKBOX_ITEM",
+      "Title": "👋 item",
+      "ParentID": "notes/unicode.md#café-日本-16",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 33,
+        "end": 39
+      },
+      "Markers": [
+        {
+          "Value": "#task",
+          "Range": {
+            "start": 49,
+            "end": 54
+          }
+        }
+      ],
+      "Checkbox": {
+        "Checked": false,
+        "TokenRange": {
+          "start": 35,
+          "end": 38
+        }
+      },
+      "Range": {
+        "start": 33,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 39,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 39,
+          "end": 56
+        }
+      ],
+      "Content": "- [ ] 👋 item #task\r\n"
+    }
+  ],
+  "Chunks": {
+    "NotePaths": [
+      "notes/unicode.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "NotePath": "notes/unicode.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/unicode.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":56,\"structuralFingerprint\":\"c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "unicode",
+        "SourceLocator": "notes/unicode.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "unicode",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 56,
+        "StructuralFingerprint": "c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "ff6d85503d59276a4634e2b198ddabddd09e8d6ab372216ac1a759be3b853cce",
+        "NotePath": "notes/unicode.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/unicode.md\",\"fragment\":\"café-日本-16\",\"nodeId\":\"notes/unicode.md#café-日本-16\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":16,\"endByte\":56,\"structuralFingerprint\":\"b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "ParentTypeName": "Document",
+        "Title": "Café 日本",
+        "SourceLocator": "notes/unicode.md#café-日本-16",
+        "Fragment": "café-日本-16",
+        "BlockID": "",
+        "DisplayLabel": "Café 日本",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 16,
+        "EndByte": 56,
+        "StructuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d",
+        "RelocationFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": null,
+    "Chunks": [
+      {
+        "ChunkID": "ef9b67a5d722f6b862ec141ddc484962f5c6fce8d408790c393395c90fee9995",
+        "OwnerID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/unicode.md \u003e Document \u003e unicode",
+        "Heading": "unicode",
+        "ContentHash": "c49442df0c03f0601a131a1f155e3d95f8d0fe6863170e538b3e29fe8acd4a96",
+        "StartByte": 0,
+        "EndByte": 56,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "b005aa8b396a5ae15040141e4f460ab99577987876b24e1b8cc1f7bc2c0dd6cf",
+        "OwnerID": "ff6d85503d59276a4634e2b198ddabddd09e8d6ab372216ac1a759be3b853cce",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/unicode.md \u003e Chapter \u003e Café 日本",
+        "Heading": "Café 日本",
+        "ContentHash": "9ebfc05d528e2695cfc0afd331e2b8835f2d1facdd42340243f1f32e5dd69312",
+        "StartByte": 16,
+        "EndByte": 56,
+        "UpdatedAt": 123
+      }
+    ],
+    "States": [
+      {
+        "ChunkID": "ef9b67a5d722f6b862ec141ddc484962f5c6fce8d408790c393395c90fee9995",
+        "NodeID": "801a0c025f99d6b6a95666549f9a52e3e28d86826b2773f62fc482e4b9f28904",
+        "NotePath": "notes/unicode.md",
+        "TypeName": "Document",
+        "NodeKind": "NOTE",
+        "EmbeddingSchemaSignature": "b9624fb5dccbc8f830b1d8f88f6d0e042327331667b0726942903d08b9055613",
+        "NodeStructureFingerprint": "c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95",
+        "SourceContentHash": "f2baa5f5b37b07bf1f758adb0e31e5a43da655a85d6c94b0d072a7ff694dbc58",
+        "ChunkTextHash": "c49442df0c03f0601a131a1f155e3d95f8d0fe6863170e538b3e29fe8acd4a96",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "b005aa8b396a5ae15040141e4f460ab99577987876b24e1b8cc1f7bc2c0dd6cf",
+        "NodeID": "ff6d85503d59276a4634e2b198ddabddd09e8d6ab372216ac1a759be3b853cce",
+        "NotePath": "notes/unicode.md",
+        "TypeName": "Chapter",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "590df096e89f8b6aeb92e6718b16d79fa8a558362dff96e5883f7d360390c847",
+        "NodeStructureFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d",
+        "SourceContentHash": "1483974d87aa5e17c39e3a806ce062588ffff83d918c5db33da2434544f002f8",
+        "ChunkTextHash": "9ebfc05d528e2695cfc0afd331e2b8835f2d1facdd42340243f1f32e5dd69312",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      }
+    ],
+    "Texts": {
+      "b005aa8b396a5ae15040141e4f460ab99577987876b24e1b8cc1f7bc2c0dd6cf": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Chapter\nTitle: Café 日本\nPath: notes/unicode.md\nRef: notes/unicode.md#café-日本-16\nBreadcrumb: notes/unicode.md \u003e Chapter \u003e Café 日本\nAncestors: Document \u003e unicode \u003e chapters\n\n- [ ] 👋 item #task",
+      "ef9b67a5d722f6b862ec141ddc484962f5c6fce8d408790c393395c90fee9995": "Kind: ontology_node\nNodeKind: NOTE\nType: Document\nTitle: unicode\nPath: notes/unicode.md\nRef: notes/unicode.md\nBreadcrumb: notes/unicode.md \u003e Document \u003e unicode\n\n﻿# Unicode"
+    }
+  },
+  "Links": null,
+  "Locators": {
+    "targets": {
+      "notes/unicode.md": {
+        "ref": {
+          "notePath": "notes/unicode.md",
+          "typeName": "Document",
+          "kind": "NOTE",
+          "endByte": 56,
+          "structuralFingerprint": "c97a19a500aff2660378fe4e49b7d6d6157378a76de01f5edd0f0ccf09b78b95"
+        },
+        "markdown": "notes/unicode.md",
+        "wikilink": "[[notes/unicode]]",
+        "displayLabel": "unicode",
+        "exists": true
+      },
+      "notes/unicode.md#café-日本-16": {
+        "ref": {
+          "notePath": "notes/unicode.md",
+          "fragment": "café-日本-16",
+          "nodeId": "notes/unicode.md#café-日本-16",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 16,
+          "endByte": 56,
+          "structuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d"
+        },
+        "markdown": "notes/unicode.md#^chapter-café-日本-08856014",
+        "wikilink": "[[notes/unicode#^chapter-café-日本-08856014]]",
+        "displayLabel": "Café 日本",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "chapter-café-日本-08856014"
+      },
+      "notes/unicode.md#item-33": {
+        "ref": {
+          "notePath": "notes/unicode.md",
+          "fragment": "item-33",
+          "nodeId": "notes/unicode.md#item-33",
+          "typeName": "Task",
+          "kind": "EMBEDDED",
+          "startByte": 33,
+          "endByte": 56,
+          "parentId": "notes/unicode.md#café-日本-16",
+          "structuralFingerprint": "fa68f708b82a19a89e6c2ec180ff47c2ed5b3c45435905d307e31491875e4362"
+        },
+        "markdown": "notes/unicode.md#^task-f0656411",
+        "wikilink": "[[notes/unicode#^task-f0656411]]",
+        "displayLabel": "👋 item",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "task-f0656411"
+      }
+    },
+    "diagnostics": [
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/unicode.md",
+        "ref": {
+          "notePath": "notes/unicode.md",
+          "fragment": "café-日本-16",
+          "nodeId": "notes/unicode.md#café-日本-16",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 16,
+          "endByte": 56,
+          "structuralFingerprint": "b10b66b3ff3058fe52037042f32469873c514eb62eddfdb2ad9bb06c3a1d6b2d"
+        },
+        "blockId": "chapter-café-日本-08856014",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      },
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/unicode.md",
+        "ref": {
+          "notePath": "notes/unicode.md",
+          "fragment": "item-33",
+          "nodeId": "notes/unicode.md#item-33",
+          "typeName": "Task",
+          "kind": "EMBEDDED",
+          "startByte": 33,
+          "endByte": 56,
+          "parentId": "notes/unicode.md#café-日本-16",
+          "structuralFingerprint": "fa68f708b82a19a89e6c2ec180ff47c2ed5b3c45435905d307e31491875e4362"
+        },
+        "blockId": "task-f0656411",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      }
+    ]
+  }
+}

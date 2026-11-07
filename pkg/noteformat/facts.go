@@ -104,6 +104,7 @@ type AuthoredLinkSubtype string
 // closed semantic, never Syntax or FormatID. ResolverInput is the provider's
 // exact input to that shared resolver. Syntax and Subtype retain provenance.
 type UnresolvedAuthoredLinkFact struct {
+	Owner         OwnerKey `json:",omitempty"`
 	Resolution    LinkResolution
 	Syntax        AuthoredLinkSyntax
 	Subtype       AuthoredLinkSubtype
@@ -146,6 +147,7 @@ type FragmentTargetFact struct {
 // ProjectionFacts is the format-neutral syntax result of a successful
 // projection. It contains no filesystem, persistence, candidate, or policy.
 type ProjectionFacts struct {
+	Structure        *StructureFacts
 	DocumentBase     *DocumentBaseFact
 	Title            *TitleFact
 	RootMetadata     []RootMetadataFact
@@ -159,6 +161,7 @@ type ProjectionFacts struct {
 
 func (f ProjectionFacts) clone() ProjectionFacts {
 	out := ProjectionFacts{
+		Structure:        f.Structure.Copy(),
 		RootMetadata:     append([]RootMetadataFact(nil), f.RootMetadata...),
 		InlineProperties: append([]InlinePropertyFact(nil), f.InlineProperties...),
 		Tags:             append([]TagFact(nil), f.Tags...),
@@ -188,11 +191,30 @@ func (f ProjectionFacts) clone() ProjectionFacts {
 }
 
 func (f ProjectionFacts) empty() bool {
-	return f.Title == nil && f.DocumentBase == nil && len(f.RootMetadata) == 0 && len(f.InlineProperties) == 0 &&
+	return f.Structure == nil && f.Title == nil && f.DocumentBase == nil && len(f.RootMetadata) == 0 && len(f.InlineProperties) == 0 &&
 		len(f.Tags) == 0 && len(f.Aliases) == 0 && len(f.Links) == 0 && len(f.FragmentTargets) == 0 && len(f.SearchRegions) == 0
 }
 
 func validateProjectionFacts(facts ProjectionFacts, sourceLength int) error {
+	if err := ValidateStructureFacts(facts.Structure, sourceLength); err != nil {
+		return err
+	}
+	owners := map[OwnerKey]bool{}
+	if facts.Structure != nil {
+		for _, owner := range facts.Structure.Owners {
+			owners[owner.Key] = true
+		}
+	}
+	for _, link := range facts.Links {
+		if link.Owner != "" && !owners[link.Owner] {
+			return fmt.Errorf("authored link has dangling owner %q", link.Owner)
+		}
+	}
+	for _, region := range facts.SearchRegions {
+		if region.Owner != "" && !owners[region.Owner] {
+			return fmt.Errorf("search region has dangling owner %q", region.Owner)
+		}
+	}
 	validateRange := func(name string, sourceRange SourceRange) error {
 		if sourceRange.StartByte < 0 || sourceRange.EndByte < sourceRange.StartByte {
 			return fmt.Errorf("%s has invalid source range [%d,%d)", name, sourceRange.StartByte, sourceRange.EndByte)

@@ -68,7 +68,7 @@ func workspaceSyntheticNodeID(prefix, parentID, name string) string {
 
 func workspaceFieldValueKind(field ontology.NodeFieldState) string {
 	switch {
-	case len(field.SectionNodes) > 0:
+	case len(field.ChildRefs) > 0:
 		return "section-ref"
 	case len(field.Values) > 1:
 		return "list"

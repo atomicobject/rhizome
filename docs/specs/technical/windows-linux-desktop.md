@@ -1,11 +1,11 @@
 ---
 type: TechnicalSpec
-id: SPEC-0133
+id: SPEC-0134
 summary: Complete Windows and Linux desktop installation, native identity, executable ownership and safe multi-platform updates.
 spec-status: active
 last-updated: 2026-11-07
 aliases:
-  - SPEC-0133
+  - SPEC-0134
 ---
 
 # Windows and Linux desktop support

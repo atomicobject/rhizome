@@ -378,7 +378,7 @@ func childBindingsForProjection(
 		}
 		binding, hasBinding := projection.Fields[field.Name]
 		if hasBinding {
-			for _, ref := range binding.SectionNodes {
+			for _, ref := range binding.ChildRefs {
 				out[ref.NodeID] = childBinding{
 					fieldName:      field.Name,
 					fieldList:      field.List,

@@ -28,6 +28,11 @@ func TypeMatchesOrImplements(schema *Schema, actual, expected string) bool {
 		return true
 	}
 	if expected == "Note" {
+		if schema != nil {
+			if typ := schema.Types[actual]; typ != nil && typ.Record != nil {
+				return false
+			}
+		}
 		return true
 	}
 	if actual == "Section" {

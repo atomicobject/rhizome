@@ -39,7 +39,8 @@ func TestMarkdownRootProjectionRetainsAuthoritativeProviderLinks(t *testing.T) {
 				require.NotNil(t, root)
 				require.NotNil(t, root.RootSnapshot)
 				require.NotNil(t, root.Snapshot)
-				require.Same(t, root.Snapshot, root.RootSnapshot.MarkdownStructure)
+				require.NotNil(t, root.Prepared)
+				require.Same(t, root.RootSnapshot, root.Prepared.Source())
 				require.Equal(t, content, string(root.RootSnapshot.RawSource))
 				facts := root.RootSnapshot.Projection.Facts.Links
 				if provider.suppress {

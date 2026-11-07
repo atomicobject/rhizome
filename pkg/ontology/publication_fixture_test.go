@@ -49,6 +49,7 @@ func publishOntologyFixture(ctx context.Context, metadata notemeta.Indexer, vaul
 		return nil, fmt.Errorf("fixture vault writer is already active")
 	}
 	defer func() { err = errors.Join(err, lease.Release()) }()
+	metadata = metadata.WithSourceScope()
 	var schemaErr error
 	if discover {
 		_, schemaErr = ontoschema.LoadSchema(vault.BasePath())

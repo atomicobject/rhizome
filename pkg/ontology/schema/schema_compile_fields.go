@@ -35,6 +35,16 @@ func compileField(parent *ast.Definition, parentRole TypeRole, propertyCase Prop
 		Annotations:      directiveAnnotations(fieldDef.Directives),
 		position:         fieldDef.Position,
 	}
+	for _, directiveName := range []string{"field", "link"} {
+		if dir := fieldDef.Directives.ForName(directiveName); dir != nil && dir.Arguments.ForName("path") != nil && !isRecordDefinition(parent) {
+			args := dir.ArgumentMap(nil)
+			path := stringArg(args["path"], "")
+			if (parentRole != TypeRoleNote && parentRole != TypeRoleInterface) || fieldSourceArg(args["sourceKind"]) != FieldSourceFrontmatter || dir.Arguments.ForName("source") != nil || dir.Arguments.ForName("sources") != nil || fieldDef.Directives.ForName("identifier") != nil || !validPropertyPath(path) {
+				return nil, compileError(dir.Position, "invalid_property_path", parent.Name, fieldDef.Name, "@%s path on %s.%s requires a nonempty dot-separated mapping path on a root frontmatter field, without source, sources, or @identifier", directiveName, parent.Name, fieldDef.Name)
+			}
+			field.SourcePath = path
+		}
+	}
 	field.Policy = policyHintFromDirective(fieldDef.Directives.ForName("policy"))
 	displayDir := fieldDef.Directives.ForName("display")
 	if err := validateFieldDisplayLocation(parent, fieldDef, displayDir); err != nil {
@@ -53,6 +63,15 @@ func compileField(parent *ast.Definition, parentRole TypeRole, propertyCase Prop
 	}
 	field.CompanionDocs = companionDocs
 
+	if isRecordDefinition(parent) || isRecordContains(fieldDef) {
+		return compileRecordField(parent, fieldDef, targetDef, field, schema)
+	}
+	if fieldDef.Directives.ForName("references") != nil {
+		return nil, compileError(fieldDef.Position, "record_reference_owner", parent.Name, fieldDef.Name, "@references requires a RECORD owner")
+	}
+	if dir := fieldDef.Directives.ForName("field"); dir != nil && dir.Arguments.ForName("fallback") != nil {
+		return nil, compileError(fieldDef.Position, "record_fallback_owner", parent.Name, fieldDef.Name, "mapping-key fallback requires a RECORD owner")
+	}
 	if dir := fieldDef.Directives.ForName("contains"); dir != nil {
 		if fieldDef.Directives.ForName("reverse") != nil {
 			return nil, compileError(fieldDef.Position, "contains_reverse", parent.Name, fieldDef.Name, "contains field %s.%s cannot declare @reverse", parent.Name, fieldDef.Name)
@@ -79,6 +98,11 @@ func compileField(parent *ast.Definition, parentRole TypeRole, propertyCase Prop
 			return nil, compileError(fieldDef.Position, "contains_section_target", parent.Name, fieldDef.Name, "contains field %s.%s must target Section or a type that implements Section", parent.Name, fieldDef.Name)
 		}
 		args := dir.ArgumentMap(nil)
+		for _, name := range []string{"select", "edge"} {
+			if dir.Arguments.ForName(name) != nil {
+				return nil, compileError(dir.Position, "record_contains_argument", parent.Name, fieldDef.Name, "%s requires shape RECORD", name)
+			}
+		}
 		shape := embeddedSourceShapeArg(args["shape"])
 		level := sectionLevelArg(args["level"])
 		heading := strings.TrimSpace(stringArg(args["heading"], ""))

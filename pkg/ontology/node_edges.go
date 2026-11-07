@@ -1,6 +1,8 @@
 package ontology
 
 import (
+	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
@@ -11,6 +13,21 @@ import (
 )
 
 func buildNodeScopedEdges(resolver *projectionResolver, root *NodeProjection, schema *ontoschema.Schema, cache *obsidian.NotePathCache, resolveType func(string) string, updatedAt int64) ([]semdb.OntologyEdgeRow, error) {
+	if root != nil && root.Prepared != nil {
+		nodes, err := root.Prepared.Nodes()
+		if err != nil {
+			return nil, err
+		}
+		var out []semdb.OntologyEdgeRow
+		for _, node := range nodes {
+			out = append(out, recordEdges(node, schema, updatedAt)...)
+			if node.Record == nil && cache != nil && node.Ref.Kind != NodeKindNote {
+				out = append(out, nodeScopedLinkEdges(schema, cache, node, resolveType, updatedAt)...)
+				out = append(out, nodeScopedNeighborEdges(schema, cache, node, resolveType, updatedAt)...)
+			}
+		}
+		return dedupeEdges(out), nil
+	}
 	if resolver == nil || root == nil || cache == nil {
 		return nil, nil
 	}
@@ -26,7 +43,7 @@ func buildNodeScopedEdges(resolver *projectionResolver, root *NodeProjection, sc
 			out = append(out, nodeScopedNeighborEdges(schema, cache, projection, resolveType, updatedAt)...)
 		}
 		for _, binding := range projection.Fields {
-			for _, childRef := range binding.SectionNodes {
+			for _, childRef := range binding.ChildRefs {
 				key := childRef.String()
 				if _, ok := seen[key]; ok {
 					continue
@@ -69,7 +86,11 @@ func nodeScopedNeighborEdges(schema *ontoschema.Schema, cache *obsidian.NotePath
 		return nil
 	}
 	section := projection.Snapshot.SectionsByID[projection.Ref.NodeID]
-	if section == nil {
+	content := SectionBody(section)
+	if span := projection.Snapshot.SourceSpansByID[projection.Ref.NodeID]; section == nil && span != nil {
+		content = span.Content
+	}
+	if content == "" {
 		return nil
 	}
 	out := make([]semdb.OntologyEdgeRow, 0)
@@ -81,28 +102,14 @@ func nodeScopedNeighborEdges(schema *ontoschema.Schema, cache *obsidian.NotePath
 		if field.Direction == ontoschema.NeighborDirectionInbound {
 			continue
 		}
-		for _, scanned := range ScanMarkdownBodyLinks(SectionBody(section), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
+		for _, scanned := range ScanMarkdownBodyLinks(content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
 			target := scanned.Detail
-			var (
-				targetPath string
-				ok         bool
-			)
-			switch target.LinkType {
-			case "mdlink":
-				targetPath, ok = cache.ResolveMdLink(target.Target, projection.Ref.NotePath)
-			default:
-				targetPath, ok = cache.ResolveNote(target.Target)
-			}
-			if !ok || targetPath == "" {
+			candidates := BodyLinkCandidates(cache, target.LinkType, target.Target, projection.Ref.NotePath)
+			targetPath, ok := TypedBodyLinkTarget(schema, candidates, field.TypeName, resolveType)
+			if !ok {
 				continue
 			}
-			dstType := ""
-			if resolveType != nil {
-				dstType = resolveType(targetPath)
-			}
-			if !ontoschema.TypeMatchesOrImplements(schema, dstType, field.TypeName) {
-				continue
-			}
+			dstType := resolveType(targetPath)
 			key := projection.Ref.NodeID + "\x00" + field.Name + "\x00" + targetPath
 			if _, exists := seen[key]; exists {
 				continue
@@ -161,14 +168,34 @@ func nodeScopedLinkEdges(schema *ontoschema.Schema, cache *obsidian.NotePathCach
 	}
 	return out
 }
+
+// ontologyEdgeKey is the ontology_edges primary key.
+func ontologyEdgeKey(edge semdb.OntologyEdgeRow) string {
+	return edge.SrcPath + "\x00" + edge.SrcNodeID + "\x00" + edge.RelationName + "\x00" + edge.DstPath + "\x00" + edge.DstNodeID + "\x00" + edge.Provenance
+}
+
+// mergeEdge combines two rows sharing a key: a structural row keeps every
+// occurrence in emission order; a later non-structural row replaces it.
+func mergeEdge(existing, edge semdb.OntologyEdgeRow) semdb.OntologyEdgeRow {
+	if !existing.Structural {
+		return edge
+	}
+	if edge.OccurrencesJSON != "" {
+		var left, right []readmodel.RelationOccurrence
+		_ = json.Unmarshal([]byte(existing.OccurrencesJSON), &left)
+		_ = json.Unmarshal([]byte(edge.OccurrencesJSON), &right)
+		encoded, _ := json.Marshal(append(left, right...))
+		existing.OccurrencesJSON = string(encoded)
+	}
+	return existing
+}
+
 func dedupeEdges(edges []semdb.OntologyEdgeRow) []semdb.OntologyEdgeRow {
 	seen := make(map[string]semdb.OntologyEdgeRow, len(edges))
 	for _, edge := range edges {
-		key := edge.SrcPath + "\x00" + edge.SrcNodeID + "\x00" + edge.RelationName + "\x00" + edge.DstPath + "\x00" + edge.DstNodeID + "\x00" + edge.Provenance
+		key := ontologyEdgeKey(edge)
 		if existing, ok := seen[key]; ok {
-			if existing.Structural {
-				continue
-			}
+			edge = mergeEdge(existing, edge)
 		}
 		seen[key] = edge
 	}

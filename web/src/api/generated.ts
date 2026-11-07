@@ -2091,6 +2091,8 @@ export interface components {
       markdown?: string;
       wikilink?: string;
       displayLabel?: string;
+      durability?: string;
+      revision?: string;
       exists: boolean;
       requiresFix?: boolean;
       blockId?: string;
@@ -2747,6 +2749,7 @@ export interface components {
     };
     ViewExecutionState: components["schemas"]["ViewExecuteRequest"] & Record<string, never>;
     ViewTableRow: {
+      readOnlyReason?: string;
       ref: components["schemas"]["NodeRef"];
       path?: string;
       title?: string;

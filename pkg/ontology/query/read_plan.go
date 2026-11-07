@@ -23,11 +23,6 @@ func (e *executor) executeNodeReadPlan(ctx context.Context, records []*noteRecor
 		return
 	}
 	sourceTypes := possibleTypesForRecords(records)
-	rootRefs := make([]ontology.NodeRef, 0, len(roots))
-	for _, root := range roots {
-		rootRefs = append(rootRefs, root.Ref)
-	}
-	e.prefetchRelationCounts(ctx, rootRefs, set)
 	relations := e.compileNodeRelationSelections(set, sourceTypes)
 	fields := e.compileNodeFieldSelection(set, sourceTypes)
 	if len(relations) == 0 && len(fields.Names) == 0 && !fields.IncludeBuiltin && !fields.IncludeContent && !fields.IncludeIssues && !fields.IncludeLocators {
@@ -90,67 +85,6 @@ func (e *executor) compileNodeRelationSelections(set ast.SelectionSet, sourceTyp
 	return out
 }
 
-func (e *executor) prefetchRelationCounts(ctx context.Context, refs []ontology.NodeRef, set ast.SelectionSet) {
-	if e == nil || e.loaders == nil || e.loaders.scope == nil || len(refs) == 0 {
-		return
-	}
-	fields := e.selectedRelationCountFields(set, refs)
-	for _, fieldName := range fields {
-		selections := noderead.RelationCountSelectionsForField(e.schema, refs, fieldName)
-		if len(selections) == 0 {
-			continue
-		}
-		result, err := e.loaders.scope.RelationCounts(ctx, noderead.RelationCountsRequest{Sources: refs, Selections: selections})
-		if err != nil {
-			e.addError(nil, err.Error())
-			continue
-		}
-		for _, item := range result.Sources {
-			key := noderead.RefIdentityKey(item.Source)
-			if e.relationCounts[key] == nil {
-				e.relationCounts[key] = map[string]int{}
-			}
-			e.relationCounts[key][fieldName] = item.Count
-		}
-	}
-}
-
-func (e *executor) selectedRelationCountFields(set ast.SelectionSet, refs []ontology.NodeRef) []string {
-	types := map[string]struct{}{}
-	for _, ref := range refs {
-		if ref.TypeName != "" {
-			types[ref.TypeName] = struct{}{}
-		}
-	}
-	seen := map[string]struct{}{}
-	var visit func(ast.SelectionSet)
-	visit = func(current ast.SelectionSet) {
-		for _, selection := range current {
-			switch value := selection.(type) {
-			case *ast.Field:
-				for typeName := range types {
-					if relationField, ok := e.relationFieldForCount(typeName, value.Name); ok {
-						seen[relationField.Name] = struct{}{}
-					}
-				}
-			case *ast.InlineFragment:
-				visit(value.SelectionSet)
-			case *ast.FragmentSpread:
-				if fragment := e.fragments.ForName(value.Name); fragment != nil {
-					visit(fragment.SelectionSet)
-				}
-			}
-		}
-	}
-	visit(set)
-	out := make([]string, 0, len(seen))
-	for name := range seen {
-		out = append(out, name)
-	}
-	sort.Strings(out)
-	return out
-}
-
 func (e *executor) relationFieldForCount(typeName, countName string) (*ontoschema.Field, bool) {
 	if e == nil || e.schema == nil || !strings.HasSuffix(countName, "Count") {
 		return nil, false
@@ -161,18 +95,6 @@ func (e *executor) relationFieldForCount(typeName, countName string) (*ontoschem
 	}
 	field := noteType.ByName[strings.TrimSuffix(countName, "Count")]
 	return field, field != nil && (field.Kind == ontoschema.FieldKindNeighbor || field.Kind == ontoschema.FieldKindReverse) && field.List
-}
-
-func (e *executor) relationCount(ref ontology.NodeRef, typeName, countName string) (int, bool) {
-	field, ok := e.relationFieldForCount(typeName, countName)
-	if !ok {
-		return 0, false
-	}
-	counts := e.relationCounts[noderead.RefIdentityKey(ref)]
-	if counts == nil {
-		return 0, true
-	}
-	return counts[field.Name], true
 }
 
 func (e *executor) compileNodeRelationField(field *ast.Field, sourceTypes []string) []noderead.RelationSelection {
@@ -216,7 +138,8 @@ func (e *executor) compileNodeRelationField(field *ast.Field, sourceTypes []stri
 		switch schemaField.Kind {
 		case ontoschema.FieldKindLink:
 			out = append(out, noderead.RelationSelection{
-				Name:              schemaField.Name,
+				Name:              relationCacheName(schemaField.Name, e.relationFirst(field)),
+				FirstPerSource:    e.relationFirst(field),
 				SourceTypes:       []string{typeName},
 				RelationNames:     []string{schemaField.Name},
 				IncludeStructural: true,

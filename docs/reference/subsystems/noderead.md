@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the noderead/readmodel typed read seam: request-scoped Scope batching, hydration profiles, edit-session read overlays, graph assembly, and consumer caching."
 reference-kind: guide
-last-verified: 2026-11-06
+last-verified: 2026-11-07
 code-paths:
   - pkg/ontology/noderead
   - pkg/ontology/readmodel
@@ -21,6 +21,10 @@ code-anchors:
 `pkg/ontology/noderead` is the request-scoped read facade over indexed ontology rows: a thin `Service` (vault def, note reader, store, schema) mints one `Scope` per request/job, and that scope batches and memoizes everything a caller needs — node hydration, locator resolution, type listings, edge traversal, neighborhoods, relation counts, multi-step expansion, and graph assembly — without re-reading the same catalog/projection data. `pkg/ontology/readmodel` is the storage-neutral DTO + store-interface layer beneath it (`NodeRow`, `FieldValueRow`, `NodeQueryPlan`, `GraphStore`): SQLite returns these rows, noderead merges them into endpoint-aware payloads. Entry points: `Scope.Execute`, `Hydrate`, `Resolve`, `TypeInstances`, `TypeSummaries`, `Neighborhood`, `Expand`, `RelationCounts`, `Graph`/`GraphFacts`, `Walk` (`pkg/ontology/noderead/scope.go`, `execute.go`, `resolve.go`, `type_instances.go`, `graph.go`). Consumers: web UI (`pkg/app/web/node_workspace.go`, `ontology_graph.go`, `edit_session_overlay.go`, `node_projection_cache.go`), MCP tools (`pkg/app/mcp/tool_files.go`, `tool_graph_path.go`, `semantic_query_unified.go`), CLI (`pkg/app/operations/file_context.go`, `context_text.go`, `ontology_summary.go`), search retrieval (`pkg/search/retrieval/ontology.go`, `graph_ppr.go`), configured-view sources (`pkg/app/views/source_ontology.go`), GraphQL query loaders (`pkg/ontology/query/loaders.go`).
 
 ## Design constraints
+
+- Fragmentless RECORD relation endpoints carry source-local node IDs, which differ from hashed catalog row IDs. Missing direct ID/locator lookups resolve in one batched catalog read over the requested hosts, including type-less embedded endpoints (an inbound edge row names only its source path and node ID), checking full requested identity and refusing ambiguous matches. Summary hydration still reads no source files; Markdown hydration keeps its existing path.
+
+**Neutral rich reads (SPEC-0133).** A scope caches one `PreparedDocument` per captured host and a distinct prepared Markdown preview generation. Provider projection supplies syntax; mutation capabilities never select a parser. All embedded rich reads share that prepared state and current source hash, while indexed summary hydration reads zero source bytes. Native source payloads retain ordered values, owner address and provenance. For an indexed source/provider generation, scoped reads restore persisted RECORD logical identity context from that host's catalog rows; they do not open other hosts to recompute positional numbering. Shared reserved selectors include `record:` and `record-pos:`; positional navigation captures current bytes and rejects stale hashes, while IndexOnly reports an unverified revision. Graph DTOs preserve relation occurrence/qualifier evidence.
 
 - **Summaries stream canonical identities.** Current committed type summaries use `SummaryStore` to stream the selected catalog with small metadata and flag joins, retaining distinct canonical refs and only the requested examples. Interface unions count canonical refs once and issue-bearing host paths once; stable sample ordering matches full listings. Staged overlays, custom metadata loaders, and stale flag materializations retain the full semantic path. `SummaryTotals` obtains committed whole-vault scalar counts from one read snapshot. These web inventory reads preserve their existing metadata/materialized-flag admission and do not certify a provider-complete publication; the separate provider-bound `IndexedOntologySummary` retains its complete-proof gate.
 
@@ -108,3 +112,9 @@ code-anchors:
 - [[noderef-batch-traversal-read-api]]
 - [[structural-node-model-and-ontology-read-path]]
 - [[Use NodeRef as the canonical browser identity]]
+
+Root summary hydration batches catalog values for declared nested frontmatter paths alongside section summaries. Scalar property rows do not retain mappings. Nested fields stay in `FieldValues`; preview records traverse their current mapping instead of borrowing committed values.
+
+Nested root metadata, nested list members, and nulls retain canonical JSON in property rows. Summary hydration decodes those values without reading source files; scalar rows and the empty-list sentinel retain their existing representation. Metadata indexer version 15 rebuilds older flattened rows.
+
+Relation counts may receive current scope-owned projections as occurrence witnesses for identical unanchored siblings. Verify prepared-host ownership and bound identity before bypassing external ref relocation; copied refs and projections from another scope retain ambiguity errors. The authority is local to that count operation.

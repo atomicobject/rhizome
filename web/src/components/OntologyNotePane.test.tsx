@@ -216,6 +216,7 @@ describe("OntologyNotePane", () => {
   });
 
   it("focuses a UTF-8 byte range on the correct CRLF source line", async () => {
+    await import("./markdownEditor/AtomicMarkdownEditor");
     render(
       <OntologyNotePane
         workspace={asWorkspace({
@@ -856,55 +857,58 @@ describe("OntologyNotePane", () => {
     expect(onOpen).toHaveBeenCalledWith("docs/markdown-target.md", "stack");
   });
 
-  it("copies the focused node wikilink when the locator is linkable", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+  it.each(["[[spec#^story-a]]", undefined])(
+    "copies a linkable node with wikilink %s",
+    async (wikilink) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
 
-    const workspace = asWorkspace({
-      requestedRef: "specs/spec.md#^story-a",
-      title: "Story A",
-      content: {
-        path: "specs/spec.md#^story-a",
+      const workspace = asWorkspace({
+        requestedRef: "specs/spec.md#^story-a",
         title: "Story A",
-        rendered: {
-          path: "specs/spec.md",
-          title: "Spec",
-          rendered: "### Story A\n^story-a",
-          links: [],
-          embeds: [],
-          sections: [],
+        content: {
+          path: "specs/spec.md#^story-a",
+          title: "Story A",
+          rendered: {
+            path: "specs/spec.md",
+            title: "Spec",
+            rendered: "### Story A\n^story-a",
+            links: [],
+            embeds: [],
+            sections: [],
+          },
         },
-      },
-      nodeLocator: {
-        ref: {
-          notePath: "specs/spec.md",
-          fragment: "^story-a",
-          kind: "EMBEDDED",
-        },
-        kind: "EMBEDDED",
-        sourceLocator: "specs/spec.md#^story-a",
-        status: "linkable",
-        linkTarget: {
+        nodeLocator: {
           ref: {
             notePath: "specs/spec.md",
             fragment: "^story-a",
             kind: "EMBEDDED",
           },
-          wikilink: "[[spec#^story-a]]",
-          markdown: "specs/spec.md#^story-a",
-          exists: true,
-          requiresFix: false,
+          kind: "EMBEDDED",
+          sourceLocator: "specs/spec.md#^story-a",
+          status: "linkable",
+          linkTarget: {
+            ref: {
+              notePath: "specs/spec.md",
+              fragment: "^story-a",
+              kind: "EMBEDDED",
+            },
+            wikilink,
+            markdown: "specs/spec.md#^story-a",
+            exists: true,
+            requiresFix: false,
+          },
         },
-      },
-    });
+      });
 
-    render(<OntologyNotePane workspace={workspace} onOpen={vi.fn()} />);
+      render(<OntologyNotePane workspace={workspace} onOpen={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
 
-    expect(writeText).toHaveBeenCalledWith("[[spec#^story-a]]");
-    expect(await screen.findByRole("status")).toHaveTextContent("Copied link.");
-  });
+      expect(writeText).toHaveBeenCalledWith(wikilink || "specs/spec.md#^story-a");
+      expect(await screen.findByRole("status")).toHaveTextContent("Copied link.");
+    },
+  );
 
   it("announces an inline refresh failure as an alert", () => {
     const workspace = asWorkspace({

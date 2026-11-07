@@ -176,14 +176,15 @@ func (s *Scope) Graph(ctx context.Context, req GraphRequest) (GraphResult, error
 			diagnostics.node(targetNode, "ontology_edge", "implicit target endpoint")
 		}
 		edge := GraphReadEdge{
-			Source:        sourceID,
-			Target:        targetID,
-			Kind:          string(GraphEdgeKindOntology),
-			RelationName:  row.RelationName,
-			RelationLabel: relationLabel(row.RelationName),
-			Provenance:    row.Provenance,
-			Structural:    row.Structural,
-			Weight:        1,
+			OccurrencesJSON: row.OccurrencesJSON,
+			Source:          sourceID,
+			Target:          targetID,
+			Kind:            string(GraphEdgeKindOntology),
+			RelationName:    row.RelationName,
+			RelationLabel:   relationLabel(row.RelationName),
+			Provenance:      row.Provenance,
+			Structural:      row.Structural,
+			Weight:          1,
 		}
 		addGraphEdge(edges, edge)
 		if ontologyEndpointPairs != nil {

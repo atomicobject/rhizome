@@ -230,17 +230,16 @@ func validatePublishedSource(formats noteformat.Runtime, expected paths.NotePath
 }
 
 func (i Indexer) loadProjectedEntriesFromSources(ctx context.Context, sources []noteformat.AuthoredSource) ([]projectedNoteEntry, error) {
-	formats, err := i.runtime()
-	if err != nil {
+	if _, err := i.runtime(); err != nil {
 		return nil, err
 	}
 	entries, err := loadBounded(ctx, len(sources), func(index int) (projectedNoteEntry, error) {
 		source := sources[index]
-		projection, err := formats.Project(source)
+		entry, err := i.projectSource(source)
 		if err != nil {
 			return projectedNoteEntry{}, fmt.Errorf("project sealed note %q: %w", source.Path(), err)
 		}
-		return projectionEntryFrom(source, projection)
+		return entry, nil
 	})
 	if err != nil {
 		return nil, err

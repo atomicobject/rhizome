@@ -15,7 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	"github.com/atomicobject/rhizome/pkg/noteformat/html"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -51,7 +51,7 @@ func newFixtureWithContext(t *testing.T, ctx context.Context) *fixture {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "untouched.md"), []byte("# Untouched\n"), 0600))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte("type Record @node(paths: [\"notes/*.md\"]) { title: String }\n"), 0600))
-	registry, err := builtin.NewRegistry()
+	registry, err := noteformat.NewRegistry(markdown.New(), html.New())
 	require.NoError(t, err)
 	runtime, err := noteformat.NewRuntime(registry, markdown.New())
 	require.NoError(t, err)

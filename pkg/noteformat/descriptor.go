@@ -33,6 +33,7 @@ const (
 	CapabilityRootMetadataMutation        Capability = "root_metadata_mutation"
 	CapabilityLinkRetargeting             Capability = "link_retargeting"
 	CapabilityFileRenameMove              Capability = "file_rename_move"
+	CapabilityStructuralReading           Capability = "structural_reading"
 	CapabilityStructuralContentMutation   Capability = "structural_content_mutation"
 	CapabilityActiveContentViewing        Capability = "active_content_viewing"
 )
@@ -47,6 +48,7 @@ var knownCapabilities = map[Capability]struct{}{
 	CapabilityLinkRetargeting:             {},
 	CapabilityFileRenameMove:              {},
 	CapabilityStructuralContentMutation:   {},
+	CapabilityStructuralReading:           {},
 	CapabilityActiveContentViewing:        {},
 }
 

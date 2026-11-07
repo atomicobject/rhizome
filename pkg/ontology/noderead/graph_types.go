@@ -52,15 +52,16 @@ type GraphEndpoint struct {
 // It preserves typed ontology relation metadata and fallback graph evidence
 // without forcing all consumers into the heavier GraphFactEdge payload.
 type GraphReadEdge struct {
-	Source        string
-	Target        string
-	Kind          string
-	RelationName  string
-	RelationLabel string
-	Provenance    string
-	Structural    bool
-	Weight        int
-	Confidence    float64
+	OccurrencesJSON string `json:",omitempty"`
+	Source          string
+	Target          string
+	Kind            string
+	RelationName    string
+	RelationLabel   string
+	Provenance      string
+	Structural      bool
+	Weight          int
+	Confidence      float64
 }
 
 // GraphProfile selects the default mix of ontology, doc-link, untyped, and
@@ -132,27 +133,28 @@ type GraphFactsResult struct {
 // GraphFactEdge is a denormalized edge fact with endpoint refs, locators,
 // type names, weights, and provenance.
 type GraphFactEdge struct {
-	Source         string
-	Target         string
-	SourceRef      ontology.NodeRef
-	TargetRef      ontology.NodeRef
-	SourcePath     string
-	TargetPath     string
-	SourceKind     GraphEndpointKind
-	TargetKind     GraphEndpointKind
-	Kind           string
-	RelationName   string
-	RelationLabel  string
-	Provenance     string
-	Structural     bool
-	Weight         float64
-	Confidence     float64
-	SourceLocator  string
-	TargetLocator  string
-	SourceNodeID   string
-	TargetNodeID   string
-	SourceTypeName string
-	TargetTypeName string
+	OccurrencesJSON string `json:",omitempty"`
+	Source          string
+	Target          string
+	SourceRef       ontology.NodeRef
+	TargetRef       ontology.NodeRef
+	SourcePath      string
+	TargetPath      string
+	SourceKind      GraphEndpointKind
+	TargetKind      GraphEndpointKind
+	Kind            string
+	RelationName    string
+	RelationLabel   string
+	Provenance      string
+	Structural      bool
+	Weight          float64
+	Confidence      float64
+	SourceLocator   string
+	TargetLocator   string
+	SourceNodeID    string
+	TargetNodeID    string
+	SourceTypeName  string
+	TargetTypeName  string
 }
 
 // GraphCodeLink summarizes note-code or code-note graph evidence incident to a

@@ -38,7 +38,7 @@ func (v *namespaceStartedVault) Path() (string, error) {
 	return v.path, nil
 }
 
-func TestNamespaceOptionalCodeWritesFollowCommitOrder(t *testing.T) {
+func TestNamespaceCodePlansRetainWriterExclusion(t *testing.T) {
 	for _, route := range []string{"rename", "move"} {
 		t.Run(route, func(t *testing.T) {
 			root := t.TempDir()
@@ -89,8 +89,8 @@ func TestNamespaceOptionalCodeWritesFollowCommitOrder(t *testing.T) {
 				}
 			}()
 			go func() { firstDone <- run(namespaceVault{path: root}, "A.md", "B.md") }()
-			// A nonblocking FIFO writer opens only after the real optional read
-			// has opened its reader. Hold EOF to pause before sample.go is read.
+			// Hold the real coderef planner before publication, while it owns
+			// the writer lease, so a successor cannot capture stale sources.
 			require.Eventually(t, func() bool {
 				fd, err := unix.Open(gatePath, unix.O_WRONLY|unix.O_NONBLOCK, 0)
 				if err != nil {
@@ -99,8 +99,8 @@ func TestNamespaceOptionalCodeWritesFollowCommitOrder(t *testing.T) {
 				writer = os.NewFile(uintptr(fd), gatePath)
 				return true
 			}, 10*time.Second, 10*time.Millisecond)
-			require.FileExists(t, filepath.Join(root, "B.md"))
-			require.NoFileExists(t, filepath.Join(root, "A.md"))
+			require.FileExists(t, filepath.Join(root, "A.md"))
+			require.NoFileExists(t, filepath.Join(root, "B.md"))
 			// Move the gate outside the configured glob while its first reader
 			// stays open, so the second request will read only the actual code.
 			require.NoError(t, os.Rename(gatePath, filepath.Join(root, "completed-gate")))
@@ -109,7 +109,7 @@ func TestNamespaceOptionalCodeWritesFollowCommitOrder(t *testing.T) {
 			if acquired {
 				require.NoError(t, release())
 			}
-			assert.False(t, acquired, "optional read/write must retain namespace exclusion")
+			assert.False(t, acquired, "code planning must retain namespace exclusion")
 			started := make(chan struct{})
 			secondDone = make(chan namespaceOptionalResult, 1)
 			go func() {
@@ -123,7 +123,7 @@ func TestNamespaceOptionalCodeWritesFollowCommitOrder(t *testing.T) {
 			var second namespaceOptionalResult
 			if acquired {
 				// The broken owner allows the successor to finish first. Observe
-				// that real completion before releasing the earlier optional read.
+				// that real completion before releasing the earlier code read.
 				select {
 				case second = <-secondDone:
 					secondReturned = true
@@ -167,7 +167,7 @@ func TestNamespaceOptionalCodeWritesFollowCommitOrder(t *testing.T) {
 	}
 }
 
-func TestNamespaceOptionalCodeWriteFailureKeepsRequiredCommit(t *testing.T) {
+func TestNamespaceCodePublicationPreservesReadOnlyFileMode(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("requires ordinary user write permissions")
 	}
@@ -199,10 +199,13 @@ func TestNamespaceOptionalCodeWriteFailureKeepsRequiredCommit(t *testing.T) {
 			}
 			require.Equal(t, validate.NamespaceCommitted, mutation.Current.Decision)
 			require.False(t, mutation.Current.RecoveryPending)
-			require.Zero(t, updates)
+			require.Equal(t, 1, updates)
 			code, err := os.ReadFile(codePath)
 			require.NoError(t, err)
-			require.Equal(t, "package sample\n// [[A]]\n", string(code))
+			require.Equal(t, "package sample\n// [[B]]\n", string(code))
+			info, err := os.Stat(codePath)
+			require.NoError(t, err)
+			require.Equal(t, os.FileMode(0o444), info.Mode().Perm())
 			ref, err := os.ReadFile(filepath.Join(root, "Ref.md"))
 			require.NoError(t, err)
 			require.Equal(t, "[[B]]\n", string(ref))

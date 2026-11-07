@@ -1,0 +1,80 @@
+[
+  {
+    "from": "a-000000000007",
+    "to": "s-000000000001",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-000000000008",
+    "to": "s-000000000009",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-000000000009",
+    "to": "s-000000000001",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-00000000000b",
+    "to": "s-000000000001",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-00000000000c",
+    "to": "s-000000000001",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-00000000000d",
+    "to": "a-000000000001",
+    "rel": "refines",
+    "reason": "TODO(lead): sequence-shaped frontmatter connections are not projected. Raw authored connections remain in content; model reference bindings must cover this AO shape."
+  },
+  {
+    "from": "a-00000000000e",
+    "to": "a-000000000001",
+    "rel": "relates-to",
+    "reason": "TODO(lead): sequence-shaped frontmatter connections are not projected. Raw authored connections remain in content; model reference bindings must cover this AO shape."
+  },
+  {
+    "from": "a-00000000000f",
+    "to": "s-000000000003",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-000000000010",
+    "to": "s-000000000004",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-000000000011",
+    "to": "s-000000000005",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-000000000012",
+    "to": "s-000000000001",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  },
+  {
+    "from": "a-000000000013",
+    "to": "a-000000000001",
+    "rel": "teleports-to",
+    "reason": "TODO(lead): unknown relation is preserved in connectionsSection.content but has no typed field. AO emits this noncanonical edge; Rhizome exposes the declaration without inventing a typed binding."
+  },
+  {
+    "from": "a-000000000015",
+    "to": "s-000000000008",
+    "rel": "relates-to",
+    "reason": "AO emits a default relates-to edge for the Sources link when an empty Connections section runs into Sources. Rhizome keeps the section boundary and emits only the source evidence edge; no additional relatedness is inferred."
+  }
+]

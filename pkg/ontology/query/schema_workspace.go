@@ -8,6 +8,7 @@ func workspaceProjectionTypesSDL() string {
 	return strings.TrimSpace(`
 "Composable source-preserving metadata used by node workspace clients."
 type NodeWorkspaceProjection {
+  source: JSON
   "Schema-aware semantic parent of the focused node, skipping structural wrappers."
   parentRef: NodeRef
   "Display title of parentRef, read from the index."
@@ -36,6 +37,7 @@ type NodeBodyProjection {
   resolvedType: String
   locator: String!
   parentRef: NodeRef
+  source: JSON
   markdown: String!
   level: String
   blockId: String
@@ -165,6 +167,7 @@ type NodeCollectionItem {
 }
 
 type NodeCapabilities {
+  readOnlyReason: String
   canEdit: Boolean!
   canEditFields: Boolean!
   canEditCollections: Boolean!

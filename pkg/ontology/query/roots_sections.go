@@ -28,6 +28,13 @@ func (e *executor) rootSection(ctx context.Context, ref ontology.NodeRef) (*sect
 	if err != nil || note == nil {
 		return nil, err
 	}
+	if ontology.IsRecordSelector(ref.Fragment) {
+		projection, err := e.loaders.scope.Projection(ctx, ref)
+		if err != nil || projection == nil {
+			return nil, err
+		}
+		return e.sectionRecordFromProjection(note, projection), nil
+	}
 	if strings.TrimSpace(ref.Structural) != "" && strings.TrimSpace(ref.Fragment) == "" && strings.TrimSpace(ref.NodeID) == "" {
 		noteProjection, err := e.projectNoteRecord(ctx, note)
 		traceStep("project-note")
@@ -37,7 +44,7 @@ func (e *executor) rootSection(ctx context.Context, ref ontology.NodeRef) (*sect
 		if noteProjection == nil {
 			return nil, nil
 		}
-		projection, err := ontology.ProjectNodeFromSnapshot(noteProjection.Snapshot, e.schema, ref)
+		projection, err := noteProjection.Prepared.Project(ref)
 		traceStep("project-structural")
 		if err != nil {
 			return nil, err

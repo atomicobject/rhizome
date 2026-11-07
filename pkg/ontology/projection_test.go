@@ -130,10 +130,10 @@ summary: Beta
 	require.Equal(t, "Spec", note.ResolvedType)
 	require.Equal(t, []string{"Spec summary"}, note.Fields["summary"].Values)
 	require.Equal(t, []string{"notes/decisions/alpha.md", "notes/decisions/beta.md"}, note.Fields["decisions"].Values)
-	require.Len(t, note.Fields["userStories"].SectionNodes, 1)
+	require.Len(t, note.Fields["userStories"].ChildRefs, 1)
 	require.True(t, note.Fields["summary"].Range.Valid(len(note.Snapshot.Content)))
 
-	containerRef := note.Fields["userStories"].SectionNodes[0]
+	containerRef := note.Fields["userStories"].ChildRefs[0]
 	container, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
 	require.Len(t, container.Collections["stories"].Items, 2)

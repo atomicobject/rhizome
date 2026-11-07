@@ -155,7 +155,8 @@ func importsConcreteProvider(file *ast.File) bool {
 		path := strings.Trim(spec.Path.Value, "\"")
 		if path == modulePrefix+"pkg/noteformat/builtin" ||
 			path == modulePrefix+"pkg/noteformat/markdown" ||
-			path == modulePrefix+"pkg/noteformat/html" {
+			path == modulePrefix+"pkg/noteformat/html" ||
+			path == modulePrefix+"pkg/noteformat/structured" {
 			return true
 		}
 	}
@@ -281,7 +282,7 @@ func directMarkdownParserCalls(file *ast.File, path string) []string {
 
 func indirectMarkdownParserCalls(file *ast.File, path string) []string {
 	codeAnchorAliases := importAliases(file, modulePrefix+"pkg/anchors")
-	sectionAliases := importAliases(file, modulePrefix+"pkg/ontology/sectionparse")
+	sectionAliases := importAliases(file, modulePrefix+"pkg/markdownsyntax/sectionparse")
 	ontologyAliases := importAliases(file, modulePrefix+"pkg/ontology")
 	var violations []string
 	ast.Inspect(file, func(node ast.Node) bool {
@@ -357,7 +358,7 @@ func markdownParserBoundaryFunction(path, function string) bool {
 		"pkg/app/web/markdown_compat.go:markdownAliasesForNotePathCompat",
 		"pkg/app/web/markdown_compat.go:scanStructuredMarkdownLinksCompat",
 		"pkg/ontology/markdown_links.go:ScanMarkdownBodyLinks",
-		"pkg/ontology/markdown_links.go:MarkdownProjectionStructuredLinks",
+		"pkg/ontology/markdown_links.go:markdownProjectionStructuredLinks",
 		"pkg/vault/cache/note_projection.go:markdownCompatibilityEntry",
 		"pkg/validate/check_code_frontmatter.go:RunCodeFrontmatter",
 		"pkg/validate/check_fragile_external.go:RunFragileExternal", "pkg/validate/check_fragile_external.go:normalizeScopePath",
@@ -393,6 +394,7 @@ func indirectMarkdownParserBoundaryFunction(path, function string) bool {
 		"pkg/anchors/note_source.go:ExtractAnchorDeclarations",
 		"pkg/app/codeintel/ingest.go:ingestMarkdownCandidateRun",
 		"pkg/ontology/snapshot_selector.go:BuildMarkdownDocumentSnapshot",
+		"pkg/ontology/snapshot_selector.go:markdownEditView",
 		"pkg/ontology/projection_source.go:documentSnapshotForDoc",
 		"pkg/ontology/edit_session_projection.go:documentSnapshot",
 		"pkg/ontology/noderead/markdown_snapshots.go:markdownOverlaySnapshotCompat",
@@ -412,6 +414,9 @@ func indirectMarkdownParserBoundaryFunction(path, function string) bool {
 }
 
 func providerSelectionBoundaryFunction(path, function string) bool {
+	if nonNoteFormatFunction(path, function) {
+		return true
+	}
 	// A short set of named compatibility functions still select Markdown
 	// authoring syntax. They are deliberately separate from parser exemptions:
 	// adding an extension literal elsewhere remains a neutral-consumer failure.
@@ -425,6 +430,7 @@ func providerSelectionBoundaryFunction(path, function string) bool {
 		"pkg/app/codeintel/ingest_candidates.go:sealMarkdownCandidateSources",
 		"pkg/ontology/projection_source.go:projectMarkdownNoteSource",
 		"pkg/ontology/snapshot_selector.go:BuildMarkdownDocumentSnapshot",
+		"pkg/ontology/snapshot_selector.go:markdownEditView",
 		"pkg/validate/check_fragile_external.go:RunFragileExternal",
 		"pkg/validate/check_link_hygiene.go:RunLinkHygiene",
 		"pkg/validate/check_orphan_block_ids.go:RunOrphanBlockIDs",

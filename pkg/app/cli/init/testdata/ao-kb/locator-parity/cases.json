@@ -1,0 +1,344 @@
+[
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "single",
+    "locator": "L2"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "range",
+    "locator": "L2-L4"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "out-of-range",
+    "locator": "L99"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "zero-line",
+    "locator": "L0"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "reverse",
+    "locator": "L4-L2"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "section",
+    "locator": "Parent"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "nested",
+    "locator": "Parent > Child"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "colon-heading",
+    "locator": "Has::colon"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "fenced",
+    "locator": "Hidden"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "unicode",
+    "locator": "Café"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "zero-selector",
+    "locator": "0::L1"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "negative",
+    "locator": "-1::L1"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "empty-selector",
+    "locator": "::L1"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "empty-span",
+    "locator": "1::"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt",
+      "other/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "ambiguous",
+    "locator": "a.txt::L1"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "timestamp",
+    "locator": "00:01"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "timestamp-range",
+    "locator": "00:01-00:02"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "bad-line",
+    "locator": "Lx",
+    "scheme": "line"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "forced-section",
+    "locator": "L2",
+    "scheme": "section"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "invalid-scheme-inferred",
+    "locator": "L2",
+    "scheme": "other"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "timestamp-malformed",
+    "locator": "oops",
+    "scheme": "timestamp"
+  },
+  {
+    "paths": [
+      "https://example.com/a",
+      "sources/_raw/a.txt",
+      "missing.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "index",
+    "locator": "2::L2"
+  },
+  {
+    "paths": [
+      "https://example.com/a",
+      "sources/_raw/a.txt",
+      "missing.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "verbatim",
+    "locator": "sources/_raw/a.txt::L2"
+  },
+  {
+    "paths": [
+      "https://example.com/a",
+      "sources/_raw/a.txt",
+      "missing.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "basename",
+    "locator": "a.txt::L2"
+  },
+  {
+    "paths": [
+      "https://example.com/a",
+      "sources/_raw/a.txt",
+      "missing.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "url-slot",
+    "locator": "1::L2"
+  },
+  {
+    "paths": [
+      "https://example.com/a",
+      "sources/_raw/a.txt",
+      "missing.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "missing-slot",
+    "locator": "3::L2"
+  },
+  {
+    "paths": [
+      "https://example.com/a",
+      "sources/_raw/a.txt",
+      "missing.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "past-slot",
+    "locator": "4::L2"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "﻿first\nsecond\n"
+    },
+    "name": "bom",
+    "locator": "L1"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "one\r\ntwo\r\nthree\r\n"
+    },
+    "name": "crlf",
+    "locator": "L2-L3"
+  },
+  {
+    "paths": [
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "a\nb\rc\r\nd\u000be\ff\u001cg\u001dh\u001eij k "
+    },
+    "name": "all-python-lines",
+    "locator": "L1-L11"
+  },
+  {
+    "paths": [],
+    "files": {},
+    "name": "body",
+    "locator": "L1-L2",
+    "body": "\n \n# Body\ntext\n"
+  },
+  {
+    "paths": [],
+    "files": {},
+    "name": "missing-text",
+    "locator": "L1",
+    "body": "\n"
+  },
+  {
+    "paths": [
+      "missing.txt",
+      "sources/_raw/a.txt"
+    ],
+    "files": {
+      "sources/_raw/a.txt": "# Parent\none\n## Child\ntwo\n```\n# Hidden\n```\n# Café\nthree\n# Has::colon\nfour\n00:01 first\ncontinued\n00:02 second\n"
+    },
+    "name": "no-fallback-selector",
+    "locator": "1::L1"
+  }
+]

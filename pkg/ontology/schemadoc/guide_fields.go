@@ -94,6 +94,9 @@ func renderFieldGuide(b *strings.Builder, schema *ontoschema.Schema, noteType *g
 		b.WriteString(strings.Join(field.SourceAliases, "`, `"))
 		b.WriteString("`; ")
 	}
+	if field.SourcePath != "" {
+		b.WriteString("read-only mapping path; ")
+	}
 	b.WriteString(valueShape(field))
 	if field.Kind == ontoschema.FieldKindSection {
 		b.WriteString("; heading `")
@@ -212,6 +215,9 @@ func fieldDisplayNotes(display ontoschema.FieldDisplay) []string {
 }
 
 func locationLabel(field *ontoschema.Field) string {
+	if field != nil && field.SourcePath != "" {
+		return "frontmatter mapping path"
+	}
 	if field == nil {
 		return "frontmatter key"
 	}
@@ -412,6 +418,9 @@ func compactGuideText(text string) string {
 func authoredSource(field *ontoschema.Field, noteType *guideType) string {
 	if field == nil {
 		return ""
+	}
+	if field.SourcePath != "" {
+		return field.SourcePath
 	}
 	if strings.TrimSpace(field.Source) != "" {
 		return field.Source
