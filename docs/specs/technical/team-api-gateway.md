@@ -6,7 +6,7 @@ aliases:
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
 spec-status: proposed
-last-updated: 2026-11-04
+last-updated: 2026-11-06
 ---
 
 # Team API gateway
@@ -175,6 +175,7 @@ The [build plan](../../reference/analysis/rhizome-team-api-service-build-plan.md
 ### Local session store
 
 - MUST store one record per OS user and origin in the OS secret store. On macOS this is a login-keychain generic password (service `rhizome-team-session`, account = origin) written and read only through `/usr/bin/security`, with the record passed on standard input, never in argv.
+- On Linux, MUST use Secret Service through system `/usr/bin/secret-tool` with the same service and account attributes. MUST derive the standard session-bus path from the real OS user, isolate helper execution from repository environment overrides, keep records on private pipes, verify writes and deletions, and distinguish locked matching records from absent records. Requires libsecret and an unlocked keyring at `/run/user/<uid>/bus`.
 - MUST NOT fall back to a plaintext file. A missing or locked store returns a typed unavailable error, and direct-key mode remains available.
 - MUST coordinate refresh across processes with a lock file in the user's Rhizome config directory, rereading the record after taking the lock.
 - MUST NOT store the session in `config.yml`, and MUST NOT overwrite a record whose version it does not understand.

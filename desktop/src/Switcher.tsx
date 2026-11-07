@@ -161,14 +161,17 @@ export function Switcher({
   onOpen: (mode: FinderMode) => void;
   onMenu: (at: { x: number; y: number }) => void;
 }) {
+  const linux = window.__RHIZOME_PLATFORM__ === "linux";
+  const repositoryHint = linux ? "Ctrl+O" : "⌘O";
+  const worktreeHint = linux ? "Ctrl+Shift+O" : "⇧⌘O";
   return (
     <>
       <button
         className="switch-repository"
         aria-haspopup="dialog"
-        aria-keyshortcuts="Meta+O"
+        aria-keyshortcuts={linux ? "Control+O" : "Meta+O"}
         aria-label={repository ? `Repository ${repository.name}` : "Choose a repository"}
-        title={repository ? `${repository.root}\nSwitch repository (⌘O)` : "Switch repository (⌘O)"}
+        title={`${repository ? repository.root + "\n" : ""}Switch repository (${repositoryHint})`}
         onClick={() => onOpen("repositories")}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -185,9 +188,9 @@ export function Switcher({
               : "switch-worktree"
           }
           aria-haspopup="dialog"
-          aria-keyshortcuts="Meta+Shift+O"
+          aria-keyshortcuts={linux ? "Control+Shift+O" : "Meta+Shift+O"}
           aria-label={`Worktree ${worktree ? worktreeName(worktree) : ""}`.trim()}
-          title={worktree ? `${worktree.path}\nSwitch worktree (⇧⌘O)` : "Switch worktree (⇧⌘O)"}
+          title={`${worktree ? worktree.path + "\n" : ""}Switch worktree (${worktreeHint})`}
           disabled={!info}
           onClick={() => onOpen("worktrees")}
         >

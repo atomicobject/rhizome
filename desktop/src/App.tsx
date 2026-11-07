@@ -256,7 +256,15 @@ export function App() {
   useEffect(() => {
     const observer = new ResizeObserver(report);
     if (region.current) observer.observe(region.current);
-    return () => observer.disconnect();
+    const resized = () => {
+      reported.current = "";
+      report();
+    };
+    window.addEventListener("resize", resized);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", resized);
+    };
   }, [report]);
 
   // Page controls appear only while the page they act on is on screen.
@@ -801,107 +809,128 @@ export function App() {
 
   return (
     <div className="shell">
-      <header className="toolbar" data-tauri-drag-region>
-        <div className="toolbar-start" data-tauri-drag-region>
-          <button
-            className="icon-button"
-            aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-            aria-pressed={sidebarCollapsed === false}
-            title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (⌃⌘S or ⌘\\)`}
-            disabled={sidebarCollapsed === undefined}
-            onClick={() => pageCommand({ command: "sidebar", collapsed: !sidebarCollapsed })}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <rect x="2" y="3" width="12" height="10" rx="1.5" />
-              <path d="M6 3v10" />
-            </svg>
-          </button>
-          {repositories.length > 0 && (
-            <Switcher
-              repository={selected}
-              info={selectedFound?.info}
-              worktree={worktree}
-              onOpen={finder.open}
-              onMenu={(at) => selected && repositoryMenu(selected, at)}
-            />
-          )}
-          {(
-            [
-              ["back", "Back", "M10 3.5 5.5 8l4.5 4.5"],
-              ["forward", "Forward", "M6 3.5 10.5 8 6 12.5"],
-              ["reload", "Reload", "M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 2.5v2.8H9.7"],
-            ] as const
-          ).map(([to, label, path]) => (
+      <div className="toolbar-viewport">
+        <header className="toolbar" data-tauri-drag-region>
+          <div className="toolbar-start" data-tauri-drag-region>
+            {window.__RHIZOME_PLATFORM__ === "linux" && (
+              <button
+                className="icon-button"
+                aria-label="Application menu"
+                aria-haspopup="menu"
+                onClick={(event) => {
+                  const box = event.currentTarget.getBoundingClientRect();
+                  void request("application-menu", { x: box.left, y: box.bottom });
+                }}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M3 4h10M3 8h10M3 12h10" />
+                </svg>
+              </button>
+            )}
             <button
-              key={to}
               className="icon-button"
-              aria-label={label}
-              title={to === "reload" ? "Reload (⌘R)" : label}
-              disabled={covered || open?.step !== "ready"}
-              onClick={() => void request("browse", { to }).catch(() => {})}
+              aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              aria-pressed={sidebarCollapsed === false}
+              title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (${window.__RHIZOME_PLATFORM__ === "linux" ? "Ctrl+Alt+S" : "⌃⌘S or ⌘\\"})`}
+              disabled={sidebarCollapsed === undefined}
+              onClick={() => pageCommand({ command: "sidebar", collapsed: !sidebarCollapsed })}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path d={path} />
+                <rect x="2" y="3" width="12" height="10" rx="1.5" />
+                <path d="M6 3v10" />
               </svg>
             </button>
-          ))}
-          {worktree?.pinOffer && selected?.pinOfferDismissed !== worktree.pinOffer.available && (
-            <button
-              className="toolbar-pill"
-              aria-haspopup="menu"
-              title={
-                worktree.pinOffer.state === "advance"
-                  ? `This worktree pins Rhizome ${worktree.pinOffer.pinned}; the app has ${worktree.pinOffer.available}.`
-                  : `This worktree pins Rhizome ${worktree.pinOffer.pinned}, newer than the app's ${worktree.pinOffer.available}.`
-              }
-              onClick={(e) => pinMenu(e.currentTarget)}
-            >
-              {worktree.pinOffer.state === "advance"
-                ? `Rhizome ${worktree.pinOffer.available} available`
-                : `Needs Rhizome ${worktree.pinOffer.pinned}`}
-            </button>
+            {repositories.length > 0 && (
+              <Switcher
+                repository={selected}
+                info={selectedFound?.info}
+                worktree={worktree}
+                onOpen={finder.open}
+                onMenu={(at) => selected && repositoryMenu(selected, at)}
+              />
+            )}
+            {(
+              [
+                ["back", "Back", "M10 3.5 5.5 8l4.5 4.5"],
+                ["forward", "Forward", "M6 3.5 10.5 8 6 12.5"],
+                ["reload", "Reload", "M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 2.5v2.8H9.7"],
+              ] as const
+            ).map(([to, label, path]) => (
+              <button
+                key={to}
+                className="icon-button"
+                aria-label={label}
+                title={
+                  to === "reload"
+                    ? `Reload (${window.__RHIZOME_PLATFORM__ === "linux" ? "Ctrl+R" : "⌘R"})`
+                    : label
+                }
+                disabled={covered || open?.step !== "ready"}
+                onClick={() => void request("browse", { to }).catch(() => {})}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d={path} />
+                </svg>
+              </button>
+            ))}
+            {worktree?.pinOffer && selected?.pinOfferDismissed !== worktree.pinOffer.available && (
+              <button
+                className="toolbar-pill"
+                aria-haspopup="menu"
+                title={
+                  worktree.pinOffer.state === "advance"
+                    ? `This worktree pins Rhizome ${worktree.pinOffer.pinned}; the app has ${worktree.pinOffer.available}.`
+                    : `This worktree pins Rhizome ${worktree.pinOffer.pinned}, newer than the app's ${worktree.pinOffer.available}.`
+                }
+                onClick={(e) => pinMenu(e.currentTarget)}
+              >
+                {worktree.pinOffer.state === "advance"
+                  ? `Rhizome ${worktree.pinOffer.available} available`
+                  : `Needs Rhizome ${worktree.pinOffer.pinned}`}
+              </button>
+            )}
+          </div>
+          {shown ? (
+            <PageSections state={shown} onCommand={pageCommand} />
+          ) : (
+            <span data-tauri-drag-region />
           )}
-        </div>
-        {shown ? (
-          <PageSections state={shown} onCommand={pageCommand} />
-        ) : (
-          <span data-tauri-drag-region />
-        )}
-        <div className="toolbar-end" data-tauri-drag-region>
-          {(busy || notice) && <span className="busy">{busy || notice}</span>}
-          {shown && <PageTools state={shown} searchRef={searchField} onCommand={pageCommand} />}
-          {(link?.state === "other-bundle" || link?.state === "dangling") && !settings && (
+          <div className="toolbar-end" data-tauri-drag-region>
+            {(busy || notice) && <span className="busy">{busy || notice}</span>}
+            {shown && <PageTools state={shown} searchRef={searchField} onCommand={pageCommand} />}
+            {(link?.state === "other-bundle" || link?.state === "dangling") && !settings && (
+              <button
+                className="toolbar-pill"
+                title={`${link.linkPath} points to ${link.target ?? "a Rhizome app that no longer exists"}.`}
+                onClick={openSettings}
+              >
+                Repair rzm Command
+              </button>
+            )}
+            {update?.state === "ready" && (
+              <button
+                className="toolbar-pill ready"
+                title={`Rhizome ${update.version} is downloaded. Open repositories reopen after the restart.`}
+                disabled={!!busy}
+                onClick={installUpdate}
+              >
+                Restart to Update
+              </button>
+            )}
             <button
-              className="toolbar-pill"
-              title={`${link.linkPath} points to ${link.target ?? "a Rhizome app that no longer exists"}.`}
-              onClick={openSettings}
+              className="icon-button"
+              aria-label="Settings"
+              aria-pressed={settings}
+              onClick={() => (settings ? setSettings(false) : openSettings())}
             >
-              Repair rzm Command
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="8" cy="8" r="2.2" />
+                <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+              </svg>
             </button>
-          )}
-          {update?.state === "ready" && (
-            <button
-              className="toolbar-pill ready"
-              title={`Rhizome ${update.version} is downloaded. Open repositories reopen after the restart.`}
-              disabled={!!busy}
-              onClick={installUpdate}
-            >
-              Restart to Update
-            </button>
-          )}
-          <button
-            className="icon-button"
-            aria-label="Settings"
-            aria-pressed={settings}
-            onClick={() => (settings ? setSettings(false) : openSettings())}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="8" r="2.2" />
-              <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
-            </svg>
-          </button>
-        </div>
-      </header>
+          </div>
+        </header>
+      </div>
       <main className="main">
         {alert && (
           <div className="alert" role="alert">

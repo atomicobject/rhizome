@@ -12,6 +12,21 @@ use url::Url;
 /// Marks the content view so the web UI hides its header and reports state.
 pub const MARKER: &str = "window.__RHIZOME_DESKTOP__ = true;";
 
+/// Keep runtime content readable when the compositor gives Linux a very narrow
+/// window. This is presentation-only and also works with older pinned runtimes.
+#[cfg(target_os = "linux")]
+pub const LINUX_SCROLL_CANVAS: &str = r#"
+(() => {
+  const install = () => {
+    const style = document.createElement('style');
+    style.textContent = 'html { overflow-x: auto !important; } .app-shell { min-width: 480px !important; }';
+    document.head.append(style);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
+  else install();
+})();
+"#;
+
 /// Turns on the web UI's React render regions (SPEC-0116). They add noticeable
 /// render time, so a release build adds this only when the user asks.
 pub const RENDER_PROFILING: &str = "window.__RHIZOME_RENDER_PROFILING__ = true;";
