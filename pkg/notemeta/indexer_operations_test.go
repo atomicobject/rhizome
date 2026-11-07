@@ -37,7 +37,7 @@ func TestIndexerEnsureIndexedPublishesCurrentProviderProvenance(t *testing.T) {
 	require.Equal(t, semdb.NoteProjectionStatusCurrent, row.Projection.Status)
 	require.Equal(t, row.ContentHash, row.Projection.SourceContentHash)
 	require.Equal(t, "markdown-provider-v1", row.Projection.ProviderVersion)
-	require.Equal(t, "markdown-projection-v6", row.Projection.ProjectionVersion)
+	require.Equal(t, "markdown-projection-v7", row.Projection.ProjectionVersion)
 }
 
 func TestIndexerProviderVersionChangeReprojectsWithoutRawHashChange(t *testing.T) {

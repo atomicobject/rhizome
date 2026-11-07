@@ -47,7 +47,9 @@ const IndexerVersion = "v1.17.0"
 // Bump this when note parsing or section extraction behavior changes.
 // v1.1.0 rebuilds note anchors with the shared exact frontmatter boundary.
 // v1.2.0 re-ingests notes so anchor labels that several notes define with
-// different selectors go to the note with the smallest path.
+// different selectors go to the note with the smallest path, and re-extracts
+// doc sections now that an ATX heading needs a space, tab, or line end after
+// its hashes, so a line-start tag such as #todo stays body text.
 const NoteIndexerVersion = "v1.2.0"
 
 // ReverseIndexVersion is a hash/version string that changes when reverse-index

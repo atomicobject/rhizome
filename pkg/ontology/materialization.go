@@ -49,7 +49,9 @@ import (
 // indexes republish records for search without embeddings.
 // v27: relation occurrences name their authoring node and field, and a relation declared from
 // both ends merges into one edge row instead of keeping whichever host wrote last.
-const OntologyMaterializationVersion = 27
+// v28: an ATX heading needs a space, tab, or line end after its hashes, so a line-start
+// tag such as #todo no longer becomes a heading node.
+const OntologyMaterializationVersion = 28
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

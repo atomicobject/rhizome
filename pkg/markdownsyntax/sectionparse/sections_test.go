@@ -20,3 +20,11 @@ func TestParseKeepsCanonicalHeadingIdentityAndAuthoredIDs(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRequiresSpaceAfterATXMarker(t *testing.T) {
+	nodes := Parse("notes/example.md", "# Intro\n#todo follow up\n#\tTabbed\n")
+	require.Len(t, nodes, 2)
+	require.Equal(t, "Intro", nodes[0].Title)
+	require.Equal(t, "Tabbed", nodes[1].Title)
+	require.Contains(t, nodes[0].Content, "#todo follow up")
+}
