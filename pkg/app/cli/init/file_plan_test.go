@@ -507,3 +507,32 @@ func TestSyncLeavesAnUnlinkedWorkflowInPlace(t *testing.T) {
 	require.FileExists(t, filepath.Join(root, ".rhizome", "modules", "agentic-engineering", "views", "efforts.yaml"))
 	require.Contains(t, readTestFile(t, root, "AGENTS.md"), managedTemplateBlockStartPrefix+templateAgenticEngineering)
 }
+
+func TestSyncWritesALinkedClaudeMdOnceAndKeepsTheAgentsMdEdit(t *testing.T) {
+	root := t.TempDir()
+	syncForTest(t, root, nil, failUI{t})
+	require.NoError(t, os.Remove(filepath.Join(root, "CLAUDE.md")))
+	if err := os.Symlink("AGENTS.md", filepath.Join(root, "CLAUDE.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	// The link was added after the last run, so CLAUDE.md has no record, and
+	// an older version wrote the AGENTS.md block, so its edit is kept.
+	record, ok := loadGeneratedFiles(root)
+	require.True(t, ok)
+	record.forget("CLAUDE.md#rhizome")
+	record.Written["AGENTS.md#rhizome"] = contentFingerprint([]byte("an older block"))
+	require.NoError(t, record.save(root))
+	agents := readTestFile(t, root, "AGENTS.md")
+	body, ok := managedBlockBody(agents, "rhizome")
+	require.True(t, ok)
+	writeTestFile(t, root, "AGENTS.md", strings.Replace(agents, body, body+"\n- Team rule.", 1))
+
+	report := syncForTest(t, root, nil, nil)
+
+	require.Contains(t, readTestFile(t, root, "AGENTS.md"), "- Team rule.")
+	require.Contains(t, report.Kept, "AGENTS.md#rhizome")
+	require.NotContains(t, report.Updated, "CLAUDE.md")
+	target, err := os.Readlink(filepath.Join(root, "CLAUDE.md"))
+	require.NoError(t, err)
+	require.Equal(t, "AGENTS.md", target)
+}
