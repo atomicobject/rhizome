@@ -98,24 +98,65 @@ def validate_pull_request(root: Path, pr: dict, *, event_sha: str | None = None)
     return {"source": commit, "version": version, "release_pr": str(pr["number"]), "candidate_only": "false"}
 
 
-def select(root: Path, event: dict, event_name: str, sha: str, *, candidate=False) -> dict | None:
+class GhPulls:
+    """Read pull requests through the workflow's read-only token."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def pull(self, number: int) -> dict:
+        return json.loads(run(["gh", "api", f"repos/{REPOSITORY}/pulls/{number}"], self.root))
+
+    def for_commit(self, sha: str) -> list[dict]:
+        return json.loads(run(["gh", "api", f"repos/{REPOSITORY}/commits/{sha}/pulls"], self.root))
+
+
+def _release_pr(pr: dict) -> bool:
+    return bool(pr.get("merged")) and pr.get("head", {}).get("ref", "").startswith("release-prep/")
+
+
+def select(root: Path, event: dict, event_name: str, sha: str, *, candidate=False,
+           release_pr: int | None = None, pulls=None) -> dict | None:
     if not SHA.fullmatch(sha):
         raise ValueError("workflow source must be an exact commit SHA")
     if event.get("repository", {}).get("full_name") != REPOSITORY:
         raise ValueError("release workflow is restricted to the public Rhizome repository")
+    pulls = pulls or GhPulls(root)
     if candidate:
-        if event_name != "workflow_dispatch":
-            raise ValueError("candidate mode requires an explicit manual dispatch")
+        if event_name != "workflow_dispatch" or release_pr is not None:
+            raise ValueError("candidate mode requires an explicit manual dispatch without a release PR")
         if git(root, "rev-parse", "HEAD") != sha or git(root, "status", "--porcelain"):
             raise ValueError("candidate checkout must be clean at the selected workflow SHA")
         version = source_release_version((root / VERSION_PATH).read_text())
         return {"source": sha, "version": version, "release_pr": "", "candidate_only": "true"}
-    if event_name == "pull_request":
-        pr = event.get("pull_request", {})
-        if not pr.get("merged") or not pr.get("head", {}).get("ref", "").startswith("release-prep/"):
+    if event_name == "push":
+        # The protected release environment admits only main, so publication runs
+        # from the push a release-PR merge makes, never from the PR's own ref.
+        numbers = {pr["number"] for pr in pulls.for_commit(sha)
+                   if pr.get("merge_commit_sha") == sha and pr.get("head", {}).get("ref", "").startswith("release-prep/")}
+        if not numbers:
             return None
-        return validate_pull_request(root, pr, event_sha=sha)
-    raise ValueError("manual dispatch is for candidates; recover by retrying the original failed publisher job")
+        if len(numbers) != 1:
+            raise ValueError("release commit must belong to exactly one release PR")
+        pr = pulls.pull(numbers.pop())
+        return validate_pull_request(root, pr, event_sha=sha) if _release_pr(pr) else None
+    if event_name == "workflow_dispatch" and release_pr is not None:
+        # Starts a release whose merge started no publishing run. Anything
+        # already published is recovered by retrying the original failed job.
+        pr = pulls.pull(release_pr)
+        if not _release_pr(pr):
+            raise ValueError("release_pr must name a merged release-prep PR")
+        version = pr["head"]["ref"].removeprefix("release-prep/")
+        if git(root, "ls-remote", "--tags", "origin", f"refs/tags/{version}"):
+            raise ValueError(f"{version} is already tagged; recover by retrying the original failed publisher job")
+        commit = pr.get("merge_commit_sha", "")
+        if not SHA.fullmatch(commit):
+            raise ValueError("release PR must identify exact head and merge commits")
+        git(root, "merge-base", "--is-ancestor", commit, sha)
+        git(root, "checkout", "--quiet", "--detach", commit)
+        return validate_pull_request(root, pr)
+    raise ValueError("manual dispatch is for candidates or a release PR whose merge started no release; "
+                     "recover a started release by retrying the original failed publisher job")
 
 
 def main(argv=None):
@@ -124,10 +165,12 @@ def main(argv=None):
     parser.add_argument("--event-name", required=True)
     parser.add_argument("--source", required=True)
     parser.add_argument("--candidate-only", choices=("true", "false"), default="false")
+    parser.add_argument("--release-pr", default="")
     args = parser.parse_args(argv)
     try:
+        release_pr = int(args.release_pr) if args.release_pr else None
         chosen = select(Path.cwd(), json.loads(args.event_file.read_text()), args.event_name,
-                        args.source, candidate=args.candidate_only == "true")
+                        args.source, candidate=args.candidate_only == "true", release_pr=release_pr)
         if chosen:
             output = os.environ.get("GITHUB_OUTPUT")
             if output:
@@ -136,8 +179,8 @@ def main(argv=None):
                         stream.write(f"{key}={value}\n")
             print(json.dumps(chosen))
         else:
-            print("Ordinary merge: no release selected.")
-    except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
+            print("No release PR merged in this commit: no release selected.")
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0

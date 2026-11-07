@@ -1,7 +1,7 @@
-//go:build !darwin
+//go:build !darwin && !linux
 
 package session
 
-// DefaultStore reports ErrStoreUnavailable: managed sign-in is macOS-only
-// until Secret Service and Credential Manager adapters pass native checks.
+// DefaultStore reports ErrStoreUnavailable until a native secure-store adapter
+// passes checks on this platform.
 func DefaultStore() (Store, error) { return nil, ErrStoreUnavailable }

@@ -30,6 +30,24 @@ Native builds use the host platform. The `rzm` staging script rejects cross comp
 
 The selected runtime must support `serve --headless`. For a local development build, run `make build` from the repository root, then choose `bin/darwin/rzm` under Settings > Use an existing executable. Repository development settings continue to take precedence. Global executable overrides expect a native Rhizome binary; external-manager folders may use a launcher script through their folder options.
 
+## Local Linux build
+
+Install the repository's Go and Node versions with `mise install go node`, Rust with `rustup`, and the Linux prerequisites linked above. Build on the target machine; Linux ARM64 uses `aarch64-unknown-linux-gnu`. From the repository root:
+
+```sh
+cd desktop
+npm ci
+PATH="$HOME/.cargo/bin:$PATH" mise exec -- npm run tauri -- build --no-bundle --config src-tauri/tauri.dev.conf.json
+```
+
+The existing `make desktop-build` and `make desktop-install-dev` targets package and install macOS apps. For a local Linux installation, copy `src-tauri/target/release/rhizome-desktop`, `src-tauri/target/release/rzm`, and `src-tauri/target/release/team-api` together into a user-owned directory such as `~/.local/share/rhizome-dev/bin`. The companion must be named `rzm` beside `rhizome-desktop`. Add a desktop launcher pointing directly to `rhizome-desktop`, and select that directory's `rzm` under Settings > Use an existing executable, or link it at `~/.local/bin/rzm` if no CLI is installed there. Linux does not yet discover a bundled global CLI automatically.
+
+Atomic Object sign-in requires libsecret's `/usr/bin/secret-tool` and an unlocked Secret Service keyring, such as GNOME Keyring or a compatible KWallet service. The adapter connects to the real OS user's `/run/user/<uid>/bus`; custom session-bus addresses are intentionally not inherited from repository environments. Tokens stay in the keyring, never in Rhizome configuration files.
+
+This produces a development build with updates disabled. Linux support is incomplete: `rzm desktop` and Copy Page URL currently support macOS only, and Start Task invokes macOS Terminal through `osascript`.
+
+The Linux shell uses a GTK overlay host so the toolbar and runtime content do not compete for vertical space. The runtime fills the region below the shell header, and repository/worktree finders are a further overlay. The GTK menu stays registered for accelerators but is hidden behind the header's Application menu button. Its enabled items explicitly accept accelerators with hidden ancestors. App shortcuts dispatch before WebKit handles focused-widget keys, while ordinary editor copy/paste/select-all/undo remain with the editor. Bringing the window forward does not reveal the menu row. Linux windows may shrink to 100px wide. Below a 480px working canvas, the header and runtime page scroll horizontally instead of compressing the content. At narrow widths, sections use a selector and search expands from a compact field on focus; the header reserves space for its controls instead of keeping equal-width side columns.
+
 ## Distribution and updates
 
 [SPEC-0122](../docs/specs/technical/desktop-distribution-and-updates.md) owns this behavior.
