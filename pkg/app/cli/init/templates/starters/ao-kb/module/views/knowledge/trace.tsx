@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { DIRECTORY_QUERY, createReader, directory, type DirectoryData } from "./trace/data.ts";
 import { Graph, Legend } from "./trace/graph.tsx";
-import { useModelBindings } from "./data.tsx";
+import { readTypeSpecs, useModelBindings } from "./data.tsx";
 import { columns } from "./trace/layout.ts";
 import { depth, label, queryBudget, type Record as KnowledgeRecord } from "./trace/model.ts";
 import { ExtractionHistory, Relationships } from "./trace/relationships.tsx";
@@ -38,7 +38,7 @@ const focusQuery = (model: boolean) => `query TraceFocus($ref: String!) {
     ... on Source { aoId headline name }
     ... on Concept { aoId headline name }
     ... on Artifact { aoId headline name }
-    ${model ? "... on AOKBModelRecord { aoId: aoValue }" : ""}
+    ${model ? "... on AOKBModelRecord { aoValue }" : ""}
   }
 }`;
 function TraceBody({
@@ -59,14 +59,16 @@ function TraceBody({
       : listedRecords.find((r) => r.__typename === "Assertion")?.path;
   const listedFocus = listedRecords.find((r) => r.path === focusPath);
   const lookup = useGraphQL<{
-    node: (Omit<KnowledgeRecord, "aoId"> & { aoId?: string | null }) | null;
+    node:
+      | (Omit<KnowledgeRecord, "aoId"> & { aoId?: string | null; aoValue?: string | null })
+      | null;
   }>(focusQuery(model), { ref: focusPath ?? "" }, { enabled: !!focusPath && !listedFocus });
   const found = lookup.data?.node;
   const extra: KnowledgeRecord | undefined =
     found &&
     found.path === focusPath &&
-    (KNOWLEDGE.includes(found.__typename) || found.aoId !== undefined)
-      ? { ...found, aoId: found.aoId ?? null }
+    (KNOWLEDGE.includes(found.__typename) || found.aoValue !== undefined)
+      ? { ...found, aoId: found.aoId ?? found.aoValue ?? null }
       : undefined;
   const records = extra && !listedFocus ? [...listedRecords, extra] : listedRecords;
   const focus = listedFocus ?? extra;
@@ -95,6 +97,11 @@ function TraceBody({
           detail:
             "The reference directory reached its 200-identities-per-type ceiling; relationships outside that directory may be unavailable.",
         };
+      const reached = [...trace.nodes.values()].map((n) => n.record);
+      const specs = await readTypeSpecs(
+        reached.flatMap((r) => (KNOWLEDGE.includes(r.__typename) ? [] : [r.__typename])),
+      );
+      for (const r of reached) r.kind = specs[r.__typename]?.label;
       const history = await reader.extraction(focus.path);
       const source = reader.cache.get(focus.path);
       return {

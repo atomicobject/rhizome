@@ -1,4 +1,6 @@
 .ao-trace {
+  max-width: 1360px;
+  margin-inline: auto;
   padding: 14px 22px;
   container: ao-trace / inline-size;
   color: var(--text);

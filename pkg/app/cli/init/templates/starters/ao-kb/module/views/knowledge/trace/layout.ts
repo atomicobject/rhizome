@@ -1,4 +1,4 @@
-import { edgeKey, type Trace, type TraceEdge, type Visit } from "./model.ts";
+import { edgeKey, kind, type Trace, type TraceEdge, type Visit } from "./model.ts";
 
 export const COLUMN_CAP = 6;
 export type Column = {
@@ -82,9 +82,6 @@ export function edgeRole(edge: TraceEdge, trace: Trace, shown: Set<string>) {
 export function hiddenTypes(hidden: Visit[]) {
   const counts = new Map<string, number>();
   for (const n of hidden)
-    counts.set(
-      n.record.__typename.toLowerCase(),
-      (counts.get(n.record.__typename.toLowerCase()) ?? 0) + 1,
-    );
+    counts.set(kind(n.record).toLowerCase(), (counts.get(kind(n.record).toLowerCase()) ?? 0) + 1);
   return [...counts].map(([type, n]) => `${n} ${type}${n === 1 ? "" : "s"}`).join(", ");
 }

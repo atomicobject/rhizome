@@ -117,8 +117,13 @@ const edgesOf = (cap: number, direction: string) =>
 const neighborhood = (cap: number, direction = "OUTBOUND") =>
   `neighborhood${edgesOf(cap, direction)}`;
 const section = (cap: number) => `{ ${REF} ${neighborhood(cap)} }`;
-const selection = (cap: number, model: boolean) => `__typename path title ${REF}
-  ${model ? `... on AOKBModelRecord { aoValue workspace { source } modelOut: neighborhood${edgesOf(cap, "OUTBOUND")} modelIn: neighborhood${edgesOf(cap, "INBOUND")} }` : ""}
+/** A product-model record: its authored value and its edges in both stored directions. */
+const modelSelection = (
+  cap: number,
+) => `__typename path title ${REF} ... on AOKBModelRecord { aoValue }
+  workspace { source } modelOut: neighborhood${edgesOf(cap, "OUTBOUND")} modelIn: neighborhood${edgesOf(cap, "INBOUND")}`;
+const isModelKey = (key: string) => /#record(-pos)?:/.test(key);
+const selection = (cap: number) => `__typename path title ${REF}
   ... on Assertion { aoId headline provenanceSource ${FM.join(" ")}
     sourcesSection { ${REF} citations { recordedLink sources(first: ${cap}) { path } sourcesCount } }
     connectionsSection ${section(cap)} concepts(first: ${cap}) { path } conceptsCount }
@@ -361,7 +366,7 @@ export function createReader(
     const selected = missing.slice(0, Math.max(0, budget - cache.size));
     if (selected.length) {
       const response = await query<{ [key: string]: Detail | null }>(
-        `{ ${selected.map((path, i) => `n${i}: node(ref: ${JSON.stringify(path)}) { ${selection(cap, model)} }`).join("\n")} }`,
+        `{ ${selected.map((path, i) => `n${i}: node(ref: ${JSON.stringify(path)}) { ${model && isModelKey(path) ? modelSelection(cap) : selection(cap)} }`).join("\n")} }`,
       );
       selected.forEach((path, i) => {
         const record = response[`n${i}`];

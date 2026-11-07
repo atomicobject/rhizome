@@ -2,7 +2,7 @@ import { Count, MoreToggle, NodeLink, useTypeColors } from "@rhizome/kit";
 import { useEffect, useId, useRef, useState } from "react";
 import { MODEL_WORDS, traversal } from "../lib/relations.ts";
 import { columns, hiddenTypes } from "./layout.ts";
-import { label, presentation, type Trace, type Visit } from "./model.ts";
+import { kind, label, presentation, type Trace, type Visit } from "./model.ts";
 
 const verbs: { [key: string]: [string, string] } = {
   cites: ["Cites", "Cited by"],
@@ -129,7 +129,7 @@ export function Graph({
       <>
         <span className="ao-trace-card-meta">
           <span className="ao-trace-type" style={{ background: color(record.__typename) }} />
-          {record.__typename}
+          {kind(record)}
           <span className="ao-trace-id">{record.aoId || "Not recorded"}</span>
         </span>
         <span className="ao-trace-card-title">{label(record)}</span>
