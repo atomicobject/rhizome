@@ -40,6 +40,11 @@ func spliceFrontmatter(content string, original, updated map[string]interface{})
 			return remarshalFrontmatter(content, updated)
 		}
 		for i := 0; i < len(mapping.Content); i += 2 {
+			// Re-encoded entries start at column 1, so an indented root
+			// mapping would mix indentations; rewrite it whole instead.
+			if mapping.Content[i].Column != 1 {
+				return remarshalFrontmatter(content, updated)
+			}
 			keys = append(keys, mapping.Content[i])
 		}
 	}
