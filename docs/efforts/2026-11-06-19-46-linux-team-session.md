@@ -62,6 +62,8 @@ Implemented the Linux adapter and installed the rebuilt desktop companion and st
 
 - 2026-11-07T03:43:20Z [PR preparation] Independent review of the combined Linux changes found no blocking issues. Rechecked `RZM_GTK_SHORTCUT_TEST=1 cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml` (112 passed), `TEAMAPI_SECRET_SERVICE_TEST=1 GOCACHE=$PWD/.gocache mise exec -- go test -race -tags fts5 ./pkg/teamapi/...` (passed), and `mise exec -- npm --prefix desktop run check` (117 frontend tests plus auxiliary checks passed). Final `mise exec -- make check` failed at unchanged `ExplorerWorkspace.layout.test.tsx:77` waiting for the initial folder graph: 1,995/1,996 web tests passed. The isolated test passed, which does not diagnose or fix the full-suite timeout. No retry or timeout increase was added. Greptile is installed but not signed in; its required review and full-suite verification remain open before merge. Open a draft PR and retain active status until these gates are resolved. Native macOS execution is unavailable on this host; use the PR desktop job and subsequent visual acceptance.
 
+- 2026-11-07T03:44:57Z [delivery] Committed implementation as `2d432b56` and opened [draft PR #110](https://github.com/atomicobject/rhizome/pull/110). `greptile review --json` on the committed branch exited with a sign-in prerequisite error. Default and frozen-scope validation passed after the PR-preparation updates; the staged credential scanner found no leaks. Keep this effort active for the recorded verification gaps.
+
 ## Deviations
 
 None.
@@ -78,4 +80,4 @@ No shard proposed; retain the platform procedure beside the adapter documentatio
 
 ## Status
 
-Local implementation and installation are verified. Source delivery is on `linux-secret-service` for a draft PR. The effort remains active while the full-suite Explorer timeout and required Greptile review are unresolved; merging also awaits green CI. Native Mac visual acceptance remains unverified. No merge or publication is authorized.
+Local implementation and installation are verified. Source delivery is commit `2d432b56` on `linux-secret-service` in [draft PR #110](https://github.com/atomicobject/rhizome/pull/110). The effort remains active while the full-suite Explorer timeout and required Greptile review are unresolved; merging also awaits green CI. Native Mac visual acceptance remains unverified. No merge or publication is authorized.
