@@ -41,7 +41,9 @@ import (
 // v23: descendants of an invalid RECORD container are invalid too, so no catalog row or chunk
 // names a parent without identity, and RECORD chunks take positional logical IDs from the composed
 // record context.
-const OntologyMaterializationVersion = 23
+// v24: RECORD references resolve projected file keys; property presence and wildcard membership
+// and @admit preserve selected-product admission without authored identifier aliases.
+const OntologyMaterializationVersion = 24
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

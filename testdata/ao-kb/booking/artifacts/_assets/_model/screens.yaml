@@ -1,0 +1,11 @@
+synced: "2026-10-20T09:00:00Z"
+screens:
+  - id: SCR-BOOK
+    name: Book an appointment
+    route: /book
+    regions: [{name: Main, components: {booking-form: [default]}}]
+    supported_by: [a-000000000001]
+  - id: SCR-CANCEL
+    name: Cancel an appointment
+    route: /cancel
+    regions: [{name: Main, components: {booking-form: [cancel]}}]

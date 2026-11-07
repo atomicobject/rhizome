@@ -40,7 +40,7 @@ test('checks static readiness, limitations and unavailable analysis without writ
   assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
   assert.equal(named(root, 'product-model bindings'), undefined, 'the knowledge check leaves model bindings to their own check');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 14);
+  assert.equal(result.checks.length, 16);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
@@ -51,7 +51,7 @@ test('missing root, unsupported versions and product modes are explicit', t => {
     const root = fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: multi-flat\n---\n` });
     assert.equal(named(root, 'schemaVersion').status, 'unsupported');
     assert.equal(named(root, 'product mode').status, 'warning');
-    assert.match(named(root, 'product mode').message, /model bindings only/);
+    assert.match(named(root, 'product mode').message, /knowledge admission and model bindings/);
     if (version === 7) assert.match(named(root, 'schemaVersion').message, /upgrade AO KB first/);
   }
 });
@@ -84,6 +84,28 @@ test('include coverage needs the AO knowledge paths and an explicit include for 
   assert.match(missing.message, /\.kb\/curation\/_conflicts\.md/);
   const explicit = 'notes:\n  includes: ["**/*.md", ".kb/curation/_conflicts.md"]\n';
   assert.equal(named(fixture(t, { '.rhizome/config.yml': explicit, '.kb/curation/_conflicts.md': '# Conflicts\n' }), 'note includes').status, 'ok');
+  const manifest = JSON.stringify({ sources: [{ path: 'artifacts/_assets/_model/features.yaml' }, { path: 'artifacts/_assets/engine-blocks/rows.json' }] });
+  const bound = { '.rhizome/modules/ao-kb/bindings/manifest.json': manifest };
+  const uncovered = named(fixture(t, { ...bound, '.rhizome/config.yml': broad }), 'note includes');
+  assert.equal(uncovered.status, 'warning', 'a broad Markdown glob does not activate structured sources');
+  assert.match(uncovered.message, /artifacts\/_assets\/_model\/features\.yaml, artifacts\/_assets\/engine-blocks\/rows\.json/);
+  const models = 'notes:\n  includes: ["**/*.md", "artifacts/_assets/_model/*.yaml", "artifacts/_assets/engine-blocks/rows.json"]\n';
+  assert.equal(named(fixture(t, { ...bound, '.rhizome/config.yml': models }), 'note includes').status, 'ok');
+});
+
+test('product tags AO would read differently from admission are named', t => {
+  const vault = '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n';
+  const clean = named(fixture(t, { '.kb/config/vault.md': vault, 'assertions/a.md': '---\nproducts: [alpha, "*"]\n---\nBody\n' }), 'product tags');
+  assert.equal(clean.status, 'ok');
+  const root = fixture(t, { '.kb/config/vault.md': vault,
+    'assertions/inline.md': '---\nproducts: [beta]\n---\nproducts:: alpha\n',
+    'assertions/case.md': '---\nproducts: [Alpha]\n---\nBody\n',
+    'assertions/fine.md': '---\nproducts: [beta]\n---\nBody\n' });
+  const loose = named(root, 'product tags');
+  assert.equal(loose.status, 'unsupported');
+  assert.match(loose.message, /assertions\/case\.md/);
+  assert.match(loose.message, /assertions\/inline\.md/);
+  assert.doesNotMatch(loose.message, /fine\.md/);
 });
 
 test('source ownership is ok only when the AO knowledge paths are declared', t => {
@@ -157,10 +179,23 @@ test('ownership patterns match like the declaration', () => {
   assert.ok(!globMatch('products/*/artifacts/**', 'products/alpha/beta/artifacts/x.yaml'));
   assert.ok(globMatch('decisions.md', 'DECISIONS.md'), 'case-insensitive like the server');
   assert.ok(!globMatch('artifacts/**', 'notes/artifacts.md'));
+  assert.ok(!globMatch('**.md', 'assertions/note.md'), 'globstar is recursive only as a whole path segment');
 });
 
 test('a missing compiler is an error, not a ready result', t => {
   const report = runCompilerCheck(fixture(t));
   assert.equal(report.bindingsReady, false);
   assert.equal(report.diagnostics[0].code, 'ao_compiler_missing');
+});
+
+test('public check preserves independent knowledge and model readiness', t => {
+  const root = fixture(t);
+  const runCompiler = () => ({...unselected(), knowledgeReady: true, modelReady: false,
+    bindings: {knowledge: {ready: true, status: 'ready'}, model: {ready: false, status: 'incomplete'}}});
+  const report = check(root, {runCompiler});
+  assert.equal(report.knowledgeReady, true);
+  assert.equal(report.modelReady, false);
+  assert.equal(report.bindingsReady, false);
+  assert.equal(report.bindings.knowledge.status, 'ready');
+  assert.equal(report.bindings.model.status, 'incomplete');
 });

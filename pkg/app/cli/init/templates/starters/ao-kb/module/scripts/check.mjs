@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { bindingRows, runCompilerCheck } from './lib/bindings-check.mjs';
+import { bindingRows, globMatch, runCompilerCheck } from './lib/bindings-check.mjs';
 
 // Read only the scalar frontmatter keys and simple include lists used by this check.
 function scalar(text, key) {
@@ -46,7 +46,7 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     ? 'Inspected schemaVersion 8 baseline.' : `Unsupported schemaVersion ${schema || '(missing)'}; ${Number(schema) < 8 ? 'upgrade AO KB first' : 'requires a compatible knowledge adapter'}.`, vaultPath);
   const mode = scalar(frontmatter, 'productMode');
   add('product mode', mode === 'single' ? 'ok' : 'warning', mode === 'single'
-    ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: the selected product scopes model bindings only. Knowledge views show every product's knowledge at the vault root in this release.`, vaultPath);
+    ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: setup requires one explicit product for knowledge admission and model bindings. Before refresh, static knowledge typing is unscoped; run rzm ao-kb refresh-bindings --product <slug>.`, vaultPath);
   const stampPath = '.kb/config/manifest.json';
   inspect('toolkit stamp', stampPath, () => {
     const stamp = json(root, stampPath)?.toolkit;
@@ -62,8 +62,14 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     // Discovery skips hidden directories unless an include names the hidden path literally.
     const registry = !existsSync(join(root, '.kb/curation/_conflicts.md'))
       || patterns?.some(p => p === '.kb/curation/_conflicts.md' || p.startsWith('.kb/curation/') || p.startsWith('.kb/'));
-    add('note includes', knowledge && registry ? 'ok' : 'warning', knowledge && registry
-      ? 'Includes cover the AO knowledge paths and the conflict registry. Ignore rules may still exclude files; prove projection after indexing.'
+    // Structured model sources need an include naming their extension; broad globs do not activate them.
+    const model = (json(root, `${module}/bindings/manifest.json`)?.sources ?? []).map(s => s.path);
+    const unincluded = [...new Set(model)].filter(path => !patterns?.some(p => p === path
+      || (globMatch(p, path) && p.endsWith(path.slice(path.lastIndexOf('.')))))).sort();
+    add('note includes', knowledge && registry && !unincluded.length ? 'ok' : 'warning', knowledge && registry && !unincluded.length
+      ? 'Includes cover the AO knowledge paths, the conflict registry, and the compiled model sources. Ignore rules may still exclude files; prove projection after indexing.'
+      : knowledge && registry
+      ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}`
       : !knowledge
       ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
       : 'Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.', configPath);
@@ -84,7 +90,7 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     const dir = join(root, module, 'ontology');
     const installed = existsSync(dir) && readdirSync(dir).some(name => name.endsWith('.graphql'));
     add('knowledge bindings', installed ? 'ok' : 'error', installed
-      ? 'Static Markdown knowledge bindings installed; no compiler required. Index and typed query still required.'
+      ? 'Static Markdown knowledge schema installed. Refresh generates product admission; index and typed query still required.'
       : 'Static knowledge bindings missing; install the starter.', `${module}/ontology`);
   });
   inspect('frontmatter connections', 'assertions', () => {
@@ -105,6 +111,26 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
       ? `${affected.length} assertion(s) declare frontmatter connections as a sequence, which this release does not project; their ## Connections bullets and map-shaped connections still are: ${affected.join(', ')}`
       : 'Frontmatter connections, where present, use the supported map shape.', 'assertions');
   });
+  inspect('product tags', 'assertions', () => {
+    // Admission matchers also read inline fields and compare case-insensitively; AO reads
+    // frontmatter `products` exactly. Name the notes where the two could disagree.
+    const slugs = frontmatter.match(/^products:\s*\[([^\]]*)\]/m)?.[1].split(',').map(s => s.trim().replace(/^(['"])(.*)\1$/, '$2')) ?? [];
+    const affected = [];
+    for (const dir of ['assertions', 'sources', 'concepts', 'artifacts']) {
+      if (!existsSync(join(root, dir))) continue;
+      for (const name of readdirSync(join(root, dir), { recursive: true })) {
+        const path = `${dir}/${String(name).split('\\').join('/')}`;
+        if (!path.endsWith('.md') || path.includes('/_raw/')) continue;
+        const text = read(root, path) ?? '';
+        const values = text.match(/^---\r?\n[\s\S]*?^products:\s*\[([^\]]*)\]/m)?.[1].split(',').map(s => s.trim().replace(/^(['"])(.*)\1$/, '$2')) ?? [];
+        const loose = values.some(v => v !== '*' && !slugs.includes(v) && slugs.some(s => s.toLowerCase() === v.trim().toLowerCase()));
+        if (loose || /^products::/im.test(text.replace(/^---\r?\n[\s\S]*?\r?\n---/, ''))) affected.push(path);
+      }
+    }
+    add('product tags', affected.length ? 'unsupported' : 'ok', affected.length
+      ? `${affected.length} note(s) tag products with an inline products:: field or a case/space variant of a registered slug. AO ignores these; Rhizome's product admission may not: ${affected.join(', ')}`
+      : 'Knowledge product tags use exact registered slugs in frontmatter.', 'assertions');
+  });
   const weightsPath = '.kb/index/kb-weights.json';
   inspect('saved analysis', weightsPath, () => {
     const weights = json(root, weightsPath);
@@ -118,8 +144,11 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     checks,
     starterInstalled: checks.find(c => c.name === 'starter installed')?.status === 'ok',
     bindingsReady: Boolean(bindings.bindingsReady),
+    knowledgeReady: Boolean(bindings.knowledgeReady),
+    modelReady: Boolean(bindings.modelReady),
     indexReady: Boolean(bindings.indexReady),
-    bindings: { status: bindings.status, bindingsReady: Boolean(bindings.bindingsReady), indexReady: Boolean(bindings.indexReady), dependencies: bindings.dependencies, diagnostics: bindings.diagnostics ?? [] },
+    bindings: { status: bindings.status, bindingsReady: Boolean(bindings.bindingsReady), knowledge: bindings.bindings?.knowledge,
+      model: bindings.bindings?.model, indexReady: Boolean(bindings.indexReady), dependencies: bindings.dependencies, diagnostics: bindings.diagnostics ?? [] },
   };
 }
 

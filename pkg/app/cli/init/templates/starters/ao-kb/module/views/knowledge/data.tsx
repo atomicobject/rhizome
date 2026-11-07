@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useGraphQL } from "@rhizome/kit";
+import { graphql, useGraphQL } from "@rhizome/kit";
 import {
   CEILING,
   citations,
@@ -12,6 +12,10 @@ import {
 import type { Knowledge, Assertion, Coverage } from "./lib/knowledge.ts";
 import { readPassage } from "./lib/passage.ts";
 import { readSavedAnalysis } from "./lib/saved-analysis.ts";
+import { EVIDENCED_BY, typeSpec } from "./lib/model.ts";
+import type { ModelFile, ModelRecord, SourceValue, TypeSpec } from "./lib/model.ts";
+import { owner } from "./lib/refs.ts";
+import type { Endpoint, Ref } from "./lib/refs.ts";
 
 // Composite section-scoped citations and normalized AO relations need GraphQL;
 // a native collection row does not carry the origin-citation coverage contract.
@@ -73,13 +77,14 @@ export function useKnowledge() {
 export function useSavedAnalysis() {
   return useQuery({ queryKey: ["ao-kb", "saved-analysis"], queryFn: () => readSavedAnalysis() });
 }
-export function useCoverage(data: Knowledge | undefined) {
+/** Origin-citation coverage for `rows` (every loaded claim by default). */
+export function useCoverage(data: Knowledge | undefined, rows = data?.assertion) {
   return useQuery({
-    queryKey: ["ao-kb", "origin-coverage", data],
+    queryKey: ["ao-kb", "origin-coverage", data, rows?.map((a) => a.path)],
     enabled: !!data,
     queryFn: async () => {
-      const rows = await Promise.all(
-        (data?.assertion ?? []).map(async (a) => {
+      const results = await Promise.all(
+        (rows ?? []).map(async (a) => {
           const c = origin(a, data?.source ?? []);
           const result = c
             ? await readPassage(c.source && sourceText(c.source), c.locator, c.raw)
@@ -87,7 +92,7 @@ export function useCoverage(data: Knowledge | undefined) {
           return [a.path, coverage(c, result)] as const;
         }),
       );
-      return new Map<string, Coverage>(rows);
+      return new Map<string, Coverage>(results);
     },
   });
 }
@@ -102,5 +107,131 @@ export function useCitationPassages(a: Assertion, data: Knowledge) {
           passage: await readPassage(c.source && sourceText(c.source), c.locator, c.raw),
         })),
       ),
+  });
+}
+/** Whether product-model bindings are published: the generated SDL declares
+ * `AOKBModelRecord`. Its concrete types are the model record types. */
+export function useModelBindings() {
+  const query = useGraphQL<{ __type: { possibleTypes: { name: string }[] } | null }>(
+    `{ __type(name: "AOKBModelRecord") { possibleTypes { name } } }`,
+  );
+  return {
+    ...query,
+    data: query.data && {
+      ready: !!query.data.__type,
+      types: query.data.__type?.possibleTypes.map((t) => t.name) ?? [],
+    },
+  };
+}
+
+export const REF =
+  "ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }";
+export const ENDPOINT = "notePath kind fragment nodeId typeName structural";
+/** At most this many model records are read for one Attention pass. */
+export const MODEL_CEILING = 500;
+type RawModel = {
+  __typename: string;
+  title: string;
+  ref: Ref;
+  aoValue?: string | null;
+  workspace?: { source?: { value?: SourceValue; address?: string } | null } | null;
+  evidence?: { truncated: boolean; edges: { target: Endpoint }[] };
+};
+/** Model records by key (`notePath#fragment`), each with its native evidence edges. */
+export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
+  if (!keys.length) return [];
+  const data = await graphql<Record<string, RawModel | null>>(`{ ${keys
+    .map(
+      (key, i) => `n${i}: node(ref: ${JSON.stringify(key)}) { __typename title ${REF}
+          ... on AOKBModelRecord { aoValue } workspace { source }
+          evidence: neighborhood(direction: OUTBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } }`,
+    )
+    .join("\n")} }`);
+  return keys.flatMap((key, i) => {
+    const r = data[`n${i}`];
+    return r && r.aoValue !== undefined
+      ? [
+          {
+            key,
+            ref: r.ref,
+            title: r.title,
+            typeName: r.__typename,
+            aoValue: r.aoValue,
+            value: r.workspace?.source?.value,
+            evidence: r.evidence?.edges.map((e) => owner(e.target).key) ?? [],
+            evidenceTruncated: !!r.evidence?.truncated,
+          },
+        ]
+      : [];
+  });
+}
+/** Every model source file with its recorded `synced`, and the records each holds. */
+export async function readModelFiles() {
+  const data = await graphql<{
+    files: (ModelFile & { ref: Ref; workspace: { structure: { ref: Ref }[] } | null })[];
+  }>(`{ files: aOKBModelFile(first: 201) { ${REF} synced workspace { structure { ${REF} } } } }`);
+  return data.files.map((f) => ({
+    notePath: f.ref.notePath,
+    synced: f.synced,
+    records: (f.workspace?.structure ?? [])
+      .filter((s) => s.ref.typeName && s.ref.typeName !== "AOKBModelFile" && s.ref.fragment)
+      .map((s) => `${s.ref.notePath}#${s.ref.fragment}`),
+  }));
+}
+/** Labels and `@references` declarations for each type, from the public type docs. */
+export async function readTypeSpecs(names: string[]) {
+  const specs: Record<string, TypeSpec> = {};
+  await Promise.all(
+    [...new Set(names)].map(async (name) => {
+      const response = await fetch(`/api/v1/ontology/types/${encodeURIComponent(name)}?notes=none`);
+      if (!response.ok) throw new Error(`Type documentation for ${name}: HTTP ${response.status}`);
+      specs[name] = typeSpec(await response.json(), name);
+    }),
+  );
+  return specs;
+}
+/** Model records whose declared evidence names this claim (incoming evidenced-by). */
+export function useModelCiters(path: string, ready: boolean) {
+  return useQuery({
+    queryKey: ["ao-kb", "model-citers", path],
+    enabled: ready,
+    queryFn: async () => {
+      const data = await graphql<{
+        node: { neighborhood: { truncated: boolean; edges: { target: Endpoint }[] } } | null;
+      }>(
+        `query Citers($ref: String!) { node(ref: $ref) { neighborhood(direction: INBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } } }`,
+        { ref: path },
+      );
+      const ends = (data.node?.neighborhood.edges ?? []).map((e) => owner(e.target));
+      const [records, files] = await Promise.all([
+        readModelRecords([...new Set(ends.flatMap((e) => (e.positional ? [] : [e.key])))]),
+        readModelFiles(),
+      ]);
+      return {
+        records,
+        files,
+        positional: ends.filter((e) => e.positional).length,
+        truncated: !!data.node?.neighborhood.truncated,
+        specs: await readTypeSpecs(records.map((r) => r.typeName)),
+      };
+    },
+  });
+}
+/** Every model record in the selected product, bounded by MODEL_CEILING. */
+export function useModelIndex(ready: boolean) {
+  return useQuery({
+    queryKey: ["ao-kb", "model-index"],
+    enabled: ready,
+    queryFn: async () => {
+      const files = await readModelFiles();
+      const keys = files.flatMap((f) => f.records);
+      const records = await readModelRecords(keys.slice(0, MODEL_CEILING));
+      return {
+        files,
+        records,
+        capped: keys.length > MODEL_CEILING || files.length > 200,
+        specs: await readTypeSpecs(records.map((r) => r.typeName)),
+      };
+    },
   });
 }

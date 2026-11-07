@@ -23,19 +23,62 @@ export function runCompilerCheck(root) {
   }
 }
 
-/** Path patterns listed in the ownership declaration (simple `- path` list items). */
+/** Read the policy's block sources and scalar path lists; uncertain YAML certifies no ownership. */
 export function ownedPatterns(text) {
-  return (text ?? '').split('\n').map(line => line.match(/^\s*-\s*['"]?([^'"#\s]+)['"]?\s*(?:#.*)?$/)?.[1]).filter(Boolean);
+  if ((text?.match(/^sources:[ \t]*$/gm) || []).length !== 1) return [];
+  let ownerIndent;
+  for (const line of text.split('\n')) {
+    if (!line.trim() || /^\s*#/.test(line) || /^sources:[ \t]*$/.test(line)) continue;
+    const indent = line.match(/^ */)[0].length;
+    if (/^ *- +owner:/.test(line)) {
+      if (ownerIndent !== undefined && indent !== ownerIndent) return [];
+      ownerIndent = indent;
+    } else if (/^ +(?:reason|paths):/.test(line)) {
+      if (ownerIndent === undefined || indent !== ownerIndent + 2) return [];
+    } else if (/^ +- /.test(line)) {
+      if (ownerIndent === undefined || indent !== ownerIndent + 4) return [];
+    } else return [];
+  }
+  const scalar = raw => {
+    if (raw === undefined) return null;
+    const value = raw.trim().replace(/\s+#.*$/, '');
+    if (value.startsWith('"')) {
+      try { const parsed = JSON.parse(value); return typeof parsed === 'string' && parsed.trim() ? parsed : null; }
+      catch { return null; }
+    }
+    if (value.startsWith("'")) {
+      if (!/^'(?:[^']|'')*'$/.test(value)) return null;
+      const parsed = value.slice(1, -1).replace(/''/g, "'");
+      return parsed.trim() ? parsed : null;
+    }
+    if (!value || /^(?:null|~)$/i.test(value) || /^[&*!|>#]/.test(value) || /^[-?:]\s/.test(value) || /[\[\]{}]|:\s/.test(value)) return null;
+    return value;
+  };
+  const patterns = [];
+  for (const block of text.split(/^ *- +owner:[ \t]*/m).slice(1)) {
+    if ((block.match(/^ +reason:/gm) || []).length !== 1 || (block.match(/^ +paths:/gm) || []).length !== 1) return [];
+    if (!scalar(block.split('\n')[0]) || !scalar(block.match(/^ +reason:[ \t]*([^\n]+)/m)?.[1])) return [];
+    const value = block.match(/^ +paths:[ \t]*(\[[^\n]*\]|\n(?: +- [^\n]*\n?)*)/m)?.[1];
+    if (!value) return [];
+    const entries = value.startsWith('[') ? value.slice(1, -1).trim() ? value.slice(1, -1).split(',') : []
+      : value.split('\n').filter(s => s.trim()).map(s => s.replace(/^ +- /, ''));
+    const decoded = entries.map(scalar);
+    if (decoded.some(value => value === null || /[\[\]{}\\\x00-\x1f]/.test(value))) return [];
+    patterns.push(...decoded);
+  }
+  return patterns;
 }
 
-/** Matches a vault path against an ownership pattern the way the declaration does, ignoring case.
- * ponytail: covers `*`, `**`, and `?`; brace and class patterns read literally. */
+/** Matches the preflight's bounded ownership patterns, ignoring case.
+ * shortcut: brace/class policies are not certified; extend parsing before supporting those patterns. */
 export function globMatch(pattern, path) {
   let re = '';
   for (let i = 0; i < pattern.length; i++) {
     const c = pattern[i];
     if (c === '*' && pattern[i + 1] === '*') {
+      const recursive = (i === 0 || pattern[i - 1] === '/') && (i + 2 === pattern.length || pattern[i + 2] === '/');
       i++;
+      if (!recursive) { re += '[^/]*'; continue; }
       if (pattern[i + 1] === '/') { i++; re += '(?:.*/)?'; } else re += '.*';
     } else if (c === '*') re += '[^/]*';
     else if (c === '?') re += '[^/]';
@@ -66,7 +109,7 @@ export function bindingRows(root, report) {
 
   const bindingsPath = `${MODULE}/bindings/manifest.json`;
   if (report.bindingsReady) {
-    add('model bindings', 'ok', `Bindings match the selected product's current model. Model records are not indexed or shown in this release.`, bindingsPath);
+    add('model bindings', 'ok', `Bindings match the selected product's model configuration. Authored values refresh through normal indexing.`, bindingsPath);
   } else if (codes.includes('ao_selection_required')) {
     add('model bindings', 'pending', `No product selected yet. ${SELECT}`, bindingsPath);
   } else if (codes.includes('ao_dependency_missing')) {
@@ -80,6 +123,10 @@ export function bindingRows(root, report) {
   add('model index', report.indexReady ? 'ok' : 'pending', report.indexReady
     ? 'A verified index receipt matches these bindings.'
     : 'No verified index receipt for the current bindings; `node .rhizome/modules/ao-kb/bindings/cli.mjs index` indexes and writes one.', `${MODULE}/bindings/index-receipt.json`);
+
+  add('knowledge admission', report.knowledgeReady ? 'ok' : 'pending', report.knowledgeReady
+    ? 'The generated knowledge admission matches the persisted product selection.'
+    : `Knowledge typing is unscoped or stale until setup completes. ${SELECT}`, `${MODULE}/ontology/ao-knowledge.generated.graphql`);
 
   const manifest = JSON.parse(read(root, bindingsPath) ?? 'null');
   if (!manifest?.sources && !manifest?.knowledgeSources) {

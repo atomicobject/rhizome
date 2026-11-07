@@ -19,7 +19,7 @@ func resolveNoteAssessment(doc *noteDoc, schema *ontoschema.Schema) *NoteAssessm
 	selectorCandidates := matchSelectorCandidateTypes(doc, schema)
 	declaredType := strings.TrimSpace(doc.TypeName)
 	if declaredType == "" && len(candidates) == 0 {
-		if schema.DefaultNoteType != "" && schema.Types[schema.DefaultNoteType] != nil {
+		if schema.DefaultNoteType != "" && schema.Types[schema.DefaultNoteType].Admits(selectorSubjectForDoc(doc)) {
 			return &NoteAssessment{
 				NotePath:     doc.Path,
 				DeclaredType: declaredType,

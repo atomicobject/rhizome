@@ -196,14 +196,21 @@ func (p *PreparedDocument) membershipIncludes(record *recordProjection) bool {
 	if len(selections) == 0 {
 		return rule.IncludeMissing
 	}
+	matches := func(value *noteformat.MetadataValue) bool {
+		if value == nil || value.Kind() == noteformat.MetadataNull {
+			return false
+		}
+		text := sourceScalarText(*value)
+		return text == rule.Includes || (rule.Wildcard != nil && text == *rule.Wildcard)
+	}
 	for _, s := range selections {
 		value, _ := p.value(s.value)
-		if value.Scalar != nil && sourceScalarText(*value.Scalar) == rule.Includes {
+		if matches(value.Scalar) {
 			return true
 		}
 		for _, id := range value.Items {
 			item, _ := p.value(id)
-			if item.Scalar != nil && sourceScalarText(*item.Scalar) == rule.Includes {
+			if matches(item.Scalar) {
 				return true
 			}
 		}

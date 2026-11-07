@@ -93,6 +93,9 @@ func compileRecordField(parent *ast.Definition, def *ast.FieldDefinition, target
 		field.Kind = FieldKindLink
 	}
 	if ref := def.Directives.ForName("references"); ref != nil {
+		if key, ok := ref.ArgumentMap(nil)["targetKey"].(string); ok && key == "" {
+			return fail("record_reference_target_key", "targetKey must name a scalar String field")
+		}
 		binding, err := compileRecordReferences(ref)
 		if err != nil {
 			return fail("record_references", err.Error())
@@ -132,6 +135,7 @@ func compileRecordReferences(dir *ast.Directive) (*RecordReferenceBinding, error
 		return nil, recordBindingError("references requires nonempty to")
 	}
 	ref := &RecordReferenceBinding{To: to, Mode: stringArg(args["mode"], ""), Encoding: stringArg(args["encoding"], "ID"), Values: stringArg(args["values"], "VALUE"), MatchName: stringArg(args["matchName"], ""), AllowWildcard: boolArg(args["allowWildcard"], false)}
+	ref.TargetKey = stringArg(args["targetKey"], "")
 	if ref.Mode != "STRICT" && ref.Mode != "TOLERANT" {
 		return nil, recordBindingError("reference mode must be explicit")
 	}

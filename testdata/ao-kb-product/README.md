@@ -1,0 +1,9 @@
+# Selected-product AO fixture
+
+All content is synthetic. `account/` selects alpha from a multi-nested alpha/beta account at toolkit `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, schemaVersion 8. Knowledge notes stay at the account root. Model rows come from the selected product and eligible account rows.
+
+`intermediate.json` was captured through the starter's read-only adapter against that pinned AO library. Its `oracle.rows`, `edges`, and `unresolvedEdges` come from AO's own reader. `oracle.knowledge` records AO `product_notes` with the graph's `placed()` behavior for assertions/concepts (nonrecursive), and recursive sources/artifacts. It includes shared wildcard, selected, absent-products and alpha-folder assertions; beta, explicit empty-products and unselected colliding IDs are excluded.
+
+AO `edges()` omits claim targets. A scratch-only Python helper derived `oracle.evidence` from each AO-resolved row's ordered `supported_by`/`rests_on` values, resolving exact IDs against AO's selected assertion inventory. One matching assertion means resolved, zero means unresolved, multiple means ambiguous. This preserves repeated authored occurrences and refuses an arbitrary winner. The account and beta model IDs collide with alpha's while remaining outside alpha's selected projection. The alpha project override adds `feature.project_detail`.
+
+The checked intermediate and literal SDL are CI inputs. CI never imports AO or runs Python. The Go provider parity suite in `testdata/ao-kb-model` projects this fixture alongside the booking journey through the real providers and compiled bindings. See that directory for commands.

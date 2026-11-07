@@ -118,8 +118,12 @@ export function makeResolver(records: { key: string; aoId?: string | null; noteP
 /** R7 traversal classification, separate from the edge's name and storage direction.
  * - `reference`: upstream follows the outgoing reference to its target; downstream follows
  *   incoming references to the citing record (claim cites or is corroborated by a source,
- *   an artifact is supported by a claim, an artifact references a record).
- * - `structure`: product-model structure (feature serves flow, ...). Not bound in this slice.
+ *   an artifact is supported by a claim, an artifact references a record, a model record
+ *   is evidenced by a claim).
+ * - `structure`: declared product-model structure (feature serves flow, flow served by
+ *   screen, screen made of component, requirement governs flow, and AO's other model
+ *   edges). Upstream follows a relation another record declares to this one; downstream
+ *   follows the relations this record declares, whichever way the edge is stored.
  * - `lateral`: shown beside the focus with its actual direction, never expanded
  *   (contradicts, supersedes, resolves, refines; concept mentions and related concepts).
  * - `extraction`: shown separately as extraction history, never as support.
@@ -138,7 +142,24 @@ const TRAVERSAL: Record<string, Traversal> = {
   mentions: 'lateral',
   'related-concepts': 'lateral',
   extracted: 'extraction',
+  'evidenced-by': 'reference',
 };
+
+/** AO's model edge vocabulary at the pinned toolkit (`referenceVocabulary.reverse`): the
+ * authored wording and its inverse. Every model edge except evidence is structure. */
+export const MODEL_WORDS: Record<string, [string, string]> = {
+  'evidenced-by': ['Evidenced by', 'Evidence for'],
+  serves: ['Serves', 'Served by'],
+  'made-of': ['Made of', 'Part of'],
+  governs: ['Governs', 'Governed by'],
+  'appears-in': ['Appears in', 'Shows'],
+  'decided-by': ['Decided by', 'Decides'],
+  emits: ['Emits', 'Emitted by'],
+  'gated-by': ['Gated by', 'Gates'],
+  reads: ['Reads', 'Read by'],
+  writes: ['Writes', 'Written by'],
+};
+for (const rel of Object.keys(MODEL_WORDS)) TRAVERSAL[rel] ??= 'structure';
 
 /** Relation names for edges that are not Connections declarations. */
 export const CITES = 'cites';

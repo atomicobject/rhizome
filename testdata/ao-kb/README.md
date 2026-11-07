@@ -193,3 +193,9 @@ Expected AO results:
 - The built binary ran `init --path <scratch> --workflow none --addons ao-kb --agents none --hooks off --search off --binary-manager external`, then `init --path <scratch> --check`, then `index` after appending the exact conflict-registry include. All three exited 0 and all 61 original fixture files retained identical bytes.
 
 The two shared fixes have separate commits. Hidden-source discovery now honors explicit include prefixes and excludes. Embedded list neighbors now retain headline links in both typed queries and native neighborhoods; ontology materialization version 18 forces existing read models to rebuild. The lead owns the corresponding subsystem-note updates (`vault-core` and `ontology`); this worker did not edit the separately owned documentation, templates, recipes, views, actions, or scripts.
+
+## Bound product-model journey
+
+Batch 4 adds synthetic standard-kind capability, feature, use case, screen, component and requirement rows under `booking/artifacts/_assets/_model/`, with per-file sync dates, native assertion IDs (including a missing ID), structural references, an existing and missing implementation path, and a project metamodel override. `model-intermediate.json` is captured through the read-only pinned AO adapter; `expected-model.graphql` and `expected-knowledge.graphql` are literal renderer expectations. The knowledge parity snapshot remains 42 nodes and 112 of 125 edges with its existing declared differences.
+
+AO's model `edges()` omits assertion targets. A scratch-only helper resolves each reader row's ordered evidence IDs against AO's assertion inventory and records the results in `oracle.evidence`. The offline connected Go parity test lives in `../ao-kb-model/knowledge_parity_test.go`; the E2E server uses this checked intermediate through the production renderer/publisher, so CI requires no Python or uv.

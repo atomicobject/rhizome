@@ -17,7 +17,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { DIRECTORY_QUERY, createReader, directory, type DirectoryData } from "./trace/data.ts";
-import { Graph } from "./trace/graph.tsx";
+import { Graph, Legend } from "./trace/graph.tsx";
+import { readTypeSpecs, useModelBindings } from "./data.tsx";
 import { columns } from "./trace/layout.ts";
 import { depth, label, queryBudget, type Record as KnowledgeRecord } from "./trace/model.ts";
 import { ExtractionHistory, Relationships } from "./trace/relationships.tsx";
@@ -29,14 +30,27 @@ const HOPS = [1, 2, 3].map((n) => ({
   label: String(n),
   description: `${n} ${n === 1 ? "hop" : "hops"}`,
 }));
+const KNOWLEDGE = ["Assertion", "Source", "Concept", "Artifact"];
+const focusQuery = (model: boolean) => `query TraceFocus($ref: String!) {
+  node(ref: $ref) {
+    __typename path title ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }
+    ... on Assertion { aoId headline }
+    ... on Source { aoId headline name }
+    ... on Concept { aoId headline name }
+    ... on Artifact { aoId headline name }
+    ${model ? "... on AOKBModelRecord { aoValue }" : ""}
+  }
+}`;
 function TraceBody({
   records: listedRecords,
   capped,
   configuration,
+  model,
 }: {
   records: KnowledgeRecord[];
   capped: boolean;
   configuration: ViewModuleProps["configuration"];
+  model: boolean;
 }) {
   const params = useViewParams();
   const focusPath =
@@ -44,24 +58,17 @@ function TraceBody({
       ? params.focus
       : listedRecords.find((r) => r.__typename === "Assertion")?.path;
   const listedFocus = listedRecords.find((r) => r.path === focusPath);
-  const lookup = useGraphQL<{ node: KnowledgeRecord | null }>(
-    `query TraceFocus($ref: String!) {
-      node(ref: $ref) {
-        __typename path title ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }
-        ... on Assertion { aoId headline }
-        ... on Source { aoId headline name }
-        ... on Concept { aoId headline name }
-        ... on Artifact { aoId headline name }
-      }
-    }`,
-    { ref: focusPath ?? "" },
-    { enabled: !!focusPath && !listedFocus },
-  );
+  const lookup = useGraphQL<{
+    node:
+      | (Omit<KnowledgeRecord, "aoId"> & { aoId?: string | null; aoValue?: string | null })
+      | null;
+  }>(focusQuery(model), { ref: focusPath ?? "" }, { enabled: !!focusPath && !listedFocus });
   const found = lookup.data?.node;
-  const extra =
-    found?.path === focusPath &&
-    ["Assertion", "Source", "Concept", "Artifact"].includes(found.__typename)
-      ? found
+  const extra: KnowledgeRecord | undefined =
+    found &&
+    found.path === focusPath &&
+    (KNOWLEDGE.includes(found.__typename) || found.aoValue !== undefined)
+      ? { ...found, aoId: found.aoId ?? found.aoValue ?? null }
       : undefined;
   const records = extra && !listedFocus ? [...listedRecords, extra] : listedRecords;
   const focus = listedFocus ?? extra;
@@ -76,11 +83,11 @@ function TraceBody({
   const budget = queryBudget(configuration?.queryBudget);
   const [active, setActive] = useState<string | null>(null);
   const result = useQuery({
-    queryKey: ["ao-kb-trace", records, focusPath, up, down, mentions, budget],
+    queryKey: ["ao-kb-trace", records, focusPath, up, down, mentions, budget, model],
     enabled: !!focus,
     queryFn: async () => {
       if (!focus) throw new Error("Choose a record to trace.");
-      const reader = createReader(graphql, records, budget);
+      const reader = createReader(graphql, records, budget, model);
       const trace = await traverse(focus, { up, down, mentions, budget }, reader.read);
       if (capped)
         trace.stop ??= {
@@ -90,6 +97,11 @@ function TraceBody({
           detail:
             "The reference directory reached its 200-identities-per-type ceiling; relationships outside that directory may be unavailable.",
         };
+      const reached = [...trace.nodes.values()].map((n) => n.record);
+      const specs = await readTypeSpecs(
+        reached.flatMap((r) => (KNOWLEDGE.includes(r.__typename) ? [] : [r.__typename])),
+      );
+      for (const r of reached) r.kind = specs[r.__typename]?.label;
       const history = await reader.extraction(focus.path);
       const source = reader.cache.get(focus.path);
       return {
@@ -138,17 +150,24 @@ function TraceBody({
             onChange={(event) => refocus(event.target.value)}
           >
             {!focus && <option value={focusPath ?? ""}>{focusPath || "Choose a record"}</option>}
-            {["Assertion", "Source", "Concept", "Artifact"].map((type) => (
-              <optgroup label={type} key={type}>
-                {records
-                  .filter((r) => r.__typename === type)
-                  .map((r) => (
-                    <option key={r.path} value={r.path}>
-                      {label(r)}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
+            {[...KNOWLEDGE, "Product model"].map((type) => {
+              const group = records.filter((r) =>
+                type === "Product model"
+                  ? !KNOWLEDGE.includes(r.__typename)
+                  : r.__typename === type,
+              );
+              return (
+                group.length > 0 && (
+                  <optgroup label={type} key={type}>
+                    {group.map((r) => (
+                      <option key={r.path} value={r.path}>
+                        {label(r)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              );
+            })}
           </select>
         </label>
         <Segmented
@@ -197,8 +216,12 @@ function TraceBody({
             trace && (
               <>
                 <Facts note="Unique records include the focus. Counts cover the requested scope.">
-                  <Fact value={trace.nodes.size}>{trace.nodes.size === 1 ? "record" : "records"}</Fact>
-                  <Fact value={trace.edges.length}>{trace.edges.length === 1 ? "relationship" : "relationships"}</Fact>
+                  <Fact value={trace.nodes.size}>
+                    {trace.nodes.size === 1 ? "record" : "records"}
+                  </Fact>
+                  <Fact value={trace.edges.length}>
+                    {trace.edges.length === 1 ? "relationship" : "relationships"}
+                  </Fact>
                 </Facts>
                 <p className="ao-trace-count" aria-live="polite">
                   <Count>{counts("up")}</Count> upstream within {up} {up === 1 ? "hop" : "hops"} ·{" "}
@@ -208,9 +231,11 @@ function TraceBody({
                     ? ` · ${trace.nodes.size - visible} ${trace.nodes.size - visible === 1 ? "record" : "records"} behind Show more`
                     : ""}
                 </p>
-                <p className="ao-trace-model">
-                  Product model not bound in this slice. Model records are excluded from counts.
-                </p>
+                {!model && (
+                  <p className="ao-trace-model">
+                    Product model bindings are not ready, so model records are not traced.
+                  </p>
+                )}
                 {trace.stop && (
                   <p className="ao-trace-incomplete" role="status">
                     {trace.stop.reason === "budget"
@@ -229,6 +254,7 @@ function TraceBody({
                   active={active}
                   onActive={setActive}
                 />
+                <Legend />
                 <p className="ao-trace-note">
                   Each drawn line joins a record to the one it was reached from; arrows keep
                   authored direction. Cards name that relationship and refocus this trace. Related
@@ -237,7 +263,7 @@ function TraceBody({
                 </p>
                 <Relationships
                   trace={trace}
-                  records={records}
+                  records={[...records, ...[...trace.nodes.values()].map((n) => n.record)]}
                   up={up}
                   down={down}
                   expanded={expanded}
@@ -294,12 +320,21 @@ function TraceBody({
 }
 export default function TracePage({ configuration }: ViewModuleProps) {
   const query = useGraphQL<DirectoryData>(DIRECTORY_QUERY);
+  const bindings = useModelBindings();
   return (
     <main className="ao-trace">
-      {query.data && !query.error ? (
-        <TraceBody {...directory(query.data)} configuration={configuration} />
+      {query.data && !query.error && bindings.data ? (
+        <TraceBody
+          {...directory(query.data)}
+          configuration={configuration}
+          model={bindings.data.ready}
+        />
       ) : (
-        <Section title="Trace a record" status={sectionStatus(query)} what="knowledge records" />
+        <Section
+          title="Trace a record"
+          status={sectionStatus(query, bindings)}
+          what="knowledge records"
+        />
       )}
     </main>
   );

@@ -8,6 +8,10 @@ import (
 )
 
 func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*NoteType, error) {
+	admission, admissionErr := compileAdmission(def)
+	if admissionErr != nil {
+		return nil, admissionErr
+	}
 	if err := validateTypeDisplayLocation(def); err != nil {
 		return nil, err
 	}
@@ -97,6 +101,7 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 		Semantics:     semanticsKind(def.Directives.ForName("semantics")),
 		Annotations:   directiveAnnotations(def.Directives),
 	}
+	noteType.AdmissionMatchers = admission
 	if titleDir := def.Directives.ForName("title"); titleDir != nil {
 		title, titleErr := titleConstraintFromDirective(titleDir)
 		if titleErr != nil {

@@ -183,7 +183,7 @@ func (p *PreparedDocument) bindRecordReferences(record *recordProjection, field 
 		}
 		matches := index.resolve(record.identity.Space, allowed, id, rule.MatchPath)
 		if len(matches) == 0 && member.Text == "" {
-			physical := index.physicalTargets(allowed, id)
+			physical := index.physicalTargets(allowed, id, rule.TargetKey)
 			if len(physical) == 1 {
 				ref := physical[0]
 				occurrence.Target = &ref

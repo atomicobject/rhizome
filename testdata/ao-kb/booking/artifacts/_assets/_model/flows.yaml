@@ -1,0 +1,14 @@
+synced: "2026-11-05T09:00:00Z"
+flows:
+  - id: FLOW-book
+    name: Book an appointment
+    trigger: Patient selects a slot
+    steps: Confirm the appointment
+    screens: [SCR-BOOK]
+    supported_by: [a-000000000001]
+  - id: FLOW-cancel
+    name: Cancel an appointment
+    trigger: Patient selects cancellation
+    steps: Confirm cancellation
+    screens: [SCR-CANCEL]
+    supported_by: [a-000000000008]

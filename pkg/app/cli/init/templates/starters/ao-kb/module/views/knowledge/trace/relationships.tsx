@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { columns, edgeRole } from "./layout.ts";
 import {
   edgeKey,
+  kind,
   label,
   presentation,
   type Record as KnowledgeRecord,
@@ -42,7 +43,7 @@ export function Relationships({
           {label(record)}
         </NodeLink>
         <span className="ao-trace-row-meta">
-          {record.__typename} · <span className="ao-trace-id">{record.aoId || "Not recorded"}</span>
+          {kind(record)} · <span className="ao-trace-id">{record.aoId || "Not recorded"}</span>
         </span>
       </>
     );
@@ -95,12 +96,18 @@ export function Relationships({
                       key={`${location.path}:${location.section}`}
                     >
                       {i > 0 && <span>Also declared in </span>}
-                      <NodeLink
-                        className="ao-trace-authored-link"
-                        node={location.ref ?? byPath.get(location.path)?.ref}
-                      >
-                        {location.path} › {location.section}
-                      </NodeLink>
+                      {(location.ref ?? byPath.get(location.path)?.ref) ? (
+                        <NodeLink
+                          className="ao-trace-authored-link"
+                          node={(location.ref ?? byPath.get(location.path)?.ref)!}
+                        >
+                          {location.path} › {location.section}
+                        </NodeLink>
+                      ) : (
+                        <span>
+                          {location.path} › {location.section}
+                        </span>
+                      )}
                     </span>
                   ))}
                 </TableCell>

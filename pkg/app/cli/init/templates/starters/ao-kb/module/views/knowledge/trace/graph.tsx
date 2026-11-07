@@ -1,7 +1,8 @@
 import { Count, MoreToggle, NodeLink, useTypeColors } from "@rhizome/kit";
 import { useEffect, useId, useRef, useState } from "react";
+import { MODEL_WORDS, traversal } from "../lib/relations.ts";
 import { columns, hiddenTypes } from "./layout.ts";
-import { label, presentation, type Trace, type Visit } from "./model.ts";
+import { kind, label, presentation, type Trace, type Visit } from "./model.ts";
 
 const verbs: { [key: string]: [string, string] } = {
   cites: ["Cites", "Cited by"],
@@ -14,6 +15,7 @@ const verbs: { [key: string]: [string, string] } = {
   refines: ["Refines", "Refined by"],
   mentions: ["Mentions", "Mentioned by"],
   "related-concepts": ["Related concept", "Related concept"],
+  ...MODEL_WORDS,
 };
 export function relationship(visit: Visit, trace: Trace) {
   if (!visit.edge) return "Focus · open the record";
@@ -32,7 +34,28 @@ function pathToFocus(trace: Trace, active: string | null) {
   }
   return path;
 }
-type Line = { key: string; d: string; from: string; to: string; dotted: boolean };
+type Line = { key: string; d: string; from: string; to: string; style: string };
+/** Evidence draws solid, model structure dashed, artifact body references dotted. */
+const lineStyle = (rel: string) =>
+  traversal(rel) === "structure" ? "structure" : rel === "references" ? "reference" : "evidence";
+export function Legend() {
+  return (
+    <p className="ao-trace-legend" aria-label="Line styles">
+      {[
+        ["evidence", "Evidence"],
+        ["structure", "Model structure"],
+        ["reference", "Artifact references"],
+      ].map(([style, text]) => (
+        <span key={style}>
+          <svg viewBox="0 0 28 8" aria-hidden="true">
+            <line x1="0" y1="4" x2="28" y2="4" data-style={style} />
+          </svg>
+          {text}
+        </span>
+      ))}
+    </p>
+  );
+}
 export function Graph({
   trace,
   up,
@@ -88,7 +111,7 @@ export function Graph({
           d: `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`,
           from: visit.edge.from,
           to: visit.edge.to,
-          dotted: visit.edge.rel === "references",
+          style: lineStyle(visit.edge.rel),
         });
       }
       setLines(next);
@@ -106,7 +129,7 @@ export function Graph({
       <>
         <span className="ao-trace-card-meta">
           <span className="ao-trace-type" style={{ background: color(record.__typename) }} />
-          {record.__typename}
+          {kind(record)}
           <span className="ao-trace-id">{record.aoId || "Not recorded"}</span>
         </span>
         <span className="ao-trace-card-title">{label(record)}</span>
@@ -175,7 +198,7 @@ export function Graph({
               d={line.d}
               fill="none"
               markerEnd={`url(#${marker})`}
-              strokeDasharray={line.dotted ? "4 4" : undefined}
+              data-style={line.style}
               className={path.has(line.from) && path.has(line.to) ? "is-active" : ""}
             />
           ))}

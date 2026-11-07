@@ -234,6 +234,8 @@ type NoteType struct {
 	SourcePaths    []string
 	SourceMatchers []*NoteMatcher
 
+	AdmissionMatchers []*NoteMatcher
+
 	// Preview is set on section-role types that declare @preview. Note-role
 	// types reject @preview at compile time — it only makes sense inside
 	// repeated, collapsible section cards.

@@ -1,11 +1,14 @@
 package init
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
+	"github.com/atomicobject/rhizome/pkg/validate"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -85,6 +88,15 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 				require.Equal(t, "AO KB", refusal.Owner)
 			}
 			require.NoError(t, sourceownership.Check(root, []string{"docs/reference/guides/ao-kb.md", "notes/team.md"}))
+			generated := map[string]string{
+				".rhizome/modules/ao-kb/ontology/ao-model.generated.graphql":           "# Synthetic runtime model generation\n",
+				".rhizome/modules/ao-kb/ontology/ao-knowledge.generated.graphql":       "# Synthetic runtime admission generation\n",
+				".rhizome/modules/ao-kb/bindings/manifest.json":                        "{\"status\":\"ready\"}\n",
+				".rhizome/modules/ao-kb/views/knowledge/AOKBModel_fixture_single.yaml": "# Synthetic runtime view generation\n",
+			}
+			for name, content := range generated {
+				writeTestFile(t, root, name, content)
+			}
 			before := aoKBFiles(t, root)
 			requireUpToDate(t, root)
 			require.Equal(t, before, aoKBFiles(t, root), "re-init and --check change no bytes")
@@ -112,9 +124,31 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 			for path, data := range authored {
 				require.Equal(t, data, after[path], path)
 			}
+			for name, content := range generated {
+				require.Equal(t, content, after[name], "generated outputs survive removal/ejection")
+			}
 			require.Contains(t, after["AGENTS.md"], "# Existing team guidance\nKeep this prose.\n")
 		})
 	}
+}
+
+func TestAOKBUpgradeUpdatesOldAssetsAndPreservesLocalEdits(t *testing.T) {
+	root := t.TempDir()
+	writeProjectConfig(t, root, "notes:\n  includes: [\"**/*.md\"]\n", repoconfig.LocalWorkflowConfig{})
+	_, err := runInit(t, RunOptions{Dir: root, AddAddon: "ao-kb"})
+	require.NoError(t, err)
+	asset := ".rhizome/modules/ao-kb/bindings/render.mjs"
+	current := readTestFile(t, root, asset)
+	old := "// Synthetic previous starter release\n"
+	writeTestFile(t, root, asset, old)
+	setWritten(t, root, asset, old)
+	edited := ".rhizome/modules/ao-kb/scripts/check.mjs"
+	custom := readTestFile(t, root, edited) + "\n// Project customization\n"
+	writeTestFile(t, root, edited, custom)
+	_, err = runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+	require.Equal(t, current, readTestFile(t, root, asset))
+	require.Equal(t, custom, readTestFile(t, root, edited))
 }
 
 func TestAOKBStarterFirstInit(t *testing.T) {
@@ -123,6 +157,18 @@ func TestAOKBStarterFirstInit(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateAddons.Enabled, "ao-kb")
 	require.FileExists(t, filepath.Join(root, ".rhizome/modules/ao-kb/actions/check.yaml"))
+	requireUpToDate(t, root)
+}
+
+func TestAOKBFreshStaticInstallValidatesBeforeRefresh(t *testing.T) {
+	root := installAOKBFixture(t)
+	for _, name := range []string{"ao-model.generated.graphql", "ao-knowledge.generated.graphql"} {
+		require.NoFileExists(t, filepath.Join(root, ".rhizome/modules/ao-kb/ontology", name))
+	}
+	result := validate.RunViews(context.Background(), validate.RunContext{
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 100,
+	})
+	require.True(t, result.OK, "%+v", result.Issues)
 	requireUpToDate(t, root)
 }
 

@@ -1,0 +1,14 @@
+synced: "2026-10-20T09:00:00Z"
+requirements:
+  - id: FR-BOOK-01
+    kind: functional
+    area: Booking
+    statement: The patient shall confirm a selected slot.
+    flows: [FLOW-book]
+    supported_by: [a-000000000001]
+  - id: FR-BOOK-02
+    kind: functional
+    area: Cancellation
+    statement: The patient shall see the cancellation policy.
+    flows: [FLOW-cancel]
+    supported_by: [a-000000000008]

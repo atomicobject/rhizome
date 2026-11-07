@@ -85,3 +85,73 @@ test('invalid URL depths and authored budgets stay bounded', () => {
   assert.deepEqual([0, 1, 2, 3, 4, '3'].map(depth), [2, 1, 2, 3, 2, 2]);
   assert.deepEqual([undefined, 1, 12, 500, NaN, 2.5].map(queryBudget), [200, 200, 12, 200, 200, 200]);
 });
+
+// Product-model hops (SPEC-0133 R7). Two features share features.yaml; the flow declares its
+// screens, so their `serves` edge is stored screen to flow while the flow authored it.
+const row = (file, id, type) => ({ path: `artifacts/_assets/_model/${file}.yaml#record:v1:${id}`, aoId: id, title: id, __typename: type, ref: { notePath: `artifacts/_assets/_model/${file}.yaml`, kind: 'EMBEDDED', fragment: `record:v1:${id}` } });
+const declared = (from, rel, to, by = from) => ({ ...edge(from, rel, to), declaredBy: [{ record: by, as: rel, origin: 'body' }] });
+const claim = record('assertions/claim.md');
+const book = row('features', 'feat-book', 'AOKBModel_feature_single');
+const cancel = row('features', 'feat-cancel', 'AOKBModel_feature_single');
+const flow = row('flows', 'flow-book', 'AOKBModel_flow_single');
+const screen = row('screens', 'scr-book', 'AOKBModel_screen_single');
+const form = row('components', 'booking-form', 'AOKBModel_component_single');
+const rule = row('requirements', 'fr-book', 'AOKBModel_requirement_single');
+const model = [claim, book, cancel, flow, screen, form, rule];
+const modelEdges = [
+  declared(book.path, 'evidenced-by', claim.path),
+  declared(cancel.path, 'evidenced-by', claim.path),
+  declared(flow.path, 'evidenced-by', claim.path),
+  declared(book.path, 'serves', flow.path),
+  declared(screen.path, 'serves', flow.path, flow.path),
+  declared(screen.path, 'made-of', form.path),
+  declared(rule.path, 'governs', flow.path),
+];
+
+test('model forward: an assertion leads downstream to the records it evidences, then their declared structure', async () => {
+  const trace = await traverse(claim, { ...defaults, up: 1, down: 3 }, graph(model, modelEdges).read);
+  const at = (path) => [trace.nodes.get(path)?.lane, trace.nodes.get(path)?.hop];
+  assert.deepEqual(at(book.path), ['down', 1]);
+  assert.deepEqual(at(cancel.path), ['down', 1], 'two rows of one YAML file stay distinct records');
+  assert.deepEqual(at(flow.path), ['down', 1]);
+  assert.deepEqual(at(screen.path), ['down', 2], 'the flow declared its screens, so they are downstream of it');
+  assert.deepEqual(at(form.path), ['down', 3]);
+  assert.equal(trace.nodes.has(rule.path), false, 'a requirement governing the flow is upstream of it, not downstream');
+  const serves = trace.edges.find((e) => e.rel === 'serves' && e.from === screen.path);
+  assert.deepEqual([serves.from, serves.to], [screen.path, flow.path], 'arrows keep authored direction');
+});
+
+test('model reverse: a component leads upstream through declaring records to the claims they rest on', async () => {
+  const trace = await traverse(form, { ...defaults, up: 3, down: 1 }, graph(model, modelEdges).read);
+  const at = (path) => [trace.nodes.get(path)?.lane, trace.nodes.get(path)?.hop];
+  assert.deepEqual(at(screen.path), ['up', 1]);
+  assert.deepEqual(at(flow.path), ['up', 2]);
+  assert.deepEqual(at(book.path), ['up', 3]);
+  assert.deepEqual(at(rule.path), ['up', 3]);
+  assert.deepEqual(at(claim.path), ['up', 3], 'the flow rests on the claim: a reference leads upstream');
+  assert.equal(trace.nodes.has(cancel.path), false);
+});
+
+test('model relations are never lateral; an unclassified model relation stays list-only', async () => {
+  const custom = { ...declared(book.path, 'mitigates', cancel.path) };
+  const trace = await traverse(book, { ...defaults, up: 1, down: 1 }, graph(model, [...modelEdges, custom]).read);
+  assert.equal([...trace.nodes.values()].some((n) => n.lane === 'related'), false);
+  assert.deepEqual(trace.listOnly.map((e) => e.rel), ['mitigates']);
+  assert.equal(trace.nodes.has(cancel.path), false);
+  assert.deepEqual(trace.nodes.get(flow.path).lane, 'down');
+  assert.deepEqual(trace.nodes.get(claim.path).lane, 'up');
+});
+
+test('model cycles terminate and count each edge once', async () => {
+  const part = row('components', 'slot-picker', 'AOKBModel_component_single');
+  const cycle = [declared(form.path, 'made-of', part.path), declared(part.path, 'made-of', form.path)];
+  const trace = await traverse(form, { ...defaults, up: 3, down: 3 }, graph([form, part], cycle).read);
+  assert.equal(trace.nodes.size, 2);
+  assert.equal(trace.edges.length, 2);
+});
+
+test('the query budget stops model hops explicitly', async () => {
+  const trace = await traverse(claim, { ...defaults, down: 3, budget: 3 }, graph(model, modelEdges).read);
+  assert.equal(trace.nodes.size, 3);
+  assert.deepEqual(trace.stop, { direction: 'downstream', hop: 1, reason: 'budget' });
+});

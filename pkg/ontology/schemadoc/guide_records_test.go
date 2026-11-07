@@ -16,3 +16,13 @@ func TestRecordGuideDescribesNativeBindings(t *testing.T) {
 		require.NotContains(t, guide, forbidden)
 	}
 }
+
+func TestRecordGuidePreservesTargetKeyContract(t *testing.T) {
+	schema := testCustomSchema(t, `type Evidence @node(paths:["*.md"]){aoId:String @field(source:"id")}
+type Row @node(locator:EMBEDDED) @source(shape:RECORD,paths:["*.native"],select:"rows",key:{field:"id"},title:["id"],space:"test",logicalKind:"row"){
+ refs:[String!] @field(path:"refs") @references(to:["Evidence"],targetKey:"aoId",mode:STRICT,values:ELEMENTS,edge:{name:"evidenced-by"})
+}`)
+	guide, err := RenderGuideMarkdown(schema, GuideOptions{Types: []string{"Row"}})
+	require.NoError(t, err)
+	require.Contains(t, guide, `"targetKey":"aoId"`)
+}

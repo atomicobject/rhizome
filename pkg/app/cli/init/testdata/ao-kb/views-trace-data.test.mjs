@@ -118,3 +118,62 @@ test('all typed source targets in a citation occurrence remain navigable', async
   assert.deepEqual(cites.map(e=>e.to), [source.path,second.path]);
   assert.equal(cites[1].locations[0].section, 'Sources #1');
 });
+
+// Product-model records: neighborhoods name RECORD endpoints by nodeId without a fragment,
+// and omit them from `nodes`. The reader derives keyed refs, keeps rows distinct, and names
+// the end that authored each edge.
+const host = (file) => `artifacts/_assets/_model/${file}.yaml`;
+const value = (entries) => ({ kind: 'object', entries: Object.entries(entries).map(([key, v]) => ({ key, value: Array.isArray(v) ? { kind: 'array', items: v.map((s) => ({ kind: 'string', scalar: s })) } : { kind: 'string', scalar: v } })) });
+const endpoint = (file, digest) => ({ notePath: host(file), kind: 'EMBEDDED', fragment: null, nodeId: `record-v1-${digest}`, typeName: null });
+const modelRow = (file, digest, aoValue, type, entries, out = [], inbound = []) => ({
+  __typename: type, path: `${host(file)}#record:v1:${digest}`, title: aoValue, aoValue,
+  ref: { notePath: host(file), kind: 'EMBEDDED', fragment: `record:v1:${digest}`, nodeId: `record-v1-${digest}`, typeName: type },
+  workspace: { source: { value: value(entries) } },
+  modelOut: { truncated: false, edges: out.map(([relation, target]) => ({ relation, target })) },
+  modelIn: { truncated: false, edges: inbound.map(([relation, target]) => ({ relation, target })) },
+});
+const featBook = modelRow('features', 'aa', 'FEAT-book', 'AOKBModel_feature_single', { id: 'FEAT-book', flows: ['FLOW-book'], supported_by: ['a-1'] },
+  [['evidenced-by', { notePath: claim.path, kind: 'NOTE', fragment: null, nodeId: null, typeName: 'Assertion' }], ['serves', endpoint('flows', 'cc')]]);
+const featCancel = modelRow('features', 'bb', 'FEAT-cancel', 'AOKBModel_feature_single', { id: 'FEAT-cancel', supported_by: ['a-1'] },
+  [['evidenced-by', { notePath: claim.path, kind: 'NOTE', fragment: null, nodeId: null, typeName: 'Assertion' }]]);
+const flowBook = modelRow('flows', 'cc', 'FLOW-book', 'AOKBModel_flow_single', { id: 'FLOW-book', screens: ['SCR-book'] }, [],
+  [['serves', endpoint('features', 'aa')], ['serves', endpoint('screens', 'dd')], ['governs', { ...endpoint('requirements', 'x'), nodeId: 'record-pos-v1-ee' }]]);
+const scrBook = modelRow('screens', 'dd', 'SCR-book', 'AOKBModel_screen_single', { id: 'SCR-book' }, [['serves', endpoint('flows', 'cc')]]);
+const rows = [featBook, featCancel, flowBook, scrBook];
+function modelQuery(calls) {
+  return async (document) => {
+    calls.push(document);
+    const out = {};
+    for (const match of document.matchAll(/(n\d+): node\(ref: ("[^"]+")\)/g)) {
+      const path = JSON.parse(match[2]);
+      if (document.includes('__typename path title')) out[match[1]] = rows.find((r) => r.path === path) ?? details[path] ?? null;
+      else out[match[1]] = { neighborhood: { truncated: false, edges: path === claim.path ? [featBook, featCancel].map((r) => ({ relation: 'evidenced-by', target: endpoint('features', r.ref.fragment.slice(10)) })) : [] } };
+    }
+    for (const match of document.matchAll(/(r\d+_\d+): assertion/g)) out[match[1]] = [];
+    return out;
+  };
+}
+
+test('model records reached through edges stay distinct, keyed by native identity', async () => {
+  const calls = [];
+  const reader = createReader(modelQuery(calls), registry, 200, true);
+  const trace = await traverse(claim, { up: 1, down: 1, mentions: true, budget: 200 }, reader.read);
+  assert.ok(trace.nodes.has(featBook.path));
+  assert.ok(trace.nodes.has(featCancel.path), 'two rows of features.yaml are separate trace records');
+  assert.equal(trace.nodes.has(host('features')), false, 'no record collapses to its host file');
+  assert.equal(trace.nodes.get(featBook.path).record.aoId, 'FEAT-book');
+  assert.ok(calls.some((q) => q.includes(`node(ref: "${featBook.path}")`)), 'reads the derived keyed ref');
+});
+
+test('a declaration stored the other way round names the record that authored it', async () => {
+  const reader = createReader(modelQuery([]), [...registry, flowBook], 200, true);
+  const trace = await traverse(flowBook, { up: 1, down: 1, mentions: true, budget: 200 }, reader.read);
+  const screens = trace.edges.find((e) => e.from === scrBook.path);
+  assert.deepEqual([screens.rel, screens.to, screens.declaredBy[0].record], ['serves', flowBook.path, flowBook.path]);
+  assert.deepEqual(screens.locations[0], { path: host('flows'), section: 'FLOW-book › screens', ref: flowBook.ref });
+  assert.equal(trace.nodes.get(scrBook.path).lane, 'down');
+  const feature = trace.edges.find((e) => e.from === featBook.path);
+  assert.equal(feature.declaredBy[0].record, featBook.path);
+  assert.equal(trace.nodes.get(featBook.path).lane, 'up');
+  assert.ok(trace.diagnostics.some((d) => d.includes('positional record in artifacts/_assets/_model/requirements.yaml')));
+});

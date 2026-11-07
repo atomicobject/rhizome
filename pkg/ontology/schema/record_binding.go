@@ -35,6 +35,7 @@ type RecordTemplatePart struct {
 type RecordMembership struct {
 	Path           RecordSelector
 	Includes       string
+	Wildcard       *string
 	IncludeMissing bool
 }
 type RecordSourceBinding struct {
@@ -59,6 +60,7 @@ type RecordReferenceBinding struct {
 	Mode, Encoding, Values string
 	Targets                []RecordTarget
 	MatchName              string
+	TargetKey              string
 	MatchPath              RecordSelector
 	AllowWildcard          bool
 	Edge                   *RecordEdge

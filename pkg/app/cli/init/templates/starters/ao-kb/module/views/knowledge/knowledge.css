@@ -1,5 +1,7 @@
 .ak-page {
   container: knowledge / inline-size;
+  max-width: 1240px;
+  margin-inline: auto;
   padding: 14px 20px 28px;
   font-size: 14px;
   line-height: 1.45;
@@ -213,6 +215,12 @@
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 }
+/* A model record's facts are short, so its source sits beside them sooner. */
+@container knowledge (min-width: 860px) {
+  .ak-model-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
 .ak-record-head {
   display: flex;
   gap: 16px;
@@ -294,6 +302,119 @@
 }
 .ak-coverage > span {
   min-width: 3px;
+}
+.ak-lead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.ak-key {
+  font: 13px/1.45 var(--font-mono);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.ak-facts {
+  display: grid;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-fact {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  column-gap: 16px;
+  padding: 5px 0;
+}
+.ak-fact dt {
+  color: var(--text-muted);
+  font: 500 13px/1.35 var(--font-sans);
+  padding-top: 2px;
+}
+.ak-fact dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* An AO ID never breaks inside a field value; the line wraps before it. */
+.ak-fact dd .ak-key {
+  white-space: nowrap;
+}
+.ak-ordered {
+  margin: 0;
+  padding-left: 20px;
+  list-style: decimal;
+}
+.ak-ordered > li::marker {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ak-ordered > li + li {
+  margin-top: 2px;
+}
+.ak-state {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ak-state-risk {
+  color: var(--accent-ink);
+}
+.ak-value {
+  margin: 0;
+  font: 13px/1.6 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ak-source-value {
+  padding: 10px 12px;
+  background: var(--surface-tint);
+  border-radius: 4px;
+}
+.ak-file-rows {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 1px solid var(--border);
+}
+.ak-file-rows > li + li {
+  margin-top: 4px;
+}
+.ak-rels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ak-rel {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-areas: "icon main aside" ". meta meta";
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-rel-icon {
+  grid-area: icon;
+  padding-top: 3px;
+  color: var(--text-muted);
+}
+.ak-rel-main {
+  grid-area: main;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ak-rel-aside {
+  grid-area: aside;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.ak-rel-meta {
+  grid-area: meta;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 @media (max-width: 900px) {
   .ak-comparison {

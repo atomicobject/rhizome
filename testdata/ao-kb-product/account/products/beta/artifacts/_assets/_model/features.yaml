@@ -1,0 +1,6 @@
+synced: "2026-10-01T09:00:00Z"
+features:
+  - id: FEAT-collision
+    t: Beta feature
+    project_detail: beta override
+    supported_by: [a-shared, a-alpha, a-collision, a-missing, a-ambiguous]

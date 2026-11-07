@@ -62,6 +62,10 @@ query:
           edges { source { notePath } target { notePath } relation direction }
           nodes { ... on Artifact { path supportedBy { path } } }
         }
+        modelEvidence: neighborhood(direction: INBOUND, relation: "evidenced-by", first: 100) {
+          truncated
+          edges { relation target { notePath kind fragment nodeId typeName } }
+        }
       }
     }
 outputContract:
@@ -74,6 +78,7 @@ adaptationGuidance:
   summary: Native @link lists follow authored record size and cannot be paged with first or count arguments. Preserve authored relationships, origin precedence, ordered citations and explicit query bounds.
   rules:
     - Read incoming artifact edges using relation and direction; native INBOUND edges put the focus in source and the citing artifact in target. supportedBy distinguishes listed support from body references.
+    - modelEvidence lists product-model records whose declared evidence names the claim. Each target is one record, not its file; read it with ao-kb-model-to-evidence. It is empty until model bindings are ready.
     - Assertion reverse fields return declaring Connections sections; notePath identifies the claim. Label each relation separately.
     - Inverse aliases and frontmatter declarations are not included by native reverse fields. This is partial navigation; use the shared relation adapter for complete normalized impact.
     - Disclose neighborhood.truncated or any relation count above its first limit; narrow the query before claiming coverage.
@@ -160,7 +165,54 @@ adaptationGuidance:
   rules:
     - Combine supportedBy and additionalAssertionReferences for navigation, deduplicating by path while keeping the authored relation labels.
     - References are navigation, never newly inferred evidence. Apply recorded-origin precedence and preserve citation order and repeats.
-    - Product model-to-evidence arrives with model bindings in a later batch; no product-model type exists in this batch.
+    - For product-model records that rest on these claims, run ao-kb-model-to-evidence on each claim; artifacts and model records are separate citers.
+tags:
+  - ao-kb
+  - evidence
+---
+apiVersion: rhizome.query-recipe.v1
+id: ao-kb-model-to-evidence
+name: Model to evidence
+problem: Read a product-model record's declared evidence with each claim's origin citation, or the model records that rest on a claim.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: A model record locator (`<file>#record:v1:<digest>`) or a vault-relative assertion path in the selected product.
+query:
+  graphQL: |
+    query AOKBModelToEvidence($path: String!) {
+      node(ref: $path) {
+        __typename title path
+        workspace { fields { name values } }
+        evidence: neighborhood(direction: OUTBOUND, relation: "evidenced-by", first: 50) {
+          truncated
+          nodes { ... on Assertion { aoId path updatedAt provenanceSource provenanceLocator
+            sourcesSection { citations { recordedLink sources(first: 20) { aoId path sourcePaths locatorScheme } } } } }
+        }
+        citedBy: neighborhood(direction: INBOUND, relation: "evidenced-by", first: 100) {
+          truncated
+          edges { target { notePath kind fragment nodeId typeName } }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - node.evidence.truncated
+    - node.citedBy.truncated
+  empty: No matching record; confirm the locator, the selected product, ready model bindings and index readiness.
+  partial: Lists are bounded; preserve unresolved references and disclose missing or ambiguous bindings. Narrow full pages before widening.
+  highVolume: Narrow to one record or claim; never silently treat a full page as complete.
+adaptationGuidance:
+  summary: Model evidence is a native evidenced-by edge from the record to each claim, resolved by exact aoId in the selected product. Authored order and repeats live in the record's declared evidence field, not in the edge list.
+  rules:
+    - For a model record, read the declared order from workspace field v_supported_5f_by (or v_rests_5f_on); match each value to an evidence node by exact aoId. A value with no match is unresolved (missing, ambiguous, or in another product); never substitute another claim.
+    - Use provenanceSource as each claim's origin when recorded, otherwise the first citation. Preserve citation order and repeats; a missing locator means document-only evidence.
+    - For a claim, citedBy targets are the model records resting on it. Open each by notePath plus fragment. Until the platform returns fragments for incoming record endpoints, a nodeId record-v1-<digest> names fragment record:v1:<digest>; a record-pos-v1 target has no durable locator, so open its file instead.
+    - Compare each claim's updatedAt with the record file's synced date (AOKBModelFile) only to say knowledge was updated since sync; missing or incomparable dates are unknown.
 tags:
   - ao-kb
   - evidence
