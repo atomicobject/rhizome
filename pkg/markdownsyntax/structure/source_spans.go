@@ -52,6 +52,7 @@ func ParseMarkdownListSourceSpans(notePath, content string) []*SourceSpan {
 	frontmatter := frontmatterRange(content)
 	raw := make([]rawMarkdownItem, 0)
 	fence := ""
+	segment := 0
 	for i, line := range lines {
 		start := lineOffsets[i]
 		if frontmatter.Valid(len(content)) && start < frontmatter.End {
@@ -65,11 +66,16 @@ func ParseMarkdownListSourceSpans(notePath, content string) []*SourceSpan {
 		if fence != "" {
 			continue
 		}
+		if isTopLevelATXHeading(line) {
+			segment++
+			continue
+		}
 		item, ok := parseListItemStart(line, start)
 		if !ok {
 			continue
 		}
 		item.lineIndex = i
+		item.segment = segment
 		raw = append(raw, item)
 	}
 	assignListParents(raw)
