@@ -186,7 +186,7 @@ export function RecordBriefHeader({
 
   // An editable echo stays (the card's only editor) but waits for hover or focus.
   const editable = (tag: (typeof facts.orderedTags)[number]) =>
-    Boolean(onStageOps && tag.capability.edit && !tag.capability.edit.list);
+    Boolean(onStageOps && !row.readOnlyReason && tag.capability.edit && !tag.capability.edit.list);
 
   const tags = (lifecycle ? [lifecycle, ...facts.orderedTags] : facts.orderedTags).filter(
     (tag) => !echoes(tag) || editable(tag),
@@ -347,8 +347,12 @@ export function TagMenu({
   const mark = <StatusMark tone={tag.tone} label={tag.label} />;
   const options = edit?.options ?? tag.capability.enumValues?.map((item) => item.value) ?? [];
 
-  if (!edit || edit.list || !onStageOps || options.length === 0) {
-    return <span className="configured-brief__tag">{mark}</span>;
+  if (!edit || edit.list || !onStageOps || row.readOnlyReason || options.length === 0) {
+    return (
+      <span className="configured-brief__tag" title={row.readOnlyReason}>
+        {mark}
+      </span>
+    );
   }
 
   async function choose(value: string) {

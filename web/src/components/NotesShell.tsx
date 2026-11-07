@@ -13,6 +13,7 @@ import type {
 } from "../api/types";
 import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
 import { vaultLabel } from "../lib/labels";
+import { nodeReadOnlyReason } from "../lib/readOnly";
 import { HomeTab } from "./HomeTab";
 import { EDITOR_DRAFTS_CHANGED_EVENT, hasPersistedEditorDrafts } from "./editing/draftStorage";
 import { flushEditors } from "./editing/editorFlush";
@@ -459,6 +460,8 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   const activeContext = tabs.activeTab.kind === "note" ? contexts.get(tabs.activeId) || null : null;
+  // An owned or read-only note offers no way into editing: no Edit button, no shortcut.
+  const activeReadOnly = Boolean(nodeReadOnlyReason(activeContext?.workspace));
   const activeNotePath = tabs.activeTab.kind === "note" ? tabs.activeTab.path : null;
   const validationQuery = useValidationQuery(active);
 
@@ -569,7 +572,12 @@ export function NotesShell({ active = true }: { active?: boolean }) {
         return;
       }
 
-      if (event.shiftKey && event.key.toLowerCase() === "e" && !editSession.editing) {
+      if (
+        event.shiftKey &&
+        event.key.toLowerCase() === "e" &&
+        !editSession.editing &&
+        !activeReadOnly
+      ) {
         event.preventDefault();
         startEditing();
       }
@@ -579,6 +587,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
+    activeReadOnly,
     commit,
     editSession.busy,
     editSession.editing,
@@ -780,15 +789,9 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   const showsCollection = usePanelShowsCollection(tabs.activeId);
   const noteActive = tabs.activeTab.kind === "note";
 
-  const noteReadOnly = Boolean(
-    activeContext?.workspace.content.source &&
-    (activeContext.workspace.capabilities.readOnlyReason ||
-      !activeContext.workspace.capabilities.canEdit),
-  );
-
   const editApplies =
     !searchActive &&
-    ((noteActive && !noteReadOnly) ||
+    ((noteActive && !activeReadOnly) ||
       showsCollection ||
       editSession.editing ||
       Boolean(editSession.session));
