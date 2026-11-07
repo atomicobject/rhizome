@@ -1,3 +1,4 @@
+import { isNativeSourceContent } from "./parse";
 import type {
   PublicLocalGraphEdge,
   PublicLocalGraphNode,
@@ -133,6 +134,8 @@ function nodeLocatorFromPublicNode(node: PublicNode): NodeLocator {
         markdown: locator.linkTarget.markdown || undefined,
         wikilink: locator.linkTarget.wikilink || undefined,
         displayLabel: locator.linkTarget.displayLabel || undefined,
+        durability: locator.linkTarget.durability || undefined,
+        revision: locator.linkTarget.revision || undefined,
         exists: locator.linkTarget.exists,
         requiresFix: locator.linkTarget.requiresFix,
         blockId: locator.linkTarget.blockId || undefined,
@@ -176,7 +179,14 @@ function descriptorFromPublicNode(node: PublicNode): NodeDescriptor {
   };
 }
 
+function nativeSourceFromPublicNode(node: PublicNode) {
+  const source = node.workspace?.source;
+
+  return isNativeSourceContent(source) ? source : undefined;
+}
+
 function contentFromPublicNode(node: PublicNode): NodeContent {
+  const source = nativeSourceFromPublicNode(node);
   const rendered = renderedFromPublicNode(node);
   const structural = structuralFromPublicNode(node);
 
@@ -184,7 +194,8 @@ function contentFromPublicNode(node: PublicNode): NodeContent {
     path: node.path || node.ref.notePath || node.ref.ref,
     title: node.title,
     resolvedType: node.resolvedType || undefined,
-    markdown: node.content || "",
+    source,
+    markdown: source ? undefined : node.content || "",
     format: node.format || undefined,
     sourceRepresentation: node.sourceRepresentation || undefined,
     evidenceRepresentation: node.evidenceRepresentation || undefined,
@@ -240,7 +251,7 @@ function assessmentFromPublicWorkspace(
 const NOTE_BACKED_KINDS = new Set(["NOTE", "SECTION", "EMBEDDED"]);
 
 function renderedFromPublicNode(node: PublicNode): RenderedFile | undefined {
-  if (!NOTE_BACKED_KINDS.has(node.nodeKind)) return undefined;
+  if (!NOTE_BACKED_KINDS.has(node.nodeKind) || nativeSourceFromPublicNode(node)) return undefined;
   const { links, embeds } = renderedLinksAndEmbedsFromPublicWorkspace(node);
 
   return {
@@ -291,6 +302,7 @@ function renderedLinksAndEmbedsFromPublicWorkspace(node: PublicNode) {
 }
 
 function renderedSectionsFromPublicNode(node: PublicNode): RenderedSection[] {
+  if (nativeSourceFromPublicNode(node)) return [];
   const structure = node.workspace?.structure || [];
   const byRef = new Map<string, RenderedSection>();
   const roots: RenderedSection[] = [];
@@ -320,6 +332,7 @@ function renderedSectionsFromPublicNode(node: PublicNode): RenderedSection[] {
 }
 
 function structuralFromPublicNode(node: PublicNode): NodeContent["structural"] {
+  if (nativeSourceFromPublicNode(node)) return undefined;
   const structure = node.workspace?.structure || [];
 
   if (structure.length === 0) return undefined;
@@ -469,6 +482,7 @@ function bodyBlockFromPublic(block: PublicWorkspaceBodyProjection["blocks"][numb
 
 function contentNodeFromPublicBody(body: PublicWorkspaceBodyProjection): WorkspaceNode {
   const ref = nodeRefFromPublicRef(body.ref);
+  const source = isNativeSourceContent(body.source) ? body.source : undefined;
 
   return {
     id: canonicalWorkspaceNodeID(body.ref),
@@ -482,7 +496,8 @@ function contentNodeFromPublicBody(body: PublicWorkspaceBodyProjection): Workspa
     data: {
       title: body.title,
       resolvedType: body.resolvedType || undefined,
-      markdown: body.markdown || undefined,
+      source,
+      markdown: source ? undefined : body.markdown || undefined,
       locator: body.locator,
       level: body.level || undefined,
       blockId: body.blockId || undefined,

@@ -31,18 +31,18 @@ type NodeInlineFieldSpan struct {
 }
 
 type NodeFieldState struct {
-	Name         string                 `json:"name"`
-	Kind         BindingKind            `json:"kind"`
-	SourceKind   ontoschema.FieldSource `json:"sourceKind,omitempty"`
-	Present      bool                   `json:"present"`
-	Status       NodeStatus             `json:"status"`
-	Range        ByteRange              `json:"range"`
-	ValueRanges  []ByteRange            `json:"valueRanges,omitempty"`
-	Values       []string               `json:"values,omitempty"`
-	InlineSpans  []NodeInlineFieldSpan  `json:"inlineSpans,omitempty"`
-	SectionNodes []NodeRef              `json:"sectionNodes,omitempty"`
-	Capability   NodeFieldCapability    `json:"capability"`
-	Issues       []ValidationIssue      `json:"issues,omitempty"`
+	Name        string                 `json:"name"`
+	Kind        BindingKind            `json:"kind"`
+	SourceKind  ontoschema.FieldSource `json:"sourceKind,omitempty"`
+	Present     bool                   `json:"present"`
+	Status      NodeStatus             `json:"status"`
+	Range       ByteRange              `json:"range"`
+	ValueRanges []ByteRange            `json:"valueRanges,omitempty"`
+	Values      []string               `json:"values,omitempty"`
+	InlineSpans []NodeInlineFieldSpan  `json:"inlineSpans,omitempty"`
+	ChildRefs   []NodeRef              `json:"sectionNodes,omitempty"`
+	Capability  NodeFieldCapability    `json:"capability"`
+	Issues      []ValidationIssue      `json:"issues,omitempty"`
 }
 
 type NodeSourceRevision struct {
@@ -95,7 +95,8 @@ type NodeStatus struct {
 }
 
 type NodeContent struct {
-	Markdown string `json:"markdown,omitempty"`
+	Source   *NodeSourceContent `json:"source,omitempty"`
+	Markdown string             `json:"markdown,omitempty"`
 }
 
 type NodeEvent struct {
@@ -151,7 +152,7 @@ func BuildNodeWorkspaceFromProjectionWithSchema(schema *ontoschema.Schema, proje
 	}
 	workspace := &NodeWorkspace{
 		Node:           buildNodeDescriptor(schema, projection),
-		Content:        NodeContent{Markdown: nodeProjectionMarkdown(projection)},
+		Content:        nodeWorkspaceContent(projection),
 		Fields:         buildNodeFieldStates(schema, projection),
 		Collections:    buildNodeCollectionStates(projection),
 		Capabilities:   buildNodeCapabilities(projection),
@@ -170,6 +171,12 @@ func buildNodeDescriptor(schema *ontoschema.Schema, projection *NodeProjection) 
 		NotePath:     ref.NotePath,
 		Title:        nodeProjectionTitle(projection),
 		Locator:      string(ref.Kind),
+	}
+	if projection.Prepared != nil && ref.Kind != NodeKindNote {
+		if parent, ok, err := projection.Prepared.SemanticParent(ref); err == nil && ok {
+			desc.ParentRef = &parent
+			return desc
+		}
 	}
 	if schema != nil && ref.Kind != NodeKindNote {
 		if parent, ok, err := SemanticParentRef(projection.Snapshot, schema, ref); err == nil && ok {
@@ -238,7 +245,7 @@ func buildNodeFieldStates(schema *ontoschema.Schema, projection *NodeProjection)
 				PropertyKey: span.PropertyKey,
 			})
 		}
-		state.SectionNodes = append([]NodeRef(nil), binding.SectionNodes...)
+		state.ChildRefs = append([]NodeRef(nil), binding.ChildRefs...)
 		out = append(out, state)
 	}
 	return out
@@ -296,16 +303,20 @@ func buildNodeCollectionStates(projection *NodeProjection) []NodeCollectionState
 }
 
 func buildNodeCapabilities(projection *NodeProjection) NodeCapabilities {
-	canEditFields := len(projection.Fields) > 0
-	canEditCollections := len(projection.Collections) > 0
-	canNavigateChildren := canEditCollections
+	canEditFields := (projection.Snapshot != nil || projection.RootSnapshot != nil && projection.RootSnapshot.RootMetadataMutationSupported) && len(projection.Fields) > 0
+	canEditCollections := projection.Snapshot != nil && len(projection.Collections) > 0
+	canNavigateChildren := len(projection.Collections) > 0
 	if !canNavigateChildren {
 		for _, field := range projection.Fields {
-			if len(field.SectionNodes) > 0 {
+			if len(field.ChildRefs) > 0 {
 				canNavigateChildren = true
 				break
 			}
 		}
+	}
+	if !canNavigateChildren && projection.Prepared != nil && projection.Snapshot == nil {
+		refs, err := projection.Prepared.Children(projection.Ref)
+		canNavigateChildren = err == nil && len(refs) > 0
 	}
 	return NodeCapabilities{
 		CanEdit:             canEditFields || canEditCollections,
@@ -334,6 +345,9 @@ func buildNodeVersion(workspace *NodeWorkspace) string {
 }
 
 func nodeProjectionTitle(projection *NodeProjection) string {
+	if projection != nil && projection.Record != nil {
+		return projection.sourceTitle
+	}
 	if projection == nil {
 		return ""
 	}
@@ -390,4 +404,12 @@ func firstNonEmptyNodeValue(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func nodeWorkspaceContent(p *NodeProjection) NodeContent {
+	if p.Record != nil {
+		source := p.SourceContent()
+		return NodeContent{Source: &source}
+	}
+	return NodeContent{Markdown: nodeProjectionMarkdown(p)}
 }

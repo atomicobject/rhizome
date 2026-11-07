@@ -78,7 +78,7 @@ func validateEmbeddedFieldsWithResolver(snapshot *DocumentSnapshot, schema *onto
 			issues = append(issues, validateCollectionCardinality(snapshot, lines, projection, field, collection)...)
 		}
 		for _, binding := range projection.Fields {
-			for _, ref := range binding.SectionNodes {
+			for _, ref := range binding.ChildRefs {
 				visit(ref)
 			}
 		}

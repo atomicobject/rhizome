@@ -222,9 +222,9 @@ func TestDefaultPackerPreservesAuthoredContextTargetPaths(t *testing.T) {
 			vault := obsidian.VaultDefinition{Path: root}
 			projection, err := ontology.ProjectNote(context.Background(), vault, &obsidian.Note{}, schema, "notes/specs/checkout.md")
 			require.NoError(t, err)
-			container, err := ontology.ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, projection.Fields["userStories"].SectionNodes[0])
+			container, err := ontology.ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, projection.Fields["userStories"].ChildRefs[0])
 			require.NoError(t, err)
-			story, err := ontology.ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, container.Fields["stories"].SectionNodes[0])
+			story, err := ontology.ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, container.Fields["stories"].ChildRefs[0])
 			require.NoError(t, err)
 			ref := story.Ref
 			intel := newPresentationOntologyIntel(t, "notes/specs/checkout.md")
@@ -282,10 +282,10 @@ Users need quicker checkout.
 	require.NoError(t, err)
 	rootProjection, err := ontology.ProjectNote(ctx, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "notes/specs/checkout.md")
 	require.NoError(t, err)
-	containerRef := rootProjection.Fields["userStories"].SectionNodes[0]
+	containerRef := rootProjection.Fields["userStories"].ChildRefs[0]
 	container, err := ontology.ProjectNode(ctx, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
-	storyRef := container.Fields["stories"].SectionNodes[0]
+	storyRef := container.Fields["stories"].ChildRefs[0]
 	ref := storyRef
 
 	intel := newPresentationOntologyIntel(t, "notes/specs/checkout.md")
@@ -497,10 +497,10 @@ Sibling body should not appear.
 	require.NoError(t, err)
 	rootProjection, err := ontology.ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "notes/specs/checkout.md")
 	require.NoError(t, err)
-	containerRef := rootProjection.Fields["userStories"].SectionNodes[0]
+	containerRef := rootProjection.Fields["userStories"].ChildRefs[0]
 	container, err := ontology.ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
-	storyRef := container.Fields["stories"].SectionNodes[0]
+	storyRef := container.Fields["stories"].ChildRefs[0]
 	story, err := ontology.ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, storyRef)
 	require.NoError(t, err)
 	return root, schema, story
@@ -540,10 +540,10 @@ TAIL-MATCH-EVIDENCE `+strings.Repeat("omega ", 500)+`
 	require.NoError(t, err)
 	rootProjection, err := ontology.ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "notes/specs/long.md")
 	require.NoError(t, err)
-	containerRef := rootProjection.Fields["userStories"].SectionNodes[0]
+	containerRef := rootProjection.Fields["userStories"].ChildRefs[0]
 	container, err := ontology.ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
-	storyRef := container.Fields["stories"].SectionNodes[0]
+	storyRef := container.Fields["stories"].ChildRefs[0]
 	story, err := ontology.ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, storyRef)
 	require.NoError(t, err)
 	return root, schema, story

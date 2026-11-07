@@ -26,13 +26,23 @@ enum NeighborDirection { OUTBOUND INBOUND BOTH }
 enum NeighborScope { NOTE SUBTREE }
 enum SectionLevel { H1 H2 H3 H4 H5 H6 }
 enum SectionDisplay { PANE INLINE }
-enum EmbeddedSourceShape { SECTION LIST_ITEM CHECKBOX_ITEM }
+enum EmbeddedSourceShape { SECTION LIST_ITEM CHECKBOX_ITEM RECORD }
 enum NodeLocator { FILE EMBEDDED }
 enum IdentifierPopulate { MANUAL ON_CREATE ON_LINK }
 enum IdentifierStrategy { SEQUENTIAL DATETIME }
+input RecordKey { field: String, mappingKey: Boolean, template: String }
+enum RecordReferenceMode { STRICT TOLERANT }
+enum RecordReferenceEncoding { ID TYPED }
+enum RecordReferenceValues { VALUE ELEMENTS MAPPING_KEYS BY_SHAPE }
+enum RecordValueFallback { MAPPING_KEY }
+enum RecordEdgeDirection { OUTBOUND INBOUND }
+input RecordEdge { name: String!, direction: RecordEdgeDirection = OUTBOUND }
+input RecordTarget { tag: String!, type: String!, memberPath: String }
+input RecordMembership { path: String!, includes: String!, includeMissing: Boolean = true }
+directive @references(to: [String!]!, mode: RecordReferenceMode!, encoding: RecordReferenceEncoding = ID, values: RecordReferenceValues = VALUE, targets: [RecordTarget!], matchName: String, allowWildcard: Boolean = false, edge: RecordEdge) on FIELD_DEFINITION
 input RequiredFieldCondition { field: String!, equals: String }
 directive @node(matches: [String!], paths: [String!], label: String, color: String, keyField: String, propertyCase: OntologyPropertyCase = KEBAB, locator: NodeLocator = FILE, default: Boolean = false) on OBJECT
-directive @field(source: String, sources: [String!], path: String, sourceKind: FieldSource = FRONTMATTER) on FIELD_DEFINITION
+directive @field(source: String, sources: [String!], path: String, fallback: RecordValueFallback, sourceKind: FieldSource = FRONTMATTER) on FIELD_DEFINITION
 directive @authoring(style: FieldAuthoringStyle!) on FIELD_DEFINITION
 directive @format(pattern: String, notPattern: String) on FIELD_DEFINITION
 directive @identifier(preferred: Boolean = false, strategy: IdentifierStrategy = SEQUENTIAL, prefix: String, pad: Int = 4, separator: String = "-", derivable: Boolean, derivedSuffix: String, populate: IdentifierPopulate) on FIELD_DEFINITION
@@ -40,8 +50,8 @@ directive @link(source: String, sources: [String!], path: String, sourceKind: Fi
 directive @reverse(field: String!) on FIELD_DEFINITION
 directive @workspaceMember(label: String) on FIELD_DEFINITION
 directive @neighbors(direction: NeighborDirection!, type: String!, scope: NeighborScope = NOTE, contextInclude: Boolean = false) on FIELD_DEFINITION
-directive @contains(level: SectionLevel, heading: String, shape: EmbeddedSourceShape = SECTION, marker: String, required: Boolean = false, display: SectionDisplay = PANE, min: Int, max: Int) on FIELD_DEFINITION
-directive @source(shape: EmbeddedSourceShape!, marker: String, paths: [String!]) on OBJECT
+directive @contains(select: String, edge: RecordEdge, level: SectionLevel, heading: String, shape: EmbeddedSourceShape = SECTION, marker: String, required: Boolean = false, display: SectionDisplay = PANE, min: Int, max: Int) on FIELD_DEFINITION
+directive @source(shape: EmbeddedSourceShape!, marker: String, paths: [String!], select: String, key: RecordKey, title: [String!], scalarAs: String, container: String, space: String, logicalKind: String, membership: RecordMembership, sourceOrder: Int = 0) on OBJECT
 directive @companionDocs(paths: [String!], purpose: String) on OBJECT | FIELD_DEFINITION
 enum OntologySemanticsKind { BEHAVIORAL DOCUMENTARY }
 directive @semantics(kind: OntologySemanticsKind!) on OBJECT | FIELD_DEFINITION

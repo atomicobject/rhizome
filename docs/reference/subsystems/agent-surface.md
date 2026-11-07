@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/app/agentchat
   - pkg/app/agentapi
@@ -41,6 +41,8 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 - `pkg/app/presentation/`: implements `Packer` for `pkg/search.Service`; renders ranked results into budgeted text via contextpack.
 
 ## Design constraints
+
+**Native read transport (SPEC-0133).** Agent read surfaces continue using noderead and canonical NodeRefs. Rich NodeRecords may carry native source-value content with media type, representation, owner address and source provenance; do not reinterpret it as Markdown or synthesize a heading. IndexOnly cannot certify a positional RECORD locator. Readability and child navigation grant no write capability; existing ownership admission remains authoritative.
 
 - Each code operation is constructed with its routing, schemas, metadata and conditional input validation in `pkg/app/agentapi/code_operations_*.go`. The final catalog is the shared immutable surface; do not recreate name-keyed contract tables.
 

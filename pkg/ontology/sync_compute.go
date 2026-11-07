@@ -128,7 +128,7 @@ func globalSourceLinkTargets(note *projectedNote, schema *ontoschema.Schema, cac
 			}
 		}
 		for _, binding := range projection.Fields {
-			for _, childRef := range binding.SectionNodes {
+			for _, childRef := range binding.ChildRefs {
 				if err := walk(childRef); err != nil {
 					return err
 				}
@@ -260,6 +260,9 @@ func computeOntologyJob(job noteSyncJob, schema *ontoschema.Schema, cache *obsid
 		return noteSyncResult{}, err
 	}
 	res.edges = append(res.edges, nodeEdges...)
+	if job.projected.prepared != nil {
+		res.issues = append(res.issues, job.projected.prepared.validationIssues()...)
+	}
 	if job.doc.Snapshot != nil {
 		res.issues = append(res.issues, validationIssuesFromBlockIDs(job.doc, schema)...)
 		res.issues = append(res.issues, validateEmbeddedFieldsWithResolver(job.doc.Snapshot, schema, job.projected.root, job.projected.resolver)...)

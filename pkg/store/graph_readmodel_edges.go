@@ -20,7 +20,7 @@ func (s *Store) ontologyEdgesForPathPrefixes(ctx context.Context, prefixes []str
 		conditions = append(conditions, "structural = 1")
 	}
 	query := fmt.Sprintf(`
-		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at
+		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at, occurrences_json
 		FROM ontology_edges
 		WHERE %s
 		ORDER BY structural DESC, src_path, relation_name, dst_path, src_node_id, dst_node_id
@@ -38,7 +38,7 @@ func (s *Store) ontologyEdgesForPathPrefixes(ctx context.Context, prefixes []str
 	for rows.Next() {
 		var row OntologyEdgeRow
 		var structural int
-		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt); err != nil {
+		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 			return nil, err
 		}
 		row.Structural = structural != 0
@@ -66,7 +66,7 @@ func (s *Store) ontologyEdgesForEndpointSelectors(ctx context.Context, selectors
 		where = append(where, "structural = 1")
 	}
 	query := fmt.Sprintf(`
-		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at
+		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at, occurrences_json
 		FROM ontology_edges
 		WHERE %s
 		ORDER BY structural DESC, src_path, relation_name, dst_path, src_node_id, dst_node_id
@@ -84,7 +84,7 @@ func (s *Store) ontologyEdgesForEndpointSelectors(ctx context.Context, selectors
 	for rows.Next() {
 		var row OntologyEdgeRow
 		var structural int
-		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt); err != nil {
+		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 			return nil, err
 		}
 		row.Structural = structural != 0

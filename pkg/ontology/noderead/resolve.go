@@ -90,6 +90,29 @@ func (s *Scope) Resolve(ctx context.Context, req ResolveRequest) (ResolveResult,
 
 	inputRefs := make([]inputRef, 0, len(parsed))
 	for _, target := range parsed {
+		if ontology.IsRecordSelector(target.Ref.Fragment) {
+			if req.IndexOnly && strings.HasPrefix(target.Ref.Fragment, "record-pos:") {
+				diagnostics = append(diagnostics, NodeResolveDiagnostic{Input: target.Input, Code: "record_locator_revision_unverified", Message: "positional record locators require captured current source"})
+				continue
+			}
+			if !req.IndexOnly {
+				projected, err := s.Projection(ctx, target.Ref)
+				if err != nil || projected == nil {
+					code := "record_locator_unresolved"
+					message := "record locator did not resolve"
+					if err != nil {
+						message = err.Error()
+						if strings.Contains(message, "record_locator_stale") {
+							code = "record_locator_stale"
+						}
+					}
+					diagnostics = append(diagnostics, NodeResolveDiagnostic{Input: target.Input, Code: code, Message: message})
+					continue
+				}
+				inputRefs = append(inputRefs, inputRef{Input: target.Input, Ref: projected.Ref})
+				continue
+			}
+		}
 		ref := target.Ref
 		resolvedFromCatalog := false
 		if target.Ref.Structural != "" && target.Ref.Fragment == "" && target.Ref.NodeID == "" {

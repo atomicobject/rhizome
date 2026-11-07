@@ -92,6 +92,10 @@ func renderFullType(b *strings.Builder, schema *ontoschema.Schema, noteType *gui
 		b.WriteByte('\n')
 	}
 	renderGuideGuidance(b, noteType.Meaning, noteType.Authoring, noteType.AgentImplications, "")
+	if noteType.Record != nil {
+		renderRecordGuide(b, noteType)
+		return
+	}
 
 	b.WriteString("\n### Resolution\n")
 	switch noteType.Role {
@@ -348,6 +352,10 @@ func hasAuthoredAliasesField(noteType *guideType) bool {
 }
 
 func renderSupportingType(b *strings.Builder, schema *ontoschema.Schema, noteType *guideType, resolve CompanionDocResolver) {
+	if noteType != nil && noteType.Record != nil {
+		renderFullType(b, schema, noteType, nil, resolve, nil)
+		return
+	}
 	if noteType == nil {
 		return
 	}

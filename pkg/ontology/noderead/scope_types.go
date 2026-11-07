@@ -68,6 +68,7 @@ type Scope struct {
 
 	projectionByRef    map[string]*ontology.NodeProjection
 	projectionKnown    map[string]bool
+	preparedByPath     map[string]*ontology.PreparedDocument
 	rootSnapshotByPath map[string]*ontology.RootDocumentSnapshot
 	snapshotByPath     map[string]*ontology.DocumentSnapshot
 	snapshotKnownErr   map[string]error

@@ -249,6 +249,9 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 		}
 	}
 
+	if err := validateRecordBindings(schema); err != nil {
+		return nil, err
+	}
 	injectNoteInterfaceFields(schema)
 	if err := applyInheritedFieldDisplay(schema); err != nil {
 		return nil, err

@@ -1,3 +1,4 @@
+import type { NativeSourceContent } from "./nativeSource";
 /**
  * Boundary parsers and type guards.
  *
@@ -134,5 +135,21 @@ export function isErrorResponse(v: unknown): v is ErrorResponse {
     isString(v.error) &&
     isOptionalString(v.code) &&
     (v.details === undefined || isJsonObject(v.details))
+  );
+}
+
+export function isNativeSourceContent(value: unknown): value is NativeSourceContent {
+  return (
+    isPlainObject(value) &&
+    value.representation === "source_value" &&
+    isString(value.text) &&
+    isString(value.mediaType) &&
+    isJsonValue(value.value) &&
+    isOptionalString(value.address) &&
+    isOptionalString(value.sourceHash) &&
+    isOptionalString(value.format) &&
+    isOptionalString(value.providerVersion) &&
+    isOptionalString(value.owner) &&
+    isOptionalString(value.binding)
   );
 }

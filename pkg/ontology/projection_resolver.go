@@ -57,6 +57,7 @@ func (r *projectionResolver) projectNote() *NodeProjection {
 	}
 	projection := &NodeProjection{
 		Ref:          ref,
+		Prepared:     r.prepared,
 		Snapshot:     r.snapshot,
 		ResolvedType: typeNameOrEmpty(r.noteType),
 		Type:         r.noteType,
@@ -265,67 +266,6 @@ func (r *projectionResolver) indexNestedSectionTypes(typeName string, propertyCa
 			r.indexNestedSectionTypes(field.TypeName, propertyCase, match.Children, match.ID)
 		}
 	}
-}
-
-func linkListSourceSpansToSections(spans []*MarkdownSourceSpan) {
-	if len(spans) == 0 {
-		return
-	}
-	byID := make(map[string]*MarkdownSourceSpan, len(spans))
-	var sections []*MarkdownSourceSpan
-	for _, span := range spans {
-		if span == nil {
-			continue
-		}
-		byID[span.ID] = span
-		if span.Shape == ontoschema.EmbeddedSourceShapeSection {
-			sections = append(sections, span)
-		}
-	}
-	for _, span := range spans {
-		if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection || strings.TrimSpace(span.ParentID) != "" {
-			continue
-		}
-		parent := nearestContainingSection(sections, span.Range)
-		if parent == nil {
-			continue
-		}
-		span.ParentID = parent.ID
-		parent.Children = append(parent.Children, span)
-	}
-	for _, span := range spans {
-		if span == nil || strings.TrimSpace(span.ParentID) == "" {
-			continue
-		}
-		if parent := byID[span.ParentID]; parent != nil && !sourceSpanHasChild(parent, span.ID) {
-			parent.Children = append(parent.Children, span)
-		}
-	}
-}
-
-func nearestContainingSection(sections []*MarkdownSourceSpan, child ByteRange) *MarkdownSourceSpan {
-	var best *MarkdownSourceSpan
-	for _, section := range sections {
-		if section == nil || section.Shape != ontoschema.EmbeddedSourceShapeSection {
-			continue
-		}
-		if section.Range.Start > child.Start || section.Range.End < child.End {
-			continue
-		}
-		if best == nil || section.Range.Len() < best.Range.Len() {
-			best = section
-		}
-	}
-	return best
-}
-
-func sourceSpanHasChild(parent *MarkdownSourceSpan, childID string) bool {
-	for _, child := range parent.Children {
-		if child != nil && child.ID == childID {
-			return true
-		}
-	}
-	return false
 }
 
 func sourceSpanChildren(parent *MarkdownSourceSpan) []*MarkdownSourceSpan {

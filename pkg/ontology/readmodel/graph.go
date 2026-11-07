@@ -17,16 +17,23 @@ type GraphNodeRow struct {
 	UpdatedAt     int64
 }
 
+type RelationOccurrence struct {
+	Ordinal int    `json:"ordinal"`
+	Value   string `json:"value"`
+	At      string `json:"at,omitempty"`
+}
+
 type GraphTypedEdgeRow struct {
-	SrcPath      string
-	SrcNodeID    string
-	RelationName string
-	DstPath      string
-	DstNodeID    string
-	DstType      string
-	Provenance   string
-	Structural   bool
-	UpdatedAt    int64
+	OccurrencesJSON string
+	SrcPath         string
+	SrcNodeID       string
+	RelationName    string
+	DstPath         string
+	DstNodeID       string
+	DstType         string
+	Provenance      string
+	Structural      bool
+	UpdatedAt       int64
 }
 
 type GraphDocEdgeRow struct {

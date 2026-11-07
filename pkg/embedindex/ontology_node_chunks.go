@@ -56,7 +56,7 @@ func BuildOntologyNodeChunks(schema *ontoschema.Schema, projection *ontology.Nod
 	if fallback, ok := ontology.AsFallbackNoteProjection(projection); ok {
 		projection = fallback
 	}
-	if projection == nil || projection.Snapshot == nil || schema == nil || strings.TrimSpace(projection.ResolvedType) == "" {
+	if projection == nil || (projection.Snapshot == nil && projection.Prepared == nil) || schema == nil || strings.TrimSpace(projection.ResolvedType) == "" {
 		return out, nil
 	}
 	if err := c.collect(&out, projection, nil, "", nil); err != nil {
@@ -78,6 +78,27 @@ func BuildOntologyNodeChunks(schema *ontoschema.Schema, projection *ontology.Nod
 				Title: nodeProjectionTitleForEmbedding(section),
 				Field: "section",
 			})
+		}
+	}
+	if projection.Prepared != nil && projection.Ref.Kind == ontology.NodeKindNote {
+		nodes, err := projection.Prepared.Nodes()
+		if err != nil {
+			return out, err
+		}
+		seen := map[string]bool{}
+		for _, row := range out.Nodes {
+			seen[row.NodeID] = true
+		}
+		for _, node := range nodes {
+			if node.Record == nil || node.Ref.ParentID != "" {
+				continue
+			}
+			if !seen[ontology.OntologyNodeID(node.Ref)] {
+				seen[ontology.OntologyNodeID(node.Ref)] = true
+				if err := c.collect(&out, node, projection, "", nil); err != nil {
+					return out, err
+				}
+			}
 		}
 	}
 	out.NotePaths = uniqueSortedNonEmpty(out.NotePaths)
@@ -120,8 +141,8 @@ func (c ontologyNodeChunker) collect(out *OntologyNodeChunkSet, projection *onto
 	sort.Strings(names)
 	for _, name := range names {
 		field := projection.Fields[name]
-		for _, ref := range field.SectionNodes {
-			child, err := ontology.ProjectBoundNodeFromSnapshot(projection.Snapshot, c.Schema, ref)
+		for _, ref := range field.ChildRefs {
+			child, err := projection.Prepared.ProjectBound(ref)
 			if err != nil {
 				return err
 			}
@@ -298,8 +319,13 @@ func nodeProjectionTitleForEmbedding(projection *ontology.NodeProjection) string
 		segment := lastPathSegment(projection.Ref.NotePath)
 		return strings.TrimSuffix(segment, filepath.Ext(segment))
 	}
-	if node := projection.Snapshot.SectionsByID[projection.Ref.NodeID]; node != nil {
-		return strings.TrimSpace(node.Title)
+	if projection.Record != nil {
+		return projection.DisplayTitle()
+	}
+	if projection.Snapshot != nil {
+		if node := projection.Snapshot.SectionsByID[projection.Ref.NodeID]; node != nil {
+			return strings.TrimSpace(node.Title)
+		}
 	}
 	return projection.Ref.String()
 }

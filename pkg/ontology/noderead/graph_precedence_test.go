@@ -98,3 +98,17 @@ func BenchmarkGraphFactsPrecedence(b *testing.B) {
 		}
 	}
 }
+
+func TestGraphReadsRetainReferenceOccurrenceEvidence(t *testing.T) {
+	const occurrences = `[{"ordinal":0,"value":"field:B.name","at":"name"},{"ordinal":1,"value":"field:B.name","at":"name"}]`
+	store := &graphPrecedenceStore{typed: []readmodel.GraphTypedEdgeRow{{SrcPath: "a.native", DstPath: "b.native", RelationName: "reads", OccurrencesJSON: occurrences}}}
+	scope := NewService(obsidian.VaultDefinition{}, nil, store, nil).NewScope(ScopeOptions{})
+	graph, err := scope.Graph(t.Context(), GraphRequest{Profile: GraphProfileOntologyNative})
+	require.NoError(t, err)
+	require.Len(t, graph.Edges, 1)
+	require.Equal(t, occurrences, graph.Edges[0].OccurrencesJSON)
+	facts, err := scope.GraphFacts(t.Context(), GraphFactsRequest{IncludeOntology: true})
+	require.NoError(t, err)
+	require.Len(t, facts.Edges, 1)
+	require.Equal(t, occurrences, facts.Edges[0].OccurrencesJSON)
+}

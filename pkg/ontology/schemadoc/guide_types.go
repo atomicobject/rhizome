@@ -27,6 +27,7 @@ type guideType struct {
 	SourceShape         ontoschema.EmbeddedSourceShape
 	SourceMarker        string
 	SourcePaths         []string
+	Record              *ontoschema.RecordSourceBinding
 }
 
 func selectTypes(schema *ontoschema.Schema, requested []string) ([]string, []string, error) {
@@ -178,6 +179,7 @@ func guideTypeFromSchema(schema *ontoschema.Schema, name string) *guideType {
 			SourceShape:         noteType.SourceShape,
 			SourceMarker:        noteType.SourceMarker,
 			SourcePaths:         append([]string(nil), noteType.SourcePaths...),
+			Record:              noteType.Record,
 		}
 	}
 	if iface := schema.Interfaces[name]; iface != nil {

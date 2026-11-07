@@ -22,6 +22,6 @@ func (s *Scope) linkServiceLocked(ctx context.Context) (*ontology.NodeLinkServic
 		}
 	}
 	sort.Strings(notes)
-	s.nodeLinkService = (&ontology.NodeLinkService{VaultDef: s.service.VaultDef, NoteReader: s.service.NoteReader, Schema: s.service.Schema, LoadSnapshot: s.snapshotForPathLocked}).WithNotePaths(notes)
+	s.nodeLinkService = (&ontology.NodeLinkService{VaultDef: s.service.VaultDef, NoteReader: s.service.NoteReader, Schema: s.service.Schema, LoadSnapshot: s.snapshotForPathLocked, LoadPrepared: s.preparedForPathLocked}).WithNotePaths(notes)
 	return s.nodeLinkService, nil
 }

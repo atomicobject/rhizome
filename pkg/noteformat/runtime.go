@@ -89,6 +89,13 @@ func NewRuntime(registry Registry, projectors ...Projector) (Runtime, error) {
 			runtime.rootMetadataPatchers[string(formatID)] = patcher
 		}
 	}
+	for _, id := range registry.IDs() {
+		provider, _ := registry.Provider(id)
+		if provider.Descriptor().Capabilities.Has(CapabilityStructuralReading) && !runtime.CanProject(id) {
+			return Runtime{}, fmt.Errorf("structural reading requires an executable projector for %q", id)
+		}
+	}
+
 	return runtime, nil
 }
 
@@ -147,6 +154,12 @@ func (r Runtime) CanProject(id FormatID) bool {
 	return ok
 }
 
+// CanReadStructure requires both an executable projector and its declaration.
+func (r Runtime) CanReadStructure(id FormatID) bool {
+	provider, ok := r.Provider(id)
+	return ok && r.CanProject(id) && provider.Descriptor().Capabilities.Has(CapabilityStructuralReading)
+}
+
 // Project dispatches source to its selected provider projector. A
 // descriptor-only provider reports ErrProjectorUnavailable rather than
 // pretending to have extraction behavior.
@@ -168,6 +181,12 @@ func (r Runtime) Project(source AuthoredSource) (Projection, error) {
 	}
 	if !projectionMatchesDescriptor(projection, descriptor) {
 		return Projection{}, fmt.Errorf("%w: %q", ErrProjectionDescriptorMismatch, descriptor.ID)
+	}
+	if projection.Facts.Structure != nil && !r.CanReadStructure(descriptor.ID) {
+		return Projection{}, fmt.Errorf("%w: structure without structural_reading", ErrInvalidProjectionFacts)
+	}
+	if projection.Status == ProjectionStatusCurrent && r.CanReadStructure(descriptor.ID) && projection.Facts.Structure == nil {
+		return Projection{}, fmt.Errorf("%w: structural_reading result lacks root", ErrInvalidProjectionFacts)
 	}
 	if err := validateProjectionFacts(projection.Facts, len(source.content)); err != nil {
 		return Projection{}, fmt.Errorf("%w: %v", ErrInvalidProjectionFacts, err)

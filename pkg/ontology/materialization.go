@@ -31,9 +31,11 @@ import (
 // Alias retirement invalidates unresolved dependencies before old aliases vanish.
 // v16: note titles derived from an H1 drop a trailing Obsidian block ID.
 // v17: embedded display labels retain the full headline without changing indexed titles or fields.
-// v18: list-item neighbor edges include links on the item headline.
-// v19: a declared type that differs only in case from its selector-matched type resolves to it.
-const OntologyMaterializationVersion = 19
+// v18: provider-neutral owners, record fields/presence, and relation occurrence evidence.
+// v19: persisted RECORD binding context keeps scoped positional reads in the indexed logical namespace.
+// v20: list-item neighbor edges include links on the item headline, and a declared type that
+// differs only in case from its selector-matched type resolves to it.
+const OntologyMaterializationVersion = 20
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

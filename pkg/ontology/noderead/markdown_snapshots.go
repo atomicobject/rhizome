@@ -20,7 +20,7 @@ func (s *Scope) markdownStructuralSnapshotCompat(ctx context.Context, row semdb.
 		return nil, nil, nil
 	}
 	if provider, registered := s.service.NoteFormats.Provider(format); registered {
-		if !s.service.NoteFormats.CanProject(format) || !provider.Descriptor().Capabilities.Has(noteformat.CapabilityStructuralContentMutation) {
+		if !s.service.NoteFormats.CanProject(format) || !provider.Descriptor().Capabilities.Has(noteformat.CapabilityStructuralReading) {
 			return nil, nil, nil
 		}
 		root, err := s.providerRootSnapshotLocked(ctx, row)

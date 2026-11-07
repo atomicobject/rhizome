@@ -1,0 +1,3127 @@
+{
+  "Nodes": [
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 276,
+        "structuralFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 57,
+            "end": 276
+          },
+          "ValueRanges": [
+            {
+              "start": 57,
+              "end": 235
+            },
+            {
+              "start": 235,
+              "end": 276
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/nested.md#^chapter",
+            "notes/nested.md#other-235"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "^chapter",
+              "nodeId": "notes/nested.md#^chapter",
+              "typeName": "Chapter",
+              "kind": "EMBEDDED",
+              "startByte": 57,
+              "endByte": 235,
+              "structuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f"
+            },
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "other-235",
+              "nodeId": "notes/nested.md#other-235",
+              "typeName": "Chapter",
+              "kind": "EMBEDDED",
+              "startByte": 235,
+              "endByte": 276,
+              "structuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37"
+            }
+          ],
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "FRONTMATTER_FIELD",
+          "SourceKind": "FRONTMATTER",
+          "Present": true,
+          "Range": {
+            "start": 0,
+            "end": 22
+          },
+          "ValueRanges": [
+            {
+              "start": 12,
+              "end": 17
+            }
+          ],
+          "ValueRangesExact": true,
+          "Values": [
+            "draft"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 57,
+            "end": 276
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/nested.md",
+                "fragment": "^chapter",
+                "nodeId": "notes/nested.md#^chapter",
+                "typeName": "Chapter",
+                "kind": "EMBEDDED",
+                "startByte": 57,
+                "endByte": 235,
+                "structuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f"
+              },
+              "Range": {
+                "start": 57,
+                "end": 235
+              }
+            },
+            {
+              "Ref": {
+                "notePath": "notes/nested.md",
+                "fragment": "other-235",
+                "nodeId": "notes/nested.md#other-235",
+                "typeName": "Chapter",
+                "kind": "EMBEDDED",
+                "startByte": 235,
+                "endByte": 276,
+                "structuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37"
+              },
+              "Range": {
+                "start": 235,
+                "end": 276
+              }
+            }
+          ],
+          "OrderFingerprint": "ea8dd64756d6daf745ab60d75dc6c751d7bfb24f41c31d04c1c5dc13d2b57cc3"
+        }
+      },
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 29,
+            "end": 57
+          },
+          "markdown": "\nRoot prose [[elsewhere]]."
+        },
+        {
+          "kind": "collection",
+          "range": {
+            "start": 57,
+            "end": 276
+          },
+          "fieldName": "chapters",
+          "childRefs": [
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "^chapter",
+              "nodeId": "notes/nested.md#^chapter",
+              "kind": "EMBEDDED"
+            },
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "other-235",
+              "nodeId": "notes/nested.md#other-235",
+              "kind": "EMBEDDED"
+            }
+          ],
+          "sectionDisplay": "PANE"
+        }
+      ],
+      "Parts": [
+        "Root prose [[elsewhere]]."
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "^chapter",
+        "nodeId": "notes/nested.md#^chapter",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 57,
+        "endByte": 235,
+        "structuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f"
+      },
+      "Parent": {
+        "notePath": "notes/nested.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 276,
+        "structuralFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3"
+      },
+      "Fields": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 116,
+            "end": 200
+          },
+          "ValueRanges": [
+            {
+              "start": 116,
+              "end": 200
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/nested.md#item-116"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "item-116",
+              "nodeId": "notes/nested.md#item-116",
+              "typeName": "Item",
+              "kind": "EMBEDDED",
+              "startByte": 116,
+              "endByte": 200,
+              "parentId": "notes/nested.md#^chapter",
+              "structuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06"
+            }
+          ],
+          "Derived": false
+        },
+        "owner": {
+          "FieldName": "owner",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 92,
+            "end": 105
+          },
+          "ValueRanges": [
+            {
+              "start": 92,
+              "end": 105
+            }
+          ],
+          "ValueRangesExact": true,
+          "Values": [
+            "[[elsewhere]]"
+          ],
+          "InlineSpans": [
+            {
+              "Key": "owner",
+              "Value": "[[elsewhere]]",
+              "LineRange": {
+                "start": 84,
+                "end": 106
+              },
+              "KeyRange": {
+                "start": 84,
+                "end": 89
+              },
+              "ValueRange": {
+                "start": 92,
+                "end": 105
+              },
+              "WholeRange": {
+                "start": 84,
+                "end": 105
+              },
+              "PropertyKey": "owner",
+              "AuthoringStyle": "INLINE_PROPERTY"
+            }
+          ],
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 77,
+            "end": 83
+          },
+          "ValueRanges": [
+            {
+              "start": 77,
+              "end": 83
+            }
+          ],
+          "ValueRangesExact": true,
+          "Values": [
+            "active"
+          ],
+          "InlineSpans": [
+            {
+              "Key": "status",
+              "Value": "active",
+              "LineRange": {
+                "start": 68,
+                "end": 84
+              },
+              "KeyRange": {
+                "start": 68,
+                "end": 74
+              },
+              "ValueRange": {
+                "start": 77,
+                "end": 83
+              },
+              "WholeRange": {
+                "start": 68,
+                "end": 83
+              },
+              "PropertyKey": "status",
+              "AuthoringStyle": "INLINE_PROPERTY"
+            }
+          ],
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 116,
+            "end": 200
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/nested.md",
+                "fragment": "item-116",
+                "nodeId": "notes/nested.md#item-116",
+                "typeName": "Item",
+                "kind": "EMBEDDED",
+                "startByte": 116,
+                "endByte": 200,
+                "parentId": "notes/nested.md#^chapter",
+                "structuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06"
+              },
+              "Range": {
+                "start": 116,
+                "end": 200
+              }
+            }
+          ],
+          "OrderFingerprint": "a1d7da8243690b739fc49293f812e95a98545ec088d5d296c921af337db02a51"
+        }
+      },
+      "Body": [
+        {
+          "kind": "inline_field",
+          "range": {
+            "start": 68,
+            "end": 84
+          },
+          "fieldName": "status",
+          "rawKey": "status"
+        },
+        {
+          "kind": "inline_field",
+          "range": {
+            "start": 84,
+            "end": 106
+          },
+          "fieldName": "owner",
+          "rawKey": "owner"
+        },
+        {
+          "kind": "inline_field",
+          "range": {
+            "start": 106,
+            "end": 114
+          },
+          "fieldName": "locator",
+          "rawKey": "locator"
+        },
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 114,
+            "end": 235
+          },
+          "markdown": "\n\n- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n- [ ] Global work #task ^task-one"
+        }
+      ],
+      "Parts": [
+        "status:: active\n\nowner:: [[elsewhere]]\n\n^chapter\n\n- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n- [ ] Global work #task ^task-one"
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "item-116",
+        "nodeId": "notes/nested.md#item-116",
+        "typeName": "Item",
+        "kind": "EMBEDDED",
+        "startByte": 116,
+        "endByte": 200,
+        "parentId": "notes/nested.md#^chapter",
+        "structuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06"
+      },
+      "Parent": {
+        "notePath": "notes/nested.md",
+        "fragment": "^chapter",
+        "nodeId": "notes/nested.md#^chapter",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 57,
+        "endByte": 235,
+        "structuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f"
+      },
+      "Fields": {
+        "detail": {
+          "FieldName": "detail",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_DETAIL",
+          "Present": true,
+          "Range": {
+            "start": 118,
+            "end": 200
+          },
+          "ValueRanges": [
+            {
+              "start": 118,
+              "end": 200
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "Detail stays here.\n- Markerless child"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "itemTitle": {
+          "FieldName": "itemTitle",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_TITLE",
+          "Present": true,
+          "Range": {
+            "start": 118,
+            "end": 200
+          },
+          "ValueRanges": [
+            {
+              "start": 118,
+              "end": 200
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "First"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 179,
+            "end": 200
+          },
+          "ValueRanges": [
+            {
+              "start": 179,
+              "end": 200
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/nested.md#item-179"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "item-179",
+              "nodeId": "notes/nested.md#item-179",
+              "typeName": "Item",
+              "kind": "EMBEDDED",
+              "startByte": 179,
+              "endByte": 200,
+              "parentId": "notes/nested.md#item-116",
+              "structuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4"
+            }
+          ],
+          "Derived": false
+        },
+        "summary": {
+          "FieldName": "summary",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_SUMMARY",
+          "Present": true,
+          "Range": {
+            "start": 118,
+            "end": 200
+          },
+          "ValueRanges": [
+            {
+              "start": 118,
+              "end": 200
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "A summary with [[evidence]]."
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 179,
+            "end": 200
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/nested.md",
+                "fragment": "item-179",
+                "nodeId": "notes/nested.md#item-179",
+                "typeName": "Item",
+                "kind": "EMBEDDED",
+                "startByte": 179,
+                "endByte": 200,
+                "parentId": "notes/nested.md#item-116",
+                "structuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4"
+              },
+              "Range": {
+                "start": 179,
+                "end": 200
+              }
+            }
+          ],
+          "OrderFingerprint": "ce37cf2ed9070a0ad9025ec8e72ac54f04e264b703f8585c1c06f03527d02808"
+        }
+      },
+      "Body": null,
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "item-179",
+        "nodeId": "notes/nested.md#item-179",
+        "typeName": "Item",
+        "kind": "EMBEDDED",
+        "startByte": 179,
+        "endByte": 200,
+        "parentId": "notes/nested.md#item-116",
+        "structuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4"
+      },
+      "Parent": {
+        "notePath": "notes/nested.md",
+        "fragment": "item-116",
+        "nodeId": "notes/nested.md#item-116",
+        "typeName": "Item",
+        "kind": "EMBEDDED",
+        "startByte": 116,
+        "endByte": 200,
+        "parentId": "notes/nested.md#^chapter",
+        "structuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06"
+      },
+      "Fields": {
+        "detail": {
+          "FieldName": "detail",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_DETAIL",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "itemTitle": {
+          "FieldName": "itemTitle",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_TITLE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": [],
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": [],
+          "Derived": false
+        },
+        "summary": {
+          "FieldName": "summary",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_SUMMARY",
+          "Present": true,
+          "Range": {
+            "start": 183,
+            "end": 200
+          },
+          "ValueRanges": [
+            {
+              "start": 183,
+              "end": 200
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "Markerless child"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "Items": [],
+          "OrderFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "Body": null,
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "other-235",
+        "nodeId": "notes/nested.md#other-235",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 235,
+        "endByte": 276,
+        "structuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37"
+      },
+      "Parent": {
+        "notePath": "notes/nested.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 276,
+        "structuralFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3"
+      },
+      "Fields": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 244,
+            "end": 276
+          },
+          "ValueRanges": [
+            {
+              "start": 244,
+              "end": 260
+            },
+            {
+              "start": 260,
+              "end": 276
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/nested.md#item-244",
+            "notes/nested.md#item-260"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "item-244",
+              "nodeId": "notes/nested.md#item-244",
+              "typeName": "Item",
+              "kind": "EMBEDDED",
+              "startByte": 244,
+              "endByte": 260,
+              "parentId": "notes/nested.md#other-235",
+              "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+            },
+            {
+              "notePath": "notes/nested.md",
+              "fragment": "item-260",
+              "nodeId": "notes/nested.md#item-260",
+              "typeName": "Item",
+              "kind": "EMBEDDED",
+              "startByte": 260,
+              "endByte": 276,
+              "parentId": "notes/nested.md#other-235",
+              "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+            }
+          ],
+          "Derived": false
+        },
+        "owner": {
+          "FieldName": "owner",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 244,
+            "end": 276
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/nested.md",
+                "fragment": "item-244",
+                "nodeId": "notes/nested.md#item-244",
+                "typeName": "Item",
+                "kind": "EMBEDDED",
+                "startByte": 244,
+                "endByte": 260,
+                "parentId": "notes/nested.md#other-235",
+                "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+              },
+              "Range": {
+                "start": 244,
+                "end": 260
+              }
+            },
+            {
+              "Ref": {
+                "notePath": "notes/nested.md",
+                "fragment": "item-260",
+                "nodeId": "notes/nested.md#item-260",
+                "typeName": "Item",
+                "kind": "EMBEDDED",
+                "startByte": 260,
+                "endByte": 276,
+                "parentId": "notes/nested.md#other-235",
+                "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+              },
+              "Range": {
+                "start": 260,
+                "end": 276
+              }
+            }
+          ],
+          "OrderFingerprint": "29caba518363eee33af9e4c61c9288011d1a51735a92cfc441de4a9f0b8591cd"
+        }
+      },
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 244,
+            "end": 276
+          },
+          "markdown": "- Repeated item\n- Repeated item"
+        }
+      ],
+      "Parts": [
+        "- Repeated item\n- Repeated item"
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "item-244",
+        "nodeId": "notes/nested.md#item-244",
+        "typeName": "Item",
+        "kind": "EMBEDDED",
+        "startByte": 244,
+        "endByte": 260,
+        "parentId": "notes/nested.md#other-235",
+        "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+      },
+      "Parent": {
+        "notePath": "",
+        "fragment": "ambiguous source span identity: structural fingerprint matches 2 unanchored items in notes/nested.md",
+        "kind": ""
+      },
+      "Fields": {
+        "detail": {
+          "FieldName": "detail",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_DETAIL",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "itemTitle": {
+          "FieldName": "itemTitle",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_TITLE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": [],
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": [],
+          "Derived": false
+        },
+        "summary": {
+          "FieldName": "summary",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_SUMMARY",
+          "Present": true,
+          "Range": {
+            "start": 246,
+            "end": 260
+          },
+          "ValueRanges": [
+            {
+              "start": 246,
+              "end": 260
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "Repeated item"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "Items": [],
+          "OrderFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "Body": null,
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "item-260",
+        "nodeId": "notes/nested.md#item-260",
+        "typeName": "Item",
+        "kind": "EMBEDDED",
+        "startByte": 260,
+        "endByte": 276,
+        "parentId": "notes/nested.md#other-235",
+        "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+      },
+      "Parent": {
+        "notePath": "",
+        "fragment": "ambiguous source span identity: structural fingerprint matches 2 unanchored items in notes/nested.md",
+        "kind": ""
+      },
+      "Fields": {
+        "detail": {
+          "FieldName": "detail",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_DETAIL",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "itemTitle": {
+          "FieldName": "itemTitle",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_TITLE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": [],
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": [],
+          "Derived": false
+        },
+        "summary": {
+          "FieldName": "summary",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_SUMMARY",
+          "Present": true,
+          "Range": {
+            "start": 262,
+            "end": 276
+          },
+          "ValueRanges": [
+            {
+              "start": 262,
+              "end": 276
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "Repeated item"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "Items": [],
+          "OrderFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "Body": null,
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "notes/nested.md",
+        "fragment": "^task-one",
+        "nodeId": "notes/nested.md#^task-one",
+        "typeName": "Task",
+        "kind": "EMBEDDED",
+        "startByte": 200,
+        "endByte": 235,
+        "parentId": "notes/nested.md#^chapter",
+        "structuralFingerprint": "728c0d9ffdca22d1371853e9d6b9418f4a666bd8610797cbdb43e85961e815cd"
+      },
+      "Parent": {
+        "notePath": "notes/nested.md",
+        "fragment": "^chapter",
+        "nodeId": "notes/nested.md#^chapter",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 57,
+        "endByte": 235,
+        "structuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f"
+      },
+      "Fields": {
+        "done": {
+          "FieldName": "done",
+          "Kind": "CHECKBOX_FIELD",
+          "SourceKind": "CHECKBOX",
+          "Present": true,
+          "Range": {
+            "start": 202,
+            "end": 205
+          },
+          "ValueRanges": [
+            {
+              "start": 202,
+              "end": 205
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "false"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {},
+      "Body": null,
+      "Parts": null
+    }
+  ],
+  "Catalog": {
+    "FullReplace": false,
+    "NotePaths": [
+      "notes/nested.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":276,\"structuralFingerprint\":\"589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "nested",
+        "SourceLocator": "notes/nested.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "nested",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 276,
+        "StructuralFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"^chapter\",\"nodeId\":\"notes/nested.md#^chapter\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":57,\"endByte\":235,\"structuralFingerprint\":\"090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "ParentTypeName": "Document",
+        "Title": "Chapter",
+        "SourceLocator": "notes/nested.md#^chapter",
+        "Fragment": "^chapter",
+        "BlockID": "chapter",
+        "DisplayLabel": "Chapter",
+        "LocatorStatus": "linkable",
+        "StartByte": 57,
+        "EndByte": 235,
+        "StructuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f",
+        "RelocationFingerprint": "3bdc8a0023c782e69f0da425f99bc2f7b744ac28d33756ec667e667ebe3a5e2f",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-116\",\"nodeId\":\"notes/nested.md#item-116\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":116,\"endByte\":200,\"parentId\":\"notes/nested.md#^chapter\",\"structuralFingerprint\":\"2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "ParentTypeName": "Chapter",
+        "Title": "First",
+        "SourceLocator": "notes/nested.md#item-116",
+        "Fragment": "item-116",
+        "BlockID": "",
+        "DisplayLabel": "First",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 116,
+        "EndByte": 200,
+        "StructuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06",
+        "RelocationFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "d440bd59d56ce05aafeefdd2d7c774c631649ed67479c61cd32b454d9f0680ac",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-179\",\"nodeId\":\"notes/nested.md#item-179\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":179,\"endByte\":200,\"parentId\":\"notes/nested.md#item-116\",\"structuralFingerprint\":\"9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "ParentTypeName": "Item",
+        "Title": "Markerless child",
+        "SourceLocator": "notes/nested.md#item-179",
+        "Fragment": "item-179",
+        "BlockID": "",
+        "DisplayLabel": "Markerless child",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 179,
+        "EndByte": 200,
+        "StructuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4",
+        "RelocationFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"other-235\",\"nodeId\":\"notes/nested.md#other-235\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":235,\"endByte\":276,\"structuralFingerprint\":\"7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "ParentTypeName": "Document",
+        "Title": "Other",
+        "SourceLocator": "notes/nested.md#other-235",
+        "Fragment": "other-235",
+        "BlockID": "",
+        "DisplayLabel": "Other",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 235,
+        "EndByte": 276,
+        "StructuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37",
+        "RelocationFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "cd4e51ad8f4fff38aa532ca945a95a3cacf9b63454e13bac310772310ab2601e",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-244\",\"nodeId\":\"notes/nested.md#item-244\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":244,\"endByte\":260,\"parentId\":\"notes/nested.md#other-235\",\"structuralFingerprint\":\"af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "ParentTypeName": "Chapter",
+        "Title": "Repeated item",
+        "SourceLocator": "notes/nested.md#item-244",
+        "Fragment": "item-244",
+        "BlockID": "",
+        "DisplayLabel": "Repeated item",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 244,
+        "EndByte": 260,
+        "StructuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "RelocationFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "c0a69b02d1b7d592df57f2422fa304f7698b2182b6f3aa7cf2b976c219613fd2",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-260\",\"nodeId\":\"notes/nested.md#item-260\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":260,\"endByte\":276,\"parentId\":\"notes/nested.md#other-235\",\"structuralFingerprint\":\"af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "ParentTypeName": "Chapter",
+        "Title": "Repeated item",
+        "SourceLocator": "notes/nested.md#item-260",
+        "Fragment": "item-260",
+        "BlockID": "",
+        "DisplayLabel": "Repeated item",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 260,
+        "EndByte": 276,
+        "StructuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "RelocationFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "8a99d6c64a7851bb6c8d15b8fdbff720745feeb7118f279af1bcb03d28c10018",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"^task-one\",\"nodeId\":\"notes/nested.md#^task-one\",\"typeName\":\"Task\",\"kind\":\"EMBEDDED\",\"startByte\":200,\"endByte\":235,\"parentId\":\"notes/nested.md#^chapter\",\"structuralFingerprint\":\"728c0d9ffdca22d1371853e9d6b9418f4a666bd8610797cbdb43e85961e815cd\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Task",
+        "ParentNodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "ParentTypeName": "Document",
+        "Title": "Global work",
+        "SourceLocator": "notes/nested.md#^task-one",
+        "Fragment": "^task-one",
+        "BlockID": "task-one",
+        "DisplayLabel": "Global work",
+        "LocatorStatus": "linkable",
+        "StartByte": 200,
+        "EndByte": 235,
+        "StructuralFingerprint": "728c0d9ffdca22d1371853e9d6b9418f4a666bd8610797cbdb43e85961e815cd",
+        "RelocationFingerprint": "6604fcf19610e6b0bf05efe0da9504fc62deee419b2a2b5a554f4bf67891e0a6",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": [
+      {
+        "NodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Document",
+        "FieldName": "status",
+        "FieldKind": "scalar",
+        "SourceKind": "FRONTMATTER",
+        "ValueKind": "string",
+        "ValueText": "draft",
+        "ValueNorm": "draft",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Chapter",
+        "FieldName": "status",
+        "FieldKind": "scalar",
+        "SourceKind": "INLINE",
+        "ValueKind": "string",
+        "ValueText": "active",
+        "ValueNorm": "active",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Chapter",
+        "FieldName": "owner",
+        "FieldKind": "link",
+        "SourceKind": "INLINE",
+        "ValueKind": "link",
+        "ValueText": "[[elsewhere]]",
+        "ValueNorm": "elsewhere",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "elsewhere",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "elsewhere",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "itemtitle",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_TITLE",
+        "ValueKind": "string",
+        "ValueText": "First",
+        "ValueNorm": "first",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "A summary with [[evidence]].",
+        "ValueNorm": "a summary with [[evidence]].",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "detail",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_DETAIL",
+        "ValueKind": "string",
+        "ValueText": "Detail stays here.\n- Markerless child",
+        "ValueNorm": "detail stays here.\n- markerless child",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "d440bd59d56ce05aafeefdd2d7c774c631649ed67479c61cd32b454d9f0680ac",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Markerless child",
+        "ValueNorm": "markerless child",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "cd4e51ad8f4fff38aa532ca945a95a3cacf9b63454e13bac310772310ab2601e",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Repeated item",
+        "ValueNorm": "repeated item",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "c0a69b02d1b7d592df57f2422fa304f7698b2182b6f3aa7cf2b976c219613fd2",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Repeated item",
+        "ValueNorm": "repeated item",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "8a99d6c64a7851bb6c8d15b8fdbff720745feeb7118f279af1bcb03d28c10018",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Task",
+        "FieldName": "done",
+        "FieldKind": "scalar",
+        "SourceKind": "CHECKBOX",
+        "ValueKind": "bool",
+        "ValueText": "false",
+        "ValueNorm": "false",
+        "ValueBool": false,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "LinkDependencies": [
+      {
+        "SourceNotePath": "notes/nested.md",
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "TypeName": "Chapter",
+        "FieldName": "owner",
+        "TargetInput": "elsewhere",
+        "TargetInputNorm": "elsewhere",
+        "ResolvedTargetNotePath": "elsewhere",
+        "ResolvedTargetTypeName": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ]
+  },
+  "Spans": [
+    {
+      "ID": "notes/nested.md#plan-22",
+      "NotePath": "notes/nested.md",
+      "Shape": "SECTION",
+      "Title": "Plan",
+      "ParentID": "",
+      "Children": [
+        {
+          "ID": "notes/nested.md#^chapter",
+          "NotePath": "notes/nested.md",
+          "Shape": "SECTION",
+          "Title": "Chapter",
+          "ParentID": "notes/nested.md#plan-22",
+          "Children": [
+            {
+              "ID": "notes/nested.md#item-116",
+              "NotePath": "notes/nested.md",
+              "Shape": "LIST_ITEM",
+              "Title": "First",
+              "ParentID": "notes/nested.md#^chapter",
+              "Children": [
+                {
+                  "ID": "notes/nested.md#item-179",
+                  "NotePath": "notes/nested.md",
+                  "Shape": "LIST_ITEM",
+                  "Title": "Markerless child",
+                  "ParentID": "notes/nested.md#item-116",
+                  "Children": null,
+                  "BlockID": "",
+                  "MalformedBlockID": "",
+                  "MarkerRange": {
+                    "start": 181,
+                    "end": 183
+                  },
+                  "Markers": [],
+                  "Checkbox": null,
+                  "Range": {
+                    "start": 179,
+                    "end": 200
+                  },
+                  "ContentRange": {
+                    "start": 183,
+                    "end": 200
+                  },
+                  "OwnContentRanges": [
+                    {
+                      "start": 183,
+                      "end": 200
+                    }
+                  ],
+                  "Content": "  - Markerless child\n"
+                }
+              ],
+              "BlockID": "",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 116,
+                "end": 118
+              },
+              "Markers": [],
+              "Checkbox": null,
+              "Range": {
+                "start": 116,
+                "end": 200
+              },
+              "ContentRange": {
+                "start": 118,
+                "end": 200
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 118,
+                  "end": 179
+                }
+              ],
+              "Content": "- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n"
+            },
+            {
+              "ID": "notes/nested.md#^task-one",
+              "NotePath": "notes/nested.md",
+              "Shape": "CHECKBOX_ITEM",
+              "Title": "Global work",
+              "ParentID": "notes/nested.md#^chapter",
+              "Children": null,
+              "BlockID": "task-one",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 200,
+                "end": 206
+              },
+              "Markers": [
+                {
+                  "Value": "#task",
+                  "Range": {
+                    "start": 218,
+                    "end": 223
+                  }
+                }
+              ],
+              "Checkbox": {
+                "Checked": false,
+                "TokenRange": {
+                  "start": 202,
+                  "end": 205
+                }
+              },
+              "Range": {
+                "start": 200,
+                "end": 235
+              },
+              "ContentRange": {
+                "start": 206,
+                "end": 235
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 206,
+                  "end": 235
+                }
+              ],
+              "Content": "- [ ] Global work #task ^task-one\n\n"
+            }
+          ],
+          "BlockID": "chapter",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 0,
+            "end": 0
+          },
+          "Markers": null,
+          "Checkbox": null,
+          "Range": {
+            "start": 57,
+            "end": 235
+          },
+          "ContentRange": {
+            "start": 57,
+            "end": 235
+          },
+          "OwnContentRanges": [
+            {
+              "start": 57,
+              "end": 235
+            }
+          ],
+          "Content": "## Chapter\nstatus:: active\nowner:: [[elsewhere]]\n^chapter\n\n- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n- [ ] Global work #task ^task-one\n\n"
+        },
+        {
+          "ID": "notes/nested.md#other-235",
+          "NotePath": "notes/nested.md",
+          "Shape": "SECTION",
+          "Title": "Other",
+          "ParentID": "notes/nested.md#plan-22",
+          "Children": [
+            {
+              "ID": "notes/nested.md#item-244",
+              "NotePath": "notes/nested.md",
+              "Shape": "LIST_ITEM",
+              "Title": "Repeated item",
+              "ParentID": "notes/nested.md#other-235",
+              "Children": null,
+              "BlockID": "",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 244,
+                "end": 246
+              },
+              "Markers": [],
+              "Checkbox": null,
+              "Range": {
+                "start": 244,
+                "end": 260
+              },
+              "ContentRange": {
+                "start": 246,
+                "end": 260
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 246,
+                  "end": 260
+                }
+              ],
+              "Content": "- Repeated item\n"
+            },
+            {
+              "ID": "notes/nested.md#item-260",
+              "NotePath": "notes/nested.md",
+              "Shape": "LIST_ITEM",
+              "Title": "Repeated item",
+              "ParentID": "notes/nested.md#other-235",
+              "Children": null,
+              "BlockID": "",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 260,
+                "end": 262
+              },
+              "Markers": [],
+              "Checkbox": null,
+              "Range": {
+                "start": 260,
+                "end": 276
+              },
+              "ContentRange": {
+                "start": 262,
+                "end": 276
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 262,
+                  "end": 276
+                }
+              ],
+              "Content": "- Repeated item\n"
+            }
+          ],
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 0,
+            "end": 0
+          },
+          "Markers": null,
+          "Checkbox": null,
+          "Range": {
+            "start": 235,
+            "end": 276
+          },
+          "ContentRange": {
+            "start": 235,
+            "end": 276
+          },
+          "OwnContentRanges": [
+            {
+              "start": 235,
+              "end": 276
+            }
+          ],
+          "Content": "## Other\n- Repeated item\n- Repeated item\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 22,
+        "end": 276
+      },
+      "ContentRange": {
+        "start": 22,
+        "end": 276
+      },
+      "OwnContentRanges": [
+        {
+          "start": 22,
+          "end": 57
+        }
+      ],
+      "Content": "# Plan\n\nRoot prose [[elsewhere]].\n\n## Chapter\nstatus:: active\nowner:: [[elsewhere]]\n^chapter\n\n- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n- [ ] Global work #task ^task-one\n\n## Other\n- Repeated item\n- Repeated item\n"
+    },
+    {
+      "ID": "notes/nested.md#^chapter",
+      "NotePath": "notes/nested.md",
+      "Shape": "SECTION",
+      "Title": "Chapter",
+      "ParentID": "notes/nested.md#plan-22",
+      "Children": [
+        {
+          "ID": "notes/nested.md#item-116",
+          "NotePath": "notes/nested.md",
+          "Shape": "LIST_ITEM",
+          "Title": "First",
+          "ParentID": "notes/nested.md#^chapter",
+          "Children": [
+            {
+              "ID": "notes/nested.md#item-179",
+              "NotePath": "notes/nested.md",
+              "Shape": "LIST_ITEM",
+              "Title": "Markerless child",
+              "ParentID": "notes/nested.md#item-116",
+              "Children": null,
+              "BlockID": "",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 181,
+                "end": 183
+              },
+              "Markers": [],
+              "Checkbox": null,
+              "Range": {
+                "start": 179,
+                "end": 200
+              },
+              "ContentRange": {
+                "start": 183,
+                "end": 200
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 183,
+                  "end": 200
+                }
+              ],
+              "Content": "  - Markerless child\n"
+            }
+          ],
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 116,
+            "end": 118
+          },
+          "Markers": [],
+          "Checkbox": null,
+          "Range": {
+            "start": 116,
+            "end": 200
+          },
+          "ContentRange": {
+            "start": 118,
+            "end": 200
+          },
+          "OwnContentRanges": [
+            {
+              "start": 118,
+              "end": 179
+            }
+          ],
+          "Content": "- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n"
+        },
+        {
+          "ID": "notes/nested.md#^task-one",
+          "NotePath": "notes/nested.md",
+          "Shape": "CHECKBOX_ITEM",
+          "Title": "Global work",
+          "ParentID": "notes/nested.md#^chapter",
+          "Children": null,
+          "BlockID": "task-one",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 200,
+            "end": 206
+          },
+          "Markers": [
+            {
+              "Value": "#task",
+              "Range": {
+                "start": 218,
+                "end": 223
+              }
+            }
+          ],
+          "Checkbox": {
+            "Checked": false,
+            "TokenRange": {
+              "start": 202,
+              "end": 205
+            }
+          },
+          "Range": {
+            "start": 200,
+            "end": 235
+          },
+          "ContentRange": {
+            "start": 206,
+            "end": 235
+          },
+          "OwnContentRanges": [
+            {
+              "start": 206,
+              "end": 235
+            }
+          ],
+          "Content": "- [ ] Global work #task ^task-one\n\n"
+        }
+      ],
+      "BlockID": "chapter",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 57,
+        "end": 235
+      },
+      "ContentRange": {
+        "start": 57,
+        "end": 235
+      },
+      "OwnContentRanges": [
+        {
+          "start": 57,
+          "end": 235
+        }
+      ],
+      "Content": "## Chapter\nstatus:: active\nowner:: [[elsewhere]]\n^chapter\n\n- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n- [ ] Global work #task ^task-one\n\n"
+    },
+    {
+      "ID": "notes/nested.md#other-235",
+      "NotePath": "notes/nested.md",
+      "Shape": "SECTION",
+      "Title": "Other",
+      "ParentID": "notes/nested.md#plan-22",
+      "Children": [
+        {
+          "ID": "notes/nested.md#item-244",
+          "NotePath": "notes/nested.md",
+          "Shape": "LIST_ITEM",
+          "Title": "Repeated item",
+          "ParentID": "notes/nested.md#other-235",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 244,
+            "end": 246
+          },
+          "Markers": [],
+          "Checkbox": null,
+          "Range": {
+            "start": 244,
+            "end": 260
+          },
+          "ContentRange": {
+            "start": 246,
+            "end": 260
+          },
+          "OwnContentRanges": [
+            {
+              "start": 246,
+              "end": 260
+            }
+          ],
+          "Content": "- Repeated item\n"
+        },
+        {
+          "ID": "notes/nested.md#item-260",
+          "NotePath": "notes/nested.md",
+          "Shape": "LIST_ITEM",
+          "Title": "Repeated item",
+          "ParentID": "notes/nested.md#other-235",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 260,
+            "end": 262
+          },
+          "Markers": [],
+          "Checkbox": null,
+          "Range": {
+            "start": 260,
+            "end": 276
+          },
+          "ContentRange": {
+            "start": 262,
+            "end": 276
+          },
+          "OwnContentRanges": [
+            {
+              "start": 262,
+              "end": 276
+            }
+          ],
+          "Content": "- Repeated item\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 235,
+        "end": 276
+      },
+      "ContentRange": {
+        "start": 235,
+        "end": 276
+      },
+      "OwnContentRanges": [
+        {
+          "start": 235,
+          "end": 276
+        }
+      ],
+      "Content": "## Other\n- Repeated item\n- Repeated item\n"
+    },
+    {
+      "ID": "notes/nested.md#item-116",
+      "NotePath": "notes/nested.md",
+      "Shape": "LIST_ITEM",
+      "Title": "First",
+      "ParentID": "notes/nested.md#^chapter",
+      "Children": [
+        {
+          "ID": "notes/nested.md#item-179",
+          "NotePath": "notes/nested.md",
+          "Shape": "LIST_ITEM",
+          "Title": "Markerless child",
+          "ParentID": "notes/nested.md#item-116",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 181,
+            "end": 183
+          },
+          "Markers": [],
+          "Checkbox": null,
+          "Range": {
+            "start": 179,
+            "end": 200
+          },
+          "ContentRange": {
+            "start": 183,
+            "end": 200
+          },
+          "OwnContentRanges": [
+            {
+              "start": 183,
+              "end": 200
+            }
+          ],
+          "Content": "  - Markerless child\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 116,
+        "end": 118
+      },
+      "Markers": [],
+      "Checkbox": null,
+      "Range": {
+        "start": 116,
+        "end": 200
+      },
+      "ContentRange": {
+        "start": 118,
+        "end": 200
+      },
+      "OwnContentRanges": [
+        {
+          "start": 118,
+          "end": 179
+        }
+      ],
+      "Content": "- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n"
+    },
+    {
+      "ID": "notes/nested.md#item-179",
+      "NotePath": "notes/nested.md",
+      "Shape": "LIST_ITEM",
+      "Title": "Markerless child",
+      "ParentID": "notes/nested.md#item-116",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 181,
+        "end": 183
+      },
+      "Markers": [],
+      "Checkbox": null,
+      "Range": {
+        "start": 179,
+        "end": 200
+      },
+      "ContentRange": {
+        "start": 183,
+        "end": 200
+      },
+      "OwnContentRanges": [
+        {
+          "start": 183,
+          "end": 200
+        }
+      ],
+      "Content": "  - Markerless child\n"
+    },
+    {
+      "ID": "notes/nested.md#^task-one",
+      "NotePath": "notes/nested.md",
+      "Shape": "CHECKBOX_ITEM",
+      "Title": "Global work",
+      "ParentID": "notes/nested.md#^chapter",
+      "Children": null,
+      "BlockID": "task-one",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 200,
+        "end": 206
+      },
+      "Markers": [
+        {
+          "Value": "#task",
+          "Range": {
+            "start": 218,
+            "end": 223
+          }
+        }
+      ],
+      "Checkbox": {
+        "Checked": false,
+        "TokenRange": {
+          "start": 202,
+          "end": 205
+        }
+      },
+      "Range": {
+        "start": 200,
+        "end": 235
+      },
+      "ContentRange": {
+        "start": 206,
+        "end": 235
+      },
+      "OwnContentRanges": [
+        {
+          "start": 206,
+          "end": 235
+        }
+      ],
+      "Content": "- [ ] Global work #task ^task-one\n\n"
+    },
+    {
+      "ID": "notes/nested.md#item-244",
+      "NotePath": "notes/nested.md",
+      "Shape": "LIST_ITEM",
+      "Title": "Repeated item",
+      "ParentID": "notes/nested.md#other-235",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 244,
+        "end": 246
+      },
+      "Markers": [],
+      "Checkbox": null,
+      "Range": {
+        "start": 244,
+        "end": 260
+      },
+      "ContentRange": {
+        "start": 246,
+        "end": 260
+      },
+      "OwnContentRanges": [
+        {
+          "start": 246,
+          "end": 260
+        }
+      ],
+      "Content": "- Repeated item\n"
+    },
+    {
+      "ID": "notes/nested.md#item-260",
+      "NotePath": "notes/nested.md",
+      "Shape": "LIST_ITEM",
+      "Title": "Repeated item",
+      "ParentID": "notes/nested.md#other-235",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 260,
+        "end": 262
+      },
+      "Markers": [],
+      "Checkbox": null,
+      "Range": {
+        "start": 260,
+        "end": 276
+      },
+      "ContentRange": {
+        "start": 262,
+        "end": 276
+      },
+      "OwnContentRanges": [
+        {
+          "start": 262,
+          "end": 276
+        }
+      ],
+      "Content": "- Repeated item\n"
+    }
+  ],
+  "Chunks": {
+    "NotePaths": [
+      "notes/nested.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":276,\"structuralFingerprint\":\"589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "nested",
+        "SourceLocator": "notes/nested.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "nested",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 276,
+        "StructuralFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"^chapter\",\"nodeId\":\"notes/nested.md#^chapter\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":57,\"endByte\":235,\"structuralFingerprint\":\"090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "ParentTypeName": "Document",
+        "Title": "Chapter",
+        "SourceLocator": "notes/nested.md#^chapter",
+        "Fragment": "^chapter",
+        "BlockID": "chapter",
+        "DisplayLabel": "Chapter",
+        "LocatorStatus": "linkable",
+        "StartByte": 57,
+        "EndByte": 235,
+        "StructuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f",
+        "RelocationFingerprint": "3bdc8a0023c782e69f0da425f99bc2f7b744ac28d33756ec667e667ebe3a5e2f",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-116\",\"nodeId\":\"notes/nested.md#item-116\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":116,\"endByte\":200,\"parentId\":\"notes/nested.md#^chapter\",\"structuralFingerprint\":\"2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "ParentTypeName": "Chapter",
+        "Title": "notes/nested.md#item-116",
+        "SourceLocator": "notes/nested.md#item-116",
+        "Fragment": "item-116",
+        "BlockID": "",
+        "DisplayLabel": "First",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 116,
+        "EndByte": 200,
+        "StructuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06",
+        "RelocationFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "d440bd59d56ce05aafeefdd2d7c774c631649ed67479c61cd32b454d9f0680ac",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-179\",\"nodeId\":\"notes/nested.md#item-179\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":179,\"endByte\":200,\"parentId\":\"notes/nested.md#item-116\",\"structuralFingerprint\":\"9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "ParentTypeName": "Item",
+        "Title": "notes/nested.md#item-179",
+        "SourceLocator": "notes/nested.md#item-179",
+        "Fragment": "item-179",
+        "BlockID": "",
+        "DisplayLabel": "Markerless child",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 179,
+        "EndByte": 200,
+        "StructuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4",
+        "RelocationFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"other-235\",\"nodeId\":\"notes/nested.md#other-235\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":235,\"endByte\":276,\"structuralFingerprint\":\"7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "ParentTypeName": "Document",
+        "Title": "Other",
+        "SourceLocator": "notes/nested.md#other-235",
+        "Fragment": "other-235",
+        "BlockID": "",
+        "DisplayLabel": "Other",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 235,
+        "EndByte": 276,
+        "StructuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37",
+        "RelocationFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "cd4e51ad8f4fff38aa532ca945a95a3cacf9b63454e13bac310772310ab2601e",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-244\",\"nodeId\":\"notes/nested.md#item-244\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":244,\"endByte\":260,\"parentId\":\"notes/nested.md#other-235\",\"structuralFingerprint\":\"af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "ParentTypeName": "Chapter",
+        "Title": "notes/nested.md#item-244",
+        "SourceLocator": "notes/nested.md#item-244",
+        "Fragment": "item-244",
+        "BlockID": "",
+        "DisplayLabel": "Repeated item",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 244,
+        "EndByte": 260,
+        "StructuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "RelocationFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "c0a69b02d1b7d592df57f2422fa304f7698b2182b6f3aa7cf2b976c219613fd2",
+        "NotePath": "notes/nested.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/nested.md\",\"fragment\":\"item-260\",\"nodeId\":\"notes/nested.md#item-260\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":260,\"endByte\":276,\"parentId\":\"notes/nested.md#other-235\",\"structuralFingerprint\":\"af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "ParentTypeName": "Chapter",
+        "Title": "notes/nested.md#item-260",
+        "SourceLocator": "notes/nested.md#item-260",
+        "Fragment": "item-260",
+        "BlockID": "",
+        "DisplayLabel": "Repeated item",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 260,
+        "EndByte": 276,
+        "StructuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "RelocationFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": [
+      {
+        "NodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Document",
+        "FieldName": "status",
+        "FieldKind": "scalar",
+        "SourceKind": "FRONTMATTER",
+        "ValueKind": "string",
+        "ValueText": "draft",
+        "ValueNorm": "draft",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Chapter",
+        "FieldName": "status",
+        "FieldKind": "scalar",
+        "SourceKind": "INLINE",
+        "ValueKind": "string",
+        "ValueText": "active",
+        "ValueNorm": "active",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Chapter",
+        "FieldName": "owner",
+        "FieldKind": "link",
+        "SourceKind": "INLINE",
+        "ValueKind": "link",
+        "ValueText": "[[elsewhere]]",
+        "ValueNorm": "elsewhere",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "elsewhere",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "elsewhere",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "itemtitle",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_TITLE",
+        "ValueKind": "string",
+        "ValueText": "First",
+        "ValueNorm": "first",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "A summary with [[evidence]].",
+        "ValueNorm": "a summary with [[evidence]].",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "detail",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_DETAIL",
+        "ValueKind": "string",
+        "ValueText": "Detail stays here.\n- Markerless child",
+        "ValueNorm": "detail stays here.\n- markerless child",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "d440bd59d56ce05aafeefdd2d7c774c631649ed67479c61cd32b454d9f0680ac",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Markerless child",
+        "ValueNorm": "markerless child",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "cd4e51ad8f4fff38aa532ca945a95a3cacf9b63454e13bac310772310ab2601e",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Repeated item",
+        "ValueNorm": "repeated item",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "c0a69b02d1b7d592df57f2422fa304f7698b2182b6f3aa7cf2b976c219613fd2",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Repeated item",
+        "ValueNorm": "repeated item",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "Chunks": [
+      {
+        "ChunkID": "43b45e2dd47188e8ba1f38f620d0a64aa8fc2e7603ac56bfeafb61180ee14c85",
+        "OwnerID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Document \u003e nested",
+        "Heading": "nested",
+        "ContentHash": "ed67e2413b4c71c743b20c78302e5e91401f4816d64d8681537aac3a2a2feb34",
+        "StartByte": 0,
+        "EndByte": 276,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "1d25221967693131f7a37088cc06dfb8a02b2f514a2c10ffbd4beb9a57895734",
+        "OwnerID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Chapter \u003e Chapter",
+        "Heading": "Chapter",
+        "ContentHash": "a5f2d9c8d152626f82f2aa7870e62ff1b16c01ad6112eb630dd176910f5626ef",
+        "StartByte": 57,
+        "EndByte": 235,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "24bc61ece249df5f63dbad747543bf17f69cff096f90893e075958a90376ab7d",
+        "OwnerID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Item \u003e notes/nested.md#item-116",
+        "Heading": "notes/nested.md#item-116",
+        "ContentHash": "d381b685dcbd13221c245daf769f78c1b4c45170d7c5ea9c4a1f0487d162d503",
+        "StartByte": 116,
+        "EndByte": 200,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "3955974fe29e51d6a86dc2e9a6b455324132ff2413d59b1233b9aef089f22479",
+        "OwnerID": "d440bd59d56ce05aafeefdd2d7c774c631649ed67479c61cd32b454d9f0680ac",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Item \u003e notes/nested.md#item-179",
+        "Heading": "notes/nested.md#item-179",
+        "ContentHash": "dc7f2bd0c97dad47ff303e3f6abc2207637b59faf5e70d33a62350faf9aca822",
+        "StartByte": 179,
+        "EndByte": 200,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "934dfdd93f12cb01ffc6b1f35dbbb6a22fe2612705c8b55734bf49983632e503",
+        "OwnerID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Chapter \u003e Other",
+        "Heading": "Other",
+        "ContentHash": "0d54f550c40062ac99b04933c1db73850d4bb7387947b1bd0d3a44282159cd6c",
+        "StartByte": 235,
+        "EndByte": 276,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "c79526b929a1bc14b6f303e8d2483c37074e5bfe5bf9df5edb175e77c19152ce",
+        "OwnerID": "cd4e51ad8f4fff38aa532ca945a95a3cacf9b63454e13bac310772310ab2601e",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Item \u003e notes/nested.md#item-244",
+        "Heading": "notes/nested.md#item-244",
+        "ContentHash": "b200f7054b38f3e67b0a4ea770e4b86d1c884a6a6dcff2a3fdb831612d527dd7",
+        "StartByte": 244,
+        "EndByte": 260,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "46a1998b9dad135ff23bce389626c8673721df470b0b22c9e85e7869565e0634",
+        "OwnerID": "c0a69b02d1b7d592df57f2422fa304f7698b2182b6f3aa7cf2b976c219613fd2",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/nested.md \u003e Item \u003e notes/nested.md#item-260",
+        "Heading": "notes/nested.md#item-260",
+        "ContentHash": "3a2faaa18ea20d8f59eb35a34926bf0b1c4e456e2dc37049c9918a6c028a6f85",
+        "StartByte": 260,
+        "EndByte": 276,
+        "UpdatedAt": 123
+      }
+    ],
+    "States": [
+      {
+        "ChunkID": "43b45e2dd47188e8ba1f38f620d0a64aa8fc2e7603ac56bfeafb61180ee14c85",
+        "NodeID": "e1091963a97216fc43a388aa99291e01ea5ff915682c71d86091276bca2af81f",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Document",
+        "NodeKind": "NOTE",
+        "EmbeddingSchemaSignature": "b9624fb5dccbc8f830b1d8f88f6d0e042327331667b0726942903d08b9055613",
+        "NodeStructureFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3",
+        "SourceContentHash": "696aee3d83838621a546da1a043fe4cad63d79b18f1702ec5e7e8f1b06aab1ce",
+        "ChunkTextHash": "ed67e2413b4c71c743b20c78302e5e91401f4816d64d8681537aac3a2a2feb34",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "1d25221967693131f7a37088cc06dfb8a02b2f514a2c10ffbd4beb9a57895734",
+        "NodeID": "7acff64fe348e3bfb2c6b7c8a029dc2ed69bea9c68a54014712b293e35782c13",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Chapter",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "590df096e89f8b6aeb92e6718b16d79fa8a558362dff96e5883f7d360390c847",
+        "NodeStructureFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f",
+        "SourceContentHash": "ebe55f5c92d55c9ca1c066687cc7917dc6a55206ea88d296cc4323665b718eb9",
+        "ChunkTextHash": "a5f2d9c8d152626f82f2aa7870e62ff1b16c01ad6112eb630dd176910f5626ef",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "24bc61ece249df5f63dbad747543bf17f69cff096f90893e075958a90376ab7d",
+        "NodeID": "f3e2bfd9532312c404e262566a89d193adb8588532684cd840d6ffe0817c8932",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "c04d871051bd049dc9ac6ce80b9a0bf0d9e0629564ad6ad2b94cd8640654fc76",
+        "NodeStructureFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "d381b685dcbd13221c245daf769f78c1b4c45170d7c5ea9c4a1f0487d162d503",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "3955974fe29e51d6a86dc2e9a6b455324132ff2413d59b1233b9aef089f22479",
+        "NodeID": "d440bd59d56ce05aafeefdd2d7c774c631649ed67479c61cd32b454d9f0680ac",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "3c819706b9ede42f4b17bb925045f868e8ca5fc70bd3f102cfb842645e653af6",
+        "NodeStructureFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "dc7f2bd0c97dad47ff303e3f6abc2207637b59faf5e70d33a62350faf9aca822",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "934dfdd93f12cb01ffc6b1f35dbbb6a22fe2612705c8b55734bf49983632e503",
+        "NodeID": "9a32f31796ea0e7f7168fec8d71f03b606c882a3e6c45b97275442fe9a144736",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Chapter",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "590df096e89f8b6aeb92e6718b16d79fa8a558362dff96e5883f7d360390c847",
+        "NodeStructureFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37",
+        "SourceContentHash": "e70cdbe154ad308174568e58fefa696f2f3a1e94af1d70db6326a7e12e3ee667",
+        "ChunkTextHash": "0d54f550c40062ac99b04933c1db73850d4bb7387947b1bd0d3a44282159cd6c",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "c79526b929a1bc14b6f303e8d2483c37074e5bfe5bf9df5edb175e77c19152ce",
+        "NodeID": "cd4e51ad8f4fff38aa532ca945a95a3cacf9b63454e13bac310772310ab2601e",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "c04d871051bd049dc9ac6ce80b9a0bf0d9e0629564ad6ad2b94cd8640654fc76",
+        "NodeStructureFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "b200f7054b38f3e67b0a4ea770e4b86d1c884a6a6dcff2a3fdb831612d527dd7",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "46a1998b9dad135ff23bce389626c8673721df470b0b22c9e85e7869565e0634",
+        "NodeID": "c0a69b02d1b7d592df57f2422fa304f7698b2182b6f3aa7cf2b976c219613fd2",
+        "NotePath": "notes/nested.md",
+        "TypeName": "Item",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "c04d871051bd049dc9ac6ce80b9a0bf0d9e0629564ad6ad2b94cd8640654fc76",
+        "NodeStructureFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "3a2faaa18ea20d8f59eb35a34926bf0b1c4e456e2dc37049c9918a6c028a6f85",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      }
+    ],
+    "Texts": {
+      "1d25221967693131f7a37088cc06dfb8a02b2f514a2c10ffbd4beb9a57895734": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Chapter\nTitle: Chapter\nPath: notes/nested.md\nRef: notes/nested.md#^chapter\nBreadcrumb: notes/nested.md \u003e Chapter \u003e Chapter\nAncestors: Document \u003e nested \u003e chapters\nFields:\n- status: active\n\nstatus:: active\n\nowner:: [[elsewhere]]\n\n^chapter\n\n- **First**: A summary with [[evidence]].\n  Detail stays here.\n  - Markerless child\n- [ ] Global work #task ^task-one",
+      "24bc61ece249df5f63dbad747543bf17f69cff096f90893e075958a90376ab7d": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Item\nTitle: notes/nested.md#item-116\nPath: notes/nested.md\nRef: notes/nested.md#item-116\nBreadcrumb: notes/nested.md \u003e Item \u003e notes/nested.md#item-116\nAncestors: Document \u003e nested \u003e chapters / Chapter \u003e Chapter \u003e items\nFields:\n- detail: Detail stays here. - Markerless child\n- itemTitle: First\n- summary: A summary with [[evidence]].",
+      "3955974fe29e51d6a86dc2e9a6b455324132ff2413d59b1233b9aef089f22479": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Item\nTitle: notes/nested.md#item-179\nPath: notes/nested.md\nRef: notes/nested.md#item-179\nBreadcrumb: notes/nested.md \u003e Item \u003e notes/nested.md#item-179\nAncestors: Document \u003e nested \u003e chapters / Chapter \u003e Chapter \u003e items / Item \u003e notes/nested.md#item-116 \u003e subitems\nFields:\n- summary: Markerless child",
+      "43b45e2dd47188e8ba1f38f620d0a64aa8fc2e7603ac56bfeafb61180ee14c85": "Kind: ontology_node\nNodeKind: NOTE\nType: Document\nTitle: nested\nPath: notes/nested.md\nRef: notes/nested.md\nBreadcrumb: notes/nested.md \u003e Document \u003e nested\nFields:\n- status: draft\n\nRoot prose [[elsewhere]].",
+      "46a1998b9dad135ff23bce389626c8673721df470b0b22c9e85e7869565e0634": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Item\nTitle: notes/nested.md#item-260\nPath: notes/nested.md\nRef: notes/nested.md#item-260\nBreadcrumb: notes/nested.md \u003e Item \u003e notes/nested.md#item-260\nAncestors: Document \u003e nested \u003e chapters / Chapter \u003e Other \u003e items\nFields:\n- summary: Repeated item",
+      "934dfdd93f12cb01ffc6b1f35dbbb6a22fe2612705c8b55734bf49983632e503": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Chapter\nTitle: Other\nPath: notes/nested.md\nRef: notes/nested.md#other-235\nBreadcrumb: notes/nested.md \u003e Chapter \u003e Other\nAncestors: Document \u003e nested \u003e chapters\n\n- Repeated item\n- Repeated item",
+      "c79526b929a1bc14b6f303e8d2483c37074e5bfe5bf9df5edb175e77c19152ce": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Item\nTitle: notes/nested.md#item-244\nPath: notes/nested.md\nRef: notes/nested.md#item-244\nBreadcrumb: notes/nested.md \u003e Item \u003e notes/nested.md#item-244\nAncestors: Document \u003e nested \u003e chapters / Chapter \u003e Other \u003e items\nFields:\n- summary: Repeated item"
+    }
+  },
+  "Links": [
+    {
+      "Resolution": "note_reference",
+      "Syntax": "wikilink",
+      "Subtype": "basic",
+      "ResolverInput": "elsewhere",
+      "Embed": false,
+      "Target": "elsewhere",
+      "Path": "elsewhere",
+      "Fragment": "",
+      "Display": "",
+      "URI": null,
+      "RawRange": {
+        "StartByte": 41,
+        "EndByte": 54
+      },
+      "TargetRange": {
+        "StartByte": 43,
+        "EndByte": 52
+      },
+      "PathRange": {
+        "Present": true,
+        "Range": {
+          "StartByte": 43,
+          "EndByte": 52
+        }
+      },
+      "FragmentRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      },
+      "DisplayRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      }
+    },
+    {
+      "Resolution": "note_reference",
+      "Syntax": "wikilink",
+      "Subtype": "basic",
+      "ResolverInput": "elsewhere",
+      "Embed": false,
+      "Target": "elsewhere",
+      "Path": "elsewhere",
+      "Fragment": "",
+      "Display": "",
+      "URI": null,
+      "RawRange": {
+        "StartByte": 92,
+        "EndByte": 105
+      },
+      "TargetRange": {
+        "StartByte": 94,
+        "EndByte": 103
+      },
+      "PathRange": {
+        "Present": true,
+        "Range": {
+          "StartByte": 94,
+          "EndByte": 103
+        }
+      },
+      "FragmentRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      },
+      "DisplayRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      }
+    },
+    {
+      "Resolution": "note_reference",
+      "Syntax": "wikilink",
+      "Subtype": "basic",
+      "ResolverInput": "evidence",
+      "Embed": false,
+      "Target": "evidence",
+      "Path": "evidence",
+      "Fragment": "",
+      "Display": "",
+      "URI": null,
+      "RawRange": {
+        "StartByte": 144,
+        "EndByte": 156
+      },
+      "TargetRange": {
+        "StartByte": 146,
+        "EndByte": 154
+      },
+      "PathRange": {
+        "Present": true,
+        "Range": {
+          "StartByte": 146,
+          "EndByte": 154
+        }
+      },
+      "FragmentRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      },
+      "DisplayRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      }
+    }
+  ],
+  "Locators": {
+    "targets": {
+      "notes/nested.md": {
+        "ref": {
+          "notePath": "notes/nested.md",
+          "typeName": "Document",
+          "kind": "NOTE",
+          "endByte": 276,
+          "structuralFingerprint": "589fb1984e18f2308029b75b5aead0aefbe9e83fdf895c09eccc4efeaaf2dad3"
+        },
+        "markdown": "notes/nested.md",
+        "wikilink": "[[notes/nested]]",
+        "displayLabel": "nested",
+        "exists": true
+      },
+      "notes/nested.md#^chapter": {
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "^chapter",
+          "nodeId": "notes/nested.md#^chapter",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 57,
+          "endByte": 235,
+          "structuralFingerprint": "090cfefc6f65709372e1c772b5ce0f2bb8e8871c8fee965dbbdcc25f8930968f"
+        },
+        "markdown": "notes/nested.md#^chapter",
+        "wikilink": "[[notes/nested#^chapter]]",
+        "displayLabel": "Chapter",
+        "exists": true,
+        "blockId": "chapter"
+      },
+      "notes/nested.md#^task-one": {
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "^task-one",
+          "nodeId": "notes/nested.md#^task-one",
+          "typeName": "Task",
+          "kind": "EMBEDDED",
+          "startByte": 200,
+          "endByte": 235,
+          "parentId": "notes/nested.md#^chapter",
+          "structuralFingerprint": "728c0d9ffdca22d1371853e9d6b9418f4a666bd8610797cbdb43e85961e815cd"
+        },
+        "markdown": "notes/nested.md#^task-one",
+        "wikilink": "[[notes/nested#^task-one]]",
+        "displayLabel": "Global work",
+        "exists": true,
+        "blockId": "task-one"
+      },
+      "notes/nested.md#item-116": {
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "item-116",
+          "nodeId": "notes/nested.md#item-116",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 116,
+          "endByte": 200,
+          "parentId": "notes/nested.md#^chapter",
+          "structuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06"
+        },
+        "markdown": "notes/nested.md#^item-bc4582f5",
+        "wikilink": "[[notes/nested#^item-bc4582f5]]",
+        "displayLabel": "First",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "item-bc4582f5"
+      },
+      "notes/nested.md#item-179": {
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "item-179",
+          "nodeId": "notes/nested.md#item-179",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 179,
+          "endByte": 200,
+          "parentId": "notes/nested.md#item-116",
+          "structuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4"
+        },
+        "markdown": "notes/nested.md#^item-a70a6246",
+        "wikilink": "[[notes/nested#^item-a70a6246]]",
+        "displayLabel": "Markerless child",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "item-a70a6246"
+      },
+      "notes/nested.md#other-235": {
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "other-235",
+          "nodeId": "notes/nested.md#other-235",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 235,
+          "endByte": 276,
+          "structuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37"
+        },
+        "markdown": "notes/nested.md#^chapter-other-eaa3c177",
+        "wikilink": "[[notes/nested#^chapter-other-eaa3c177]]",
+        "displayLabel": "Other",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "chapter-other-eaa3c177"
+      }
+    },
+    "diagnostics": [
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/nested.md",
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "item-116",
+          "nodeId": "notes/nested.md#item-116",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 116,
+          "endByte": 200,
+          "parentId": "notes/nested.md#^chapter",
+          "structuralFingerprint": "2e5340aa9e7dd4e11f6fda3c5e5b6088133ccc400674798b5c8caca89f09cf06"
+        },
+        "blockId": "item-bc4582f5",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      },
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/nested.md",
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "item-179",
+          "nodeId": "notes/nested.md#item-179",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 179,
+          "endByte": 200,
+          "parentId": "notes/nested.md#item-116",
+          "structuralFingerprint": "9457def614cbe584b217050dbb549d859e1c9f5f76a56dfb5d03d3b1c5e240a4"
+        },
+        "blockId": "item-a70a6246",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      },
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/nested.md",
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "other-235",
+          "nodeId": "notes/nested.md#other-235",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 235,
+          "endByte": 276,
+          "structuralFingerprint": "7139c9f365c25c33559cb478fe91e2cd5b43e4da947e61963d93fac5eb7eab37"
+        },
+        "blockId": "chapter-other-eaa3c177",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      },
+      {
+        "code": "node_unresolved",
+        "notePath": "notes/nested.md",
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "item-244",
+          "nodeId": "notes/nested.md#item-244",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 244,
+          "endByte": 260,
+          "parentId": "notes/nested.md#other-235",
+          "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+        },
+        "message": "ambiguous source span identity: structural fingerprint matches 2 unanchored items in notes/nested.md"
+      },
+      {
+        "code": "node_unresolved",
+        "notePath": "notes/nested.md",
+        "ref": {
+          "notePath": "notes/nested.md",
+          "fragment": "item-260",
+          "nodeId": "notes/nested.md#item-260",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 260,
+          "endByte": 276,
+          "parentId": "notes/nested.md#other-235",
+          "structuralFingerprint": "af4dfad98d3a4da4a30036d6bdd765a5b3aa36708828026c655710bf845e180f"
+        },
+        "message": "ambiguous source span identity: structural fingerprint matches 2 unanchored items in notes/nested.md"
+      }
+    ]
+  }
+}

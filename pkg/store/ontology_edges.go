@@ -17,7 +17,7 @@ func (s *Store) AllOntologyEdges(ctx context.Context, includeAmbient bool, limit
 		conditions = append(conditions, "structural = 1")
 	}
 	query := fmt.Sprintf(`
-		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at
+		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at, occurrences_json
 		FROM ontology_edges
 		WHERE %s
 		ORDER BY structural DESC, src_path, relation_name, dst_path, src_node_id, dst_node_id
@@ -36,7 +36,7 @@ func (s *Store) AllOntologyEdges(ctx context.Context, includeAmbient bool, limit
 	for rows.Next() {
 		var row OntologyEdgeRow
 		var structural int
-		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt); err != nil {
+		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 			return nil, err
 		}
 		row.Structural = structural != 0
@@ -78,7 +78,7 @@ func (s *Store) OntologyEdgesForPaths(ctx context.Context, paths []string, inclu
 			args = append(args, relationFilter)
 		}
 		query := fmt.Sprintf(`
-			SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at
+			SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at, occurrences_json
 			FROM ontology_edges
 			WHERE %s
 			ORDER BY structural DESC, src_path, relation_name, dst_path
@@ -91,7 +91,7 @@ func (s *Store) OntologyEdgesForPaths(ctx context.Context, paths []string, inclu
 		for rows.Next() {
 			var row OntologyEdgeRow
 			var structural int
-			if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt); err != nil {
+			if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structural, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 				rows.Close()
 				return nil, err
 			}
@@ -134,7 +134,7 @@ func (s *Store) OntologyAmbientEdgesByTargets(ctx context.Context, paths []strin
 			args = append(args, relation)
 		}
 		query := fmt.Sprintf(`
-			SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at
+			SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''), dst_type, provenance, structural, schema_hash, updated_at, occurrences_json
 			FROM ontology_edges
 			WHERE %s
 			ORDER BY src_path, src_node_id, provenance, relation_name, dst_path, dst_node_id
@@ -147,7 +147,7 @@ func (s *Store) OntologyAmbientEdgesByTargets(ctx context.Context, paths []strin
 		for rows.Next() {
 			var row OntologyEdgeRow
 			var structuralInt int
-			if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structuralInt, &row.SchemaHash, &row.UpdatedAt); err != nil {
+			if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID, &row.DstType, &row.Provenance, &structuralInt, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 				rows.Close()
 				return nil, err
 			}

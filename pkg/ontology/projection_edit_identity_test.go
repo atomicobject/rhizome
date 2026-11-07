@@ -221,7 +221,7 @@ type: Conversation
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	itemRef := note.Fields["actionItems"].SectionNodes[0]
+	itemRef := note.Fields["actionItems"].ChildRefs[0]
 	itemRef.TypeName = ""
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
@@ -276,7 +276,7 @@ title: Sync
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
-	itemRef := note.Fields["actionItems"].SectionNodes[0]
+	itemRef := note.Fields["actionItems"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.EnsureBlockID(itemRef, "ai-1"))
@@ -310,7 +310,7 @@ status:: TODO
 
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
-	containerRef := note.Fields["userStoriesSection"].SectionNodes[0]
+	containerRef := note.Fields["userStoriesSection"].ChildRefs[0]
 
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.AddEmbeddedNode(containerRef, "stories", "Story B", "status:: TODO", "story-b"))

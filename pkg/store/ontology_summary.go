@@ -44,7 +44,7 @@ func (s *Store) VisitOntologySummaryRows(ctx context.Context, names []string, ve
 		holders, args := placeholders(batch)
 		rows, err := tx.QueryContext(ctx, fmt.Sprintf(`
 		SELECT c.node_id, c.note_path, c.node_kind, c.type_name, c.node_ref_json,
-		c.fragment, c.structural_fingerprint, c.display_label, c.title, c.source_locator, c.updated_at,
+		c.fragment, c.structural_fingerprint, c.display_label, c.title, c.source_locator, c.updated_at, c.record_identity_json,
 		COALESCE(m.title,''), COALESCE(m.mtime,0), COALESCE(a.has_issues,0)
 		FROM ontology_nodes c
 		LEFT JOIN notes m ON m.path=c.note_path AND m.indexed_at>0
@@ -58,7 +58,7 @@ func (s *Store) VisitOntologySummaryRows(ctx context.Context, names []string, ve
 			var row readmodel.SummaryRow
 			n := &row.Node
 			err = rows.Scan(&n.NodeID, &n.NotePath, &n.NodeKind, &n.TypeName, &n.NodeRefJSON,
-				&n.Fragment, &n.StructuralFingerprint, &n.DisplayLabel, &n.Title, &n.SourceLocator, &n.UpdatedAt,
+				&n.Fragment, &n.StructuralFingerprint, &n.DisplayLabel, &n.Title, &n.SourceLocator, &n.UpdatedAt, &n.RecordJSON,
 				&row.MetadataTitle, &row.MetadataMtime, &row.HasIssues)
 			if err == nil {
 				err = visit(row)

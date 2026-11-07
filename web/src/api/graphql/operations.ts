@@ -48,6 +48,8 @@ export const PUBLIC_NODE_DETAIL_QUERY = /* GraphQL */ `
           markdown
           wikilink
           displayLabel
+          durability
+          revision
           exists
           requiresFix
           blockId
@@ -83,6 +85,7 @@ export const PUBLIC_NODE_DETAIL_QUERY = /* GraphQL */ `
         }
       }
       workspace {
+        source
         parentRef {
           ref
           kind
@@ -249,6 +252,7 @@ export const PUBLIC_NODE_DETAIL_QUERY = /* GraphQL */ `
           orderFingerprint
         }
         bodies {
+          source
           ref {
             ref
             kind

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 )
 
 // addIntelSectionSourceIdentitySchema moves canonical section identity recovery

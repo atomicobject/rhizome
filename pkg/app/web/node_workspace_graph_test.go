@@ -267,7 +267,7 @@ Story body.
 		Kind:     ontology.NodeKindNote,
 	})
 	require.NoError(t, err)
-	storyRef := noteProjection.Fields["story"].SectionNodes[0]
+	storyRef := noteProjection.Fields["story"].ChildRefs[0]
 	srv := newFixtureServer(t, fixtureVault{
 		root:     root,
 		vault:    &repoconfig.Vault{Env: env, Name: "test"},

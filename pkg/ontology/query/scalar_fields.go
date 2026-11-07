@@ -16,6 +16,9 @@ func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sect
 	if node == nil {
 		return nil, true
 	}
+	if field.Record != nil && field.Record.References != nil {
+		return e.resolveRecordReferenceField(ctx, node, field, set, path)
+	}
 	values := node.fieldValues(field, node.PropertyCase)
 	if field.Required && len(values) == 0 && (!field.List || !node.hasFieldValue(field, node.PropertyCase)) {
 		e.addError(path, fmt.Sprintf("required relation %s.%s is missing", node.TypeName, field.Name))
@@ -105,7 +108,7 @@ func validateSectionScalarValues(values []string, field *ontoschema.Field, schem
 	}
 	valid := make([]string, 0, len(values))
 	for _, raw := range values {
-		if !sectionScalarValueMatchesType(raw, field, schema) {
+		if !(field.Record != nil && (field.TypeName == "String" || field.TypeName == "ID")) && !sectionScalarValueMatchesType(raw, field, schema) {
 			return nil, raw, true
 		}
 		valid = append(valid, raw)

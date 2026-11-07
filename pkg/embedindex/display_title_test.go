@@ -14,7 +14,7 @@ func TestFullDisplayLabelDoesNotChangeEmbeddingText(t *testing.T) {
 	content := "- [ ] " + title + " #action-item\n"
 	snapshot, err := ontology.BuildDocumentSnapshot("meeting.md", content, time.Time{})
 	require.NoError(t, err)
-	span := ontology.ParseMarkdownListSourceSpans("meeting.md", content)[0]
+	span := snapshot.SourceSpans[0]
 	projection := &ontology.NodeProjection{Snapshot: snapshot, Ref: ontology.NodeRef{NotePath: "meeting.md", NodeID: span.ID, Kind: ontology.NodeKindEmbedded}}
 	current, err := ontology.IntelOntologyNodeForProjection(nil, projection, nil, 1)
 	require.NoError(t, err)

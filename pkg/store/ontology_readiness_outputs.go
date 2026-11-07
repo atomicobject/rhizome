@@ -24,12 +24,12 @@ func loadOntologyReadinessOutputs(ctx context.Context, tx *sql.Tx, snapshot *Ont
 	}
 	if err := queryOntologyReadinessRows(ctx, tx, `
 		SELECT src_path, COALESCE(src_node_id, ''), relation_name, dst_path, COALESCE(dst_node_id, ''),
-			dst_type, provenance, structural, schema_hash, updated_at
+			dst_type, provenance, structural, schema_hash, updated_at, occurrences_json
 		FROM ontology_edges ORDER BY src_path, src_node_id, relation_name, dst_path, dst_node_id, provenance
 	`, func(rows *sql.Rows) error {
 		var row OntologyEdgeRow
 		if err := rows.Scan(&row.SrcPath, &row.SrcNodeID, &row.RelationName, &row.DstPath, &row.DstNodeID,
-			&row.DstType, &row.Provenance, &row.Structural, &row.SchemaHash, &row.UpdatedAt); err != nil {
+			&row.DstType, &row.Provenance, &row.Structural, &row.SchemaHash, &row.UpdatedAt, &row.OccurrencesJSON); err != nil {
 			return err
 		}
 		snapshot.Edges = append(snapshot.Edges, row)

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	mdstructure "github.com/atomicobject/rhizome/pkg/markdownsyntax/structure"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -29,7 +30,7 @@ func (Provider) Descriptor() noteformat.Descriptor {
 		ID:                "markdown",
 		Extensions:        []string{".md"},
 		ProviderVersion:   "markdown-provider-v1",
-		ProjectionVersion: "markdown-projection-v5",
+		ProjectionVersion: "markdown-projection-v6",
 		OwnershipPolicy:   noteformat.OwnershipDefault,
 		Capabilities: noteformat.MustCapabilities(
 			noteformat.CapabilitySourceReading,
@@ -41,6 +42,7 @@ func (Provider) Descriptor() noteformat.Descriptor {
 			noteformat.CapabilityLinkRetargeting,
 			noteformat.CapabilityFileRenameMove,
 			noteformat.CapabilityStructuralContentMutation,
+			noteformat.CapabilityStructuralReading,
 		),
 	}
 }
@@ -84,6 +86,12 @@ func projectFacts(notePath, content string) (noteformat.ProjectionFacts, []notef
 	facts.Links = linkFacts(content)
 	facts.FragmentTargets = fragmentTargetFacts(content)
 	facts.SearchRegions = searchRegions(content)
+	facts.Structure = mdstructure.Parse(notePath, content)
+	facts.Structure.Owners[0].Title = facts.Title
+	for _, p := range facts.RootMetadata {
+		facts.Structure.Owners[0].Properties = append(facts.Structure.Owners[0].Properties, noteformat.PropertyOccurrenceFact{Key: p.Key, Source: "frontmatter", Value: facts.Structure.AddMetadataValue(p.Value), Range: p.Range, KeyRange: p.KeyRange, ValueRange: p.ValueRange})
+	}
+	attributeLinks(&facts)
 	return facts, diagnostics
 }
 
@@ -231,4 +239,28 @@ func optionalRange(span markdownsyntax.Span) noteformat.OptionalSourceRange {
 
 func sourceRange(span markdownsyntax.Span) noteformat.SourceRange {
 	return noteformat.SourceRange{StartByte: span.Start, EndByte: span.End}
+}
+
+// Links follow the deepest syntax owner, in one source-order sweep.
+func attributeLinks(facts *noteformat.ProjectionFacts) {
+	owners := facts.Structure.Owners
+	cursor := 0
+	var stack []noteformat.OwnerFact
+	for i := range facts.Links {
+		link := &facts.Links[i]
+		for cursor < len(owners) && owners[cursor].Range.Range.StartByte <= link.RawRange.StartByte {
+			o := owners[cursor]
+			cursor++
+			for len(stack) > 0 && stack[len(stack)-1].Range.Range.EndByte <= o.Range.Range.StartByte {
+				stack = stack[:len(stack)-1]
+			}
+			stack = append(stack, o)
+		}
+		for len(stack) > 0 && stack[len(stack)-1].Range.Range.EndByte < link.RawRange.EndByte {
+			stack = stack[:len(stack)-1]
+		}
+		if len(stack) > 0 {
+			link.Owner = stack[len(stack)-1].Key
+		}
+	}
 }

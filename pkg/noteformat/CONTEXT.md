@@ -15,3 +15,13 @@ files.
 - Ownership policy is generic: Markdown uses `default`, while HTML requires `explicit_include`; consumers must not branch on provider IDs.
 - `pkg/notemeta` owns source bytes, shared resolution, vault policy, and persistence. Projectors emit no resolved targets or persisted rows.
 - Built-ins assemble only in `pkg/noteformat/builtin`; consumers receive the immutable registry/runtime rather than registering providers themselves.
+
+## Structural reads (SPEC-0133, verified 2026-11-06)
+
+`ProjectionFacts.Structure` is the schema-free owner/value envelope. Owners have source-local keys, syntax ancestry, source order, optional original-byte ranges and locator evidence. Values preserve ordered containers, scalar kinds and present null separately from missing. Graph identity and typed binding remain ontology responsibilities.
+
+`Runtime.Project` validates and deeply detaches structure before publication. It rejects dangling/cyclic/duplicate owners and values, invalid membership and ranges, and structure without `structural_reading`. `CanReadStructure` requires the declared capability and an executable projector; a descriptor-only structural declaration fails composition. Reading never grants mutation support. HTML remains root-only. Markdown syntax payloads are optional evidence, never requirements for a readable child.
+
+## SPEC-0133 boundary, last verified 2026-11-06
+
+Structural reading requires validated provider-owned owners and source values plus an executable projector. Source values preserve ordered containers and distinguish null, empty string, empty list and empty map. StructureFacts deep copies isolate provider output; no provider imports ontology or mutation engines.

@@ -2,7 +2,7 @@ package query
 
 import (
 	"context"
-	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
@@ -32,7 +32,7 @@ func (e *executor) workspaceSourceLinks(ctx context.Context, projection *ontolog
 		return []workspaceSourceLink{}
 	}
 
-	links := ontology.MarkdownProjectionStructuredLinks(projection)
+	links := projection.SourceLinks()
 	if len(links) == 0 {
 		return []workspaceSourceLink{}
 	}
@@ -81,7 +81,7 @@ func (e *executor) workspaceSourceLinks(ctx context.Context, projection *ontolog
 				e.addError(path, hydrateErr.Error())
 			}
 			for _, item := range result.Resolved {
-				if record, ok := resolvedRecords[item.Ref.NotePath]; ok {
+				if record, ok := resolvedRecords[ontology.NodeSourceLocator(item.Ref)]; ok {
 					item.Record = record
 				}
 				resolvedByInput[item.Input] = item
@@ -95,7 +95,7 @@ func (e *executor) workspaceSourceLinks(ctx context.Context, projection *ontolog
 			Target:         link.Target,
 			AuthoredTarget: link.Target,
 			Text:           link.Display,
-			Kind:           workspaceSourceLinkKind(link.Kind),
+			Kind:           workspaceSourceLinkKind(link.Syntax),
 			Anchor:         workspaceSourceLinkAnchor(link.Fragment),
 			Embed:          link.Embed,
 			TargetKind:     workspaceSourceLinkTargetKind(link.Path),
@@ -130,8 +130,8 @@ func workspaceSourceLinkResolvedRecords(ctx context.Context, scope *noderead.Sco
 	}
 	out := make(map[string]noderead.NodeRecord, len(records))
 	for _, record := range records {
-		if notePath := strings.TrimSpace(record.Path); notePath != "" {
-			out[notePath] = record
+		if locator := ontology.NodeSourceLocator(record.Ref); locator != "" {
+			out[locator] = record
 		}
 	}
 	return out, nil
@@ -190,21 +190,21 @@ func firstWorkspaceSourceLinkValue(values []string) string {
 	return ""
 }
 
-func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath string, link markdownsyntax.StructuredLink, markdownLinks bool) (string, bool) {
+func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath string, link noteformat.UnresolvedAuthoredLinkFact, markdownLinks bool) (string, bool) {
 	target := strings.TrimSpace(link.Target)
 	if target == "" {
 		return "", false
 	}
 	// Markdown anchors use the shared resolver's canonical source path; inserting
 	// that filename into an authored URL would reinterpret literal escapes.
-	if link.Kind == markdownsyntax.StructuredLinkWikilink && strings.TrimSpace(link.Path) == "" && strings.TrimSpace(link.Fragment) != "" {
+	if link.Resolution == noteformat.LinkResolutionNoteReference && strings.TrimSpace(link.Path) == "" && strings.TrimSpace(link.Fragment) != "" {
 		if cache == nil || strings.TrimSpace(fromPath) == "" {
 			return "", false
 		}
 		target = strings.TrimSpace(fromPath) + "#" + strings.TrimSpace(link.Fragment)
 	}
-	switch link.Kind {
-	case markdownsyntax.StructuredLinkWikilink:
+	switch link.Resolution {
+	case noteformat.LinkResolutionNoteReference:
 		if cache == nil {
 			return "", false
 		}
@@ -212,7 +212,7 @@ func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath st
 			return "", false
 		}
 		return "[[" + target + "]]", true
-	case markdownsyntax.StructuredLinkMarkdown:
+	case noteformat.LinkResolutionRelativePath:
 		if !markdownLinks {
 			return "", false
 		}
@@ -228,8 +228,8 @@ func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath st
 	}
 }
 
-func workspaceSourceLinkKind(kind markdownsyntax.StructuredLinkKind) string {
-	if kind == markdownsyntax.StructuredLinkMarkdown {
+func workspaceSourceLinkKind(kind noteformat.AuthoredLinkSyntax) string {
+	if kind == "markdown" {
 		return "mdlink"
 	}
 	return "wikilink"

@@ -15,7 +15,7 @@ func (s *Store) ontologyNodesByPathPrefixes(ctx context.Context, prefixes []stri
 	query := fmt.Sprintf(`
 		SELECT node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 			parent_type_name, title, source_locator, fragment, block_id, display_label,
-			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at
+			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at, record_identity_json
 		FROM ontology_nodes
 		WHERE %s
 		ORDER BY note_path, node_kind, node_id
@@ -57,7 +57,7 @@ func (s *Store) ontologyNodesByEndpointSelectors(ctx context.Context, selectors 
 	query := fmt.Sprintf(`
 		SELECT node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 			parent_type_name, title, source_locator, fragment, block_id, display_label,
-			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at
+			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at, record_identity_json
 		FROM ontology_nodes
 		WHERE %s
 		ORDER BY note_path, node_kind, node_id

@@ -17,7 +17,7 @@ var markdownLinkTargetPattern = regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
 func (s *Scope) resolveFragmentByProjection(ctx context.Context, notePath string, fragment string) (ontology.NodeRef, error) {
 	ref := ontology.NodeRef{NotePath: notePath, Kind: ontology.NodeKindEmbedded, Fragment: fragment}
 	fragment = strings.TrimSpace(fragment)
-	reservedSelector := false
+	reservedSelector := ontology.IsReservedNodeSelector(fragment)
 	if nodeID := strings.TrimSpace(strings.TrimPrefix(fragment, "node:")); nodeID != fragment {
 		if nodeID == "" {
 			return ontology.NodeRef{}, fmt.Errorf("node id is required in %s", notePath)

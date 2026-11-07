@@ -32,7 +32,7 @@ func TestCodeOperationSchemaContracts(t *testing.T) {
 		"list_properties":          "04fc0093820ef47e96488bd52efaccf2bd0ce4f7afa18377e2fd31d8f6518f9d",
 		"list_tags":                "e3014b4e9a83584c02cbbde0d7bb6249ff4df22bfb31bf58584cf4b604b418e8",
 		"next_id":                  "ba2124e0b010ce3364b2db1419efeaad4e6a0c78565601b9505b03518267b64a",
-		"node_link":                "b0a2f14ea50e6257f046f4ac022f01b49c77c71b3d8f637009c6c28f1de844cf",
+		"node_link":                "b5bc7c68b0c6e172910f1f5f577d7be1beea6c83d09fd12b1a5dddbab1076f8d",
 		"note_move":                "ac1a34fa82431083ac13ce03e450ddfb1d239566661343a361ede7f82a92a21d",
 		"note_rename_heading":      "2c2adff686465350a1c1fbadc320c91321f5d3f66603a87eece545fc4b29da02",
 		"ontology_authoring_guide": "dcb3f6fe49740d76676bdc2df4b9dd3ff73b6d37d8d130905c9d1aafd5a07796",
@@ -42,7 +42,7 @@ func TestCodeOperationSchemaContracts(t *testing.T) {
 		"ontology_reference":       "996c1b66a9d1711220eb5b6ad56e7c46be40c23ae919194c05b0ac997c4a4034",
 		"query_recipe":             "765d86d2e8ba7ba492a8a7df242b6cf22a97a3da3fe1e5f163e3b15cb0af7987",
 		"report":                   "2316162fabf2d714efde17c1d942903104cf706548c1e0cf37fa9be311fb73cc",
-		"semantic_query":           "1a8c5e22d67160aa363afbe19df948987a6a614db8df1873d86d640653ecf8ba",
+		"semantic_query":           "7cbae66c340c6add475a66042a91f38147625a9b9fe57552b6cfa782acc90c68",
 		"start":                    "fe4555ab6167b603fd1781e439ebfb62419d16f3f04cf1ba5b0c0cc6daa2b525",
 		"surface":                  "b048502ec8bc44e071ba002343ba9065a48b6686b887363d19301d07c6f71c9f",
 		"validate":                 "9b2d099bac57b1faa899e69a8a575b6d0086cebb91edf237ffd19f7844e72d73",
@@ -52,9 +52,11 @@ func TestCodeOperationSchemaContracts(t *testing.T) {
 	}
 	require.Len(t, CodeOperationDescriptors(), len(expected))
 	for _, descriptor := range CodeOperationDescriptors() {
-		encoded, err := json.Marshal(map[string]any{"input": descriptor.CodeContract.InputSchema, "output": descriptor.CodeContract.OutputSchema})
-		require.NoError(t, err)
-		require.Equal(t, expected[descriptor.Name], fmt.Sprintf("%x", sha256.Sum256(encoded)), descriptor.Name)
+		t.Run(descriptor.Name, func(t *testing.T) {
+			encoded, err := json.Marshal(map[string]any{"input": descriptor.CodeContract.InputSchema, "output": descriptor.CodeContract.OutputSchema})
+			require.NoError(t, err)
+			require.Equal(t, expected[descriptor.Name], fmt.Sprintf("%x", sha256.Sum256(encoded)))
+		})
 	}
 }
 

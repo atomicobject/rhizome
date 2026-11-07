@@ -13,6 +13,9 @@ func NodeBodyParts(projection *NodeProjection, maxBytes int) []string {
 	if maxBytes <= 0 {
 		maxBytes = defaultNodeBodyMaxBytes
 	}
+	if projection != nil && projection.Record != nil {
+		return recordOwnText(projection, maxBytes)
+	}
 	return nodeOwnMarkdownParts(projection, maxBytes)
 }
 

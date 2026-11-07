@@ -168,7 +168,7 @@ func (s *Scope) overlayProjectionTypeItemsLocked(ctx context.Context, projection
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		for _, ref := range projection.Fields[name].SectionNodes {
+		for _, ref := range projection.Fields[name].ChildRefs {
 			child, err := ontology.ProjectBoundNodeFromSnapshot(projection.Snapshot, s.service.Schema, ref)
 			if err != nil || child == nil {
 				continue

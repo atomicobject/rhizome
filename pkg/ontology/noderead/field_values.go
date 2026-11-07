@@ -165,6 +165,9 @@ func recordFieldValues(record NodeRecord, field string) []string {
 	if rows := record.FieldValues[field]; len(rows) > 0 {
 		out := make([]string, 0, len(rows))
 		for _, row := range rows {
+			if row.SourcePresence == "null" || row.ValueKind == "array" || row.ValueKind == "object" {
+				continue
+			}
 			out = append(out, firstNonEmptyString(row.ValueText, row.TargetSourceLocator, row.TargetNotePath, row.TargetRefJSON))
 		}
 		return out

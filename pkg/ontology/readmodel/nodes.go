@@ -1,6 +1,7 @@
 package readmodel
 
 type NodeRow struct {
+	RecordJSON            string `json:",omitempty"`
 	NodeID                string
 	NotePath              string
 	NodeRefJSON           string
@@ -33,6 +34,9 @@ type NodeRow struct {
 // the camelCase name to filters works because the SQL filter is also
 // case-insensitive, but the returned rows always carry the lowercased form.
 type FieldValueRow struct {
+	SourcePresence      string `json:",omitempty"`
+	SourceValueKind     string `json:",omitempty"`
+	ReferenceAt         string `json:",omitempty"`
 	NodeID              string
 	NotePath            string
 	TypeName            string

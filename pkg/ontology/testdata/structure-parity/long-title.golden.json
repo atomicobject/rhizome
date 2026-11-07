@@ -1,0 +1,930 @@
+{
+  "Nodes": [
+    {
+      "Ref": {
+        "notePath": "notes/long-title.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 365,
+        "structuralFingerprint": "69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 7,
+            "end": 365
+          },
+          "ValueRanges": [
+            {
+              "start": 7,
+              "end": 365
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/long-title.md#two-7"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/long-title.md",
+              "fragment": "two-7",
+              "nodeId": "notes/long-title.md#two-7",
+              "typeName": "Chapter",
+              "kind": "EMBEDDED",
+              "startByte": 7,
+              "endByte": 365,
+              "structuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b"
+            }
+          ],
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "FRONTMATTER_FIELD",
+          "SourceKind": "FRONTMATTER",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": [],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 7,
+            "end": 365
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/long-title.md",
+                "fragment": "two-7",
+                "nodeId": "notes/long-title.md#two-7",
+                "typeName": "Chapter",
+                "kind": "EMBEDDED",
+                "startByte": 7,
+                "endByte": 365,
+                "structuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b"
+              },
+              "Range": {
+                "start": 7,
+                "end": 365
+              }
+            }
+          ],
+          "OrderFingerprint": "ddd316773743c06c8cf3f499bd19335a0bcae110d6df4ecafa9ebb41cf7495f5"
+        }
+      },
+      "Body": [
+        {
+          "kind": "collection",
+          "range": {
+            "start": 7,
+            "end": 365
+          },
+          "fieldName": "chapters",
+          "childRefs": [
+            {
+              "notePath": "notes/long-title.md",
+              "fragment": "two-7",
+              "nodeId": "notes/long-title.md#two-7",
+              "kind": "EMBEDDED"
+            }
+          ],
+          "sectionDisplay": "PANE"
+        }
+      ],
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "notes/long-title.md",
+        "fragment": "two-7",
+        "nodeId": "notes/long-title.md#two-7",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 7,
+        "endByte": 365,
+        "structuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b"
+      },
+      "Parent": {
+        "notePath": "notes/long-title.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 365,
+        "structuralFingerprint": "69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695"
+      },
+      "Fields": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 14,
+            "end": 365
+          },
+          "ValueRanges": [
+            {
+              "start": 14,
+              "end": 365
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/long-title.md#item-14"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/long-title.md",
+              "fragment": "item-14",
+              "nodeId": "notes/long-title.md#item-14",
+              "typeName": "Item",
+              "kind": "EMBEDDED",
+              "startByte": 14,
+              "endByte": 365,
+              "parentId": "notes/long-title.md#two-7",
+              "structuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e"
+            }
+          ],
+          "Derived": false
+        },
+        "owner": {
+          "FieldName": "owner",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 14,
+            "end": 365
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/long-title.md",
+                "fragment": "item-14",
+                "nodeId": "notes/long-title.md#item-14",
+                "typeName": "Item",
+                "kind": "EMBEDDED",
+                "startByte": 14,
+                "endByte": 365,
+                "parentId": "notes/long-title.md#two-7",
+                "structuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e"
+              },
+              "Range": {
+                "start": 14,
+                "end": 365
+              }
+            }
+          ],
+          "OrderFingerprint": "eb8e23e7dd3edc4bcc814a020a62935078d8826aaeb201b242b675cd1c56c6cf"
+        }
+      },
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 14,
+            "end": 365
+          },
+          "markdown": "- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words"
+        }
+      ],
+      "Parts": [
+        "- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words"
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "notes/long-title.md",
+        "fragment": "item-14",
+        "nodeId": "notes/long-title.md#item-14",
+        "typeName": "Item",
+        "kind": "EMBEDDED",
+        "startByte": 14,
+        "endByte": 365,
+        "parentId": "notes/long-title.md#two-7",
+        "structuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e"
+      },
+      "Parent": {
+        "notePath": "notes/long-title.md",
+        "fragment": "item-7",
+        "nodeId": "notes/long-title.md#two-7",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 7,
+        "endByte": 365,
+        "structuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b"
+      },
+      "Fields": {
+        "detail": {
+          "FieldName": "detail",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_DETAIL",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "itemTitle": {
+          "FieldName": "itemTitle",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_TITLE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": [],
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": [],
+          "Derived": false
+        },
+        "summary": {
+          "FieldName": "summary",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "ITEM_SUMMARY",
+          "Present": true,
+          "Range": {
+            "start": 16,
+            "end": 365
+          },
+          "ValueRanges": [
+            {
+              "start": 16,
+              "end": 365
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "Complete headline with words Complete headline with words Complete headline with"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "subitems": {
+          "FieldName": "subitems",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "Items": [],
+          "OrderFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "Body": null,
+      "Parts": null
+    }
+  ],
+  "Catalog": {
+    "FullReplace": false,
+    "NotePaths": [
+      "notes/long-title.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "356209427915800f11ae5a01f0d798a3aa9a1bdcb1c8319006e10712bc717027",
+        "NotePath": "notes/long-title.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/long-title.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":365,\"structuralFingerprint\":\"69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "long-title",
+        "SourceLocator": "notes/long-title.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "long-title",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 365,
+        "StructuralFingerprint": "69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "96ca7be88fde08a6fb5856aae6aea0268de2afe8dd41a6b910ef61fc7d27fcee",
+        "NotePath": "notes/long-title.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/long-title.md\",\"fragment\":\"two-7\",\"nodeId\":\"notes/long-title.md#two-7\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":7,\"endByte\":365,\"structuralFingerprint\":\"0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "356209427915800f11ae5a01f0d798a3aa9a1bdcb1c8319006e10712bc717027",
+        "ParentTypeName": "Document",
+        "Title": "Two",
+        "SourceLocator": "notes/long-title.md#two-7",
+        "Fragment": "two-7",
+        "BlockID": "",
+        "DisplayLabel": "Two",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 7,
+        "EndByte": 365,
+        "StructuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b",
+        "RelocationFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "6c2e75cab4e828169ed5248d09270b79d3a194f39bf5af500e64ca82286fe2b7",
+        "NotePath": "notes/long-title.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/long-title.md\",\"fragment\":\"item-14\",\"nodeId\":\"notes/long-title.md#item-14\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":14,\"endByte\":365,\"parentId\":\"notes/long-title.md#two-7\",\"structuralFingerprint\":\"663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "96ca7be88fde08a6fb5856aae6aea0268de2afe8dd41a6b910ef61fc7d27fcee",
+        "ParentTypeName": "Chapter",
+        "Title": "Complete headline with words Complete headline with words Complete headline with",
+        "SourceLocator": "notes/long-title.md#item-14",
+        "Fragment": "item-14",
+        "BlockID": "",
+        "DisplayLabel": "Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 14,
+        "EndByte": 365,
+        "StructuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e",
+        "RelocationFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": [
+      {
+        "NodeID": "6c2e75cab4e828169ed5248d09270b79d3a194f39bf5af500e64ca82286fe2b7",
+        "NotePath": "notes/long-title.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Complete headline with words Complete headline with words Complete headline with",
+        "ValueNorm": "complete headline with words complete headline with words complete headline with",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "LinkDependencies": null
+  },
+  "Spans": [
+    {
+      "ID": "notes/long-title.md#one-0",
+      "NotePath": "notes/long-title.md",
+      "Shape": "SECTION",
+      "Title": "One",
+      "ParentID": "",
+      "Children": [
+        {
+          "ID": "notes/long-title.md#two-7",
+          "NotePath": "notes/long-title.md",
+          "Shape": "SECTION",
+          "Title": "Two",
+          "ParentID": "notes/long-title.md#one-0",
+          "Children": [
+            {
+              "ID": "notes/long-title.md#item-14",
+              "NotePath": "notes/long-title.md",
+              "Shape": "LIST_ITEM",
+              "Title": "Complete headline with words Complete headline with words Complete headline with",
+              "ParentID": "notes/long-title.md#two-7",
+              "Children": null,
+              "BlockID": "",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 14,
+                "end": 16
+              },
+              "Markers": [],
+              "Checkbox": null,
+              "Range": {
+                "start": 14,
+                "end": 365
+              },
+              "ContentRange": {
+                "start": 16,
+                "end": 365
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 16,
+                  "end": 365
+                }
+              ],
+              "Content": "- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words \n"
+            }
+          ],
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 0,
+            "end": 0
+          },
+          "Markers": null,
+          "Checkbox": null,
+          "Range": {
+            "start": 7,
+            "end": 365
+          },
+          "ContentRange": {
+            "start": 7,
+            "end": 365
+          },
+          "OwnContentRanges": [
+            {
+              "start": 7,
+              "end": 365
+            }
+          ],
+          "Content": "## Two\n- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words \n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 0,
+        "end": 365
+      },
+      "ContentRange": {
+        "start": 0,
+        "end": 365
+      },
+      "OwnContentRanges": [
+        {
+          "start": 0,
+          "end": 7
+        }
+      ],
+      "Content": "# One\n\n## Two\n- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words \n"
+    },
+    {
+      "ID": "notes/long-title.md#two-7",
+      "NotePath": "notes/long-title.md",
+      "Shape": "SECTION",
+      "Title": "Two",
+      "ParentID": "notes/long-title.md#one-0",
+      "Children": [
+        {
+          "ID": "notes/long-title.md#item-14",
+          "NotePath": "notes/long-title.md",
+          "Shape": "LIST_ITEM",
+          "Title": "Complete headline with words Complete headline with words Complete headline with",
+          "ParentID": "notes/long-title.md#two-7",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 14,
+            "end": 16
+          },
+          "Markers": [],
+          "Checkbox": null,
+          "Range": {
+            "start": 14,
+            "end": 365
+          },
+          "ContentRange": {
+            "start": 16,
+            "end": 365
+          },
+          "OwnContentRanges": [
+            {
+              "start": 16,
+              "end": 365
+            }
+          ],
+          "Content": "- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words \n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 7,
+        "end": 365
+      },
+      "ContentRange": {
+        "start": 7,
+        "end": 365
+      },
+      "OwnContentRanges": [
+        {
+          "start": 7,
+          "end": 365
+        }
+      ],
+      "Content": "## Two\n- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words \n"
+    },
+    {
+      "ID": "notes/long-title.md#item-14",
+      "NotePath": "notes/long-title.md",
+      "Shape": "LIST_ITEM",
+      "Title": "Complete headline with words Complete headline with words Complete headline with",
+      "ParentID": "notes/long-title.md#two-7",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 14,
+        "end": 16
+      },
+      "Markers": [],
+      "Checkbox": null,
+      "Range": {
+        "start": 14,
+        "end": 365
+      },
+      "ContentRange": {
+        "start": 16,
+        "end": 365
+      },
+      "OwnContentRanges": [
+        {
+          "start": 16,
+          "end": 365
+        }
+      ],
+      "Content": "- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words \n"
+    }
+  ],
+  "Chunks": {
+    "NotePaths": [
+      "notes/long-title.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "356209427915800f11ae5a01f0d798a3aa9a1bdcb1c8319006e10712bc717027",
+        "NotePath": "notes/long-title.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/long-title.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":365,\"structuralFingerprint\":\"69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "long-title",
+        "SourceLocator": "notes/long-title.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "long-title",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 365,
+        "StructuralFingerprint": "69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "96ca7be88fde08a6fb5856aae6aea0268de2afe8dd41a6b910ef61fc7d27fcee",
+        "NotePath": "notes/long-title.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/long-title.md\",\"fragment\":\"two-7\",\"nodeId\":\"notes/long-title.md#two-7\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":7,\"endByte\":365,\"structuralFingerprint\":\"0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "356209427915800f11ae5a01f0d798a3aa9a1bdcb1c8319006e10712bc717027",
+        "ParentTypeName": "Document",
+        "Title": "Two",
+        "SourceLocator": "notes/long-title.md#two-7",
+        "Fragment": "two-7",
+        "BlockID": "",
+        "DisplayLabel": "Two",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 7,
+        "EndByte": 365,
+        "StructuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b",
+        "RelocationFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "6c2e75cab4e828169ed5248d09270b79d3a194f39bf5af500e64ca82286fe2b7",
+        "NotePath": "notes/long-title.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/long-title.md\",\"fragment\":\"item-14\",\"nodeId\":\"notes/long-title.md#item-14\",\"typeName\":\"Item\",\"kind\":\"EMBEDDED\",\"startByte\":14,\"endByte\":365,\"parentId\":\"notes/long-title.md#two-7\",\"structuralFingerprint\":\"663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Item",
+        "ParentNodeID": "96ca7be88fde08a6fb5856aae6aea0268de2afe8dd41a6b910ef61fc7d27fcee",
+        "ParentTypeName": "Chapter",
+        "Title": "notes/long-title.md#item-14",
+        "SourceLocator": "notes/long-title.md#item-14",
+        "Fragment": "item-14",
+        "BlockID": "",
+        "DisplayLabel": "Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 14,
+        "EndByte": 365,
+        "StructuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e",
+        "RelocationFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": [
+      {
+        "NodeID": "6c2e75cab4e828169ed5248d09270b79d3a194f39bf5af500e64ca82286fe2b7",
+        "NotePath": "notes/long-title.md",
+        "TypeName": "Item",
+        "FieldName": "summary",
+        "FieldKind": "scalar",
+        "SourceKind": "ITEM_SUMMARY",
+        "ValueKind": "string",
+        "ValueText": "Complete headline with words Complete headline with words Complete headline with",
+        "ValueNorm": "complete headline with words complete headline with words complete headline with",
+        "ValueBool": null,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "Chunks": [
+      {
+        "ChunkID": "73625c3d4d950f187c9bb0868fa39ac6f88d79885f96b4507e96f626f0ed2ffc",
+        "OwnerID": "356209427915800f11ae5a01f0d798a3aa9a1bdcb1c8319006e10712bc717027",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/long-title.md \u003e Document \u003e long-title",
+        "Heading": "long-title",
+        "ContentHash": "4de0e268618b6f2237d555c7cc146f5e42928f3c7bc97198b7f63eac123ae876",
+        "StartByte": 0,
+        "EndByte": 365,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "d1aed267b2393e9e9754134c16f8b9bea9254e0d762a8c873492de7e9e4dd556",
+        "OwnerID": "96ca7be88fde08a6fb5856aae6aea0268de2afe8dd41a6b910ef61fc7d27fcee",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/long-title.md \u003e Chapter \u003e Two",
+        "Heading": "Two",
+        "ContentHash": "cb6d805c57f46926f60118f601d59b7756564dd8c3b46750516d7a310f494113",
+        "StartByte": 7,
+        "EndByte": 365,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "34d2402886bc66f0b0da3652a461c082091df97a47fde4597c059a0f5f0080ff",
+        "OwnerID": "6c2e75cab4e828169ed5248d09270b79d3a194f39bf5af500e64ca82286fe2b7",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/long-title.md \u003e Item \u003e notes/long-title.md#item-14",
+        "Heading": "notes/long-title.md#item-14",
+        "ContentHash": "1fdf466dc32c63909153976ae7f12dfcd833bc6b32a46b857d05dc4573201e00",
+        "StartByte": 14,
+        "EndByte": 365,
+        "UpdatedAt": 123
+      }
+    ],
+    "States": [
+      {
+        "ChunkID": "73625c3d4d950f187c9bb0868fa39ac6f88d79885f96b4507e96f626f0ed2ffc",
+        "NodeID": "356209427915800f11ae5a01f0d798a3aa9a1bdcb1c8319006e10712bc717027",
+        "NotePath": "notes/long-title.md",
+        "TypeName": "Document",
+        "NodeKind": "NOTE",
+        "EmbeddingSchemaSignature": "b9624fb5dccbc8f830b1d8f88f6d0e042327331667b0726942903d08b9055613",
+        "NodeStructureFingerprint": "69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "4de0e268618b6f2237d555c7cc146f5e42928f3c7bc97198b7f63eac123ae876",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "d1aed267b2393e9e9754134c16f8b9bea9254e0d762a8c873492de7e9e4dd556",
+        "NodeID": "96ca7be88fde08a6fb5856aae6aea0268de2afe8dd41a6b910ef61fc7d27fcee",
+        "NotePath": "notes/long-title.md",
+        "TypeName": "Chapter",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "590df096e89f8b6aeb92e6718b16d79fa8a558362dff96e5883f7d360390c847",
+        "NodeStructureFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b",
+        "SourceContentHash": "ec8b54ea0fafd1838fb741f306d622a7ac1ce143f472bc52346046c355130dca",
+        "ChunkTextHash": "cb6d805c57f46926f60118f601d59b7756564dd8c3b46750516d7a310f494113",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "34d2402886bc66f0b0da3652a461c082091df97a47fde4597c059a0f5f0080ff",
+        "NodeID": "6c2e75cab4e828169ed5248d09270b79d3a194f39bf5af500e64ca82286fe2b7",
+        "NotePath": "notes/long-title.md",
+        "TypeName": "Item",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "c04d871051bd049dc9ac6ce80b9a0bf0d9e0629564ad6ad2b94cd8640654fc76",
+        "NodeStructureFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "1fdf466dc32c63909153976ae7f12dfcd833bc6b32a46b857d05dc4573201e00",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      }
+    ],
+    "Texts": {
+      "34d2402886bc66f0b0da3652a461c082091df97a47fde4597c059a0f5f0080ff": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Item\nTitle: notes/long-title.md#item-14\nPath: notes/long-title.md\nRef: notes/long-title.md#item-14\nBreadcrumb: notes/long-title.md \u003e Item \u003e notes/long-title.md#item-14\nAncestors: Document \u003e long-title \u003e chapters / Chapter \u003e Two \u003e items\nFields:\n- summary: Complete headline with words Complete headline with words Complete headline with",
+      "73625c3d4d950f187c9bb0868fa39ac6f88d79885f96b4507e96f626f0ed2ffc": "Kind: ontology_node\nNodeKind: NOTE\nType: Document\nTitle: long-title\nPath: notes/long-title.md\nRef: notes/long-title.md\nBreadcrumb: notes/long-title.md \u003e Document \u003e long-title",
+      "d1aed267b2393e9e9754134c16f8b9bea9254e0d762a8c873492de7e9e4dd556": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Chapter\nTitle: Two\nPath: notes/long-title.md\nRef: notes/long-title.md#two-7\nBreadcrumb: notes/long-title.md \u003e Chapter \u003e Two\nAncestors: Document \u003e long-title \u003e chapters\n\n- Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words Complete headline with words"
+    }
+  },
+  "Links": null,
+  "Locators": {
+    "targets": {
+      "notes/long-title.md": {
+        "ref": {
+          "notePath": "notes/long-title.md",
+          "typeName": "Document",
+          "kind": "NOTE",
+          "endByte": 365,
+          "structuralFingerprint": "69c237c9a17d600dced366438539cfb8c884abe9122c7198887efec7c52d8695"
+        },
+        "markdown": "notes/long-title.md",
+        "wikilink": "[[notes/long-title]]",
+        "displayLabel": "long-title",
+        "exists": true
+      },
+      "notes/long-title.md#item-14": {
+        "ref": {
+          "notePath": "notes/long-title.md",
+          "fragment": "item-14",
+          "nodeId": "notes/long-title.md#item-14",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 14,
+          "endByte": 365,
+          "parentId": "notes/long-title.md#two-7",
+          "structuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e"
+        },
+        "markdown": "notes/long-title.md#^item-c2c1e39a",
+        "wikilink": "[[notes/long-title#^item-c2c1e39a]]",
+        "displayLabel": "Complete headline with words Complete headline with words Complete headline with",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "item-c2c1e39a"
+      },
+      "notes/long-title.md#two-7": {
+        "ref": {
+          "notePath": "notes/long-title.md",
+          "fragment": "two-7",
+          "nodeId": "notes/long-title.md#two-7",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 7,
+          "endByte": 365,
+          "structuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b"
+        },
+        "markdown": "notes/long-title.md#^chapter-two-f682d0fe",
+        "wikilink": "[[notes/long-title#^chapter-two-f682d0fe]]",
+        "displayLabel": "Two",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "chapter-two-f682d0fe"
+      }
+    },
+    "diagnostics": [
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/long-title.md",
+        "ref": {
+          "notePath": "notes/long-title.md",
+          "fragment": "two-7",
+          "nodeId": "notes/long-title.md#two-7",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 7,
+          "endByte": 365,
+          "structuralFingerprint": "0b7c0e760869611a754ffd6913e61a5016f75ac55452644118300541ee03a82b"
+        },
+        "blockId": "chapter-two-f682d0fe",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      },
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/long-title.md",
+        "ref": {
+          "notePath": "notes/long-title.md",
+          "fragment": "item-14",
+          "nodeId": "notes/long-title.md#item-14",
+          "typeName": "Item",
+          "kind": "EMBEDDED",
+          "startByte": 14,
+          "endByte": 365,
+          "parentId": "notes/long-title.md#two-7",
+          "structuralFingerprint": "663d200635e964000b2c40473c45159d6ba8639b3f26080ecb8053d3df77954e"
+        },
+        "blockId": "item-c2c1e39a",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      }
+    ]
+  }
+}

@@ -1,0 +1,530 @@
+{
+  "Nodes": [
+    {
+      "Ref": {
+        "notePath": "notes/malformed.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 56,
+        "structuralFingerprint": "6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": true,
+          "Range": {
+            "start": 32,
+            "end": 56
+          },
+          "ValueRanges": [
+            {
+              "start": 32,
+              "end": 56
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "notes/malformed.md#body-32"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": [
+            {
+              "notePath": "notes/malformed.md",
+              "fragment": "body-32",
+              "nodeId": "notes/malformed.md#body-32",
+              "typeName": "Chapter",
+              "kind": "EMBEDDED",
+              "startByte": 32,
+              "endByte": 56,
+              "structuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b"
+            }
+          ],
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "FRONTMATTER_FIELD",
+          "SourceKind": "FRONTMATTER",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 19
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": false,
+          "Values": [],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "chapters": {
+          "FieldName": "chapters",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 32,
+            "end": 56
+          },
+          "Items": [
+            {
+              "Ref": {
+                "notePath": "notes/malformed.md",
+                "fragment": "body-32",
+                "nodeId": "notes/malformed.md#body-32",
+                "typeName": "Chapter",
+                "kind": "EMBEDDED",
+                "startByte": 32,
+                "endByte": 56,
+                "structuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b"
+              },
+              "Range": {
+                "start": 32,
+                "end": 56
+              }
+            }
+          ],
+          "OrderFingerprint": "63fdc4d16d18012db13fc332b5d88b07115431282b5201ee60200b72daf3b17f"
+        }
+      },
+      "Body": [
+        {
+          "kind": "collection",
+          "range": {
+            "start": 32,
+            "end": 56
+          },
+          "fieldName": "chapters",
+          "childRefs": [
+            {
+              "notePath": "notes/malformed.md",
+              "fragment": "body-32",
+              "nodeId": "notes/malformed.md#body-32",
+              "kind": "EMBEDDED"
+            }
+          ],
+          "sectionDisplay": "PANE"
+        }
+      ],
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "notes/malformed.md",
+        "fragment": "body-32",
+        "nodeId": "notes/malformed.md#body-32",
+        "typeName": "Chapter",
+        "kind": "EMBEDDED",
+        "startByte": 32,
+        "endByte": 56,
+        "structuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b"
+      },
+      "Parent": {
+        "notePath": "notes/malformed.md",
+        "typeName": "Document",
+        "kind": "NOTE",
+        "endByte": 56,
+        "structuralFingerprint": "6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4"
+      },
+      "Fields": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": [],
+          "ValueRangesExact": false,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": [],
+          "Derived": false
+        },
+        "owner": {
+          "FieldName": "owner",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        },
+        "status": {
+          "FieldName": "status",
+          "Kind": "INLINE_FIELD",
+          "SourceKind": "INLINE",
+          "Present": false,
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "ValueRanges": null,
+          "ValueRangesExact": true,
+          "Values": null,
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {
+        "items": {
+          "FieldName": "items",
+          "Kind": "SECTION_LIST",
+          "Range": {
+            "start": 0,
+            "end": 0
+          },
+          "Items": [],
+          "OrderFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 40,
+            "end": 56
+          },
+          "markdown": "Still readable."
+        }
+      ],
+      "Parts": [
+        "Still readable."
+      ]
+    }
+  ],
+  "Catalog": {
+    "FullReplace": false,
+    "NotePaths": [
+      "notes/malformed.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "35b1f156790fb86bd51b57c060202153cfa48e1f30bcc3b5953f948691afbff9",
+        "NotePath": "notes/malformed.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/malformed.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":56,\"structuralFingerprint\":\"6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "malformed",
+        "SourceLocator": "notes/malformed.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "malformed",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 56,
+        "StructuralFingerprint": "6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "a99998ebbec505ef758d8f666999fed213f70814c01b1fe78d29f93fe949d196",
+        "NotePath": "notes/malformed.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/malformed.md\",\"fragment\":\"body-32\",\"nodeId\":\"notes/malformed.md#body-32\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":32,\"endByte\":56,\"structuralFingerprint\":\"95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "35b1f156790fb86bd51b57c060202153cfa48e1f30bcc3b5953f948691afbff9",
+        "ParentTypeName": "Document",
+        "Title": "Body",
+        "SourceLocator": "notes/malformed.md#body-32",
+        "Fragment": "body-32",
+        "BlockID": "",
+        "DisplayLabel": "Body",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 32,
+        "EndByte": 56,
+        "StructuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b",
+        "RelocationFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": null,
+    "LinkDependencies": null
+  },
+  "Spans": [
+    {
+      "ID": "notes/malformed.md#malformed-19",
+      "NotePath": "notes/malformed.md",
+      "Shape": "SECTION",
+      "Title": "Malformed",
+      "ParentID": "",
+      "Children": [
+        {
+          "ID": "notes/malformed.md#body-32",
+          "NotePath": "notes/malformed.md",
+          "Shape": "SECTION",
+          "Title": "Body",
+          "ParentID": "notes/malformed.md#malformed-19",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 0,
+            "end": 0
+          },
+          "Markers": null,
+          "Checkbox": null,
+          "Range": {
+            "start": 32,
+            "end": 56
+          },
+          "ContentRange": {
+            "start": 32,
+            "end": 56
+          },
+          "OwnContentRanges": [
+            {
+              "start": 32,
+              "end": 56
+            }
+          ],
+          "Content": "## Body\nStill readable.\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 19,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 19,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 19,
+          "end": 32
+        }
+      ],
+      "Content": "# Malformed\n\n## Body\nStill readable.\n"
+    },
+    {
+      "ID": "notes/malformed.md#body-32",
+      "NotePath": "notes/malformed.md",
+      "Shape": "SECTION",
+      "Title": "Body",
+      "ParentID": "notes/malformed.md#malformed-19",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 32,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 32,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 32,
+          "end": 56
+        }
+      ],
+      "Content": "## Body\nStill readable.\n"
+    }
+  ],
+  "Chunks": {
+    "NotePaths": [
+      "notes/malformed.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "35b1f156790fb86bd51b57c060202153cfa48e1f30bcc3b5953f948691afbff9",
+        "NotePath": "notes/malformed.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/malformed.md\",\"typeName\":\"Document\",\"kind\":\"NOTE\",\"endByte\":56,\"structuralFingerprint\":\"6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "Document",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "malformed",
+        "SourceLocator": "notes/malformed.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "malformed",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 56,
+        "StructuralFingerprint": "6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "a99998ebbec505ef758d8f666999fed213f70814c01b1fe78d29f93fe949d196",
+        "NotePath": "notes/malformed.md",
+        "NodeRefJSON": "{\"notePath\":\"notes/malformed.md\",\"fragment\":\"body-32\",\"nodeId\":\"notes/malformed.md#body-32\",\"typeName\":\"Chapter\",\"kind\":\"EMBEDDED\",\"startByte\":32,\"endByte\":56,\"structuralFingerprint\":\"95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Chapter",
+        "ParentNodeID": "35b1f156790fb86bd51b57c060202153cfa48e1f30bcc3b5953f948691afbff9",
+        "ParentTypeName": "Document",
+        "Title": "Body",
+        "SourceLocator": "notes/malformed.md#body-32",
+        "Fragment": "body-32",
+        "BlockID": "",
+        "DisplayLabel": "Body",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 32,
+        "EndByte": 56,
+        "StructuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b",
+        "RelocationFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": null,
+    "Chunks": [
+      {
+        "ChunkID": "95c74cc2b10a1225fbda9b8678c409b1e0af8d8026cb8a8ccfbc245a1d7fd5d8",
+        "OwnerID": "35b1f156790fb86bd51b57c060202153cfa48e1f30bcc3b5953f948691afbff9",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/malformed.md \u003e Document \u003e malformed",
+        "Heading": "malformed",
+        "ContentHash": "ed300e767580a5f418be16897748a1ecd07fba887751e48d4430c0e727ef8514",
+        "StartByte": 0,
+        "EndByte": 56,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "d10e957387d52a41319cf40f9d95675026a4026354389437962bc46d87b9efc5",
+        "OwnerID": "a99998ebbec505ef758d8f666999fed213f70814c01b1fe78d29f93fe949d196",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "notes/malformed.md \u003e Chapter \u003e Body",
+        "Heading": "Body",
+        "ContentHash": "16f63d38d81acd2e09c814ac08c8c02f99890382706a9b9c28d7de769da31b8d",
+        "StartByte": 32,
+        "EndByte": 56,
+        "UpdatedAt": 123
+      }
+    ],
+    "States": [
+      {
+        "ChunkID": "95c74cc2b10a1225fbda9b8678c409b1e0af8d8026cb8a8ccfbc245a1d7fd5d8",
+        "NodeID": "35b1f156790fb86bd51b57c060202153cfa48e1f30bcc3b5953f948691afbff9",
+        "NotePath": "notes/malformed.md",
+        "TypeName": "Document",
+        "NodeKind": "NOTE",
+        "EmbeddingSchemaSignature": "b9624fb5dccbc8f830b1d8f88f6d0e042327331667b0726942903d08b9055613",
+        "NodeStructureFingerprint": "6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "ed300e767580a5f418be16897748a1ecd07fba887751e48d4430c0e727ef8514",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "d10e957387d52a41319cf40f9d95675026a4026354389437962bc46d87b9efc5",
+        "NodeID": "a99998ebbec505ef758d8f666999fed213f70814c01b1fe78d29f93fe949d196",
+        "NotePath": "notes/malformed.md",
+        "TypeName": "Chapter",
+        "NodeKind": "EMBEDDED",
+        "EmbeddingSchemaSignature": "590df096e89f8b6aeb92e6718b16d79fa8a558362dff96e5883f7d360390c847",
+        "NodeStructureFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b",
+        "SourceContentHash": "ea3305bb356f4eb863863d62ed12b509db4abf793566177b586adc5eec12958a",
+        "ChunkTextHash": "16f63d38d81acd2e09c814ac08c8c02f99890382706a9b9c28d7de769da31b8d",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      }
+    ],
+    "Texts": {
+      "95c74cc2b10a1225fbda9b8678c409b1e0af8d8026cb8a8ccfbc245a1d7fd5d8": "Kind: ontology_node\nNodeKind: NOTE\nType: Document\nTitle: malformed\nPath: notes/malformed.md\nRef: notes/malformed.md\nBreadcrumb: notes/malformed.md \u003e Document \u003e malformed",
+      "d10e957387d52a41319cf40f9d95675026a4026354389437962bc46d87b9efc5": "Kind: ontology_node\nNodeKind: EMBEDDED\nType: Chapter\nTitle: Body\nPath: notes/malformed.md\nRef: notes/malformed.md#body-32\nBreadcrumb: notes/malformed.md \u003e Chapter \u003e Body\nAncestors: Document \u003e malformed \u003e chapters\n\nStill readable."
+    }
+  },
+  "Links": null,
+  "Locators": {
+    "targets": {
+      "notes/malformed.md": {
+        "ref": {
+          "notePath": "notes/malformed.md",
+          "typeName": "Document",
+          "kind": "NOTE",
+          "endByte": 56,
+          "structuralFingerprint": "6f5a9d81e8606d7e62a36504deb3958293b14bddab41ea7e61e734f0f279d6d4"
+        },
+        "markdown": "notes/malformed.md",
+        "wikilink": "[[notes/malformed]]",
+        "displayLabel": "malformed",
+        "exists": true
+      },
+      "notes/malformed.md#body-32": {
+        "ref": {
+          "notePath": "notes/malformed.md",
+          "fragment": "body-32",
+          "nodeId": "notes/malformed.md#body-32",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 32,
+          "endByte": 56,
+          "structuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b"
+        },
+        "markdown": "notes/malformed.md#^chapter-body-696b75cd",
+        "wikilink": "[[notes/malformed#^chapter-body-696b75cd]]",
+        "displayLabel": "Body",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "chapter-body-696b75cd"
+      }
+    },
+    "diagnostics": [
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "notes/malformed.md",
+        "ref": {
+          "notePath": "notes/malformed.md",
+          "fragment": "body-32",
+          "nodeId": "notes/malformed.md#body-32",
+          "typeName": "Chapter",
+          "kind": "EMBEDDED",
+          "startByte": 32,
+          "endByte": 56,
+          "structuralFingerprint": "95b9806933cb5aa414860640917c10b0b7fb38b47e934b7072ff68e2d0ff301b"
+        },
+        "blockId": "chapter-body-696b75cd",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      }
+    ]
+  }
+}

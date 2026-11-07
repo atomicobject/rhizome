@@ -186,9 +186,10 @@ func (e *executor) resolveAnyNodeSelectionSet(ctx context.Context, node *resolve
 }
 
 func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRecord, field *ast.Field, path []string) (any, bool) {
-	if node == nil || node.Node == nil {
+	if node == nil {
 		return nil, true
 	}
+	ref := e.sectionNodeRef(node)
 	resolveBuiltin := func() (any, bool, bool) {
 		switch field.Name {
 		case "ref":
@@ -199,7 +200,7 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 			}
 			return nodeRefGraphQLValue(ref), true, true
 		case "nodeId":
-			return "section:" + node.Node.NotePath + "#" + node.Node.ID, true, true
+			return "section:" + ref.NotePath + "#" + ref.NodeID, true, true
 		case "nodeKind":
 			if ref := e.sectionNodeRef(node); ref.Kind == ontology.NodeKindEmbedded {
 				return "EMBEDDED", true, true
@@ -209,29 +210,32 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 			if node.Projection != nil {
 				return node.Projection.Ref.NodeID, true, true
 			}
-			return node.Node.ID, true, true
+			return ref.NodeID, true, true
 		case "path":
 			if node.Projection != nil {
 				return node.Projection.Ref.String(), true, true
 			}
-			return node.Node.NotePath + "#" + queryFragmentFromSectionID(node.Node.NotePath, node.Node.ID), true, true
+			return ref.String(), true, true
 		case "notePath":
-			return node.Node.NotePath, true, true
+			return ref.NotePath, true, true
 		case "title":
 			if node.Projection != nil {
 				return nodeCatalogTitleFromProjection(node.Projection), true, true
 			}
-			return node.Node.Title, true, true
+			if node.Node != nil {
+				return node.Node.Title, true, true
+			}
+			return node.catalogTitle, true, true
 		case "__typename":
 			return sectionGraphQLTypeName(node), true, true
 		case "resolvedType":
 			return node.TypeName, true, true
 		case recordFieldUpdatedAt:
-			return e.recordUpdatedAt(node.Node.NotePath), true, true
+			return e.recordUpdatedAt(ref.NotePath), true, true
 		case recordFieldIssueCount:
 			return e.recordIssueCount(e.sectionNodeRef(node)), true, true
 		case "level":
-			if node.Projection != nil && node.Node.Level == "" {
+			if node.Node == nil || node.Node.Level == "" {
 				return "", true, true
 			}
 			return string(node.Node.Level), true, true
@@ -251,6 +255,16 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 		case "children":
 			if node.Projection != nil {
 				children := e.sectionRecordsFromProjectionField(node.Projection, node.Note, &ontoschema.Field{Name: "children"})
+				if node.Projection.Record != nil {
+					refs, _ := node.Projection.Prepared.Children(ref)
+					children = nil
+					for _, childRef := range refs {
+						child, err := node.Projection.Prepared.ProjectBound(childRef)
+						if err == nil {
+							children = append(children, e.sectionRecordFromProjection(node.Note, child))
+						}
+					}
+				}
 				first := 20
 				if args := e.fieldArgs(field); args != nil {
 					first = intValue(args["first"], 20)
@@ -263,6 +277,9 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 					out = append(out, e.resolveSectionSelectionSet(ctx, child, field.SelectionSet, path))
 				}
 				return out, true, true
+			}
+			if node.Node == nil {
+				return []any{}, true, true
 			}
 			first := 20
 			if args := e.fieldArgs(field); args != nil {

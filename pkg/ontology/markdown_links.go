@@ -33,11 +33,11 @@ func ScanMarkdownBodyLinks(content string, wikiOpts markdownsyntax.WikilinkOptio
 	return out
 }
 
-// MarkdownProjectionStructuredLinks is the explicit Markdown-only adapter for
+// markdownProjectionStructuredLinks is the explicit Markdown-only adapter for
 // an already-authorized ontology projection. Generic consumers must use
 // provider facts or persisted rows; descriptor-only note formats never reach
 // this boundary.
-func MarkdownProjectionStructuredLinks(projection *NodeProjection) []markdownsyntax.StructuredLink {
+func markdownProjectionStructuredLinks(projection *NodeProjection) []markdownsyntax.StructuredLink {
 	content := markdownProjectionContent(projection)
 	if content == "" {
 		return nil

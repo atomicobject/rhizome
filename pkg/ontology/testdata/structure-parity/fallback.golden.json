@@ -1,0 +1,671 @@
+{
+  "Nodes": [
+    {
+      "Ref": {
+        "notePath": "other/fallback.md",
+        "typeName": "_FallbackNote",
+        "kind": "NOTE",
+        "endByte": 56,
+        "structuralFingerprint": "85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {},
+      "Collections": {},
+      "Body": [
+        {
+          "kind": "child_section",
+          "range": {
+            "start": 11,
+            "end": 56
+          },
+          "childRef": {
+            "notePath": "other/fallback.md",
+            "fragment": "body-11",
+            "nodeId": "other/fallback.md#body-11",
+            "kind": "SECTION"
+          }
+        }
+      ],
+      "Parts": null
+    },
+    {
+      "Ref": {
+        "notePath": "other/fallback.md",
+        "fragment": "body-11",
+        "nodeId": "other/fallback.md#body-11",
+        "typeName": "_FallbackSection",
+        "kind": "SECTION",
+        "startByte": 11,
+        "endByte": 56,
+        "structuralFingerprint": "7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {},
+      "Collections": {},
+      "Body": [
+        {
+          "kind": "narrative",
+          "range": {
+            "start": 19,
+            "end": 56
+          },
+          "markdown": "Text [[elsewhere]].\n- [x] Done #task"
+        }
+      ],
+      "Parts": [
+        "Text [[elsewhere]].\n- [x] Done #task"
+      ]
+    },
+    {
+      "Ref": {
+        "notePath": "other/fallback.md",
+        "fragment": "item-39",
+        "nodeId": "other/fallback.md#item-39",
+        "typeName": "Task",
+        "kind": "EMBEDDED",
+        "startByte": 39,
+        "endByte": 56,
+        "parentId": "other/fallback.md#body-11",
+        "structuralFingerprint": "f42cdfb498e5d8281d329a0c6c026eb9bb24d1eddb276b1b80864b18ff47454e"
+      },
+      "Parent": {
+        "notePath": "",
+        "kind": ""
+      },
+      "Fields": {
+        "done": {
+          "FieldName": "done",
+          "Kind": "CHECKBOX_FIELD",
+          "SourceKind": "CHECKBOX",
+          "Present": true,
+          "Range": {
+            "start": 41,
+            "end": 44
+          },
+          "ValueRanges": [
+            {
+              "start": 41,
+              "end": 44
+            }
+          ],
+          "ValueRangesExact": false,
+          "Values": [
+            "true"
+          ],
+          "InlineSpans": null,
+          "SectionNodes": null,
+          "Derived": false
+        }
+      },
+      "Collections": {},
+      "Body": null,
+      "Parts": null
+    }
+  ],
+  "Catalog": {
+    "FullReplace": false,
+    "NotePaths": [
+      "other/fallback.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "NotePath": "other/fallback.md",
+        "NodeRefJSON": "{\"notePath\":\"other/fallback.md\",\"typeName\":\"_FallbackNote\",\"kind\":\"NOTE\",\"endByte\":56,\"structuralFingerprint\":\"85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "_FallbackNote",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "fallback",
+        "SourceLocator": "other/fallback.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "fallback",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 56,
+        "StructuralFingerprint": "85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "dcbcfbefa681dfb9d5194f33a33fe9e260e4dee587ca7340bef4b2f1464d0a8a",
+        "NotePath": "other/fallback.md",
+        "NodeRefJSON": "{\"notePath\":\"other/fallback.md\",\"fragment\":\"body-11\",\"nodeId\":\"other/fallback.md#body-11\",\"typeName\":\"_FallbackSection\",\"kind\":\"SECTION\",\"startByte\":11,\"endByte\":56,\"structuralFingerprint\":\"7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6\"}",
+        "NodeKind": "SECTION",
+        "TypeName": "_FallbackSection",
+        "ParentNodeID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "ParentTypeName": "_FallbackNote",
+        "Title": "Body",
+        "SourceLocator": "other/fallback.md#body-11",
+        "Fragment": "body-11",
+        "BlockID": "",
+        "DisplayLabel": "Body",
+        "LocatorStatus": "unsupported",
+        "StartByte": 11,
+        "EndByte": 56,
+        "StructuralFingerprint": "7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "975777ad14a10f022542bd891313048b50fcb3c7313a0eacac89d3309a978140",
+        "NotePath": "other/fallback.md",
+        "NodeRefJSON": "{\"notePath\":\"other/fallback.md\",\"fragment\":\"item-39\",\"nodeId\":\"other/fallback.md#item-39\",\"typeName\":\"Task\",\"kind\":\"EMBEDDED\",\"startByte\":39,\"endByte\":56,\"parentId\":\"other/fallback.md#body-11\",\"structuralFingerprint\":\"f42cdfb498e5d8281d329a0c6c026eb9bb24d1eddb276b1b80864b18ff47454e\"}",
+        "NodeKind": "EMBEDDED",
+        "TypeName": "Task",
+        "ParentNodeID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "ParentTypeName": "_FallbackNote",
+        "Title": "Done",
+        "SourceLocator": "other/fallback.md#item-39",
+        "Fragment": "item-39",
+        "BlockID": "",
+        "DisplayLabel": "Done",
+        "LocatorStatus": "requires_fix",
+        "StartByte": 39,
+        "EndByte": 56,
+        "StructuralFingerprint": "f42cdfb498e5d8281d329a0c6c026eb9bb24d1eddb276b1b80864b18ff47454e",
+        "RelocationFingerprint": "f42cdfb498e5d8281d329a0c6c026eb9bb24d1eddb276b1b80864b18ff47454e",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": [
+      {
+        "NodeID": "975777ad14a10f022542bd891313048b50fcb3c7313a0eacac89d3309a978140",
+        "NotePath": "other/fallback.md",
+        "TypeName": "Task",
+        "FieldName": "done",
+        "FieldKind": "scalar",
+        "SourceKind": "CHECKBOX",
+        "ValueKind": "bool",
+        "ValueText": "true",
+        "ValueNorm": "true",
+        "ValueBool": true,
+        "ValueInt": null,
+        "ValueReal": null,
+        "ValueDate": null,
+        "ValueDateTime": null,
+        "TargetNodeID": "",
+        "TargetRefJSON": "",
+        "TargetNotePath": "",
+        "TargetTypeName": "",
+        "TargetSourceLocator": "",
+        "ListOrdinal": 0,
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "LinkDependencies": null
+  },
+  "Spans": [
+    {
+      "ID": "other/fallback.md#untyped-0",
+      "NotePath": "other/fallback.md",
+      "Shape": "SECTION",
+      "Title": "Untyped",
+      "ParentID": "",
+      "Children": [
+        {
+          "ID": "other/fallback.md#body-11",
+          "NotePath": "other/fallback.md",
+          "Shape": "SECTION",
+          "Title": "Body",
+          "ParentID": "other/fallback.md#untyped-0",
+          "Children": [
+            {
+              "ID": "other/fallback.md#item-39",
+              "NotePath": "other/fallback.md",
+              "Shape": "CHECKBOX_ITEM",
+              "Title": "Done",
+              "ParentID": "other/fallback.md#body-11",
+              "Children": null,
+              "BlockID": "",
+              "MalformedBlockID": "",
+              "MarkerRange": {
+                "start": 39,
+                "end": 45
+              },
+              "Markers": [
+                {
+                  "Value": "#task",
+                  "Range": {
+                    "start": 50,
+                    "end": 55
+                  }
+                }
+              ],
+              "Checkbox": {
+                "Checked": true,
+                "TokenRange": {
+                  "start": 41,
+                  "end": 44
+                }
+              },
+              "Range": {
+                "start": 39,
+                "end": 56
+              },
+              "ContentRange": {
+                "start": 45,
+                "end": 56
+              },
+              "OwnContentRanges": [
+                {
+                  "start": 45,
+                  "end": 56
+                }
+              ],
+              "Content": "- [x] Done #task\n"
+            }
+          ],
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 0,
+            "end": 0
+          },
+          "Markers": null,
+          "Checkbox": null,
+          "Range": {
+            "start": 11,
+            "end": 56
+          },
+          "ContentRange": {
+            "start": 11,
+            "end": 56
+          },
+          "OwnContentRanges": [
+            {
+              "start": 11,
+              "end": 56
+            }
+          ],
+          "Content": "## Body\nText [[elsewhere]].\n- [x] Done #task\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 0,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 0,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 0,
+          "end": 11
+        }
+      ],
+      "Content": "# Untyped\n\n## Body\nText [[elsewhere]].\n- [x] Done #task\n"
+    },
+    {
+      "ID": "other/fallback.md#body-11",
+      "NotePath": "other/fallback.md",
+      "Shape": "SECTION",
+      "Title": "Body",
+      "ParentID": "other/fallback.md#untyped-0",
+      "Children": [
+        {
+          "ID": "other/fallback.md#item-39",
+          "NotePath": "other/fallback.md",
+          "Shape": "CHECKBOX_ITEM",
+          "Title": "Done",
+          "ParentID": "other/fallback.md#body-11",
+          "Children": null,
+          "BlockID": "",
+          "MalformedBlockID": "",
+          "MarkerRange": {
+            "start": 39,
+            "end": 45
+          },
+          "Markers": [
+            {
+              "Value": "#task",
+              "Range": {
+                "start": 50,
+                "end": 55
+              }
+            }
+          ],
+          "Checkbox": {
+            "Checked": true,
+            "TokenRange": {
+              "start": 41,
+              "end": 44
+            }
+          },
+          "Range": {
+            "start": 39,
+            "end": 56
+          },
+          "ContentRange": {
+            "start": 45,
+            "end": 56
+          },
+          "OwnContentRanges": [
+            {
+              "start": 45,
+              "end": 56
+            }
+          ],
+          "Content": "- [x] Done #task\n"
+        }
+      ],
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 0,
+        "end": 0
+      },
+      "Markers": null,
+      "Checkbox": null,
+      "Range": {
+        "start": 11,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 11,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 11,
+          "end": 56
+        }
+      ],
+      "Content": "## Body\nText [[elsewhere]].\n- [x] Done #task\n"
+    },
+    {
+      "ID": "other/fallback.md#item-39",
+      "NotePath": "other/fallback.md",
+      "Shape": "CHECKBOX_ITEM",
+      "Title": "Done",
+      "ParentID": "other/fallback.md#body-11",
+      "Children": null,
+      "BlockID": "",
+      "MalformedBlockID": "",
+      "MarkerRange": {
+        "start": 39,
+        "end": 45
+      },
+      "Markers": [
+        {
+          "Value": "#task",
+          "Range": {
+            "start": 50,
+            "end": 55
+          }
+        }
+      ],
+      "Checkbox": {
+        "Checked": true,
+        "TokenRange": {
+          "start": 41,
+          "end": 44
+        }
+      },
+      "Range": {
+        "start": 39,
+        "end": 56
+      },
+      "ContentRange": {
+        "start": 45,
+        "end": 56
+      },
+      "OwnContentRanges": [
+        {
+          "start": 45,
+          "end": 56
+        }
+      ],
+      "Content": "- [x] Done #task\n"
+    }
+  ],
+  "Chunks": {
+    "NotePaths": [
+      "other/fallback.md"
+    ],
+    "Nodes": [
+      {
+        "NodeID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "NotePath": "other/fallback.md",
+        "NodeRefJSON": "{\"notePath\":\"other/fallback.md\",\"typeName\":\"_FallbackNote\",\"kind\":\"NOTE\",\"endByte\":56,\"structuralFingerprint\":\"85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73\"}",
+        "NodeKind": "NOTE",
+        "TypeName": "_FallbackNote",
+        "ParentNodeID": "",
+        "ParentTypeName": "",
+        "Title": "fallback",
+        "SourceLocator": "other/fallback.md",
+        "Fragment": "",
+        "BlockID": "",
+        "DisplayLabel": "fallback",
+        "LocatorStatus": "linkable",
+        "StartByte": 0,
+        "EndByte": 56,
+        "StructuralFingerprint": "85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      },
+      {
+        "NodeID": "dcbcfbefa681dfb9d5194f33a33fe9e260e4dee587ca7340bef4b2f1464d0a8a",
+        "NotePath": "other/fallback.md",
+        "NodeRefJSON": "{\"notePath\":\"other/fallback.md\",\"fragment\":\"body-11\",\"nodeId\":\"other/fallback.md#body-11\",\"typeName\":\"_FallbackSection\",\"kind\":\"SECTION\",\"startByte\":11,\"endByte\":56,\"structuralFingerprint\":\"7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6\"}",
+        "NodeKind": "SECTION",
+        "TypeName": "_FallbackSection",
+        "ParentNodeID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "ParentTypeName": "_FallbackNote",
+        "Title": "Body",
+        "SourceLocator": "other/fallback.md#body-11",
+        "Fragment": "body-11",
+        "BlockID": "",
+        "DisplayLabel": "Body",
+        "LocatorStatus": "unsupported",
+        "StartByte": 11,
+        "EndByte": 56,
+        "StructuralFingerprint": "7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6",
+        "RelocationFingerprint": "",
+        "SchemaHash": "6f569678682ff1cd0c698aaab0536320cc2bd38199ed8ed2497c5fc86f5cf047",
+        "UpdatedAt": 123
+      }
+    ],
+    "FieldValues": null,
+    "Chunks": [
+      {
+        "ChunkID": "7be5db66d44c880389a2b20200d3e9f28d43ccba08fe2b2853755af09bb05f21",
+        "OwnerID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "other/fallback.md \u003e _FallbackNote \u003e fallback",
+        "Heading": "fallback",
+        "ContentHash": "f5f504951c05d5c95427c69e72a0e7efda41d8788494ffde397c6d8651d4ab7a",
+        "StartByte": 0,
+        "EndByte": 56,
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "5f433ffb57e2ae370c7f0aa92d9d352ac0ff9fff3787edbf7159f82b532c5cf3",
+        "OwnerID": "dcbcfbefa681dfb9d5194f33a33fe9e260e4dee587ca7340bef4b2f1464d0a8a",
+        "OwnerType": "ontology_node",
+        "ChunkFamily": "",
+        "Ord": 0,
+        "Granularity": "node_body",
+        "Breadcrumb": "other/fallback.md \u003e _FallbackSection \u003e Body",
+        "Heading": "Body",
+        "ContentHash": "09314d76d1761adbef9ec496d35868fa7a4c065ec784622aa6bd3ff7822419c8",
+        "StartByte": 11,
+        "EndByte": 56,
+        "UpdatedAt": 123
+      }
+    ],
+    "States": [
+      {
+        "ChunkID": "7be5db66d44c880389a2b20200d3e9f28d43ccba08fe2b2853755af09bb05f21",
+        "NodeID": "81d895f46a49befe379b416c6ea2445df29283dcf2e3a6bd5dfe6fb61020178e",
+        "NotePath": "other/fallback.md",
+        "TypeName": "_FallbackNote",
+        "NodeKind": "NOTE",
+        "EmbeddingSchemaSignature": "f2d8e6f7682cb291839c67f89a023fd08165622545a032a65cf6f7430f2340b9",
+        "NodeStructureFingerprint": "85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73",
+        "SourceContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ChunkTextHash": "f5f504951c05d5c95427c69e72a0e7efda41d8788494ffde397c6d8651d4ab7a",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      },
+      {
+        "ChunkID": "5f433ffb57e2ae370c7f0aa92d9d352ac0ff9fff3787edbf7159f82b532c5cf3",
+        "NodeID": "dcbcfbefa681dfb9d5194f33a33fe9e260e4dee587ca7340bef4b2f1464d0a8a",
+        "NotePath": "other/fallback.md",
+        "TypeName": "_FallbackSection",
+        "NodeKind": "SECTION",
+        "EmbeddingSchemaSignature": "66f43a335e3a54eeed76a2cbaa9b354b674a70ba4295b3b96c497856bf379bd4",
+        "NodeStructureFingerprint": "7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6",
+        "SourceContentHash": "ea524e89cde4b486d596b006c04a0e5550e95b51e82ab5edff45058a8368a712",
+        "ChunkTextHash": "09314d76d1761adbef9ec496d35868fa7a4c065ec784622aa6bd3ff7822419c8",
+        "ChunkGranularity": "node_body",
+        "Provider": "test",
+        "Model": "deterministic",
+        "UpdatedAt": 123
+      }
+    ],
+    "Texts": {
+      "5f433ffb57e2ae370c7f0aa92d9d352ac0ff9fff3787edbf7159f82b532c5cf3": "Kind: ontology_node\nNodeKind: SECTION\nType: _FallbackSection\nTitle: Body\nPath: other/fallback.md\nRef: other/fallback.md#body-11\nBreadcrumb: other/fallback.md \u003e _FallbackSection \u003e Body\nAncestors: _FallbackNote \u003e fallback \u003e section\n\nSection: Body\n\nText [[elsewhere]].\n- [x] Done #task",
+      "7be5db66d44c880389a2b20200d3e9f28d43ccba08fe2b2853755af09bb05f21": "Kind: ontology_node\nNodeKind: NOTE\nType: _FallbackNote\nTitle: fallback\nPath: other/fallback.md\nRef: other/fallback.md\nBreadcrumb: other/fallback.md \u003e _FallbackNote \u003e fallback"
+    }
+  },
+  "Links": [
+    {
+      "Resolution": "note_reference",
+      "Syntax": "wikilink",
+      "Subtype": "basic",
+      "ResolverInput": "elsewhere",
+      "Embed": false,
+      "Target": "elsewhere",
+      "Path": "elsewhere",
+      "Fragment": "",
+      "Display": "",
+      "URI": null,
+      "RawRange": {
+        "StartByte": 24,
+        "EndByte": 37
+      },
+      "TargetRange": {
+        "StartByte": 26,
+        "EndByte": 35
+      },
+      "PathRange": {
+        "Present": true,
+        "Range": {
+          "StartByte": 26,
+          "EndByte": 35
+        }
+      },
+      "FragmentRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      },
+      "DisplayRange": {
+        "Present": false,
+        "Range": {
+          "StartByte": 0,
+          "EndByte": 0
+        }
+      }
+    }
+  ],
+  "Locators": {
+    "targets": {
+      "other/fallback.md": {
+        "ref": {
+          "notePath": "other/fallback.md",
+          "typeName": "_FallbackNote",
+          "kind": "NOTE",
+          "endByte": 56,
+          "structuralFingerprint": "85b665eb866d07a337d20d6da4744c6ce6b4de9a6f53541602290a9b972d2d73"
+        },
+        "markdown": "other/fallback.md",
+        "wikilink": "[[other/fallback]]",
+        "displayLabel": "fallback",
+        "exists": true
+      },
+      "other/fallback.md#item-39": {
+        "ref": {
+          "notePath": "other/fallback.md",
+          "fragment": "item-39",
+          "nodeId": "other/fallback.md#item-39",
+          "typeName": "Task",
+          "kind": "EMBEDDED",
+          "startByte": 39,
+          "endByte": 56,
+          "parentId": "other/fallback.md#body-11",
+          "structuralFingerprint": "f42cdfb498e5d8281d329a0c6c026eb9bb24d1eddb276b1b80864b18ff47454e"
+        },
+        "markdown": "other/fallback.md#^task-c02c93ad",
+        "wikilink": "[[other/fallback#^task-c02c93ad]]",
+        "displayLabel": "Done",
+        "exists": false,
+        "requiresFix": true,
+        "blockId": "task-c02c93ad"
+      }
+    },
+    "diagnostics": [
+      {
+        "code": "unsupported_node_kind",
+        "notePath": "other/fallback.md",
+        "ref": {
+          "notePath": "other/fallback.md",
+          "fragment": "body-11",
+          "nodeId": "other/fallback.md#body-11",
+          "typeName": "_FallbackSection",
+          "kind": "SECTION",
+          "startByte": 11,
+          "endByte": 56,
+          "structuralFingerprint": "7e3cc2ebc96a4904f6a8e7ed053ac39617e7c5311114c8b044669cc8a0a2b6d6"
+        },
+        "message": "only embedded ontology nodes are linkable with block identifiers"
+      },
+      {
+        "code": "missing_embedded_block_id",
+        "notePath": "other/fallback.md",
+        "ref": {
+          "notePath": "other/fallback.md",
+          "fragment": "item-39",
+          "nodeId": "other/fallback.md#item-39",
+          "typeName": "Task",
+          "kind": "EMBEDDED",
+          "startByte": 39,
+          "endByte": 56,
+          "parentId": "other/fallback.md#body-11",
+          "structuralFingerprint": "f42cdfb498e5d8281d329a0c6c026eb9bb24d1eddb276b1b80864b18ff47454e"
+        },
+        "blockId": "task-c02c93ad",
+        "message": "embedded ontology node needs a block ID before its link target is durable"
+      }
+    ]
+  }
+}

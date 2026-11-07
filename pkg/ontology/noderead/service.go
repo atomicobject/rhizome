@@ -107,6 +107,7 @@ func (s *Scope) initializeCaches() {
 	s.locatorKnown = map[string]bool{}
 	s.projectionByRef = map[string]*ontology.NodeProjection{}
 	s.projectionKnown = map[string]bool{}
+	s.preparedByPath = map[string]*ontology.PreparedDocument{}
 	s.rootSnapshotByPath = map[string]*ontology.RootDocumentSnapshot{}
 	s.snapshotByPath = map[string]*ontology.DocumentSnapshot{}
 	s.snapshotKnownErr = map[string]error{}

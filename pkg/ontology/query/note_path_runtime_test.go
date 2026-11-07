@@ -23,7 +23,7 @@ func TestCurrentNotePathsRequiresSelectedProjector(t *testing.T) {
 	require.Empty(t, paths, "unregistered Markdown must not bypass selected-provider admission")
 
 	deps.NoteFormats, err = noteformat.NewRuntime(env.noteFormats.Registry())
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "executable projector")
 	paths, err = currentNotePaths(context.Background(), deps)
 	require.NoError(t, err)
 	require.Empty(t, paths, "descriptor-only providers must not become executable note sources")

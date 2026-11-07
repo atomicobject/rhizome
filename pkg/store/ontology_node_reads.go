@@ -22,7 +22,7 @@ func (s *Store) OntologyNodesByIDs(ctx context.Context, nodeIDs []string) (map[s
 				COALESCE(parent_node_id, ''), COALESCE(parent_type_name, ''), COALESCE(title, ''),
 				COALESCE(source_locator, ''), COALESCE(fragment, ''), COALESCE(block_id, ''),
 				COALESCE(display_label, ''), COALESCE(locator_status, ''),
-				start_byte, end_byte, COALESCE(structural_fingerprint, ''), COALESCE(relocation_fingerprint, ''), COALESCE(schema_hash, ''), updated_at
+				start_byte, end_byte, COALESCE(structural_fingerprint, ''), COALESCE(relocation_fingerprint, ''), COALESCE(schema_hash, ''), updated_at, record_identity_json
 			FROM ontology_nodes
 			WHERE node_id IN (%s)
 		`, holders), args...)
@@ -51,7 +51,7 @@ func (s *Store) AllOntologyNodes(ctx context.Context) ([]readmodel.NodeRow, erro
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 			parent_type_name, title, source_locator, fragment, block_id, display_label,
-			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at
+			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at, record_identity_json
 		FROM ontology_nodes
 		ORDER BY note_path, node_kind, node_id
 	`)
@@ -79,7 +79,7 @@ func (s *Store) OntologyNodesByType(ctx context.Context, typeName string) ([]rea
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 			parent_type_name, title, source_locator, fragment, block_id, display_label,
-			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at
+			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at, record_identity_json
 		FROM ontology_nodes
 		WHERE type_name = ?
 		ORDER BY note_path, node_kind, node_id

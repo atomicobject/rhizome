@@ -150,3 +150,13 @@ func TestOntologyNodeSyncerUsesProviderRootEvidenceWithoutMarkdownStructure(t *t
 func sourceRange(start, end int) noteformat.OptionalSourceRange {
 	return noteformat.OptionalSourceRange{Present: true, Range: noteformat.SourceRange{StartByte: start, EndByte: end}}
 }
+
+func TestRootEvidenceDoesNotInheritOtherOwnersRegions(t *testing.T) {
+	root := &ontology.RootDocumentSnapshot{NotePath: "model.native", Format: "synthetic", Projection: noteformat.Projection{Facts: noteformat.ProjectionFacts{Structure: &noteformat.StructureFacts{Root: "root"}}}, SearchRegions: []noteformat.SearchRegionFact{{Kind: noteformat.SearchRegionVisible, Text: "root evidence"}, {Owner: "child", Kind: noteformat.SearchRegionVisible, Text: "child evidence"}}}
+	plan := BuildRootEvidenceChunks(root, readmodel.NodeRow{NodeID: "root", Title: "Host"}, embeddings.ProviderConfig{}, 1024, 1)
+	require.Len(t, plan.Chunks, 1)
+	for _, text := range plan.Texts {
+		require.Contains(t, text, "root evidence")
+		require.NotContains(t, text, "child evidence")
+	}
+}

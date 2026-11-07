@@ -1,7 +1,7 @@
 ---
 summary: "Operational design constraints and review checklist for vault core: path normalization through pkg/paths, vault/link/tag primitives in pkg/vault/obsidian, config discovery, blessed frontmatter, and unified ignore matching."
 reference-kind: guide
-last-verified: 2026-11-03
+last-verified: 2026-11-06
 code-paths:
   - pkg/fileio
   - pkg/noteformat
@@ -44,13 +44,15 @@ The primitives every other subsystem builds on: canonical path normalization (`p
 
 ## Design constraints
 
+**Structural read envelope (SPEC-0133).** `noteformat.StructureFacts` stores validated source-local owners, ordered value IDs, explicit null/empty kinds, and optional original-byte ranges. `structural_reading` requires an executable projector and grants no mutation operation. HTML remains root-only. The moved Markdown heading/list parser lives under `markdownsyntax/sectionparse` and `markdownsyntax/structure`; the latter adapts syntax to noteformat facts without ontology imports.
+
 - **Source write ownership is separate from discovery.** `pkg/sourceownership` reads committed `.rhizome/source-ownership.yml` declarations of owner, reason, and vault-relative exact paths/doublestar globs. Refresh never removes declarations; invalid configuration refuses native source writes. Explicit configuration removal is the ejection route. The managed init ignore file tracks this document.
 
 - **Shared lexical helpers belong to Markdown syntax.** `markdownsyntax.NextLineStart`, `ByteRun`, and `FenceLine` supply byte-level scanning to skill slots, template embeds, and Markdown consumers. `FenceLine` recognizes delimiter candidates with at most three leading spaces; callers retain their own opening/closing fence state. Keep this lexical contract distinct from stateful fence-close validation.
 
 - **Health retains ontology issue evidence.** `HealthReport.OntologyIssues` uses `ontology.ValidationIssue` directly, including node identity, repair targets, variants, and ambiguity candidates. Optional fields remain omitted from JSON when empty.
 
-- **Vault primitives stay below configuration and application composition.** `pkg/markdownsyntax` has no Rhizome package imports. `pkg/vault/obsidian` depends only on syntax, paths, and ignore matching. Typed YAML models, preferences, and vault selection live in `pkg/vault/repoconfig`; graph DTOs/algorithms/backlinks live in `pkg/graph`; health scans live in `pkg/vault/health`; configured SQLite opening lives in `pkg/indexstore`. Migrate callers when moving a contract; do not retain old forwarding APIs or aliases.
+- **Vault primitives stay below configuration and application composition.** The root `pkg/markdownsyntax` grammar has no Rhizome package imports; its `structure` adapter may import the lower-level noteformat envelope. `pkg/vault/obsidian` depends only on syntax, paths, and ignore matching. Typed YAML models, preferences, and vault selection live in `pkg/vault/repoconfig`; graph DTOs/algorithms/backlinks live in `pkg/graph`; health scans live in `pkg/vault/health`; configured SQLite opening lives in `pkg/indexstore`. Migrate callers when moving a contract; do not retain old forwarding APIs or aliases.
 - **Configuration has an explicit snapshot and environment.** `repoconfig.Load` reads one local document and `FromLocal` derives code, note/code embeddings, graph, file-context, and budget settings without more reads. Indexing, search, and runtime composition pass `Resolved`; injected snapshots must pass `ValidateFor` for the canonical vault root before opening stores. `Vault.ResolveConfiguration` captures definition and settings together, including injected snapshots without reparsing newer local YAML. Runtime startup and leader initialization use that capture. `runtimeview.Snapshot` carries the current vault definition and configuration as one pair under the ownership lock. Explicit reloads publish safe note/doc/budget changes together; index path or embedding provider/model/endpoint/dimension/enablement changes require restarting the runtime and retain the old state. Persistence deliberately rereads its target before merging owned YAML fields so a long operation does not overwrite newly authored fields. Host paths and environment lookup are supplied by immutable `config.Env`, with scoped context injection at application boundaries.
 
 `pkg/fileio` owns cooperative OS file access and atomic namespace replacement shared by repository configuration and runtime discovery. It does not normalize vault identities or own serialization, writer coordination, and durability policy.

@@ -320,7 +320,7 @@ func TestRenderedNoteUsesFutureProviderFactsWithoutMarkdownCompatibilityParsing(
 	projector := &fileViewProjector{descriptor: descriptor, projection: projection}
 	registry, err := noteformat.NewRegistry(markdown.New(), projector)
 	require.NoError(t, err)
-	runtime, err := noteformat.NewRuntime(registry, projector)
+	runtime, err := noteformat.NewRuntime(registry, markdown.New(), projector)
 	require.NoError(t, err)
 	indexer, err := notemeta.NewIndexer(runtime)
 	require.NoError(t, err)

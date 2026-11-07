@@ -55,8 +55,8 @@ func insertOntologyEdges(ctx context.Context, tx *sql.Tx, rows []OntologyEdgeRow
 		return nil
 	}
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT OR REPLACE INTO ontology_edges (src_path, src_node_id, relation_name, dst_path, dst_node_id, dst_type, provenance, structural, schema_hash, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO ontology_edges (src_path, src_node_id, relation_name, dst_path, dst_node_id, dst_type, provenance, structural, schema_hash, updated_at, occurrences_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func insertOntologyEdges(ctx context.Context, tx *sql.Tx, rows []OntologyEdgeRow
 		if strings.TrimSpace(row.SrcPath) == "" || strings.TrimSpace(row.RelationName) == "" || strings.TrimSpace(row.DstPath) == "" {
 			continue
 		}
-		if _, err := stmt.ExecContext(ctx, row.SrcPath, row.SrcNodeID, row.RelationName, row.DstPath, row.DstNodeID, row.DstType, row.Provenance, boolToInt(row.Structural), row.SchemaHash, row.UpdatedAt); err != nil {
+		if _, err := stmt.ExecContext(ctx, row.SrcPath, row.SrcNodeID, row.RelationName, row.DstPath, row.DstNodeID, row.DstType, row.Provenance, boolToInt(row.Structural), row.SchemaHash, row.UpdatedAt, row.OccurrencesJSON); err != nil {
 			return err
 		}
 	}

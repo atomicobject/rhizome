@@ -25,27 +25,26 @@ type EvidenceRepresentation string
 const EvidenceRepresentationProviderProjection EvidenceRepresentation = "provider_projection"
 
 // RootDocumentSnapshot is the provider-neutral source boundary for one note
-// root. MarkdownStructure is present only when the selected provider is
-// Markdown; root-only formats never acquire fabricated Markdown structure.
+// root. Syntax-specific edit views belong to the prepared document.
 type RootDocumentSnapshot struct {
-	NotePath               paths.NotePath
-	Format                 noteformat.FormatID
-	RawSource              []byte
-	ContentHash            string
-	Mtime                  int64
-	SourceRepresentation   SourceRepresentation
-	EvidenceRepresentation EvidenceRepresentation
-	Projection             noteformat.Projection
-	Title                  string
-	Metadata               map[string]any
-	InlineProperties       map[string][]string
-	Tags                   []string
-	Links                  []notemeta.ResolvedNoteLink
-	Root                   NodeRef
-	RootMetadata           []noteformat.RootMetadataFact
-	SearchRegions          []noteformat.SearchRegionFact
-	Diagnostics            []noteformat.Diagnostic
-	MarkdownStructure      *DocumentSnapshot
+	RootMetadataMutationSupported bool
+	NotePath                      paths.NotePath
+	Format                        noteformat.FormatID
+	RawSource                     []byte
+	ContentHash                   string
+	Mtime                         int64
+	SourceRepresentation          SourceRepresentation
+	EvidenceRepresentation        EvidenceRepresentation
+	Projection                    noteformat.Projection
+	Title                         string
+	Metadata                      map[string]any
+	InlineProperties              map[string][]string
+	Tags                          []string
+	Links                         []notemeta.ResolvedNoteLink
+	Root                          NodeRef
+	RootMetadata                  []noteformat.RootMetadataFact
+	SearchRegions                 []noteformat.SearchRegionFact
+	Diagnostics                   []noteformat.Diagnostic
 }
 
 // BuildRootDocumentSnapshot seals a provider-current source snapshot for root
@@ -67,10 +66,7 @@ func BuildRootDocumentSnapshot(source notemeta.NoteSourceSnapshot) (*RootDocumen
 		return nil, fmt.Errorf("build root document snapshot: source is not valid UTF-8")
 	}
 	digest := sha256.Sum256(raw)
-	contentHash := source.ContentHash
-	if contentHash == "" {
-		contentHash = hex.EncodeToString(digest[:])
-	}
+	contentHash := hex.EncodeToString(digest[:])
 	snapshot := &RootDocumentSnapshot{
 		NotePath: path, Format: source.Format, RawSource: raw,
 		ContentHash: contentHash, Mtime: source.Mtime,

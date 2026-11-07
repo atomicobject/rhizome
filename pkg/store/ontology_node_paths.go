@@ -20,7 +20,7 @@ func (s *Store) OntologyNodesByPaths(ctx context.Context, notePaths []string) ([
 		rows, err := s.db.QueryContext(ctx, fmt.Sprintf(`
 			SELECT node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 				parent_type_name, title, source_locator, fragment, block_id, display_label,
-				locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at
+				locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at, record_identity_json
 			FROM ontology_nodes
 			WHERE note_path IN (%s)
 			ORDER BY note_path, node_id
@@ -59,7 +59,7 @@ func (s *Store) OntologyNodesBySourceLocators(ctx context.Context, locators []st
 				COALESCE(parent_node_id, ''), COALESCE(parent_type_name, ''), COALESCE(title, ''),
 				COALESCE(source_locator, ''), COALESCE(fragment, ''), COALESCE(block_id, ''),
 				COALESCE(display_label, ''), COALESCE(locator_status, ''),
-				start_byte, end_byte, COALESCE(structural_fingerprint, ''), COALESCE(relocation_fingerprint, ''), COALESCE(schema_hash, ''), updated_at
+				start_byte, end_byte, COALESCE(structural_fingerprint, ''), COALESCE(relocation_fingerprint, ''), COALESCE(schema_hash, ''), updated_at, record_identity_json
 			FROM ontology_nodes
 			WHERE source_locator IN (%s)
 		`, holders), args...)
@@ -109,7 +109,7 @@ func (s *Store) OntologyNodesByNoteFragments(ctx context.Context, locators []str
 				COALESCE(parent_node_id, ''), COALESCE(parent_type_name, ''), COALESCE(title, ''),
 				COALESCE(source_locator, ''), COALESCE(fragment, ''), COALESCE(block_id, ''),
 				COALESCE(display_label, ''), COALESCE(locator_status, ''),
-				start_byte, end_byte, COALESCE(structural_fingerprint, ''), COALESCE(relocation_fingerprint, ''), COALESCE(schema_hash, ''), updated_at
+				start_byte, end_byte, COALESCE(structural_fingerprint, ''), COALESCE(relocation_fingerprint, ''), COALESCE(schema_hash, ''), updated_at, record_identity_json
 			FROM ontology_nodes
 			WHERE `+strings.Join(parts, " OR "), args...)
 		if err != nil {
@@ -162,6 +162,7 @@ func scanOntologyNode(rows ontologyNodeScanner, node *readmodel.NodeRow) error {
 		&node.RelocationFingerprint,
 		&node.SchemaHash,
 		&node.UpdatedAt,
+		&node.RecordJSON,
 	)
 }
 

@@ -3,6 +3,7 @@ package noderead
 import (
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	"net/url"
 	"strings"
 )
 
@@ -56,9 +57,23 @@ func catalogLinkTarget(row readmodel.NodeRow, ref ontology.NodeRef) *ontology.No
 	if row.SourceLocator == "" {
 		return nil
 	}
+	durability, revision := "", ""
+	markdown := row.SourceLocator
+	if ontology.IsRecordSelector(ref.Fragment) {
+		durability = "durable"
+		markdown = (&url.URL{Path: ref.NotePath, Fragment: ref.Fragment}).String()
+		if strings.HasPrefix(ref.Fragment, "record-pos:") {
+			durability = "revision_bound"
+			parts := strings.SplitN(ref.Fragment, ":", 4)
+			if len(parts) == 4 {
+				revision = parts[2]
+			}
+		}
+	}
 	return &ontology.NodeLinkTarget{
+		Durability: durability, Revision: revision,
 		Ref:          ref,
-		Markdown:     row.SourceLocator,
+		Markdown:     markdown,
 		Wikilink:     "",
 		DisplayLabel: firstNonEmptyString(row.DisplayLabel, row.Title),
 		Exists:       strings.TrimSpace(row.LocatorStatus) == "" || row.LocatorStatus == string(ontology.NodeLocatorLinkable),

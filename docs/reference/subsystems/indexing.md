@@ -44,6 +44,8 @@ Everything that turns vault and code roots into persisted SQLite indexes: batch 
 
 ## Design constraints
 
+**Structural source ownership (SPEC-0133).** Providers emit schema-free owner/value trees; ontology prepares each captured host once and alone selects catalog/search owners. RECORD semantic chunks include selected scalar fields and own unbound scalar leaves, excluding selected descendants and sibling evidence. Empty/null/container presence is persisted without Markdown normalization. A RECORD host change forces rebinding of the declared RECORD source set, including previously unresolved references; full/indexed refreshes use the existing atomic publication. Materialization version 19 invalidates prior derived state.
+
 - Queue code-kind identity is explicit and independent of metrics labels or the ordered durable flush list. `OntologyNodeSyncer.ComputeDerived` owns ontology batching/concurrency; its provider helper performs one physical batch call while preserving shared gate, metrics and vector validation.
 
 - **Embedding indexing has one domain owner.** `pkg/embedindex` owns note/code/ontology chunk planning, content-hash reuse, prepared pipelines, compatible provider lanes, batching, and producer-owned writer ports. Application composition constructs providers and supplies the single `indexwriter.Writer`. The concrete writer does not import embedindex. Query execution has no dependency on embedindex. The note planner separates source loading and metadata batch lifetime while preserving explicit final drains.

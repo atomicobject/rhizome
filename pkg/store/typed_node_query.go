@@ -121,7 +121,7 @@ func ontologyNodesByTypePlanSQL(plan readmodel.NodeQueryPlan) (string, []any, er
 		SELECT n.node_id, n.note_path, n.node_ref_json, n.node_kind, n.type_name,
 			n.parent_node_id, n.parent_type_name, n.title, n.source_locator,
 			n.fragment, n.block_id, n.display_label, n.locator_status,
-			n.start_byte, n.end_byte, n.structural_fingerprint, n.relocation_fingerprint, n.schema_hash, n.updated_at
+			n.start_byte, n.end_byte, n.structural_fingerprint, n.relocation_fingerprint, n.schema_hash, n.updated_at, n.record_identity_json
 		FROM ontology_nodes n
 		%s
 		WHERE %s

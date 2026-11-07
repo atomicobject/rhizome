@@ -49,7 +49,7 @@ func TestSectionSummaryRetainsStructuralBindingAndIndexesCompactBody(t *testing.
 			require.Equal(t, tc.want, model.FieldValues[0].ValueText)
 			require.Equal(t, "abstract", model.FieldValues[0].FieldName)
 			binding := projection.Fields["abstract"]
-			require.Len(t, binding.SectionNodes, 1)
+			require.Len(t, binding.ChildRefs, 1)
 			require.Contains(t, binding.Values[0], "notes/entry.md#")
 			require.NotEqual(t, tc.want, binding.Values[0], "source binding must retain canonical section identity")
 		})
@@ -69,7 +69,7 @@ func TestSectionSummaryEditsThroughNarrativeWorkspace(t *testing.T) {
 	vault := obsidian.VaultDefinition{Path: root}
 	note, err := ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, NodeRef{NotePath: "notes/entry.md", Kind: NodeKindNote})
 	require.NoError(t, err)
-	sectionRef := note.Fields["summary"].SectionNodes[0]
+	sectionRef := note.Fields["summary"].ChildRefs[0]
 	section, err := ProjectNodeFromSnapshot(note.Snapshot, schema, sectionRef)
 	require.NoError(t, err)
 	blocks := BuildNodeBody(section, schema)
