@@ -120,7 +120,7 @@ func compileRecordSource(def *ast.Definition, dir *ast.Directive) (*RecordSource
 		if includes == "" {
 			return fail("record_membership", "membership requires includes")
 		}
-		binding.Membership = &RecordMembership{Path: selection, Includes: includes, IncludeMissing: boolArg(member["includeMissing"], true)}
+		binding.Membership = &RecordMembership{Path: selection, Includes: includes, Wildcard: stringArg(member["wildcard"], ""), IncludeMissing: boolArg(member["includeMissing"], true)}
 	}
 	return binding, nil
 }

@@ -35,6 +35,7 @@ type RecordTemplatePart struct {
 type RecordMembership struct {
 	Path           RecordSelector
 	Includes       string
+	Wildcard       string
 	IncludeMissing bool
 }
 type RecordSourceBinding struct {

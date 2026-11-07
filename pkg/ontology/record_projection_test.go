@@ -175,6 +175,37 @@ func TestPreparedRecordDuplicatesAndMembership(t *testing.T) {
 	require.ErrorContains(t, err, "ambiguous")
 }
 
+func TestPreparedRecordWildcardMembership(t *testing.T) {
+	rows := []any{
+		map[string]any{"id": "exact-scalar", "products": "alpha"},
+		map[string]any{"id": "exact-list", "products": []any{"beta", "alpha"}},
+		map[string]any{"id": "wildcard-scalar", "products": "*"},
+		map[string]any{"id": "wildcard-list", "products": []any{"beta", "*"}},
+		map[string]any{"id": "missing"},
+		map[string]any{"id": "other", "products": []any{"beta"}},
+		map[string]any{"id": "empty", "products": ""},
+	}
+	for _, tc := range []struct {
+		name, membership string
+		want             []string
+	}{
+		{"wildcard", `includes: "alpha", includeMissing: false, wildcard: "*"`, []string{"exact-scalar", "exact-list", "wildcard-scalar", "wildcard-list"}},
+		{"missing", `includes: "alpha", includeMissing: true, wildcard: "*"`, []string{"exact-scalar", "exact-list", "wildcard-scalar", "wildcard-list", "missing"}},
+		{"without wildcard", `includes: "alpha", includeMissing: false`, []string{"exact-scalar", "exact-list"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sdl := strings.Replace(recordRowsSDL, `shape: RECORD, paths:`, `shape: RECORD, membership: {path: "products", `+tc.membership+`}, paths:`, 1)
+			prepared, err := PrepareDocument(recordFixtureRoot(t, "model.native", map[string]any{"rows": rows}), recordFixtureSchema(t, sdl))
+			require.NoError(t, err)
+			var keys []string
+			for _, row := range prepared.records {
+				keys = append(keys, row.identity.LogicalKey)
+			}
+			require.Equal(t, tc.want, keys)
+		})
+	}
+}
+
 func TestPreparedRecordContainmentAndReferenceModes(t *testing.T) {
 	sdl := `type Service @node(locator: EMBEDDED) @source(shape: RECORD, paths: ["*.native"], select: "services", key: {field: "id"}, title: ["$key"], space: "test", logicalKind: "service") {
   jobs: [Job!] @contains(shape: RECORD, select: "jobs", edge: {name: "made-of"})
