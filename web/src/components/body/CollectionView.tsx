@@ -1,5 +1,5 @@
 import { useContext, useMemo, useState } from "react";
-import { isContentNode, type NodeRef } from "../../api/types";
+import { isContentNode, type NodeBodyBlock, type NodeRef } from "../../api/types";
 import { publicWorkspaceRef } from "../../api/client";
 import { useNotePreviewTrigger } from "../notePreview/NoteLinkPreview";
 import { useTypeLabel } from "../typeLabels";
@@ -20,7 +20,11 @@ const SEARCH_THRESHOLD = 3;
  * Rows are always compact — inline expansion is a future iteration. The
  * one-click "open pane" is the standard way to see full item content.
  */
-export function CollectionView({ block, context, node, kindOrdinal }: BodyRendererProps) {
+type Props = Omit<BodyRendererProps, "block"> & {
+  block: Pick<NodeBodyBlock, "fieldName" | "childRefs">;
+};
+
+export function CollectionView({ block, context, node, kindOrdinal }: Props) {
   const reading = useContext(NoteReadingStateContext);
   const filterKey = JSON.stringify([node.ref.nodeId || node.id, block.fieldName ?? kindOrdinal]);
   const [filter, setFilter] = useState(() => reading?.collectionFilters.get(filterKey) ?? "");

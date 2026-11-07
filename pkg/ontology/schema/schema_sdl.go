@@ -178,9 +178,9 @@ func isFileBackedNoteObjectDefinition(def *ast.Definition) bool {
 	if dir == nil {
 		return false
 	}
-	args := dir.ArgumentMap(nil)
-	locator := strings.ToUpper(strings.TrimSpace(stringArg(args["locator"], "FILE")))
-	return locator == "" || locator == "FILE"
+	// This scan runs before directive definitions exist, so ArgumentMap is empty.
+	locator := dir.Arguments.ForName("locator")
+	return locator == nil || locator.Value.Raw == "FILE"
 }
 
 func renderDirectiveList(dirs ast.DirectiveList) string {

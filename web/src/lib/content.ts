@@ -5,7 +5,7 @@ import { splitNoteTarget } from "./noteTarget";
 /** The only part of a note payload link resolution reads. */
 type LinkCarrier = Pick<FileView, "links"> | null;
 
-const NOTE_FILE_SUFFIX = /\.(?:md|html?)$/i;
+const NOTE_FILE_SUFFIX = /\.(?:md|html?|ya?ml|json)$/i;
 
 /** Preserve supported note suffixes while retaining extensionless Markdown links. */
 export function normalizeNotePath(path: string): string {

@@ -1,0 +1,13 @@
+services:
+  - id: booking
+    name: Booking service
+    status: ready
+    jobs: [Check availability, Reserve a room]
+    details:
+      region: Michigan
+      limits: { min: 1, max: 12 }
+      notes: "Literal **text**, never Markdown"
+      empty: []
+  - id: billing
+    name: Billing service
+    status: planned

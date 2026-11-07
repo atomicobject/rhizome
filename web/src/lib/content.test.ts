@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNoteWebHref,
+  normalizeNotePath,
   convertWikilinks,
   resolveLinkTarget,
   resolveRenderedLinkTarget,
@@ -10,6 +11,15 @@ import {
 import { decodeURLFragment } from "./noteDeepLink";
 
 describe("content utilities", () => {
+  it.each(["model/services.yaml", "model/services.YML", "generated/model.JSON"])(
+    "preserves the explicit structured source path %s",
+    (path) => {
+      expect(normalizeNotePath(path)).toBe(path);
+      expect(buildNoteWebHref(`${path}#record:v1:identity`)).toContain(
+        `note=${encodeURIComponent(path)}#record%3Av1%3Aidentity`,
+      );
+    },
+  );
   it("converts wikilinks into rhizome note links", () => {
     expect(convertWikilinks("See [[notes/task-flow|Task Flow]]")).toContain(
       "[Task Flow](rhizome://note/notes%2Ftask-flow)",
