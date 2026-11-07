@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -108,14 +109,50 @@ func TestInvalidInputStartsNoProcess(t *testing.T) {
 func TestUntrustedRepositoryIsRefused(t *testing.T) {
 	skipWindows(t)
 	root := repo(t, map[string]string{".rhizome/modules/demo/actions/touch.yaml": shAction("touch ran; echo null", "")})
-	runner := &Runner{RepoRoot: root, Trust: func(ctx context.Context) string {
-		return repositorytrust.Untrusted(ctx, root, "actions", func(string) (bool, error) { return false, nil })
+	runner := &Runner{RepoRoot: root, Trust: func(context.Context) string {
+		return repositorytrust.DenialReason(root, "actions", func(string) (bool, error) { return false, nil })
 	}}
 	got, err := runner.Run(context.Background(), "demo/touch", nil)
 	require.NoError(t, err)
 	require.Equal(t, StatusRefused, got.Status)
 	require.Contains(t, got.Reason, "rzm trust")
 	require.NoFileExists(t, filepath.Join(root, "ran"))
+}
+
+func TestActionTrustIsTheRecordedCheckout(t *testing.T) {
+	store := repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
+	t.Cleanup(func() { trustStore = repositorytrust.DefaultStore })
+	trustStore = func() (repositorytrust.Store, error) { return store, nil }
+	base := t.TempDir()
+	main, other := filepath.Join(base, "main"), filepath.Join(base, "other")
+	for _, dir := range []string{main, other} {
+		output, err := exec.Command("git", "init", "-q", dir).CombinedOutput()
+		require.NoError(t, err, "%s", output)
+	}
+	subfolder := filepath.Join(main, "untracked")
+	forged := filepath.Join(base, "forged")
+	// A vault whose .rhizome/config.yml lives below its repository root.
+	configured := filepath.Join(other, "docs")
+	for _, dir := range []string{subfolder, forged, configured} {
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+	}
+	// A one-line .git file naming the trusted repository, which does not link back.
+	require.NoError(t, os.WriteFile(filepath.Join(forged, ".git"), []byte("gitdir: "+filepath.Join(main, ".git")+"\n"), 0o644))
+	for _, dir := range []string{main, configured} {
+		_, err := store.Trust(dir)
+		require.NoError(t, err)
+	}
+	for _, tc := range []struct {
+		dir     string
+		trusted bool
+	}{{main, true}, {configured, true}, {subfolder, false}, {forged, false}} {
+		reason := New(tc.dir).Trust(context.Background())
+		if tc.trusted {
+			require.Empty(t, reason, tc.dir)
+		} else {
+			require.Contains(t, reason, "rzm trust", tc.dir)
+		}
+	}
 }
 
 // fakeRzm stands in for `rzm agent code execute`: it records its input and
