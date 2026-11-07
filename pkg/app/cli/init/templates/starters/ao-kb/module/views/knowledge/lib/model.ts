@@ -116,28 +116,29 @@ export type ModelRecord = {
   value?: SourceValue | null;
   /** Paths of the assertions its native evidenced-by edges reach. */
   evidence: string[];
-  /** The evidence read hit its cap, so an unmatched declared ID was not checked. */
+  /** The evidence edge read hit its cap, so sync observations may be incomplete. */
   evidenceTruncated?: boolean;
+  /** `workspace.fields[].links` by GraphQL field name: each authored value's native outcome. */
+  links?: Record<string, FieldLink[]>;
 };
 export type ModelFile = { notePath: string; synced?: string | null };
 
-/** Declared evidence values in authored order, each with its resolved assertion or none. */
+/** Declared evidence values in authored order, each with the assertion its native
+ * resolution reached (by file stem, then AO ID) or none. A resolved claim outside the
+ * loaded knowledge is neither listed nor called unresolved. */
 export function declaredEvidence(
   record: ModelRecord,
   spec: TypeSpec | undefined,
   assertions: Assertion[],
 ) {
-  const reached = assertions.filter((a) => record.evidence.includes(a.path));
-  return entries(record.value)
-    .filter((e) => spec?.references.some((r) => r.path === e.key && isEvidence(r)))
-    .flatMap((e) =>
-      scalars(e.value).map((id) => ({
-        field: e.key,
-        id,
-        assertion: reached.find((a) => a.aoId === id),
-        unread: !reached.some((a) => a.aoId === id) && !!record.evidenceTruncated,
-      })),
-    );
+  return (spec?.references ?? []).filter(isEvidence).flatMap((r) =>
+    (record.links?.[r.name] ?? []).map((link) => ({
+      field: r.path,
+      id: link.value,
+      resolved: link.resolved,
+      assertion: link.resolved ? assertions.find((a) => a.path === link.ref?.notePath) : undefined,
+    })),
+  );
 }
 
 export type ModelSync = {
@@ -175,8 +176,8 @@ export function modelObservations(
   }
   for (const record of records)
     for (const d of declaredEvidence(record, specs[record.typeName], assertions))
-      if (!d.assertion && !d.unread) dangling.push({ record, field: d.field, id: d.id });
-  // Capped reads are disclosed, never reported as dangling.
+      if (!d.resolved) dangling.push({ record, field: d.field, id: d.id });
+  // A capped edge read can hide sync observations; it is disclosed.
   const incomplete = records.filter((r) => r.evidenceTruncated);
   return { sync, unknown, dangling, incomplete };
 }

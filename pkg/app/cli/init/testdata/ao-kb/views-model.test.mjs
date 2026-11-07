@@ -3,6 +3,7 @@ import test from "node:test";
 import { isPositional, ownerKey } from "../../templates/starters/ao-kb/module/views/knowledge/lib/knowledge.ts";
 import {
   codePath,
+  declaredEvidence,
   declarer,
   fieldRows,
   modelObservations,
@@ -95,9 +96,16 @@ test("model sync groups by file, names each row and changed claim, and missing d
   const changed = claim("assertions/changed.md", "a-1", "2026-11-04");
   const older = claim("assertions/older.md", "a-2", "2026-10-01");
   const undated = claim("assertions/undated.md", "a-3", null);
+  const claims = [changed, older, undated];
   const row = (key, notePath, evidence, supported) => ({
     key, ref: { notePath, kind: "EMBEDDED", fragment: key }, title: key, typeName: "AOKBModel_flow_single", aoValue: key,
     value: obj({ id: key, supported_by: list(...supported) }), evidence,
+    links: {
+      v_supported_5f_by: supported.map((value) => {
+        const to = claims.find((a) => a.aoId === value);
+        return { value, resolved: !!to, title: to?.title ?? null, ref: to?.ref ?? null };
+      }),
+    },
   });
   const rows = [
     row("F-1", FEATURES, [changed.path], ["a-1"]),
@@ -115,10 +123,35 @@ test("model sync groups by file, names each row and changed claim, and missing d
   assert.deepEqual(result.sync[0].rows.map((r) => [r.record.key, r.changed.map((a) => a.aoId)]), [["F-1", ["a-1"]], ["F-3", ["a-1"]]]);
   assert.deepEqual(result.unknown.map((g) => [g.file.notePath, g.rows.map((r) => r.record.key)]), [[FEATURES, ["F-3"]], ["flows.yaml", ["W-1"]]]);
   assert.deepEqual(result.dangling.map((d) => [d.record.key, d.field, d.id]), [["F-3", "supported_by", "a-gone"]]);
-  const capped = { ...row("F-4", FEATURES, [changed.path], ["a-1", "a-unread"]), evidenceTruncated: true };
+  const capped = { ...row("F-4", FEATURES, [changed.path], ["a-1", "a-2"]), evidenceTruncated: true };
   const partial = modelObservations([], [capped], { AOKBModel_flow_single: spec }, [changed]);
-  assert.deepEqual(partial.dangling, [], "an ID beyond a capped evidence read is not called dangling");
+  assert.deepEqual(partial.dangling, [], "a capped edge read does not change each value's native resolution");
   assert.deepEqual(partial.incomplete.map((r) => r.key), ["F-4"], "the capped read is disclosed");
   assert.equal(syncCompare("2026-11-04", "2026-11-04T00:00:00Z"), "not later");
   assert.equal(syncCompare("not a date", "2026-11-04"), "unknown");
+});
+
+test("declared evidence follows each value's native resolution, including file-stem citations", () => {
+  const ref = { notePath: "assertions/claim-slug.md", kind: "NOTE" };
+  const claim = { path: ref.notePath, aoId: "CLAIM-001", updatedAt: null, title: "Claim", ref };
+  const record = {
+    key: "F-1", ref: { notePath: FEATURES, kind: "EMBEDDED", fragment: "F-1" }, title: "F-1", typeName: "AOKBModel_flow_single", aoValue: "F-1",
+    value: obj({ id: "F-1", supported_by: list("claim-slug", "CLAIM-001", "a-gone") }),
+    evidence: [claim.path],
+    links: {
+      v_supported_5f_by: [
+        { value: "claim-slug", resolved: true, title: "Claim", ref },
+        { value: "CLAIM-001", resolved: true, title: "Claim", ref },
+        { value: "a-gone", resolved: false, title: null, ref: null },
+      ],
+    },
+  };
+  const declared = declaredEvidence(record, spec, [claim]);
+  assert.deepEqual(declared.map((d) => [d.field, d.id, d.assertion?.path]), [
+    ["supported_by", "claim-slug", claim.path],
+    ["supported_by", "CLAIM-001", claim.path],
+    ["supported_by", "a-gone", undefined],
+  ]);
+  const result = modelObservations([], [record], { AOKBModel_flow_single: spec }, [claim]);
+  assert.deepEqual(result.dangling.map((d) => d.id), ["a-gone"], "a citation by file stem is not dangling");
 });
