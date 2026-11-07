@@ -92,6 +92,15 @@ func (s *Service) refresh(ctx context.Context) (result RefreshResult, err error)
 		}
 
 		internalFreshness := isInternalFreshnessPath(path)
+		if kind == DirtyRemoved {
+			// Concurrent refreshes can requeue an older removal over a newer
+			// recreation; disk decides whether the path is really gone.
+			if abs := s.absPath(path); abs != "" {
+				if _, err := os.Stat(abs); err == nil {
+					kind = DirtyRecreated
+				}
+			}
+		}
 		switch kind {
 		case DirtyRemoved, DirtyRenamed:
 			if s.removeTree(path) {

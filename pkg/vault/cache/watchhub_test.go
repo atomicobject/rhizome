@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -54,4 +56,24 @@ func TestHandleCacheEvent_RecreateAfterPendingRemoveStaysRecreated(t *testing.T)
 	handleCacheEvent(svc, watchhub.WatchEvent{RelPath: "note.md", Op: watchhub.OpRemove | watchhub.OpCreate})
 
 	require.Equal(t, DirtyRecreated, svc.DirtySnapshot()["note.md"])
+}
+
+func TestRefresh_OutOfOrderRequeueKeepsRecreatedNote(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "note.md"), []byte("#kept"), 0o644))
+	svc, err := NewService(tmp, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	ctx := context.Background()
+	require.NoError(t, svc.EnsureReady(ctx))
+
+	// Two cancelled refreshes requeue out of order: the older removal lands on
+	// top of the later recreation, though the note is back on disk.
+	svc.requeueDirty(map[string]DirtyKind{"note.md": DirtyRemoved})
+	svc.requeueDirty(map[string]DirtyKind{"note.md": DirtyCreated})
+	require.Equal(t, DirtyRemoved, svc.DirtySnapshot()["note.md"])
+
+	require.NoError(t, svc.Refresh(ctx))
+	_, ok := svc.Entry("note.md")
+	require.True(t, ok, "a removal must not delete a note that exists on disk")
 }
