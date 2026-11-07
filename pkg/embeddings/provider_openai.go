@@ -235,6 +235,7 @@ func (p *openAIProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 
 	var parsed struct {
 		Data []struct {
+			Index     *int      `json:"index"`
 			Embedding []float32 `json:"embedding"`
 		} `json:"data"`
 	}
@@ -247,10 +248,14 @@ func (p *openAIProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 		return nil, fmt.Errorf("embedding count mismatch: want %d got %d", len(texts), len(parsed.Data))
 	}
 
+	// Rows may arrive in any order; each names its input by index.
 	res := make([]Embedding, len(parsed.Data))
-	for i, item := range parsed.Data {
+	for row, item := range parsed.Data {
+		if item.Index == nil || *item.Index < 0 || *item.Index >= len(res) || res[*item.Index] != nil || len(item.Embedding) == 0 {
+			return nil, fmt.Errorf("openai embeddings: response row %d has a missing, duplicate, or out-of-range index or an empty vector", row)
+		}
 		indexingperf.ObserveSample(ctx, indexingperf.ProviderResponseOpenaiDimensions, int64(len(item.Embedding)))
-		res[i] = Embedding(item.Embedding)
+		res[*item.Index] = Embedding(item.Embedding)
 		p.mu.Lock()
 		if p.dims == 0 {
 			p.dims = len(item.Embedding)

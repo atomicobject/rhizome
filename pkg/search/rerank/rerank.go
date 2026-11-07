@@ -142,10 +142,15 @@ func (r *VoyageReranker) Rerank(ctx context.Context, query string, docs []Docume
 		return nil, fmt.Errorf("voyage rerank returned %d scores for %d documents", len(decoded.Data), len(docs))
 	}
 	scores := make([]float64, len(docs))
+	seen := make([]bool, len(docs))
 	for _, item := range decoded.Data {
 		if item.Index < 0 || item.Index >= len(docs) {
 			return nil, fmt.Errorf("voyage rerank returned out-of-range index %d", item.Index)
 		}
+		if seen[item.Index] {
+			return nil, fmt.Errorf("voyage rerank returned index %d twice", item.Index)
+		}
+		seen[item.Index] = true
 		scores[item.Index] = clamp01(item.RelevanceScore)
 	}
 	return scores, nil
