@@ -579,9 +579,9 @@ func TestRenderAgentHarnessDocKeepsCoreBlockPositionWhenTemplateBlocksArePreserv
 }
 
 // A marker counts as a fence only on its own line, and a BEGIN with no END
-// stops init instead of dropping the text after it.
+// stops init before it writes anything instead of dropping the text after it.
 func TestManagedFencesNeverTruncateUserProse(t *testing.T) {
-	begin := managedTemplateBlockStartPrefix + "action-items" + managedTemplateBlockSuffix
+	begin := managedTemplateBlockStartPrefix + templateActionItems + managedTemplateBlockSuffix
 	cases := []struct {
 		name, existing, wantErr string
 	}{
@@ -602,15 +602,23 @@ func TestManagedFencesNeverTruncateUserProse(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := checkManagedFences("AGENTS.md", tc.existing)
+			root := t.TempDir()
+			writeTestFile(t, root, "AGENTS.md", tc.existing)
+
+			_, err := syncGeneratedFiles(root, generatedInputs{
+				harnesses: AgentHarnesses{HasAgents: true, HasAgentSkills: true},
+				section:   "test guidance",
+				templates: []string{templateCore, templateActionItems},
+			}, failUI{t})
+
 			if tc.wantErr != "" {
 				require.ErrorContains(t, err, tc.wantErr)
+				require.Equal(t, tc.existing, readTestFile(t, root, "AGENTS.md"))
+				require.NoFileExists(t, filepath.Join(root, ".agents", "skills", "rhizome", "SKILL.md"), "no other planned file is written")
 				return
 			}
 			require.NoError(t, err)
-			rendered := renderAgentHarnessDocWithOptions(tc.existing, "# Repo", []managedDocBlock{{key: "rhizome", content: "core"}}, []string{"action-items"})
-			require.True(t, strings.HasPrefix(rendered, strings.TrimSpace(tc.existing)+"\n\n"), rendered)
-			require.Empty(t, staleTemplateBlocks(tc.existing, generatedDoc{}))
+			require.True(t, strings.HasPrefix(readTestFile(t, root, "AGENTS.md"), strings.TrimSpace(tc.existing)+"\n\n"), "the user's prose survives")
 		})
 	}
 }
