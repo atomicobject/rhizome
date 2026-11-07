@@ -57,7 +57,7 @@ function AttentionBody({ data }: { data: Knowledge }) {
         {saved.isPending
           ? "Reading AO saved analysis…"
           : saved.data
-            ? `AO saved analysis as of ${saved.data.meta.asOf || "Not recorded"} · ${saved.data.meta.builder || "Builder not recorded"} · .kb/index/kb-weights.json. ${stale} ${stale === 1 ? "claim" : "claims"} updated after that date; their saved bands may be stale. No known later edit does not prove freshness.`
+            ? `AO saved analysis as of ${saved.data.meta.asOf || "Not recorded"} · ${saved.data.meta.builder || "Builder not recorded"} · .kb/index/kb-weights.json. ${stale === 1 ? "1 claim was updated after that date, so its saved band may be stale" : `${stale} claims were updated after that date, so their saved bands may be stale`}. A claim with no known later edit is not proven fresh.`
             : "AO saved analysis unavailable: .kb/index/kb-weights.json. This is not a clean result."}
       </p>
       {Object.entries(groups).map(([title, observations], groupIndex) => {

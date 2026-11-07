@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MoreToggle, Section, sectionStatus, useViewContext } from "@rhizome/kit";
+import { embedded, MoreToggle, Section, sectionStatus, useViewContext } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { loadSourceDocument } from "./lib/source-document.ts";
 import { relationships, sourceText } from "./lib/knowledge.ts";
@@ -59,7 +59,8 @@ function SourceRecord({ source: s, data }: { source: Source; data: Knowledge }) 
         <p className="ak-meta font-mono">
           {s.path} · {s.aoId || "ID not recorded"}
         </p>
-        {s.workspace.capabilities.readOnlyReason && (
+        {/* The reader shows the server's reason above the pane; a standalone page shows it here. */}
+        {!embedded && s.workspace.capabilities.readOnlyReason && (
           <p className="ak-footnote">{s.workspace.capabilities.readOnlyReason}</p>
         )}
       </header>

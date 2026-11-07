@@ -1,4 +1,4 @@
-import { Section, useViewContext } from "@rhizome/kit";
+import { embedded, Section, useViewContext } from "@rhizome/kit";
 import { claimText, dateNumber, relationships } from "./lib/knowledge.ts";
 import { collapseContradictions } from "./lib/relations.ts";
 import { ClaimProse } from "./prose.tsx";
@@ -41,7 +41,8 @@ function AssertionRecord({ a, data }: { a: Assertion; data: Knowledge }) {
         <p className="ak-meta font-mono">
           {a.path} · {a.aoId || "ID not recorded"}
         </p>
-        {a.workspace.capabilities.readOnlyReason && (
+        {/* The reader shows the server's reason above the pane; a standalone page shows it here. */}
+        {!embedded && a.workspace.capabilities.readOnlyReason && (
           <p className="ak-footnote">{a.workspace.capabilities.readOnlyReason}</p>
         )}
       </header>
