@@ -577,3 +577,40 @@ func TestRenderAgentHarnessDocKeepsCoreBlockPositionWhenTemplateBlocksArePreserv
 	require.Less(t, coreAt, templateAt)
 	require.Less(t, coreAt, preservedAt)
 }
+
+// A marker counts as a fence only on its own line, and a BEGIN with no END
+// stops init instead of dropping the text after it.
+func TestManagedFencesNeverTruncateUserProse(t *testing.T) {
+	begin := managedTemplateBlockStartPrefix + "action-items" + managedTemplateBlockSuffix
+	cases := []struct {
+		name, existing, wantErr string
+	}{
+		{
+			name:     "missing END",
+			existing: "# Mine\n\n" + begin + "\nbody\n\n## My own notes\nkeep me\n",
+			wantErr:  `malformed managed block in AGENTS.md: "` + begin + `" on line 3 has no matching "<!-- END RZM INIT TEMPLATE BLOCK: action-items -->" line`,
+		},
+		{
+			name:     "missing core END",
+			existing: "# Mine\n\n" + managedRhizomeBlockStart + "\nold\n\n## My own notes\nkeep me\n",
+			wantErr:  `malformed managed block in AGENTS.md: "` + managedRhizomeBlockStart + `" on line 3`,
+		},
+		{
+			name:     "marker quoted mid-line",
+			existing: "# Mine\n\nWe use `" + begin + "` fences.\n\n## More prose\nkeep me\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkManagedFences("AGENTS.md", tc.existing)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			rendered := renderAgentHarnessDocWithOptions(tc.existing, "# Repo", []managedDocBlock{{key: "rhizome", content: "core"}}, []string{"action-items"})
+			require.True(t, strings.HasPrefix(rendered, strings.TrimSpace(tc.existing)+"\n\n"), rendered)
+			require.Empty(t, staleTemplateBlocks(tc.existing, generatedDoc{}))
+		})
+	}
+}

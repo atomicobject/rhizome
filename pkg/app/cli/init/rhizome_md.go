@@ -156,23 +156,93 @@ func buildManagedTemplateBlock(template string, content string) string {
 }
 
 func stripDelimitedBlock(s, startMarker, endMarker string) string {
-	if strings.Contains(s, startMarker) && strings.Contains(s, endMarker) {
-		start := strings.Index(s, startMarker)
-		end := strings.Index(s, endMarker)
-		if start >= 0 && end > start {
-			end += len(endMarker)
-			before := strings.TrimRight(s[:start], "\n")
-			after := strings.TrimLeft(s[end:], "\n")
-			if before != "" && after != "" {
-				return before + "\n\n" + after
-			}
-			if before != "" {
-				return before
-			}
-			return after
-		}
+	start := markerIndex(s, startMarker)
+	if start < 0 {
+		return s
 	}
-	return s
+	end := markerIndex(s[start:], endMarker)
+	if end < 0 {
+		return s
+	}
+	end += start + len(endMarker)
+	before := strings.TrimRight(s[:start], "\n")
+	after := strings.TrimLeft(s[end:], "\n")
+	if before != "" && after != "" {
+		return before + "\n\n" + after
+	}
+	if before != "" {
+		return before
+	}
+	return after
+}
+
+// markerLine returns the offset and text of the first marker in s that
+// stands alone on its line and satisfies match, or -1. A marker quoted
+// mid-line, in prose or inline code, is not a fence.
+func markerLine(s string, match func(string) bool) (int, string) {
+	for at := 0; at <= len(s); {
+		lineEnd, next := strings.IndexByte(s[at:], '\n'), len(s)+1
+		if lineEnd < 0 {
+			lineEnd = len(s)
+		} else {
+			lineEnd += at
+			next = lineEnd + 1
+		}
+		line := s[at:lineEnd]
+		if trimmed := strings.TrimSpace(line); trimmed != "" && match(trimmed) {
+			return at + strings.Index(line, trimmed), trimmed
+		}
+		at = next
+	}
+	return -1, ""
+}
+
+func markerIndex(s, marker string) int {
+	at, _ := markerLine(s, func(line string) bool { return line == marker })
+	return at
+}
+
+func isTemplateBlockStart(line string) bool {
+	return len(line) > len(managedTemplateBlockStartPrefix)+len(managedTemplateBlockSuffix) &&
+		strings.HasPrefix(line, managedTemplateBlockStartPrefix) && strings.HasSuffix(line, managedTemplateBlockSuffix)
+}
+
+// templateBlockStart returns the offset and marker of the first template
+// BEGIN line in s, or -1.
+func templateBlockStart(s string) (int, string) {
+	return markerLine(s, isTemplateBlockStart)
+}
+
+func templateBlockKey(marker string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(marker, managedTemplateBlockStartPrefix), managedTemplateBlockSuffix)
+}
+
+// checkManagedFences refuses a doc in which a managed BEGIN line has no
+// matching END line before the next BEGIN, so init stops before any write
+// instead of dropping the text after the broken marker.
+func checkManagedFences(rel, content string) error {
+	open, openLine := "", 0
+	for n, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != managedRhizomeBlockStart && !isTemplateBlockStart(trimmed) {
+			if open != "" && trimmed == managedFenceEnd(open) {
+				open = ""
+			}
+			continue
+		}
+		if open != "" {
+			break
+		}
+		open, openLine = trimmed, n+1
+	}
+	if open == "" {
+		return nil
+	}
+	return fmt.Errorf("malformed managed block in %s: %q on line %d has no matching %q line; restore the END line or delete the BEGIN line, then rerun rzm init", rel, open, openLine, managedFenceEnd(open))
+}
+
+func managedFenceEnd(begin string) string {
+	return strings.Replace(begin, "<!-- BEGIN ", "<!-- END ", 1)
 }
 
 func stripLegacyRhizomeRedirect(s string) string {
@@ -188,28 +258,21 @@ func stripLegacyRhizomeRedirect(s string) string {
 
 func stripManagedTemplateBlocksExcept(s string, preserve map[string]bool) string {
 	for {
-		start := strings.Index(s, managedTemplateBlockStartPrefix)
+		start, marker := templateBlockStart(s)
 		if start < 0 {
 			return s
 		}
-		lineEnd := strings.Index(s[start:], "\n")
-		if lineEnd < 0 {
-			return strings.TrimRight(s[:start], "\n")
-		}
-		lineEnd += start
-		startLine := strings.TrimSpace(s[start : lineEnd+1])
-		template := strings.TrimSuffix(strings.TrimPrefix(startLine, managedTemplateBlockStartPrefix), managedTemplateBlockSuffix)
-		if template == startLine {
+		template := templateBlockKey(marker)
+		bodyAt := start + len(marker)
+		endMarker := managedTemplateBlockEndPrefix + template + managedTemplateBlockSuffix
+		end := markerIndex(s[bodyAt:], endMarker)
+		if end < 0 {
+			// checkManagedFences refuses this before rendering; never truncate.
 			return s
 		}
-		endMarker := managedTemplateBlockEndPrefix + template + managedTemplateBlockSuffix
-		end := strings.Index(s[lineEnd+1:], endMarker)
-		if end < 0 {
-			return strings.TrimRight(s[:start], "\n")
-		}
-		end += lineEnd + 1 + len(endMarker)
+		end += bodyAt + len(endMarker)
 		if preserve != nil && preserve[template] {
-			next := strings.Index(s[end:], managedTemplateBlockStartPrefix)
+			next, _ := templateBlockStart(s[end:])
 			if next < 0 {
 				return s
 			}
@@ -308,19 +371,19 @@ func renderAgentHarnessDocWithOptions(existing string, createHeader string, bloc
 const rhizomeBlockPlaceholder = "<!-- RZM RHIZOME BLOCK PLACEHOLDER -->"
 
 func hasDelimitedBlock(s, startMarker, endMarker string) bool {
-	start := strings.Index(s, startMarker)
+	start := markerIndex(s, startMarker)
 	if start < 0 {
 		return false
 	}
-	return strings.Index(s[start:], endMarker) >= 0
+	return markerIndex(s[start:], endMarker) >= 0
 }
 
 func replaceDelimitedBlock(s, startMarker, endMarker, replacement string) string {
-	start := strings.Index(s, startMarker)
+	start := markerIndex(s, startMarker)
 	if start < 0 {
 		return s
 	}
-	end := strings.Index(s[start:], endMarker)
+	end := markerIndex(s[start:], endMarker)
 	if end < 0 {
 		return s
 	}

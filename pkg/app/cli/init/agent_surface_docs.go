@@ -126,19 +126,6 @@ func renderManagedDocBlocks(rhizomeContent string, templates []string) ([]manage
 	return blocks, nil
 }
 
-func managedBlockContent(content, start, end string) string {
-	startAt := strings.Index(content, start)
-	if startAt < 0 {
-		return ""
-	}
-	bodyAt := startAt + len(start)
-	endAt := strings.Index(content[bodyAt:], end)
-	if endAt < 0 {
-		return ""
-	}
-	return strings.TrimSpace(content[bodyAt : bodyAt+endAt])
-}
-
 func addPreservedSkillNames(keep map[string]bool, templates []string) error {
 	for _, template := range templates {
 		skillTemplates, err := loadStarterSkillTemplates(template)
