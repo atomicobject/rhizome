@@ -125,6 +125,8 @@ if [[ "$service_pid" != "$keyring_pid" ]]; then
 fi
 
 cd "$root"
-TEAMAPI_NATIVE_STORE_TEST=1 timeout 90s go test -mod=vendor -tags fts5 -count=1 -timeout 60s -v \
-  ./pkg/teamapi/session -run '^TestNativeStore' 2>&1 | tee "$output/native-store.log"
+# The shared round trip and the Secret Service acceptance tests both use the
+# isolated fixture keyring above.
+TEAMAPI_NATIVE_STORE_TEST=1 TEAMAPI_SECRET_SERVICE_TEST=1 timeout 90s go test -mod=vendor -tags fts5 -count=1 -timeout 60s -v \
+  ./pkg/teamapi/session -run '^(TestNativeStore|TestSecretServiceNative)' 2>&1 | tee "$output/native-store.log"
 native_passed=true
