@@ -124,6 +124,9 @@ export function ConfiguredViewToolbar({
     const stateFiltersKey = JSON.stringify(state.filters ?? []);
 
     if (lastEmittedFiltersKeyRef.current === stateFiltersKey) return;
+    // A different external value supersedes the echo, so a later return to
+    // the emitted filters must resync instead of being mistaken for it.
+    lastEmittedFiltersKeyRef.current = null;
     setDraftFilters(draftsFromState(state.filters ?? [], displayCapabilities));
   }, [displayCapabilities, state.filters]);
 

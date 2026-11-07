@@ -118,7 +118,6 @@ type NoteSyncer struct {
 	setupMu                sync.Mutex
 	schemaReady            bool
 	metaDimsKnown          bool
-	setupErr               error
 	freshnessMu            sync.Mutex
 	pendingSourceHighWater time.Time
 }
@@ -163,14 +162,12 @@ func (s *NoteSyncer) ensureReady(ctx context.Context) error {
 		return errors.New("note syncer requires index and provider")
 	}
 	s.applyProviderCaps(ctx)
+	// Setup errors are not cached: a cancelled or busy first call must not
+	// disable sync for the syncer's lifetime. Completed steps stay done.
 	s.setupMu.Lock()
 	defer s.setupMu.Unlock()
-	if s.setupErr != nil {
-		return s.setupErr
-	}
 	if !s.schemaReady {
 		if err := s.Index.EnsureSchema(ctx); err != nil {
-			s.setupErr = err
 			return err
 		}
 		s.schemaReady = true
@@ -185,7 +182,6 @@ func (s *NoteSyncer) ensureReady(ctx context.Context) error {
 			Model:      s.ProviderInfo.Model,
 			Dimensions: dims,
 		}); err != nil {
-			s.setupErr = err
 			return err
 		}
 		if dims > 0 {

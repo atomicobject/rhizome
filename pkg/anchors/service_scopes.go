@@ -2,7 +2,6 @@ package codeanchor
 
 import (
 	"context"
-	"log"
 	"time"
 )
 
@@ -68,7 +67,7 @@ func (s *Service) RebuildAnchorScopesForIDs(ctx context.Context, ids []int64) er
 // This operation is serialized to prevent concurrent recomputes and
 // races with anchor modifications.
 // Requires WithWriteAccess(); no-op for read-only services.
-func (s *Service) RecomputeAnchorScopes(ctx context.Context) error {
+func (s *Service) RecomputeAnchorScopes(ctx context.Context) (err error) {
 	if !s.writeAccess {
 		return nil
 	}
@@ -80,7 +79,15 @@ func (s *Service) RecomputeAnchorScopes(ctx context.Context) error {
 		return err
 	}
 
-	useDirty, dirtySet := s.dirtySnapshot()
+	overflow, useDirty, dirtySet := s.dirtySnapshot()
+	if overflow {
+		// The snapshot consumed the full-recompute obligation; restore it on failure.
+		defer func() {
+			if err != nil {
+				s.restoreDirtyOverflow()
+			}
+		}()
+	}
 	hasWildcard := containsWildcardAnchors(anchors)
 	if useDirty && !hasWildcard {
 		filtered := anchors[:0]
@@ -94,45 +101,8 @@ func (s *Service) RecomputeAnchorScopes(ctx context.Context) error {
 
 	hasFuncAnchors := containsFunctionAnchors(anchors)
 	if hasFuncAnchors && !s.callEdgesRebuilt {
-		// Function anchors depend on reverse call-file lookups. Batch indexing marks
-		// stale paths instead of resolving edges per file, so the first full scope
-		// recompute owns the catch-up rebuild.
-		var stale []string
-		if lister, ok := s.store.(callEdgeStaleLister); ok {
-			stale, err = lister.StaleCallEdgePaths(ctx, 0)
-			if err != nil {
-				return err
-			}
-		}
-		if len(stale) > 0 {
-			log.Printf("codeanchor: rebuild call edges for %d stale files", len(stale))
-			if err := s.RebuildCallEdgesForPaths(ctx, stale); err != nil && (ctx == nil || ctx.Err() == nil) {
-				log.Printf("codeanchor: rebuild call edges failed: %v", err)
-			} else {
-				s.callEdgesRebuilt = true
-			}
-		} else {
-			needsFull := false
-			if checker, ok := s.store.(callEdgeChecker); ok {
-				if hasEdges, err := checker.HasAnyCallEdges(ctx); err == nil {
-					if !hasEdges {
-						needsFull = true
-					} else {
-						s.callEdgesRebuilt = true
-					}
-				}
-			}
-			if needsFull {
-				log.Printf("codeanchor: rebuild call edges (bootstrap)")
-				if err := s.RebuildAllCallEdges(ctx); err != nil && (ctx == nil || ctx.Err() == nil) {
-					log.Printf("codeanchor: rebuild call edges failed: %v", err)
-				} else {
-					s.callEdgesRebuilt = true
-				}
-			} else if !s.callEdgesRebuilt {
-				log.Printf("codeanchor: rebuild call edges skipped (edges exist, no stale paths)")
-				s.callEdgesRebuilt = true
-			}
+		if err := s.catchUpCallEdges(ctx); err != nil {
+			return err
 		}
 	}
 	plan, err := s.planAnchorScopes(ctx, anchors)

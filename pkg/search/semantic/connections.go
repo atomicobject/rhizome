@@ -222,13 +222,16 @@ func AggregateIntelChunkMatches(
 
 	for _, ch := range chunks {
 		select {
+		case workCh <- ch:
 		case err := <-errCh:
 			close(workCh)
 			wg.Wait()
 			return nil, totalSkipped, err
-		default:
+		case <-ctx.Done():
+			close(workCh)
+			wg.Wait()
+			return nil, totalSkipped, ctx.Err()
 		}
-		workCh <- ch
 	}
 	close(workCh)
 	wg.Wait()

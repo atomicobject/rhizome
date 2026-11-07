@@ -17,10 +17,15 @@ const eventPersistAttempts = 3
 func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSession) {
 	defer live.drainOnce.Do(func() { close(live.drained) })
 	for incoming := range live.session.Events() {
+		// An approval that arrives after its turn ended (for example buffered
+		// when SendTurn failed) can never be answered; cancel it once stored.
+		orphaned := false
 		if incoming.Kind == harness.EventApprovalRequested && incoming.RequestID != "" {
 			s.mu.Lock()
 			if incoming.Phase == harness.PhaseCancelled || incoming.Phase == harness.PhaseDeclined {
 				delete(live.pending, incoming.RequestID)
+			} else if live.turn == nil {
+				orphaned = true
 			} else {
 				live.pending[incoming.RequestID] = struct{}{}
 			}
@@ -54,6 +59,9 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 		} else {
 			s.handleEventPersistenceFailure(sessionID, live, incoming, err)
 		}
+		if orphaned {
+			s.cancelApprovals(sessionID, map[string]struct{}{incoming.RequestID: {}})
+		}
 	}
 
 	s.mu.Lock()
@@ -61,31 +69,54 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 	if s.live[sessionID] == live {
 		delete(s.live, sessionID)
 	}
+	var pending map[string]struct{}
 	if remaining != nil {
+		pending = live.pending
 		live.turn = nil
 		live.running = false
 		live.pending = make(map[string]struct{})
 	}
 	s.mu.Unlock()
 	if remaining != nil && s.ctx.Err() == nil {
+		s.cancelApprovals(sessionID, pending)
 		s.persistHarnessError(sessionID, kind, harness.Phase(harness.ErrTransportClosed, errors.New("harness event stream closed during turn")))
 	}
 }
 
 func (s *Service) finalizeTurn(sessionID string, live *liveSession) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if live.turn == nil {
+		s.mu.Unlock()
 		return nil
 	}
 	var err error
 	if assistant := live.turn.assistant.String(); strings.TrimSpace(assistant) != "" {
 		_, err = s.store.AddMessage(s.ctx, sessionID, "assistant", assistant)
 	}
+	pending := live.pending
 	live.turn = nil
 	live.running = false
 	live.pending = make(map[string]struct{})
+	s.mu.Unlock()
+	s.cancelApprovals(sessionID, pending)
 	return err
+}
+
+// cancelApprovals records each approval still outstanding when its turn
+// ends as cancelled, the terminal shape the browser already resolves, since
+// neither driver guarantees one on stop or transport failure.
+func (s *Service) cancelApprovals(sessionID string, pending map[string]struct{}) {
+	for requestID := range pending {
+		event := EventFromHarness(sessionID, harness.Event{
+			Kind: harness.EventApprovalRequested, Phase: harness.PhaseCancelled, RequestID: requestID,
+			Reason: "The turn ended before the approval was answered",
+		})
+		if stored, err := s.addEventWithRetry(s.ctx, event); err == nil {
+			s.broker.Publish(stored)
+		} else {
+			s.publishPersistenceError(event, err)
+		}
+	}
 }
 
 // EventFromHarness projects a harness event into the stored event shape,
@@ -115,16 +146,19 @@ func EventFromHarness(sessionID string, event harness.Event) Event {
 	}
 }
 
-func (s *Service) finishTurn(live *liveSession, turn *turnState) bool {
+func (s *Service) finishTurn(sessionID string, live *liveSession, turn *turnState) bool {
 	s.mu.Lock()
 	finished := false
+	var pending map[string]struct{}
 	if live.turn == turn {
+		pending = live.pending
 		live.turn = nil
 		live.running = false
 		live.pending = make(map[string]struct{})
 		finished = true
 	}
 	s.mu.Unlock()
+	s.cancelApprovals(sessionID, pending)
 	return finished
 }
 

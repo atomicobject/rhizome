@@ -483,6 +483,8 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             app.state::<Focus>().closed(events.label());
             app.state::<crate::team::Team>()
                 .cancel(Some(events.label()));
+            app.state::<crate::credentials::Imports>()
+                .cancel(Some(events.label()));
         }
         _ => {}
     });

@@ -241,7 +241,7 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string) (S
 		return SendMessageResponse{}, err
 	}
 	if _, err := s.store.AddMessage(s.ctx, sessionID, "user", content); err != nil {
-		s.finishTurn(live, turn)
+		s.finishTurn(sessionID, live, turn)
 		return SendMessageResponse{}, err
 	}
 	go s.sendTurn(session, live, turn, content)
@@ -257,7 +257,7 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string) (S
 
 func (s *Service) sendTurn(session Session, live *liveSession, turn *turnState, content string) {
 	if err := live.session.SendTurn(s.ctx, content); err != nil {
-		if s.finishTurn(live, turn) && s.ctx.Err() == nil {
+		if s.finishTurn(session.ID, live, turn) && s.ctx.Err() == nil {
 			s.persistHarnessError(session.ID, session.Harness, err)
 		}
 	}

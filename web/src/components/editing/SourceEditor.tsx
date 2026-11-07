@@ -252,6 +252,36 @@ export function EmptyNarrativeEditor({
     return () => window.removeEventListener("rhizome:discard-editor-drafts", discard);
   }, [operationTarget, vaultKey]);
 
+  const stage = (markdown: string) => {
+    const staged = onStageOps([
+      {
+        id: operationTarget,
+        kind: "insertNarrative",
+        path: nodeRef.fragment ? `${nodeRef.notePath}#${nodeRef.fragment}` : nodeRef.notePath,
+        nodeId: nodeRef.nodeId,
+        structuralFingerprint: nodeRef.structuralFingerprint,
+        markdown: markdown.trimEnd(),
+        expected: {
+          sourceHash: revision.contentFingerprint,
+          sourceContent: revision.content,
+        },
+      },
+    ]);
+
+    void clearDraftAfterStage(
+      staged,
+      () => discardedRef.current,
+      () => {
+        const current = readPersistedEditorDraft(vaultKey, operationTarget);
+
+        // Typing after the blur is newer, and the staged narrative may already
+        // have replaced this editor, so stage it under the same operation id.
+        if (current?.trim() && current !== markdown) stage(current);
+        else clearPersistedEditorDraft(vaultKey, operationTarget);
+      },
+    );
+  };
+
   return (
     <div className="body-narrative body-narrative--empty-editor">
       <label htmlFor={`narrative-${encodeURIComponent(revision.notePath)}`}>Add narrative</label>
@@ -267,30 +297,7 @@ export function EmptyNarrativeEditor({
           writePersistedEditorDraft(vaultKey, operationTarget, next);
         }}
         onBlur={() => {
-          const markdown = draftRef.current;
-
-          if (!markdown.trim() || discardedRef.current) return;
-
-          const staged = onStageOps([
-            {
-              id: operationTarget,
-              kind: "insertNarrative",
-              path: nodeRef.fragment ? `${nodeRef.notePath}#${nodeRef.fragment}` : nodeRef.notePath,
-              nodeId: nodeRef.nodeId,
-              structuralFingerprint: nodeRef.structuralFingerprint,
-              markdown: markdown.trimEnd(),
-              expected: {
-                sourceHash: revision.contentFingerprint,
-                sourceContent: revision.content,
-              },
-            },
-          ]);
-
-          void clearDraftAfterStage(
-            staged,
-            () => discardedRef.current,
-            () => clearPersistedEditorDraft(vaultKey, operationTarget),
-          );
+          if (draftRef.current.trim() && !discardedRef.current) stage(draftRef.current);
         }}
       />
     </div>

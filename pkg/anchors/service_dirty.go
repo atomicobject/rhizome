@@ -46,7 +46,9 @@ func (s *Service) markAnchorsDirty(ids []int64) {
 	}
 }
 
-func (s *Service) dirtySnapshot() (bool, map[int64]bool) {
+// dirtySnapshot reports overflow when it consumed a full-recompute obligation;
+// a caller that then fails must call restoreDirtyOverflow.
+func (s *Service) dirtySnapshot() (overflow, useDirty bool, ids map[int64]bool) {
 	s.dirtyMu.Lock()
 	defer s.dirtyMu.Unlock()
 	if s.dirtyOverflow {
@@ -54,16 +56,25 @@ func (s *Service) dirtySnapshot() (bool, map[int64]bool) {
 		// Clearing here prevents repeated scope recomputes on subsequent queries.
 		s.dirtyAnchors = make(map[int64]bool)
 		s.dirtyOverflow = false
-		return false, nil
+		return true, false, nil
 	}
 	if len(s.dirtyAnchors) == 0 {
-		return false, nil
+		return false, false, nil
 	}
 	cp := make(map[int64]bool, len(s.dirtyAnchors))
 	for id := range s.dirtyAnchors {
 		cp[id] = true
 	}
-	return true, cp
+	return false, true, cp
+}
+
+// restoreDirtyOverflow reinstates a full-recompute obligation consumed by a
+// failed recompute. Overflow covers every anchor, so the IDs cleared with it and
+// any marked since need no re-adding.
+func (s *Service) restoreDirtyOverflow() {
+	s.dirtyMu.Lock()
+	defer s.dirtyMu.Unlock()
+	s.dirtyOverflow = true
 }
 
 func (s *Service) clearDirtyAnchorsByIDs(ids []int64) {

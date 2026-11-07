@@ -395,7 +395,8 @@ desktop-check:
 	cd desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings
 	desktop/scripts/app-instances_test.sh
 
-# Build, install, and restart "Rhizome Dev" in /Applications. Main checkout only.
+# Build, install, and restart "Rhizome Dev" (/Applications on macOS,
+# ~/.local/share/rhizome-dev/bin on Linux). Main checkout only.
 desktop-install-dev:
 	desktop/scripts/install-dev.sh
 

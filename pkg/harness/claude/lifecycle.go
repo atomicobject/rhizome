@@ -37,11 +37,11 @@ func (s *session) fail(err error) {
 	if !s.stopped {
 		s.stopped, s.terminalErr = true, err
 	}
-	done, turnID, sessionID := s.turnDone, s.turnID, s.sessionID
+	turn, turnID, sessionID := s.turn, s.turnID, s.sessionID
 	s.pending = make(map[string]pendingApproval)
 	s.stateMu.Unlock()
-	if done != nil {
-		signalTurn(done, harness.Phase(harness.ErrTransportClosed, err))
+	if turn != nil {
+		turn.finish(harness.Phase(harness.ErrTransportClosed, err))
 	}
 	s.stream.Emit(harness.Event{Kind: harness.EventError, Phase: harness.PhaseFailed, SessionID: sessionID, TurnID: turnID, Text: err.Error()})
 	s.cancel()
@@ -70,15 +70,5 @@ func waitReader(ctx context.Context, reader interface{ Wait() }) {
 	select {
 	case <-done:
 	case <-ctx.Done():
-	}
-}
-
-func signalTurn(done chan error, err error) {
-	for range 2 {
-		select {
-		case done <- err:
-		default:
-			return
-		}
 	}
 }

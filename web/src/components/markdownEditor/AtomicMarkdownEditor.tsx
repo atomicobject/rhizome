@@ -178,7 +178,9 @@ export function AtomicMarkdownEditor({
       wikiLinksCompartment.of(createWikiLinksExtension(callbacksRef)),
       accessibleAtomicWidgets(callbacksRef),
       EditorState.transactionFilter.of((transaction) =>
-        readonlyRef.current && transaction.docChanged ? [] : transaction,
+        readonlyRef.current && transaction.docChanged && !applyingExternalValueRef.current
+          ? []
+          : transaction,
       ),
       readOnlyCompartment.of(readOnlyExtension(readonlyRef.current)),
       EditorView.updateListener.of((update) => {

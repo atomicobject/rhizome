@@ -39,6 +39,7 @@ type Driver struct {
 	versionAt        time.Time
 	versionValue     string
 	versionErr       error
+	versionProbe     *versionProbe
 }
 
 func New() *Driver {
@@ -122,7 +123,7 @@ type session struct {
 	started         bool
 	sessionID       string
 	turnID          string
-	turnDone        chan error
+	turn            *turnState
 	responses       map[string]chan message
 	responseBacklog map[string]message
 	pending         map[string]pendingApproval
@@ -193,11 +194,11 @@ func (s *session) SendTurn(ctx context.Context, prompt string) error {
 	}
 	s.running, s.started = true, false
 	s.turnID = fmt.Sprintf("turn-%d", s.turnSeq.Add(1))
-	done := make(chan error, 2)
-	s.turnDone = done
+	turn := &turnState{done: make(chan struct{})}
+	s.turn = turn
 	s.items = make(map[string]harness.EventKind)
 	s.stateMu.Unlock()
-	defer s.clearTurn(done)
+	defer s.clearTurn(turn)
 	s.dispatchMu.Unlock()
 	turnCtx, cancelTurnCtx := context.WithCancel(ctx)
 	stopLifetimeCancel := context.AfterFunc(s.lifetime, cancelTurnCtx)
@@ -207,7 +208,7 @@ func (s *session) SendTurn(ctx context.Context, prompt string) error {
 	}()
 	if err := s.transport.Send(turnCtx, userMessage(prompt)); err != nil {
 		if ctx.Err() != nil {
-			return s.cancelTurn(ctx.Err(), done)
+			return s.cancelTurn(ctx.Err(), turn)
 		}
 		if s.lifetime.Err() != nil {
 			return s.transportError()
@@ -218,75 +219,53 @@ func (s *session) SendTurn(ctx context.Context, prompt string) error {
 		return classifyError(turnCtx, harness.ErrTurnStart, err)
 	}
 	select {
-	case err := <-done:
-		return err
+	case <-turn.done:
+		return turn.err
 	case <-ctx.Done():
-		return s.cancelTurn(ctx.Err(), done)
+		return s.cancelTurn(ctx.Err(), turn)
 	case <-s.lifetime.Done():
 		return s.transportError()
 	}
 }
 
-func (s *session) clearTurn(done chan error) {
-	s.stateMu.Lock()
-	if s.turnDone == done {
-		s.running, s.started, s.turnID, s.turnDone = false, false, "", nil
-	}
-	s.stateMu.Unlock()
-}
-
-func (s *session) cancelTurn(ctxErr error, done <-chan error) error {
-	interruptCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	_ = s.sendInterrupt(interruptCtx)
-	cancel()
-	timer := time.NewTimer(s.cancelTimeout)
-	defer timer.Stop()
-	select {
-	case err := <-done:
-		// EOF fills done before it ends the lifetime; closure must win either way.
-		if errors.Is(err, harness.ErrTransportClosed) || s.lifetime.Err() != nil {
-			return harness.Phase(harness.ErrTransportClosed, ctxErr)
-		}
-		return harness.Phase(harness.ErrTimeout, ctxErr)
-	case <-s.lifetime.Done():
-		return harness.Phase(harness.ErrTransportClosed, ctxErr)
-	case <-timer.C:
-		_ = s.Stop()
-		return harness.Phase(harness.ErrTransportClosed, ctxErr)
-	}
-}
-
 func (s *session) Interrupt(ctx context.Context) error {
 	s.stateMu.Lock()
-	done, running := s.turnDone, s.running
+	turn := s.turn
 	s.stateMu.Unlock()
-	if !running {
+	if turn == nil {
 		return errors.New("no running turn")
 	}
-	if err := s.sendInterrupt(ctx); err != nil {
+	if err := s.sendInterrupt(ctx, turn); err != nil {
 		return err
 	}
 	timer := time.NewTimer(s.interruptTimeout)
 	defer timer.Stop()
 	select {
-	case <-done:
+	case <-turn.done:
 		return nil
 	case <-ctx.Done():
 		return harness.Phase(harness.ErrTimeout, ctx.Err())
 	case <-s.lifetime.Done():
 		return s.transportError()
 	case <-timer.C:
+		// ponytail: the turn can still finish, and a new one start, between
+		// this check and Stop; that window is microseconds wide.
+		select {
+		case <-turn.done:
+			return nil
+		default:
+		}
 		_ = s.Stop()
 		return harness.Phase(harness.ErrTimeout, errors.New("Claude did not end the turn after interrupt"))
 	}
 }
 
-func (s *session) sendInterrupt(ctx context.Context) error {
+func (s *session) sendInterrupt(ctx context.Context, turn *turnState) error {
 	s.stateMu.Lock()
-	running := s.running
+	current := s.turn == turn
 	seq := s.turnSeq.Load()
 	s.stateMu.Unlock()
-	if !running {
+	if !current {
 		return errors.New("no running turn")
 	}
 	request, _ := json.Marshal(struct {
@@ -402,13 +381,13 @@ func (s *session) dispatch(msg message) {
 		s.stateMu.Lock()
 	}
 	events, complete := mapMessage(msg, turnID, s.items)
-	done := s.turnDone
+	turn := s.turn
 	s.stateMu.Unlock()
 	for _, event := range events {
 		s.emit(event)
 	}
-	if complete && done != nil {
-		signalTurn(done, nil)
+	if complete && turn != nil {
+		turn.finish(nil)
 	}
 }
 

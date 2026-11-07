@@ -412,3 +412,24 @@ func splitTagEditFrontmatter(content string) (string, string, bool) {
 	}
 	return parts[1], parts[2], true
 }
+
+func TestInlineTagEditsSkipTildeAndLongerFences(t *testing.T) {
+	content := "#old before\n" +
+		"~~~\n#old in tilde\n~~~\n" +
+		"````md\n```\n#old after decoy\n```\n````\n" +
+		"#old after"
+
+	removed, changed := RemoveTags(content, []string{"old"})
+	assert.True(t, changed)
+	assert.Equal(t, "before\n"+
+		"~~~\n#old in tilde\n~~~\n"+
+		"````md\n```\n#old after decoy\n```\n````\n"+
+		"after", removed)
+
+	renamed, changed := ReplaceTags(content, []string{"old"}, "new")
+	assert.True(t, changed)
+	assert.Equal(t, "#new before\n"+
+		"~~~\n#old in tilde\n~~~\n"+
+		"````md\n```\n#old after decoy\n```\n````\n"+
+		"#new after", renamed)
+}

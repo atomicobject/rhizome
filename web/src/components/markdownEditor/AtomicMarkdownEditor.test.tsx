@@ -161,6 +161,30 @@ describe("AtomicMarkdownEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("shows a controlled value change in read-only mode", async () => {
+    const handleRef = createRef<AtomicCodeMirrorEditorHandle | null>();
+    const onChange = vi.fn();
+
+    const { container, rerender } = render(
+      <AtomicMarkdownEditor value="Original" onChange={onChange} readOnly editorRef={handleRef} />,
+    );
+
+    await waitFor(() => expect(handleRef.current?.getMarkdown()).toBe("Original"));
+
+    rerender(
+      <AtomicMarkdownEditor
+        value="Replacement"
+        onChange={onChange}
+        readOnly
+        editorRef={handleRef}
+      />,
+    );
+
+    await waitFor(() => expect(handleRef.current?.getMarkdown()).toBe("Replacement"));
+    expect(container.querySelector(".cm-content")).toHaveTextContent("Replacement");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("blocks document mutations in read-only mode", async () => {
     const handleRef = createRef<AtomicCodeMirrorEditorHandle | null>();
     const onChange = vi.fn();

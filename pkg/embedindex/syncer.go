@@ -194,7 +194,6 @@ type Syncer struct {
 	setupMu                sync.Mutex
 	schemaReady            bool
 	metaDimsKnown          bool
-	setupErr               error
 	freshnessMu            sync.Mutex
 	pendingSourceHighWater time.Time
 }

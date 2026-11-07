@@ -69,6 +69,8 @@ export function App() {
   const target = useRef<Target>({ after: 0 });
   // Numbers each selection when the user makes it; only the newest may open.
   const selecting = useRef(0);
+  /** When the user last chose a worktree here; a terminal open begun earlier yields. */
+  const chose = useRef(0);
   const seen = useRef(0);
   const menus = useRef<Record<string, () => void>>({});
   /** Counts update messages, so a slower status request cannot undo a newer one. */
@@ -310,6 +312,7 @@ export function App() {
     finder.closed();
     if (choice.choice === "add") addRepository();
     if (choice.choice !== "open" || choice.newWindow || !library) return;
+    chose.current = Date.now();
     // Choosing a workspace shows it, even the one Settings or What Gets
     // Indexed covers now.
     setSettings(false);
@@ -353,6 +356,7 @@ export function App() {
       if (!path) return;
       const result = await request("add", { path });
       setLibrary(result.library);
+      chose.current = Date.now();
       await selectRepository(result.library, result.id);
     });
   }
@@ -585,6 +589,7 @@ export function App() {
       } else if (message.type === "library") {
         applyLibrary(message.library);
       } else if (message.type === "select") {
+        if ((message.started ?? Infinity) < chose.current) return;
         // A terminal's `rzm desktop` opens here; a finder left open would cover it.
         if (finder.shown) finder.close();
         setLibrary(message.library);

@@ -18,6 +18,7 @@ func (h *Hub) Start(ctx context.Context) {
 		if err := backend.Start(ctx); err != nil {
 			if !h.maybeFallbackBackend(err) {
 				h.logger.Printf("watchhub: backend start failed: %v", err)
+				h.markStale(StaleEvent{Reason: StaleWatcherError, Source: SourceFSNotify})
 			}
 		}
 		h.work.Add(2)

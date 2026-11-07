@@ -106,14 +106,12 @@ func (s *Syncer) ensureReady(ctx context.Context) error {
 	if s.Index == nil || s.Provider == nil {
 		return errors.New("syncer requires index and provider")
 	}
+	// Setup errors are not cached: a cancelled or busy first call must not
+	// disable sync for the syncer's lifetime. Completed steps stay done.
 	s.setupMu.Lock()
 	defer s.setupMu.Unlock()
-	if s.setupErr != nil {
-		return s.setupErr
-	}
 	if !s.schemaReady {
 		if err := s.Index.EnsureSchema(ctx); err != nil {
-			s.setupErr = err
 			return err
 		}
 		s.schemaReady = true
@@ -129,7 +127,6 @@ func (s *Syncer) ensureReady(ctx context.Context) error {
 			Dimensions:         dims,
 			FingerprintVersion: codeFingerprintVersion,
 		}); err != nil {
-			s.setupErr = err
 			return err
 		}
 		if dims > 0 {
