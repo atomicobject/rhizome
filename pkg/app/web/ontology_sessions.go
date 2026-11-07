@@ -130,6 +130,9 @@ func (s *Server) ensureOntologyEditSession(ctx context.Context, defs *ontologyDe
 	if snapshot.Version != 3 {
 		return nil, fmt.Errorf("unsupported edit session snapshot version %d", snapshot.Version)
 	}
+	if err := s.admitOntologyEditOps(snapshot.Ops); err != nil {
+		return nil, err
+	}
 	if err := validateOntologyEditSnapshotBases(snapshot); err != nil {
 		return nil, err
 	}

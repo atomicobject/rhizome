@@ -10,6 +10,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"strings"
 	"time"
 )
@@ -78,10 +79,25 @@ func validateOntologyEditSnapshotBases(snapshot *OntologyEditSessionSnapshot) er
 	return nil
 }
 
+// admitOntologyEditOps applies source ownership to every operation's host before
+// projection, source witnesses, or Markdown-only validation run, so an owned
+// host is refused with its owner's reason whatever the request shape. Staging
+// and commit recheck through the edit session as before.
+func (s *Server) admitOntologyEditOps(ops []OntologyEditOp) error {
+	hosts := make([]string, 0, len(ops))
+	for _, op := range ops {
+		hosts = append(hosts, strings.TrimSpace(strings.SplitN(op.Path, "#", 2)[0]))
+	}
+	return sourceownership.Check(s.cfg.VaultDef.BasePath(), hosts)
+}
+
 func (s *Server) canonicalizeOntologyEditOps(ctx context.Context, defs *ontologyDefinitions, ops []OntologyEditOp) ([]OntologyEditOp, error) {
 	// Docs: [[ontology-edit-replay-conflict-contract]]
 	// requires web sessions to persist canonical node identity in addition to
 	// the author-facing locator that came from the UI.
+	if err := s.admitOntologyEditOps(ops); err != nil {
+		return nil, err
+	}
 	out := cloneOntologyEditOps(ops)
 	nodeScope := s.nodeReadScope(ctx, defs)
 	for i := range out {
@@ -192,6 +208,10 @@ func ensureOntologyEditOpID(op *OntologyEditOp) {
 // keeps that lock through appending the canonical operations so preview lineage
 // cannot be applied to a different session state.
 func (s *Server) canonicalizeOntologyEditOpsForSessionLocked(ctx context.Context, defs *ontologyDefinitions, session *ontologyEditSession, ops []OntologyEditOp) ([]OntologyEditOp, error) {
+	// The draft-projection fallback below must not replace an ownership refusal.
+	if err := s.admitOntologyEditOps(ops); err != nil {
+		return nil, err
+	}
 	out := make([]OntologyEditOp, 0, len(ops))
 	for _, op := range ops {
 		canonical, err := s.canonicalizeOntologyEditOps(ctx, defs, []OntologyEditOp{op})
