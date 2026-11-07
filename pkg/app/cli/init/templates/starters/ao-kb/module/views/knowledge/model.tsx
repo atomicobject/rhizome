@@ -33,7 +33,14 @@ import {
   scalars,
   syncCompare,
 } from "./lib/model.ts";
-import type { FieldRow, ModelRecord, Neighbor, SourceValue, TypeSpec } from "./lib/model.ts";
+import type {
+  FieldLink,
+  FieldRow,
+  ModelRecord,
+  Neighbor,
+  SourceValue,
+  TypeSpec,
+} from "./lib/model.ts";
 import { MODEL_WORDS } from "./lib/relations.ts";
 import {
   ENDPOINT,
@@ -55,6 +62,7 @@ type Raw = {
   aoValue?: string | null;
   workspace: {
     source: { value?: SourceValue; address?: string } | null;
+    fields: { name: string; links: FieldLink[] }[];
     capabilities: { readOnlyReason?: string | null };
     structure: { title: string; ref: Ref }[];
   } | null;
@@ -77,7 +85,8 @@ async function loadModel(ref: string) {
   const data = await graphql<{ node: Raw | null }>(
     `query ModelRecord($ref: String!) { node(ref: $ref) { __typename title ${REF}
       ... on AOKBModelRecord { aoValue }
-      workspace { source capabilities { readOnlyReason } structure { title ${REF} } }
+      workspace { source capabilities { readOnlyReason } structure { title ${REF} }
+        fields { name links { value resolved title ${REF} } } }
       out: neighborhood(direction: OUTBOUND, first: 200) { truncated edges { relation target { ${ENDPOINT} } } }
       in: neighborhood(direction: INBOUND, first: 200) { truncated edges { relation target { ${ENDPOINT} } } } } }`,
     { ref },
@@ -183,26 +192,22 @@ function Value({ row }: { row: FieldRow }) {
       <>
         <Record record={{ ref: a.target.ref, path: a.target.key, title: a.target.title }} />{" "}
         <span className="ak-key">{a.text}</span>
+        {a.state === "no edge" && (
+          <>
+            {" "}
+            <span className="ak-state">Checked reference; AO declares no relationship</span>
+          </>
+        )}
       </>
     ) : (
       <>
         <span className="ak-key">{a.text}</span>{" "}
-        <span
-          className={
-            a.state === "wildcard" || a.state === "not read" ? "ak-state" : "ak-state ak-state-risk"
-          }
-        >
+        <span className={a.state === "wildcard" ? "ak-state" : "ak-state ak-state-risk"}>
           {a.state === "wildcard"
             ? "Wildcard: every record"
-            : a.state === "no edge"
-              ? "Checked reference; AO declares no relationship to follow"
-              : a.state === "not read"
-                ? "Not checked: more relationships than one read returns"
-                : a.state === "ambiguous"
-                  ? "Names more than one record; none chosen"
-                  : row.spec?.to.includes("Assertion")
-                    ? "No assertion with this ID in the selected product"
-                    : "Not resolved in the selected product"}
+            : row.spec?.to.includes("Assertion")
+              ? "No assertion with this ID in the selected product"
+              : "Not resolved in the selected product: missing, ambiguous, or in another product"}
         </span>
       </>
     );
@@ -348,15 +353,12 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
     (n) =>
       n.typeName !== "Assertion" && (n.out ? declarer(record, n) : declarer(n, record)) === n.key,
   );
-  const rows = fieldRows(record.value, spec, neighbors).map((r) =>
-    node.out.truncated
-      ? {
-          ...r,
-          atoms: r.atoms?.map((a) =>
-            a.state === "unresolved" ? { ...a, state: "not read" as const } : a,
-          ),
-        }
-      : r,
+  // Field links resolve each authored value directly, independent of the capped edge reads.
+  const rows = fieldRows(
+    record.value,
+    spec,
+    Object.fromEntries((node.workspace?.fields ?? []).map((f) => [f.name, f.links])),
+    new Map(neighbors.map((n) => [n.key, n.title])),
   );
   const address = node.workspace?.source?.address;
   const file = basename(node.ref.notePath);
