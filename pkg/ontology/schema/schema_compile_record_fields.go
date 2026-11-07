@@ -93,12 +93,12 @@ func compileRecordField(parent *ast.Definition, def *ast.FieldDefinition, target
 		field.Kind = FieldKindLink
 	}
 	if ref := def.Directives.ForName("references"); ref != nil {
-		if key, ok := ref.ArgumentMap(nil)["targetKey"].(string); ok && key == "" {
-			return fail("record_reference_target_key", "targetKey must name a scalar String field")
-		}
 		binding, err := compileRecordReferences(ref)
 		if err != nil {
 			return fail("record_references", err.Error())
+		}
+		if binding.TargetKeys, err = recordTargetKeys(ref.ArgumentMap(nil)["targetKey"]); err != nil {
+			return fail("record_reference_target_key", err.Error())
 		}
 		field.Record.References = binding
 	} else if field.Kind == FieldKindLink {
@@ -108,6 +108,36 @@ func compileRecordField(parent *ast.Definition, def *ast.FieldDefinition, target
 		return nil, err
 	}
 	return field, nil
+}
+
+// recordTargetKeys reads targetKey as one key or an ordered list. Each entry
+// names a field, or RecordTargetKeyFileStem; target fields are checked once
+// every type is known.
+func recordTargetKeys(input any) ([]string, error) {
+	if input == nil {
+		return nil, nil
+	}
+	values, ok := input.([]any)
+	if !ok {
+		values = []any{input}
+	}
+	if len(values) == 0 {
+		return nil, recordBindingError("targetKey must name at least one key")
+	}
+	seen := map[string]bool{}
+	keys := make([]string, 0, len(values))
+	for _, value := range values {
+		key, ok := value.(string)
+		if !ok || key == "" || strings.TrimSpace(key) != key {
+			return nil, recordBindingError("targetKey must name a scalar String field or " + RecordTargetKeyFileStem)
+		}
+		if seen[key] {
+			return nil, recordBindingError("targetKey repeats " + key)
+		}
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	return keys, nil
 }
 
 func compileRecordEdge(input any) (*RecordEdge, error) {
@@ -135,7 +165,6 @@ func compileRecordReferences(dir *ast.Directive) (*RecordReferenceBinding, error
 		return nil, recordBindingError("references requires nonempty to")
 	}
 	ref := &RecordReferenceBinding{To: to, Mode: stringArg(args["mode"], ""), Encoding: stringArg(args["encoding"], "ID"), Values: stringArg(args["values"], "VALUE"), MatchName: stringArg(args["matchName"], ""), AllowWildcard: boolArg(args["allowWildcard"], false)}
-	ref.TargetKey = stringArg(args["targetKey"], "")
 	if ref.Mode != "STRICT" && ref.Mode != "TOLERANT" {
 		return nil, recordBindingError("reference mode must be explicit")
 	}

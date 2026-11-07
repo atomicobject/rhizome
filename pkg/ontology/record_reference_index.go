@@ -1,8 +1,10 @@
 package ontology
 
 import (
-	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"path"
 	"strings"
+
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 )
 
 type recordReferenceIndex struct {
@@ -18,8 +20,10 @@ func buildRecordReferenceIndex(candidates []recordReferenceCandidate) *recordRef
 	paths := map[string]ontoschema.RecordSelector{}
 	for _, c := range candidates {
 		for _, field := range c.record.typ.Fields {
-			if field.Record != nil && field.Record.References != nil && field.Record.References.TargetKey != "" {
-				index.targetKeys[field.Record.References.TargetKey] = true
+			if field.Record != nil && field.Record.References != nil {
+				for _, key := range field.Record.References.TargetKeys {
+					index.targetKeys[key] = true
+				}
 			}
 			if field.Record != nil && field.Record.References != nil && field.Record.References.MatchPath.Text != "" {
 				path := field.Record.References.MatchPath
@@ -90,9 +94,12 @@ func (index *recordReferenceIndex) addMarkdownTargets(documents []*PreparedDocum
 		for _, name := range names {
 			for targetKey := range index.targetKeys {
 				value := node.Ref.NotePath
-				if targetKey == "" {
+				if targetKey == "" || targetKey == ontoschema.RecordTargetKeyFileStem {
 					if document.markdown == nil {
 						continue
+					}
+					if targetKey != "" {
+						value = strings.TrimSuffix(path.Base(value), path.Ext(value))
 					}
 				} else {
 					field := node.Fields[targetKey]
@@ -107,16 +114,27 @@ func (index *recordReferenceIndex) addMarkdownTargets(documents []*PreparedDocum
 		}
 	}
 }
-func (index *recordReferenceIndex) physicalTargets(types []string, id, targetKey string) []NodeRef {
-	var out []NodeRef
-	seen := map[NodeRef]bool{}
-	for _, typ := range types {
-		for _, ref := range index.physical[referenceLookupKey(targetKey, typ, id)] {
-			if !seen[ref] {
-				seen[ref] = true
-				out = append(out, ref)
+
+// physicalTargets returns the matches of the first target key that has any;
+// several matches stay ambiguous rather than falling through to a later key.
+func (index *recordReferenceIndex) physicalTargets(types []string, id string, targetKeys []string) []NodeRef {
+	if len(targetKeys) == 0 {
+		targetKeys = []string{""}
+	}
+	for _, targetKey := range targetKeys {
+		var out []NodeRef
+		seen := map[NodeRef]bool{}
+		for _, typ := range types {
+			for _, ref := range index.physical[referenceLookupKey(targetKey, typ, id)] {
+				if !seen[ref] {
+					seen[ref] = true
+					out = append(out, ref)
+				}
 			}
 		}
+		if len(out) > 0 {
+			return out
+		}
 	}
-	return out
+	return nil
 }
