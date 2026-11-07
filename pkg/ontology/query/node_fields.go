@@ -99,7 +99,7 @@ func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field
 	case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum:
 		return e.resolveScalarField(ctx, node, schemaField, path)
 	case ontoschema.FieldKindLink:
-		return e.resolveStructuralField(ctx, node, schemaField, field.SelectionSet, path)
+		return e.resolveStructuralField(ctx, node, schemaField, field.SelectionSet, path, e.relationFirst(field))
 	case ontoschema.FieldKindNeighbor:
 		return e.resolveNeighborField(ctx, node, schemaField, field.SelectionSet, path, e.relationFirst(field))
 	case ontoschema.FieldKindReverse:
@@ -350,7 +350,7 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 		}
 		return e.resolveSectionSelectionSet(ctx, matches[0], field.SelectionSet, path), true
 	case ontoschema.FieldKindLink:
-		return e.resolveSectionStructuralField(ctx, node, schemaField, field.SelectionSet, path)
+		return e.resolveSectionStructuralField(ctx, node, schemaField, field.SelectionSet, path, e.relationFirst(field))
 	case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum:
 		return e.resolveSectionScalarField(ctx, node, schemaField, path)
 	case ontoschema.FieldKindNeighbor:

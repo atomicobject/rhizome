@@ -123,3 +123,5 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 - [[ontology]], [[noderead]] — sibling subsystem notes (upstream schema/index; downstream batched reads)
 
 Relation counts resolve after the complete response selection tree, sharing one batched count request per relation field across note and embedded records at every depth. Missing prefetch state must never be interpreted as an empty relation.
+
+Authored list `@link` fields accept the same optional `first: Int` as computed relation lists. Omitted or nonpositive values retain the existing unbounded relation behavior; positive values cap targets before hydration. Only computed neighbor/reverse lists generate count fields.

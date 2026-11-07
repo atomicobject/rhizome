@@ -138,7 +138,8 @@ func (e *executor) compileNodeRelationField(field *ast.Field, sourceTypes []stri
 		switch schemaField.Kind {
 		case ontoschema.FieldKindLink:
 			out = append(out, noderead.RelationSelection{
-				Name:              schemaField.Name,
+				Name:              relationCacheName(schemaField.Name, e.relationFirst(field)),
+				FirstPerSource:    e.relationFirst(field),
 				SourceTypes:       []string{typeName},
 				RelationNames:     []string{schemaField.Name},
 				IncludeStructural: true,
