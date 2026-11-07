@@ -109,7 +109,7 @@ def normalize_notice(content: bytes) -> bytes:
 
 def go_modules() -> list[tuple[str, str]]:
     modules: list[tuple[str, str]] = []
-    for line in (VENDOR / "modules.txt").read_text().splitlines():
+    for line in (VENDOR / "modules.txt").read_text(encoding="utf-8").splitlines():
         if not line.startswith("# "):
             continue
         fields = line[2:].split()
@@ -120,7 +120,7 @@ def go_modules() -> list[tuple[str, str]]:
 
 def tree_sitter_aliases() -> list[tuple[str, str, str]]:
     aliases: list[tuple[str, str, str]] = []
-    for line in (VENDOR / "modules.txt").read_text().splitlines():
+    for line in (VENDOR / "modules.txt").read_text(encoding="utf-8").splitlines():
         if not line.startswith("# ") or " => " not in line:
             continue
         alias, replacement = line[2:].split(" => ", 1)
@@ -199,7 +199,7 @@ def generate_go(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
 
 
 def generate_web(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
-    lock = json.loads((WEB / "package-lock.json").read_text())
+    lock = json.loads((WEB / "package-lock.json").read_text(encoding="utf-8"))
     packages = sorted(
         (path.removeprefix("node_modules/"), metadata)
         for path, metadata in lock["packages"].items()
@@ -210,7 +210,7 @@ def generate_web(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
         name = install_path.rsplit("node_modules/", 1)[-1]
         version = metadata["version"]
         directory = WEB / "node_modules" / install_path
-        installed_metadata = json.loads((directory / "package.json").read_text())
+        installed_metadata = json.loads((directory / "package.json").read_text(encoding="utf-8"))
         if installed_metadata.get("version") != version:
             raise RuntimeError(f"stale node_modules: {install_path} has {installed_metadata.get('version')!r}, lock requires {version!r}")
         files = [path for path in directory.iterdir() if path.is_file() and is_notice(path)]
@@ -282,7 +282,7 @@ def render_index(entries: list[NoticeEntry]) -> bytes:
     for group in ("Go", "Web", "Fonts", "Skills"):
         lines.extend([f"## {group}", "", "| Package | Version | Declared license | Full text directory | Source |", "| --- | --- | --- | --- | --- |"])
         for entry in (item for item in entries if item.group == group):
-            lines.append(f"| {entry.title} | {entry.version} | {entry.declared} | `{entry.directory.relative_to(ROOT)}` | {entry.source} |")
+            lines.append(f"| {entry.title} | {entry.version} | {entry.declared} | `{entry.directory.relative_to(ROOT).as_posix()}` | {entry.source} |")
         lines.append("")
     return ("\n".join(lines).rstrip() + "\n").encode()
 

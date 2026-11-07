@@ -22,6 +22,8 @@ from typing import Any, Callable, Mapping, Sequence
 from run_clean import sensitive_name
 from verify_desktop_signing import PUBKEY_PLACEHOLDER, DesktopSigningError, verify_archive
 from apple_signing import APPLE_SIGNING, AppleSigningError, credentials, desktop_credentials, notarizes, notarize_dmg, require_credentials, verify_distribution
+from desktop_candidates import CandidateError
+from join_desktop import join
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,7 +33,9 @@ DMG = "Rhizome-macos-arm64.dmg"
 ARCHIVE = "Rhizome-macos-arm64.app.tar.gz"
 SIGNATURE = ARCHIVE + ".sig"
 FEED = "latest.json"
-OUTPUTS = (DMG, ARCHIVE, SIGNATURE, FEED)
+OUTPUTS = (DMG, ARCHIVE, SIGNATURE, FEED,
+           "Rhizome-linux-x64.AppImage", "Rhizome-linux-x64.AppImage.sig", "Rhizome-linux-arm64.AppImage",
+           "Rhizome-linux-arm64.AppImage.sig", "desktop-assembly.json")
 DOWNLOAD_URL = "https://github.com/atomicobject/rhizome/releases/download/v{version}/" + ARCHIVE
 SIGNING_KEY = "TAURI_SIGNING_PRIVATE_KEY"
 # The Tauri CLI reads both from its environment to sign the updater archive.
@@ -61,7 +65,7 @@ def signs_updater(environ: Mapping[str, str]) -> bool:
     if environ.get("RZM_RELEASE_DESKTOP") == "1":
         raise DesktopBuildError(
             f"{SIGNING_KEY} is required to publish the desktop app; "
-            "run the release through ./scripts/with-secrets release"
+            "configure the protected release CI updater signing key"
         )
     return False
 
@@ -255,7 +259,11 @@ def build(
     for name, source in outputs.items():
         shutil.copyfile(source, output_dir / name)
         staged.append(output_dir / name)
-    if updater:
+    if environ.get("RZM_RELEASE_DESKTOP") == "1" and environ.get("RZM_CI_RELEASE_VERSION"):
+        staged += [path for path in join(root, rzm, version, output_dir, source=dict(environ), runner=runner,
+                                       candidate_only=environ.get("RZM_CI_RELEASE_CANDIDATE_ONLY") == "true")
+                   if path not in staged]
+    elif updater:
         signature = (output_dir / SIGNATURE).read_text(encoding="utf-8")
         feed = update_feed(version, signature, now())
         (output_dir / FEED).write_text(json.dumps(feed, indent=2) + "\n", encoding="utf-8")
@@ -280,7 +288,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         for path in build(Path(args.rzm), args.version, environ=os.environ):
             print(f"desktop: staged {path.relative_to(ROOT)}", file=sys.stderr)
-    except (DesktopBuildError, AppleSigningError, subprocess.CalledProcessError, OSError) as error:
+    except (DesktopBuildError, CandidateError, DesktopSigningError, AppleSigningError, subprocess.CalledProcessError, OSError, ValueError) as error:
         print(f"desktop: {error}", file=sys.stderr)
         return 1
     return 0

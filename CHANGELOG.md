@@ -2,10 +2,13 @@
 
 ## [Unreleased]
 
+- Rhizome Desktop for Linux: AppImages for Ubuntu 24.04 GNOME on x64 and Arm64, with Secret Service sign-in, app-owned CLI installation and signed in-app updates. A Windows 11 x64 build is checked in CI but is not published until Windows code signing is configured.
 - Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
 
 ### Fixed
 
+- Desktop Settings on Linux skips non-executable files when finding the command-line tool on PATH.
+- Repository updates on Windows protect installed desktop apps reached through short filename aliases.
 - Fixes for state that could go wrong after an interruption or overlapping updates:
   - Renaming or removing a tag no longer rewrites text inside `~~~` code blocks, or inside fences that contain a shorter fence.
   - Escape in a property locator field undoes the edit instead of saving it.

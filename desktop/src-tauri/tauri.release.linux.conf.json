@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["appimage"],
+    "createUpdaterArtifacts": false,
+    "externalBin": ["binaries/rzm"],
+    "linux": { "appimage": { "bundleMediaFramework": false } }
+  }
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { desktopTeamAPIOrigin } from "./team-api-origin.mjs";
+import { desktopTeamAPIOrigin, releaseTeamAPIOrigin } from "./team-api-origin.mjs";
 
 test("desktop builds discover and canonicalize the configured server", () => {
   assert.equal(
@@ -36,4 +36,35 @@ test("build origins reject paths, credentials and linker or shell syntax", () =>
   ]) {
     assert.throws(() => desktopTeamAPIOrigin({ RZM_DESKTOP_TEAM_API_ORIGIN: value }));
   }
+});
+
+test("candidate defaults come from matching checked-in release origins", () => {
+  const line = "  - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=";
+  const config = Array(3).fill(`${line}https://Canonical.Example.test:443/`).join("\r\n");
+  assert.equal(
+    releaseTeamAPIOrigin(() => config),
+    "https://canonical.example.test",
+  );
+  assert.equal(
+    desktopTeamAPIOrigin({}, () => releaseTeamAPIOrigin(() => config)),
+    "https://canonical.example.test",
+  );
+  for (const invalid of [
+    "",
+    config.split("\r\n").slice(0, 2).join("\n"),
+    config.replace("Canonical.Example.test", "other.example.test"),
+    Array(3).fill(`${line}http://127.0.0.1:8787`).join("\n"),
+    Array(3).fill(`${line}https://canonical.example.test/path`).join("\n"),
+  ]) {
+    assert.throws(() => releaseTeamAPIOrigin(() => invalid));
+  }
+});
+
+test("candidate manual overrides do not read release configuration or protected settings", () => {
+  assert.equal(
+    desktopTeamAPIOrigin({ RZM_DESKTOP_TEAM_API_ORIGIN: "https://manual.example.test" }, () => {
+      throw new Error("must not discover an origin for an explicit candidate override");
+    }),
+    "https://manual.example.test",
+  );
 });

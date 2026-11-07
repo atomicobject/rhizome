@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
 
@@ -132,14 +133,14 @@ func (g *fakeGateway) state() (rotations, reused int, revoked bool) {
 	return g.rotations, g.reused, g.revoked
 }
 
-// fileStore keeps records as files so separate processes share them.
+// fileStore publishes atomic snapshots, matching the native stores' record semantics.
 type fileStore struct{ dir string }
 
 // QueryEscape also escapes ":", which Windows does not allow in file names.
 func (f fileStore) path(origin string) string { return filepath.Join(f.dir, url.QueryEscape(origin)) }
 
 func (f fileStore) Load(origin string) ([]byte, error) {
-	data, err := os.ReadFile(f.path(origin))
+	data, err := fileio.ReadFile(f.path(origin))
 	if os.IsNotExist(err) {
 		return nil, ErrNotFound
 	}
@@ -151,7 +152,7 @@ func (f fileStore) Save(origin string, record []byte) error {
 	if err := os.WriteFile(tmp, record, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, f.path(origin))
+	return fileio.Replace(tmp, f.path(origin))
 }
 
 func (f fileStore) Delete(origin string) error {

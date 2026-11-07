@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { ViewCatalogEntry } from "../api/types";
-import { jsonReply, withFakeFetch } from "../test/fakeFetch";
+import { graphQLRequestBody, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { NotesShell } from "./NotesShell";
 import { viewSegment } from "../test/workspaceView";
@@ -34,6 +34,23 @@ function registerReads(catalog: ViewCatalogEntry[], summaryResponse = summary())
     .json("POST", "/api/v1/ontology/types/__all__", typeResponse("All"))
     .json("GET", "/api/v1/ontology/types/ProductSpec", typeResponse())
     .json("POST", "/api/v1/ontology/types/ProductSpec", typeResponse())
+    .onGraphQL("PublicNodeDetail", (request) => {
+      const path = "specs/alpha.md";
+      expect(graphQLRequestBody(request).variables?.ref).toBe(path);
+
+      return jsonReply({
+        data: {
+          node: {
+            ref: { ref: path, notePath: path, path, kind: "NOTE" },
+            nodeId: `note:${path}`,
+            nodeKind: "NOTE",
+            path,
+            title: "Alpha Spec",
+            locator: { sourceLocator: path, status: "linkable", exists: true, requiresFix: false },
+          },
+        },
+      });
+    })
     .json("GET", "/api/v1/graphs/global", emptyGraph)
     // Editing focuses the row and loads its record context, including after save.
     .onGraphQL("PublicNodeDetail", () =>
@@ -257,6 +274,9 @@ describe("NotesShell configured views", () => {
     await waitFor(() => expect(http.count("POST", "/api/v1/graphql")).toBeGreaterThan(0));
     fireEvent.change(statusEditor, { target: { value: "published" } });
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled());
+
+    const record = await screen.findByRole("article", { name: "Selected record Alpha Spec" });
+    await within(record).findByText("No relationship context has been indexed for this note yet.");
 
     const executionsBeforeSave = http.count("POST", "/api/v1/views/editable.notes/execute");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

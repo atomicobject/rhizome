@@ -1,5 +1,6 @@
 // Package appbundle identifies the desktop application that owns an executable:
-// a macOS bundle, or elsewhere the desktop executable the rzm sits beside.
+// a macOS bundle, a registered Windows/Linux image, or otherwise the desktop
+// executable the rzm sits beside.
 package appbundle
 
 import (
@@ -17,13 +18,15 @@ var plistValue = func(path, key string) ([]byte, error) {
 	return exec.Command("/usr/bin/plutil", "-extract", key, "raw", "-o", "-", path).Output()
 }
 
-// Info describes an executable's enclosing macOS application.
+// Info describes the application that owns an executable.
 type Info struct {
 	ExecutablePath string
 	Root           string
 	Identifier     string
 	Version        string
 	Dev            bool
+	AppPath        string
+	Portable       bool
 }
 
 // Rhizome reports whether the bundle is Rhizome Desktop or Rhizome Dev.
@@ -48,14 +51,14 @@ func Root(path string) string {
 func Resolve(path string) (*Info, error) {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && Root(path) == "" {
+		if errors.Is(err, os.ErrNotExist) && !OwnsPath(path) {
 			return nil, nil
 		}
 		return nil, err
 	}
 	root := Root(resolved)
 	if root == "" {
-		return nil, nil
+		return resolvePortable(resolved)
 	}
 	info, err := Read(root)
 	if err != nil {
@@ -67,6 +70,9 @@ func Resolve(path string) (*Info, error) {
 
 // Read reads the bundle's identifier and short version from Info.plist.
 func Read(root string) (Info, error) {
+	if portableRoot(root) {
+		return readPortable(root)
+	}
 	path := filepath.Join(root, "Contents", "Info.plist")
 	data, err := os.ReadFile(path)
 	if err != nil {

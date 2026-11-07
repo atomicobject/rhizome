@@ -14,7 +14,7 @@ const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const INSTALL_ARGUMENT: &str = "--install-update";
-/// Set just before relaunching after an install. The relaunched process
+/// Set before handing off to the installer. The relaunched process
 /// inherits it along with the original arguments, so a carried-over
 /// `--install-update` is not mistaken for a new request.
 const RESTARTED: &str = "RHIZOME_UPDATE_RESTARTED";
@@ -174,11 +174,17 @@ async fn download<R: Runtime>(
 /// Installs the downloaded release and relaunches, restoring the windows.
 /// Running Rhizome runtimes are separate processes and keep running.
 pub fn install(app: &AppHandle) -> Result<(), String> {
+    crate::installation::prepare_update()?;
     let ready = app.state::<Updates>().ready.lock().unwrap().take();
     let Some((update, bytes)) = ready else {
         return Err("No downloaded update is ready to install.".into());
     };
-    if let Err(error) = update.install(bytes) {
+    app.state::<crate::credentials::Imports>().cancel(None);
+    app.state::<crate::team::Team>().cancel(None);
+    // Windows installation exits the process before this function returns.
+    windows::quit(app);
+    if let Err(error) = install_handoff(|| update.install(bytes)) {
+        app.state::<windows::Sessions>().cancel_quit();
         let message = format!("Cannot install Rhizome {}: {error}", update.version);
         set(
             app,
@@ -188,9 +194,20 @@ pub fn install(app: &AppHandle) -> Result<(), String> {
         );
         return Err(message);
     }
-    windows::quit(app);
-    std::env::set_var(RESTARTED, "1");
     app.restart();
+}
+
+fn install_handoff<E>(install: impl FnOnce() -> Result<(), E>) -> Result<(), E> {
+    let previous = std::env::var_os(RESTARTED);
+    std::env::set_var(RESTARTED, "1");
+    let result = install();
+    if result.is_err() {
+        match previous {
+            Some(value) => std::env::set_var(RESTARTED, value),
+            None => std::env::remove_var(RESTARTED),
+        }
+    }
+    result
 }
 
 fn requested(args: &[String], restarted: bool) -> bool {
@@ -259,6 +276,10 @@ pub fn check_from_menu(app: &AppHandle) {
 #[cfg(test)]
 #[path = "updater/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "updater/handoff_tests.rs"]
+mod handoff_tests;
 
 #[cfg(test)]
 mod status_tests {

@@ -127,15 +127,24 @@ function finderModel(): FinderModel | null {
   return (calls.at(-1)?.[1] as { model: FinderModel | null } | undefined)?.model ?? null;
 }
 async function showFinder(name: string | RegExp) {
-  fireEvent.click(await screen.findByRole("button", { name }));
-  await waitFor(() => expect(finderModel()).not.toBeNull());
+  const button = await screen.findByRole("button", { name });
+  const before = call.mock.calls.filter(([operation]) => operation === "finder").length;
+  fireEvent.click(button);
+  await waitFor(() => {
+    expect(call.mock.calls.filter(([operation]) => operation === "finder").length).toBeGreaterThan(
+      before,
+    );
+    expect(finderModel()).not.toBeNull();
+  });
   return finderModel()!;
 }
 function choose(choice: FinderChoice) {
   act(() => emit({ type: "finder", ...choice }));
 }
-const openRepository = (id: string) =>
+async function openRepository(id: string) {
+  if (finderModel()?.mode !== "repositories") await showFinder(/^Repository /);
   choose({ choice: "open", repository: id, worktree: null, newWindow: false });
+}
 /** The popup menu the shell last asked for. */
 function lastMenu() {
   const [, menu] = call.mock.calls.filter(([operation]) => operation === "menu").at(-1)!;
@@ -164,6 +173,61 @@ function present(runtimes: Record<string, { state: "running" | "starting" | "sto
 beforeEach(() => vi.resetAllMocks());
 
 describe("desktop shell", () => {
+  it.each([
+    {
+      macOS: true,
+      repositoryTitle: "/work/project/.git\nSwitch repository (⌘O)",
+      worktreeTitle: "/work/project\nSwitch worktree (⇧⌘O)",
+      repositoryShortcut: "Meta+O",
+      worktreeShortcut: "Meta+Shift+O",
+      searchShortcut: "Meta+K",
+      searchHint: "⌘K",
+      reloadTitle: "Reload (⌘R)",
+      sidebarTitle: "Hide sidebar (⌃⌘S or ⌘\\)",
+    },
+    {
+      macOS: false,
+      repositoryTitle: "/work/project/.git\nSwitch repository (Ctrl+O)",
+      worktreeTitle: "/work/project\nSwitch worktree (Ctrl+Shift+O)",
+      repositoryShortcut: "Control+O",
+      worktreeShortcut: "Control+Shift+O",
+      searchShortcut: "Control+K",
+      searchHint: "Ctrl+K",
+      reloadTitle: "Reload (Ctrl+R)",
+      sidebarTitle: "Hide sidebar (Ctrl+Alt+S or Ctrl+\\)",
+    },
+  ])("shows native shortcut hints when macOS is $macOS", async (expected) => {
+    window.__RHIZOME_MACOS__ = expected.macOS;
+    onTestFinished(() => {
+      delete window.__RHIZOME_MACOS__;
+    });
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    act(() =>
+      emit({ type: "page", state: { section: "notes", search: "", sidebarCollapsed: false } }),
+    );
+    const repositoryButton = screen.getByRole("button", { name: "Repository project" });
+    expect(repositoryButton).toHaveAttribute("title", expected.repositoryTitle);
+    expect(repositoryButton).toHaveAttribute("aria-keyshortcuts", expected.repositoryShortcut);
+    const worktreeButton = screen.getByRole("button", { name: "Worktree main" });
+    expect(worktreeButton).toHaveAttribute("title", expected.worktreeTitle);
+    expect(worktreeButton).toHaveAttribute("aria-keyshortcuts", expected.worktreeShortcut);
+    expect(screen.getByRole("searchbox", { name: "Search this project" })).toHaveAttribute(
+      "aria-keyshortcuts",
+      expected.searchShortcut,
+    );
+    expect(screen.getByText(expected.searchHint)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reload" })).toHaveAttribute(
+      "title",
+      expected.reloadTitle,
+    );
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
+      "title",
+      expected.sidebarTitle,
+    );
+  });
+
   it("restores the window's selected worktree", async () => {
     start({ repository: repository.id, worktree: feature });
     await waitFor(() =>
@@ -686,8 +750,8 @@ describe("desktop shell", () => {
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
     slow = true;
-    openRepository(other.id);
-    openRepository(repository.id);
+    await openRepository(other.id);
+    await openRepository(repository.id);
     await waitFor(() => expect(opened()).toHaveLength(2));
     await act(async () => release());
     expect(opened()).toHaveLength(2);
@@ -713,7 +777,7 @@ describe("desktop shell", () => {
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
     slow = true;
-    openRepository(other.id);
+    await openRepository(other.id);
     act(() =>
       emit({ type: "select", library: both, repository: repository.id, worktree: feature }),
     );
@@ -811,8 +875,53 @@ describe("desktop shell", () => {
         });
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
-    openRepository(other.id);
+    await openRepository(other.id);
     expect(await screen.findByText("other is unavailable")).toBeVisible();
+    expect(call).toHaveBeenCalledWith("deselect", { selection: expect.any(Number) });
+  });
+
+  it("waits for the repository finder model before choosing during startup", async () => {
+    let selecting = false;
+    const selection = new Promise<void>((resolve, reject) => {
+      start(undefined, (operation, args) => {
+        if (operation === "list") return both;
+        if (operation === "open") {
+          if (!selecting) {
+            selecting = true;
+            const receive = emit;
+            emit = (message) => {
+              if (message.type === "finder" && message.choice === "open") {
+                expect(finderModel()?.mode).toBe("repositories");
+                expect(finderModel()?.rows).toEqual(
+                  expect.arrayContaining([expect.objectContaining({ repository: other.id })]),
+                );
+              }
+              receive(message);
+            };
+            queueMicrotask(() => {
+              Promise.resolve()
+                .then(() => openRepository(other.id))
+                .then(resolve, reject);
+            });
+          }
+          return { generation: ++generation, library: both };
+        }
+        if (
+          operation === "discover" &&
+          typeof args === "object" &&
+          args !== null &&
+          "id" in args &&
+          args.id === other.id
+        )
+          return Promise.reject({
+            code: "folder_missing",
+            message: "This repository is unavailable.",
+          });
+      });
+    });
+    await selection;
+    expect(await screen.findByText("other is unavailable")).toBeVisible();
+    expect(call).toHaveBeenCalledWith("discover", expect.objectContaining({ id: other.id }));
     expect(call).toHaveBeenCalledWith("deselect", { selection: expect.any(Number) });
   });
 
@@ -890,19 +999,19 @@ describe("desktop shell", () => {
       ["project", true],
     ]);
     // The current repository, shown on a feature worktree, switches to its primary.
-    openRepository(repository.id);
+    await openRepository(repository.id);
     await waitFor(() =>
       expect(opened().at(-1)).toEqual({ id: repository.id, worktree: main, skipSeed: false }),
     );
     // On the primary already, choosing it again changes nothing.
     const shown = opened().length;
-    openRepository(repository.id);
+    await openRepository(repository.id);
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(opened()).toHaveLength(shown);
-    openRepository(other.id);
+    await openRepository(other.id);
     await waitFor(() => expect(opened().at(-1)).toMatchObject({ id: other.id }));
     // A repository opens on its primary worktree, not the one last used here.
-    openRepository(repository.id);
+    await openRepository(repository.id);
     await waitFor(() =>
       expect(opened().at(-1)).toEqual({ id: repository.id, worktree: main, skipSeed: false }),
     );
@@ -918,11 +1027,11 @@ describe("desktop shell", () => {
     report({ step: "ready" });
     // Shown already, choosing it changes nothing.
     choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
-    openRepository(repository.id);
+    await openRepository(repository.id);
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(opened()).toHaveLength(1);
     report({ step: "sleeping" });
-    openRepository(repository.id);
+    await openRepository(repository.id);
     await waitFor(() => expect(opened()).toHaveLength(2));
     report({ step: "error" });
     choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });

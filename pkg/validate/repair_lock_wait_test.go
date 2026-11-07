@@ -53,8 +53,9 @@ func TestRepairWaiterRecoversExpiredPriority(t *testing.T) {
 		if err != nil || len(requests) != 2 {
 			return false
 		}
+		// Only final .json names prove atomic publication. The peer alone can
+		// keep priority live while the renewal's temporary file still exists.
 		for _, request := range requests {
-			// Wait for the final request, not its temporary publication file.
 			if request.Name() == entries[0].Name() || !strings.HasSuffix(request.Name(), ".json") {
 				return false
 			}
@@ -62,6 +63,7 @@ func TestRepairWaiterRecoversExpiredPriority(t *testing.T) {
 		return true
 	}, time.Second, 5*time.Millisecond, "the blocked repair must renew its own priority while the peer remains live")
 	require.NoFileExists(t, requestPath)
+	require.True(t, peer.Active(), "renewal must finish while the peer remains live")
 	peer.Close()
 	require.True(t, indexlock.CheckPriority(lockPath), "the renewed repair request must survive the peer exiting")
 }

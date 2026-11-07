@@ -32,7 +32,7 @@ it("retains an accessible search input and Linux shortcut when compact", () => {
   render(<PageTools state={state} searchRef={ref} onCommand={command} />);
   const input = screen.getByRole("searchbox", { name: "Search this project" });
   expect(ref.current).toBe(input);
-  expect(screen.getByText("Ctrl K")).toBeInTheDocument();
+  expect(screen.getByText("Ctrl+K")).toBeInTheDocument();
   fireEvent.change(input, { target: { value: "find this" } });
   fireEvent.submit(screen.getByRole("search"));
   expect(command).toHaveBeenCalledWith({ command: "search", query: "find this" });

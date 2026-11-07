@@ -9,8 +9,9 @@ import (
 	"sync"
 )
 
-// Store keeps one opaque record per origin. Keychain implements it on macOS,
-// SecretService on Linux, and MemoryStore in tests.
+// Store keeps one opaque record per origin in the user's native protected
+// store: Keychain on macOS, SecretService on Linux, and CredentialManager on
+// Windows. MemoryStore serves tests.
 type Store interface {
 	Load(origin string) ([]byte, error)
 	Save(origin string, record []byte) error

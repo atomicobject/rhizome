@@ -42,10 +42,10 @@ def _run(command, *, runner: Callable, cwd: Path, env: Mapping[str, str], timeou
 
 
 def verify_archive(root: Path, archive: Path, signature: Path, *, environ: Mapping[str, str],
-                   runner: Callable = subprocess.run) -> None:
+                   runner: Callable = subprocess.run, public_key: str | None = None) -> None:
     """Check the actual archive with the same pinned verifier used by Tauri."""
     try:
-        key = base64.b64decode(release_pubkey(root), validate=True)
+        key = base64.b64decode(public_key if public_key is not None else release_pubkey(root), validate=True)
         signed = base64.b64decode(signature.read_text().strip(), validate=True)
     except (ValueError, OSError) as error:
         raise DesktopSigningError("updater public key or signature is invalid") from error

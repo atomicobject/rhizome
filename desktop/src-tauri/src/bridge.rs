@@ -2,7 +2,7 @@ use crate::setup::{ScopeEdits, Secret, SetupChoices};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{path::Path, process::Stdio, time::Duration};
-use tokio::{io::AsyncWriteExt, process::Command};
+use tokio::io::AsyncWriteExt;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Failure {
@@ -56,6 +56,12 @@ pub struct Request<'a> {
     pub folders: Option<&'a [String]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repositories: Option<&'a [RepositoryRef]>,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub expected_generation: u64,
+}
+
+fn is_zero(value: &u64) -> bool {
+    *value == 0
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -78,8 +84,12 @@ pub async fn call(
     call_sidecar(directory, request, timeout, &sidecar()?).await
 }
 
-/// The `rzm` bundled beside the app's executable.
+/// The immutable portable companion, or the bundled macOS executable.
 pub fn sidecar() -> Result<std::path::PathBuf, String> {
+    if !cfg!(target_os = "macos") {
+        return crate::installation::sidecar()
+            .ok_or("The desktop installation was not prepared.".into());
+    }
     let current = std::env::current_exe().map_err(|e| e.to_string())?;
     Ok(current
         .parent()
@@ -87,13 +97,13 @@ pub fn sidecar() -> Result<std::path::PathBuf, String> {
         .join(if cfg!(windows) { "rzm.exe" } else { "rzm" }))
 }
 
-async fn call_sidecar(
+pub(crate) async fn call_sidecar(
     directory: &Path,
     request: Request<'_>,
     timeout: Duration,
     sidecar: &Path,
 ) -> Result<Value, Failure> {
-    let mut child = Command::new(sidecar)
+    let mut child = crate::process::command(sidecar)
         .arg("desktop-bridge")
         .arg("--state-dir")
         .arg(directory)

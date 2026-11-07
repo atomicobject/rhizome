@@ -34,6 +34,8 @@ type Request struct {
 	// Folders and Repositories select what the status operation reports.
 	Folders      []string        `json:"folders,omitempty"`
 	Repositories []RepositoryRef `json:"repositories,omitempty"`
+	// ExpectedGeneration guards a portable uninstall against a newer installation.
+	ExpectedGeneration uint64 `json:"expectedGeneration,omitempty"`
 }
 
 type Problem struct {
@@ -89,6 +91,8 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 	var err error
 	if req.Key != "" && req.Operation != "initialize" && req.Operation != "provider-key-set" {
 		err = problem("invalid_request", "A key is accepted only when saving a provider key or initializing a repository.")
+	} else if req.ExpectedGeneration != 0 && req.Operation != "cli-link-remove" {
+		err = problem("invalid_request", "An installation generation is accepted only when removing the command-line tool.")
 	} else if req.Protocol != Protocol {
 		err = problem("invalid_request", "Unsupported desktop bridge protocol.")
 	} else {
@@ -126,7 +130,7 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 		case "cli-link-install":
 			response.Result, err = s.CLILinkInstall(ctx)
 		case "cli-link-remove":
-			response.Result, err = s.CLILinkRemove(ctx)
+			response.Result, err = s.CLILinkRemoveExpected(ctx, req.ExpectedGeneration)
 		case "pin-advance":
 			response.Result, err = s.PinAdvance(ctx, req.Folder)
 		default:

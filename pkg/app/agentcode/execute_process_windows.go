@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 )
 
 func configureExecuteCommand(command *exec.Cmd) {}
@@ -17,7 +19,9 @@ func terminateExecuteProcessTree(command *exec.Cmd) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(command.Process.Pid), "/T", "/F").Run(); err != nil {
+	kill := exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(command.Process.Pid), "/T", "/F")
+	hiddencommand.Configure(kill)
+	if err := kill.Run(); err != nil {
 		_ = command.Process.Kill()
 		return err
 	}

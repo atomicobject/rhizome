@@ -12,6 +12,8 @@ declare global {
     __RHIZOME_FINDER__?: boolean;
     /** The app's settings when this shell's window opened, for its first paint. */
     __RHIZOME_SHELL_SETTINGS__?: AppSettings;
+    /** Native window chrome needs space for the macOS traffic lights. */
+    __RHIZOME_MACOS__?: boolean;
   }
 }
 
@@ -121,6 +123,7 @@ export interface LinkInfo {
   linkPath: string;
   state: LinkState;
   target?: string;
+  desktopIntegrationError?: string;
   /** What the user's login shell runs for `rzm`. */
   shell: { path?: string; version?: string; isApp: boolean; error?: string };
 }
@@ -385,6 +388,7 @@ type Results = {
   "cli-link-status": LinkInfo;
   "cli-link-install": LinkInfo;
   "cli-link-remove": LinkInfo;
+  "desktop-integration-remove": LinkInfo;
   "pin-advance": unknown;
   "dismiss-pin-offer": Library;
   trust: unknown;
@@ -436,6 +440,7 @@ type Args = {
   "cli-link-status": Record<string, never>;
   "cli-link-install": Record<string, never>;
   "cli-link-remove": Record<string, never>;
+  "desktop-integration-remove": Record<string, never>;
   "pin-advance": { id: string; worktree: string };
   "dismiss-pin-offer": { id: string; version: string };
   trust: { id: string; worktree: string };

@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { attachFinder, request, type FinderChoice, type FinderModel, type FinderRow } from "./api";
+import { primaryModifier, shortcut } from "./keyboard";
 
 // The repository (⌘O) and worktree (⇧⌘O) finders (SPEC-0126 US9, US10). The
 // shell builds the rows (Switcher.tsx); this overlay webview filters them and
@@ -170,8 +171,8 @@ export function Finder({
     if (event.key === "Escape") onChoose({ choice: "close" });
     else if (event.key === "ArrowDown") highlight(index + 1);
     else if (event.key === "ArrowUp") highlight(index - 1);
-    else if (event.key === "Enter") open(shown[index]?.row, event.metaKey);
-    else if (repositories && event.metaKey && digit >= 1 && digit <= 9)
+    else if (event.key === "Enter") open(shown[index]?.row, primaryModifier(event));
+    else if (repositories && primaryModifier(event) && digit >= 1 && digit <= 9)
       open(shown[digit - 1]?.row, false);
     // → at the end of the query opens the highlighted row's actions, as in Alfred.
     else if (
@@ -230,7 +231,7 @@ export function Finder({
               aria-selected={at === index}
               className="finder-row"
               onMouseMove={() => at !== index && setActive(rowKey(row))}
-              onClick={(event) => open(row, event.metaKey)}
+              onClick={(event) => open(row, primaryModifier(event))}
             >
               <span
                 className={`runtime-dot ${row.runtime}`}
@@ -255,7 +256,7 @@ export function Finder({
                     <Marked text={row.detail.replace(HOME, "~")} at={tilde(row.detail, detail)} />
                   </span>
                 )}
-                {repositories && at < 9 && <kbd>⌘{at + 1}</kbd>}
+                {repositories && at < 9 && <kbd>{shortcut({ key: String(at + 1) }).label}</kbd>}
                 {repositories && (
                   <button
                     className="icon-button finder-actions"
@@ -292,7 +293,7 @@ export function Finder({
             open
           </span>
           <span>
-            <kbd>⌘↵</kbd>
+            <kbd>{shortcut({ key: "↵" }).label}</kbd>
             new window
           </span>
           {repositories && (
