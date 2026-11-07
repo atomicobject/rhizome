@@ -47,7 +47,9 @@ import (
 // under the looser inline or case-folded comparison are retyped.
 // v26: embedded records publish lexical search rows with their catalog nodes, so existing
 // indexes republish records for search without embeddings.
-const OntologyMaterializationVersion = 26
+// v27: relation occurrences name their authoring node and field, and a relation declared from
+// both ends merges into one edge row instead of keeping whichever host wrote last.
+const OntologyMaterializationVersion = 27
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

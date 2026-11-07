@@ -168,23 +168,34 @@ func nodeScopedLinkEdges(schema *ontoschema.Schema, cache *obsidian.NotePathCach
 	}
 	return out
 }
+
+// ontologyEdgeKey is the ontology_edges primary key.
+func ontologyEdgeKey(edge semdb.OntologyEdgeRow) string {
+	return edge.SrcPath + "\x00" + edge.SrcNodeID + "\x00" + edge.RelationName + "\x00" + edge.DstPath + "\x00" + edge.DstNodeID + "\x00" + edge.Provenance
+}
+
+// mergeEdge combines two rows sharing a key: a structural row keeps every
+// occurrence in emission order; a later non-structural row replaces it.
+func mergeEdge(existing, edge semdb.OntologyEdgeRow) semdb.OntologyEdgeRow {
+	if !existing.Structural {
+		return edge
+	}
+	if edge.OccurrencesJSON != "" {
+		var left, right []readmodel.RelationOccurrence
+		_ = json.Unmarshal([]byte(existing.OccurrencesJSON), &left)
+		_ = json.Unmarshal([]byte(edge.OccurrencesJSON), &right)
+		encoded, _ := json.Marshal(append(left, right...))
+		existing.OccurrencesJSON = string(encoded)
+	}
+	return existing
+}
+
 func dedupeEdges(edges []semdb.OntologyEdgeRow) []semdb.OntologyEdgeRow {
 	seen := make(map[string]semdb.OntologyEdgeRow, len(edges))
 	for _, edge := range edges {
-		key := edge.SrcPath + "\x00" + edge.SrcNodeID + "\x00" + edge.RelationName + "\x00" + edge.DstPath + "\x00" + edge.DstNodeID + "\x00" + edge.Provenance
+		key := ontologyEdgeKey(edge)
 		if existing, ok := seen[key]; ok {
-			if existing.Structural {
-				if edge.OccurrencesJSON != "" {
-					var left, right []readmodel.RelationOccurrence
-					_ = json.Unmarshal([]byte(existing.OccurrencesJSON), &left)
-					_ = json.Unmarshal([]byte(edge.OccurrencesJSON), &right)
-					left = append(left, right...)
-					encoded, _ := json.Marshal(left)
-					existing.OccurrencesJSON = string(encoded)
-					seen[key] = existing
-				}
-				continue
-			}
+			edge = mergeEdge(existing, edge)
 		}
 		seen[key] = edge
 	}
