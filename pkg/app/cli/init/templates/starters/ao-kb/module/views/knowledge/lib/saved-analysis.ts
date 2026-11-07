@@ -1,6 +1,7 @@
 /** Saved AO output only: parseSavedAnalysis(text) validates a weights document;
  * savedAssertion(snapshot, id, updatedAt?) returns its verbatim assessment.
- * readSavedAnalysis(readText?) loads .kb/index/kb-weights.json on demand.
+ * readSavedAnalysis(readText?) loads .kb/index/kb-weights.json on demand; null when unavailable
+ * (query functions must not resolve undefined).
  * No band computation or inferred freshness. Invalid/unreadable input is unavailable.
  */
 import { readVaultText } from './passage.ts';
@@ -28,7 +29,7 @@ export function parseSavedAnalysis(text: string | undefined): SavedAnalysis | un
     return { meta, assertions, concepts: doc.concepts, artifacts: doc.artifacts };
   } catch { return undefined; }
 }
-export function savedAssertion(snapshot: SavedAnalysis | undefined, id: string, updatedAt?: string): SavedAssessment {
+export function savedAssertion(snapshot: SavedAnalysis | null | undefined, id: string, updatedAt?: string): SavedAssessment {
   if (!snapshot) return { status: 'unavailable' };
   const entry = Object.hasOwn(snapshot.assertions, id) ? snapshot.assertions[id] : undefined;
   if (!entry) return { status: 'not-in-snapshot' };
@@ -43,6 +44,6 @@ function comparableDate(value: string | undefined): number {
   if (!Number.isFinite(midnight) || new Date(midnight).toISOString().slice(0, 10) !== day) return NaN;
   return Date.parse(value);
 }
-export async function readSavedAnalysis(readText: ReadText = readVaultText): Promise<SavedAnalysis | undefined> {
-  try { return parseSavedAnalysis(await readText('.kb/index/kb-weights.json')); } catch { return undefined; }
+export async function readSavedAnalysis(readText: ReadText = readVaultText): Promise<SavedAnalysis | null> {
+  try { return parseSavedAnalysis(await readText('.kb/index/kb-weights.json')) ?? null; } catch { return null; }
 }
