@@ -117,8 +117,8 @@ func (h *Hub) maybeRetryFSEvents(backend *fseventsBackend, reason error) bool {
 		}
 		if err := backend.startStream(); err != nil {
 			h.logger.Printf("watchhub: fsevents retry failed: %v", err)
-			if !h.maybeRetryFSEvents(backend, err) {
-				_ = h.fallbackToFSNotify(backend, err)
+			if !h.maybeRetryFSEvents(backend, err) && !h.fallbackToFSNotify(backend, err) {
+				h.markStale(StaleEvent{Reason: StaleWatcherError, Source: SourceFSNotify})
 			}
 			return
 		}

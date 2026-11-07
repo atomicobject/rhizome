@@ -187,8 +187,9 @@ export type Message =
   | OpenState
   | Presence
   | { type: "library"; library: Library }
-  /** A worktree opened from the terminal, chosen in this window. */
-  | { type: "select"; library: Library; repository: string; worktree: string }
+  /** A worktree opened from the terminal, chosen in this window; `started`
+   * is when the terminal asked, in milliseconds since the epoch. */
+  | { type: "select"; library: Library; repository: string; worktree: string; started?: number }
   | ({ type: "alert" } & Alert)
   /** A brief confirmation, such as after Copy Page URL. */
   | { type: "notice"; message: string }

@@ -21,6 +21,7 @@ export function LocatorWidget({
 }) {
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cancelBlur = useRef(false);
   const valid = isValidLocator(draft);
 
   useEffect(() => {
@@ -41,9 +42,11 @@ export function LocatorWidget({
       if (event.key === "Enter") {
         event.preventDefault();
         commit();
+        cancelBlur.current = true;
         inputRef.current?.blur();
       } else if (event.key === "Escape") {
         event.preventDefault();
+        cancelBlur.current = true;
         setDraft(value);
         inputRef.current?.blur();
       }
@@ -71,7 +74,15 @@ export function LocatorWidget({
         aria-invalid={!valid}
         pattern="[A-Za-z0-9_-]+"
         onChange={(event) => setDraft(event.target.value.replace(/^\^+/, ""))}
-        onBlur={commit}
+        onBlur={() => {
+          if (cancelBlur.current) {
+            cancelBlur.current = false;
+
+            return;
+          }
+
+          commit();
+        }}
         onKeyDown={handleKeyDown}
       />
     </span>

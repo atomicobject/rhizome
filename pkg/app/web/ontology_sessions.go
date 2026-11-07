@@ -91,23 +91,29 @@ func (s *Server) ontologyEditSession(id string) (*ontologyEditSession, bool) {
 }
 
 func (s *Server) deleteOntologyEditSession(id string) bool {
-	s.editSessionsMu.Lock()
-	session, ok := s.editSessions[id]
+	session, ok := s.ontologyEditSession(id)
 	if !ok {
-		s.editSessionsMu.Unlock()
 		return false
 	}
 	// Mark the session before waiting for an operation that already holds its
 	// pointer. That operation will fail its live-session check rather than
-	// recreating reservations after this deletion completes.
+	// recreating reservations after this deletion completes. A pointer only
+	// leaves the map through deletion, so marking before the recheck is safe.
 	session.deleted.Store(true)
-	delete(s.editSessions, id)
+	// Wait for an in-flight commit without holding editSessionsMu, so other
+	// sessions' lookups and creation proceed. Lock order: session.mu, then
+	// editSessionsMu; nothing takes session.mu while holding editSessionsMu.
 	session.mu.Lock()
+	defer session.mu.Unlock()
+	s.editSessionsMu.Lock()
+	defer s.editSessionsMu.Unlock()
+	if s.editSessions[id] != session {
+		return false
+	}
+	delete(s.editSessions, id)
 	if coordinator := s.runtime.RepairPathCoordinator(); coordinator != nil {
 		coordinator.ReleaseManualSession(s.validationVaultIdentity(), id)
 	}
-	session.mu.Unlock()
-	s.editSessionsMu.Unlock()
 	return true
 }
 

@@ -281,18 +281,18 @@ func addFrontmatterTags(content string, tagsToAdd []string) (string, bool) {
 // removeInlineHashtags removes hashtags from content (excluding code blocks)
 func removeInlineHashtags(content string, tagsToDelete []string) (string, bool) {
 	lines := strings.Split(content, "\n")
-	var inCodeBlock bool
+	var fence string
 	changed := false
 
 	for i, line := range lines {
-		// Toggle code block state
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
-			inCodeBlock = !inCodeBlock
+		// Track fenced code blocks; closers must match the opener's character and length.
+		if next, ok := markdownsyntax.FenceDelimiter(line, fence); ok {
+			fence = next
 			continue
 		}
 
 		// Skip lines in code blocks
-		if inCodeBlock {
+		if fence != "" {
 			continue
 		}
 
@@ -312,18 +312,18 @@ func removeInlineHashtags(content string, tagsToDelete []string) (string, bool) 
 // replaceInlineHashtags replaces hashtags in content (excluding code blocks)
 func replaceInlineHashtags(content string, fromTags []string, toTag string) (string, bool) {
 	lines := strings.Split(content, "\n")
-	var inCodeBlock bool
+	var fence string
 	changed := false
 
 	for i, line := range lines {
-		// Toggle code block state
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
-			inCodeBlock = !inCodeBlock
+		// Track fenced code blocks; closers must match the opener's character and length.
+		if next, ok := markdownsyntax.FenceDelimiter(line, fence); ok {
+			fence = next
 			continue
 		}
 
 		// Skip lines in code blocks
-		if inCodeBlock {
+		if fence != "" {
 			continue
 		}
 

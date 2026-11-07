@@ -353,3 +353,44 @@ func hasCacheEntry(svc *Service, path string) bool {
 	_, ok := svc.Entry(path)
 	return ok
 }
+
+func TestRefreshCancellationRequeuesDrainedEventsBeneathNewerEvents(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"a.md", "b.md", "c.md"} {
+		writeCacheFile(t, root, name, "# "+name)
+	}
+
+	var svc *Service
+	var cancel context.CancelFunc
+	injectDuringB := false
+	svc, err := NewService(root, Options{AdmitNote: func(path paths.NotePath) bool {
+		if injectDuringB && path.String() == "b.md" {
+			injectDuringB = false
+			// a.md reappears while its drained Removed event is in flight.
+			writeCacheFile(t, root, "a.md", "# a recreated")
+			svc.MarkDirty("a.md", DirtyCreated)
+			cancel()
+		}
+		return true
+	}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	require.NoError(t, os.Remove(filepath.Join(root, "a.md")))
+	svc.MarkDirty("a.md", DirtyRemoved)
+	svc.MarkDirty("b.md", DirtyModified)
+	svc.MarkDirty("c.md", DirtyModified)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	cancel = cancelFunc
+	injectDuringB = true
+	_, err = svc.RefreshWithResult(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, DirtyRecreated, svc.DirtySnapshot()["a.md"])
+
+	require.NoError(t, svc.Refresh(context.Background()))
+	entry, ok := svc.Entry("a.md")
+	require.True(t, ok, "a.md exists on disk and must stay cached")
+	require.Equal(t, "# a recreated", entry.Content)
+}

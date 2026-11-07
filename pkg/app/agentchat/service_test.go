@@ -64,6 +64,8 @@ type fakeSession struct {
 	responses   chan approvalResponse
 	stopped     chan struct{}
 	stopOnce    sync.Once
+	// respondHook, when set, runs before Respond records the decision.
+	respondHook func()
 }
 
 func (f *fakeSession) ID() string { return f.SessionID }
@@ -88,6 +90,9 @@ func (f *fakeSession) SendTurn(ctx context.Context, prompt string) error {
 }
 func (f *fakeSession) Interrupt(context.Context) error { f.interrupts <- struct{}{}; return nil }
 func (f *fakeSession) Respond(requestID string, decision harness.Decision) error {
+	if f.respondHook != nil {
+		f.respondHook()
+	}
 	f.responses <- approvalResponse{requestID: requestID, decision: decision}
 	return nil
 }

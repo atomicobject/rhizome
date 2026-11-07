@@ -2,6 +2,7 @@ package watchhub
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -609,5 +610,31 @@ func TestBackendReadySettleOnlyDelaysRealFSNotify(t *testing.T) {
 	}
 	if got := backendReadySettle(&fsnotifyBackend{}); got < 50*time.Millisecond {
 		t.Fatalf("fsnotify backend settle = %s, want at least 50ms", got)
+	}
+}
+
+type failingStartBackend struct{ *fakeBackend }
+
+func (failingStartBackend) Start(context.Context) error { return errors.New("start failed") }
+
+func TestStartFailureWithoutFallbackMarksSubscribersStale(t *testing.T) {
+	hub, err := NewHub(t.TempDir(), Options{DisableFSNotify: true})
+	require.NoError(t, err)
+	hub.setBackend(failingStartBackend{newFakeBackend(true)})
+	t.Cleanup(func() { _ = hub.Close() })
+
+	staleCh := make(chan StaleEvent, 1)
+	unsub := hub.Subscribe("test", Filter{IncludeFiles: true}, nil, func(ctx context.Context, ev StaleEvent) {
+		staleCh <- ev
+	})
+	defer unsub()
+
+	hub.Start(context.Background())
+
+	select {
+	case ev := <-staleCh:
+		require.Equal(t, StaleWatcherError, ev.Reason)
+	case <-time.After(time.Second):
+		t.Fatal("subscriber was not told the watcher failed to start")
 	}
 }

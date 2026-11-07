@@ -81,7 +81,7 @@ func runPreparedPipeline[Task any, Prepared preparedPipelineWork, Owner any](
 
 	pipelineErrCh := make(chan error, 1)
 	go func() {
-		pipelineErrCh <- runPipeline(func(owner Owner) error {
+		err := runPipeline(func(owner Owner) error {
 			if err := finalize(owner); err != nil {
 				setErr(err)
 				return err
@@ -91,6 +91,12 @@ func runPreparedPipeline[Task any, Prepared preparedPipelineWork, Owner any](
 			}
 			return nil
 		})
+		// A pipeline that stops early stops reading preparedCh; cancel so the
+		// preparation workers and the enqueue loop exit instead of blocking.
+		if err != nil && !errors.Is(err, context.Canceled) {
+			setErr(err)
+		}
+		pipelineErrCh <- err
 	}()
 
 	taskCh := make(chan Task, workerCount*2)
@@ -133,7 +139,7 @@ func runPreparedPipeline[Task any, Prepared preparedPipelineWork, Owner any](
 
 enqueueLoop:
 	for _, task := range tasks {
-		if firstErr != nil {
+		if ctx.Err() != nil {
 			break
 		}
 		select {
@@ -146,9 +152,7 @@ enqueueLoop:
 	prepWG.Wait()
 	close(preparedCh)
 
-	if err := <-pipelineErrCh; err != nil && !errors.Is(err, context.Canceled) {
-		setErr(err)
-	}
+	<-pipelineErrCh
 	if firstErr != nil {
 		return firstErr
 	}

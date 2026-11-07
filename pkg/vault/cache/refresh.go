@@ -92,6 +92,13 @@ func (s *Service) refresh(ctx context.Context) (result RefreshResult, err error)
 		}
 
 		internalFreshness := isInternalFreshnessPath(path)
+		if kind == DirtyRemoved {
+			// Concurrent refreshes can requeue an older removal over a newer
+			// recreation; disk decides whether the path is really gone.
+			if abs := s.absPath(path); abs != "" && existsWithSpelling(abs) {
+				kind = DirtyRecreated
+			}
+		}
 		switch kind {
 		case DirtyRemoved, DirtyRenamed:
 			if s.removeTree(path) {
@@ -239,6 +246,27 @@ func (s *Service) recrawl() {
 	s.mu.Unlock()
 }
 
+// existsWithSpelling reports whether abs exists with exactly its final name.
+// A case-insensitive filesystem also finds `Note.md` after it was replaced by
+// `note.md`, which must still count as removed.
+func existsWithSpelling(abs string) bool {
+	// Most removals are real; skip the folder read when nothing is there.
+	if _, err := os.Stat(abs); err != nil {
+		return false
+	}
+	entries, err := os.ReadDir(filepath.Dir(abs))
+	if err != nil {
+		return false
+	}
+	name := filepath.Base(abs)
+	for _, entry := range entries {
+		if entry.Name() == name {
+			return true
+		}
+	}
+	return false
+}
+
 func isInternalFreshnessPath(rel string) bool {
 	rel = filepath.ToSlash(strings.TrimSpace(rel))
 	switch {
@@ -271,7 +299,12 @@ func (s *Service) markDirty(absPath string, kind DirtyKind) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.mergeDirtyLocked(rel, kind)
+}
 
+// mergeDirtyLocked folds a newer event kind into rel's pending kind. Callers
+// hold s.mu.
+func (s *Service) mergeDirtyLocked(rel string, kind DirtyKind) {
 	if existing, ok := s.dirty[rel]; ok {
 		// Created/Modified → Renamed: keep the rename so we rescan the parent dir.
 		//
@@ -284,8 +317,8 @@ func (s *Service) markDirty(absPath string, kind DirtyKind) {
 			return
 		}
 
-		// Removed → Created/Modified = Recreated (rapid delete+create)
-		if existing == DirtyRemoved && (kind == DirtyCreated || kind == DirtyModified) {
+		// Removed → Created/Modified/Recreated = Recreated (rapid delete+create)
+		if existing == DirtyRemoved && (kind == DirtyCreated || kind == DirtyModified || kind == DirtyRecreated) {
 			s.dirty[rel] = DirtyRecreated
 			return
 		}

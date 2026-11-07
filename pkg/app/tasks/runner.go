@@ -383,6 +383,8 @@ func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, c
 		if itemID != "" {
 			it, _ = st.Item(itemID)
 		}
+		// The person may have closed the item during the run; keep it closed.
+		closed := it != nil && !it.Active()
 		if it == nil {
 			if prior := st.ActiveTaskItem(def.ID); prior != nil && prior.State == StateAttention && prior.Worktree == "" {
 				it = prior
@@ -392,8 +394,10 @@ func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, c
 		if it == nil {
 			it = st.AddItem(Item{Task: def.ID, Kind: KindTask, Commit: commit}, now)
 		}
-		it.set(StateAttention, now)
-		it.Reason, it.Tokens = reason, tokens
+		if !closed {
+			it.set(StateAttention, now)
+			it.Reason, it.Tokens = reason, tokens
+		}
 		itemID = it.ID
 		r := a.record(def.ID, OutcomeFailed, now)
 		r.Message, r.Tokens, r.Item, r.Commit = reason, tokens, it.ID, commit

@@ -82,6 +82,61 @@ describe("IndexReadyBanner", () => {
     expect(statusCalls).toBe(2);
   });
 
+  it("ignores a stale initializing reply that arrives after a newer ready one", async () => {
+    const first = deferredReply<StatusResponse>();
+    const second = deferredReply<StatusResponse>();
+
+    const replies = [
+      Promise.resolve(jsonReply(makeStatus("initializing"))),
+      first.promise,
+      second.promise,
+    ];
+
+    http.on("GET", "/api/v1/status", () => replies.shift() ?? jsonReply(makeStatus("ready")));
+
+    render(<IndexReadyBanner />);
+    await screen.findByTestId("index-ready-banner");
+    await waitFor(() => expect(sources.instances).toHaveLength(1));
+    const source = sources.latest();
+
+    await act(async () => {
+      source.emit("", "index.changed");
+      source.emit("", "index.changed");
+    });
+    await act(async () => second.resolve(makeStatus("ready")));
+    await waitFor(() => expect(screen.queryByTestId("index-ready-banner")).toBeNull());
+
+    await act(async () => first.resolve(makeStatus("initializing")));
+    expect(screen.queryByTestId("index-ready-banner")).toBeNull();
+    expect(sources.instances).toHaveLength(1);
+  });
+
+  it("applies an earlier ready reply when the newer refresh fails", async () => {
+    const first = deferredReply<StatusResponse>();
+    const second = deferredReply<StatusResponse>();
+
+    const replies = [
+      Promise.resolve(jsonReply(makeStatus("initializing"))),
+      first.promise,
+      second.promise,
+    ];
+
+    http.on("GET", "/api/v1/status", () => replies.shift() ?? jsonReply(makeStatus("ready")));
+
+    render(<IndexReadyBanner />);
+    await screen.findByTestId("index-ready-banner");
+    await waitFor(() => expect(sources.instances).toHaveLength(1));
+    const source = sources.latest();
+
+    await act(async () => {
+      source.emit("", "index.changed");
+      source.emit("", "index.changed");
+    });
+    await act(async () => second.reject(new Error("status unavailable")));
+    await act(async () => first.resolve(makeStatus("ready")));
+    await waitFor(() => expect(screen.queryByTestId("index-ready-banner")).toBeNull());
+  });
+
   it("closes the EventSource when the component unmounts", async () => {
     statusReplies("initializing");
 

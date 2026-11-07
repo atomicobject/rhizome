@@ -2,6 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { OntologyEditOp } from "../../api/types";
 import { readPersistedEditorDraftRecord, writePersistedEditorDraft } from "./draftStorage";
 import { flushEditors } from "./editorFlush";
 import { EmptyNarrativeEditor, SourceEditor } from "./SourceEditor";
@@ -374,5 +375,70 @@ describe("SourceEditor", () => {
         expected: { sourceHash: "base-hash", sourceContent: revision.content },
       }),
     ]);
+  });
+
+  it("stages newer narrative typing after an earlier insertion replaces the editor", async () => {
+    const finishes: Array<() => void> = [];
+
+    const stage = vi.fn(
+      (_ops: OntologyEditOp[]) => new Promise<void>((resolve) => finishes.push(resolve)),
+    );
+
+    const target = "narrative-insert:notes%2Fa.md:root";
+
+    const { unmount } = render(
+      <EmptyNarrativeEditor
+        revision={revision}
+        nodeRef={{ notePath: "notes/a.md", kind: "NOTE" }}
+        vaultKey="/vault"
+        onStageOps={stage}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Add narrative" });
+    fireEvent.change(input, { target: { value: "A" } });
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: "A then B" } });
+    // The staged insertion renders as narrative, replacing this editor.
+    unmount();
+
+    await act(async () => finishes[0]());
+
+    expect(stage).toHaveBeenCalledTimes(2);
+    expect(stage.mock.calls[1][0]).toMatchObject([{ id: target, markdown: "A then B" }]);
+    expect(readPersistedEditorDraftRecord("/vault", target)?.value).toBe("A then B");
+
+    await act(async () => finishes[1]());
+
+    expect(readPersistedEditorDraftRecord("/vault", target)).toBeNull();
+  });
+
+  it("clears a narrative draft emptied while its insertion stages", async () => {
+    let finishStage!: () => void;
+
+    const stage = vi.fn(
+      (_ops: OntologyEditOp[]) => new Promise<void>((resolve) => (finishStage = resolve)),
+    );
+
+    render(
+      <EmptyNarrativeEditor
+        revision={revision}
+        nodeRef={{ notePath: "notes/a.md", kind: "NOTE" }}
+        vaultKey="/vault"
+        onStageOps={stage}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Add narrative" });
+    fireEvent.change(input, { target: { value: "A" } });
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: "" } });
+
+    await act(async () => finishStage());
+
+    expect(stage).toHaveBeenCalledTimes(1);
+    expect(
+      readPersistedEditorDraftRecord("/vault", "narrative-insert:notes%2Fa.md:root"),
+    ).toBeNull();
   });
 });

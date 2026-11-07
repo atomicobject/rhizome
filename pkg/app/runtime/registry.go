@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -42,7 +43,8 @@ type InstanceManifest struct {
 }
 
 type Registry struct {
-	dir string
+	dir      string
+	pidAlive func(int) bool // nil means pidExists; tests replace it
 }
 
 func NewRegistry(env vaultconfig.Env) (*Registry, error) {
@@ -111,6 +113,10 @@ func (r *Registry) PruneStale() error {
 	if r == nil {
 		return nil
 	}
+	alive := r.pidAlive
+	if alive == nil {
+		alive = pidExists
+	}
 	entries, err := os.ReadDir(r.dir)
 	if err != nil {
 		return err
@@ -126,14 +132,25 @@ func (r *Registry) PruneStale() error {
 			continue
 		}
 		if err := json.Unmarshal(data, &manifest); err != nil {
-			_ = os.Remove(fullPath)
+			removeIfUnchanged(fullPath, data)
 			continue
 		}
-		if !pidExists(manifest.PID) {
-			_ = os.Remove(fullPath)
+		if !alive(manifest.PID) {
+			removeIfUnchanged(fullPath, data)
 		}
 	}
 	return nil
+}
+
+// removeIfUnchanged deletes path only while it still holds the bytes judged
+// stale. Write stamps UpdatedAt, so any republish since the read differs.
+// ponytail: a Write landing between this re-read and Remove is still lost; a
+// cross-process registry lock would close that window.
+func removeIfUnchanged(path string, judged []byte) {
+	current, err := fileio.ReadFile(path)
+	if err == nil && bytes.Equal(current, judged) {
+		_ = os.Remove(path)
+	}
 }
 
 func (r *Registry) List() ([]InstanceManifest, error) {

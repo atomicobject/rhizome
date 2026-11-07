@@ -339,7 +339,10 @@ export function NotesModifiedHome({ session, onOpenNote, onReplaceOps }: Props) 
 
   useEffect(() => {
     if (!sessionId || !snapshot) {
+      latestRequest.current++;
       setData(null);
+      setLoading(false);
+      setError(null);
 
       return;
     }

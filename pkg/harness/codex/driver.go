@@ -37,6 +37,7 @@ type Driver struct {
 	versionAt       time.Time
 	versionValue    string
 	versionErr      error
+	versionProbe    *versionProbe
 }
 
 func New() *Driver {

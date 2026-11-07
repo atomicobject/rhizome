@@ -400,6 +400,37 @@ describe("useOntologyEditSession", () => {
     expect(result.current.session).toBeNull();
   });
 
+  it("rejects an edit made while Discard is in flight instead of queueing it behind Discard", async () => {
+    const first = { ...setField("1"), id: "field-x" };
+    const later = { ...setField("2"), id: "field-y", field: "y" };
+    http.json("POST", "/api/v1/edit-sessions", { ...sessionResponse(), revision: 1, ops: [first] });
+    const deletion = deferredReply<object>();
+    http.on("DELETE", "/api/v1/edit-sessions/edit-1", () => deletion.promise);
+    const { result } = renderHook(() => useOntologyEditSession(), { wrapper });
+
+    await act(async () => {
+      await result.current.stageOps([first]);
+    });
+
+    let discarded!: Promise<void>;
+    act(() => {
+      discarded = result.current.discard();
+    });
+
+    await act(async () => {
+      await expect(result.current.stageOps([later])).rejects.toThrow("Discard");
+    });
+    expect(result.current.session?.ops).toEqual([first]);
+
+    await act(async () => {
+      deletion.resolve({});
+      await discarded;
+    });
+    expect(result.current.session).toBeNull();
+    expect(result.current.error).toMatch(/Discard/);
+    expect(http.count("POST", "/api/v1/edit-sessions/edit-1/stage")).toBe(0);
+  });
+
   it("keeps the first edit's target when the same field is edited again", async () => {
     const first = { ...setField("1"), id: "field-x" };
     http.json("POST", "/api/v1/edit-sessions", { ...sessionResponse(), revision: 1, ops: [first] });
