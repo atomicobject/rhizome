@@ -6,6 +6,7 @@ package coderefs
 // Related: [Dirty tracking + Refresh semantics](docs/reference/analysis/Dirty tracking + Refresh semantics.md) (rename/recreate edge cases)
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -392,13 +393,16 @@ func isBinary(content []byte) bool {
 // ScanConfigured returns the resolved references in every file a note rename
 // would rewrite. Unlike the rewriter it fails on an unreadable file, because
 // callers use the result to decide that nothing in code cites a note.
-func ScanConfigured(vaultPath string, config *Config, noteCache *obsidian.NotePathCache) ([]CodeRef, error) {
+func ScanConfigured(ctx context.Context, vaultPath string, config *Config, noteCache *obsidian.NotePathCache) ([]CodeRef, error) {
 	files, err := discoverCodeFilesForRewrite(vaultPath, config, true)
 	if err != nil {
 		return nil, err
 	}
 	var refs []CodeRef
 	for _, relPath := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		content, err := os.ReadFile(filepath.Join(vaultPath, relPath))
 		if err != nil {
 			return nil, err

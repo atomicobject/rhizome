@@ -139,7 +139,7 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 
 	// Code comments cite blocks too, and the note-link inventory never sees
 	// them. When they cannot be scanned, no removal is safe.
-	codeRefs, codeRefsErr := codeBlockReferences(runCtx.VaultPath, inventory.cache)
+	codeRefs, codeRefsErr := codeBlockReferences(ctx, runCtx.VaultPath, inventory.cache)
 	for notePath, ids := range codeRefs {
 		for id := range ids {
 			if _, present := anchorsByNote[notePath][id]; present {
@@ -268,7 +268,7 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 // note path. Persisted doc_links rows drop the fragment, so this scans the
 // configured coderef files live. A nil map and nil error mean coderefs are not
 // configured, so Rhizome tracks no code references to protect.
-func codeBlockReferences(vaultPath string, cache *obsidian.NotePathCache) (map[string]map[string]struct{}, error) {
+func codeBlockReferences(ctx context.Context, vaultPath string, cache *obsidian.NotePathCache) (map[string]map[string]struct{}, error) {
 	local, err := repoconfig.LoadLocalConfig(vaultPath)
 	if errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		return nil, nil
@@ -280,7 +280,7 @@ func codeBlockReferences(vaultPath string, cache *obsidian.NotePathCache) (map[s
 	if len(includes) == 0 {
 		return nil, nil
 	}
-	refs, err := coderefs.ScanConfigured(vaultPath, coderefs.NewConfig(true, includes, excludes), cache)
+	refs, err := coderefs.ScanConfigured(ctx, vaultPath, coderefs.NewConfig(true, includes, excludes), cache)
 	if err != nil {
 		return nil, fmt.Errorf("scan coderefs: %w", err)
 	}

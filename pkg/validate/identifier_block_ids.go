@@ -152,7 +152,7 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 				if err != nil {
 					return nil, nil, fmt.Errorf("load identifier block-id references: %w", err)
 				}
-				codeRefs, codeRefsErr = codeBlockReferences(runCtx.VaultPath, referenceInventory.cache)
+				codeRefs, codeRefsErr = codeBlockReferences(ctx, runCtx.VaultPath, referenceInventory.cache)
 			}
 			edits = append(edits, blockIDReferenceEdits(referenceInventory, m.notePath, m.oldID, m.newID)...)
 			if ctx.Err() != nil {
