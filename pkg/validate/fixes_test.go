@@ -229,3 +229,64 @@ func writeFixtureFiles(root string, files map[string]string) error {
 	}
 	return nil
 }
+
+// A block cited only from a code comment is not an orphan, and renaming it
+// would strand the comment, so neither fix may apply without confirmation.
+func TestBlockIDFixesRespectCodeCommentReferences(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, writeFixtureFiles(root, map[string]string{
+		".rhizome/config.yml": "code:\n  enabled: true\n",
+		".rhizome/ontology/schema.graphql": `
+type UserStory implements Section @node(locator: EMBEDDED) {
+  id: ID! @field @identifier(preferred: true, derivedSuffix: "US")
+}
+
+type Stories implements Section {
+  stories: [UserStory!] @contains(level: H3)
+}
+
+type Spec @node(paths: ["specs/*.md"]) {
+  summary: String!
+  stories: Stories @contains(level: H2, heading: "Stories")
+}
+`,
+		"specs/one.md": `---
+type: Spec
+summary: One
+---
+
+# One
+
+## Stories
+
+### Story
+id:: SPEC-0023.US1
+^spec-0023-us1
+`,
+		"pkg/impl.go": "package impl\n\n// Coderefs: [[one#^spec-0023-us1]]\nfunc F() {}\n",
+	}))
+	runCtx := RunContext{
+		VaultDef:     obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth},
+		VaultPath:    root,
+		NoteReader:   &obsidian.Note{},
+		NoteMetadata: testNoteMetadata(t),
+		MaxIssues:    100,
+	}
+
+	orphans := RunOrphanBlockIDs(context.Background(), runCtx)
+	require.True(t, orphans.OK, "%+v", orphans)
+	for _, fix := range orphans.Fixes {
+		assert.NotEqual(t, "spec-0023-us1", fix.Edits[0].BlockID, "a block cited from code must not be offered for removal")
+	}
+
+	ontologyResult := preparedCheck(t, context.Background(), runCtx, ScanOptions{}, CheckOntology)
+	require.Empty(t, ontologyResult.Error)
+	var migration *FixAction
+	for i := range ontologyResult.Fixes {
+		if ontologyResult.Fixes[i].IssueCode == "identifier_block_id_migration" {
+			migration = &ontologyResult.Fixes[i]
+		}
+	}
+	require.NotNil(t, migration)
+	assert.Equal(t, FixSafetyConfirm, migration.Safety, "renaming a block that code cites must need confirmation")
+}

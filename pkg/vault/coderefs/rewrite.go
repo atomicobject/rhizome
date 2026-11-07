@@ -16,6 +16,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -385,6 +386,29 @@ func isBinary(content []byte) bool {
 		}
 	}
 	return false
+}
+
+// ScanConfigured returns the resolved references in every file a note rename
+// would rewrite. Unlike the rewriter it fails on an unreadable file, because
+// callers use the result to decide that nothing in code cites a note.
+func ScanConfigured(vaultPath string, config *Config, noteCache *obsidian.NotePathCache) ([]CodeRef, error) {
+	files, err := discoverCodeFilesForRewrite(vaultPath, config)
+	if err != nil {
+		return nil, err
+	}
+	var refs []CodeRef
+	for _, relPath := range files {
+		content, err := os.ReadFile(filepath.Join(vaultPath, relPath))
+		if err != nil {
+			return nil, err
+		}
+		fileRefs, err := ScanFile(relPath, content, noteCache)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, fileRefs...)
+	}
+	return refs, nil
 }
 
 func discoverCodeFilesForRewrite(vaultPath string, config *Config) ([]string, error) {
