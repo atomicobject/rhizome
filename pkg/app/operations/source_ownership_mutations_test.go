@@ -13,7 +13,7 @@ import (
 )
 
 func TestDirectMutationsRefuseOwnedHostsBeforeAnyFileChanges(t *testing.T) {
-	for _, action := range []string{"property", "tags", "delete", "append", "overwrite", "create"} {
+	for _, action := range []string{"property", "property-delete-absent", "property-rename-absent", "tags", "delete", "append", "overwrite", "create"} {
 		t.Run(action, func(t *testing.T) {
 			root := t.TempDir()
 			original := "---\nstatus: old\n---\n# Existing\n"
@@ -28,6 +28,11 @@ func TestDirectMutationsRefuseOwnedHostsBeforeAnyFileChanges(t *testing.T) {
 			switch action {
 			case "property":
 				_, err = SetPropertyOnFilesWithWorkers(t.Context(), vault, &obsidian.Note{}, "status", "new", []string{"mine.md", "owned.md"}, true, false, 2)
+			case "property-delete-absent":
+				// Nothing to delete, but a named owned note is still refused.
+				_, err = DeletePropertiesWithWorkers(t.Context(), vault, &obsidian.Note{}, []string{"absent"}, []string{"mine.md", "owned.md"}, false, 2)
+			case "property-rename-absent":
+				_, err = RenamePropertiesWithWorkers(t.Context(), vault, &obsidian.Note{}, []string{"absent"}, "other", false, []string{"mine.md", "owned.md"}, false, 2)
 			case "tags":
 				_, err = AddTagsToFilesWithWorkers(t.Context(), vault, &obsidian.Note{}, []string{"new"}, []string{"mine.md", "owned.md"}, false, 2)
 			case "delete":

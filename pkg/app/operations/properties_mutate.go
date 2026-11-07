@@ -256,6 +256,9 @@ func DeletePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processDeleteProperties(vaultPaths, properties, true), workerCount); err != nil {
 		return PropertyMutationSummary{}, err
 	}
@@ -293,6 +296,9 @@ func RenamePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processRenameProperties(vaultPaths, from, to, merge, true), workerCount); err != nil {
 		return PropertyMutationSummary{}, err
 	}
