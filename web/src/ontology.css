@@ -4685,7 +4685,7 @@
 }
 
 /* Beside a kind, the summary is secondary; alone, it reads at full strength. */
-.problems-row__detail > .problems-row__summary:not(:first-child) {
+.problems-row__kind + .problems-row__summary {
   color: var(--text-muted);
 }
 

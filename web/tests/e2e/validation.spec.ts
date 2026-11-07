@@ -358,6 +358,13 @@ test("narrow Problems panels fold the kind column into a select", async ({ page 
     "Broken note link [[Prep note for Mike]]",
   );
 
+  const firstRow = page.locator("[data-issue-key]").first();
+
+  const color = (selector: string) =>
+    firstRow.locator(selector).evaluate((element) => getComputedStyle(element).color);
+
+  expect(await color(".problems-row__summary")).not.toBe(await color(".problems-row__kind"));
+
   // Narrow: one column; the list gives way to the chosen issue's detail.
   await page.setViewportSize({ width: 700, height: 768 });
   await kindSelect.selectOption({ label: " Postcard, 2026-11-02 (2)" });

@@ -143,7 +143,7 @@ export function IssueRow({
     >
       {path && <PathLabel path={path} />}
       <span className="problems-row__detail">
-        {kind}
+        {kind && <span className="problems-row__kind">{kind}</span>}
         {summary && (
           <span className="problems-row__summary">
             {kind ? " " : ""}
