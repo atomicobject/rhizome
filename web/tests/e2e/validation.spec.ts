@@ -297,3 +297,82 @@ test("filesystem changes refresh Problems and manual refresh publishes another g
       .toBe(0);
   }
 });
+
+test("narrow Problems panels fold the kind column into a select", async ({ page }) => {
+  const variants = [
+    { key: "prep", label: "Prep note for Mike", count: 3 },
+    { key: "postcard", label: "Postcard, 2026-11-02", count: 2 },
+  ];
+
+  const issues: ValidationDiagnostic[] = variants.flatMap((variant) =>
+    Array.from({ length: variant.count }, (_, index) => ({
+      issueKey: `${variant.key}-${index}`,
+      check: "broken_links",
+      code: "broken_note_link",
+      message: `Missing ${variant.label}`,
+      target: variant.label,
+      variant: { key: variant.key, label: variant.label },
+      primaryPath: `Log/Weekly note ${index}.md`,
+      affectedPaths: [`Log/Weekly note ${index}.md`],
+    })),
+  );
+
+  await page.route("**/api/v2/validate", (route) =>
+    route.fulfill({ json: envelope(issues.length) }),
+  );
+  await page.route("**/api/v1/validation/diagnostics?*", (route) => {
+    const variant = new URL(route.request().url()).searchParams.get("variant");
+    const matches = issues.filter((issue) => !variant || issue.variant?.key === variant);
+
+    return route.fulfill({ json: { generation: 10, diagnostics: matches, total: matches.length } });
+  });
+  await page.route("**/api/v1/validation/groups", (route) =>
+    route.fulfill({
+      json: {
+        generation: 10,
+        groups: variants.map((variant) => ({
+          check: "broken_links",
+          code: "broken_note_link",
+          variant: { key: variant.key, label: variant.label },
+          issueCount: variant.count,
+          affectedFileCount: variant.count,
+          applicableRepairCount: 0,
+        })),
+      },
+    }),
+  );
+
+  const kinds = page.getByRole("group", { name: "Issue kinds" });
+  const kindSelect = page.getByRole("combobox", { name: "Issue kind" });
+  const detail = page.getByRole("article", { name: "Issue detail" });
+
+  // Medium: findings beside detail, kind chosen from the header.
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("/notes/issues");
+  await expect(page.locator("[data-issue-key]")).toHaveCount(5);
+  await expect(kinds).toBeHidden();
+  await expect(kindSelect).toBeVisible();
+  await expect(detail).toBeVisible();
+  // Under All issues a row names its kind; within one kind, its target.
+  await expect(page.locator(".problems-row__detail").first()).toHaveText("Broken note link");
+
+  // Narrow: one column; the list gives way to the chosen issue's detail.
+  await page.setViewportSize({ width: 700, height: 768 });
+  await kindSelect.selectOption({ label: " Postcard, 2026-11-02 (2)" });
+  await expect(page.locator("[data-issue-key]")).toHaveCount(2);
+  await expect(page.locator(".problems-row__detail").first()).toHaveText(
+    "[[Postcard, 2026-11-02]]",
+  );
+  await expect(detail).toBeHidden();
+  await page.locator('[data-issue-key="postcard-1"]').click();
+  await expect(detail).toContainText("Missing Postcard, 2026-11-02");
+  await expect(page.locator("[data-issue-key]").first()).toBeHidden();
+  await page.getByRole("button", { name: "← Issue list" }).click();
+  await expect(page.locator('[data-issue-key="postcard-1"]')).toBeVisible();
+
+  // The status strip keeps its wrapped rows clear of the toolbar.
+  const strip = await page.locator(".validation-status-strip").boundingBox();
+  const toolbar = await page.locator(".problems-toolbar").boundingBox();
+  expect(strip && toolbar && strip.y + strip.height <= toolbar.y).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

@@ -17,6 +17,7 @@ import {
 } from "./useValidationScopeSummaries";
 import {
   IssueKindList,
+  KindSelect,
   kindRows,
   kindSelectionKey,
   type KindSelection,
@@ -28,14 +29,13 @@ import {
   FindingsHeader,
   fileGroups,
   IssueRow,
-  PathLabel,
 } from "./validation/ProblemsBrowser";
 import { availableChecks, ProblemsToolbar, type GroupMode } from "./validation/ProblemsToolbar";
 import { RepairActionBar, RepairNotices } from "./validation/ProblemsRepairStatus";
 import { TypeChoice } from "./validation/TypeChoice";
 import { ValidationStatusStrip } from "./validation/ValidationStatusStrip";
 import { ValidationRepairReviewPanel } from "./validation/ValidationRepairReviewPanel";
-import { candidateTypes, issueLabel } from "./validation/issueLabels";
+import { candidateTypes } from "./validation/issueLabels";
 
 type Props = {
   validationEnvelope?: ValidateEnvelope | null;
@@ -364,6 +364,7 @@ function NotesIssuesHomeContent({
   };
 
   const rowProps = {
+    showKind: !selection,
     selectedKey,
     tabbableKey:
       selected && diagnostics.includes(selected) ? selected.issueKey : diagnostics[0]?.issueKey,
@@ -456,6 +457,13 @@ function NotesIssuesHomeContent({
             {(selectedRow || !selection) && (
               <FindingsHeader
                 row={selectedRow ?? kinds[0]}
+                kindPicker={
+                  <KindSelect
+                    rows={kinds}
+                    selectedKey={selectedRow?.key ?? "all"}
+                    onSelect={(row) => setKindSelection(row.selection)}
+                  />
+                }
                 fixableActionIds={fixableActionIds}
                 onSelectActions={(ids) =>
                   setActionSelection({
@@ -508,12 +516,12 @@ function NotesIssuesHomeContent({
                     <FileGroupSection key={group.key} group={group} {...rowProps} />
                   ))
                 : diagnostics.map((diagnostic) => (
-                    <IssueRow key={diagnostic.issueKey} diagnostic={diagnostic} {...rowProps}>
-                      <PathLabel path={diagnosticPath(diagnostic)} />
-                      {!selection && (
-                        <span className="problems-row__kind">{issueLabel(diagnostic.code)}</span>
-                      )}
-                    </IssueRow>
+                    <IssueRow
+                      key={diagnostic.issueKey}
+                      diagnostic={diagnostic}
+                      path={diagnosticPath(diagnostic)}
+                      {...rowProps}
+                    />
                   ))}
               {query.hasNextPage && (
                 <button

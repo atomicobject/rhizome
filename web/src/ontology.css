@@ -4053,7 +4053,7 @@
 .problems-workspace {
   display: flex;
   flex-direction: column;
-  container-type: inline-size;
+  container: problems / inline-size;
   height: 100%;
   min-height: 0;
   padding: 0 var(--sp-5) 0 var(--gutter);
@@ -4099,6 +4099,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  /* The explicit min-height replaces the flex item's content minimum, so a
+     tall issue list would otherwise squeeze a wrapped strip under the toolbar. */
+  flex-shrink: 0;
   gap: var(--sp-1) var(--sp-3);
   min-height: 40px;
   padding: var(--sp-1) 0;
@@ -4316,7 +4319,7 @@
 .problems-browser {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: minmax(140px, 12rem) minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(140px, 12rem) minmax(0, 3fr) minmax(0, 2fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -4425,6 +4428,23 @@
 
 .problems-findings__title strong {
   white-space: nowrap;
+}
+
+/* Shown only when the panel folds the kind column away. */
+.problems-kind-select {
+  display: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 var(--sp-2);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 600 var(--fs-sm) var(--font-sans);
+  text-overflow: ellipsis;
 }
 
 .problems-findings__variant {
@@ -4586,8 +4606,10 @@
   flex-direction: column;
 }
 
+/* Rows share column tracks so file, detail, and line align down the list. */
 .problems-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6ch;
   align-items: baseline;
   gap: var(--sp-3);
   width: 100%;
@@ -4606,19 +4628,20 @@
   border-top: 1px solid var(--border-faint);
 }
 
+/* The file name carries more than the detail beside it. */
+.problems-row.has-path {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) 6ch;
+}
+
 /* Narrow lists give the path its own line so the file name stays readable. */
 @container (max-width: 420px) {
-  .problems-row {
-    flex-wrap: wrap;
+  .problems-row.has-path {
+    grid-template-columns: minmax(0, 1fr) 6ch;
     row-gap: 0;
   }
 
   .problems-row .problems-row__path {
-    flex: 1 0 100%;
-  }
-
-  .problems-row .problems-row__summary {
-    max-width: none;
+    grid-column: 1 / -1;
   }
 }
 
@@ -4637,7 +4660,6 @@
 }
 
 .problems-row__path {
-  flex: 1 1 50%;
   min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);
@@ -4654,33 +4676,17 @@
   color: var(--text);
 }
 
-.problems-row__kind {
-  flex: 0 1 auto;
+.problems-row__detail {
   min-width: 0;
   overflow: hidden;
-  font-size: var(--fs-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.problems-group .problems-row__kind {
-  flex: 1 1 auto;
-}
-
-.problems-row__summary {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 35%;
-  overflow: hidden;
-  color: var(--text-muted);
   font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .problems-row__line {
-  flex-shrink: 0;
   color: var(--text-faint);
+  text-align: right;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -4702,6 +4708,7 @@
 
 .problem-detail__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
   min-height: 24px;
@@ -4710,6 +4717,8 @@
 
 .problem-detail__back {
   display: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .problem-detail__check {
@@ -4721,11 +4730,13 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
   margin-left: auto;
   color: var(--text-muted);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .problem-detail__navigation span {
@@ -5049,36 +5060,45 @@ button.validation-issue-badge:hover {
     padding: 0 var(--sp-4);
   }
 
-  .problems-toolbar {
-    flex-wrap: wrap;
-  }
-
   .problems-toolbar__search {
     min-width: 180px;
   }
+}
 
+/* The panel's own width sets the layout, so an open sidebar or context rail
+   counts. Medium: the kind column folds into a select in the findings header. */
+@container problems (max-width: 760px) {
   .problems-browser {
-    display: block;
-    overflow: auto;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   }
 
-  .problems-kinds {
-    max-height: 30vh;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+  .problems-kinds,
+  .problems-findings__title > strong,
+  .problems-findings__title > .problems-findings__variant,
+  .problems-findings__title > .problems-kind__count {
+    display: none;
+  }
+
+  .problems-kind-select {
+    display: block;
+  }
+}
+
+/* Narrow: one column. Choosing an issue swaps the list for its detail. */
+@container problems (max-width: 560px) {
+  .problems-browser {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .problems-browser__list {
-    overflow: visible;
     border-right: 0;
   }
 
   .problems-browser__detail {
     display: none;
-    padding: var(--sp-4) 0;
+    padding: var(--sp-3) 0 var(--sp-6);
   }
 
-  .problems-browser.is-detail .problems-kinds,
   .problems-browser.is-detail .problems-browser__list {
     display: none;
   }
@@ -5086,24 +5106,6 @@ button.validation-issue-badge:hover {
   .problems-browser.is-detail .problems-browser__detail,
   .problem-detail__back {
     display: block;
-  }
-}
-
-/* A narrow panel (context rail open) stacks kinds over findings beside detail. */
-@container (max-width: 640px) {
-  .problems-browser {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-    grid-template-rows: minmax(0, auto) minmax(0, 1fr);
-  }
-
-  .problems-kinds {
-    max-height: 30vh;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .problems-browser__detail {
-    grid-row: 1 / span 2;
-    grid-column: 2;
   }
 }
 
