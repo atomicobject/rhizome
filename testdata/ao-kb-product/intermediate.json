@@ -14432,6 +14432,11 @@
       "path": "assertions/alpha/collision.md"
     },
     {
+      "kind": "assertions",
+      "origin": "account",
+      "path": "assertions/alpha/selected.md"
+    },
+    {
       "kind": "sources",
       "origin": "account",
       "path": "sources/alpha/record.md"
@@ -14448,6 +14453,10 @@
     }
   ],
   "oracle": {
+    "aoEvidenceEdges": {
+      "arbitrary": 2,
+      "trace": 11
+    },
     "edges": [],
     "evidence": [
       {
@@ -14478,6 +14487,36 @@
         "status": "resolved",
         "targets": [
           "assertions/alpha/collision.md"
+        ]
+      },
+      {
+        "authored": "shared",
+        "field": "supported_by",
+        "key": "FEAT-alpha",
+        "kind": "feature",
+        "status": "resolved",
+        "targets": [
+          "assertions/shared.md"
+        ]
+      },
+      {
+        "authored": "a-untagged",
+        "field": "supported_by",
+        "key": "FEAT-shared",
+        "kind": "feature",
+        "status": "resolved",
+        "targets": [
+          "assertions/untagged.md"
+        ]
+      },
+      {
+        "authored": "a-selected",
+        "field": "supported_by",
+        "key": "FEAT-shared",
+        "kind": "feature",
+        "status": "resolved",
+        "targets": [
+          "assertions/selected.md"
         ]
       },
       {
@@ -14530,9 +14569,29 @@
         ]
       },
       {
-        "authored": "a-untagged",
+        "authored": "claim",
         "field": "supported_by",
-        "key": "FEAT-shared",
+        "key": "FEAT-collision",
+        "kind": "feature",
+        "status": "resolved",
+        "targets": [
+          "assertions/alpha/claim.md"
+        ]
+      },
+      {
+        "authored": "collision",
+        "field": "supported_by",
+        "key": "FEAT-collision",
+        "kind": "feature",
+        "status": "resolved",
+        "targets": [
+          "assertions/alpha/collision.md"
+        ]
+      },
+      {
+        "authored": "untagged",
+        "field": "supported_by",
+        "key": "FEAT-collision",
         "kind": "feature",
         "status": "resolved",
         "targets": [
@@ -14540,14 +14599,47 @@
         ]
       },
       {
-        "authored": "a-selected",
+        "authored": "selected",
         "field": "supported_by",
-        "key": "FEAT-shared",
+        "key": "FEAT-collision",
         "kind": "feature",
-        "status": "resolved",
+        "status": "ambiguous",
         "targets": [
+          "assertions/alpha/selected.md",
           "assertions/selected.md"
         ]
+      },
+      {
+        "authored": "beta-only",
+        "field": "supported_by",
+        "key": "FEAT-collision",
+        "kind": "feature",
+        "status": "unresolved",
+        "targets": []
+      },
+      {
+        "authored": "claim.md",
+        "field": "supported_by",
+        "key": "FEAT-collision",
+        "kind": "feature",
+        "status": "unresolved",
+        "targets": []
+      },
+      {
+        "authored": "assertions/shared",
+        "field": "supported_by",
+        "key": "FEAT-collision",
+        "kind": "feature",
+        "status": "unresolved",
+        "targets": []
+      },
+      {
+        "authored": "Shared",
+        "field": "supported_by",
+        "key": "FEAT-collision",
+        "kind": "feature",
+        "status": "unresolved",
+        "targets": []
       }
     ],
     "files": {
@@ -14591,6 +14683,11 @@
         "path": "assertions/alpha/collision.md"
       },
       {
+        "id": "a-selected-alpha",
+        "kind": "assertions",
+        "path": "assertions/alpha/selected.md"
+      },
+      {
         "id": "sources-alpha",
         "kind": "sources",
         "path": "sources/alpha/record.md"
@@ -14616,7 +14713,8 @@
           "supported_by": [
             "a-shared",
             "a-alpha",
-            "a-collision"
+            "a-collision",
+            "shared"
           ],
           "t": "Alpha account feature"
         },
@@ -14628,7 +14726,15 @@
             "a-alpha",
             "a-collision",
             "a-missing",
-            "a-ambiguous"
+            "a-ambiguous",
+            "claim",
+            "collision",
+            "untagged",
+            "selected",
+            "beta-only",
+            "claim.md",
+            "assertions/shared",
+            "Shared"
           ],
           "t": "Alpha feature"
         },
@@ -15287,7 +15393,7 @@
       "origin": "product",
       "path": "products/alpha/artifacts/_assets/_model/features.yaml",
       "readOnly": true,
-      "revision": "sha256:6c045a1eac93c482921edad5c85a498ec93bb99d3628a4cfaef17db26c871123",
+      "revision": "sha256:41cca9347e45a7360230f566f06432bc445c741745b858eb6b8f66672274bbb2",
       "sourceOrder": 1
     },
     {
@@ -15303,7 +15409,7 @@
       "origin": "account",
       "path": "artifacts/_assets/_model/features.yaml",
       "readOnly": true,
-      "revision": "sha256:a6e10d2629b528a28efad4cc361f7945545d20ed01dac753962c36641b8b055f",
+      "revision": "sha256:4090e5e24834b3276a1ec87b1ea838b567487256fb7f611b07b5d383ff63bc9d",
       "sourceOrder": 0
     },
     {

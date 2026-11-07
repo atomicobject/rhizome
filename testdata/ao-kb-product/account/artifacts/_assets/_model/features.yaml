@@ -1,6 +1,6 @@
 synced: "2026-10-01T09:00:00Z"
 features:
-  - {id: FEAT-alpha, t: Alpha account feature, products: [alpha], supported_by: [a-shared, a-alpha, a-collision]}
+  - {id: FEAT-alpha, t: Alpha account feature, products: [alpha], supported_by: [a-shared, a-alpha, a-collision, shared]}
   - {id: FEAT-shared, t: Shared account feature, products: ["*"], supported_by: [a-untagged, a-selected]}
   - {id: FEAT-collision, t: Hidden beta account feature, products: [beta]}
   - {id: FEAT-untagged, t: Hidden untagged account feature}

@@ -19,7 +19,7 @@ type AOKBModel_action_single implements AOKBModel_action & AOKBModelRecord @node
   v_roles: [String!] @field(path: "roles") @references(to: ["AOKBModel_role"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_screens: [String!] @field(path: "screens") @references(to: ["AOKBModel_screen"], mode: TOLERANT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_app { aoValue: String }
@@ -48,7 +48,7 @@ type AOKBModel_auth_2d_scheme_single implements AOKBModel_auth_2d_scheme & AOKBM
   v_note: String @field(path: "note")
   v_scheme: String @field(path: "scheme")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_bet { aoValue: String }
@@ -88,7 +88,7 @@ type AOKBModel_bet_single implements AOKBModel_bet & AOKBModelRecord @node(locat
   v_solidity: String @field(path: "solidity")
   v_state: String @field(path: "state")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_verdict: String @field(path: "verdict")
   v_why_5f_we_5f_believe: String @field(path: "why_we_believe")
 }
@@ -106,7 +106,7 @@ type AOKBModel_boundary_single implements AOKBModel_boundary & AOKBModelRecord @
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_capability { aoValue: String }
@@ -137,7 +137,7 @@ type AOKBModel_capability_single implements AOKBModel_capability & AOKBModelReco
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_collection { aoValue: String }
@@ -155,7 +155,7 @@ type AOKBModel_collection_single implements AOKBModel_collection & AOKBModelReco
   v_owner: String @field(path: "owner") @references(to: ["AOKBModel_service"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "governs", direction: INBOUND})
   v_purpose: String @field(path: "purpose")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_tenant: Boolean @field(path: "tenant")
   children_v_event: [AOKBModel_event_single!] @contains(shape: RECORD, select: "events", edge: {name: "made-of"})
 }
@@ -179,7 +179,7 @@ type AOKBModel_component_single implements AOKBModel_component & AOKBModelRecord
   v_patterns: [String!] @field(path: "patterns") @references(to: ["AOKBModel_pattern"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: INBOUND})
   v_reasons_5b__5d__2e_to: [String!] @field(path: "reasons[].to")
   v_reasons_5b__5d__2e_why: [String!] @field(path: "reasons[].why")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_variants_5f_from: String @field(path: "variants_from")
 }
 
@@ -197,7 +197,7 @@ type AOKBModel_concern_single implements AOKBModel_concern & AOKBModelRecord @no
   v_note: String @field(path: "note")
   v_sequences: [String!] @field(path: "sequences") @references(to: ["AOKBModel_sequence"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: OUTBOUND})
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_conformance { aoValue: String }
@@ -230,7 +230,7 @@ type AOKBModel_connection_single implements AOKBModel_connection & AOKBModelReco
   v_note: String @field(path: "note")
   v_protocol: String @field(path: "protocol")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_to: String @field(path: "to") @references(to: ["AOKBModel_node"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
 
@@ -258,7 +258,7 @@ type AOKBModel_constraint_single implements AOKBModel_constraint & AOKBModelReco
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_core_2d_system { aoValue: String }
@@ -275,7 +275,7 @@ type AOKBModel_core_2d_system_single implements AOKBModel_core_2d_system & AOKBM
   v_principles: [String!] @field(path: "principles") @references(to: ["AOKBModel_principle"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: INBOUND})
   v_reasons_5b__5d__2e_to: [String!] @field(path: "reasons[].to")
   v_reasons_5b__5d__2e_why: [String!] @field(path: "reasons[].why")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_t: String @field(path: "t")
   v_uses: [String!] @field(path: "uses") @references(to: ["AOKBModel_token"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "made-of", direction: OUTBOUND})
 }
@@ -304,7 +304,7 @@ type AOKBModel_decision_single implements AOKBModel_decision & AOKBModelRecord @
   v_status: String @field(path: "status")
   v_supersedes: String @field(path: "supersedes") @references(to: ["AOKBModel_decision"], mode: STRICT, values: VALUE, allowWildcard: true)
   v_supersedes_5f_text: String @field(path: "supersedes_text")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_title: String @field(path: "title")
   v_visibility: String @field(path: "visibility")
 }
@@ -333,7 +333,7 @@ type AOKBModel_driver_single implements AOKBModel_driver & AOKBModelRecord @node
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_value: String @field(path: "value")
 }
 
@@ -374,7 +374,7 @@ type AOKBModel_endpoint_single implements AOKBModel_endpoint & AOKBModelRecord @
   v_service: String @field(path: "service") @references(to: ["AOKBModel_service"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "made-of", direction: INBOUND})
   v_status: String @field(path: "status")
   v_summary: String @field(path: "summary")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_writes: [String!] @field(path: "writes") @references(to: ["AOKBModel_collection"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "writes", direction: OUTBOUND})
 }
 
@@ -391,7 +391,7 @@ type AOKBModel_enum_single implements AOKBModel_enum & AOKBModelRecord @node(loc
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_environment { aoValue: String }
@@ -408,7 +408,7 @@ type AOKBModel_environment_single implements AOKBModel_environment & AOKBModelRe
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_tech: String @field(path: "tech")
 }
 
@@ -421,7 +421,7 @@ type AOKBModel_event_single implements AOKBModel_event & AOKBModelRecord @node(l
   v_concepts: [String!] @field(path: "concepts")
   v_note: String @field(path: "note")
   v_statuses: [String!] @field(path: "statuses") @references(to: ["AOKBModel_status"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_falsifier { aoValue: String }
@@ -460,7 +460,7 @@ type AOKBModel_feature_single implements AOKBModel_feature & AOKBModelRecord @no
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_t: String @field(path: "t")
 }
 
@@ -484,7 +484,7 @@ type AOKBModel_flag_single implements AOKBModel_flag & AOKBModelRecord @node(loc
   v_realm: String @field(path: "realm")
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_what: String @field(path: "what")
 }
 
@@ -520,7 +520,7 @@ type AOKBModel_flow_single implements AOKBModel_flow & AOKBModelRecord @node(loc
   v_stage: String @field(path: "stage")
   v_statuses: [String!] @field(path: "statuses") @references(to: ["AOKBModel_status"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: INBOUND})
   v_steps: String @field(path: "steps")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_trigger: String @field(path: "trigger")
   v_user: String @field(path: "user") @references(to: ["AOKBModel_user"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
@@ -548,7 +548,7 @@ type AOKBModel_goal_single implements AOKBModel_goal & AOKBModelRecord @node(loc
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_indicator { aoValue: String }
@@ -589,7 +589,7 @@ type AOKBModel_journey_2d_map_single implements AOKBModel_journey_2d_map & AOKBM
   v_persona: String @field(path: "persona") @references(to: ["AOKBModel_persona"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_scenario: String @field(path: "scenario")
   v_scope: String @field(path: "scope")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_title: String @field(path: "title")
 }
 
@@ -623,7 +623,7 @@ type AOKBModel_masked_2d_field_single implements AOKBModel_masked_2d_field & AOK
   v_note: String @field(path: "note")
   v_roles: [String!] @field(path: "roles") @references(to: ["AOKBModel_role"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_node { aoValue: String }
@@ -642,7 +642,7 @@ type AOKBModel_node_single implements AOKBModel_node & AOKBModelRecord @node(loc
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_tech: String @field(path: "tech")
 }
 
@@ -655,7 +655,7 @@ type AOKBModel_non_2d_screen_single implements AOKBModel_non_2d_screen & AOKBMod
   v_components: [String!] @field(path: "components") @references(to: ["AOKBModel_component"], mode: STRICT, values: MAPPING_KEYS, allowWildcard: true)
   v_concepts: [String!] @field(path: "concepts")
   v_note: String @field(path: "note")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_users: [String!] @field(path: "users") @references(to: ["AOKBModel_user"], mode: STRICT, values: ELEMENTS, allowWildcard: true)
   v_who: [String!] @field(path: "who") @references(to: ["AOKBModel_user"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
@@ -675,7 +675,7 @@ type AOKBModel_notification_single implements AOKBModel_notification & AOKBModel
   v_note: String @field(path: "note")
   v_open: String @field(path: "open")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_template: String @field(path: "template")
   v_trigger: String @field(path: "trigger")
 }
@@ -691,7 +691,7 @@ type AOKBModel_notification_2d_channel_single implements AOKBModel_notification_
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_open: String @field(path: "open")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_notification_2d_class { aoValue: String }
@@ -736,7 +736,7 @@ type AOKBModel_opportunity_single implements AOKBModel_opportunity & AOKBModelRe
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_who: String @field(path: "who") @references(to: ["AOKBModel_persona"], mode: STRICT, values: VALUE, allowWildcard: true)
 }
 
@@ -758,7 +758,7 @@ type AOKBModel_outcome_single implements AOKBModel_outcome & AOKBModelRecord @no
   v_concepts: [String!] @field(path: "concepts")
   v_goal: String @field(path: "goal") @references(to: ["AOKBModel_goal"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_metric: String @field(path: "metric")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_target: String @field(path: "target")
 }
 
@@ -794,7 +794,7 @@ type AOKBModel_pattern_single implements AOKBModel_pattern & AOKBModelRecord @no
   v_rule: String @field(path: "rule")
   v_status: String @field(path: "status")
   v_supersedes: String @field(path: "supersedes") @references(to: ["AOKBModel_pattern"], mode: STRICT, values: VALUE, allowWildcard: true)
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_tokens: [String!] @field(path: "tokens") @references(to: ["AOKBModel_token"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "made-of", direction: OUTBOUND})
   v_when: String @field(path: "when")
 }
@@ -813,7 +813,7 @@ type AOKBModel_persona_single implements AOKBModel_persona & AOKBModelRecord @no
   v_number: Int @field(path: "number")
   v_role: String @field(path: "role")
   v_side: String @field(path: "side")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_users: [String!] @field(path: "users") @references(to: ["AOKBModel_user"], mode: STRICT, values: ELEMENTS, allowWildcard: true)
   v_why: String @field(path: "why")
 }
@@ -830,7 +830,7 @@ type AOKBModel_pmf_2d_assessment_single implements AOKBModel_pmf_2d_assessment &
   v_market: String @field(path: "market")
   v_pmf_5f_level: String @field(path: "pmf_level")
   v_product: String @field(path: "product")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_weak_5f_dimension: String @field(path: "weak_dimension")
   v_weak_5f_p: String @field(path: "weak_p")
 }
@@ -848,7 +848,7 @@ type AOKBModel_principle_single implements AOKBModel_principle & AOKBModelRecord
   v_name: String @field(path: "name")
   v_reasons_5b__5d__2e_to: [String!] @field(path: "reasons[].to")
   v_reasons_5b__5d__2e_why: [String!] @field(path: "reasons[].why")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_t: String @field(path: "t")
 }
 
@@ -879,7 +879,7 @@ type AOKBModel_quality_single implements AOKBModel_quality & AOKBModelRecord @no
   v_services: [String!] @field(path: "services") @references(to: ["AOKBModel_service"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: OUTBOUND})
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_question { aoValue: String }
@@ -904,7 +904,7 @@ type AOKBModel_release_single implements AOKBModel_release & AOKBModelRecord @no
   v_name: String @field(path: "name")
   v_near: Boolean @field(path: "near")
   v_outcome: String @field(path: "outcome")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_requirement { aoValue: String }
@@ -936,7 +936,7 @@ type AOKBModel_requirement_single implements AOKBModel_requirement & AOKBModelRe
   v_services: [String!] @field(path: "services") @references(to: ["AOKBModel_service"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: OUTBOUND})
   v_solidity: String @field(path: "solidity")
   v_statement: String @field(path: "statement")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_tags: [String!] @field(path: "tags")
 }
 
@@ -952,7 +952,7 @@ type AOKBModel_resource_single implements AOKBModel_resource & AOKBModelRecord @
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   children_v_endpoint: [AOKBModel_endpoint_single!] @contains(shape: RECORD, select: "endpoints", edge: {name: "made-of"})
 }
 
@@ -971,7 +971,7 @@ type AOKBModel_role_single implements AOKBModel_role & AOKBModelRecord @node(loc
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_rule { aoValue: String }
@@ -994,7 +994,7 @@ type AOKBModel_rule_single implements AOKBModel_rule & AOKBModelRecord @node(loc
   v_service: String @field(path: "service")
   v_stack: String @field(path: "stack")
   v_statuses: [String!] @field(path: "statuses") @references(to: ["AOKBModel_status"], mode: TOLERANT, values: ELEMENTS, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_terms: [String!] @field(path: "terms") @references(to: ["AOKBModel_term"], mode: TOLERANT, values: ELEMENTS, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
   v_text: String @field(path: "text")
   v_users: [String!] @field(path: "users") @references(to: ["AOKBModel_user"], mode: TOLERANT, values: ELEMENTS, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
@@ -1017,7 +1017,7 @@ type AOKBModel_scenario_single implements AOKBModel_scenario & AOKBModelRecord @
   v_lede: String @field(path: "lede")
   v_owner: String @field(path: "owner")
   v_path_5f_kind: String @field(path: "path_kind")
-  v_rests_5f_on: [String!] @field(path: "rests_on") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_rests_5f_on: [String!] @field(path: "rests_on") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_status: String @field(path: "status")
   v_steps_5b__5d__2e_do: [String!] @field(path: "steps[].do")
   v_steps_5b__5d__2e_expect: [String!] @field(path: "steps[].expect")
@@ -1067,7 +1067,7 @@ type AOKBModel_scope_2d_question_single implements AOKBModel_scope_2d_question &
   v_solidity: String @field(path: "solidity")
   v_stages: [String!] @field(path: "stages") @references(to: ["AOKBModel_status_2d_group"], mode: TOLERANT, values: ELEMENTS, allowWildcard: true, matchName: "name")
   v_suggest: String @field(path: "suggest")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_touches: [String!] @field(path: "touches")
   v_value_5f_agreement: String @field(path: "value_agreement")
   v_value_5f_attested_5f_in: String @field(path: "value_attested_in")
@@ -1104,7 +1104,7 @@ type AOKBModel_screen_single implements AOKBModel_screen & AOKBModelRecord @node
   v_route: String @field(path: "route")
   v_solidity: String @field(path: "solidity")
   v_subject: String @field(path: "subject") @references(to: ["AOKBModel_component"], mode: STRICT, values: VALUE, allowWildcard: true)
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_sequence { aoValue: String }
@@ -1121,7 +1121,7 @@ type AOKBModel_sequence_single implements AOKBModel_sequence & AOKBModelRecord @
   v_note: String @field(path: "note")
   v_participants: [String!] @field(path: "participants") @references(to: ["AOKBModel_node"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_service { aoValue: String }
@@ -1142,7 +1142,7 @@ type AOKBModel_service_single implements AOKBModel_service & AOKBModelRecord @no
   v_note: String @field(path: "note")
   v_owns: [String!] @field(path: "owns") @references(to: ["AOKBModel_collection"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: OUTBOUND})
   v_status: String @field(path: "status")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_uses: [String!] @field(path: "uses") @references(to: ["AOKBModel_collection"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
   children_v_worker_2d_job: [AOKBModel_worker_2d_job_single!] @contains(shape: RECORD, select: "jobs", edge: {name: "made-of"})
 }
@@ -1174,7 +1174,7 @@ type AOKBModel_spec_single implements AOKBModel_spec & AOKBModelRecord @node(loc
   v_solidity: String @field(path: "solidity")
   v_state: String @field(path: "state")
   v_strategy: String @field(path: "strategy")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_type: String @field(path: "type")
 }
 
@@ -1193,7 +1193,7 @@ type AOKBModel_stakeholder_single implements AOKBModel_stakeholder & AOKBModelRe
   v_persona: String @field(path: "persona") @references(to: ["AOKBModel_persona"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   v_profile: String @field(path: "profile")
   v_role: String @field(path: "role")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_type: String @field(path: "type")
 }
 
@@ -1221,7 +1221,7 @@ type AOKBModel_status_single implements AOKBModel_status & AOKBModelRecord @node
   v_seen_5f_by: String @field(path: "seen_by")
   v_solidity: String @field(path: "solidity")
   v_stage: String @field(path: "stage") @references(to: ["AOKBModel_status_2d_group"], mode: TOLERANT, values: VALUE, allowWildcard: true, matchName: "name", edge: {name: "made-of", direction: INBOUND})
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_status_2d_group { aoValue: String }
@@ -1249,7 +1249,7 @@ type AOKBModel_status_2d_group_single implements AOKBModel_status_2d_group & AOK
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
   v_subject: String @field(path: "subject")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_tracked: Boolean @field(path: "tracked")
 }
 
@@ -1276,7 +1276,7 @@ type AOKBModel_status_2d_set_single implements AOKBModel_status_2d_set & AOKBMod
   v_states_5b__5d__2e_means: [String!] @field(path: "states[].means")
   v_states_5b__5d__2e_new: [Boolean!] @field(path: "states[].new")
   v_states_5b__5d__2e_supported_5f_by: [String!] @field(path: "states[].supported_by")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
 }
 
 interface AOKBModel_term { aoValue: String }
@@ -1303,7 +1303,7 @@ type AOKBModel_term_single implements AOKBModel_term & AOKBModelRecord @node(loc
   v_realm: String @field(path: "realm")
   v_revises: String @field(path: "revises")
   v_solidity: String @field(path: "solidity")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_term: String @field(path: "term")
 }
 
@@ -1315,7 +1315,7 @@ type AOKBModel_timer_single implements AOKBModel_timer & AOKBModelRecord @node(l
   aoValue: String @field(path: "id")
   v_concepts: [String!] @field(path: "concepts")
   v_job: String @field(path: "job") @references(to: ["AOKBModel_worker_2d_job"], mode: TOLERANT, values: VALUE, allowWildcard: true)
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_what: String @field(path: "what")
 }
 
@@ -1346,7 +1346,7 @@ type AOKBModel_transition_single implements AOKBModel_transition & AOKBModelReco
   v_horizon: String @field(path: "horizon")
   v_inferred: Boolean @field(path: "inferred")
   v_label: String @field(path: "label")
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_timer: String @field(path: "timer") @references(to: ["AOKBModel_timer"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: INBOUND})
   v_to: String @field(path: "to") @references(to: ["AOKBModel_status"], mode: TOLERANT, values: VALUE, allowWildcard: true, edge: {name: "governs", direction: INBOUND})
   v_trigger: String @field(path: "trigger")
@@ -1363,7 +1363,7 @@ type AOKBModel_user_single implements AOKBModel_user & AOKBModelRecord @node(loc
   v_needs_5f_parent: Boolean @field(path: "needs_parent")
   v_org: String @field(path: "org") @references(to: ["AOKBModel_org"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "made-of", direction: INBOUND})
   v_persona: String @field(path: "persona") @references(to: ["AOKBModel_persona"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
-  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
+  v_supported_5f_by: [String!] @field(path: "supported_by") @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ELEMENTS, allowWildcard: false, edge: {name: "evidenced-by", direction: OUTBOUND})
   v_where: String @field(path: "where")
 }
 
