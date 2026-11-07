@@ -158,8 +158,8 @@ export type ModelRecord = {
 };
 export type ModelFile = { notePath: string; synced?: string | null };
 
-/** Declared evidence values in authored order, each with the assertion its native
- * resolution reached (by file stem, then AO ID) or none. A resolved claim outside the
+/** Declared evidence values (fields in declaration order, values as authored), each with
+ * the assertion its native resolution reached (by file stem, then AO ID) or none. A resolved claim outside the
  * loaded knowledge is neither listed nor called unresolved. */
 export function declaredEvidence(
   record: ModelRecord,
