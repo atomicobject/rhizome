@@ -3327,6 +3327,8 @@ components:
         markdown: { type: string }
         wikilink: { type: string }
         displayLabel: { type: string }
+        durability: { type: string }
+        revision: { type: string }
         exists: { type: boolean }
         requiresFix: { type: boolean }
         blockId: { type: string }

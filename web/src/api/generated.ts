@@ -2091,6 +2091,8 @@ export interface components {
       markdown?: string;
       wikilink?: string;
       displayLabel?: string;
+      durability?: string;
+      revision?: string;
       exists: boolean;
       requiresFix?: boolean;
       blockId?: string;

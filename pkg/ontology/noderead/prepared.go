@@ -64,6 +64,14 @@ func (s *Scope) preparedForPathLocked(ctx context.Context, path string) (*ontolo
 			return nil, err
 		}
 		prepared, err := ontology.PrepareDocument(root, s.service.Schema)
+		if err == nil && root.Projection.Facts.Structure != nil && len(root.Projection.Facts.Structure.Values) > 0 && root.ContentHash == row.ContentHash && root.Projection.ProviderVersion == row.Projection.ProviderVersion && root.Projection.ProjectionVersion == row.Projection.ProjectionVersion {
+			rows, loadErr := s.service.Store.OntologyNodesByPaths(ctx, []string{path})
+			if loadErr != nil {
+				return nil, loadErr
+			}
+			err = prepared.ApplyIndexedRecordContext(rows)
+		}
+
 		if err == nil {
 			s.preparedByPath[key] = prepared
 		}

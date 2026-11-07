@@ -1,7 +1,7 @@
 ---
 summary: "Operational design constraints and review checklist for the indexing subsystem: pipeline stages, single queued writer lane, batching policy, index lock, and watcher integration."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/app/indexing
   - pkg/app/indexcore
@@ -43,6 +43,8 @@ code-anchors:
 Everything that turns vault and code roots into persisted SQLite indexes: batch `rzm index`, watcher-driven live refresh, validation projection, bounded candidate reads, queued writes, diagnostics, and lock coordination. `RunUnifiedCore` owns batch orchestration; `indexcore.Discover` and `indexcore.Publish` own shared structural work; `codeintel.ProcessCandidates` reads selected candidates. Full indexing and structural publication require the real token-bearing vault lease. The retired `rzm code index` and `rzm code index-anchors` commands are replaced by `rzm index`, which honors configured code roots and embedding enablement.
 
 ## Design constraints
+
+**Structural source ownership (SPEC-0133).** Providers emit schema-free owner/value trees; ontology prepares each captured host once and alone selects catalog/search owners. RECORD semantic chunks include selected scalar fields and own unbound scalar leaves, excluding selected descendants and sibling evidence. Empty/null/container presence is persisted without Markdown normalization. A RECORD host change forces rebinding of the declared RECORD source set, including previously unresolved references; full/indexed refreshes use the existing atomic publication. Materialization version 19 invalidates prior derived state.
 
 - Queue code-kind identity is explicit and independent of metrics labels or the ordered durable flush list. `OntologyNodeSyncer.ComputeDerived` owns ontology batching/concurrency; its provider helper performs one physical batch call while preserving shared gate, metrics and vector validation.
 

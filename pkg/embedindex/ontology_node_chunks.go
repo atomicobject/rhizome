@@ -85,18 +85,16 @@ func BuildOntologyNodeChunks(schema *ontoschema.Schema, projection *ontology.Nod
 		if err != nil {
 			return out, err
 		}
+		seen := map[string]bool{}
+		for _, row := range out.Nodes {
+			seen[row.NodeID] = true
+		}
 		for _, node := range nodes {
 			if node.Record == nil || node.Ref.ParentID != "" {
 				continue
 			}
-			seen := false
-			for _, row := range out.Nodes {
-				if row.NodeID == ontology.OntologyNodeID(node.Ref) {
-					seen = true
-					break
-				}
-			}
-			if !seen {
+			if !seen[ontology.OntologyNodeID(node.Ref)] {
+				seen[ontology.OntologyNodeID(node.Ref)] = true
 				if err := c.collect(&out, node, projection, "", nil); err != nil {
 					return out, err
 				}

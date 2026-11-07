@@ -357,7 +357,7 @@ func markdownParserBoundaryFunction(path, function string) bool {
 		"pkg/app/web/markdown_compat.go:markdownAliasesForNotePathCompat",
 		"pkg/app/web/markdown_compat.go:scanStructuredMarkdownLinksCompat",
 		"pkg/ontology/markdown_links.go:ScanMarkdownBodyLinks",
-		"pkg/ontology/markdown_links.go:MarkdownProjectionStructuredLinks",
+		"pkg/ontology/markdown_links.go:markdownProjectionStructuredLinks",
 		"pkg/vault/cache/note_projection.go:markdownCompatibilityEntry",
 		"pkg/validate/check_code_frontmatter.go:RunCodeFrontmatter",
 		"pkg/validate/check_fragile_external.go:RunFragileExternal", "pkg/validate/check_fragile_external.go:normalizeScopePath",

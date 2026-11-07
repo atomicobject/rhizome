@@ -1,7 +1,7 @@
 ---
 summary: "Operational constraints for the SQLite store layer: shared single-writer mutex, retrying write transactions, DSN/pragma policy, domain-versioned migrations, FTS5 build tag, and store contracts."
 reference-kind: guide
-last-verified: 2026-11-05
+last-verified: 2026-11-06
 code-paths:
   - pkg/sqliteutil
   - pkg/indexstore
@@ -28,6 +28,8 @@ The SQLite foundation under the unified `.rhizome/db.sqlite` code index and the 
 `pkg/store` owns the unified store implementation, domain SQL, schema assembly, validation, and diagnostics. Code intelligence owns ingestion and code-anchor contracts in `pkg/anchors`, while ontology node, field, and query-plan DTOs belong to `pkg/ontology/readmodel`. Consumers define the narrow interfaces they use. Domain files share the concrete `Store`, its connection pool, and its write mutex; code persistence, note metadata, ontology publication, and ownership retirement can therefore remain atomic across table families.
 
 ## Design constraints
+
+**Neutral structural persistence (SPEC-0133).** Intel schemas 79 and 80 persist source presence/value kind, reference member qualifiers, relation occurrence JSON, and composition-dependent RECORD identity context through the normal single-writer transaction. Empty structured containers have a presence row; null does not satisfy exists. Query SQL preserves the existing indexed Markdown exists branch and adds a separately indexed structured-presence branch. Migration/restart tests retain all occurrence evidence; no alternate store or compatibility schema is introduced.
 
 - **Embedding storage has one engine and explicit authority.** `embeddings/sqlite.OpenNotes` and `OpenCode` accept exactly one `File` or `Borrowed` source and explicit `ReadExisting` or `WriteIndex` access. Zero access and invalid sources fail before opening. Read access never initializes metadata, migrates, repairs, resets, creates mirrors, or changes a borrowed connection's PRAGMAs; every exposed mutator rejects it. Closing borrowed stores leaves the caller's database open. Typed adapters preserve note/code IDs and results. Shared metadata, cache, generations, vector mirrors and recovery retain closed domain policies: note hashes keep their first vector, code hashes update; publication and migrations remain independent. Recovery uses one transaction for backup, reset, restore and row-count checks, with rollback on any error.
 

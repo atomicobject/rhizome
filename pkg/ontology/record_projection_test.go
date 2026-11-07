@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
@@ -99,7 +101,7 @@ func TestPreparedSyntheticRecordsFieldsAndStableIdentity(t *testing.T) {
 			require.Equal(t, node.Ref, same.Ref)
 		}
 	}
-	require.Equal(t, 1, prepared.resolverBuilds)
+	require.Same(t, prepared, nodes[1].Prepared)
 	input["rows"] = []any{map[string]any{"id": "B", "name": "Changed"}, map[string]any{"id": "A", "name": "Changed too"}}
 	reordered, err := PrepareDocument(recordFixtureRoot(t, "model.native", input), schema)
 	require.NoError(t, err)
@@ -222,6 +224,92 @@ func TestPreparedRecordCompositionOrdersSourcesAndLimitsNamespace(t *testing.T) 
 	BindRecordDocuments(product, account)
 	require.Equal(t, "1", account.records[0].identity.LogicalKey)
 	require.Equal(t, "2", product.records[0].identity.LogicalKey)
+	require.Equal(t, "2", product.records[0].projection.DisplayTitle())
 	require.Equal(t, beforeAccount, account.records[0].projection.Ref)
 	require.Equal(t, beforeProduct, product.records[0].projection.Ref)
+}
+
+func TestPreparedRecordHostContainmentHasOptionalEdge(t *testing.T) {
+	for _, edge := range []string{"", `, edge: {name: "contains"}`} {
+		t.Run(edge, func(t *testing.T) {
+			sdl := strings.Replace(recordRowsSDL, `status: String`, `rows: [Row!] @contains(shape: RECORD, select: "rows"`+edge+`)`, 1)
+			schema := recordFixtureSchema(t, sdl)
+			p, err := PrepareDocument(recordFixtureRoot(t, "model.native", map[string]any{"rows": []any{map[string]any{"id": "A"}, map[string]any{"id": "B"}}}), schema)
+			require.NoError(t, err)
+			require.Len(t, p.rootProjection.Fields["rows"].ChildRefs, 2)
+			edges, err := buildNodeScopedEdges(nil, p.rootProjection, schema, nil, nil, 1)
+			require.NoError(t, err)
+			if edge == "" {
+				require.Empty(t, edges)
+			} else {
+				require.Len(t, edges, 2)
+				for _, row := range edges {
+					require.Equal(t, "contains", row.RelationName)
+					require.Equal(t, "model.native", row.SrcPath)
+					require.NotEmpty(t, row.DstNodeID)
+				}
+			}
+		})
+	}
+}
+
+func TestRecordIndexBindsAcrossHostsAndRemovesUnresolvedEdges(t *testing.T) {
+	schema := recordFixtureSchema(t, recordRowsSDL)
+	sources := func(includeTarget bool) []notemeta.NoteSourceSnapshot {
+		roots := []*RootDocumentSnapshot{recordFixtureRoot(t, "a.native", map[string]any{"rows": []any{map[string]any{"id": "A", "refs": []any{"B", "B"}}}})}
+		if includeTarget {
+			roots = append(roots, recordFixtureRoot(t, "b.native", map[string]any{"rows": []any{map[string]any{"id": "B"}}}))
+		}
+		var out []notemeta.NoteSourceSnapshot
+		for _, root := range roots {
+			out = append(out, notemeta.NoteSourceSnapshot{Path: root.NotePath, Format: root.Format, RawSource: root.RawSource, Content: string(root.RawSource), ContentHash: root.ContentHash, Projection: root.Projection})
+		}
+		return out
+	}
+	built, err := BuildIndexFromNoteSources(t.Context(), obsidian.VaultDefinition{}, sources(true), schema, "before")
+	require.NoError(t, err)
+	require.Len(t, built.Nodes, 4)
+	require.Len(t, built.Edges, 1)
+	require.Equal(t, "uses", built.Edges[0].RelationName)
+	require.Equal(t, "a.native", built.Edges[0].SrcPath)
+	require.Equal(t, "b.native", built.Edges[0].DstPath)
+	require.JSONEq(t, `[{"ordinal":0,"value":"B"},{"ordinal":1,"value":"B"}]`, built.Edges[0].OccurrencesJSON)
+	after, err := BuildIndexFromNoteSources(t.Context(), obsidian.VaultDefinition{}, sources(false), schema, "after")
+	require.NoError(t, err)
+	require.Len(t, after.Nodes, 2)
+	require.Empty(t, after.Edges)
+	unresolved := 0
+	for _, issue := range after.ValidationIssues {
+		if issue.Code == "record_reference_unresolved" {
+			unresolved++
+		}
+	}
+	require.Equal(t, 2, unresolved)
+}
+
+func TestNativeLinksFollowNearestSelectedOwner(t *testing.T) {
+	schema := recordFixtureSchema(t, recordRowsSDL)
+	root := recordFixtureRoot(t, "model.native", map[string]any{"rows": []any{map[string]any{"id": "A", "detail": "one"}, map[string]any{"id": "B", "detail": "two"}}})
+	root.Projection.Facts.Links = []noteformat.UnresolvedAuthoredLinkFact{{Owner: "value:/rows/0/detail", Target: "first"}, {Owner: "value:/rows/1/detail", Target: "second"}}
+	p, err := PrepareDocument(root, schema)
+	require.NoError(t, err)
+	require.Empty(t, p.rootProjection.SourceLinks())
+	require.Equal(t, "first", p.records[0].projection.SourceLinks()[0].Target)
+	require.Len(t, p.records[0].projection.SourceLinks(), 1)
+	require.Equal(t, "second", p.records[1].projection.SourceLinks()[0].Target)
+	require.Len(t, p.records[1].projection.SourceLinks(), 1)
+}
+
+func TestPositionalCompositionAssignsParentsBeforeChildren(t *testing.T) {
+	schema := recordFixtureSchema(t, `type Parent @node(locator:EMBEDDED) @source(shape:RECORD,paths:["*.native"],select:"parents",key:null,title:["$key"],space:"test",logicalKind:"parent",sourceOrder:1){ kids:[Kid!] @contains(shape:RECORD,select:"kids") }
+ type Kid @node(locator:EMBEDDED) @source(shape:RECORD,paths:["*.native"],select:"parents[].kids",key:null,title:["$key"],container:"Parent",space:"test",logicalKind:"kid",sourceOrder:0){ name:String @field(path:"name") }`)
+	input := map[string]any{"parents": []any{map[string]any{"kids": []any{map[string]any{"name": "child"}}}}}
+	account, err := PrepareDocument(recordFixtureRoot(t, "account.native", input), schema)
+	require.NoError(t, err)
+	product, err := PrepareDocument(recordFixtureRoot(t, "product.native", input), schema)
+	require.NoError(t, err)
+	BindRecordDocuments(product, account)
+	require.Equal(t, "2", product.records[0].identity.LogicalKey)
+	require.Equal(t, "2.1", product.records[1].identity.LogicalKey)
+	require.Equal(t, "2.1", product.records[1].projection.DisplayTitle())
 }

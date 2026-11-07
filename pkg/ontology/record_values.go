@@ -44,6 +44,11 @@ func (p *PreparedDocument) selectValues(start recordSelection, selector ontosche
 	for _, step := range selector.Steps {
 		var next []recordSelection
 		for _, selection := range current {
+			parent, _ := p.value(selection.value)
+			if parent.Kind != noteformat.MetadataObject {
+				p.recordShapeObservation(selection.value, step.Name, "mapping")
+				continue
+			}
 			id, ok := p.property(selection.value, step.Name)
 			if !ok {
 				continue
@@ -60,6 +65,7 @@ func (p *PreparedDocument) selectValues(start recordSelection, selector ontosche
 				next = append(next, base)
 			case ontoschema.RecordExpandSequence:
 				if value.Kind != noteformat.MetadataArray {
+					p.recordShapeObservation(id, step.Name, "sequence")
 					continue
 				}
 				for _, item := range value.Items {
@@ -70,6 +76,7 @@ func (p *PreparedDocument) selectValues(start recordSelection, selector ontosche
 				}
 			case ontoschema.RecordExpandMapping, ontoschema.RecordExpandMappingSequence:
 				if value.Kind != noteformat.MetadataObject {
+					p.recordShapeObservation(id, step.Name, "mapping")
 					continue
 				}
 				for _, entry := range value.Entries {
@@ -89,6 +96,8 @@ func (p *PreparedDocument) selectValues(start recordSelection, selector ontosche
 							leaf.ancestors = append(append([]noteformat.ValueID(nil), row.ancestors...), row.value)
 							next = append(next, leaf)
 						}
+					} else {
+						p.recordShapeObservation(entry.Value, step.Name, "sequence")
 					}
 				}
 			}

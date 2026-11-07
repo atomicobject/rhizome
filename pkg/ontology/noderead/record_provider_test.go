@@ -91,6 +91,7 @@ func TestRecordProviderSummaryAndRichReadsShareOneCapture(t *testing.T) {
 	}
 	require.EqualValues(t, 1, reader.Reads.Load())
 	require.EqualValues(t, 1, provider.Calls.Load())
+	require.Len(t, scope.preparedByPath, 1, "one prepared binding/resolver state per captured host")
 	require.NotNil(t, rich[0].SourceContent)
 	copy := rich[0].SourceContent.Copy()
 	copy.Value.Entries = nil

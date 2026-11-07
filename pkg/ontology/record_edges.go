@@ -8,7 +8,7 @@ import (
 )
 
 func recordEdges(projection *NodeProjection, schema *ontoschema.Schema, now int64) []semdb.OntologyEdgeRow {
-	if projection.Record == nil || projection.Type == nil {
+	if projection.Type == nil {
 		return nil
 	}
 	var out []semdb.OntologyEdgeRow

@@ -1,7 +1,6 @@
 package ontology
 
 import (
-	"encoding/base64"
 	"fmt"
 	"sort"
 	"strconv"
@@ -25,6 +24,7 @@ type recordProjection struct {
 	projection *NodeProjection
 	identity   RecordIdentity
 	valid      bool
+	depth      int
 }
 
 func recordDigest(parts ...string) string {
@@ -98,6 +98,7 @@ func (p *PreparedDocument) compileRecordProjections(doc *noteDoc) error {
 					}
 					if len(parents) == 1 {
 						record.parent = parents[0]
+						record.depth = record.parent.depth + 1
 						break
 					}
 				}
@@ -137,8 +138,9 @@ func (p *PreparedDocument) compileRecordProjections(doc *noteDoc) error {
 				if record.parent != nil {
 					record.identity.LogicalKey = record.parent.identity.LogicalKey + "." + record.identity.LogicalKey
 				}
-				ref.NodeID = "record-pos-v1-" + recordDigest(ref.NotePath, bindingID, parentID, strconv.Itoa(ordinal))
-				ref.Fragment = "record-pos:v1:" + p.root.ContentHash + ":" + base64.RawURLEncoding.EncodeToString([]byte(owner.Address))
+				digest := recordDigest(ref.NotePath, bindingID, parentID, strconv.Itoa(ordinal))
+				ref.NodeID = "record-pos-v1-" + digest
+				ref.Fragment = "record-pos:v1:" + p.root.ContentHash + ":" + digest
 				ref.Structural = recordDigest(string(p.sourceValueJSON(selection.value)))
 			} else {
 				digest := recordDigest(string(p.root.Format), ref.NotePath, bindingID, keyKind, key)
@@ -147,27 +149,7 @@ func (p *PreparedDocument) compileRecordProjections(doc *noteDoc) error {
 				ref.Structural = digest
 			}
 			projection := &NodeProjection{Ref: ref, Prepared: p, OwnerKey: owner.Key, RootSnapshot: p.root, ResolvedType: name, Type: typ, PropertyCase: typ.PropertyCase, Fields: map[string]FieldBinding{}, Collections: map[string]CollectionBinding{}}
-			projection.sourceTitle = record.identity.LogicalKey
-			for _, candidate := range binding.TitleSelectors {
-				var title string
-				var ok bool
-				switch candidate.Text {
-				case "$key":
-					title = record.identity.LogicalKey
-					ok = title != ""
-				case "$value":
-					if value.Scalar != nil {
-						title = sourceScalarText(*value.Scalar)
-						ok = title != ""
-					}
-				default:
-					title, ok = p.scalarAt(record, candidate)
-				}
-				if ok && strings.TrimSpace(title) != "" {
-					projection.sourceTitle = title
-					break
-				}
-			}
+			projection.sourceTitle = p.recordTitle(record)
 			record.projection = projection
 			projection.Record = &record.identity
 			p.records = append(p.records, record)
@@ -242,6 +224,7 @@ func (p *PreparedDocument) recordDiagnostic(r *recordProjection, field, code, me
 }
 
 func (p *PreparedDocument) recordForRef(ref NodeRef) (*recordProjection, error) {
+	id := ref.NodeID
 	if strings.HasPrefix(ref.Fragment, "record-pos:") {
 		parts := strings.Split(ref.Fragment, ":")
 		if len(parts) != 4 || parts[1] != "v1" {
@@ -250,22 +233,8 @@ func (p *PreparedDocument) recordForRef(ref NodeRef) (*recordProjection, error) 
 		if parts[2] != p.root.ContentHash {
 			return nil, fmt.Errorf("record_locator_stale")
 		}
-		address, err := base64.RawURLEncoding.DecodeString(parts[3])
-		if err != nil {
-			return nil, fmt.Errorf("record_locator_invalid")
-		}
-		var candidates []*recordProjection
-		for _, record := range p.records {
-			if record.identity.Positional && record.owner.Address == string(address) {
-				candidates = append(candidates, record)
-			}
-		}
-		if len(candidates) != 1 {
-			return nil, fmt.Errorf("record_locator_unresolved or ambiguous")
-		}
-		return candidates[0], nil
+		id = "record-pos-v1-" + parts[3]
 	}
-	id := ref.NodeID
 	if strings.HasPrefix(ref.Fragment, "record:") {
 		parts := strings.Split(ref.Fragment, ":")
 		if len(parts) != 3 || parts[1] != "v1" {

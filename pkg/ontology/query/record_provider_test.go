@@ -43,6 +43,17 @@ type Child @node(locator: EMBEDDED) @source(shape:RECORD,paths:["*.native"], sel
 	require.NoError(t, err)
 	require.NoError(t, env.store.ReplaceOntologyNodeReadModel(t.Context(), model))
 	require.NoError(t, env.store.ReplaceNoteMetadataSnapshot(t.Context(), semdb.NoteMetadataSnapshot{State: semdb.NoteMetadataState{Ready: true, LoadedAt: 1}, Notes: []semdb.NoteMetadataRow{{Path: "model.native", Title: "Native host", FormatID: "synthetic", ContentHash: source.ContentHash(), Projection: semdb.NoteProjectionState{Status: semdb.NoteProjectionStatusCurrent, ProviderVersion: "test-v1", ProjectionVersion: "test-v1", SourceContentHash: source.ContentHash()}}}}))
+	nativeNodes, err := prepared.Nodes()
+	require.NoError(t, err)
+	var sourceRows []*ontology.NodeProjection
+	for _, node := range nativeNodes {
+		if node.Type != nil && node.Type.Name == "Row" {
+			sourceRows = append(sourceRows, node)
+		}
+	}
+	for _, target := range sourceRows {
+		provider.Links = append(provider.Links, noteformat.UnresolvedAuthoredLinkFact{Owner: sourceRows[0].OwnerKey, Resolution: noteformat.LinkResolutionNoteReference, Syntax: "wikilink", Subtype: "basic", Target: target.Ref.String(), ResolverInput: target.Ref.String(), Path: target.Ref.NotePath, Fragment: target.Ref.Fragment})
+	}
 	reader := &structuralfixture.Reader{Note: &obsidian.Note{}, Paths: []string{"model.native"}}
 	deps := env.deps(nil)
 	deps.NoteFormats = formats
@@ -56,7 +67,7 @@ type Child @node(locator: EMBEDDED) @source(shape:RECORD,paths:["*.native"], sel
 	require.Equal(t, []any{map[string]any{"name": "First", "empty": ""}, map[string]any{"name": "Second", "empty": nil}}, result.Data["row"])
 	require.Zero(t, reader.Reads.Load())
 	require.Zero(t, provider.Calls.Load())
-	query, errs = Prepare(env.execSchema, `{ row { name content refs { name } children { name } workspace { source capabilities { canEdit canEditFields canNavigateChildren } fields { name values capability { writeOperation readOnlyReason } } bodies { title markdown source level blockId } structure { title level } } } }`)
+	query, errs = Prepare(env.execSchema, `{ row { name content refs { name } children { name } workspace { source sourceLinks { title resolvedRef { ref } } capabilities { canEdit canEditFields canNavigateChildren } fields { name values capability { writeOperation readOnlyReason } } bodies { title markdown source level blockId } structure { title level } } } }`)
 	require.Empty(t, errs)
 	result = Execute(t.Context(), deps, env.schema, query)
 	require.Empty(t, result.Errors)
@@ -67,6 +78,13 @@ type Child @node(locator: EMBEDDED) @source(shape:RECORD,paths:["*.native"], sel
 	require.Equal(t, []any{map[string]any{"name": "Second"}, map[string]any{"name": "Second"}}, first["refs"])
 	require.Equal(t, []any{map[string]any{"name": "Child"}}, first["children"])
 	workspace := first["workspace"].(map[string]any)
+	links := workspace["sourceLinks"].([]any)
+	require.Len(t, links, 2)
+	for i, title := range []string{"First", "Second"} {
+		link := links[i].(map[string]any)
+		require.Equal(t, title, link["title"])
+		require.Equal(t, sourceRows[i].Ref.String(), link["resolvedRef"].(map[string]any)["ref"])
+	}
 	require.Equal(t, map[string]any{"canEdit": false, "canEditFields": false, "canNavigateChildren": true}, workspace["capabilities"])
 	native := workspace["source"].(ontology.NodeSourceContent)
 	require.Equal(t, "application/json", native.MediaType)

@@ -46,3 +46,7 @@ Execution is organized by root family in `roots_*.go`, with shared planning in `
 Nested frontmatter `@field(path:)` and `@link(path:)` bindings use schema-owned mapping traversal in projection and note-record residual reads. Indexed field rows keep the canonical field name. Runtime ontology discovery exposes `sourcePath`; workspace capabilities and edit replay enforce read-only access.
 
 Workspace and nested-body capabilities overlay current source ownership independently of projection; `NodeCapabilities.readOnlyReason` agrees with field capability refusals.
+
+## SPEC-0133 boundary, last verified 2026-11-06
+
+**Native RECORD reads (SPEC-0133).** RECORD types implement Node without Section or fabricated levels. Summary roots use indexed source presence/value rows and preserve empty strings and repeated occurrences. Rich content, child collections, workspace and locators use the scoped prepared host. `workspace.source` and `bodies.source` expose native source-value JSON with representation, media type and source provenance; web adapters keep it out of Markdown and heading projections. `LocalGraphEdge.occurrences` exposes authored reference occurrence/member evidence. Every workspace/body capability overlay calls the existing `ApplySourceOwnership`.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
@@ -263,7 +264,7 @@ func (s *NodeLinkService) LinkTargets(ctx context.Context, req LinkTargetRequest
 				result.Diagnostics = append(result.Diagnostics, NodeLinkDiagnostic{Code: code, Ref: ref, NotePath: ref.NotePath, Message: err.Error()})
 				continue
 			}
-			target := NodeLinkTarget{Ref: projection.Ref, Markdown: projection.Ref.String(), DisplayLabel: projection.DisplayTitle(), Exists: true, Durability: "durable"}
+			target := NodeLinkTarget{Ref: projection.Ref, Markdown: (&url.URL{Path: projection.Ref.NotePath, Fragment: projection.Ref.Fragment}).String(), DisplayLabel: projection.DisplayTitle(), Exists: true, Durability: "durable"}
 			if strings.HasPrefix(projection.Ref.Fragment, "record-pos:") {
 				target.Durability = "revision_bound"
 				target.Revision = prepared.root.ContentHash

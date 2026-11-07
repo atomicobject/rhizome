@@ -10,6 +10,7 @@ import (
 
 type Provider struct {
 	Facts *noteformat.StructureFacts
+	Links []noteformat.UnresolvedAuthoredLinkFact
 	Calls atomic.Int64
 }
 
@@ -55,5 +56,5 @@ func (*Provider) Descriptor() noteformat.Descriptor {
 func (p *Provider) Project(noteformat.AuthoredSource) (noteformat.Projection, error) {
 	p.Calls.Add(1)
 	d := p.Descriptor()
-	return noteformat.NewProjectionWithFacts(d.ProviderVersion, d.ProjectionVersion, noteformat.ProjectionStatusCurrent, nil, d.Capabilities, noteformat.ProjectionFacts{Title: &noteformat.TitleFact{Value: "Native host"}, Structure: p.Facts.Copy()})
+	return noteformat.NewProjectionWithFacts(d.ProviderVersion, d.ProjectionVersion, noteformat.ProjectionStatusCurrent, nil, d.Capabilities, noteformat.ProjectionFacts{Title: &noteformat.TitleFact{Value: "Native host"}, Structure: p.Facts.Copy(), Links: p.Links})
 }

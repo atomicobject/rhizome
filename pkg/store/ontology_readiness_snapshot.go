@@ -60,7 +60,7 @@ func ontologyReadinessSnapshotTx(ctx context.Context, tx *sql.Tx, state Ontology
 	err = queryOntologyReadinessRows(ctx, tx, `
 		SELECT node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 			parent_type_name, title, source_locator, fragment, block_id, display_label,
-			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at
+			locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint, schema_hash, updated_at, record_identity_json
 		FROM ontology_nodes ORDER BY note_path, node_id
 	`, func(rows *sql.Rows) error {
 		var row readmodel.NodeRow

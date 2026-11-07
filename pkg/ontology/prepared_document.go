@@ -43,10 +43,12 @@ type PreparedDocument struct {
 	selectedRecordValues map[noteformat.ValueID]bool
 	markdown             *projectionResolver
 	rootProjection       *NodeProjection
+	sourceLinks          []noteformat.UnresolvedAuthoredLinkFact
+	linksByOwner         map[noteformat.OwnerKey][]noteformat.UnresolvedAuthoredLinkFact
 	records              []*recordProjection
 	recordByID           map[string][]*recordProjection
 	diagnostics          []RecordDiagnostic
-	resolverBuilds       int
+	shapeObservations    map[string]bool
 }
 
 func PrepareDocument(root *RootDocumentSnapshot, schema *ontoschema.Schema) (*PreparedDocument, error) {
@@ -81,7 +83,7 @@ func prepareDocumentForDoc(doc *noteDoc, schema *ontoschema.Schema, assessment *
 	if doc.Root == nil {
 		return nil, fmt.Errorf("captured source is required")
 	}
-	p := &PreparedDocument{root: doc.Root, schema: schema, structure: doc.Root.Projection.Facts.Structure, owners: map[noteformat.OwnerKey]*noteformat.OwnerFact{}, ownerByValue: map[noteformat.ValueID]noteformat.OwnerKey{}, markdownOwners: map[string]map[int]noteformat.OwnerKey{}, properties: map[noteformat.ValueID]map[string]noteformat.ValueID{}, recordByID: map[string][]*recordProjection{}, resolverBuilds: 1}
+	p := &PreparedDocument{root: doc.Root, schema: schema, structure: doc.Root.Projection.Facts.Structure, owners: map[noteformat.OwnerKey]*noteformat.OwnerFact{}, ownerByValue: map[noteformat.ValueID]noteformat.OwnerKey{}, markdownOwners: map[string]map[int]noteformat.OwnerKey{}, properties: map[noteformat.ValueID]map[string]noteformat.ValueID{}, recordByID: map[string][]*recordProjection{}}
 	p.foldedProperties = map[noteformat.ValueID]map[string]noteformat.ValueID{}
 	p.selectedRecordValues = map[noteformat.ValueID]bool{}
 	if p.structure != nil {
@@ -144,6 +146,7 @@ func prepareDocumentForDoc(doc *noteDoc, schema *ontoschema.Schema, assessment *
 			p.selectedRecordValues[record.selection.value] = true
 		}
 	}
+	p.prepareSourceLinks()
 	return p, nil
 }
 

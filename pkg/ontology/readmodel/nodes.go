@@ -1,6 +1,7 @@
 package readmodel
 
 type NodeRow struct {
+	RecordJSON            string `json:",omitempty"`
 	NodeID                string
 	NotePath              string
 	NodeRefJSON           string

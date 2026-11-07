@@ -20,9 +20,8 @@ func buildNodeScopedEdges(resolver *projectionResolver, root *NodeProjection, sc
 		}
 		var out []semdb.OntologyEdgeRow
 		for _, node := range nodes {
-			if node.Record != nil {
-				out = append(out, recordEdges(node, schema, updatedAt)...)
-			} else if cache != nil && node.Ref.Kind != NodeKindNote {
+			out = append(out, recordEdges(node, schema, updatedAt)...)
+			if node.Record == nil && cache != nil && node.Ref.Kind != NodeKindNote {
 				out = append(out, nodeScopedLinkEdges(schema, cache, node, resolveType, updatedAt)...)
 				out = append(out, nodeScopedNeighborEdges(schema, cache, node, resolveType, updatedAt)...)
 			}

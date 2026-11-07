@@ -36,6 +36,8 @@ The unified database implementation lives in `pkg/store` and belongs to the [sto
 
 ## Design constraints
 
+**Markdown syntax move (SPEC-0133).** Code anchors import the existing heading parser from `pkg/markdownsyntax/sectionparse`. Syntax grammar is independent of ontology; anchor identities, authored ranges and protection semantics are unchanged. Do not restore a parser or forwarding alias under ontology.
+
 - **Coderef rewrites respect source ownership.** `PlanRewriteBatch` captures and admits the full write set. Native note moves include these patches with endpoint/backlink changes in one source transaction, so owned code or note hosts refuse publication without partial source writes.
 
 - `pkg/anchors.LangForPath` is the structural language-by-extension authority. Watchers, command discovery and ingest share it; coderef-only formats must not become structural languages through a broader extension table.

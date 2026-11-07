@@ -38,7 +38,7 @@ func AssessScalarFieldValues(notePath, typeName string, field *ontoschema.Field,
 	}
 
 	for _, raw := range values {
-		if !validateScalarValue(raw, field, schema) {
+		if !(field.Record != nil && (field.TypeName == "String" || field.TypeName == "ID")) && !validateScalarValue(raw, field, schema) {
 			issue := withTypeFieldVariant(ValidationIssue{
 				Code:      "field_type_mismatch",
 				NotePath:  notePath,

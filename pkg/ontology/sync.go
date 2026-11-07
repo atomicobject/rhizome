@@ -183,6 +183,7 @@ func SyncPublishedPaths(ctx context.Context, noteMetadata notemeta.Indexer, vaul
 	// loaded into the ontology projector; delete paths remain intact so their
 	// stale read-model rows are still removed.
 	plan.LoadPaths = retainPaths(plan.LoadPaths, ontologyPaths)
+	expandRecordBindingPlan(plan, schema, ontologyPaths, changedPaths, deletedPaths)
 
 	allNotePaths := ontologyPaths
 	var (

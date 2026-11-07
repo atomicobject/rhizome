@@ -32,7 +32,8 @@ import (
 // v16: note titles derived from an H1 drop a trailing Obsidian block ID.
 // v17: embedded display labels retain the full headline without changing indexed titles or fields.
 // v18: provider-neutral owners, record fields/presence, and relation occurrence evidence.
-const OntologyMaterializationVersion = 18
+// v19: persisted RECORD binding context keeps scoped positional reads in the indexed logical namespace.
+const OntologyMaterializationVersion = 19
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

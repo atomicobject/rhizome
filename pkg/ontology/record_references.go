@@ -42,6 +42,9 @@ func BindRecordDocuments(documents ...*PreparedDocument) {
 	}
 	sort.SliceStable(records, func(i, j int) bool {
 		a, b := records[i], records[j]
+		if a.record.depth != b.record.depth {
+			return a.record.depth < b.record.depth
+		}
 		if a.record.identity.SourceOrder != b.record.identity.SourceOrder {
 			return a.record.identity.SourceOrder < b.record.identity.SourceOrder
 		}
@@ -65,30 +68,14 @@ func BindRecordDocuments(documents ...*PreparedDocument) {
 				r.identity.LogicalKey = parent + "." + r.identity.LogicalKey
 			}
 		}
+		r.projection.sourceTitle = candidate.document.recordTitle(r)
 	}
 	index := buildRecordReferenceIndex(records)
 	for _, p := range documents {
 		if p == nil {
 			continue
 		}
-		retained := p.diagnostics[:0]
-		for _, d := range p.diagnostics {
-			if !strings.HasPrefix(d.Code, "record_reference_") {
-				retained = append(retained, d)
-			}
-		}
-		p.diagnostics = retained
-		for _, r := range p.records {
-			if !r.valid {
-				continue
-			}
-			for _, field := range r.typ.Fields {
-				if field.Record == nil || field.Record.References == nil {
-					continue
-				}
-				p.bindRecordReferences(r, field, index)
-			}
-		}
+		p.rebindRecordReferences(index)
 	}
 }
 
@@ -106,6 +93,10 @@ func (p *PreparedDocument) referenceValues(id noteformat.ValueID, mode string) [
 	}
 	switch mode {
 	case "ELEMENTS":
+		if value.Kind != noteformat.MetadataArray {
+			p.recordShapeObservation(id, mode, "sequence")
+			return nil
+		}
 		var out []recordReferenceValue
 		for _, item := range value.Items {
 			v, _ := p.value(item)
@@ -113,6 +104,10 @@ func (p *PreparedDocument) referenceValues(id noteformat.ValueID, mode string) [
 		}
 		return out
 	case "MAPPING_KEYS":
+		if value.Kind != noteformat.MetadataObject {
+			p.recordShapeObservation(id, mode, "mapping")
+			return nil
+		}
 		var out []recordReferenceValue
 		for _, entry := range value.Entries {
 			key := entry.Key
@@ -224,4 +219,25 @@ func (p *PreparedDocument) bindRecordReferences(record *recordProjection, field 
 		binding.ReferenceOccurrences = append(binding.ReferenceOccurrences, occurrence)
 	}
 	record.projection.Fields[field.Name] = binding
+}
+
+func (p *PreparedDocument) rebindRecordReferences(index *recordReferenceIndex) {
+	retained := p.diagnostics[:0]
+	for _, d := range p.diagnostics {
+		if !strings.HasPrefix(d.Code, "record_reference_") {
+			retained = append(retained, d)
+		}
+	}
+	p.diagnostics = retained
+	for _, r := range p.records {
+		if !r.valid {
+			continue
+		}
+		for _, field := range r.typ.Fields {
+			if field.Record == nil || field.Record.References == nil {
+				continue
+			}
+			p.bindRecordReferences(r, field, index)
+		}
+	}
 }

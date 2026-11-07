@@ -314,6 +314,10 @@ func buildNodeCapabilities(projection *NodeProjection) NodeCapabilities {
 			}
 		}
 	}
+	if !canNavigateChildren && projection.Prepared != nil && projection.Snapshot == nil {
+		refs, err := projection.Prepared.Children(projection.Ref)
+		canNavigateChildren = err == nil && len(refs) > 0
+	}
 	return NodeCapabilities{
 		CanEdit:             canEditFields || canEditCollections,
 		CanEditFields:       canEditFields,

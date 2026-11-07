@@ -108,6 +108,7 @@ func writeBuiltinSDL(b *strings.Builder) {
 	b.WriteString("  parentId: ID\n")
 	b.WriteString("}\n\n")
 	b.WriteString("type LocalGraphEdge {\n")
+	b.WriteString("  occurrences: JSON\n")
 	b.WriteString("  source: ID!\n")
 	b.WriteString("  target: ID!\n")
 	b.WriteString("  kind: String!\n")

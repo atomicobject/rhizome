@@ -89,6 +89,7 @@ func TestNodePreviewEndpoint(t *testing.T) {
 		{name: "structural section selector", method: http.MethodGet, path: "/api/v1/nodes/preview?ref=" + url.QueryEscape(sectionRef.NotePath+"#struct:"+sectionRef.Structural), status: http.StatusOK, fragmentResolved: boolPointer(true), wantType: sectionRef.TypeName, wantTitle: sectionTitle, wantRef: sectionRef.String()},
 		{name: "structural unanchored embedded selector", method: http.MethodGet, path: "/api/v1/nodes/preview?ref=" + url.QueryEscape(embeddedRef.NotePath+"#struct:"+embeddedRef.Structural), status: http.StatusOK, fragmentResolved: boolPointer(true), wantType: embeddedRef.TypeName, wantTitle: embeddedTitle, wantRef: embeddedRef.String(), wantSummary: embeddedTitle},
 		{name: "fragment fallback", method: http.MethodGet, path: "/api/v1/nodes/preview?ref=specs%2F100-demo%2Fspec.md%23Missing", status: http.StatusOK, fragmentResolved: boolPointer(false), wantType: "Spec", wantSummary: "Demo spec summary"},
+		{name: "missing record selector", method: http.MethodGet, path: "/api/v1/nodes/preview?ref=specs%2F100-demo%2Fspec.md%23record%3Av1%3Amissing", status: http.StatusNotFound},
 		{name: "missing structural selector", method: http.MethodGet, path: "/api/v1/nodes/preview?ref=specs%2F100-demo%2Fspec.md%23struct%3Amissing", status: http.StatusNotFound},
 		{name: "missing ref", method: http.MethodGet, path: "/api/v1/nodes/preview", status: http.StatusBadRequest},
 		{name: "unresolved ref", method: http.MethodGet, path: "/api/v1/nodes/preview?ref=missing%2Fnote.md", status: http.StatusNotFound},
@@ -139,6 +140,11 @@ func TestNodePreviewEndpoint(t *testing.T) {
 		})
 	}
 	require.Empty(t, reader.reads, "summary-only preview must not read note content")
+	response, err := http.Get(httpServer.URL + "/api/v1/nodes/preview?ref=specs%2F100-demo%2Fspec.md%23record-pos%3Av1%3Astale%3AL3Jvd3MvMA")
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Equal(t, http.StatusNotFound, response.StatusCode)
+	require.Equal(t, map[string]int{"specs/100-demo/spec.md": 1}, reader.reads, "positional navigation verifies the current captured source")
 }
 
 func boolPointer(value bool) *bool {

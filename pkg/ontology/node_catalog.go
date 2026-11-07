@@ -130,6 +130,15 @@ func IntelOntologyNodeForProjection(schema *ontoschema.Schema, projection *NodeP
 	if err != nil {
 		return readmodel.NodeRow{}, err
 	}
+	recordJSON := ""
+	if projection.Record != nil {
+		encoded, err := json.Marshal(projection.Record)
+		if err != nil {
+			return readmodel.NodeRow{}, err
+		}
+		recordJSON = string(encoded)
+	}
+
 	parentID := ""
 	parentType := ""
 	if parent != nil {
@@ -139,6 +148,7 @@ func IntelOntologyNodeForProjection(schema *ontoschema.Schema, projection *NodeP
 	sourceLocator := NodeSourceLocator(ref)
 	displayLabel := nodeCatalogDisplayLabel(projection)
 	return readmodel.NodeRow{
+		RecordJSON:            recordJSON,
 		NodeID:                nodeID,
 		NotePath:              ref.NotePath,
 		NodeRefJSON:           string(nodeRefJSON),

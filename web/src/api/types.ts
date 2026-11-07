@@ -1,3 +1,4 @@
+import type { NativeSourceContent } from "./nativeSource";
 import type { components, operations } from "./generated";
 import type { JsonValue } from "./parse";
 
@@ -323,6 +324,7 @@ export type NodeDescriptor = {
 };
 
 export type NodeContent = {
+  source?: NativeSourceContent;
   path: string;
   title: string;
   resolvedType?: string;
@@ -385,6 +387,7 @@ type WorkspaceSectionBinding = {
 };
 
 type WorkspaceNodeData = {
+  source?: NativeSourceContent;
   title?: string;
   resolvedType?: string;
   markdown?: string;

@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -264,6 +265,12 @@ func (e *executor) resolveLocalGraphEdgeSelectionSet(edge noderead.GraphReadEdge
 			out[key] = emptyNil(edge.RelationName)
 		case "relationLabel":
 			out[key] = emptyNil(edge.RelationLabel)
+		case "occurrences":
+			if edge.OccurrencesJSON == "" {
+				out[key] = []any{}
+			} else {
+				out[key] = json.RawMessage(edge.OccurrencesJSON)
+			}
 		case "provenance":
 			out[key] = emptyNil(edge.Provenance)
 		case "structural":

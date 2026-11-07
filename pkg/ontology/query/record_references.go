@@ -22,7 +22,7 @@ func (e *executor) resolveRecordReferenceField(ctx context.Context, node *sectio
 		}
 		rows = nil
 		for _, row := range indexed[noderead.RefIdentityKey(node.Projection.Ref)] {
-			if row.FieldName == field.Name {
+			if strings.EqualFold(row.FieldName, field.Name) {
 				rows = append(rows, row)
 			}
 		}

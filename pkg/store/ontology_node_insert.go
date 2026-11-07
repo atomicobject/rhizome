@@ -13,9 +13,9 @@ func insertOntologyNodesTx(ctx context.Context, tx *sql.Tx, nodes []readmodel.No
 				node_id, note_path, node_ref_json, node_kind, type_name, parent_node_id,
 				parent_type_name, title, source_locator, fragment, block_id, display_label,
 				locator_status, start_byte, end_byte, structural_fingerprint, relocation_fingerprint,
-				schema_hash, updated_at
+				schema_hash, updated_at, record_identity_json
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(node_id) DO UPDATE SET
 				note_path = excluded.note_path,
 				node_ref_json = excluded.node_ref_json,
@@ -34,7 +34,8 @@ func insertOntologyNodesTx(ctx context.Context, tx *sql.Tx, nodes []readmodel.No
 				structural_fingerprint = excluded.structural_fingerprint,
 				relocation_fingerprint = excluded.relocation_fingerprint,
 				schema_hash = excluded.schema_hash,
-				updated_at = excluded.updated_at
+				updated_at = excluded.updated_at,
+				record_identity_json = excluded.record_identity_json
 		`)
 	if err != nil {
 		return err
@@ -64,6 +65,7 @@ func insertOntologyNodesTx(ctx context.Context, tx *sql.Tx, nodes []readmodel.No
 			node.RelocationFingerprint,
 			node.SchemaHash,
 			node.UpdatedAt,
+			node.RecordJSON,
 		); err != nil {
 			return err
 		}
