@@ -168,6 +168,7 @@ func nodeScopedLinkEdges(schema *ontoschema.Schema, cache *obsidian.NotePathCach
 	}
 	return out
 }
+
 // ontologyEdgeKey is the ontology_edges primary key.
 func ontologyEdgeKey(edge semdb.OntologyEdgeRow) string {
 	return edge.SrcPath + "\x00" + edge.SrcNodeID + "\x00" + edge.RelationName + "\x00" + edge.DstPath + "\x00" + edge.DstNodeID + "\x00" + edge.Provenance

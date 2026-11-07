@@ -260,6 +260,9 @@ func (s *Store) applyOntologyDelta(ctx context.Context, delta OntologyDelta, pre
 					return err
 				}
 			}
+			if err := deleteAllOntologyRecordFTSTx(ctx, tx); err != nil {
+				return err
+			}
 		} else {
 			if err := deleteOntologyForPathsTx(ctx, tx, delta.DeletePaths, true); err != nil {
 				return err

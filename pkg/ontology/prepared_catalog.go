@@ -23,6 +23,9 @@ func buildPreparedNodeReadModel(prepared *PreparedDocument, projection *NodeProj
 		}
 		seen[row.NodeID] = true
 		result.Nodes = append(result.Nodes, row)
+		if node.Record != nil {
+			result.RecordSearchTexts = append(result.RecordSearchTexts, readmodel.RecordSearchText{NodeID: row.NodeID, NotePath: row.NotePath, Title: row.Title, Body: recordSearchBody(node)})
+		}
 		fields, deps := IntelOntologyNodeFieldReadModelForProjection(prepared.schema, node, row, now, opts)
 		result.FieldValues = append(result.FieldValues, fields...)
 		result.LinkDependencies = append(result.LinkDependencies, deps...)

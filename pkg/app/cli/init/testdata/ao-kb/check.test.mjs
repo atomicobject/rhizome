@@ -93,6 +93,21 @@ test('include coverage needs the AO knowledge paths and an explicit include for 
   assert.equal(named(fixture(t, { ...bound, '.rhizome/config.yml': models }), 'note includes').status, 'ok');
 });
 
+test('absent notes.includes is default all-Markdown discovery, and a first include list must keep it', t => {
+  for (const config of ['code:\n  enabled: true\n', 'notes:\n  excludes:\n    - drafts/**\n']) {
+    assert.equal(named(fixture(t, { '.rhizome/config.yml': config }), 'note includes').status, 'ok', config);
+    const registry = named(fixture(t, { '.rhizome/config.yml': config, '.kb/curation/_conflicts.md': '# Conflicts\n' }), 'note includes');
+    assert.equal(registry.status, 'warning');
+    assert.match(registry.message, /\.kb\/curation\/_conflicts\.md/);
+    assert.match(registry.message, /\*\*\/\*\.md/, 'a first include list that omits **/*.md would stop indexing the other notes');
+  }
+  const manifest = JSON.stringify({ sources: [{ path: 'artifacts/_assets/_model/features.yaml' }] });
+  const models = named(fixture(t, { '.rhizome/config.yml': 'code:\n  enabled: true\n', '.rhizome/modules/ao-kb/bindings/manifest.json': manifest }), 'note includes');
+  assert.equal(models.status, 'warning');
+  assert.match(models.message, /artifacts\/_assets\/_model\/features\.yaml/);
+  assert.match(models.message, /\*\*\/\*\.md/);
+});
+
 test('product tags AO would read differently from admission are named', t => {
   const vault = '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n';
   // Admission compares frontmatter products exactly, as AO does: inline fields and value
@@ -200,4 +215,15 @@ test('public check preserves independent knowledge and model readiness', t => {
   assert.equal(report.bindingsReady, false);
   assert.equal(report.bindings.knowledge.status, 'ready');
   assert.equal(report.bindings.model.status, 'incomplete');
+});
+
+test('local schema types whose query roots collide with the starter knowledge types are named', t => {
+  const local = 'type assertion @node(paths: ["assertions/*.md"]) { id: ID }\ntype hub @node(paths: ["MOCs/*.md"]) { x: String }\n';
+  const row = named(fixture(t, { '.rhizome/ontology/core-knowledge.graphql': local }), 'knowledge bindings');
+  assert.equal(row.status, 'error');
+  assert.match(row.message, /\.rhizome\/ontology\/core-knowledge\.graphql declares assertion/);
+  assert.doesNotMatch(row.message, /hub/);
+  const module = named(fixture(t, { '.rhizome/modules/other/ontology/x.graphql': 'type Assertion @node(paths: ["a/*.md"]) { id: ID }\n' }), 'knowledge bindings');
+  assert.equal(module.status, 'error');
+  assert.equal(named(fixture(t, { '.rhizome/ontology/other.graphql': 'type hub { x: String }\n' }), 'knowledge bindings').status, 'ok');
 });

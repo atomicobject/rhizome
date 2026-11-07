@@ -128,6 +128,7 @@ func (s *Searcher) resultsFromScoredChunks(ctx context.Context, scored []semdb.S
 				result.Title = node.Title
 			}
 			result.Handle = knowledge.NodeChunkHandle(sc.OwnerID, result.NoteID, sc.Granularity, chunkIndex).String()
+			result.Record = node.RecordJSON != ""
 		}
 		if result.Handle == "" {
 			continue

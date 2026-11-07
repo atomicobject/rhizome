@@ -15,6 +15,7 @@ func buildOntologyNodeCatalogReadModel(schema *ontoschema.Schema, results []note
 	var nodes []readmodel.NodeRow
 	var fields []readmodel.FieldValueRow
 	var dependencies []readmodel.LinkDependencyRow
+	var searchTexts []readmodel.RecordSearchText
 	now := time.Now().Unix()
 	for _, result := range results {
 		if strings.TrimSpace(result.path) != "" {
@@ -32,12 +33,14 @@ func buildOntologyNodeCatalogReadModel(schema *ontoschema.Schema, results []note
 		nodes = append(nodes, readModel.Nodes...)
 		fields = append(fields, readModel.FieldValues...)
 		dependencies = append(dependencies, readModel.LinkDependencies...)
+		searchTexts = append(searchTexts, readModel.RecordSearchTexts...)
 	}
 	return readmodel.NodeReadModel{
-		NotePaths:        normalizeStringSet(paths),
-		Nodes:            nodes,
-		FieldValues:      fields,
-		LinkDependencies: dependencies,
+		NotePaths:         normalizeStringSet(paths),
+		Nodes:             nodes,
+		FieldValues:       fields,
+		LinkDependencies:  dependencies,
+		RecordSearchTexts: searchTexts,
 	}, nil
 }
 

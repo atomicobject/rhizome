@@ -2,11 +2,13 @@ package retrieval
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"path/filepath"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
@@ -209,9 +211,36 @@ func (r *IntelLexicalRetriever) Retrieve(ctx context.Context, spec search.QueryS
 				Kind: row.Kind, ChunkIndex: -1}, Handle: h, Owner: h, Evidence: evidence,
 				Type: "note",
 			})
+		case "ontology_record":
+			if candidate, ok := recordLexicalCandidate(row, score, queryTokens); ok {
+				out = append(out, candidate)
+			}
 		}
 	}
 	return out, nil
+}
+
+// recordLexicalCandidate gives an embedded record's FTS hit the identity its
+// semantic chunks use: the first body chunk's handle and the record's own
+// owner. Path-only hits are dropped so a host's filename does not match every
+// record in it, and rows without catalog identity are stale.
+func recordLexicalCandidate(row semdb.IntelSearchRow, score float64, queryTokens []string) (search.Candidate, bool) {
+	var ref ontology.NodeRef
+	if (!row.TitleHit && !row.BodyHit) || json.Unmarshal([]byte(row.NodeRefJSON), &ref) != nil || ref.IsZero() {
+		return search.Candidate{}, false
+	}
+	evidence := []search.Evidence{{Type: "intel_doc_match", RawScore: score, Source: "pkg/store", Details: map[string]string{"snippet": row.Snippet}}}
+	if titleScore := tokenMatchScore(queryTokens, row.Title); titleScore > 0 {
+		evidence = append(evidence, search.Evidence{Type: "note_title_match", RawScore: titleScore, Source: "intel_lexical", Details: map[string]string{"noteTitle": row.Title}})
+	}
+	return search.Candidate{
+		SourceRef: search.SourceRef{Path: row.Path, Title: row.Title, Kind: "ontology_node", Granularity: embeddings.GranularityOntologyNodeBody,
+			NoteID: row.Path, NodeID: row.ID, ParentNodeID: row.ParentNodeID, NodeRef: &ref},
+		Handle:   knowledge.NodeChunkHandle(row.ID, row.Path, embeddings.GranularityOntologyNodeBody, 0),
+		Owner:    knowledge.RecordOwnerHandle(row.ID, row.Path),
+		Evidence: evidence,
+		Type:     "note",
+	}, true
 }
 
 func persistedDocSectionRef(row semdb.IntelSearchRow) ontology.NodeRef {
