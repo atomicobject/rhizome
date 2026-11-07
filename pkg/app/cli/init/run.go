@@ -192,6 +192,7 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 		lines = append(lines, fileLines(res.files.pending())...)
 		printPlanLines(out, lines, true)
 		printHookStatus(out, r.layout.ProjectRoot, res, false)
+		printSettingConflicts(out, r.layout.ProjectRoot, res)
 		return ErrChangesPending
 	}
 	report, err := r.apply(s, res)

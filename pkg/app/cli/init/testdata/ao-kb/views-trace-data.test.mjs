@@ -119,12 +119,12 @@ test('all typed source targets in a citation occurrence remain navigable', async
   assert.equal(cites[1].locations[0].section, 'Sources #1');
 });
 
-// Product-model records: neighborhoods name RECORD endpoints by nodeId without a fragment,
-// and omit them from `nodes`. The reader derives keyed refs, keeps rows distinct, and names
-// the end that authored each edge.
+// Product-model records: neighborhood endpoints carry their canonical fragment in both
+// directions. The reader keeps rows distinct, opens positional records as records, and
+// names the end that authored each edge.
 const host = (file) => `artifacts/_assets/_model/${file}.yaml`;
 const value = (entries) => ({ kind: 'object', entries: Object.entries(entries).map(([key, v]) => ({ key, value: Array.isArray(v) ? { kind: 'array', items: v.map((s) => ({ kind: 'string', scalar: s })) } : { kind: 'string', scalar: v } })) });
-const endpoint = (file, digest) => ({ notePath: host(file), kind: 'EMBEDDED', fragment: null, nodeId: `record-v1-${digest}`, typeName: null });
+const endpoint = (file, digest) => ({ notePath: host(file), kind: 'EMBEDDED', fragment: `record:v1:${digest}`, nodeId: `record-v1-${digest}`, typeName: 'AOKBModelRecord' });
 const modelRow = (file, digest, aoValue, type, entries, out = [], inbound = []) => ({
   __typename: type, path: `${host(file)}#record:v1:${digest}`, title: aoValue, aoValue,
   ref: { notePath: host(file), kind: 'EMBEDDED', fragment: `record:v1:${digest}`, nodeId: `record-v1-${digest}`, typeName: type },
@@ -137,7 +137,7 @@ const featBook = modelRow('features', 'aa', 'FEAT-book', 'AOKBModel_feature_sing
 const featCancel = modelRow('features', 'bb', 'FEAT-cancel', 'AOKBModel_feature_single', { id: 'FEAT-cancel', supported_by: ['a-1'] },
   [['evidenced-by', { notePath: claim.path, kind: 'NOTE', fragment: null, nodeId: null, typeName: 'Assertion' }]]);
 const flowBook = modelRow('flows', 'cc', 'FLOW-book', 'AOKBModel_flow_single', { id: 'FLOW-book', screens: ['SCR-book'] }, [],
-  [['serves', endpoint('features', 'aa')], ['serves', endpoint('screens', 'dd')], ['governs', { ...endpoint('requirements', 'x'), nodeId: 'record-pos-v1-ee' }]]);
+  [['serves', endpoint('features', 'aa')], ['serves', endpoint('screens', 'dd')], ['governs', { ...endpoint('requirements', 'x'), fragment: 'record-pos:v1:h:ee', nodeId: 'record-pos-v1-ee' }]]);
 const scrBook = modelRow('screens', 'dd', 'SCR-book', 'AOKBModel_screen_single', { id: 'SCR-book' }, [['serves', endpoint('flows', 'cc')]]);
 const rows = [featBook, featCancel, flowBook, scrBook];
 function modelQuery(calls) {
@@ -162,7 +162,7 @@ test('model records reached through edges stay distinct, keyed by native identit
   assert.ok(trace.nodes.has(featCancel.path), 'two rows of features.yaml are separate trace records');
   assert.equal(trace.nodes.has(host('features')), false, 'no record collapses to its host file');
   assert.equal(trace.nodes.get(featBook.path).record.aoId, 'FEAT-book');
-  assert.ok(calls.some((q) => q.includes(`node(ref: "${featBook.path}")`)), 'reads the derived keyed ref');
+  assert.ok(calls.some((q) => q.includes(`node(ref: "${featBook.path}")`)), 'reads the endpoint\'s own ref');
 });
 
 test('a declaration stored the other way round names the record that authored it', async () => {
@@ -175,5 +175,5 @@ test('a declaration stored the other way round names the record that authored it
   const feature = trace.edges.find((e) => e.from === featBook.path);
   assert.equal(feature.declaredBy[0].record, featBook.path);
   assert.equal(trace.nodes.get(featBook.path).lane, 'up');
-  assert.ok(trace.diagnostics.some((d) => d.includes('positional record in artifacts/_assets/_model/requirements.yaml')));
+  assert.equal(trace.diagnostics.some((d) => d.includes('positional')), false, 'a positional record is a record, not a file-only diagnostic');
 });

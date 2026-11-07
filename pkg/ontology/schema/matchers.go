@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/bmatcuk/doublestar/v4"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -25,6 +26,9 @@ type matchInput struct {
 	Type     matchInputType
 	Value    string
 	Property string
+	// Exact marks a quoted property value: it matches a frontmatter string as
+	// authored, with no inline fields and no case, space, or link folding.
+	Exact bool
 }
 
 type matchExprType int
@@ -226,6 +230,9 @@ func evalMatchInput(input *matchInput, doc *Subject) bool {
 	case matchInputTag:
 		return hasTag(doc.Tags, input.Value)
 	case matchInputProperty:
+		if input.Exact {
+			return docFrontmatterHasExactValue(doc, input.Property, input.Value)
+		}
 		return docPropertyHasValue(doc, input.Property, input.Value)
 	case matchInputHas:
 		for key, value := range doc.Frontmatter {
@@ -296,6 +303,31 @@ func docPropertyHasValue(doc *Subject, property, target string) bool {
 	return false
 }
 
+// docFrontmatterHasExactValue reports whether a frontmatter property's string
+// scalar, or a string element of its list, equals target byte for byte.
+func docFrontmatterHasExactValue(doc *Subject, property, target string) bool {
+	for key, value := range doc.Frontmatter {
+		if !strings.EqualFold(strings.TrimSpace(key), strings.TrimSpace(property)) {
+			continue
+		}
+		switch value := value.(type) {
+		case string:
+			if value == target {
+				return true
+			}
+		case []string:
+			if slices.Contains(value, target) {
+				return true
+			}
+		case []any:
+			if slices.Contains(value, any(target)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func normalizeMatchPropertyValue(v string) string {
 	val := strings.ToLower(strings.TrimSpace(v))
 	if strings.HasPrefix(val, "[[") && strings.HasSuffix(val, "]]") {
@@ -337,10 +369,11 @@ func parseMatchInput(arg string) (matchInput, error) {
 		if key == "" || val == "" || val == "*" {
 			return matchInput{}, fmt.Errorf("invalid property input %q", arg)
 		}
-		if len(val) >= 2 && strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`) {
+		exact := len(val) >= 2 && strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)
+		if exact {
 			val = val[1 : len(val)-1]
 		}
-		return matchInput{Type: matchInputProperty, Property: key, Value: val}, nil
+		return matchInput{Type: matchInputProperty, Property: key, Value: val, Exact: exact}, nil
 	}
 	return matchInput{Type: matchInputFile, Value: arg}, nil
 }

@@ -110,16 +110,18 @@ test('absent notes.includes is default all-Markdown discovery, and a first inclu
 
 test('product tags AO would read differently from admission are named', t => {
   const vault = '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n';
-  const clean = named(fixture(t, { '.kb/config/vault.md': vault, 'assertions/a.md': '---\nproducts: [alpha, "*"]\n---\nBody\n' }), 'product tags');
+  // Admission compares frontmatter products exactly, as AO does: inline fields and value
+  // variants agree. Only a differently cased key still reads differently.
+  const clean = named(fixture(t, { '.kb/config/vault.md': vault, 'assertions/a.md': '---\nproducts: [alpha, "*"]\n---\nBody\n',
+    'assertions/inline.md': '---\nproducts: [beta]\n---\nproducts:: alpha\n',
+    'assertions/case.md': '---\nproducts: [Alpha]\n---\nBody\n' }), 'product tags');
   assert.equal(clean.status, 'ok');
   const root = fixture(t, { '.kb/config/vault.md': vault,
-    'assertions/inline.md': '---\nproducts: [beta]\n---\nproducts:: alpha\n',
-    'assertions/case.md': '---\nproducts: [Alpha]\n---\nBody\n',
+    'assertions/key.md': '---\nProducts: [beta]\n---\nBody\n',
     'assertions/fine.md': '---\nproducts: [beta]\n---\nBody\n' });
   const loose = named(root, 'product tags');
   assert.equal(loose.status, 'unsupported');
-  assert.match(loose.message, /assertions\/case\.md/);
-  assert.match(loose.message, /assertions\/inline\.md/);
+  assert.match(loose.message, /assertions\/key\.md/);
   assert.doesNotMatch(loose.message, /fine\.md/);
 });
 

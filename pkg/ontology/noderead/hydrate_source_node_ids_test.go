@@ -34,6 +34,18 @@ type Row @node(locator:EMBEDDED) @source(shape:RECORD,paths:["model.yaml"],selec
 	require.Equal(t, "record:v1:a", records[0].Ref.Fragment)
 	require.Zero(t, reader.contents)
 
+	// Inbound edge rows name only the source's path and node ID.
+	untyped := append([]ontology.NodeRef(nil), refs...)
+	for i := range untyped {
+		untyped[i].TypeName = ""
+	}
+	records, err = NewService(vault, reader, store, schema).NewScope(ScopeOptions{}).Hydrate(t.Context(), untyped, HydrateOptions{Profile: HydrateSummary})
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	require.Equal(t, "Row", records[1].Ref.TypeName)
+	require.Equal(t, "record:v1:b", records[1].Ref.Fragment)
+	require.Zero(t, reader.contents)
+
 	duplicate := rows[0]
 	duplicate.NodeID = "another-catalog-row"
 	duplicate.SourceLocator = "duplicate"

@@ -2,7 +2,8 @@
   container: knowledge / inline-size;
   max-width: 1240px;
   margin-inline: auto;
-  padding: 14px 20px 28px;
+  /* The shell's control-row gutter, so the page starts on the host's left edge. */
+  padding: 14px var(--sp-6, 18px) 28px;
   font-size: 14px;
   line-height: 1.45;
   color: var(--text);
@@ -424,6 +425,6 @@
     grid-template-columns: 1fr;
   }
   .ak-page {
-    padding: 12px;
+    padding: 12px var(--sp-6, 18px);
   }
 }

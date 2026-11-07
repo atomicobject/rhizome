@@ -9,7 +9,7 @@ import {
   type Declaration,
 } from "../lib/relations.ts";
 import { declarer, declaringEntry, type SourceValue } from "../lib/model.ts";
-import { isRecord, owner, type Endpoint } from "../lib/refs.ts";
+import { isRecord, ownerKey, type Endpoint } from "../lib/knowledge.ts";
 import {
   edgeKey,
   type Expansion,
@@ -258,7 +258,7 @@ export function createReader(
             declarations.push({
               from: path,
               field: edge.relation,
-              to: owner(edge.target).key,
+              to: ownerKey(edge.target),
               origin: "body",
             });
       }
@@ -297,7 +297,7 @@ export function createReader(
       if (record.neighborhood.truncated) limited.add(path);
       for (const edge of record.neighborhood.edges)
         if (edge.relation === "supportedBy")
-          add(path, owner(edge.target).key, ARTIFACT_SUPPORTED_BY, "frontmatter.supported_by");
+          add(path, ownerKey(edge.target), ARTIFACT_SUPPORTED_BY, "frontmatter.supported_by");
       for (const field of [
         "additionalAssertionReferences",
         "conceptReferences",
@@ -336,15 +336,9 @@ export function createReader(
     for (const record of cache.values()) {
       if (!("modelOut" in record)) continue;
       for (const edge of neighbors(record)) {
-        const other = owner(edge.target);
-        if (other.positional) {
-          diagnostics.add(
-            `${record.title} › ${edge.relation}: a positional record in ${other.host.notePath} has no durable identity to open; open the file instead.`,
-          );
-          continue;
-        }
-        if (isRecord(edge.target) ? !cache.has(other.key) : !byPath.has(other.key)) continue;
-        const [from, to] = edge.out ? [record.path, other.key] : [other.key, record.path];
+        const other = ownerKey(edge.target);
+        if (isRecord(edge.target) ? !cache.has(other) : !byPath.has(other)) continue;
+        const [from, to] = edge.out ? [record.path, other] : [other, record.path];
         const by = end(declarer(end(from), end(to)));
         const named = by.key === from ? end(to) : end(from);
         const field = declaringEntry(by.value, named.aoValue)?.key;
@@ -380,10 +374,8 @@ export function createReader(
         if (!("modelOut" in record)) return ingest(record);
         byPath.set(path, { ...record, aoId: record.aoValue });
         if (record.modelOut.truncated || record.modelIn.truncated) limited.add(path);
-        for (const edge of neighbors(record)) {
-          const other = owner(edge.target);
-          if (isRecord(edge.target) && !other.positional) reachable.add(other.key);
-        }
+        for (const edge of neighbors(record))
+          if (isRecord(edge.target)) reachable.add(ownerKey(edge.target));
       });
       linkModels();
     }
@@ -394,7 +386,7 @@ export function createReader(
     paths.flatMap((path) => {
       const record = cache.get(path);
       return record && "modelOut" in record
-        ? neighbors(record).flatMap((e) => (isRecord(e.target) ? [owner(e.target).key] : []))
+        ? neighbors(record).flatMap((e) => (isRecord(e.target) ? [ownerKey(e.target)] : []))
         : [];
     });
   const incoming = async (paths: string[], cap: number) => {
@@ -427,12 +419,10 @@ export function createReader(
         value.forEach((r) => candidates.add(r.path));
         if (value.length === cap) capped = true;
       } else if (value) {
-        // Endpoints come from edges: neighborhood nodes omit RECORD neighbors.
         for (const edge of value.neighborhood.edges) {
-          const other = owner(edge.target);
-          if (other.positional) continue;
-          if (isRecord(edge.target) && model) reachable.add(other.key);
-          candidates.add(other.key);
+          const other = ownerKey(edge.target);
+          if (isRecord(edge.target) && model) reachable.add(other);
+          candidates.add(other);
         }
         capped ||= value.neighborhood.truncated;
       }

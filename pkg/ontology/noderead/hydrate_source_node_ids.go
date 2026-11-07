@@ -10,6 +10,8 @@ import (
 
 // A provider's source-local node ID differs from the catalog's hashed row ID.
 // Fragmentless relation endpoints still resolve through indexed rows, in one batch.
+// An inbound edge row names only its source's path and node ID, so an endpoint
+// without a type is a candidate too; a known non-RECORD type is not.
 func (s *Scope) fillCatalogRowsBySourceNodeID(ctx context.Context, refs []ontology.NodeRef, rows map[string]readmodel.NodeRow) error {
 	pending := map[string][]ontology.NodeRef{}
 	var paths []string
@@ -17,8 +19,11 @@ func (s *Scope) fillCatalogRowsBySourceNodeID(ctx context.Context, refs []ontolo
 		if s.service.Schema == nil {
 			continue
 		}
-		typeDef := s.service.Schema.Types[ref.TypeName]
-		if typeDef == nil || typeDef.SourceShape != ontoschema.EmbeddedSourceShapeRecord {
+		if ref.TypeName == "" {
+			if ref.Kind != ontology.NodeKindEmbedded {
+				continue
+			}
+		} else if typeDef := s.service.Schema.Types[ref.TypeName]; typeDef == nil || typeDef.SourceShape != ontoschema.EmbeddedSourceShapeRecord {
 			continue
 		}
 		if _, ok := rows[RefIdentityKey(ref)]; ok || ref.NodeID == "" || ref.Fragment != "" {

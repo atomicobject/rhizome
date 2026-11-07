@@ -135,24 +135,21 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
       : 'Frontmatter connections, where present, use the supported map shape.', 'assertions');
   });
   inspect('product tags', 'assertions', () => {
-    // Admission matchers also read inline fields and compare case-insensitively; AO reads
-    // frontmatter `products` exactly. Name the notes where the two could disagree.
-    const slugs = frontmatter.match(/^products:\s*\[([^\]]*)\]/m)?.[1].split(',').map(s => s.trim().replace(/^(['"])(.*)\1$/, '$2')) ?? [];
+    // Admission compares frontmatter `products` values exactly, as AO does, but matches the key
+    // case-insensitively; AO reads only `products`. Name notes that spell the key otherwise.
     const affected = [];
     for (const dir of ['assertions', 'sources', 'concepts', 'artifacts']) {
       if (!existsSync(join(root, dir))) continue;
       for (const name of readdirSync(join(root, dir), { recursive: true })) {
         const path = `${dir}/${String(name).split('\\').join('/')}`;
         if (!path.endsWith('.md') || path.includes('/_raw/')) continue;
-        const text = read(root, path) ?? '';
-        const values = text.match(/^---\r?\n[\s\S]*?^products:\s*\[([^\]]*)\]/m)?.[1].split(',').map(s => s.trim().replace(/^(['"])(.*)\1$/, '$2')) ?? [];
-        const loose = values.some(v => v !== '*' && !slugs.includes(v) && slugs.some(s => s.toLowerCase() === v.trim().toLowerCase()));
-        if (loose || /^products::/im.test(text.replace(/^---\r?\n[\s\S]*?\r?\n---/, ''))) affected.push(path);
+        const block = (read(root, path) ?? '').match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+        if ([...block.matchAll(/^(\w+):/gm)].some(([, key]) => key !== 'products' && key.toLowerCase() === 'products')) affected.push(path);
       }
     }
     add('product tags', affected.length ? 'unsupported' : 'ok', affected.length
-      ? `${affected.length} note(s) tag products with an inline products:: field or a case/space variant of a registered slug. AO ignores these; Rhizome's product admission may not: ${affected.join(', ')}`
-      : 'Knowledge product tags use exact registered slugs in frontmatter.', 'assertions');
+      ? `${affected.length} note(s) spell the products key in another case. AO ignores it and treats the note as shared; Rhizome's product admission reads it: ${affected.join(', ')}`
+      : 'Knowledge product tags use the frontmatter products key that AO reads.', 'assertions');
   });
   const weightsPath = '.kb/index/kb-weights.json';
   inspect('saved analysis', weightsPath, () => {

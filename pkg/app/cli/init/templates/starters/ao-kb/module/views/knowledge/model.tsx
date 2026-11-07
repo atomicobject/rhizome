@@ -9,8 +9,17 @@ import {
   sectionStatus,
   useViewContext,
 } from "@rhizome/kit";
-import { badges, name, relationships } from "./lib/knowledge.ts";
-import type { Knowledge } from "./lib/knowledge.ts";
+import {
+  POSITIONAL,
+  badges,
+  isPositional,
+  isRecord,
+  name,
+  ownerKey,
+  refKey,
+  relationships,
+} from "./lib/knowledge.ts";
+import type { Endpoint, Knowledge, Ref } from "./lib/knowledge.ts";
 import type { Edge as KnowledgeEdge } from "./lib/relations.ts";
 import {
   CODE_FIELD,
@@ -24,10 +33,15 @@ import {
   scalars,
   syncCompare,
 } from "./lib/model.ts";
-import type { FieldRow, ModelRecord, Neighbor, SourceValue, TypeSpec } from "./lib/model.ts";
+import type {
+  FieldLink,
+  FieldRow,
+  ModelRecord,
+  Neighbor,
+  SourceValue,
+  TypeSpec,
+} from "./lib/model.ts";
 import { MODEL_WORDS } from "./lib/relations.ts";
-import { isRecord, owner, refKey } from "./lib/refs.ts";
-import type { Endpoint, Ref } from "./lib/refs.ts";
 import {
   ENDPOINT,
   REF,
@@ -48,6 +62,7 @@ type Raw = {
   aoValue?: string | null;
   workspace: {
     source: { value?: SourceValue; address?: string } | null;
+    fields: { name: string; links: FieldLink[] }[];
     capabilities: { readOnlyReason?: string | null };
     structure: { title: string; ref: Ref }[];
   } | null;
@@ -70,7 +85,8 @@ async function loadModel(ref: string) {
   const data = await graphql<{ node: Raw | null }>(
     `query ModelRecord($ref: String!) { node(ref: $ref) { __typename title ${REF}
       ... on AOKBModelRecord { aoValue }
-      workspace { source capabilities { readOnlyReason } structure { title ${REF} } }
+      workspace { source capabilities { readOnlyReason } structure { title ${REF} }
+        fields { name links { value resolved title ${REF} } } }
       out: neighborhood(direction: OUTBOUND, first: 200) { truncated edges { relation target { ${ENDPOINT} } } }
       in: neighborhood(direction: INBOUND, first: 200) { truncated edges { relation target { ${ENDPOINT} } } } } }`,
     { ref },
@@ -78,15 +94,15 @@ async function loadModel(ref: string) {
   const node = data.node;
   if (!node) return null;
   const edges = [
-    ...node.out.edges.map((e) => ({ ...e, out: true, end: owner(e.target) })),
-    ...node.in.edges.map((e) => ({ ...e, out: false, end: owner(e.target) })),
+    ...node.out.edges.map((e) => ({ ...e, out: true, end: ownerKey(e.target) })),
+    ...node.in.edges.map((e) => ({ ...e, out: false, end: ownerKey(e.target) })),
   ];
   const self = refKey(node.ref);
   const siblings = (node.workspace?.structure ?? []).filter(
     (s) => s.ref.fragment && s.ref.typeName !== "AOKBModelFile" && refKey(s.ref) !== self,
   );
   const keys = [
-    ...edges.flatMap((e) => (isRecord(e.target) && !e.end.positional ? [e.end.key] : [])),
+    ...edges.flatMap((e) => (isRecord(e.target) ? [e.end] : [])),
     ...siblings.map((s) => refKey(s.ref)),
   ];
   const [records, files] = await Promise.all([
@@ -176,26 +192,22 @@ function Value({ row }: { row: FieldRow }) {
       <>
         <Record record={{ ref: a.target.ref, path: a.target.key, title: a.target.title }} />{" "}
         <span className="ak-key">{a.text}</span>
+        {a.state === "no edge" && (
+          <>
+            {" "}
+            <span className="ak-state">Checked reference; AO declares no relationship</span>
+          </>
+        )}
       </>
     ) : (
       <>
         <span className="ak-key">{a.text}</span>{" "}
-        <span
-          className={
-            a.state === "wildcard" || a.state === "not read" ? "ak-state" : "ak-state ak-state-risk"
-          }
-        >
+        <span className={a.state === "wildcard" ? "ak-state" : "ak-state ak-state-risk"}>
           {a.state === "wildcard"
             ? "Wildcard: every record"
-            : a.state === "no edge"
-              ? "Checked reference; AO declares no relationship to follow"
-              : a.state === "not read"
-                ? "Not checked: more relationships than one read returns"
-                : a.state === "ambiguous"
-                  ? "Names more than one record; none chosen"
-                  : row.spec?.to.includes("Assertion")
-                    ? "No assertion with this ID in the selected product"
-                    : "Not resolved in the selected product"}
+            : row.spec?.to.includes("Assertion")
+              ? "No assertion with this ID in the selected product"
+              : "Not resolved in the selected product: missing, ambiguous, or in another product"}
         </span>
       </>
     );
@@ -313,22 +325,21 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
     value: node.workspace?.source?.value,
     evidence: loaded.edges
       .filter((e) => e.out && e.relation === EVIDENCED_BY)
-      .map((e) => e.end.key),
+      .map((e) => e.end),
     evidenceTruncated: node.out.truncated,
   };
   const spec = specs[node.__typename];
   const byKey = new Map(loaded.records.map((r) => [r.key, r]));
   const neighbors: Neighbor[] = loaded.edges.flatMap((e): Neighbor[] => {
-    if (e.end.positional) return [];
-    const model = byKey.get(e.end.key);
-    const claim = model ? undefined : data.assertion.find((a) => a.path === e.end.key);
+    const model = byKey.get(e.end);
+    const claim = model ? undefined : data.assertion.find((a) => a.path === e.end);
     const target = model ?? claim;
     if (!target) return [];
     return [
       {
         relation: e.relation,
         out: e.out,
-        key: e.end.key,
+        key: e.end,
         ref: target.ref,
         title: model ? model.title : name(claim!),
         typeName: model ? model.typeName : "Assertion",
@@ -342,16 +353,12 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
     (n) =>
       n.typeName !== "Assertion" && (n.out ? declarer(record, n) : declarer(n, record)) === n.key,
   );
-  const positional = loaded.edges.filter((e) => e.end.positional);
-  const rows = fieldRows(record.value, spec, neighbors).map((r) =>
-    node.out.truncated
-      ? {
-          ...r,
-          atoms: r.atoms?.map((a) =>
-            a.state === "unresolved" ? { ...a, state: "not read" as const } : a,
-          ),
-        }
-      : r,
+  // Field links resolve each authored value directly, independent of the capped edge reads.
+  const rows = fieldRows(
+    record.value,
+    spec,
+    Object.fromEntries((node.workspace?.fields ?? []).map((f) => [f.name, f.links])),
+    new Map(neighbors.map((n) => [n.key, n.title])),
   );
   const address = node.workspace?.source?.address;
   const file = basename(node.ref.notePath);
@@ -370,6 +377,7 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
             <span className="ak-key">{file}</span>
             {address && <span className="ak-key"> › {address}</span>}
           </span>
+          {isPositional(node.ref) && <span>{POSITIONAL}</span>}
         </p>
         {!embedded && node.workspace?.capabilities.readOnlyReason && (
           <p className="ak-footnote">{node.workspace.capabilities.readOnlyReason}</p>
@@ -400,10 +408,10 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
               </div>
             </dl>
           </Section>
-          {declaredByOthers.length + positional.length > 0 && (
+          {declaredByOthers.length > 0 && (
             <Section
               title="Declared by other records"
-              count={declaredByOthers.length + positional.length}
+              count={declaredByOthers.length}
               caption={
                 node.in.truncated
                   ? "More records declare relationships to this one than one read returns; this list is incomplete."
@@ -420,10 +428,13 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
                       icon={<ArrowLeft size={14} />}
                       aside={label(specs, n.typeName)}
                       meta={
-                        <span className="ak-key">
-                          {basename(n.ref.notePath)} › {n.aoValue || n.title} ›{" "}
-                          {field ?? "authored field not found"}
-                        </span>
+                        <>
+                          <span className="ak-key">
+                            {basename(n.ref.notePath)} › {n.aoValue || n.title} ›{" "}
+                            {field ?? "authored field not found"}
+                          </span>
+                          {isPositional(n.ref) && <> · {POSITIONAL}</>}
+                        </>
                       }
                     >
                       {words[n.out ? 0 : 1]}{" "}
@@ -431,17 +442,6 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
                     </Rel>
                   );
                 })}
-                {positional.map((e, i) => (
-                  <Rel
-                    key={`positional-${i}`}
-                    icon={<ArrowLeft size={14} />}
-                    aside="Positional record"
-                    meta="A positional record has no durable identity to open. Open its file to read it."
-                  >
-                    {MODEL_WORDS[e.relation]?.[e.out ? 0 : 1] ?? e.relation} a record in{" "}
-                    <FileLink path={e.target.notePath}>{basename(e.target.notePath)}</FileLink>
-                  </Rel>
-                ))}
               </ul>
             </Section>
           )}

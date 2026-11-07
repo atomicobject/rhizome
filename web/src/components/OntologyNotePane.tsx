@@ -22,6 +22,7 @@ import {
   resolveRenderedLinkTarget,
 } from "../lib/content";
 import { displayTitle } from "../lib/labels";
+import { nodeReadOnlyReason } from "../lib/readOnly";
 import { BodyWalker } from "./body/BodyWalker";
 import { CollectionView } from "./body/CollectionView";
 import { NativeRecordValue } from "./NativeRecordValue";
@@ -1014,9 +1015,7 @@ export function OntologyNotePane({
   validationHealth,
   onOpenIssues,
 }: Props) {
-  const readOnlyReason =
-    workspace?.capabilities.readOnlyReason ||
-    (workspace?.content.source ? "Change this record with the owning tool." : undefined);
+  const readOnlyReason = nodeReadOnlyReason(workspace);
 
   const editing = requestedEditing && !readOnlyReason;
   const paneRef = useRef<HTMLElement | null>(null);

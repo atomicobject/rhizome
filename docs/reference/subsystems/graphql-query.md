@@ -29,6 +29,8 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 
 **Native RECORD reads (SPEC-0133).** RECORD types implement Node without Section or fabricated levels. Summary roots use indexed source presence/value rows and preserve empty strings and repeated occurrences. Rich content, child collections, workspace and locators use the scoped prepared host. `workspace.source` and `bodies.source` expose native source-value JSON with representation, media type and source provenance; web adapters keep it out of Markdown and heading projections. `LocalGraphEdge.occurrences` exposes authored reference occurrence/member evidence. Every workspace/body capability overlay calls the existing `ApplySourceOwnership`.
 
+RECORD reference fields (`@references`, including text-typed AO fields) publish `workspace.fields[].links` from their bound occurrences' indexed outcomes, with the same owner/field/position keying as Markdown relation fields; unresolved, ambiguous, and wildcard values stay unresolved rather than falling back to note resolution.
+
 RECORD workspace relation groups include the prepared record's parent and immediate children even without declared semantic edges. Containment stays distinct from authored references and backlinks; the existing shared relation components display all of them. Related record titles and locators come from batched summary hydration.
 
 Native source values expose optional `scalarText` for numbers and `keyText` for integer mapping keys, preserving exact canonical spelling when a browser's JSON numbers cannot represent the integer. Full source bytes remain available separately.

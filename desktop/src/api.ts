@@ -4,6 +4,8 @@ import type { ThemeName } from "../../web/src/lib/themes";
 
 declare global {
   interface Window {
+    /** The native shell platform; runtime content never receives this. */
+    __RHIZOME_PLATFORM__?: "macos" | "linux" | "windows";
     /** Marks the web UI's content view; read by the shared appearance module. */
     __RHIZOME_DESKTOP__?: boolean;
     /** Set by the finder overlay's initialization script. */
@@ -399,6 +401,7 @@ type Results = {
   page: null;
   session: null;
   layout: null;
+  "application-menu": null;
   menu: null;
   finder: null;
   "finder-choice": null;
@@ -452,6 +455,7 @@ type Args = {
   page: PageCommand;
   session: { repository: string | null; worktree: string | null };
   layout: { x: number; y: number; width: number; height: number; covered: boolean };
+  "application-menu": { x: number; y: number };
   menu: { x: number; y: number; items: MenuEntry[] };
   /** Shows the finder with `model`, or hides it with null. */
   finder: {

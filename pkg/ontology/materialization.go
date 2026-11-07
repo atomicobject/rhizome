@@ -43,7 +43,9 @@ import (
 // record context.
 // v24: RECORD references resolve projected file keys; property presence and wildcard membership
 // and @admit preserve selected-product admission without authored identifier aliases.
-const OntologyMaterializationVersion = 24
+// v25: quoted property matcher values compare frontmatter strings exactly, so notes admitted
+// under the looser inline or case-folded comparison are retyped.
+const OntologyMaterializationVersion = 25
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

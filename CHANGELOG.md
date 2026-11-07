@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
+
+### Fixed
+
+- Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
+- Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
+
 ## [v0.51.0] - 2026-11-06
 
 - Rhizome Desktop for Apple silicon Macs: one window per repository, ⌘O and ⇧⌘O finders for repositories and worktrees, runtime controls, and a bundled `rzm`. The app is signed, notarized, and updates itself.
