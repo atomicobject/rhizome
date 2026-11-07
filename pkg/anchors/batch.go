@@ -703,7 +703,7 @@ func (s *Service) ApplyNoteIndexBatch(ctx context.Context, works []NoteIndexWork
 		if indexerVersion == "" {
 			indexerVersion = NoteIndexerVersion
 		}
-		if strings.TrimSpace(work.ContentHash) == "" {
+		if strings.TrimSpace(work.ContentHash) == "" || upsertResult.DroppedLabel(work.Path) {
 			continue
 		}
 		noteMeta[work.Path] = NoteIndexMeta{
