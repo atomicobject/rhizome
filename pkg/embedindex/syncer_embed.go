@@ -36,8 +36,9 @@ func (s *Syncer) embed(ctx context.Context, plan SyncPlan, updateLastSync bool) 
 
 	// Persist intel chunks prior to embedding if a writer is configured.
 	if s.ChunkWriter != nil && len(plan.tasks) > 0 {
-		// With a queued writer, chunk rows and subsequent embedding rows share the
-		// same FIFO lane, so an eager FlushAndWait here only serializes overlap.
+		// The queued writer commits kinds in durable flush order, so these chunk
+		// rows land after earlier code-file replacements and before the embedding
+		// rows submitted below; an eager FlushAndWait here only serializes overlap.
 		if err := s.persistIntelChunks(ctx, plan.tasks); err != nil {
 			return fmt.Errorf("persist intel chunks: %w", err)
 		}

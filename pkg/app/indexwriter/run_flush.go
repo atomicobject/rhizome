@@ -34,6 +34,19 @@ func (s *queueState) flushAll(q *Writer) error {
 	q.snapshotQueueDepths(q.ctx)
 	return nil
 }
+
+// flushBefore flushes every kind ahead of k in durable flush order.
+func (s *queueState) flushBefore(q *Writer, k payloadKind) error {
+	for _, kind := range s.kinds {
+		if kind == k {
+			return nil
+		}
+		if err := kind.flush(q, time.Time{}, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 func (s *queueState) flushExpired(q *Writer, now time.Time) error {
 	codeHot := q.cfg.codePriorityActive(now, s.lastCodeAt, s.codeKind.pending())
 	for _, kind := range s.kinds {

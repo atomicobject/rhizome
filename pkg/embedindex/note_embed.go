@@ -27,8 +27,9 @@ func (s *NoteSyncer) embed(ctx context.Context, plan NotePlan, updateLastSync bo
 
 	// Persist intel chunks prior to embedding if a writer is configured.
 	if s.ChunkWriter != nil && len(plan.tasks) > 0 {
-		// With a queued writer, note intel chunks and later embedding rows stay in
-		// order on the same FIFO lane; flushing here only removes overlap.
+		// The queued writer commits kinds in durable flush order, so these chunk
+		// rows land before the embedding rows submitted below; flushing here only
+		// removes overlap.
 		if err := s.persistNoteIntelChunks(ctx, plan.tasks); err != nil {
 			return fmt.Errorf("persist note intel chunks: %w", err)
 		}

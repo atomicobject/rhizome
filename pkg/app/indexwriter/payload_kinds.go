@@ -85,6 +85,11 @@ func (k *typedPayloadKind[T]) offer(q *Writer, s *queueState, cmd queuedPayload,
 		indexingperf.ObserveLatency(ctx, indexingperf.NodeWriteDeferred, 0)
 		return true, nil
 	}
+	// Later kinds depend on earlier ones (chunks need their anchors, embeddings
+	// need their chunks), so an early flush must not overtake pending earlier kinds.
+	if err := s.flushBefore(q, k); err != nil {
+		return true, err
+	}
 	return true, k.flush(q, time.Time{}, false)
 }
 
