@@ -6,7 +6,7 @@ import { loadSourceDocument } from "./lib/source-document.ts";
 import { relationships, sourceText } from "./lib/knowledge.ts";
 import type { Knowledge, Source } from "./lib/knowledge.ts";
 import { splitLines } from "./lib/locators.ts";
-import { DateValue, Field, ModelUnavailable, Page, Record, TraceLink } from "./parts.tsx";
+import { DateValue, Field, Page, Record, TraceLink } from "./parts.tsx";
 import { FileLink } from "./evidence.tsx";
 import { AOHandoff } from "./record-parts.tsx";
 
@@ -227,7 +227,6 @@ function SourceRecord({ source: s, data }: { source: Source; data: Knowledge }) 
           ))}
         </ul>
       </Section>
-      <ModelUnavailable />
       <AOHandoff />
     </>
   );

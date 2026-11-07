@@ -18,6 +18,7 @@ import { badges, name } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge, RecordLink } from "./lib/knowledge.ts";
 import type { Edge } from "./lib/relations.ts";
 import { useKnowledge } from "./data.tsx";
+import { refKey } from "./lib/refs.ts";
 import "./knowledge.css";
 
 export const today = () => new Date().toLocaleDateString("en-CA");
@@ -56,7 +57,7 @@ export function TraceLink({ record }: { record: RecordLink }) {
       href={workspaceViewHref(
         "ao-kb.trace",
         { kind: "group", group: "Knowledge" },
-        { focus: record.ref.notePath },
+        { focus: refKey(record.ref) },
       )}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey) return;
@@ -64,7 +65,7 @@ export function TraceLink({ record }: { record: RecordLink }) {
         openView(
           "ao-kb.trace",
           { kind: "group", group: "Knowledge" },
-          { focus: record.ref.notePath },
+          { focus: refKey(record.ref) },
         );
       }}
     >
@@ -255,9 +256,6 @@ export function Basis({ id, children }: { id: string; children: ReactNode }) {
       )}
     </>
   );
-}
-export function ModelUnavailable() {
-  return <p className="ak-footnote">Product model not bound in this slice</p>;
 }
 export function LinkList({ title, records }: { title: string; records: RecordLink[] }) {
   return (

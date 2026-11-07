@@ -59,8 +59,8 @@ func TestAOKBRecipesAndIndexParity(t *testing.T) {
 	t.Run("recipes execute against installed fixture", func(t *testing.T) {
 		recipes, issues := queryrecipe.LoadPath(filepath.Join(root, ".rhizome/modules/ao-kb/recipes/ao-kb.yaml"))
 		require.Empty(t, issues)
-		require.Len(t, recipes, 4)
-		paths := map[string]string{"ao-kb-claim-to-source": "assertions/clinic-patient-books-own-slot.md", "ao-kb-reverse-impact": "assertions/clinic-patient-books-own-slot.md", "ao-kb-concept-evidence": "concepts/self-service.md", "ao-kb-artifact-evidence": "artifacts/booking-prd.md"}
+		require.Len(t, recipes, 5)
+		paths := map[string]string{"ao-kb-claim-to-source": "assertions/clinic-patient-books-own-slot.md", "ao-kb-reverse-impact": "assertions/clinic-patient-books-own-slot.md", "ao-kb-concept-evidence": "concepts/self-service.md", "ao-kb-artifact-evidence": "artifacts/booking-prd.md", "ao-kb-model-to-evidence": "assertions/clinic-patient-books-own-slot.md"}
 		for _, recipe := range recipes {
 			t.Run(recipe.ID, func(t *testing.T) {
 				compiled, issues := queryrecipe.Compile(recipe, executable, map[string]string{"path": paths[recipe.ID]})
@@ -91,6 +91,13 @@ func TestAOKBRecipesAndIndexParity(t *testing.T) {
 					for _, claim := range aoRows(row["supportedBy"]) {
 						require.NotEmpty(t, claim["sourcesSection"])
 					}
+				case "ao-kb-model-to-evidence":
+					// This fixture installs knowledge without model bindings: the recipe still
+					// compiles against the static schema and reports an empty, complete read.
+					node := aoMap(result.Data["node"])
+					require.Equal(t, "Assertion", node["__typename"])
+					require.Equal(t, false, aoMap(node["citedBy"])["truncated"])
+					require.Empty(t, aoMap(node["citedBy"])["edges"])
 				case "ao-kb-reverse-impact":
 					row := aoRows(result.Data["assertion"])[0]
 					require.Len(t, row["supportedBy"], 2)

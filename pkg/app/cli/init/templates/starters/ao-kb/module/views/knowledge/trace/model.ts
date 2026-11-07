@@ -16,6 +16,8 @@ export type Record = {
   name?: string | null;
   __typename: string;
   ref: Ref;
+  /** The type's label, such as "Use case", when it differs from its GraphQL name. */
+  kind?: string;
 };
 export type TraceEdge = Edge & { locations: { path: string; section: string; ref?: Ref }[] };
 export type Direction = "up" | "down";
@@ -43,6 +45,7 @@ export type Trace = {
 };
 export const edgeKey = (e: Edge) => `${e.from}\u0000${e.rel}\u0000${e.to}`;
 export const label = (record: Record) => record.headline || record.name || record.title;
+export const kind = (record: Record) => record.kind ?? record.__typename;
 export const presentation = (record: Record) =>
   record.__typename === "Assertion"
     ? "ao-kb.assertion"

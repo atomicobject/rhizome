@@ -55,3 +55,10 @@ test('classifies traversal per the R7 table; other claim relations are list-only
   assert.equal(traversal('supports'), 'unclassified');
   assert.equal(traversal('depends-on'), 'unclassified');
 });
+
+test('model evidence is a reference and declared model edges are structure; custom ones stay list-only', () => {
+  assert.equal(traversal('evidenced-by'), 'reference');
+  for (const rel of ['serves', 'made-of', 'governs', 'appears-in', 'decided-by', 'emits', 'gated-by', 'reads', 'writes'])
+    assert.equal(traversal(rel), 'structure', rel);
+  assert.equal(traversal('mitigates'), 'unclassified');
+});

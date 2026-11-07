@@ -3,16 +3,7 @@ import { COVERAGE, filterAssertions, name } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
 import type { Edge } from "./lib/relations.ts";
 import { useCoverage } from "./data.tsx";
-import {
-  DateValue,
-  Empty,
-  Filters,
-  ModelUnavailable,
-  Page,
-  Record,
-  StatusBadges,
-  useFilters,
-} from "./parts.tsx";
+import { DateValue, Empty, Filters, Page, Record, StatusBadges, useFilters } from "./parts.tsx";
 
 const columns = [
   ["title", "Assertion"],
@@ -136,7 +127,6 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
         Coverage states: {COVERAGE.join(" · ")}. Stored confidence is starting confidence set at
         extraction; not a verdict.
       </p>
-      <ModelUnavailable />
     </>
   );
 }

@@ -11,7 +11,7 @@ import {
 import { COVERAGE, filterAssertions, name } from "./lib/knowledge.ts";
 import type { Knowledge } from "./lib/knowledge.ts";
 import { useCoverage, useSavedAnalysis } from "./data.tsx";
-import { Empty, Filters, Fold, ModelUnavailable, Page, Record, useFilters } from "./parts.tsx";
+import { Empty, Filters, Fold, Page, Record, useFilters } from "./parts.tsx";
 
 const COVERAGE_SERIES = ["link", 2, 3, 5, 6] as const;
 
@@ -177,7 +177,6 @@ function ConceptsBody({ data }: { data: Knowledge }) {
           <p>Unavailable: .kb/index/kb-weights.json. This is not a clean result.</p>
         )}
       </Fold>
-      <ModelUnavailable />
     </>
   );
 }

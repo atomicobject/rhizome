@@ -1,4 +1,6 @@
 .ao-trace {
+  max-width: 1360px;
+  margin-inline: auto;
   padding: 14px 22px;
   container: ao-trace / inline-size;
   color: var(--text);
@@ -167,6 +169,36 @@
   pointer-events: none;
 }
 .ao-trace-lines > path {
+  stroke: var(--type-8);
+  stroke-width: 1.5;
+}
+.ao-trace-lines > path[data-style="structure"],
+.ao-trace-legend line[data-style="structure"] {
+  stroke-dasharray: 5 4;
+}
+.ao-trace-lines > path[data-style="reference"],
+.ao-trace-legend line[data-style="reference"] {
+  stroke-dasharray: 1 3;
+  stroke-linecap: round;
+}
+.ao-trace-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ao-trace-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ao-trace-legend svg {
+  width: 28px;
+  height: 8px;
+}
+.ao-trace-legend line {
   stroke: var(--type-8);
   stroke-width: 1.5;
 }
