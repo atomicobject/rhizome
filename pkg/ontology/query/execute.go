@@ -62,6 +62,12 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 	if len(exec.typedRootCoverage) > 0 {
 		result.Extensions = map[string]any{"typedRoots": exec.typedRootCoverage}
 	}
+	if len(exec.warnings) > 0 {
+		if result.Extensions == nil {
+			result.Extensions = map[string]any{}
+		}
+		result.Extensions["warnings"] = exec.warnings
+	}
 	return result
 }
 
@@ -84,6 +90,7 @@ type executor struct {
 	variables      map[string]any
 	fragments      ast.FragmentDefinitionList
 	errors         []Error
+	warnings       []Warning
 	sectionsByPath map[string][]*ontology.SectionNode
 	notePathCache  *obsidian.NotePathCache
 
