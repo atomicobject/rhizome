@@ -13,8 +13,9 @@ import (
 // lock is what election contends on, so when the manifest is missing or stale
 // this is the process to name.
 func LockOwner(vaultPath string) (pid int, live bool) {
-	lock, ok := indexlock.ReadLockData(LockPath(vaultPath))
-	if !ok || lock.PID <= 0 {
+	path := LockPath(vaultPath)
+	lock, ok := indexlock.ReadLockData(path)
+	if !ok || lock.PID <= 0 || indexlock.IsCopiedLock(path, lock) {
 		return 0, false
 	}
 	return lock.PID, pidExists(lock.PID)
