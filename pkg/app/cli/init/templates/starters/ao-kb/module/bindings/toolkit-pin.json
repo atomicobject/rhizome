@@ -1,0 +1,18 @@
+{
+  "version": "3.137.0",
+  "revision": "e9dce951ab4cd6aa9ccc734df96590bde25ccde9",
+  "source": "git+https://github.com/atomicobject/atomic-ai-prompt-toolkit",
+  "files": {
+    "__init__.py": "sha256:c1114ee3cd908111f2f34cf3e372109c81ab5ad56b11f95f4412a54f0d1a185b",
+    "product.py": "sha256:10aeaa59af09ce98c58cc599c3999605b1ef1ea7e5f1660968d664e6183dbb65",
+    "vault.py": "sha256:8d40822e7a20cb9ddfdf6d253572ebfee98a843a3bbcda7fae03c5b974425e32",
+    "kits/core/_build/metamodel.py": "sha256:68e7e22d9552ad4bcdb3bbcdac574cf98881058902ca3fab09c389e822a70714",
+    "kits/core/_build/account.py": "sha256:18a73ab2140b867843bd374fd0b02b68b3986bd461f77d5ece31f51dfbe10ea5",
+    "kits/core/_build/_kbcore.py": "sha256:1b92af2cb7b404eebacea40ed964fb54b6c554d948b909b0fc557df26ffb113c",
+    "kits/core/_build/metamodel.schema.yaml": "sha256:a9f2a323185e3392c146da38470bc38e5833aa7d5a7c9ba1fe1c5085c7168b0f",
+    "kits/core/_build/standard-metamodel.yaml": "sha256:c30d4197b81e1499d01555b8cc5196e38915d2e7880bcec91c72401104e1cb7e",
+    "kits/core/_build/modules/experience.yaml": "sha256:85d1ad42071cc0af7a4e41f70fd25cb8d6ae6594291ce927f453b7a1e6fcf77e",
+    "kits/core/_build/modules/org.yaml": "sha256:31e750b617d5b9f9c690b8d8b5ffe306a2acbb469e8b8bc0b65239ef765151eb",
+    "kits/core/_build/modules/workspace.yaml": "sha256:a4d34042f2afec6358ac06e402149a1bad797dba8c49833bc6d8298a59e9529a"
+  }
+}

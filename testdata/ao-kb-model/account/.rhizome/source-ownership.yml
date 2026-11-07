@@ -1,0 +1,4 @@
+sources:
+  - owner: AO KB
+    reason: Managed by AO KB. Change it with the AO KB skills.
+    paths: ["artifacts/**", "products/*/artifacts/**", "assertions/**", "sources/**", "concepts/**", ".kb/curation/**"]
