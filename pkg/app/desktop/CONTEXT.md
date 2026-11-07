@@ -7,9 +7,10 @@ setup reports, initialization, index scope, seeding, opening, command-line
 links, and repository pin advances. `protocol.go` bounds input and returns protocol 1 responses on both success and failure.
 
 - `New` receives the invocation's explicit `config.Env`. Home, PATH, login-shell,
-  and update-manifest lookups use that environment. Portable installation ownership
-  and CLI entry paths use the real OS account, independently of that environment.
-  Pin installation and advance carry it into the in-process updater. Repository trust remains owned by the
+  Rhizome Dev app (`RZM_DEV_APP_RZM`), and update-manifest lookups use that
+  environment. Portable installation ownership and CLI entry paths use the real
+  OS account, independently of that environment. Pin installation and advance
+  carry it into the in-process updater. Repository trust remains owned by the
   real operating-system account through `repositorytrust.DefaultStore`; an
   invocation home never redirects that authority. External process launch tools
   retain their process-owned environment; arbitrary lookup functions are not
@@ -91,7 +92,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   downloads or updates their installations. Global overrides require a native
   Rhizome binary, not an external manager shim.
 - Without an explicit global override, an app-owned bridge selects its own
-  resolved executable before searching existing CLI installations. Global status
+  resolved executable before searching existing CLI installations. A bridge is
+  app-owned inside a macOS app or a Windows/Linux image, or in a local build when
+  `rhizome-desktop` sits beside it. Global status
   probes from a neutral directory. App updates belong to the native updater;
   terminal `rzm update` hands that global target to the app and keeps repository
   updates independent.

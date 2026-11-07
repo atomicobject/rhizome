@@ -18,7 +18,8 @@ enum Reply {
     StallBody,
     Feed(&'static str),
     Package(&'static [u8]),
-    SlowPackage,
+    /// Sends the package one byte at a time, this far apart.
+    SlowPackage(Duration),
     Current,
 }
 
@@ -86,7 +87,7 @@ impl Server {
                     }
                     Reply::Package(bytes) => respond(&mut stream, bytes),
                     // A canceled download must not delay the next feed request.
-                    Reply::SlowPackage => downloads.push(thread::spawn(move || {
+                    Reply::SlowPackage(gap) => downloads.push(thread::spawn(move || {
                         // Without this, Nagle's algorithm can hold a byte for the
                         // client's delayed ACK and stretch a gap past LIMIT.
                         stream.set_nodelay(true).unwrap();
@@ -98,7 +99,7 @@ impl Server {
                         }
                         for (index, byte) in b"test".iter().enumerate() {
                             if index > 0 {
-                                thread::sleep(Duration::from_millis(100));
+                                thread::sleep(gap);
                             }
                             if stream.write_all(&[*byte]).is_err() {
                                 break;
@@ -380,7 +381,7 @@ fn overall_download_timeout_bounds_progress_and_allows_retry() {
         let app = app();
         let server = Server::new(vec![
             Reply::Feed("1.0.0"),
-            Reply::SlowPackage,
+            Reply::SlowPackage(Duration::from_millis(100)),
             Reply::Feed("1.0.0"),
             Reply::Package(b"test"),
         ]);

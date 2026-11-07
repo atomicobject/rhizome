@@ -27,6 +27,8 @@ func testService(t *testing.T) *Service {
 	s, err := New(filepath.Join(t.TempDir(), "desktop"), vaultconfig.Env{HomeDir: t.TempDir()})
 	require.NoError(t, err)
 	s.env.HomeDir = t.TempDir()
+	// Selection must not depend on whether this machine has Rhizome Dev.
+	s.env.LookupEnv = func(key string) (string, bool) { return "", key == repoexec.DevAppEnv }
 	s.available = func() string { return "" }
 	s.trust = repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
 	s.ensure = func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
@@ -282,4 +284,28 @@ echo 'rzm version v1.2.3'`)
 	status, err := s.GlobalStatus(context.Background(), target)
 	require.NoError(t, err)
 	require.Equal(t, GlobalInfo{Path: target, Version: "v1.2.3"}, status)
+}
+
+func TestInspectSelectsTheDevAppFromTheInvocationEnvironment(t *testing.T) {
+	s := testService(t)
+	devApp := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
+	s.env.LookupEnv = func(key string) (string, bool) {
+		if key == repoexec.DevAppEnv {
+			return devApp, true
+		}
+		return "", false
+	}
+	for _, tc := range []struct {
+		pin   string
+		trust bool
+	}{{"", false}, {"v1.0.0", true}} {
+		folder := config(t, repoconfig.LocalRhizomeConfig{Version: tc.pin})
+		require.NoError(t, os.WriteFile(filepath.Join(folder, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
+
+		info, err := s.Inspect(folder)
+		require.NoError(t, err)
+		require.Equal(t, "development", info.Authority)
+		require.Equal(t, devApp, info.Executable)
+		require.Equal(t, tc.trust, info.TrustRequired, "only a pin, which the checkout chose, needs trust; pin %q", tc.pin)
+	}
 }

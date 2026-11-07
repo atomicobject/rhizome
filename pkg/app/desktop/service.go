@@ -70,7 +70,7 @@ func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
 	if err != nil || !stat.IsDir() {
 		return info, repoexec.Plan{}, problem("folder_missing", "The selected path is not a folder.")
 	}
-	plan, err := repoexec.Select(canonical, filepath.Join(s.stateDir, "unselected-rzm"))
+	plan, err := repoexec.SelectWithEnv(s.env, canonical, filepath.Join(s.stateDir, "unselected-rzm"))
 	if err != nil {
 		return info, plan, err
 	}
