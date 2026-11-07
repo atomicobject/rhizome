@@ -258,6 +258,11 @@ func (p *PreparedDocument) recordForRef(ref NodeRef) (*recordProjection, error) 
 	if len(records) > 1 {
 		return nil, fmt.Errorf("record_key_ambiguous")
 	}
+	// An invalid record (for example under a duplicate container) has no
+	// catalog identity, so a saved locator must not reopen it.
+	if !records[0].valid {
+		return nil, fmt.Errorf("record_locator_unresolved")
+	}
 	return records[0], nil
 }
 func (p *PreparedDocument) projectRecord(ref NodeRef, bound bool) (*NodeProjection, error) {

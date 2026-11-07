@@ -111,3 +111,31 @@ func TestOwnedStructuredSourcesRefuseBeforeParsingAndKeepExactBytes(t *testing.T
 		require.Equal(t, content, string(actual))
 	}
 }
+
+// A duplicate container key invalidates its subtree in the catalog, so neither a
+// saved child locator nor root navigation may reach those invalid records.
+func TestInvalidContainerSubtreeIsNotReachableByLocatorOrChildren(t *testing.T) {
+	schema := recordFixtureSchema(t, `type Host @node(default:true){status:String}
+type Parent @node(locator:EMBEDDED) @source(shape:RECORD,paths:["*.yaml"],select:"parents",key:{field:"id"},title:["id"],space:"test",logicalKind:"parent"){id:ID @field(path:"id")}
+type Child @node(locator:EMBEDDED) @source(shape:RECORD,paths:["*.yaml"],select:"parents[].children",key:{field:"id"},title:["id"],container:"Parent",space:"test",logicalKind:"child"){id:ID @field(path:"id")}`)
+	valid := structuredProjection(t, schema, "model.yaml", "parents: [{id: P, children: [{id: C}]}]\n")
+	nodes, err := valid.Prepared.Nodes()
+	require.NoError(t, err)
+	var saved NodeRef
+	for _, node := range nodes {
+		if node.Type != nil && node.Type.Name == "Child" {
+			saved = node.Ref
+		}
+	}
+	require.NotEmpty(t, saved.Fragment)
+
+	duplicate := structuredProjection(t, schema, "model.yaml", "parents: [{id: P, children: [{id: C}]}, {id: P, children: [{id: D}]}]\n")
+	_, err = duplicate.Prepared.Project(saved)
+	require.ErrorContains(t, err, "record_locator_unresolved")
+	_, _, err = duplicate.Prepared.SemanticParent(saved)
+	require.ErrorContains(t, err, "record_locator_unresolved")
+
+	children, err := duplicate.Prepared.Children(duplicate.Ref)
+	require.NoError(t, err)
+	require.Empty(t, children, "invalid parents and their children are not navigable")
+}
