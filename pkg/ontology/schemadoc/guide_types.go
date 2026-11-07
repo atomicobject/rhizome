@@ -20,6 +20,7 @@ type guideType struct {
 	PropertyCase        ontoschema.PropertyCase
 	Paths               []string
 	Matches             []string
+	Admission           []*ontoschema.NoteMatcher
 	Fields              []*ontoschema.Field
 	Semantics           ontoschema.SemanticsKind
 	CompanionDocs       []ontoschema.CompanionDocRef
@@ -176,6 +177,7 @@ func guideTypeFromSchema(schema *ontoschema.Schema, name string) *guideType {
 			Semantics:           noteType.Semantics,
 			CompanionDocs:       append([]ontoschema.CompanionDocRef(nil), noteType.CompanionDocs...),
 			Annotations:         noteType.Annotations,
+			Admission:           noteType.AdmissionMatchers,
 			SourceShape:         noteType.SourceShape,
 			SourceMarker:        noteType.SourceMarker,
 			SourcePaths:         append([]string(nil), noteType.SourcePaths...),

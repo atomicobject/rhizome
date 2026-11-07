@@ -108,6 +108,7 @@ func renderFullType(b *strings.Builder, schema *ontoschema.Schema, noteType *gui
 			b.WriteString("\n- matches: ")
 			b.WriteString(strings.Join(noteType.Matches, ", "))
 		}
+		renderAdmission(b, noteType)
 		b.WriteString("\n- declared type: set `type: ")
 		b.WriteString(noteType.Name)
 		b.WriteString("` in frontmatter when authoring or disambiguating this note type")
@@ -377,6 +378,7 @@ func renderSupportingType(b *strings.Builder, schema *ontoschema.Schema, noteTyp
 		b.WriteString(strings.Join(noteType.Matches, ", "))
 	}
 	if noteType.Role == ontoschema.TypeRoleNote {
+		renderAdmission(b, noteType)
 		b.WriteString("\n- declared type: `type: ")
 		b.WriteString(noteType.Name)
 		b.WriteString("`")

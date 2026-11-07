@@ -42,6 +42,7 @@ input RecordMembership { path: String!, includes: String!, includeMissing: Boole
 directive @references(to: [String!]!, targetKey: String, mode: RecordReferenceMode!, encoding: RecordReferenceEncoding = ID, values: RecordReferenceValues = VALUE, targets: [RecordTarget!], matchName: String, allowWildcard: Boolean = false, edge: RecordEdge) on FIELD_DEFINITION
 input RequiredFieldCondition { field: String!, equals: String }
 directive @node(matches: [String!], paths: [String!], label: String, color: String, keyField: String, propertyCase: OntologyPropertyCase = KEBAB, locator: NodeLocator = FILE, default: Boolean = false) on OBJECT
+directive @admit(matches: [String!]!) on OBJECT
 directive @field(source: String, sources: [String!], path: String, fallback: RecordValueFallback, sourceKind: FieldSource = FRONTMATTER) on FIELD_DEFINITION
 directive @authoring(style: FieldAuthoringStyle!) on FIELD_DEFINITION
 directive @format(pattern: String, notPattern: String) on FIELD_DEFINITION

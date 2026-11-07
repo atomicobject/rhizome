@@ -39,7 +39,7 @@ import (
 // v22: scalar path fields reject structured leaves instead of formatting Go collections, and typed body-link
 // candidates exclude incompatible basename claimants before uniqueness.
 // v23: RECORD references resolve projected file keys; property presence and wildcard membership
-// preserve selected-product admission without authored identifier aliases.
+// and @admit preserve selected-product admission without authored identifier aliases.
 const OntologyMaterializationVersion = 23
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was

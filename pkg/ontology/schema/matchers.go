@@ -354,7 +354,7 @@ func tokenizeMatchArgs(args []string) []string {
 			if containsMatchOperatorWord(piece) {
 				for _, field := range strings.Fields(piece) {
 					if field != "" {
-						tokens = append(tokens, field)
+						tokens = append(tokens, splitMatchParens(field)...)
 					}
 				}
 				continue
