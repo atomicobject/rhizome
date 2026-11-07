@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Add Windows 11 x64 and Ubuntu 24.04 GNOME x64 and Arm64 desktop candidates, native credential storage, app-owned CLI installation, and joined release verification. Windows production signing and installed GUI acceptance remain required before publication.
+- Rhizome Desktop for Linux: AppImages for Ubuntu 24.04 GNOME on x64 and Arm64, with Secret Service sign-in, app-owned CLI installation and signed in-app updates. A Windows 11 x64 build is checked in CI but is not published until Windows code signing is configured.
 - Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
 
 ### Fixed

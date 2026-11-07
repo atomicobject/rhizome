@@ -9,7 +9,7 @@ import unittest
 from run_clean import scoped_environment
 from assemble_desktop import assemble as assemble_desktop
 from desktop_candidates_test import make_candidate
-from desktop_candidates import TARGETS as DESKTOP_TARGETS
+from desktop_candidates import REQUIRED_TARGETS
 import os
 
 from ci_release_artifacts import (ArtifactError, BUNDLE_FILES, DESKTOP, DESKTOP_CLI, GROUPS, NATIVE_GROUPS, PAYLOADS,
@@ -39,7 +39,7 @@ def fixture(root, *, candidate_only=False):
     candidates, hashes = {}, {}
     parent = root / 'candidates'
     parent.mkdir()
-    for target in DESKTOP_TARGETS:
+    for target in REQUIRED_TARGETS:
         candidate, checksum = make_candidate(parent, target, production=not candidate_only or target == "darwin-aarch64")
         candidates[target], hashes[target] = candidate, checksum
     def signer(command, **kwargs):
@@ -93,9 +93,9 @@ class ArtifactTests(unittest.TestCase):
         verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=ignore_signature)
         with tarfile.open(output / "rhizome-windows-amd64.tar.gz") as archive:
             self.assertEqual(set(archive.getnames()), {"rzm.exe", "LICENSE", "THIRD_PARTY_LICENSES.md", "licenses/dependency.txt"})
-            self.assertEqual((self.root / "windows/bin/windows-amd64/rzm.exe").read_bytes(),
+            self.assertEqual((self.root / "linux/bin/windows-amd64/rzm.exe").read_bytes(),
                              archive.extractfile("rzm.exe").read())
-        self.assertFalse((self.root / "linux/bin/windows-amd64/rzm.exe").exists())
+        self.assertNotIn("Rhizome-windows-x64-setup.exe", BUNDLE_FILES)
         checksums = (output / "checksums.txt").read_text()
         self.assertIn(digest(output / DESKTOP[0]) + "  " + DESKTOP[0], checksums)
         # Host ownership and modification times must not alter public release bytes.
@@ -122,7 +122,7 @@ class ArtifactTests(unittest.TestCase):
         native.write_bytes((candidate / 'rzm').read_bytes())
         collect("linux", SOURCE, VERSION, dist, extras, self.root / "collected", candidate=candidate,
                 scanner=lambda path: scanned.append(path.name), inspector=lambda *args: inspected.append(args[1:]))
-        self.assertEqual(len(scanned), 2)
+        self.assertEqual(len(scanned), len(GROUPS["linux"]))
         self.assertEqual({row[0] for row in inspected}, set(GROUPS["linux"]))
         self.assertTrue(all(row[1:] == (SOURCE, VERSION) for row in inspected))
         (dist / "metadata.json").write_text(json.dumps({"version": "1.2.4", "commit": SOURCE}))
@@ -244,11 +244,11 @@ class ArtifactTests(unittest.TestCase):
         output = self.root / "native-inputs"
         prepare_native(SOURCE, VERSION, native, output)
         validate_native_inputs(output, SOURCE, VERSION)
-        for target in ("linux-x86_64", "linux-aarch64", "windows-x86_64"):
+        for target in ("linux-x86_64", "linux-aarch64"):
             self.assertTrue((output / target / "desktop-candidate.json").is_file())
         with self.assertRaisesRegex(ArtifactError, "missing"):
             prepare_native(SOURCE, VERSION, native[:1], self.root / "missing-native")
-        (output / "windows-x86_64/rzm.exe").write_bytes(b"changed")
+        (output / "linux-aarch64/rzm").write_bytes(b"changed")
         with self.assertRaisesRegex(ArtifactError, "changed"):
             validate_native_inputs(output, SOURCE, VERSION)
 

@@ -26,7 +26,11 @@ NATIVE_TARGETS = frozenset(("windows-x86_64", "linux-x86_64", "linux-aarch64"))
 # Each native target's dependency evidence must come from this baseline host.
 BASELINES = {"windows-x86_64": "windows-11-x86_64", "linux-x86_64": "ubuntu-24.04-x86_64",
              "linux-aarch64": "ubuntu-24.04-aarch64"}
-REQUIRED_TARGETS = frozenset(TARGETS)
+# Public releases publish every target except Windows. Its desktop build and
+# PR checks remain, but no production Windows signing is configured, so its
+# packages are not published.
+RELEASE_NATIVE_TARGETS = frozenset(("linux-x86_64", "linux-aarch64"))
+REQUIRED_TARGETS = RELEASE_NATIVE_TARGETS | {"darwin-aarch64"}
 MANIFEST = "desktop-candidate.json"
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 HASH = re.compile(r"[0-9a-f]{64}\Z")

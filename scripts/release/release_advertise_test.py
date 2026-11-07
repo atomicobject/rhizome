@@ -16,7 +16,7 @@ import unittest
 from unittest.mock import patch
 from urllib.request import HTTPSHandler, Request, build_opener
 
-from desktop_candidates import TARGETS
+from desktop_candidates import REQUIRED_TARGETS, TARGETS
 from release_advertise import (API, DOWNLOAD, AdvertisementError, ApiError, GitHub, SafeRedirect,
                                advertisement_environment, advertisement_resume_available, advertise,
                                expected_bundle, resume_advertisement)
@@ -31,7 +31,7 @@ def digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
-def feed(version, targets=TARGETS):
+def feed(version, targets=REQUIRED_TARGETS):
     return json.dumps({"version": version, "platforms": {
         target: {"url": f"{DOWNLOAD}/download/v{version}/{TARGETS[target]['asset']}",
                  "signature": "synthetic-signature"} for target in targets}}).encode()
@@ -103,7 +103,7 @@ class ReleaseServer:
             identifier = int(url.rsplit("/", 1)[1])
             asset = next(item for item in self.assets if item["id"] == identifier)
             value = self.files[asset["name"]]
-            if self.wrong_hash and asset["name"] == TARGETS["windows-x86_64"]["asset"]:
+            if self.wrong_hash and asset["name"] == TARGETS["linux-x86_64"]["asset"]:
                 value = b"x" * len(value)
         elif "/latest/download/" in url:
             if self.latest_id == 2:
@@ -139,7 +139,8 @@ class AdvertisementTest(unittest.TestCase):
         self.bundle.mkdir()
         self.files = {"latest.json": feed(VERSION), "Rhizome-macos-arm64.dmg": b"dmg"}
         packages = {}
-        for target, info in TARGETS.items():
+        for target in REQUIRED_TARGETS:
+            info = TARGETS[target]
             value = ("package:" + info["asset"]).encode()
             self.files[info["asset"]] = value
             self.files[info["asset"] + ".sig"] = b"synthetic-signature"
@@ -182,7 +183,7 @@ class AdvertisementTest(unittest.TestCase):
                      if not authenticated and f"/download/v{VERSION}/" in url]
         self.assertIn(1, versioned)
         self.assertTrue(all(latest == 1 for latest in versioned[:len(self.files)]))
-        self.assertTrue(all(info["asset"] in self.verified for info in TARGETS.values()))
+        self.assertTrue(all(TARGETS[target]["asset"] in self.verified for target in REQUIRED_TARGETS))
         patches = self.api.patches.copy()
         self.advertise(expected=False)
         self.assertEqual(self.api.patches, patches)
@@ -313,7 +314,7 @@ class AdvertisementTest(unittest.TestCase):
     def test_stale_manifest_and_changed_assets_are_rejected(self):
         with self.assertRaises(AdvertisementError):
             expected_bundle(self.root, self.bundle, version=VERSION, commit="b" * 40, recipe_hashes=self.recipe_hashes)
-        (self.bundle / TARGETS["windows-x86_64"]["asset"]).write_bytes(b"mutated")
+        (self.bundle / TARGETS["linux-x86_64"]["asset"]).write_bytes(b"mutated")
         with self.assertRaises(AdvertisementError):
             expected_bundle(self.root, self.bundle, version=VERSION, commit=COMMIT, recipe_hashes=self.recipe_hashes)
 

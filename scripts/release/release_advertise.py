@@ -190,7 +190,7 @@ def _validate_expected(expected):
                 "desktop-assembly.json", "Rhizome-macos-arm64.dmg", "release-manifest.json"}
     required.update(f"rhizome-{target}.tar.gz" for target in
                     ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64"))
-    required.update(value["asset"] + suffix for value in TARGETS.values() for suffix in ("", ".sig"))
+    required.update(TARGETS[target]["asset"] + suffix for target in REQUIRED_TARGETS for suffix in ("", ".sig"))
     if not isinstance(assets, dict) or not required.issubset(assets):
         raise AdvertisementError("advertisement is missing required release assets")
     for name, asset in assets.items():

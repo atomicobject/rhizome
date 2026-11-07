@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-05-17-50
 name: Windows and Linux desktop support
 created-at: 2026-11-05T22:55:46Z
-status: active
+status: complete
 summary: Implement the approved council plan for Windows and Linux desktop support, native identity, executable lifetime and release candidates.
 aliases:
   - EFF-2026-11-05-17-50
@@ -30,12 +30,12 @@ Requirements-only work: [[windows-linux-desktop#Requirements|SPEC-0133 requireme
 
 ## Spec Coverage Checklist
 
-- [ ] Native supported installation and package ownership.
-- [ ] Immutable app-owned images, stable CLI and independent runtime lifetime.
-- [ ] Native credential storage and desktop/task integration.
-- [ ] Safe running-image, app and pin updates.
-- [ ] Complete coordinated build/signing/feed candidate flow.
-- [ ] Native CI evidence, user GUI checklist and explicit publication obligations.
+- [x] Native supported installation and package ownership. Linux x64 and Arm64 AppImages ship; Windows is built and checked but deferred from publication (see Deviations).
+- [x] Immutable app-owned images, stable CLI and independent runtime lifetime.
+- [x] Native credential storage and desktop/task integration. Linux uses main's `secret-tool` Secret Service store; Windows uses Credential Manager.
+- [x] Safe running-image, app and pin updates. The installed Linux upgrade is carried forward to the second public Linux release (see Deviations).
+- [x] Complete coordinated build/signing/feed candidate flow, for macOS and both Linux architectures.
+- [x] Native CI evidence, user GUI checklist and explicit publication obligations.
 
 ## Plan
 
@@ -198,28 +198,36 @@ A complete Windows/Linux port of the existing application and release path, veri
 
 ## Actual Delivered
 
-Implementation is in progress on [PR #98](https://github.com/atomicobject/rhizome/pull/98). The branch contains native session stores, immutable app-owned executable images, CLI entrypoints and install/removal hooks, portable menus/tasks/clipboard, and coordinated release candidate tooling. None is advertised as a supported public release yet.
+[PR #98](https://github.com/atomicobject/rhizome/pull/98) delivers Rhizome Desktop for Linux on Ubuntu 24.04 GNOME, x64 and Arm64, as AppImages built on native runners, with Secret Service sign-in, immutable app-owned executable images, CLI entrypoints and install/removal hooks, portable menus/tasks/clipboard, and signed updater entries in the joined release feed. Public releases publish macOS and both Linux desktop packages, plus every existing CLI archive, including the unsigned Windows CLI built on Linux as before.
 
-The [installed checks](../reference/desktop-platform-checks.md) identify the user-owned GUI acceptance cases. Native CI has demonstrated Windows/Linux builds, real credential stores, window launch and both two-version test-feed fixture assemblies. Successful Windows runs demonstrate genuine Ctrl+N transitions from one to two windows immediately after launch and from two to three after clicking a visible webview. One later second-shortcut timeout remains unexplained; the bounded eight-process comparison below did not reproduce it, and its passes are not a fix. Subsequent ownership and test refinements are recorded below; PR #98 records current CI/review evidence and the final handoff pins its exact candidate source and hashes. Installed GUI and upgrade acceptance remain open.
+The Windows 11 x64 desktop app, NSIS installer, Credential Manager store and portability CI are delivered as code and PR checks only. Windows desktop packages are not published.
+
+Evidence: native CI builds, real credential-store, window-launch and two-version test-feed fixture checks for Windows and Linux x64, now also run for Linux Arm64; the full release-script suite; a local release-profile aarch64 AppImage build; an independent review of the main merge and Arm64 work (sol-loop, two rounds, approved). On 2026-11-07 Drew Colthorp reported daily use of Rhizome Desktop on Arch Linux ARM (aarch64) with Hyprland on Wayland and accepted the Linux UI.
 
 ## Deviations
 
-- User-owned installed GUI checks replace agent-operated GUI checks. CI still must provide native builds/process evidence; the GUI acceptance checklist remains open.
-- No Windows production code-signing service exists. Unsigned/test-signed candidates are in scope; trusted public Windows publication remains blocked until credentials are provided. This is not a waiver of production signature verification.
+- User-owned installed GUI checks replace agent-operated GUI checks. CI still must provide native builds/process evidence.
+- No Windows production code-signing service exists. On 2026-11-07 Drew Colthorp deferred Windows: nobody will use it yet and no Windows host is available for testing. Public releases omit Windows desktop packages; the Windows build and its PR checks remain, and the intermittent Windows second-shortcut timeout and Windows installed GUI acceptance are deferred with it. This is not a waiver of production signature verification when Windows publishing resumes.
+- Linux installed GUI acceptance came from Arch Linux ARM with Hyprland on Wayland, not the Ubuntu 24.04 GNOME baseline. Drew Colthorp accepted that host as the Linux GUI evidence.
+- The installed Linux upgrade check (0.0.1 test package updated to 0.0.2 through the app) was not run. By Drew Colthorp's decision on 2026-11-07, it is carried forward to the second public release that ships Linux AppImages, which is the first real production-feed upgrade.
+- Scope addition at the user's request: Ubuntu 24.04 Arm64 (`linux-aarch64`) joined the supported Linux targets.
 - macOS retains its existing signing path. Manifests distinguish the canonical CLI hash from the signed bundled CLI hash there; Windows and Linux require exact canonical bytes in their packages.
-- Main advanced during implementation to Go 1.27.3 and CI-owned public publication through reviewed release-preparation PRs. Preserve those accepted changes and the new Mac Homebrew cask. Replace the superseded local-public/nested-dispatch implementation with native jobs and one complete desktop feed in the existing CI publisher. The original plan remains the planning baseline; current release authorization policy governs implementation.
+- Main advanced during implementation, adding Go 1.27.3, CI-owned public publication through reviewed release-preparation PRs, and its own Linux desktop work. This branch keeps main's `secret-tool` Secret Service store in place of its own D-Bus store, and its spec is renumbered SPEC-0133. The original plan remains the planning baseline; current release authorization policy governs implementation.
 
 ## Closure Checklist
 
-- [ ] Approved requirements covered with actual evidence or recorded deviations.
+- [x] Approved requirements covered with actual evidence or recorded deviations.
 - [x] Native build/process, credential-store, window-launch and candidate upgrade fixture assembly checks pass.
-- [ ] Installed GUI and test-feed upgrade acceptance pass on the supported hosts.
-- [ ] The intermittent Windows second-shortcut timeout has an explained cause and verified resolution before merge.
-- [x] Required focused/integrated gates and independent full-diff review pass for application source b6f1f4973.
+- [x] Installed GUI acceptance on Linux accepted by the user; the installed upgrade check is carried forward and Windows is deferred (see Deviations).
+- [x] The intermittent Windows second-shortcut timeout is deferred with Windows publication (see Deviations).
+- [x] Required focused/integrated gates and independent review pass: full-diff review for application source b6f1f4973, and sol-loop review of the main merge and Linux Arm64 work.
 - [x] Installation, support, release, security and owning code documentation updated.
 - [x] User GUI checklist supplied with exact candidate identities; acceptance status explicit.
-- [ ] Production signing and first/second public-release checks have explicit owners/triggers.
-- [ ] Effort closure matches the branch/PR's actual delivered scope.
+- [x] Production signing and first/second public-release checks have explicit owners/triggers: Windows signing has no owner until Windows is resumed, and the Linux upgrade check is assigned below.
+- [x] Effort closure matches the branch/PR's actual delivered scope.
+
+- [ ] Install the first public release's Linux AppImage, then update it in the app to the second public release that ships Linux AppImages; confirm the session, repositories and independent runtimes survive (carried forward from EFF-2026-11-05-17-50) #action-item
+  assignee:: [[Drew Colthorp]]
 
 ## Compounding Follow-ups
 
@@ -227,7 +235,7 @@ Prefer existing OS publication primitives: the repository already has fileio.Rep
 
 ## Status
 
-Active. Implementation and local verification are present; PR #98 records current CI/review evidence. The final candidate handoff supplies verified source-pinned packages for the user-owned installed GUI and upgrade checks. Production Windows signing is not configured, and no release publication is authorized. The effort remains open until its installed and publication-triggered acceptance obligations are resolved.
+Complete on [PR #98](https://github.com/atomicobject/rhizome/pull/98). Linux x64 and Arm64 desktop delivery is accepted; Windows publication is deferred and the installed Linux upgrade check is carried forward to the second public Linux release. Completion does not authorize publication.
 
 ## Execution Notes
 
@@ -337,3 +345,5 @@ Active. Implementation and local verification are present; PR #98 records curren
 - 2026-11-07T15:05:00Z [decision] Merged main, which independently added Linux GTK webview mounting, Linux menu items and a `secret-tool` Secret Service store. Kept main's store and dropped this branch's D-Bus store and its `godbus` dependency, because the two record formats differ and main's is merged and documented. Linux window actions now route through the shared menu dispatch. Renumbered this effort's spec to SPEC-0133 after main's codebase-untangling spec took SPEC-0132.
 - 2026-11-07T15:05:00Z [decision] At the user's request, added Ubuntu 24.04 GNOME Arm64 (`linux-aarch64`, `Rhizome-linux-arm64.AppImage`) as a required native desktop target. The x64 Linux job still builds both Linux CLIs; a new `ubuntu-24.04-arm` release job packages the exact canonical `linux-arm64` bytes, and final verification binds that sidecar to the archived CLI.
 - 2026-11-07T15:05:00Z [validation] On a local Arch Linux aarch64 host, the release AppImage profile bundles `Rhizome_0.0.0_aarch64.AppImage` with linuxdeploy `07333c6` for aarch64, and the full release script suite passes except the S3 preflight test that needs the AWS CLI. Ubuntu Arm64 dependency evidence, GUI smoke and upgrade fixtures remain CI and installed-GUI checks.
+- 2026-11-07T16:05:00Z [decision] Drew Colthorp accepted the Linux UI from daily use on Arch Linux ARM (Hyprland, Wayland) and deferred Windows. Public releases now omit Windows desktop packages: the release workflow has no Windows job, `REQUIRED_TARGETS` covers macOS and both Linux AppImages, and the x64 Linux job cross-compiles the unsigned Windows CLI as main did. Without this, an unconfigured Windows signer would have blocked every production release.
+- 2026-11-07T16:05:00Z [closure] Closed on PR #98. The installed Linux upgrade check is carried forward to the second public release that ships Linux AppImages, as an action item for Drew Colthorp.

@@ -25,17 +25,17 @@ from verify_desktop_signing import DesktopSigningError, verify_archive
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ("darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64", "windows-amd64")
-# The linux group builds both Linux CLIs. The linux-arm64 group packages the
-# arm64 one on an Arm host, so it carries a copy of those same canonical bytes.
-GROUPS = {"linux": TARGETS[2:4], "linux-arm64": TARGETS[2:3], "windows": TARGETS[4:], "macos": TARGETS[:2]}
-NATIVE_GROUPS = {"linux": "linux-x86_64", "linux-arm64": "linux-aarch64", "windows": "windows-x86_64"}
+# The linux group builds both Linux CLIs and the unsigned Windows CLI. The
+# linux-arm64 group packages the arm64 one on an Arm host, so it carries a
+# copy of those same canonical bytes. Windows desktop packages are not published.
+GROUPS = {"linux": TARGETS[2:], "linux-arm64": TARGETS[2:3], "macos": TARGETS[:2]}
+NATIVE_GROUPS = {"linux": "linux-x86_64", "linux-arm64": "linux-aarch64"}
 # The CLI archive whose bytes each desktop package carries as its sidecar.
-DESKTOP_CLI = {"darwin-aarch64": "darwin-arm64", "linux-x86_64": "linux-amd64", "linux-aarch64": "linux-arm64",
-               "windows-x86_64": "windows-amd64"}
+DESKTOP_CLI = {"darwin-aarch64": "darwin-arm64", "linux-x86_64": "linux-amd64", "linux-aarch64": "linux-arm64"}
 DESKTOP = ("Rhizome-macos-arm64.dmg", "Rhizome-macos-arm64.app.tar.gz",
-           "Rhizome-macos-arm64.app.tar.gz.sig", "latest.json", "Rhizome-windows-x64-setup.exe",
-           "Rhizome-windows-x64-setup.exe.sig", "Rhizome-linux-x64.AppImage", "Rhizome-linux-x64.AppImage.sig",
-           "Rhizome-linux-arm64.AppImage", "Rhizome-linux-arm64.AppImage.sig", "desktop-assembly.json")
+           "Rhizome-macos-arm64.app.tar.gz.sig", "latest.json", "Rhizome-linux-x64.AppImage",
+           "Rhizome-linux-x64.AppImage.sig", "Rhizome-linux-arm64.AppImage", "Rhizome-linux-arm64.AppImage.sig",
+           "desktop-assembly.json")
 PAYLOADS = tuple(f"rhizome-{target}.tar.gz" for target in TARGETS) + ("install-rzm.sh", "install-rzm.sh.sha256", *DESKTOP)
 BUNDLE_FILES = {*PAYLOADS, "release-manifest.json", "checksums.txt"}
 
@@ -340,8 +340,7 @@ def assemble(source, version, inputs, output, *, root=ROOT, scanner=scan, verifi
     licenses = license_files(root)
     output.mkdir(parents=True)
     for target in TARGETS:
-        platform = "macos" if target.startswith("darwin-") else target.split("-", 1)[0]
-        directory = groups[platform]
+        directory = groups["macos" if target.startswith("darwin-") else "linux"]
         binary = regular(directory, directory / "bin" / target / binary_name(target))
         scanner(binary)
         write_archive(output / f"rhizome-{target}.tar.gz", binary, licenses, root)

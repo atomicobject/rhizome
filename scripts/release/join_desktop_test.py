@@ -48,7 +48,7 @@ class JoinTests(unittest.TestCase):
             self.assertNotEqual(manifest['canonicalCliSha256'],manifest['packagedCliSha256'])
             # The Mac archive arrives signed; every other target is signed once.
             self.assertEqual(len(REQUIRED_TARGETS)-1,sum('signer' in command for command in calls))
-            shutil.rmtree(prepared/'windows-x86_64')
+            shutil.rmtree(prepared/'linux-aarch64')
             with self.assertRaises((OSError, ValueError)):
                 join_desktop.join(root,mac/'rzm',VERSION,output,source=source,runner=runner)
 

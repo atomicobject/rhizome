@@ -39,7 +39,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
 
     def test_every_worker_uses_the_validated_source_without_persisted_credentials(self) -> None:
         jobs = self.jobs()
-        self.assertEqual({"select", "common", "linux", "linux-arm64", "windows", "mac", "assemble", "publish"}, set(jobs))
+        self.assertEqual({"select", "common", "linux", "linux-arm64", "mac", "assemble", "publish"}, set(jobs))
         for name, job in jobs.items():
             with self.subTest(job=name):
                 self.assertIn("persist-credentials: false", job)
@@ -63,7 +63,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("name: release-gateway-receipt", publish)
         self.assertIn("retention-days: 30", jobs["assemble"])
         self.assertIn("retention-days: 30", publish)
-        self.assertIn("needs: [select, linux, linux-arm64, windows, mac]", jobs["assemble"])
+        self.assertIn("needs: [select, linux, linux-arm64, mac]", jobs["assemble"])
         self.assertIn("ci_release_artifacts.py assemble", jobs["assemble"])
         self.assertIn("ci_release_artifacts.py verify", jobs["assemble"])
         for name, job in jobs.items():
@@ -87,11 +87,12 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("GOOS: darwin\n          GOARCH: arm64", common)
         self.assertIn("gitleaks/v8@v8.30.1", common)
         self.assertIn("--id rzm-linux", linux)
-        self.assertNotIn("--id rzm-windows-amd64", linux)
+        # Windows desktop packages are not published; the Linux job builds the unsigned Windows CLI.
+        self.assertIn("--id rzm-windows-amd64", linux)
+        self.assertIn("gcc-mingw-w64-x86-64", linux)
         self.assertIn("runs-on: ubuntu-24.04", linux)
         self.assertIn("build_native_desktop.py --target linux-x86_64", linux)
-        self.assertIn("--id rzm-windows-amd64", jobs["windows"])
-        self.assertIn("needs: [select, common, linux, linux-arm64, windows]", mac)
+        self.assertIn("needs: [select, common, linux, linux-arm64]", mac)
         arm = jobs["linux-arm64"]
         self.assertIn("runs-on: ubuntu-24.04-arm", arm)
         self.assertIn("needs: [select, common, linux]", arm)
@@ -141,17 +142,10 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
 
     def test_native_credentials_and_same_run_candidates_have_one_coordinator(self):
         jobs = self.jobs()
-        windows, mac = jobs['windows'], jobs['mac']
-        self.assertIn('runs-on: windows-2025', windows)
-        self.assertIn('Windows production signing is not configured', windows)
-        compile = windows.split('- name: Compile Windows GUI without signing credentials', 1)[1].split('- name:', 1)[0]
-        self.assertNotIn('secrets.', compile)
-        self.assertIn('--phase compile', compile)
-        self.assertIn('--phase package', windows)
-        self.assertIn('--initial-cli', windows)
-        self.assertNotIn('secrets.TAURI_', windows)
+        mac = jobs['mac']
+        self.assertNotIn('windows', jobs)
         self.assertIn('name: release-linux', mac)
-        self.assertIn('name: release-windows', mac)
+        self.assertNotIn('release-windows', WORKFLOW.read_text())
         self.assertLess(mac.index('ci_release_artifacts.py prepare-native'), mac.index('ci_desktop_signing.py prepare'))
         self.assertIn('RZM_DESKTOP_CANDIDATES_DIR:', mac)
         workflow = WORKFLOW.read_text()
@@ -159,11 +153,9 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
             self.assertNotIn(obsolete, workflow)
         self.assertIn('path: ${{ runner.temp }}/release-state/', jobs['publish'])
         self.assertIn('name: release-linux-arm64', mac)
-        for job in (jobs['linux'], jobs['linux-arm64'], windows, mac, jobs['assemble']):
+        for job in (jobs['linux'], jobs['linux-arm64'], mac, jobs['assemble']):
             self.assertIn('CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}', job)
             self.assertIn('--candidate-only', job)
-        signing = windows.split('- name: Sign the canonical Windows CLI once', 1)[1].split('- name:', 1)[0]
-        self.assertIn("if: needs.select.outputs.candidate_only != 'true'", signing)
         self.assertIn('RZM_CI_RELEASE_CANDIDATE_ONLY:', mac)
 
     def test_deployment_uses_trusted_main_controls_and_the_selected_source_image(self) -> None:

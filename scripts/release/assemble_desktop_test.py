@@ -73,7 +73,7 @@ class AssemblerTests(unittest.TestCase):
         self.assertEqual([], self.sign_calls)
         self.assertFalse(self.output.exists())
         self.candidates.append(self.root / next(target for target in REQUIRED_TARGETS if target not in {d.name for d in self.candidates}))
-        self.hashes["windows-x86_64"] = "0" * 64
+        self.hashes["linux-x86_64"] = "0" * 64
         with self.assertRaisesRegex(CandidateError, "hash"):
             self.build()
         self.assertEqual([], self.sign_calls)
@@ -88,7 +88,7 @@ class AssemblerTests(unittest.TestCase):
         self.assertTrue(all(not list(directory.glob("*.sig")) for directory in self.candidates))
 
     def test_production_refuses_test_key_or_partial_target_override(self):
-        for options in ({"test_public_key": "synthetic"}, {"required_targets": {"windows-x86_64"}}):
+        for options in ({"test_public_key": "synthetic"}, {"required_targets": {"linux-x86_64"}}):
             with self.subTest(options=options), self.assertRaisesRegex(CandidateError, "production"):
                 self.build(**options)
         self.assertEqual([], self.sign_calls)
@@ -96,7 +96,7 @@ class AssemblerTests(unittest.TestCase):
     def test_resume_refuses_changed_feed_urls(self):
         path = self.build()
         feed = json.loads(path.read_text())
-        feed["platforms"]["windows-x86_64"]["url"] = "https://unrelated.invalid/package"
+        feed["platforms"]["linux-x86_64"]["url"] = "https://unrelated.invalid/package"
         path.write_text(json.dumps(feed))
         with self.assertRaisesRegex(CandidateError, "feed"):
             self.build()

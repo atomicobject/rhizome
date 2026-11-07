@@ -126,7 +126,7 @@ jobs:
           include-hidden-files: true
 
   linux:
-    name: Build Linux CLI and AppImage
+    name: Build Linux and Windows CLI and Linux x64 AppImage
     needs: [select, common]
     runs-on: ubuntu-24.04
     env:
@@ -150,8 +150,8 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.13.0
-      - name: Install native Linux packaging dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64
+      - name: Install native Linux packaging dependencies and the Windows cross-compiler
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -172,7 +172,7 @@ jobs:
           ./scripts/vendor/ensure_tree_sitter_sources.sh
           npm --prefix desktop ci
           export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
-          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux --id rzm-windows-amd64
           python3 - <<'PYCLI'
           import os
           from pathlib import Path
@@ -277,122 +277,9 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
-  windows:
-    name: Build signed Windows CLI and NSIS
-    needs: [select, common]
-    runs-on: windows-2025
-    environment: release
-    defaults:
-      run:
-        shell: bash
-    env:
-      SOURCE: ${{ needs.select.outputs.source }}
-      RELEASE_VERSION: ${{ needs.select.outputs.version }}
-      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
-      RZM_DESKTOP_PREBUILT_FRONTEND: '1'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.select.outputs.source }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Require configured production Windows signing
-        if: needs.select.outputs.candidate_only != 'true'
-        env:
-          WINDOWS_SIGNING_CONFIG: ${{ vars.WINDOWS_SIGNING_CONFIG }}
-        run: |
-          python3 - <<'PYCONFIG'
-          import os, sys
-          from pathlib import Path
-          sys.path.insert(0, 'scripts/release')
-          from windows_sign import configuration
-          value = os.environ.get('WINDOWS_SIGNING_CONFIG', '').strip()
-          if not value:
-              raise SystemExit('Windows production signing is not configured; unsigned GUI candidates use Desktop portability CI')
-          path = Path(os.environ['RUNNER_TEMP']) / 'windows-signing.json'
-          path.write_text(value)
-          configuration(path)
-          PYCONFIG
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          install-only: true
-      - name: Install credential scanner
-        working-directory: ${{ runner.temp }}
-        env:
-          GOTOOLCHAIN: local
-        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-frontend
-          path: .tmp/ci-release
-      - name: Restore verified common assets and build canonical Windows CLI
-        env:
-          GOOS: windows
-          GOARCH: amd64
-        run: |
-          python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
-          ./scripts/vendor/ensure_tree_sitter_sources.sh
-          npm --prefix desktop ci
-          export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
-          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --single-target --skip=before,post-hooks --id rzm-windows-amd64
-          python3 - <<'PYCLI'
-          import os
-          from pathlib import Path
-          files = list(Path('dist').glob('rzm-windows-amd64_windows_amd64*/rzm.exe'))
-          if len(files) != 1:
-              raise SystemExit('Expected one canonical Windows x64 CLI')
-          with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
-          PYCLI
-      - name: Sign the canonical Windows CLI once
-        if: needs.select.outputs.candidate_only != 'true'
-        env:
-          WINDOWS_SIGNING_SECRET: ${{ needs.select.outputs.candidate_only != 'true' && secrets.WINDOWS_SIGNING_SECRET || '' }}
-        run: python3 scripts/release/windows_sign.py --config "$RUNNER_TEMP/windows-signing.json" --initial-cli "$RZM_DESKTOP_PREBUILT_RZM"
-      - name: Compile Windows GUI without signing credentials
-        run: |
-          signing=()
-          if [[ "$CANDIDATE_ONLY" != true ]]; then signing=(--production --windows-sign-config "$RUNNER_TEMP/windows-signing.json"); fi
-          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
-          python3 scripts/release/build_native_desktop.py --target windows-x86_64 \
-            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
-            --version "$RELEASE_VERSION" --commit "$SOURCE" "${signing[@]}" --phase compile \
-            --output .tmp/ci-native/windows
-      - name: Sign installer and verify final Windows candidate
-        env:
-          WINDOWS_SIGNING_SECRET: ${{ needs.select.outputs.candidate_only != 'true' && secrets.WINDOWS_SIGNING_SECRET || '' }}
-        run: |
-          signing=()
-          if [[ "$CANDIDATE_ONLY" != true ]]; then signing=(--production --windows-sign-config "$RUNNER_TEMP/windows-signing.json"); fi
-          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
-          python3 scripts/release/build_native_desktop.py --target windows-x86_64 \
-            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
-            --version "$RELEASE_VERSION" --commit "$SOURCE" "${signing[@]}" --phase package \
-            --output .tmp/ci-native/windows
-      - name: Collect verified Windows assets without credentials
-        run: |
-          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
-          python3 scripts/release/ci_release_artifacts.py collect --platform windows --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --candidate .tmp/ci-native/windows --output .tmp/ci-release/windows "${candidate[@]}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-windows
-          path: .tmp/ci-release/windows
-          retention-days: 1
-          if-no-files-found: error
-          include-hidden-files: true
-
   mac:
     name: Build and notarize native Mac assets
-    needs: [select, common, linux, linux-arm64, windows]
+    needs: [select, common, linux, linux-arm64]
     runs-on: macos-15
     environment: release
     env:
@@ -453,16 +340,11 @@ jobs:
         with:
           name: release-linux-arm64
           path: .tmp/ci-release/linux-arm64
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-windows
-          path: .tmp/ci-release/windows
       - name: Verify this run's native inputs before signing
         run: |
           candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
           python3 scripts/release/ci_release_artifacts.py prepare-native --source "$SOURCE" --version "$RELEASE_VERSION" \
-            --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/windows \
-            --output .tmp/ci-release/native "${candidate[@]}"
+            --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --output .tmp/ci-release/native "${candidate[@]}"
       - name: Prepare desktop signing
         run: python3 scripts/release/ci_desktop_signing.py prepare
         env:
@@ -501,7 +383,7 @@ jobs:
 
   assemble:
     name: Assemble and verify complete release on Linux
-    needs: [select, linux, linux-arm64, windows, mac]
+    needs: [select, linux, linux-arm64, mac]
     runs-on: ubuntu-latest
     env:
       SOURCE: ${{ needs.select.outputs.source }}
@@ -531,16 +413,12 @@ jobs:
         with:
           name: release-macos
           path: .tmp/ci-release/macos
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-windows
-          path: .tmp/ci-release/windows
       - name: Prepare pinned signature verifier dependencies
         run: cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
       - name: Assemble and verify the exact built artifacts
         run: |
           candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
-          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/windows --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
+          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
           python3 scripts/release/ci_release_artifacts.py verify --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/publish "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:

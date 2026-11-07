@@ -7,7 +7,7 @@ import shutil
 import tempfile
 
 from assemble_desktop import assemble
-from desktop_candidates import (CandidateError, MANIFEST, NATIVE_TARGETS, candidate_manifest,
+from desktop_candidates import (CandidateError, MANIFEST, RELEASE_NATIVE_TARGETS, candidate_manifest,
                                 mac_sidecar_inventory, read_candidate, sha256)
 from ci_release_artifacts import validate_native_inputs
 
@@ -21,7 +21,7 @@ def join(root: Path, rzm: Path, version: str, output: Path, *, source: dict, run
     commit = commit_result.stdout.strip()
     validate_native_inputs(Path(prepared), commit, 'v' + version, candidate_only=candidate_only)
     hashes = {}
-    for target in sorted(NATIVE_TARGETS):
+    for target in sorted(RELEASE_NATIVE_TARGETS):
         directory = Path(prepared) / target
         value = json.loads((directory / MANIFEST).read_text())
         manifest, _ = read_candidate(directory, version=version, commit=commit,
@@ -50,7 +50,7 @@ def join(root: Path, rzm: Path, version: str, output: Path, *, source: dict, run
         canonical = dict(hashes)
         canonical['darwin-aarch64'] = manifest['canonicalCliSha256']
         assembled = temporary / 'assembly'
-        assemble([mac, *(Path(prepared) / target for target in sorted(NATIVE_TARGETS))], version, commit,
+        assemble([mac, *(Path(prepared) / target for target in sorted(RELEASE_NATIVE_TARGETS))], version, commit,
                  canonical, assembled, source=source, root=root, runner=runner,
                  production=not candidate_only, candidate_only=candidate_only)
         # The joined feed is installed last; failure leaves the prior complete feed usable.
