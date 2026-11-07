@@ -46,6 +46,7 @@ func (c *Client) NewRequest(ctx context.Context, method, path string, body any) 
 // Discovery never follows redirects: a manifest grants authority only to its
 // recorded listener, not another address supplied by an HTTP response.
 var probeHTTPClient = &http.Client{
+	Transport:     loopbackTransport{},
 	CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 }
 
@@ -69,7 +70,7 @@ func Probe(ctx context.Context, manifest InstanceManifest) (Health, error) {
 	resp, err := probeHTTPClient.Do(req)
 	if err != nil {
 		if errors.Is(err, os.ErrPermission) {
-			return Health{}, fmt.Errorf("%w: allow local networking or rerun this Rhizome command with the required permissions: %w", ErrRuntimeAccessDenied, err)
+			return Health{}, fmt.Errorf("%w: %s: %w", ErrRuntimeAccessDenied, LocalConnectionAccess, err)
 		}
 		if ctx.Err() != nil {
 			return Health{}, fmt.Errorf("%w: %v", ErrRuntimeUnresponsive, err)
@@ -119,7 +120,7 @@ func LiveManifest(ctx context.Context, vaultPath string) (*Client, Health, error
 		}
 		return nil, Health{}, ErrNoRuntime
 	}
-	return &Client{Manifest: manifest, HTTP: &http.Client{Timeout: 0}}, health, nil
+	return &Client{Manifest: manifest, HTTP: &http.Client{Transport: loopbackTransport{}}}, health, nil
 }
 
 // EnsureOptions controls how a client finds or starts a runtime.

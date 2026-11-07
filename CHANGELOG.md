@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
+
 ### Fixed
 
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.

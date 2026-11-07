@@ -36,7 +36,7 @@ func TestEnsureReturnsAccessDenialWithoutWaitingOrStarting(t *testing.T) {
 			require.ErrorIs(t, err, cause, "preserve the actionable OS permission failure")
 			require.NotErrorIs(t, err, ErrNoRuntime, "denied access does not establish absence")
 			require.False(t, errors.Is(err, context.DeadlineExceeded), "denial must not poll until the deadline")
-			require.Contains(t, err.Error(), "permission")
+			require.Contains(t, err.Error(), "local network access")
 			require.NoFileExists(t, SpawnLockPath(root), "denied discovery must not attempt a competing spawn")
 		})
 	}

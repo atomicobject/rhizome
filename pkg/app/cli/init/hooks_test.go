@@ -341,7 +341,11 @@ func TestMachineSetupSaysWhyNoHookEntriesWereWritten(t *testing.T) {
 	result, err := Apply(opts)
 	require.NoError(t, err)
 	require.Equal(t, "there is no rzm on PATH", result.HooksBlocked)
-	require.NoFileExists(t, filepath.Join(root, ".claude/settings.json"))
+	settings, err := os.ReadFile(filepath.Join(root, ".claude/settings.json"))
+	require.NoError(t, err)
+	hooks, err := jsonKey{"hooks"}.read(settings)
+	require.NoError(t, err)
+	require.Nil(t, hooks, "no hook entries are written")
 }
 
 func TestHookSupportCheckProbesTheRzmOnPath(t *testing.T) {
@@ -687,7 +691,10 @@ func TestHookEntriesWithoutAnOwnershipRecordNeedADecision(t *testing.T) {
 			require.NoError(t, err)
 			got, err := os.ReadFile(filepath.Join(root, ".claude/settings.json"))
 			require.NoError(t, err)
-			require.Equal(t, handWritten, string(got), "entries Rhizome has no record of writing are kept")
+			want, _ := jsonKey{"hooks"}.read([]byte(handWritten))
+			hooks, err := jsonKey{"hooks"}.read(got)
+			require.NoError(t, err)
+			require.JSONEq(t, string(want), string(hooks), "entries Rhizome has no record of writing are kept")
 			require.Contains(t, out, ".claude/settings.json#rhizome-hooks")
 			out, err = runInit(t, RunOptions{Dir: root, Check: true})
 			require.NoError(t, err)
