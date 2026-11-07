@@ -27,7 +27,79 @@ func (s *Store) ensureNoteRow(ctx context.Context, tx *sql.Tx, note codeanchor.N
 	return noteID, nil
 }
 
+// claimAnchorLabelsTx drops the anchors whose label another note already
+// defines with a different selector. Labels are vault-global (anchors.label is
+// UNIQUE), so an upsert would otherwise rewrite the other note's anchor. The
+// note with the smallest path keeps a contested label whatever the indexing
+// order; the other notes lose their link, and the conflict is reported.
+func claimAnchorLabelsTx(ctx context.Context, tx *sql.Tx, noteID int64, note codeanchor.Note, result *codeanchor.AnchorUpsertResult) (codeanchor.Note, error) {
+	labels := make([]string, 0, len(note.DefinedAnchors))
+	for _, a := range note.DefinedAnchors {
+		if a.Label != "" {
+			labels = append(labels, a.Label)
+		}
+	}
+	existing, err := existingAnchorsByLabels(ctx, tx, labels)
+	if err != nil {
+		return note, err
+	}
+	kept := make([]codeanchor.Anchor, 0, len(note.DefinedAnchors))
+	for _, a := range note.DefinedAnchors {
+		old, ok := existing[a.Label]
+		if !ok || a.ScopeEqual(old) {
+			kept = append(kept, a)
+			continue
+		}
+		others, err := otherNotePathsForAnchorTx(ctx, tx, old.ID, noteID)
+		if err != nil {
+			return note, err
+		}
+		if len(others) == 0 {
+			kept = append(kept, a)
+			continue
+		}
+		conflict := codeanchor.AnchorLabelConflict{Label: a.Label, Kept: others[0], Dropped: []string{note.Path}}
+		if note.Path < others[0] {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM note_anchors WHERE anchor_id = ? AND note_id <> ?`, old.ID, noteID); err != nil {
+				return note, err
+			}
+			conflict.Kept, conflict.Dropped = note.Path, others
+			kept = append(kept, a)
+		}
+		if result != nil {
+			result.LabelConflicts = append(result.LabelConflicts, conflict)
+		}
+	}
+	note.DefinedAnchors = kept
+	return note, nil
+}
+
+func otherNotePathsForAnchorTx(ctx context.Context, tx *sql.Tx, anchorID, noteID int64) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT n.path FROM note_anchors na JOIN notes n ON n.id = na.note_id
+		WHERE na.anchor_id = ? AND na.note_id <> ?
+		ORDER BY n.path
+	`, anchorID, noteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var notePaths []string
+	for rows.Next() {
+		var notePath string
+		if err := rows.Scan(&notePath); err != nil {
+			return nil, err
+		}
+		notePaths = append(notePaths, notePath)
+	}
+	return notePaths, rows.Err()
+}
+
 func (s *Store) upsertAnchorsAndLinks(ctx context.Context, tx *sql.Tx, noteID int64, note codeanchor.Note) error {
+	note, err := claimAnchorLabelsTx(ctx, tx, noteID, note, nil)
+	if err != nil {
+		return err
+	}
 	for _, a := range note.DefinedAnchors {
 		var annArgs string
 		var annLang, annPkg, annName string
@@ -120,6 +192,10 @@ func (s *Store) upsertAnchorsAndLinks(ctx context.Context, tx *sql.Tx, noteID in
 
 // upsertAnchorsAndLinksWithTracking is like upsertAnchorsAndLinks but tracks which anchors are new/changed/unchanged.
 func (s *Store) upsertAnchorsAndLinksWithTracking(ctx context.Context, tx *sql.Tx, noteID int64, note codeanchor.Note, result *codeanchor.AnchorUpsertResult) error {
+	note, err := claimAnchorLabelsTx(ctx, tx, noteID, note, result)
+	if err != nil {
+		return err
+	}
 	// Collect labels to query existing anchors.
 	labels := make([]string, 0, len(note.DefinedAnchors))
 	for _, a := range note.DefinedAnchors {

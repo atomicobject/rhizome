@@ -46,7 +46,9 @@ const IndexerVersion = "v1.17.0"
 // NoteIndexerVersion is a hash/version string that changes when note indexing logic changes.
 // Bump this when note parsing or section extraction behavior changes.
 // v1.1.0 rebuilds note anchors with the shared exact frontmatter boundary.
-const NoteIndexerVersion = "v1.1.0"
+// v1.2.0 re-ingests notes so anchor labels that several notes define with
+// different selectors go to the note with the smallest path.
+const NoteIndexerVersion = "v1.2.0"
 
 // ReverseIndexVersion is a hash/version string that changes when reverse-index
 // persistence or lookup behavior changes.

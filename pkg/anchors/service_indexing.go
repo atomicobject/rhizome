@@ -159,6 +159,7 @@ func (s *Service) IngestNoteSource(ctx context.Context, src NoteSource) (Note, e
 	if err != nil {
 		return Note{}, err
 	}
+	logLabelConflicts(upsertResult)
 
 	// Best-effort intel persistence (optional).
 	_ = s.updateIntelForMarkdownSource(ctx, relPath, content, noteMtime)
@@ -449,4 +450,10 @@ func resolvePathPrefix(prefix string, vaultPaths paths.VaultPaths) (string, erro
 		return "", err
 	}
 	return rel.String(), nil
+}
+
+func logLabelConflicts(result AnchorUpsertResult) {
+	for _, conflict := range result.LabelConflicts {
+		log.Printf("codeanchor: %s", conflict.Warning())
+	}
 }

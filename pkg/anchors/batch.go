@@ -642,8 +642,10 @@ func (s *Service) ApplyNoteIndexBatch(ctx context.Context, works []NoteIndexWork
 			upsertResult.ChangedIDs = append(upsertResult.ChangedIDs, res.ChangedIDs...)
 			upsertResult.UnchangedIDs = append(upsertResult.UnchangedIDs, res.UnchangedIDs...)
 			upsertResult.DeletedIDs = append(upsertResult.DeletedIDs, res.DeletedIDs...)
+			upsertResult.LabelConflicts = append(upsertResult.LabelConflicts, res.LabelConflicts...)
 		}
 	}
+	logLabelConflicts(upsertResult)
 
 	// Mark only new/changed anchors dirty for scope recomputation.
 	s.markAnchorsDirty(upsertResult.NeedsScopeRecompute())
