@@ -170,19 +170,24 @@ func recordReferenceTargets(item *pendingRecordReferences, indexed map[string][]
 	}
 	var refs []ontology.NodeRef
 	for _, occurrence := range node.Projection.Fields[field.Name].ReferenceOccurrences {
-		indexedOutcome := false
-		for _, row := range rows {
-			if row.ListOrdinal == occurrence.Ordinal && row.ValueText == occurrence.Authored && row.ReferenceAt == occurrence.At {
-				indexedOutcome = true
-				if ref, ok := noderead.IndexedLinkTargetRef(row); ok {
-					refs = append(refs, ref)
-				}
-				break
-			}
-		}
-		if !indexedOutcome && occurrence.Target != nil {
-			refs = append(refs, *occurrence.Target)
+		if ref, ok := recordOccurrenceTarget(occurrence, rows); ok {
+			refs = append(refs, ref)
 		}
 	}
 	return refs
+}
+
+// recordOccurrenceTarget honors the indexed outcome of one reference
+// occurrence, including unresolved and ambiguous ones; only an occurrence the
+// index has not seen falls back to its current local target.
+func recordOccurrenceTarget(occurrence ontology.RecordReferenceOccurrence, rows []readmodel.FieldValueRow) (ontology.NodeRef, bool) {
+	for _, row := range rows {
+		if row.ListOrdinal == occurrence.Ordinal && row.ValueText == occurrence.Authored && row.ReferenceAt == occurrence.At {
+			return noderead.IndexedLinkTargetRef(row)
+		}
+	}
+	if occurrence.Target != nil {
+		return *occurrence.Target, true
+	}
+	return ontology.NodeRef{}, false
 }

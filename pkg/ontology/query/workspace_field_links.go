@@ -6,6 +6,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
@@ -51,7 +52,7 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 	scope := e.loaders.scope
 	projections := make([]*ontology.NodeProjection, 0, len(owners))
 	for _, owner := range owners {
-		if owner.Projection != nil && hasRelationValues(owner.Fields) {
+		if owner.Projection != nil && e.hasLinkValues(owner.Fields) {
 			projections = append(projections, owner.Projection)
 		}
 	}
@@ -72,6 +73,14 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 		}
 		rows := indexed[noderead.RefIdentityKey(owner.Projection.Ref)]
 		for _, field := range owner.Fields {
+			if e.recordReferenceField(field) {
+				// Bound occurrences already carry the reference outcome; a
+				// generic resolve could let a same-named note win.
+				for i, ref := range recordReferenceValueTargets(owner.Projection, field, rows) {
+					indexedRefs[fieldLinkKeyFor(field, i)] = ref
+				}
+				continue
+			}
 			if field.Capability.ValueKind != ontology.NodeFieldValueKindRelation {
 				continue
 			}
@@ -147,18 +156,67 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 	return out
 }
 
-func hasRelationValues(fields []ontology.NodeFieldState) bool {
+func (e *executor) hasLinkValues(fields []ontology.NodeFieldState) bool {
 	for _, field := range fields {
-		if field.Capability.ValueKind == ontology.NodeFieldValueKindRelation && len(field.Values) > 0 {
+		if e.linkField(field) && len(field.Values) > 0 {
 			return true
 		}
 	}
 	return false
 }
 
+// linkField reports whether a field's values name other nodes: a relation
+// field, or a RECORD field declared with @references even when typed as text.
+func (e *executor) linkField(field ontology.NodeFieldState) bool {
+	return field.Capability.ValueKind == ontology.NodeFieldValueKindRelation || e.recordReferenceField(field)
+}
+
+func (e *executor) recordReferenceField(field ontology.NodeFieldState) bool {
+	if e == nil || e.schema == nil {
+		return false
+	}
+	owner := e.schema.Types[field.Capability.OwnerType]
+	if owner == nil {
+		return false
+	}
+	declared := owner.ByName[field.Name]
+	return declared != nil && declared.Record != nil && declared.Record.References != nil
+}
+
+// recordReferenceValueTargets maps each authored value of a RECORD reference
+// field to its occurrence's target, matching occurrences in authored order.
+func recordReferenceValueTargets(projection *ontology.NodeProjection, field ontology.NodeFieldState, indexed []readmodel.FieldValueRow) map[int]ontology.NodeRef {
+	var rows []readmodel.FieldValueRow
+	for _, row := range indexed {
+		if strings.EqualFold(row.FieldName, field.Name) {
+			rows = append(rows, row)
+		}
+	}
+	out := map[int]ontology.NodeRef{}
+	occurrences := projection.Fields[field.Name].ReferenceOccurrences
+	next := 0
+	for i, value := range field.Values {
+		for j := next; j < len(occurrences); j++ {
+			if occurrences[j].Authored != value {
+				continue
+			}
+			if ref, ok := recordOccurrenceTarget(occurrences[j], rows); ok {
+				if ref.Kind == ontology.NodeKindNote && ref.Fragment == "" && ref.NodeID == "" {
+					// A document target names its note, not a captured revision of it.
+					ref = ontology.NodeRef{NotePath: ref.NotePath, Kind: ontology.NodeKindNote, TypeName: ref.TypeName}
+				}
+				out[i] = ref
+			}
+			next = j + 1
+			break
+		}
+	}
+	return out
+}
+
 func (e *executor) resolveWorkspaceFieldLinks(item ontology.NodeFieldState, links fieldLinkTargets, set ast.SelectionSet, path []string) []any {
 	out := make([]any, 0)
-	if item.Capability.ValueKind != ontology.NodeFieldValueKindRelation {
+	if !e.linkField(item) {
 		return out
 	}
 	for i, value := range item.Values {
