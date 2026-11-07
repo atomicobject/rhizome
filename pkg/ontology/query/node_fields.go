@@ -78,7 +78,7 @@ func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field
 
 	schemaField := e.noteFieldForNode(node, field.Name)
 	if schemaField == nil {
-		if count, ok := e.relationCount(ontology.NodeRef{NotePath: node.Path, Kind: ontology.NodeKindNote, TypeName: node.TypeName}, node.TypeName, field.Name); ok {
+		if count, ok := e.relationCount(ontology.NodeRef{NotePath: node.Path, Kind: ontology.NodeKindNote, TypeName: node.TypeName}, node.TypeName, field.Name, nil); ok {
 			return count, true
 		}
 		switch field.Name {
@@ -99,7 +99,7 @@ func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field
 	case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum:
 		return e.resolveScalarField(ctx, node, schemaField, path)
 	case ontoschema.FieldKindLink:
-		return e.resolveStructuralField(ctx, node, schemaField, field.SelectionSet, path)
+		return e.resolveStructuralField(ctx, node, schemaField, field.SelectionSet, path, e.relationFirst(field))
 	case ontoschema.FieldKindNeighbor:
 		return e.resolveNeighborField(ctx, node, schemaField, field.SelectionSet, path, e.relationFirst(field))
 	case ontoschema.FieldKindReverse:
@@ -314,7 +314,7 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 	}
 	schemaField := noteType.ByName[field.Name]
 	if schemaField == nil {
-		if count, ok := e.relationCount(e.sectionNodeRef(node), node.TypeName, field.Name); ok {
+		if count, ok := e.relationCount(e.sectionNodeRef(node), node.TypeName, field.Name, node.Projection); ok {
 			return count, true
 		}
 		if value, ok, handled := resolveBuiltin(); handled {
@@ -350,7 +350,7 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 		}
 		return e.resolveSectionSelectionSet(ctx, matches[0], field.SelectionSet, path), true
 	case ontoschema.FieldKindLink:
-		return e.resolveSectionStructuralField(ctx, node, schemaField, field.SelectionSet, path)
+		return e.resolveSectionStructuralField(ctx, node, schemaField, field.SelectionSet, path, e.relationFirst(field))
 	case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum:
 		return e.resolveSectionScalarField(ctx, node, schemaField, path)
 	case ontoschema.FieldKindNeighbor:

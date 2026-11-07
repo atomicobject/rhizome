@@ -346,8 +346,8 @@ func sectionNodeFieldsSDL(noteType *ontoschema.NoteType) []string {
 
 func fieldSDL(field *ontoschema.Field) string {
 	name := field.Name
-	if isRelationList(field) {
-		// first caps the targets read per record; <name>Count counts them all.
+	if isRelationList(field) || (field.List && field.Kind == ontoschema.FieldKindLink) {
+		// first caps relation targets before hydration.
 		name += "(first: Int)"
 	}
 	out := fmt.Sprintf("%s: %s", name, gqlType(field.TypeName, field.List, field.Required))

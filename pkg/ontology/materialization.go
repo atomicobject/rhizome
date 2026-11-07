@@ -36,7 +36,9 @@ import (
 // v20: list-item neighbor edges include links on the item headline, and a declared type that
 // differs only in case from its selector-matched type resolves to it.
 // v21: structured providers, empty reference presence, cross-format references, and complete native chunk coverage.
-const OntologyMaterializationVersion = 21
+// v22: scalar path fields reject structured leaves instead of formatting Go collections, and typed body-link
+// candidates exclude incompatible basename claimants before uniqueness.
+const OntologyMaterializationVersion = 22
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

@@ -12,7 +12,7 @@ import (
 
 // Cross-host targets come from the shared indexed binding pass; current local
 // occurrences can resolve without an index and never borrow a changed value.
-func (e *executor) resolveRecordReferenceField(ctx context.Context, node *sectionRecord, field *ontoschema.Field, set ast.SelectionSet, path []string) (any, bool) {
+func (e *executor) resolveRecordReferenceField(ctx context.Context, node *sectionRecord, field *ontoschema.Field, set ast.SelectionSet, path []string, first int) (any, bool) {
 	rows := node.indexedFields[strings.ToLower(field.Name)]
 	if node.Projection != nil {
 		indexed, err := e.loaders.scope.IndexedFieldValues(ctx, []*ontology.NodeProjection{node.Projection})
@@ -50,6 +50,9 @@ func (e *executor) resolveRecordReferenceField(ctx context.Context, node *sectio
 				refs = append(refs, ref)
 			}
 		}
+	}
+	if field.List && first > 0 && len(refs) > first {
+		refs = refs[:first]
 	}
 	var summaryRefs []ontology.NodeRef
 	for _, ref := range refs {

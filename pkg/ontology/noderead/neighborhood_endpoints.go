@@ -30,12 +30,12 @@ func (s *Scope) neighborhoodEdgesForSourceRefs(sources []ontology.NodeRef, row s
 	return out
 }
 
-func (s *Scope) canonicalizeNeighborhoodEdgeRefsLocked(ctx context.Context, edges []NeighborhoodEdge) error {
+func (s *Scope) canonicalizeNeighborhoodEdgeRefsLocked(ctx context.Context, edges []NeighborhoodEdge, bound map[string]ontology.NodeRef) error {
 	refs := make([]ontology.NodeRef, 0, len(edges)*2)
 	for _, edge := range edges {
 		refs = append(refs, edge.Source, edge.Target)
 	}
-	canonical, err := s.canonicalizeNodeRefsLocked(ctx, refs)
+	canonical, err := s.canonicalizeRelationRefsLocked(ctx, refs, bound)
 	if err != nil {
 		return err
 	}
@@ -46,10 +46,17 @@ func (s *Scope) canonicalizeNeighborhoodEdgeRefsLocked(ctx context.Context, edge
 }
 
 func (s *Scope) canonicalizeNodeRefsLocked(ctx context.Context, refs []ontology.NodeRef) ([]ontology.NodeRef, error) {
+	return s.canonicalizeRelationRefsLocked(ctx, refs, nil)
+}
+
+func (s *Scope) canonicalizeRelationRefsLocked(ctx context.Context, refs []ontology.NodeRef, bound map[string]ontology.NodeRef) ([]ontology.NodeRef, error) {
 	embedded := make([]ontology.NodeRef, 0, len(refs))
 	seen := map[string]bool{}
 	for _, ref := range refs {
 		ref = NormalizeRef(ref)
+		if _, ok := bound[RefIdentityKey(ref)]; ok {
+			continue
+		}
 		if ref.Kind == ontology.NodeKindEmbedded || ref.Kind == ontology.NodeKindSection {
 			key := RefIdentityKey(ref)
 			if !seen[key] {
@@ -78,6 +85,10 @@ func (s *Scope) canonicalizeNodeRefsLocked(ctx context.Context, refs []ontology.
 	out := make([]ontology.NodeRef, len(refs))
 	for i, ref := range refs {
 		out[i] = NormalizeRef(ref)
+		if captured, ok := bound[RefIdentityKey(ref)]; ok {
+			out[i] = captured
+			continue
+		}
 		if record, ok := byRequest[RefIdentityKey(ref)]; ok {
 			out[i] = record.Ref
 		}

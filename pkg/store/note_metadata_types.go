@@ -25,6 +25,7 @@ const (
 	NotePropertyValueDateTime
 	NotePropertyValueURL
 	NotePropertyValueWikilink
+	NotePropertyValueJSON
 )
 
 type NoteMetadataState struct {

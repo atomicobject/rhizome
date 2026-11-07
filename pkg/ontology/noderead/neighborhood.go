@@ -25,7 +25,7 @@ func (s *Scope) Neighborhood(ctx context.Context, req NeighborhoodRequest) (Neig
 	if len(sourceRefs) == 0 {
 		return emptyNeighborhood(nil), nil
 	}
-	canonicalSources, err := s.canonicalizeNodeRefsLocked(ctx, sourceRefs)
+	canonicalSources, err := s.canonicalizeRelationRefsLocked(ctx, sourceRefs, req.boundSources)
 	if err != nil {
 		return NeighborhoodResult{}, err
 	}
@@ -84,7 +84,7 @@ func (s *Scope) Neighborhood(ctx context.Context, req NeighborhoodRequest) (Neig
 			allRows = append(allRows, s.neighborhoodEdgesForSourceRefs(sourceRefsForEndpoint(sourceByPath, sourceByEndpoint, row.DstPath, row.DstNodeID), row, TraversalDirectionInbound, row.SrcPath, row.SrcNodeID, "")...)
 		}
 	}
-	if err := s.canonicalizeNeighborhoodEdgeRefsLocked(ctx, allRows); err != nil {
+	if err := s.canonicalizeNeighborhoodEdgeRefsLocked(ctx, allRows, req.boundSources); err != nil {
 		return NeighborhoodResult{}, err
 	}
 	allRows, err = s.filterNeighborhoodTargetsLocked(ctx, allRows, req)

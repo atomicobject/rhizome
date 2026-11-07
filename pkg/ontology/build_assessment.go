@@ -241,6 +241,10 @@ func appendIssuesToAssessments(assessmentByPath map[string]*NoteAssessment, issu
 
 func assessScalarField(doc *noteDoc, noteType *ontoschema.NoteType, field *ontoschema.Field, schema *ontoschema.Schema) (FieldAssessment, []ValidationIssue) {
 	assessment := AssessScalarFieldValues(doc.Path, noteType.Name, field, schema, extractFieldValues(doc, field), fieldPresent(doc, field))
+	if field.SourcePath != "" {
+		raw, present := ontoschema.FrontmatterPathValue(doc.Frontmatter, field.SourcePath)
+		assessment = AssessScalarFieldSource(doc.Path, noteType.Name, field, schema, raw, present)
+	}
 	return assessment, assessment.Issues
 }
 

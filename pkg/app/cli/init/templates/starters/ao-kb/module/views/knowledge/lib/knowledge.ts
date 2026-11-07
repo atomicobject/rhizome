@@ -132,7 +132,7 @@ export function citations(a: Assertion, sources: Source[]): Citation[] {
   const rows = (a.sourcesSection?.citations ?? []).map((c, i) => {
     const raw = c.recordedLink ?? "";
     const key =
-      c.sources.length === 1 ? c.sources[0].path : resolve(/\[\[([^\]]+)\]\]/.exec(raw)?.[1]);
+      c.sources.length === 1 ? c.sources[0].path : undefined;
     return { raw, source: sources.find((s) => s.path === key), slot: i + 1, origin: false };
   });
   if (!a.provenanceSource)

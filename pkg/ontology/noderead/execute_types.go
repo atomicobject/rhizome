@@ -29,6 +29,7 @@ type FieldSelection struct {
 }
 
 type RelationSelection struct {
+	boundSources      map[string]ontology.NodeRef
 	Name              string
 	SourceTypes       []string
 	Sources           []ontology.NodeRef

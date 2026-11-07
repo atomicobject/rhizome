@@ -44,7 +44,7 @@ const data = (assertions = [], sources = [], extra = {}) => ({
   conflictRegistry: [],
   ...extra,
 });
-const link = (r) => ({ recordedLink: `[[${r.path}]]`, sources: [] });
+const link = (r) => ({ recordedLink: `[[${r.path}]]`, sources: [{ path: r.path }] });
 
 test("complete claim text retains authored headings before the structured sections", () => {
   const a = assertion("a", {
@@ -242,4 +242,11 @@ test("source-note fallback links account for frontmatter and trimmed blank lines
   const s = source("sources/s.md", "s");
   assert.equal(physicalSourceLine(s, s.path, 2), 6);
   assert.equal(physicalSourceLine(s, "sources/_raw/s.txt", 2), 2);
+});
+
+
+test("an unresolved native citation stays unresolved even when its raw text matches a source", () => {
+ const s = source("sources/interview.md", "s-1");
+ const a = assertion("a", { sourcesSection: { citations: [{ recordedLink: "[[sources/interview.md]]", sources: [] }] } });
+ assert.equal(citations(a, [s])[0].source, undefined);
 });

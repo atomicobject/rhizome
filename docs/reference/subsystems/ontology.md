@@ -164,4 +164,8 @@ Path fields use the common projection, catalog rows, typed reads, filtering, sor
 
 RECORD reference presence rows preserve authored empty collections. Reference bindings can target exact typed Markdown document paths; record logical lookup keeps namespace filtering and never falls back to arbitrary Markdown aliases.
 
-Materialization 20 refreshes structured records, reference presence/targets and native chunk coverage. RECORD source-set invalidation includes the declared Markdown target types of reference bindings. Raw SDL Note-field injection reads the authored locator before directive definitions exist; RECORDs inherit neither shared Note fields nor Note membership.
+Materialization 21 refreshes structured records, reference presence/targets and native chunk coverage. RECORD source-set invalidation includes the declared Markdown target types of reference bindings. Raw SDL Note-field injection reads the authored locator before directive definitions exist; RECORDs inherit neither shared Note fields nor Note membership.
+
+Scalar `@field(path:)` leaves reject mappings and lists containing mappings or nested lists with `field_shape_mismatch`; the typed value is unavailable as a whole, while raw frontmatter retains the authored structure. Scalar extraction never formats a Go collection as text.
+
+Typed subtree-neighbor body links apply the declared target type/interface to the highest-precedence path/alias candidates before checking uniqueness. An incompatible raw-source basename cannot hide a uniquely typed source note; multiple eligible targets remain unresolved. Materialization version 22 refreshes these edges.

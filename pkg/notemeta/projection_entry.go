@@ -247,7 +247,7 @@ func metadataValueRow(notePath, propertyName string, source semdb.NotePropertySo
 func metadataValueTextAndKind(value noteformat.MetadataValue) (string, semdb.NotePropertyValueKind) {
 	switch value.Kind() {
 	case noteformat.MetadataNull, noteformat.MetadataArray, noteformat.MetadataObject:
-		return "", semdb.NotePropertyValueUnknown
+		return string(value.CanonicalJSON()), semdb.NotePropertyValueJSON
 	case noteformat.MetadataBoolean:
 		return fmt.Sprint(value.Export()), semdb.NotePropertyValueBool
 	case noteformat.MetadataInteger:

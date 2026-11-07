@@ -178,22 +178,18 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
     return target;
   };
   const citationTarget = (citation: Citation, owner: string) => {
-    const raw = citation.recordedLink?.match(/\[\[([^\]]+)\]\]/)?.[1];
-    if (citation.sources.length) return citation.sources.map((source) => source.path);
-    const resolved = raw ? rawTarget(owner, raw, "Source") : undefined;
-    return resolved ? [resolved] : [];
+    if (!citation.sources.length && citation.recordedLink)
+      diagnostics.add(`Unresolved or ambiguous citation “${citation.recordedLink}” in ${owner}.`);
+    return citation.sources.map((source) => source.path);
   };
-  const ingest = (record: Detail, cap: number) => {
+  const ingest = (record: Detail) => {
     const path = record.path;
     if (record.__typename === "Assertion") {
       const citations = record.sourcesSection?.citations ?? [];
       const targets = citations.map((c) => citationTarget(c, path));
-      const firstRecorded = citations[0]?.recordedLink?.match(/\[\[([^\]]+)\]\]/)?.[1];
       const origin = record.provenanceSource
         ? rawTarget(path, record.provenanceSource, "Source")
-        : firstRecorded
-          ? rawTarget(path, firstRecorded, "Source")
-          : targets[0]?.[0];
+        : targets[0]?.[0];
       const originSlot = targets.findIndex((group) => group.includes(origin ?? ""));
       citations.forEach((citation, i) => {
         if (citation.sourcesCount > citation.sources.length) {
@@ -222,7 +218,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
           `${path}: ${record.conceptsCount - record.concepts.length} more concept targets beyond the read cap.`,
         );
       }
-      if (record.conceptsCount > record.concepts.length || record.concepts.length === cap)
+      if (record.conceptsCount > record.concepts.length)
         limited.add(path);
       const declarations: Declaration[] = [];
       const connections = record.connectionsSection;
@@ -263,9 +259,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
       const related = record.relatedConceptsSection;
       if (
         related?.neighborhood.truncated ||
-        (related &&
-          (related.relatedConceptsCount > related.relatedConcepts.length ||
-            related.relatedConcepts.length === cap))
+        (related && related.relatedConceptsCount > related.relatedConcepts.length)
       )
         limited.add(path);
       for (const target of related?.relatedConcepts ?? [])
@@ -287,7 +281,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
           diagnostics.add(
             `${path}: ${count - record[field].length} more ${field} targets beyond the read cap.`,
           );
-        if (count > record[field].length || record[field].length === cap) limited.add(path);
+        if (count > record[field].length) limited.add(path);
       }
     }
   };
@@ -302,7 +296,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
         const record = response[`n${i}`];
         if (record) {
           cache.set(path, record);
-          ingest(record, cap);
+          ingest(record);
         }
       });
     }

@@ -52,3 +52,9 @@ Workspace and nested-body capabilities overlay current source ownership independ
 **Native RECORD reads (SPEC-0133).** RECORD types implement Node without Section or fabricated levels. Summary roots use indexed source presence/value rows and preserve empty strings and repeated occurrences. Rich content, child collections, workspace and locators use the scoped prepared host. `workspace.source` and `bodies.source` expose native source-value JSON with representation, media type and source provenance; web adapters keep it out of Markdown and heading projections. `LocalGraphEdge.occurrences` exposes authored reference occurrence/member evidence. Every workspace/body capability overlay calls the existing `ApplySourceOwnership`.
 
 RECORD reference targets with summary-only selections hydrate from the indexed Scope without parsing hosts. Rich references honor each current indexed occurrence outcome, including ambiguity; a source-local match cannot replace an indexed unresolved result.
+
+Relation counts resolve after the complete response selection tree, sharing one batched count request per relation field across note and embedded records at every depth. Missing prefetch state must never be interpreted as an empty relation.
+
+Authored list `@link` fields accept the same optional `first: Int` as computed relation lists. Omitted or nonpositive values retain the existing unbounded relation behavior; positive values cap targets before hydration. Only computed neighbor/reverse lists generate count fields.
+
+Typed subtree-neighbor body links apply the declared target type/interface to the highest-precedence path/alias candidates before checking uniqueness. An incompatible raw-source basename cannot hide a uniquely typed source note; multiple eligible targets remain unresolved. Materialization version 22 refreshes these edges.

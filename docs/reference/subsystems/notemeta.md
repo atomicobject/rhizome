@@ -100,3 +100,5 @@ code-anchors:
 - Alias-store read failures propagate to publishers. UI callers may omit enrichment explicitly after a failed read.
 
 An indexing publication owns one `Indexer.WithSourceScope` capture set. Metadata preparation and the post-barrier source loader share matching sealed projections by canonical path, content hash and observed source facts. The scope is per operation, validates published source/provider provenance, and returns detached facts; ordinary readers and later operations capture fresh sources.
+
+Nested root metadata, nested list members, and nulls retain canonical JSON in property rows. Summary hydration decodes those values without reading source files; scalar rows and the empty-list sentinel retain their existing representation. Metadata indexer version 15 rebuilds older flattened rows.

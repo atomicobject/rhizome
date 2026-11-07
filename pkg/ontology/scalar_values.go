@@ -1,7 +1,7 @@
 package ontology
 
 import (
-	"fmt"
+	"encoding/json"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"math"
@@ -64,6 +64,9 @@ func FieldValueRow(field *ontoschema.Field, raw string) readmodel.FieldValueRow 
 
 // FieldTextValues preserves a DateTime timestamp even when YAML decoded midnight.
 func FieldTextValues(field *ontoschema.Field, raw any) []string {
+	if !scalarFieldSourceSupported(raw) {
+		return nil
+	}
 	switch value := raw.(type) {
 	case nil:
 		return nil
@@ -91,7 +94,26 @@ func FieldTextValues(field *ontoschema.Field, raw any) []string {
 			return []string{value.Format("2006-01-02")}
 		}
 		return []string{value.Format(time.RFC3339Nano)}
+	case string:
+		return normalizeStringValues([]string{value})
+	case json.Number:
+		return []string{value.String()}
 	default:
-		return normalizeStringValues([]string{fmt.Sprint(value)})
+		return nil
 	}
+}
+
+func scalarFieldSourceSupported(raw any) bool {
+	switch value := raw.(type) {
+	case map[string]any, map[any]any:
+		return false
+	case []any:
+		for _, item := range value {
+			switch item.(type) {
+			case []any, []string, map[string]any, map[any]any:
+				return false
+			}
+		}
+	}
+	return true
 }

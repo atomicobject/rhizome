@@ -12,12 +12,12 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sectionRecord, field *ontoschema.Field, set ast.SelectionSet, path []string) (any, bool) {
+func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sectionRecord, field *ontoschema.Field, set ast.SelectionSet, path []string, first int) (any, bool) {
 	if node == nil {
 		return nil, true
 	}
 	if field.Record != nil && field.Record.References != nil {
-		return e.resolveRecordReferenceField(ctx, node, field, set, path)
+		return e.resolveRecordReferenceField(ctx, node, field, set, path, first)
 	}
 	values := node.fieldValues(field, node.PropertyCase)
 	if field.Required && len(values) == 0 && (!field.List || !node.hasFieldValue(field, node.PropertyCase)) {
@@ -27,6 +27,9 @@ func (e *executor) resolveSectionStructuralField(ctx context.Context, node *sect
 	if !field.List && len(values) > 1 {
 		e.addError(path, fmt.Sprintf("field %s.%s has multiple values but is declared as singular", node.TypeName, field.Name))
 		return nil, false
+	}
+	if field.List && first > 0 && len(values) > first {
+		values = values[:first]
 	}
 	cache, err := e.notePathCacheForSections(ctx)
 	if err != nil {
@@ -162,6 +165,10 @@ func (e *executor) resolveScalarField(ctx context.Context, node *noteRecord, fie
 	var hasFieldAssessment bool
 	if e.readOverlayTouchesPath(node.Path) {
 		fieldAssessment = ontology.AssessScalarFieldValues(node.Path, node.TypeName, field, e.schema, values, node.hasField(field))
+		if field.SourcePath != "" {
+			raw, present := ontoschema.FrontmatterPathValue(node.Frontmatter, field.SourcePath)
+			fieldAssessment = ontology.AssessScalarFieldSource(node.Path, node.TypeName, field, e.schema, raw, present)
+		}
 		hasFieldAssessment = true
 	} else {
 		assessment := e.noteAssessment(ctx, node.Path)
@@ -207,7 +214,7 @@ func (e *executor) readOverlayTouchesPath(notePath string) bool {
 	return false
 }
 
-func (e *executor) resolveStructuralField(ctx context.Context, node *noteRecord, field *ontoschema.Field, set ast.SelectionSet, path []string) (any, bool) {
+func (e *executor) resolveStructuralField(ctx context.Context, node *noteRecord, field *ontoschema.Field, set ast.SelectionSet, path []string, first int) (any, bool) {
 	// Docs: [[ontology-graphql-query-contract]] keeps
 	// @link fields on structural ontology edges instead of ambient note links.
 	grouped, err := e.loaders.structuralEdges(ctx, []string{node.Path}, field.Name)
@@ -215,7 +222,7 @@ func (e *executor) resolveStructuralField(ctx context.Context, node *noteRecord,
 		e.addError(path, err.Error())
 		return nil, false
 	}
-	rows := dedupeOntologyEdgeRows(grouped[node.Path])
+	rows := e.firstEdgeRows(dedupeOntologyEdgeRows(grouped[node.Path]), field.TypeName, first)
 	records, err := e.edgeRecords(ctx, rows)
 	if err != nil {
 		e.addError(path, err.Error())

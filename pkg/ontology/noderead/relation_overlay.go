@@ -230,31 +230,37 @@ func (s *Scope) overlaySubtreeOutboundRelations(ctx context.Context, selection R
 			continue
 		}
 		section := snapshot.SectionsByID[source.NodeID]
-		if section == nil {
-			continue
+		content := ontology.SectionBody(section)
+		if span := snapshot.SourceSpansByID[source.NodeID]; section == nil && span != nil {
+			content = span.Content
 		}
-		paths := make([]string, 0)
-		seenPaths := map[string]struct{}{}
-		for _, scanned := range ontology.ScanMarkdownBodyLinks(ontology.SectionBody(section), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
-			var targetPath string
-			var ok bool
-			if scanned.Detail.LinkType == "mdlink" {
-				targetPath, ok = cache.ResolveMdLink(scanned.Detail.Target, source.NotePath)
-			} else {
-				targetPath, ok = cache.ResolveNote(scanned.Detail.Target)
+		links := ontology.ScanMarkdownBodyLinks(content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions)
+		var candidates []string
+		for _, link := range links {
+			for _, target := range ontology.BodyLinkCandidates(cache, link.Detail.LinkType, link.Detail.Target, source.NotePath) {
+				candidates = append(candidates, target.Path)
 			}
-			if !ok || strings.TrimSpace(targetPath) == "" {
-				continue
-			}
-			if _, seen := seenPaths[targetPath]; seen {
-				continue
-			}
-			seenPaths[targetPath] = struct{}{}
-			paths = append(paths, targetPath)
 		}
-		types, err := s.TypesByPaths(ctx, paths)
+		types, err := s.TypesByPaths(ctx, candidates)
 		if err != nil {
 			return NeighborhoodResult{}, err
+		}
+		var paths []string
+		seenPaths := map[string]bool{}
+		for _, link := range links {
+			targets := ontology.BodyLinkCandidates(cache, link.Detail.LinkType, link.Detail.Target, source.NotePath)
+			path, ok := ontology.TypedBodyLinkTarget(s.service.Schema, targets, "", func(path string) string {
+				typeName := types[path].TypeName
+				if relationTargetTypeAllowed(s.service.Schema, typeName, selection.TargetTypes, selection.TargetInterfaces) {
+					return typeName
+				}
+				return ""
+			})
+			if !ok || seenPaths[path] {
+				continue
+			}
+			seenPaths[path] = true
+			paths = append(paths, path)
 		}
 		for _, targetPath := range paths {
 			typeName := types[targetPath].TypeName

@@ -1,6 +1,7 @@
 package noderead
 
 import (
+	"encoding/json"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
@@ -148,6 +149,13 @@ func cloneInlineProps(in map[string][]string) map[string][]string {
 
 func propertyValue(row semdb.NotePropertyValueRow) any {
 	switch row.ValueKind {
+	case semdb.NotePropertyValueJSON:
+		decoder := json.NewDecoder(strings.NewReader(row.ValueText))
+		decoder.UseNumber()
+		var value any
+		if err := decoder.Decode(&value); err == nil {
+			return value
+		}
 	case semdb.NotePropertyValueBool:
 		return strings.EqualFold(strings.TrimSpace(row.ValueText), "true")
 	case semdb.NotePropertyValueInt:

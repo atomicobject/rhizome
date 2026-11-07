@@ -63,4 +63,8 @@ Native edit staging checks host-source ownership before projection. Workspace cl
 
 Present RECORD reference fields with zero occurrences publish presence/value-kind rows so exists filters retain empty collections. Explicit Markdown document paths in RECORD reference bindings resolve through canonical physical identities, without global alias fallback.
 
-Materialization 20 refreshes structured-provider output, reference presence/targets and native chunk coverage. RECORD source-set invalidation includes declared Markdown reference target types, so target creation, deletion and changes rebind current record occurrences.
+Materialization 21 refreshes structured-provider output, reference presence/targets and native chunk coverage. RECORD source-set invalidation includes declared Markdown reference target types, so target creation, deletion and changes rebind current record occurrences.
+
+Scalar `@field(path:)` leaves reject mappings and lists containing mappings or nested lists with `field_shape_mismatch`; the typed value is unavailable as a whole, while raw frontmatter retains the authored structure. Scalar extraction never formats a Go collection as text.
+
+Typed subtree-neighbor body links apply the declared target type/interface to the highest-precedence path/alias candidates before checking uniqueness. An incompatible raw-source basename cannot hide a uniquely typed source note; multiple eligible targets remain unresolved. Materialization version 22 refreshes these edges.
