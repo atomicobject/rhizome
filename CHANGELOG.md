@@ -47,6 +47,12 @@
   - An index write no longer commits ahead of pending writes it depends on, whether it flushes early or on its idle timer, so code chunks are not orphaned from their anchors and embeddings are not skipped for missing chunks. An automatic index reset no longer attaches code embeddings to the wrong anchors.
   - Embedding vectors from OpenAI-compatible endpoints are matched to inputs by their `index`, and a rerank response that repeats a document is rejected.
   - When two notes give an anchor the same label for different symbols, the note with the smaller path keeps it in any indexing order, and indexing logs the conflict and retries the losing note on the next index. Named Python source roots are stripped from module names, so their anchors match.
+  - `rzm init` writes a CLAUDE.md that links to AGENTS.md once, so an AGENTS.md edit it keeps is no longer overwritten through the link.
+  - Orphaned block-ID removal and identifier block-ID migrations count references from code comments, so a block cited only from code is neither removed nor renamed without confirmation.
+  - Connection hits for embedded ontology nodes keep each node's identity and show that node's own text; search previews and CLI output no longer show an unrelated heading section for them.
+  - A copied repository no longer drives the original's runtime: clients accept a runtime only when it serves their vault, and a lock copied with the repository can be taken over so the copy starts its own runtime.
+  - Web chat agents no longer inherit Rhizome's repository-delegation bypass, so a bare `rzm` they run uses the repository's pinned binary.
+  - Live chat events reach the browser in order, so an approval card or assistant text is no longer dropped when events race.
 
 ## [v0.51.0] - 2026-11-06
 
