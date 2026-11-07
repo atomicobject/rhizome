@@ -256,3 +256,145 @@ test("Open in Trace preserves native focus and lands on its presentation", async
   );
   await expect(frame(page).getByText("Focus · open the record").first()).toBeVisible();
 });
+
+test("claim prose, registry links, review defaults, and incoming impact stay readable", async ({
+  page,
+}) => {
+  await assertion(page, "same-day-cancellation-free");
+  const f = frame(page);
+  const claim = f.getByRole("region", { name: "Claim", exact: true });
+  await expect(claim.locator(".ak-claim > p")).toHaveCount(2);
+  await expect(claim.getByRole("link", { name: "cancellation", exact: true })).toHaveAttribute(
+    "href",
+    /note=concepts%2Fcancellation.md/,
+  );
+  await expect(claim).not.toContainText("[[");
+  const conflict = f.getByRole("region", { name: "Contradiction recorded", exact: true });
+  await expect(conflict).not.toContainText("[[");
+  await expect(
+    conflict
+      .locator(".ak-field")
+      .filter({ has: f.getByText("Assertions", { exact: true }) })
+      .getByRole("link"),
+  ).toHaveCount(2);
+  await expect(
+    conflict.locator(".ak-field").filter({ has: f.getByText("Winner", { exact: true }) }),
+  ).toContainText("Not recorded");
+  await expect(f.getByText("AO default: never reviewed", { exact: true })).toBeVisible();
+  await expect(f.getByText("Not recorded · Not recorded", { exact: true })).toHaveCount(0);
+  const related = f.getByRole("region", { name: "Related claims", exact: true });
+  await expect(related.getByRole("listitem")).toHaveCount(1);
+  await expect(related.getByText("Recorded at both ends", { exact: true })).toBeVisible();
+  const impact = f.getByRole("region", { name: "Cited by", exact: true });
+  await expect(
+    impact
+      .getByRole("listitem")
+      .filter({ has: f.getByRole("link", { name: "Booking product brief", exact: true }) }),
+  ).toContainText("Supports Booking product brief · Artifact · art-000000000001");
+  await expect(impact.getByText("sync date not recorded", { exact: true })).toBeVisible();
+  await expect(
+    impact.getByText("knowledge updated since sync (Oct 21, 2026)", { exact: true }),
+  ).toBeVisible();
+  await assertion(page, "reminders-twenty-four-hours");
+
+  const winner = frame(page)
+    .getByRole("region", { name: "Contradiction recorded", exact: true })
+    .locator(".ak-field")
+    .filter({ has: frame(page).getByText("Winner", { exact: true }) });
+
+  await expect(
+    winner.getByRole("link", { name: "reminders-twenty-four-hours", exact: true }),
+  ).toHaveAttribute("href", /note=assertions%2Freminders-twenty-four-hours.md/);
+
+  await page.route("**/api/v1/graphql", async (route) => {
+    const response = await route.fetch();
+
+    const body = (await response.text()).replace(
+      /"value":\s*"reminders-twenty-four-hours"/g,
+      '"value":"[[reminders-twenty-four-hours|24-hour reminder]]"',
+    );
+
+    await route.fulfill({ response, body });
+  });
+  await assertion(page, "reminders-twenty-four-hours");
+  await expect(winner.getByRole("link", { name: "24-hour reminder", exact: true })).toHaveAttribute(
+    "href",
+    /note=assertions%2Freminders-twenty-four-hours.md/,
+  );
+  await expect(winner).not.toContainText("[[");
+});
+
+test("saved band counts exclude claims absent from the snapshot", async ({ page }) => {
+  await page.goto(workspace("attention"));
+  const f = frame(page);
+
+  const bands = f
+    .locator("section")
+    .filter({ has: f.getByRole("button", { name: /Saved assertion bands and basis/ }) });
+
+  const toggle = bands.getByRole("button", { name: /Saved assertion bands and basis/ });
+  await expect(toggle).toContainText("21");
+  await expect(f.getByText("1 claim is not in the snapshot.", { exact: true })).toBeVisible();
+
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  await expect(bands.getByRole("listitem")).toHaveCount(21);
+  await expect(
+    bands.getByRole("link", { name: "Waitlist offers expire hourly", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("coverage categories use five distinct colors and singular labels", async ({ page }) => {
+  await page.goto(workspace("concepts"));
+  const f = frame(page);
+  await expect(f.getByText("1 explicitly related concept", { exact: true }).first()).toBeVisible();
+  await expect(f.getByText("1 explicitly related concepts", { exact: true })).toHaveCount(0);
+
+  for (const colorScheme of ["light", "dark"] satisfies ("light" | "dark")[]) {
+    await page.emulateMedia({ colorScheme });
+    const swatches = f.locator(".ak-coverage-legend > span > span:first-child");
+    await expect(swatches).toHaveCount(5);
+
+    const colors = await swatches.evaluateAll((elements) =>
+      elements.map((e) => getComputedStyle(e).backgroundColor),
+    );
+
+    expect(new Set(colors).size).toBe(5);
+    await expect(swatches.first()).toHaveAttribute("style", /--series-link/);
+  }
+
+  await page.goto(workspace("assertions"));
+  await expect(frame(page).getByText("1 Sources links", { exact: false })).toHaveCount(0);
+  await expect(
+    frame(page)
+      .getByRole("cell")
+      .filter({ hasText: /^1 Sources link/ })
+      .first(),
+  ).toBeVisible();
+});
+
+test("assertion presentations use the pane width and reflow at 728px in both appearances", async ({
+  page,
+}) => {
+  for (const colorScheme of ["light", "dark"] satisfies ("light" | "dark")[]) {
+    await page.emulateMedia({ colorScheme });
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await assertion(page, "same-day-cancellation-free");
+
+    for (const name of ["Hide sidebar", "Hide right pane"]) {
+      const button = page.getByRole("button", { name, exact: true }).first();
+
+      if (await button.count()) await button.click();
+    }
+
+    const layout = frame(page).locator(".ak-record-layout");
+    await expect(layout).toHaveCSS("grid-template-columns", /^\S+ \S+$/);
+    expect(await layout.evaluate((e) => e.clientWidth)).toBeGreaterThanOrEqual(1100);
+    await page.setViewportSize({ width: 728, height: 1000 });
+    await expect(layout).toHaveCSS("grid-template-columns", /^\S+$/);
+    expect(
+      await frame(page)
+        .locator("body")
+        .evaluate((body) => body.scrollWidth > body.clientWidth),
+    ).toBe(false);
+  }
+});
