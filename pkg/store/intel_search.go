@@ -9,6 +9,9 @@ import (
 )
 
 type IntelSearchRow struct {
+	// NodeRefJSON and ParentNodeID carry an ontology_record row's catalog identity.
+	NodeRefJSON  string
+	ParentNodeID string
 	SourceNodeID string
 	SectionIndex int
 	StartByte    int64
@@ -39,7 +42,7 @@ type IntelSearchFilters struct {
 }
 
 // SearchIntelFTS performs a BM25-ranked text search over intel anchors, doc
-// sections, and provider-owned root regions.
+// sections, provider-owned root regions, and embedded records.
 // Results are deterministic: ordered by score, then path, then title.
 func (s *Store) SearchIntelFTS(ctx context.Context, query string, limit int) ([]IntelSearchRow, error) {
 	return s.SearchIntelFTSFiltered(ctx, query, limit, IntelSearchFilters{})
@@ -89,8 +92,8 @@ func (s *Store) SearchIntelFTSFiltered(ctx context.Context, query string, limit 
 		for _, typ := range filters.Types {
 			switch strings.ToLower(strings.TrimSpace(typ)) {
 			case "note", "notes", "doc_section":
-				parts = append(parts, "?", "?", "?")
-				args = append(args, "doc_section", noteRegionFTSVisible, noteRegionFTSSupplemental)
+				parts = append(parts, "?", "?", "?", "?")
+				args = append(args, "doc_section", noteRegionFTSVisible, noteRegionFTSSupplemental, ontologyRecordFTSType)
 			case "code", "anchor":
 				parts = append(parts, "?")
 				args = append(args, "anchor")
@@ -111,7 +114,7 @@ func (s *Store) SearchIntelFTSFiltered(ctx context.Context, query string, limit 
 			args = append(args, typeName)
 		}
 		if len(parts) > 0 {
-			whereClauses = append(whereClauses, "item_type IN ('doc_section', 'note_region_visible', 'note_region_supplemental') AND EXISTS (SELECT 1 FROM ontology_note_types nt WHERE nt.note_path = intel_fts.path AND nt.type_name IN ("+strings.Join(parts, ",")+"))")
+			whereClauses = append(whereClauses, "item_type IN ('doc_section', 'note_region_visible', 'note_region_supplemental', 'ontology_record') AND EXISTS (SELECT 1 FROM ontology_note_types nt WHERE nt.note_path = intel_fts.path AND nt.type_name IN ("+strings.Join(parts, ",")+"))")
 		}
 	}
 	if predicate, symbolArgs := exactSymbolFilterSQL(filters.ExactSymbols, "a.symbol", "a.fqn"); predicate != "" {
@@ -164,10 +167,12 @@ func (s *Store) SearchIntelFTSFiltered(ctx context.Context, query string, limit 
 			COALESCE(a.kind, h.item_type) AS kind,
 			COALESCE(a.fqn, '') AS fqn,
  COALESCE(d.source_node_id, ''), COALESCE(d.ord, -1),
- COALESCE(d.start_byte, 0), COALESCE(d.end_byte, 0)
+ COALESCE(d.start_byte, 0), COALESCE(d.end_byte, 0),
+			COALESCE(n.node_ref_json, ''), COALESCE(n.parent_node_id, '')
 		FROM hits h
 		LEFT JOIN intel_code_anchors a ON a.anchor_id = h.item_id
 		LEFT JOIN intel_doc_sections d ON d.section_id = h.item_id
+		LEFT JOIN ontology_nodes n ON h.item_type = 'ontology_record' AND n.node_id = h.item_id
 		ORDER BY h.score, h.path, title
 		LIMIT ?
 	`
@@ -181,7 +186,7 @@ func (s *Store) SearchIntelFTSFiltered(ctx context.Context, query string, limit 
 	var out []IntelSearchRow
 	for rows.Next() {
 		var r IntelSearchRow
-		if err := rows.Scan(&r.Type, &r.ID, &r.Path, &r.Title, &r.Snippet, &r.TitleHit, &r.BodyHit, &r.Score, &r.Lang, &r.Kind, &r.FQN, &r.SourceNodeID, &r.SectionIndex, &r.StartByte, &r.EndByte); err != nil {
+		if err := rows.Scan(&r.Type, &r.ID, &r.Path, &r.Title, &r.Snippet, &r.TitleHit, &r.BodyHit, &r.Score, &r.Lang, &r.Kind, &r.FQN, &r.SourceNodeID, &r.SectionIndex, &r.StartByte, &r.EndByte, &r.NodeRefJSON, &r.ParentNodeID); err != nil {
 			return nil, err
 		}
 		out = append(out, r)

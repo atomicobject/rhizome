@@ -79,13 +79,24 @@ type LinkDependencyRow struct {
 }
 
 // NodeReadModel is the atomic replacement unit for ontology node identity,
-// queryable field values, and field-resolution dependencies.
+// queryable field values, field-resolution dependencies, and record lexical
+// search text.
 type NodeReadModel struct {
-	FullReplace      bool
-	NotePaths        []string
-	Nodes            []NodeRow
-	FieldValues      []FieldValueRow
-	LinkDependencies []LinkDependencyRow
+	FullReplace       bool
+	NotePaths         []string
+	Nodes             []NodeRow
+	FieldValues       []FieldValueRow
+	LinkDependencies  []LinkDependencyRow
+	RecordSearchTexts []RecordSearchText `json:",omitempty"`
+}
+
+// RecordSearchText is one embedded record's lexical search evidence. It is
+// published with the record's node row, so lexical search needs no embeddings.
+type RecordSearchText struct {
+	NodeID   string
+	NotePath string
+	Title    string
+	Body     string
 }
 
 type FieldOperator string

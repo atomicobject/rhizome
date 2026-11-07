@@ -52,6 +52,7 @@ type Row @node(locator:EMBEDDED) @source(shape:RECORD,paths:["model.*"],select:"
 				require.NoError(t, err)
 				require.NotEmpty(t, results)
 				require.Equal(t, row.NodeID, results[0].NodeID)
+				require.True(t, results[0].Record, "record chunks keep their own search owner")
 				require.Equal(t, row.SourceLocator, ontology.NodeSourceLocator(*results[0].NodeRef))
 				require.Contains(t, row.SourceLocator, "#record:v1:")
 			}

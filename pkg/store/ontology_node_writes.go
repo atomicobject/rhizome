@@ -72,7 +72,13 @@ func replaceOntologyNodeReadModelTx(ctx context.Context, tx *sql.Tx, model readm
 				return 0, err
 			}
 		}
+		if err := deleteAllOntologyRecordFTSTx(ctx, tx); err != nil {
+			return 0, err
+		}
 	} else {
+		if err := deleteOntologyRecordFTSForPathsTx(ctx, tx, notePaths); err != nil {
+			return 0, err
+		}
 		if err := deleteOntologyNodeFieldValuesForPathsTx(ctx, tx, notePaths); err != nil {
 			return 0, err
 		}
@@ -87,6 +93,9 @@ func replaceOntologyNodeReadModelTx(ctx context.Context, tx *sql.Tx, model readm
 		if err := insertOntologyNodesTx(ctx, tx, nodes); err != nil {
 			return 0, err
 		}
+	}
+	if err := insertOntologyRecordFTSTx(ctx, tx, model.RecordSearchTexts); err != nil {
+		return 0, err
 	}
 	if len(fieldValues) > 0 {
 		written, err := insertOntologyNodeFieldValuesTx(ctx, tx, fieldValues)
