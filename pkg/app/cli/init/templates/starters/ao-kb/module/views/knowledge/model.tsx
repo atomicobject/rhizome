@@ -55,6 +55,8 @@ type Raw = {
   in: { truncated: boolean; edges: Edge[] };
 };
 const basename = (path: string) => path.split("/").pop() ?? path;
+/** An authored key as a sentence-case label; the exact key stays in the title. */
+const human = (key: string) => key.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
 const shortDate = (value?: string | null) =>
   new Date(Date.parse(value ?? "")).toLocaleDateString("en-US", {
     month: "short",
@@ -260,7 +262,7 @@ function Evidence({
               <Rel
                 key={a.path}
                 icon={<ArrowRight size={14} />}
-                aside={a.confidence || "Confidence not recorded"}
+                aside={a.confidence ? human(a.confidence) : "Confidence not recorded"}
                 meta={states.join(" · ")}
               >
                 {MODEL_WORDS[EVIDENCED_BY][0]} <Record record={a} />
@@ -346,13 +348,13 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
           <p className="ak-footnote">{node.workspace.capabilities.readOnlyReason}</p>
         )}
       </header>
-      <div className="ak-record-layout">
+      <div className="ak-record-layout ak-model-layout">
         <div className="ak-record-column">
           <Section title="Fields" empty={rows.length || loaded.file ? undefined : "None recorded"}>
             <dl className="ak-facts">
               {rows.map((row) => (
                 <div key={row.key} className="ak-fact">
-                  <dt>{row.key}</dt>
+                  <dt title={row.key}>{human(row.key)}</dt>
                   <dd>
                     <Value row={row} />
                   </dd>

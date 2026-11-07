@@ -37,7 +37,8 @@ function ModelFile({ group, unknown }: { group: ModelSync; unknown?: boolean }) 
         {group.rows.map(({ record, changed, unknown: open }) => (
           <li key={record.key}>
             <Record record={{ ref: record.ref, path: record.key, title: record.title }} />{" "}
-            <span className="ak-key">{record.aoValue}</span> cites{" "}
+            {record.aoValue !== record.title && <span className="ak-key">{record.aoValue}</span>}{" "}
+            cites{" "}
             {(unknown ? open : changed).map((a, i) => (
               <span key={a.path}>
                 {i > 0 && ", "}
