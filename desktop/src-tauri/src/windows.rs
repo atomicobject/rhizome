@@ -128,6 +128,11 @@ impl Sessions {
         self.save();
     }
 
+    pub fn cancel_quit(&self) {
+        self.quitting.store(false, Ordering::SeqCst);
+        self.save();
+    }
+
     pub fn save(&self) {
         let _writing = self.writing.lock().unwrap();
         self.dirty.store(false, Ordering::SeqCst);
@@ -258,6 +263,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .title_bar_style(tauri::TitleBarStyle::Overlay)
             .hidden_title(true);
     }
+    #[cfg(windows)]
+    {
+        builder = builder.visible(false);
+    }
     if let (Some(x), Some(y)) = (session.x, session.y) {
         if on_screen(app, x + 40.0, y + 20.0) {
             builder = builder.position(x, y);
@@ -286,8 +295,9 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .auto_resize()
             // The shell paints the saved theme before it can ask for settings.
             .initialization_script(format!(
-                "window.__RHIZOME_SHELL_SETTINGS__ = {}; window.__RHIZOME_PLATFORM__ = {};",
+                "window.__RHIZOME_SHELL_SETTINGS__ = {}; window.__RHIZOME_MACOS__ = {}; window.__RHIZOME_PLATFORM__ = {};",
                 serde_json::json!(settings),
+                cfg!(target_os = "macos"),
                 serde_json::json!(std::env::consts::OS)
             ))
             .background_color(chrome)
@@ -297,10 +307,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(width, height),
     )?;
+    crate::menu::install_shortcuts(&shell_view).inspect_err(|_| discard_failed_window(&window))?;
     #[cfg(target_os = "linux")]
-    crate::linux_webviews::mount_shell(&shell_view)?;
-    #[cfg(not(target_os = "linux"))]
-    let _ = shell_view;
+    crate::linux_webviews::mount_shell(&shell_view)
+        .inspect_err(|_| discard_failed_window(&window))?;
     let popup_app = app.clone();
     let mut view = WebviewBuilder::new(
         content_label(&label),
@@ -319,6 +329,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .map_or(0, |since| since.as_millis())
     ))
     .background_color(surface);
+    #[cfg(windows)]
+    {
+        view = view.focused(false);
+    }
     // Scripts are fixed when the view is created, so a changed setting
     // reaches only windows opened afterward.
     #[cfg(target_os = "linux")]
@@ -442,6 +456,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     #[cfg(target_os = "linux")]
     crate::linux_webviews::mount_overlay(&content)?;
     content.hide()?;
+    crate::menu::install_shortcuts(&content).inspect_err(|_| discard_failed_window(&window))?;
 
     let app = app.clone();
     let events = window.clone();
@@ -473,7 +488,22 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         }
         _ => {}
     });
+    #[cfg(windows)]
+    {
+        window.show()?;
+        window.set_focus()?;
+        shell_view.set_focus()?;
+    }
     Ok(window)
+}
+
+fn discard_failed_window(window: &Window) {
+    let app = window.app_handle();
+    app.state::<Panes>().remove(window.label());
+    app.state::<Sessions>().close(window.label(), None);
+    if let Err(error) = window.destroy() {
+        eprintln!("Rhizome Desktop could not discard a failed window: {error}");
+    }
 }
 
 /// Applies the shell's content region and whether the shell is drawing over it.
@@ -600,14 +630,46 @@ pub fn reopen(app: &AppHandle) {
             let _ = window.set_focus();
         }
         None => {
-            let _ = create(app, app.state::<Sessions>().last_closed());
+            create_from_event(app, app.state::<Sessions>().last_closed());
         }
     }
+}
+
+/// Windows child webviews cannot be created inside a synchronous event callback.
+pub fn create_from_event(app: &AppHandle, session: WindowSession) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = create(&app, session) {
+            eprintln!("Rhizome Desktop could not create a window: {error}");
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_update_allows_later_window_closes_and_session_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let sessions = Sessions::new(directory.path().into());
+        sessions.apply("window-1", |saved| saved.worktree = Some("/w/one".into()));
+        sessions.apply("window-2", |saved| saved.worktree = Some("/w/two".into()));
+        sessions.quit([]);
+        sessions.dirty.store(true, Ordering::SeqCst);
+        sessions.cancel_quit();
+        assert!(
+            !sessions.dirty.load(Ordering::SeqCst),
+            "a save deferred during installation must not suppress later saves"
+        );
+        sessions.close("window-1", None);
+        sessions.apply("window-2", |saved| saved.width = Some(900.0));
+        sessions.save();
+        let saved = Session::load(directory.path()).windows;
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].worktree.as_deref(), Some("/w/two"));
+        assert_eq!(saved[0].width, Some(900.0));
+    }
 
     #[test]
     fn quitting_saves_geometry_of_windows_that_never_moved() {

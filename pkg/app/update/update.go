@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"io"
@@ -423,6 +424,7 @@ func writeExecutable(path string, r io.Reader) error {
 
 func smokeTest(ctx context.Context, path string) error {
 	cmd := exec.CommandContext(ctx, path, "--version")
+	hiddencommand.Configure(cmd)
 	cmd.Dir = filepath.Dir(path)
 	cmd.Env = envWithOverride(os.Environ(), "RZM_SKIP_REPO_DELEGATE", "1")
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -459,7 +461,11 @@ func replaceFile(src, target string) error {
 	if err := copyFile(src, staged, 0o755); err != nil {
 		return err
 	}
-	return os.Rename(staged, target)
+	err = os.Rename(staged, target)
+	if runtime.GOOS == "windows" && errors.Is(err, os.ErrPermission) {
+		return fmt.Errorf("Windows refused executable replacement; the existing executable was left in place. Close commands using it and run `rzm stop` in that repository. Retry a repository update using the app's Update Pin action or an installed global CLI: %w", err)
+	}
+	return err
 }
 
 func copyFile(src, dst string, perm os.FileMode) error {

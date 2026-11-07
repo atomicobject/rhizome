@@ -1,13 +1,16 @@
 package cmd
 
 import (
-	"errors"
-	"runtime"
-
 	"github.com/atomicobject/rhizome/pkg/app/desktop"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/spf13/cobra"
 )
+
+// IsDesktopInvocation keeps app discovery independent of repository dotenv.
+func IsDesktopInvocation(args []string) bool {
+	command := firstCommandArg(args)
+	return command == "desktop" || command == "desktop-bridge"
+}
 
 func (commandOptions *vaultCommandOptions) makeDesktopCmd() *cobra.Command {
 	return &cobra.Command{
@@ -17,15 +20,12 @@ func (commandOptions *vaultCommandOptions) makeDesktopCmd() *cobra.Command {
 the Rhizome desktop app. The app adds the repository to its library if needed
 and switches its most recently focused window to the worktree containing path.
 
-A running app is preferred, then Rhizome, then Rhizome Dev, from /Applications
-or ~/Applications. Set RZM_DESKTOP_APP to an app bundle path to choose one.`,
+A running app is preferred on macOS. On Windows and Linux the registered
+installation is used. Set RZM_DESKTOP_APP to an installed app path to choose one.`,
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if runtime.GOOS != "darwin" {
-				return errors.New("rzm desktop is only available on macOS")
-			}
 			path := "."
 			if len(args) == 1 {
 				path = args[0]

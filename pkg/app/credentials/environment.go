@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -121,6 +122,7 @@ func (b *boundedCapture) Write(p []byte) (int, error) {
 // secret references cannot become fallbacks when an Environment omits a key.
 func runOnePassword(ctx context.Context, binary string, args ...string) ([]byte, error) {
 	command := exec.CommandContext(ctx, binary, args...)
+	hiddencommand.Configure(command)
 	configureImportProcess(command)
 	command.Env = []string{}
 	for _, entry := range os.Environ() {

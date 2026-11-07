@@ -485,12 +485,16 @@ mod tests {
 
     #[test]
     fn shells_hear_only_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = |name| directory.path().join(name).to_str().unwrap().to_string();
+        let (project, feature, new) = (path("project"), path("feature"), path("new"));
+        let root = directory.path().join("project").join(".git");
         let presence = Presence::default();
         let none = BTreeSet::new();
         let library = Library {
             repositories: vec![Repository {
                 id: "a".repeat(64),
-                root: "/work/project/.git".into(),
+                root: root.to_str().unwrap().into(),
                 ..Repository::default()
             }],
             ..Library::default()
@@ -498,24 +502,24 @@ mod tests {
         let status = |state| Status {
             repositories: vec![Found {
                 repository: Some(json!({
-                    "id": "a".repeat(64), "root": "/work/project/.git", "name": "project",
-                    "primary": "/work/project",
-                    "worktrees": [{"path": "/work/project"}, {"path": "/work/feature"}],
+                    "id": "a".repeat(64), "root": root, "name": "project",
+                    "primary": project,
+                    "worktrees": [{"path": project}, {"path": feature}],
                 })),
                 error: None,
             }],
             runtimes: BTreeMap::from([
-                ("/work/project".into(), state),
-                ("/work/feature".into(), running("http://127.0.0.1:2/")),
+                (project.clone(), state),
+                (feature.clone(), running("http://127.0.0.1:2/")),
             ]),
         };
         presence.record(&library, true, status(running("http://127.0.0.1:1/")));
         assert_eq!(
             presence.worktrees(&library),
-            BTreeSet::from(["/work/feature".into(), "/work/project".into()])
+            BTreeSet::from([feature.clone(), project.clone()])
         );
         let first = presence.changed(&none).unwrap();
-        assert_eq!(first["runtimes"]["/work/project"]["state"], "running");
+        assert_eq!(first["runtimes"][&project]["state"], "running");
         assert!(first["repositories"]["a".repeat(64)]["info"].is_object());
         assert!(
             first.to_string().find("127.0.0.1").is_none(),
@@ -539,12 +543,12 @@ mod tests {
             provider_access: None,
         };
         presence.record(&library, false, status(stopped));
-        let opening = BTreeSet::from(["/work/project".to_string(), "/work/new".to_string()]);
+        let opening = BTreeSet::from([project.clone(), new.clone()]);
         let message = presence.changed(&opening).unwrap();
-        assert_eq!(message["runtimes"]["/work/project"]["state"], "starting");
-        assert_eq!(message["runtimes"]["/work/new"]["state"], "starting");
+        assert_eq!(message["runtimes"][&project]["state"], "starting");
+        assert_eq!(message["runtimes"][&new]["state"], "starting");
         let message = presence.changed(&none).unwrap();
-        assert_eq!(message["runtimes"]["/work/project"]["state"], "stopped");
+        assert_eq!(message["runtimes"][&project]["state"], "stopped");
         assert_eq!(presence.published(), Some(message));
     }
 

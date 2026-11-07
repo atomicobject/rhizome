@@ -7,7 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
+	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	rzmpaths "github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -38,6 +40,14 @@ func LaunchTarget(cwd, input string) (string, error) {
 // AppCandidates lists the installed app bundles `rzm desktop` considers, in
 // preference order.
 func AppCandidates(home string) []string {
+	if runtime.GOOS != "darwin" {
+		apps, _ := appbundle.InstalledApps()
+		paths := make([]string, 0, len(apps))
+		for _, app := range apps {
+			paths = append(paths, app.AppPath)
+		}
+		return paths
+	}
 	var candidates []string
 	for _, name := range []string{"Rhizome.app", "Rhizome Dev.app"} {
 		candidates = append(candidates, filepath.Join("/Applications", name))
@@ -52,19 +62,19 @@ func AppCandidates(home string) []string {
 // candidate, else the first installed one.
 func FindApp(override string, candidates []string, running func(string) bool) (string, error) {
 	if override != "" {
-		if info, err := os.Stat(override); err != nil || !info.IsDir() || filepath.Ext(override) != ".app" {
-			return "", fmt.Errorf("RZM_DESKTOP_APP must name an installed .app bundle, got %q", override)
+		if info, err := os.Stat(override); err != nil || !(info.IsDir() && filepath.Ext(override) == ".app") && !(runtime.GOOS != "darwin" && info.Mode().IsRegular()) {
+			return "", fmt.Errorf("RZM_DESKTOP_APP must name an installed app, got %q", override)
 		}
 		return override, nil
 	}
 	var installed []string
 	for _, candidate := range candidates {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+		if info, err := os.Stat(candidate); err == nil && (info.IsDir() || runtime.GOOS != "darwin" && info.Mode().IsRegular()) {
 			installed = append(installed, candidate)
 		}
 	}
 	if len(installed) == 0 {
-		return "", errors.New("the Rhizome desktop app is not installed (looked for Rhizome.app and Rhizome Dev.app in /Applications and ~/Applications); install it, or set RZM_DESKTOP_APP to its bundle path")
+		return "", errors.New("the Rhizome desktop app is not installed; install and open it once, or set RZM_DESKTOP_APP to its installed path")
 	}
 	for _, app := range installed {
 		if running(app) {
@@ -76,12 +86,22 @@ func FindApp(override string, candidates []string, running func(string) bool) (s
 
 // AppRunning reports whether a process from the app bundle is running.
 func AppRunning(app string) bool {
+	if runtime.GOOS != "darwin" {
+		return false
+	}
 	return exec.Command("pgrep", "-f", filepath.Join(app, "Contents", "MacOS")+"/").Run() == nil
 }
 
 // Launch hands target to the app through process arguments, never a URL
 // scheme, so web content cannot trigger it.
 func Launch(ctx context.Context, app, target string) error {
+	if runtime.GOOS != "darwin" {
+		command := exec.Command(app, "--open", target)
+		if err := command.Start(); err != nil {
+			return fmt.Errorf("open %s: %w", app, err)
+		}
+		return command.Process.Release()
+	}
 	out, err := exec.CommandContext(ctx, "open", "-n", "-a", app, "--args", "--open", target).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("open %s: %v: %s", app, err, out)

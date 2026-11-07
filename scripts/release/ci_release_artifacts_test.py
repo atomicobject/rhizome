@@ -7,16 +7,24 @@ import tempfile
 import unittest
 
 from run_clean import scoped_environment
+from assemble_desktop import assemble as assemble_desktop
+from desktop_candidates_test import make_candidate
+from desktop_candidates import REQUIRED_TARGETS
 import os
 
-from ci_release_artifacts import (ArtifactError, BUNDLE_FILES, DESKTOP, GROUPS, PAYLOADS,
-    assemble, binary_name, build_info, collect, digest, verify_bundle, write_manifest)
+from ci_release_artifacts import (ArtifactError, BUNDLE_FILES, DESKTOP, DESKTOP_CLI, GROUPS, NATIVE_GROUPS, PAYLOADS,
+    assemble, binary_name, build_info, collect, digest, prepare_native, validate_native_inputs,
+    verify_bundle, write_manifest)
 
 SOURCE = "a" * 40
 VERSION = "v1.2.3"
 
 
-def fixture(root):
+def ignore_signature(*args, **kwargs):
+    pass
+
+
+def fixture(root, *, candidate_only=False):
     (root / "licenses").mkdir()
     (root / "licenses/dependency.txt").write_text("Synthetic third-party license")
     for name in ("LICENSE", "THIRD_PARTY_LICENSES.md"):
@@ -24,6 +32,24 @@ def fixture(root):
     installer = root / "scripts/install/install-rzm.sh"
     installer.parent.mkdir(parents=True)
     installer.write_text("#!/bin/sh\necho installer\n")
+    config = root / "desktop/src-tauri/tauri.conf.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    if not config.exists():
+        config.write_text('{"plugins":{"updater":{"pubkey":"c3ludGhldGlj"}}}')
+    candidates, hashes = {}, {}
+    parent = root / 'candidates'
+    parent.mkdir()
+    for target in REQUIRED_TARGETS:
+        candidate, checksum = make_candidate(parent, target, production=not candidate_only or target == "darwin-aarch64")
+        candidates[target], hashes[target] = candidate, checksum
+    def signer(command, **kwargs):
+        Path(command[-1] + '.sig').write_text('synthetic signature\n')
+        return subprocess.CompletedProcess(command, 0, '', '')
+    desktop = root / 'desktop-joined'
+    assemble_desktop(list(candidates.values()), VERSION, SOURCE, hashes, desktop, root=root,
+                     source={'TAURI_SIGNING_PRIVATE_KEY':'synthetic'}, runner=signer, verifier=ignore_signature,
+                     production=not candidate_only, candidate_only=candidate_only)
+    (desktop / DESKTOP[0]).write_text('synthetic DMG')
     inputs = []
     for platform, targets in GROUPS.items():
         directory = root / platform
@@ -33,21 +59,25 @@ def fixture(root):
             name = f"bin/{target}/{binary_name(target)}"
             path = directory / name
             path.parent.mkdir(parents=True)
-            path.write_bytes(("synthetic binary " + target).encode())
+            desktop_target = {cli: desktop for desktop, cli in DESKTOP_CLI.items()}.get(target)
+            path.write_bytes((candidates[desktop_target] / binary_name(target)).read_bytes() if desktop_target
+                             else ("synthetic binary " + target).encode())
             path.chmod(0o755)
             files.append(name)
         if platform == "macos":
             (directory / "desktop").mkdir()
             for name in DESKTOP:
-                (directory / "desktop" / name).write_text("synthetic package")
+                (directory / "desktop" / name).write_bytes((desktop / name).read_bytes())
                 files.append("desktop/" + name)
-            (directory / "desktop" / DESKTOP[2]).write_text("synthetic signature\n")
-            (directory / "desktop/latest.json").write_text(json.dumps({"version": VERSION[1:], "platforms": {
-                "darwin-aarch64": {"signature": "synthetic signature", "url": f"https://github.com/atomicobject/rhizome/releases/download/{VERSION}/{DESKTOP[1]}"}}}))
-        write_manifest(directory, SOURCE, VERSION, files, platform)
+        else:
+            import shutil
+            target = NATIVE_GROUPS[platform]
+            shutil.copytree(candidates[target], directory / 'candidate')
+            files.extend('candidate/' + path.name for path in candidates[target].iterdir())
+        write_manifest(directory, SOURCE, VERSION, files, platform, candidate_only=candidate_only)
         inputs.append(directory)
     output = root / "publish"
-    assemble(SOURCE, VERSION, inputs, output, root=root, scanner=lambda path: None)
+    assemble(SOURCE, VERSION, inputs, output, root=root, scanner=lambda path: None, verifier=ignore_signature, candidate_only=candidate_only)
     return inputs, output
 
 
@@ -60,16 +90,19 @@ class ArtifactTests(unittest.TestCase):
     def test_assemble_preserves_names_licenses_and_complete_checksums(self):
         inputs, output = fixture(self.root)
         self.assertEqual({p.name for p in output.iterdir()}, BUNDLE_FILES)
-        verify_bundle(SOURCE, VERSION, output)
+        verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=ignore_signature)
         with tarfile.open(output / "rhizome-windows-amd64.tar.gz") as archive:
             self.assertEqual(set(archive.getnames()), {"rzm.exe", "LICENSE", "THIRD_PARTY_LICENSES.md", "licenses/dependency.txt"})
+            self.assertEqual((self.root / "linux/bin/windows-amd64/rzm.exe").read_bytes(),
+                             archive.extractfile("rzm.exe").read())
+        self.assertNotIn("Rhizome-windows-x64-setup.exe", BUNDLE_FILES)
         checksums = (output / "checksums.txt").read_text()
         self.assertIn(digest(output / DESKTOP[0]) + "  " + DESKTOP[0], checksums)
         # Host ownership and modification times must not alter public release bytes.
         os.utime(inputs[0] / "bin/linux-arm64/rzm", (1, 1))
         os.utime(self.root / "LICENSE", (2, 2))
         repeat = self.root / "repeat"
-        assemble(SOURCE, VERSION, inputs, repeat, root=self.root, scanner=lambda path: None)
+        assemble(SOURCE, VERSION, inputs, repeat, root=self.root, scanner=lambda path: None, verifier=ignore_signature)
         self.assertEqual({name: digest(output / name) for name in BUNDLE_FILES},
                          {name: digest(repeat / name) for name in BUNDLE_FILES})
 
@@ -84,9 +117,12 @@ class ArtifactTests(unittest.TestCase):
             path.write_text(target)
         (dist / "metadata.json").write_text(json.dumps({"version": VERSION[1:], "commit": SOURCE}))
         scanned, inspected = [], []
-        collect("linux", SOURCE, VERSION, dist, extras, self.root / "collected",
+        candidate, _ = make_candidate(self.root, 'linux-x86_64')
+        native = next(dist.glob('rzm-linux_linux_amd64*/rzm'))
+        native.write_bytes((candidate / 'rzm').read_bytes())
+        collect("linux", SOURCE, VERSION, dist, extras, self.root / "collected", candidate=candidate,
                 scanner=lambda path: scanned.append(path.name), inspector=lambda *args: inspected.append(args[1:]))
-        self.assertEqual(len(scanned), 3)
+        self.assertEqual(len(scanned), len(GROUPS["linux"]))
         self.assertEqual({row[0] for row in inspected}, set(GROUPS["linux"]))
         self.assertTrue(all(row[1:] == (SOURCE, VERSION) for row in inspected))
         (dist / "metadata.json").write_text(json.dumps({"version": "1.2.4", "commit": SOURCE}))
@@ -145,7 +181,7 @@ class ArtifactTests(unittest.TestCase):
             if modification == "extra": (directory / "unexpected.txt").write_text("extra")
             if modification == "missing": target.rename(target.with_name("moved"))
             with self.assertRaises((ArtifactError, FileNotFoundError)):
-                assemble("b" * 40 if modification == "source" else SOURCE, VERSION, inputs, self.root / modification, root=self.root, scanner=lambda path: None)
+                assemble("b" * 40 if modification == "source" else SOURCE, VERSION, inputs, self.root / modification, root=self.root, scanner=lambda path: None, verifier=ignore_signature)
             if modification == "tamper": target.write_bytes(before)
             if modification == "extra": (directory / "unexpected.txt").unlink()
             if modification == "missing": target.with_name("moved").rename(target)
@@ -157,16 +193,17 @@ class ArtifactTests(unittest.TestCase):
         binary.rename(binary.with_name("saved"))
         binary.symlink_to("saved")
         with self.assertRaisesRegex(ArtifactError, "symlink"):
-            assemble(SOURCE, VERSION, inputs, self.root / "bad", root=self.root, scanner=lambda path: None)
+            assemble(SOURCE, VERSION, inputs, self.root / "bad", root=self.root, scanner=lambda path: None, verifier=ignore_signature)
         binary.unlink()
         binary.with_name("saved").rename(binary)
-        feed = inputs[1] / "desktop/latest.json"
+        mac = next(path for path in inputs if path.name == 'macos')
+        feed = mac / "desktop/latest.json"
         value = json.loads(feed.read_text())
         value["platforms"]["darwin-aarch64"]["url"] = "https://example.test/other"
         feed.write_text(json.dumps(value))
-        write_manifest(inputs[1], SOURCE, VERSION, ["bin/darwin-arm64/rzm", "bin/darwin-amd64/rzm", *("desktop/" + name for name in DESKTOP)], "macos")
+        write_manifest(mac, SOURCE, VERSION, ["bin/darwin-arm64/rzm", "bin/darwin-amd64/rzm", *("desktop/" + name for name in DESKTOP)], "macos")
         with self.assertRaisesRegex(ArtifactError, "updater feed"):
-            assemble(SOURCE, VERSION, inputs, self.root / "bad-feed", root=self.root, scanner=lambda path: None)
+            assemble(SOURCE, VERSION, inputs, self.root / "bad-feed", root=self.root, scanner=lambda path: None, verifier=ignore_signature)
 
     def test_rehashed_archive_with_traversal_is_rejected(self):
         _, output = fixture(self.root)
@@ -182,14 +219,59 @@ class ArtifactTests(unittest.TestCase):
                 checksums = {name: digest(output / name) for name in (*PAYLOADS, "release-manifest.json")}
                 (output / "checksums.txt").write_text("".join(f"{checksums[name]}  {name}\n" for name in sorted(checksums)))
                 with self.assertRaisesRegex(ArtifactError, "archive contents"):
-                    verify_bundle(SOURCE, VERSION, output)
+                    verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=ignore_signature)
+
+    def test_arm64_appimage_sidecar_must_match_the_archived_arm64_cli(self):
+        inputs, _ = fixture(self.root)
+        linux = next(path for path in inputs if path.name == "linux")
+        (linux / "bin/linux-arm64/rzm").write_bytes(b"a different arm64 build")
+        files = json.loads((linux / "manifest.json").read_text())["files"]
+        write_manifest(linux, SOURCE, VERSION, files, "linux")
+        with self.assertRaisesRegex(ArtifactError, "canonical desktop sidecar"):
+            assemble(SOURCE, VERSION, inputs, self.root / "mismatched", root=self.root,
+                     scanner=lambda path: None, verifier=ignore_signature)
 
     def test_public_scan_failure_stops_assembly(self):
         inputs, _ = fixture(self.root)
         def reject(path): raise ArtifactError("synthetic scanner rejection")
         with self.assertRaisesRegex(ArtifactError, "scanner rejection"):
-            assemble(SOURCE, VERSION, inputs, self.root / "rejected", root=self.root, scanner=reject)
+            assemble(SOURCE, VERSION, inputs, self.root / "rejected", root=self.root, scanner=reject, verifier=ignore_signature)
         self.assertFalse((self.root / "rejected/release-manifest.json").exists())
+
+    def test_same_run_native_staging_binds_every_native_platform_before_coordinator_signing(self):
+        inputs, _ = fixture(self.root)
+        native = [path for path in inputs if path.name in NATIVE_GROUPS]
+        output = self.root / "native-inputs"
+        prepare_native(SOURCE, VERSION, native, output)
+        validate_native_inputs(output, SOURCE, VERSION)
+        for target in ("linux-x86_64", "linux-aarch64"):
+            self.assertTrue((output / target / "desktop-candidate.json").is_file())
+        with self.assertRaisesRegex(ArtifactError, "missing"):
+            prepare_native(SOURCE, VERSION, native[:1], self.root / "missing-native")
+        (output / "linux-aarch64/rzm").write_bytes(b"changed")
+        with self.assertRaisesRegex(ArtifactError, "changed"):
+            validate_native_inputs(output, SOURCE, VERSION)
+
+    def test_signature_verification_failure_blocks_the_complete_bundle(self):
+        _, output = fixture(self.root)
+        def reject(*args, **kwargs):
+            raise ArtifactError("invalid updater signature")
+        with self.assertRaisesRegex(ArtifactError, "updater signature"):
+            verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=reject)
+
+    def test_candidate_bundle_requires_explicit_mode_and_production_rejects_unsigned_group(self):
+        inputs, output = fixture(self.root, candidate_only=True)
+        with self.assertRaisesRegex(ArtifactError, "manifest identity"):
+            verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=ignore_signature)
+        candidate = verify_bundle(SOURCE, VERSION, output, root=self.root, verifier=ignore_signature, candidate_only=True)
+        self.assertIs(candidate["candidate_only"], True)
+        desktop = json.loads((output / "desktop-assembly.json").read_text())
+        self.assertIs(desktop["production"], False)
+        self.assertIs(desktop["candidateOnly"], True)
+        native = [path for path in inputs if path.name != "macos"]
+        with self.assertRaisesRegex(ArtifactError, "manifest identity"):
+            prepare_native(SOURCE, VERSION, native, self.root / "not-production")
+        prepare_native(SOURCE, VERSION, native, self.root / "candidate-input", candidate_only=True)
 
 
 if __name__ == "__main__":

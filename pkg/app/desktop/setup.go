@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 )
 
 type SetupChoices struct {
@@ -180,6 +181,7 @@ func (s *Service) Scope(ctx context.Context, req Request) (json.RawMessage, erro
 // is a completed setup result, even though the executable exits with status 1.
 func runSetupJSON(ctx context.Context, target, folder string, args []string, key, failureCode string, allowPinFailure bool) (json.RawMessage, error) {
 	cmd := exec.CommandContext(ctx, target, args...)
+	hiddencommand.Configure(cmd)
 	cmd.Dir = folder
 	cmd.Env = append(os.Environ(), "RZM_REPO_DELEGATED=1", "RZM_SKIP_REPO_DELEGATE=1")
 	cmd.WaitDelay = time.Second

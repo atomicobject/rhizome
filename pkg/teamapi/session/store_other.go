@@ -1,7 +1,6 @@
-//go:build !darwin && !linux
+//go:build !darwin && !linux && !windows
 
 package session
 
-// DefaultStore reports ErrStoreUnavailable until a native secure-store adapter
-// passes checks on this platform.
+// DefaultStore refuses platforms without a native protected store.
 func DefaultStore() (Store, error) { return nil, ErrStoreUnavailable }

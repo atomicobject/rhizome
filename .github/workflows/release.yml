@@ -68,6 +68,7 @@ jobs:
     env:
       SOURCE: ${{ needs.select.outputs.source }}
       RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -125,12 +126,14 @@ jobs:
           include-hidden-files: true
 
   linux:
-    name: Build Linux and Windows CLI
+    name: Build Linux and Windows CLI and Linux x64 AppImage
     needs: [select, common]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       SOURCE: ${{ needs.select.outputs.source }}
       RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+      RZM_DESKTOP_PREBUILT_FRONTEND: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -140,11 +143,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.13.0
-      - name: Install Windows cross-compiler
-        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+      - name: Install native Linux packaging dependencies and the Windows cross-compiler
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -159,13 +166,31 @@ jobs:
         with:
           name: release-frontend
           path: .tmp/ci-release
-      - name: Restore verified common assets and build
+      - name: Restore verified common assets and build canonical Linux CLI
         run: |
           python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
           ./scripts/vendor/ensure_tree_sitter_sources.sh
+          npm --prefix desktop ci
           export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
-          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before --id rzm-linux --id rzm-windows-amd64
-          python3 scripts/release/ci_release_artifacts.py collect --platform linux --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --extras .tmp/goreleaser-extra --output .tmp/ci-release/linux
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux --id rzm-windows-amd64
+          python3 - <<'PYCLI'
+          import os
+          from pathlib import Path
+          files = list(Path('dist').glob('rzm-linux_linux_amd64*/rzm'))
+          if len(files) != 1:
+              raise SystemExit('Expected one canonical Linux x64 CLI')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
+          PYCLI
+      - name: Package and inspect the native Linux desktop
+        run: |
+          production=(); candidate=()
+          if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); else production=(--production); fi
+          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
+          python3 scripts/release/build_native_desktop.py --target linux-x86_64 \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version "$RELEASE_VERSION" --commit "$SOURCE" "${production[@]}" --output .tmp/ci-native/linux
+          python3 scripts/release/ci_release_artifacts.py collect --platform linux --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --candidate .tmp/ci-native/linux --output .tmp/ci-release/linux "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: release-linux
@@ -173,15 +198,94 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           include-hidden-files: true
+      # The Arm job packages these exact bytes; it never rebuilds the CLI.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-arm64-cli
+          path: |
+            dist/metadata.json
+            dist/rzm-linux_linux_arm64*/rzm
+          retention-days: 1
+          if-no-files-found: error
+
+  linux-arm64:
+    name: Package the Linux Arm64 AppImage
+    needs: [select, common, linux]
+    runs-on: ubuntu-24.04-arm
+    env:
+      SOURCE: ${{ needs.select.outputs.source }}
+      RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+      RZM_DESKTOP_PREBUILT_FRONTEND: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install native Linux packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64
+      - name: Install credential scanner
+        working-directory: ${{ runner.temp }}
+        env:
+          GOTOOLCHAIN: local
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-frontend
+          path: .tmp/ci-release
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux-arm64-cli
+          path: dist
+      - name: Restore verified common assets and the canonical Arm64 CLI
+        run: |
+          python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+          npm --prefix desktop ci
+          python3 - <<'PYCLI'
+          import os
+          from pathlib import Path
+          files = list(Path('dist').glob('rzm-linux_linux_arm64*/rzm'))
+          if len(files) != 1:
+              raise SystemExit('Expected one canonical Linux Arm64 CLI')
+          # Artifact transfer drops the executable bit, not the bytes.
+          files[0].chmod(0o755)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
+          PYCLI
+      - name: Package and inspect the native Linux Arm64 desktop
+        run: |
+          production=(); candidate=()
+          if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); else production=(--production); fi
+          digest="$(python3 -c 'import hashlib,os; print(hashlib.file_digest(open(os.environ["RZM_DESKTOP_PREBUILT_RZM"],"rb"),"sha256").hexdigest())')"
+          python3 scripts/release/build_native_desktop.py --target linux-aarch64 \
+            --rzm "$RZM_DESKTOP_PREBUILT_RZM" --canonical-sha256 "$digest" \
+            --version "$RELEASE_VERSION" --commit "$SOURCE" "${production[@]}" --output .tmp/ci-native/linux-arm64
+          python3 scripts/release/ci_release_artifacts.py collect --platform linux-arm64 --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --candidate .tmp/ci-native/linux-arm64 --output .tmp/ci-release/linux-arm64 "${candidate[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-arm64
+          path: .tmp/ci-release/linux-arm64
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
 
   mac:
     name: Build and notarize native Mac assets
-    needs: [select, common]
+    needs: [select, common, linux, linux-arm64]
     runs-on: macos-15
     environment: release
     env:
       SOURCE: ${{ needs.select.outputs.source }}
       RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -228,6 +332,19 @@ jobs:
           python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
           ./scripts/vendor/ensure_tree_sitter_sources.sh
           make desktop-deps
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux
+          path: .tmp/ci-release/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux-arm64
+          path: .tmp/ci-release/linux-arm64
+      - name: Verify this run's native inputs before signing
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py prepare-native --source "$SOURCE" --version "$RELEASE_VERSION" \
+            --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --output .tmp/ci-release/native "${candidate[@]}"
       - name: Prepare desktop signing
         run: python3 scripts/release/ci_desktop_signing.py prepare
         env:
@@ -239,6 +356,8 @@ jobs:
           RZM_RELEASE_DESKTOP: '1'
           RZM_NOTARIZE_DESKTOP: '1'
           RZM_DESKTOP_PREBUILT_FRONTEND: '1'
+          RZM_CI_RELEASE_CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
+          RZM_DESKTOP_CANDIDATES_DIR: ${{ github.workspace }}/.tmp/ci-release/native
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -251,7 +370,9 @@ jobs:
         if: ${{ always() }}
         run: python3 scripts/release/ci_desktop_signing.py cleanup
       - name: Collect verified assets without signing credentials
-        run: python3 scripts/release/ci_release_artifacts.py collect --platform macos --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --extras .tmp/goreleaser-extra --output .tmp/ci-release/macos
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py collect --platform macos --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --extras .tmp/goreleaser-extra --output .tmp/ci-release/macos "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos
@@ -262,11 +383,12 @@ jobs:
 
   assemble:
     name: Assemble and verify complete release on Linux
-    needs: [select, linux, mac]
+    needs: [select, linux, linux-arm64, mac]
     runs-on: ubuntu-latest
     env:
       SOURCE: ${{ needs.select.outputs.source }}
       RELEASE_VERSION: ${{ needs.select.outputs.version }}
+      CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -285,12 +407,19 @@ jobs:
           path: .tmp/ci-release/linux
       - uses: actions/download-artifact@v4
         with:
+          name: release-linux-arm64
+          path: .tmp/ci-release/linux-arm64
+      - uses: actions/download-artifact@v4
+        with:
           name: release-macos
           path: .tmp/ci-release/macos
+      - name: Prepare pinned signature verifier dependencies
+        run: cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
       - name: Assemble and verify the exact built artifacts
         run: |
-          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/macos --output .tmp/ci-release/publish
-          python3 scripts/release/ci_release_artifacts.py verify --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/publish
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
+          python3 scripts/release/ci_release_artifacts.py verify --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/publish "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: release-verified
@@ -320,19 +449,21 @@ jobs:
         with:
           name: release-verified
           path: .tmp/ci-release/publish
+      - name: Prepare pinned signature verifier dependencies
+        run: cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
       - name: Publish approved release and update Homebrew
         env:
           GH_TOKEN: ${{ github.token }}
           BREW_GITHUB_TOKEN: ${{ secrets.BREW_GITHUB_TOKEN }}
         run: >-
           python3 scripts/release/ci_release_publish.py --source "$SOURCE"
-          --assets .tmp/ci-release/publish --receipt "$RUNNER_TEMP/release-gateway.json"
+          --assets .tmp/ci-release/publish --receipt "$RUNNER_TEMP/release-state/release-gateway.json"
       - name: Retain gateway correlation for interrupted publication
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: release-gateway-receipt
-          path: ${{ runner.temp }}/release-gateway.json
+          path: ${{ runner.temp }}/release-state/
           overwrite: true
           retention-days: 30
           if-no-files-found: ignore

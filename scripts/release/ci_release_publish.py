@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +13,9 @@ import sys
 import tempfile
 
 from ci_release_artifacts import BUNDLE_FILES, digest, identity, verify_bundle
+from release_advertise import AdvertisementError, GitHub, advertise, expected_bundle
+from release_homebrew import HomebrewError, RECIPES, publish_tap, retain_recipes
+from verify_desktop_signing import DesktopSigningError, verify_archive
 from release_gateway import GatewayError, ensure_gateway
 from release_intent import notes_path, validate_prepared
 from release_publication import PublicationError, gate_direct_publication, tagged_release, validate_topology
@@ -203,94 +206,46 @@ def checked_assets(commands, release, source, version, notes, assets, *, complet
     return set(names)
 
 
-def formula(version, checksums):
-    lines = ['# frozen_string_literal: true', 'class Rhizome < Formula',
-             '  desc "Repository knowledge graph for agents"',
-             f'  homepage "https://github.com/{REPOSITORY}"', f'  version "{version.removeprefix("v")}"', '']
-    for os_name, targets in (("macos", ("darwin-arm64", "darwin-amd64")), ("linux", ("linux-arm64", "linux-amd64"))):
-        lines += [f"  on_{os_name} do", "    if Hardware::CPU.arm?"]
-        for index, target in enumerate(targets):
-            name = f"rhizome-{target}.tar.gz"
-            if index:
-                lines.append("    else")
-            lines += [f'      url "https://github.com/{REPOSITORY}/releases/download/{version}/{name}"',
-                      f'      sha256 "{checksums[name]}"']
-        lines += ["    end", "  end", ""]
-    lines += ["  def install", '    bin.install "rzm"', "  end", "", "  test do", '    system "#{bin}/rzm", "--version"', "  end", "end", ""]
-    return "\n".join(lines)
-
-
-def desktop_cask(version, checksum):
-    return "\n".join((
-        'cask "rhizome-desktop" do',
-        f'  version "{version.removeprefix("v")}"',
-        f'  sha256 "{checksum}"',
-        '',
-        f'  url "https://github.com/{REPOSITORY}/releases/download/v#{{version}}/Rhizome-macos-arm64.dmg"',
-        '  name "Rhizome"',
-        '  desc "Open repositories in Rhizome"',
-        f'  homepage "https://github.com/{REPOSITORY}"',
-        '',
-        '  auto_updates true',
-        '  depends_on arch: :arm64',
-        '  depends_on macos: :monterey',
-        '',
-        '  app "Rhizome.app"',
-        '  binary "#{appdir}/Rhizome.app/Contents/MacOS/rzm"',
-        'end',
-        '',
-    ))
-
-
-def update_homebrew(commands, version, assets, *, before_update=None):
-    checksums = {name: digest(assets / name) for name in BUNDLE_FILES}
-    desired = {"rhizome.rb": formula(version, checksums),
-               "Casks/rhizome-desktop.rb": desktop_cask(version, checksums["Rhizome-macos-arm64.dmg"])}
-    tree = commands.api(f"repos/{TAP}/git/trees/main?recursive=1", brew=True)
-    if (not isinstance(tree, dict) or tree.get("truncated") is not False
-            or not isinstance(tree.get("tree"), list)
-            or any(not isinstance(item, dict) or not isinstance(item.get("path"), str) for item in tree["tree"])):
-        raise PublishError("invalid or incomplete Homebrew tap tree")
-    entries = {item["path"]: item for item in tree["tree"]}
-    if len(entries) != len(tree["tree"]):
-        raise PublishError("ambiguous Homebrew tap tree")
-    pending = []
-    for path, content in desired.items():
-        endpoint = f"repos/{TAP}/contents/{path}"
-        sha = None
-        if path in entries:
-            entry = entries[path]
-            if entry.get("type") != "blob" or entry.get("mode") != "100644":
+class TapCommands:
+    """The CI publisher's narrowly scoped adapter for its two owned tap paths."""
+    def __init__(self, commands):
+        self.commands, self.written = commands, set()
+        tree = commands.api(f"repos/{TAP}/git/trees/main?recursive=1", brew=True)
+        if (not isinstance(tree, dict) or tree.get("truncated") is not False
+                or not isinstance(tree.get("tree"), list)
+                or any(not isinstance(item, dict) or not isinstance(item.get("path"), str) for item in tree["tree"])):
+            raise PublishError("invalid or incomplete Homebrew tap tree")
+        self.entries = {item["path"]: item for item in tree["tree"]}
+        if len(self.entries) != len(tree["tree"]):
+            raise PublishError("ambiguous Homebrew tap tree")
+        for path in RECIPES:
+            if path in self.entries and (self.entries[path].get("type") != "blob" or self.entries[path].get("mode") != "100644"):
                 raise PublishError("Homebrew recipe must be an ordinary file")
-            current = commands.api(endpoint + "?ref=main", brew=True)
-            try:
-                sha = current["sha"]
-                if not re.fullmatch(r"[0-9a-f]{40}", sha) or sha != entry.get("sha"):
-                    raise ValueError("recipe changed while reading tap")
-                existing = base64.b64decode("".join(current["content"].split()), validate=True).decode()
-            except (KeyError, TypeError, ValueError, AttributeError) as error:
-                raise PublishError("invalid or changed Homebrew recipe metadata") from error
-            if existing == content:
-                continue
-        pending.append((endpoint, content, sha))
-    if not pending:
-        return
-    if before_update:
-        before_update()
-    for endpoint, content, sha in pending:
-        payload = {"message": f"Update Rhizome to {version}",
-                   "content": base64.b64encode(content.encode()).decode(), "branch": "main"}
-        if sha is not None:
-            payload["sha"] = sha
-        commands.api(endpoint, method="PUT", brew=True, payload=payload)
+
+    def request(self, path, *, data=None):
+        if path not in RECIPES:
+            raise PublishError("refusing to write an unowned Homebrew path")
+        endpoint = f"repos/{TAP}/contents/{path}"
+        if data is not None:
+            result = self.commands.api(endpoint, method="PUT", brew=True, payload=data)
+            self.written.add(path)
+            return result
+        if path not in self.entries and path not in self.written:
+            return None
+        current = self.commands.api(endpoint + "?ref=main", brew=True)
+        if path not in self.written and current.get("sha") != self.entries[path].get("sha"):
+            raise PublishError("invalid or changed Homebrew recipe metadata")
+        return current
 
 
 def publish(root, source, assets, receipt, *, environment=None, runner=subprocess.run,
-            validator=validate_prepared, bundle_verifier=verify_bundle, gate=run_gateway):
-    root, assets = Path(root).resolve(), Path(assets).resolve()
+            validator=validate_prepared, bundle_verifier=verify_bundle, gate=run_gateway,
+            api_factory=lambda commands: GitHub(commands.github_token), signature_verifier=verify_archive):
+    root, assets, receipt = Path(root).resolve(), Path(assets).resolve(), Path(receipt).resolve()
     environment = os.environ if environment is None else environment
     if (environment.get("GITHUB_ACTIONS") != "true" or environment.get("GITHUB_REPOSITORY") != REPOSITORY
-            or environment.get("GITHUB_REF") != "refs/heads/main"):
+            or environment.get("GITHUB_REF") != "refs/heads/main" or environment.get("GITHUB_SHA") != source
+            or environment.get("GITHUB_EVENT_NAME") != "pull_request"):
         raise PublishError("public publication runs only in the approved GitHub release workflow")
     intent = validator(root)
     version = intent["version"]
@@ -299,37 +254,47 @@ def publish(root, source, assets, receipt, *, environment=None, runner=subproces
     notes = (root / notes_path(version)).read_bytes().decode("utf-8")
     commands = Commands(root, environment, runner)
     restore_gateway_receipt(commands, receipt, environment)
-    # Inspect existing releases before mutating refs, then recheck after the gate.
+    advertisement_path = receipt.with_name("release-advertisement.json")
+    inventory = {name: {"sha256": digest(assets / name), "size": (assets / name).stat().st_size} for name in BUNDLE_FILES}
+    try:
+        hashes = retain_recipes(advertisement_path, version, inventory)
+        expected = expected_bundle(root, assets, version=version, commit=source, recipe_hashes=hashes)
+    except (AdvertisementError, HomebrewError) as error:
+        raise PublishError(str(error)) from error
+    expected["releaseNotesSha256"] = hashlib.sha256(notes.encode()).hexdigest()
     existing = release_for_tag(commands, version)
     if existing:
         checked_assets(commands, existing, source, version, notes, assets, complete=existing.get("draft") is False)
     advance_refs(commands, source, intent)
-    if existing and not existing["draft"]:
-        revalidate_refs(root, source, commands)
-        def gate_recovery():
+    gateway_ready = False
+    def ready():
+        nonlocal gateway_ready
+        if not gateway_ready:
             gate(root, source, receipt, commands)
-            revalidate_refs(root, source, commands)
-            bundle_verifier(source, version, assets)
-        update_homebrew(commands, version, assets, before_update=gate_recovery)
-        return
-    gate(root, source, receipt, commands)
-    revalidate_refs(root, source, commands)
-    bundle_verifier(source, version, assets)
-    release = release_for_tag(commands, version)
-    if release is None:
-        release = commands.api(f"{API}/releases", method="POST", payload={"tag_name": version,
-            "target_commitish": source, "name": version, "body": notes, "draft": True, "prerelease": False})
-    if not release.get("draft"):
-        checked_assets(commands, release, source, version, notes, assets, complete=True)
-    else:
-        present = checked_assets(commands, release, source, version, notes, assets)
-        for name in sorted(BUNDLE_FILES - present):
-            commands.run(("gh", "release", "upload", version, str(assets / name), "--repo", REPOSITORY), timeout=600)
-        bundle_verifier(source, version, assets)
-        checked_assets(commands, release, source, version, notes, assets, complete=True)
+            gateway_ready = True
         revalidate_refs(root, source, commands)
-        commands.api(f"{API}/releases/{release['id']}", method="PATCH", payload={"draft": False})
-    update_homebrew(commands, version, assets)
+        bundle_verifier(source, version, assets)
+    if not existing or existing["draft"]:
+        ready()
+        release = release_for_tag(commands, version)
+        if release is None:
+            release = commands.api(f"{API}/releases", method="POST", payload={"tag_name": version,
+                "target_commitish": source, "name": version, "body": notes, "draft": True,
+                "prerelease": False, "make_latest": "false"})
+        if release.get("draft"):
+            present = checked_assets(commands, release, source, version, notes, assets)
+            for name in sorted(BUNDLE_FILES - present):
+                commands.run(("gh", "release", "upload", version, str(assets / name), "--repo", REPOSITORY), timeout=600)
+            bundle_verifier(source, version, assets)
+        checked_assets(commands, release, source, version, notes, assets, complete=True)
+    revalidate_refs(root, source, commands)
+    try:
+        advertise(root, advertisement_path, expected=expected, api=api_factory(commands), env=commands.environment,
+                  verifier=signature_verifier, before_change=ready)
+        publish_tap(advertisement_path, expected_commit=source, expected_version=version,
+                    tap=TapCommands(commands), before_update=ready)
+    except (AdvertisementError, HomebrewError, DesktopSigningError) as error:
+        raise PublishError(str(error)) from error
 
 
 def main(argv=None):
@@ -341,7 +306,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         publish(args.repo_root, args.source, args.assets, args.receipt)
-    except (ValueError, OSError, GatewayError, PublicationError, subprocess.SubprocessError) as error:
+    except (ValueError, OSError, GatewayError, PublicationError, AdvertisementError, HomebrewError,
+            DesktopSigningError, subprocess.SubprocessError) as error:
         print(f"release publication: {error}", file=sys.stderr)
         return 1
     return 0

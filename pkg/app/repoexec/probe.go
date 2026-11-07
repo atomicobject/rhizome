@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 )
 
 // Probe runs a bounded informational command with repository re-delegation
@@ -16,6 +18,7 @@ func Probe(ctx context.Context, target, cwd string, args ...string) (string, err
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, target, args...)
+	hiddencommand.Configure(cmd)
 	cmd.WaitDelay = time.Second
 	cmd.Dir = cwd
 	cmd.Env = append(os.Environ(), "RZM_REPO_DELEGATED=1", "RZM_SKIP_REPO_DELEGATE=1")

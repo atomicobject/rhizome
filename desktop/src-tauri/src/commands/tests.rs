@@ -1,6 +1,19 @@
 use super::*;
 
 #[test]
+fn desktop_integration_removal_is_distinct_from_cli_unlink() {
+    assert!(matches!(
+        serde_json::from_value::<Action>(json!({"operation":"desktop-integration-remove"}))
+            .unwrap(),
+        Action::DesktopIntegrationRemove
+    ));
+    assert!(matches!(
+        serde_json::from_value::<Action>(json!({"operation":"cli-link-remove"})).unwrap(),
+        Action::CliLinkRemove
+    ));
+}
+
+#[test]
 fn provider_settings_decode_the_shell_contract_and_reject_keys_elsewhere() {
     assert!(matches!(
         serde_json::from_value::<Action>(

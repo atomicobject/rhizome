@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
+	"github.com/atomicobject/rhizome/pkg/hiddencommand"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 )
 
@@ -57,6 +58,7 @@ func (s *Service) Seed(ctx context.Context, req Request) (SeedResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, seedTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, target, "new-worktree", primary)
+	hiddencommand.Configure(cmd)
 	cmd.Dir = info.Path
 	cmd.Env = append(os.Environ(), "RZM_REPO_DELEGATED=1", "RZM_SKIP_REPO_DELEGATE=1")
 	cmd.WaitDelay = time.Second

@@ -36,6 +36,7 @@ import { providerAccessChanged } from "./ProviderAccess";
 import { SetupSheet } from "./SetupSheet";
 import { Notice, OpenStatus } from "./Status";
 import { teamChanged, teamProgress } from "./TeamAccount";
+import { isMacOS, shortcut } from "./keyboard";
 
 type Found = { info?: Discovery; error?: Failure };
 type Item = Omit<MenuEntry, "id" | "items"> & { run?: () => void; items?: Item[] };
@@ -813,7 +814,7 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell" data-macos={window.__RHIZOME_MACOS__ ?? false}>
       <div className="toolbar-viewport">
         <header className="toolbar" data-tauri-drag-region>
           <div className="toolbar-start" data-tauri-drag-region>
@@ -836,7 +837,7 @@ export function App() {
               className="icon-button"
               aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
               aria-pressed={sidebarCollapsed === false}
-              title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (${window.__RHIZOME_PLATFORM__ === "linux" ? "Ctrl+Alt+S" : "⌃⌘S or ⌘\\"})`}
+              title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (${isMacOS() ? "⌃⌘S or ⌘\\" : "Ctrl+Alt+S or Ctrl+\\"})`}
               disabled={sidebarCollapsed === undefined}
               onClick={() => pageCommand({ command: "sidebar", collapsed: !sidebarCollapsed })}
             >
@@ -865,11 +866,7 @@ export function App() {
                 key={to}
                 className="icon-button"
                 aria-label={label}
-                title={
-                  to === "reload"
-                    ? `Reload (${window.__RHIZOME_PLATFORM__ === "linux" ? "Ctrl+R" : "⌘R"})`
-                    : label
-                }
+                title={to === "reload" ? `Reload (${shortcut({ key: "R" }).label})` : label}
                 disabled={covered || open?.step !== "ready"}
                 onClick={() => void request("browse", { to }).catch(() => {})}
               >

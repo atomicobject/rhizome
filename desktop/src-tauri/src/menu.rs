@@ -6,8 +6,8 @@ use crate::{
     pane::Panes,
     state::{Preferences, WindowSession},
     windows::{
-        browse, content_label, create, focused_window, page_command, shell_label, visible_page_url,
-        Browse, Sessions,
+        browse, content_label, create_from_event, focused_window, page_command, shell_label,
+        visible_page_url, Browse, Sessions,
     },
 };
 use serde::Deserialize;
@@ -16,6 +16,42 @@ use tauri::{
     menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
     AppHandle, LogicalPosition, Manager, Window, Wry,
 };
+use tauri_plugin_clipboard_manager::ClipboardExt;
+
+#[cfg(any(windows, test))]
+#[path = "windows_keyboard.rs"]
+mod windows_keyboard;
+
+const SHORTCUTS: &[(&str, &str)] = &[
+    ("settings", "CmdOrCtrl+,"),
+    ("new-window", "CmdOrCtrl+N"),
+    ("close-tab", "CmdOrCtrl+W"),
+    ("close-window", "CmdOrCtrl+Shift+W"),
+    ("copy-url", "CmdOrCtrl+Shift+C"),
+    ("search", "CmdOrCtrl+K"),
+    ("repositories", "CmdOrCtrl+O"),
+    ("worktrees", "CmdOrCtrl+Shift+O"),
+    ("find", "CmdOrCtrl+P"),
+    ("reload", "CmdOrCtrl+R"),
+    ("sidebar", SIDEBAR_SHORTCUT),
+    ("fullscreen", "F11"),
+];
+
+struct ShortcutItems(Vec<MenuItem<Wry>>);
+
+fn shortcut_enabled(app: &AppHandle, id: &str) -> bool {
+    app.state::<ShortcutItems>()
+        .0
+        .iter()
+        .find(|item| item.id().as_ref() == id)
+        .is_some_and(|item| item.is_enabled().unwrap_or(false))
+}
+
+pub fn install_shortcuts(_view: &tauri::Webview) -> tauri::Result<()> {
+    #[cfg(windows)]
+    windows_keyboard::install(_view)?;
+    Ok(())
+}
 
 /// A native popup entry. The shell supplies its own item identifiers, which
 /// return to that shell when chosen. Native menus draw above the content view.
@@ -157,32 +193,11 @@ fn find_in_page(window: &Window) {
 
 fn copy_page_url(window: &Window) -> Result<(), String> {
     let url = visible_page_url(window).ok_or("No Rhizome page is open in this window.")?;
-    copy_text(url.as_str())
-}
-
-#[cfg(target_os = "macos")]
-fn copy_text(text: &str) -> Result<(), String> {
-    use std::{io::Write, process::Stdio};
-    let mut child = std::process::Command::new("/usr/bin/pbcopy")
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Cannot copy the address: {e}"))?;
-    child
-        .stdin
-        .take()
-        .ok_or("Cannot copy the address.")?
-        .write_all(text.as_bytes())
-        .map_err(|e| format!("Cannot copy the address: {e}"))?;
-    let status = child.wait().map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err("Cannot copy the address.".into());
-    }
-    Ok(())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn copy_text(_: &str) -> Result<(), String> {
-    Err("Copying the page address is available only on macOS.".into())
+    window
+        .app_handle()
+        .clipboard()
+        .write_text(url.as_str())
+        .map_err(|e| format!("Cannot copy the address: {e}"))
 }
 
 /// ⌃⌘S on macOS; ⌃⌥S elsewhere, where ⌘ is Ctrl and ⌃S would be Save.
@@ -219,8 +234,8 @@ pub fn refresh_sidebar(app: &AppHandle) {
     let _ = item.0.set_enabled(enabled);
 }
 
-fn toggle_sidebar(app: &AppHandle) {
-    let Some(window) = focused_window(app) else {
+fn toggle_sidebar(app: &AppHandle, window: Option<Window>) {
+    let Some(window) = window else {
         return;
     };
     let toggles = app
@@ -239,21 +254,31 @@ fn toggle_sidebar(app: &AppHandle) {
     }
 }
 
-fn command(app: &AppHandle, name: &str) {
-    match focused_window(app) {
+fn command(app: &AppHandle, name: &str, window: Option<Window>) {
+    match window {
         Some(window) => {
             app.state::<Panes>().with(window.label(), |pane| {
                 pane.send(json!({"type": "command", "command": name}))
             });
         }
         None => {
-            let _ = create(app, WindowSession::default());
+            create_from_event(app, WindowSession::default());
         }
     }
 }
 
 pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+    let mut shortcuts = Vec::new();
+    let mut item = |id: &str, label: &str, enabled: bool| -> tauri::Result<MenuItem<Wry>> {
+        let accelerator = SHORTCUTS
+            .iter()
+            .find(|(name, _)| *name == id)
+            .map(|(_, key)| *key);
+        let item = MenuItem::with_id(app, id, label, enabled, accelerator)?;
+        shortcuts.push(item.clone());
+        Ok(item)
+    };
+    let settings = item("settings", "Settings…", true)?;
     let updates = MenuItem::with_id(
         app,
         "check-updates",
@@ -261,53 +286,24 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         crate::updater::enabled_for(app),
         None::<&str>,
     )?;
-    let new_window = MenuItem::with_id(app, "new-window", "New Window", true, Some("CmdOrCtrl+N"))?;
-    let close_tab = MenuItem::with_id(app, "close-tab", "Close Tab", true, Some("CmdOrCtrl+W"))?;
-    let close_window = MenuItem::with_id(
-        app,
-        "close-window",
-        "Close Window",
-        true,
-        Some("CmdOrCtrl+Shift+W"),
-    )?;
-    let copy_url = MenuItem::with_id(
-        app,
-        "copy-url",
-        "Copy Page URL",
-        true,
-        Some("CmdOrCtrl+Shift+C"),
-    )?;
-    let search = MenuItem::with_id(
-        app,
-        "search",
-        "Search This Project",
-        true,
-        Some("CmdOrCtrl+K"),
-    )?;
+    let new_window = item("new-window", "New Window", true)?;
+    let close_tab = item("close-tab", "Close Tab", true)?;
+    let close_window = item("close-window", "Close Window", true)?;
+    let copy_url = item("copy-url", "Copy Page URL", true)?;
+    let search = item("search", "Search This Project", true)?;
     // Add Repository has no shortcut: ⌘O switches repositories (SPEC-0126).
     let add = MenuItem::with_id(app, "add-repository", "Add Repository…", true, None::<&str>)?;
-    let repositories = MenuItem::with_id(
-        app,
-        "repositories",
-        "Switch Repository…",
-        true,
-        Some("CmdOrCtrl+O"),
-    )?;
-    let worktrees = MenuItem::with_id(
-        app,
-        "worktrees",
-        "Switch Worktree…",
-        true,
-        Some("CmdOrCtrl+Shift+O"),
-    )?;
-    let find = MenuItem::with_id(
-        app,
-        "find",
-        "Go to Note or File…",
-        true,
-        Some("CmdOrCtrl+P"),
-    )?;
+    let repositories = item("repositories", "Switch Repository…", true)?;
+    let worktrees = item("worktrees", "Switch Worktree…", true)?;
+    let find = item("find", "Go to Note or File…", true)?;
     let (appearance_menu, theme_menu) = appearance::submenus(app)?;
+    // GTK does not implement the predefined quit, minimize, maximize, or
+    // fullscreen items, and Windows needs fullscreen and minimize routed
+    // through dispatch, so those platforms use ordinary items.
+    #[cfg(not(target_os = "linux"))]
+    let quit = PredefinedMenuItem::quit(app, None)?;
+    #[cfg(target_os = "linux")]
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, Some("Ctrl+Q"))?;
     let app_menu = Submenu::with_items(
         app,
         &app.package_info().name,
@@ -318,11 +314,15 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &PredefinedMenuItem::separator(app)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::hide(app, None)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::hide_others(app, None)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::show_all(app, None)?,
+            #[cfg(not(windows))]
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, None)?,
+            &quit,
         ],
     )?;
     let file_menu = Submenu::with_items(
@@ -357,18 +357,20 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &copy_url,
         ],
     )?;
-    let reload = MenuItem::with_id(app, "reload", "Reload Page", true, Some("CmdOrCtrl+R"))?;
+    let reload = item("reload", "Reload Page", true)?;
     // No shortcuts: the editor uses Cmd-[ and Cmd-] for indentation.
     let back = MenuItem::with_id(app, "back", "Back", true, None::<&str>)?;
     let forward = MenuItem::with_id(app, "forward", "Forward", true, None::<&str>)?;
-    let sidebar = MenuItem::with_id(
-        app,
+    let sidebar = item(
         "sidebar",
         sidebar_label(Preferences::load(&app.state::<Desktop>().directory).sidebar_collapsed),
         false,
-        Some(SIDEBAR_SHORTCUT),
     )?;
     app.manage(SidebarItem(sidebar.clone()));
+    #[cfg(target_os = "macos")]
+    let fullscreen = PredefinedMenuItem::fullscreen(app, None)?;
+    #[cfg(not(target_os = "macos"))]
+    let fullscreen = item("fullscreen", "Toggle Full Screen", true)?;
     let view_menu = Submenu::with_items(
         app,
         "View",
@@ -382,177 +384,128 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &theme_menu,
             &PredefinedMenuItem::separator(app)?,
             &sidebar,
-            &PredefinedMenuItem::fullscreen(app, None)?,
+            &fullscreen,
         ],
     )?;
-    let window_menu = Submenu::with_items(
-        app,
-        "Window",
-        true,
-        &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
-        ],
-    )?;
+    let minimize = PredefinedMenuItem::minimize(app, None)?;
+    #[cfg(not(target_os = "macos"))]
+    let minimize = MenuItem::with_id(app, "minimize", minimize.text()?, true, None::<&str>)?;
+    #[cfg(not(target_os = "linux"))]
+    let maximize = PredefinedMenuItem::maximize(app, None)?;
     #[cfg(target_os = "linux")]
-    {
-        // GTK does not implement these predefined menu items.
-        app_menu.append(&MenuItem::with_id(
-            app,
-            "quit",
-            "Quit",
-            true,
-            Some("Ctrl+Q"),
-        )?)?;
-        window_menu.append(&MenuItem::with_id(
-            app,
-            "minimize",
-            "Minimize",
-            true,
-            None::<&str>,
-        )?)?;
-        window_menu.append(&MenuItem::with_id(
-            app,
-            "maximize",
-            "Maximize",
-            true,
-            None::<&str>,
-        )?)?;
-        view_menu.append(&MenuItem::with_id(
-            app,
-            "fullscreen",
-            "Full Screen",
-            true,
-            Some("F11"),
-        )?)?;
-    }
+    let maximize = MenuItem::with_id(app, "maximize", "Maximize", true, None::<&str>)?;
+    let window_menu = Submenu::with_items(app, "Window", true, &[&minimize, &maximize])?;
     app.set_menu(Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
     )?)?;
-    app.on_menu_event(|app, event| {
-        let id = event.id().as_ref();
-        if let Some((window, item)) = id
-            .strip_prefix("popup:")
-            .and_then(|rest| rest.split_once(':'))
-        {
-            app.state::<Panes>().with(window, |pane| {
-                pane.send(json!({"type": "menu", "id": item}))
-            });
-            return;
-        }
-        if appearance::menu_event(app, id) {
-            return;
-        }
-        match id {
-            #[cfg(target_os = "linux")]
-            "quit" => app.exit(0),
-            #[cfg(target_os = "linux")]
-            "minimize" | "maximize" | "fullscreen" => {
-                if let Some(window) = focused_window(app) {
-                    match id {
-                        "minimize" => {
-                            let _ = window.minimize();
-                        }
-                        "maximize" => {
-                            let _ = if window.is_maximized().unwrap_or(false) {
-                                window.unmaximize()
-                            } else {
-                                window.maximize()
-                            };
-                        }
-                        _ => {
-                            let _ = window.set_fullscreen(!window.is_fullscreen().unwrap_or(false));
-                        }
-                    }
-                }
-            }
-            "new-window" => {
-                let session = match app.windows().is_empty() {
-                    true => app.state::<Sessions>().last_closed(),
-                    false => WindowSession::default(),
-                };
-                let _ = create(app, session);
-            }
-            "add-repository" | "repositories" | "worktrees" | "settings" => command(app, id),
-            "find" => {
-                if let Some(window) = focused_window(app) {
-                    find_in_page(&window);
-                }
-            }
-            "check-updates" => crate::updater::check_from_menu(app),
-            "sidebar" => toggle_sidebar(app),
-            "search" => {
-                if let Some(window) = focused_window(app) {
-                    dismiss_finder(&window);
-                    focus_search(&window);
-                }
-            }
-            "close-tab" => {
-                if let Some(window) = focused_window(app) {
-                    dismiss_finder(&window);
-                    close_active_tab(&window);
-                }
-            }
-            "close-window" => {
-                if let Some(window) = focused_window(app) {
-                    let _ = window.close();
-                }
-            }
-            "copy-url" => {
-                if let Some(window) = focused_window(app) {
-                    let message = match copy_page_url(&window) {
-                        Ok(()) => json!({"type": "notice", "message": "Copied the page URL"}),
-                        Err(message) => {
-                            json!({"type": "alert", "code": "desktop_error", "message": message})
-                        }
-                    };
-                    app.state::<Panes>()
-                        .with(window.label(), |pane| pane.send(message));
-                }
-            }
-            "reload" | "back" | "forward" => {
-                let to = match id {
-                    "reload" => Browse::Reload,
-                    "back" => Browse::Back,
-                    _ => Browse::Forward,
-                };
-                if let Some(window) = focused_window(app) {
-                    dismiss_finder(&window);
-                    let _ = browse(&window, to);
-                }
-            }
-            _ => {}
-        }
-    });
+    app.manage(ShortcutItems(shortcuts));
+    app.on_menu_event(|app, event| dispatch(app, event.id().as_ref(), focused_window(app)));
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shell_menu_entries_deserialize() {
-        let entries: Vec<MenuEntry> = serde_json::from_str(
-            r#"[{"label":"Primary worktree","disabled":false,"id":"m0","items":[
-                {"label":"Automatic (main)","checked":true,"id":"m1"},
-                {"separator":true,"id":"m2"}]},
-               {"label":"Remove from Library","id":"m3"}]"#,
-        )
-        .unwrap();
-        assert_eq!(entries[0].items.len(), 2);
-        assert_eq!(entries[0].items[0].checked, Some(true));
-        assert!(entries[0].items[1].separator);
-        assert_eq!(entries[1].id, "m3");
-        assert!(serde_json::from_str::<Vec<MenuEntry>>(r#"[{"label":"x","run":1}]"#).is_err());
+fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
+    if SHORTCUTS.iter().any(|(name, _)| *name == id) && !shortcut_enabled(app, id) {
+        return;
     }
-
-    #[test]
-    fn the_sidebar_item_names_what_it_will_do() {
-        assert_eq!(sidebar_label(false), "Hide Sidebar");
-        assert_eq!(sidebar_label(true), "Show Sidebar");
-        #[cfg(target_os = "macos")]
-        assert_eq!(SIDEBAR_SHORTCUT, "Ctrl+CmdOrCtrl+S");
+    if let Some((window, item)) = id
+        .strip_prefix("popup:")
+        .and_then(|rest| rest.split_once(':'))
+    {
+        app.state::<Panes>().with(window, |pane| {
+            pane.send(json!({"type": "menu", "id": item}))
+        });
+        return;
+    }
+    if appearance::menu_event(app, id) {
+        return;
+    }
+    match id {
+        "new-window" => {
+            let session = match app.windows().is_empty() {
+                true => app.state::<Sessions>().last_closed(),
+                false => WindowSession::default(),
+            };
+            create_from_event(app, session);
+        }
+        "add-repository" | "repositories" | "worktrees" | "settings" => command(app, id, window),
+        "find" => {
+            if let Some(window) = window {
+                find_in_page(&window);
+            }
+        }
+        "check-updates" => crate::updater::check_from_menu(app),
+        "sidebar" => toggle_sidebar(app, window),
+        "search" => {
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                focus_search(&window);
+            }
+        }
+        "close-tab" => {
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                close_active_tab(&window);
+            }
+        }
+        "close-window" => {
+            if let Some(window) = window {
+                let _ = window.close();
+            }
+        }
+        "copy-url" => {
+            if let Some(window) = window {
+                let message = match copy_page_url(&window) {
+                    Ok(()) => json!({"type": "notice", "message": "Copied the page URL"}),
+                    Err(message) => {
+                        json!({"type": "alert", "code": "desktop_error", "message": message})
+                    }
+                };
+                app.state::<Panes>()
+                    .with(window.label(), |pane| pane.send(message));
+            }
+        }
+        "reload" | "back" | "forward" => {
+            let to = match id {
+                "reload" => Browse::Reload,
+                "back" => Browse::Back,
+                _ => Browse::Forward,
+            };
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                let _ = browse(&window, to);
+            }
+        }
+        #[cfg(target_os = "linux")]
+        "quit" => app.exit(0),
+        #[cfg(not(target_os = "macos"))]
+        "minimize" => {
+            if let Some(window) = window {
+                let _ = window.minimize();
+            }
+        }
+        #[cfg(target_os = "linux")]
+        "maximize" => {
+            if let Some(window) = window {
+                let _ = if window.is_maximized().unwrap_or(false) {
+                    window.unmaximize()
+                } else {
+                    window.maximize()
+                };
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        "fullscreen" => {
+            if let Some(window) = window {
+                let _ = window
+                    .is_fullscreen()
+                    .and_then(|value| window.set_fullscreen(!value));
+            }
+        }
+        _ => {}
     }
 }
+
+#[cfg(test)]
+#[path = "menu_tests.rs"]
+mod tests;

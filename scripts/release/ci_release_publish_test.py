@@ -7,11 +7,14 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from ci_release_artifacts import BUNDLE_FILES, digest
+from ci_release_artifacts import BUNDLE_FILES, digest, verify_bundle
 from ci_release_artifacts_test import SOURCE, VERSION, fixture
 from ci_release_publish import Commands, PublishError, publish, restore_gateway_receipt
+from release_advertise import API as PUBLIC_API, DOWNLOAD, AdvertisementError
+from release_homebrew import recipe_contents
 
 ENV = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": "atomicobject/rhizome",
+       "GITHUB_SHA": SOURCE, "GITHUB_EVENT_NAME": "pull_request",
        "GITHUB_TOKEN": "synthetic-github-token", "BREW_GITHUB_TOKEN": "synthetic-brew-token",
        "APPLE_API_PRIVATE_KEY": "synthetic-apple-key", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op-token"}
 
@@ -24,7 +27,11 @@ class FakeHost:
         self.local_tag = False
         self.uploaded = {}
         self.events, self.calls = [], []
-        self.tap_files = {"rhizome.rb": "old formula"}
+        inventory = {name: {"sha256": digest(assets / name)} for name in BUNDLE_FILES}
+        self.old_recipes = {name: content.decode() for name, content in recipe_contents("0.0.1", inventory).items()}
+        self.tap_files = {"rhizome.rb": self.old_recipes["rhizome.rb"]}
+        self.latest_id = None
+        self.fail_anonymous = False
         self.fail_upload = None
         self.fail_brew = False
         self.fail_brew_path = None
@@ -76,7 +83,7 @@ class FakeHost:
                 code = 1
             else:
                 self.uploaded[name] = {"id": len(self.uploaded) + 1, "name": name,
-                    "size": (self.assets / name).stat().st_size, "digest": "sha256:" + digest(self.assets / name)}
+                    "size": (self.assets / name).stat().st_size, "digest": "sha256:" + digest(self.assets / name), "state": "uploaded"}
         elif argv[:3] == ("gh", "release", "download"):
             name = argv[argv.index("--pattern") + 1]
             destination = Path(argv[argv.index("--output") + 1])
@@ -106,7 +113,8 @@ class FakeHost:
                     value = {}
                 else:
                     path = endpoint.split("/contents/", 1)[1].split("?", 1)[0]
-                    value = {"content": base64.b64encode(self.tap_files[path].encode()).decode(), "sha": self.tap_sha(path)}
+                    value = {"content": base64.b64encode(self.tap_files[path].encode()).decode(), "sha": self.tap_sha(path),
+                             "type": "file", "path": path, "encoding": "base64"}
                     if self.change_tap_during_read:
                         value["sha"] = "0" * 40
             elif endpoint.endswith("/releases") and method == "POST":
@@ -125,6 +133,50 @@ class FakeHost:
         else: raise AssertionError(argv)
         output = value if isinstance(value, str) else json.dumps(value)
         return subprocess.CompletedProcess(argv, code, output, "synthetic command error" if code else "")
+
+    def api(self, endpoint, *, method="GET", data=None):
+        if endpoint.startswith("releases?"):
+            return [dict(self.release)] if self.release else []
+        if endpoint == "releases/1/assets?per_page=100":
+            return [dict(asset) for asset in self.uploaded.values()]
+        if endpoint == "releases/1" and method == "GET":
+            return dict(self.release)
+        if endpoint == "git/ref/tags/" + VERSION:
+            return {"object": {"type": "commit", "sha": SOURCE}}
+        if endpoint == "releases/1" and method == "PATCH":
+            self.release.update(data)
+            if data.get("draft") is False:
+                self.events.append("publish")
+            elif data.get("draft") is True:
+                self.events.append("recover")
+                self.latest_id = None
+            if data.get("make_latest") == "true":
+                self.latest_id = 1
+                self.events.append("promote")
+            return dict(self.release)
+        raise AssertionError((method, endpoint))
+
+    def latest(self):
+        return dict(self.release) if self.latest_id else None
+
+    def download(self, url, path, *, size=None, authenticated=False, limit=None):
+        if authenticated:
+            identifier = int(url.rsplit("/", 1)[1])
+            name = next(name for name, value in self.uploaded.items() if value["id"] == identifier)
+        elif "/latest/download/" in url:
+            if not self.latest_id:
+                raise AdvertisementError("no latest release")
+            name = "latest.json"
+        else:
+            if self.fail_anonymous:
+                raise AdvertisementError("synthetic anonymous download failure")
+            assert not self.release["draft"]
+            assert url.startswith(f"{DOWNLOAD}/download/{VERSION}/")
+            name = url.rsplit("/", 1)[1]
+        content = self.download_override.get(name, (self.assets / name).read_bytes())
+        if size is not None and len(content) != size:
+            raise AdvertisementError("unexpected downloaded size")
+        path.write_bytes(content)
 
     def gate(self, root, source, receipt, commands):
         self.events.append("gate")
@@ -146,7 +198,9 @@ class PublisherTests(unittest.TestCase):
     def publish(self, **kwargs):
         return publish(self.root, SOURCE, self.assets, self.root / "receipt.json",
             environment=ENV, runner=self.host.run, validator=lambda root: self.intent,
-            gate=kwargs.pop("gate", self.host.gate), **kwargs)
+            gate=kwargs.pop("gate", self.host.gate), api_factory=lambda commands: self.host,
+            signature_verifier=lambda *a, **k: None,
+            bundle_verifier=kwargs.pop("bundle_verifier", lambda source, version, assets: verify_bundle(source, version, assets, root=self.root, verifier=lambda *a, **k: None)), **kwargs)
 
     def test_build_validation_precedes_refs_and_gateway_precedes_all_uploads(self):
         self.publish()
@@ -154,6 +208,7 @@ class PublisherTests(unittest.TestCase):
         self.assertLess(self.host.events.index("gate"), self.host.events.index("create"))
         self.assertLess(self.host.events.index("gate"), self.host.events.index("upload"))
         self.assertLess(self.host.events.index("publish"), self.host.events.index("brew"))
+        self.assertLess(self.host.events.index("promote"), self.host.events.index("brew"))
         self.assertEqual(self.host.release["body"], self.notes)
         self.assertFalse(self.host.release["draft"])
         self.assertEqual(set(self.host.uploaded), BUNDLE_FILES)
@@ -184,6 +239,20 @@ class PublisherTests(unittest.TestCase):
         def fail(*args): raise PublishError("synthetic gateway failure")
         with self.assertRaisesRegex(PublishError, "gateway failure"): self.publish(gate=fail)
         self.assertEqual(self.host.events, ["refs"])
+
+    def test_anonymous_asset_failure_defers_both_recipes_and_retry_does_not_reupload(self):
+        self.host.fail_anonymous = True
+        with self.assertRaisesRegex(PublishError, "advertisement failed"):
+            self.publish()
+        self.assertFalse(self.host.release["draft"])
+        self.assertIsNone(self.host.latest_id)
+        self.assertNotIn("brew", self.host.events)
+        self.host.fail_anonymous = False
+        self.host.events.clear()
+        self.publish()
+        self.assertNotIn("upload", self.host.events)
+        self.assertLess(self.host.events.index("promote"), self.host.events.index("brew"))
+        self.assertIn("Casks/rhizome-desktop.rb", self.host.tap_files)
 
     def test_conflicting_refs_prevent_gateway_and_upload(self):
         self.host.remote_release = "b" * 40
@@ -224,7 +293,7 @@ class PublisherTests(unittest.TestCase):
         self.assertTrue(puts[1][0].endswith("/Casks/rhizome-desktop.rb"))
         self.assertNotIn("sha", puts[1][1])
         self.host.calls.clear()
-        self.host.tap_files["Casks/rhizome-desktop.rb"] = "previous cask"
+        self.host.tap_files["Casks/rhizome-desktop.rb"] = self.host.old_recipes["Casks/rhizome-desktop.rb"]
         self.publish()
         puts = [(argv[2], json.loads(kwargs["input"])) for argv, kwargs in self.host.calls
                 if argv[:2] == ("gh", "api") and "homebrew-tap" in argv[2] and "PUT" in argv]
@@ -283,13 +352,13 @@ class PublisherTests(unittest.TestCase):
 
     def test_completed_release_brew_recovery_requires_fresh_gateway_verification(self):
         self.publish()
-        self.host.formula = "old formula"
+        self.host.formula = self.host.old_recipes["rhizome.rb"]
         self.host.events.clear()
         def fail(*args): raise PublishError("synthetic recovery gateway failure")
         with self.assertRaisesRegex(PublishError, "recovery gateway failure"):
             self.publish(gate=fail)
         self.assertEqual(self.host.events, [])
-        self.assertEqual(self.host.formula, "old formula")
+        self.assertEqual(self.host.formula, self.host.old_recipes["rhizome.rb"])
 
     def test_conflicting_existing_release_and_changed_uploaded_bytes_are_not_overwritten(self):
         self.publish()
@@ -323,6 +392,22 @@ class PublisherTests(unittest.TestCase):
         with self.assertRaisesRegex(PublishError, "only in"):
             publish(self.root, SOURCE, self.assets, self.root / "receipt", environment={}, runner=self.host.run)
         self.assertEqual(self.host.calls, [])
+
+    def test_manual_candidate_or_different_event_sha_cannot_publish(self):
+        for changes in ({"GITHUB_EVENT_NAME": "workflow_dispatch"}, {"GITHUB_SHA": "b" * 40}):
+            with self.subTest(changes=changes), self.assertRaisesRegex(PublishError, "only in"):
+                publish(self.root, SOURCE, self.assets, self.root / "receipt", environment={**ENV, **changes}, runner=self.host.run)
+        self.assertEqual(self.host.calls, [])
+
+    def test_candidate_bundle_is_refused_before_refs_gateway_or_uploads(self):
+        path = self.assets / "release-manifest.json"
+        manifest = json.loads(path.read_text())
+        manifest["candidate_only"] = True
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(PublishError, "candidate-only"):
+            self.publish(bundle_verifier=lambda *args: None)
+        self.assertEqual(self.host.calls, [])
+        self.assertEqual(self.host.events, [])
 
 
 class ReceiptRecoveryTests(unittest.TestCase):

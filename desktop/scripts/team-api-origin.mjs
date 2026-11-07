@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 export function desktopTeamAPIOrigin(env = process.env, readOrigin = productionOrigin) {
   const override = env.RZM_DESKTOP_TEAM_API_ORIGIN?.trim();
@@ -24,6 +25,21 @@ export function desktopTeamAPIOrigin(env = process.env, readOrigin = productionO
     );
   }
   return url.origin;
+}
+
+export function releaseTeamAPIOrigin(
+  readConfig = () => readFileSync(new URL("../../.goreleaser.yml", import.meta.url), "utf8"),
+) {
+  const prefix = "- -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=";
+  const values = readConfig()
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => line.slice(prefix.length).trim());
+  if (values.length !== 3 || new Set(values).size !== 1) {
+    throw new Error("Release builds must define the same team API origin for all three platforms.");
+  }
+  return desktopTeamAPIOrigin({}, () => values[0]);
 }
 
 function productionOrigin() {

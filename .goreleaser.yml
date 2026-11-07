@@ -86,8 +86,8 @@ builds:
       - amd64
     env:
       - CGO_ENABLED=1
-      - CC=x86_64-w64-mingw32-gcc
-      - CXX=x86_64-w64-mingw32-g++
+      - 'CC={{ if eq .Runtime.Goos "windows" }}gcc{{ else }}x86_64-w64-mingw32-gcc{{ end }}'
+      - 'CXX={{ if eq .Runtime.Goos "windows" }}g++{{ else }}x86_64-w64-mingw32-g++{{ end }}'
     flags:
       - -mod=vendor
       - -tags=fts5

@@ -126,7 +126,7 @@ body,
 }
 /* Room for the window's traffic lights, kept out of the toolbar's own
    padding so the centered column stays centered in the window. */
-.toolbar-start {
+.shell[data-macos="true"] .toolbar-start {
   padding-left: 72px;
 }
 html[data-platform="linux"] .toolbar-viewport {

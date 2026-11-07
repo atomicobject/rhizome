@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, onTestFinished, vi } from "vitest";
 import { request, type LinkInfo } from "./api";
 import { Settings } from "./Settings";
 
@@ -32,6 +32,86 @@ const link = (state: LinkInfo["state"], shell: LinkInfo["shell"] = { isApp: fals
   linkPath: "/usr/local/bin/rzm",
   state,
   shell,
+});
+
+function portableWindow() {
+  window.__RHIZOME_MACOS__ = false;
+  onTestFinished(() => {
+    delete window.__RHIZOME_MACOS__;
+  });
+}
+
+it("keeps desktop integration removal out of the macOS settings", () => {
+  window.__RHIZOME_MACOS__ = true;
+  onTestFinished(() => {
+    delete window.__RHIZOME_MACOS__;
+  });
+  render(<Settings {...props()} link={link("installed")} />);
+  expect(screen.queryByRole("button", { name: "Remove Desktop Integration" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Remove Command-Line Tool" })).toBeEnabled();
+});
+
+it("keeps ordinary portable CLI unlink separate from full integration removal", () => {
+  portableWindow();
+  const base = props();
+  render(<Settings {...base} link={link("installed")} />);
+  fireEvent.click(screen.getByRole("button", { name: "Remove Command-Line Tool" }));
+  expect(base.onLink).toHaveBeenCalledWith("remove");
+  expect(call).not.toHaveBeenCalledWith("desktop-integration-remove", {});
+});
+
+it("shows a preserved-launcher problem while keeping CLI controls available", () => {
+  portableWindow();
+  render(
+    <Settings
+      {...props()}
+      link={{
+        ...link("installed"),
+        desktopIntegrationError: "The desktop launcher was edited and was left in place.",
+      }}
+    />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("desktop launcher was edited");
+  expect(screen.getByRole("button", { name: "Remove Command-Line Tool" })).toBeEnabled();
+});
+
+it("removes portable desktop integration through the explicit action and refreshes", async () => {
+  portableWindow();
+  let finish: (value: LinkInfo) => void = () => {};
+  const pending = new Promise<LinkInfo>((resolve) => (finish = resolve));
+  call.mockImplementation(async (operation) =>
+    operation === "desktop-integration-remove" ? pending : { enabled: false, always: false },
+  );
+  const base = props();
+  render(<Settings {...base} link={link("installed")} />);
+  const button = screen.getByRole("button", { name: "Remove Desktop Integration" });
+  fireEvent.click(button);
+  expect(button).toBeDisabled();
+  expect(call).toHaveBeenCalledWith("desktop-integration-remove", {});
+  finish(link("absent"));
+  await waitFor(() => expect(base.onRefresh).toHaveBeenCalledTimes(1));
+  expect(screen.getByText("Desktop integration removed. You can delete the app.")).toBeVisible();
+  expect(button).toBeEnabled();
+  expect(base.onLink).not.toHaveBeenCalled();
+});
+
+it("keeps a partial-removal error visible while refreshing the actual link state", async () => {
+  portableWindow();
+  call.mockImplementation(async (operation) => {
+    if (operation === "desktop-integration-remove")
+      throw new Error(
+        "The command-line tool is unlinked, but desktop integration could not be disabled.",
+      );
+    return { enabled: false, always: false };
+  });
+  const base = props();
+  const { rerender } = render(<Settings {...base} link={link("installed")} />);
+  fireEvent.click(screen.getByRole("button", { name: "Remove Desktop Integration" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("command-line tool is unlinked");
+  await waitFor(() => expect(base.onRefresh).toHaveBeenCalledTimes(1));
+  rerender(<Settings {...base} link={link("absent")} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("desktop integration could not be disabled");
+  expect(screen.getByRole("button", { name: "Remove Desktop Integration" })).toBeEnabled();
 });
 
 it("replaces the editable path when Browse selects another executable", () => {

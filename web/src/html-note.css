@@ -306,7 +306,6 @@ button.html-note-viewer__ghost svg {
   flex: none;
   align-items: center;
   gap: var(--sp-1);
-  margin-right: calc(-1 * var(--sp-2));
   color: var(--text-faint);
   font-size: var(--fs-sm);
 }

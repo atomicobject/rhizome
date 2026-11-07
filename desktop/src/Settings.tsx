@@ -194,7 +194,24 @@ export function Settings({
   onProviderRestart?: (repository: string, worktree: string) => Promise<void>;
 }) {
   const [path, setPath] = useState(selected ?? "");
+  const [removingIntegration, setRemovingIntegration] = useState(false);
+  const [integrationError, setIntegrationError] = useState("");
+  const [integrationNotice, setIntegrationNotice] = useState("");
   useEffect(() => setPath(selected ?? ""), [selected]);
+  async function removeIntegration() {
+    setRemovingIntegration(true);
+    setIntegrationError("");
+    setIntegrationNotice("");
+    try {
+      await request("desktop-integration-remove", {});
+      setIntegrationNotice("Desktop integration removed. You can delete the app.");
+    } catch (cause) {
+      setIntegrationError(failure(cause).message);
+    } finally {
+      setRemovingIntegration(false);
+      onRefresh();
+    }
+  }
   const action = link && linkAction[link.state];
   const shell = link?.shell;
   const updating = update?.state === "checking" || update?.state === "downloading";
@@ -280,8 +297,33 @@ export function Settings({
             )}
           </div>
         )}
-        {action && <p className="hint">macOS asks for an administrator password when needed.</p>}
+        {action && window.__RHIZOME_MACOS__ !== false && (
+          <p className="hint">macOS asks for an administrator password when needed.</p>
+        )}
       </div>
+      {window.__RHIZOME_MACOS__ === false && link && (
+        <div className="setting-group">
+          <h2>Desktop integration</h2>
+          <p>
+            Remove this app's desktop and terminal integration before deleting the app. Your
+            repositories and preferences stay in place.
+          </p>
+          {link.desktopIntegrationError && (
+            <p className="error-text" role="alert">
+              {link.desktopIntegrationError}
+            </p>
+          )}
+          <button disabled={busy || removingIntegration} onClick={() => void removeIntegration()}>
+            Remove Desktop Integration
+          </button>
+          {integrationNotice && <p role="status">{integrationNotice}</p>}
+          {integrationError && (
+            <p className="error-text" role="alert">
+              {integrationError}
+            </p>
+          )}
+        </div>
+      )}
       <ProviderAccess
         version={info?.version}
         repositories={providerRuntimes}

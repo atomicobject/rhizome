@@ -1679,6 +1679,9 @@ export function OntologyNotePane({
             </div>
           ) : null}
           <div className="ontology-pane__controls-spacer" />
+          {htmlHeadInControls && (
+            <div className="ontology-pane__html-actions" ref={setHTMLActions} />
+          )}
           {presentationControls ?? (
             <div
               className="ontology-pane__view-toggle segmented"
@@ -1702,9 +1705,6 @@ export function OntologyNotePane({
                 {isMarkdownSource ? "Markdown" : "Source"}
               </button>
             </div>
-          )}
-          {htmlHeadInControls && (
-            <div className="ontology-pane__html-actions" ref={setHTMLActions} />
           )}
           {sessionStateLabel(effectiveStatus.session.state) && (
             <span

@@ -10,9 +10,7 @@ import (
 )
 
 // LockFileEx locks belong to the file handle, so two handles in one process
-// contend the same way two processes do, as flock does elsewhere. Managed
-// sign-in is not offered on Windows yet (DefaultStore is unavailable), but the
-// lock keeps refresh coordination correct for injected stores.
+// contend the same way two processes do, as flock does elsewhere.
 func tryLockFile(file *os.File) error {
 	var overlapped windows.Overlapped
 	err := windows.LockFileEx(windows.Handle(file.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlapped)
