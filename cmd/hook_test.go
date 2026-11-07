@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,22 @@ func TestHookSelectionNeverPromptsProbesOrInstalls(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, hookDelegateTarget(repo, exe, store))
 	require.NoFileExists(t, sentinel)
+}
+
+func TestHookHandsAnUntrustedSourceCheckoutToTheDevApp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executable-bit fixture is Unix-only")
+	}
+	repo := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{}))
+	devApp := filepath.Join(t.TempDir(), "rzm")
+	require.NoError(t, os.WriteFile(devApp, []byte("#!/bin/sh\n"), 0o755))
+	t.Setenv(repoexec.DevAppEnv, devApp)
+	store := repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
+
+	requireSameExecutablePath(t, devApp, hookDelegateTarget(repo, filepath.Join(t.TempDir(), "global-rzm"), store))
+	require.Empty(t, hookDelegateTarget(repo, devApp, store), "the Dev app does not hand off to itself")
 }
 
 func TestHookDeadlineCountsFromTheFirstLauncher(t *testing.T) {

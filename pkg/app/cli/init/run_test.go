@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
@@ -33,6 +34,8 @@ func TestMain(m *testing.M) {
 	}
 	// Results must not depend on which agent tools or keys this machine has.
 	installedAgentCommand = func(string) (string, error) { return "", exec.ErrNotFound }
+	// Selection must not depend on whether this machine has Rhizome Dev.
+	_ = os.Setenv(repoexec.DevAppEnv, "")
 	for _, key := range []string{"VOYAGE_API_KEY", "RHIZOME_VOYAGE_API_KEY", "OPENAI_API_KEY", "RHIZOME_OPENAI_API_KEY", "ATOMIC_RHIZOME_KEY"} {
 		_ = os.Unsetenv(key)
 	}
@@ -698,6 +701,24 @@ func TestRun_ExistingDevBinaryDirDoesNotAddVersionPin(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "bin", cfg.Rhizome.DevBinaryDir)
 	require.Empty(t, cfg.Rhizome.Version)
+}
+
+func TestRun_RhizomeSourceCheckoutDoesNotAddVersionPin(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "README.md"), []byte("# demo\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("{}\n"), 0o644))
+
+	var stdout, stderr bytes.Buffer
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Stdout: &stdout, Stderr: &stderr}))
+
+	cfg, err := repoconfig.LoadLocalConfig(root)
+	require.NoError(t, err)
+	require.Empty(t, cfg.Rhizome.Version, "a source checkout runs its own build or the Dev app, never a pinned release")
 }
 
 func TestRun_ExternalManagerWritesOwnershipWithoutPinOrInstall(t *testing.T) {

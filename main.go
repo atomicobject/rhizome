@@ -6,6 +6,7 @@ import (
 
 	"github.com/atomicobject/rhizome/cmd"
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	"github.com/atomicobject/rhizome/pkg/teamapi/session"
 	"github.com/atomicobject/rhizome/pkg/vault/config"
 )
@@ -15,16 +16,11 @@ func main() {
 		os.Exit(code)
 	}
 	if cwd, err := os.Getwd(); err == nil && !cmd.IsOfflineDiagnosticsInvocation(os.Args[1:]) && !cmd.IsHookInvocation(os.Args[1:]) && !cmd.IsAuthInvocation(os.Args[1:]) {
-		// A repository's dotenv must not choose the team API origin: it may
-		// only be set by the person's own environment.
-		origin, hadOrigin := os.LookupEnv(session.OriginEnv)
-		if _, err := config.LoadDotEnvUpwards(cwd); err != nil {
+		// A repository's dotenv must not choose the team API origin or the
+		// trust-exempt Rhizome Dev executable (its override, or the home that
+		// locates it): only the person's own environment may set them.
+		if _, err := config.LoadDotEnvUpwardsKeeping(cwd, session.OriginEnv, repoexec.DevAppEnv, "HOME"); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to load .env: %v\n", err)
-		}
-		if hadOrigin {
-			_ = os.Setenv(session.OriginEnv, origin)
-		} else {
-			_ = os.Unsetenv(session.OriginEnv)
 		}
 	}
 	os.Exit(cmd.Execute())

@@ -18,7 +18,8 @@ enum Reply {
     StallBody,
     Feed(&'static str),
     Package(&'static [u8]),
-    SlowPackage,
+    /// Sends the package one byte at a time, this far apart.
+    SlowPackage(Duration),
     Current,
 }
 
@@ -86,7 +87,7 @@ impl Server {
                     }
                     Reply::Package(bytes) => respond(&mut stream, bytes),
                     // A canceled download must not delay the next feed request.
-                    Reply::SlowPackage => downloads.push(thread::spawn(move || {
+                    Reply::SlowPackage(gap) => downloads.push(thread::spawn(move || {
                         // Without this, Nagle's algorithm can hold a byte for the
                         // client's delayed ACK and stretch a gap past LIMIT.
                         stream.set_nodelay(true).unwrap();
@@ -98,7 +99,7 @@ impl Server {
                         }
                         for (index, byte) in b"test".iter().enumerate() {
                             if index > 0 {
-                                thread::sleep(Duration::from_millis(100));
+                                thread::sleep(gap);
                             }
                             if stream.write_all(&[*byte]).is_err() {
                                 break;
@@ -167,6 +168,15 @@ async fn refresh_with_limit(
     server: &Server,
     download_timeout: Duration,
 ) -> Status {
+    refresh_with_limits(app, server, LIMIT, download_timeout).await
+}
+
+async fn refresh_with_limits(
+    app: &tauri::App<MockRuntime>,
+    server: &Server,
+    check_timeout: Duration,
+    download_timeout: Duration,
+) -> Status {
     let builder = app
         .updater_builder()
         .target("test-target")
@@ -174,8 +184,8 @@ async fn refresh_with_limit(
         .unwrap()
         .no_proxy();
     tokio::time::timeout(
-        Duration::from_secs(2),
-        check_with_timeouts(app.handle(), builder, LIMIT, download_timeout),
+        Duration::from_secs(2).max(check_timeout * 4),
+        check_with_timeouts(app.handle(), builder, check_timeout, download_timeout),
     )
     .await
     .expect("updater must settle and release its lock after the request timeout")
@@ -241,9 +251,19 @@ fn stalled_package_times_out_and_retry_downloads_verified_update() {
 #[test]
 fn progressing_download_can_exceed_the_read_timeout() {
     tauri::async_runtime::block_on(async {
+        // Each 400ms gap stays well inside the 1s read timeout even on a busy
+        // CI runner, while the three gaps together exceed it. The signed
+        // payload is four bytes, so the gaps cannot be smaller and more numerous.
+        let read_timeout = Duration::from_secs(1);
         let app = app();
-        let server = Server::new(vec![Reply::Feed("1.0.0"), Reply::SlowPackage]);
-        assert_eq!(refresh(&app, &server).await, ready("1.0.0"));
+        let server = Server::new(vec![
+            Reply::Feed("1.0.0"),
+            Reply::SlowPackage(Duration::from_millis(400)),
+        ]);
+        assert_eq!(
+            refresh_with_limits(&app, &server, read_timeout, Duration::from_secs(5)).await,
+            ready("1.0.0")
+        );
         assert_cached(&app, "1.0.0");
     });
 }
@@ -254,7 +274,7 @@ fn overall_download_timeout_bounds_progress_and_allows_retry() {
         let app = app();
         let server = Server::new(vec![
             Reply::Feed("1.0.0"),
-            Reply::SlowPackage,
+            Reply::SlowPackage(Duration::from_millis(100)),
             Reply::Feed("1.0.0"),
             Reply::Package(b"test"),
         ]);

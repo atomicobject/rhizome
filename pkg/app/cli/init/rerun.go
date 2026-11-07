@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
@@ -95,7 +96,9 @@ func (r *initRun) resolve(s setup) (resolved, error) {
 	if err != nil {
 		return resolved{}, err
 	}
-	if !external && strings.TrimSpace(cfg.Rhizome.Version) == "" && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" {
+	// A Rhizome source checkout runs its own build or the Dev app's, so a
+	// pin would only download a release into worktrees that lack a build.
+	if !external && strings.TrimSpace(cfg.Rhizome.Version) == "" && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && !repoexec.IsSourceRoot(root) {
 		cfg.Rhizome.Version = version.Version
 	}
 	// Notes includes must cover installed starter docs before the managed

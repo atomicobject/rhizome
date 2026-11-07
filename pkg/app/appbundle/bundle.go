@@ -1,4 +1,5 @@
-// Package appbundle identifies the macOS application that owns an executable.
+// Package appbundle identifies the desktop application that owns an executable:
+// a macOS bundle, or elsewhere the desktop executable the rzm sits beside.
 package appbundle
 
 import (

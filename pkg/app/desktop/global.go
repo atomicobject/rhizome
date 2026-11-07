@@ -27,12 +27,12 @@ func (s *Service) globalExecutable(override string) (string, error) {
 		return override, nil
 	}
 	if own, err := desktopExecutable(); err == nil {
-		bundle, err := appbundle.Resolve(own)
+		bundled, err := bundledExecutable(own)
 		if err != nil {
 			return "", err
 		}
-		if bundle != nil {
-			return bundle.ExecutablePath, nil
+		if bundled != "" {
+			return bundled, nil
 		}
 	}
 	var paths []string
@@ -73,12 +73,29 @@ func (s *Service) GlobalStatus(ctx context.Context, override string) (GlobalInfo
 	if err != nil {
 		return info, problem("missing_executable", err.Error())
 	}
-	bundle, err := appbundle.Resolve(target)
+	bundled, err := bundledExecutable(target)
 	if err != nil {
 		return info, err
 	}
-	info.Bundled = bundle != nil
+	info.Bundled = bundled != ""
 	return info, nil
+}
+
+// bundledExecutable returns the resolved path of an rzm a desktop app ships:
+// inside a macOS bundle, or beside the desktop executable elsewhere. It
+// returns "" for any other executable.
+func bundledExecutable(path string) (string, error) {
+	bundle, err := appbundle.Resolve(path)
+	if err != nil {
+		return "", err
+	}
+	if bundle != nil {
+		return bundle.ExecutablePath, nil
+	}
+	if appbundle.BesideDesktop(path) {
+		return filepath.EvalSymlinks(path)
+	}
+	return "", nil
 }
 
 func (s *Service) neutralDir() (string, func(), error) {

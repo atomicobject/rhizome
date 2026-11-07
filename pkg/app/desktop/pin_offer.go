@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
@@ -47,7 +46,7 @@ func (s *Service) pinOffer(plan repoexec.Plan) *PinOffer {
 
 func (s *Service) availableVersion() string {
 	if executable, err := desktopExecutable(); err == nil {
-		if bundle, err := appbundle.Resolve(executable); err == nil && bundle != nil {
+		if bundled, err := bundledExecutable(executable); err == nil && bundled != "" {
 			return version.Version
 		}
 	}
