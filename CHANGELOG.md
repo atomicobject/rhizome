@@ -35,6 +35,18 @@
 - Rhizome Dev uses its own `rzm`. On Linux it no longer picks up another installed CLI, and a Rhizome source worktree without a `make build` runs the Dev app's `rzm` from the app or a terminal instead of failing or downloading a pinned release. `rzm init` no longer pins a Rhizome source checkout, and this repository drops `rhizome.devBinaryDir`.
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
 - Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
+- Fixes from an audit of invariants the code relied on but did not enforce:
+  - Repository and module custom views run only in a checkout trusted with `rzm trust`; elsewhere they show a page naming `rzm trust`. Bundled views still run.
+  - Actions use the same trust rule as tasks and Desktop: the folder `rzm trust` recorded, or a linked worktree of it. A folder inside a trusted checkout, or one with a forged `.git` file, no longer inherits trust, and actions in a vault kept in a repository subfolder now run once that vault is trusted.
+  - `rzm serve --host` no longer lets a network peer reach the local API by sending a loopback `Host` header.
+  - Property and tag edits keep the note's file permissions, rewrite only the frontmatter entries they change, and refuse a note that changed on disk while it was being edited instead of overwriting it.
+  - `rzm init` stops with an error when a managed block in AGENTS.md or CLAUDE.md has no END marker, instead of deleting the rest of the file. A marker counts only when it is alone on its line.
+  - Saving settings no longer loses other settings: every write to `~/.config/rhizome/config.yml` takes a file lock, rereads the file, and keeps keys this version does not know, along with comments and order. Saving repository config keeps edits made after it was loaded.
+  - The web runtime no longer crashes when a note is saved while links are being resolved.
+  - Search hits show the text of the section they matched. A line that starts with a tag, such as `#todo`, is no longer treated as a heading; the next index rebuilds affected sections.
+  - An index write that flushes early no longer commits ahead of pending writes it depends on, so code chunks are not orphaned from their anchors and embeddings are not skipped for missing chunks. An automatic index reset no longer attaches code embeddings to the wrong anchors.
+  - Embedding vectors from OpenAI-compatible endpoints are matched to inputs by their `index`, and a rerank response that repeats a document is rejected.
+  - When two notes give an anchor the same label for different symbols, the note with the smaller path keeps it in any indexing order, and indexing logs the conflict. Named Python source roots are stripped from module names, so their anchors match.
 
 ## [v0.51.0] - 2026-11-06
 
