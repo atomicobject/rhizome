@@ -8,6 +8,8 @@ import {
   makeResolver,
   type Declaration,
 } from "../lib/relations.ts";
+import { declarer, declaringEntry, type SourceValue } from "../lib/model.ts";
+import { isRecord, owner, type Endpoint } from "../lib/refs.ts";
 import {
   edgeKey,
   type Expansion,
@@ -72,8 +74,7 @@ const BODY = new Set([
   "corroboratedBy",
 ]);
 type Neighborhood = {
-  edges: { relation: string; target: { notePath: string } }[];
-  nodes: { ref: { notePath: string } }[];
+  edges: { relation: string; target: Endpoint }[];
   truncated: boolean;
 };
 type Section = { ref: KnowledgeRecord["ref"]; neighborhood: Neighborhood };
@@ -100,13 +101,23 @@ type Artifact = KnowledgeRecord & {
   sourceReferencesCount: number;
   artifactReferencesCount: number;
 };
-type Detail = Assertion | Source | Concept | Artifact;
+type Model = KnowledgeRecord & {
+  aoValue: string | null;
+  workspace: { source: { value?: SourceValue } | null } | null;
+  modelOut: Neighborhood;
+  modelIn: Neighborhood;
+};
+type Detail = Assertion | Source | Concept | Artifact | Model;
 export type Query = <T>(document: string) => Promise<T>;
 export type Extraction = { id: string; record?: KnowledgeRecord; cites: boolean | null };
+const ENDPOINT = "notePath kind fragment nodeId typeName structural";
+const edgesOf = (cap: number, direction: string) =>
+  `(direction: ${direction}, first: ${cap}) { edges { relation target { ${ENDPOINT} } } truncated }`;
 const neighborhood = (cap: number, direction = "OUTBOUND") =>
-  `neighborhood(direction: ${direction}, first: ${cap}) { edges { relation target { notePath } } nodes { ref { notePath } } truncated }`;
+  `neighborhood${edgesOf(cap, direction)}`;
 const section = (cap: number) => `{ ${REF} ${neighborhood(cap)} }`;
-const selection = (cap: number) => `__typename path title ${REF}
+const selection = (cap: number, model: boolean) => `__typename path title ${REF}
+  ${model ? `... on AOKBModelRecord { aoValue workspace { source } modelOut: neighborhood${edgesOf(cap, "OUTBOUND")} modelIn: neighborhood${edgesOf(cap, "INBOUND")} }` : ""}
   ... on Assertion { aoId headline provenanceSource ${FM.join(" ")}
     sourcesSection { ${REF} citations { recordedLink sources(first: ${cap}) { path } sourcesCount } }
     connectionsSection ${section(cap)} concepts(first: ${cap}) { path } conceptsCount }
@@ -120,8 +131,16 @@ const selection = (cap: number) => `__typename path title ${REF}
 
 /** The identity directory reads only the first 200 identities per type, never edges.
  * Traversal queries only frontier owners and their bounded incoming candidates.
- * Raw ids/slugs outside that directory remain explicitly unresolved/ambiguous. */
-export function createReader(query: Query, records: KnowledgeRecord[], budget: number) {
+ * Raw ids/slugs outside that directory remain explicitly unresolved/ambiguous.
+ * Records are keyed by native identity (`refKey`): a note path, or a note path and
+ * fragment for a product-model record, so rows of one YAML file stay distinct. Model
+ * records join the directory as edges reach them; `model` says their bindings exist. */
+export function createReader(
+  query: Query,
+  records: KnowledgeRecord[],
+  budget: number,
+  model = false,
+) {
   const byPath = new Map(records.map((r) => [r.path, r]));
   const resolverFor = (type: string) =>
     makeResolver(
@@ -229,7 +248,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
             declarations.push({
               from: path,
               field: edge.relation,
-              to: edge.target.notePath,
+              to: owner(edge.target).key,
               origin: "body",
             });
       }
@@ -268,7 +287,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
       if (record.neighborhood.truncated) limited.add(path);
       for (const edge of record.neighborhood.edges)
         if (edge.relation === "supportedBy")
-          add(path, edge.target.notePath, ARTIFACT_SUPPORTED_BY, "frontmatter.supported_by");
+          add(path, owner(edge.target).key, ARTIFACT_SUPPORTED_BY, "frontmatter.supported_by");
       for (const field of [
         "additionalAssertionReferences",
         "conceptReferences",
@@ -285,23 +304,88 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
       }
     }
   };
+  /** Model records join the directory as edges reach them. A model edge joins the trace
+   * once both ends are known, so each edge names the end that authored it: a RECORD
+   * declaration may be stored either way round. */
+  const reachable = new Set<string>();
+  const neighbors = (record: Model) => [
+    ...record.modelOut.edges.map((e) => ({ ...e, out: true })),
+    ...record.modelIn.edges.map((e) => ({ ...e, out: false })),
+  ];
+  const end = (key: string) => {
+    const d = cache.get(key) ?? byPath.get(key);
+    return {
+      key,
+      record: d,
+      aoValue: d && "aoValue" in d ? d.aoValue : d?.aoId,
+      value: d && "modelOut" in d ? d.workspace?.source?.value : undefined,
+    };
+  };
+  const linkModels = () => {
+    for (const record of cache.values()) {
+      if (!("modelOut" in record)) continue;
+      for (const edge of neighbors(record)) {
+        const other = owner(edge.target);
+        if (other.positional) {
+          diagnostics.add(
+            `${record.title} › ${edge.relation}: a positional record in ${other.host.notePath} has no durable identity to open; open the file instead.`,
+          );
+          continue;
+        }
+        if (isRecord(edge.target) ? !cache.has(other.key) : !byPath.has(other.key)) continue;
+        const [from, to] = edge.out ? [record.path, other.key] : [other.key, record.path];
+        const by = end(declarer(end(from), end(to)));
+        const named = by.key === from ? end(to) : end(from);
+        const field = declaringEntry(by.value, named.aoValue)?.key;
+        merge({
+          from,
+          to,
+          rel: edge.relation,
+          declaredBy: [{ record: by.key, as: edge.relation, origin: "body" }],
+          locations: [
+            {
+              path: by.record?.ref.notePath ?? by.key,
+              section: `${by.aoValue ?? by.record?.title ?? by.key} › ${field ?? "authored field not found"}`,
+              ref: by.record?.ref,
+            },
+          ],
+        });
+      }
+    }
+  };
   const describe = async (paths: string[], cap: number) => {
-    const missing = [...new Set(paths)].filter((path) => byPath.has(path) && !cache.has(path));
+    const missing = [...new Set(paths)].filter(
+      (path) => (byPath.has(path) || reachable.has(path)) && !cache.has(path),
+    );
     const selected = missing.slice(0, Math.max(0, budget - cache.size));
     if (selected.length) {
       const response = await query<{ [key: string]: Detail | null }>(
-        `{ ${selected.map((path, i) => `n${i}: node(ref: ${JSON.stringify(path)}) { ${selection(cap)} }`).join("\n")} }`,
+        `{ ${selected.map((path, i) => `n${i}: node(ref: ${JSON.stringify(path)}) { ${selection(cap, model)} }`).join("\n")} }`,
       );
       selected.forEach((path, i) => {
         const record = response[`n${i}`];
-        if (record) {
-          cache.set(path, record);
-          ingest(record);
+        if (!record) return;
+        cache.set(path, record);
+        if (!("modelOut" in record)) return ingest(record);
+        byPath.set(path, { ...record, aoId: record.aoValue });
+        if (record.modelOut.truncated || record.modelIn.truncated) limited.add(path);
+        for (const edge of neighbors(record)) {
+          const other = owner(edge.target);
+          if (isRecord(edge.target) && !other.positional) reachable.add(other.key);
         }
       });
+      linkModels();
     }
     return selected.length < missing.length;
   };
+  /** Records one hop from a model frontier, in both stored directions. */
+  const modelNeighbors = (paths: string[]) =>
+    paths.flatMap((path) => {
+      const record = cache.get(path);
+      return record && "modelOut" in record
+        ? neighbors(record).flatMap((e) => (isRecord(e.target) ? [owner(e.target).key] : []))
+        : [];
+    });
   const incoming = async (paths: string[], cap: number) => {
     const fields: string[] = [];
     paths.forEach((path, i) => {
@@ -332,26 +416,39 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
         value.forEach((r) => candidates.add(r.path));
         if (value.length === cap) capped = true;
       } else if (value) {
-        value.neighborhood.nodes.forEach((r) => candidates.add(r.ref.notePath));
+        // Endpoints come from edges: neighborhood nodes omit RECORD neighbors.
+        for (const edge of value.neighborhood.edges) {
+          const other = owner(edge.target);
+          if (other.positional) continue;
+          if (isRecord(edge.target) && model) reachable.add(other.key);
+          candidates.add(other.key);
+        }
         capped ||= value.neighborhood.truncated;
       }
     }
-    return { paths: [...candidates].filter((path) => byPath.has(path)), capped };
+    return {
+      paths: [...candidates].filter((path) => byPath.has(path) || reachable.has(path)),
+      capped,
+    };
   };
   const read: Reader = async (paths, direction, hop, remaining) => {
     const cap = Math.max(2, Math.min(200, remaining + 1));
     const directionName =
       direction === "up" ? "upstream" : direction === "down" ? "downstream" : "related records";
     let budgetHit = await describe(paths, cap);
+    // Model records read both stored directions themselves; their neighbors are read next
+    // so each edge knows which end authored it.
+    if (!budgetHit) budgetHit = await describe(modelNeighbors(paths), cap);
     let capped = paths.some((path) => limited.has(path));
+    const knowledge = paths.filter((path) => !(cache.get(path) && "modelOut" in cache.get(path)!));
     const needsIncoming =
       direction === "down" ||
       (direction === "related" &&
-        paths.some((path) =>
+        knowledge.some((path) =>
           ["Assertion", "Concept"].includes(byPath.get(path)?.__typename ?? ""),
         ));
-    if (needsIncoming && !budgetHit) {
-      const candidates = await incoming(paths, cap);
+    if (needsIncoming && knowledge.length && !budgetHit) {
+      const candidates = await incoming(knowledge, cap);
       capped ||= candidates.capped;
       budgetHit = await describe(candidates.paths, cap);
     }
@@ -367,7 +464,7 @@ export function createReader(query: Query, records: KnowledgeRecord[], budget: n
         : undefined;
     return {
       edges: [...edges.values()].filter((e) => paths.includes(e.from) || paths.includes(e.to)),
-      records,
+      records: [...byPath.values()],
       stop,
       diagnostics: [...diagnostics],
     } satisfies Expansion;

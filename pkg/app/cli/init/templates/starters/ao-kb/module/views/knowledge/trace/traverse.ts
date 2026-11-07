@@ -67,9 +67,15 @@ export async function traverse(
           child = edge.from;
         }
       } else {
+        // A reference leads upstream to what it names. Structure leads downstream from the
+        // record that declared it, whichever way round its edge is stored.
         const forward = kind === "reference" ? lane === "up" : lane === "down";
-        parent = forward ? edge.from : edge.to;
-        child = forward ? edge.to : edge.from;
+        const [head, tail] =
+          kind === "structure" && edge.declaredBy[0]?.record === edge.to
+            ? [edge.to, edge.from]
+            : [edge.from, edge.to];
+        parent = forward ? head : tail;
+        child = forward ? tail : head;
         if (!frontier.has(parent)) continue;
       }
       if (!parent || !child || child === parent) continue;

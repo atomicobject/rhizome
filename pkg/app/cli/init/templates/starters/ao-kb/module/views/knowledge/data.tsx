@@ -104,3 +104,17 @@ export function useCitationPassages(a: Assertion, data: Knowledge) {
       ),
   });
 }
+/** Whether product-model bindings are published: the generated SDL declares
+ * `AOKBModelRecord`. Its concrete types are the model record types. */
+export function useModelBindings() {
+  const query = useGraphQL<{ __type: { possibleTypes: { name: string }[] } | null }>(
+    `{ __type(name: "AOKBModelRecord") { possibleTypes { name } } }`,
+  );
+  return {
+    ...query,
+    data: query.data && {
+      ready: !!query.data.__type,
+      types: query.data.__type?.possibleTypes.map((t) => t.name) ?? [],
+    },
+  };
+}
