@@ -178,6 +178,19 @@ test('standard model contracts expose native evidence, file sync, labels, and ex
   assert.throws(() => render(unsupported), /ao_knowledge_target_unsupported/);
 });
 
+test('a failed product switch keeps the previous product complete instead of mixing contexts', async t => {
+  const options = await fixture(t);
+  await refresh(options);
+  const scope = path.join(options.directory, '../ontology/ao-knowledge.generated.graphql');
+  const before = await readFile(scope, 'utf8');
+  const beta = {...selection, product: 'beta'};
+  await assert.rejects(refresh({...options, selection: beta, exportModel: async () => { throw new Error('uv unavailable'); }}), /product switch not applied/);
+  assert.equal(await readFile(scope, 'utf8'), before, 'alpha admission retained');
+  assert.equal((await readJSON(path.join(options.directory, 'selection.json'))).product, 'alpha');
+  assert.equal((await readJSON(path.join(options.directory, 'knowledge-manifest.json'))).context.product, 'alpha');
+  assert.equal((await readJSON(path.join(options.directory, 'manifest.json'))).status, 'stale');
+});
+
 test('knowledge admission is generated without Python and survives a model dependency failure', async t => {
   const options = await fixture(t);
   await refresh(options);

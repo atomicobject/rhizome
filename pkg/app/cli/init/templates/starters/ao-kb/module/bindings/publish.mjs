@@ -3,7 +3,7 @@ import path from 'node:path';
 import {json, readJSON, hash, fingerprint, adapter, validateSDL, dependencies, indexSignature} from './runtime.mjs';
 import {render} from './render.mjs';
 import {knowledge, ownership} from './knowledge.mjs';
-import {failure, manifestPath, publishSet} from './generation.mjs';
+import {atomic, failure, manifestPath, publishSet} from './generation.mjs';
 export {atomic} from './generation.mjs';
 
 const sdlPath = (directory, stage) => path.join(directory, `../ontology/ao-${stage}.generated.graphql`);
@@ -16,6 +16,14 @@ export async function refresh({root, directory, selection, exportModel = adapter
   try { await mkdir(lock); }
   catch (error) { if (error.code === 'EEXIST') throw new Error('ao_refresh_locked: another refresh is running; remove refresh.lock only after confirming it stopped'); throw error; }
   let stage = 'knowledge';
+  // A product switch must not leave the new knowledge scope beside the previous product's model.
+  const previousModel = await readJSON(manifestPath(directory, 'model'));
+  const switching = Boolean(previousModel?.sdlHash) && (previousModel.context?.product ?? null) !== (selection?.product ?? null);
+  const previousKnowledge = {};
+  for (const name of ['../ontology/ao-knowledge.generated.graphql', 'selection.json', path.basename(manifestPath(directory, 'knowledge'))]) {
+    try { previousKnowledge[name] = await readFile(path.resolve(directory, name)); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; previousKnowledge[name] = null; }
+  }
   try {
     if (!selection || selection.formatVersion !== 1) throw new Error('ao_selection_required: refresh-bindings --product <slug> (or --single true)');
     const scoped = await knowledge(root, directory, selection);
@@ -42,6 +50,12 @@ export async function refresh({root, directory, selection, exportModel = adapter
       ...Object.fromEntries(Object.entries(result.views).map(([name, bytes]) => [`../views/knowledge/${name}`, bytes]))};
     return await publishSet(directory, 'model', files, manifest, renameFile);
   } catch (error) {
+    if (switching && stage === 'model') {
+      for (const [name, bytes] of Object.entries(previousKnowledge)) {
+        if (bytes === null) await rm(path.resolve(directory, name), {force: true}); else await atomic(path.resolve(directory, name), bytes);
+      }
+      error.message = `${error.message} (product switch not applied; the previous product's bindings remain)`;
+    }
     await failure(directory, stage, error);
     error.knowledgeReady = stage === 'model';
     throw error;
