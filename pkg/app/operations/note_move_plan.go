@@ -8,6 +8,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -38,6 +39,10 @@ func planNoteMoves(root string, indexer notemeta.Indexer, moves []MoveRequest, o
 		}
 		sourceRel := obsidian.NormalizeWithDefaultExt(move.Source, ".md")
 		targetRel := obsidian.NormalizeWithDefaultExt(move.Target, ".md")
+		// An owned endpoint names its owner even when its format has no mutation adapter.
+		if err := sourceownership.Check(root, []string{sourceRel, targetRel}); err != nil {
+			return nil, err
+		}
 		if err := validateNoteMoveFormats(indexer, sourceRel, targetRel); err != nil {
 			return nil, err
 		}
