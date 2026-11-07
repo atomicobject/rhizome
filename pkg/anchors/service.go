@@ -39,6 +39,9 @@ type Service struct {
 	// callEdgesRebuilt tracks whether we've attempted a full call-edge rebuild
 	// to fill in missing call-site edges after bulk indexing.
 	callEdgesRebuilt bool
+	// callEdgesFullPending retries a bootstrap rebuild whose parser phase
+	// published edges before a later phase failed.
+	callEdgesFullPending bool
 
 	scopeProbeOnce sync.Once
 	scopeProbeMu   sync.Mutex

@@ -2,7 +2,6 @@ package codeanchor
 
 import (
 	"context"
-	"log"
 	"time"
 )
 
@@ -102,45 +101,8 @@ func (s *Service) RecomputeAnchorScopes(ctx context.Context) (err error) {
 
 	hasFuncAnchors := containsFunctionAnchors(anchors)
 	if hasFuncAnchors && !s.callEdgesRebuilt {
-		// Function anchors depend on reverse call-file lookups. Batch indexing marks
-		// stale paths instead of resolving edges per file, so the first full scope
-		// recompute owns the catch-up rebuild.
-		var stale []string
-		if lister, ok := s.store.(callEdgeStaleLister); ok {
-			stale, err = lister.StaleCallEdgePaths(ctx, 0)
-			if err != nil {
-				return err
-			}
-		}
-		if len(stale) > 0 {
-			log.Printf("codeanchor: rebuild call edges for %d stale files", len(stale))
-			if err := s.RebuildCallEdgesForPaths(ctx, stale); err == nil {
-				s.callEdgesRebuilt = true
-			} else if ctx == nil || ctx.Err() == nil {
-				log.Printf("codeanchor: rebuild call edges failed: %v", err)
-			}
-		} else {
-			needsFull := false
-			if checker, ok := s.store.(callEdgeChecker); ok {
-				if hasEdges, err := checker.HasAnyCallEdges(ctx); err == nil {
-					if !hasEdges {
-						needsFull = true
-					} else {
-						s.callEdgesRebuilt = true
-					}
-				}
-			}
-			if needsFull {
-				log.Printf("codeanchor: rebuild call edges (bootstrap)")
-				if err := s.RebuildAllCallEdges(ctx); err == nil {
-					s.callEdgesRebuilt = true
-				} else if ctx == nil || ctx.Err() == nil {
-					log.Printf("codeanchor: rebuild call edges failed: %v", err)
-				}
-			} else if !s.callEdgesRebuilt {
-				log.Printf("codeanchor: rebuild call edges skipped (edges exist, no stale paths)")
-				s.callEdgesRebuilt = true
-			}
+		if err := s.catchUpCallEdges(ctx); err != nil {
+			return err
 		}
 	}
 	plan, err := s.planAnchorScopes(ctx, anchors)

@@ -88,7 +88,13 @@ func TestRecomputeAnchorScopes_FailureAfterOverflowKeepsFullRecomputePending(t *
 
 // goPhaseFailingStore lets the parser call-edge phase finish (empty
 // reverse-index rows) and fails the Go package relationship phase after it.
-type goPhaseFailingStore struct{ intelStubStore }
+type goPhaseFailingStore struct {
+	intelStubStore
+	goPhase *goPhaseRecord
+}
+
+// goPhaseRecord counts Go relationship attempts; the first failures fail.
+type goPhaseRecord struct{ attempts, failures int }
 
 var errGoPhase = errors.New("go relationship phase failed")
 
@@ -125,8 +131,23 @@ func (goPhaseFailingStore) IntelAnchorsByPaths(context.Context, []string) (map[s
 func (goPhaseFailingStore) IntelAnchorsBySymbol(context.Context, string, int) ([]IntelAnchor, error) {
 	return nil, nil
 }
-func (goPhaseFailingStore) GoPackageSnapshotsForPaths(context.Context, []string) ([]GoPackageSnapshot, error) {
-	return nil, errGoPhase
+func (g goPhaseFailingStore) GoPackageSnapshotsForPaths(context.Context, []string) ([]GoPackageSnapshot, error) {
+	g.goPhase.attempts++
+	// The parser phase has already published edges and cleared the stale
+	// markers by the time the Go phase runs, as the SQLite store does.
+	g.mu.Lock()
+	g.staleCallPaths = nil
+	g.mu.Unlock()
+	if g.goPhase.attempts <= g.goPhase.failures {
+		return nil, errGoPhase
+	}
+	return nil, nil
+}
+func (g goPhaseFailingStore) MarkCallEdgesStale(_ context.Context, paths []string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.staleCallPaths = append(g.staleCallPaths, paths...)
+	return nil
 }
 func (goPhaseFailingStore) ReplaceGoPackageRelationships(context.Context, []GoPackageRelationshipReplacement) error {
 	return nil
@@ -134,10 +155,44 @@ func (goPhaseFailingStore) ReplaceGoPackageRelationships(context.Context, []GoPa
 
 func TestRebuildCallEdges_FailedGoRelationshipPhaseIsNotDone(t *testing.T) {
 	caller := string(paths.NormalizeCode("svc/caller.py"))
-	svc := NewServiceWithOptions(goPhaseFailingStore{intelStubStore{funcAnchorStub(caller)}}, nil, WithoutWarmCache(), WithWriteAccess())
+	store := goPhaseFailingStore{intelStubStore{funcAnchorStub(caller)}, &goPhaseRecord{failures: 2}}
+	svc := NewServiceWithOptions(store, nil, WithoutWarmCache(), WithWriteAccess())
 
 	require.ErrorIs(t, svc.RebuildCallEdgesForPaths(context.Background(), []string{caller}), errGoPhase)
 	require.False(t, svc.callEdgesRebuilt, "catch-up is done only when both rebuild phases succeed")
 	require.ErrorIs(t, svc.RebuildAllCallEdges(context.Background()), errGoPhase)
 	require.False(t, svc.callEdgesRebuilt, "catch-up is done only when both rebuild phases succeed")
+}
+
+func TestRecomputeAnchorScopes_RetriesStalePathsAfterFailedGoRelationshipPhase(t *testing.T) {
+	caller := string(paths.NormalizeCode("svc/caller.py"))
+	store := goPhaseFailingStore{intelStubStore{funcAnchorStub(caller)}, &goPhaseRecord{failures: 1}}
+	svc := NewServiceWithOptions(store, nil, WithoutWarmCache(), WithWriteAccess())
+
+	require.NoError(t, svc.RecomputeAnchorScopes(context.Background()))
+	require.False(t, svc.callEdgesRebuilt)
+	require.NoError(t, svc.RecomputeAnchorScopes(context.Background()))
+	require.Equal(t, 2, store.goPhase.attempts, "the failed paths stay pending until the Go phase succeeds")
+	require.True(t, svc.callEdgesRebuilt)
+}
+
+// bootstrapStore has no stale paths and reports call edges once the first
+// bootstrap rebuild's parser phase has published them.
+type bootstrapStore struct{ goPhaseFailingStore }
+
+func (b bootstrapStore) HasAnyCallEdges(context.Context) (bool, error) {
+	return b.goPhase.attempts > 0, nil
+}
+
+func TestRecomputeAnchorScopes_RetriesBootstrapAfterFailedGoRelationshipPhase(t *testing.T) {
+	base := funcAnchorStub(string(paths.NormalizeCode("svc/caller.py")))
+	base.staleCallPaths = nil
+	store := bootstrapStore{goPhaseFailingStore{intelStubStore{base}, &goPhaseRecord{failures: 1}}}
+	svc := NewServiceWithOptions(store, nil, WithoutWarmCache(), WithWriteAccess())
+
+	require.NoError(t, svc.RecomputeAnchorScopes(context.Background()))
+	require.False(t, svc.callEdgesRebuilt)
+	require.NoError(t, svc.RecomputeAnchorScopes(context.Background()))
+	require.Equal(t, 2, store.goPhase.attempts, "a failed bootstrap rebuild is retried even though edges now exist")
+	require.True(t, svc.callEdgesRebuilt)
 }
