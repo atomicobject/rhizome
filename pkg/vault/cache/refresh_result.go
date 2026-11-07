@@ -54,9 +54,19 @@ func cloneDirty(dirty map[string]DirtyKind) map[string]DirtyKind {
 	return clone
 }
 
+// requeueDirty restores a drained batch beneath events that arrived while it
+// was in flight: the drained kinds are older, so newer pending kinds are merged
+// on top of them rather than the reverse.
 func (s *Service) requeueDirty(dirty map[string]DirtyKind) {
-	for path, kind := range dirty {
-		s.MarkDirty(path, kind)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	newer := s.dirty
+	s.dirty = make(map[string]DirtyKind, len(dirty)+len(newer))
+	for rel, kind := range dirty {
+		s.dirty[rel] = kind
+	}
+	for rel, kind := range newer {
+		s.mergeDirtyLocked(rel, kind)
 	}
 }
 

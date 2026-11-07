@@ -271,7 +271,12 @@ func (s *Service) markDirty(absPath string, kind DirtyKind) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.mergeDirtyLocked(rel, kind)
+}
 
+// mergeDirtyLocked folds a newer event kind into rel's pending kind. Callers
+// hold s.mu.
+func (s *Service) mergeDirtyLocked(rel string, kind DirtyKind) {
 	if existing, ok := s.dirty[rel]; ok {
 		// Created/Modified → Renamed: keep the rename so we rescan the parent dir.
 		//

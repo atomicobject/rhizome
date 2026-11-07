@@ -151,6 +151,9 @@ func (s *Service) MarkStarted(ctx context.Context, plan StartPlan) error {
 // once, for example because it did not trust the folder.
 func (s *Service) UndoStart(ctx context.Context, plan StartPlan, reason string) error {
 	return s.updateItem(ctx, plan.ItemID, func(st *State, it *Item) error {
+		if it.State != StateStarted || it.Branch != plan.Branch {
+			return fmt.Errorf("item %s is now %s; it no longer holds this start", it.ID, it.State)
+		}
 		it.set(plan.prior, s.opts.Now())
 		it.Branch, it.Reason = "", reason
 		if n := len(st.History); n > 0 && st.History[n-1].Task == it.Task && st.History[n-1].Outcome == OutcomeStarted {

@@ -852,8 +852,13 @@ func (s *Service) RebuildAllCallEdges(ctx context.Context) (returnErr error) {
 	default:
 	}
 
+	// Cancelled workers exit without reporting an error, so a cancelled caller
+	// may not have processed every file.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	// Mark call edges as rebuilt so RecomputeAnchorScopes doesn't rebuild again.
-	s.callEdgesRebuilt = true
+	s.callEdgesRebuilt.Store(true)
 	return nil
 }
 
@@ -1176,7 +1181,7 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 		if err := s.writeCallEdgeBatches(ctx, intel, batches); err != nil {
 			return err
 		}
-		s.callEdgesRebuilt = true
+		s.callEdgesRebuilt.Store(true)
 		return nil
 	}
 
@@ -1295,8 +1300,13 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 		return err
 	default:
 	}
+	// Cancelled workers exit without reporting an error, so a cancelled caller
+	// may not have processed every file.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
-	s.callEdgesRebuilt = true
+	s.callEdgesRebuilt.Store(true)
 	return nil
 }
 

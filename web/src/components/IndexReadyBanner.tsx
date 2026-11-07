@@ -29,6 +29,7 @@ export function IndexReadyBanner({
   useEffect(() => {
     let cancelled = false;
     let source: EventSource | null = null;
+    let latestRefresh = 0;
 
     const closeSource = () => {
       source?.close();
@@ -50,9 +51,10 @@ export function IndexReadyBanner({
     };
 
     const refresh = () => {
+      const ticket = ++latestRefresh;
       getStatus()
         .then((status) => {
-          if (cancelled) return;
+          if (cancelled || ticket !== latestRefresh) return;
           const nextState = status.indexState ?? "ready";
 
           if (!controlled) setFetchedState(nextState);

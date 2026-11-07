@@ -3,6 +3,17 @@
 ## [Unreleased]
 
 - Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
+- Fixes for state that could go wrong after an interruption or overlapping updates:
+  - Renaming or removing a tag no longer rewrites text inside `~~~` code blocks, or inside fences that contain a shorter fence.
+  - Escape in a property locator field undoes the edit instead of saving it.
+  - Marking a running scheduled task Done keeps it done.
+  - When a turn ends, approvals nobody answered are recorded as cancelled, so their buttons no longer stay active.
+  - A cancelled or timed-out code-intel recompute no longer skips call-edge catch-up or drops pending scope work.
+  - One cancelled embedding setup no longer turns off semantic sync until restart.
+  - Cancelled vault refreshes no longer drop notes that were recreated meanwhile.
+  - Subscribers are told when file watching fails to start.
+  - Deleting an edit session during a commit no longer stalls other sessions.
+  - The Changes view, collection filters, and the index banner ignore replies that arrive after a newer update.
 
 ### Fixed
 
