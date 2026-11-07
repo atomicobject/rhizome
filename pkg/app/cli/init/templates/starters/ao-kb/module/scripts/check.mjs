@@ -16,8 +16,12 @@ function json(root, path) {
   const text = read(root, path);
   return text === null ? null : JSON.parse(text);
 }
+// Discovery treats an absent notes.includes as every Markdown file.
+const DEFAULT_INCLUDES = ['**/*.md'];
 function includes(text) {
+  if (text !== null && !/^notes:/m.test(text)) return DEFAULT_INCLUDES;
   const notes = text?.match(/^notes:\s*\n((?:[ \t]+[^\n]*\n|\s*\n)*)/m)?.[1];
+  if (notes !== undefined && !/^ +includes:/m.test(notes)) return DEFAULT_INCLUDES;
   const block = notes?.match(/^ +includes:\s*(\[[^\n]*\]|\n(?: +-[^\n]*\n)*)/m)?.[1];
   if (!block) return null;
   if (block.startsWith('[')) return block.slice(1, -1).split(',').map(v => v.trim().replace(/^(['"])(.*)\1$/, '$2'));
@@ -66,13 +70,15 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     const model = (json(root, `${module}/bindings/manifest.json`)?.sources ?? []).map(s => s.path);
     const unincluded = [...new Set(model)].filter(path => !patterns?.some(p => p === path
       || (globMatch(p, path) && p.endsWith(path.slice(path.lastIndexOf('.')))))).sort();
+    // A first includes list replaces the default, so it must restate it.
+    const first = patterns === DEFAULT_INCLUDES ? ' notes.includes is absent, so discovery covers every Markdown file; start the new list with **/*.md so the rest of the repository stays indexed.' : '';
     add('note includes', knowledge && registry && !unincluded.length ? 'ok' : 'warning', knowledge && registry && !unincluded.length
       ? 'Includes cover the AO knowledge paths, the conflict registry, and the compiled model sources. Ignore rules may still exclude files; prove projection after indexing.'
       : knowledge && registry
-      ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}`
+      ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}.${first}`
       : !knowledge
       ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
-      : 'Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.', configPath);
+      : `Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.${first}`, configPath);
   });
   const ownershipPath = '.rhizome/source-ownership.yml';
   inspect('source ownership', ownershipPath, () => {

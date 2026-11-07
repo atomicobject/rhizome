@@ -65,6 +65,9 @@ export async function knowledge(root, directory, selection) {
   for (const base of new Set(['', product ? `products/${product}/` : ''])) {
     const name = `${base}.kb/config/manifest.json`;
     const bytes = await text(root, name);
+    // A knowledge-only single-product KB never enabled AO's site engine, so no other reader is pinned.
+    // Its absence is a fingerprint input: enabling the engine later stales these bindings.
+    if (bytes === null && !product) { inputs.push({path: name, hash: null}); continue; }
     const engine = bytes === null ? null : JSON.parse(bytes).siteEngine;
     const sources = [pin.source, 'git+ssh://git@github.com/atomicobject/atomic-ai-prompt-toolkit'];
     if (!engine || ![pin.version, pin.revision].includes(engine.version) || !sources.includes((engine.source || pin.source).replace(/\.git$/, ''))) throw new Error(`ao_toolkit_pin: ${name} must pin ${pin.version} (${pin.revision})`);

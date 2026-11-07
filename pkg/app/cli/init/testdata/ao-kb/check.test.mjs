@@ -93,6 +93,21 @@ test('include coverage needs the AO knowledge paths and an explicit include for 
   assert.equal(named(fixture(t, { ...bound, '.rhizome/config.yml': models }), 'note includes').status, 'ok');
 });
 
+test('absent notes.includes is default all-Markdown discovery, and a first include list must keep it', t => {
+  for (const config of ['code:\n  enabled: true\n', 'notes:\n  excludes:\n    - drafts/**\n']) {
+    assert.equal(named(fixture(t, { '.rhizome/config.yml': config }), 'note includes').status, 'ok', config);
+    const registry = named(fixture(t, { '.rhizome/config.yml': config, '.kb/curation/_conflicts.md': '# Conflicts\n' }), 'note includes');
+    assert.equal(registry.status, 'warning');
+    assert.match(registry.message, /\.kb\/curation\/_conflicts\.md/);
+    assert.match(registry.message, /\*\*\/\*\.md/, 'a first include list that omits **/*.md would stop indexing the other notes');
+  }
+  const manifest = JSON.stringify({ sources: [{ path: 'artifacts/_assets/_model/features.yaml' }] });
+  const models = named(fixture(t, { '.rhizome/config.yml': 'code:\n  enabled: true\n', '.rhizome/modules/ao-kb/bindings/manifest.json': manifest }), 'note includes');
+  assert.equal(models.status, 'warning');
+  assert.match(models.message, /artifacts\/_assets\/_model\/features\.yaml/);
+  assert.match(models.message, /\*\*\/\*\.md/);
+});
+
 test('product tags AO would read differently from admission are named', t => {
   const vault = '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n';
   const clean = named(fixture(t, { '.kb/config/vault.md': vault, 'assertions/a.md': '---\nproducts: [alpha, "*"]\n---\nBody\n' }), 'product tags');
