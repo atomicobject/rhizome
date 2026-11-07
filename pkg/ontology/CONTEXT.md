@@ -60,3 +60,5 @@ Native edit staging checks host-source ownership before projection. Workspace cl
 ## SPEC-0133 boundary, last verified 2026-11-06
 
 **Neutral structural preparation (SPEC-0133).** `PrepareDocument` binds one captured `StructureFacts` owner/value tree per host. `PreparedDocument` owns traversal, semantic parents, record lookup and reference resolution; `DocumentSnapshot` is the explicit Markdown edit/body adapter. RECORD sources use explicit selectors, keys, titles, containment and references, with `@field(path:)` as the only property-path spelling. They inherit Node, not Section. Positional NodeIDs exclude the source hash, but their locators require the captured hash. Changing a RECORD host rebinds its declared source set so unchanged and unresolved targets converge. Ownership overlays continue through `ApplySourceOwnership`.
+
+Scalar `@field(path:)` leaves reject mappings and lists containing mappings or nested lists with `field_shape_mismatch`; the typed value is unavailable as a whole, while raw frontmatter retains the authored structure. Scalar extraction never formats a Go collection as text.

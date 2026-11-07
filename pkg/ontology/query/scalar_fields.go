@@ -162,6 +162,10 @@ func (e *executor) resolveScalarField(ctx context.Context, node *noteRecord, fie
 	var hasFieldAssessment bool
 	if e.readOverlayTouchesPath(node.Path) {
 		fieldAssessment = ontology.AssessScalarFieldValues(node.Path, node.TypeName, field, e.schema, values, node.hasField(field))
+		if field.SourcePath != "" {
+			raw, present := ontoschema.FrontmatterPathValue(node.Frontmatter, field.SourcePath)
+			fieldAssessment = ontology.AssessScalarFieldSource(node.Path, node.TypeName, field, e.schema, raw, present)
+		}
 		hasFieldAssessment = true
 	} else {
 		assessment := e.noteAssessment(ctx, node.Path)
