@@ -290,3 +290,30 @@ id:: SPEC-0023.US1
 	require.NotNil(t, migration)
 	assert.Equal(t, FixSafetyConfirm, migration.Safety, "renaming a block that code cites must need confirmation")
 }
+
+// When the configured code files cannot all be listed, nothing proves a block
+// is uncited, so its removal needs confirmation.
+func TestOrphanBlockIDRemovalNeedsConfirmationWhenCodeScanIsIncomplete(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, writeFixtureFiles(root, map[string]string{
+		".rhizome/config.yml": "code:\n  enabled: true\n  scan: [\"pkg/[\"]\n",
+		"notes/two.md":        "# Two\n\nA paragraph.\n^orphan-one\n",
+	}))
+	runCtx := RunContext{
+		VaultDef:     obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth},
+		VaultPath:    root,
+		NoteReader:   &obsidian.Note{},
+		NoteMetadata: testNoteMetadata(t),
+		MaxIssues:    100,
+	}
+
+	orphans := RunOrphanBlockIDs(context.Background(), runCtx)
+	var removal *FixAction
+	for i := range orphans.Fixes {
+		if orphans.Fixes[i].Edits[0].BlockID == "orphan-one" {
+			removal = &orphans.Fixes[i]
+		}
+	}
+	require.NotNil(t, removal, "%+v", orphans)
+	assert.Equal(t, FixSafetyConfirm, removal.Safety)
+}
