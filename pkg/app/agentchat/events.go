@@ -17,10 +17,15 @@ const eventPersistAttempts = 3
 func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSession) {
 	defer live.drainOnce.Do(func() { close(live.drained) })
 	for incoming := range live.session.Events() {
+		// An approval that arrives after its turn ended (for example buffered
+		// when SendTurn failed) can never be answered; cancel it once stored.
+		orphaned := false
 		if incoming.Kind == harness.EventApprovalRequested && incoming.RequestID != "" {
 			s.mu.Lock()
 			if incoming.Phase == harness.PhaseCancelled || incoming.Phase == harness.PhaseDeclined {
 				delete(live.pending, incoming.RequestID)
+			} else if live.turn == nil {
+				orphaned = true
 			} else {
 				live.pending[incoming.RequestID] = struct{}{}
 			}
@@ -53,6 +58,9 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 			s.broker.Publish(stored)
 		} else {
 			s.handleEventPersistenceFailure(sessionID, live, incoming, err)
+		}
+		if orphaned {
+			s.cancelApprovals(sessionID, map[string]struct{}{incoming.RequestID: {}})
 		}
 	}
 

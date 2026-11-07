@@ -550,7 +550,7 @@ func TestRecomputeAnchorScopes_RebuildsStaleCallEdgesWithCallFiles(t *testing.T)
 
 	require.NoError(t, svc.RecomputeAnchorScopes(context.Background()))
 	require.Equal(t, 1, store.staleCallCalls)
-	require.True(t, svc.callEdgesRebuilt.Load())
+	require.True(t, svc.callEdgesRebuilt)
 
 	_, files, err := store.AnchorScope(context.Background(), 1)
 	require.NoError(t, err)
@@ -578,7 +578,7 @@ func TestRebuildAnchorScopesForIDs_DoesNotTriggerHiddenCallEdgeRebuild(t *testin
 
 	require.NoError(t, svc.RebuildAnchorScopesForIDs(context.Background(), []int64{1}))
 	require.Equal(t, 0, store.staleCallCalls)
-	require.False(t, svc.callEdgesRebuilt.Load())
+	require.False(t, svc.callEdgesRebuilt)
 
 	_, files, err := store.AnchorScope(context.Background(), 1)
 	require.NoError(t, err)

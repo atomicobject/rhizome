@@ -289,8 +289,8 @@ func (s *Service) mergeDirtyLocked(rel string, kind DirtyKind) {
 			return
 		}
 
-		// Removed → Created/Modified = Recreated (rapid delete+create)
-		if existing == DirtyRemoved && (kind == DirtyCreated || kind == DirtyModified) {
+		// Removed → Created/Modified/Recreated = Recreated (rapid delete+create)
+		if existing == DirtyRemoved && (kind == DirtyCreated || kind == DirtyModified || kind == DirtyRecreated) {
 			s.dirty[rel] = DirtyRecreated
 			return
 		}

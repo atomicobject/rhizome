@@ -14,22 +14,34 @@ func (s *Service) RespondToApproval(sessionID, requestID string, decision harnes
 	default:
 		return fmt.Errorf("invalid approval decision %q", decision)
 	}
+	// Claim the request before answering it, so a turn ending meanwhile does
+	// not also record it as cancelled and a second answer gets ErrNotFound.
 	s.mu.Lock()
 	live := s.live[sessionID]
 	pending := false
+	var turn *turnState
 	if live != nil {
-		_, pending = live.pending[requestID]
+		if _, pending = live.pending[requestID]; pending {
+			delete(live.pending, requestID)
+			turn = live.turn
+		}
 	}
 	s.mu.Unlock()
 	if live == nil || !pending {
 		return ErrNotFound
 	}
 	if err := live.session.Respond(requestID, decision); err != nil {
+		s.mu.Lock()
+		restored := live.turn == turn
+		if restored {
+			live.pending[requestID] = struct{}{}
+		}
+		s.mu.Unlock()
+		if !restored {
+			s.cancelApprovals(sessionID, map[string]struct{}{requestID: {}})
+		}
 		return err
 	}
-	s.mu.Lock()
-	delete(live.pending, requestID)
-	s.mu.Unlock()
 	event := Event{
 		SessionID: sessionID,
 		Type:      "approval-decision",

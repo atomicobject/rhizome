@@ -44,3 +44,14 @@ func TestHandleCacheEvent_RemoveCreateMarksRecreated(t *testing.T) {
 	dirty := svc.DirtySnapshot()
 	require.Equal(t, DirtyRecreated, dirty["note.md"])
 }
+
+func TestHandleCacheEvent_RecreateAfterPendingRemoveStaysRecreated(t *testing.T) {
+	svc, err := NewService(t.TempDir(), Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+
+	handleCacheEvent(svc, watchhub.WatchEvent{RelPath: "note.md", Op: watchhub.OpRemove})
+	handleCacheEvent(svc, watchhub.WatchEvent{RelPath: "note.md", Op: watchhub.OpRemove | watchhub.OpCreate})
+
+	require.Equal(t, DirtyRecreated, svc.DirtySnapshot()["note.md"])
+}

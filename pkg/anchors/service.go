@@ -9,7 +9,6 @@ package codeanchor
 import (
 	"container/list"
 	"sync"
-	"sync/atomic"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
@@ -38,9 +37,8 @@ type Service struct {
 	// recomputes and avoid races with anchor modifications.
 	recomputeMu sync.Mutex
 	// callEdgesRebuilt tracks whether we've attempted a full call-edge rebuild
-	// to fill in missing call-site edges after bulk indexing. Atomic because
-	// rebuild entry points set it outside recomputeMu.
-	callEdgesRebuilt atomic.Bool
+	// to fill in missing call-site edges after bulk indexing.
+	callEdgesRebuilt bool
 
 	scopeProbeOnce sync.Once
 	scopeProbeMu   sync.Mutex
