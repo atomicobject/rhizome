@@ -2,7 +2,13 @@
 
 `Select` is the shared, inert authority decision for CLI dispatch and desktop.
 It preserves external ownership, configured development builds, Rhizome source
-builds, then managed pins, with the caller's global executable as fallback.
+builds, then managed pins, with the caller's global executable as fallback. A
+Rhizome source checkout without `bin/<goos>/rzm` selects an installed Rhizome
+Dev app's `rzm` (`DevAppExecutable`: `RZM_DEV_APP_RZM`, else the standard
+macOS or Linux install location) ahead of a pin, so the Dev app and a terminal
+`rzm` run the same build. It is a development authority and keeps that trust
+requirement. Tests set `RZM_DEV_APP_RZM` empty so results do not depend on the
+machine.
 
 `TrustRequirement` identifies whether CLI dispatch needs canonical-checkout
 trust. `DecisionFor` applies command-specific control-plane exceptions and

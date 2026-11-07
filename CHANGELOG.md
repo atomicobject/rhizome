@@ -6,6 +6,7 @@
 
 ### Fixed
 
+- Rhizome Dev uses its own `rzm`. On Linux it no longer picks up another installed CLI, and a Rhizome source worktree without a `make build` runs the Dev app's `rzm` from the app or a terminal instead of failing or downloading a pinned release. `rzm init` no longer pins a Rhizome source checkout, and this repository drops `rhizome.devBinaryDir`.
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
 - Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
 

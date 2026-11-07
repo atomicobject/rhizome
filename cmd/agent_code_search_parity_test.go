@@ -14,6 +14,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,8 @@ func TestMain(m *testing.M) {
 		if _, set := os.LookupEnv(appruntime.AutostartEnv); !set {
 			_ = os.Setenv(appruntime.AutostartEnv, "0")
 		}
+		// Selection must not depend on whether this machine has Rhizome Dev.
+		_ = os.Setenv(repoexec.DevAppEnv, "")
 		os.Exit(m.Run())
 	}
 	rootCmd := newRootCommand(commandEnvFromContext(context.Background()))

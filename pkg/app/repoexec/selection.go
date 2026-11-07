@@ -259,6 +259,13 @@ func FindSourceRoot(cwd string) (string, bool) {
 	return "", false
 }
 
+// IsSourceRoot reports whether dir is the root of a Rhizome source checkout,
+// where source-development selection outranks a repository pin.
+func IsSourceRoot(dir string) bool {
+	root, ok := FindSourceRoot(dir)
+	return ok && SamePath(root, dir)
+}
+
 func findRhizomeSourceRootFrom(dir string) (string, bool) {
 	for {
 		goMod := filepath.Join(dir, "go.mod")

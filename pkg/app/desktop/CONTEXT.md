@@ -90,7 +90,8 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   downloads or updates their installations. Global overrides require a native
   Rhizome binary, not an external manager shim.
 - Without an explicit global override, a bundled bridge selects its own resolved
-  executable before searching existing CLI installations. Desktop no longer
+  executable before searching existing CLI installations. A bridge is bundled
+  inside a macOS app, or on Linux when `rhizome-desktop` sits beside it. Desktop no longer
   installs or updates `~/.local/bin/rzm`. Global status probes from a neutral
   directory. App updates belong to the native updater; terminal `rzm update`
   hands that global target to the app and keeps repository updates independent.

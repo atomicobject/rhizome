@@ -21,7 +21,8 @@ type Plan struct {
 	ConfiguredDevelopment bool
 }
 
-// Select applies the same external, configured-development, source-development,
+// Select applies the same external, configured-development, source-development
+// (the checkout's bin/<goos>/rzm, else an installed Rhizome Dev app's rzm),
 // and managed-pin precedence used by command dispatch. fallback is an absolute
 // global executable, or a non-executable placeholder when only inspecting.
 func Select(cwd, fallback string) (Plan, error) {
@@ -58,6 +59,12 @@ func Select(cwd, fallback string) (Plan, error) {
 			return p, err
 		}
 		if ok {
+			p.Authority, p.Target = "development", target
+			return p, nil
+		}
+		// WHY: without its own build, a source checkout runs the Dev app's
+		// build rather than a release, so the app and terminal agree.
+		if target, ok := DevAppExecutable(); ok {
 			p.Authority, p.Target = "development", target
 			return p, nil
 		}
