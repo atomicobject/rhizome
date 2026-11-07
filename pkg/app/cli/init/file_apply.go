@@ -27,16 +27,12 @@ func staleTemplateBlocks(content string, doc generatedDoc) []string {
 	var stale []string
 	rest := content
 	for {
-		at := strings.Index(rest, managedTemplateBlockStartPrefix)
+		at, marker := templateBlockStart(rest)
 		if at < 0 {
 			return stale
 		}
-		rest = rest[at+len(managedTemplateBlockStartPrefix):]
-		end := strings.Index(rest, managedTemplateBlockSuffix)
-		if end < 0 {
-			return stale
-		}
-		key := strings.TrimSpace(rest[:end])
+		rest = rest[at+len(marker):]
+		key := strings.TrimSpace(templateBlockKey(marker))
 		if !keep[strings.ToLower(key)] && !contains(stale, key) {
 			stale = append(stale, key)
 		}
@@ -71,6 +67,9 @@ func classifyPlan(projectRoot string, plan *filePlan, record *generatedFiles) ([
 	for i, doc := range plan.docs {
 		current, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(doc.rel)))
 		if err != nil {
+			return nil, nil, err
+		}
+		if err := checkManagedFences(doc.rel, string(current)); err != nil {
 			return nil, nil, err
 		}
 		docStates[i] = docState{existing: string(current), exists: exists}
@@ -457,8 +456,14 @@ func managedBlockBody(content, key string) (string, bool) {
 		start = managedTemplateBlockStartPrefix + key + managedTemplateBlockSuffix
 		end = managedTemplateBlockEndPrefix + key + managedTemplateBlockSuffix
 	}
-	if !strings.Contains(content, start) || !strings.Contains(content, end) {
+	startAt := markerIndex(content, start)
+	if startAt < 0 {
 		return "", false
 	}
-	return managedBlockContent(content, start, end), true
+	bodyAt := startAt + len(start)
+	endAt := markerIndex(content[bodyAt:], end)
+	if endAt < 0 {
+		return "", false
+	}
+	return strings.TrimSpace(content[bodyAt : bodyAt+endAt]), true
 }

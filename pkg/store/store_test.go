@@ -14,6 +14,8 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeindex "github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
+	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
@@ -867,9 +869,36 @@ func TestOpen_ResetsDomainOnSchemaErrorPreservingEmbeddings(t *testing.T) {
 	require.NoError(t, store.db.QueryRowContext(ctx, `SELECT type FROM sqlite_master WHERE name = 'symbols'`).Scan(&typ))
 	require.Equal(t, "table", typ)
 
-	var count int
-	require.NoError(t, store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM code_items`).Scan(&count))
-	require.Equal(t, 1, count)
+	require.NoError(t, store.db.QueryRowContext(ctx, `SELECT type FROM sqlite_master WHERE name = 'code_items'`).Scan(&typ))
+	require.Equal(t, "table", typ)
+}
+
+func TestResetDomainDoesNotRebindCodeItemsToReusedAnchorIDs(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "reset-code-items.db")
+	store, err := Open(dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	code, err := embsqlite.OpenCode(ctx, embsqlite.File(dbPath), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: 4})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = code.Close() })
+	for _, id := range []string{"a", "b"} {
+		require.NoError(t, code.UpsertItemMeta(ctx, codeindex.Item{AnchorID: codeindex.AnchorID(id), Lang: "go", Kind: "func", Path: id + ".go", Symbol: id, Fingerprint: "fp-" + id}))
+	}
+
+	require.NoError(t, store.ResetDomain(ctx))
+	require.NoError(t, store.ensureSchema(ctx, currentSchemaVersion))
+	// The next index inserts anchors in a different order, so row IDs swap.
+	for _, id := range []string{"b", "a"} {
+		_, err := store.db.ExecContext(ctx, `INSERT INTO intel_code_anchors (anchor_id, lang, kind, path, symbol, fqn, start_byte, end_byte, start_line, end_line, fingerprint, updated_at) VALUES (?, 'go', 'func', ?, ?, ?, 0, 0, 0, 0, 'f', 0)`, id, id+".go", id, id)
+		require.NoError(t, err)
+	}
+
+	items, err := code.ListItems(ctx)
+	require.NoError(t, err)
+	for _, item := range items {
+		require.Equal(t, "fp-"+string(item.AnchorID), item.Fingerprint, "code item joined a different anchor after reset")
+	}
 }
 
 func TestOpen_SchemaDriftResetRebuildsSessionReservationTables(t *testing.T) {

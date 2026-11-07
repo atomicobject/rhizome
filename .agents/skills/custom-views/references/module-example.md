@@ -110,4 +110,4 @@ Open another view with its parameters through `openView("compounding-item", { ki
 2. `rzm validate views` checks the definitions, their parameters, and the TSX.
 3. Run each action from the terminal, then open the view and exercise every control, including a refusal: compounding's changes refuse while a mine run holds its lock.
 
-Actions run only in a trusted repository; an untrusted one refuses every action with a reason naming `rzm trust`.
+Actions and repository views run only in a trusted repository; an untrusted one refuses every action with a reason naming `rzm trust`, and serves a 403 page naming `rzm trust` in place of the view.

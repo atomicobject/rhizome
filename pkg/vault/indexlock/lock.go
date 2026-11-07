@@ -41,6 +41,9 @@ type LockData struct {
 	// "cli/index" or "runtime/embed-cycle". Empty on locks written before the
 	// field existed.
 	Role string `json:"role,omitempty"`
+	// Path is the lock file's absolute path at acquisition, so a lock copied
+	// with its repository can be told apart from the one its owner holds.
+	Path string `json:"path,omitempty"`
 }
 
 // AcquireOptions describes the lock a caller wants to take.
@@ -88,6 +91,9 @@ func tryAcquireOwned(lockPath string, opts AcquireOptions, acquiredOwner *LockDa
 		Host:    getHostname(),
 		Runtime: runtimeID,
 		Role:    opts.Role,
+	}
+	if abs, err := filepath.Abs(lockPath); err == nil {
+		lockData.Path = abs
 	}
 	lockData.Token = rand.Text()
 	if acquiredOwner != nil {
@@ -164,6 +170,13 @@ func tryAcquireOwned(lockPath string, opts AcquireOptions, acquiredOwner *LockDa
 			existingData.PID,
 			lockPath,
 		)
+	}
+
+	if IsCopiedLock(lockPath, existingData) {
+		return acquireAfterStale(lockPath, lockData, lockDataJSON, func(current []byte) bool {
+			var owner LockData
+			return json.Unmarshal(current, &owner) == nil && sameLockOwner(owner, existingData) && IsCopiedLock(lockPath, owner)
+		})
 	}
 
 	// Check if the PID in the lock file is still alive
@@ -407,6 +420,26 @@ func normalizeShortHostname(host string) string {
 		host = host[:idx]
 	}
 	return host
+}
+
+// IsCopiedLock reports a lock file whose owner holds a different file: the
+// recorded original still exists, is not this file, and names the same owner.
+// Copying a repository while its runtime is live copies its locks; the copy is
+// not held by anyone. Locks written before Path existed are never copies.
+func IsCopiedLock(lockPath string, owner LockData) bool {
+	if owner.Path == "" {
+		return false
+	}
+	original, err := os.Stat(owner.Path)
+	if err != nil {
+		return false
+	}
+	here, err := os.Stat(lockPath)
+	if err != nil || os.SameFile(original, here) {
+		return false
+	}
+	held, ok := ReadLockData(owner.Path)
+	return ok && sameLockOwner(held, owner)
 }
 
 // ReadLockData reads the current holder's metadata, if any.

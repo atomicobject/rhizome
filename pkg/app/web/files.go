@@ -380,17 +380,23 @@ func (s *Server) updateNotePathCacheForWatchEvents(ctx context.Context, events [
 	if s.noteCache == nil {
 		return
 	}
+	// Handlers keep using the cache they fetched after noteMu is released, so
+	// update a copy and publish it instead of mutating the shared cache.
+	// ponytail: copies the whole cache per event batch; patch a persistent
+	// structure instead if large vaults make saves slow.
+	next := s.noteCache.Clone()
 	for _, event := range events {
 		notePath := strings.TrimSpace(filepath.ToSlash(event.RelPath))
 		if notePath == "" || event.IsDir {
 			continue
 		}
 		if event.Op.Has(watchhub.OpRemove) || event.Op.Has(watchhub.OpRename) {
-			s.noteCache.Remove(notePath)
+			next.Remove(notePath)
 			continue
 		}
 		if event.Op.Has(watchhub.OpCreate) || event.Op.Has(watchhub.OpWrite) {
-			s.noteCache.AddOrUpdate(notePath, s.markdownAliasesForNotePathCompat(ctx, notePath))
+			next.AddOrUpdate(notePath, s.markdownAliasesForNotePathCompat(ctx, notePath))
 		}
 	}
+	s.noteCache = next
 }

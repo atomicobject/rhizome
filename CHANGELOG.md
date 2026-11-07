@@ -35,6 +35,24 @@
 - Rhizome Dev uses its own `rzm`. On Linux it no longer picks up another installed CLI, and a Rhizome source worktree without a `make build` runs the Dev app's `rzm` from the app or a terminal instead of failing or downloading a pinned release. `rzm init` no longer pins a Rhizome source checkout, and this repository drops `rhizome.devBinaryDir`.
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
 - Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
+- Fixes from an audit of invariants the code relied on but did not enforce:
+  - Repository and module custom views run only in a checkout trusted with `rzm trust`; elsewhere they show a page naming `rzm trust`. Bundled views still run.
+  - Actions use the same trust rule as tasks and Desktop: the folder `rzm trust` recorded, or a linked worktree of it. A folder inside a trusted checkout, or one with a forged `.git` file, no longer inherits trust, and actions in a vault kept in a repository subfolder now run once that vault is trusted.
+  - `rzm serve --host` no longer lets a network peer reach the local API by sending a loopback `Host` header.
+  - Property and tag edits keep the note's file permissions, rewrite only the frontmatter entries they change, and refuse a note that changed on disk while it was being edited instead of overwriting it.
+  - `rzm init` stops with an error when a managed block in AGENTS.md or CLAUDE.md has no END marker, instead of deleting the rest of the file. A marker counts only when it is alone on its line.
+  - Saving settings no longer loses other settings: every write to `~/.config/rhizome/config.yml` takes a file lock, rereads the file, and keeps keys this version does not know, along with comments and order. Saving repository config keeps edits made after it was loaded.
+  - The web runtime no longer crashes when a note is saved while links are being resolved.
+  - Search hits show the text of the section they matched. A line that starts with a tag, such as `#todo`, is no longer treated as a heading; the next index rebuilds affected sections.
+  - An index write no longer commits ahead of pending writes it depends on, whether it flushes early or on its idle timer, so code chunks are not orphaned from their anchors and embeddings are not skipped for missing chunks. An automatic index reset no longer attaches code embeddings to the wrong anchors.
+  - Embedding vectors from OpenAI-compatible endpoints are matched to inputs by their `index`, and a rerank response that repeats a document is rejected.
+  - When two notes give an anchor the same label for different symbols, the note with the smaller path keeps it in any indexing order, and indexing logs the conflict and retries the losing note on the next index. Named Python source roots are stripped from module names, so their anchors match.
+  - `rzm init` writes a CLAUDE.md that links to AGENTS.md once, so an AGENTS.md edit it keeps is no longer overwritten through the link.
+  - Orphaned block-ID removal and identifier block-ID migrations count references from code comments, so a block cited only from code is neither removed nor renamed without confirmation.
+  - Connection hits for embedded ontology nodes keep each node's identity and show that node's own text; search previews and CLI output no longer show an unrelated heading section for them.
+  - A copied repository no longer drives the original's runtime: clients accept a runtime only when it serves their vault, and a lock copied with the repository can be taken over so the copy starts its own runtime.
+  - Web chat agents no longer inherit Rhizome's repository-delegation bypass, so a bare `rzm` they run uses the repository's pinned binary.
+  - Live chat events reach the browser in order, so an approval card or assistant text is no longer dropped when events race.
 
 ## [v0.51.0] - 2026-11-06
 

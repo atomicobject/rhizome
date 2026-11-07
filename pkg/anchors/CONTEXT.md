@@ -48,4 +48,4 @@ Schema v62 is forward-only. Older binaries reject it. Rollback requires stopping
 
 Graph document and anchor score replacements prepare arguments and check cancellation before the writer lock, then use bounded multirow SQL inside one transaction, preserving input order, duplicate last-write behavior, blank-key filtering and trigger-driven graph revisions. Chunk failures roll back the initial delete, all score rows and revision together.
 
-- Watcher note-source factories return errors from the configured provider-aware source projection. Failed or non-current projections never reach anchor declaration ingestion. NoteIndexerVersion v1.1.0 rebuilds unchanged notes after the shared frontmatter boundary fix.
+- Watcher note-source factories return errors from the configured provider-aware source projection. Failed or non-current projections never reach anchor declaration ingestion. NoteIndexerVersion v1.1.0 rebuilds unchanged notes after the shared frontmatter boundary fix; v1.2.0 re-extracts doc sections after ATX headings began requiring a space, tab, or line end after the hashes.

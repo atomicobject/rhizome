@@ -85,3 +85,24 @@ func TestNewCodeAnchorService_AutomaticScopeLeavesOutDisabledLanguages(t *testin
 	limited := build(codeanchor.Config{Enabled: true, GoRoots: []string{"."}, DisabledLanguages: []string{"python"}})
 	require.True(t, limited.HasIndexer(codeanchor.LangPy))
 }
+
+func TestNewCodeAnchorService_PythonFQNSameWithAutomaticAndNamedRoots(t *testing.T) {
+	root := t.TempDir()
+	abs := filepath.Join(root, "src", "pkg", "mod.py")
+	symbols := func(cfg codeanchor.Config) []string {
+		store, err := semdb.Open(filepath.Join(t.TempDir(), "code.db"))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = store.Close() })
+		service, _ := NewCodeAnchorService(CodeAnchorServiceConfig{
+			VaultPath: root, CodeCfg: cfg, Store: store, IncludeIndexers: true, WriteAccess: true,
+		})
+		require.NoError(t, service.IndexCodeFile(context.Background(), codeanchor.LangPy, abs, []byte("def run():\n    pass\n")))
+		got, err := service.SymbolsForFile(context.Background(), "src/pkg/mod.py")
+		require.NoError(t, err)
+		return got
+	}
+
+	require.Equal(t, []string{"pkg.mod.run"}, symbols(codeanchor.Config{Enabled: true, AutomaticScope: true}))
+	require.Equal(t, []string{"pkg.mod.run"}, symbols(codeanchor.Config{Enabled: true, PythonRoots: []string{"src"}}))
+	require.Equal(t, []string{"pkg.mod.run"}, symbols(codeanchor.Config{Enabled: true, PythonRoots: []string{filepath.Join(root, "src")}}))
+}

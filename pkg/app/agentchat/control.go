@@ -47,10 +47,8 @@ func (s *Service) RespondToApproval(sessionID, requestID string, decision harnes
 		Type:      "approval-decision",
 		Result:    &EventResult{RequestID: requestID, Status: string(decision)},
 	}
-	stored, err := s.addEventWithRetry(s.ctx, event)
-	if err == nil {
-		s.broker.Publish(stored)
-	} else {
+	err := s.persistAndPublish(s.ctx, event)
+	if err != nil {
 		// The vendor already accepted the decision; publish it transiently so the
 		// browser disables the card even though the durable record failed.
 		transient := event
@@ -79,10 +77,8 @@ func (s *Service) Interrupt(ctx context.Context, sessionID string) error {
 		Type:      "interrupt-requested",
 		Result:    &EventResult{Status: "requested"},
 	}
-	stored, err := s.addEventWithRetry(s.ctx, event)
-	if err == nil {
-		s.broker.Publish(stored)
-	} else {
+	err := s.persistAndPublish(s.ctx, event)
+	if err != nil {
 		s.publishPersistenceError(event, err)
 	}
 	return err

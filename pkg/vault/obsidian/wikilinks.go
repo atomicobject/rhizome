@@ -2,7 +2,9 @@ package obsidian
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -11,7 +13,10 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// NotePathCache maps note names to their full paths for efficient wikilink resolution
+// NotePathCache maps note names to their full paths for efficient wikilink resolution.
+// It has no lock: concurrent reads are safe, but AddOrUpdate and Remove must not
+// run while anyone else can read the cache. A shared cache is updated by
+// mutating a Clone and publishing the clone in its place.
 type NotePathCache struct {
 	// NotePaths is the authoritative set used for incremental cache updates.
 	NotePaths map[string]struct{}
@@ -144,6 +149,28 @@ func BuildNotePathCacheWithAliases(allNotes []string, aliasesByPath map[string][
 	}
 
 	return cache
+}
+
+// Clone returns a deep copy that can be mutated without affecting readers of c.
+func (c *NotePathCache) Clone() *NotePathCache {
+	if c == nil {
+		return nil
+	}
+	clone := &NotePathCache{
+		NotePaths:  maps.Clone(c.NotePaths),
+		Aliases:    cloneCandidateMap(c.Aliases),
+		aliasExact: cloneCandidateMap(c.aliasExact),
+	}
+	clone.ensureMutable()
+	return clone
+}
+
+func cloneCandidateMap(in map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(in))
+	for key, candidates := range in {
+		out[key] = slices.Clone(candidates)
+	}
+	return out
 }
 
 func (c *NotePathCache) AddOrUpdate(notePath string, aliases []string) {

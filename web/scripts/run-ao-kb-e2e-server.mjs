@@ -57,7 +57,9 @@ const run = (cmd, args, cwd = repoRoot) => {
 if (!process.env.RHIZOME_E2E_SKIP_WEB_BUILD)
   run("npm", ["run", "build"], path.join(repoRoot, "web"));
 
-run("go", ["build", "-mod=vendor", "-tags", "fts5", "-o", rzm, "."]);
+// e2efake trusts the scratch vault's module views without writing a record into
+// the person's trust store, which follows the operating-system account home.
+run("go", ["build", "-mod=vendor", "-tags", "fts5 e2efake", "-o", rzm, "."]);
 
 run("git", ["init", "-q"], vault);
 

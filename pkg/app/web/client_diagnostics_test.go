@@ -34,6 +34,7 @@ func clientDiagnosticsServer(t *testing.T, recorder *diagnostics.Recorder) *Serv
 
 func postClientBatch(s *Server, body, origin string) int {
 	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/diagnostics/client", strings.NewReader(body))
+	request.RemoteAddr = "127.0.0.1:50000"
 	request.Header.Set("Content-Type", "application/json")
 	if origin != "" {
 		request.Header.Set("Origin", origin)

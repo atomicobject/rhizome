@@ -10,8 +10,9 @@ import (
 )
 
 // ResetDomain drops and recreates the code-index domain tables (code anchors + intel + doc_links).
-// It does NOT touch semantic embeddings tables (`emb_*`) nor code embeddings tables (`code_*`),
+// It does NOT drop semantic embeddings tables (`emb_*`) nor code embeddings tables (`code_*`),
 // and it keeps an intact intel_embedding_cache so paid vectors are not re-requested.
+// It clears code item rows, whose integer anchor keys the rebuilt anchors reuse.
 // An interim ontology_embedding_cache is dropped; the repair before any reset moves its rows.
 func (s *Store) ResetDomain(ctx context.Context) error {
 	ctx = indexingperf.WithOp(ctx, "intel.reset_domain")
@@ -286,6 +287,15 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 				continue
 			}
 			if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS `+name); err != nil {
+				return err
+			}
+		}
+		// code_items names anchors by intel_code_anchors.id, which the rebuilt
+		// table reassigns to other anchors, and foreign keys are off so the
+		// cascade does not fire. Clear the rows; their vectors stay in
+		// code_embedding_cache, so the next sync restores them without the provider.
+		for _, name := range []string{"code_chunk_fts", "code_chunk_embeddings", "code_item_embeddings", "code_items"} {
+			if _, err := db.ExecContext(ctx, `DELETE FROM `+name); err != nil && !strings.Contains(strings.ToLower(err.Error()), "no such table") {
 				return err
 			}
 		}

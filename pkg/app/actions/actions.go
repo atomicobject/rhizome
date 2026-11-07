@@ -56,14 +56,20 @@ type Runner struct {
 	Trust func(ctx context.Context) string
 }
 
+// trustStore is the person's repository trust store; tests replace it.
+var trustStore = repositorytrust.DefaultStore
+
 // New returns a Runner for repoRoot using the person's repository trust store.
+// repoRoot is checked as the folder `rzm trust` records, as tasks and Desktop
+// check it, so neither a parent checkout's record nor a forged .git file
+// grants trust.
 func New(repoRoot string) *Runner {
-	return &Runner{RepoRoot: repoRoot, Trust: func(ctx context.Context) string {
-		store, err := repositorytrust.DefaultStore()
+	return &Runner{RepoRoot: repoRoot, Trust: func(context.Context) string {
+		store, err := trustStore()
 		if err != nil {
 			return "repository trust could not be read: " + err.Error()
 		}
-		return repositorytrust.Untrusted(ctx, repoRoot, "actions", store.Trusted)
+		return repositorytrust.DenialReason(repoRoot, "actions", store.Trusted)
 	}}
 }
 

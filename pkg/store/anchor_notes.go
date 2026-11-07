@@ -126,6 +126,11 @@ func (s *Store) UpsertNotesWithCleanupBatch(ctx context.Context, notes []codeanc
 				return err
 			}
 
+			note, err = claimAnchorLabelsTx(ctx, tx, noteID, note, &result)
+			if err != nil {
+				return err
+			}
+
 			// Upsert anchors and links.
 			for _, a := range note.DefinedAnchors {
 				var annArgs string

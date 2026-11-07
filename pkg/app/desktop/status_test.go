@@ -98,7 +98,9 @@ func TestStatusReportsOnlyVerifiedRuntimes(t *testing.T) {
 		status := result.Runtimes[folder]
 		require.Equal(t, StateStopped, status.State, folder)
 		require.Empty(t, status.URL, folder)
-		require.NotEmpty(t, status.Error, folder)
+		if folder != impostor { // a runtime serving another folder is simply not running here
+			require.NotEmpty(t, status.Error, folder)
+		}
 	}
 	require.Equal(t, RuntimeStatus{State: StateStarting}, result.Runtimes[busy])
 }

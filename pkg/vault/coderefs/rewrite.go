@@ -6,6 +6,8 @@ package coderefs
 // Related: [Dirty tracking + Refresh semantics](docs/reference/analysis/Dirty tracking + Refresh semantics.md) (rename/recreate edge cases)
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,6 +18,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -67,7 +70,7 @@ func PlanRewriteBatch(vaultPath string, config *Config, mappings []RefMapping) (
 	for _, mapping := range mappings {
 		compiled = append(compiled, compileMapping(mapping))
 	}
-	codeFiles, err := discoverCodeFilesForRewrite(vaultPath, config)
+	codeFiles, err := discoverCodeFilesForRewrite(vaultPath, config, false)
 	if err != nil {
 		return nil, err
 	}
@@ -387,17 +390,53 @@ func isBinary(content []byte) bool {
 	return false
 }
 
-func discoverCodeFilesForRewrite(vaultPath string, config *Config) ([]string, error) {
+// ScanConfigured returns the resolved references in every file a note rename
+// would rewrite. Unlike the rewriter it fails on an unreadable file, because
+// callers use the result to decide that nothing in code cites a note.
+func ScanConfigured(ctx context.Context, vaultPath string, config *Config, noteCache *obsidian.NotePathCache) ([]CodeRef, error) {
+	files, err := discoverCodeFilesForRewrite(vaultPath, config, true)
+	if err != nil {
+		return nil, err
+	}
+	var refs []CodeRef
+	for _, relPath := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		content, err := os.ReadFile(filepath.Join(vaultPath, relPath))
+		if err != nil {
+			return nil, err
+		}
+		fileRefs, err := ScanFile(relPath, content, noteCache)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, fileRefs...)
+	}
+	return refs, nil
+}
+
+// discoverCodeFilesForRewrite lists the configured code files. A strict
+// caller decides from the result that no code cites a note, so it fails on a
+// bad pattern or an unreadable path instead of skipping it.
+func discoverCodeFilesForRewrite(vaultPath string, config *Config, strict bool) ([]string, error) {
 	if config == nil {
 		return nil, nil
 	}
 
 	var codeFiles []string
 	seen := make(map[string]struct{})
+	var globOpts []doublestar.GlobOption
+	if strict {
+		globOpts = append(globOpts, doublestar.WithFailOnIOErrors())
+	}
 
 	for _, pattern := range config.Includes {
-		matches, err := doublestar.Glob(os.DirFS(vaultPath), pattern)
+		matches, err := doublestar.Glob(os.DirFS(vaultPath), pattern, globOpts...)
 		if err != nil {
+			if strict {
+				return nil, fmt.Errorf("list code files for %q: %w", pattern, err)
+			}
 			continue
 		}
 
@@ -420,6 +459,9 @@ func discoverCodeFilesForRewrite(vaultPath string, config *Config) ([]string, er
 			seen[match] = struct{}{}
 
 			info, err := os.Stat(filepath.Join(vaultPath, match))
+			if err != nil && strict {
+				return nil, err
+			}
 			if err != nil || info.IsDir() {
 				continue
 			}

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
@@ -20,10 +19,6 @@ const (
 	minChunkChars = 800
 	maxChunkChars = 2800
 	overlapChars  = 300
-)
-
-var (
-	headingRE = regexp.MustCompile(`^(#{1,6})\s+(.*)$`)
 )
 
 type section struct {
@@ -104,10 +99,9 @@ func parseSections(body string) []section {
 			current.lines = append(current.lines, line)
 			continue
 		}
-		if m := headingRE.FindStringSubmatch(trim); m != nil {
+		if level, heading, ok := markdownsyntax.ATXHeading(line); ok {
 			flush()
-			level := len(m[1])
-			current = section{level: level, heading: strings.TrimSpace(m[2])}
+			current = section{level: level, heading: heading}
 			continue
 		}
 		current.lines = append(current.lines, line)

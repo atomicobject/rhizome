@@ -72,7 +72,7 @@ func processDeleteFile(vaultPaths paths.VaultPaths, tagsToDelete []string, dryRu
 
 		// Write the file if not dry run
 		if !dryRun {
-			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, content, newContent); err != nil {
 				return fileMutation{err: err}
 			}
 		}
@@ -124,7 +124,7 @@ func processRenameFile(vaultPaths paths.VaultPaths, fromTags []string, toTag str
 
 		// Write the file if not dry run
 		if !dryRun {
-			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, content, newContent); err != nil {
 				return fileMutation{err: err}
 			}
 		}
@@ -280,7 +280,7 @@ func processAddFile(vaultPaths paths.VaultPaths, tagsToAdd []string, dryRun bool
 
 		// Write the file if not dry run
 		if !dryRun {
-			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, content, newContent); err != nil {
 				return fileMutation{err: err}
 			}
 		}

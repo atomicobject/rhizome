@@ -41,6 +41,17 @@ func renderTeamSkillLinks(skills []skilloverlay.Skill) string {
 // file already includes AGENTS.md.
 const claudeAgentsMdPointer = "Rhizome guidance for this repository is the managed block in `AGENTS.md`, which this file includes with `@AGENTS.md`. `rzm init` keeps it there; do not copy it here."
 
+// sameFile reports whether both paths exist and name one file, through a
+// symbolic or hard link.
+func sameFile(a, b string) bool {
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	bi, err := os.Stat(b)
+	return err == nil && os.SameFile(ai, bi)
+}
+
 // claudeDocIncludesAgentsMd reports whether CLAUDE.md pulls AGENTS.md in through
 // a Claude Code `@` include line, so its guidance is already in context. Lines
 // inside fenced code or HTML comments are examples, not includes.
@@ -124,19 +135,6 @@ func renderManagedDocBlocks(rhizomeContent string, templates []string) ([]manage
 		}
 	}
 	return blocks, nil
-}
-
-func managedBlockContent(content, start, end string) string {
-	startAt := strings.Index(content, start)
-	if startAt < 0 {
-		return ""
-	}
-	bodyAt := startAt + len(start)
-	endAt := strings.Index(content[bodyAt:], end)
-	if endAt < 0 {
-		return ""
-	}
-	return strings.TrimSpace(content[bodyAt : bodyAt+endAt])
 }
 
 func addPreservedSkillNames(keep map[string]bool, templates []string) error {

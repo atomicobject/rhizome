@@ -14,6 +14,9 @@ import (
 
 func init() {
 	agentHarnessOverride = newAgentE2EHarnesses
+	// The e2e fixture vault is a fresh temporary folder that its views must
+	// run from; trusting it in the person's own store would leave records behind.
+	defaultRepositoryTrusted = func(string) (bool, error) { return true, nil }
 }
 
 func newAgentE2EHarnesses() map[harness.Kind]harness.Harness {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 )
 
 func getCustomViewWith(srv *Server, target string, header http.Header) *httptest.ResponseRecorder {
@@ -182,6 +184,35 @@ func TestBundledViewIsServedFromEmbeddedAssets(t *testing.T) {
 		if rec := getCustomView(srv, target); rec.Code != http.StatusNotFound {
 			t.Fatalf("%s: %d", target, rec.Code)
 		}
+	}
+}
+
+func TestUntrustedRepositoryViewsAreRefusedAndBundledViewsRun(t *testing.T) {
+	srv := newBundledViewTestServer(t)
+	writeModuleViewFile(t, srv, "team/team.tsx", "export default null")
+	store := repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
+	srv.cfg.RepositoryTrusted = store.Trusted
+
+	shell := getCustomView(srv, "/views/poc.board")
+	if shell.Code != http.StatusForbidden || !strings.Contains(shell.Body.String(), "rzm trust") || strings.Contains(shell.Body.String(), "import(") {
+		t.Fatalf("untrusted shell: %d\n%s", shell.Code, shell.Body.String())
+	}
+	for _, target := range []string{"/views/_files/poc/board.tsx", "/views/_stamp/poc", "/views/_check/poc", "/views/_module/work/_files/team/team.tsx"} {
+		if rec := getCustomView(srv, target); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "rzm trust") {
+			t.Fatalf("untrusted %s: %d %q", target, rec.Code, rec.Body.String())
+		}
+	}
+	for _, target := range []string{groupShellURL("group.briefing"), "/views/_bundled/group/briefing.tsx"} {
+		if rec := getCustomView(srv, target); rec.Code != http.StatusOK {
+			t.Fatalf("bundled %s in an untrusted checkout: %d %s", target, rec.Code, rec.Body.String())
+		}
+	}
+
+	if _, err := store.Trust(srv.cfg.VaultPath); err != nil {
+		t.Fatal(err)
+	}
+	if rec := getCustomView(srv, "/views/_files/poc/board.tsx"); rec.Code != http.StatusOK {
+		t.Fatalf("trusted file: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

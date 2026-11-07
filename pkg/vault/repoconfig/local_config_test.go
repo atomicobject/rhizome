@@ -757,3 +757,21 @@ func TestScopeConfigHash(t *testing.T) {
 		assert.NotEqual(t, baseHash, withCS.ScopeConfigHash())
 	})
 }
+
+func TestSaveLocalConfigKeepsKeyAddedAfterLoad(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, SaveLocalConfig(dir, LocalConfig{Rhizome: LocalRhizomeConfig{Version: "v1.2.3"}}))
+	cfg, err := LoadLocalConfig(dir)
+	require.NoError(t, err)
+
+	path := rhizomeConfigPath(dir)
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, append(data, []byte("future_key: added\n")...), 0o644))
+
+	require.NoError(t, SaveLocalConfig(dir, *cfg))
+
+	data, err = os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "future_key: added")
+}

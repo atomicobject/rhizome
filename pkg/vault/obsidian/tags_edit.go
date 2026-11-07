@@ -445,29 +445,16 @@ func processLineSkippingInlineCode(line string, processor func(string) (string, 
 	return processed, changed
 }
 
-// rebuildContentWithFrontmatter rebuilds content with updated frontmatter
+// rebuildContentWithFrontmatter writes updated frontmatter back, changing
+// only the entries whose value differs from the authored block.
 func rebuildContentWithFrontmatter(content string, frontmatter map[string]interface{}) (string, bool) {
-	// Find the end of the frontmatter block
-	_, bodyStart, ok := markdownsyntax.Frontmatter(content)
+	frontmatterYAML, _, ok := markdownsyntax.Frontmatter(content)
 	if !ok {
 		return content, false
 	}
-
-	// Get content after frontmatter
-	afterFrontmatter := content[bodyStart:]
-
-	// If frontmatter is empty, remove the entire block
-	if len(frontmatter) == 0 {
-		return afterFrontmatter, true
-	}
-
-	// Marshal updated frontmatter
-	yamlBytes, err := yaml.Marshal(frontmatter)
-	if err != nil {
+	var original map[string]interface{}
+	if err := yaml.Unmarshal([]byte(frontmatterYAML), &original); err != nil {
 		return content, false
 	}
-
-	// Rebuild content
-	newContent := "---\n" + string(yamlBytes) + "---\n" + afterFrontmatter
-	return newContent, true
+	return spliceFrontmatter(content, original, frontmatter)
 }

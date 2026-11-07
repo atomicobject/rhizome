@@ -74,6 +74,30 @@ func TestTryAcquire_Blocked(t *testing.T) {
 	_ = release3()
 }
 
+func TestTryAcquire_ReclaimsLockCopiedWithItsRepository(t *testing.T) {
+	original := filepath.Join(t.TempDir(), ".rhizome", "runtime.lock")
+	release, acquired, err := TryAcquire(original)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	defer release()
+
+	// cp -R of a repository whose runtime is live: same owner, live PID.
+	copied := filepath.Join(t.TempDir(), ".rhizome", "runtime.lock")
+	require.NoError(t, os.MkdirAll(filepath.Dir(copied), 0o755))
+	raw, err := os.ReadFile(original)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(copied, raw, 0o644))
+
+	releaseCopy, acquired, err := TryAcquire(copied)
+	require.NoError(t, err)
+	require.True(t, acquired, "nobody holds a copied lock")
+	require.NoError(t, releaseCopy())
+
+	_, acquired, err = TryAcquire(original)
+	require.NoError(t, err)
+	require.False(t, acquired, "the original stays held by its live owner")
+}
+
 func TestTryAcquire_Concurrent(t *testing.T) {
 	tmpDir := t.TempDir()
 	lockPath := filepath.Join(tmpDir, "index.lock")

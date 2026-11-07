@@ -14,6 +14,7 @@ import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -22,6 +23,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // fuzzyNearMatchDistance is the Levenshtein threshold used by the orphan check
@@ -133,6 +137,20 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 		}
 	}
 
+	// Code comments cite blocks too, and the note-link inventory never sees
+	// them. When they cannot be scanned, no removal is safe.
+	codeRefs, codeRefsErr := codeBlockReferences(ctx, runCtx.VaultPath, inventory.cache)
+	for notePath, ids := range codeRefs {
+		for id := range ids {
+			if _, present := anchorsByNote[notePath][id]; present {
+				if resolvedRefs[notePath] == nil {
+					resolvedRefs[notePath] = map[string]struct{}{}
+				}
+				resolvedRefs[notePath][id] = struct{}{}
+			}
+		}
+	}
+
 	// Phase 3: classify each anchor.
 	type orphan struct {
 		anchor      orphanAnchor
@@ -213,6 +231,9 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 			safety = FixSafetyConfirm
 			title = fmt.Sprintf("Remove block ID ^%s (verify near-match first)", o.anchor.blockID)
 			summary = fmt.Sprintf("near-match warning: broken inbound references ^%s may have meant ^%s", strings.Join(o.nearMatches, ", ^"), o.anchor.blockID)
+		} else if codeRefsErr != nil {
+			safety = FixSafetyConfirm
+			summary = fmt.Sprintf("delete ^%s — no note targets it, but code comments could not be checked: %v", o.anchor.blockID, codeRefsErr)
 		}
 		result.Fixes = append(result.Fixes, FixAction{
 			ID:            fmt.Sprintf("remove-block-id:%s:%s", o.anchor.notePath, o.anchor.blockID),
@@ -241,6 +262,40 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 		result.Summary = fmt.Sprintf("%d orphan block IDs", len(orphans))
 	}
 	return result
+}
+
+// codeBlockReferences returns the block IDs that code comments cite, keyed by
+// note path. Persisted doc_links rows drop the fragment, so this scans the
+// configured coderef files live. A nil map and nil error mean coderefs are not
+// configured, so Rhizome tracks no code references to protect.
+func codeBlockReferences(ctx context.Context, vaultPath string, cache *obsidian.NotePathCache) (map[string]map[string]struct{}, error) {
+	local, err := repoconfig.LoadLocalConfig(vaultPath)
+	if errors.Is(err, repoconfig.ErrNoLocalConfig) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load coderef config: %w", err)
+	}
+	includes, excludes := repoconfig.NormalizeCodeRefPatterns(*local)
+	if len(includes) == 0 {
+		return nil, nil
+	}
+	refs, err := coderefs.ScanConfigured(ctx, vaultPath, coderefs.NewConfig(true, includes, excludes), cache)
+	if err != nil {
+		return nil, fmt.Errorf("scan coderefs: %w", err)
+	}
+	out := map[string]map[string]struct{}{}
+	for _, ref := range refs {
+		id, ok := strings.CutPrefix(ref.Fragment, "^")
+		if !ok || id == "" {
+			continue
+		}
+		if out[ref.Target] == nil {
+			out[ref.Target] = map[string]struct{}{}
+		}
+		out[ref.Target][id] = struct{}{}
+	}
+	return out, nil
 }
 
 func collectAnchorsFromSnapshot(nodes []*ontology.SectionNode, schema *ontoschema.Schema, snapshot *ontology.DocumentSnapshot, notePath string, out map[string]orphanAnchor) {

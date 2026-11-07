@@ -147,16 +147,14 @@ func (s *Session) Provide(key, value string) error {
 	if value == "" {
 		return nil
 	}
-	cfg, err := repoconfig.LoadCliConfig(s.env, true)
-	if err != nil {
-		return err
-	}
-	if cfg.Env == nil {
-		cfg.Env = map[string]string{}
-	}
-	cfg.Env[key] = value
-	delete(cfg.CredentialSkips, key)
-	if err := repoconfig.SaveCliConfig(s.env, cfg); err != nil {
+	if err := repoconfig.UpdateCliConfig(s.env, func(cfg *repoconfig.CliConfig) error {
+		if cfg.Env == nil {
+			cfg.Env = map[string]string{}
+		}
+		cfg.Env[key] = value
+		delete(cfg.CredentialSkips, key)
+		return nil
+	}); err != nil {
 		return err
 	}
 	s.provided[key] = value
@@ -167,15 +165,13 @@ func (s *Session) Provide(key, value string) error {
 
 // Skip records and persists a "skip for now" decision for key.
 func (s *Session) Skip(key string) error {
-	cfg, err := repoconfig.LoadCliConfig(s.env, true)
-	if err != nil {
-		return err
-	}
-	if cfg.CredentialSkips == nil {
-		cfg.CredentialSkips = map[string]bool{}
-	}
-	cfg.CredentialSkips[key] = true
-	if err := repoconfig.SaveCliConfig(s.env, cfg); err != nil {
+	if err := repoconfig.UpdateCliConfig(s.env, func(cfg *repoconfig.CliConfig) error {
+		if cfg.CredentialSkips == nil {
+			cfg.CredentialSkips = map[string]bool{}
+		}
+		cfg.CredentialSkips[key] = true
+		return nil
+	}); err != nil {
 		return err
 	}
 	s.skipped[key] = true

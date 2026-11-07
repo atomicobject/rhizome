@@ -337,6 +337,7 @@ func TestBrowserMutationOriginGuardRejectsBeforeHandlerMutation(t *testing.T) {
 			// from the origin guard rather than the host guard.
 			req := httptest.NewRequest(http.MethodPost, test.scheme+"://"+test.host+"/mutate", nil)
 			req.Host = test.host
+			req.RemoteAddr = "127.0.0.1:50000"
 			if test.origin != "" {
 				req.Header.Set("Origin", test.origin)
 			}
@@ -412,21 +413,29 @@ func TestApplicationHostGuardProtectsActualReadAndAgentSettingsRoutes(t *testing
 		name       string
 		host       string
 		configured string
+		peer       string
 		deny       bool
 	}{
 		{name: "localhost", host: "localhost:8787"},
+		{name: "LAN peer naming localhost", host: "localhost:8787", peer: "192.168.1.5:50000", deny: true},
+		{name: "IPv4-mapped loopback peer", host: "localhost:8787", peer: "[::ffff:127.0.0.1]:50000"},
 		{name: "IPv4 loopback", host: "127.0.0.1:8787"},
 		{name: "IPv6 loopback", host: "[::1]:8787"},
 		{name: "unrelated host", host: "evil.example.test:8787", deny: true},
 		{name: "unrelated host with configured origin", host: "evil.example.test", configured: "https://rhizome.example.test", deny: true},
 		{name: "configured origin", host: "rhizome.example.test", configured: "https://rhizome.example.test"},
 		{name: "configured default port", host: "rhizome.example.test:443", configured: "https://rhizome.example.test"},
+		{name: "configured origin from a LAN peer", host: "rhizome.example.test", configured: "https://rhizome.example.test", peer: "192.168.1.5:50000"},
 		{name: "configured origin keeps loopback control host", host: "127.0.0.1:8787", configured: "https://rhizome.example.test"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			srv.cfg.ApplicationOrigin = test.configured
 			request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/status", nil)
 			request.Host = test.host
+			request.RemoteAddr = "127.0.0.1:50000"
+			if test.peer != "" {
+				request.RemoteAddr = test.peer
+			}
 			response := httptest.NewRecorder()
 			srv.Handler().ServeHTTP(response, request)
 			want := http.StatusOK

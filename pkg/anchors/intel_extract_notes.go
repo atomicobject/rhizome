@@ -76,25 +76,17 @@ type sec struct {
 
 func flattenParsedSections(content string, nodes []*sectionparse.Node) []sec {
 	var out []sec
-	var walk func([]*sectionparse.Node)
-	walk = func(nodes []*sectionparse.Node) {
-		for _, node := range nodes {
-			if node == nil {
-				continue
-			}
-			out = append(out, sec{
-				title:     node.Title,
-				nodeID:    node.ID,
-				level:     node.Level,
-				startLine: lineNumberAtByte(content, node.StartByte),
-				endLine:   lineNumberAtByte(content, node.EndByte),
-				startByte: node.StartByte,
-				endByte:   node.EndByte,
-			})
-			walk(node.Children)
-		}
+	for _, node := range sectionparse.Flatten(nodes) {
+		out = append(out, sec{
+			title:     node.Title,
+			nodeID:    node.ID,
+			level:     node.Level,
+			startLine: lineNumberAtByte(content, node.StartByte),
+			endLine:   lineNumberAtByte(content, node.EndByte),
+			startByte: node.StartByte,
+			endByte:   node.EndByte,
+		})
 	}
-	walk(nodes)
 	return out
 }
 

@@ -49,6 +49,18 @@ func TestVoyageRerankerSendsDocumentsAndMapsScoresByIndex(t *testing.T) {
 	}
 }
 
+func TestVoyageRerankerRejectsRepeatedIndex(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"data":[{"relevance_score":0.9,"index":0},{"relevance_score":0.5,"index":0}]}`)
+	}))
+	defer server.Close()
+
+	r := &VoyageReranker{APIKey: "secret", Endpoint: server.URL}
+	if _, err := r.Rerank(context.Background(), "q", []Document{{Text: "alpha"}, {Text: "beta"}}); err == nil {
+		t.Fatal("expected an error when one document is scored twice and another not at all")
+	}
+}
+
 func TestVoyageRerankerReportsErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)

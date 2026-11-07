@@ -171,46 +171,48 @@ func TestQueuedWriterBatchesSingleAndBatchCodeChunkSubmissions(t *testing.T) {
 	}
 }
 
-func TestQueuedWriterAllowsUrgentSemanticFlushWhileCodeIndexIsHot(t *testing.T) {
+func TestQueuedWriterUrgentSemanticFlushCommitsPendingCodeIndexFirst(t *testing.T) {
 	t.Parallel()
 
-	flushed := make(chan int, 1)
+	applied := make(chan string, 2)
 	q := newWithConfig(context.Background(), Handlers{
 		ApplyCodeIndexBatch: func(ctx context.Context, batch []codeanchor.CodeIndexWork) error {
+			applied <- "code"
 			return nil
 		},
 		ApplyCodeItemEmbeddingBatch: func(ctx context.Context, batch []codeindex.ItemEmbeddingUpsert) error {
-			flushed <- len(batch)
+			applied <- "embeddings"
 			return nil
 		},
 	}, config{
 		DefaultPolicy: flushPolicy{Rows: 1, Bytes: 1 << 20, Idle: 10 * time.Millisecond},
-		ItemEmbed:     flushPolicy{Rows: 1, Bytes: 1 << 20, Idle: 10 * time.Millisecond},
-		IntelEmbed:    flushPolicy{Rows: 100, Bytes: 1 << 20, Idle: time.Hour},
-		PollInterval:  10 * time.Millisecond,
-		CodePriority:  time.Hour,
-		DeferScale:    2,
+		// The code batch stays pending, as during a long ingest that refreshes
+		// its idle clock and has not reached the file threshold.
+		CodeIndex:    flushPolicy{Rows: 512, Bytes: 1 << 30, Idle: time.Hour},
+		ItemEmbed:    flushPolicy{Rows: 1, Bytes: 1 << 20, Idle: time.Hour},
+		IntelEmbed:   flushPolicy{Rows: 100, Bytes: 1 << 20, Idle: time.Hour},
+		PollInterval: time.Hour,
+		CodePriority: time.Hour,
+		DeferScale:   2,
 	})
 	t.Cleanup(func() { _ = q.Close() })
 
 	require.NoError(t, q.SubmitCodeIndexWork(context.Background(), codeanchor.CodeIndexWork{Path: "a.go"}))
-	require.NoError(t, q.SubmitCodeItemEmbedding(context.Background(), codeindex.ItemEmbeddingUpsert{
-		AnchorID:  codeindex.AnchorID("a"),
-		Hash:      "h1",
-		Embedding: embeddings.Embedding{1, 2, 3},
-	}))
-	require.NoError(t, q.SubmitCodeItemEmbedding(context.Background(), codeindex.ItemEmbeddingUpsert{
-		AnchorID:  codeindex.AnchorID("b"),
-		Hash:      "h2",
-		Embedding: embeddings.Embedding{4, 5, 6},
+	require.NoError(t, q.SubmitCodeItemEmbeddingBatch(context.Background(), []codeindex.ItemEmbeddingUpsert{
+		{AnchorID: codeindex.AnchorID("a"), Hash: "h1", Embedding: embeddings.Embedding{1, 2, 3}},
+		{AnchorID: codeindex.AnchorID("b"), Hash: "h2", Embedding: embeddings.Embedding{4, 5, 6}},
 	}))
 
-	select {
-	case n := <-flushed:
-		require.Equal(t, 2, n)
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("urgent semantic flush should bypass code-hot defer")
+	var order []string
+	for range 2 {
+		select {
+		case op := <-applied:
+			order = append(order, op)
+		case <-time.After(time.Second):
+			t.Fatalf("urgent semantic flush should not wait for the code threshold; applied %v", order)
+		}
 	}
+	require.Equal(t, []string{"code", "embeddings"}, order)
 }
 
 func TestQueuedWriterAllowsCodeSubmitWhenOtherLaneIsBackedUp(t *testing.T) {
@@ -335,4 +337,46 @@ func TestQueuedWriterPrefersCodeLaneWhileCodeIsQueued(t *testing.T) {
 
 	require.Equal(t, "code", <-order)
 	require.Equal(t, "other", <-order)
+}
+
+// An idle-timer flush must not commit embeddings ahead of pending chunk rows
+// they depend on, even when the chunk batch keeps receiving rows and is not
+// itself idle; UpsertEmbeddings skips vectors whose chunks are missing.
+func TestQueuedWriterIdleFlushCommitsPendingChunksBeforeEmbeddings(t *testing.T) {
+	t.Parallel()
+
+	applied := make(chan string, 2)
+	q := newWithConfig(context.Background(), Handlers{
+		ApplyIntelChunks: func(ctx context.Context, ownerIDs []string, chunks []codeanchor.IntelChunk) error {
+			applied <- "chunks"
+			return nil
+		},
+		ApplyIntelEmbeddings: func(ctx context.Context, rows map[string]embeddings.Embedding) error {
+			applied <- "embeddings"
+			return nil
+		},
+	}, config{
+		// Chunks never go idle on their own here; the embeddings do.
+		DefaultPolicy: flushPolicy{Rows: 1 << 20, Bytes: 1 << 30, Idle: time.Hour},
+		CodeIndex:     flushPolicy{Rows: 1 << 20, Bytes: 1 << 30, Idle: time.Hour},
+		ItemEmbed:     flushPolicy{Rows: 1 << 20, Bytes: 1 << 30, Idle: time.Hour},
+		IntelEmbed:    flushPolicy{Rows: 1 << 20, Bytes: 1 << 30, Idle: 10 * time.Millisecond},
+		PollInterval:  5 * time.Millisecond,
+		DeferScale:    2,
+	})
+	t.Cleanup(func() { _ = q.Close() })
+
+	require.NoError(t, q.SubmitIntelChunks(context.Background(), []string{"doc:a"}, []codeanchor.IntelChunk{{ChunkID: "c1", OwnerID: "doc:a", OwnerType: "doc_section"}}))
+	require.NoError(t, q.SubmitIntelEmbeddings(context.Background(), map[string]embeddings.Embedding{"c1": {1, 2, 3}}))
+
+	var order []string
+	for range 2 {
+		select {
+		case op := <-applied:
+			order = append(order, op)
+		case <-time.After(time.Second):
+			t.Fatalf("idle embeddings should flush with the pending chunks first; applied %v", order)
+		}
+	}
+	require.Equal(t, []string{"chunks", "embeddings"}, order)
 }

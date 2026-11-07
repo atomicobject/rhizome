@@ -29,7 +29,9 @@ import (
 )
 
 // WHY: custom view code is repository configuration, trusted like the repo's
-// build scripts (SPEC-0105 trust model). It is served same-origin so it can use
+// build scripts (SPEC-0105 trust model), so repository and module views run
+// only once the person has trusted the checkout with `rzm trust`; bundled views
+// ship with the binary and always run. View code is served same-origin so it can use
 // the whole public API with no bridge, and so the URL that the Notes rail frames
 // is also the standalone tool. The isolated viewer host stays for HTML notes,
 // whose content is not assumed trusted. Only files under .rhizome/views and
@@ -373,6 +375,14 @@ func (s *Server) serveCustomViewShell(w http.ResponseWriter, r *http.Request, id
 		http.Error(w, err.Error(), customViewLookupStatus(err, http.StatusNotFound))
 		return
 	}
+	if def.Origin != viewconfig.OriginBundled {
+		if reason := s.viewsUntrusted(); reason != "" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = fmt.Fprintf(w, untrustedViewPage, html.EscapeString(def.Name), html.EscapeString(reason))
+			return
+		}
+	}
 	entryURL := customViewEntryURL(s, def)
 	invocation, err := s.customViewInvocationForRequest(r, def)
 	if err != nil {
@@ -439,6 +449,24 @@ func (s *Server) serveCustomViewShell(w http.ResponseWriter, r *http.Request, id
 func escapeURLPath(rel string) string {
 	return (&url.URL{Path: rel}).EscapedPath()
 }
+
+// untrustedViewPage stands in for a repository view the person has not
+// trusted, in the Notes frame and as a standalone page.
+const untrustedViewPage = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>%s</title>
+<style>body{font:14px/1.5 system-ui,sans-serif;margin:2rem;max-width:40rem}code{font-size:13px}</style>
+</head>
+<body>
+<p>Trust this repository with <code>rzm trust</code> to run its views.</p>
+<p>%s</p>
+</body>
+</html>
+`
 
 // boot.js owns the import map, theme, and Tailwind compiler so an authored HTML
 // page gets the same environment from the same one script tag.

@@ -577,3 +577,48 @@ func TestRenderAgentHarnessDocKeepsCoreBlockPositionWhenTemplateBlocksArePreserv
 	require.Less(t, coreAt, templateAt)
 	require.Less(t, coreAt, preservedAt)
 }
+
+// A marker counts as a fence only on its own line, and a BEGIN with no END
+// stops init before it writes anything instead of dropping the text after it.
+func TestManagedFencesNeverTruncateUserProse(t *testing.T) {
+	begin := managedTemplateBlockStartPrefix + templateActionItems + managedTemplateBlockSuffix
+	cases := []struct {
+		name, existing, wantErr string
+	}{
+		{
+			name:     "missing END",
+			existing: "# Mine\n\n" + begin + "\nbody\n\n## My own notes\nkeep me\n",
+			wantErr:  `malformed managed block in AGENTS.md: "` + begin + `" on line 3 has no matching "<!-- END RZM INIT TEMPLATE BLOCK: action-items -->" line`,
+		},
+		{
+			name:     "missing core END",
+			existing: "# Mine\n\n" + managedRhizomeBlockStart + "\nold\n\n## My own notes\nkeep me\n",
+			wantErr:  `malformed managed block in AGENTS.md: "` + managedRhizomeBlockStart + `" on line 3`,
+		},
+		{
+			name:     "marker quoted mid-line",
+			existing: "# Mine\n\nWe use `" + begin + "` fences.\n\n## More prose\nkeep me\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeTestFile(t, root, "AGENTS.md", tc.existing)
+
+			_, err := syncGeneratedFiles(root, generatedInputs{
+				harnesses: AgentHarnesses{HasAgents: true, HasAgentSkills: true},
+				section:   "test guidance",
+				templates: []string{templateCore, templateActionItems},
+			}, failUI{t})
+
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.Equal(t, tc.existing, readTestFile(t, root, "AGENTS.md"))
+				require.NoFileExists(t, filepath.Join(root, ".agents", "skills", "rhizome", "SKILL.md"), "no other planned file is written")
+				return
+			}
+			require.NoError(t, err)
+			require.True(t, strings.HasPrefix(readTestFile(t, root, "AGENTS.md"), strings.TrimSpace(tc.existing)+"\n\n"), "the user's prose survives")
+		})
+	}
+}

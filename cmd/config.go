@@ -31,19 +31,17 @@ Used by setup tooling. Empty values clear the entry.`,
 			}
 			value := strings.TrimSpace(args[1])
 
-			cfg, err := repoconfig.LoadCliConfig(commandEnvFromContext(cmd.Context()).Config, true)
-			if err != nil {
-				return fmt.Errorf("load CLI config: %w", err)
-			}
-			if cfg.Env == nil {
-				cfg.Env = map[string]string{}
-			}
-			if value == "" {
-				delete(cfg.Env, key)
-			} else {
-				cfg.Env[key] = value
-			}
-			if err := repoconfig.SaveCliConfig(commandEnvFromContext(cmd.Context()).Config, cfg); err != nil {
+			if err := repoconfig.UpdateCliConfig(commandEnvFromContext(cmd.Context()).Config, func(cfg *repoconfig.CliConfig) error {
+				if cfg.Env == nil {
+					cfg.Env = map[string]string{}
+				}
+				if value == "" {
+					delete(cfg.Env, key)
+				} else {
+					cfg.Env[key] = value
+				}
+				return nil
+			}); err != nil {
 				return fmt.Errorf("save CLI config: %w", err)
 			}
 			if value == "" {

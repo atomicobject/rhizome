@@ -159,6 +159,7 @@ func (s *Service) IngestNoteSource(ctx context.Context, src NoteSource) (Note, e
 	if err != nil {
 		return Note{}, err
 	}
+	logLabelConflicts(upsertResult)
 
 	// Best-effort intel persistence (optional).
 	_ = s.updateIntelForMarkdownSource(ctx, relPath, content, noteMtime)
@@ -167,9 +168,11 @@ func (s *Service) IngestNoteSource(ctx context.Context, src NoteSource) (Note, e
 	if s.linker != nil {
 		_ = s.store.ReplaceDocLinksForPath(ctx, relPath, s.linker.LinksForNote(note))
 	}
+	// A note that lost a label keeps no index state, so the next index retries it.
+	recordState := !upsertResult.DroppedLabel(relPath)
 	if metaStore, ok := s.store.(interface {
 		UpsertNoteMetadataBatch(context.Context, map[string]NoteIndexMeta) error
-	}); ok {
+	}); ok && recordState {
 		_ = metaStore.UpsertNoteMetadataBatch(ctx, map[string]NoteIndexMeta{
 			relPath: {
 				ContentHash:    contentHash,
@@ -177,7 +180,7 @@ func (s *Service) IngestNoteSource(ctx context.Context, src NoteSource) (Note, e
 				Mtime:          noteMtime,
 			},
 		})
-	} else if metaWriter, ok := s.store.(noteMetaWriter); ok {
+	} else if metaWriter, ok := s.store.(noteMetaWriter); ok && recordState {
 		_ = metaWriter.UpsertNoteMeta(ctx, relPath, contentHash, NoteIndexerVersion, noteMtime)
 	}
 
@@ -449,4 +452,10 @@ func resolvePathPrefix(prefix string, vaultPaths paths.VaultPaths) (string, erro
 		return "", err
 	}
 	return rel.String(), nil
+}
+
+func logLabelConflicts(result AnchorUpsertResult) {
+	for _, conflict := range result.LabelConflicts {
+		log.Printf("codeanchor: %s", conflict.Warning())
+	}
 }

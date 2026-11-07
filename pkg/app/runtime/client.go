@@ -92,7 +92,9 @@ func Probe(ctx context.Context, manifest InstanceManifest) (Health, error) {
 }
 
 // LiveManifest returns a client for the vault's runtime when the manifest
-// exists and its probe confirms the same run id and PID. It never spawns.
+// exists and its probe confirms the same run id and PID, serving this vault. It
+// never spawns. A runtime serving another vault means the manifest was copied
+// with the repository; it is stale here, so the copy never drives the original.
 // ErrNoRuntime means "nothing usable is there" (missing manifest, nobody
 // listening, or another process answering); ErrRuntimeUnresponsive means the
 // manifest's PID is alive and its address accepts connections but health did
@@ -110,6 +112,9 @@ func LiveManifest(ctx context.Context, vaultPath string) (*Client, Health, error
 		// overwrites it, so callers may replace rather than wait forever.
 		return nil, Health{}, fmt.Errorf("%w: %v", ErrNoRuntime, err)
 	}
+	if manifest.VaultPath != "" && !sameVault(manifest.VaultPath, vaultPath) {
+		return nil, Health{}, ErrNoRuntime
+	}
 	health, err := Probe(ctx, manifest)
 	if err != nil {
 		if errors.Is(err, ErrRuntimeAccessDenied) {
@@ -118,6 +123,9 @@ func LiveManifest(ctx context.Context, vaultPath string) (*Client, Health, error
 		if errors.Is(err, ErrRuntimeUnresponsive) && pidExists(manifest.PID) {
 			return nil, Health{}, fmt.Errorf("%w (pid %d)", ErrRuntimeUnresponsive, manifest.PID)
 		}
+		return nil, Health{}, ErrNoRuntime
+	}
+	if !sameVault(health.VaultPath, vaultPath) {
 		return nil, Health{}, ErrNoRuntime
 	}
 	return &Client{Manifest: manifest, HTTP: &http.Client{Transport: loopbackTransport{}}}, health, nil
@@ -149,4 +157,18 @@ type EnsureResult struct {
 	Client  *Client
 	Health  Health
 	Spawned bool
+}
+
+// sameVault compares vault roots by canonical path, then by file identity so a
+// differently spelled path to the same directory still matches.
+func sameVault(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if InstanceID(a) == InstanceID(b) {
+		return true
+	}
+	aInfo, errA := os.Stat(a)
+	bInfo, errB := os.Stat(b)
+	return errA == nil && errB == nil && os.SameFile(aInfo, bInfo)
 }

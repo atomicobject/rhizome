@@ -17,7 +17,7 @@ import (
 func TestAgentStartChecksConnectedRuntime(t *testing.T) {
 	root := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(appruntime.Health{PID: os.Getpid(), RunID: "start-probe", Ready: true})
+		_ = json.NewEncoder(w).Encode(appruntime.Health{PID: os.Getpid(), RunID: "start-probe", VaultPath: root, Ready: true})
 	}))
 	defer server.Close()
 	require.NoError(t, appruntime.WriteManifest(root, appruntime.InstanceManifest{PID: os.Getpid(), RunID: "start-probe", HTTPURL: server.URL}))

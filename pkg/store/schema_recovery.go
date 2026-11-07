@@ -72,7 +72,7 @@ func (s *Store) ensureSchemaWithRecovery(ctx context.Context, schemaVersion int)
 	}
 
 	// Self-heal: drop and recreate code-intel/code-anchor tables, but intentionally preserve
-	// embeddings tables (so unchanged code chunks can keep their existing embeddings).
+	// embeddings tables and caches (so unchanged code chunks reuse their existing vectors).
 	if err := s.ResetDomain(ctx); err != nil {
 		return err
 	}

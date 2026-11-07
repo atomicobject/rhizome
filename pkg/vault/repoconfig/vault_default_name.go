@@ -69,13 +69,10 @@ func (v *Vault) SetDefaultName(nameOrPath string) error {
 		}
 	}
 
-	cliConfig, err := readCliConfig(v.Env, true)
-	if err != nil {
-		return err
-	}
-
-	cliConfig.DefaultVaultName = nameOrPath
-	if err := writeCliConfig(v.Env, cliConfig); err != nil {
+	if err := UpdateCliConfig(v.Env, func(cfg *CliConfig) error {
+		cfg.DefaultVaultName = nameOrPath
+		return nil
+	}); err != nil {
 		return err
 	}
 

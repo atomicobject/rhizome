@@ -30,9 +30,9 @@ func (r *fakeOnePasswordReader) Read(_ context.Context, account, reference strin
 
 func TestImportRejectsMappingsBeforeReadingOnePassword(t *testing.T) {
 	reader := &fakeOnePasswordReader{}
-	_, err := Import(context.Background(), reader, "example.1password.com", []string{"UNSUPPORTED_KEY=op://Private/item/credential"}, func(bool) (repoconfig.CliConfig, error) {
-		return repoconfig.CliConfig{}, nil
-	}, func(repoconfig.CliConfig) error { return nil })
+	_, err := Import(context.Background(), reader, "example.1password.com", []string{"UNSUPPORTED_KEY=op://Private/item/credential"}, func(mutate func(*repoconfig.CliConfig) error) error {
+		return mutate(&repoconfig.CliConfig{})
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported credential key")
 	require.Empty(t, reader.calls)
@@ -40,9 +40,9 @@ func TestImportRejectsMappingsBeforeReadingOnePassword(t *testing.T) {
 
 func TestImportRejectsInvalidReferencesBeforeReadingOnePassword(t *testing.T) {
 	reader := &fakeOnePasswordReader{}
-	_, err := Import(context.Background(), reader, "example.1password.com", []string{"VOYAGE_API_KEY=not-a-reference"}, func(bool) (repoconfig.CliConfig, error) {
-		return repoconfig.CliConfig{}, nil
-	}, func(repoconfig.CliConfig) error { return nil })
+	_, err := Import(context.Background(), reader, "example.1password.com", []string{"VOYAGE_API_KEY=not-a-reference"}, func(mutate func(*repoconfig.CliConfig) error) error {
+		return mutate(&repoconfig.CliConfig{})
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid 1Password reference")
 	require.Empty(t, reader.calls)
@@ -54,9 +54,9 @@ func TestImportAllowsQuotedOnePasswordReferencesWithSpaces(t *testing.T) {
 	}}
 	count, err := Import(context.Background(), reader, "example.1password.com", []string{
 		"VOYAGE_API_KEY=op://Private/ssh key/private key?ssh-format=openssh",
-	}, func(bool) (repoconfig.CliConfig, error) {
-		return repoconfig.CliConfig{}, nil
-	}, func(repoconfig.CliConfig) error { return nil })
+	}, func(mutate func(*repoconfig.CliConfig) error) error {
+		return mutate(&repoconfig.CliConfig{})
+	})
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 	require.Equal(t, []string{"example.1password.com:op://Private/ssh key/private key?ssh-format=openssh"}, reader.calls)
@@ -67,22 +67,17 @@ func TestImportReadsAllCredentialsBeforeSaving(t *testing.T) {
 		values: map[string]string{"op://Private/voyage/credential": "synthetic-voyage"},
 		errs:   map[string]error{"op://Private/typesafe/credential": errors.New("synthetic failure")},
 	}
-	saved := false
-	loaded := false
+	updated := false
 	_, err := Import(context.Background(), reader, "example.1password.com", []string{
 		"VOYAGE_API_KEY=op://Private/voyage/credential",
 		"TYPESAFE_API_KEY=op://Private/typesafe/credential",
-	}, func(bool) (repoconfig.CliConfig, error) {
-		loaded = true
-		return repoconfig.CliConfig{}, nil
-	}, func(repoconfig.CliConfig) error {
-		saved = true
+	}, func(func(*repoconfig.CliConfig) error) error {
+		updated = true
 		return nil
 	})
 	require.Error(t, err)
 	require.Len(t, reader.calls, 2)
-	require.False(t, loaded)
-	require.False(t, saved)
+	require.False(t, updated)
 }
 
 func TestImportPersistsMappingsPreservesConfigAndClearsSkips(t *testing.T) {
@@ -105,7 +100,7 @@ func TestImportPersistsMappingsPreservesConfigAndClearsSkips(t *testing.T) {
 	count, err := Import(vaultconfig.WithEnv(context.Background(), env), reader, "example.1password.com", []string{
 		"VOYAGE_API_KEY=op://Private/voyage/credential",
 		"TYPESAFE_API_KEY=op://Private/typesafe/credential",
-	}, func(missing bool) (repoconfig.CliConfig, error) { return repoconfig.LoadCliConfig(env, missing) }, func(cfg repoconfig.CliConfig) error { return repoconfig.SaveCliConfig(env, cfg) })
+	}, func(mutate func(*repoconfig.CliConfig) error) error { return repoconfig.UpdateCliConfig(env, mutate) })
 	require.NoError(t, err)
 	require.Equal(t, 2, count)
 

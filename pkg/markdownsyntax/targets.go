@@ -89,10 +89,10 @@ func EnumerateMarkdownTargets(content string) []MarkdownTarget {
 
 		blockID, blockStart, blockEnd, hasBlock := trailingMarkdownBlockID(line.text, masked)
 
-		if level, text, ok := atxMarkdownHeading(line.text); ok {
+		if level, text, ok := ATXHeading(line.text); ok {
 			if hasBlock {
 				text = strings.TrimSpace(line.text[:blockStart])
-				_, text, ok = atxMarkdownHeading(text)
+				_, text, ok = ATXHeading(text)
 			}
 			if ok && text != "" {
 				appendTarget(MarkdownTarget{
@@ -248,7 +248,11 @@ func markdownThematicBreak(line string) bool {
 	return count >= 3
 }
 
-func atxMarkdownHeading(line string) (int, string, bool) {
+// ATXHeading reports the level and text of a CommonMark ATX heading line: at
+// most three spaces of indent, one to six '#', then a space, a tab, or the end
+// of the line, with an optional closing '#' sequence. Empty headings report
+// false. Every Markdown heading parser in Rhizome uses this one rule.
+func ATXHeading(line string) (int, string, bool) {
 	indent := 0
 	for indent < len(line) && line[indent] == ' ' {
 		indent++
@@ -261,16 +265,12 @@ func atxMarkdownHeading(line string) (int, string, bool) {
 		level++
 	}
 	markerEnd := indent + level
-	if level < 1 || level > 6 || markerEnd >= len(line) || (line[markerEnd] != ' ' && line[markerEnd] != '\t') {
+	if level > 6 || (markerEnd < len(line) && line[markerEnd] != ' ' && line[markerEnd] != '\t') {
 		return 0, "", false
 	}
 	text := strings.TrimSpace(line[markerEnd:])
-	closingStart := len(text)
-	for closingStart > 0 && text[closingStart-1] == '#' {
-		closingStart--
-	}
-	if closingStart < len(text) && closingStart > 0 && (text[closingStart-1] == ' ' || text[closingStart-1] == '\t') {
-		text = strings.TrimSpace(text[:closingStart])
+	if open := strings.TrimRight(text, "#"); open == "" || open[len(open)-1] == ' ' || open[len(open)-1] == '\t' {
+		text = strings.TrimSpace(open)
 	}
 	if text == "" {
 		return 0, "", false

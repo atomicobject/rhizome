@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"path"
 	"strings"
@@ -44,7 +45,9 @@ func applicationHostDenied(r *http.Request, configuredApplicationOrigin string) 
 		return true
 	}
 	if isLoopbackHostname(requestHostname(host)) {
-		return false
+		// Host is the client's claim. With a non-loopback listener a LAN peer
+		// can send Host: localhost, so only a loopback peer earns this pass.
+		return !loopbackPeer(r)
 	}
 	if configuredApplicationOrigin == "" {
 		return true
@@ -55,6 +58,12 @@ func applicationHostDenied(r *http.Request, configuredApplicationOrigin string) 
 	}
 	requestOrigin := &url.URL{Scheme: configured.Scheme, Host: host}
 	return !sameWebOrigin(requestOrigin, configured)
+}
+
+// loopbackPeer reports whether the request's connection comes from this machine.
+func loopbackPeer(r *http.Request) bool {
+	peer, err := netip.ParseAddrPort(r.RemoteAddr)
+	return err == nil && peer.Addr().Unmap().IsLoopback()
 }
 
 func browserMutationOriginDenied(r *http.Request, configuredApplicationOrigin string) bool {

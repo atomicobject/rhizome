@@ -37,7 +37,7 @@ func TestOpenAIProviderRetries403AndSucceeds(t *testing.T) {
 				}, nil
 			}
 
-			body := `{"data":[{"embedding":[1,2,3]}]}`
+			body := `{"data":[{"index":0,"embedding":[1,2,3]}]}`
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -114,6 +114,35 @@ func TestOpenAIProviderBoundsRetryableHTTPStatuses(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), fmt.Sprintf("http status %d", status))
 			require.Equal(t, int32(3), atomic.LoadInt32(&calls))
+		})
+	}
+}
+
+func TestOpenAIProviderPlacesVectorsByResponseIndex(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body string
+		want []Embedding
+	}{
+		"reversed rows": {body: `{"data":[{"index":1,"embedding":[2]},{"index":0,"embedding":[1]}]}`, want: []Embedding{{1}, {2}}},
+		"missing index": {body: `{"data":[{"embedding":[1]},{"index":1,"embedding":[2]}]}`},
+		"duplicate":     {body: `{"data":[{"index":0,"embedding":[1]},{"index":0,"embedding":[2]}]}`},
+		"out of range":  {body: `{"data":[{"index":0,"embedding":[1]},{"index":2,"embedding":[2]}]}`},
+		"empty vector":  {body: `{"data":[{"index":0,"embedding":[1]},{"index":1,"embedding":[]}]}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			provider, err := NewOpenAIProvider(ProviderConfig{APIKey: "test-key", Model: "model", Endpoint: "http://example.invalid/v1/embeddings", MaxConcurrency: 1})
+			require.NoError(t, err)
+			p := provider.(*openAIProvider)
+			p.httpClient = &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
+			})}
+			vecs, err := p.EmbedTexts(context.Background(), []string{"a", "b"})
+			if tc.want == nil {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, vecs)
 		})
 	}
 }

@@ -637,14 +637,14 @@ func (s *Service) ApplyNoteIndexBatch(ctx context.Context, works []NoteIndexWork
 			if err != nil {
 				return err
 			}
-			// Aggregate results.
 			upsertResult.NewIDs = append(upsertResult.NewIDs, res.NewIDs...)
 			upsertResult.ChangedIDs = append(upsertResult.ChangedIDs, res.ChangedIDs...)
 			upsertResult.UnchangedIDs = append(upsertResult.UnchangedIDs, res.UnchangedIDs...)
 			upsertResult.DeletedIDs = append(upsertResult.DeletedIDs, res.DeletedIDs...)
+			upsertResult.LabelConflicts = append(upsertResult.LabelConflicts, res.LabelConflicts...)
 		}
 	}
-
+	logLabelConflicts(upsertResult)
 	// Mark only new/changed anchors dirty for scope recomputation.
 	s.markAnchorsDirty(upsertResult.NeedsScopeRecompute())
 
@@ -703,7 +703,7 @@ func (s *Service) ApplyNoteIndexBatch(ctx context.Context, works []NoteIndexWork
 		if indexerVersion == "" {
 			indexerVersion = NoteIndexerVersion
 		}
-		if strings.TrimSpace(work.ContentHash) == "" {
+		if strings.TrimSpace(work.ContentHash) == "" || upsertResult.DroppedLabel(work.Path) {
 			continue
 		}
 		noteMeta[work.Path] = NoteIndexMeta{

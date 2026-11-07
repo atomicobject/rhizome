@@ -180,6 +180,13 @@ def run():
 	}, []SymbolRef{summary.Calls[0].CalleeSymbol, summary.Calls[1].CalleeSymbol})
 }
 
+func TestPythonIndexer_SourceRootMatchesWholeSegment(t *testing.T) {
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
+	summary, err := idx.IndexFile([]byte("def run():\n    pass\n"), relCodeRef("tools/mysrc/pkg/mod.py"))
+	require.NoError(t, err)
+	require.Equal(t, "tools.mysrc.pkg.mod.run", summary.Symbols[0].FQN)
+}
+
 func TestPythonIndexer_AbsolutePathUsesSourceRoot(t *testing.T) {
 	code := []byte(`
 def add_task():

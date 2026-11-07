@@ -2,6 +2,7 @@ package obsidian
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -127,6 +128,7 @@ func editFrontmatter(content string, ensureFrontmatter bool, mutator func(map[st
 		fm = make(map[string]interface{})
 	}
 
+	original := maps.Clone(fm)
 	changed, err := mutator(fm)
 	if err != nil {
 		return content, false, err
@@ -136,7 +138,7 @@ func editFrontmatter(content string, ensureFrontmatter bool, mutator func(map[st
 	}
 
 	if hasFrontmatter {
-		rebuilt, ok := rebuildContentWithFrontmatter(content, fm)
+		rebuilt, ok := spliceFrontmatter(content, original, fm)
 		return rebuilt, ok, nil
 	}
 

@@ -390,3 +390,59 @@ func TestApplyCodeIndexBatch_PersistsImportOnlyExternalEvidence(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, rows)
 }
+
+// A note dropped against an interim label holder, or displaced from a label
+// it held, is retried by the next index, so it regains the label once the note
+// that finally keeps it agrees with it.
+func TestApplyNoteIndexBatchRetriesNoteThatLostALabel(t *testing.T) {
+	t.Parallel()
+
+	// c.md agrees with a.md; b.md names another symbol with the same label.
+	for name, order := range map[string][]string{
+		"c loses to b, then a takes over":  {"b.md", "c.md", "a.md"},
+		"b displaces c, then a takes over": {"c.md", "b.md", "a.md"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			root := t.TempDir()
+			store, err := semdb.Open(currentSchemaAnchorTestDBPath(t, filepath.Join(root, "label-retry.db")))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = store.Close() })
+			svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
+			pkgs := map[string]string{"a.md": "example.com/a", "b.md": "example.com/b", "c.md": "example.com/a"}
+
+			apply := func(name string) {
+				content := "---\ncode-anchors:\n  go:\n    - symbol: " + pkgs[name] + ".Run\n---\n"
+				notePath := filepath.Join(root, name)
+				require.NoError(t, os.WriteFile(notePath, []byte(content), 0o644))
+				hash := fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+				work, err := svc.BuildNoteIndexWorkFromSource(ctx, testNoteSource{path: notePath, content: content, hash: hash, mtime: 1})
+				require.NoError(t, err)
+				work.ContentHash, work.Mtime = hash, 1
+				require.NoError(t, svc.ApplyNoteIndexBatch(ctx, []codeanchor.NoteIndexWork{*work}))
+			}
+			for _, name := range order {
+				apply(name)
+			}
+
+			meta, err := store.IntelNoteIndexMeta(ctx)
+			require.NoError(t, err)
+			require.NotEqual(t, codeanchor.NoteIndexerVersion, meta["c.md"].IndexerVersion, "the next index must retry c.md")
+			require.Equal(t, codeanchor.NoteIndexerVersion, meta["a.md"].IndexerVersion)
+
+			apply("c.md") // the next index retries c.md
+			anchors, err := store.Anchors(ctx)
+			require.NoError(t, err)
+			var run codeanchor.Anchor
+			for _, anchor := range anchors {
+				if anchor.Label == "Run" {
+					run = anchor
+				}
+			}
+			require.Equal(t, "example.com/a", run.BaseSym.Pkg)
+			owners, err := store.NotePathsByAnchorIDs(ctx, []int64{run.ID})
+			require.NoError(t, err)
+			require.Equal(t, []string{"a.md", "c.md"}, owners[run.ID])
+		})
+	}
+}

@@ -2,7 +2,11 @@ package codeanchor
 
 // Docs: [Code anchors (Hub)](docs/hubs/Code anchors (Hub).md)
 
-import "strings"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 // Lang represents a programming language identifier.
 type Lang string
@@ -182,6 +186,35 @@ type AnchorUpsertResult struct {
 	ChangedIDs   []int64 // Anchors whose scope-defining fields changed
 	UnchangedIDs []int64 // Anchors that exist with identical scope
 	DeletedIDs   []int64 // Anchors removed (not in keepLabels)
+	// LabelConflicts lists labels that notes define with different selectors.
+	LabelConflicts []AnchorLabelConflict
+}
+
+// AnchorLabelConflict reports an anchor label that several notes define with
+// different selectors. Labels are vault-global, so only one note keeps it.
+type AnchorLabelConflict struct {
+	Label   string
+	Kept    string   // note path that keeps the label
+	Dropped []string // note paths whose anchor with this label was dropped
+}
+
+// Warning describes the conflict and how to resolve it.
+func (c AnchorLabelConflict) Warning() string {
+	return fmt.Sprintf("code anchor label %q is defined with different selectors by %s and %s; %s keeps it. Give each anchor a distinct label (the default label is the bare symbol name).",
+		c.Label, c.Kept, strings.Join(c.Dropped, ", "), c.Kept)
+}
+
+// DroppedLabel reports whether notePath lost an anchor label to another note.
+// Ingest leaves such a note's index state unrecorded, so the next index
+// retries it: a note dropped against an interim holder regains the label once
+// the note that finally keeps it agrees with its selector.
+func (r AnchorUpsertResult) DroppedLabel(notePath string) bool {
+	for _, conflict := range r.LabelConflicts {
+		if slices.Contains(conflict.Dropped, notePath) {
+			return true
+		}
+	}
+	return false
 }
 
 // NeedsScopeRecompute returns the anchor IDs that need scope recomputation (new + changed).

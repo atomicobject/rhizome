@@ -219,22 +219,25 @@ func importEnvironment(ctx context.Context, reader OnePasswordCLI, source repoco
 	if err != nil {
 		return 0, err
 	}
-	cfg, err := repoconfig.LoadCliConfig(vaultconfig.FromContext(ctx), true)
-	if err != nil {
-		return 0, fmt.Errorf("cannot load user configuration; repair it before importing")
-	}
-	if cfg.Env == nil {
-		cfg.Env = map[string]string{}
-	}
-	for key, value := range values {
-		cfg.Env[key] = value
-		delete(cfg.CredentialSkips, key)
-	}
-	cfg.CredentialSource = &source
 	if err := ctx.Err(); err != nil {
 		return 0, fmt.Errorf("1Password import was canceled or timed out; try again")
 	}
-	if err := repoconfig.SaveCliConfig(vaultconfig.FromContext(ctx), cfg); err != nil {
+	loaded := false
+	if err := repoconfig.UpdateCliConfig(vaultconfig.FromContext(ctx), func(cfg *repoconfig.CliConfig) error {
+		loaded = true
+		if cfg.Env == nil {
+			cfg.Env = map[string]string{}
+		}
+		for key, value := range values {
+			cfg.Env[key] = value
+			delete(cfg.CredentialSkips, key)
+		}
+		cfg.CredentialSource = &source
+		return nil
+	}); err != nil {
+		if !loaded {
+			return 0, fmt.Errorf("cannot load user configuration; repair it before importing")
+		}
 		return 0, fmt.Errorf("cannot save private user configuration; check file permissions and try again")
 	}
 	return len(values), nil

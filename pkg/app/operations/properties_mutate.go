@@ -65,7 +65,7 @@ func processSetProperty(vaultPaths paths.VaultPaths, property string, value inte
 		}
 
 		if !dryRun {
-			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, string(data), newContent); err != nil {
 				return fileMutation{err: err}
 			}
 		}
@@ -115,7 +115,7 @@ func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, d
 		}
 
 		if !dryRun {
-			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, string(data), newContent); err != nil {
 				return fileMutation{err: err}
 			}
 		}
@@ -176,7 +176,7 @@ func processRenameProperties(vaultPaths paths.VaultPaths, from []string, to stri
 		}
 
 		if !dryRun {
-			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, string(data), newContent); err != nil {
 				return fileMutation{err: err}
 			}
 		}
@@ -219,6 +219,9 @@ func SetPropertyOnFilesWithWorkers(ctx context.Context, vault repoconfig.VaultMa
 	if err != nil {
 		return PropertyMutationSummary{}, err
 	}
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), files, processSetProperty(vaultPaths, property, value, overwrite, true), workerCount); err != nil {
 		return PropertyMutationSummary{}, err
 	}
@@ -253,6 +256,9 @@ func DeletePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processDeleteProperties(vaultPaths, properties, true), workerCount); err != nil {
 		return PropertyMutationSummary{}, err
 	}
@@ -290,6 +296,9 @@ func RenamePropertiesWithWorkers(ctx context.Context, vault repoconfig.VaultMana
 		}
 	}
 
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return PropertyMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), targetFiles, processRenameProperties(vaultPaths, from, to, merge, true), workerCount); err != nil {
 		return PropertyMutationSummary{}, err
 	}

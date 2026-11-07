@@ -143,11 +143,12 @@ func TestOpenAIProviderRespectsBatchCap(t *testing.T) {
 			require.NoError(t, json.Unmarshal(bodyBytes, &payload))
 
 			type item struct {
+				Index     int       `json:"index"`
 				Embedding []float32 `json:"embedding"`
 			}
 			data := make([]item, len(payload.Input))
 			for i := range data {
-				data[i] = item{Embedding: []float32{1, 2, 3}}
+				data[i] = item{Index: i, Embedding: []float32{1, 2, 3}}
 			}
 			respBody, err := json.Marshal(map[string]any{"data": data})
 			require.NoError(t, err)
@@ -205,11 +206,12 @@ func TestOpenAIProviderAdaptiveBatchFromHeaders(t *testing.T) {
 			batches = append(batches, len(payload.Input))
 
 			type item struct {
+				Index     int       `json:"index"`
 				Embedding []float32 `json:"embedding"`
 			}
 			data := make([]item, len(payload.Input))
 			for i := range data {
-				data[i] = item{Embedding: []float32{1, 2, 3}}
+				data[i] = item{Index: i, Embedding: []float32{1, 2, 3}}
 			}
 			respBody, err := json.Marshal(map[string]any{"data": data})
 			require.NoError(t, err)
@@ -275,11 +277,12 @@ func TestOpenAIProviderIgnoresLimiterWithoutHeaders(t *testing.T) {
 			batches = append(batches, len(payload.Input))
 
 			type item struct {
+				Index     int       `json:"index"`
 				Embedding []float32 `json:"embedding"`
 			}
 			data := make([]item, len(payload.Input))
 			for i := range data {
-				data[i] = item{Embedding: []float32{1, 2, 3}}
+				data[i] = item{Index: i, Embedding: []float32{1, 2, 3}}
 			}
 			respBody, err := json.Marshal(map[string]any{"data": data})
 			require.NoError(t, err)

@@ -131,6 +131,9 @@ func AddTagsToFilesWithWorkers(ctx context.Context, vault repoconfig.VaultManage
 		return TagMutationSummary{}, err
 	}
 
+	if err := refuseOwnedInputs(vaultPaths, files); err != nil {
+		return TagMutationSummary{}, err
+	}
 	if err := admitFileMutations(ctx, vaultPaths.Root(), files, processAddFile(vaultPaths, tagsToAdd, true), workers); err != nil {
 		return TagMutationSummary{}, err
 	}

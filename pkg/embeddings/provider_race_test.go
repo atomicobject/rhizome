@@ -29,7 +29,7 @@ func TestOpenAIProviderDimensionsRace(t *testing.T) {
 	p := provider.(*openAIProvider)
 	p.httpClient = &http.Client{
 		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			body := `{"data":[{"embedding":[1,2,3]}]}`
+			body := `{"data":[{"index":0,"embedding":[1,2,3]}]}`
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},

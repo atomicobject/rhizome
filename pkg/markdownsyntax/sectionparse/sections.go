@@ -50,7 +50,6 @@ func Parse(notePath, content string) []*Node {
 		if lineOffsets[i] < bodyStart || leadingSpaces > 3 || protected(lineOffsets[i]+leadingSpaces) {
 			continue
 		}
-		left := strings.TrimLeft(line, " ")
 		if len(active) > 0 {
 			identifierLine := trim
 			listItem := false
@@ -83,15 +82,8 @@ func Parse(notePath, content string) []*Node {
 				}
 			}
 		}
-		if !strings.HasPrefix(left, "#") {
-			continue
-		}
-		hashes := 0
-		for hashes < len(left) && left[hashes] == '#' {
-			hashes++
-		}
-		title := normalizeATXHeadingText(left[hashes:])
-		if title == "" || hashes < 1 || hashes > 6 {
+		hashes, title, ok := markdownsyntax.ATXHeading(line)
+		if !ok {
 			continue
 		}
 		headingBlockID := ""
@@ -177,6 +169,19 @@ func sectionListItemContent(line string) (string, bool) {
 	return strings.TrimSpace(line[index+2:]), true
 }
 
+// Flatten returns parsed sections in pre-order, the order intel doc sections
+// persist and search display reads by chunk index.
+func Flatten(nodes []*Node) []*Node {
+	var out []*Node
+	for _, node := range nodes {
+		if node != nil {
+			out = append(out, node)
+			out = append(out, Flatten(node.Children)...)
+		}
+	}
+	return out
+}
+
 // UnwrapSingleH1Root returns children of a lone H1 wrapper when present.
 func UnwrapSingleH1Root(nodes []*Node) []*Node {
 	if len(nodes) != 1 {
@@ -198,24 +203,6 @@ func CountLeadingSpaces(s string) int {
 		count++
 	}
 	return count
-}
-
-func normalizeATXHeadingText(raw string) string {
-	title := strings.TrimSpace(raw)
-	if title == "" {
-		return ""
-	}
-	end := len(title)
-	for end > 0 && title[end-1] == '#' {
-		end--
-	}
-	if end < len(title) {
-		trimmed := strings.TrimRight(title[:end], " \t")
-		if trimmed == "" || len(trimmed) != len(title[:end]) {
-			title = trimmed
-		}
-	}
-	return strings.TrimSpace(title)
 }
 
 func ProseBlockIDCandidate(trimmed string) (string, bool, bool) {

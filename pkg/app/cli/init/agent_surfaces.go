@@ -95,7 +95,10 @@ func planAgentSurfaces(projectRoot string, harnesses AgentHarnesses, section str
 	if !harnesses.AgentsMdDisabled {
 		plan.docs = append(plan.docs, generatedDoc{rel: "AGENTS.md", header: "# Repository Guidelines", blocks: blocks, preserve: preserved})
 	}
-	if harnesses.HasClaude {
+	// WHY: a CLAUDE.md linked to AGENTS.md is one file. Planning it twice lets
+	// the second write replace a block the AGENTS.md decision kept.
+	claudeIsAgentsMd := !harnesses.AgentsMdDisabled && sameFile(filepath.Join(projectRoot, "AGENTS.md"), filepath.Join(projectRoot, "CLAUDE.md"))
+	if harnesses.HasClaude && !claudeIsAgentsMd {
 		claudeBlocks := blocks
 		// WHY: Claude Code inlines an `@AGENTS.md` include, so a full managed
 		// block in both files puts the same guidance in context twice per turn.

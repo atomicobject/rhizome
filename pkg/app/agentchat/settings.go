@@ -37,20 +37,19 @@ func LoadSettings(env vaultconfig.Env) (Settings, error) {
 
 func SaveSettings(env vaultconfig.Env, settings Settings) (Settings, error) {
 	settings = normalizeSettings(settings)
-	cfg, err := repoconfig.LoadCliConfig(env, true)
-	if err != nil {
-		return Settings{}, err
-	}
-	cfg.Agent = &repoconfig.AgentUserConfig{
+	agent := &repoconfig.AgentUserConfig{
 		Harness:   string(settings.Harness),
 		Harnesses: make(map[string]repoconfig.AgentHarnessConfig, len(settings.Harnesses)),
 	}
 	for kind, value := range settings.Harnesses {
-		cfg.Agent.Harnesses[string(kind)] = repoconfig.AgentHarnessConfig{
+		agent.Harnesses[string(kind)] = repoconfig.AgentHarnessConfig{
 			Model: value.Model, Effort: value.Effort, PermissionMode: string(value.PermissionMode),
 		}
 	}
-	if err := repoconfig.SaveCliConfig(env, cfg); err != nil {
+	if err := repoconfig.UpdateCliConfig(env, func(cfg *repoconfig.CliConfig) error {
+		cfg.Agent = agent
+		return nil
+	}); err != nil {
 		return Settings{}, err
 	}
 	return settings, nil

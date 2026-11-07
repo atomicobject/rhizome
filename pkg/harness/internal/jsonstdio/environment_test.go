@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,11 +36,32 @@ func TestSessionEnvironmentDoesNotLeak(t *testing.T) {
 	}
 }
 
+func TestSessionEnvironmentDropsRepoDelegationBypass(t *testing.T) {
+	t.Setenv("RZM_SKIP_REPO_DELEGATE", "1")
+	t.Setenv("RZM_REPO_DELEGATED", "1")
+	binary, err := os.Executable()
+	require.NoError(t, err)
+	child, err := Start[map[string]string](context.Background(), "fixture", binary, []string{"-test.run=^TestJSONStdioEnvironmentHelper$", "--", "environment-helper"}, t.TempDir())
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	value, err := child.Recv(ctx)
+	require.NoError(t, err)
+	require.NoError(t, child.Close(ctx))
+	require.Equal(t, "false", value["skip"], "RZM_SKIP_REPO_DELEGATE reached the harness child")
+	require.Equal(t, "false", value["delegated"], "RZM_REPO_DELEGATED reached the harness child")
+}
+
 func TestJSONStdioEnvironmentHelper(t *testing.T) {
 	if !slices.Contains(os.Args, "environment-helper") {
 		return
 	}
-	data, _ := json.Marshal(map[string]string{"inherited": os.Getenv("RZM_SYNTHETIC_INHERITED"), "override": os.Getenv("RZM_SYNTHETIC_OVERRIDE")})
+	_, skip := os.LookupEnv("RZM_SKIP_REPO_DELEGATE")
+	_, delegated := os.LookupEnv("RZM_REPO_DELEGATED")
+	data, _ := json.Marshal(map[string]string{
+		"inherited": os.Getenv("RZM_SYNTHETIC_INHERITED"), "override": os.Getenv("RZM_SYNTHETIC_OVERRIDE"),
+		"skip": strconv.FormatBool(skip), "delegated": strconv.FormatBool(delegated),
+	})
 	fmt.Println(string(data))
 	os.Exit(0)
 }

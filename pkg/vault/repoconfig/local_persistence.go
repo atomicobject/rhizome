@@ -52,15 +52,16 @@ func SaveLocalConfig(dir string, cfg LocalConfig) error {
 	if err := os.MkdirAll(rhizomeDir(dir), 0o755); err != nil {
 		return err
 	}
-	if cfg.sourceYAML == nil {
-		if data, err := fileio.ReadFile(rhizomeConfigPath(dir)); err == nil {
-			cfg.sourceYAML, err = parseYAMLDocument(data)
-			if err != nil {
-				return err
-			}
-		} else if !errors.Is(err, os.ErrNotExist) {
+	// Merge into the file as it is now, not as it was at load, so fields
+	// authored after load survive the save.
+	cfg.sourceYAML = nil
+	if data, err := fileio.ReadFile(rhizomeConfigPath(dir)); err == nil {
+		cfg.sourceYAML, err = parseYAMLDocument(data)
+		if err != nil {
 			return err
 		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	workflow := workflowConfigFromLocalConfig(cfg)
 	cfg.WorkflowTemplates = nil
@@ -170,15 +171,15 @@ func LoadLocalConfigForWorkflowMigration(dir string) (*LocalConfig, bool, error)
 // the workflow state is empty.
 func SaveLocalWorkflowConfig(dir string, cfg LocalWorkflowConfig) error {
 	path := localWorkflowPath(dir)
-	if cfg.sourceYAML == nil {
-		if data, err := fileio.ReadFile(path); err == nil {
-			cfg.sourceYAML, err = parseYAMLDocument(data)
-			if err != nil {
-				return err
-			}
-		} else if !errors.Is(err, os.ErrNotExist) {
+	// Merge into the current file, as SaveLocalConfig does.
+	cfg.sourceYAML = nil
+	if data, err := fileio.ReadFile(path); err == nil {
+		cfg.sourceYAML, err = parseYAMLDocument(data)
+		if err != nil {
 			return err
 		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	if isEmptyLocalWorkflowConfig(cfg) && cfg.sourceYAML == nil {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
