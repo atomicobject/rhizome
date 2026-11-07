@@ -1,9 +1,8 @@
 /** Product-model records for the Knowledge views (SPEC-0133 R7). Pure and kit-free so
  * `node --test` can import it. Relationships come from native edges; this module only
  * attributes them back to the authored values that declared them. */
-import { dateNumber } from "./knowledge.ts";
-import type { Assertion } from "./knowledge.ts";
-import type { Ref } from "./refs.ts";
+import { dateNumber, refKey } from "./knowledge.ts";
+import type { Assertion, Ref } from "./knowledge.ts";
 
 /** A native RECORD source value (`workspace.source.value`), in authored order. */
 export type SourceValue = {
@@ -19,6 +18,8 @@ export const CODE_FIELD = "implements";
 
 /** One `@references` declaration from the type documentation, keyed by authored path. */
 export type ReferenceSpec = {
+  /** The GraphQL field name, which keys `workspace.fields[].links`. */
+  name: string;
   path: string;
   to: string[];
   values: string;
@@ -45,7 +46,7 @@ export function typeSpec(response: unknown, name: string): TypeSpec {
       const ref = f.annotations?.references;
       const path = f.annotations?.field?.path ?? f.sourcePath;
       return ref && typeof path === "string"
-        ? [{ path, to: ref.to ?? [], values: ref.values ?? "ELEMENTS", edge: ref.edge }]
+        ? [{ name: f.name, path, to: ref.to ?? [], values: ref.values ?? "ELEMENTS", edge: ref.edge }]
         : [];
     }),
   };
@@ -193,21 +194,30 @@ export type Neighbor = {
   aoValue?: string | null;
   value?: SourceValue | null;
 };
+/** One authored value of a reference field, as `workspace.fields[].links` resolves it. */
+export type FieldLink = {
+  value: string;
+  resolved: boolean;
+  title?: string | null;
+  ref?: Ref | null;
+};
 export type Atom = {
   text: string;
-  target?: Neighbor;
-  /** Why an authored reference value links nowhere. */
-  state?: "unresolved" | "ambiguous" | "wildcard" | "no edge" | "not read";
+  target?: { key: string; ref: Ref; title: string };
+  /** Why an authored reference value links nowhere, or that its link is not a relationship. */
+  state?: "unresolved" | "wildcard" | "no edge";
 };
 export type FieldRow = { key: string; value: SourceValue; spec?: ReferenceSpec; atoms?: Atom[] };
 
 /** Authored fields in order, except identity, the title the header shows, and code paths.
- * A reference field's values link to the native edge target with that key; other values
- * stay as authored, with the reason they link nowhere. */
+ * A reference field's values link to the targets its workspace field links resolved;
+ * other values stay as authored, with the reason they link nowhere. `titles` overrides a
+ * link's title by key, so a claim reads as it does elsewhere in the workspace. */
 export function fieldRows(
   value: SourceValue | null | undefined,
   spec: TypeSpec | undefined,
-  neighbors: Neighbor[],
+  links: Record<string, FieldLink[]>,
+  titles: Map<string, string> = new Map(),
 ): FieldRow[] {
   const all = entries(value);
   const title = spec?.titleFields.find((f) =>
@@ -226,13 +236,11 @@ export function fieldRows(
         key: e.key,
         value: e.value,
         spec: ref,
-        atoms: scalars(e.value).map((text): Atom => {
-          if (text === "*") return { text, state: "wildcard" };
-          if (!ref.edge) return { text, state: "no edge" };
-          const hits = neighbors.filter((n) => n.relation === ref.edge?.name && n.aoValue === text);
-          return hits.length === 1
-            ? { text, target: hits[0] }
-            : { text, state: hits.length ? "ambiguous" : "unresolved" };
+        atoms: (links[ref.name] ?? []).map(({ value: text, resolved, title, ref: to }): Atom => {
+          if (!resolved || !to) return { text, state: text === "*" ? "wildcard" : "unresolved" };
+          const key = refKey(to);
+          const target = { key, ref: to, title: titles.get(key) ?? title ?? key };
+          return ref.edge ? { text, target } : { text, target, state: "no edge" };
         }),
       };
     });

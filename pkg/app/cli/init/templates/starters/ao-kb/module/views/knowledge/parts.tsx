@@ -14,11 +14,10 @@ import {
   openView,
 } from "@rhizome/kit";
 import { Button, Input } from "@rhizome/ui";
-import { badges, name } from "./lib/knowledge.ts";
+import { badges, name, refKey } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge, RecordLink } from "./lib/knowledge.ts";
 import type { Edge } from "./lib/relations.ts";
 import { useKnowledge } from "./data.tsx";
-import { refKey } from "./lib/refs.ts";
 import "./knowledge.css";
 
 export const today = () => new Date().toLocaleDateString("en-CA");

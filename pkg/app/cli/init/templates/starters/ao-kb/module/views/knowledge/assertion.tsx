@@ -1,5 +1,5 @@
 import { embedded, Section, sectionStatus, useViewContext } from "@rhizome/kit";
-import { claimText, dateNumber, relationships } from "./lib/knowledge.ts";
+import { POSITIONAL, claimText, dateNumber, isPositional, relationships } from "./lib/knowledge.ts";
 import { collapseContradictions } from "./lib/relations.ts";
 import { ClaimProse } from "./prose.tsx";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
@@ -168,7 +168,7 @@ function CitedBy({
   const ready = !!bindings.data?.ready;
   const model = useModelCiters(a.path, ready);
   const records = model.data?.records ?? [];
-  const count = rows.length + records.length + (model.data?.positional ?? 0);
+  const count = rows.length + records.length;
   return (
     <Section
       title="Cited by"
@@ -226,6 +226,7 @@ function CitedBy({
                   Evidence for <Record record={{ ref: r.ref, path: r.key, title: r.title }} /> ·{" "}
                   {model.data?.specs[r.typeName]?.label ?? r.typeName} ·{" "}
                   <span className="font-mono text-xs">{r.aoValue || "Not recorded"}</span>
+                  {isPositional(r.ref) && <> · {POSITIONAL}</>}
                   <span className="ak-meta">
                     {!file?.synced ? (
                       `file sync date not recorded in ${r.ref.notePath.split("/").pop()}`
@@ -249,13 +250,6 @@ function CitedBy({
             <p className="ak-footnote">
               Product model bindings are not ready, so model records that rest on this claim are not
               shown.
-            </p>
-          )}
-          {!!model.data?.positional && (
-            <p className="ak-footnote">
-              {model.data.positional} positional model{" "}
-              {model.data.positional === 1 ? "record cites" : "records cite"} this claim; they have
-              no durable identity to open.
             </p>
           )}
           {model.data?.truncated && (

@@ -37,7 +37,8 @@ func TestMatchExpressionOperatorWords(t *testing.T) {
 }
 
 func TestProductMembershipMatcher(t *testing.T) {
-	compiled := mustLoadSDL(t, `type Selected @node(matches: ["products:alpha OR products:\"*\" OR NOT has:products"]) { title: String }`)
+	// The AO KB starter's generated admission: AO reads frontmatter products exactly.
+	compiled := mustLoadSDL(t, `type Selected @node(matches: ["products:\"alpha\" OR products:\"*\" OR NOT has:products"]) { title: String }`)
 	for _, tc := range []struct {
 		frontmatter string
 		want        bool
@@ -51,6 +52,9 @@ func TestProductMembershipMatcher(t *testing.T) {
 		{`products: ["*"]`, true},
 		{`products: [beta, "*"]`, true},
 		{"products: [beta]", false},
+		{"products: [Alpha]", false},
+		{`products: [" alpha"]`, false},
+		{`products: ["[[alpha]]"]`, false},
 		{`PRODUCTS: "*"`, true},
 		{"products: false", false},
 		{"products: 0", false},
@@ -59,6 +63,32 @@ func TestProductMembershipMatcher(t *testing.T) {
 			var frontmatter map[string]any
 			require.NoError(t, yaml.Unmarshal([]byte(tc.frontmatter), &frontmatter))
 			require.Equal(t, tc.want, compiled.MatchDoc("Selected", &Subject{Frontmatter: frontmatter}))
+		})
+	}
+}
+
+func TestQuotedPropertyValuesMatchFrontmatterExactly(t *testing.T) {
+	quoted, err := parseMatchExpression(`products:"alpha"`)
+	require.NoError(t, err)
+	unquoted, err := parseMatchExpression("products:alpha")
+	require.NoError(t, err)
+	frontmatter := func(value any) *Subject { return &Subject{Frontmatter: map[string]any{"products": value}} }
+	for _, tc := range []struct {
+		name             string
+		doc              *Subject
+		quoted, unquoted bool
+	}{
+		{"list element", frontmatter([]any{"beta", "alpha"}), true, true},
+		{"scalar", frontmatter("alpha"), true, true},
+		{"case variant", frontmatter([]any{"Alpha"}), false, true},
+		{"surrounding space", frontmatter([]any{" alpha "}), false, true},
+		{"link", frontmatter([]any{"[[alpha]]"}), false, true},
+		{"inline field only", &Subject{Inline: map[string][]string{"products": {"alpha"}}}, false, true},
+		{"key case", &Subject{Frontmatter: map[string]any{"Products": []any{"alpha"}}}, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.quoted, evalMatchExpression(quoted, tc.doc), "quoted")
+			require.Equal(t, tc.unquoted, evalMatchExpression(unquoted, tc.doc), "unquoted")
 		})
 	}
 }

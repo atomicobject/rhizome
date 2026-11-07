@@ -191,6 +191,42 @@ describe("NotesShell", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   });
 
+  it("hides Edit and ignores the edit shortcut on an owned Markdown note", async () => {
+    // Ownership marks a Markdown note read-only through the same capability as a record.
+    const owned = (ref: string): PublicNode => {
+      const node = nativeRecordNode(ref);
+      const workspace = node.workspace!;
+
+      return {
+        ...node,
+        title: "Owned claim",
+        format: "markdown",
+        content: "# Owned claim\n",
+        workspace: {
+          ...workspace,
+          source: undefined,
+          bodies: workspace.bodies?.map((body) => ({
+            ...body,
+            source: undefined,
+            locator: "FILE",
+          })),
+          capabilities: { ...workspace.capabilities, readOnlyReason: "AO KB writes these." },
+        },
+      };
+    };
+
+    http.onGraphQL("PublicNodeDetail", (request) =>
+      jsonReply({ data: { node: owned(requestedRef(request)) } }),
+    );
+    window.history.replaceState({}, "", "/notes?note=assertions/owned.md");
+    render(<NotesShell />);
+    await waitFor(() => expect(screen.getByText("AO KB writes these.")).toBeVisible());
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    fireEvent.keyDown(window, { key: "E", shiftKey: true, metaKey: true });
+    expect(screen.queryByRole("status", { name: /Editing/ })).toBeNull();
+    expect(screen.queryByText("Editing")).toBeNull();
+  });
+
   it("loads sidebar and home data and retains each opened note tab", async () => {
     render(<NotesShell />);
 

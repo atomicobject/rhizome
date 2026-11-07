@@ -39,9 +39,21 @@ function sortRailNodes(nodes: RailNode[]): RailNode[] {
     .sort((left, right) => railNodeLabel(left).localeCompare(railNodeLabel(right)));
 }
 
+/** Drops empty embedded type rows, lifting their children into their place. */
+function withoutEmptyEmbedded(nodes: RailNode[]): RailNode[] {
+  return nodes.flatMap((node) => {
+    const children = withoutEmptyEmbedded(node.children);
+
+    return node.kind === "type" && node.type.role === "embedded" && node.type.count === 0
+      ? children
+      : [{ ...node, children }];
+  });
+}
+
 /**
  * Groups types and interfaces for a sidebar tree. Notes leaves out standalone
- * embedded types; Ontology passes `includeEmbedded` so every type has a row.
+ * embedded types, and embedded types without records (they cannot be selected
+ * there); Ontology passes `includeEmbedded` so every type has a row.
  */
 export function buildRailGroups(
   summary: OntologySummaryResponse | null,
@@ -112,7 +124,10 @@ export function buildRailGroups(
   }
 
   return [...grouped.entries()]
-    .map(([name, children]) => ({ name, children: sortRailNodes(children) }))
+    .map(([name, children]) => ({
+      name,
+      children: sortRailNodes(includeEmbedded ? children : withoutEmptyEmbedded(children)),
+    }))
     .sort((left, right) => {
       if (left.name === "Other") return 1;
 

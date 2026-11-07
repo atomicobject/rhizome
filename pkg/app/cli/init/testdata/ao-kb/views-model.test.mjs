@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { owner, recordRef } from "../../templates/starters/ao-kb/module/views/knowledge/lib/refs.ts";
+import { isPositional, ownerKey } from "../../templates/starters/ao-kb/module/views/knowledge/lib/knowledge.ts";
 import {
   codePath,
   declarer,
@@ -21,19 +21,16 @@ const obj = (entries) => ({
 });
 const FEATURES = "artifacts/_assets/_model/features.yaml";
 
-test("endpoints open as canonical refs; positional records never guess one", () => {
-  const keyed = recordRef({ notePath: FEATURES, kind: "EMBEDDED", fragment: null, nodeId: "record-v1-abc" });
-  assert.equal(keyed.key, `${FEATURES}#record:v1:abc`);
-  assert.equal(keyed.ref.fragment, "record:v1:abc");
-  const given = recordRef({ notePath: FEATURES, kind: "EMBEDDED", fragment: "record:v1:def", nodeId: "record-v1-def" });
-  assert.equal(given.key, `${FEATURES}#record:v1:def`);
-  const positional = recordRef({ notePath: FEATURES, kind: "EMBEDDED", nodeId: "record-pos-v1-123" });
-  assert.equal(positional.positional, true);
-  assert.equal(positional.ref, undefined);
-  assert.deepEqual(positional.host, { notePath: FEATURES, kind: "NOTE" });
-  const section = owner({ notePath: "assertions/a.md", kind: "EMBEDDED", fragment: "connections-805", nodeId: "assertions/a.md#connections-805" });
-  assert.equal(section.key, "assertions/a.md", "a Markdown section belongs to its note");
-  assert.equal(owner({ notePath: "assertions/a.md", kind: "NOTE" }).key, "assertions/a.md");
+test("endpoints open by their own fragment; positional records open as records", () => {
+  const keyed = { notePath: FEATURES, kind: "EMBEDDED", fragment: "record:v1:def", nodeId: "record-v1-def" };
+  assert.equal(ownerKey(keyed), `${FEATURES}#record:v1:def`);
+  assert.equal(isPositional(keyed), false);
+  const positional = { notePath: FEATURES, kind: "EMBEDDED", fragment: "record-pos:v1:h:123", nodeId: "record-pos-v1-123" };
+  assert.equal(ownerKey(positional), `${FEATURES}#record-pos:v1:h:123`);
+  assert.equal(isPositional(positional), true);
+  const section = { notePath: "assertions/a.md", kind: "EMBEDDED", fragment: "connections-805", nodeId: "assertions/a.md#connections-805" };
+  assert.equal(ownerKey(section), "assertions/a.md", "a Markdown section belongs to its note");
+  assert.equal(ownerKey({ notePath: "assertions/a.md", kind: "NOTE" }), "assertions/a.md");
 });
 
 const spec = typeSpec(
@@ -53,22 +50,29 @@ const spec = typeSpec(
   "AOKBModel_flow_single",
 );
 
-test("fields stay in authored order and each reference value states how it resolved", () => {
+test("fields stay in authored order and each reference value shows its workspace link", () => {
   assert.equal(spec.label, "Use case");
-  const screen = { relation: "serves", out: false, key: "s#1", ref: {}, title: "Book screen", typeName: "AOKBModel_screen_single", aoValue: "SCR-1" };
-  const twin = (key) => ({ relation: "serves", out: true, key, ref: {}, title: key, typeName: "AOKBModel_user_single", aoValue: "PAT" });
-  const claim = { relation: "evidenced-by", out: true, key: "assertions/a.md", ref: {}, title: "A claim", typeName: "Assertion", aoValue: "a-1" };
+  assert.equal(spec.references[0].name, "v_screens", "links are keyed by GraphQL field name");
+  const to = (notePath, fragment) => ({ notePath, kind: fragment ? "EMBEDDED" : "NOTE", fragment });
+  const link = (value, title, ref) => ({ value, resolved: !!ref, title: title ?? null, ref: ref ?? null });
   const rows = fieldRows(
     obj({ id: "FLOW-1", name: "Book", trigger: "Patient taps", screens: list("SCR-1", "SCR-gone", "*"), user: "PAT", next: list("FLOW-2"), supported_by: list("a-1", "a-missing"), implements: list("src/x.go") }),
     spec,
-    [screen, twin("u#1"), twin("u#2"), claim],
+    {
+      v_screens: [link("SCR-1", "Book screen", to("s.yaml", "record:v1:1")), link("SCR-gone"), link("*")],
+      v_user: [link("PAT")],
+      v_next: [link("FLOW-2", "Next flow", to("f.yaml", "record:v1:2"))],
+      v_supported_5f_by: [link("a-1", "a-1 note title", to("assertions/a.md")), link("a-missing")],
+    },
+    new Map([["assertions/a.md", "A claim"]]),
   );
   assert.deepEqual(rows.map((r) => r.key), ["trigger", "screens", "user", "next", "supported_by"], "identity, title and code paths are shown elsewhere");
   assert.equal(rows[0].atoms, undefined, "a plain field is authored text");
   assert.deepEqual(rows[1].atoms.map((a) => a.target?.title ?? a.state), ["Book screen", "unresolved", "wildcard"]);
-  assert.deepEqual(rows[2].atoms.map((a) => a.state), ["ambiguous"], "two records with one key: none chosen");
-  assert.deepEqual(rows[3].atoms.map((a) => a.state), ["no edge"]);
-  assert.deepEqual(rows[4].atoms.map((a) => a.target?.title ?? a.state), ["A claim", "unresolved"]);
+  assert.equal(rows[1].atoms[0].target.key, "s.yaml#record:v1:1");
+  assert.deepEqual(rows[2].atoms.map((a) => a.state), ["unresolved"], "an ambiguous or missing key links nowhere");
+  assert.deepEqual(rows[3].atoms.map((a) => [a.target?.title, a.state]), [["Next flow", "no edge"]], "a checked reference links but stays distinct from a relationship");
+  assert.deepEqual(rows[4].atoms.map((a) => a.target?.title ?? a.state), ["A claim", "unresolved"], "a claim reads as it does elsewhere");
 });
 
 test("the declaring end of a stored edge is the one whose authored value names the other", () => {

@@ -27,3 +27,22 @@ it("keeps an editable status the card's group names, since it is the only editor
   rerender(header(async () => {}));
   expect(screen.getByRole("button", { name: "Edit Status" })).toBeVisible();
 });
+
+it("offers no tag editor on an owned or read-only row", () => {
+  const execution = typeExecution();
+  const profile = execution.profile;
+
+  if (!profile) throw new Error("fixture has no profile");
+
+  render(
+    <RecordBriefHeader
+      row={{ ...firstRow, readOnlyReason: "Managed by AO KB." }}
+      profile={profile}
+      capabilities={execution.capabilities ?? []}
+      onStageOps={async () => {}}
+    />,
+  );
+
+  expect(screen.queryByRole("button", { name: "Edit Status" })).toBeNull();
+  expect(screen.getByText("Active")).toBeVisible();
+});
