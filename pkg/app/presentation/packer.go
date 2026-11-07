@@ -157,7 +157,12 @@ func renderResultPiece(ctx context.Context, p *DefaultPacker, ontologyScope *nod
 		if notePath == "" && r.NodeRef == nil && r.NodeID == "" {
 			notePath = r.Path
 		}
-		snippet := noteChunkText(ctx, p.VaultPath, notePath, r.ChunkIndex, chunkCache)
+		snippet := ""
+		// A node chunk's ordinal does not index the note's heading sections;
+		// the ontology context below renders the node's matched body instead.
+		if r.Kind != embeddings.OntologyNodeOwnerType {
+			snippet = noteChunkText(ctx, p.VaultPath, notePath, r.ChunkIndex, chunkCache)
+		}
 		ontologyBudget := resultBudget - 160
 		if ontologyBudget < 120 {
 			ontologyBudget = 120

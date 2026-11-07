@@ -17,8 +17,14 @@ type NoteAgg struct {
 }
 
 // ChunkHit captures a matched chunk plus the originating query chunk.
+// NodeID and Granularity are set only for ontology-node hits. Node chunk
+// ordinals restart at zero for every node and granularity, so together with
+// Match.ChunkIndex they identify the chunk; a doc-section hit is identified by
+// its section position alone.
 type ChunkHit struct {
 	Match           embeddings.SimilarChunk
+	NodeID          string
+	Granularity     string
 	QueryIndex      int
 	QueryBreadcrumb string
 	QueryHeading    string
@@ -33,6 +39,9 @@ func DiversifyChunkHits(hits []ChunkHit, limit int) []ChunkHit {
 	for _, h := range hits {
 		redundant := false
 		for _, picked := range out {
+			if picked.NodeID != h.NodeID {
+				continue
+			}
 			sameSection := false
 			if picked.Match.Breadcrumb != "" && h.Match.Breadcrumb != "" && picked.Match.Breadcrumb == h.Match.Breadcrumb {
 				sameSection = true
@@ -172,7 +181,10 @@ func AggregateIntelChunkMatches(
 					}
 
 					chunkIndex := m.Ord
-					if m.OwnerType == "doc_section" {
+					nodeID, granularity := "", ""
+					if m.OwnerType == embeddings.OntologyNodeOwnerType {
+						nodeID, granularity = m.OwnerID, m.Granularity
+					} else if m.OwnerType == "doc_section" {
 						chunkIndex = -1
 						if idx, ok, err := sectionIndexFor(m.Path, m.OwnerID); err == nil && ok {
 							chunkIndex = idx
@@ -206,7 +218,7 @@ func AggregateIntelChunkMatches(
 					}
 					aggNote.TopScores = addScore(aggNote.TopScores, match.Score, maxScoresPerNote)
 					if maxChunksPerNote > 0 {
-						hit := ChunkHit{Match: match}
+						hit := ChunkHit{Match: match, NodeID: nodeID, Granularity: granularity}
 						if captureQuery {
 							hit.QueryIndex = ch.Index
 							hit.QueryBreadcrumb = ch.Breadcrumb
@@ -259,7 +271,7 @@ func addScore(scores []float64, score float64, maxScores int) []float64 {
 
 func insertHit(top []ChunkHit, hit ChunkHit, limit int) []ChunkHit {
 	for i, h := range top {
-		if h.Match.ChunkIndex == hit.Match.ChunkIndex {
+		if h.NodeID == hit.NodeID && h.Granularity == hit.Granularity && h.Match.ChunkIndex == hit.Match.ChunkIndex {
 			if h.Match.Score >= hit.Match.Score {
 				return top
 			}

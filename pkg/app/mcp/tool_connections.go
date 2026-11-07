@@ -7,8 +7,13 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 	"sort"
 	"strings"
@@ -201,6 +206,13 @@ func FindConnectionsTool(config Config) func(context.Context, mcp.CallToolReques
 		}
 
 		cache := make(map[string][]embeddings.ChunkInput)
+		nodeText := ontologyNodeChunkText(ctx, config, store)
+		hitText := func(noteID embeddings.NoteID, h semantic.ChunkHit) string {
+			if h.NodeID != "" {
+				return nodeText(h.NodeID, h.Granularity, h.Match.ChunkIndex)
+			}
+			return embeddings.CoreChunkBody(embeddings.ChunkTextForPath(config.VaultPath, string(noteID), h.Match.ChunkIndex, cache))
+		}
 		matches := make([]map[string]any, 0, len(results))
 		for _, res := range results {
 			hits := semantic.DiversifyChunkHits(res.agg.TopHits, 3)
@@ -208,7 +220,7 @@ func FindConnectionsTool(config Config) func(context.Context, mcp.CallToolReques
 				continue
 			}
 			bestHit := hits[0]
-			text := embeddings.CoreChunkBody(embeddings.ChunkTextForPath(config.VaultPath, string(res.id), bestHit.Match.ChunkIndex, cache))
+			text := hitText(res.id, bestHit)
 			queryText := queryTextForIndex(bestHit.QueryIndex)
 			matchLabel := firstNonEmpty(bestHit.Match.Breadcrumb, bestHit.Match.Heading)
 			queryLabel := firstNonEmpty(bestHit.QueryBreadcrumb, bestHit.QueryHeading)
@@ -218,9 +230,9 @@ func FindConnectionsTool(config Config) func(context.Context, mcp.CallToolReques
 			}
 
 			chunks := make([]map[string]any, 0, len(hits))
-			allowedChunks := make(map[int]bool, len(hits))
+			allowedChunks := make(map[string]bool, len(hits))
 			for _, h := range hits {
-				chunkText := embeddings.CoreChunkBody(embeddings.ChunkTextForPath(config.VaultPath, string(res.id), h.Match.ChunkIndex, cache))
+				chunkText := hitText(res.id, h)
 				chunkQueryText := queryTextForIndex(h.QueryIndex)
 				item := map[string]any{
 					"heading":         h.Match.Heading,
@@ -233,12 +245,12 @@ func FindConnectionsTool(config Config) func(context.Context, mcp.CallToolReques
 					"queryText":       chunkQueryText,
 				}
 				if tracker != nil {
-					key := fmt.Sprintf("note:%s#chunk:%d", res.id, h.Match.ChunkIndex)
+					key := connectionHitKey(res.id, h)
 					fingerprint := fingerprintText(chunkText)
 					if tracker.Allow(key, fingerprint) {
 						item["text"] = chunkText
 						tracker.MarkSent(key, fingerprint)
-						allowedChunks[h.Match.ChunkIndex] = true
+						allowedChunks[key] = true
 					}
 				} else {
 					item["text"] = chunkText
@@ -261,7 +273,7 @@ func FindConnectionsTool(config Config) func(context.Context, mcp.CallToolReques
 				"chunks":          chunks,
 			}
 			if tracker != nil {
-				if allowedChunks[bestHit.Match.ChunkIndex] {
+				if allowedChunks[connectionHitKey(res.id, bestHit)] {
 					item["text"] = text
 				}
 			} else {
@@ -293,5 +305,59 @@ func FindConnectionsTool(config Config) func(context.Context, mcp.CallToolReques
 			return mcp.NewToolResultError(fmt.Sprintf("marshal failed: %v", err)), nil
 		}
 		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+func connectionHitKey(noteID embeddings.NoteID, h semantic.ChunkHit) string {
+	if h.NodeID != "" {
+		return fmt.Sprintf("node:%s#%s:%d", h.NodeID, h.Granularity, h.Match.ChunkIndex)
+	}
+	return fmt.Sprintf("note:%s#chunk:%d", noteID, h.Match.ChunkIndex)
+}
+
+// ontologyNodeChunkText returns the source text of an ontology-node chunk: the
+// node's own body part at the chunk's ordinal, the same slice
+// BuildOntologyNodeChunks embeds. Node ordinals restart for every node, so they
+// never index the note's Markdown heading sections.
+func ontologyNodeChunkText(ctx context.Context, config Config, store *semdb.Store) func(nodeID, granularity string, ord int) string {
+	var scope *noderead.Scope
+	partsByNode := map[string][]string{}
+	load := func(nodeID string) []string {
+		rows, err := store.OntologyNodesByIDs(ctx, []string{nodeID})
+		if err != nil {
+			return nil
+		}
+		var ref ontology.NodeRef
+		if row, ok := rows[nodeID]; !ok || json.Unmarshal([]byte(row.NodeRefJSON), &ref) != nil || ref.IsZero() {
+			return nil
+		}
+		if scope == nil {
+			schema, err := ontoschema.LoadSchema(config.VaultPath)
+			if err != nil || schema == nil {
+				return nil
+			}
+			scope = noderead.NewService(config.VaultDef, &obsidian.Note{}, store, schema).NewScope(noderead.ScopeOptions{})
+		}
+		projection, err := scope.Projection(ctx, ref)
+		if err != nil || projection == nil {
+			return nil
+		}
+		return ontology.NodeBodyParts(projection, 0)
+	}
+	return func(nodeID, granularity string, ord int) string {
+		// ponytail: visible/supplemental root-evidence chunks come from a format
+		// provider's search regions; they show no text until a caller needs it.
+		if granularity != embeddings.GranularityOntologyNodeBody {
+			return ""
+		}
+		parts, ok := partsByNode[nodeID]
+		if !ok {
+			parts = load(nodeID)
+			partsByNode[nodeID] = parts
+		}
+		if ord < 0 || ord >= len(parts) {
+			return ""
+		}
+		return strings.TrimSpace(parts[ord])
 	}
 }
