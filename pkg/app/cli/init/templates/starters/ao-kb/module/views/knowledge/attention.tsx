@@ -12,6 +12,7 @@ import {
   Filters,
   DateValue,
   Fold,
+  ModelFreshness,
   Page,
   Record,
   today,
@@ -82,7 +83,7 @@ function AttentionBody({ data }: { data: Knowledge }) {
     groups["Dangling declared references"].push({
       record: { ref: r.ref, path: r.key, title: r.title },
       reason: "Evidence not fully read",
-      basis: `${r.ref.notePath.split("/").pop()} › ${r.aoValue} has more evidence relationships than one read returns. Its unread IDs are not reported as dangling, and its sync observations may be incomplete.`,
+      basis: `${r.ref.notePath.split("/").pop()} › ${r.aoValue} has more evidence relationships than one read returns, so its sync observations may be incomplete. Its declared evidence is still checked value by value.`,
     } satisfies Observation);
   const files = {
     "Knowledge updated since sync": model?.sync ?? [],
@@ -221,6 +222,7 @@ function AttentionBody({ data }: { data: Knowledge }) {
           not checked.
         </p>
       )}
+      {ready && <ModelFreshness />}
       {ready && index.isPending && <p className="ak-footnote">Reading product-model records…</p>}
       {index.error && (
         <p role="alert" className="text-risk text-sm">

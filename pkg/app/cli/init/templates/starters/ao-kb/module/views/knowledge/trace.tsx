@@ -19,6 +19,7 @@ import { useState } from "react";
 import { DIRECTORY_QUERY, createReader, directory, type DirectoryData } from "./trace/data.ts";
 import { Graph, Legend } from "./trace/graph.tsx";
 import { readTypeSpecs, useModelBindings } from "./data.tsx";
+import { ModelFreshness } from "./parts.tsx";
 import { columns } from "./trace/layout.ts";
 import { depth, label, queryBudget, type Record as KnowledgeRecord } from "./trace/model.ts";
 import { ExtractionHistory, Relationships } from "./trace/relationships.tsx";
@@ -236,6 +237,7 @@ function TraceBody({
                     Product model bindings are not ready, so model records are not traced.
                   </p>
                 )}
+                {model && <ModelFreshness className="ao-trace-model" />}
                 {trace.stop && (
                   <p className="ao-trace-incomplete" role="status">
                     {trace.stop.reason === "budget"

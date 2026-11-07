@@ -3,9 +3,18 @@ import { POSITIONAL, claimText, dateNumber, isPositional, relationships } from "
 import { collapseContradictions } from "./lib/relations.ts";
 import { ClaimProse } from "./prose.tsx";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
-import { useModelBindings, useModelCiters } from "./data.tsx";
+import { useBindingFreshness, useModelBindings, useModelCiters } from "./data.tsx";
 import { syncCompare } from "./lib/model.ts";
-import { DateValue, Field, LinkList, Page, Record, StatusBadges, TraceLink } from "./parts.tsx";
+import {
+  DateValue,
+  Field,
+  LinkList,
+  ModelFreshness,
+  Page,
+  Record,
+  StatusBadges,
+  TraceLink,
+} from "./parts.tsx";
 import { Evidence } from "./evidence.tsx";
 import { AOHandoff, Conflicts, History, SavedAssessment } from "./record-parts.tsx";
 
@@ -167,6 +176,9 @@ function CitedBy({
   const bindings = useModelBindings();
   const ready = !!bindings.data?.ready;
   const model = useModelCiters(a.path, ready);
+  // Stale bindings never read as "None recorded": the body shows their notice instead.
+  const freshness = useBindingFreshness();
+  const current = freshness.data?.state === "ready";
   const records = model.data?.records ?? [];
   const count = rows.length + records.length;
   return (
@@ -174,9 +186,9 @@ function CitedBy({
       title="Cited by"
       count={model.data || !ready ? count : undefined}
       caption="Artifacts and product-model records that name this claim. Extraction is separate, on the source."
-      status={ready ? sectionStatus(bindings, model) : sectionStatus(bindings)}
+      status={ready ? sectionStatus(bindings, model, freshness) : sectionStatus(bindings)}
       what="citing records"
-      empty={count || (bindings.data && !ready) ? undefined : "None recorded"}
+      empty={count || (bindings.data && !ready) || (ready && !current) ? undefined : "None recorded"}
     >
       {() => (
         <>
@@ -252,6 +264,7 @@ function CitedBy({
               shown.
             </p>
           )}
+          {ready && <ModelFreshness />}
           {model.data?.truncated && (
             <p className="ak-footnote text-risk">
               Incomplete: more model records cite this claim than one read returns.

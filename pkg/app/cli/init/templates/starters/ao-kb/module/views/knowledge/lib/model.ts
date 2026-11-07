@@ -3,6 +3,41 @@
  * attributes them back to the authored values that declared them. */
 import { dateNumber, refKey } from "./knowledge.ts";
 import type { Assertion, Ref } from "./knowledge.ts";
+import { readVaultText } from "./passage.ts";
+import type { ReadText } from "./passage.ts";
+
+/** The binding compiler's manifests: each records the status of its published generation. */
+export const BINDING_MANIFESTS = {
+  model: ".rhizome/modules/ao-kb/bindings/manifest.json",
+  knowledge: ".rhizome/modules/ao-kb/bindings/knowledge-manifest.json",
+};
+export type BindingFreshness =
+  | { state: "ready" }
+  | { state: "stale" | "error" | "unknown"; notice: string };
+const CHECK = "Run rzm ao-kb check for the cause.";
+const NOTICES = {
+  stale: `Product model bindings are stale: the last refresh did not publish, so model records come from the previous generation. ${CHECK}`,
+  error: `Product model bindings are incomplete: the last refresh failed. ${CHECK}`,
+  unknown: `Product model binding status could not be read, so model records may not be current. ${CHECK}`,
+};
+/** The compiler's published status (SPEC-0133 F5). Views never infer freshness and never
+ * present a generation as current unless both manifests say ready. */
+export async function readBindingFreshness(
+  readText: ReadText = readVaultText,
+): Promise<BindingFreshness> {
+  for (const path of [BINDING_MANIFESTS.model, BINDING_MANIFESTS.knowledge]) {
+    let status: unknown;
+    try {
+      status = JSON.parse((await readText(path)) ?? "null")?.status;
+    } catch {
+      status = undefined;
+    }
+    if (status === "ready") continue;
+    const state = status === "stale" || status === "error" ? status : "unknown";
+    return { state, notice: NOTICES[state] };
+  }
+  return { state: "ready" };
+}
 
 /** A native RECORD source value (`workspace.source.value`), in authored order. */
 export type SourceValue = {
@@ -116,28 +151,29 @@ export type ModelRecord = {
   value?: SourceValue | null;
   /** Paths of the assertions its native evidenced-by edges reach. */
   evidence: string[];
-  /** The evidence read hit its cap, so an unmatched declared ID was not checked. */
+  /** The evidence edge read hit its cap, so sync observations may be incomplete. */
   evidenceTruncated?: boolean;
+  /** `workspace.fields[].links` by GraphQL field name: each authored value's native outcome. */
+  links?: Record<string, FieldLink[]>;
 };
 export type ModelFile = { notePath: string; synced?: string | null };
 
-/** Declared evidence values in authored order, each with its resolved assertion or none. */
+/** Declared evidence values (fields in declaration order, values as authored), each with
+ * the assertion its native resolution reached (by file stem, then AO ID) or none. A resolved claim outside the
+ * loaded knowledge is neither listed nor called unresolved. */
 export function declaredEvidence(
   record: ModelRecord,
   spec: TypeSpec | undefined,
   assertions: Assertion[],
 ) {
-  const reached = assertions.filter((a) => record.evidence.includes(a.path));
-  return entries(record.value)
-    .filter((e) => spec?.references.some((r) => r.path === e.key && isEvidence(r)))
-    .flatMap((e) =>
-      scalars(e.value).map((id) => ({
-        field: e.key,
-        id,
-        assertion: reached.find((a) => a.aoId === id),
-        unread: !reached.some((a) => a.aoId === id) && !!record.evidenceTruncated,
-      })),
-    );
+  return (spec?.references ?? []).filter(isEvidence).flatMap((r) =>
+    (record.links?.[r.name] ?? []).map((link) => ({
+      field: r.path,
+      id: link.value,
+      resolved: link.resolved,
+      assertion: link.resolved ? assertions.find((a) => a.path === link.ref?.notePath) : undefined,
+    })),
+  );
 }
 
 export type ModelSync = {
@@ -175,8 +211,8 @@ export function modelObservations(
   }
   for (const record of records)
     for (const d of declaredEvidence(record, specs[record.typeName], assertions))
-      if (!d.assertion && !d.unread) dangling.push({ record, field: d.field, id: d.id });
-  // Capped reads are disclosed, never reported as dangling.
+      if (!d.resolved) dangling.push({ record, field: d.field, id: d.id });
+  // A capped edge read can hide sync observations; it is disclosed.
   const incomplete = records.filter((r) => r.evidenceTruncated);
   return { sync, unknown, dangling, incomplete };
 }

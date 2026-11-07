@@ -17,10 +17,20 @@ import { Button, Input } from "@rhizome/ui";
 import { badges, name, refKey } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge, RecordLink } from "./lib/knowledge.ts";
 import type { Edge } from "./lib/relations.ts";
-import { useKnowledge } from "./data.tsx";
+import { useBindingFreshness, useKnowledge } from "./data.tsx";
 import "./knowledge.css";
 
 export const today = () => new Date().toLocaleDateString("en-CA");
+/** Shown wherever model data appears: published bindings that are not ready are never
+ * presented as current. Nothing while reading or when ready. */
+export function ModelFreshness({ className = "ak-footnote" }: { className?: string }) {
+  const freshness = useBindingFreshness().data;
+  return freshness && freshness.state !== "ready" ? (
+    <p className={className} role="status">
+      {freshness.notice}
+    </p>
+  ) : null;
+}
 export function DateValue({ value }: { value?: string | null }) {
   const time = value ? Date.parse(value) : NaN;
   return (

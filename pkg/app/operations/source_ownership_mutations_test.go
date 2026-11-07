@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/mocks"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -47,6 +48,48 @@ func TestDirectMutationsRefuseOwnedHostsBeforeAnyFileChanges(t *testing.T) {
 				require.Equal(t, original, string(data))
 			}
 			require.NoFileExists(t, filepath.Join(root, "new.md"))
+		})
+	}
+}
+
+// Property and tag writers publish after admission. A declaration made after
+// the operation started must still refuse the write, so each writer reloads the
+// current policy immediately before publishing.
+func TestDirectMutationsRecheckOwnershipDeclaredAfterTheOperationStarts(t *testing.T) {
+	original := "---\nstatus: old\ntags: [old]\n---\n# Existing\n"
+	writers := map[string]func(paths.VaultPaths) fileMutationProcessor{
+		"set property": func(v paths.VaultPaths) fileMutationProcessor {
+			return processSetProperty(v, "status", "new", true, false)
+		},
+		"delete property": func(v paths.VaultPaths) fileMutationProcessor {
+			return processDeleteProperties(v, []string{"status"}, false)
+		},
+		"rename property": func(v paths.VaultPaths) fileMutationProcessor {
+			return processRenameProperties(v, []string{"status"}, "state", false, false)
+		},
+		"add tag":    func(v paths.VaultPaths) fileMutationProcessor { return processAddFile(v, []string{"new"}, false) },
+		"delete tag": func(v paths.VaultPaths) fileMutationProcessor { return processDeleteFile(v, []string{"old"}, false) },
+		"rename tag": func(v paths.VaultPaths) fileMutationProcessor {
+			return processRenameFile(v, []string{"old"}, "renamed", false)
+		},
+	}
+	for name, writer := range writers {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			note := filepath.Join(root, "owned.md")
+			require.NoError(t, os.WriteFile(note, []byte(original), 0644))
+			vaultPaths, err := paths.NewVaultPaths(root)
+			require.NoError(t, err)
+			publish := writer(vaultPaths)
+
+			require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome/source-ownership.yml"), []byte("sources:\n  - owner: AO KB\n    reason: Managed by AO KB.\n    paths: [owned.md]\n"), 0644))
+
+			result := publish(t.Context(), "owned.md")
+			require.EqualError(t, result.err, "owned.md is read-only (AO KB): Managed by AO KB.")
+			data, err := os.ReadFile(note)
+			require.NoError(t, err)
+			require.Equal(t, original, string(data))
 		})
 	}
 }

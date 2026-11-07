@@ -236,7 +236,7 @@ func (p *PreparedDocument) Children(ref NodeRef) ([]NodeRef, error) {
 	}
 	if ref.Kind == NodeKindNote {
 		for _, record := range p.records {
-			if record.parent == nil && !seen[record.projection.Ref] {
+			if record.valid && record.parent == nil && !seen[record.projection.Ref] {
 				out = append(out, record.projection.Ref)
 				seen[record.projection.Ref] = true
 			}

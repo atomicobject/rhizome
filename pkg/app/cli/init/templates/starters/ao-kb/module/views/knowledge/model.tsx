@@ -50,7 +50,7 @@ import {
   readTypeSpecs,
   useCoverage,
 } from "./data.tsx";
-import { DateValue, Page, Record, TraceLink, today } from "./parts.tsx";
+import { DateValue, ModelFreshness, Page, Record, TraceLink, today } from "./parts.tsx";
 import { FileLink } from "./evidence.tsx";
 import { AOHandoff } from "./record-parts.tsx";
 
@@ -249,13 +249,12 @@ function Evidence({
   const declared = declaredEvidence(record, spec, data.assertion);
   const claims = [...new Set(declared.flatMap((d) => (d.assertion ? [d.assertion] : [])))];
   const coverage = useCoverage(data, claims);
-  const dangling = declared.filter((d) => !d.assertion && !d.unread);
-  const unread = [...new Set(declared.filter((d) => d.unread).map((d) => d.id))];
+  const dangling = declared.filter((d) => !d.resolved);
   if (!declared.length) return null;
   return (
     <Section
       title="Evidence it rests on"
-      count={claims.length + new Set(dangling.map((d) => d.id)).size + unread.length}
+      count={claims.length + new Set(dangling.map((d) => d.id)).size}
       caption="Claims named in the record's declared evidence, with the origin citation's locator coverage. Coverage is not truth or strength."
       status={sectionStatus(coverage)}
       what="citation states"
@@ -298,16 +297,6 @@ function Evidence({
               {MODEL_WORDS[EVIDENCED_BY][0]} <span className="ak-key">{id}</span>
             </Rel>
           ))}
-          {unread.map((id) => (
-            <Rel
-              key={id}
-              icon={<ArrowRight size={14} />}
-              aside="Not checked"
-              meta="This record has more relationships than one read returns, so this ID was not checked. It is not reported as unresolved."
-            >
-              {MODEL_WORDS[EVIDENCED_BY][0]} <span className="ak-key">{id}</span>
-            </Rel>
-          ))}
         </ul>
       )}
     </Section>
@@ -327,6 +316,7 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
       .filter((e) => e.out && e.relation === EVIDENCED_BY)
       .map((e) => e.end),
     evidenceTruncated: node.out.truncated,
+    links: Object.fromEntries((node.workspace?.fields ?? []).map((f) => [f.name, f.links])),
   };
   const spec = specs[node.__typename];
   const byKey = new Map(loaded.records.map((r) => [r.key, r]));
@@ -357,7 +347,7 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
   const rows = fieldRows(
     record.value,
     spec,
-    Object.fromEntries((node.workspace?.fields ?? []).map((f) => [f.name, f.links])),
+    record.links ?? {},
     new Map(neighbors.map((n) => [n.key, n.title])),
   );
   const address = node.workspace?.source?.address;
@@ -382,6 +372,7 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
         {!embedded && node.workspace?.capabilities.readOnlyReason && (
           <p className="ak-footnote">{node.workspace.capabilities.readOnlyReason}</p>
         )}
+        <ModelFreshness />
       </header>
       <div className="ak-record-layout ak-model-layout">
         <div className="ak-record-column">

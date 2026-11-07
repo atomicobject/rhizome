@@ -3,12 +3,10 @@ package operations
 import (
 	"context"
 	"fmt"
-	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"os"
 
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -42,10 +40,6 @@ func findExistingKey(fm map[string]interface{}, target string) string {
 }
 
 func processSetProperty(vaultPaths paths.VaultPaths, property string, value interface{}, overwrite, dryRun bool) fileMutationProcessor {
-	var ownership *sourceownership.Policy
-	if !dryRun {
-		ownership = sourceownership.Load(vaultPaths.Root())
-	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -71,15 +65,8 @@ func processSetProperty(vaultPaths paths.VaultPaths, property string, value inte
 		}
 
 		if !dryRun {
-			if err := ownership.Check([]string{rel.String()}); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-
-			if err := ctx.Err(); err != nil {
-				return fileMutation{err: err}
-			}
-			if err := fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644); err != nil {
-				return fileMutation{err: fmt.Errorf("failed to write file %s: %w", notePath, err)}
 			}
 		}
 
@@ -92,10 +79,6 @@ func processSetProperty(vaultPaths paths.VaultPaths, property string, value inte
 }
 
 func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, dryRun bool) fileMutationProcessor {
-	var ownership *sourceownership.Policy
-	if !dryRun {
-		ownership = sourceownership.Load(vaultPaths.Root())
-	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -132,15 +115,8 @@ func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, d
 		}
 
 		if !dryRun {
-			if err := ownership.Check([]string{rel.String()}); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-
-			if err := ctx.Err(); err != nil {
-				return fileMutation{err: err}
-			}
-			if err := fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644); err != nil {
-				return fileMutation{err: fmt.Errorf("failed to write file %s: %w", notePath, err)}
 			}
 		}
 
@@ -158,10 +134,6 @@ func processDeleteProperties(vaultPaths paths.VaultPaths, properties []string, d
 }
 
 func processRenameProperties(vaultPaths paths.VaultPaths, from []string, to string, merge, dryRun bool) fileMutationProcessor {
-	var ownership *sourceownership.Policy
-	if !dryRun {
-		ownership = sourceownership.Load(vaultPaths.Root())
-	}
 	return func(ctx context.Context, notePath string) fileMutation {
 		select {
 		case <-ctx.Done():
@@ -204,15 +176,8 @@ func processRenameProperties(vaultPaths paths.VaultPaths, from []string, to stri
 		}
 
 		if !dryRun {
-			if err := ownership.Check([]string{rel.String()}); err != nil {
+			if err := publishFileMutation(ctx, vaultPaths, rel, abs, notePath, newContent); err != nil {
 				return fileMutation{err: err}
-			}
-
-			if err := ctx.Err(); err != nil {
-				return fileMutation{err: err}
-			}
-			if err := fileio.WriteFileAtomic(abs.String(), []byte(newContent), 0644); err != nil {
-				return fileMutation{err: fmt.Errorf("failed to write file %s: %w", notePath, err)}
 			}
 		}
 

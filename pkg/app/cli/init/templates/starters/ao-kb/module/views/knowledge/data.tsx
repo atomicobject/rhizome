@@ -13,8 +13,8 @@ import {
 import type { Knowledge, Assertion, Coverage, Endpoint, Ref } from "./lib/knowledge.ts";
 import { readPassage } from "./lib/passage.ts";
 import { readSavedAnalysis } from "./lib/saved-analysis.ts";
-import { EVIDENCED_BY, typeSpec } from "./lib/model.ts";
-import type { ModelFile, ModelRecord, SourceValue, TypeSpec } from "./lib/model.ts";
+import { EVIDENCED_BY, readBindingFreshness, typeSpec } from "./lib/model.ts";
+import type { FieldLink, ModelFile, ModelRecord, SourceValue, TypeSpec } from "./lib/model.ts";
 
 // Composite section-scoped citations and normalized AO relations need GraphQL;
 // a native collection row does not carry the origin-citation coverage contract.
@@ -123,6 +123,14 @@ export function useModelBindings() {
   };
 }
 
+/** The compiler's published binding status; ready only when its manifests say so. */
+export function useBindingFreshness() {
+  return useQuery({
+    queryKey: ["ao-kb", "binding-freshness"],
+    queryFn: () => readBindingFreshness(),
+  });
+}
+
 export const REF =
   "ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }";
 export const ENDPOINT = "notePath kind fragment nodeId typeName structural";
@@ -133,7 +141,10 @@ type RawModel = {
   title: string;
   ref: Ref;
   aoValue?: string | null;
-  workspace?: { source?: { value?: SourceValue; address?: string } | null } | null;
+  workspace?: {
+    source?: { value?: SourceValue; address?: string } | null;
+    fields?: { name: string; links: FieldLink[] }[];
+  } | null;
   evidence?: { truncated: boolean; edges: { target: Endpoint }[] };
 };
 /** Model records by key (`notePath#fragment`), each with its native evidence edges. */
@@ -142,7 +153,7 @@ export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
   const data = await graphql<Record<string, RawModel | null>>(`{ ${keys
     .map(
       (key, i) => `n${i}: node(ref: ${JSON.stringify(key)}) { __typename title ${REF}
-          ... on AOKBModelRecord { aoValue } workspace { source }
+          ... on AOKBModelRecord { aoValue } workspace { source fields { name links { value resolved title ${REF} } } }
           evidence: neighborhood(direction: OUTBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } }`,
     )
     .join("\n")} }`);
@@ -159,6 +170,7 @@ export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
             value: r.workspace?.source?.value,
             evidence: r.evidence?.edges.map((e) => ownerKey(e.target)) ?? [],
             evidenceTruncated: !!r.evidence?.truncated,
+            links: Object.fromEntries((r.workspace?.fields ?? []).map((f) => [f.name, f.links])),
           },
         ]
       : [];
