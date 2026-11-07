@@ -91,3 +91,51 @@ func TestServicePublishesErrorAndFinalizesTurnWhenCompletionPersistenceFails(t *
 		return err == nil && !persisted.Session.TurnRunning
 	}, time.Second, 10*time.Millisecond)
 }
+
+type signalingEventStore struct {
+	chatStore
+	added chan int64
+}
+
+func (s *signalingEventStore) AddEvent(ctx context.Context, event Event) (Event, error) {
+	stored, err := s.chatStore.AddEvent(ctx, event)
+	s.added <- stored.ID
+	return stored, err
+}
+
+// The SSE cursor skips ids at or below the last one sent, so an event
+// published after a higher id would never reach that stream.
+func TestServicePublishesEventsInIDOrder(t *testing.T) {
+	service, session, fake := newRunningService(t)
+	require.NoError(t, <-session.sendResult)
+	store := &signalingEventStore{chatStore: service.store, added: make(chan int64, 8)}
+	service.store = store
+	stream, unsubscribe := service.Subscribe(session.ID)
+	t.Cleanup(unsubscribe)
+	persist := func(eventType string) {
+		if err := service.persistAndPublish(context.Background(), Event{SessionID: session.ID, Type: eventType}); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// Stall delivery after the first event has its id, then persist a second.
+	service.broker.mu.Lock()
+	go persist("first")
+	first := <-store.added
+	go persist("second")
+	select {
+	case second := <-store.added:
+		service.broker.mu.Unlock()
+		t.Fatalf("event %d got its id while event %d was still unpublished", second, first)
+	case <-time.After(50 * time.Millisecond):
+	}
+	service.broker.mu.Unlock()
+
+	require.Equal(t, first, (<-stream).ID)
+	second := <-store.added
+	require.Greater(t, second, first)
+	require.Equal(t, second, (<-stream).ID)
+
+	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted}
+	fake.session.turnResults <- nil
+}
