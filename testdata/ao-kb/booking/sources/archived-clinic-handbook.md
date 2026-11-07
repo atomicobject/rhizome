@@ -3,7 +3,7 @@ id: "s-000000000009"
 type: "source"
 name: "Archived clinic handbook"
 headline: "Archived clinic handbook"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "The retired handbook records the paper appointment ledger used before online booking."
 kind: "structured-doc"
 topics: ["booking"]
 status: "complete"
@@ -19,6 +19,6 @@ extractedAssertionIds: []
 
 # Archived clinic handbook
 
-Reception checks the referral before confirming a slot.
+The retired handbook records the paper appointment ledger used before online booking.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

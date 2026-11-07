@@ -2,7 +2,7 @@
 id: "a-000000000005"
 type: "assertion"
 headline: "Same-day cancellation is free"
-abstract: "Illustrative Booking assertion."
+abstract: "Patients can cancel on the appointment day without a fee."
 kind: "rule"
 confidence: "validated"
 attestation: "direct"
@@ -12,7 +12,7 @@ lenses: ["patient", "operations"]
 products: ["booking"]
 tags: ["booking"]
 priority: "now"
-horizon: "near"
+horizon: "now"
 sensitivity: "company"
 validFrom: "2026-10-20"
 createdAt: "2026-10-20T10:00:00Z"
@@ -20,8 +20,8 @@ updatedAt: "2026-11-03T09:00:00Z"
 createdVia: "codex"
 extracted_by: "llm@ao-kb@fixture"
 provenance:
-  quote_hash: "sha256:23a4144b5227c15ab9e62552c7b0c49df9aab1e8e9a1f21df4de984e50da2c2d"
-  locator: "L12-L18"
+  quote_hash: "sha256:309770f0818c61b8e10e0813beac18571faba7763e14723f9a474dc5361d14c5"
+  locator: "L30-L32"
   speaker: "Morgan, clinic operations"
   speaker_role: "stakeholder"
   extracted_by: "llm@ao-kb@fixture"

@@ -3,7 +3,7 @@ id: "s-000000000004"
 type: "source"
 name: "Referral attachments"
 headline: "Referral attachments"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "An ordered packet: cover sheet, approval document, and an illustrative external context URL."
 kind: "structured-doc"
 topics: ["booking"]
 status: "complete"
@@ -20,6 +20,6 @@ convertedFrom: "sources/_raw/referrals/approval.pdf"
 
 # Referral attachments
 
-Reception checks the referral before confirming a slot.
+An ordered packet: cover sheet, approval document, and an illustrative external context URL.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

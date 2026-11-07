@@ -2,7 +2,7 @@
 id: "a-000000000012"
 type: "assertion"
 headline: "Unresolved passage fixture"
-abstract: "Illustrative Booking assertion."
+abstract: "The clinic may reserve appointments for referral partners."
 kind: "hypothesis"
 confidence: "guess"
 attestation: "inferred"
@@ -11,19 +11,19 @@ phase: "definition"
 lenses: ["patient", "operations"]
 products: ["booking"]
 tags: ["booking"]
-priority: "now"
-horizon: "near"
+priority: "later"
+horizon: "later"
 sensitivity: "company"
-validFrom: "2026-10-20"
-createdAt: "2026-10-20T10:00:00Z"
-updatedAt: "2026-10-20T10:00:00Z"
+validFrom: "2026-10-28"
+createdAt: "2026-10-28T10:00:00Z"
+updatedAt: "2026-10-30T10:00:00Z"
 createdVia: "codex"
 extracted_by: "llm@ao-kb@fixture"
 provenance:
-  quote_hash: "sha256:23a4144b5227c15ab9e62552c7b0c49df9aab1e8e9a1f21df4de984e50da2c2d"
+  quote_hash: "sha256:1fa4b6a934fba197f46ec44434abfb02216e1fbf2df3602b33dac44b283f32d4"
   locator: "L120-L125"
-  speaker: "Morgan, clinic operations"
-  speaker_role: "stakeholder"
+  speaker: "Casey, product analyst"
+  speaker_role: "team"
   extracted_by: "llm@ao-kb@fixture"
 ---
 

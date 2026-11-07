@@ -215,7 +215,7 @@
       "inputs": {
         "ageDays": null,
         "attestation": "direct",
-        "attestationDefaulted": false,
+        "attestationDefaulted": true,
         "attestationInvalid": false,
         "contradiction": "none",
         "contradictionIds": [],
@@ -235,11 +235,11 @@
       "weight": null
     },
     "a-000000000008": {
-      "band": "firm",
-      "basis": "firm · stated directly · from the client · 2 sources · 10 days · unreviewed",
+      "band": "thin",
+      "basis": "thin · inferred · from the client + team's view · 2 sources · 10 days · unreviewed",
       "inputs": {
         "ageDays": 10,
-        "attestation": "direct",
+        "attestation": "inferred",
         "attestationDefaulted": false,
         "attestationInvalid": false,
         "contradiction": "none",
@@ -250,14 +250,15 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 2
       },
       "slug": "legacy-paper-booking",
       "stored": "hypothesis",
-      "weight": 0.8495
+      "weight": 0.4247
     },
     "a-000000000009": {
       "band": "resolved",
@@ -273,8 +274,9 @@
         "independentSources": 1,
         "kind": "question",
         "makerOnly": false,
-        "origin": "stakeholder",
+        "origin": "end-user",
         "originSet": [
+          "end-user",
           "stakeholder"
         ],
         "reviewed": false,
@@ -325,7 +327,8 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
@@ -339,7 +342,7 @@
       "basis": "resolved question",
       "inputs": {
         "ageDays": null,
-        "attestation": "direct",
+        "attestation": "inferred",
         "attestationDefaulted": false,
         "attestationInvalid": false,
         "contradiction": "none",
@@ -350,7 +353,8 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
@@ -375,7 +379,8 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
@@ -385,11 +390,11 @@
       "weight": null
     },
     "a-00000000000e": {
-      "band": "firm",
-      "basis": "firm · stated directly · from the client · 1 source · 10 days · unreviewed",
+      "band": "thin",
+      "basis": "thin · secondhand · from the client · 1 source · 4 days · unreviewed",
       "inputs": {
-        "ageDays": 10,
-        "attestation": "direct",
+        "ageDays": 4,
+        "attestation": "secondhand",
         "attestationDefaulted": false,
         "attestationInvalid": false,
         "contradiction": "none",
@@ -406,12 +411,12 @@
         "sourceCount": 1
       },
       "slug": "minors-need-guardian",
-      "stored": "validated",
-      "weight": 0.9872
+      "stored": "hypothesis",
+      "weight": 0.4974
     },
     "a-00000000000f": {
       "band": "firm",
-      "basis": "firm · stated directly · from the client · 1 source · 10 days · unreviewed",
+      "basis": "firm · stated directly · from the client + team's view · 1 source · 10 days · unreviewed",
       "inputs": {
         "ageDays": 10,
         "attestation": "direct",
@@ -425,7 +430,8 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
@@ -436,7 +442,7 @@
     },
     "a-000000000010": {
       "band": "firm",
-      "basis": "firm · stated directly · from the client · 1 source · 10 days · unreviewed",
+      "basis": "firm · stated directly · from the client + team's view · 1 source · 10 days · unreviewed",
       "inputs": {
         "ageDays": 10,
         "attestation": "direct",
@@ -450,7 +456,8 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
@@ -486,9 +493,9 @@
     },
     "a-000000000012": {
       "band": "thin",
-      "basis": "thin · inferred · from the client · 1 source · 10 days · unreviewed",
+      "basis": "thin · inferred · from the client + team's view · 1 source · 3 days · unreviewed",
       "inputs": {
-        "ageDays": 10,
+        "ageDays": 3,
         "attestation": "inferred",
         "attestationDefaulted": false,
         "attestationInvalid": false,
@@ -500,20 +507,21 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
       },
       "slug": "unresolved-passage-range",
       "stored": "guess",
-      "weight": 0.154
+      "weight": 0.1582
     },
     "a-000000000013": {
       "band": "thin",
-      "basis": "thin · inferred · from the client · 1 source · 10 days · unreviewed",
+      "basis": "thin · inferred · from the client + team's view · 1 source · 3 days · unreviewed",
       "inputs": {
-        "ageDays": 10,
+        "ageDays": 3,
         "attestation": "inferred",
         "attestationDefaulted": false,
         "attestationInvalid": false,
@@ -525,14 +533,15 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
       },
       "slug": "malformed-passage-locator",
       "stored": "guess",
-      "weight": 0.154
+      "weight": 0.1582
     },
     "a-000000000014": {
       "band": "open",
@@ -561,7 +570,7 @@
     },
     "a-000000000015": {
       "band": "firm",
-      "basis": "firm · stated directly · from the client · 1 source · 10 days · unreviewed",
+      "basis": "firm · stated directly · from the client + team's view · 1 source · 10 days · unreviewed",
       "inputs": {
         "ageDays": 10,
         "attestation": "direct",
@@ -575,7 +584,8 @@
         "makerOnly": false,
         "origin": "stakeholder",
         "originSet": [
-          "stakeholder"
+          "stakeholder",
+          "team"
         ],
         "reviewed": false,
         "sourceCount": 1
@@ -587,10 +597,11 @@
   },
   "concepts": {
     "cpt-000000000001": {
-      "band": "firm",
-      "basis": "firm · 2 claims: 2 firm · 1 from users · 1 from the client",
+      "band": "thin",
+      "basis": "thin · 2 claims: 1 firm · 1 thin · 1 from users · 1 from the client",
       "counts": {
-        "firm": 2
+        "firm": 1,
+        "thin": 1
       },
       "originCounts": {
         "client": 1,
@@ -646,10 +657,10 @@
       "slug": "video-visits"
     },
     "cpt-000000000006": {
-      "band": "firm",
-      "basis": "firm · 1 claim: 1 firm · 1 from the client",
+      "band": "thin",
+      "basis": "thin · 1 claim: 1 thin · 1 from the client",
       "counts": {
-        "firm": 1
+        "thin": 1
       },
       "originCounts": {
         "client": 1

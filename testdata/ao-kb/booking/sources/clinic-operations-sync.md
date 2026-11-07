@@ -3,8 +3,8 @@ id: "s-000000000001"
 type: "source"
 name: "Clinic operations sync"
 headline: "Clinic operations sync"
-abstract: "Illustrative evidence for the Booking clinic."
-hash: "sha256:5a334cf9d4f71edd1b79ee3d97d2003c1d080fcac0a6b68fa1410ade9dd10f6c"
+abstract: "Workshop decisions and follow-up questions about self-service, reminders, cancellation, eligibility, and waitlist offers."
+hash: "sha256:ded0656982028eb5ac5dd39cad58a9f093cb2fced1ef04b4ee9bc8d54e7cebbe"
 kind: "raw-transcript"
 topics: ["booking"]
 status: "complete"
@@ -20,6 +20,6 @@ extractedAssertionIds: ["a-000000000001", "a-000000000002", "a-000000000003", "a
 
 # Clinic operations sync
 
-Reception checks the referral before confirming a slot.
+Workshop decisions and follow-up questions about self-service, reminders, cancellation, eligibility, and waitlist offers.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

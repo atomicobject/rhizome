@@ -2,7 +2,7 @@
 id: "a-000000000009"
 type: "assertion"
 headline: "Same-day video visits?"
-abstract: "Illustrative Booking assertion."
+abstract: "Should Booking offer same-day video appointments?"
 kind: "question"
 confidence: "guess"
 attestation: "direct"
@@ -11,16 +11,17 @@ phase: "definition"
 lenses: ["patient", "operations"]
 products: ["booking"]
 tags: ["booking"]
-priority: "now"
+priority: "next"
 horizon: "near"
 sensitivity: "company"
-validFrom: "2026-10-20"
-createdAt: "2026-10-20T10:00:00Z"
-updatedAt: "2026-10-20T10:00:00Z"
+validFrom: "2026-10-14"
+createdAt: "2026-10-14T10:00:00Z"
+updatedAt: "2026-10-14T10:00:00Z"
 createdVia: "codex"
 extracted_by: "llm@ao-kb@fixture"
 provenance:
-  speaker_role: "stakeholder"
+  speaker: "Jordan, patient participant"
+  speaker_role: "end-user"
 ---
 
 Should Booking offer same-day video appointments?

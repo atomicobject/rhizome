@@ -2,7 +2,7 @@
 id: "a-00000000000b"
 type: "assertion"
 headline: "Guardian question withdrawn"
-abstract: "Illustrative Booking assertion."
+abstract: "Must every minor have an account-owning guardian?"
 kind: "question"
 confidence: "guess"
 attestation: "direct"
@@ -11,21 +11,20 @@ phase: "definition"
 lenses: ["patient", "operations"]
 products: ["booking"]
 tags: ["booking"]
-priority: "now"
-horizon: "near"
+priority: "later"
 sensitivity: "company"
-validFrom: "2026-10-20"
-createdAt: "2026-10-20T10:00:00Z"
-updatedAt: "2026-10-20T10:00:00Z"
+validFrom: "2026-10-27"
+createdAt: "2026-10-27T10:00:00Z"
+updatedAt: "2026-10-29T10:00:00Z"
 createdVia: "codex"
 extracted_by: "llm@ao-kb@fixture"
 withdrawnReason: "The policy question was outside this release."
 withdrawnAt: "2026-10-29"
 provenance:
-  quote_hash: "sha256:23a4144b5227c15ab9e62552c7b0c49df9aab1e8e9a1f21df4de984e50da2c2d"
-  locator: "L12-L18"
-  speaker: "Morgan, clinic operations"
-  speaker_role: "stakeholder"
+  quote_hash: "sha256:66d0d043db92d00eed385ac93445a21b4978681337ce0ecce4f5b872c460c00c"
+  locator: "L40-L41"
+  speaker: "Casey, product analyst"
+  speaker_role: "team"
   extracted_by: "llm@ao-kb@fixture"
 ---
 

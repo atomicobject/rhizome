@@ -2,7 +2,7 @@
 id: "a-000000000016"
 type: "assertion"
 headline: "Waitlist offers expire hourly"
-abstract: "Illustrative Booking assertion."
+abstract: "Waitlist offers expire after one hour."
 kind: "decision"
 confidence: "validated"
 attestation: "direct"
@@ -11,18 +11,18 @@ phase: "definition"
 lenses: ["patient", "operations"]
 products: ["booking"]
 tags: ["booking"]
-priority: "now"
+priority: "next"
 horizon: "near"
 sensitivity: "company"
-validFrom: "2026-10-20"
-createdAt: "2026-11-04T09:00:00Z"
+validFrom: "2026-11-04"
+createdAt: "2026-11-04T10:00:00Z"
 updatedAt: "2026-11-04T09:00:00Z"
 createdVia: "codex"
 extracted_by: "llm@ao-kb@fixture"
 provenance:
-  quote_hash: "sha256:23a4144b5227c15ab9e62552c7b0c49df9aab1e8e9a1f21df4de984e50da2c2d"
-  locator: "L12-L18"
-  speaker: "Morgan, clinic operations"
+  quote_hash: "sha256:1deacc3ba7440c8346043c64d4079ccf8089638387eb4ca72522bf4cf1b5f539"
+  locator: "L50-L51"
+  speaker: "Taylor, clinic lead"
   speaker_role: "stakeholder"
   extracted_by: "llm@ao-kb@fixture"
 ---

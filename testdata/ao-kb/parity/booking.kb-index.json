@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-11-06T23:07:04.331Z",
+    "generatedAt": "2026-11-07T00:46:38.074Z",
     "vaultSchemaVersion": 8,
     "builder": "ao-kb@7.138.8"
   },
@@ -22,7 +22,7 @@
       "status": "active",
       "reviewedBy": "Taylor, clinic lead",
       "reviewed": true,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-08",
       "validUntil": null,
       "tags": [
         "booking"
@@ -37,21 +37,21 @@
       "confidence": "guess",
       "excerpt": "What eligibility checks should Booking make?",
       "file": "assertions/eligibility-question-old.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Casey, product analyst",
+      "locator": "L9-L10",
       "sources": 1,
       "slug": "eligibility-question-old",
       "kind": "question",
-      "attestation": "direct",
+      "attestation": "inferred",
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-05",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-00000000000d": {
       "id": "a-00000000000d",
@@ -61,8 +61,8 @@
       "confidence": "guess",
       "excerpt": "Must a referral be verified before a patient reserves an appointment?",
       "file": "assertions/eligibility-question-specific.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Riley, reception coordinator",
+      "locator": "L37-L38",
       "sources": 1,
       "slug": "eligibility-question-specific",
       "kind": "question",
@@ -70,12 +70,12 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-26",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-00000000000b": {
       "id": "a-00000000000b",
@@ -85,8 +85,8 @@
       "confidence": "guess",
       "excerpt": "Must every minor have an account-owning guardian?",
       "file": "assertions/guardian-question-withdrawn.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Casey, product analyst",
+      "locator": "L40-L41",
       "sources": 1,
       "slug": "guardian-question-withdrawn",
       "kind": "question",
@@ -94,12 +94,12 @@
       "status": "retracted",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-27",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-000000000008": {
       "id": "a-000000000008",
@@ -109,21 +109,21 @@
       "confidence": "hypothesis",
       "excerpt": "The clinic previously booked appointments on paper.",
       "file": "assertions/legacy-paper-booking.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "June, records coordinator",
       "locator": "L1-L2",
       "sources": 2,
       "slug": "legacy-paper-booking",
       "kind": "observation",
-      "attestation": "direct",
+      "attestation": "inferred",
       "status": "archived",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2025-01-01",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-000000000013": {
       "id": "a-000000000013",
@@ -133,7 +133,7 @@
       "confidence": "guess",
       "excerpt": "The clinic may offer a special booking window.",
       "file": "assertions/malformed-passage-locator.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "Casey, product analyst",
       "locator": "Lbanana",
       "sources": 1,
       "slug": "malformed-passage-locator",
@@ -142,30 +142,30 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-28",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-00000000000e": {
       "id": "a-00000000000e",
       "type": "assertion",
       "title": "Minors need a guardian",
       "phase": "definition",
-      "confidence": "validated",
+      "confidence": "hypothesis",
       "excerpt": "A guardian must authorize bookings for minors.",
       "file": "assertions/minors-need-guardian.md",
       "sources": 1,
       "slug": "minors-need-guardian",
       "kind": "rule",
-      "attestation": "direct",
+      "attestation": "secondhand",
       "speaker": null,
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-27",
       "validUntil": null,
       "tags": [
         "booking"
@@ -179,8 +179,8 @@
       "confidence": "validated",
       "excerpt": "Waitlist offers expire after one hour.",
       "file": "assertions/new-waitlist-after-snapshot.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Taylor, clinic lead",
+      "locator": "L50-L51",
       "sources": 1,
       "slug": "new-waitlist-after-snapshot",
       "kind": "decision",
@@ -188,7 +188,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-11-04",
       "validUntil": null,
       "tags": [
         "booking"
@@ -211,7 +211,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-30",
       "validUntil": null,
       "tags": [
         "booking"
@@ -226,7 +226,7 @@
       "confidence": "validated",
       "excerpt": "Clinic pricing uses the published appointment tiers.",
       "file": "assertions/pricing-tier-policy.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "Devon, finance coordinator",
       "locator": "Pricing > Tiers",
       "sources": 1,
       "slug": "pricing-tier-policy",
@@ -235,12 +235,12 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-09-01",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-000000000010": {
       "id": "a-000000000010",
@@ -250,7 +250,7 @@
       "confidence": "validated",
       "excerpt": "Referral approval is recorded in the second attachment.",
       "file": "assertions/referral-file-selection.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "Riley, reception coordinator",
       "locator": "2::L3-L5",
       "sources": 1,
       "slug": "referral-file-selection",
@@ -259,12 +259,12 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-12",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-000000000002": {
       "id": "a-000000000002",
@@ -274,8 +274,8 @@
       "confidence": "validated",
       "excerpt": "Booking sends reminders 48 hours before the visit.",
       "file": "assertions/reminders-forty-eight-hours.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Taylor, clinic lead",
+      "locator": "L3-L4",
       "sources": 1,
       "slug": "reminders-forty-eight-hours",
       "kind": "decision",
@@ -283,7 +283,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-09-15",
       "validUntil": null,
       "tags": [
         "booking"
@@ -299,7 +299,7 @@
       "excerpt": "Booking sends reminders 24 hours before the visit.",
       "file": "assertions/reminders-twenty-four-hours.md",
       "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "locator": "L6-L7",
       "sources": 1,
       "slug": "reminders-twenty-four-hours",
       "kind": "decision",
@@ -307,7 +307,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-01",
       "validUntil": null,
       "tags": [
         "booking"
@@ -322,8 +322,8 @@
       "confidence": "validated",
       "excerpt": "Booking sends reminders two hours before the visit.",
       "file": "assertions/reminders-two-hours.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Taylor, clinic lead",
+      "locator": "L34-L35",
       "sources": 1,
       "slug": "reminders-two-hours",
       "kind": "decision",
@@ -331,7 +331,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-21",
       "validUntil": null,
       "tags": [
         "booking"
@@ -346,8 +346,8 @@
       "confidence": "validated",
       "excerpt": "Patients pay a fee when cancelling on the appointment day.",
       "file": "assertions/same-day-cancellation-fee.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Devon, finance lead",
+      "locator": "L27-L28",
       "sources": 1,
       "slug": "same-day-cancellation-fee",
       "kind": "rule",
@@ -371,7 +371,7 @@
       "excerpt": "Patients can cancel on the appointment day without a fee.",
       "file": "assertions/same-day-cancellation-free.md",
       "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "locator": "L30-L32",
       "sources": 1,
       "slug": "same-day-cancellation-free",
       "kind": "rule",
@@ -394,20 +394,20 @@
       "confidence": "guess",
       "excerpt": "Should Booking offer same-day video appointments?",
       "file": "assertions/same-day-video-question.md",
+      "speaker": "Jordan, patient participant",
       "sources": 1,
       "slug": "same-day-video-question",
       "kind": "question",
       "attestation": "direct",
-      "speaker": null,
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-14",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "end-user"
     },
     "a-000000000007": {
       "id": "a-000000000007",
@@ -418,7 +418,7 @@
       "excerpt": "Saturday appointments are available through October 2026.",
       "file": "assertions/saturday-hours-through-october.md",
       "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "locator": "L20-L21",
       "sources": 1,
       "slug": "saturday-hours-through-october",
       "kind": "fact",
@@ -426,7 +426,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-09-01",
       "validUntil": "2026-10-31",
       "tags": [
         "booking"
@@ -441,7 +441,7 @@
       "confidence": "validated",
       "excerpt": "Reception checks the referral before confirming a slot.",
       "file": "assertions/source-note-fallback.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "Riley, reception coordinator",
       "locator": "L1-L3",
       "sources": 1,
       "slug": "source-note-fallback",
@@ -450,12 +450,12 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-12",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-000000000011": {
       "id": "a-000000000011",
@@ -465,7 +465,7 @@
       "confidence": "validated",
       "excerpt": "Patients need ten minutes to complete check-in.",
       "file": "assertions/timestamp-arrival-buffer.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "Alex, patient participant",
       "locator": "01:10-01:30",
       "sources": 1,
       "slug": "timestamp-arrival-buffer",
@@ -474,7 +474,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-16",
       "validUntil": null,
       "tags": [
         "booking"
@@ -489,7 +489,7 @@
       "confidence": "guess",
       "excerpt": "The clinic may reserve appointments for referral partners.",
       "file": "assertions/unresolved-passage-range.md",
-      "speaker": "Morgan, clinic operations",
+      "speaker": "Casey, product analyst",
       "locator": "L120-L125",
       "sources": 1,
       "slug": "unresolved-passage-range",
@@ -498,12 +498,12 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-28",
       "validUntil": null,
       "tags": [
         "booking"
       ],
-      "speaker_role": "stakeholder"
+      "speaker_role": "team"
     },
     "a-00000000000a": {
       "id": "a-00000000000a",
@@ -513,8 +513,8 @@
       "confidence": "validated",
       "excerpt": "Booking offers same-day video appointments for existing patients.",
       "file": "assertions/video-visits-approved.md",
-      "speaker": "Morgan, clinic operations",
-      "locator": "L12-L18",
+      "speaker": "Taylor, clinic lead",
+      "locator": "L24-L25",
       "sources": 1,
       "slug": "video-visits-approved",
       "kind": "decision",
@@ -522,7 +522,7 @@
       "status": "active",
       "reviewedBy": null,
       "reviewed": false,
-      "validFrom": "2026-10-20",
+      "validFrom": "2026-10-14",
       "validUntil": null,
       "tags": [
         "booking"
@@ -611,7 +611,7 @@
       "type": "source",
       "title": "Archived clinic handbook",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "The retired handbook records the paper appointment ledger used before online booking.",
       "slug": "archived-clinic-handbook",
       "speaker_role": "stakeholder"
     },
@@ -620,7 +620,7 @@
       "type": "source",
       "title": "Clinic operations sync",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "Workshop decisions and follow-up questions about self-service, reminders, cancellation, eligibility, and waitlist offers.",
       "slug": "clinic-operations-sync",
       "speaker_role": "stakeholder"
     },
@@ -629,7 +629,7 @@
       "type": "source",
       "title": "Clinic pricing policy",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "Published tiers distinguish routine and specialist appointment prices.",
       "slug": "clinic-pricing-policy",
       "speaker_role": "stakeholder"
     },
@@ -638,7 +638,7 @@
       "type": "source",
       "title": "External booking brief",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "An external reference describes booking outside reception hours; it corroborates self-service rather than recording the original decision.",
       "slug": "external-booking-brief",
       "speaker_role": "external"
     },
@@ -647,7 +647,7 @@
       "type": "source",
       "title": "Generated booking summary",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "A generated synthesis of the booking workshops. It is corroboration, not independent stakeholder testimony.",
       "slug": "generated-booking-summary",
       "speaker_role": "generated"
     },
@@ -656,7 +656,7 @@
       "type": "source",
       "title": "Patient arrival recording",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "A patient explains the ten-minute check-in buffer in a timestamped arrival interview.",
       "slug": "patient-arrival-recording",
       "speaker_role": "end-user"
     },
@@ -665,7 +665,7 @@
       "type": "source",
       "title": "Patient booking interview",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "A patient describes choosing slots after hours, journey reminders, and interest in same-day video visits.",
       "slug": "patient-booking-interview",
       "speaker_role": "end-user"
     },
@@ -674,7 +674,7 @@
       "type": "source",
       "title": "Reception policy note",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "Reception checks the referral before confirming a slot.",
       "slug": "reception-policy-note",
       "speaker_role": "stakeholder"
     },
@@ -683,7 +683,7 @@
       "type": "source",
       "title": "Referral attachments",
       "status": "complete",
-      "excerpt": "Illustrative evidence for the Booking clinic.",
+      "excerpt": "An ordered packet: cover sheet, approval document, and an illustrative external context URL.",
       "slug": "referral-attachments",
       "speaker_role": "stakeholder"
     },

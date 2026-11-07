@@ -3,7 +3,7 @@ id: "s-000000000006"
 type: "source"
 name: "External booking brief"
 headline: "External booking brief"
-abstract: "Illustrative evidence for the Booking clinic."
+abstract: "An external reference describes booking outside reception hours; it corroborates self-service rather than recording the original decision."
 kind: "structured-doc"
 topics: ["booking"]
 status: "complete"
@@ -20,6 +20,6 @@ sourceKind: "reference"
 
 # External booking brief
 
-Reception checks the referral before confirming a slot.
+An external reference describes booking outside reception hours; it corroborates self-service rather than recording the original decision.
 
-Illustrative source summary.
+Synthetic workshop material; no real patient or clinic content.

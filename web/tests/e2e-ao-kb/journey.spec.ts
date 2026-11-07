@@ -40,7 +40,7 @@ test("find an assertion, read the recorded passage, and follow browser Back and 
     /\/explorer\?file=sources%2F_raw%2Fmeetings%2Fclinic-operations-sync.txt&line=12/,
   );
   await expect(page.locator('[data-line="12"][aria-current="location"]')).toHaveText(
-    "Reception: Patients can choose an available slot.",
+    "Morgan, clinic operations: Patients can choose an available slot.",
   );
   await page.goBack();
   await expect(
@@ -167,21 +167,13 @@ test("source passage margins lead to the claim, its concepts, and affected artif
   const f = frame(page);
   await f.getByRole("button", { name: "Load source text", exact: true }).click();
   await expect(
-    f.locator(".ak-source-text").getByText("12 citing claims", { exact: true }),
-  ).toBeVisible();
-  await f
-    .locator(".ak-source-text")
-    .getByRole("button", { name: "Show 10 more", exact: false })
-    .click();
+    f.locator(".ak-source-text").getByText("1 citing claim", { exact: true }),
+  ).toHaveCount(12);
   await expect(
     f
       .locator(".ak-source-text")
       .getByRole("link", { name: "Video visits are approved", exact: true }),
   ).toBeVisible();
-  await f
-    .locator(".ak-source-text")
-    .getByRole("button", { name: "Show fewer", exact: false })
-    .click();
   await f
     .locator(".ak-source-text")
     .getByRole("link", { name: "Patients book their own slots", exact: true })
