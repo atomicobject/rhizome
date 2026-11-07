@@ -1629,7 +1629,7 @@ export function OntologyNotePane({
   return (
     <article className={`ontology-pane${editing ? " is-editing" : ""}`} ref={paneRef}>
       <header className="ontology-pane__header">
-        {readOnlyReason ? <p className="field-editor__reason">{readOnlyReason}</p> : null}
+        {readOnlyReason ? <p className="ontology-pane__reason">{readOnlyReason}</p> : null}
         <div
           className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}
         >

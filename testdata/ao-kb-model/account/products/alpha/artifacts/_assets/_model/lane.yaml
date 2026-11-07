@@ -1,0 +1,43 @@
+settings:
+  label: alpha scalar
+services:
+- id: S1
+  name: alpha service
+  uses:
+  - SHARED
+  - SHARED
+  - MISSING
+  owner: shared user
+  project_detail: Override field
+  checks:
+  - user: U1
+  jobs:
+  - scalar job
+  - name: Second job
+    user: U1
+positions:
+- name: Product second
+mapped:
+  product:
+    id: ignored
+    name: Product map
+groups:
+  a:
+  - id: G1
+    name: Grouped
+links:
+- from: S1
+  to: SHARED
+collections:
+- id: C1
+  fields:
+  - name: email
+policies:
+- id: P1
+  governs:
+  - service:S1
+  - field:C1.email
+  any:
+    S1: arbitrary
+  variants:
+    SHARED: {}

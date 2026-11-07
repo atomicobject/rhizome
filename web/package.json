@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:ao-kb": "playwright test -c playwright.ao-kb.config.ts",
     "generate:api": "openapi-typescript ../pkg/app/web/openapi.yaml -o src/api/generated.ts && oxfmt src/api/generated.ts"
   },
   "dependencies": {

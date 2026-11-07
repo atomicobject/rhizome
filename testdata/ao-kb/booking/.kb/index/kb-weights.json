@@ -1,0 +1,726 @@
+{
+  "artifacts": {
+    "artifacts/booking-policy-review.md": {
+      "band": "contested",
+      "basis": "contested · 3 claims: 2 firm · 1 contested · 1 from users · 2 from the client",
+      "counts": {
+        "contested": 1,
+        "firm": 2
+      },
+      "originCounts": {
+        "client": 2,
+        "users": 1
+      },
+      "status": "draft"
+    },
+    "artifacts/booking-prd.md": {
+      "band": "contested",
+      "basis": "contested · 3 claims: 2 firm · 1 contested · 1 from users · 2 from the client",
+      "counts": {
+        "contested": 1,
+        "firm": 2
+      },
+      "originCounts": {
+        "client": 2,
+        "users": 1
+      },
+      "status": "draft"
+    },
+    "artifacts/booking-service-outline.md": {
+      "band": "contested",
+      "basis": "contested · 3 claims: 2 firm · 1 contested · 1 from users · 2 from the client",
+      "counts": {
+        "contested": 1,
+        "firm": 2
+      },
+      "originCounts": {
+        "client": 2,
+        "users": 1
+      },
+      "status": "draft"
+    },
+    "artifacts/reception-runbook.md": {
+      "band": "contested",
+      "basis": "contested · 3 claims: 2 firm · 1 contested · 1 from users · 2 from the client",
+      "counts": {
+        "contested": 1,
+        "firm": 2
+      },
+      "originCounts": {
+        "client": 2,
+        "users": 1
+      },
+      "status": "draft"
+    }
+  },
+  "assertions": {
+    "a-000000000001": {
+      "band": "firm",
+      "basis": "firm · stated directly · from users + from the client · 2 sources · 3 days · reviewed 2026-10-28",
+      "inputs": {
+        "ageDays": 3,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 5,
+        "independentSources": 2,
+        "kind": "need",
+        "makerOnly": false,
+        "origin": "end-user",
+        "originSet": [
+          "end-user",
+          "stakeholder"
+        ],
+        "reviewed": true,
+        "sourceCount": 2
+      },
+      "slug": "clinic-patient-books-own-slot",
+      "stored": "validated",
+      "weight": 0.9943
+    },
+    "a-000000000002": {
+      "band": "history",
+      "basis": "history · superseded by [[reminders-twenty-four-hours]]",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "decision",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "reminders-forty-eight-hours",
+      "stored": "validated",
+      "weight": null
+    },
+    "a-000000000003": {
+      "band": "history",
+      "basis": "history · superseded by [[reminders-two-hours]]",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "decision",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "reminders-twenty-four-hours",
+      "stored": "validated",
+      "weight": null
+    },
+    "a-000000000004": {
+      "band": "firm",
+      "basis": "firm · stated directly · from the client · 1 source · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "decision",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "reminders-two-hours",
+      "stored": "validated",
+      "weight": 0.9904
+    },
+    "a-000000000005": {
+      "band": "contested",
+      "basis": "contested · stated directly · from the client · 1 source · 10 days · unreviewed · cf-001 blocking",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "blocking",
+        "contradictionIds": [
+          "cf-001"
+        ],
+        "dependents": 4,
+        "independentSources": 1,
+        "kind": "rule",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "same-day-cancellation-free",
+      "stored": "validated",
+      "weight": 0.6872
+    },
+    "a-000000000006": {
+      "band": "contested",
+      "basis": "contested · stated directly · from the client · 1 source · 10 days · unreviewed · cf-001 blocking",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "blocking",
+        "contradictionIds": [
+          "cf-001"
+        ],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "rule",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "same-day-cancellation-fee",
+      "stored": "validated",
+      "weight": 0.6872
+    },
+    "a-000000000007": {
+      "band": "history",
+      "basis": "history · expired 2026-10-31",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "direct",
+        "attestationDefaulted": true,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "fact",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "saturday-hours-through-october",
+      "stored": "validated",
+      "weight": null
+    },
+    "a-000000000008": {
+      "band": "thin",
+      "basis": "thin · inferred · from the client + team's view · 2 sources · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "inferred",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 2,
+        "kind": "observation",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 2
+      },
+      "slug": "legacy-paper-booking",
+      "stored": "hypothesis",
+      "weight": 0.4247
+    },
+    "a-000000000009": {
+      "band": "resolved",
+      "basis": "resolved question",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "question",
+        "makerOnly": false,
+        "origin": "end-user",
+        "originSet": [
+          "end-user",
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "same-day-video-question",
+      "stored": "guess",
+      "weight": null
+    },
+    "a-00000000000a": {
+      "band": "firm",
+      "basis": "firm · stated directly · from the client · 1 source · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 4,
+        "independentSources": 1,
+        "kind": "decision",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "video-visits-approved",
+      "stored": "validated",
+      "weight": 0.9904
+    },
+    "a-00000000000b": {
+      "band": "resolved",
+      "basis": "resolved question",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "question",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "guardian-question-withdrawn",
+      "stored": "guess",
+      "weight": null
+    },
+    "a-00000000000c": {
+      "band": "resolved",
+      "basis": "resolved question",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "inferred",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "question",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "eligibility-question-old",
+      "stored": "guess",
+      "weight": null
+    },
+    "a-00000000000d": {
+      "band": "open",
+      "basis": "open question",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "question",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "eligibility-question-specific",
+      "stored": "guess",
+      "weight": null
+    },
+    "a-00000000000e": {
+      "band": "thin",
+      "basis": "thin · secondhand · from the client · 1 source · 4 days · unreviewed",
+      "inputs": {
+        "ageDays": 4,
+        "attestation": "secondhand",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "rule",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "minors-need-guardian",
+      "stored": "hypothesis",
+      "weight": 0.4974
+    },
+    "a-00000000000f": {
+      "band": "firm",
+      "basis": "firm · stated directly · from the client + team's view · 1 source · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "fact",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "pricing-tier-policy",
+      "stored": "validated",
+      "weight": 0.9812
+    },
+    "a-000000000010": {
+      "band": "firm",
+      "basis": "firm · stated directly · from the client + team's view · 1 source · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "fact",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "referral-file-selection",
+      "stored": "validated",
+      "weight": 0.9812
+    },
+    "a-000000000011": {
+      "band": "firm",
+      "basis": "firm · stated directly · from users · 1 source · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "need",
+        "makerOnly": false,
+        "origin": "end-user",
+        "originSet": [
+          "end-user"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "timestamp-arrival-buffer",
+      "stored": "validated",
+      "weight": 0.9812
+    },
+    "a-000000000012": {
+      "band": "thin",
+      "basis": "thin · inferred · from the client + team's view · 1 source · 3 days · unreviewed",
+      "inputs": {
+        "ageDays": 3,
+        "attestation": "inferred",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "hypothesis",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "unresolved-passage-range",
+      "stored": "guess",
+      "weight": 0.1582
+    },
+    "a-000000000013": {
+      "band": "thin",
+      "basis": "thin · inferred · from the client + team's view · 1 source · 3 days · unreviewed",
+      "inputs": {
+        "ageDays": 3,
+        "attestation": "inferred",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "hypothesis",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "malformed-passage-locator",
+      "stored": "guess",
+      "weight": 0.1582
+    },
+    "a-000000000014": {
+      "band": "open",
+      "basis": "open question",
+      "inputs": {
+        "ageDays": null,
+        "attestation": "inferred",
+        "attestationDefaulted": true,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 0,
+        "kind": "question",
+        "makerOnly": false,
+        "origin": "team",
+        "originSet": [
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 0
+      },
+      "slug": "no-sources-eligibility-check",
+      "stored": "guess",
+      "weight": null
+    },
+    "a-000000000015": {
+      "band": "firm",
+      "basis": "firm · stated directly · from the client + team's view · 1 source · 10 days · unreviewed",
+      "inputs": {
+        "ageDays": 10,
+        "attestation": "direct",
+        "attestationDefaulted": false,
+        "attestationInvalid": false,
+        "contradiction": "none",
+        "contradictionIds": [],
+        "dependents": 0,
+        "independentSources": 1,
+        "kind": "rule",
+        "makerOnly": false,
+        "origin": "stakeholder",
+        "originSet": [
+          "stakeholder",
+          "team"
+        ],
+        "reviewed": false,
+        "sourceCount": 1
+      },
+      "slug": "source-note-fallback",
+      "stored": "validated",
+      "weight": 0.9872
+    }
+  },
+  "concepts": {
+    "cpt-000000000001": {
+      "band": "thin",
+      "basis": "thin · 2 claims: 1 firm · 1 thin · 1 from users · 1 from the client",
+      "counts": {
+        "firm": 1,
+        "thin": 1
+      },
+      "originCounts": {
+        "client": 1,
+        "users": 1
+      },
+      "slug": "self-service"
+    },
+    "cpt-000000000002": {
+      "band": "firm",
+      "basis": "firm · 1 claim: 1 firm · 1 from the client",
+      "counts": {
+        "firm": 1
+      },
+      "originCounts": {
+        "client": 1
+      },
+      "slug": "reminders"
+    },
+    "cpt-000000000003": {
+      "band": "contested",
+      "basis": "contested · 3 claims: 1 firm · 2 contested · 3 from the client",
+      "counts": {
+        "contested": 2,
+        "firm": 1
+      },
+      "originCounts": {
+        "client": 3
+      },
+      "slug": "cancellation"
+    },
+    "cpt-000000000004": {
+      "band": "thin",
+      "basis": "thin · 3 claims: 1 firm · 2 thin · 1 from users · 2 from the client",
+      "counts": {
+        "firm": 1,
+        "thin": 2
+      },
+      "originCounts": {
+        "client": 2,
+        "users": 1
+      },
+      "slug": "availability"
+    },
+    "cpt-000000000005": {
+      "band": "firm",
+      "basis": "firm · 1 claim: 1 firm · 1 from the client",
+      "counts": {
+        "firm": 1
+      },
+      "originCounts": {
+        "client": 1
+      },
+      "slug": "video-visits"
+    },
+    "cpt-000000000006": {
+      "band": "thin",
+      "basis": "thin · 1 claim: 1 thin · 1 from the client",
+      "counts": {
+        "thin": 1
+      },
+      "originCounts": {
+        "client": 1
+      },
+      "slug": "guardians"
+    },
+    "cpt-000000000007": {
+      "band": "firm",
+      "basis": "firm · 3 claims: 3 firm · 2 open questions · 1 from users · 2 from the client",
+      "counts": {
+        "firm": 3,
+        "open": 2
+      },
+      "originCounts": {
+        "client": 2,
+        "users": 1
+      },
+      "slug": "eligibility"
+    }
+  },
+  "meta": {
+    "asOf": "2026-10-31",
+    "builder": "ao-kb@7.138.8",
+    "config": {
+      "weight_age_floor": 0.5,
+      "weight_attestation_direct": 1.0,
+      "weight_attestation_implied": 0.6,
+      "weight_attestation_inferred": 0.4,
+      "weight_attestation_secondhand": 0.5,
+      "weight_band_firm": 0.8,
+      "weight_band_leaning": 0.55,
+      "weight_contradiction_blocking": -0.3,
+      "weight_contradiction_sideline": -0.15,
+      "weight_corroboration_2": 0.15,
+      "weight_corroboration_3plus": 0.25,
+      "weight_half_life_days_decision": 720,
+      "weight_half_life_days_fact": 365,
+      "weight_half_life_days_goal": 365,
+      "weight_half_life_days_hypothesis": 180,
+      "weight_half_life_days_need": 365,
+      "weight_half_life_days_observation": 120,
+      "weight_half_life_days_other": 365,
+      "weight_half_life_days_preference": 540,
+      "weight_half_life_days_risk": 180,
+      "weight_half_life_days_rule": 540,
+      "weight_independence_per_role_class": 0,
+      "weight_kind_open": 0.4,
+      "weight_kind_primary": 1.0,
+      "weight_kind_secondary": 0.75,
+      "weight_origin_end_user": 1.0,
+      "weight_origin_external": 0.75,
+      "weight_origin_generated": 0.7,
+      "weight_origin_stakeholder": 1.0,
+      "weight_origin_team_other": 0.75,
+      "weight_origin_team_own": 1.0,
+      "weight_origin_unrecorded": 1.0,
+      "weight_penalty_per_contradiction": 1,
+      "weight_review_bump": 0.15,
+      "weight_review_half_life_days": 180
+    },
+    "generatedAt": "2026-10-31"
+  }
+}

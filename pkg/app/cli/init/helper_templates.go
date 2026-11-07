@@ -13,7 +13,10 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
-//go:embed templates templates/**/*
+// Directory patterns skip dot-prefixed paths, so a starter's repository
+// configuration under repo/.rhizome/ must be named explicitly.
+//
+//go:embed templates templates/**/* templates/starters/*/repo/.rhizome/*
 var agentHelperTemplates embed.FS
 
 type agentTemplate struct {

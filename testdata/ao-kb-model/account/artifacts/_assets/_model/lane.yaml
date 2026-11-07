@@ -1,0 +1,30 @@
+settings:
+  label: Account scalar
+services:
+- id: SHARED
+  name: Shared service
+  products:
+  - alpha
+  jobs:
+  - name: Shared job
+    user: U1
+users:
+- id: U1
+  name: Shared user
+  products:
+  - alpha
+- id: HIDDEN
+  name: Beta only
+  products:
+  - beta
+- id: UNTAGGED
+  name: No product
+positions:
+- name: Account first
+  products:
+  - alpha
+mapped:
+  account:
+    name: Account map
+    products:
+    - alpha

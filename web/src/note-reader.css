@@ -95,6 +95,10 @@
   padding-inline: var(--note-gutter);
 }
 
+.notes-shell .ontology-pane__main:has(> .custom-view-frames) {
+  padding: 0;
+}
+
 /* The control row is pane chrome, not prose: it runs edge to edge as an HTML
    note's does, so the path has the free width. */
 .notes-shell .ontology-pane__controls {

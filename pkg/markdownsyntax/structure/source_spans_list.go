@@ -11,6 +11,7 @@ import (
 
 type rawMarkdownItem struct {
 	lineIndex     int
+	segment       int // Top-level ATX headings end every open list.
 	parentIndex   int
 	indent        int
 	startByte     int
@@ -69,6 +70,9 @@ func parseListItemStart(line string, lineStart int) (rawMarkdownItem, bool) {
 func assignListParents(items []rawMarkdownItem) {
 	stack := make([]int, 0)
 	for idx := range items {
+		if idx > 0 && items[idx].segment != items[idx-1].segment {
+			stack = stack[:0]
+		}
 		for len(stack) > 0 && items[stack[len(stack)-1]].indent >= items[idx].indent {
 			stack = stack[:len(stack)-1]
 		}

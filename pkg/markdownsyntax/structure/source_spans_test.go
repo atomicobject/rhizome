@@ -1,6 +1,7 @@
 package structure
 
 import (
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
@@ -101,4 +102,12 @@ func TestParseMarkdownListSourceSpans_KeepsTopLevelSiblingAfterNestedDetail(t *t
 	require.Equal(t, "Results stay compact and support continuation when truncated.", items[3].Title)
 	require.Empty(t, items[3].ParentID)
 	require.NotContains(t, items[0].Content, "Results stay compact")
+}
+
+func TestParseStartsNewListAfterHeading(t *testing.T) {
+	content := "- one\n\n## Next\n  - two\n"
+	spans := ParseMarkdownListSourceSpans("note.md", content)
+	require.Len(t, spans, 2)
+	require.Empty(t, spans[1].ParentID)
+	require.NoError(t, noteformat.ValidateStructureFacts(Parse("note.md", content), len(content)))
 }
