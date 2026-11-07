@@ -21,7 +21,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/harnesstest"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	htmlformat "github.com/atomicobject/rhizome/pkg/noteformat/html"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -504,7 +503,7 @@ func TestHTMLViewerRegistryBoundsLiveCapabilities(t *testing.T) {
 }
 
 func newViewerTestServer(root, template string) *Server {
-	registry, err := builtin.NewRegistry()
+	registry, err := noteformat.NewRegistry(markdown.New(), htmlformat.New())
 	if err != nil {
 		panic(err)
 	}

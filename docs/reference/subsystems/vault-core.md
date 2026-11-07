@@ -44,7 +44,7 @@ The primitives every other subsystem builds on: canonical path normalization (`p
 
 ## Design constraints
 
-**Structural read envelope (SPEC-0133).** `noteformat.StructureFacts` stores validated source-local owners, ordered value IDs, explicit null/empty kinds, and optional original-byte ranges. `structural_reading` requires an executable projector and grants no mutation operation. HTML remains root-only. The moved Markdown heading/list parser lives under `markdownsyntax/sectionparse` and `markdownsyntax/structure`; the latter adapts syntax to noteformat facts without ontology imports.
+**Structural read envelope (SPEC-0133).** `noteformat.StructureFacts` stores validated source-local owners, ordered value IDs, explicit null/empty kinds, and optional original-byte ranges. `structural_reading` requires an executable projector and grants no mutation operation. HTML remains root-only. YAML (`.yaml`/`.yml`) and JSON (`.json`) require extension-explicit configured includes and expose only source/structural reading. Their parser adapter emits one owner/value per occurrence, RFC 6901 addresses, and no inferred byte ranges. The moved Markdown heading/list parser lives under `markdownsyntax/sectionparse` and `markdownsyntax/structure`; the latter adapts syntax to noteformat facts without ontology imports.
 
 - **Source write ownership is separate from discovery.** `pkg/sourceownership` reads committed `.rhizome/source-ownership.yml` declarations of owner, reason, and vault-relative exact paths/doublestar globs. Refresh never removes declarations; invalid configuration refuses native source writes. Explicit configuration removal is the ejection route. The managed init ignore file tracks this document.
 

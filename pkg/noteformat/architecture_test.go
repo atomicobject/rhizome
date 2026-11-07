@@ -155,7 +155,8 @@ func importsConcreteProvider(file *ast.File) bool {
 		path := strings.Trim(spec.Path.Value, "\"")
 		if path == modulePrefix+"pkg/noteformat/builtin" ||
 			path == modulePrefix+"pkg/noteformat/markdown" ||
-			path == modulePrefix+"pkg/noteformat/html" {
+			path == modulePrefix+"pkg/noteformat/html" ||
+			path == modulePrefix+"pkg/noteformat/structured" {
 			return true
 		}
 	}
@@ -413,6 +414,9 @@ func indirectMarkdownParserBoundaryFunction(path, function string) bool {
 }
 
 func providerSelectionBoundaryFunction(path, function string) bool {
+	if nonNoteFormatFunction(path, function) {
+		return true
+	}
 	// A short set of named compatibility functions still select Markdown
 	// authoring syntax. They are deliberately separate from parser exemptions:
 	// adding an extension literal elsewhere remains a neutral-consumer failure.

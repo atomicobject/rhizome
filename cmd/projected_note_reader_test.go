@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	"github.com/atomicobject/rhizome/pkg/noteformat/html"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -83,7 +83,7 @@ func TestNewProjectedNoteReaderOmitsDescriptorOnlyHTML(t *testing.T) {
 		reads: make(map[string]int),
 		stats: make(map[string]int),
 	}
-	registry, err := builtin.NewRegistry()
+	registry, err := noteformat.NewRegistry(markdown.New(), html.New())
 	require.NoError(t, err)
 	runtime, err := noteformat.NewRuntime(registry, markdown.New())
 	require.NoError(t, err)
