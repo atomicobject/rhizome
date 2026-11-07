@@ -232,9 +232,9 @@ func TestClaudeCancelTurnPrefersTransportClosure(t *testing.T) {
 			if tc.lifetimeEnded {
 				s.cancel()
 			}
-			done := make(chan error, 1)
-			done <- tc.turnResult
-			require.ErrorIs(t, s.cancelTurn(context.Canceled, done), tc.want)
+			turn := &turnState{done: make(chan struct{})}
+			turn.finish(tc.turnResult)
+			require.ErrorIs(t, s.cancelTurn(context.Canceled, turn), tc.want)
 		})
 	}
 }

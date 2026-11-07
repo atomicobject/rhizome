@@ -17,18 +17,51 @@ const versionCacheTTL = 10 * time.Minute
 
 var versionPattern = regexp.MustCompile(`\b(\d+)\.(\d+)\.(\d+)\b`)
 
+// versionProbe is one in-flight --version run; done closes once version and
+// err are set.
+type versionProbe struct {
+	done    chan struct{}
+	version string
+	err     error
+}
+
+// checkedVersion runs at most one probe at a time, outside versionMu, so a
+// caller waiting on another caller's probe still honors its own ctx.
 func (d *Driver) checkedVersion(ctx context.Context, path string) (string, error) {
-	d.versionMu.Lock()
-	defer d.versionMu.Unlock()
-	if !d.versionAt.IsZero() && time.Since(d.versionAt) < versionCacheTTL {
-		return d.versionValue, d.versionErr
+	for {
+		d.versionMu.Lock()
+		if !d.versionAt.IsZero() && time.Since(d.versionAt) < versionCacheTTL {
+			version, err := d.versionValue, d.versionErr
+			d.versionMu.Unlock()
+			return version, err
+		}
+		probe := d.versionProbe
+		if probe == nil {
+			probe = &versionProbe{done: make(chan struct{})}
+			d.versionProbe = probe
+			d.versionMu.Unlock()
+			result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: []string{"--version"}})
+			probe.version, probe.err = codexVersionResult(ctx, result, err)
+			d.versionMu.Lock()
+			d.versionProbe = nil
+			if !errors.Is(probe.err, harness.ErrTimeout) {
+				d.versionAt, d.versionValue, d.versionErr = time.Now(), probe.version, probe.err
+			}
+			d.versionMu.Unlock()
+			close(probe.done)
+			return probe.version, probe.err
+		}
+		d.versionMu.Unlock()
+		select {
+		case <-probe.done:
+			// The leader's own deadline is not this caller's; probe again.
+			if !errors.Is(probe.err, harness.ErrTimeout) {
+				return probe.version, probe.err
+			}
+		case <-ctx.Done():
+			return "", harness.Phase(harness.ErrTimeout, ctx.Err())
+		}
 	}
-	result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: []string{"--version"}})
-	version, checkErr := codexVersionResult(ctx, result, err)
-	if !errors.Is(checkErr, harness.ErrTimeout) {
-		d.versionAt, d.versionValue, d.versionErr = time.Now(), version, checkErr
-	}
-	return version, checkErr
 }
 
 func codexVersionResult(ctx context.Context, result command.Result, err error) (string, error) {

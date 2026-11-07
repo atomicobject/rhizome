@@ -289,7 +289,12 @@ export function EmptyNarrativeEditor({
           void clearDraftAfterStage(
             staged,
             () => discardedRef.current,
-            () => clearPersistedEditorDraft(vaultKey, operationTarget),
+            () => {
+              // Typing after this blur is newer than the insertion that just staged.
+              if (readPersistedEditorDraft(vaultKey, operationTarget) === markdown) {
+                clearPersistedEditorDraft(vaultKey, operationTarget);
+              }
+            },
           );
         }}
       />

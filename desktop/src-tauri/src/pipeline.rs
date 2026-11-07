@@ -26,7 +26,7 @@ fn now() -> Duration {
         .unwrap_or_default()
 }
 
-fn started() -> u64 {
+pub fn started() -> u64 {
     now().as_millis() as u64
 }
 

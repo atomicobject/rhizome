@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 )
 
 type runnerPrepared struct {
@@ -158,5 +159,40 @@ func requireNoErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func TestRunPreparedPipelineReturnsPipelineErrorWithoutDeadlock(t *testing.T) {
+	t.Parallel()
+
+	// An unbuffered channel and a pipeline that fails before reading it leave
+	// every preparation worker blocked on its send unless the failure cancels.
+	preparedCh := make(chan runnerPrepared)
+	wantErr := errors.New("provider failed")
+	done := make(chan error, 1)
+	go func() {
+		done <- runPreparedPipeline(
+			context.Background(),
+			[]int{1, 2, 3, 4, 5, 6, 7, 8},
+			8,
+			2,
+			"",
+			"",
+			preparedCh,
+			func(func(runnerOwner) error) error { return wantErr },
+			func(_ context.Context, task int) (runnerPrepared, error) {
+				return runnerPrepared{id: task, calls: 1}, nil
+			},
+			func(runnerOwner) error { return nil },
+			nil,
+		)
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, wantErr) {
+			t.Fatalf("got err %v want %v", err, wantErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("runPreparedPipeline deadlocked after the pipeline returned an error")
 	}
 }

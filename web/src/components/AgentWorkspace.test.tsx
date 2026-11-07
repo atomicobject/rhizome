@@ -237,6 +237,43 @@ describe("AgentWorkspace", () => {
     );
   });
 
+  it("keeps the composer enabled when a send reply lands after the turn completed", async () => {
+    const current = session();
+    setup(http, { current });
+    const send = deferredReply<{ session: typeof current }>();
+    http.on("POST", `/api/agent/sessions/${current.id}/messages`, () => send.promise);
+    render(<AgentWorkspace />);
+
+    await waitFor(() => expect(sources.instances).toHaveLength(1));
+    const composer = screen.getByLabelText("Message");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "ping" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(http.count("POST", `/api/agent/sessions/${current.id}/messages`)).toBe(1),
+    );
+
+    act(() => {
+      sources.latest().emitJSON(
+        {
+          id: 7,
+          sessionId: current.id,
+          type: "turn-completed",
+          result: { turnId: "turn-1" },
+          createdAt: "2026-09-12T12:01:03Z",
+        },
+        "agent_event",
+      );
+    });
+    // The refetch the terminal event triggers settles before the older send reply.
+    await waitFor(() => expect(http.count("GET", `/api/agent/sessions/${current.id}`)).toBe(2));
+    await act(async () => {});
+    await act(async () => send.resolve({ session: { ...current, turnRunning: true } }));
+
+    await waitFor(() => expect(composer).toBeEnabled());
+    expect(screen.queryByRole("button", { name: "Interrupt" })).not.toBeInTheDocument();
+  });
+
   it("offers interrupt during a turn and renders the interruption event", async () => {
     const current = session({ turnRunning: true });
     setup(http, {

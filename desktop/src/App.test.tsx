@@ -724,6 +724,31 @@ describe("desktop shell", () => {
     expect(screen.getByRole("button", { name: "Repository project" })).toBeVisible();
   });
 
+  it("ignores a terminal selection begun before the user chose another", async () => {
+    start(undefined, (operation, args) => {
+      if (operation === "list") return both;
+      if (operation === "open") return { generation: ++generation, library: both };
+      if (operation === "discover" && (args as { id: string }).id === other.id)
+        return otherDiscovery;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    const begun = Date.now() - 1000;
+    openRepository(other.id);
+    await waitFor(() => expect(opened()).toHaveLength(2));
+    act(() =>
+      emit({
+        type: "select",
+        library: both,
+        repository: repository.id,
+        worktree: feature,
+        started: begun,
+      }),
+    );
+    await act(async () => {});
+    expect(opened()).toHaveLength(2);
+    expect(opened()[1]).toMatchObject({ id: other.id });
+  });
+
   it("opens a terminal selection instead of restoring the session at launch", async () => {
     let list = (_: Library) => {};
     start(undefined, (operation, args) => {

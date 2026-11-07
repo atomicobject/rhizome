@@ -375,4 +375,25 @@ describe("SourceEditor", () => {
       }),
     ]);
   });
+  it("keeps newer narrative typing recoverable when an earlier insertion finishes staging", async () => {
+    let finishStage!: () => void;
+    const stage = vi.fn(() => new Promise<void>((resolve) => (finishStage = resolve)));
+    const target = "narrative-insert:notes%2Fa.md:root";
+    render(
+      <EmptyNarrativeEditor
+        revision={revision}
+        nodeRef={{ notePath: "notes/a.md", kind: "NOTE" }}
+        vaultKey="/vault"
+        onStageOps={stage}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "Add narrative" });
+    fireEvent.change(input, { target: { value: "A" } });
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: "A then B" } });
+
+    await act(async () => finishStage());
+
+    expect(readPersistedEditorDraftRecord("/vault", target)?.value).toBe("A then B");
+  });
 });
