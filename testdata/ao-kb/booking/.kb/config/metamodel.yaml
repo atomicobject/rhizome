@@ -1,0 +1,5 @@
+extends: ao-kb/standard-metamodel@1
+override:
+  feature:
+    fields:
+      journey_note: {type: text}

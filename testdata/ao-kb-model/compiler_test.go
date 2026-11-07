@@ -24,7 +24,7 @@ func fixtureSchema(t *testing.T) *schema.Schema {
 
 func TestGeneratedSDLCompiles(t *testing.T) {
 	compiled := fixtureSchema(t)
-	require.Len(t, compiled.Types, 19)
+	require.Len(t, compiled.Types, 20)
 	shared := compiled.Types["AOKBModel_service_account"]
 	require.NotNil(t, shared)
 	require.Equal(t, "alpha", shared.Record.Membership.Includes)

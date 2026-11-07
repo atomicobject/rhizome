@@ -1433,20 +1433,8 @@
       "path": ".kb/config/vault.md"
     },
     {
-      "hash": null,
-      "path": ".kb/curation/_conflicts.md"
-    },
-    {
       "hash": "sha256:67b0468bc9c754a78d29faf7a1128cb34fc648fda1b112fbb1d373cbdff38452",
       "path": ".rhizome/source-ownership.yml"
-    },
-    {
-      "hash": "sha256:bad7d8206c34d785f18e43c38186717f5d1069859243089aa92048cf095c0336",
-      "path": "artifacts/_assets/_model/lane.yaml"
-    },
-    {
-      "hash": "sha256:c07b3df8a69707e0f5060b9068d940ddeda37e8fa2b65f96afdf5ba8b81f5000",
-      "path": "assertions/shared.md"
     },
     {
       "hash": null,
@@ -1503,14 +1491,6 @@
     {
       "hash": null,
       "path": "products/alpha/.kb/config/vault.md"
-    },
-    {
-      "hash": "sha256:cd7f9d56c4fc0df0a830c4e3d63d63ce5f2628097265bfe5173074bab57a4b97",
-      "path": "products/alpha/artifacts/_assets/_model/lane.yaml"
-    },
-    {
-      "hash": "sha256:c6adab5658dcbd701d10c1991db8ba9becb8133045c9174a4880d25e7f7018c5",
-      "path": "products/alpha/artifacts/_assets/engine-blocks/rows.json"
     },
     {
       "hash": "sha256:154eeb9de126a9b8a8ae9b7591387799321869bd7b3c4def506ae9111c78c771",

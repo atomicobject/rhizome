@@ -1,0 +1,5 @@
+synced: "2026-10-20T09:00:00Z"
+capabilities:
+  - id: CAP-booking
+    name: Appointment booking
+    supported_by: [a-000000000001]

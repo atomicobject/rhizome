@@ -1,6 +1,6 @@
 id: ao-kb
 name: AO KB knowledge
-description: "Browse, query, and trace an existing AO KB's sources, assertions, concepts, artifacts, and conflict registry, read-only, while AO KB keeps authoring them"
+description: "Browse and trace an existing AO KB's knowledge and selected product model, read-only, while AO KB keeps authoring them"
 requires:
   - core
 optionalAddon: true

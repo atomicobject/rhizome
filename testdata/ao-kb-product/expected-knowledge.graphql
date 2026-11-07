@@ -1,0 +1,9 @@
+# Generated AO KB knowledge admission. Static knowledge types remain installed.
+
+extend type Assertion @admit(matches: ["assertions/alpha","assertions AND NOT assertions/alpha AND NOT assertions/beta AND (products:\"alpha\" OR products:\"*\" OR NOT has:products)"])
+
+extend type Source @admit(matches: ["sources/alpha","sources AND NOT sources/alpha AND NOT sources/beta AND (products:\"alpha\" OR products:\"*\" OR NOT has:products)"])
+
+extend type Concept @admit(matches: ["concepts/alpha","concepts AND NOT concepts/alpha AND NOT concepts/beta AND (products:\"alpha\" OR products:\"*\" OR NOT has:products)"])
+
+extend type Artifact @admit(matches: ["artifacts/alpha","artifacts/01_define/alpha","artifacts AND NOT artifacts/alpha AND NOT artifacts/beta AND NOT artifacts/01_define/alpha AND NOT artifacts/01_define/beta AND (products:\"alpha\" OR products:\"*\" OR NOT has:products)"])

@@ -107,14 +107,14 @@ class AdapterTests(unittest.TestCase):
         got = export(self.root, "alpha")
         self.assertTrue(any(d["code"] == "ao_required_generated_field" for d in got["diagnostics"]))
 
-    def test_wildcard_filter_has_a_named_core_integration_gap(self):
+    def test_wildcard_filter_admits_shared_account_rows(self):
         path = self.root / "artifacts/_assets/_model/lane.yaml"
         doc = self.engine._yaml(str(path))
         doc["services"][0]["products"] = ["*"]
         self.write(path, doc)
         got = export(self.root, "alpha")
         self.assertIn("SHARED", got["oracle"]["rows"]["service"])
-        self.assertTrue(any(d["code"] == "ao_membership_wildcard_unsupported" for d in got["diagnostics"]))
+        self.assertFalse(any(d["severity"] == "error" for d in got["diagnostics"]))
 
     def test_boolean_key_fails_with_a_specific_scalar_diagnostic(self):
         path, doc = self.product_doc()

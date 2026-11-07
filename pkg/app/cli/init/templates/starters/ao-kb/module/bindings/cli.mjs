@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {mkdir, realpath, rm} from 'node:fs/promises';
 import {refresh, check, atomic} from './publish.mjs';
-import {json, readJSON, run, adapter} from './runtime.mjs';
+import {json, readJSON, run, adapter, indexSignature} from './runtime.mjs';
 import {verifyIndex} from './verify-index.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -28,7 +28,8 @@ try {
     const selection = {formatVersion: 1, accountRoot: '.', product: values.single ? null : values.product ?? previous?.product ?? null,
       toolkit: values.toolkit ? await realpath(values.toolkit) : previous?.toolkit ?? null};
     const manifest = await refresh({root, directory, selection});
-    process.stdout.write(json({starterInstalled: true, bindingsReady: true, indexReady: false, manifest}));
+    process.stdout.write(json({starterInstalled: true, bindingsReady: true, knowledgeReady: true, modelReady: true,
+      bindings: {knowledge: {ready: true, status: 'ready'}, model: {ready: true, status: 'ready'}}, indexReady: false, manifest}));
   } else if (command === 'check') {
     const report = await check({root, directory});
     process.stdout.write(json(report));
@@ -40,18 +41,22 @@ try {
       const before = await check({root, directory});
       if (!before.bindingsReady) throw new Error('ao_bindings_stale: refresh bindings before indexing');
       const manifest = await readJSON(path.join(directory, 'manifest.json'));
-      run(process.env.RZM || 'rzm', ['index'], {cwd: root, timeout: 0});
       const selected = await readJSON(path.join(directory, 'selection.json'));
+      const signature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
+      run(process.env.RZM || 'rzm', ['index'], {cwd: root, timeout: 0});
       await verifyIndex(root, await adapter(root, directory, selected, {offline: true}));
       const after = await check({root, directory});
       const current = await readJSON(path.join(directory, 'manifest.json'));
-      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint) throw new Error('ao_index_inputs_changed: index readiness could not be certified');
-      await atomic(path.join(directory, 'index-receipt.json'), json({formatVersion: 1, fingerprint: manifest.fingerprint, sdlHash: manifest.sdlHash}));
+      const sourceSignature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
+      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index readiness could not be certified');
+      await atomic(path.join(directory, 'index-receipt.json'), json({formatVersion: 1, fingerprint: manifest.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}));
       process.stdout.write(json({...after, indexReady: true}));
     } finally { await rm(lock, {recursive: true, force: true}); }
   }
 } catch (error) {
   process.stdout.write(json({starterInstalled: true, bindingsReady: false, indexReady: false,
+    knowledgeReady: Boolean(error.knowledgeReady), modelReady: false,
+    bindings: {knowledge: {ready: Boolean(error.knowledgeReady), status: error.knowledgeReady ? 'ready' : 'incomplete'}, model: {ready: false, status: 'incomplete'}},
     diagnostics: error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}]}));
   process.exitCode = 1;
 }
