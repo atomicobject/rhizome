@@ -500,6 +500,7 @@ aliases: [FIRST-ALIAS]
 		RelPath: "notes/first.md",
 		Op:      watchhub.OpWrite,
 	}})
+	cache = srv.notePathCache(t.Context())
 	resolved, ok := cache.ResolveNote("FIRST-ALIAS")
 	require.True(t, ok)
 	require.Equal(t, "notes/first.md", resolved)
@@ -515,7 +516,9 @@ aliases: [SECOND]
 	}})
 
 	updated := srv.notePathCache(t.Context())
-	require.Same(t, cache, updated)
+	require.NotSame(t, cache, updated, "handed-out caches must never be mutated")
+	_, ok = cache.ResolveNote("SECOND")
+	require.False(t, ok)
 	resolved, ok = updated.ResolveNote("SECOND")
 	require.True(t, ok)
 	require.Equal(t, "notes/second.md", resolved)
@@ -530,6 +533,7 @@ aliases: [FIRST-UPDATED]
 		RelPath: "notes/first.md",
 		Op:      watchhub.OpWrite,
 	}})
+	updated = srv.notePathCache(t.Context())
 	_, ok = updated.ResolveNote("FIRST-ALIAS")
 	require.False(t, ok)
 	resolved, ok = updated.ResolveNote("FIRST-UPDATED")
@@ -541,6 +545,38 @@ aliases: [FIRST-UPDATED]
 		RelPath: "notes/second.md",
 		Op:      watchhub.OpRemove,
 	}})
-	_, ok = updated.ResolveNote("SECOND")
+	_, ok = srv.notePathCache(t.Context()).ResolveNote("SECOND")
 	require.False(t, ok)
+}
+
+func TestNotePathCacheResolvesWhileWatchEventsUpdateIt(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "first.md"), []byte("# First\n"), 0o644))
+	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root}
+	srv := &Server{cfg: Config{VaultPath: root, VaultDef: vaultDef}}
+	srv.notePathCache(t.Context())
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := range 200 {
+			op := watchhub.OpCreate
+			if i%2 == 1 {
+				op = watchhub.OpRemove
+			}
+			srv.updateNotePathCacheForWatchEvents(t.Context(), []watchhub.WatchEvent{{RelPath: "notes/second.md", Op: op}})
+		}
+	}()
+	for {
+		select {
+		case <-done:
+			return
+		default:
+		}
+		cache := srv.notePathCache(t.Context())
+		cache.ResolveNote("second")
+		cache.ResolveMdLink("second.md", "notes/first.md")
+		_ = len(cache.Paths)
+	}
 }
