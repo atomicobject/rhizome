@@ -11,6 +11,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"github.com/atomicobject/rhizome/pkg/store"
 )
 
@@ -179,7 +180,46 @@ func (s OntologyNodeSyncer) PrepareSourceSnapshots(ctx context.Context, sources 
 			projections = append(projections, projection)
 		}
 	}
+	if err := s.applyIndexedRecordContext(ctx, projections); err != nil {
+		return OntologyDerivedPlan{}, err
+	}
 	return s.PrepareProjections(ctx, projections...)
+}
+
+// applyIndexedRecordContext restores the composed RECORD logical IDs the
+// catalog published, so a host prepared alone keeps the numbering positional
+// rows take across its whole source set. Catalog publication precedes chunk
+// preparation; positional rows of another source revision never match.
+func (s OntologyNodeSyncer) applyIndexedRecordContext(ctx context.Context, projections []*ontology.NodeProjection) error {
+	prepared := map[string]*ontology.PreparedDocument{}
+	var paths []string
+	for _, projection := range projections {
+		root := projection.RootSnapshot
+		if projection.Prepared == nil || root == nil || root.Projection.Facts.Structure == nil || len(root.Projection.Facts.Structure.Values) == 0 {
+			continue
+		}
+		if _, ok := prepared[projection.Ref.NotePath]; !ok {
+			paths = append(paths, projection.Ref.NotePath)
+		}
+		prepared[projection.Ref.NotePath] = projection.Prepared
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	rows, err := s.Store.OntologyNodesByPaths(ctx, paths)
+	if err != nil {
+		return fmt.Errorf("load record context: %w", err)
+	}
+	byPath := map[string][]readmodel.NodeRow{}
+	for _, row := range rows {
+		byPath[row.NotePath] = append(byPath[row.NotePath], row)
+	}
+	for _, path := range paths {
+		if err := prepared[path].ApplyIndexedRecordContext(byPath[path]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s OntologyNodeSyncer) SyncSourceSnapshots(ctx context.Context, sources []notemeta.NoteSourceSnapshot) error {

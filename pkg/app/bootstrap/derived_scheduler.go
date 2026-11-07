@@ -16,7 +16,6 @@ import (
 	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -423,12 +422,9 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			if schema.Hash != state.SchemaHash {
 				return errDerivedSuperseded
 			}
-			paths := []string{ticket.Path}
-			if ticket.Path == "" {
-				paths, err = ontology.ProjectableMetadataPaths(ctx, w.noteMetadataIndexer, w.intelStore)
-				if err != nil {
-					return err
-				}
+			paths, err := w.ontologyTicketPaths(ctx, schema, ticket.Path)
+			if err != nil {
+				return err
 			}
 			rows, err := w.intelStore.CurrentNoteMetadataRowsByPaths(ctx, paths)
 			if err != nil {

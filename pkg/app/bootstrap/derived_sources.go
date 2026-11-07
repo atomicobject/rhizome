@@ -8,10 +8,25 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 
 	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
+
+// ontologyTicketPaths names the hosts an ontology ticket prepares: every
+// projectable note for a full ticket, otherwise its path plus, for a RECORD
+// host, the source set whose numbering it can change.
+func (w *unifiedSemanticWatcher) ontologyTicketPaths(ctx context.Context, schema *ontoschema.Schema, path string) ([]string, error) {
+	projectable := func() ([]string, error) {
+		return ontology.ProjectableMetadataPaths(ctx, w.noteMetadataIndexer, w.intelStore)
+	}
+	if path == "" {
+		return projectable()
+	}
+	return ontology.RecordSourceSetPaths(schema, []string{path}, projectable)
+}
 
 type publishedNoteReader struct {
 	obsidian.NoteReader
