@@ -160,10 +160,26 @@ func TestLiveManifestStates(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoRuntime)
 	})
 
+	t.Run("a runtime serving another vault is absent (copied repository)", func(t *testing.T) {
+		original, copied := t.TempDir(), t.TempDir()
+		manifest := testManifest(t, original, os.Getpid())
+		srv := healthServer(t, Health{InstanceID: manifest.InstanceID, RunID: manifest.RunID, PID: manifest.PID, VaultPath: original, Ready: true})
+		manifest.HTTPURL = srv.URL
+		require.NoError(t, WriteManifest(copied, manifest))
+		_, _, err := LiveManifest(ctx, copied)
+		require.ErrorIs(t, err, ErrNoRuntime)
+
+		// The runtime's own answer decides even when the manifest names this vault.
+		manifest.VaultPath = copied
+		require.NoError(t, WriteManifest(copied, manifest))
+		_, _, err = LiveManifest(ctx, copied)
+		require.ErrorIs(t, err, ErrNoRuntime)
+	})
+
 	t.Run("healthy probe attaches", func(t *testing.T) {
 		vaultPath := t.TempDir()
 		manifest := testManifest(t, vaultPath, os.Getpid())
-		srv := healthServer(t, Health{InstanceID: manifest.InstanceID, RunID: manifest.RunID, PID: manifest.PID, Ready: true})
+		srv := healthServer(t, Health{InstanceID: manifest.InstanceID, RunID: manifest.RunID, PID: manifest.PID, VaultPath: vaultPath, Ready: true})
 		manifest.HTTPURL = srv.URL
 		require.NoError(t, WriteManifest(vaultPath, manifest))
 		client, health, err := LiveManifest(ctx, vaultPath)

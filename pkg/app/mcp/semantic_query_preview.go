@@ -131,7 +131,8 @@ func needsCodePreviewFallback(preview string, match SemanticMatchPayload) bool {
 func previewFromHit(group semanticQueryGroup, vaultPath string, anchors map[string]codeanchor.IntelAnchor) string {
 	if group.match.Type == "note" {
 		for _, h := range group.hits {
-			if h.ChunkIndex < 0 {
+			// A node chunk's ordinal does not index the note's heading sections.
+			if h.ChunkIndex < 0 || h.Kind == embeddings.OntologyNodeOwnerType {
 				continue
 			}
 			txt := embeddings.CoreChunkBody(embeddings.ChunkTextForPath(vaultPath, h.Path, h.ChunkIndex, nil))

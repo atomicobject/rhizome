@@ -124,6 +124,11 @@ func TestFrontmatterEditsKeepOtherLinesByteIdentical(t *testing.T) {
 			want: with(map[string]any{"Tags": nil, "tags": []any{"a", "b"}}),
 			kept: append([]string{"status: open"}, untouched...),
 		},
+		"multiline value keeps later entries": {
+			edit: func(c string) (string, bool, error) { return SetFrontmatterProperty(c, "status", "line one\n\n", true) },
+			want: with(map[string]any{"status": "line one\n\n"}),
+			kept: append([]string{"Tags: a, b"}, untouched...),
+		},
 		"add tag beside capitalized Tags": {
 			content: strings.Replace(authored, "Tags: a, b", "Tags: [a]", 1),
 			edit: func(c string) (string, bool, error) {

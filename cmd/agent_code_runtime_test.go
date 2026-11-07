@@ -115,7 +115,7 @@ func TestForwardedCodeModeCallRetriesAfterCanceledRuntimeWait(t *testing.T) {
 		switch r.URL.Path {
 		case appruntime.HealthPath:
 			probes.Add(1)
-			_ = json.NewEncoder(w).Encode(appruntime.Health{RunID: runID, PID: os.Getpid(), Mode: appruntime.ModeHeadless})
+			_ = json.NewEncoder(w).Encode(appruntime.Health{RunID: runID, PID: os.Getpid(), VaultPath: vault.path, Mode: appruntime.ModeHeadless})
 		case appruntime.AgentOpsPathPrefix + "files":
 			writeOutcome(t, w, agentapi.CallOutcome{OK: true, Payload: json.RawMessage(`{}`)}, 1)
 		default:
@@ -349,7 +349,7 @@ func attachFakeRuntime(t *testing.T, vaultPath string, ops http.HandlerFunc) {
 	const runID = "fake-runtime"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appruntime.HealthPath {
-			_ = json.NewEncoder(w).Encode(appruntime.Health{RunID: runID, PID: os.Getpid(), Mode: appruntime.ModeHeadless})
+			_ = json.NewEncoder(w).Encode(appruntime.Health{RunID: runID, PID: os.Getpid(), VaultPath: vaultPath, Mode: appruntime.ModeHeadless})
 			return
 		}
 		ops(w, r)

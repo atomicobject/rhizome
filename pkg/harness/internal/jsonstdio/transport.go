@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -55,13 +56,14 @@ type Transport[M any] struct {
 	sessionID  string
 }
 
-// Start inherits the caller's environment and owns the child until Close.
+// Start inherits the caller's environment, minus Rhizome's repository
+// delegation bypass, and owns the child until Close.
 func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd string, env ...[]string) (*Transport[M], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
 	cmd := exec.Command(binary, args...)
-	cmd.Dir, cmd.Env = cwd, os.Environ()
+	cmd.Dir, cmd.Env = cwd, inheritedEnviron()
 	for _, vars := range env {
 		cmd.Env = append(cmd.Env, vars...)
 	}
@@ -112,6 +114,16 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 		processlog.Exit(vendor, t.corr, cmd.Process.Pid, cmd.ProcessState, err)
 	}()
 	return t, nil
+}
+
+// inheritedEnviron drops the delegation bypass that runtimes and delegated
+// processes carry. An agent's bare `rzm` must resolve the repository's pinned
+// binary; with the bypass it runs whatever is first on PATH, whose build
+// mismatch would replace the runtime hosting the agent.
+func inheritedEnviron() []string {
+	return slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		return strings.HasPrefix(kv, "RZM_SKIP_REPO_DELEGATE=") || strings.HasPrefix(kv, "RZM_REPO_DELEGATED=")
+	})
 }
 
 // New connects a typed JSON stream without spawning a process.

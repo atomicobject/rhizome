@@ -51,12 +51,7 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 			projected.ID = -s.transientEventID.Add(1)
 			projected.CreatedAt = time.Now().UTC()
 			s.broker.Publish(projected)
-		} else if stored, err := s.addEventWithRetry(s.ctx, projected); err == nil {
-			if incoming.Kind == harness.EventAssistantTextDelta {
-				stored.Type = "message_delta"
-			}
-			s.broker.Publish(stored)
-		} else {
+		} else if err := s.persistAndPublish(s.ctx, projected); err != nil {
 			s.handleEventPersistenceFailure(sessionID, live, incoming, err)
 		}
 		if orphaned {
@@ -111,9 +106,7 @@ func (s *Service) cancelApprovals(sessionID string, pending map[string]struct{})
 			Kind: harness.EventApprovalRequested, Phase: harness.PhaseCancelled, RequestID: requestID,
 			Reason: "The turn ended before the approval was answered",
 		})
-		if stored, err := s.addEventWithRetry(s.ctx, event); err == nil {
-			s.broker.Publish(stored)
-		} else {
+		if err := s.persistAndPublish(s.ctx, event); err != nil {
 			s.publishPersistenceError(event, err)
 		}
 	}
@@ -171,15 +164,16 @@ func (s *Service) persistHarnessError(sessionID string, kind harness.Kind, err e
 		Error:     err.Error(),
 		Result:    &EventResult{Status: phase, Reason: hint},
 	}
-	stored, storeErr := s.addEventWithRetry(s.ctx, event)
-	if storeErr != nil {
-		s.publishPersistenceError(event, storeErr)
-	} else {
-		s.broker.Publish(stored)
+	if err := s.persistAndPublish(s.ctx, event); err != nil {
+		s.publishPersistenceError(event, err)
 	}
 }
 
-func (s *Service) addEventWithRetry(ctx context.Context, event Event) (Event, error) {
+// persistAndPublish stores event and publishes it inside the same critical
+// section that assigns its id, so live subscribers see ids in ascending order;
+// the SSE cursor skips any id at or below the last one it sent. Publish never
+// blocks: a full subscriber is dropped and reconnects from its cursor.
+func (s *Service) persistAndPublish(ctx context.Context, event Event) error {
 	s.eventWriteMu.Lock()
 	defer s.eventWriteMu.Unlock()
 	var err error
@@ -187,7 +181,11 @@ func (s *Service) addEventWithRetry(ctx context.Context, event Event) (Event, er
 		var stored Event
 		stored, err = s.store.AddEvent(ctx, event)
 		if err == nil {
-			return stored, nil
+			if stored.Type == string(harness.EventAssistantTextDelta) {
+				stored.Type = "message_delta"
+			}
+			s.broker.Publish(stored)
+			return nil
 		}
 		log.Printf("agent chat: persist event session_id=%q type=%q attempt=%d/%d: %v", event.SessionID, event.Type, attempt, eventPersistAttempts, err)
 		if attempt == eventPersistAttempts || !isTransientSQLiteError(err) {
@@ -197,11 +195,11 @@ func (s *Service) addEventWithRetry(ctx context.Context, event Event) (Event, er
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return Event{}, ctx.Err()
+			return ctx.Err()
 		case <-timer.C:
 		}
 	}
-	return Event{}, err
+	return err
 }
 
 func isTransientSQLiteError(err error) bool {

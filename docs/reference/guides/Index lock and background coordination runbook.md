@@ -8,7 +8,7 @@ derived-from:
   - docs/reference/analysis/Indexing pipeline - Concurrency + batching requirements.md
   - pkg/vault/indexlock/lock.go
   - pkg/app/bootstrap/lane/lane.go
-last-verified: 2026-11-05
+last-verified: 2026-11-07
 status: active
 ---
 
@@ -22,7 +22,7 @@ status: active
 
 The runtime and its writers coordinate through these files:
 
-- `.rhizome/runtime.lock` decides which process is the **vault runtime** (`rzm serve`, attached or headless). It is process-lifetime: a dead owner in the same runtime or a proven earlier local boot can be reclaimed. Unproven foreign identities fail closed; heartbeat age never permits takeover.
+- `.rhizome/runtime.lock` decides which process is the **vault runtime** (`rzm serve`, attached or headless). It is process-lifetime: a dead owner in the same runtime or a proven earlier local boot can be reclaimed. Unproven foreign identities fail closed; heartbeat age never permits takeover. A lock copied with its repository (its recorded path names another file that still holds the same owner) is not held and is reclaimed.
 - `.rhizome/index.lock` fences **index writes**. Runtime indexing uses the lane, once per job. Interactive repair transactions own their lease through commit, projection refresh, and postcheck, including browser saves in the runtime process. Other holders include in-process `rzm index` (fallback or `--in-process`), `rzm new-worktree`, validation repairs, and note edits.
 - `.rhizome/db.sqlite.init.lock` serializes **database creation and schema migration**. Every write-capable store open holds it from before its first connection until the schema is validated, then releases it; it is never held while indexing runs. It exists because a one-shot command and the runtime it auto-starts open a fresh vault at the same time.
 

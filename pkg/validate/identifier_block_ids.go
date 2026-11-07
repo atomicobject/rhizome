@@ -123,6 +123,8 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 	issues := make([]Issue, 0, len(migrations))
 	fixes := make([]FixAction, 0, len(migrations))
 	var referenceInventory *validationSourceLinks
+	var codeRefs map[string]map[string]struct{}
+	var codeRefsErr error
 	for _, m := range migrations {
 		if ctx.Err() != nil {
 			return nil, nil, ctx.Err()
@@ -150,6 +152,7 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 				if err != nil {
 					return nil, nil, fmt.Errorf("load identifier block-id references: %w", err)
 				}
+				codeRefs, codeRefsErr = codeBlockReferences(ctx, runCtx.VaultPath, referenceInventory.cache)
 			}
 			edits = append(edits, blockIDReferenceEdits(referenceInventory, m.notePath, m.oldID, m.newID)...)
 			if ctx.Err() != nil {
@@ -172,14 +175,27 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 				BlockID:    m.oldID,
 			})
 		}
+		// No rewriter updates block fragments in code comments, so a rename
+		// that code cites, or that could not be checked, needs a person.
+		safety := FixSafetySafe
+		summary := fmt.Sprintf("rewrite identifier to id:: ^%s and update stale block links", m.newID)
+		if m.oldID != "" && m.oldID != m.newID {
+			if _, cited := codeRefs[m.notePath][strings.TrimPrefix(m.oldID, "^")]; cited {
+				safety = FixSafetyConfirm
+				summary += fmt.Sprintf("; code comments still cite ^%s and must be updated by hand", strings.TrimPrefix(m.oldID, "^"))
+			} else if codeRefsErr != nil {
+				safety = FixSafetyConfirm
+				summary += fmt.Sprintf("; code comments could not be checked: %v", codeRefsErr)
+			}
+		}
 		fixes = append(fixes, FixAction{
 			ID:            fmt.Sprintf("identifier-block-id:%s:%s", m.notePath, m.newID),
 			Check:         CheckOntology,
 			IssueCode:     "identifier_block_id_migration",
 			Kind:          FixKindEnsureBlockID,
-			Safety:        FixSafetySafe,
+			Safety:        safety,
 			Title:         fmt.Sprintf("Make identifier block-safe in %s", m.notePath),
-			Summary:       fmt.Sprintf("rewrite identifier to id:: ^%s and update stale block links", m.newID),
+			Summary:       summary,
 			InstanceCount: 1,
 			AffectedPaths: []string{m.notePath},
 			Edits:         edits,

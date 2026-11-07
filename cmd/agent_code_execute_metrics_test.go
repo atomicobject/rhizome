@@ -32,7 +32,7 @@ func TestAgentCodeExecuteReportsHostCallMetrics(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case appruntime.HealthPath:
-			_ = json.NewEncoder(w).Encode(appruntime.Health{RunID: runID, PID: os.Getpid(), Mode: appruntime.ModeHeadless})
+			_ = json.NewEncoder(w).Encode(appruntime.Health{RunID: runID, PID: os.Getpid(), VaultPath: vault.path, Mode: appruntime.ModeHeadless})
 		case appruntime.AgentOpsPathPrefix + "files":
 			forwarded.Add(1)
 			writeOutcome(t, w, agentapi.CallOutcome{OK: true, Payload: json.RawMessage(`{"files":["PRIVATE_OUTPUT_MARKER"]}`)}, 1)

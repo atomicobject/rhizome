@@ -121,7 +121,8 @@ func printUnifiedNoteChunkMatches(w io.Writer, useColor bool, vaultPath, noteID 
 		fmt.Fprintln(w, line)
 
 		chunkText := ""
-		if vaultPath != "" && noteID != "" && r.ChunkIndex >= 0 {
+		// A node chunk's ordinal does not index the note's heading sections.
+		if vaultPath != "" && noteID != "" && r.ChunkIndex >= 0 && r.Kind != embeddings.OntologyNodeOwnerType {
 			chunkText = embeddings.CoreChunkBody(embeddings.ChunkTextForPath(vaultPath, noteID, r.ChunkIndex, cache))
 		}
 		if chunkText == "" {

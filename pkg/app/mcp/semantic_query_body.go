@@ -190,7 +190,8 @@ func readAndTrimCodeFullWithTruncation(ctx context.Context, vaultPath, relPath s
 
 func readNoteExcerptWithTruncation(ctx context.Context, vaultPath string, group semanticQueryGroup, maxChars int) (string, bool) {
 	for _, h := range group.hits {
-		if h.ChunkIndex >= 0 {
+		// A node chunk's ordinal does not index the note's heading sections.
+		if h.ChunkIndex >= 0 && h.Kind != embeddings.OntologyNodeOwnerType {
 			txt := embeddings.CoreChunkBody(semanticQueryChunkText(ctx, semanticReadNote, vaultPath, h.Path, h.ChunkIndex, nil))
 			if strings.TrimSpace(txt) != "" {
 				return trimSemanticBody(strings.TrimSpace(txt), maxChars)
