@@ -45,7 +45,9 @@ import (
 // and @admit preserve selected-product admission without authored identifier aliases.
 // v25: quoted property matcher values compare frontmatter strings exactly, so notes admitted
 // under the looser inline or case-folded comparison are retyped.
-const OntologyMaterializationVersion = 25
+// v26: relation occurrences name their authoring node and field, and a relation declared from
+// both ends merges into one edge row instead of keeping whichever host wrote last.
+const OntologyMaterializationVersion = 26
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

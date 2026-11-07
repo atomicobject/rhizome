@@ -17,10 +17,15 @@ type GraphNodeRow struct {
 	UpdatedAt     int64
 }
 
+// RelationOccurrence is one authored reference behind an edge. Node and Field
+// name the authoring record field, which differs from the edge source when the
+// relation is declared from its target's end.
 type RelationOccurrence struct {
 	Ordinal int    `json:"ordinal"`
 	Value   string `json:"value"`
 	At      string `json:"at,omitempty"`
+	Node    string `json:"node,omitempty"`
+	Field   string `json:"field,omitempty"`
 }
 
 type GraphTypedEdgeRow struct {

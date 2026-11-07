@@ -37,7 +37,7 @@ func recordEdges(projection *NodeProjection, schema *ontoschema.Schema, now int6
 		if field.Record != nil && field.Record.References != nil {
 			for _, occurrence := range binding.ReferenceOccurrences {
 				if occurrence.Target != nil {
-					appendEdge(field.Record.References.Edge, *occurrence.Target, []readmodel.RelationOccurrence{{Ordinal: occurrence.Ordinal, Value: occurrence.Authored, At: occurrence.At}})
+					appendEdge(field.Record.References.Edge, *occurrence.Target, []readmodel.RelationOccurrence{{Ordinal: occurrence.Ordinal, Value: occurrence.Authored, At: occurrence.At, Node: projection.Ref.NodeID, Field: field.Name}})
 				}
 			}
 		}
