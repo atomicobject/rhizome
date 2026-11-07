@@ -80,6 +80,11 @@ func DecisionFor(args []string, cwd, exe string) Decision {
 	}
 
 	if plan.Authority == "development" {
+		if plan.DevApp && isUpdateControlPlaneInvocation(args) {
+			// WHY: update replaces its own executable; the Dev app's rzm
+			// belongs to that app's install and must not become a target.
+			return Decision{Warning: warning}
+		}
 		targetAbs, err := filepath.Abs(plan.Target)
 		if err != nil {
 			return Decision{Err: err}

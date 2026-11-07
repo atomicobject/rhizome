@@ -6,23 +6,25 @@ import (
 	"runtime"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 // DevAppEnv names the rzm of an installed Rhizome Dev app. An empty value
 // turns Dev app discovery off; unset means the standard install locations.
 const DevAppEnv = "RZM_DEV_APP_RZM"
 
-// DevAppExecutable returns the rzm bundled with an installed Rhizome Dev app.
-// A Rhizome source checkout without its own build runs it, so the Dev app and
-// command-line rzm select the same build whatever else is installed.
-func DevAppExecutable() (string, bool) {
-	if path, set := os.LookupEnv(DevAppEnv); set {
+// DevAppExecutable returns the rzm bundled with an installed Rhizome Dev app,
+// reading env's home directory and variables. A Rhizome source checkout
+// without its own build runs it, so the Dev app and command-line rzm select
+// the same build whatever else is installed.
+func DevAppExecutable(env vaultconfig.Env) (string, bool) {
+	if path, set := env.Lookup(DevAppEnv); set {
 		if path == "" || !filepath.IsAbs(path) {
 			return "", false
 		}
 		return path, executableFile(path)
 	}
-	for _, candidate := range devAppCandidates() {
+	for _, candidate := range devAppCandidates(env.HomeDir) {
 		if executableFile(candidate) {
 			return candidate, true
 		}
@@ -30,8 +32,7 @@ func DevAppExecutable() (string, bool) {
 	return "", false
 }
 
-func devAppCandidates() []string {
-	home, _ := os.UserHomeDir()
+func devAppCandidates(home string) []string {
 	switch runtime.GOOS {
 	case "darwin":
 		dirs := []string{"/Applications"}

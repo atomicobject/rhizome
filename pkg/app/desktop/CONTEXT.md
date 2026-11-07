@@ -7,7 +7,8 @@ setup reports, initialization, index scope, seeding, opening, command-line
 links, and repository pin advances. `protocol.go` bounds input and returns protocol 1 responses on both success and failure.
 
 - `New` receives the invocation's explicit `config.Env`. Home, PATH, login-shell,
-  and update-manifest lookups use that environment. Pin installation and advance
+  Rhizome Dev app (`RZM_DEV_APP_RZM`), and update-manifest lookups use that
+  environment. Pin installation and advance
   carry it into the in-process updater. Repository trust remains owned by the
   real operating-system account through `repositorytrust.DefaultStore`; an
   invocation home never redirects that authority. External process launch tools
@@ -91,7 +92,7 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   Rhizome binary, not an external manager shim.
 - Without an explicit global override, a bundled bridge selects its own resolved
   executable before searching existing CLI installations. A bridge is bundled
-  inside a macOS app, or on Linux when `rhizome-desktop` sits beside it. Desktop no longer
+  inside a macOS app, or elsewhere when `rhizome-desktop` sits beside it. Desktop no longer
   installs or updates `~/.local/bin/rzm`. Global status probes from a neutral
   directory. App updates belong to the native updater; terminal `rzm update`
   hands that global target to the app and keeps repository updates independent.

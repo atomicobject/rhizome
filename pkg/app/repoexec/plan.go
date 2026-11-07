@@ -2,9 +2,11 @@ package repoexec
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -19,13 +21,25 @@ type Plan struct {
 	SourceRoot            string
 	PreferDevelopment     bool
 	ConfiguredDevelopment bool
+	// DevApp marks a development Target that is an installed Rhizome Dev
+	// app's rzm. The repository did not choose that binary, so running it
+	// needs no checkout trust.
+	DevApp bool
 }
 
 // Select applies the same external, configured-development, source-development
 // (the checkout's bin/<goos>/rzm, else an installed Rhizome Dev app's rzm),
 // and managed-pin precedence used by command dispatch. fallback is an absolute
 // global executable, or a non-executable placeholder when only inspecting.
+// It reads the process environment; see SelectWithEnv.
 func Select(cwd, fallback string) (Plan, error) {
+	home, _ := os.UserHomeDir()
+	return SelectWithEnv(vaultconfig.Env{HomeDir: home, LookupEnv: os.LookupEnv}, cwd, fallback)
+}
+
+// SelectWithEnv is Select for a caller with an explicit invocation
+// environment, whose home directory and variables locate the Dev app.
+func SelectWithEnv(env vaultconfig.Env, cwd, fallback string) (Plan, error) {
 	p := Plan{Authority: "global", Target: fallback}
 	cfgDir, cfg, err := repoconfig.FindLocalConfigForDelegation(cwd)
 	if err != nil && !errors.Is(err, repoconfig.ErrNoLocalConfig) {
@@ -64,8 +78,8 @@ func Select(cwd, fallback string) (Plan, error) {
 		}
 		// WHY: without its own build, a source checkout runs the Dev app's
 		// build rather than a release, so the app and terminal agree.
-		if target, ok := DevAppExecutable(); ok {
-			p.Authority, p.Target = "development", target
+		if target, ok := DevAppExecutable(env); ok {
+			p.Authority, p.Target, p.DevApp = "development", target, true
 			return p, nil
 		}
 	}
@@ -83,7 +97,7 @@ func Select(cwd, fallback string) (Plan, error) {
 
 // TrustRoot identifies the checkout authorizing repository-selected code.
 func (p Plan) TrustRoot() string {
-	if p.Authority != "managed" && p.Authority != "development" {
+	if p.Authority != "managed" && p.Authority != "development" || p.DevApp {
 		return ""
 	}
 	if p.ConfigDir != "" {

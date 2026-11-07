@@ -131,11 +131,20 @@ func hookDelegateTargetForProcess(cwd string) string {
 // hookDelegateTarget is the repository-selected rzm a hook hands off to, or
 // "" to run in this binary. Unlike ordinary dispatch it never prompts,
 // probes, or installs: only a trusted checkout's development build, or its
-// managed pin whose version marker matches, qualifies.
+// managed pin whose version marker matches, qualifies, as does an installed
+// Rhizome Dev app's rzm, which needs no trust because the checkout did not
+// choose it.
 func hookDelegateTarget(cwd, exe string, store repositorytrust.Store) string {
 	checkout, required, err := repoexec.TrustRequirement([]string{"hook"}, cwd, exe)
-	if err != nil || !required {
+	if err != nil {
 		return ""
+	}
+	if !required {
+		plan, err := repoexec.Select(cwd, exe)
+		if err != nil || !plan.DevApp || repoexec.SameExecutablePath(plan.Target, exe) {
+			return ""
+		}
+		return plan.Target
 	}
 	if trusted, err := store.Trusted(checkout); err != nil || !trusted {
 		return ""

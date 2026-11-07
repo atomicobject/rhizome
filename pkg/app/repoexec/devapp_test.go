@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,18 +40,24 @@ func TestSelectRunsTheDevAppInASourceCheckoutWithoutItsOwnBuild(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "development", plan.Authority, "the Dev app outranks a pin in a source checkout")
 	require.Equal(t, devApp, plan.Target)
-	require.Equal(t, root, plan.TrustRoot())
+	require.Empty(t, plan.TrustRoot(), "the checkout did not choose the Dev app, so it needs no trust")
+	_, required, err := TrustRequirement([]string{"search", "x"}, root, release)
+	require.NoError(t, err)
+	require.False(t, required)
 
 	decision := DecisionFor([]string{"search", "x"}, root, release)
 	require.NoError(t, decision.Err)
 	require.True(t, decision.Delegate)
 	require.Equal(t, devApp, decision.Target)
 	require.False(t, DecisionFor([]string{"search", "x"}, root, devApp).Delegate, "the Dev app does not delegate to itself")
+	require.False(t, DecisionFor([]string{"update"}, root, release).Delegate, "update never replaces the Dev app's rzm")
 
 	build := writeExecutable(t, filepath.Join(root, "bin", runtime.GOOS, ExecutableName()))
 	plan, err = Select(root, release)
 	require.NoError(t, err)
 	require.Equal(t, build, plan.Target, "the checkout's own build outranks the Dev app")
+	require.False(t, plan.DevApp)
+	require.Equal(t, root, plan.TrustRoot(), "the checkout's own build still needs trust")
 
 	plain := paths.ResolveSymlinks(t.TempDir()).String()
 	require.NoError(t, os.MkdirAll(filepath.Join(plain, ".rhizome"), 0o755))
@@ -69,15 +76,14 @@ func TestDevAppDiscoveryFindsTheLinuxInstallBesideItsDesktopExecutable(t *testin
 		t.Skip("Linux install layout")
 	}
 	home := t.TempDir()
-	t.Setenv("HOME", home)
-	require.NoError(t, os.Unsetenv(DevAppEnv))
+	env := vaultconfig.Env{HomeDir: home}
 	dir := filepath.Join(home, ".local", "share", "rhizome-dev", "bin")
 	rzm := writeExecutable(t, filepath.Join(dir, "rzm"))
-	_, ok := DevAppExecutable()
+	_, ok := DevAppExecutable(env)
 	require.False(t, ok, "an rzm without the desktop executable beside it is not the Dev app")
 
 	writeExecutable(t, filepath.Join(dir, "rhizome-desktop"))
-	found, ok := DevAppExecutable()
+	found, ok := DevAppExecutable(env)
 	require.True(t, ok)
 	require.Equal(t, rzm, found)
 }

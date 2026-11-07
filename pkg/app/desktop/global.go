@@ -82,7 +82,7 @@ func (s *Service) GlobalStatus(ctx context.Context, override string) (GlobalInfo
 }
 
 // bundledExecutable returns the resolved path of an rzm a desktop app ships:
-// inside a macOS bundle, or beside the desktop executable on Linux. It
+// inside a macOS bundle, or beside the desktop executable elsewhere. It
 // returns "" for any other executable.
 func bundledExecutable(path string) (string, error) {
 	bundle, err := appbundle.Resolve(path)

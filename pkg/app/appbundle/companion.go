@@ -16,7 +16,8 @@ func DesktopExecutableName() string {
 }
 
 // BesideDesktop reports whether executable is the rzm a desktop app installed
-// beside its own executable: the Linux layout, which has no Info.plist to read.
+// beside its own executable: the layout outside macOS, which has no
+// Info.plist to read.
 func BesideDesktop(executable string) bool {
 	resolved, err := filepath.EvalSymlinks(executable)
 	if err != nil {

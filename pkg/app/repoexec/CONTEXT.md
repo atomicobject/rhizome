@@ -5,9 +5,11 @@ It preserves external ownership, configured development builds, Rhizome source
 builds, then managed pins, with the caller's global executable as fallback. A
 Rhizome source checkout without `bin/<goos>/rzm` selects an installed Rhizome
 Dev app's `rzm` (`DevAppExecutable`: `RZM_DEV_APP_RZM`, else the standard
-macOS or Linux install location) ahead of a pin, so the Dev app and a terminal
-`rzm` run the same build. It is a development authority and keeps that trust
-requirement. Tests set `RZM_DEV_APP_RZM` empty so results do not depend on the
+macOS or Linux install location, read from the caller's environment through
+`SelectWithEnv`; `Select` reads the process) ahead of a pin, so the Dev app and a terminal
+`rzm` run the same build. It is a development authority, but the checkout did not
+choose it, so it needs no trust; `update` stays on the invoking executable so
+it never replaces the app's `rzm`. Tests set `RZM_DEV_APP_RZM` empty so results do not depend on the
 machine.
 
 `TrustRequirement` identifies whether CLI dispatch needs canonical-checkout
