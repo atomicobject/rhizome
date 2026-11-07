@@ -123,11 +123,16 @@ export function useModelBindings() {
   };
 }
 
-/** The compiler's published binding status; ready only when its manifests say so. */
+/** The compiler's published binding status; ready only when its manifests say so.
+ * A failed refresh may rewrite only the manifests, which the file watcher ignores,
+ * so an open view re-reads them while visible and on focus. */
 export function useBindingFreshness() {
   return useQuery({
     queryKey: ["ao-kb", "binding-freshness"],
     queryFn: () => readBindingFreshness(),
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: "always",
   });
 }
 
