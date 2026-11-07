@@ -180,16 +180,22 @@ function Value({ row }: { row: FieldRow }) {
     ) : (
       <>
         <span className="ak-key">{a.text}</span>{" "}
-        <span className={a.state === "wildcard" ? "ak-state" : "ak-state ak-state-risk"}>
+        <span
+          className={
+            a.state === "wildcard" || a.state === "not read" ? "ak-state" : "ak-state ak-state-risk"
+          }
+        >
           {a.state === "wildcard"
             ? "Wildcard: every record"
             : a.state === "no edge"
               ? "Checked reference; AO declares no relationship to follow"
-              : a.state === "ambiguous"
-                ? "Names more than one record; none chosen"
-                : row.spec?.to.includes("Assertion")
-                  ? "No assertion with this ID in the selected product"
-                  : "Not resolved in the selected product"}
+              : a.state === "not read"
+                ? "Not checked: more relationships than one read returns"
+                : a.state === "ambiguous"
+                  ? "Names more than one record; none chosen"
+                  : row.spec?.to.includes("Assertion")
+                    ? "No assertion with this ID in the selected product"
+                    : "Not resolved in the selected product"}
         </span>
       </>
     );
@@ -231,12 +237,13 @@ function Evidence({
   const declared = declaredEvidence(record, spec, data.assertion);
   const claims = [...new Set(declared.flatMap((d) => (d.assertion ? [d.assertion] : [])))];
   const coverage = useCoverage(data, claims);
-  const dangling = declared.filter((d) => !d.assertion);
+  const dangling = declared.filter((d) => !d.assertion && !d.unread);
+  const unread = [...new Set(declared.filter((d) => d.unread).map((d) => d.id))];
   if (!declared.length) return null;
   return (
     <Section
       title="Evidence it rests on"
-      count={claims.length + new Set(dangling.map((d) => d.id)).size}
+      count={claims.length + new Set(dangling.map((d) => d.id)).size + unread.length}
       caption="Claims named in the record's declared evidence, with the origin citation's locator coverage. Coverage is not truth or strength."
       status={sectionStatus(coverage)}
       what="citation states"
@@ -279,6 +286,16 @@ function Evidence({
               {MODEL_WORDS[EVIDENCED_BY][0]} <span className="ak-key">{id}</span>
             </Rel>
           ))}
+          {unread.map((id) => (
+            <Rel
+              key={id}
+              icon={<ArrowRight size={14} />}
+              aside="Not checked"
+              meta="This record has more relationships than one read returns, so this ID was not checked. It is not reported as unresolved."
+            >
+              {MODEL_WORDS[EVIDENCED_BY][0]} <span className="ak-key">{id}</span>
+            </Rel>
+          ))}
         </ul>
       )}
     </Section>
@@ -297,6 +314,7 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
     evidence: loaded.edges
       .filter((e) => e.out && e.relation === EVIDENCED_BY)
       .map((e) => e.end.key),
+    evidenceTruncated: node.out.truncated,
   };
   const spec = specs[node.__typename];
   const byKey = new Map(loaded.records.map((r) => [r.key, r]));
@@ -325,7 +343,16 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
       n.typeName !== "Assertion" && (n.out ? declarer(record, n) : declarer(n, record)) === n.key,
   );
   const positional = loaded.edges.filter((e) => e.end.positional);
-  const rows = fieldRows(record.value, spec, neighbors);
+  const rows = fieldRows(record.value, spec, neighbors).map((r) =>
+    node.out.truncated
+      ? {
+          ...r,
+          atoms: r.atoms?.map((a) =>
+            a.state === "unresolved" ? { ...a, state: "not read" as const } : a,
+          ),
+        }
+      : r,
+  );
   const address = node.workspace?.source?.address;
   const file = basename(node.ref.notePath);
   const code = loaded.code;
@@ -377,6 +404,11 @@ function ModelBody({ loaded, data }: { loaded: Loaded; data: Knowledge }) {
             <Section
               title="Declared by other records"
               count={declaredByOthers.length + positional.length}
+              caption={
+                node.in.truncated
+                  ? "More records declare relationships to this one than one read returns; this list is incomplete."
+                  : undefined
+              }
             >
               <ul className="ak-rels">
                 {declaredByOthers.map((n) => {

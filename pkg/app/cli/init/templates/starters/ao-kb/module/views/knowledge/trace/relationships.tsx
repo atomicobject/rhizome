@@ -96,12 +96,18 @@ export function Relationships({
                       key={`${location.path}:${location.section}`}
                     >
                       {i > 0 && <span>Also declared in </span>}
-                      <NodeLink
-                        className="ao-trace-authored-link"
-                        node={location.ref ?? byPath.get(location.path)?.ref}
-                      >
-                        {location.path} › {location.section}
-                      </NodeLink>
+                      {(location.ref ?? byPath.get(location.path)?.ref) ? (
+                        <NodeLink
+                          className="ao-trace-authored-link"
+                          node={(location.ref ?? byPath.get(location.path)?.ref)!}
+                        >
+                          {location.path} › {location.section}
+                        </NodeLink>
+                      ) : (
+                        <span>
+                          {location.path} › {location.section}
+                        </span>
+                      )}
                     </span>
                   ))}
                 </TableCell>

@@ -135,7 +135,7 @@ type RawModel = {
   ref: Ref;
   aoValue?: string | null;
   workspace?: { source?: { value?: SourceValue; address?: string } | null } | null;
-  evidence?: { edges: { target: Endpoint }[] };
+  evidence?: { truncated: boolean; edges: { target: Endpoint }[] };
 };
 /** Model records by key (`notePath#fragment`), each with its native evidence edges. */
 export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
@@ -144,7 +144,7 @@ export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
     .map(
       (key, i) => `n${i}: node(ref: ${JSON.stringify(key)}) { __typename title ${REF}
           ... on AOKBModelRecord { aoValue } workspace { source }
-          evidence: neighborhood(direction: OUTBOUND, relation: "${EVIDENCED_BY}", first: 200) { edges { target { ${ENDPOINT} } } } }`,
+          evidence: neighborhood(direction: OUTBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } }`,
     )
     .join("\n")} }`);
   return keys.flatMap((key, i) => {
@@ -159,6 +159,7 @@ export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
             aoValue: r.aoValue,
             value: r.workspace?.source?.value,
             evidence: r.evidence?.edges.map((e) => owner(e.target).key) ?? [],
+            evidenceTruncated: !!r.evidence?.truncated,
           },
         ]
       : [];

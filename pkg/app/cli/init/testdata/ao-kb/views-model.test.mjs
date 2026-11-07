@@ -111,6 +111,10 @@ test("model sync groups by file, names each row and changed claim, and missing d
   assert.deepEqual(result.sync[0].rows.map((r) => [r.record.key, r.changed.map((a) => a.aoId)]), [["F-1", ["a-1"]], ["F-3", ["a-1"]]]);
   assert.deepEqual(result.unknown.map((g) => [g.file.notePath, g.rows.map((r) => r.record.key)]), [[FEATURES, ["F-3"]], ["flows.yaml", ["W-1"]]]);
   assert.deepEqual(result.dangling.map((d) => [d.record.key, d.field, d.id]), [["F-3", "supported_by", "a-gone"]]);
+  const capped = { ...row("F-4", FEATURES, [changed.path], ["a-1", "a-unread"]), evidenceTruncated: true };
+  const partial = modelObservations([], [capped], { AOKBModel_flow_single: spec }, [changed]);
+  assert.deepEqual(partial.dangling, [], "an ID beyond a capped evidence read is not called dangling");
+  assert.deepEqual(partial.incomplete.map((r) => r.key), ["F-4"], "the capped read is disclosed");
   assert.equal(syncCompare("2026-11-04", "2026-11-04T00:00:00Z"), "not later");
   assert.equal(syncCompare("not a date", "2026-11-04"), "unknown");
 });

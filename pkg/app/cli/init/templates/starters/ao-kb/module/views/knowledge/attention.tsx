@@ -78,6 +78,12 @@ function AttentionBody({ data }: { data: Knowledge }) {
       basis: `${d.record.ref.notePath.split("/").pop()} › ${d.record.aoValue} › ${d.field}: ${d.id} names no assertion in the selected product. It may be missing, ambiguous, or in another product.`,
       risk: true,
     } satisfies Observation);
+  for (const r of model?.incomplete ?? [])
+    groups["Dangling declared references"].push({
+      record: { ref: r.ref, path: r.key, title: r.title },
+      reason: "Evidence not fully read",
+      basis: `${r.ref.notePath.split("/").pop()} › ${r.aoValue} has more evidence relationships than one read returns. Its unread IDs are not reported as dangling, and its sync observations may be incomplete.`,
+    } satisfies Observation);
   const files = {
     "Knowledge updated since sync": model?.sync ?? [],
     "Sync date unknown": model?.unknown ?? [],

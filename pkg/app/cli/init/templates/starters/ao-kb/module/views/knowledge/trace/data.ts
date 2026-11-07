@@ -88,7 +88,12 @@ type Assertion = KnowledgeRecord & {
   conceptsCount: number;
 } & { [K in (typeof FM)[number]]: string[] | null };
 type Source = KnowledgeRecord & { __typename: "Source"; extractedAssertionIds: string[] | null };
-type Concept = KnowledgeRecord & { __typename: "Concept"; relatedConceptsSection: Section | null };
+type Concept = KnowledgeRecord & {
+  __typename: "Concept";
+  relatedConceptsSection:
+    | (Section & { relatedConcepts: { path: string }[]; relatedConceptsCount: number })
+    | null;
+};
 type Artifact = KnowledgeRecord & {
   __typename: "Artifact";
   neighborhood: Neighborhood;

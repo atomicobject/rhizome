@@ -115,6 +115,8 @@ export type ModelRecord = {
   value?: SourceValue | null;
   /** Paths of the assertions its native evidenced-by edges reach. */
   evidence: string[];
+  /** The evidence read hit its cap, so an unmatched declared ID was not checked. */
+  evidenceTruncated?: boolean;
 };
 export type ModelFile = { notePath: string; synced?: string | null };
 
@@ -132,6 +134,7 @@ export function declaredEvidence(
         field: e.key,
         id,
         assertion: reached.find((a) => a.aoId === id),
+        unread: !reached.some((a) => a.aoId === id) && !!record.evidenceTruncated,
       })),
     );
 }
@@ -171,8 +174,10 @@ export function modelObservations(
   }
   for (const record of records)
     for (const d of declaredEvidence(record, specs[record.typeName], assertions))
-      if (!d.assertion) dangling.push({ record, field: d.field, id: d.id });
-  return { sync, unknown, dangling };
+      if (!d.assertion && !d.unread) dangling.push({ record, field: d.field, id: d.id });
+  // Capped reads are disclosed, never reported as dangling.
+  const incomplete = records.filter((r) => r.evidenceTruncated);
+  return { sync, unknown, dangling, incomplete };
 }
 
 /** A record this one reaches through a native edge, in either stored direction. */
@@ -192,7 +197,7 @@ export type Atom = {
   text: string;
   target?: Neighbor;
   /** Why an authored reference value links nowhere. */
-  state?: "unresolved" | "ambiguous" | "wildcard" | "no edge";
+  state?: "unresolved" | "ambiguous" | "wildcard" | "no edge" | "not read";
 };
 export type FieldRow = { key: string; value: SourceValue; spec?: ReferenceSpec; atoms?: Atom[] };
 
