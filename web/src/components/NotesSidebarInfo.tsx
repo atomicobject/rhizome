@@ -326,7 +326,10 @@ export function NotesSidebarInfo({
                   );
                 })}
           </SidebarContextGroup>
-          <SidebarContextGroup title="Linked notes" count={rowCount(linked)}>
+          <SidebarContextGroup
+            title={workspace.content.source ? "Linked records" : "Linked notes"}
+            count={rowCount(linked)}
+          >
             {linked.length > 0 && <DirectionLegend buckets={linked} />}
             {linked.length > 0 &&
               linked.map((bucket) => (
@@ -400,7 +403,8 @@ export function NotesSidebarInfo({
         </section>
         {relationGroups.length === 0 && issues.length === 0 && (
           <p className="ontology-sidebar-context__empty ontology-sidebar-context__empty--panel">
-            No relationship context has been indexed for this note yet.
+            No relationship context has been indexed for this{" "}
+            {workspace.content.source ? "record" : "note"} yet.
           </p>
         )}
       </div>

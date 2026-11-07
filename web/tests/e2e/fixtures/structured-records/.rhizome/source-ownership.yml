@@ -1,4 +1,4 @@
 sources:
-  - owner: Fixture author
+  - owner: AO KB
     reason: Change this record with the owning tool.
     paths: [notes/structured/**]
