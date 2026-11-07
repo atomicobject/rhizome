@@ -36,4 +36,4 @@ Re-run `rzm init` to receive managed updates. Unedited managed files update; edi
 
 For generated view contracts, pinned compatibility limits, staged publication and recovery, read `.rhizome/modules/ao-kb/bindings/README.md`.
 
-If the first index persists configuration defaults, `ao_index_inputs_changed` names `.rhizome/config.yml` and no receipt is issued. Review that change, refresh bindings, then run the index wrapper again. A later authored edit expires the receipt while compatible bindings remain ready; normal indexing refreshes those values.
+Bindings do not depend on `.rhizome/config.yml`, so indexing that rewrites it does not make them stale. If AO files or configuration change while the wrapper indexes, it reports `ao_index_inputs_changed` and issues no receipt; refresh bindings, then run the wrapper again. A later authored edit expires the receipt while compatible bindings remain ready; normal indexing refreshes those values.

@@ -55,6 +55,10 @@ test('authored edits stay ready; config edits need refresh; index readiness stay
   await writeFile(model, (await readFile(model, 'utf8')) + '\n# input changed\n');
   report = await check({...options, checkDependencies: deps});
   assert.equal(report.bindingsReady, true);
+  // rzm index re-serializes .rhizome/config.yml; the bindings do not depend on its bytes.
+  await mkdir(path.join(options.root, '.rhizome'), {recursive: true});
+  await writeFile(path.join(options.root, '.rhizome/config.yml'), 'notes:\n  includes:\n    - "**/*.md"\n');
+  assert.equal((await check({...options, checkDependencies: deps})).bindingsReady, true, 'config rewrite must not stale bindings');
   const config = path.join(options.root, 'products/alpha/.kb/config/metamodel.yaml');
   await writeFile(config, (await readFile(config, 'utf8')) + '\n# configuration changed\n');
   report = await check({...options, checkDependencies: deps});

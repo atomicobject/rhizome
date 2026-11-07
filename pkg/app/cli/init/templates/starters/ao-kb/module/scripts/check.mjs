@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { bindingRows, runCompilerCheck } from './lib/bindings-check.mjs';
+import { bindingRows, globMatch, runCompilerCheck } from './lib/bindings-check.mjs';
 
 // Read only the scalar frontmatter keys and simple include lists used by this check.
 function scalar(text, key) {
@@ -62,8 +62,14 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     // Discovery skips hidden directories unless an include names the hidden path literally.
     const registry = !existsSync(join(root, '.kb/curation/_conflicts.md'))
       || patterns?.some(p => p === '.kb/curation/_conflicts.md' || p.startsWith('.kb/curation/') || p.startsWith('.kb/'));
-    add('note includes', knowledge && registry ? 'ok' : 'warning', knowledge && registry
-      ? 'Includes cover the AO knowledge paths and the conflict registry. Ignore rules may still exclude files; prove projection after indexing.'
+    // Structured model sources need an include naming their extension; broad globs do not activate them.
+    const model = (json(root, `${module}/bindings/manifest.json`)?.sources ?? []).map(s => s.path);
+    const unincluded = [...new Set(model)].filter(path => !patterns?.some(p => p === path
+      || (globMatch(p, path) && p.endsWith(path.slice(path.lastIndexOf('.')))))).sort();
+    add('note includes', knowledge && registry && !unincluded.length ? 'ok' : 'warning', knowledge && registry && !unincluded.length
+      ? 'Includes cover the AO knowledge paths, the conflict registry, and the compiled model sources. Ignore rules may still exclude files; prove projection after indexing.'
+      : knowledge && registry
+      ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}`
       : !knowledge
       ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
       : 'Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.', configPath);

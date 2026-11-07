@@ -84,6 +84,13 @@ test('include coverage needs the AO knowledge paths and an explicit include for 
   assert.match(missing.message, /\.kb\/curation\/_conflicts\.md/);
   const explicit = 'notes:\n  includes: ["**/*.md", ".kb/curation/_conflicts.md"]\n';
   assert.equal(named(fixture(t, { '.rhizome/config.yml': explicit, '.kb/curation/_conflicts.md': '# Conflicts\n' }), 'note includes').status, 'ok');
+  const manifest = JSON.stringify({ sources: [{ path: 'artifacts/_assets/_model/features.yaml' }, { path: 'artifacts/_assets/engine-blocks/rows.json' }] });
+  const bound = { '.rhizome/modules/ao-kb/bindings/manifest.json': manifest };
+  const uncovered = named(fixture(t, { ...bound, '.rhizome/config.yml': broad }), 'note includes');
+  assert.equal(uncovered.status, 'warning', 'a broad Markdown glob does not activate structured sources');
+  assert.match(uncovered.message, /artifacts\/_assets\/_model\/features\.yaml, artifacts\/_assets\/engine-blocks\/rows\.json/);
+  const models = 'notes:\n  includes: ["**/*.md", "artifacts/_assets/_model/*.yaml", "artifacts/_assets/engine-blocks/rows.json"]\n';
+  assert.equal(named(fixture(t, { ...bound, '.rhizome/config.yml': models }), 'note includes').status, 'ok');
 });
 
 test('source ownership is ok only when the AO knowledge paths are declared', t => {

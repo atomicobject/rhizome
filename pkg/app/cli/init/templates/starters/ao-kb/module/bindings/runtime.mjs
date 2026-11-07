@@ -37,7 +37,7 @@ export async function adapter(root, directory, selection, {offline = false} = {}
 }
 export async function fingerprint(root, directory, ir, selection) {
   const inputs = [...ir.inputs];
-  for (const file of [...await schemaFiles(root), path.join(root, '.rhizome/config.yml')]) {
+  for (const file of await schemaFiles(root)) {
     let bytes = null;
     try { bytes = await readFile(file); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     inputs.push({path: path.relative(root, file).split(path.sep).join('/'), hash: bytes === null ? null : hash(bytes)});

@@ -84,7 +84,7 @@ export async function knowledge(root, directory, selection) {
     lines.push(`extend type ${type} @admit(matches: ${JSON.stringify([...selected, shared])})`);
   }
   const sdl = lines.join('\n\n') + '\n';
-  for (const name of ['.rhizome/source-ownership.yml', '.rhizome/config.yml']) {
+  for (const name of ['.rhizome/source-ownership.yml']) {
     const bytes = await text(root, name);
     inputs.push({path: name, hash: bytes === null ? null : hash(bytes)});
   }

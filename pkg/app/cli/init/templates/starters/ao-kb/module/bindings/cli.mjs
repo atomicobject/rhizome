@@ -50,7 +50,7 @@ try {
       const current = await readJSON(path.join(directory, 'manifest.json'));
       const currentKnowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
       const sourceSignature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
-      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint || currentKnowledge.fingerprint !== knowledge.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index inputs changed; review .rhizome/config.yml (the first index may persist defaults), run rzm ao-kb refresh-bindings, then node .rhizome/modules/ao-kb/bindings/cli.mjs index. No index receipt was issued');
+      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint || currentKnowledge.fingerprint !== knowledge.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index inputs changed while indexing; run rzm ao-kb refresh-bindings, then node .rhizome/modules/ao-kb/bindings/cli.mjs index. No index receipt was issued');
       await atomic(path.join(directory, 'index-receipt.json'), json({formatVersion: 1, fingerprint: manifest.fingerprint, knowledgeFingerprint: knowledge.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}));
       process.stdout.write(json({...after, indexReady: true}));
     } finally { await rm(lock, {recursive: true, force: true}); }
