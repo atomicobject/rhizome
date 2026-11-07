@@ -15,6 +15,7 @@ import (
 type payloadKind interface {
 	offer(*Writer, *queueState, queuedPayload, time.Time) (bool, error)
 	flush(*Writer, time.Time, bool) error
+	due(time.Time, bool) bool
 	pending() int
 }
 
@@ -91,6 +92,12 @@ func (k *typedPayloadKind[T]) offer(q *Writer, s *queueState, cmd queuedPayload,
 		return true, err
 	}
 	return true, k.flush(q, time.Time{}, false)
+}
+
+// due reports whether an idle-timer flush at now would commit this kind's
+// oldest batch; it mirrors the expiry test in flush.
+func (k *typedPayloadKind[T]) due(now time.Time, codeHot bool) bool {
+	return len(k.batches) > 0 && k.idle && now.Sub(k.batches[0].updatedAt) >= k.policy.Idle && !(k.deferred && codeHot)
 }
 
 func (k *typedPayloadKind[T]) flush(q *Writer, now time.Time, codeHot bool) error {
