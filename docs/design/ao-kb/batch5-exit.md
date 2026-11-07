@@ -76,7 +76,7 @@ Account fixture convergence through the index wrapper:
 
 A project-override change reports stale, refresh recovers, and the new field appears. A duplicate ID fails refresh, keeps the previous bindings, and withholds both rows rather than choosing one. A full rebuild matches the incremental records, field values, edges, and knowledge. On the two-product copy, a component value edit and its revert converge with stable identity.
 
-Refusals: 129 attempts across four states (ready on the pre-merge and merged builds, stale bindings, failed refresh) left every byte identical. HTTP edit sessions refuse Markdown edits with the AO KB reason; record-targeted YAML edits are refused by the edit planner ("Cannot find note in vault", "source edit changes a heading…") rather than with the ownership reason, while T's integration test gets the owner's reason for its YAML case. CLI move, rename, rename-heading, properties, tags, and delete refuse with the owner's reason, including a move whose backlink rewrite reaches an owned artifact. GraphQL rejects mutation operations. Repair-review apply offered only advisory actions (409), so it remains untested against owned files. Table: `refusal-table.md`.
+Refusals: 129 attempts across four states (ready on the pre-merge and merged builds, stale bindings, failed refresh) left every byte identical. HTTP edit sessions refused Markdown edits with the AO KB reason. Record-targeted YAML edits were refused by request-shape checks ("Cannot find note in vault", `record_locator_unresolved`, "source edit changes a heading…") before ownership; fix `52d5902eb` now refuses every one of those shapes with the owner's reason. CLI move, rename, rename-heading, properties, tags, and delete refuse with the owner's reason, including a move whose backlink rewrite reaches an owned artifact. GraphQL rejects mutation operations. Repair-review apply offered only advisory actions (409), so it remains untested against owned files. Table: `refusal-table.md`.
 
 Lane Z, re-checked on the merged build: inbound evidence endpoints carry `fragment` and `typeName`; `supported_by` publishes one link per value; owned notes show no Edit; the record breadcrumb is present; the sidebar shows one "Model records 117" entry under "Product model"; quoted matchers admit exactly AO's set. **Positional record with an edge:** it opens as its own record from a direct link and by following the inbound edge from its user, labeled as a revision-bound positional record (`testdata/ao-kb-model/account`, because neither product fixture has one; screen `pos-positional-job-opened-from-inbound-edge-1280-light.png`).
 
@@ -111,6 +111,7 @@ Fixed in this batch, each with a test that failed first:
 | `c4d65aa88` | A repository's own Rhizome types for AO notes broke the combined schema after a clean init; refresh failed with an unattributed CLI error and the local types claimed every note. | `local schema types whose query roots collide with the starter knowledge types are named` |
 | `88180b887` | Without `.kb/index/kb-weights.json`, every assertion showed a red "data is undefined" error instead of "unavailable". | `missing and malformed snapshots stay unavailable` (`saved-analysis.test.mjs`) |
 | `095147016` (T) | Moving an owned YAML file was refused with a format error that did not name the owner. | `TestMoveRefusesOwnedStructuredHostsWithOwnerReason` |
+| `52d5902eb` | HTTP edit sessions reached record projection, source witnesses, and Markdown-only source validation before ownership, so owned YAML records were refused with planner errors instead of the owner's reason (P). Every operation entering a session, whether created, staged, or restored from a client snapshot, now passes the shared source-ownership policy on its host first. | `TestOwnedStructuredHostEditsAreRefusedWithOwnerReasonForEveryRequestShape` (P's shapes: record-fragment, `nodeId`, and record-pointer `setField`; witnessed and unwitnessed `setSource`; create-with-ops; commit from a client snapshot; five failed first) |
 | `dea7e925b` | A product registry written as a block list that ends the frontmatter lost its last product, so refresh failed with `ao_product_unregistered` (P). | `a block-list product registry keeps its last product like AO does` |
 
 Reported, not fixed. The first three block or break real product-model use:
@@ -146,7 +147,7 @@ Other findings:
 | AO custom metamodel | Real copy: override stales bindings, a failed refresh keeps the previous SDL, refresh recovers (67 → 66 types). T's override SDL variant converges. P's project override. |
 | Init lifecycle | Real copy: init, `init --check`, the starter check's three states, managed re-init upgrade, rerun after includes. Batch 4 lifecycle tests. Three starter fixes above. |
 | External AO edits and build | Real copy: four edits plus delete and restore reflected and converged; AO lint, verifier, locators, and index rerun with only edit-caused differences; site build byte-identical before, after setup, and after edits. P's product runs with `kb-site` validate and build. |
-| Mutation refusal | Real-copy sweep (35 attempts) and P's 129 attempts, all with bytes unchanged; `TestAOKBOwnedSourcesRefuseCLIHTTPAndGraphQLWrites`; `TestMCPWriteToolsRefuseAOOwnedTargetsWithoutChangingBytes`; `TestMoveRefusesOwnedStructuredHostsWithOwnerReason`; Lane B's admission tests. Repair-review apply against owned files remains untested. |
+| Mutation refusal | Real-copy sweep (35 attempts) and P's 129 attempts, all with bytes unchanged; `TestOwnedStructuredHostEditsAreRefusedWithOwnerReasonForEveryRequestShape`; `TestAOKBOwnedSourcesRefuseCLIHTTPAndGraphQLWrites`; `TestMCPWriteToolsRefuseAOOwnedTargetsWithoutChangingBytes`; `TestMoveRefusesOwnedStructuredHostsWithOwnerReason`; Lane B's admission tests. Repair-review apply against owned files remains untested. |
 | Scale and cache behavior | Batches 1 and 3 operation-count tests; no performance claim. The real-copy index wrapper ran in about 13 s on 456 notes. |
 | Knowledge/assertion journey | Real copy: claim-to-source and reverse-impact recipes and the assertion presentation; Batch 2 and 4 E2E journeys in the AO KB suite. |
 | Knowledge conventions | Real copy: AO-id parity for assertions, concepts, and sources; ordered citations converge; the typed-connection gap is reported and documented. |
@@ -160,6 +161,7 @@ Other findings:
 - `pkg/app/cli/init/templates/starters/ao-kb/agents/skills/ao-kb-setup/SKILL.md`: stop and ask before retiring colliding local types, start a first include list with `**/*.md`, the knowledge-only note, and rerun init after includes change.
 - `pkg/app/cli/init/templates/starters/ao-kb/module/bindings/README.md`: the knowledge-only pin rule and the corrected statement that includes do not stale bindings.
 - `docs/reference/subsystems/cli.md`: the starter check and init constraints above.
+- `docs/reference/subsystems/web.md`: edit-session admission applies source ownership before projection, witnesses, and Markdown-only validation.
 
 ## Gates
 
@@ -168,11 +170,12 @@ Other findings:
 | Starter Node tests: `check.test.mjs`, `compiler.test.mjs`, `saved-analysis.test.mjs` | 15, 25, and 2 pass, each new case red first | `$S5LOGS/check-includes-*.log`, `check-schema-collision-*.log`, `knowledge-only-*.log`, `registry-block-*.log`, `saved-analysis-*.log` |
 | Live adapter tests (scratch uv, PyYAML 6.0.3, toolkit `e9dce951`) | 13 pass; the new case failed first against the previous adapter | `$S5LOGS/adapter-knowledge-only-{red,green}.log` |
 | Worker T's tests, rerun on the merged branch (including the real-binary integration test) | Pass | `$S5LOGS/merged-T-*.log` |
-| `make check-fast` | Pass | `$S5LOGS/check-fast-3.log` |
-| `make check` | Pass: Go packages, content checks, lint and typechecks, 248 web files / 2,013 tests | `$S5LOGS/make-check-final.log` |
-| `make build` | Pass | `$S5LOGS/make-build-final.log` |
+| Ownership-first fix: the new web test, `pkg/app/web`, `pkg/sourceownership`, `pkg/app/operations`, ontology ownership tests, and T's real-binary integration test | Pass; the new test failed first on five shapes | `$S5LOGS/owned-shapes-{red,green}.log`, `owned-shapes-affected-packages.log`, `owned-shapes-ontology-ownership.log`, `owned-shapes-integration.log` |
+| `make check-fast` | Pass | `$S5LOGS/check-fast-4.log` |
+| `make check` | Pass: Go packages, content checks, lint and typechecks, 248 web files / 2,013 tests | `$S5LOGS/make-check-final-2.log` |
+| `make build` | Pass | `$S5LOGS/make-build-final-2.log` |
 | Real copy with the final binary | Managed re-init, `init --check` exit 0, refresh, index wrapper, all three states ready; 228 views validate | `$S5LOGS/final/init-check-6.log`, `final/check-final.json`, `final/view-validate.log` |
-| `./scripts/rzm validate` | Exit 1 on the five broken links that predate this batch in `docs/reviews/2026-10-17-subsystem-review/`; none in changed files | `$S5LOGS/rzm-validate-2.log` |
+| `./scripts/rzm validate` | Exit 1 on the five broken links that predate this batch in `docs/reviews/2026-10-17-subsystem-review/`; none in changed files | `$S5LOGS/rzm-validate-3.log` |
 
 `make check-full` and `make web-e2e` were not run in this lane: this batch changes starter scripts, documentation, and tests, not indexing or shared web code, and the coordinator's gate list for Batch 5 does not include them. The coordinator's closing gates should include both, because the merged branch carries Lane Z and `origin/main`.
 
