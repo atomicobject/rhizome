@@ -102,7 +102,6 @@ export function check(root) {
       ? `${affected.length} assertion(s) declare frontmatter connections as a sequence, which this release does not project; their ## Connections bullets and map-shaped connections still are: ${affected.join(', ')}`
       : 'Frontmatter connections, where present, use the supported map shape.', 'assertions');
   });
-  add('product-model bindings', 'unsupported', 'Product-model YAML bindings and binding compiler/refresh are not available in this release.', module);
   const weightsPath = '.kb/index/kb-weights.json';
   inspect('saved analysis', weightsPath, () => {
     const weights = json(root, weightsPath);

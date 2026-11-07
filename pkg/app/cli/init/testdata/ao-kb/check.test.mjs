@@ -32,9 +32,9 @@ test('checks static readiness, limitations and unavailable analysis without writ
   const result = check(root);
   for (const name of ['starter installed', 'AO KB root', 'schemaVersion', 'product mode', 'note includes', 'knowledge bindings']) assert.equal(named(root, name).status, 'ok');
   assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
-  assert.equal(named(root, 'product-model bindings').status, 'unsupported');
+  assert.equal(named(root, 'product-model bindings'), undefined, 'the knowledge check leaves model bindings to their own check');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 11);
+  assert.equal(result.checks.length, 10);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
