@@ -77,3 +77,26 @@ func TestRefresh_OutOfOrderRequeueKeepsRecreatedNote(t *testing.T) {
 	_, ok := svc.Entry("note.md")
 	require.True(t, ok, "a removal must not delete a note that exists on disk")
 }
+
+func TestRefresh_RemovalOfOldCaseSpellingStaysRemoved(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "Note.md"), []byte("#old"), 0o644))
+	if _, err := os.Stat(filepath.Join(tmp, "note.md")); err != nil {
+		t.Skip("needs a case-insensitive filesystem")
+	}
+	svc, err := NewService(tmp, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	ctx := context.Background()
+	require.NoError(t, svc.EnsureReady(ctx))
+
+	require.NoError(t, os.Remove(filepath.Join(tmp, "Note.md")))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "note.md"), []byte("#new"), 0o644))
+	svc.requeueDirty(map[string]DirtyKind{"Note.md": DirtyRemoved, "note.md": DirtyCreated})
+
+	require.NoError(t, svc.Refresh(ctx))
+	_, oldKept := svc.Entry("Note.md")
+	_, newCached := svc.Entry("note.md")
+	require.False(t, oldKept, "the deleted spelling must not come back")
+	require.True(t, newCached)
+}

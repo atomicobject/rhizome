@@ -95,10 +95,8 @@ func (s *Service) refresh(ctx context.Context) (result RefreshResult, err error)
 		if kind == DirtyRemoved {
 			// Concurrent refreshes can requeue an older removal over a newer
 			// recreation; disk decides whether the path is really gone.
-			if abs := s.absPath(path); abs != "" {
-				if _, err := os.Stat(abs); err == nil {
-					kind = DirtyRecreated
-				}
+			if abs := s.absPath(path); abs != "" && existsWithSpelling(abs) {
+				kind = DirtyRecreated
 			}
 		}
 		switch kind {
@@ -246,6 +244,23 @@ func (s *Service) recrawl() {
 		s.recrawls++
 	}
 	s.mu.Unlock()
+}
+
+// existsWithSpelling reports whether abs exists with exactly its final name.
+// A case-insensitive filesystem also finds `Note.md` after it was replaced by
+// `note.md`, which must still count as removed.
+func existsWithSpelling(abs string) bool {
+	entries, err := os.ReadDir(filepath.Dir(abs))
+	if err != nil {
+		return false
+	}
+	name := filepath.Base(abs)
+	for _, entry := range entries {
+		if entry.Name() == name {
+			return true
+		}
+	}
+	return false
 }
 
 func isInternalFreshnessPath(rel string) bool {
