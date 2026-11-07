@@ -114,3 +114,5 @@ code-anchors:
 Root summary hydration batches catalog values for declared nested frontmatter paths alongside section summaries. Scalar property rows do not retain mappings. Nested fields stay in `FieldValues`; preview records traverse their current mapping instead of borrowing committed values.
 
 Nested root metadata, nested list members, and nulls retain canonical JSON in property rows. Summary hydration decodes those values without reading source files; scalar rows and the empty-list sentinel retain their existing representation. Metadata indexer version 15 rebuilds older flattened rows.
+
+Relation counts may receive current scope-owned projections as occurrence witnesses for identical unanchored siblings. Verify prepared-host ownership and bound identity before bypassing external ref relocation; copied refs and projections from another scope retain ambiguity errors. The authority is local to that count operation.

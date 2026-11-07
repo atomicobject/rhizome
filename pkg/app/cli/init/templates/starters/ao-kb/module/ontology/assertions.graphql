@@ -133,7 +133,7 @@ type AssertionSources implements Section @node(locator: EMBEDDED) @display(group
 type SourceCitation implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
   """Exact authored bullet text without the list marker. Preserves repeated or unresolved link spellings independently of target resolution."""
   recordedLink: String @field(sourceKind: ITEM_SUMMARY) @policy(reason: "AO KB owns this authored citation.")
-  """Source nodes resolved from this bullet. Empty for a missing source or an ambiguous repeated unanchored occurrence; recordedLink preserves the target so these states can be distinguished."""
+  """Source nodes resolved from this bullet. Empty for a missing or ambiguous Source target; recordedLink preserves the authored target. Repeated citation bullets resolve independently."""
   sources: [Source!] @neighbors(direction: OUTBOUND, type: "Source", scope: SUBTREE)
 }
 

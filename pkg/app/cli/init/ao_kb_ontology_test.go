@@ -74,14 +74,17 @@ func TestAOKBKnowledgeFixture(t *testing.T) {
 		require.Len(t, n["concepts"], 2)
 	})
 	t.Run("sources preserve section order and duplicate occurrences", func(t *testing.T) {
-		rows := query(t, `{ assertion(path:"assertions/clinic-patient-books-own-slot.md") { sourcesSection { citations { recordedLink content sources { aoId } } } } }`)["assertion"].([]any)
+		rows := query(t, `{ assertion(path:"assertions/clinic-patient-books-own-slot.md") { sourcesSection { citations { recordedLink content sourcesCount sources { aoId } } } } }`)["assertion"].([]any)
 		citations := rows[0].(map[string]any)["sourcesSection"].(map[string]any)["citations"].([]any)
 		require.Len(t, citations, 3)
 		for i, link := range []string{"[[patient-booking-interview]]", "[[clinic-operations-sync]]", "[[patient-booking-interview]]"} {
 			require.Equal(t, link, citations[i].(map[string]any)["recordedLink"])
+			require.Equal(t, 1, citations[i].(map[string]any)["sourcesCount"])
 		}
 		require.Equal(t, []any{map[string]any{"aoId": "s-000000000001"}}, citations[1].(map[string]any)["sources"])
-		require.Empty(t, citations[0].(map[string]any)["sources"], "duplicate unanchored occurrences expose a named identity deficiency; the authored target remains inspectable")
+		for _, i := range []int{0, 2} {
+			require.Equal(t, []any{map[string]any{"aoId": "s-000000000002"}}, citations[i].(map[string]any)["sources"])
+		}
 		target := query(t, `{ node(ref:"sources/patient-booking-interview.md") { path } }`)["node"].(map[string]any)
 		require.Equal(t, "sources/patient-booking-interview.md", target["path"])
 

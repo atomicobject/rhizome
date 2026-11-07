@@ -104,26 +104,12 @@ func nodeScopedNeighborEdges(schema *ontoschema.Schema, cache *obsidian.NotePath
 		}
 		for _, scanned := range ScanMarkdownBodyLinks(content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
 			target := scanned.Detail
-			var (
-				targetPath string
-				ok         bool
-			)
-			switch target.LinkType {
-			case "mdlink":
-				targetPath, ok = cache.ResolveMdLink(target.Target, projection.Ref.NotePath)
-			default:
-				targetPath, ok = cache.ResolveNote(target.Target)
-			}
-			if !ok || targetPath == "" {
+			candidates := BodyLinkCandidates(cache, target.LinkType, target.Target, projection.Ref.NotePath)
+			targetPath, ok := TypedBodyLinkTarget(schema, candidates, field.TypeName, resolveType)
+			if !ok {
 				continue
 			}
-			dstType := ""
-			if resolveType != nil {
-				dstType = resolveType(targetPath)
-			}
-			if !ontoschema.TypeMatchesOrImplements(schema, dstType, field.TypeName) {
-				continue
-			}
+			dstType := resolveType(targetPath)
 			key := projection.Ref.NodeID + "\x00" + field.Name + "\x00" + targetPath
 			if _, exists := seen[key]; exists {
 				continue

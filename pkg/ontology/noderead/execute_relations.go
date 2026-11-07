@@ -12,7 +12,7 @@ func (s *Scope) executeSingleRelationSelection(ctx context.Context, selection Re
 	}
 	if len(selection.SourceTypes) > 0 {
 		s.mu.Lock()
-		canonical, err := s.canonicalizeNodeRefsLocked(ctx, selection.Sources)
+		canonical, err := s.canonicalizeRelationRefsLocked(ctx, selection.Sources, selection.boundSources)
 		if err == nil {
 			var paths []string
 			for _, ref := range canonical {
@@ -45,7 +45,7 @@ func (s *Scope) executeSingleRelationSelection(ctx context.Context, selection Re
 
 func (s *Scope) executeSubtreeRelationSelection(ctx context.Context, selection RelationSelection, limits TraverseLimits) (NeighborhoodResult, error) {
 	s.mu.Lock()
-	canonical, err := s.canonicalizeNodeRefsLocked(ctx, selection.Sources)
+	canonical, err := s.canonicalizeRelationRefsLocked(ctx, selection.Sources, selection.boundSources)
 	s.mu.Unlock()
 	if err != nil {
 		return NeighborhoodResult{}, err
@@ -107,6 +107,7 @@ func (s *Scope) executeSubtreeRelationSelection(ctx context.Context, selection R
 
 func neighborhoodRequestForSelection(selection RelationSelection, limits TraverseLimits) NeighborhoodRequest {
 	return NeighborhoodRequest{
+		boundSources:      selection.boundSources,
 		Sources:           selection.Sources,
 		Direction:         selection.Direction,
 		RelationNames:     selection.RelationNames,

@@ -12,8 +12,8 @@ const registry = [claim, source, other];
 const details = {
   [claim.path]: {...claim, provenanceSource: 's-1', concepts: [], conceptsCount: 0,
     sourcesSection: {ref: {...claim.ref, kind: 'EMBEDDED', fragment: 'sources'}, citations: [
-      {recordedLink: '[[source]]', sources: [], sourcesCount: 0},
-      {recordedLink: '[[source]]', sources: [], sourcesCount: 0},
+      {recordedLink: '[[source]]', sources: [{path:source.path}], sourcesCount: 1},
+      {recordedLink: '[[source]]', sources: [{path:source.path}], sourcesCount: 1},
     ]},
     connectionsSection: {ref: {...claim.ref, kind: 'EMBEDDED', fragment: 'connections'}, neighborhood: neighborhood([['supportedBy', other.path]])},
     frontmatterSupportedBy: ['a-2']},
@@ -33,7 +33,7 @@ function fixtureQuery(calls, snapshot = details) {
   };
 }
 
-test('repeated unanchored citations resolve by recorded target, keep occurrences and origin, and deduplicate inverse declarations', async () => {
+test('native repeated citations keep occurrences and origin, and deduplicate inverse declarations', async () => {
   const reader = createReader(fixtureQuery([]), registry, 200);
   const batch = await reader.read([claim.path], 'related', 1, 199);
   const citation = batch.edges.find(e => e.rel === 'cites');
@@ -83,6 +83,15 @@ test('relation counts name targets beyond a bounded read separately from the dis
   assert.equal(batch.stop.reason, 'field');
   assert.equal(batch.stop.direction, 'upstream');
   assert.ok(batch.diagnostics.includes('assertions/claim.md: 5 more concept targets beyond the read cap.'));
+});
+
+test('an exactly full relation page is complete when its count proves exhaustion', async () => {
+  const snapshot = structuredClone(details);
+  snapshot[claim.path].concepts = [{path: 'concepts/one.md'}, {path: 'concepts/two.md'}];
+  snapshot[claim.path].conceptsCount = 2;
+  const reader = createReader(fixtureQuery([], snapshot), registry, 200);
+  const batch = await reader.read([claim.path], 'up', 1, 1);
+  assert.equal(batch.stop, undefined);
 });
 
 test('explicit related concepts use the section field rather than guessing an ambient edge name', async () => {

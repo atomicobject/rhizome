@@ -21,6 +21,7 @@ const (
 // It preserves embedded-node source identity and can hydrate related target
 // records in the same request-scoped cache.
 type NeighborhoodRequest struct {
+	boundSources      map[string]ontology.NodeRef
 	Sources           []ontology.NodeRef
 	Direction         TraversalDirection
 	RelationNames     []string
@@ -48,6 +49,8 @@ type NeighborhoodResult struct {
 //
 // It is intended for list and summary surfaces that need density hints.
 type RelationCountsRequest struct {
+	// SourceProjections supplies current scope-owned occurrences for duplicate unanchored items.
+	SourceProjections []*ontology.NodeProjection
 	Sources           []ontology.NodeRef
 	Direction         TraversalDirection
 	RelationNames     []string

@@ -78,7 +78,7 @@ func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field
 
 	schemaField := e.noteFieldForNode(node, field.Name)
 	if schemaField == nil {
-		if count, ok := e.relationCount(ontology.NodeRef{NotePath: node.Path, Kind: ontology.NodeKindNote, TypeName: node.TypeName}, node.TypeName, field.Name); ok {
+		if count, ok := e.relationCount(ontology.NodeRef{NotePath: node.Path, Kind: ontology.NodeKindNote, TypeName: node.TypeName}, node.TypeName, field.Name, nil); ok {
 			return count, true
 		}
 		switch field.Name {
@@ -314,7 +314,7 @@ func (e *executor) resolveSectionNodeField(ctx context.Context, node *sectionRec
 	}
 	schemaField := noteType.ByName[field.Name]
 	if schemaField == nil {
-		if count, ok := e.relationCount(e.sectionNodeRef(node), node.TypeName, field.Name); ok {
+		if count, ok := e.relationCount(e.sectionNodeRef(node), node.TypeName, field.Name, node.Projection); ok {
 			return count, true
 		}
 		if value, ok, handled := resolveBuiltin(); handled {
