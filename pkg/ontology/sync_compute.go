@@ -172,6 +172,9 @@ func computeOntologyJobs(ctx context.Context, jobs []noteSyncJob, schema *ontosc
 		return strings.TrimSpace(externalTypes[path])
 	}
 
+	// One publication time per sync: an inbound edge is emitted by its target's
+	// host but stored under its source path, whose state it must not predate.
+	now := time.Now().Unix()
 	workerCount := min(max(runtime.GOMAXPROCS(0), 2), len(jobs))
 	jobCh := make(chan noteSyncJob)
 	resultCh := make(chan noteSyncResult, len(jobs))
@@ -182,7 +185,7 @@ func computeOntologyJobs(ctx context.Context, jobs []noteSyncJob, schema *ontosc
 		go func() {
 			defer wg.Done()
 			for job := range jobCh {
-				res, err := computeOntologyJob(job, schema, cache, graphByPath[job.doc.Path], docTypes[job.doc.Path], resolveType)
+				res, err := computeOntologyJob(job, schema, cache, graphByPath[job.doc.Path], docTypes[job.doc.Path], resolveType, now)
 				if err != nil {
 					select {
 					case errCh <- err:
@@ -229,12 +232,35 @@ func computeOntologyJobs(ctx context.Context, jobs []noteSyncJob, schema *ontosc
 		results = append(results, res)
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].path < results[j].path })
+	mergeSharedEdges(results)
 	indexingperf.AddCount(phaseCtx, indexingperf.OntologyNotesAssessed, int64(len(results)))
 	return results, nil
 }
 
-func computeOntologyJob(job noteSyncJob, schema *ontoschema.Schema, cache *obsidian.NotePathCache, incidentRows []semdb.GraphDocEdge, noteType *ontoschema.NoteType, resolveType func(string) string) (noteSyncResult, error) {
-	now := time.Now().Unix()
+// mergeSharedEdges keeps one row per edge key across hosts. A relation declared
+// from both ends is emitted by each end's host under the same key; the first
+// host by path keeps the row and every later occurrence is appended to it.
+// RECORD source-set invalidation recomputes every such host together.
+func mergeSharedEdges(results []noteSyncResult) {
+	owner := map[string][2]int{}
+	kept := make([][]semdb.OntologyEdgeRow, len(results))
+	for i := range results {
+		for _, edge := range results[i].edges {
+			key := ontologyEdgeKey(edge)
+			if at, ok := owner[key]; ok {
+				kept[at[0]][at[1]] = mergeEdge(kept[at[0]][at[1]], edge)
+				continue
+			}
+			owner[key] = [2]int{i, len(kept[i])}
+			kept[i] = append(kept[i], edge)
+		}
+	}
+	for i := range results {
+		results[i].edges = kept[i]
+	}
+}
+
+func computeOntologyJob(job noteSyncJob, schema *ontoschema.Schema, cache *obsidian.NotePathCache, incidentRows []semdb.GraphDocEdge, noteType *ontoschema.NoteType, resolveType func(string) string, now int64) (noteSyncResult, error) {
 	res := noteSyncResult{path: job.doc.Path, projected: job.projected}
 	assessment := NoteAssessment{NotePath: job.doc.Path}
 	if job.assessment != nil {

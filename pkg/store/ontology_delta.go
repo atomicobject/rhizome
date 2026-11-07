@@ -116,7 +116,9 @@ func NormalizeOntologyDelta(delta OntologyDelta) OntologyDelta {
 		}
 	}
 	sort.Slice(delta.TypePolicies, func(i, j int) bool { return delta.TypePolicies[i].TypeName < delta.TypePolicies[j].TypeName })
-	sort.Slice(delta.Edges, func(i, j int) bool {
+	// Stable: a queue merge appends publications in order, so the latest row
+	// for a key is inserted last and replaces the earlier one deterministically.
+	sort.SliceStable(delta.Edges, func(i, j int) bool {
 		a := delta.Edges[i]
 		b := delta.Edges[j]
 		switch {
@@ -257,6 +259,9 @@ func (s *Store) applyOntologyDelta(ctx context.Context, delta OntologyDelta, pre
 				if _, err := tx.ExecContext(ctx, stmt); err != nil {
 					return err
 				}
+			}
+			if err := deleteAllOntologyRecordFTSTx(ctx, tx); err != nil {
+				return err
 			}
 		} else {
 			if err := deleteOntologyForPathsTx(ctx, tx, delta.DeletePaths, true); err != nil {

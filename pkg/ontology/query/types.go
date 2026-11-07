@@ -39,6 +39,14 @@ type Error struct {
 	Extensions map[string]any `json:"extensions,omitempty"`
 }
 
+// Warning is a non-fatal execution diagnostic in extensions.warnings: the
+// selected data at Path is returned without the value it names.
+type Warning struct {
+	Code    string   `json:"code"`
+	Message string   `json:"message"`
+	Path    []string `json:"path,omitempty"`
+}
+
 type Result struct {
 	Data        map[string]any `json:"data,omitempty"`
 	Errors      []Error        `json:"errors,omitempty"`

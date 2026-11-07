@@ -50,8 +50,9 @@ function fields(kind, ir, kinds, diagnostics) {
         if (missing.length) throw new Error(`ao_reference_target_unbound: ${kind.name}.${path}: ${missing.join(', ')}`);
         const external = names.some(n => kinds.get(n).declaration.file?.startsWith('kb:'));
         if (external) {
+          // AO cites a claim by its file stem, else its frontmatter id (kb-site trace.py).
           if (names.some(n => kinds.get(n).declaration.file !== 'kb:assertions')) throw new Error(`ao_knowledge_target_unsupported: ${kind.name}.${path}: ${names.join(', ')}`);
-          refs = ` @references(to: ["Assertion"], targetKey: "aoId", mode: STRICT, values: ${list ? 'ELEMENTS' : 'VALUE'}, allowWildcard: false${edge(fd.edge, ir.referenceVocabulary.reverse)})`;
+          refs = ` @references(to: ["Assertion"], targetKey: ["$fileStem", "aoId"], mode: STRICT, values: ${list ? 'ELEMENTS' : 'VALUE'}, allowWildcard: false${edge(fd.edge, ir.referenceVocabulary.reverse)})`;
         } else {
           const targets = [...new Set(names.map(typeName))];
           const mode = ['text', 'text[]'].includes(fd.type) ? 'TOLERANT' : 'STRICT';

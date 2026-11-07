@@ -306,7 +306,8 @@ func TestRecordIndexBindsAcrossHostsAndRemovesUnresolvedEdges(t *testing.T) {
 	require.Equal(t, "uses", built.Edges[0].RelationName)
 	require.Equal(t, "a.native", built.Edges[0].SrcPath)
 	require.Equal(t, "b.native", built.Edges[0].DstPath)
-	require.JSONEq(t, `[{"ordinal":0,"value":"B"},{"ordinal":1,"value":"B"}]`, built.Edges[0].OccurrencesJSON)
+	source := built.Edges[0].SrcNodeID
+	require.JSONEq(t, `[{"ordinal":0,"value":"B","node":"`+source+`","field":"refs"},{"ordinal":1,"value":"B","node":"`+source+`","field":"refs"}]`, built.Edges[0].OccurrencesJSON)
 	after, err := BuildIndexFromNoteSources(t.Context(), obsidian.VaultDefinition{}, sources(false), schema, "after")
 	require.NoError(t, err)
 	require.Len(t, after.Nodes, 2)

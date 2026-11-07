@@ -60,11 +60,19 @@ type RecordReferenceBinding struct {
 	Mode, Encoding, Values string
 	Targets                []RecordTarget
 	MatchName              string
-	TargetKey              string
-	MatchPath              RecordSelector
-	AllowWildcard          bool
-	Edge                   *RecordEdge
+	// TargetKeys lists the Markdown target keys in precedence order. The
+	// first key that matches decides; several matches are ambiguous and never
+	// fall through. Empty means the exact note path.
+	TargetKeys    []string
+	MatchPath     RecordSelector
+	AllowWildcard bool
+	Edge          *RecordEdge
 }
+
+// RecordTargetKeyFileStem is the reserved targetKey that matches a Markdown
+// target's file name without its extension. It is not a valid field name.
+const RecordTargetKeyFileStem = "$fileStem"
+
 type RecordFieldBinding struct {
 	Path               RecordSelector
 	MappingKeyFallback bool

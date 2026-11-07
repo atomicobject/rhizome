@@ -265,12 +265,18 @@ func TestAOProductExternalEditsConvergeWithFullIndex(t *testing.T) {
 		"feature:FEAT-collision -> assertions/alpha/claim.md",
 		"feature:FEAT-collision -> assertions/alpha/collision.md",
 		"feature:FEAT-collision -> assertions/shared.md",
+		"feature:FEAT-collision -> assertions/untagged.md",
 		"feature:FEAT-shared -> assertions/selected.md",
 		"feature:FEAT-shared -> assertions/untagged.md",
 	}
 	models := []string{aoAccountModel, aoAlphaModel}
 	require.Equal(t, evidence, v.evidence(models...), "initial evidence matches the checked AO oracle")
-	require.Equal(t, []string{"record_reference_ambiguous", "record_reference_unresolved"}, v.diagnostics(aoAlphaModel))
+	// Two ambiguous and five unresolved FEAT-collision citations, as the checked AO oracle records.
+	require.Equal(t, []string{
+		"record_reference_ambiguous", "record_reference_ambiguous",
+		"record_reference_unresolved", "record_reference_unresolved", "record_reference_unresolved",
+		"record_reference_unresolved", "record_reference_unresolved",
+	}, v.diagnostics(aoAlphaModel))
 	data := v.richRead(aoProductRichRead)
 	require.Len(t, data["features"], 1)
 	require.Len(t, data["account"], 2)

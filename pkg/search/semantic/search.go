@@ -65,6 +65,8 @@ type Result struct {
 	Handle string
 	Type   string // code|note
 	Score  float64
+	// Record marks an embedded record's chunk, from its catalog row.
+	Record bool
 }
 
 type SearchStore interface {

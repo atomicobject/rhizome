@@ -46,13 +46,15 @@ func TestAOKBRecipesAndIndexParity(t *testing.T) {
 		prepared, errs := ontologyquery.Prepare(executable, s)
 		require.Empty(t, errs)
 		result := ontologyquery.ExecutePrepared(context.Background(), deps, runtime.Schema, executable, prepared)
+		require.Empty(t, result.Errors)
+		// An unresolved connection leaves its field's other targets in place.
+		warnings, _ := result.Extensions["warnings"].([]ontologyquery.Warning)
 		if strings.Contains(s, "assertion(first:100)") {
-			require.Len(t, result.Errors, 1)
-		} else {
-			require.Empty(t, result.Errors)
+			require.Len(t, warnings, 1)
 		}
-		for _, issue := range result.Errors {
-			require.Equal(t, `field AssertionConnections.dependsOn target "[[missing-booking-rule]]" does not resolve to a note`, issue.Message)
+		for _, warning := range warnings {
+			require.Equal(t, "link_target_missing", warning.Code)
+			require.Equal(t, `field AssertionConnections.dependsOn target "[[missing-booking-rule]]" does not resolve to a note`, warning.Message)
 		}
 		return result.Data
 	}

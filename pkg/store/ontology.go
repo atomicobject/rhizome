@@ -27,6 +27,9 @@ func (s *Store) ReplaceOntologySnapshot(ctx context.Context, snapshot OntologySn
 				return err
 			}
 		}
+		if err := deleteAllOntologyRecordFTSTx(ctx, tx); err != nil {
+			return err
+		}
 		if err := insertOntologyAssessments(ctx, tx, snapshot.Assessments); err != nil {
 			return err
 		}

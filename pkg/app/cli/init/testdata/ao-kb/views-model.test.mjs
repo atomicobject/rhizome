@@ -43,7 +43,7 @@ const spec = typeSpec(
         { name: "v_screens", annotations: { field: { path: "screens" }, references: { to: ["AOKBModel_screen"], values: "ELEMENTS", edge: { name: "serves", direction: "INBOUND" } } } },
         { name: "v_user", annotations: { field: { path: "user" }, references: { to: ["AOKBModel_user"], values: "VALUE", edge: { name: "serves", direction: "OUTBOUND" } } } },
         { name: "v_next", annotations: { field: { path: "next" }, references: { to: ["AOKBModel_flow"], values: "ELEMENTS" } } },
-        { name: "v_supported_5f_by", annotations: { field: { path: "supported_by" }, references: { to: ["Assertion"], targetKey: "aoId", values: "ELEMENTS", edge: { name: "evidenced-by", direction: "OUTBOUND" } } } },
+        { name: "v_supported_5f_by", annotations: { field: { path: "supported_by" }, references: { to: ["Assertion"], targetKey: ["$fileStem", "aoId"], values: "ELEMENTS", edge: { name: "evidenced-by", direction: "OUTBOUND" } } } },
       ],
     },
   },

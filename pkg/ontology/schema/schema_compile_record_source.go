@@ -168,14 +168,17 @@ func validateRecordBindings(schema *Schema) error {
 					if schema.Types[name] == nil && schema.Interfaces[name] == nil {
 						return compileError(f.position, "record_reference_target", t.Name, f.Name, "unknown reference target %q", name)
 					}
-					if ref.TargetKey != "" {
+					for _, targetKey := range ref.TargetKeys {
+						if targetKey == RecordTargetKeyFileStem {
+							continue
+						}
 						for _, target := range interfaceImplementersOrConcrete(schema, name) {
 							if target.Record != nil || EffectiveTypeRole(target) != TypeRoleNote {
 								continue
 							}
-							key := target.ByName[ref.TargetKey]
+							key := target.ByName[targetKey]
 							if key == nil || key.Kind != FieldKindScalar || key.TypeName != "String" || key.List {
-								return compileError(f.position, "record_reference_target_key", t.Name, f.Name, "targetKey %q must name a scalar String field on %s", ref.TargetKey, target.Name)
+								return compileError(f.position, "record_reference_target_key", t.Name, f.Name, "targetKey %q must name a scalar String field on %s", targetKey, target.Name)
 							}
 						}
 					}

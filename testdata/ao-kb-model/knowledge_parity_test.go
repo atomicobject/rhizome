@@ -33,6 +33,9 @@ type connectedFixture struct {
 		Knowledge              []knowledgeExpectation
 		Evidence               []evidenceExpectation
 		Files                  map[string]string
+		// AOEvidenceEdges counts AO trace.py's unique evidenced-by edges and
+		// those that are AO's arbitrary pick among ambiguous candidates.
+		AOEvidenceEdges *struct{ Trace, Arbitrary int }
 	}
 }
 
@@ -213,10 +216,17 @@ func assertConnectedParity(t *testing.T, dir, vaultName, input string) {
 					evidenceEdges = append(evidenceEdges, oracleEdge{From: identity, To: "assertion:" + occurrence.Target.NotePath, Rel: "evidenced-by"})
 				}
 				if occurrence.Diagnostic == "record_reference_ambiguous" {
+					// AO's precedence: a file stem, else a frontmatter id.
 					result.Status = "ambiguous"
-					for _, candidate := range knowledge {
-						if candidate.Kind == "assertions" && candidate.ID == result.Authored {
-							result.Targets = append(result.Targets, candidate.Path)
+					for _, byStem := range []bool{true, false} {
+						for _, candidate := range knowledge {
+							stem := strings.TrimSuffix(filepath.Base(candidate.Path), ".md")
+							if candidate.Kind == "assertions" && ((byStem && stem == result.Authored) || (!byStem && candidate.ID == result.Authored)) {
+								result.Targets = append(result.Targets, candidate.Path)
+							}
+						}
+						if len(result.Targets) > 0 {
+							break
 						}
 					}
 					sort.Strings(result.Targets)
@@ -233,7 +243,7 @@ func assertConnectedParity(t *testing.T, dir, vaultName, input string) {
 	}
 	sortEvidence(evidence)
 	sortEvidence(fixture.Oracle.Evidence)
-	require.Equal(t, fixture.Oracle.Evidence, evidence, "ordered evidence IDs resolve only against AO-selected assertions")
+	require.Equal(t, fixture.Oracle.Evidence, evidence, "ordered evidence citations resolve only against AO-selected assertions")
 	indexed, err := ontology.BuildIndexFromNoteSources(context.Background(), obsidian.VaultDefinition{Path: vault}, sources, compiled, "fixture")
 	require.NoError(t, err)
 	var structural, actualEvidence []oracleEdge
@@ -269,4 +279,7 @@ func assertConnectedParity(t *testing.T, dir, vaultName, input string) {
 	}
 	require.Equal(t, edgeSet(fixture.Oracle.Edges), edgeSet(structural))
 	require.Equal(t, edgeSet(evidenceEdges), edgeSet(actualEvidence))
+	if counts := fixture.Oracle.AOEvidenceEdges; counts != nil {
+		require.Len(t, edgeSet(actualEvidence), counts.Trace-counts.Arbitrary, "AO's evidence edges, less its arbitrary picks among ambiguous claims")
+	}
 }
