@@ -1,0 +1,17 @@
+{
+  "records": [
+    {
+      "id": "snapshot",
+      "name": "Booking snapshot",
+      "data": {
+        "nullable": null,
+        "emptyText": "",
+        "emptyList": [],
+        "emptyMap": {},
+        "enabled": false,
+        "steps": ["Availability", "Reservation"],
+        "literal": "Literal **JSON**, never Markdown"
+      }
+    }
+  ]
+}

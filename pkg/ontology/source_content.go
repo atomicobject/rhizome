@@ -7,14 +7,16 @@ import (
 )
 
 type NativeSourceValue struct {
-	Kind    noteformat.MetadataValueKind `json:"kind"`
-	Scalar  *noteformat.MetadataValue    `json:"scalar,omitempty"`
-	Items   []NativeSourceValue          `json:"items,omitempty"`
-	Entries []NativeSourceEntry          `json:"entries,omitempty"`
+	Kind       noteformat.MetadataValueKind `json:"kind"`
+	Scalar     *noteformat.MetadataValue    `json:"scalar,omitempty"`
+	ScalarText string                       `json:"scalarText,omitempty"`
+	Items      []NativeSourceValue          `json:"items,omitempty"`
+	Entries    []NativeSourceEntry          `json:"entries,omitempty"`
 }
 type NativeSourceEntry struct {
-	Key   noteformat.MetadataValue `json:"key"`
-	Value NativeSourceValue        `json:"value"`
+	Key     noteformat.MetadataValue `json:"key"`
+	KeyText string                   `json:"keyText,omitempty"`
+	Value   NativeSourceValue        `json:"value"`
 }
 type NodeSourceContent struct {
 	Text            string              `json:"text"`
@@ -35,12 +37,19 @@ func (p *PreparedDocument) nativeValue(id noteformat.ValueID) NativeSourceValue 
 	if value.Scalar != nil {
 		scalar := *value.Scalar
 		out.Scalar = &scalar
+		if value.Kind == noteformat.MetadataInteger || value.Kind == noteformat.MetadataFloat {
+			out.ScalarText = sourceScalarText(scalar)
+		}
 	}
 	for _, item := range value.Items {
 		out.Items = append(out.Items, p.nativeValue(item))
 	}
 	for _, entry := range value.Entries {
-		out.Entries = append(out.Entries, NativeSourceEntry{Key: entry.Key, Value: p.nativeValue(entry.Value)})
+		keyText := ""
+		if entry.Key.Kind() == noteformat.MetadataInteger {
+			keyText = sourceScalarText(entry.Key)
+		}
+		out.Entries = append(out.Entries, NativeSourceEntry{Key: entry.Key, KeyText: keyText, Value: p.nativeValue(entry.Value)})
 	}
 	return out
 }

@@ -200,11 +200,13 @@ export const NoteTab = memo(function NoteTab({
   const subjectKind = tab.nodeKind || tab.nodeRef?.kind;
 
   const tabTitle =
-    subjectKind && subjectKind !== "NOTE"
-      ? workspace?.node.ref.kind !== "NOTE"
-        ? workspace?.content.title
-        : undefined
-      : rootTitle;
+    workspace?.content.source && workspace.node.ref.kind !== "NOTE"
+      ? workspace.content.title
+      : subjectKind && subjectKind !== "NOTE"
+        ? workspace?.node.ref.kind !== "NOTE"
+          ? workspace?.content.title
+          : undefined
+        : rootTitle;
 
   useEffect(() => {
     if (tabTitle) onTitle(tab.id, tabTitle);

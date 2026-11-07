@@ -21,6 +21,7 @@ import {
   listPublicViews,
   previewOntologyEditSession,
   publicOntologyListItemRef,
+  publicWorkspaceRef,
   queryPublicGraphQLOperation,
   savePublicView,
   searchNotes,
@@ -51,6 +52,18 @@ function publicWorkspaceResponse(ref: string) {
 }
 
 describe("api client", () => {
+  it("keeps native record locators ahead of structural fingerprints", () => {
+    for (const fragment of ["record:v1:key", "record-pos:v1:revision:position"]) {
+      expect(
+        publicWorkspaceRef({
+          notePath: "model.yaml",
+          kind: "EMBEDDED",
+          fragment,
+          structuralFingerprint: "fingerprint",
+        }),
+      ).toBe(`model.yaml#${fragment}`);
+    }
+  });
   it("uses canonical structural identity for ontology list items", () => {
     expect(
       publicOntologyListItemRef({

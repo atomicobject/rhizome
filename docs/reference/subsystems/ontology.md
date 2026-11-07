@@ -53,6 +53,8 @@ Path fields use the common projection, catalog rows, typed reads, filtering, sor
 - **A declared type differing only in case resolves to its selector match.** A note whose `type:` names no schema type but equals, ignoring case, exactly one selector-matched type resolves to that type with no `unknown_declared_type` issue, so external conventions such as AO KB's `type: assertion` need no rewrite. The assessment keeps the authored spelling. A misspelling or a case-only match without a selector match is still reported (`pkg/ontology/build_assessment.go`).
 - **Source ownership is independent of projection.** `.rhizome/source-ownership.yml` declares externally authored host paths. Native edit staging checks it before resolving a type or record. Shared source transactions check the full affected set at preparation and current ownership again at publication. `ApplySourceOwnership` overlays node and field capability reasons for HTTP and GraphQL workspace clients, including fallback and nested nodes.
 
+Native source-value workspaces include the declared owner's name in `readOnlyReason` when the authored reason does not already name it. Markdown workspaces preserve their existing reason text.
+
 - `MatchSectionNodesForField` owns section selection for projection, query and web. `presentation.go` owns identifier-field selection and preview interpolation; callers retain source extraction and missing-value policy.
 
 - **Embedded display labels are independent of embedding inputs.** Catalog display labels and workspace titles use the complete item headline, with metadata removed. The parser title and `ITEM_SUMMARY` keep their existing capped values. Materialization version 17 refreshes display labels without adding embedding text.

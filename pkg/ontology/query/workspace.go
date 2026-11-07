@@ -37,7 +37,7 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 	wantsRelations := e.selectionHasField(set, "relationGroups")
 	var relationGroups []workspaceRelationGroup
 	if wantsRelations {
-		relationGroups = e.workspaceRelationGroups(ctx, projection.Ref, path)
+		relationGroups = e.workspaceRelationGroups(ctx, projection, workspace, path)
 	}
 	var structure []workspaceStructureNode
 	if wantsStructure {

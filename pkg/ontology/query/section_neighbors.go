@@ -227,6 +227,9 @@ func sectionAnchorMatchKey(node *ontology.SectionNode) string {
 }
 
 func resolvedTargetSectionKey(target obsidian.ResolvedNoteTarget) string {
+	if ontology.IsRecordSelector(target.Fragment) {
+		return target.Fragment
+	}
 	fragment := strings.TrimSpace(target.Fragment)
 	if fragment == "" {
 		return ""

@@ -49,6 +49,10 @@ Workspace and nested-body capabilities overlay current source ownership independ
 
 ## SPEC-0133 boundary, last verified 2026-11-06
 
+RECORD workspace relation groups add prepared parent/child containment independently of declared semantic edges. Existing relation groups retain authored references/backlinks, with titles from shared summary hydration. No Markdown containment presentation changes.
+
+Record backlinks reuse the provider-authored fragment index, checking the exact record locator rather than widening host links to every record. Native source numbers carry `scalarText` and integer keys carry `keyText` so browser readers retain exact spelling beyond JavaScript's integer precision.
+
 **Native RECORD reads (SPEC-0133).** RECORD types implement Node without Section or fabricated levels. Summary roots use indexed source presence/value rows and preserve empty strings and repeated occurrences. Rich content, child collections, workspace and locators use the scoped prepared host. `workspace.source` and `bodies.source` expose native source-value JSON with representation, media type and source provenance; web adapters keep it out of Markdown and heading projections. `LocalGraphEdge.occurrences` exposes authored reference occurrence/member evidence. Every workspace/body capability overlay calls the existing `ApplySourceOwnership`.
 
 RECORD reference targets with summary-only selections hydrate from the indexed Scope without parsing hosts. Rich references honor each current indexed occurrence outcome, including ambiguity; a source-local match cannot replace an indexed unresolved result. Reference fields resolve after the selection tree, one depth per round (`fillRecordReferences`): every reference field at a depth shares one indexed field-value read, one summary hydration of record targets and one batched load of other targets' hosts, so reads stay constant in row count. Document targets resolve through the warmed note loader without projecting their source. `first:` caps each field's targets before any hydration.

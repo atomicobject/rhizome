@@ -216,6 +216,7 @@ describe("OntologyNotePane", () => {
   });
 
   it("focuses a UTF-8 byte range on the correct CRLF source line", async () => {
+    await import("./markdownEditor/AtomicMarkdownEditor");
     render(
       <OntologyNotePane
         workspace={asWorkspace({
