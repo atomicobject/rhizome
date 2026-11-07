@@ -59,6 +59,12 @@ test("reads owned YAML records as first-class records in both appearances and wi
     await page.setViewportSize({ width, height: 1000 });
 
     if (width === 728) {
+      const controls = await page.locator(".ontology-pane__controls").boundingBox();
+      const copy = await page.getByRole("button", { name: "Copy link", exact: true }).boundingBox();
+
+      if (!controls || !copy) throw new Error("Record controls are missing");
+
+      expect(copy.y + copy.height).toBeLessThanOrEqual(controls.y + controls.height);
       await page.getByRole("button", { name: "Hide sidebar", exact: true }).click();
       await expect(
         page.getByRole("button", { name: "Show right pane", exact: true }),
