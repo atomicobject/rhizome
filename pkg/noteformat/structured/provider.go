@@ -40,7 +40,7 @@ func (p Provider) Project(source noteformat.AuthoredSource) (noteformat.Projecti
 	if len(issues) > 0 {
 		diagnostics := make([]noteformat.Diagnostic, 0, len(issues))
 		for _, issue := range issues {
-			diagnostics = append(diagnostics, noteformat.Diagnostic{Code: issue.Code, Message: source.Path().String() + ": " + issue.Message,
+			diagnostics = append(diagnostics, noteformat.Diagnostic{Code: issue.Code, Message: diagnosticMessage(source.Path().String(), issue),
 				Category: noteformat.DiagnosticCategorySource, Blocking: true, AffectedOperation: noteformat.DiagnosticOperationProjection})
 		}
 		return noteformat.NewProjection(d.ProviderVersion, d.ProjectionVersion, noteformat.ProjectionStatusFatal, diagnostics, d.Capabilities)
