@@ -122,7 +122,7 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 - [[Ontology (Hub)]] — subsystem hub
 - [[ontology]], [[noderead]] — sibling subsystem notes (upstream schema/index; downstream batched reads)
 
-RECORD summary reference selections reuse batched indexed hydration. Rich reads preserve globally indexed reference outcomes, including ambiguous targets, when the authored occurrence still matches.
+RECORD summary reference selections reuse batched indexed hydration. Rich reads preserve globally indexed reference outcomes, including ambiguous targets, when the authored occurrence still matches. Reference fields resolve after the selection tree, one depth per round (`fillRecordReferences`): every reference field at a depth shares one indexed field-value read, one summary hydration of record targets and one batched load of other targets' hosts, so reads stay constant in row count. Document targets resolve through the warmed note loader without projecting their source. `first:` caps each field's targets before any hydration.
 
 Relation counts resolve after the complete response selection tree, sharing one batched count request per relation field across note and embedded records at every depth. Missing prefetch state must never be interpreted as an empty relation.
 
