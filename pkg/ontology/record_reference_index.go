@@ -6,17 +6,21 @@ import (
 )
 
 type recordReferenceIndex struct {
-	exact    map[string][]recordReferenceCandidate
-	names    map[string][]recordReferenceCandidate
-	physical map[string][]NodeRef
+	exact      map[string][]recordReferenceCandidate
+	names      map[string][]recordReferenceCandidate
+	physical   map[string][]NodeRef
+	targetKeys map[string]bool
 }
 
 func referenceLookupKey(space, typ, key string) string { return recordDigest(space, typ, key) }
 func buildRecordReferenceIndex(candidates []recordReferenceCandidate) *recordReferenceIndex {
-	index := &recordReferenceIndex{exact: map[string][]recordReferenceCandidate{}, names: map[string][]recordReferenceCandidate{}}
+	index := &recordReferenceIndex{exact: map[string][]recordReferenceCandidate{}, names: map[string][]recordReferenceCandidate{}, targetKeys: map[string]bool{"": true}}
 	paths := map[string]ontoschema.RecordSelector{}
 	for _, c := range candidates {
 		for _, field := range c.record.typ.Fields {
+			if field.Record != nil && field.Record.References != nil && field.Record.References.TargetKey != "" {
+				index.targetKeys[field.Record.References.TargetKey] = true
+			}
 			if field.Record != nil && field.Record.References != nil && field.Record.References.MatchPath.Text != "" {
 				path := field.Record.References.MatchPath
 				paths[path.Text] = path
@@ -65,16 +69,16 @@ func (index *recordReferenceIndex) resolve(space string, types []string, id stri
 	return matches
 }
 
-// Explicit Markdown host paths use canonical physical identity, never a global
-// alias/name fallback that could select an unselected product's evidence.
+// File targets use the projected key or explicit Markdown path, never a global
+// alias fallback that could select an unselected product's evidence.
 func (index *recordReferenceIndex) addMarkdownTargets(documents []*PreparedDocument) {
 	index.physical = map[string][]NodeRef{}
 	for _, document := range documents {
-		if document == nil || document.markdown == nil {
+		if document == nil {
 			continue
 		}
 		node := document.rootProjection
-		if node == nil || node.Type == nil {
+		if node == nil || node.Type == nil || ontoschema.EffectiveTypeRole(node.Type) != ontoschema.TypeRoleNote {
 			continue
 		}
 		names := []string{node.Type.Name}
@@ -84,16 +88,30 @@ func (index *recordReferenceIndex) addMarkdownTargets(documents []*PreparedDocum
 			}
 		}
 		for _, name := range names {
-			key := referenceLookupKey("", name, node.Ref.NotePath)
-			index.physical[key] = append(index.physical[key], node.Ref)
+			for targetKey := range index.targetKeys {
+				value := node.Ref.NotePath
+				if targetKey == "" {
+					if document.markdown == nil {
+						continue
+					}
+				} else {
+					field := node.Fields[targetKey]
+					if len(field.Values) != 1 {
+						continue
+					}
+					value = field.Values[0]
+				}
+				key := referenceLookupKey(targetKey, name, value)
+				index.physical[key] = append(index.physical[key], node.Ref)
+			}
 		}
 	}
 }
-func (index *recordReferenceIndex) physicalTargets(types []string, id string) []NodeRef {
+func (index *recordReferenceIndex) physicalTargets(types []string, id, targetKey string) []NodeRef {
 	var out []NodeRef
 	seen := map[NodeRef]bool{}
 	for _, typ := range types {
-		for _, ref := range index.physical[referenceLookupKey("", typ, id)] {
+		for _, ref := range index.physical[referenceLookupKey(targetKey, typ, id)] {
 			if !seen[ref] {
 				seen[ref] = true
 				out = append(out, ref)

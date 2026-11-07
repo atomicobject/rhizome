@@ -38,7 +38,9 @@ import (
 // v21: structured providers, empty reference presence, cross-format references, and complete native chunk coverage.
 // v22: scalar path fields reject structured leaves instead of formatting Go collections, and typed body-link
 // candidates exclude incompatible basename claimants before uniqueness.
-const OntologyMaterializationVersion = 22
+// v23: RECORD references resolve projected file keys; property presence and wildcard membership
+// preserve selected-product admission without authored identifier aliases.
+const OntologyMaterializationVersion = 23
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

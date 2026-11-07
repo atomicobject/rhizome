@@ -82,6 +82,12 @@ func structuredSnapshot(t *testing.T, store *semdb.Store) []string {
 		row.UpdatedAt = 0
 		add("node", row)
 	}
+	assessments, err := store.OntologyAssessmentsByPaths(ctx, paths)
+	require.NoError(t, err)
+	for _, row := range assessments {
+		row.UpdatedAt = 0
+		add("assessment", row)
+	}
 	fields, err := store.OntologyNodeFieldValuesByNodeIDs(ctx, nodeIDs, nil)
 	require.NoError(t, err)
 	for _, row := range fields {
@@ -104,12 +110,25 @@ func structuredSnapshot(t *testing.T, store *semdb.Store) []string {
 	return out
 }
 
+func assertStructuredPublicationConverges(t *testing.T, indexer notemeta.Indexer, vault obsidian.VaultDefinition, store *semdb.Store) {
+	t.Helper()
+	full, err := semdb.Open(filepath.Join(t.TempDir(), "full.sqlite"))
+	require.NoError(t, err)
+	defer full.Close()
+	_, err = syncPathsForTest(t.Context(), indexer, vault, &obsidian.Note{}, full, nil, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, structuredSnapshot(t, full), structuredSnapshot(t, store))
+}
+
 func TestStructuredFullAndIncrementalPublicationConverge(t *testing.T) {
 	sdl := strings.ReplaceAll(recordRowsSDL, "*.native", "model/*.{yaml,yml,json}") + `
 type Position @node(locator:EMBEDDED) @source(shape:RECORD,paths:["model/*.yaml"],select:"positions",key:null,title:["$value"],scalarAs:"id",space:"test",logicalKind:"position"){id:String @field(path:"id")}`
+	sdl = strings.Replace(sdl, `to: ["Row"]`, `to: ["Row", "Evidence"], targetKey: "aoId"`, 1) + `
+type Evidence @node(matches:["evidence AND kind:evidence"]){aoId:String @field(source:"id")}`
+	sdl = strings.Replace(sdl, `refs: [Row!]`, `refs: [String!]`, 1)
 	initial := `{"rows":[{"id":"A","name":"First","refs":["B","B","missing"]}],"positions":["one","two"]}`
 	root := testkit.Vault(t, map[string]string{".rhizome/ontology/schema.graphql": sdl, "model/a.yaml": initial, "model/b.json": `{"rows":[{"id":"B","name":"Second","refs":[]}]}`})
-	vault := obsidian.VaultDefinition{Root: root, Includes: []string{"model/*.{yaml,yml}", "model/*.json"}}
+	vault := obsidian.VaultDefinition{Root: root, Includes: []string{"model/*.{yaml,yml}", "model/*.json", "evidence/*.md"}}
 	db := filepath.Join(root, ".rhizome/db.sqlite")
 	store, err := semdb.Open(db)
 	require.NoError(t, err)
@@ -122,17 +141,11 @@ type Position @node(locator:EMBEDDED) @source(shape:RECORD,paths:["model/*.yaml"
 		require.True(t, ok)
 		require.EqualValues(t, 1, value.(*atomic.Int64).Load(), "one parse per indexed host")
 	}
-	assertFull := func(t *testing.T) {
-		full, err := semdb.Open(filepath.Join(t.TempDir(), "full.sqlite"))
-		require.NoError(t, err)
-		defer full.Close()
-		_, err = syncPathsForTest(t.Context(), indexer, vault, &obsidian.Note{}, full, nil, nil, nil)
-		require.NoError(t, err)
-		require.Equal(t, structuredSnapshot(t, full), structuredSnapshot(t, store))
-	}
+	assertFull := func(t *testing.T) { assertStructuredPublicationConverges(t, indexer, vault, store) }
 	assertFull(t)
 	stamp := time.Unix(1900000000, 0)
 	write := func(path, text string) {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, path)), 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(root, path), []byte(text), 0o644))
 		stamp = stamp.Add(time.Second)
 		require.NoError(t, os.Chtimes(filepath.Join(root, path), stamp, stamp))
@@ -178,6 +191,26 @@ type Position @node(locator:EMBEDDED) @source(shape:RECORD,paths:["model/*.yaml"
 		{"JSON recovery", func() ([]string, []string) {
 			write("model/renamed.json", `{"rows":[{"id":"B","name":"Recovered","refs":[]}]}`)
 			return []string{"model/renamed.json"}, nil
+		}},
+		{"Markdown target added", func() ([]string, []string) {
+			write("evidence/source.md", "---\nid: missing\nkind: evidence\n---\n# Evidence\n")
+			return []string{"evidence/source.md"}, nil
+		}},
+		{"Markdown target key changed", func() ([]string, []string) {
+			write("evidence/source.md", "---\nid: other\nkind: evidence\n---\n# Evidence\n")
+			return []string{"evidence/source.md"}, nil
+		}},
+		{"Markdown target retyped", func() ([]string, []string) {
+			write("evidence/source.md", "---\nid: missing\nkind: other\n---\n# Evidence\n")
+			return []string{"evidence/source.md"}, nil
+		}},
+		{"Markdown target deleted", func() ([]string, []string) {
+			require.NoError(t, os.Remove(filepath.Join(root, "evidence/source.md")))
+			return nil, []string{"evidence/source.md"}
+		}},
+		{"Markdown target restored", func() ([]string, []string) {
+			write("evidence/source.md", "---\nid: missing\nkind: evidence\n---\n# Evidence\n")
+			return []string{"evidence/source.md"}, nil
 		}},
 		{"binding refresh", func() ([]string, []string) {
 			write(".rhizome/ontology/schema.graphql", strings.Replace(sdl, `title: ["name", "$key"]`, `title: ["id"]`, 1))

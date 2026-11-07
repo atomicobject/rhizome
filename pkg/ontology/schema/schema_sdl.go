@@ -39,7 +39,7 @@ enum RecordEdgeDirection { OUTBOUND INBOUND }
 input RecordEdge { name: String!, direction: RecordEdgeDirection = OUTBOUND }
 input RecordTarget { tag: String!, type: String!, memberPath: String }
 input RecordMembership { path: String!, includes: String!, includeMissing: Boolean = true, wildcard: String }
-directive @references(to: [String!]!, mode: RecordReferenceMode!, encoding: RecordReferenceEncoding = ID, values: RecordReferenceValues = VALUE, targets: [RecordTarget!], matchName: String, allowWildcard: Boolean = false, edge: RecordEdge) on FIELD_DEFINITION
+directive @references(to: [String!]!, targetKey: String, mode: RecordReferenceMode!, encoding: RecordReferenceEncoding = ID, values: RecordReferenceValues = VALUE, targets: [RecordTarget!], matchName: String, allowWildcard: Boolean = false, edge: RecordEdge) on FIELD_DEFINITION
 input RequiredFieldCondition { field: String!, equals: String }
 directive @node(matches: [String!], paths: [String!], label: String, color: String, keyField: String, propertyCase: OntologyPropertyCase = KEBAB, locator: NodeLocator = FILE, default: Boolean = false) on OBJECT
 directive @field(source: String, sources: [String!], path: String, fallback: RecordValueFallback, sourceKind: FieldSource = FRONTMATTER) on FIELD_DEFINITION

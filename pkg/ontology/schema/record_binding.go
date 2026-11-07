@@ -60,6 +60,7 @@ type RecordReferenceBinding struct {
 	Mode, Encoding, Values string
 	Targets                []RecordTarget
 	MatchName              string
+	TargetKey              string
 	MatchPath              RecordSelector
 	AllowWildcard          bool
 	Edge                   *RecordEdge

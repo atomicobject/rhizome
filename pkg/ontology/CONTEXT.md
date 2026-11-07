@@ -63,7 +63,7 @@ Native edit staging checks host-source ownership before projection. Workspace cl
 
 Present RECORD reference fields with zero occurrences publish presence/value-kind rows so exists filters retain empty collections. Explicit Markdown document paths in RECORD reference bindings resolve through canonical physical identities, without global alias fallback.
 
-Materialization 21 refreshes structured-provider output, reference presence/targets and native chunk coverage. RECORD source-set invalidation includes declared Markdown reference target types, so target creation, deletion and changes rebind current record occurrences.
+Materialization 23 adds exact projected `targetKey` lookup for file-backed RECORD reference targets, presence selectors and wildcard membership. RECORD source-set invalidation includes declared Markdown reference target types, so target creation, deletion, key changes and retyping rebind unchanged record hosts across restarts. `targetKey` requires scalar String fields after interface expansion, never falls back to paths, and diagnoses duplicate keys without targets or edges. RECORD logical key/space resolution and references without `targetKey` retain their existing behavior.
 
 Scalar `@field(path:)` leaves reject mappings and lists containing mappings or nested lists with `field_shape_mismatch`; the typed value is unavailable as a whole, while raw frontmatter retains the authored structure. Scalar extraction never formats a Go collection as text.
 

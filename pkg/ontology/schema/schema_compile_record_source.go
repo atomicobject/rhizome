@@ -165,6 +165,17 @@ func validateRecordBindings(schema *Schema) error {
 					if schema.Types[name] == nil && schema.Interfaces[name] == nil {
 						return compileError(f.position, "record_reference_target", t.Name, f.Name, "unknown reference target %q", name)
 					}
+					if ref.TargetKey != "" {
+						for _, target := range interfaceImplementersOrConcrete(schema, name) {
+							if target.Record != nil || EffectiveTypeRole(target) != TypeRoleNote {
+								continue
+							}
+							key := target.ByName[ref.TargetKey]
+							if key == nil || key.Kind != FieldKindScalar || key.TypeName != "String" || key.List {
+								return compileError(f.position, "record_reference_target_key", t.Name, f.Name, "targetKey %q must name a scalar String field on %s", ref.TargetKey, target.Name)
+							}
+						}
+					}
 					if f.Kind == FieldKindLink && !TypeMatchesOrImplements(schema, name, f.TypeName) && !TypeMatchesOrImplements(schema, f.TypeName, name) {
 						return compileError(f.position, "record_reference_type", t.Name, f.Name, "reference targets disagree with declared object type")
 					}
