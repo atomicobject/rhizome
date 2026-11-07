@@ -4684,6 +4684,11 @@
   white-space: nowrap;
 }
 
+/* Beside a kind, the summary is secondary; alone, it reads at full strength. */
+.problems-row__detail > .problems-row__summary:not(:first-child) {
+  color: var(--text-muted);
+}
+
 .problems-row__line {
   color: var(--text-faint);
   text-align: right;

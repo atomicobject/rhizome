@@ -115,7 +115,7 @@ export function FindingsHeader({
   );
 }
 
-/** One finding: its file (when not grouped under one), one detail, and its line. */
+/** One finding: its file (when not grouped under one), its kind or summary, and its line. */
 export function IssueRow({
   diagnostic,
   path,
@@ -124,7 +124,10 @@ export function IssueRow({
   tabbableKey,
   onSelect,
 }: RowProps & { diagnostic: ValidationDiagnostic; path?: string }) {
-  const detail = (!showKind && issueSummary(diagnostic)) || issueLabel(diagnostic.code);
+  const summary = issueSummary(diagnostic);
+  // Within one kind the summary alone tells rows apart; under All issues the
+  // kind leads and the summary follows in the same column.
+  const kind = showKind || !summary ? issueLabel(diagnostic.code) : null;
   const line = diagnostic.location?.unit === "line" ? diagnostic.location.start : null;
   const selected = diagnostic.issueKey === selectedKey;
 
@@ -139,7 +142,15 @@ export function IssueRow({
       onClick={() => onSelect(diagnostic)}
     >
       {path && <PathLabel path={path} />}
-      <span className="problems-row__detail">{detail}</span>
+      <span className="problems-row__detail">
+        {kind}
+        {summary && (
+          <span className="problems-row__summary">
+            {kind ? " " : ""}
+            {summary}
+          </span>
+        )}
+      </span>
       <span className="problems-row__line">{line !== null && `L${line}`}</span>
     </button>
   );

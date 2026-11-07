@@ -353,8 +353,10 @@ test("narrow Problems panels fold the kind column into a select", async ({ page 
   await expect(kinds).toBeHidden();
   await expect(kindSelect).toBeVisible();
   await expect(detail).toBeVisible();
-  // Under All issues a row names its kind; within one kind, its target.
-  await expect(page.locator(".problems-row__detail").first()).toHaveText("Broken note link");
+  // Under All issues a row leads with its kind; within one kind, only its target.
+  await expect(page.locator(".problems-row__detail").first()).toHaveText(
+    "Broken note link [[Prep note for Mike]]",
+  );
 
   // Narrow: one column; the list gives way to the chosen issue's detail.
   await page.setViewportSize({ width: 700, height: 768 });
