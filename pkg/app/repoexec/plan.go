@@ -23,7 +23,8 @@ type Plan struct {
 	ConfiguredDevelopment bool
 	// DevApp marks a development Target that is an installed Rhizome Dev
 	// app's rzm. The repository did not choose that binary, so running it
-	// needs no checkout trust.
+	// needs no checkout trust unless the checkout pins a version, which
+	// commands such as init and update act on whichever binary runs them.
 	DevApp bool
 }
 
@@ -80,7 +81,6 @@ func SelectWithEnv(env vaultconfig.Env, cwd, fallback string) (Plan, error) {
 		// build rather than a release, so the app and terminal agree.
 		if target, ok := DevAppExecutable(env); ok {
 			p.Authority, p.Target, p.DevApp = "development", target, true
-			return p, nil
 		}
 	}
 	if p.Config != nil {
@@ -89,7 +89,10 @@ func SelectWithEnv(env vaultconfig.Env, cwd, fallback string) (Plan, error) {
 			return p, err
 		}
 		if invocation.RepoPinned {
-			p.Authority, p.Target, p.PinnedVersion = "managed", invocation.RepoTargetPath, invocation.RepoPinVersion
+			p.PinnedVersion = invocation.RepoPinVersion
+			if !p.DevApp {
+				p.Authority, p.Target = "managed", invocation.RepoTargetPath
+			}
 		}
 	}
 	return p, nil
@@ -97,7 +100,7 @@ func SelectWithEnv(env vaultconfig.Env, cwd, fallback string) (Plan, error) {
 
 // TrustRoot identifies the checkout authorizing repository-selected code.
 func (p Plan) TrustRoot() string {
-	if p.Authority != "managed" && p.Authority != "development" || p.DevApp {
+	if p.Authority != "managed" && p.Authority != "development" || p.DevApp && p.PinnedVersion == "" {
 		return ""
 	}
 	if p.ConfigDir != "" {

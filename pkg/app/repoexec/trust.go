@@ -1,5 +1,11 @@
 package repoexec
 
+import (
+	"os"
+
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+)
+
 func TrustRequirement(args []string, cwd, exe string) (string, bool, error) {
 	if isRepositoryTrustControlInvocation(args) || isExplicitExternalBinaryManagerMigration(args) {
 		return "", false, nil
@@ -7,6 +13,15 @@ func TrustRequirement(args []string, cwd, exe string) (string, bool, error) {
 	plan, err := Select(cwd, exe)
 	if err != nil {
 		return "", false, err
+	}
+	if plan.DevApp && plan.PinnedVersion != "" {
+		// WHY: init, update, and other commands act on the checkout's pin
+		// whichever executable runs them, so a pinned checkout keeps the
+		// trust its pinned binary requires, even when the Dev app runs.
+		plan, err = selectWithoutDevApp(cwd, exe)
+		if err != nil {
+			return "", false, err
+		}
 	}
 	root := plan.TrustRoot()
 	if root == "" {
@@ -27,6 +42,17 @@ func TrustRequirement(args []string, cwd, exe string) (string, bool, error) {
 		return "", false, nil
 	}
 	return root, true, nil
+}
+
+func selectWithoutDevApp(cwd, exe string) (Plan, error) {
+	home, _ := os.UserHomeDir()
+	lookup := func(key string) (string, bool) {
+		if key == DevAppEnv {
+			return "", true
+		}
+		return os.LookupEnv(key)
+	}
+	return SelectWithEnv(vaultconfig.Env{HomeDir: home, LookupEnv: lookup}, cwd, exe)
 }
 
 // DevAppHandoff returns the installed Rhizome Dev app's rzm when dispatch

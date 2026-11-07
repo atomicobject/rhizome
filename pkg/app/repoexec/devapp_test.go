@@ -35,22 +35,26 @@ func TestSelectRunsTheDevAppInASourceCheckoutWithoutItsOwnBuild(t *testing.T) {
 	t.Setenv(DevAppEnv, devApp)
 	release := filepath.Join(t.TempDir(), "release-rzm")
 
-	root := sourceCheckout(t, "rhizome:\n  version: v1.2.3\n")
+	root := sourceCheckout(t, "{}\n")
 	plan, err := Select(root, release)
 	require.NoError(t, err)
-	require.Equal(t, "development", plan.Authority, "the Dev app outranks a pin in a source checkout")
+	require.Equal(t, "development", plan.Authority)
 	require.Equal(t, devApp, plan.Target)
 	require.Empty(t, plan.TrustRoot(), "the checkout did not choose the Dev app, so it needs no trust")
-	_, required, err := TrustRequirement([]string{"search", "x"}, root, release)
-	require.NoError(t, err)
-	require.False(t, required)
+	for _, args := range [][]string{{"search", "x"}, {"update"}, {"init"}} {
+		_, required, err := TrustRequirement(args, root, release)
+		require.NoError(t, err)
+		require.False(t, required, args)
+	}
+	require.Equal(t, devApp, DevAppHandoff([]string{"search", "x"}, root, release))
+	require.Empty(t, DevAppHandoff([]string{"update"}, root, release), "update never replaces the Dev app's rzm")
+	require.Empty(t, DevAppHandoff([]string{"search", "x"}, root, devApp), "the Dev app does not hand off to itself")
 
 	decision := DecisionFor([]string{"search", "x"}, root, release)
 	require.NoError(t, decision.Err)
 	require.True(t, decision.Delegate)
 	require.Equal(t, devApp, decision.Target)
-	require.False(t, DecisionFor([]string{"search", "x"}, root, devApp).Delegate, "the Dev app does not delegate to itself")
-	require.False(t, DecisionFor([]string{"update"}, root, release).Delegate, "update never replaces the Dev app's rzm")
+	require.False(t, DecisionFor([]string{"update"}, root, release).Delegate)
 
 	build := writeExecutable(t, filepath.Join(root, "bin", runtime.GOOS, ExecutableName()))
 	plan, err = Select(root, release)
@@ -69,6 +73,36 @@ func TestSelectRunsTheDevAppInASourceCheckoutWithoutItsOwnBuild(t *testing.T) {
 	plan, err = Select(sourceCheckout(t, "rhizome:\n  version: v1.2.3\n"), release)
 	require.NoError(t, err)
 	require.Equal(t, "managed", plan.Authority, "an empty override turns discovery off")
+}
+
+func TestPinnedSourceCheckoutKeepsItsTrustWhenTheDevAppRuns(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executable-bit fixture is Unix-only")
+	}
+	devApp := writeExecutable(t, filepath.Join(t.TempDir(), "rzm"))
+	t.Setenv(DevAppEnv, devApp)
+	release := filepath.Join(t.TempDir(), "release-rzm")
+	root := sourceCheckout(t, "rhizome:\n  version: v1.2.3\n")
+
+	plan, err := Select(root, release)
+	require.NoError(t, err)
+	require.Equal(t, devApp, plan.Target, "the Dev app outranks a pin in a source checkout")
+	require.Equal(t, "v1.2.3", plan.PinnedVersion)
+	require.Equal(t, root, plan.TrustRoot())
+	// init and update act on the pin whichever binary runs them, including
+	// the Dev app's own rzm.
+	for _, exe := range []string{release, devApp} {
+		for _, args := range [][]string{{"init"}, {"update", "--pinned"}, {"search", "x"}} {
+			checkout, required, err := TrustRequirement(args, root, exe)
+			require.NoError(t, err)
+			require.True(t, required, "%s %v", exe, args)
+			require.Equal(t, root, checkout)
+		}
+	}
+	decision := DecisionFor([]string{"search", "x"}, root, release)
+	require.True(t, decision.Delegate, "after trust, commands run on the Dev app")
+	require.Equal(t, devApp, decision.Target)
+	require.False(t, decision.Bootstrap)
 }
 
 func TestDevAppDiscoveryFindsTheLinuxInstallBesideItsDesktopExecutable(t *testing.T) {

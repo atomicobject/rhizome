@@ -295,12 +295,17 @@ func TestInspectSelectsTheDevAppFromTheInvocationEnvironment(t *testing.T) {
 		}
 		return "", false
 	}
-	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.0.0"})
-	require.NoError(t, os.WriteFile(filepath.Join(folder, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
+	for _, tc := range []struct {
+		pin   string
+		trust bool
+	}{{"", false}, {"v1.0.0", true}} {
+		folder := config(t, repoconfig.LocalRhizomeConfig{Version: tc.pin})
+		require.NoError(t, os.WriteFile(filepath.Join(folder, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
 
-	info, err := s.Inspect(folder)
-	require.NoError(t, err)
-	require.Equal(t, "development", info.Authority)
-	require.Equal(t, devApp, info.Executable)
-	require.False(t, info.TrustRequired, "the checkout did not choose the Dev app's rzm")
+		info, err := s.Inspect(folder)
+		require.NoError(t, err)
+		require.Equal(t, "development", info.Authority)
+		require.Equal(t, devApp, info.Executable)
+		require.Equal(t, tc.trust, info.TrustRequired, "only a pin, which the checkout chose, needs trust; pin %q", tc.pin)
+	}
 }
