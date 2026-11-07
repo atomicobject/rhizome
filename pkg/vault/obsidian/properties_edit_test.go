@@ -3,6 +3,7 @@ package obsidian
 import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -70,4 +71,44 @@ func assertFrontmatterEdit(t *testing.T, content string, want map[string]any, bo
 	}
 	assert.Equal(t, want, got)
 	assert.Equal(t, body, parts[2])
+}
+
+// Editing one entry leaves every other frontmatter byte as authored:
+// comments, key order and spelling, quoting, dates and line endings.
+func TestFrontmatterEditsKeepOtherLinesByteIdentical(t *testing.T) {
+	authored := "---\n# owner note\ntitle: X\nTags: a, b\ndue: 2024-01-01 # soon\nstatus: open\nquote: 'kept'\n---\nbody\n"
+	cases := map[string]struct {
+		edit func(string) (string, bool, error)
+		want string
+	}{
+		"set existing": {
+			edit: func(c string) (string, bool, error) { return SetFrontmatterProperty(c, "status", "done", true) },
+			want: "---\n# owner note\ntitle: X\nTags: a, b\ndue: 2024-01-01 # soon\nstatus: done\nquote: 'kept'\n---\nbody\n",
+		},
+		"set new": {
+			edit: func(c string) (string, bool, error) { return SetFrontmatterProperty(c, "owner", "me", false) },
+			want: "---\n# owner note\ntitle: X\nTags: a, b\ndue: 2024-01-01 # soon\nstatus: open\nquote: 'kept'\nowner: me\n---\nbody\n",
+		},
+		"delete": {
+			edit: func(c string) (string, bool, error) { return DeleteFrontmatterProperties(c, []string{"STATUS"}) },
+			want: "---\n# owner note\ntitle: X\nTags: a, b\ndue: 2024-01-01 # soon\nquote: 'kept'\n---\nbody\n",
+		},
+		"add tag": {
+			edit: func(c string) (string, bool, error) {
+				out, changed := AddTags(strings.Replace(c, "Tags: a, b", "tags: [a]", 1), []string{"b"})
+				return out, changed, nil
+			},
+			want: "---\n# owner note\ntitle: X\ntags:\n  - a\n  - b\ndue: 2024-01-01 # soon\nstatus: open\nquote: 'kept'\n---\nbody\n",
+		},
+	}
+	for name, tc := range cases {
+		for _, eol := range []string{"\n", "\r\n"} {
+			t.Run(name+"/"+strconv.Quote(eol), func(t *testing.T) {
+				got, changed, err := tc.edit(strings.ReplaceAll(authored, "\n", eol))
+				require.NoError(t, err)
+				require.True(t, changed)
+				require.Equal(t, strings.ReplaceAll(tc.want, "\n", eol), got)
+			})
+		}
+	}
 }
