@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Runs app-instances.sh against a throwaway background app with its own bundle
-# identifier, so it never touches an installed Rhizome. macOS only.
+# identifier, so it never touches an installed Rhizome. Linux runs
+# app-instances-linux_test.sh instead.
 set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+if [[ "$(uname)" == Linux ]]; then
+  exec "$here/app-instances-linux_test.sh"
+fi
 if [[ "$(uname)" != Darwin ]]; then
-  echo "app-instances_test: skipped (macOS only)"
+  echo "app-instances_test: skipped (macOS and Linux only)"
   exit 0
 fi
-here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=app-instances.sh
 source "$here/app-instances.sh"
 APP_QUIT_SECONDS=2
