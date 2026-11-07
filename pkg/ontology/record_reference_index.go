@@ -6,8 +6,9 @@ import (
 )
 
 type recordReferenceIndex struct {
-	exact map[string][]recordReferenceCandidate
-	names map[string][]recordReferenceCandidate
+	exact    map[string][]recordReferenceCandidate
+	names    map[string][]recordReferenceCandidate
+	physical map[string][]NodeRef
 }
 
 func referenceLookupKey(space, typ, key string) string { return recordDigest(space, typ, key) }
@@ -62,4 +63,42 @@ func (index *recordReferenceIndex) resolve(space string, types []string, id stri
 		matches = collect(index.names, matchPath.Text+"\x00"+strings.ToLower(strings.TrimSpace(id)))
 	}
 	return matches
+}
+
+// Explicit Markdown host paths use canonical physical identity, never a global
+// alias/name fallback that could select an unselected product's evidence.
+func (index *recordReferenceIndex) addMarkdownTargets(documents []*PreparedDocument) {
+	index.physical = map[string][]NodeRef{}
+	for _, document := range documents {
+		if document == nil || document.markdown == nil {
+			continue
+		}
+		node := document.rootProjection
+		if node == nil || node.Type == nil {
+			continue
+		}
+		names := []string{node.Type.Name}
+		for name := range document.schema.Interfaces {
+			if ontoschema.TypeMatchesOrImplements(document.schema, node.Type.Name, name) {
+				names = append(names, name)
+			}
+		}
+		for _, name := range names {
+			key := referenceLookupKey("", name, node.Ref.NotePath)
+			index.physical[key] = append(index.physical[key], node.Ref)
+		}
+	}
+}
+func (index *recordReferenceIndex) physicalTargets(types []string, id string) []NodeRef {
+	var out []NodeRef
+	seen := map[NodeRef]bool{}
+	for _, typ := range types {
+		for _, ref := range index.physical[referenceLookupKey("", typ, id)] {
+			if !seen[ref] {
+				seen[ref] = true
+				out = append(out, ref)
+			}
+		}
+	}
+	return out
 }

@@ -71,6 +71,7 @@ func BindRecordDocuments(documents ...*PreparedDocument) {
 		r.projection.sourceTitle = candidate.document.recordTitle(r)
 	}
 	index := buildRecordReferenceIndex(records)
+	index.addMarkdownTargets(documents)
 	for _, p := range documents {
 		if p == nil {
 			continue
@@ -181,6 +182,21 @@ func (p *PreparedDocument) bindRecordReferences(record *recordProjection, field 
 			}
 		}
 		matches := index.resolve(record.identity.Space, allowed, id, rule.MatchPath)
+		if len(matches) == 0 && member.Text == "" {
+			physical := index.physicalTargets(allowed, id)
+			if len(physical) == 1 {
+				ref := physical[0]
+				occurrence.Target = &ref
+				binding.ReferenceTargets = append(binding.ReferenceTargets, ref)
+				binding.ReferenceOccurrences = append(binding.ReferenceOccurrences, occurrence)
+				continue
+			}
+			if len(physical) > 1 {
+				reject("record_reference_ambiguous", "reference matches multiple physical records")
+				binding.ReferenceOccurrences = append(binding.ReferenceOccurrences, occurrence)
+				continue
+			}
+		}
 		if len(matches) > 1 {
 			reject("record_reference_ambiguous", "reference matches multiple logical records")
 		} else if len(matches) == 0 {

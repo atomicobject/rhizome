@@ -21,3 +21,5 @@ Owns note, code, and ontology chunk planning, hash-addressed reuse, provider exe
 ## SPEC-0133 boundary, last verified 2026-11-06
 
 **Structural source ownership (SPEC-0133).** Providers emit schema-free owner/value trees; ontology prepares each captured host once and alone selects catalog/search owners. RECORD semantic chunks include selected scalar fields and own unbound scalar leaves, excluding selected descendants and sibling evidence. Empty/null/container presence is persisted without Markdown normalization. A RECORD host change forces rebinding of the declared RECORD source set, including previously unresolved references; full/indexed refreshes use the existing atomic publication. Materialization version 19 invalidates prior derived state.
+
+Native chunk planning covers every selected RECORD, including globally selected children without a parent contains field. Such children use the prepared semantic parent; their evidence remains excluded from the parent chunk.

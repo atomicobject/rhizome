@@ -90,13 +90,31 @@ func BuildOntologyNodeChunks(schema *ontoschema.Schema, projection *ontology.Nod
 			seen[row.NodeID] = true
 		}
 		for _, node := range nodes {
-			if node.Record == nil || node.Ref.ParentID != "" {
+			if node.Record == nil {
 				continue
 			}
 			if !seen[ontology.OntologyNodeID(node.Ref)] {
-				seen[ontology.OntologyNodeID(node.Ref)] = true
-				if err := c.collect(&out, node, projection, "", nil); err != nil {
+				parent := projection
+				var ancestors []ontologyAncestorFrame
+				parentRef, ok, err := projection.Prepared.SemanticParent(node.Ref)
+				if err != nil {
 					return out, err
+				}
+				if ok {
+					parent, err = projection.Prepared.ProjectBound(parentRef)
+					if err != nil {
+						return out, err
+					}
+					if parent.Ref.Kind != ontology.NodeKindNote {
+						ancestors = []ontologyAncestorFrame{{Type: parent.ResolvedType, Title: nodeProjectionTitleForEmbedding(parent)}}
+					}
+				}
+				start := len(out.Nodes)
+				if err := c.collect(&out, node, parent, "", ancestors); err != nil {
+					return out, err
+				}
+				for _, row := range out.Nodes[start:] {
+					seen[row.NodeID] = true
 				}
 			}
 		}

@@ -18,6 +18,7 @@ import (
 )
 
 type queryTestEnv struct {
+	includes     []string
 	root         string
 	schema       *ontoschema.Schema
 	execSchema   *ExecutableSchema
@@ -107,6 +108,11 @@ This decision references [[roadmap-refresh]] from the opposite direction.
 
 func newCustomQueryTestEnv(t *testing.T, schemaBody string, notes map[string]string) *queryTestEnv {
 	t.Helper()
+	return newConfiguredQueryTestEnv(t, schemaBody, notes, nil)
+}
+
+func newConfiguredQueryTestEnv(t *testing.T, schemaBody string, notes map[string]string, includes []string) *queryTestEnv {
+	t.Helper()
 	root := t.TempDir()
 	writeQueryTestConfig(t, root)
 	writeQueryTestSchema(t, root, schemaBody)
@@ -128,10 +134,10 @@ func newCustomQueryTestEnv(t *testing.T, schemaBody string, notes map[string]str
 	noteMetadata := testkit.NoteMetadataIndexer(t)
 	noteFormats, err := noteMetadata.FormatRuntime()
 	require.NoError(t, err)
-	_, err = noteMetadata.EnsureIndexed(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store)
+	_, err = noteMetadata.EnsureIndexed(context.Background(), configuredQueryTestVault(root, includes), &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	result, err := ontology.BuildIndexWithStore(context.Background(), noteMetadata, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, schema, "notes-hash")
+	result, err := ontology.BuildIndexWithStore(context.Background(), noteMetadata, configuredQueryTestVault(root, includes), &obsidian.Note{}, store, schema, "notes-hash")
 	require.NoError(t, err)
 
 	require.NoError(t, store.ReplaceOntologySnapshot(context.Background(), codeanchorsqlite.OntologySnapshot{
@@ -152,6 +158,7 @@ func newCustomQueryTestEnv(t *testing.T, schemaBody string, notes map[string]str
 	}))
 
 	return &queryTestEnv{
+		includes:     includes,
 		root:         root,
 		schema:       schema,
 		execSchema:   execSchema,
@@ -163,7 +170,7 @@ func newCustomQueryTestEnv(t *testing.T, schemaBody string, notes map[string]str
 
 func (e *queryTestEnv) deps(searcher SemanticSearcher) Deps {
 	return Deps{
-		VaultDef:         obsidian.VaultDefinition{Path: e.root},
+		VaultDef:         configuredQueryTestVault(e.root, e.includes),
 		NoteReader:       &obsidian.Note{},
 		NoteFormats:      e.noteFormats,
 		Store:            e.store,
@@ -244,4 +251,11 @@ func graphQLListContainsNestedValue(items []any, parent string, field string, ex
 		}
 	}
 	return false
+}
+
+func configuredQueryTestVault(root string, includes []string) obsidian.VaultDefinition {
+	if includes != nil {
+		return obsidian.VaultDefinition{Root: root, Includes: includes}
+	}
+	return obsidian.VaultDefinition{Path: root}
 }

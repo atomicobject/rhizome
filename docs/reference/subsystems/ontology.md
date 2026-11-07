@@ -160,3 +160,5 @@ Path fields use the common projection, catalog rows, typed reads, filtering, sor
 - Sibling subsystem notes cover `pkg/ontology/query` + `queryrecipe` (GraphQL query layer) and `noderead` + `readmodel` (batched reads)
 
 - **Complete publication evidence**: the writer transaction validates node and field witnesses plus per-source note-type, edge, and link-dependency witnesses. Missing or corrupted rows force source recomputation before proof publication, including when no dirty path is supplied. Assessment flags and declared/resolved type columns must agree with decoded assessment JSON, and each state row must carry that same resolved type. Every complete delta replaces the exact compiled type-policy set, including an empty set; orphan rows invalidate publication and are removed through the same delta lane. Request reads use the bounded readiness singleton instead of scanning these tables.
+
+RECORD reference presence rows preserve authored empty collections. Reference bindings can target exact typed Markdown document paths; record logical lookup keeps namespace filtering and never falls back to arbitrary Markdown aliases.

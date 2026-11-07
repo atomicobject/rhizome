@@ -121,3 +121,5 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 - [[configured-view-engine-and-repo-config]] — the other pushdown consumer
 - [[Ontology (Hub)]] — subsystem hub
 - [[ontology]], [[noderead]] — sibling subsystem notes (upstream schema/index; downstream batched reads)
+
+RECORD summary reference selections reuse batched indexed hydration. Rich reads preserve globally indexed reference outcomes, including ambiguous targets, when the authored occurrence still matches.
