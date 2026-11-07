@@ -169,6 +169,19 @@ func sectionListItemContent(line string) (string, bool) {
 	return strings.TrimSpace(line[index+2:]), true
 }
 
+// Flatten returns parsed sections in pre-order, the order intel doc sections
+// persist and search display reads by chunk index.
+func Flatten(nodes []*Node) []*Node {
+	var out []*Node
+	for _, node := range nodes {
+		if node != nil {
+			out = append(out, node)
+			out = append(out, Flatten(node.Children)...)
+		}
+	}
+	return out
+}
+
 // UnwrapSingleH1Root returns children of a lone H1 wrapper when present.
 func UnwrapSingleH1Root(nodes []*Node) []*Node {
 	if len(nodes) != 1 {

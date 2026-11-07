@@ -391,6 +391,8 @@ func indirectMarkdownParserBoundaryFunction(path, function string) bool {
 		"pkg/ontology/projection.go:BuildDocumentSnapshot",
 		"pkg/ontology/sections.go:ParseSections",
 		"pkg/anchors/intel_extract_notes.go:extractMarkdownIntelDocSections",
+		// Search display re-chunks Markdown doc sections with the parser that persisted them.
+		"pkg/embeddings/chunk_text.go:noteSectionChunks",
 		"pkg/anchors/note_source.go:ExtractAnchorDeclarations",
 		"pkg/app/codeintel/ingest.go:ingestMarkdownCandidateRun",
 		"pkg/ontology/snapshot_selector.go:BuildMarkdownDocumentSnapshot",

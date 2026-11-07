@@ -24,3 +24,12 @@ func TestChunkTextForContentMatchesPathChunking(t *testing.T) {
 	}
 	require.Empty(t, ChunkTextForContent(relPath, 99, content))
 }
+
+// Search hits carry the section's position in the index's order, so display
+// must skip frontmatter and indented code the way sectionparse does.
+func TestChunkTextForContentUsesIndexSectionOrder(t *testing.T) {
+	content := []byte("---\n# draft\ntags: [a]\n---\n# Intro\nintro body\n\n    # install deps\n\n## Details\ndetails body\n")
+	require.Equal(t, "Title: example\nPath: docs/example.md\nHeadings: example > Intro\n\nintro body\n\n    # install deps", ChunkTextForContent("docs/example.md", 0, content))
+	require.Equal(t, "Title: example\nPath: docs/example.md\nHeadings: example > Intro > Details\n\ndetails body", ChunkTextForContent("docs/example.md", 1, content))
+	require.Empty(t, ChunkTextForContent("docs/example.md", 2, content))
+}

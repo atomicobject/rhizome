@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax/sectionparse"
 )
 
 // ChunkTextForPath returns the chunk text for a note's chunk index, caching
@@ -36,10 +38,7 @@ func ChunkTextForPathObserved(vaultPath, relPath string, idx int, cache map[stri
 		return "", 0, false
 	}
 	title := strings.TrimSuffix(filepath.Base(relPath), filepath.Ext(relPath))
-	chunks, err := chunkNoteSections(relPath, title, string(b))
-	if err != nil {
-		return "", int64(len(b)), true
-	}
+	chunks := noteSectionChunks(relPath, title, string(b))
 	cache[relPath] = chunks
 	for _, ch := range chunks {
 		if ch.Index == idx {
@@ -57,10 +56,7 @@ func ChunkTextForContent(relPath string, idx int, content []byte) string {
 		return ""
 	}
 	title := strings.TrimSuffix(filepath.Base(relPath), filepath.Ext(relPath))
-	chunks, err := chunkNoteSections(relPath, title, string(content))
-	if err != nil {
-		return ""
-	}
+	chunks := noteSectionChunks(relPath, title, string(content))
 	for _, chunk := range chunks {
 		if chunk.Index == idx {
 			return chunk.Text
@@ -69,62 +65,33 @@ func ChunkTextForContent(relPath string, idx int, content []byte) string {
 	return ""
 }
 
-// chunkNoteSections produces one chunk per Markdown heading section (no overlap splitting).
-// This matches the chunk indexing used by semantic.NoteSyncer (intel_doc_sections order).
-func chunkNoteSections(path, title, content string) ([]ChunkInput, error) {
-	lines := strings.Split(content, "\n")
-
+// noteSectionChunks produces one display chunk per Markdown section, in the
+// order intel_doc_sections persists: sectionparse.Parse flattened pre-order,
+// or the whole file when there are no headings. Chunk index i therefore names
+// the section a search hit found at position i. A body is the section's own
+// text, from after its heading line to the next heading.
+func noteSectionChunks(path, title, content string) []ChunkInput {
 	type sec struct {
 		title string
 		level int
-		lines []string
+		body  string
 	}
-
-	var sections []sec
-	var current *sec
-	inCode := false
-
-	flush := func() {
-		if current == nil {
-			return
+	nodes := sectionparse.Flatten(sectionparse.Parse(path, content))
+	sections := make([]sec, 0, len(nodes))
+	for i, node := range nodes {
+		start, end := node.StartByte, node.EndByte
+		if newline := strings.IndexByte(content[start:end], '\n'); newline >= 0 {
+			start += newline + 1
+		} else {
+			start = end
 		}
-		sections = append(sections, *current)
-		current = nil
+		if i+1 < len(nodes) && nodes[i+1].StartByte < end {
+			end = nodes[i+1].StartByte
+		}
+		sections = append(sections, sec{title: node.Title, level: node.Level, body: content[start:end]})
 	}
-
-	for _, line := range lines {
-		trim := strings.TrimSpace(line)
-		if strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~") {
-			inCode = !inCode
-		}
-		if !inCode {
-			trimLeft := strings.TrimLeft(line, " ")
-			if strings.HasPrefix(trimLeft, "#") {
-				hashCount := 0
-				for hashCount < len(trimLeft) && trimLeft[hashCount] == '#' {
-					hashCount++
-				}
-				rest := strings.TrimSpace(trimLeft[hashCount:])
-				if rest != "" {
-					flush()
-					current = &sec{title: rest, level: hashCount}
-					continue
-				}
-			}
-		}
-		if current != nil {
-			current.lines = append(current.lines, line)
-		}
-	}
-	flush()
-
-	// Fallback: whole-file single chunk when no headings.
 	if len(sections) == 0 {
-		sections = append(sections, sec{
-			title: title,
-			level: 1,
-			lines: lines,
-		})
+		sections = append(sections, sec{title: title, level: 1, body: content})
 	}
 
 	type levelTitle struct {
@@ -154,10 +121,8 @@ func chunkNoteSections(path, title, content string) ([]ChunkInput, error) {
 		}
 		breadcrumb := strings.Join(breadcrumbParts, " > ")
 
-		body := strings.TrimSpace(strings.Join(sec.lines, "\n"))
-		text := buildChunkText(path, title, breadcrumb, nil, body, 1, 1)
+		text := buildChunkText(path, title, breadcrumb, nil, strings.TrimSpace(sec.body), 1, 1)
 		out = append(out, NewChunkInput(idx, text, breadcrumb, sec.title))
 	}
-
-	return out, nil
+	return out
 }
