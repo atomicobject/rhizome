@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile, writeFile, mkdir, mkdtemp, cp, rm, rename} from 'node:fs/promises';
+import {readFile, writeFile, mkdir, mkdtemp, cp, rm, rename, realpath} from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {render} from '../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/render.mjs';
 import {refresh, check} from '../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/publish.mjs';
@@ -13,7 +14,7 @@ const recorded = JSON.parse(await readFile(path.join(here, 'intermediate.json'))
 const expected = await readFile(path.join(here, 'expected.graphql'), 'utf8');
 const selection = {formatVersion: 1, product: 'alpha', toolkit: null};
 async function fixture(t) {
-  const root = await mkdtemp('/private/tmp/aokb-laneM2-publish-');
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'aokb-laneM2-publish-')));
   t.after(() => rm(root, {recursive: true, force: true}));
   await cp(path.join(here, 'account'), root, {recursive: true});
   const directory = path.join(root, '.rhizome/modules/ao-kb/bindings');
