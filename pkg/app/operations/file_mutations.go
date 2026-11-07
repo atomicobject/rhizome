@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/fileio"
@@ -35,6 +36,14 @@ func runFileMutations(ctx context.Context, notes []string, processor fileMutatio
 	if workers < 1 {
 		workers = 1
 	}
+	// A note listed twice would be edited by two workers from the same
+	// original bytes, and the second write would be refused as a concurrent edit.
+	seen := make(map[string]bool, len(notes))
+	notes = slices.DeleteFunc(slices.Clone(notes), func(notePath string) bool {
+		duplicate := seen[notePath]
+		seen[notePath] = true
+		return duplicate
+	})
 
 	jobs := make(chan string, len(notes))
 	results := make(chan fileMutation, len(notes))

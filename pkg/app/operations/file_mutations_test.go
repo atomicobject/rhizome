@@ -174,3 +174,19 @@ func waitForMutationSignal(t *testing.T, signal <-chan struct{}) {
 		t.Fatal("timed out waiting for mutation worker")
 	}
 }
+
+// A note listed twice in one batch is edited once, not refused as a concurrent edit.
+func TestRunFileMutationsEditsADuplicatedNoteOnce(t *testing.T) {
+	root := t.TempDir()
+	note := filepath.Join(root, "note.md")
+	require.NoError(t, os.WriteFile(note, []byte("---\nstatus: old\n---\n"), 0o644))
+	vaultPaths, err := paths.NewVaultPaths(root)
+	require.NoError(t, err)
+
+	summary, err := runFileMutations(t.Context(), []string{"note.md", "note.md"}, processSetProperty(vaultPaths, "status", "new", true, false), 2)
+	require.NoError(t, err)
+	require.Equal(t, []string{"note.md"}, summary.filesChanged)
+	data, err := os.ReadFile(note)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "status: new")
+}
