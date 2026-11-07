@@ -8,8 +8,9 @@ function selector(text) {
   if (typeof text !== 'string' || (text !== '' && !selectorPattern.test(text))) throw new Error(`record_selector_unsupported: ${text}`);
   return quote(text);
 }
-function keyPolicy(kind) {
-  const parts = kind.selector.split('.');
+function keyPolicy(kind, kinds) {
+  const offset = kind.container ? kinds.get(kind.container)?.selector.split('.').length || 0 : 0;
+  const parts = kind.selector.split('.').slice(offset);
   if (parts.some(p => p.includes('{}')) && !parts.at(-1).endsWith('{}[]')) return '{mappingKey: true}';
   const key = kind.declaration.key;
   if (key == null) return 'null';
@@ -49,13 +50,14 @@ function fields(kind, ir, kinds, diagnostics) {
         if (missing.length) throw new Error(`ao_reference_target_unbound: ${kind.name}.${path}: ${missing.join(', ')}`);
         const external = names.some(n => kinds.get(n).declaration.file?.startsWith('kb:'));
         if (external) {
+          if (names.some(n => !kinds.get(n).declaration.file?.startsWith('kb:'))) throw new Error(`ao_mixed_reference_targets_unsupported: ${kind.name}.${path}`);
           diagnostics.push({code: 'ao_knowledge_reference_external', severity: 'note', kind: kind.name, field: path,
             message: 'Knowledge evidence references belong to the starter knowledge adapter; authored IDs remain exposed here'});
         } else {
           const targets = [...new Set(names.map(typeName))];
           const mode = ['text', 'text[]'].includes(fd.type) ? 'TOLERANT' : 'STRICT';
-          // AO _targets uses mapping keys, list items, or a scalar according to actual shape.
-          refs = ` @references(to: ${quote(targets)}, mode: ${mode}, values: BY_SHAPE, allowWildcard: true`;
+          const values = list ? 'ELEMENTS' : fd.type === 'variants' ? 'MAPPING_KEYS' : complex ? 'BY_SHAPE' : 'VALUE';
+          refs = ` @references(to: ${quote(targets)}, mode: ${mode}, values: ${values}, allowWildcard: ${fd.type !== 'typed-ref[]'}`;
           if (fd.match_name) refs += ', matchName: "name"';
           if (fd.type === 'typed-ref[]') {
             const tags = fd.to_kinds.map(tag => {
@@ -68,7 +70,7 @@ function fields(kind, ir, kinds, diagnostics) {
         }
       }
       if (flattened || list || fd.type === 'variants') scalar = `[${scalar}!]`;
-      const fallback = path === 'group' && kind.selector.includes('{}[]') ? ', fallback: MAPPING_KEY' : '';
+      const fallback = path === 'group' && kind.selector.endsWith('{}[]') ? ', fallback: MAPPING_KEY' : '';
       lines.push(`  ${fieldName(path)}: ${scalar} @field(path: ${quote(path)}${fallback})${refs}`);
       if (fd.type === 'date' || fd.type === 'enum' || fd.required || fd.min != null || fd.max != null) {
         diagnostics.push({code: 'ao_validation_metadata', severity: 'note', kind: kind.name, field: path,
@@ -78,7 +80,7 @@ function fields(kind, ir, kinds, diagnostics) {
     for (const [name, sub] of Object.entries(fd.items || {}).sort(([a], [b]) => a.localeCompare(b))) add(`${path}[].${name}`, sub, true);
   }
   for (const [name, fd] of Object.entries(kind.fields).sort(([a], [b]) => a.localeCompare(b))) add(name, fd);
-  if (kind.selector.includes('{}[]') && !Object.hasOwn(kind.fields, 'group')) lines.push('  aoGroup: String @field(path: "group", fallback: MAPPING_KEY)');
+  if (kind.selector.endsWith('{}[]') && !Object.hasOwn(kind.fields, 'group')) lines.push('  aoGroup: String @field(path: "group", fallback: MAPPING_KEY)');
   return lines;
 }
 export function render(ir) {
@@ -97,7 +99,7 @@ export function render(ir) {
       const source = sources.get(sid);
       const origin = source.compositionOrigin;
       const args = [`shape: RECORD`, `paths: [${quote(source.path)}]`, `select: ${selector(kind.selector)}`,
-        `key: ${keyPolicy(kind)}`, 'title: ["name", "t", "term", "$key"]',
+        `key: ${keyPolicy(kind, kinds)}`, 'title: ["name", "t", "term", "$key"]',
         `scalarAs: ${quote(typeof kind.declaration.key === 'string' && !kind.declaration.key.includes('{') ? kind.declaration.key : 'id')}`,
         `space: ${quote(`ao:${ir.context.product || 'single'}`)}`, `logicalKind: ${quote(kind.name)}`, `sourceOrder: ${source.sourceOrder}`];
       if (source.membership) args.push(`membership: {path: "products", includes: ${quote(source.membership.includes)}, includeMissing: false}`);

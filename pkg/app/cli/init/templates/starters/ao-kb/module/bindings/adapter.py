@@ -186,6 +186,11 @@ def export(root, slug):
                 kind["fields"] = {k: v for k, v in kind["fields"].items() if k != "reads_fields"}
     # AO's reader oracle, not the renderer, supplies the parity expectations.
     oracle_rows, duplicates = engine._rows_and_duplicates(mm, str(model))
+    if not any(d["severity"] == "error" for d in diagnostics):
+        for kind, values in rows.items():
+            if set(values) != set(oracle_rows.get(kind, {})):
+                diagnostics.append({"code": "ao_identity_parity_unsupported", "severity": "error", "kind": kind,
+                                    "message": "physical attribution keys disagree with the pinned AO reader"})
     for kind, key, count in duplicates:
         diagnostics.append({"code": "ao_duplicate_record", "severity": "error", "kind": kind, "key": key,
                             "count": count, "occurrences": [r for r in evidence if r["kind"] == kind and r["key"] == key]})

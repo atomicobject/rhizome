@@ -36,14 +36,14 @@ type AOKBModel_job_product implements AOKBModel_job @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["products/alpha/artifacts/_assets/_model/lane.yaml"], select: "services[].jobs", key: null, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "job", sourceOrder: 1, container: "AOKBModel_service_product") {
   aoValue: String @field(path: "id")
   v_name: String @field(path: "name")
-  v_user: String @field(path: "user") @references(to: ["AOKBModel_user"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
+  v_user: String @field(path: "user") @references(to: ["AOKBModel_user"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
 
 type AOKBModel_job_account implements AOKBModel_job @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["artifacts/_assets/_model/lane.yaml"], select: "services[].jobs", key: null, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "job", sourceOrder: 0, container: "AOKBModel_service_account") {
   aoValue: String @field(path: "id")
   v_name: String @field(path: "name")
-  v_user: String @field(path: "user") @references(to: ["AOKBModel_user"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
+  v_user: String @field(path: "user") @references(to: ["AOKBModel_user"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
 
 interface AOKBModel_link { aoValue: String }
@@ -51,15 +51,15 @@ interface AOKBModel_link { aoValue: String }
 type AOKBModel_link_product implements AOKBModel_link @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["products/alpha/artifacts/_assets/_model/lane.yaml"], select: "links", key: {template: "{from}>{to}"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "link", sourceOrder: 1) {
   aoValue: String @field(path: "id")
-  v_from: String @field(path: "from") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: INBOUND})
-  v_to: String @field(path: "to") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true)
+  v_from: String @field(path: "from") @references(to: ["AOKBModel_service"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: INBOUND})
+  v_to: String @field(path: "to") @references(to: ["AOKBModel_service"], mode: STRICT, values: VALUE, allowWildcard: true)
 }
 
 type AOKBModel_link_account implements AOKBModel_link @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["artifacts/_assets/_model/lane.yaml"], select: "links", key: {template: "{from}>{to}"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "link", sourceOrder: 0, membership: {path: "products", includes: "alpha", includeMissing: false}) {
   aoValue: String @field(path: "id")
-  v_from: String @field(path: "from") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: INBOUND})
-  v_to: String @field(path: "to") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true)
+  v_from: String @field(path: "from") @references(to: ["AOKBModel_service"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "serves", direction: INBOUND})
+  v_to: String @field(path: "to") @references(to: ["AOKBModel_service"], mode: STRICT, values: VALUE, allowWildcard: true)
 }
 
 interface AOKBModel_map { aoValue: String }
@@ -84,16 +84,16 @@ type AOKBModel_policy_product implements AOKBModel_policy @node(locator: EMBEDDE
   @source(shape: RECORD, paths: ["products/alpha/artifacts/_assets/_model/lane.yaml"], select: "policies", key: {field: "id"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "policy", sourceOrder: 1) {
   aoValue: String @field(path: "id")
   v_any: String @field(path: "any") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
-  v_governs: [String!] @field(path: "governs") @references(to: ["AOKBModel_service","AOKBModel_collection"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, encoding: TYPED, targets: [{tag: "service", type: "AOKBModel_service"}, {tag: "field", type: "AOKBModel_collection", memberPath: "fields[].name"}], edge: {name: "governs", direction: OUTBOUND})
-  v_variants: [String!] @field(path: "variants") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
+  v_governs: [String!] @field(path: "governs") @references(to: ["AOKBModel_service","AOKBModel_collection"], mode: STRICT, values: ELEMENTS, allowWildcard: false, encoding: TYPED, targets: [{tag: "service", type: "AOKBModel_service"}, {tag: "field", type: "AOKBModel_collection", memberPath: "fields[].name"}], edge: {name: "governs", direction: OUTBOUND})
+  v_variants: [String!] @field(path: "variants") @references(to: ["AOKBModel_service"], mode: STRICT, values: MAPPING_KEYS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
 
 type AOKBModel_policy_account implements AOKBModel_policy @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["artifacts/_assets/_model/lane.yaml"], select: "policies", key: {field: "id"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "policy", sourceOrder: 0, membership: {path: "products", includes: "alpha", includeMissing: false}) {
   aoValue: String @field(path: "id")
   v_any: String @field(path: "any") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
-  v_governs: [String!] @field(path: "governs") @references(to: ["AOKBModel_service","AOKBModel_collection"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, encoding: TYPED, targets: [{tag: "service", type: "AOKBModel_service"}, {tag: "field", type: "AOKBModel_collection", memberPath: "fields[].name"}], edge: {name: "governs", direction: OUTBOUND})
-  v_variants: [String!] @field(path: "variants") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
+  v_governs: [String!] @field(path: "governs") @references(to: ["AOKBModel_service","AOKBModel_collection"], mode: STRICT, values: ELEMENTS, allowWildcard: false, encoding: TYPED, targets: [{tag: "service", type: "AOKBModel_service"}, {tag: "field", type: "AOKBModel_collection", memberPath: "fields[].name"}], edge: {name: "governs", direction: OUTBOUND})
+  v_variants: [String!] @field(path: "variants") @references(to: ["AOKBModel_service"], mode: STRICT, values: MAPPING_KEYS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
 }
 
 interface AOKBModel_position { aoValue: String }
@@ -116,7 +116,7 @@ type AOKBModel_rule_product implements AOKBModel_rule @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["products/alpha/artifacts/_assets/engine-blocks/rows.json"], select: "rules", key: {field: "id"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "rule", sourceOrder: 1) {
   aoValue: String @field(path: "id")
   v_name: String @field(path: "name")
-  v_services: [String!] @field(path: "services") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "governs", direction: OUTBOUND})
+  v_services: [String!] @field(path: "services") @references(to: ["AOKBModel_service"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "governs", direction: OUTBOUND})
 }
 
 interface AOKBModel_service { aoValue: String }
@@ -124,30 +124,30 @@ interface AOKBModel_service { aoValue: String }
 type AOKBModel_service_product implements AOKBModel_service @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["products/alpha/artifacts/_assets/_model/lane.yaml"], select: "services", key: {field: "id"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "service", sourceOrder: 1) {
   aoValue: String @field(path: "id")
-  v_checks_5b__5d__2e_user: [String!] @field(path: "checks[].user") @references(to: ["AOKBModel_user"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
+  v_checks_5b__5d__2e_user: [String!] @field(path: "checks[].user") @references(to: ["AOKBModel_user"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
   v_decision: String @field(path: "decision")
   v_horizon: String @field(path: "horizon")
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
-  v_owner: String @field(path: "owner") @references(to: ["AOKBModel_user"], mode: TOLERANT, values: BY_SHAPE, allowWildcard: true, matchName: "name")
+  v_owner: String @field(path: "owner") @references(to: ["AOKBModel_user"], mode: TOLERANT, values: VALUE, allowWildcard: true, matchName: "name")
   v_project_5f_detail: String @field(path: "project_detail")
   v_status: String @field(path: "status")
-  v_uses: [String!] @field(path: "uses") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
+  v_uses: [String!] @field(path: "uses") @references(to: ["AOKBModel_service"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   children_v_job: [AOKBModel_job_product!] @contains(shape: RECORD, select: "jobs", edge: {name: "made-of"})
 }
 
 type AOKBModel_service_account implements AOKBModel_service @node(locator: EMBEDDED)
   @source(shape: RECORD, paths: ["artifacts/_assets/_model/lane.yaml"], select: "services", key: {field: "id"}, title: ["name", "t", "term", "$key"], scalarAs: "id", space: "ao:alpha", logicalKind: "service", sourceOrder: 0, membership: {path: "products", includes: "alpha", includeMissing: false}) {
   aoValue: String @field(path: "id")
-  v_checks_5b__5d__2e_user: [String!] @field(path: "checks[].user") @references(to: ["AOKBModel_user"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
+  v_checks_5b__5d__2e_user: [String!] @field(path: "checks[].user") @references(to: ["AOKBModel_user"], mode: STRICT, values: VALUE, allowWildcard: true, edge: {name: "reads", direction: OUTBOUND})
   v_decision: String @field(path: "decision")
   v_horizon: String @field(path: "horizon")
   v_name: String @field(path: "name")
   v_note: String @field(path: "note")
-  v_owner: String @field(path: "owner") @references(to: ["AOKBModel_user"], mode: TOLERANT, values: BY_SHAPE, allowWildcard: true, matchName: "name")
+  v_owner: String @field(path: "owner") @references(to: ["AOKBModel_user"], mode: TOLERANT, values: VALUE, allowWildcard: true, matchName: "name")
   v_project_5f_detail: String @field(path: "project_detail")
   v_status: String @field(path: "status")
-  v_uses: [String!] @field(path: "uses") @references(to: ["AOKBModel_service"], mode: STRICT, values: BY_SHAPE, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
+  v_uses: [String!] @field(path: "uses") @references(to: ["AOKBModel_service"], mode: STRICT, values: ELEMENTS, allowWildcard: true, edge: {name: "serves", direction: OUTBOUND})
   children_v_job: [AOKBModel_job_account!] @contains(shape: RECORD, select: "jobs", edge: {name: "made-of"})
 }
 

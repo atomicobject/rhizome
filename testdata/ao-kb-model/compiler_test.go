@@ -38,5 +38,10 @@ func TestGeneratedSDLCompiles(t *testing.T) {
 	require.Equal(t, "AOKBModel_service", product.ByName["v_uses"].Record.References.To[0])
 	require.True(t, compiled.Types["AOKBModel_map_product"].Record.Key.MappingKey)
 	require.True(t, compiled.Types["AOKBModel_position_product"].Record.Key.Positional)
-	require.Equal(t, "TYPED", compiled.Types["AOKBModel_policy_product"].ByName["v_governs"].Record.References.Encoding)
+	typed := compiled.Types["AOKBModel_policy_product"].ByName["v_governs"].Record.References
+	require.Equal(t, "TYPED", typed.Encoding)
+	require.Equal(t, "ELEMENTS", typed.Values)
+	require.False(t, typed.AllowWildcard)
+	require.Equal(t, "BY_SHAPE", compiled.Types["AOKBModel_policy_product"].ByName["v_any"].Record.References.Values)
+	require.Equal(t, "MAPPING_KEYS", compiled.Types["AOKBModel_policy_product"].ByName["v_variants"].Record.References.Values)
 }

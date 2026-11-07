@@ -137,3 +137,20 @@ test('index certification follows typed-root pagination and rejects repeated nod
   });
   assert.equal(calls, 2);
 });
+
+test('mapping key scope restarts at a declared container and group fallback stays terminal', () => {
+  const ir = structuredClone(recorded);
+  const parent = ir.kinds.find(k => k.name === 'service');
+  parent.selector = 'groups{}';
+  const child = ir.kinds.find(k => k.name === 'job');
+  child.selector = 'groups{}.jobs';
+  child.declaration.key = 'id';
+  const grouped = ir.kinds.find(k => k.name === 'group');
+  grouped.selector = 'outer{}[].items';
+  const sdl = render(ir).sdl;
+  const job = sdl.slice(sdl.indexOf('type AOKBModel_job_product'), sdl.indexOf('type AOKBModel_link_product'));
+  assert.match(job, /key: \{field: "id"\}/);
+  const group = sdl.slice(sdl.indexOf('type AOKBModel_group_product'), sdl.indexOf('interface AOKBModel_job'));
+  assert.match(group, /key: \{mappingKey: true\}/);
+  assert.ok(!group.includes('fallback: MAPPING_KEY'));
+});

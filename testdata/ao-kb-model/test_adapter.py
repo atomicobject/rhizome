@@ -116,6 +116,39 @@ class AdapterTests(unittest.TestCase):
         self.assertIn("SHARED", got["oracle"]["rows"]["service"])
         self.assertTrue(any(d["code"] == "ao_membership_wildcard_unsupported" for d in got["diagnostics"]))
 
+    def test_boolean_key_fails_with_a_specific_scalar_diagnostic(self):
+        path, doc = self.product_doc()
+        doc["services"][0]["id"] = True
+        self.write(path, doc)
+        got = export(self.root, "alpha")
+        self.assertTrue(any(d["code"] == "ao_key_scalar_unsupported" for d in got["diagnostics"]))
+
+    def test_repeated_scalar_children_keep_the_selected_parents_physical_address(self):
+        path = self.root / "artifacts/_assets/_model/lane.yaml"
+        account = self.engine._yaml(str(path))
+        account["services"][0]["jobs"] = [1, 1]
+        account["services"].insert(0, {"id": "HIDDEN", "products": ["beta"], "jobs": [1]})
+        self.write(path, account)
+        path, product = self.product_doc()
+        product["services"][0]["jobs"] = [1]
+        self.write(path, product)
+        got = export(self.root, "alpha")
+        jobs = {r["key"]: r for r in got["records"] if r["kind"] == "job"}
+        self.assertEqual(jobs["SHARED.1"]["address"], "/services/1/jobs/0")
+        self.assertEqual(jobs["SHARED.2"]["address"], "/services/1/jobs/1")
+        self.assertEqual(jobs["S1.1"]["path"], "products/alpha/artifacts/_assets/_model/lane.yaml")
+        self.assertEqual(jobs["S1.1"]["address"], "/services/0/jobs/0")
+        self.assertFalse(any(d["severity"] == "error" for d in got["diagnostics"]))
+
+    def test_child_membership_comes_from_its_selected_container(self):
+        path = self.root / "artifacts/_assets/_model/lane.yaml"
+        doc = self.engine._yaml(str(path))
+        doc["services"][0]["jobs"][0]["products"] = ["*"]
+        self.write(path, doc)
+        got = export(self.root, "alpha")
+        self.assertFalse(any(d["severity"] == "error" for d in got["diagnostics"]))
+        self.assertEqual(got["oracle"]["rows"]["job"]["SHARED.1"]["products"], ["*"])
+
     def test_positional_grouped_mapping_order_is_not_faked_by_source_order(self):
         path = self.root / "products/alpha/.kb/config/metamodel.yaml"
         project = self.engine._yaml(str(path))
