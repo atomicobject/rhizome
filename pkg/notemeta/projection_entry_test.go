@@ -100,14 +100,14 @@ func TestMetadataValueRowsPreserveCanonicalScalarKindsAndLists(t *testing.T) {
 		norm  string
 		kind  semdb.NotePropertyValueKind
 	}{
-		{name: "null", value: nil, text: "", norm: "", kind: semdb.NotePropertyValueUnknown},
+		{name: "null", value: nil, text: "null", norm: "null", kind: semdb.NotePropertyValueJSON},
 		{name: "boolean", value: true, text: "true", norm: "true", kind: semdb.NotePropertyValueBool},
 		{name: "integer", value: int64(7), text: "7", norm: "7", kind: semdb.NotePropertyValueInt},
 		{name: "float", value: 1.25, text: "1.25", norm: "1.25", kind: semdb.NotePropertyValueFloat},
 		{name: "date", value: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), text: "2026-08-03", norm: "2026-08-03", kind: semdb.NotePropertyValueDate},
 		{name: "timestamp", value: timestamp, text: "2026-08-03T09:10:11.123456789-04:00", norm: "2026-08-03t09:10:11.123456789-04:00", kind: semdb.NotePropertyValueDateTime},
 		{name: "string", value: "  literal  ", text: "literal", norm: "literal", kind: semdb.NotePropertyValueString},
-		{name: "object", value: map[string]any{"key": "value"}, text: "", norm: "", kind: semdb.NotePropertyValueUnknown},
+		{name: "object", value: map[string]any{"key": "value"}, text: `{"key":"value"}`, norm: `{"key":"value"}`, kind: semdb.NotePropertyValueJSON},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

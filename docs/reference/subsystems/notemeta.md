@@ -98,3 +98,5 @@ code-anchors:
 - Namespace additions, deletions and alias changes identify dependent sources through persisted folded basename keys. Only changed and dependent authored files are reprojected. Candidate resolution still sees the complete persisted path/alias inventory, so ambiguity and exact-spelling preference match a rebuild.
 - Link names use platform-independent NFC and lowercase keys. A unique exact NFC spelling wins within a folded lookup tier; otherwise multiple claimants remain ambiguous. Original authored paths remain the stored identity.
 - Alias-store read failures propagate to publishers. UI callers may omit enrichment explicitly after a failed read.
+
+Nested root metadata, nested list members, and nulls retain canonical JSON in property rows. Summary hydration decodes those values without reading source files; scalar rows and the empty-list sentinel retain their existing representation. Metadata indexer version 15 rebuilds older flattened rows.

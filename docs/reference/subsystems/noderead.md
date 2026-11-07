@@ -112,3 +112,5 @@ code-anchors:
 - [[Use NodeRef as the canonical browser identity]]
 
 Root summary hydration batches catalog values for declared nested frontmatter paths alongside section summaries. Scalar property rows do not retain mappings. Nested fields stay in `FieldValues`; preview records traverse their current mapping instead of borrowing committed values.
+
+Nested root metadata, nested list members, and nulls retain canonical JSON in property rows. Summary hydration decodes those values without reading source files; scalar rows and the empty-list sentinel retain their existing representation. Metadata indexer version 15 rebuilds older flattened rows.

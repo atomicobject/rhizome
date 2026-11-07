@@ -23,3 +23,5 @@ Canonical raw-note fact indexing for provider-projected vault notes.
 - [[docs/specs/technical/note-node-indexing-architecture|Note/node indexing architecture]]
 
 - **Foundation derivation v14**: one canonical `noteSetDigest`; required atomic durable store capabilities; NFC/case link keys with unique exact-spelling precedence. Intel v73 persists unresolved lookup keys and detached metadata presentation payloads atomically. Namespace changes reproject only changed sources and sources named by affected persisted lookup keys. Read failures stop publication.
+
+Nested root metadata, nested list members, and nulls retain canonical JSON in property rows. Summary hydration decodes those values without reading source files; scalar rows and the empty-list sentinel retain their existing representation. Metadata indexer version 15 rebuilds older flattened rows.

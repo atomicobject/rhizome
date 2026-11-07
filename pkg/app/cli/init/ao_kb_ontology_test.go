@@ -67,7 +67,7 @@ func TestAOKBKnowledgeFixture(t *testing.T) {
 		require.Equal(t, []any{"feature:FEAT-BOOK-03"}, n["contradictsRows"])
 		require.Contains(t, n["content"], "Patients can choose an available appointment")
 		fm := n["frontmatter"].(map[string]any)
-		require.Equal(t, "", fm["provenance"], "indexed frontmatter JSON drops nested objects; read typed provenance fields instead")
+		require.Equal(t, "s-000000000001", fm["provenance"].(map[string]any)["source"])
 		require.Contains(t, n["content"], `speaker: "Morgan, clinic operations"`)
 		require.Contains(t, n["content"], `source: "s-000000000001"`)
 
