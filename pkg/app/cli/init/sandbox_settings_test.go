@@ -52,9 +52,26 @@ func TestClaudeSandboxSettingRhizomeDidNotWriteStays(t *testing.T) {
 	writeFixtureFile(t, root, ".claude/settings.json", `{"sandbox":{"network":{"allowLocalBinding":true}}}`)
 	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Agents: "claude", Search: "off"})
 	require.NoError(t, err)
+	_, err = runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err, "a person's matching value is not a pending change")
 	_, err = runInit(t, RunOptions{Dir: root, Agents: "codex"})
 	require.NoError(t, err)
 	require.Equal(t, "true", localBinding(t, root), "a matching value someone else set stays theirs")
+}
+
+func TestCodexProfileWithCRLFLineEndingsIsStillRhizomes(t *testing.T) {
+	root := machineRunRepo(t)
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Agents: "codex", Search: "off"})
+	require.NoError(t, err)
+	path := filepath.Join(root, ".codex/config.toml")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(data), "\n", "\r\n")+"[projects.\"/x\"]\r\n"), 0o644))
+	_, err = runInit(t, RunOptions{Dir: root, Agents: "claude"})
+	require.NoError(t, err)
+	data, err = os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "[projects.\"/x\"]\r\n", string(data), "the block goes even after a checkout converts line endings")
 }
 
 func TestCodexProfileConflictsWithQuotedOrTabbedKeys(t *testing.T) {

@@ -155,15 +155,18 @@ func (b tomlBlock) fences() (string, string) {
 func (b tomlBlock) split(data []byte) (before, body, after string, found bool) {
 	begin, end := b.fences()
 	text := string(data)
-	i := strings.Index(text, begin+"\n")
+	i := strings.Index(text, begin)
 	j := strings.Index(text, end)
-	if i < 0 || j < i {
+	if i < 0 || j < i+len(begin) {
 		return text, "", "", false
 	}
 	// The newline after the fence and the blank line write adds belong to
-	// the block.
-	after = strings.TrimPrefix(strings.TrimPrefix(text[j+len(end):], "\n"), "\n")
-	return text[:i], strings.TrimSpace(text[i+len(begin)+1 : j]), after, true
+	// the block, with either line ending.
+	after = text[j+len(end):]
+	for range 2 {
+		after = strings.TrimPrefix(strings.TrimPrefix(after, "\r"), "\n")
+	}
+	return text[:i], strings.ReplaceAll(strings.TrimSpace(text[i+len(begin):j]), "\r\n", "\n"), after, true
 }
 
 func (b tomlBlock) read(data []byte) ([]byte, error) {
@@ -237,6 +240,9 @@ func classifySetting(projectRoot string, s generatedSetting, record *generatedFi
 	c := &change{key: key, rel: s.rel, group: key, current: part, desired: s.desired}
 	c.desiredF = contentFingerprint(c.desired)
 	c.state = classify(part != nil, part, c.desiredF, contentFingerprint, record, key)
+	if c.state == stateCurrent && !recorded {
+		return nil, nil // a matching value Rhizome did not write stays the person's
+	}
 	return c, nil
 }
 
@@ -288,11 +294,7 @@ func applySetting(projectRoot string, s generatedSetting, c *change, record *gen
 		return nil
 	}
 	if c.state == stateCurrent {
-		// A matching value Rhizome has no record of writing stays the
-		// person's, so a later run never removes it.
-		if _, recorded := record.Written[c.key]; recorded {
-			record.recordWritten(c.key, c.desiredF)
-		}
+		record.recordWritten(c.key, c.desiredF)
 		return nil
 	}
 	if !c.take {
