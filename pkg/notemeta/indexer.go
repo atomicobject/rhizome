@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -22,6 +23,7 @@ var ErrProjectionNotCurrent = errors.New("note projection is not current")
 // configuration can make cache, indexing, and downstream reads disagree.
 type Indexer struct {
 	formats noteformat.Runtime
+	sources *sync.Map
 }
 
 // NewIndexer constructs an explicit provider-aware note metadata indexer.

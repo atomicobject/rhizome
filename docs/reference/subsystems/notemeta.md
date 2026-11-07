@@ -98,3 +98,5 @@ code-anchors:
 - Namespace additions, deletions and alias changes identify dependent sources through persisted folded basename keys. Only changed and dependent authored files are reprojected. Candidate resolution still sees the complete persisted path/alias inventory, so ambiguity and exact-spelling preference match a rebuild.
 - Link names use platform-independent NFC and lowercase keys. A unique exact NFC spelling wins within a folded lookup tier; otherwise multiple claimants remain ambiguous. Original authored paths remain the stored identity.
 - Alias-store read failures propagate to publishers. UI callers may omit enrichment explicitly after a failed read.
+
+An indexing publication owns one `Indexer.WithSourceScope` capture set. Metadata preparation and the post-barrier source loader share matching sealed projections by canonical path, content hash and observed source facts. The scope is per operation, validates published source/provider provenance, and returns detached facts; ordinary readers and later operations capture fresh sources.

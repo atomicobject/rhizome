@@ -9,9 +9,22 @@ func expandRecordBindingPlan(plan *syncPlan, schema *ontoschema.Schema, current,
 		return
 	}
 	var types []*ontoschema.NoteType
+	targets := map[string]*ontoschema.NoteType{}
 	for _, typ := range schema.Types {
 		if typ.Record != nil {
 			types = append(types, typ)
+			for _, field := range typ.Fields {
+				if field.Record == nil || field.Record.References == nil {
+					continue
+				}
+				for _, name := range field.Record.References.To {
+					for _, target := range schema.Types {
+						if target.Record == nil && ontoschema.TypeMatchesOrImplements(schema, target.Name, name) {
+							targets[target.Name] = target
+						}
+					}
+				}
+			}
 		}
 	}
 	if len(types) == 0 {
@@ -20,6 +33,11 @@ func expandRecordBindingPlan(plan *syncPlan, schema *ontoschema.Schema, current,
 	matches := func(path string) bool {
 		for _, typ := range types {
 			if sourceMatchersMatchNote(typ.SourceMatchers, &noteDoc{Path: path}) {
+				return true
+			}
+		}
+		for _, typ := range targets {
+			if len(typ.Paths) == 0 || sourceMatchersMatchNote(typ.Matchers, &noteDoc{Path: path}) {
 				return true
 			}
 		}

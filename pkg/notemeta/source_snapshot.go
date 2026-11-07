@@ -189,7 +189,7 @@ func (i Indexer) LoadNoteSourceSnapshots(ctx context.Context, vaultDef obsidian.
 			requestedPaths = append(requestedPaths, path)
 		}
 	}
-	entries, err := i.loadProjectedEntriesForPaths(ctx, vaultDef, noteMgr, requestedPaths)
+	entries, err := i.loadPublishedEntries(ctx, vaultDef, noteMgr, requestedPaths, allRows)
 	if err != nil {
 		return nil, missingSourceNotCurrent(err)
 	}
