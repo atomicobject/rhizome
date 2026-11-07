@@ -40,7 +40,7 @@ test('checks static readiness, limitations and unavailable analysis without writ
   assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
   assert.equal(named(root, 'product-model bindings'), undefined, 'the knowledge check leaves model bindings to their own check');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 15);
+  assert.equal(result.checks.length, 16);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
@@ -91,6 +91,21 @@ test('include coverage needs the AO knowledge paths and an explicit include for 
   assert.match(uncovered.message, /artifacts\/_assets\/_model\/features\.yaml, artifacts\/_assets\/engine-blocks\/rows\.json/);
   const models = 'notes:\n  includes: ["**/*.md", "artifacts/_assets/_model/*.yaml", "artifacts/_assets/engine-blocks/rows.json"]\n';
   assert.equal(named(fixture(t, { ...bound, '.rhizome/config.yml': models }), 'note includes').status, 'ok');
+});
+
+test('product tags AO would read differently from admission are named', t => {
+  const vault = '---\nschemaVersion: 8\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n';
+  const clean = named(fixture(t, { '.kb/config/vault.md': vault, 'assertions/a.md': '---\nproducts: [alpha, "*"]\n---\nBody\n' }), 'product tags');
+  assert.equal(clean.status, 'ok');
+  const root = fixture(t, { '.kb/config/vault.md': vault,
+    'assertions/inline.md': '---\nproducts: [beta]\n---\nproducts:: alpha\n',
+    'assertions/case.md': '---\nproducts: [Alpha]\n---\nBody\n',
+    'assertions/fine.md': '---\nproducts: [beta]\n---\nBody\n' });
+  const loose = named(root, 'product tags');
+  assert.equal(loose.status, 'unsupported');
+  assert.match(loose.message, /assertions\/case\.md/);
+  assert.match(loose.message, /assertions\/inline\.md/);
+  assert.doesNotMatch(loose.message, /fine\.md/);
 });
 
 test('source ownership is ok only when the AO knowledge paths are declared', t => {
