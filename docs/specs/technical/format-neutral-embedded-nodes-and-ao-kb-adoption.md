@@ -5,7 +5,7 @@ aliases:
   - SPEC-0133
 summary: "Proposes format-neutral embedded nodes and a thin AO KB starter that reads existing knowledge and product-model files while AO KB retains its authoring and publishing workflows."
 spec-status: active
-last-updated: 2026-11-06
+last-updated: 2026-11-07
 ---
 
 # Format-neutral embedded nodes and AO KB adoption
@@ -303,9 +303,19 @@ Update the governing structural, provider, identifier/locator, read-model, works
 
 Existing repositories receive no automatic YAML/JSON ownership change. Explicit starter setup adds only the required source selections. Derived index migrations rebuild disposable records; they do not rewrite authored identifiers or source files. On binding compiler failure, retain existing source files and report the previous binding generation as stale. Ejection follows existing starter behavior; it is not an author-data migration.
 
+## Delivery notes
+
+Implemented under [[docs/efforts/2026-11-06-17-07-ao-kb-adoption|EFF-2026-11-06-17-07]]. The open questions above were settled as recommended: one selected product per vault, all AO-managed records read-only through Rhizome, the inspected AO version (toolkit `e9dce951`, schemaVersion 8) as the baseline, a setup skill sequence, and rejection of mixed-origin account/product rows. Delivery refined these contracts:
+
+- Product knowledge lives at the account's `<type>/<slug>/` folders and is scoped by frontmatter `products:` (AO keeps no notes under `products/<slug>/`). Generated `@admit` extensions scope typed knowledge to the selected product.
+- RECORD references can resolve by projected keys. `@references(targetKey:)` takes an ordered list, and the reserved `$fileStem` key matches AO's evidence rule: exact file stem first, then frontmatter `id`, with ambiguity diagnosed rather than picked.
+- A relation declared from both ends is one edge carrying every occurrence. Typed list relations return their resolvable members and report the rest as query warnings instead of failing the field.
+- YAML/JSON records are searchable lexically without embeddings, and YAML, JSON, and HTML count as notes only where an include names them.
+- Not delivered: native resolution of Markdown logical-ID fields (`extractedAssertionIds`, `provenance.source`), sequence-shaped frontmatter `connections`, and a type-level display title (AO `headline`). The views disclose each limit; the effort lists them as follow-ups.
+
 ## Open Questions
 
-These are proposed scope choices to settle while reviewing this plan, before freezing an implementation effort:
+These were the scope choices settled before freezing the implementation effort:
 
 1. **Product context:** recommend one selected product per Rhizome vault for the first release, including that product's shared account records. Simultaneous cross-product browsing would need additional contextual query/navigation behavior.
 2. **Read-only boundary:** recommend all AO-managed records remain read-only through Rhizome in the first release. This includes Markdown evidence and artifacts; AO workflows continue to edit them normally.

@@ -2,10 +2,16 @@
 
 ## [Unreleased]
 
+- Optional `ao-kb` add-on reads an existing AO KB repository side by side with AO's own skills, which keep every write. It adds a Knowledge workspace (Attention, Concepts, Assertions, Knowledge trace) with honest evidence states, record pages for assertions, sources, and the selected product's model, and `check` and `refresh-bindings` actions that report install, binding, and index readiness separately.
+- YAML and JSON files named by an include become read-only typed records: keyed, mapping-key, composite, or positional identity, nested children, references, GraphQL queries, search with or without embeddings, and a native record reader. Bindings are declared with `@source(shape: RECORD, ...)`, `@contains`, and `@references`.
+- `.rhizome/source-ownership.yml` marks paths as owned by another tool. Rhizome refuses every write to them through the CLI, HTTP, GraphQL, MCP, and Obsidian URIs and shows the owner's reason in place of edit controls.
+- `@field(path: "a.b")` and `@link(path: ...)` read nested frontmatter values.
 - Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
 
 ### Fixed
 
+- Embedded relation counts, nested `frontmatter` JSON, and lists of maps in path fields now report what the note holds.
+- A Markdown list after a top-level heading starts a new list instead of failing projection.
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
 - Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
 
