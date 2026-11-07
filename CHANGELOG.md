@@ -44,9 +44,9 @@
   - Saving settings no longer loses other settings: every write to `~/.config/rhizome/config.yml` takes a file lock, rereads the file, and keeps keys this version does not know, along with comments and order. Saving repository config keeps edits made after it was loaded.
   - The web runtime no longer crashes when a note is saved while links are being resolved.
   - Search hits show the text of the section they matched. A line that starts with a tag, such as `#todo`, is no longer treated as a heading; the next index rebuilds affected sections.
-  - An index write that flushes early no longer commits ahead of pending writes it depends on, so code chunks are not orphaned from their anchors and embeddings are not skipped for missing chunks. An automatic index reset no longer attaches code embeddings to the wrong anchors.
+  - An index write no longer commits ahead of pending writes it depends on, whether it flushes early or on its idle timer, so code chunks are not orphaned from their anchors and embeddings are not skipped for missing chunks. An automatic index reset no longer attaches code embeddings to the wrong anchors.
   - Embedding vectors from OpenAI-compatible endpoints are matched to inputs by their `index`, and a rerank response that repeats a document is rejected.
-  - When two notes give an anchor the same label for different symbols, the note with the smaller path keeps it in any indexing order, and indexing logs the conflict. Named Python source roots are stripped from module names, so their anchors match.
+  - When two notes give an anchor the same label for different symbols, the note with the smaller path keeps it in any indexing order, and indexing logs the conflict and retries the losing note on the next index. Named Python source roots are stripped from module names, so their anchors match.
 
 ## [v0.51.0] - 2026-11-06
 
