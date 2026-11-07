@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 - Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
+
+### Fixed
+
 - Fixes for state that could go wrong after an interruption or overlapping updates:
   - Renaming or removing a tag no longer rewrites text inside `~~~` code blocks, or inside fences that contain a shorter fence.
   - Escape in a property locator field undoes the edit instead of saving it.
@@ -14,9 +17,6 @@
   - Subscribers are told when file watching fails to start.
   - Deleting an edit session during a commit no longer stalls other sessions.
   - The Changes view, collection filters, and the index banner ignore replies that arrive after a newer update.
-
-### Fixed
-
 - Rhizome Dev uses its own `rzm`. On Linux it no longer picks up another installed CLI, and a Rhizome source worktree without a `make build` runs the Dev app's `rzm` from the app or a terminal instead of failing or downloading a pinned release. `rzm init` no longer pins a Rhizome source checkout, and this repository drops `rhizome.devBinaryDir`.
 - Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
 - Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
