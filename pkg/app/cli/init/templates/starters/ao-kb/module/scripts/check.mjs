@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { bindingRows, runCompilerCheck } from './lib/bindings-check.mjs';
 
 // Read only the scalar frontmatter keys and simple include lists used by this check.
 function scalar(text, key) {
@@ -23,7 +24,9 @@ function includes(text) {
   return block.split('\n').filter(v => /^\s*-/.test(v)).map(v => v.replace(/^\s*-\s*/, '').replace(/\s+#.*$/, '').replace(/^(['"])(.*)\1$/, '$2'));
 }
 
-export function check(root) {
+/** Knowledge prerequisites plus the binding compiler's freshness, as one report. Pass
+ * `runCompiler` to replace the compiler's own check (tests do). */
+export function check(root, { runCompiler = runCompilerCheck } = {}) {
   root = resolve(root);
   const checks = [];
   function add(name, status, message, path) { checks.push({ name, status, message, path }); }
@@ -42,8 +45,8 @@ export function check(root) {
   add('schemaVersion', schema === '8' ? 'ok' : 'unsupported', schema === '8'
     ? 'Inspected schemaVersion 8 baseline.' : `Unsupported schemaVersion ${schema || '(missing)'}; ${Number(schema) < 8 ? 'upgrade AO KB first' : 'requires a compatible knowledge adapter'}.`, vaultPath);
   const mode = scalar(frontmatter, 'productMode');
-  add('product mode', mode === 'single' ? 'ok' : 'unsupported', mode === 'single'
-    ? 'Single product supported.' : `Product mode ${mode || '(missing)'} needs product selection, arriving with model bindings; knowledge views meanwhile show all products.`, vaultPath);
+  add('product mode', mode === 'single' ? 'ok' : 'warning', mode === 'single'
+    ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: the selected product scopes model bindings only. Knowledge views show every product's knowledge at the vault root in this release.`, vaultPath);
   const stampPath = '.kb/config/manifest.json';
   inspect('toolkit stamp', stampPath, () => {
     const stamp = json(root, stampPath)?.toolkit;
@@ -109,7 +112,15 @@ export function check(root) {
       ? `Saved AO analysis present, meta.asOf ${weights.meta.asOf}; freshness and judgments are not recomputed.`
       : 'Saved AO analysis unavailable (missing file or meta.asOf); this is not a clean analysis result.', weightsPath);
   });
-  return { checks };
+  const bindings = runCompiler(root);
+  checks.push(...bindingRows(root, bindings));
+  return {
+    checks,
+    starterInstalled: checks.find(c => c.name === 'starter installed')?.status === 'ok',
+    bindingsReady: Boolean(bindings.bindingsReady),
+    indexReady: Boolean(bindings.indexReady),
+    bindings: { status: bindings.status, bindingsReady: Boolean(bindings.bindingsReady), indexReady: Boolean(bindings.indexReady), dependencies: bindings.dependencies, diagnostics: bindings.diagnostics ?? [] },
+  };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

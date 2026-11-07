@@ -61,8 +61,22 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 				".claude/skills/ao-kb-setup/SKILL.md",
 				"docs/reference/guides/ao-kb.md",
 				sourceownership.DeclarationPath,
+				".rhizome/modules/ao-kb/scripts/lib/bindings-check.mjs",
+				".rhizome/modules/ao-kb/actions/refresh-bindings.yaml",
+				".rhizome/modules/ao-kb/bindings/cli.mjs",
+				".rhizome/modules/ao-kb/bindings/adapter.py",
+				".rhizome/modules/ao-kb/bindings/toolkit-pin.json",
 			} {
 				require.FileExists(t, filepath.Join(root, path))
+			}
+			// The compiler's selection, manifest, and generated schema are produced in the
+			// repository by refresh-bindings, never shipped.
+			for _, path := range []string{
+				".rhizome/modules/ao-kb/bindings/selection.json",
+				".rhizome/modules/ao-kb/bindings/manifest.json",
+				".rhizome/modules/ao-kb/ontology/ao-model.generated.graphql",
+			} {
+				require.NoFileExists(t, filepath.Join(root, path))
 			}
 			// Ownership is established at install, before any binding or index exists.
 			var refusal *sourceownership.Refusal

@@ -6,6 +6,8 @@ requires:
 optionalAddon: true
 # repo/.rhizome/source-ownership.yml declares AO-owned paths at install, before any
 # binding or index exists. Init keeps local edits; deleting it ends the protection.
+# module/bindings/ is the model binding compiler; it runs only through the
+# refresh-bindings action, never from init.
 installedAssetTypes:
   - ontology
   - query-recipes

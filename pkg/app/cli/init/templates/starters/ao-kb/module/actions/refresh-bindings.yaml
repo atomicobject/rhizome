@@ -1,0 +1,8 @@
+description: Compile the selected AO effective model into read-only Rhizome bindings
+inputs:
+  product: {kind: string}
+  single: {kind: bool}
+  toolkit: {kind: string}
+run:
+  command: [node, "{module}/bindings/cli.mjs", refresh-bindings]
+timeout: 5m

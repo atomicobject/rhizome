@@ -1,4 +1,4 @@
-description: Check AO KB setup prerequisites and report unavailable capabilities without changing files
+description: Check AO KB knowledge prerequisites, source ownership, compiler dependencies, the selected product, and binding freshness without changing files
 run:
   command: [node, "{module}/scripts/check.mjs"]
-timeout: 10s
+timeout: 3m

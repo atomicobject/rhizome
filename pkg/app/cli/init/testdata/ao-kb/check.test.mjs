@@ -4,6 +4,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { check } from '../../templates/starters/ao-kb/module/scripts/check.mjs';
+import { globMatch, runCompilerCheck } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
+
+// The compiler's report on a fresh install: dependencies present, no product selected yet.
+const unselected = () => ({ starterInstalled: true, bindingsReady: false, indexReady: false, status: 'missing',
+  dependencies: { uv: { ready: true, version: 'uv 0.9.0' }, rzm: { ready: true, version: 'rzm 0.51.0' } },
+  diagnostics: [{ code: 'ao_selection_required', severity: 'error', message: 'ao_selection_required: persist a product' }] });
 
 function fixture(t, overrides = {}) {
   const root = mkdtempSync(join(tmpdir(), 'ao-kb-check-'));
@@ -22,19 +28,19 @@ function fixture(t, overrides = {}) {
   }
   return root;
 }
-const named = (root, name) => check(root).checks.find(c => c.name === name);
+const named = (root, name, runCompiler = unselected) => check(root, { runCompiler }).checks.find(c => c.name === name);
 
 test('checks static readiness, limitations and unavailable analysis without writes', t => {
   const root = fixture(t);
   const snapshot = () => readdirSync(root, { recursive: true, withFileTypes: true }).filter(e => e.isFile())
     .map(e => [join(e.parentPath, e.name), readFileSync(join(e.parentPath, e.name), 'utf8')]);
   const before = snapshot();
-  const result = check(root);
+  const result = check(root, { runCompiler: unselected });
   for (const name of ['starter installed', 'AO KB root', 'schemaVersion', 'product mode', 'note includes', 'knowledge bindings']) assert.equal(named(root, name).status, 'ok');
   assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
   assert.equal(named(root, 'product-model bindings'), undefined, 'the knowledge check leaves model bindings to their own check');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 10);
+  assert.equal(result.checks.length, 14);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
@@ -44,7 +50,8 @@ test('missing root, unsupported versions and product modes are explicit', t => {
   for (const version of [7, 9]) {
     const root = fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: multi-flat\n---\n` });
     assert.equal(named(root, 'schemaVersion').status, 'unsupported');
-    assert.match(named(root, 'product mode').message, /all products/);
+    assert.equal(named(root, 'product mode').status, 'warning');
+    assert.match(named(root, 'product mode').message, /model bindings only/);
     if (version === 7) assert.match(named(root, 'schemaVersion').message, /upgrade AO KB first/);
   }
 });
@@ -56,7 +63,7 @@ test('reports optional recorded stamp and dated saved output without a health ve
   });
   assert.match(named(root, 'toolkit stamp').message, /4.12.0/);
   assert.match(named(root, 'saved analysis').message, /meta.asOf 2026-10-01/);
-  assert.doesNotMatch(JSON.stringify(check(root)), /healthy/);
+  assert.doesNotMatch(JSON.stringify(check(root, { runCompiler: unselected })), /healthy/);
 });
 
 test('malformed saved output and stamp report errors independently', t => {
@@ -99,4 +106,61 @@ test('names assertions whose frontmatter connections are sequences', t => {
   assert.match(result.message, /assertions\/typed\.md/);
   assert.match(result.message, /assertions\/bare\.md/);
   assert.doesNotMatch(result.message, /map\.md/);
+});
+
+test('reports binding freshness beside the knowledge checks without trusting the saved manifest', t => {
+  const root = fixture(t);
+  let result = check(root, { runCompiler: unselected });
+  assert.equal(result.starterInstalled, true);
+  assert.equal(result.bindingsReady, false);
+  assert.equal(result.indexReady, false);
+  assert.equal(named(root, 'model compiler dependencies').status, 'ok');
+  assert.equal(named(root, 'model bindings').status, 'pending');
+  assert.match(named(root, 'model bindings').message, /--product <slug>/);
+  assert.equal(named(root, 'model index').status, 'pending');
+  assert.equal(named(root, 'model source ownership').status, 'pending');
+
+  const missingUv = () => ({ ...unselected(), dependencies: { uv: { ready: false, message: 'spawn uv ENOENT' }, rzm: { ready: true } },
+    diagnostics: [{ code: 'ao_dependency_missing', severity: 'error', message: 'ao_dependency_missing: install the reported dependencies' }] });
+  assert.equal(named(root, 'model compiler dependencies', missingUv).status, 'error');
+  assert.match(named(root, 'model compiler dependencies', missingUv).message, /uv/);
+  assert.equal(named(root, 'model bindings', missingUv).status, 'pending');
+
+  const stale = () => ({ bindingsReady: false, indexReady: false, status: 'stale', dependencies: {},
+    diagnostics: [{ code: 'ao_bindings_stale', severity: 'error', message: 'ao_bindings_stale: refresh-bindings is required' }] });
+  assert.equal(named(root, 'model bindings', stale).status, 'warning');
+
+  const ready = () => ({ bindingsReady: true, indexReady: true, status: 'ready', dependencies: {}, diagnostics: [] });
+  result = check(root, { runCompiler: ready });
+  assert.equal(result.bindingsReady, true);
+  assert.equal(result.indexReady, true);
+  assert.equal(named(root, 'model bindings', ready).status, 'ok');
+  assert.equal(named(root, 'model index', ready).status, 'ok');
+});
+
+test('requires every compiled AO source to be declared AO-owned', t => {
+  const manifest = JSON.stringify({ sources: [{ path: 'artifacts/_assets/_model/lane.yaml' }, { path: 'products/alpha/artifacts/_assets/engine-blocks/rows.json' }, { path: 'model/extra.yaml' }],
+    knowledgeSources: [{ path: 'assertions/shared.md' }] });
+  const ownership = "sources:\n  - owner: AO KB\n    reason: AO KB writes these.\n    paths:\n      - .kb/**\n      - assertions/**\n      - sources/**\n      - concepts/**\n      - artifacts/**\n      - products/*/artifacts/**\n";
+  const root = fixture(t, { '.rhizome/modules/ao-kb/bindings/manifest.json': manifest, '.rhizome/source-ownership.yml': ownership });
+  const row = named(root, 'model source ownership');
+  assert.equal(row.status, 'error');
+  assert.match(row.message, /model\/extra\.yaml/);
+  assert.doesNotMatch(row.message, /lane\.yaml|rows\.json|shared\.md/);
+  const covered = fixture(t, { '.rhizome/modules/ao-kb/bindings/manifest.json': manifest, '.rhizome/source-ownership.yml': ownership + "      - model/**\n" });
+  assert.equal(named(covered, 'model source ownership').status, 'ok');
+});
+
+test('ownership patterns match like the declaration', () => {
+  assert.ok(globMatch('.kb/**', '.kb/curation/_conflicts.md'));
+  assert.ok(globMatch('products/*/artifacts/**', 'products/alpha/artifacts/_assets/_model/lane.yaml'));
+  assert.ok(!globMatch('products/*/artifacts/**', 'products/alpha/beta/artifacts/x.yaml'));
+  assert.ok(globMatch('decisions.md', 'DECISIONS.md'), 'case-insensitive like the server');
+  assert.ok(!globMatch('artifacts/**', 'notes/artifacts.md'));
+});
+
+test('a missing compiler is an error, not a ready result', t => {
+  const report = runCompilerCheck(fixture(t));
+  assert.equal(report.bindingsReady, false);
+  assert.equal(report.diagnostics[0].code, 'ao_compiler_missing');
 });
