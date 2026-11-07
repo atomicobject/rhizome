@@ -22,7 +22,7 @@ code-anchors:
 
 ## Design constraints
 
-- Fragmentless RECORD relation endpoints carry source-local node IDs, which differ from hashed catalog row IDs. Missing direct ID/locator lookups resolve in one batched catalog read over the requested hosts, checking full requested identity and refusing ambiguous matches. Summary hydration still reads no source files; Markdown hydration keeps its existing path.
+- Fragmentless RECORD relation endpoints carry source-local node IDs, which differ from hashed catalog row IDs. Missing direct ID/locator lookups resolve in one batched catalog read over the requested hosts, including type-less embedded endpoints (an inbound edge row names only its source path and node ID), checking full requested identity and refusing ambiguous matches. Summary hydration still reads no source files; Markdown hydration keeps its existing path.
 
 **Neutral rich reads (SPEC-0133).** A scope caches one `PreparedDocument` per captured host and a distinct prepared Markdown preview generation. Provider projection supplies syntax; mutation capabilities never select a parser. All embedded rich reads share that prepared state and current source hash, while indexed summary hydration reads zero source bytes. Native source payloads retain ordered values, owner address and provenance. For an indexed source/provider generation, scoped reads restore persisted RECORD logical identity context from that host's catalog rows; they do not open other hosts to recompute positional numbering. Shared reserved selectors include `record:` and `record-pos:`; positional navigation captures current bytes and rejects stale hashes, while IndexOnly reports an unverified revision. Graph DTOs preserve relation occurrence/qualifier evidence.
 
