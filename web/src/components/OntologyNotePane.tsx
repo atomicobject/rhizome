@@ -24,6 +24,7 @@ import {
 import { displayTitle } from "../lib/labels";
 import { BodyWalker } from "./body/BodyWalker";
 import { CollectionView } from "./body/CollectionView";
+import { NativeRecordValue } from "./NativeRecordValue";
 import { MiddleTruncate } from "./MiddleTruncate";
 import { EmptyNarrativeEditor, SourceEditor } from "./editing/SourceEditor";
 import type { BodyRenderContext } from "./body/registry";
@@ -1013,7 +1014,10 @@ export function OntologyNotePane({
   validationHealth,
   onOpenIssues,
 }: Props) {
-  const readOnlyReason = workspace?.capabilities.readOnlyReason;
+  const readOnlyReason =
+    workspace?.capabilities.readOnlyReason ||
+    (workspace?.content.source ? "Change this record with the owning tool." : undefined);
+
   const editing = requestedEditing && !readOnlyReason;
   const paneRef = useRef<HTMLElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -1627,7 +1631,10 @@ export function OntologyNotePane({
   };
 
   return (
-    <article className={`ontology-pane${editing ? " is-editing" : ""}`} ref={paneRef}>
+    <article
+      className={`ontology-pane${content?.source ? " ontology-pane--record" : ""}${editing ? " is-editing" : ""}`}
+      ref={paneRef}
+    >
       <header className="ontology-pane__header">
         {readOnlyReason ? <p className="ontology-pane__reason">{readOnlyReason}</p> : null}
         <div
@@ -1847,13 +1854,7 @@ export function OntologyNotePane({
                       className={`ontology-markdown${isActiveHTML ? " ontology-markdown--html" : ""}`}
                     >
                       {viewMode !== "source" && content?.source ? (
-                        <section aria-label="Record value">
-                          <p className="ontology-native-value__address">
-                            Record value <code>{content.source.address || "/"}</code>
-                          </p>
-                          <pre className="ontology-native-value">
-                            <code>{content.source.text}</code>
-                          </pre>
+                        <div>
                           {focusedWorkspaceNode &&
                             bodyContext &&
                             canonicalWorkspace?.collections?.map((collection, index) => (
@@ -1868,7 +1869,13 @@ export function OntologyNotePane({
                                 kindOrdinal={index}
                               />
                             ))}
-                        </section>
+                          {canonicalWorkspace && (
+                            <NativeRecordValue
+                              source={content.source}
+                              workspace={canonicalWorkspace}
+                            />
+                          )}
+                        </div>
                       ) : null}
                       {viewMode === "source" ? (
                         editing &&

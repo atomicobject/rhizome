@@ -23,7 +23,8 @@ type workspaceRelationGroup struct {
 	Items                  []workspaceRelationItem
 }
 
-func (e *executor) workspaceRelationGroups(ctx context.Context, source ontology.NodeRef, path []string) []workspaceRelationGroup {
+func (e *executor) workspaceRelationGroups(ctx context.Context, projection *ontology.NodeProjection, workspace *ontology.NodeWorkspace, path []string) []workspaceRelationGroup {
+	source := projection.Ref
 	graphSource := source
 	if source.Kind == "" || source.Kind == ontology.NodeKindNote {
 		graphSource = ontology.NodeRef{NotePath: source.NotePath, Kind: ontology.NodeKindNote}
@@ -52,6 +53,18 @@ func (e *executor) workspaceRelationGroups(ctx context.Context, source ontology.
 		}
 		seen[key] = struct{}{}
 		groups[edge.Structural] = append(groups[edge.Structural], workspaceRelationItem{Ref: edge.Target, Title: workspaceRefTitle(edge.Target), ResolvedType: edge.TargetType, RelationName: edge.RelationName, Provenance: edge.Provenance, Direction: direction, Structural: edge.Structural})
+	}
+	if projection.Record != nil {
+		containment, err := workspaceRecordContainment(projection, workspace)
+		if err != nil {
+			e.addError(path, err.Error())
+		}
+		groups[true] = append(groups[true], containment...)
+		backlinks, err := e.workspaceRecordBacklinks(ctx, source)
+		if err != nil {
+			e.addError(path, err.Error())
+		}
+		groups[false] = append(groups[false], backlinks...)
 	}
 	var out []workspaceRelationGroup
 	for _, structural := range []bool{true, false} {

@@ -579,7 +579,11 @@ export function publicWorkspaceRef(ref: string | NodeRef): string {
 
   if (ref.kind === "NOTE") return ref.notePath;
 
-  if (ref.fragment?.startsWith("^")) {
+  if (
+    ref.fragment?.startsWith("^") ||
+    ref.fragment?.startsWith("record:") ||
+    ref.fragment?.startsWith("record-pos:")
+  ) {
     return `${ref.notePath}#${ref.fragment}`;
   }
 
