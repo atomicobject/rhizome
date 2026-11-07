@@ -35,16 +35,14 @@ APP_LABEL="Rhizome Dev"
 
 # Replaced installs go to the user's Trash, never deleted outright.
 discard() {
-  local trash_dir
   if command -v trash >/dev/null; then
     trash "$1"
-  elif [[ "$os" == Linux ]] && command -v gio >/dev/null; then
+  elif [[ "$os" == Linux ]]; then
+    # GLib's gio comes with the GTK stack the app itself needs.
     gio trash "$1"
   else
-    trash_dir="$HOME/.Trash"
-    [[ "$os" == Darwin ]] || trash_dir="${XDG_DATA_HOME:-$HOME/.local/share}/Trash/files"
-    mkdir -p "$trash_dir"
-    mv "$1" "$trash_dir/$(basename "$1") $(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$HOME/.Trash"
+    mv "$1" "$HOME/.Trash/$(basename "$1") $(date +%Y%m%d-%H%M%S)"
   fi
 }
 
