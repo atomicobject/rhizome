@@ -12,6 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
+	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -137,6 +138,14 @@ func sourceBrokenLinks(ctx context.Context, run RunContext, opts ScanOptions) ([
 	if err != nil {
 		return nil, err
 	}
+	mode := notediscovery.ClassicVault
+	if run.VaultDef.IsCollection() {
+		mode = notediscovery.CollectionVault
+	}
+	discovery, err := notediscovery.Compile(notediscovery.Config{Mode: mode, Includes: run.VaultDef.Includes, Registry: formats.Registry()})
+	if err != nil {
+		return nil, err
+	}
 	var broken []vaulthealth.BrokenLink
 	var readErrors vaulthealth.NoteReadErrors
 	extraTargets := map[string]notemeta.NoteSourceSnapshot{}
@@ -151,8 +160,8 @@ func sourceBrokenLinks(ctx context.Context, run RunContext, opts ScanOptions) ([
 		// Provider-owned notes participate; source-relative attachments do not.
 		if fact.Resolution == noteformat.LinkResolutionRelativePath && path.Ext(fact.Path) != "" {
 			_, catalogued := inventory.sources[link.Target]
-			_, claimed := formats.ProviderForPath(paths.Normalize(fact.Path))
-			if !catalogued && !claimed {
+			_, note := discovery.NoteFormat(paths.RelPath(validationRelativePath(link.Source, markdownsyntax.DecodeMarkdownPath(fact.Path))))
+			if !catalogued && !note {
 				continue
 			}
 		}
