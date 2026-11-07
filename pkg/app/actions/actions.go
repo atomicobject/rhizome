@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/procrun"
-	"github.com/atomicobject/rhizome/pkg/app/tasks"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/actiondef"
 )
@@ -57,15 +56,14 @@ type Runner struct {
 	Trust func(ctx context.Context) string
 }
 
-// New returns a Runner for repoRoot that checks trust the way scheduled
-// tasks do, against the person's trust store.
+// New returns a Runner for repoRoot using the person's repository trust store.
 func New(repoRoot string) *Runner {
 	return &Runner{RepoRoot: repoRoot, Trust: func(ctx context.Context) string {
 		store, err := repositorytrust.DefaultStore()
 		if err != nil {
 			return "repository trust could not be read: " + err.Error()
 		}
-		return tasks.Untrusted(ctx, repoRoot, "actions", store.Trusted)
+		return repositorytrust.Untrusted(ctx, repoRoot, "actions", store.Trusted)
 	}}
 }
 

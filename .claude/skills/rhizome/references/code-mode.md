@@ -11,6 +11,49 @@ JS
 
 Top-level `await` and `return` work. The body can also come from `--code '<body>'` or a stdin redirect from a file. The command prints `{ ok, result }` where `result` is whatever the script returned. Node.js must be on PATH. No imports, generated files, or cleanup code are needed.
 
+## Get the first useful result
+
+Start or reuse one session as described in `SKILL.md`, then use the operations it lists. A workflow-provided recipe ID is ready to run: call `rzm.queryRecipe({ op: "run", id: "<id>" })` directly. Otherwise list recipes once and select a matching question. Discover a type's query-schema fragment only when no recipe fits; it includes that type's roots and filter/sort arguments. Expand a referenced type only when the query needs it. A full schema is for broad schema work.
+
+Describe unfamiliar operation inputs together in one `code describe` call. Reuse those contracts and the session across scripts. Identity lookup is needed only when the question actually selects a configured person. Batch independent reads, and return the small result plus its warnings and pagination state rather than entire discovery catalogs.
+
+## Query structured records with GraphQL
+
+Use a saved recipe for a matching workflow question, and `rzm.ontologyQuery` for a custom structured question. Put filters, sorting, field selection, and related records in GraphQL; use JavaScript to coordinate calls and format the result. Conceptual or untyped content uses semantic search; symbol and reference evidence uses the code operations.
+
+`rzm.ontologyQuerySchema({ type, depth: 1 })` returns the selected type and one hop of related output types, including interface implementations. Inputs, enums, and scalars needed by the included definitions come with them. For known types, use `types: ["Effort", "SpecLike"]` instead of `type` to fetch a combined fragment in one call. Both selectors use the current vault's names.
+
+`depth` defaults to 0 and allows at most 2 hops. Selected discovery defaults to 32,768 schema bytes and at most 32 output types; `maxBytes` can raise the byte budget up to 131,072. Inspect `includedTypes`, `referencedTypes`, `limits`, and `truncated`. If a budget stops expansion, `limitReasons` names it and `referencedTypes` lists the frontier to request next. Absent `truncated` means false; absent `limitReasons` means no budget stopped expansion. Definitions are kept whole. A requested selection that cannot fit returns an error. Omitting both selectors preserves full-schema discovery.
+
+For example, in a vault with Agentic Engineering, fetch efforts and their directly related types:
+
+```js
+const result = await rzm.ontologyQuerySchema({ type: "Effort", depth: 1 });
+return result.ok ? result.payload : result;
+```
+
+Then query the discovered fields in one request:
+
+```js
+const result = await rzm.ontologyQuery({ query: `{
+  effort(first: 20, sort: [{field: "createdAt", direction: asc}]) {
+    __typename id name createdAt
+    governingSpecs { __typename id summary }
+  }
+}` });
+return result.ok ? result.payload : result;
+```
+
+Query fields shared by all results on their interface root. Select fields specific to a concrete type inside `... on ConcreteType { ... }`; `__typename` identifies the concrete note, section, or code type. Use types and fields discovered in the current vault. Preserve GraphQL `errors` and `extensions.typedRoots` with the selected data, and continue pagination when the question needs the complete set. Reuse the fragments for later queries while their schema remains current.
+
+## Runtime access and sandbox recovery
+
+Code mode inherits the calling shell's permissions. `agent start` includes a bounded connection check in its `runtime` field. If it reports `access_denied`, retain the session and request the required access for the next runtime-backed command; another start or verification query is unnecessary. Per-command grants must be carried forward to subsequent invocations. Schema discovery does not prove runtime access.
+
+If an operation reports `runtime_access_denied`, use the harness's per-command permission mechanism to rerun the same authorized command with the required access. Keep the operation's existing read/write boundary. Justify the request with the diagnostic's message, which states what the connection does: it reaches this repository's own Rhizome process on 127.0.0.1 with a per-run token, not a user credential, and sends nothing off the machine. Do not describe the connection as credential access or as sending vault content to a server. Describe external calls separately and only when the operation makes them: semantic search and reranking send text to the embedding provider, and `evaluate` sends its supplied content to TypeSafe. Each operation's contract states these effects. A raw `Operation not permitted`, `permission denied`, or `read kern.boottime` failure needs the same diagnosis. Increasing the timeout or repeating the unchanged command will not grant access.
+
+A live runtime that is still preparing its projection keeps the read until it is ready or the operation deadline expires; code mode does not start a second writer for that pending read. Permanent capability or source-read errors return directly; retrying does not resolve disabled capabilities. An existing runtime needs a permitted local connection. Starting or recovering one can also need OS and filesystem access unavailable inside the shell sandbox. The desktop app can start the runtime, but cannot grant the shell network access. `rzm init` writes repository settings that let the sandbox reach the runtime on 127.0.0.1 while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS) and a loopback-only `rhizome` permission profile in `.codex/config.toml`, which Codex loads only for trusted projects. A command-line sandbox choice overrides that profile. When these settings are absent or overridden, request access per command as above. If access cannot be granted, report the failed layer and use `references/diagnostics.md` for offline evidence.
+
 ## Pass input to a saved script
 
 A script kept as a file, such as one a skill ships in `scripts/`, takes its arguments from `--input '<json>'` or `--input-file <path>`. The script reads the parsed value as `input`, which is `null` when neither flag is given; a value that is not valid JSON fails before the script runs.
@@ -40,7 +83,11 @@ Code operations such as `codeSymbol` and `codeReferences` take `{ symbol }` and 
 
 Every call resolves to `{ ok, exitCode, payload, stdout, stderr, diagnostic }`. `payload` is the structured result; `stdout` is empty rather than repeating it. `ok: false` with a payload is a domain failure such as a recipe that did not resolve, and is still evidence. Invalid input, cancellation, timeouts, and transport faults throw a `CodeModeError` with `code` and `message` instead.
 
-Warnings, `truncated`, `remaining`, `continuationToken`, and lane status live inside `payload` and mean what they say: a partial result is not proof that nothing else exists. Return them alongside the data you select.
+Check the operation's `ok`, not just the script's outer `ok` or the process exit status. A script that successfully returns a failed operation still completed successfully. GraphQL may return partial data with errors; those errors still make the operation fail, so qualify any retained data rather than presenting the result as complete. Preserve `diagnostic.code` and `stderr` on failure; `runtime_access_denied` is an actionable permission failure.
+
+Warnings, `truncated`, `remaining`, `continuationToken`, and lane status live inside `payload` and mean what they say: a partial result is not proof that nothing else exists. Typed query pagination is `payload.extensions.typedRoots[responseAlias]`; recipe pagination is one level deeper, `payload.result.extensions.typedRoots[responseAlias]`, alongside `payload.result.data` and `payload.result.errors`. Follow `nextOffset` when `hasMore` is true. A successful response need not contain a `warnings` field. Return the coverage and errors alongside the data you select.
+
+A recipe run also returns its definition. For an answer, project `payload.result` or selected fields from it instead of printing the definition and all source bodies. Keep `ok`, `diagnostic`, and `stderr` when a call fails. Read complete linked sources only when a selected summary points to delivery evidence or leaves a conflict unresolved.
 
 ## Three shapes that cover most work
 

@@ -60,9 +60,9 @@ clean-all:
 
 lint:
 	@printf '\n==> lint\n'
-	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +)" ]; then \
+	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.delta/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +)" ]; then \
 		echo "Run 'go fmt ./...' to fix formatting"; \
-		find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +; \
+		find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -not -path './.delta/worktrees/*' -not -path './.rhizome/*' -not -path './.gocache/*' -not -path './.gomodcache/*' -not -path './.gotmp/*' -exec gofmt -l {} +; \
 		exit 1; \
 	fi
 	@printf '<== lint\n'
@@ -352,6 +352,7 @@ web-generate: web-deps
 web-test: web-deps
 	@printf '\n==> web-test\n'
 	cd $(WEB_DIR) && npm test
+	node --test scripts/dev_supervisor.test.mjs
 	@printf '<== web-test\n'
 
 web-lint: web-deps

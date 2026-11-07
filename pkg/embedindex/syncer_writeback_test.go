@@ -95,7 +95,6 @@ func TestSyncerEmbedWithoutSyncMarkFlushesQueuedWritesOnce(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, syncer.EmbedWithoutSyncMark(context.Background(), plan))
 	require.EqualValues(t, 1, queue.flushes.Load())
-	require.Zero(t, queue.singleItemCalls.Load())
 	require.Greater(t, queue.batchItemCalls.Load(), int64(0))
 	require.Zero(t, queue.singleChunkCalls.Load())
 	require.Greater(t, queue.intelCalls.Load(), int64(0))

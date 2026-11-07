@@ -71,13 +71,22 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 		}
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
+	s := d.newSession(connection, true)
+	if _, err := s.initialize(ctx, "init-1"); err != nil {
+		_ = s.Stop()
+		return nil, err
+	}
+	return s, nil
+}
+
+func (d *Driver) newSession(connection transport, interactive bool) *session {
 	lifetime, cancel := context.WithCancel(context.Background())
 	s := &session{
 		transport: connection, stream: eventstream.New(), lifetime: lifetime, cancel: cancel,
 		interruptTimeout: d.interruptTimeout, cancelTimeout: d.cancelTimeout, shutdownTimeout: d.shutdownTimeout, responses: make(map[string]chan message),
 		responseBacklog: make(map[string]message),
 		pending:         make(map[string]pendingApproval), items: make(map[string]harness.EventKind),
-		interactive: true,
+		interactive: interactive,
 	}
 	if s.interruptTimeout <= 0 {
 		s.interruptTimeout = turnCancelTimeout
@@ -90,11 +99,7 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 	}
 	s.reader.Add(1)
 	go s.readLoop()
-	if _, err := s.initialize(ctx, "init-1"); err != nil {
-		_ = s.Stop()
-		return nil, err
-	}
-	return s, nil
+	return s
 }
 
 type pendingApproval struct{ request controlRequest }

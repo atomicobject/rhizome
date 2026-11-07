@@ -5,6 +5,7 @@ package serve
 import (
 	"context"
 	"errors"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/web"
@@ -119,7 +121,7 @@ func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetada
 	// boot writer (or the explicit index that displaced it) has completed.
 	c.indexAttemptDoneOnce.Do(func() { close(c.indexAttemptDone) })
 	if c.server.Load() != nil {
-		live.PublishGlobalEvent(web.GlobalEventIndexChanged, map[string]string{"source": "background"})
+		live.PublishGlobalEvent(appruntime.GlobalEventIndexChanged, map[string]string{"source": "background"})
 	}
 	if indexErr == nil {
 		c.refreshValidation(validationCtx, live)
@@ -228,7 +230,7 @@ func (c *ReadinessCoordinator) GlobalEventSink() bootstrap.GlobalEventSink {
 		return nil
 	}
 	return func(kind string, data any) {
-		if kind == web.GlobalEventValidationInvalidated {
+		if kind == appruntime.GlobalEventValidationInvalidated {
 			c.mu.Lock()
 			if c.cancelValidationAdmission != nil {
 				c.cancelValidationAdmission()
@@ -241,7 +243,7 @@ func (c *ReadinessCoordinator) GlobalEventSink() bootstrap.GlobalEventSink {
 				}
 			}
 			c.server.Load().NotifyGlobalEvent(kind, data)
-			if web.GlobalEventReason(data) != web.GlobalEventReasonReconcileFailed {
+			if web.GlobalEventReason(data) != appruntime.GlobalEventReasonReconcileFailed {
 				c.requestValidationRefreshLocked()
 			}
 			c.mu.Unlock()
@@ -379,7 +381,7 @@ func (c *ReadinessCoordinator) refreshValidation(ctx context.Context, live *boot
 				Context: c.liveContext(ctx), Store: store, VaultDef: live.VaultDef,
 				NoteMetadata: live.NoteMetadataIndexer(), RepairStore: c.repairReviews, MaxIssues: 500,
 				Run: func(ctx context.Context) (validationproduct.AuthoritativeRun, error) {
-					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, live.Lane())
+					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, initactions.ValidateBundledSkillOverlays, live.Lane())
 				},
 				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
 					VaultPath: live.VaultPath, VaultDef: live.VaultDef,
@@ -404,10 +406,10 @@ func (c *ReadinessCoordinator) refreshValidation(ctx context.Context, live *boot
 		}
 		// Errors also change the cached validation envelope. Publish them so
 		// browsers stop showing the invalidated result or a running spinner.
-		live.PublishGlobalEvent(web.GlobalEventValidateChanged, nil)
+		live.PublishGlobalEvent(appruntime.GlobalEventValidateChanged, nil)
 		return
 	}
-	live.PublishGlobalEvent(web.GlobalEventValidateChanged, nil)
+	live.PublishGlobalEvent(appruntime.GlobalEventValidateChanged, nil)
 }
 
 func (c *ReadinessCoordinator) liveContext(fallback context.Context) context.Context {

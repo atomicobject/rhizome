@@ -51,7 +51,7 @@ func appServerArgs(servers []harness.MCPServer) ([]string, error) {
 			args = append(args, "-c", "mcp_servers."+name+".args="+string(encoded))
 		}
 		if len(server.Env) > 0 {
-			env, err := envMap(server.Env)
+			env, err := server.Environment()
 			if err != nil {
 				return nil, fmt.Errorf("MCP server %q: %w", name, err)
 			}
@@ -60,18 +60,6 @@ func appServerArgs(servers []harness.MCPServer) ([]string, error) {
 		}
 	}
 	return args, nil
-}
-
-func envMap(entries []string) (map[string]string, error) {
-	env := make(map[string]string, len(entries))
-	for _, entry := range entries {
-		key, value, ok := strings.Cut(entry, "=")
-		if !ok || strings.TrimSpace(key) == "" {
-			return nil, fmt.Errorf("invalid environment entry %q", entry)
-		}
-		env[key] = value
-	}
-	return env, nil
 }
 
 func appendConfig(args []string, key, value string) []string {

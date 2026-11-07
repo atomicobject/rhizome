@@ -73,7 +73,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
           cache: true
 
       - name: Set up Node
@@ -260,7 +260,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

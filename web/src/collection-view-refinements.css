@@ -1,0 +1,218 @@
+.configured-view__table .configured-view__overdue .is-repeat {
+  color: var(--text-faint);
+}
+.configured-card__content {
+  display: contents;
+}
+.configured-card--cards .configured-card__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 5px;
+}
+.configured-card--cards .configured-card__summary {
+  display: -webkit-box;
+  overflow: hidden;
+  padding-bottom: 2px;
+  line-height: 18px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.configured-card--cards.configured-card--two-line-title .configured-card__summary {
+  -webkit-line-clamp: 3;
+}
+.configured-card--cards .configured-card__title {
+  min-height: 36px;
+  align-content: start;
+}
+.configured-card--cards .configured-card__title-text {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 18px;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.configured-card--cards .configured-card__content .configured-brief__header {
+  line-height: 18px;
+}
+
+.configured-view .configured-card {
+  border-color: var(--card-border);
+}
+
+.notes-shell:has(.view-header__count)
+  .configured-view__footer-status
+  > .configured-view__duplicate-count {
+  display: none;
+}
+
+.notes-shell:has(.view-header__count)
+  .configured-view__footer-status
+  > .configured-view__duplicate-count
+  + span::before,
+.notes-shell:has(.view-header__count)
+  .configured-view__footer-status
+  > .configured-view__duplicate-count
+  + .configured-view__column-notes
+  > summary::before {
+  content: none;
+}
+
+/* Subtypes sit below the title; age stays beside it. */
+.configured-card--board .configured-brief__meta {
+  display: contents;
+}
+.configured-card--board .configured-brief__meta > .configured-brief__type {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 13px;
+}
+.configured-card--board .configured-brief__meta > .configured-brief__end {
+  grid-column: 2;
+  grid-row: 1;
+}
+/* Card outlines define the cards; lanes need no second rectangle. */
+.configured-view .configured-view__board-column {
+  background: transparent;
+  border: 0;
+}
+.configured-view .configured-view__board-columns {
+  border-bottom: 0;
+}
+.configured-view .configured-view__board-strip {
+  align-self: stretch;
+  align-items: start;
+  padding-top: 8px;
+  padding-inline: 4px;
+  gap: 4px;
+}
+.configured-view .configured-view__column-notes > summary {
+  display: inline-flex;
+  white-space: normal;
+}
+.configured-view__column-notes > summary > svg {
+  flex: none;
+}
+.configured-view__column-notes[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.configured-view__collapsed-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.configured-view__collapsed-link:hover {
+  color: var(--link);
+}
+/* Record stays docked in the collection grid at laptop widths too. */
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view)
+  .notes-right-rail.is-overlay#notes-right-pane {
+  position: relative;
+  inset: auto;
+  grid-column: 2;
+  width: var(--pane-width);
+  box-shadow: none;
+  border-left-color: var(--border);
+}
+.notes-shell__frame--solo:has(.notes-shell__panel.is-active .configured-view):has(.notes-right-rail)
+  .notes-shell__tabs-row {
+  right: calc(var(--pane-width) + var(--sp-4));
+}
+.configured-view .configured-view__table tr.configured-view__row--action td {
+  height: 36px;
+  padding-block: 4px;
+  vertical-align: middle;
+}
+.configured-view__row--action .configured-view__scalar-cell,
+.configured-view__row--action .configured-view__source-link a {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 20px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view):has(
+    .notes-right-rail.is-overlay
+  )
+  .configured-view__footer {
+  padding-right: var(--sp-5);
+}
+.configured-view .configured-view__footer-status {
+  flex-wrap: nowrap;
+}
+.configured-view .configured-view__collapsed-link {
+  flex: none;
+  white-space: nowrap;
+}
+.configured-view .configured-view__column-notes > summary::after {
+  display: none;
+}
+.configured-view .configured-view__board-column-header {
+  padding-inline: 15px;
+}
+
+.configured-view .configured-view__board-strip-cell.is-empty {
+  min-height: 160px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+}
+.configured-view__board-age-label {
+  position: absolute;
+  top: 32px;
+  right: 22px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.configured-view .configured-view__column-notes > summary {
+  white-space: nowrap;
+}
+.configured-view__column-note-compact {
+  display: none;
+}
+.configured-view__find-wrap {
+  position: relative;
+}
+.configured-view__find-toggle {
+  display: none;
+}
+@container view-header (max-width: 820px) {
+  .configured-view__find-toggle {
+    display: inline-flex;
+  }
+  .configured-view__find-wrap:not(:has(input:focus)) .configured-view__find {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    padding: 0;
+    border: 0;
+  }
+  .configured-view__find-wrap:has(input:focus) .configured-view__find {
+    position: absolute;
+    z-index: 5;
+    top: 0;
+    right: 0;
+    width: 220px;
+    background: var(--surface);
+  }
+}
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view):has(.notes-right-rail)
+  .configured-view__column-note-full {
+  display: none;
+}
+.notes-shell__frame:has(.notes-shell__panel.is-active .configured-view):has(.notes-right-rail)
+  .configured-view__column-note-compact {
+  display: inline;
+}

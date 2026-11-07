@@ -2,7 +2,7 @@
 //
 // Docs: [CONTEXT.md](pkg/app/mcp/CONTEXT.md)
 //
-// These handlers wrap pkg/app/cli actions with structured request/response
+// These handlers wrap pkg/app/operations actions with structured request/response
 // payloads and manage runtime-initialized dependencies (embeddings, code
 // anchors) through a per-call LiveRuntime capability view.
 package mcp

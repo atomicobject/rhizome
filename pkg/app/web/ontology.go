@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/app/queryengine"
 	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
@@ -28,7 +29,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -269,51 +269,25 @@ func (s *Server) rebuildingSummary(resp OntologySummaryResponse, defs *ontologyD
 }
 
 func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, defs *ontologyDefinitions, resp OntologySummaryResponse) (OntologySummaryResponse, error) {
-	if defs == nil || defs.schema == nil {
-		rows, err := store.CurrentNoteMetadataRows(ctx)
-		if err != nil {
-			return resp, err
-		}
-		resp.TotalNotes = len(rows)
-		resp.UntypedNotes = resp.TotalNotes
+	var schema *ontoschema.Schema
+	if defs != nil {
+		schema = defs.schema
+	}
+	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, schema).NewScope(noderead.ScopeOptions{})
+	totals, err := nodeScope.SummaryTotals(ctx)
+	if err != nil {
+		return resp, err
+	}
+	resp.TotalNotes = totals.Notes
+	resp.UntypedNotes = totals.Notes
+	if schema == nil {
 		return resp, nil
 	}
+	resp.TypedNotes = totals.Typed
+	resp.UntypedNotes -= totals.Typed
+	resp.IssueNotes = totals.Issues
+	resp.AmbiguousNotes = totals.Ambiguous
 
-	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, defs.schema).NewScope(noderead.ScopeOptions{})
-	all, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: ontology.TypeScopeAll})
-	if err != nil {
-		return resp, err
-	}
-	pathsList := make([]string, 0, len(all.Items))
-	for _, item := range all.Items {
-		pathsList = append(pathsList, item.NotePath)
-	}
-	resp.TotalNotes = all.Count
-
-	typeRows, err := nodeScope.TypesByPaths(ctx, pathsList)
-	if err != nil {
-		return resp, err
-	}
-	resp.TypedNotes = len(typeRows)
-	resp.UntypedNotes = resp.TotalNotes - resp.TypedNotes
-
-	flags, err := nodeScope.AssessmentFlags(ctx)
-	if err != nil {
-		return resp, err
-	}
-	ambiguousCount := 0
-	issueCount := 0
-	for _, entry := range flags {
-		if entry.TypeAmbiguous {
-			ambiguousCount++
-		}
-		if entry.HasIssues {
-			issueCount++
-		}
-	}
-
-	resp.AmbiguousNotes = ambiguousCount
-	resp.IssueNotes = issueCount
 	types, interfaces, err := schemaSummaryEntries(defs)
 	if err != nil {
 		return resp, err
@@ -779,10 +753,6 @@ func (s *Server) ontologyInspect(ctx context.Context, notePath string) (Ontology
 	}
 	resp.Note = &note
 	return resp, nil
-}
-
-func (s *Server) executeOntologyQuery(ctx context.Context, rawQuery string) (ontologyquery.Result, error) {
-	return s.executeOntologyQueryOperation(ctx, rawQuery, nil, "", nil)
 }
 
 func (s *Server) executeOntologyQueryOperation(ctx context.Context, rawQuery string, variables map[string]any, operationName string, overlay *ontologyquery.ReadOverlay) (ontologyquery.Result, error) {
@@ -1381,7 +1351,7 @@ func (s *Server) refreshCommittedOntologyEdit(ctx context.Context, resp Ontology
 	applySessionStatusToWorkspaces(workspaces, resp.Status, resp.StalePaths, resp.Rebased)
 	resp.Workspaces = workspaces
 	if len(resp.Warnings) == 0 && projection != nil {
-		s.NotifyGlobalEvent(GlobalEventNodeChanged, NodeChangedEventData{
+		s.NotifyGlobalEvent(appruntime.GlobalEventNodeChanged, NodeChangedEventData{
 			Paths: projection.Paths, Domains: projection.Domains,
 		})
 	}
@@ -2501,7 +2471,7 @@ func annotateTypedSections(
 		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
-		matches := matchWebSectionNodesForField(nodes, field)
+		matches := ontology.MatchSectionNodesForField(nodes, field)
 		if len(matches) == 0 {
 			continue
 		}
@@ -2522,13 +2492,13 @@ func annotateTypedSections(
 			if sectionType == nil {
 				continue
 			}
-			rendered.IdentifierField = identifierFieldName(sectionType)
+			rendered.IdentifierField = ontology.IdentifierFieldName(sectionType)
 			props := extractSectionPropertyValues(match, sectionType, notePropertyCase)
 			if len(props) > 0 {
 				rendered.Properties = props
 			}
 			if sectionType.Preview != nil {
-				rendered.PreviewTemplate = interpolatePreviewTemplate(sectionType.Preview.Template, props, match.Title)
+				rendered.PreviewTemplate = ontology.InterpolatePreviewTemplate(sectionType.Preview.Template, props, match.Title, func(placeholder string) string { return placeholder })
 				rendered.Collapsed = sectionType.Preview.Collapsed
 			}
 			annotateTypedSections(
@@ -2780,48 +2750,6 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func identifierFieldName(noteType *ontoschema.NoteType) string {
-	if noteType == nil {
-		return ""
-	}
-	if field := noteType.PreferredIdentifierField(); field != nil {
-		return field.Name
-	}
-	for _, field := range noteType.Fields {
-		if field != nil && field.IsIdentifier {
-			return field.Name
-		}
-	}
-	return ""
-}
-
-// matchWebSectionNodesForField mirrors the query resolver's matcher: fields
-// with an explicit heading resolve via FindMatchingSections; list-typed fields
-// without a heading match every direct child at the requested level in
-// document order.
-func matchWebSectionNodesForField(nodes []*ontology.SectionNode, field *ontoschema.Field) []*ontology.SectionNode {
-	if field == nil {
-		return nil
-	}
-	if strings.TrimSpace(field.SectionHeading) != "" {
-		return ontology.FindMatchingSections(nodes, field.SectionLevel, field.SectionHeading)
-	}
-	if !field.List {
-		return nil
-	}
-	nodes = ontology.UnwrapSingleH1SectionRoot(nodes)
-	out := make([]*ontology.SectionNode, 0, len(nodes))
-	for _, node := range nodes {
-		if node == nil {
-			continue
-		}
-		if node.Level == field.SectionLevel {
-			out = append(out, node)
-		}
-	}
-	return out
-}
-
 // extractSectionPropertyValues reads a section's inline properties (scoped to
 // its own content) and builds a display map keyed by declared field name. List
 // values are joined with ", " so the frontend renders them in a single string.
@@ -2869,29 +2797,6 @@ func caseInsensitiveInlineValues(values map[string][]string, key string) []strin
 	}
 	return nil
 }
-
-// interpolatePreviewTemplate substitutes `{{name}}` placeholders in the schema
-// template with resolved values. `{{title}}` comes from the section's heading
-// text; other names come from the extracted properties map. Unknown names are
-// left as literal `{{name}}` — the compiler rejects them, so this path is only
-// hit for valid templates.
-func interpolatePreviewTemplate(template string, props map[string]string, title string) string {
-	if template == "" {
-		return ""
-	}
-	return previewPlaceholderInterpolator.ReplaceAllStringFunc(template, func(match string) string {
-		name := strings.TrimSpace(previewPlaceholderInterpolator.FindStringSubmatch(match)[1])
-		if name == "title" {
-			return title
-		}
-		if value, ok := props[name]; ok {
-			return value
-		}
-		return match
-	})
-}
-
-var previewPlaceholderInterpolator = regexp.MustCompile(`{{\s*([A-Za-z_][A-Za-z0-9_]*)\s*}}`)
 
 func stripProjectedFrontmatter(snapshot *ontology.DocumentSnapshot) string {
 	if snapshot == nil {

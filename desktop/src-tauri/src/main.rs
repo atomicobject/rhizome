@@ -6,6 +6,8 @@ mod credentials;
 mod finder;
 mod inbox;
 mod installation;
+#[cfg(target_os = "linux")]
+mod linux_webviews;
 mod menu;
 mod page;
 mod pane;

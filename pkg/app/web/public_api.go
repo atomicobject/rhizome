@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/queryengine"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/validate"
@@ -181,9 +182,6 @@ func (s *Server) handlePublicEditSessions(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// WHY: public v1 edit sessions intentionally delegate to the existing
-	// ontology edit-session service so browser and external clients exercise
-	// the same rebase/conflict/write behavior while route names migrate.
 	resp, err := s.createOntologyEditSessionResponse(r.Context(), req)
 	if err != nil {
 		writePublicError(w, http.StatusBadRequest, PublicErrorBadRequest, err)
@@ -407,26 +405,27 @@ func (s *Server) publicCapabilities(ctx context.Context) (PublicCapabilitiesResp
 			Heartbeat:    "comment heartbeat; clients should treat missed heartbeats as a refetch trigger",
 			Reconnect:    "refetch capabilities/status/schema/active views after reconnect",
 			Invalidations: []string{
-				GlobalEventNodeChanged,
-				GlobalEventValidationInvalidated,
-				GlobalEventSchemaInvalidated,
-				GlobalEventQueryRecipeInvalidated,
-				GlobalEventIndexInvalidated,
-				GlobalEventCapabilitiesInvalidated,
-				GlobalEventEditSessionInvalidated,
-				GlobalEventViewsChanged,
+				appruntime.GlobalEventNodeChanged,
+				appruntime.GlobalEventValidationInvalidated,
+				appruntime.GlobalEventSchemaInvalidated,
+				appruntime.GlobalEventQueryRecipeInvalidated,
+				appruntime.GlobalEventIndexInvalidated,
+				appruntime.GlobalEventCapabilitiesInvalidated,
+				appruntime.GlobalEventEditSessionInvalidated,
+				appruntime.GlobalEventViewsChanged,
 			},
 			StreamedKinds: []string{
-				GlobalEventValidateChanged,
-				GlobalEventIndexChanged,
-				GlobalEventNodeChanged,
-				GlobalEventValidationInvalidated,
-				GlobalEventSchemaInvalidated,
-				GlobalEventQueryRecipeInvalidated,
-				GlobalEventIndexInvalidated,
-				GlobalEventCapabilitiesInvalidated,
-				GlobalEventEditSessionInvalidated,
-				GlobalEventViewsChanged,
+				appruntime.GlobalEventValidateChanged,
+				appruntime.GlobalEventIndexChanged,
+				appruntime.GlobalEventNodeChanged,
+				appruntime.GlobalEventValidationInvalidated,
+				appruntime.GlobalEventSchemaInvalidated,
+				appruntime.GlobalEventQueryRecipeInvalidated,
+				appruntime.GlobalEventIndexInvalidated,
+				appruntime.GlobalEventCapabilitiesInvalidated,
+				appruntime.GlobalEventEditSessionInvalidated,
+				appruntime.GlobalEventViewsChanged,
+				appruntime.GlobalEventViewPreferencesChanged,
 			},
 			NodeStreamedKinds: []string{
 				PublicNodeEventUpdated,
@@ -434,16 +433,17 @@ func (s *Server) publicCapabilities(ctx context.Context) (PublicCapabilitiesResp
 				PublicNodeEventDeleted,
 			},
 			SupportedKinds: []string{
-				GlobalEventValidateChanged,
-				GlobalEventIndexChanged,
-				GlobalEventNodeChanged,
-				GlobalEventValidationInvalidated,
-				GlobalEventSchemaInvalidated,
-				GlobalEventQueryRecipeInvalidated,
-				GlobalEventIndexInvalidated,
-				GlobalEventCapabilitiesInvalidated,
-				GlobalEventEditSessionInvalidated,
-				GlobalEventViewsChanged,
+				appruntime.GlobalEventValidateChanged,
+				appruntime.GlobalEventIndexChanged,
+				appruntime.GlobalEventNodeChanged,
+				appruntime.GlobalEventValidationInvalidated,
+				appruntime.GlobalEventSchemaInvalidated,
+				appruntime.GlobalEventQueryRecipeInvalidated,
+				appruntime.GlobalEventIndexInvalidated,
+				appruntime.GlobalEventCapabilitiesInvalidated,
+				appruntime.GlobalEventEditSessionInvalidated,
+				appruntime.GlobalEventViewsChanged,
+				appruntime.GlobalEventViewPreferencesChanged,
 				PublicNodeEventUpdated,
 				PublicNodeEventStale,
 				PublicNodeEventDeleted,

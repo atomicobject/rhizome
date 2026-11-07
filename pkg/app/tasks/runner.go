@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
@@ -410,34 +411,11 @@ func (s *Service) untrusted() string {
 	if s.opts.Trusted == nil {
 		return ""
 	}
-	return untrustedReason(s.opts.Repo, "tasks", s.opts.Trusted)
-}
-
-// Untrusted explains why the repository holding dir may not run its own
-// commands, or returns "". It is the check tasks use, for other callers that
-// run repository code, such as module actions; what names that code in the
-// reason ("actions"). A folder outside Git is checked as its own checkout.
-func Untrusted(ctx context.Context, dir, what string, trusted func(checkout string) (bool, error)) string {
-	repo, err := OpenRepo(ctx, dir)
-	if err != nil {
-		repo = Repo{MainCheckout: dir}
-	}
-	return untrustedReason(repo, what, trusted)
-}
-
-func untrustedReason(repo Repo, what string, trusted func(checkout string) (bool, error)) string {
-	checkout := repo.MainCheckout
+	checkout := s.opts.Repo.MainCheckout
 	if checkout == "" {
-		checkout = repo.CommonDir
+		checkout = s.opts.Repo.CommonDir
 	}
-	ok, err := trusted(checkout)
-	if err != nil {
-		return "repository trust could not be read: " + err.Error()
-	}
-	if !ok {
-		return "this repository is not trusted; run `rzm trust` in " + checkout + " to let its " + what + " run"
-	}
-	return ""
+	return repositorytrust.DenialReason(checkout, "tasks", s.opts.Trusted)
 }
 
 func (s *Service) locations(def Definition, commit string) Locations {

@@ -72,7 +72,7 @@ flowchart TD
 - `pkg/embeddings/config.go` — provider defaults, note vs code model split, `DefaultBatchSize`/`DefaultMaxConcurrent`
 - `pkg/embeddings/chunker.go` — heading-aware chunking with frontmatter summary inclusion
 - `pkg/embeddings/batcher.go` — `BatchExecutor` concurrency/semaphore + dynamic batch sizing
-- `pkg/embeddings/indexer.go` — legacy raw-note scan → chunk → embed → persist (ontology-unavailable path)
+- `pkg/embedindex/note_syncer.go` — `NoteSyncer` plans and embeds persisted authored sections when ontology projection is unavailable; ownership discovery and note ingestion select the source notes first.
 - `pkg/embeddings/sqlite/open.go` — `OpenNotes` / `OpenCode`, explicit read/write access and owned/borrowed connections
 - `pkg/embeddings/sqlite/code_schema.go` — typed code item/chunk schema; shared engine, cache, generations and vector mirrors
 - `pkg/embeddings/rank.go` — `RankRelated` blends cosine + graph bonuses

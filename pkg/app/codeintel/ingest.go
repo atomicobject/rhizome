@@ -14,12 +14,10 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/codefile"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 )
 
 // NoteIngestResult reports note ingest progress/counters.
@@ -50,9 +48,6 @@ type markdownCandidateRun func(
 	func(FilePayload) error,
 ) error
 
-// markdownIngestPolicy keeps legacy discovery cleanup separate from explicit
-// ownership-routed candidate intake. Candidate callers report parse failures
-// but never retire durable ownership or derived state themselves.
 // codeCandidateRun supplies already-selected code candidates to the shared
 // code processing core. Classification remains an orchestration concern.
 type codeCandidateRun func(
@@ -63,9 +58,7 @@ type codeCandidateRun func(
 	func(FilePayload) error,
 ) error
 
-// codeIngestPolicy separates legacy root-walk tolerance from strict,
-// ownership-routed candidate intake. A strict run returns filesystem and work
-// build failures so reconciliation cannot acknowledge incomplete code state.
+// CodeCandidateReadError identifies a failed read of an ownership-selected source.
 type CodeCandidateReadError struct {
 	Path string
 	Err  error
@@ -361,12 +354,6 @@ func ValidateNotes(ctx context.Context, root string) (int, int, error) {
 	return ValidateMarkdownCodeAnchorSyntaxWithWriter(ctx, root, os.Stderr)
 }
 
-// ValidateNotesWithWriter preserves the established command adapter. New
-// callers should name the Markdown compatibility boundary directly.
-func ValidateNotesWithWriter(ctx context.Context, root string, diagnostics io.Writer) (int, int, error) {
-	return ValidateMarkdownCodeAnchorSyntaxWithWriter(ctx, root, diagnostics)
-}
-
 // ValidateMarkdownCodeAnchorSyntaxWithWriter walks legacy Markdown files for
 // code-anchor syntax. It selects Markdown by the historical .md compatibility
 // rule and does not inspect or validate any future provider format.
@@ -630,104 +617,15 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, writeQu
 	}
 	res.ChangedCallerPaths = reduced.changedCallerPaths
 	res.DefDeltas = reduced.defDeltas
-	MergeLangCounts(res.Unsupported, reduced.unsupported)
+	mergeLangCounts(res.Unsupported, reduced.unsupported)
 	res.Indexed = int(indexed.Load())
 	res.Unchanged = int(unchanged.Load())
 	res.IndexedPaths = reduced.indexedPaths
 	return res, err
 }
 
-func MergeLangCounts(dst, src map[codeanchor.Lang]int) {
+func mergeLangCounts(dst, src map[codeanchor.Lang]int) {
 	for lang, n := range src {
 		dst[lang] += n
-	}
-}
-
-func FormatLangCounts(counts map[codeanchor.Lang]int) string {
-	if len(counts) == 0 {
-		return ""
-	}
-	langs := make([]string, 0, len(counts))
-	for lang := range counts {
-		langs = append(langs, string(lang))
-	}
-	sort.Strings(langs)
-	parts := make([]string, 0, len(langs))
-	for _, l := range langs {
-		lang := codeanchor.Lang(l)
-		parts = append(parts, fmt.Sprintf("%s (%d)", l, counts[lang]))
-	}
-	return strings.Join(parts, ", ")
-}
-
-func DetectCodeLang(path string) codeanchor.Lang {
-	ext := strings.ToLower(filepath.Ext(path))
-	if codefile.IsTypeScriptJavaScriptExtension(ext) {
-		return codeanchor.LangTS
-	}
-	switch ext {
-	case ".py":
-		return codeanchor.LangPy
-	case ".go":
-		return codeanchor.LangGo
-	case ".cs":
-		return codeanchor.LangCs
-	case ".php":
-		return codeanchor.LangPhp
-	default:
-		return ""
-	}
-}
-
-func PopulateTailIndexFromRoots(idx *codeanchor.PathTailIndex, roots []string) {
-	if idx == nil || len(roots) == 0 {
-		return
-	}
-
-	extOK := make(map[string]struct{}, len(codefile.TypeScriptJavaScriptExtensions()))
-	for _, ext := range codefile.TypeScriptJavaScriptExtensions() {
-		extOK[ext] = struct{}{}
-	}
-
-	for _, root := range roots {
-		if root == "" {
-			continue
-		}
-		matcher := ignore.LoadUnifiedMatcher(root, nil)
-		rootPaths, _ := paths.NewVaultPaths(root)
-		_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
-			if d.IsDir() {
-				name := d.Name()
-				if strings.HasPrefix(name, ".") {
-					return filepath.SkipDir
-				}
-				if matcher != nil {
-					if rel, err := rootPaths.RelStrict(path); err == nil && rel.String() != "" {
-						if matcher.IsIgnoredShallow(rel.String(), true) {
-							return filepath.SkipDir
-						}
-					}
-				}
-				return nil
-			}
-			if strings.HasPrefix(d.Name(), ".") {
-				return nil
-			}
-			if matcher != nil {
-				if rel, err := rootPaths.RelStrict(path); err == nil && rel.String() != "" {
-					if matcher.IsIgnoredShallow(rel.String(), false) {
-						return nil
-					}
-				}
-			}
-			ext := strings.ToLower(filepath.Ext(d.Name()))
-			if _, ok := extOK[ext]; ok {
-				idx.Add(path)
-			}
-			return nil
-		})
 	}
 }

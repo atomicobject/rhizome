@@ -295,6 +295,7 @@ export function AppShell() {
   });
 
   const status = statusQuery.data ?? null;
+  const summaryQuery = useOntologySummaryQuery(status !== null && !bareNote?.note);
 
   const setStatus = (next: StatusResponse | null) =>
     queryClient.setQueryData(queryKeys.status(), next);
@@ -415,7 +416,11 @@ export function AppShell() {
           </button>
         </div>
       )}
-      <IndexReadyBanner status={status} onStatusChange={setStatus} />
+      <IndexReadyBanner
+        status={status}
+        onStatusChange={setStatus}
+        rebuilding={summaryQuery.data?.rebuilding}
+      />
       <OntologyEditSessionProvider vaultKey={status?.vaultPath || null}>
         <ErrorBoundary resetKey={route} label="Rhizome could not render this view">
           {notesVisited || route === "notes" ? (

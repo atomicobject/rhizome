@@ -50,24 +50,6 @@ func (s *Store) MarkCallEdgesStale(ctx context.Context, paths []string) error {
 	})
 }
 
-// ClearCallEdgesStale clears the call-edge-stale flag for the provided paths.
-func (s *Store) ClearCallEdgesStale(ctx context.Context, paths []string) error {
-	paths = normalizeNonEmptyStrings(normalizeCodePathInputs(paths))
-	if len(paths) == 0 {
-		return nil
-	}
-	ctx = indexingperf.WithOp(ctx, "intel.clear_call_edges_stale")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
-		holders, args := placeholders(paths)
-		_, err := tx.ExecContext(ctx, fmt.Sprintf(`
-			UPDATE files
-			SET call_edges_stale = 0
-			WHERE path IN (%s)
-		`, holders), args...)
-		return err
-	})
-}
-
 // StaleCallEdgePaths returns code paths marked as needing call-edge rebuild.
 func (s *Store) StaleCallEdgePaths(ctx context.Context, limit int) ([]string, error) {
 	query := `SELECT path FROM files WHERE call_edges_stale = 1 ORDER BY path`

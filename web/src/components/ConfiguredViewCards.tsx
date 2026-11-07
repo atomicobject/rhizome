@@ -1,15 +1,17 @@
+import { useCollapsedGroupNotes } from "./ConfiguredViewCollapsedGroups";
 import { ChevronRight } from "lucide-react";
 import { type ComponentProps, Fragment, useEffect, useMemo } from "react";
 
 import type { ViewExecuteResponse, ViewTableRow } from "../api/types";
 import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { ConfiguredViewCard, focusCard } from "./ConfiguredViewCard";
-import { capabilityFor, groupValueLabel } from "./ConfiguredViewModel";
+import { capabilityFor, coveredGroupField, groupValueLabel } from "./ConfiguredViewModel";
 import { RecordBriefBody, RecordBriefHeader } from "./ConfiguredViewBrief";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
 import { groupIdentity } from "./ConfiguredViewSave";
 import { StatusMark } from "./StatusMark";
 import { useRememberedExpansion } from "./useRememberedExpansion";
+import { recordFacts } from "./viewProfile";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { type ReorderGroup, useViewReorder, type ViewReorder } from "./useViewReorder";
 
@@ -51,10 +53,20 @@ export function ConfiguredViewCards(props: Props) {
   const isCollapsed = (group: ViewGroup) =>
     !expansion.isExpanded(group.key, !group.collapsedByDefault);
 
+  useCollapsedGroupNotes(
+    grouped ? groups : [],
+    expansion.choices,
+    props.capabilities,
+    props.onCollapsedGroupsChange,
+    false,
+  );
+
   const collapsedCount = groups.filter(isCollapsed).length;
 
   useEffect(() => {
     props.onCollapsedGroupCountChange(collapsedCount);
+
+    return () => props.onCollapsedGroupCountChange(0);
   }, [collapsedCount, props.onCollapsedGroupCountChange]);
 
   function toggleGroup(group: ViewGroup) {
@@ -85,6 +97,7 @@ export function ConfiguredViewCards(props: Props) {
     profile && (view.generated || !view.variants.card)
       ? (row: ViewTableRow, omitField?: string) => ({
           className: " configured-card--brief",
+          summary: recordFacts(row, profile, props.capabilities).summary,
           header: (
             <RecordBriefHeader
               row={row}
@@ -99,10 +112,11 @@ export function ConfiguredViewCards(props: Props) {
           ),
           body: (
             <RecordBriefBody
+              omitSummary
               row={row}
               profile={profile}
               capabilities={props.capabilities}
-              hiddenFields={[]}
+              hiddenFields={omitField ? [omitField] : []}
               onOpenRow={props.onOpenRow}
             />
           ),
@@ -146,7 +160,12 @@ export function ConfiguredViewCards(props: Props) {
           return (
             <section className="configured-view__card-section" key={group.key}>
               <h3 className="configured-view__card-section-header">
-                <button type="button" aria-expanded={!collapsed} onClick={() => toggleGroup(group)}>
+                <button
+                  type="button"
+                  data-group-key={group.key}
+                  aria-expanded={!collapsed}
+                  onClick={() => toggleGroup(group)}
+                >
                   <ChevronRight
                     size={16}
                     className="configured-view__disclosure-icon"
@@ -235,7 +254,7 @@ function CardGrid({
   briefFor?: (
     row: ViewTableRow,
     omitField?: string,
-  ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body">;
+  ) => Pick<ComponentProps<typeof ConfiguredViewCard>, "className" | "header" | "body" | "summary">;
 }) {
   return (
     <div
@@ -246,15 +265,18 @@ function CardGrid({
         const rowKey = configuredTableRowKey(row);
         const source = reorder.dragSource(row);
         // The section header already names the grouped value.
-        const brief = briefFor?.(row, cardProps.omitField);
+        const omitField = coveredGroupField(row, cardProps.omitField, cardProps.capabilities);
+        const brief = briefFor?.(row, omitField);
 
         return (
           <ConfiguredViewCard
             key={rowKey}
             row={row}
             {...cardProps}
+            omitField={omitField}
             header={brief?.header}
             body={brief?.body}
+            summary={brief?.summary}
             busy={reorder.pendingKeys.has(rowKey)}
             draggable={source.draggable}
             dragging={reorder.dragKey === rowKey}

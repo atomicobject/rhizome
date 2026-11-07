@@ -307,6 +307,18 @@ paths:
                 $ref: "#/components/schemas/GraphResponse"
         "503":
           $ref: "#/components/responses/IndexInitializing"
+  /api/v1/graphs/folders:
+    get:
+      operationId: getPublicFolderGraph
+      responses:
+        "200":
+          description: Compact file-pair graph for the Explorer folder overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolderOverview"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
   /api/v1/graphs/local:
     get:
       operationId: getPublicLocalGraph
@@ -2446,6 +2458,7 @@ components:
           items:
             $ref: "#/components/schemas/TreeEntry"
         truncated: { type: boolean }
+        omitted: { type: integer }
     RelatedNote:
       type: object
       required: [path]
@@ -2589,6 +2602,38 @@ components:
         relationLabel: { type: string }
         provenance: { type: string }
         structural: { type: boolean }
+    FolderOverview:
+      type: object
+      required: [files, links, nestedTypes, truncated]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/FolderLink"
+        nestedTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/NestedTypeCount"
+        truncated: { type: boolean }
+        needsIndex: { type: boolean }
+    FolderLink:
+      type: object
+      required: [source, target, noteCode, other]
+      properties:
+        source: { type: string }
+        target: { type: string }
+        noteCode: { type: integer }
+        other: { type: integer }
+    NestedTypeCount:
+      type: object
+      required: [resolvedType, count]
+      properties:
+        resolvedType: { type: string }
+        count: { type: integer }
     GraphResponse:
       type: object
       required: [nodes, edges]
@@ -2602,6 +2647,12 @@ components:
           items:
             $ref: "#/components/schemas/GraphEdge"
         truncated: { type: boolean }
+        omittedNodeIDs:
+          type: array
+          maxItems: 200
+          items: { type: string }
+        omittedNodes: { type: integer }
+        omittedEdges: { type: integer }
         centerID: { type: string }
         needsIndex: { type: boolean }
         diagnostics:

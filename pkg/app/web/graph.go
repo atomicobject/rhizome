@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"path/filepath"
 
 	"strings"
@@ -24,18 +25,17 @@ const (
 	defaultLocalNodeLimit    = 200
 	defaultGlobalGraphLimit  = 2000
 	defaultModuleExpandLimit = 600
-	moduleCollapseThreshold  = 250
 )
 
-func (s *Server) graphNeedsIndexResponse() GraphResponse {
-	return GraphResponse{
-		Nodes:      []GraphNode{},
-		Edges:      []GraphEdge{},
+func (s *Server) graphNeedsIndexResponse() graphpresentation.GraphResponse {
+	return graphpresentation.GraphResponse{
+		Nodes:      []graphpresentation.GraphNode{},
+		Edges:      []graphpresentation.GraphEdge{},
 		NeedsIndex: true,
 	}
 }
 
-func (s *Server) cachedGraphResponse(ctx context.Context, scope string, global bool, build func(ctx context.Context) (GraphResponse, error)) (GraphResponse, error) {
+func (s *Server) cachedGraphResponse(ctx context.Context, scope string, global bool, build func(ctx context.Context) (graphpresentation.GraphResponse, error)) (graphpresentation.GraphResponse, error) {
 	if s == nil || s.graphCache == nil || s.runtime == nil {
 		return build(ctx)
 	}
@@ -47,7 +47,7 @@ func (s *Server) cachedGraphResponse(ctx context.Context, scope string, global b
 	if err != nil {
 		// A cancelled caller must not fall back to its own unshared build.
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return GraphResponse{}, ctxErr
+			return graphpresentation.GraphResponse{}, ctxErr
 		}
 		return build(ctx)
 	}
@@ -95,10 +95,10 @@ func (s *Server) ensureGraphScoresAsync() {
 	})
 }
 
-// attachGraphTypes populates GraphNode.ResolvedType for note nodes when the
+// attachGraphTypes populates graphpresentation.GraphNode.ResolvedType for note nodes when the
 // vault has an ontology schema. This is a best-effort enrichment — if the
 // schema is missing or the lookup fails, nodes are returned unchanged.
-func (s *Server) attachGraphTypes(ctx context.Context, nodes map[string]GraphNode) {
+func (s *Server) attachGraphTypes(ctx context.Context, nodes map[string]graphpresentation.GraphNode) {
 	if s == nil || s.runtime == nil || len(nodes) == 0 {
 		return
 	}
@@ -130,7 +130,7 @@ func (s *Server) attachGraphTypes(ctx context.Context, nodes map[string]GraphNod
 	}
 }
 
-func (s *Server) attachGraphScores(ctx context.Context, nodes map[string]GraphNode) {
+func (s *Server) attachGraphScores(ctx context.Context, nodes map[string]graphpresentation.GraphNode) {
 	if s == nil || s.runtime == nil || len(nodes) == 0 {
 		return
 	}
@@ -262,10 +262,10 @@ func (s *Server) attachGraphScores(ctx context.Context, nodes map[string]GraphNo
 	}
 }
 
-func (s *Server) buildLocalGraphMode(ctx context.Context, target string, limit, depth int, notesOnly bool, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildLocalGraphMode(ctx context.Context, target string, limit, depth int, notesOnly bool, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	centerKind, centerPath, err := s.resolveLocalGraphPath(target)
 	if err != nil {
-		return GraphResponse{}, err
+		return graphpresentation.GraphResponse{}, err
 	}
 	ref := ontology.NodeRef{NotePath: centerPath, Kind: ontology.NodeKind(centerKind)}
 	return s.buildLocalGraphRefMode(ctx, ref, limit, depth, notesOnly, diagnostics)
@@ -291,7 +291,7 @@ func (s *Server) resolveLocalGraphPath(input string) (string, string, error) {
 	return "", "", fmt.Errorf("path %q is not a configured note or code file", input)
 }
 
-func (s *Server) buildLocalGraphRefMode(ctx context.Context, ref ontology.NodeRef, limit, depth int, notesOnly bool, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildLocalGraphRefMode(ctx context.Context, ref ontology.NodeRef, limit, depth int, notesOnly bool, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	if limit <= 0 {
 		limit = defaultLocalNodeLimit
 	}
@@ -302,12 +302,12 @@ func (s *Server) buildLocalGraphRefMode(ctx context.Context, ref ontology.NodeRe
 		ref.NotePath = s.normalizeUserGraphInput(ref.NotePath)
 	}
 	scope := fmt.Sprintf("local|ref=%s|node=%s|kind=%s|structural=%s|limit=%d|depth=%d|notesOnly=%t|diagnostics=%t", ref.String(), ref.NodeID, ref.Kind, ref.Structural, limit, depth, notesOnly, diagnostics)
-	return s.cachedGraphResponse(ctx, scope, false, func(ctx context.Context) (GraphResponse, error) {
+	return s.cachedGraphResponse(ctx, scope, false, func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		return s.buildLocalGraphRefUncached(ctx, ref, limit, depth, notesOnly, diagnostics)
 	})
 }
 
-func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.NodeRef, limit, depth int, notesOnly bool, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.NodeRef, limit, depth int, notesOnly bool, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	intelStore := s.runtime.Intel()
 	if intelStore == nil {
 		return s.graphNeedsIndexResponse(), nil
@@ -318,7 +318,7 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 		centerKind = "note"
 	}
 	if centerPath == "" {
-		return GraphResponse{}, errors.New("invalid path")
+		return graphpresentation.GraphResponse{}, errors.New("invalid path")
 	}
 	fallbackCenterID := nodeID(centerKind, centerPath)
 	profile := noderead.GraphProfileCodeAware
@@ -327,17 +327,19 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 	}
 	nodes, edgeList, graphDiagnostics, err := s.buildGraphWithNodeRead(ctx, noderead.GraphRequest{
 		Sources:          []ontology.NodeRef{ref},
+		NodeLimit:        -1,
+		EdgeLimit:        -1,
 		Profile:          profile,
 		Limit:            limit,
 		IncludeCodeEdges: !notesOnly,
 		Diagnostics:      diagnostics,
 	}, depth)
 	if err != nil {
-		return GraphResponse{}, err
+		return graphpresentation.GraphResponse{}, err
 	}
 	centerID := localGraphCenterID(nodes, ref, fallbackCenterID)
 	if _, ok := nodes[centerID]; !ok && (!notesOnly || centerKind == "note") {
-		nodes[centerID] = GraphNode{
+		nodes[centerID] = graphpresentation.GraphNode{
 			ID:     centerID,
 			Path:   centerPath,
 			Label:  paths.NoteTitle(centerPath),
@@ -347,14 +349,24 @@ func (s *Server) buildLocalGraphRefUncached(ctx context.Context, ref ontology.No
 		}
 	}
 
-	resp := GraphResponse{CenterID: centerID, Diagnostics: graphDiagnostics}
+	resp := graphpresentation.GraphResponse{CenterID: centerID, Diagnostics: graphDiagnostics}
 	s.attachGraphScores(ctx, nodes)
 	s.attachGraphTypes(ctx, nodes)
-	resp.Nodes, resp.Edges, resp.Truncated = finalizeGraph(nodes, edgeList, limit, notesOnly)
+	resp.Nodes, resp.Edges, resp.OmittedNodes, resp.OmittedEdges = limitLocalGraph(nodes, edgeList, centerID, limit)
+	retained := make(map[string]bool, len(resp.Nodes))
+	for _, node := range resp.Nodes {
+		retained[node.ID] = true
+	}
+	for _, node := range sortedNodes(nodes) {
+		if !retained[node.ID] && len(resp.OmittedNodeIDs) < defaultLocalNodeLimit {
+			resp.OmittedNodeIDs = append(resp.OmittedNodeIDs, node.ID)
+		}
+	}
+	resp.Truncated = resp.OmittedNodes > 0 || resp.OmittedEdges > 0
 	return resp, nil
 }
 
-func localGraphCenterID(nodes map[string]GraphNode, ref ontology.NodeRef, fallback string) string {
+func localGraphCenterID(nodes map[string]graphpresentation.GraphNode, ref ontology.NodeRef, fallback string) string {
 	if ref.Kind != ontology.NodeKindEmbedded {
 		return fallback
 	}
@@ -383,11 +395,7 @@ func localGraphCenterID(nodes map[string]GraphNode, ref ontology.NodeRef, fallba
 	return fallback
 }
 
-func (s *Server) buildGlobalGraph(ctx context.Context, limit, depth int) (GraphResponse, error) {
-	return s.buildGlobalGraphMode(ctx, limit, depth, false, false)
-}
-
-func (s *Server) buildGlobalGraphMode(ctx context.Context, limit, depth int, notesOnly bool, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildGlobalGraphMode(ctx context.Context, limit, depth int, notesOnly bool, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	if limit <= 0 {
 		limit = defaultGlobalGraphLimit
 	}
@@ -395,12 +403,12 @@ func (s *Server) buildGlobalGraphMode(ctx context.Context, limit, depth int, not
 		depth = defaultModuleDepth
 	}
 	scope := fmt.Sprintf("global|limit=%d|depth=%d|notesOnly=%t|diagnostics=%t", limit, depth, notesOnly, diagnostics)
-	return s.cachedGraphResponse(ctx, scope, true, func(ctx context.Context) (GraphResponse, error) {
+	return s.cachedGraphResponse(ctx, scope, true, func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		return s.buildGlobalGraphUncached(ctx, limit, depth, notesOnly, diagnostics)
 	})
 }
 
-func (s *Server) buildGlobalGraphUncached(ctx context.Context, limit, depth int, notesOnly bool, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildGlobalGraphUncached(ctx context.Context, limit, depth int, notesOnly bool, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	intelStore := s.runtime.Intel()
 	if intelStore == nil {
 		return s.graphNeedsIndexResponse(), nil
@@ -418,7 +426,7 @@ func (s *Server) buildGlobalGraphUncached(ctx context.Context, limit, depth int,
 		Diagnostics:      diagnostics,
 	}, depth)
 	if err != nil {
-		return GraphResponse{}, err
+		return graphpresentation.GraphResponse{}, err
 	}
 
 	s.attachGraphScores(ctx, nodes)
@@ -426,28 +434,28 @@ func (s *Server) buildGlobalGraphUncached(ctx context.Context, limit, depth int,
 	nodesOut, edgesOut, truncated := finalizeGraph(nodes, edgeList, limit, notesOnly)
 	// No edge limit needed since we already collapsed to ~2k file pairs
 
-	resp := GraphResponse{Nodes: nodesOut, Edges: edgesOut, Truncated: truncated, Diagnostics: graphDiagnostics}
+	resp := graphpresentation.GraphResponse{Nodes: nodesOut, Edges: edgesOut, Truncated: truncated, Diagnostics: graphDiagnostics}
 	return resp, nil
 }
 
-func (s *Server) buildModuleGraphMode(ctx context.Context, module string, limit int, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildModuleGraphMode(ctx context.Context, module string, limit int, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	if limit <= 0 {
 		limit = defaultModuleExpandLimit
 	}
 	module = strings.TrimPrefix(filepath.ToSlash(module), "/")
 	scope := fmt.Sprintf("expand|module=%s|limit=%d|diagnostics=%t", module, limit, diagnostics)
-	return s.cachedGraphResponse(ctx, scope, false, func(ctx context.Context) (GraphResponse, error) {
+	return s.cachedGraphResponse(ctx, scope, false, func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		return s.buildModuleGraphUncached(ctx, module, limit, diagnostics)
 	})
 }
 
-func (s *Server) buildModuleGraphUncached(ctx context.Context, module string, limit int, diagnostics bool) (GraphResponse, error) {
+func (s *Server) buildModuleGraphUncached(ctx context.Context, module string, limit int, diagnostics bool) (graphpresentation.GraphResponse, error) {
 	intelStore := s.runtime.Intel()
 	if intelStore == nil {
 		return s.graphNeedsIndexResponse(), nil
 	}
 	if module == "" {
-		return GraphResponse{}, errors.New("invalid module")
+		return graphpresentation.GraphResponse{}, errors.New("invalid module")
 	}
 	nodes, edgeList, graphDiagnostics, err := s.buildGraphWithNodeRead(ctx, noderead.GraphRequest{
 		PathPrefixes:     []string{module},
@@ -457,10 +465,10 @@ func (s *Server) buildModuleGraphUncached(ctx context.Context, module string, li
 		Diagnostics:      diagnostics,
 	}, defaultModuleDepth)
 	if err != nil {
-		return GraphResponse{}, err
+		return graphpresentation.GraphResponse{}, err
 	}
 
-	resp := GraphResponse{Diagnostics: graphDiagnostics}
+	resp := graphpresentation.GraphResponse{Diagnostics: graphDiagnostics}
 	s.attachGraphScores(ctx, nodes)
 	s.attachGraphTypes(ctx, nodes)
 	resp.Nodes, resp.Edges, resp.Truncated = collapseGraph(nodes, edgeList, limit)

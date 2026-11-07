@@ -12,6 +12,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -22,14 +23,15 @@ var ErrRefreshSuperseded = errors.New("validation refresh superseded")
 type RefreshRun func(context.Context) (AuthoritativeRun, error)
 
 type RefreshCoordinatorOptions struct {
-	Context      context.Context
-	Store        *semdb.Store
-	VaultDef     obsidian.VaultDefinition
-	NoteMetadata notemeta.Indexer
-	RepairStore  *validate.RepairReviewStore
-	Run          RefreshRun
-	MaxIssues    int
-	ApplyOptions validate.ApplyOptions
+	Context       context.Context
+	Store         *semdb.Store
+	VaultDef      obsidian.VaultDefinition
+	NoteMetadata  notemeta.Indexer
+	RepairStore   *validate.RepairReviewStore
+	Run           RefreshRun
+	MaxIssues     int
+	SkillOverlays func() (skilloverlay.Manifest, error)
+	ApplyOptions  validate.ApplyOptions
 }
 
 type validationAuthority struct {
@@ -71,7 +73,7 @@ func NewRefreshCoordinator(opts RefreshCoordinatorOptions) *RefreshCoordinator {
 	run := opts.Run
 	if run == nil {
 		run = func(ctx context.Context) (AuthoritativeRun, error) {
-			return RunLive(ctx, opts.NoteMetadata, opts.VaultDef, opts.MaxIssues)
+			return RunLive(ctx, opts.NoteMetadata, opts.VaultDef, opts.MaxIssues, opts.SkillOverlays)
 		}
 	}
 	return &RefreshCoordinator{

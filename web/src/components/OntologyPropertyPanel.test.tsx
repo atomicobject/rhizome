@@ -152,7 +152,7 @@ describe("OntologyPropertyPanel", () => {
         changedFieldNames={new Set()}
       />,
     );
-    expect(screen.getByText("Summary")).toBeInTheDocument();
+    expect(screen.getByText("Note summary")).toBeInTheDocument();
     expect(screen.getByText("A short note")).toBeInTheDocument();
   });
 
@@ -425,11 +425,11 @@ describe("OntologyPropertyPanel", () => {
     const first = renderWithQueryClient(panel(false));
     const terms = () => screen.getAllByRole("term").map((term) => term.textContent);
 
-    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+    expect(terms()).toEqual(["Note summary", "Parent", "Flagged"]);
     const toggle = screen.getByRole("button", { name: "Show 2 empty fields" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
-    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
+    expect(terms()).toEqual(["Note summary", "Parent", "Owner", "Blank", "Flagged"]);
     expect(screen.getByRole("button", { name: "Hide 2 empty fields" })).toHaveAttribute(
       "aria-expanded",
       "true",
@@ -437,13 +437,13 @@ describe("OntologyPropertyPanel", () => {
 
     first.unmount();
     const { rerender } = renderWithQueryClient(panel(false));
-    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
+    expect(terms()).toEqual(["Note summary", "Parent", "Owner", "Blank", "Flagged"]);
     fireEvent.click(screen.getByRole("button", { name: "Hide 2 empty fields" }));
-    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+    expect(terms()).toEqual(["Note summary", "Parent", "Flagged"]);
 
     // Editing keeps read mode's geometry: empty fields stay behind the toggle.
     rerender(panel(true));
-    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+    expect(terms()).toEqual(["Note summary", "Parent", "Flagged"]);
     expect(screen.getByRole("button", { name: "Show 2 empty fields" })).toBeVisible();
   });
 
@@ -723,7 +723,7 @@ describe("OntologyPropertyPanel parent preview", () => {
     );
 
     const rows = screen.getAllByRole("term").map((row) => row.textContent);
-    expect(rows).toEqual(["Parent", "Locator", "Status", "Summary"]);
+    expect(rows).toEqual(["Parent", "Locator", "Status", "Note summary"]);
   });
   it("previews and opens the parent's canonical stable ref", async () => {
     http.json("GET", "/api/v1/nodes/preview", preview);

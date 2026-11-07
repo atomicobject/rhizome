@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the noderead/readmodel typed read seam: request-scoped Scope batching, hydration profiles, edit-session read overlays, graph assembly, and consumer caching."
 reference-kind: guide
-last-verified: 2026-10-17
+last-verified: 2026-11-06
 code-paths:
   - pkg/ontology/noderead
   - pkg/ontology/readmodel
@@ -21,6 +21,8 @@ code-anchors:
 `pkg/ontology/noderead` is the request-scoped read facade over indexed ontology rows: a thin `Service` (vault def, note reader, store, schema) mints one `Scope` per request/job, and that scope batches and memoizes everything a caller needs — node hydration, locator resolution, type listings, edge traversal, neighborhoods, relation counts, multi-step expansion, and graph assembly — without re-reading the same catalog/projection data. `pkg/ontology/readmodel` is the storage-neutral DTO + store-interface layer beneath it (`NodeRow`, `FieldValueRow`, `NodeQueryPlan`, `GraphStore`): SQLite returns these rows, noderead merges them into endpoint-aware payloads. Entry points: `Scope.Execute`, `Hydrate`, `Resolve`, `TypeInstances`, `TypeSummaries`, `Neighborhood`, `Expand`, `RelationCounts`, `Graph`/`GraphFacts`, `Walk` (`pkg/ontology/noderead/scope.go`, `execute.go`, `resolve.go`, `type_instances.go`, `graph.go`). Consumers: web UI (`pkg/app/web/node_workspace.go`, `ontology_graph.go`, `edit_session_overlay.go`, `node_projection_cache.go`), MCP tools (`pkg/app/mcp/tool_files.go`, `tool_graph_path.go`, `semantic_query_unified.go`), CLI (`pkg/app/operations/file_context.go`, `context_text.go`, `ontology_summary.go`), search retrieval (`pkg/search/retrieval/ontology.go`, `graph_ppr.go`), configured-view sources (`pkg/app/views/source_ontology.go`), GraphQL query loaders (`pkg/ontology/query/loaders.go`).
 
 ## Design constraints
+
+- **Summaries stream canonical identities.** Current committed type summaries use `SummaryStore` to stream the selected catalog with small metadata and flag joins, retaining distinct canonical refs and only the requested examples. Interface unions count canonical refs once and issue-bearing host paths once; stable sample ordering matches full listings. Staged overlays, custom metadata loaders, and stale flag materializations retain the full semantic path. `SummaryTotals` obtains committed whole-vault scalar counts from one read snapshot. These web inventory reads preserve their existing metadata/materialized-flag admission and do not certify a provider-complete publication; the separate provider-bound `IndexedOntologySummary` retains its complete-proof gate.
 
 - **Authored relative wikilinks resolve from their source.** Resolve `./` and `../` against `FromPath` before canonical reads, allowing an omitted extension. A missing explicit relative target must not fall back to a same-named note in another directory.
 

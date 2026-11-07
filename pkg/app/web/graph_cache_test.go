@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -14,9 +15,9 @@ func TestCachedGraphResponse_ReusesGlobalAndScopedEntries(t *testing.T) {
 	srv := newGraphCacheServer(t)
 
 	globalCalls := 0
-	buildGlobal := func(ctx context.Context) (GraphResponse, error) {
+	buildGlobal := func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		globalCalls++
-		return GraphResponse{Nodes: []GraphNode{{
+		return graphpresentation.GraphResponse{Nodes: []graphpresentation.GraphNode{{
 			ID:      "embedded:story-a",
 			Kind:    "embedded",
 			Label:   "Story A",
@@ -40,9 +41,9 @@ func TestCachedGraphResponse_ReusesGlobalAndScopedEntries(t *testing.T) {
 	require.Equal(t, "story-a", second.Nodes[0].NodeRef.NodeID)
 
 	scopedCalls := 0
-	buildScoped := func(ctx context.Context) (GraphResponse, error) {
+	buildScoped := func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		scopedCalls++
-		return GraphResponse{Nodes: []GraphNode{{ID: "code:src/a.go", Kind: "code", Label: "a.go"}}}, nil
+		return graphpresentation.GraphResponse{Nodes: []graphpresentation.GraphNode{{ID: "code:src/a.go", Kind: "code", Label: "a.go"}}}, nil
 	}
 
 	_, err = srv.cachedGraphResponse(ctx, "local|path=src/a.go|limit=200|depth=1", false, buildScoped)
@@ -59,9 +60,9 @@ func TestCachedGraphResponse_ChangesWhenIgnoreMatcherChanges(t *testing.T) {
 	srv := newGraphCacheServer(t)
 
 	calls := 0
-	build := func(ctx context.Context) (GraphResponse, error) {
+	build := func(ctx context.Context) (graphpresentation.GraphResponse, error) {
 		calls++
-		return GraphResponse{Nodes: []GraphNode{{ID: "note:a", Kind: "note", Label: "a"}}}, nil
+		return graphpresentation.GraphResponse{Nodes: []graphpresentation.GraphNode{{ID: "note:a", Kind: "note", Label: "a"}}}, nil
 	}
 
 	srv.runtime.SetIgnoreMatcher(vaultignore.NewMatcher([]string{"ignored-one/"}))

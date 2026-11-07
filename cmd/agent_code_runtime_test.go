@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -24,6 +25,29 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
+
+type codeModeDeniedTransport struct{}
+
+func (codeModeDeniedTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, syscall.EPERM
+}
+
+func TestCodeModeAccessDenialDoesNotFallBackOrRetry(t *testing.T) {
+	forwarder := &agentOpForwarder{client: &appruntime.Client{
+		Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:12345"},
+		HTTP:     &http.Client{Transport: codeModeDeniedTransport{}},
+	}}
+	for range 2 {
+		outcome, handled := forwarder.call(context.Background(), "files", map[string]any{}, false)
+		require.True(t, handled, "permission failure must not select an in-process writer")
+		require.False(t, outcome.OK)
+		require.Contains(t, outcome.Stderr, `"code":"runtime_access_denied"`)
+		// The message is what an agent quotes to its host's reviewer.
+		require.Contains(t, outcome.Stderr, "local network access")
+		require.Contains(t, outcome.Stderr, "not a user credential")
+		require.Empty(t, forwarder.reason, "denial is not a runtime fallback reason")
+	}
+}
 
 func TestCodeModeLocalOperationStartsWhileRuntimeOwnerWaitsForWriter(t *testing.T) {
 	commandOptions := newRuntimeOptionsForTest(t)
@@ -348,7 +372,7 @@ func TestAgentCodeServesTypedReadsInTheRuntimeUntilTheConnectionWrites(t *testin
 	attachFakeRuntime(t, vault.path, func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, appruntime.AgentOpsPathPrefix+"ontology_query", r.URL.Path)
 		reads.Add(1)
-		if pending.Load() {
+		if pending.Swap(false) {
 			writeOutcome(t, w, codeModeFailure(fmt.Errorf(`{"code":%q}`, actions.CodeModeRuntimeReadPending)), 1)
 			return
 		}
@@ -363,11 +387,11 @@ func TestAgentCodeServesTypedReadsInTheRuntimeUntilTheConnectionWrites(t *testin
 	require.NoError(t, err)
 	require.JSONEq(t, `{"data":{"host":"runtime"}}`, string(outcome.Payload.(json.RawMessage)))
 
-	// A runtime that cannot show its projection is current hands the call back.
+	// A warming runtime retains the read until its projection is current.
 	pending.Store(true)
 	outcome, err = call(ctx, "ontology_query", query)
 	require.NoError(t, err)
-	require.Equal(t, int32(2), reads.Load())
+	require.Equal(t, int32(3), reads.Load())
 	require.False(t, actions.IsCodeModeRuntimeReadPending(outcome.Diagnostic), "the pending signal never reaches the client")
 
 	// After this connection writes, its reads observe the write in-process.
@@ -376,7 +400,7 @@ func TestAgentCodeServesTypedReadsInTheRuntimeUntilTheConnectionWrites(t *testin
 	require.NoError(t, err)
 	_, err = call(ctx, "ontology_query", query)
 	require.NoError(t, err)
-	require.Equal(t, int32(2), reads.Load())
+	require.Equal(t, int32(3), reads.Load())
 }
 
 func TestRuntimeEnforcesTheConnectionsWriteAuthority(t *testing.T) {

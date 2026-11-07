@@ -1,3 +1,4 @@
+@import "./components/ConfiguredViewRefinements.css";
 .configured-view {
   display: flex;
   flex-direction: column;
@@ -1441,7 +1442,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-height: 0;
   overflow: hidden;
   padding: 0 var(--sp-5) 10px;
-  background: var(--bg);
+  background: var(--surface);
 }
 
 .configured-view__board-scroll {
@@ -1468,7 +1469,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   top: 0;
   padding-top: var(--sp-3);
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
 }
 
 .configured-view__board-cells {
@@ -1517,7 +1518,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-width: 0;
   border: 0;
   border-radius: var(--r-md);
-  background: var(--surface-sunk);
+  background: var(--bg-tint);
   transition:
     border-color 180ms var(--ease),
     background-color 180ms var(--ease);
@@ -1529,15 +1530,14 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   background: var(--bg-tint);
 }
 
-/* A column header reads "Active 14 ‹" as one unit, the collapse chevron right
-   after the count, with any staleness on its own muted line below. */
+/* Column details use an explicit action; staleness gets its own line. */
 .configured-view__board-column-header {
   display: grid;
-  grid-template-rows: 20px 18px;
+  grid-template-rows: 24px 18px;
   align-items: center;
   min-width: 0;
   padding: 4px 2px 6px;
-  background: var(--bg);
+  background: var(--surface);
   font-size: var(--fs-sm);
   font-weight: 600;
 }
@@ -1813,6 +1813,12 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   padding: 0 22px 10px;
 }
 
+/* Ungrouped cards start one card gap below the view tabs' divider, not on it.
+   Grouped cards already start with their section header's own top padding. */
+.configured-view__cards > .configured-view__card-grid {
+  margin-top: var(--sp-3);
+}
+
 .configured-view__card-section-header {
   margin: 0 0 12px;
   border-bottom: 1px solid var(--border);
@@ -1850,7 +1856,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: var(--sp-3);
 }
 
@@ -1909,8 +1915,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   min-height: 0;
 }
 
-.configured-card__eyebrow,
-.configured-card__staged {
+.configured-card__eyebrow {
   overflow: hidden;
   color: var(--text-faint);
   font: 500 var(--fs-xs) var(--font-sans);
@@ -1920,8 +1925,6 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-card__staged {
   margin-left: auto;
-  color: var(--warning-ink);
-  font-size: var(--fs-xs);
 }
 
 .configured-card__title {
@@ -2692,7 +2695,7 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 }
 
 /* A category value is a label, not a lifecycle state, so it carries no status mark. */
-.configured-view__table .is-category .status-mark__shape {
+.configured-view__table .is-category .status-mark > svg {
   display: none;
 }
 
@@ -2944,11 +2947,11 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
   white-space: nowrap;
 }
 
-/* An empty field says "Not set"; its edit affordance waits for hover or focus. */
+/* Empty values match the table; editors still appear on hover or focus. */
 .view-record__fields .configured-view__relation-display:empty::before,
 .view-record__fields dd:empty::before {
   color: var(--text-faint);
-  content: "Not set";
+  content: "—";
 }
 
 .view-record__reverse {

@@ -11,6 +11,8 @@ export type GraphEdge = components["schemas"]["GraphEdge"];
 
 export type GraphResponse = components["schemas"]["GraphResponse"];
 
+export type FolderOverview = components["schemas"]["FolderOverview"];
+
 export type FileView = components["schemas"]["FileView"];
 
 export type RenderedFile = components["schemas"]["RenderedFile"];
@@ -124,46 +126,18 @@ export type EnumValueDoc = components["schemas"]["EnumValueDoc"];
 
 export type OntologyNoteListItem = components["schemas"]["OntologyNoteListItem"];
 
-export type OntologyInspectResponse = components["schemas"]["OntologyInspectResponse"];
-
-export type OntologyQuerySchemaResponse = components["schemas"]["OntologyQuerySchemaResponse"];
-
-export type OntologyQueryRequest = components["schemas"]["OntologyQueryRequest"];
-
-export type OntologyQueryReadRequest = OntologyQueryRequest;
-
-export type OntologyQueryResult = components["schemas"]["OntologyQueryResult"];
+export type OntologyQueryReadRequest = components["schemas"]["OntologyQueryRequest"];
 
 type OntologyEditSessionStatus = "clean" | "dirty" | "stale" | "rebased" | "conflicted";
 
-export type OntologyEditOp = {
-  id?: string;
-  kind: string;
-  path: string;
-  nodeId?: string;
-  structuralFingerprint?: string;
-  field?: string;
-  collection?: string;
-  value?: string;
-  values?: string[];
+export type OntologyEditOp = Omit<
+  components["schemas"]["OntologyEditOp"],
+  "fieldValue" | "expected"
+> & {
   fieldValue?: OntologyEditFieldValue;
-  expected?: {
+  expected?: Omit<components["schemas"]["OntologyEditExpected"], "field"> & {
     field?: OntologyEditFieldValue;
-    sourceHash?: string;
-    sourceContent?: string;
   };
-  markdown?: string;
-  previousMarkdown?: string;
-  rangeStart?: number;
-  rangeEnd?: number;
-  heading?: string;
-  body?: string;
-  blockId?: string;
-  orderedFragments?: string[];
-  oldTarget?: string;
-  newTarget?: string;
-  property?: string;
-  level?: string;
 };
 
 export type OntologyEditFieldValue =
@@ -204,13 +178,11 @@ type OntologyCommitPlan = {
   files: OntologyCommitFilePlan[];
 };
 
-export type OntologyEditSessionSnapshot = {
-  version?: number;
-  revision?: number;
-  sessionId?: string;
+export type OntologyEditSessionSnapshot = Omit<
+  components["schemas"]["OntologyEditSessionSnapshot"],
+  "ops"
+> & {
   ops?: OntologyEditOp[];
-  baseFingerprints?: Record<string, string>;
-  baseDocuments?: Array<{ notePath: string; fingerprint: string; content: string }>;
 };
 
 export type OntologyEditSessionResponse = {

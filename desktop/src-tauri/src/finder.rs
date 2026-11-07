@@ -110,6 +110,11 @@ fn ensure_view(window: &Window) -> Result<Webview, String> {
         let _ = view.close();
         return Err(error.to_string());
     }
+    #[cfg(target_os = "linux")]
+    if let Err(error) = crate::linux_webviews::mount_overlay(&view) {
+        let _ = view.close();
+        return Err(error.to_string());
+    }
     Ok(view)
 }
 

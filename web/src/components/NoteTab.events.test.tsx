@@ -12,7 +12,7 @@ import type { NodeEvent } from "../api/types";
 import { deferredReply, graphQLRequestBody, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { NoteTab } from "./NoteTab";
-import { splitNoteTarget } from "./notesRoute";
+import { splitNoteTarget } from "../lib/noteTarget";
 import { viewSegment } from "../test/workspaceView";
 
 type Reply = PublicGraphQLResult<PublicNodeDetailData>;
@@ -94,13 +94,22 @@ const noop = () => {};
 
 const stage = async () => {};
 
-function ControlledTab({ path }: { path: string }) {
+function ControlledTab({
+  path,
+  active = true,
+  bodyResident = true,
+}: {
+  path: string;
+  active?: boolean;
+  bodyResident?: boolean;
+}) {
   const [anchor, setAnchor] = useState<string | null>(null);
 
   return (
     <NoteTab
-      tab={{ id: `note:${path}`, kind: "note", path, dirty: false }}
-      active={true}
+      tab={{ id: `note:${path}`, kind: "note", path, dirty: false, fragment: anchor }}
+      active={active}
+      bodyResident={bodyResident}
       anchor={anchor}
       editSession={null}
       editing={false}
@@ -115,6 +124,45 @@ function ControlledTab({ path }: { path: string }) {
 describe("note tab event isolation", () => {
   const http = withFakeFetch();
   const sources = withFakeEventSource();
+
+  it("refreshes a suspended body and restores the current data without a reactivation query", async () => {
+    const refresh = deferredReply<Reply>();
+    let sectionReads = 0;
+    http.onGraphQL("PublicNodeDetail", (request) => {
+      const ref = graphQLRequestBody(request).variables?.ref;
+
+      if (ref === "notes/a.md#details") {
+        sectionReads += 1;
+
+        return sectionReads === 1 ? jsonReply(nodeReply("notes/a.md", true)) : refresh.promise;
+      }
+
+      return jsonReply(nodeReply("notes/a.md"));
+    });
+    const view = render(<ControlledTab path="notes/a.md" />);
+    fireEvent.click(await screen.findByRole("link", { name: "Drill into details" }));
+    await screen.findByText("Original section body");
+    view.rerender(<ControlledTab path="notes/a.md" active={false} bodyResident={false} />);
+    expect(screen.queryByText("Original section body")).not.toBeInTheDocument();
+
+    act(() =>
+      sources.latest().emitJSON({
+        id: "suspended-details-change",
+        kind: "node.stale",
+        ref: { kind: "SECTION", notePath: "notes/a.md", fragment: "details" },
+      } satisfies NodeEvent),
+    );
+    await waitFor(() => expect(sectionReads).toBe(2));
+    await act(async () => refresh.resolve(nodeReply("notes/a.md", true, true)));
+    expect(screen.queryByText("Updated section body")).not.toBeInTheDocument();
+
+    view.rerender(<ControlledTab path="notes/a.md" />);
+    await screen.findByText("Updated section body");
+    expect(screen.getByRole("navigation", { name: "Node path" })).toHaveTextContent(
+      "Alpha›Details",
+    );
+    expect(sectionReads).toBe(2);
+  });
 
   it("refreshes only the stale node while retaining its tab mode, drill and scroll", async () => {
     const refresh = deferredReply<Reply>();

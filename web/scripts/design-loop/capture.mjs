@@ -1,3 +1,4 @@
+import { EXPLORER_SURFACES } from "./explorer-surfaces.mjs";
 // Captures the design-loop screenshot set. Run from web/; see README.md.
 //   node scripts/design-loop/capture.mjs --vault <dir> --out <dir> [--rzm <bin>] [--port 7841]
 //   node scripts/design-loop/capture.mjs --base http://127.0.0.1:7841 --out <dir>   (an already-running server)
@@ -137,6 +138,7 @@ export const SURFACES = [
     url: `/notes?note=${encodeURIComponent(spec)}`,
     act: async (p) => {
       await p.getByRole("button", { name: "Edit", exact: true }).first().click();
+      await p.mouse.move(5, 5);
     },
   },
   {
@@ -155,7 +157,7 @@ export const SURFACES = [
   },
   { id: "ontology", title: "Ontology · Atlas", url: "/ontology" },
   { id: "ontology-type", title: "Ontology · type detail (Effort)", url: "/ontology/type/Effort" },
-  { id: "explorer", title: "Explorer (graph)", url: "/explorer" },
+  ...EXPLORER_SURFACES,
   { id: "agent", title: "Agent workspace", url: "/agent" },
   { id: "tasks", title: "Tasks", url: "/tasks" },
   { id: "graphql", title: "GraphQL explorer", url: "/graphql" },

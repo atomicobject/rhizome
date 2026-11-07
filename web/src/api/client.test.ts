@@ -9,14 +9,11 @@ import {
   getNodeWorkspace,
   getNodeWorkspaceGraph,
   getOntologyAtlas,
-  getOntologyInspect,
-  getOntologyQuerySchema,
   getOntologySummary,
   getOntologyType,
   getPublicNodeDetail,
   getPublicValidate,
   getPublicView,
-  getRenderedFile,
   getStatus,
   getSuggestions,
   getTree,
@@ -24,7 +21,6 @@ import {
   listPublicViews,
   previewOntologyEditSession,
   publicOntologyListItemRef,
-  queryOntology,
   queryPublicGraphQLOperation,
   savePublicView,
   searchNotes,
@@ -623,7 +619,7 @@ describe("api client", () => {
     },
   );
 
-  it("routes compatibility-named generic helpers to public v1 endpoints", async () => {
+  it("routes generic helpers to public endpoints", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       headers: new Headers({ "content-type": "application/json" }),
@@ -632,71 +628,33 @@ describe("api client", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await queryOntology({ query: 'query { notes(type: "Spec") { path } }' });
     await getStatus();
     await getPublicValidate();
     await getTree("docs", 25);
-    await getRenderedFile("docs/spec.md");
     await getSuggestions("spe", 7);
     await searchPaths("spec", 9);
     await searchNotes("spec", { type: "Spec", limit: 11 });
     await getOntologySummary();
     await getOntologyType("Spec");
     await getOntologyAtlas();
-    await getOntologyInspect("docs/spec.md");
-    await getOntologyQuerySchema();
     await getGlobalGraph({ notesOnly: true });
     await getLocalGraph("docs/spec.md", 25, { diagnostics: true });
     await getExpandedModuleGraph("src/app", 33);
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "/api/v1/graphql",
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/status", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/v2/validate", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
-      "/api/v1/files/tree?path=docs&limit=25",
-      undefined,
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
-      "/api/v1/files/rendered?path=docs%2Fspec.md",
-      undefined,
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/v1/suggest?q=spe&limit=7", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(7, "/api/v1/search?q=spec&limit=9", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      8,
-      "/api/v1/search/notes?q=spec&limit=11&offset=0&type=Spec",
-      undefined,
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(9, "/api/v1/ontology/summary", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(10, "/api/v1/ontology/types/Spec", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(11, "/api/v1/ontology/atlas", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      12,
-      "/api/v1/ontology/inspect?path=docs%2Fspec.md",
-      undefined,
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(13, "/api/v1/ontology/query-schema", undefined);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      14,
-      "/api/v1/graphs/global?notesOnly=true",
-      undefined,
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      15,
-      "/api/v1/graphs/local?limit=25&path=docs%2Fspec.md&diagnostics=true",
-      undefined,
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      16,
-      "/api/v1/graphs/expand?module=src%2Fapp&limit=33",
-      undefined,
-    );
+    expect(fetchMock.mock.calls).toEqual([
+      ["/api/v1/status", undefined],
+      ["/api/v2/validate", undefined],
+      ["/api/v1/files/tree?limit=25&path=docs", undefined],
+      ["/api/v1/suggest?q=spe&limit=7", undefined],
+      ["/api/v1/search?q=spec&limit=9", undefined],
+      ["/api/v1/search/notes?q=spec&limit=11&offset=0&type=Spec", undefined],
+      ["/api/v1/ontology/summary", undefined],
+      ["/api/v1/ontology/types/Spec", undefined],
+      ["/api/v1/ontology/atlas", undefined],
+      ["/api/v1/graphs/global?notesOnly=true", undefined],
+      ["/api/v1/graphs/local?limit=25&path=docs%2Fspec.md&diagnostics=true", undefined],
+      ["/api/v1/graphs/expand?module=src%2Fapp&limit=33", undefined],
+    ]);
   });
 
   it("routes configured view helpers through public v1 endpoints", async () => {

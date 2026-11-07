@@ -8,35 +8,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 )
 
-func NormalizeExplicitSeedPaths(vaultPath string, rawTokens, normalizedTokens []string) []string {
-	seen := map[string]struct{}{}
-	out := make([]string, 0, len(rawTokens)+len(normalizedTokens))
-	add := func(path string) {
-		path = NormalizeLocalityPath(path)
-		if path == "" {
-			return
-		}
-		if _, ok := seen[path]; ok {
-			return
-		}
-		seen[path] = struct{}{}
-		out = append(out, path)
-	}
-
-	vaultPaths, _ := paths.NewVaultPaths(vaultPath)
-	for _, raw := range normalizeExplicitSeedTokens(rawTokens) {
-		if path, ok := explicitSeedPath(vaultPaths, raw); ok {
-			add(path)
-		}
-	}
-	for _, raw := range normalizeExplicitSeedTokens(normalizedTokens) {
-		if path, ok := explicitSeedPath(vaultPaths, raw); ok {
-			add(path)
-		}
-	}
-	return out
-}
-
 func explicitSeedPathFromVault(vaultPath, raw string) (string, bool) {
 	vaultPaths, _ := paths.NewVaultPaths(vaultPath)
 	return explicitSeedPath(vaultPaths, raw)
@@ -198,26 +169,6 @@ func sharedLeadingSegments(a, b string) int {
 		count++
 	}
 	return count
-}
-
-func normalizeExplicitSeedTokens(tokens []string) []string {
-	if len(tokens) == 0 {
-		return nil
-	}
-	seen := make(map[string]struct{}, len(tokens))
-	out := make([]string, 0, len(tokens))
-	for _, t := range tokens {
-		t = strings.TrimSpace(t)
-		if t == "" {
-			continue
-		}
-		if _, ok := seen[t]; ok {
-			continue
-		}
-		seen[t] = struct{}{}
-		out = append(out, t)
-	}
-	return out
 }
 
 func resolveRelAuthoredSeed(vaultPaths paths.VaultPaths, raw string) (paths.NotePath, error) {

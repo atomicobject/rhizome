@@ -2,9 +2,8 @@ package serve
 
 import (
 	"context"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"time"
-
-	"github.com/atomicobject/rhizome/pkg/app/web"
 )
 
 const validationRefreshDebounce = 75 * time.Millisecond
@@ -117,6 +116,6 @@ func (c *ReadinessCoordinator) finishValidationRefreshRequests(stopped bool) {
 	live := c.live
 	c.mu.Unlock()
 	if changed && live != nil {
-		live.PublishGlobalEvent(web.GlobalEventValidateChanged, nil)
+		live.PublishGlobalEvent(appruntime.GlobalEventValidateChanged, nil)
 	}
 }

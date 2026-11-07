@@ -27,7 +27,7 @@ func (commandOptions *codeInvocationOptions) makeCodeRelatednessCmd() *cobra.Com
 				if strings.TrimSpace(a) == "" {
 					continue
 				}
-				absRoot, err := resolveCodeRoot(vaultPath, a)
+				absRoot, err := codeintel.ResolveRoot(vaultPath, a)
 				if err != nil {
 					return err
 				}

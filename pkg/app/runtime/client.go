@@ -46,6 +46,7 @@ func (c *Client) NewRequest(ctx context.Context, method, path string, body any) 
 // Discovery never follows redirects: a manifest grants authority only to its
 // recorded listener, not another address supplied by an HTTP response.
 var probeHTTPClient = &http.Client{
+	Transport:     loopbackTransport{},
 	CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 }
 
@@ -68,6 +69,9 @@ func Probe(ctx context.Context, manifest InstanceManifest) (Health, error) {
 	}
 	resp, err := probeHTTPClient.Do(req)
 	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return Health{}, fmt.Errorf("%w: %s: %w", ErrRuntimeAccessDenied, LocalConnectionAccess, err)
+		}
 		if ctx.Err() != nil {
 			return Health{}, fmt.Errorf("%w: %v", ErrRuntimeUnresponsive, err)
 		}
@@ -99,18 +103,24 @@ func LiveManifest(ctx context.Context, vaultPath string) (*Client, Health, error
 		if os.IsNotExist(err) {
 			return nil, Health{}, ErrNoRuntime
 		}
+		if errors.Is(err, os.ErrPermission) {
+			return nil, Health{}, fmt.Errorf("%w: reading the runtime manifest requires filesystem permission: %w", ErrRuntimeAccessDenied, err)
+		}
 		// A torn or corrupt manifest is not a runtime; the next owner
 		// overwrites it, so callers may replace rather than wait forever.
 		return nil, Health{}, fmt.Errorf("%w: %v", ErrNoRuntime, err)
 	}
 	health, err := Probe(ctx, manifest)
 	if err != nil {
+		if errors.Is(err, ErrRuntimeAccessDenied) {
+			return nil, Health{}, err
+		}
 		if errors.Is(err, ErrRuntimeUnresponsive) && pidExists(manifest.PID) {
 			return nil, Health{}, fmt.Errorf("%w (pid %d)", ErrRuntimeUnresponsive, manifest.PID)
 		}
 		return nil, Health{}, ErrNoRuntime
 	}
-	return &Client{Manifest: manifest, HTTP: &http.Client{Timeout: 0}}, health, nil
+	return &Client{Manifest: manifest, HTTP: &http.Client{Transport: loopbackTransport{}}}, health, nil
 }
 
 // EnsureOptions controls how a client finds or starts a runtime.

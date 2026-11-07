@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { TypeProfile, ViewExecuteRequest, ViewFieldCapability } from "../api/types";
@@ -172,18 +171,15 @@ type HeaderItem = {
   count: number;
   strip: boolean;
   stale: number;
-  compact: boolean;
 };
 
-/** Column headings and their card density controls; empty values use narrow tracks. */
+/** Column headings; empty values use narrow tracks. */
 export function BoardColumnHeaders({
   items,
   capability,
-  onToggle,
 }: {
   items: HeaderItem[];
   capability: ViewFieldCapability | undefined;
-  onToggle: (key: string) => void;
 }) {
   return items.map((item) => {
     const { column, label, count } = item;
@@ -207,25 +203,17 @@ export function BoardColumnHeaders({
         <span className="configured-view__board-column-title">
           {mark}
           <span className="configured-view__board-count">{count}</span>
-          <button
-            type="button"
-            className="configured-view__disclosure"
-            aria-label={item.compact ? "Full cards" : "Compact cards"}
-            aria-expanded={!item.compact}
-            title={item.compact ? "Full cards" : "Compact cards"}
-            onClick={() => onToggle(column.key)}
-          >
-            <ChevronRight size={16} className="configured-view__disclosure-icon" aria-hidden />
-          </button>
         </span>
-        {item.stale > 0 && (
-          <span
-            className="configured-view__board-stale"
-            title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
-          >
-            {item.stale} unchanged {STALE_DAYS}+ days
-          </span>
-        )}
+        <div className="configured-view__board-column-details">
+          {item.stale > 0 && (
+            <span
+              className="configured-view__board-stale"
+              title={`${item.stale} active ${item.stale === 1 ? "record" : "records"} unchanged for ${STALE_DAYS}+ days`}
+            >
+              {item.stale} unchanged {STALE_DAYS}+ days
+            </span>
+          )}
+        </div>
       </header>
     );
   });

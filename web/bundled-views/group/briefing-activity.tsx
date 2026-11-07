@@ -6,6 +6,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 
 import { recentChanges, type Boundary, type ChangeMoment, type MotionEntry } from "./activity.ts";
 import { Block, MoreToggle, counted, lower, memberOf, plural } from "./briefing-parts.tsx";
+import { commonMotionMetadata } from "./briefing-motion.tsx";
 import { RecordMark, openRecord } from "./components.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import {
@@ -34,6 +35,8 @@ export function MotionList({
   const expanded = useRememberedOpen("briefing.expanded");
   const open = expanded.isOpen("in-motion", false);
   const shown = open ? entries : entries.slice(0, 8);
+  const metadata = useMotionMetadata(model, entries);
+  const lines = shown.map(({ record }) => recordLine(model, record));
 
   const mixed =
     new Set(
@@ -47,13 +50,23 @@ export function MotionList({
   return (
     <>
       <ul className="gv-list gv-changes">
-        {shown.map(({ record }) => {
+        {shown.map(({ record }, index) => {
           const member = memberOf(model, record.member);
 
           return (
             <ChangeRow
               key={record.key}
               line={recordLine(model, record)}
+              compact={
+                !!metadata &&
+                lines[index].type.toLowerCase() === metadata.type.toLowerCase() &&
+                lines[index].folder === metadata.folder
+              }
+              repeatAge={
+                index > 0 &&
+                lines[index - 1].time !== null &&
+                ageKey(lines[index - 1].time) === ageKey(record.updatedAt)
+              }
               mark={mixed && member ? <RecordMark member={member} record={record} /> : undefined}
             />
           );
@@ -104,38 +117,46 @@ export function StageHints({
 
   const stageless = [...byEnum.values()].flat();
 
-  // Setup notes are for whoever maintains the schema: a labelled disclosure
-  // beside the block heading, so readers see the work, not the configuration.
+  // Match the section heading's info mark while keeping the native disclosure.
   return (
-    <details className="gv-hint">
-      <summary>
-        Configuration
-        <DisclosureIcon open={false} />
-      </summary>
-      <div className="gv-hint-panel">
-        <p className="gv-hint-lead">
-          {[
-            stageless.length > 0 && `${stageless.join(", ")} have no active stage configured.`,
-            unstatused.length > 0 && `${unstatused.join(", ")} have no lifecycle.`,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        </p>
-        {byEnum.size > 0 && (
-          <p>
-            To list them here, mark a value of{" "}
-            {[...byEnum.keys()].map((name, index) => (
-              <Fragment key={name}>
-                {index > 0 && " or "}
-                <code>{name}</code>
-              </Fragment>
-            ))}{" "}
-            with <code>@view(stage: active)</code> in the schema.
+    <span className="gv-stage-note">
+      <details className="gv-hint">
+        <summary className="rz-info" aria-label="Why some types are not listed">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+            <path
+              d="M8 7.2v3.8M8 5.1v.1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </summary>
+        <div className="gv-hint-panel">
+          <p className="gv-hint-lead">
+            {[
+              stageless.length > 0 && `${stageless.join(", ")} have no active stage configured.`,
+              unstatused.length > 0 && `${unstatused.join(", ")} have no lifecycle.`,
+            ]
+              .filter(Boolean)
+              .join(" ")}
           </p>
-        )}
-        {unstatused.length > 0 && <p>Records without a lifecycle field cannot be in motion.</p>}
-      </div>
-    </details>
+          {byEnum.size > 0 && (
+            <p>
+              To list them here, mark a value of{" "}
+              {[...byEnum.keys()].map((name, index) => (
+                <Fragment key={name}>
+                  {index > 0 && " or "}
+                  <code>{name}</code>
+                </Fragment>
+              ))}{" "}
+              with <code>@view(stage: active)</code> in the schema.
+            </p>
+          )}
+          {unstatused.length > 0 && <p>Records without a lifecycle field cannot be in motion.</p>}
+        </div>
+      </details>
+    </span>
   );
 }
 
@@ -160,13 +181,17 @@ export function ChangeRow({
   line,
   children,
   mark,
+  compact = false,
+  repeatAge = false,
 }: {
   line: ChangeLine;
   children?: ReactNode;
   mark?: ReactNode;
+  compact?: boolean;
+  repeatAge?: boolean;
 }) {
   return (
-    <li className="gv-change">
+    <li className={`gv-change${compact ? " gv-change-compact" : ""}`}>
       <span className="gv-change-main">
         <span className="gv-change-heading">
           {mark}
@@ -179,22 +204,44 @@ export function ChangeRow({
             {line.title}
           </button>
         </span>
-        <span className="gv-change-meta">
-          {line.type}
-          {line.folder && (
-            <>
-              {" · "}
-              <span className="gv-path" title={`${line.folder}/`}>
-                {line.folder}/
-              </span>
-            </>
-          )}
-        </span>
+        {!compact && (
+          <span className="gv-change-meta">
+            {line.type}
+            {line.folder && (
+              <>
+                {" · "}
+                <span className="gv-path" title={`${line.folder}/`}>
+                  {line.folder}/
+                </span>
+              </>
+            )}
+          </span>
+        )}
         {children}
       </span>
-      {line.time !== null && <RelativeTime value={line.time} className="gv-change-age" />}
+      {line.time !== null && (
+        <RelativeTime
+          value={line.time}
+          className={`gv-change-age${repeatAge ? " gv-age-repeat" : ""}`}
+        />
+      )}
     </li>
   );
+}
+
+export function ageKey(time: number | null) {
+  if (time === null) return null;
+  const age = Math.max(0, Date.now() - time);
+
+  if (age < 60_000) return "now";
+
+  if (age < 3_600_000) return `${Math.round(age / 60_000)}m`;
+
+  if (age < 86_400_000) return `${Math.floor(age / 3_600_000)}h`;
+
+  if (age < 60 * 86_400_000) return `${Math.round(age / 86_400_000)}d`;
+
+  return new Date(time).toDateString();
 }
 
 const folderOf = (path: string) => path.split("/").slice(0, -1).join("/");
@@ -208,6 +255,13 @@ function recordLine(model: GroupModel, record: GroupRecord): ChangeLine {
     time: record.updatedAt,
     onOpen: () => openRecord(record),
   };
+}
+
+export function useMotionMetadata(model: GroupModel, entries: readonly MotionEntry[]) {
+  const expanded = useRememberedOpen("briefing.expanded");
+  const shown = expanded.isOpen("in-motion", false) ? entries : entries.slice(0, 8);
+
+  return commonMotionMetadata(shown.map(({ record }) => recordLine(model, record)));
 }
 
 /** A record's type label: its concrete type's, else its member's. */
@@ -273,12 +327,16 @@ export function RecentChanges({ model, info }: { model: GroupModel; info?: strin
     <Block title="Recent changes" info={info ? { text: info, display: "title" } : undefined}>
       {moments.length === 0 && <p className="gv-quiet">No change times recorded.</p>}
       <ul className="gv-list gv-changes">
-        {moments.map((moment) =>
+        {moments.map((moment, index) =>
           moment.burst ? (
             <Burst key={moment.time} model={model} moment={moment} />
           ) : (
             moment.records.map((record) => (
-              <ChangeRow key={record.key} line={recordLine(model, record)} />
+              <ChangeRow
+                key={record.key}
+                line={recordLine(model, record)}
+                repeatAge={index > 0 && ageKey(moments[index - 1].time) === ageKey(moment.time)}
+              />
             ))
           ),
         )}
@@ -343,10 +401,15 @@ export function OutsideNotes({
       }}
     >
       {outside.byType.length > 0 && (
-        <p className="gv-outsum">
+        <p className={`gv-outsum${title === "Linked from outside" ? " gv-outside-totals" : ""}`}>
           {outside.byType.map((entry) => (
             <span key={entry.type ?? ""}>
-              <b>{entry.count}</b> {outsideLabel(model, entry.type, entry.count)}
+              <b className="gv-num">{entry.count}</b>{" "}
+              <span>
+                {title === "Linked from outside"
+                  ? sentence(outsideLabel(model, entry.type, 1))
+                  : outsideLabel(model, entry.type, entry.count)}
+              </span>
             </span>
           ))}
         </p>

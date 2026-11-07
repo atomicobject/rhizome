@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0117
 summary: "One Overview view shows the shape of All notes and of every display group: a type-level link map, a member table, and scope-only blocks. Briefing shows activity at every level, All notes gains one, and every block loads on its own so switching scopes never freezes the workspace."
 spec-status: active
-last-updated: 2026-11-04
+last-updated: 2026-11-06
 last-verified: 2026-11-04 # Round 7
 aliases:
   - SPEC-0117
@@ -161,7 +161,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 - MUST remember the map/matrix toggle per scope and the expanded groups at All notes through the kit's view preferences ([[view-preferences|SPEC-0114]]).
 - MUST add a kit host action, `openSearch({ folder })`, that opens a project search tab with the existing folder filter, for US4's folder action. The rail's note-list filter stays private to the rail.
 - MUST give map nodes keyboard focus in descending record-count order, activation with Enter or Space, and accessible names, and keep the Matrix a complete text alternative.
-- MUST use the kit's theme tokens and stay dense: hairline dividers, Inter numbers with tabular figures, no cards inside cards. Descriptive section help belongs in the heading's title and accessible description; only computed judgements such as "Review suggested" keep an info icon. Briefing and Overview share their centred column with the header and presentation tabs (about 1320px and 1520px respectively). Overview places Members below the compact map (capped at 280px), uses solid relation links and dashed plain links, and legends only the link kinds drawn. Unused declared relations retain their separate dashed hairline treatment. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
+- MUST use the kit's theme tokens and stay dense: hairline dividers, Inter numbers with tabular figures, no cards inside cards. Descriptive section help belongs in the heading's title and accessible description; only computed judgements such as "Review suggested" keep an info icon. Briefing and Overview share their centred column with the header and presentation tabs (about 1320px and 1520px respectively). Overview places Members across the full width below the compact map (260px tall, growing by at most 120px when a crowded map needs room for labels), uses solid relation links and dashed plain links, and legends only the link kinds drawn. Unused declared relations retain their separate dashed hairline treatment. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
 - SHOULD reuse the Briefing building blocks, including the existing "Outside the group" list and the views-and-guide block, instead of duplicating them.
 - SHOULD keep Overview's modules under about 500 lines each, like the other group views.
 

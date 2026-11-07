@@ -15,7 +15,7 @@ Contract per note: `## Scope` (entry points), `## Design constraints` (hard inva
 
 | Note | Code paths | Skill |
 | --- | --- | --- |
-| [web](web.md) | `pkg/app/web` | Load the owning note directly, plus the changed domain's skill. |
+| [web](web.md) | `pkg/app/web`, `pkg/app/graphpresentation` | Load the owning note directly, plus the changed domain's skill. |
 | [views](views.md) | `pkg/app/views`, `pkg/ontology/viewconfig` | `graphql-query-subsystem`, plus the owning note. |
 | [indexing](indexing.md) | `pkg/app/indexing`, `pkg/app/indexcore`, `pkg/app/indexwriter`, `pkg/embedindex`, `pkg/graph/index`, `pkg/app/codeintel/candidate_workers.go`, `pkg/app/codeintel/candidate_types.go`, `pkg/vault/indexlock`, `pkg/indexingperf`, `pkg/vault/watchhub` | `indexing-subsystem` |
 | [search](search.md) | `pkg/search`, `pkg/embeddings`, `pkg/app/unifiedsearch` | `search-subsystem` |

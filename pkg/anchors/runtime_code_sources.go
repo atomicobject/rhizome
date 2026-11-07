@@ -49,8 +49,6 @@ func (s *Service) NoteRuntimeCodeIndexWorks(works []CodeIndexWork) {
 		next.RefFootprint.Path = path
 		next.ScopeReady.Path = path
 		s.runtimeCodeSources[path] = next
-		s.runtimeCodeSeq++
-		s.runtimeCodeVersions[path] = s.runtimeCodeSeq
 		s.addRuntimeCallFiles(next)
 	}
 }
@@ -72,28 +70,6 @@ func (s *Service) runtimeCodeSourcesByPath(paths []string) map[string]runtimeCod
 			continue
 		}
 		out[path] = cloneRuntimeCodeIndexSource(src)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func (s *Service) RuntimeCodeSourceVersions(paths []string) map[string]uint64 {
-	if s == nil || len(paths) == 0 {
-		return nil
-	}
-	s.runtimeCodeMu.RLock()
-	defer s.runtimeCodeMu.RUnlock()
-	out := make(map[string]uint64, len(paths))
-	for _, path := range paths {
-		path = normalizeRuntimeCodePath(path)
-		if path == "" {
-			continue
-		}
-		if version := s.runtimeCodeVersions[path]; version > 0 {
-			out[path] = version
-		}
 	}
 	if len(out) == 0 {
 		return nil

@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
 
 	"strings"
@@ -124,7 +125,7 @@ func sourceSpanDetailLineIsInlineField(line string) bool {
 	if trimmed == "" {
 		return false
 	}
-	if itemStart, ok := unorderedListItemContentStart(trimmed); ok {
+	if itemStart, ok := markdownsyntax.UnorderedListItemContentStart(trimmed); ok {
 		item := strings.TrimSpace(trimmed[itemStart:])
 		_, ok := bulletMetadataFieldOccurrence(item)
 		return ok

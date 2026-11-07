@@ -1,0 +1,373 @@
+/* Search workspace: moved verbatim from notes-shell.css. */
+
+/* ---- Search ----
+   One centred column shared by the header, the banner, the status line, and
+   the results. The header follows the shared view header: an 18/700 title,
+   its count, and the query as the muted one-line description, then the
+   filters on one row. */
+.search-workspace {
+  --search-measure: 720px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface);
+}
+
+.search-workspace > * {
+  flex: none;
+  width: min(100% - 2 * var(--gutter), 960px);
+  margin-inline: auto;
+}
+
+.search-workspace__header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--sp-5) 0 var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.search-workspace__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.search-workspace h1 {
+  flex: none;
+  margin: 0;
+  color: var(--text);
+  font: 700 var(--fs-xl) / 1.2 var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.search-workspace__query {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-workspace h1 mark {
+  color: inherit;
+  background: transparent;
+}
+
+.search-workspace__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.search-workspace__filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.search-workspace__filters select {
+  width: 180px;
+}
+
+.search-workspace__filters input {
+  width: 220px;
+}
+
+/* "Anywhere" is a hint, not a value: faint, so it never reads as a choice. */
+.search-workspace__filters input::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+.search-workspace__clear {
+  height: 26px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.search-workspace__clear:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+/* The banner: one 36px tinted band with a mark, text, and its action; the
+   individual source messages wait behind Details. */
+.search-workspace__warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.search-workspace__banner {
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  border-radius: var(--r-md);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  font-size: var(--fs-sm);
+}
+
+.search-workspace__banner.is-alert {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.search-workspace__banner-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 34px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+}
+
+.search-workspace__banner-mark {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.search-workspace__banner-text {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-1) 0;
+  color: var(--text);
+}
+
+.search-workspace__banner-row > button {
+  flex: none;
+  height: 24px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.search-workspace__banner-row > button:hover {
+  background: color-mix(in srgb, currentcolor 10%, transparent);
+}
+
+.search-workspace__banner-details {
+  margin: 0;
+  padding: 0 var(--sp-3) var(--sp-3) calc(var(--sp-3) + 15px + var(--sp-2));
+  color: var(--text-muted);
+  line-height: 1.45;
+  list-style: none;
+}
+
+.search-workspace__banner-details li + li {
+  margin-top: var(--sp-1);
+}
+
+.search-workspace__meta,
+.search-workspace__state,
+.search-workspace__end {
+  margin-top: var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.search-workspace__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+/* One plain line: "Showing 40 · Medium confidence ⓘ", with
+   figures in tabular Inter. It wraps rather than clipping the info tip. */
+.search-workspace__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-workspace__status > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.search-workspace__status > span:not(:first-child)::before {
+  content: "·";
+  margin: 0 var(--sp-2);
+  color: var(--text-faint);
+}
+
+.search-workspace__status .field-editor__info-tip {
+  color: var(--text);
+}
+
+.search-workspace__state {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-4);
+  text-align: center;
+}
+
+.search-workspace__state strong {
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.search-workspace__state button,
+.search-workspace__load-more {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.search-workspace__state button:hover,
+.search-workspace__load-more:hover {
+  background: var(--bg-tint);
+}
+
+.search-workspace__results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin-top: var(--sp-2);
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.search-workspace__result {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.search-workspace__result-kind {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 400 var(--fs-sm) / 1.4 var(--font-sans);
+}
+
+.search-workspace__result-link {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  font: 500 var(--fs-base) / 1.35 var(--font-sans);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* A result title is a quiet link (.link-title): ink, underlined on hover
+   and keyboard focus. */
+.search-workspace__result-link:hover,
+.search-workspace__result-link:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.search-workspace__result-link--code {
+  font: 500 var(--fs-base) / 1.35 var(--font-mono);
+}
+
+/* Metadata shares one line; only the path uses mono and gives way in its middle. */
+.search-workspace__result-source {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font: 400 var(--fs-sm) / 1.4 var(--font-sans);
+  white-space: nowrap;
+}
+
+.search-workspace__result-source > .middle-truncate {
+  flex: 0 1 auto;
+  font: 400 var(--fs-xs) / 1.4 var(--font-mono);
+}
+
+/* Note excerpts read as prose at the shared measure, inline code as code. */
+.search-workspace__result p {
+  max-width: var(--search-measure);
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+}
+
+.search-workspace__result p code {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.search-workspace__result p.is-missing {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Code evidence keeps its source lines in mono on the tint: long lines
+   scroll sideways instead of breaking into fragments. */
+.search-workspace__code {
+  box-sizing: border-box;
+  width: min(100%, var(--search-measure));
+  margin: 8px 0 0;
+  padding: var(--sp-3);
+  overflow: auto;
+  border-radius: var(--r-md);
+  background: var(--bg-tint);
+  color: var(--text);
+  font: 400 var(--fs-sm) / 1.5 var(--font-mono);
+  tab-size: 4;
+  white-space: pre;
+}
+
+/* Matches share Finder's weight; only navigable Finder titles underline. */
+.search-workspace__result mark {
+  background: none;
+  color: inherit;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.search-workspace__load-more,
+.search-workspace__end {
+  width: auto;
+  margin-block: var(--sp-4) var(--sp-6);
+}
+
+.search-workspace__end {
+  color: var(--text-faint);
+  text-align: center;
+}

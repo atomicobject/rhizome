@@ -13,6 +13,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentservices"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/app/mcp"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
@@ -41,12 +42,13 @@ func runBackgroundIndex(ctx context.Context, lease *indexlock.Lease, noteMetadat
 	restoreLogs := withProgressLogOutput(bar, os.Stderr, dbg)
 
 	err := indexing.RunUnifiedCore(ctx, lease, indexing.UnifiedOptions{
-		VaultPath:    vaultPath,
-		VaultDef:     vaultDef,
-		NoteMetadata: noteMetadata,
-		ProgressBar:  bar,
-		Verbose:      dbg,
-		Vacuum:       false,
+		SkillOverlays: initactions.ValidateBundledSkillOverlays,
+		VaultPath:     vaultPath,
+		VaultDef:      vaultDef,
+		NoteMetadata:  noteMetadata,
+		ProgressBar:   bar,
+		Verbose:       dbg,
+		Vacuum:        false,
 		// Automatic catch-up never rewrites the user's config.yml.
 		SkipConfigPersistence: true,
 	})

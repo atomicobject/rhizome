@@ -1,0 +1,11 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "scripts": [
+    {
+      "name": "Clean Go cache",
+      "command": "GOCACHE=\"$PWD/.gocache\" go clean -cache",
+      "icon": "configure",
+      "runOnSettle": true
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OntologyEditSessionResponse } from "../api/types";
@@ -53,7 +53,50 @@ describe("ConfiguredViewCards", () => {
       "false",
     );
     expect(screen.getByRole("button", { name: "Alpha Spec" })).toBeVisible();
+    expect(within(screen.getByRole("article")).queryByText("Active")).toBeNull();
     expect(screen.queryByRole("button", { name: "Bravo Spec" })).not.toBeInTheDocument();
+  });
+
+  it("reports only collapsible card sections, excluding visible nested groups", () => {
+    const result = boardExecution();
+
+    const child = {
+      field: "frontmatter.spec-status",
+      key: "nested",
+      label: "Nested",
+      value: "draft",
+      count: 1,
+      depth: 1,
+      rowStart: 0,
+      rowEnd: 1,
+      collapsedByDefault: true,
+    };
+
+    result.groups = [
+      {
+        ...child,
+        key: "parent",
+        label: "Parent",
+        value: "active",
+        depth: 0,
+        collapsedByDefault: false,
+        children: [child],
+      },
+    ];
+    const onCollapsedGroupsChange = vi.fn();
+    render(
+      <ConfiguredViewCards {...rendererProps({ execution: result, onCollapsedGroupsChange })} />,
+    );
+    expect(screen.getByRole("heading", { name: "Nested" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Alpha Spec" })).toBeVisible();
+    expect(onCollapsedGroupsChange).toHaveBeenLastCalledWith([]);
+    fireEvent.click(screen.getByRole("button", { name: /Parent/ }));
+    expect(onCollapsedGroupsChange).toHaveBeenLastCalledWith([
+      { key: "parent", label: "Parent", count: 1 },
+    ]);
+    expect(screen.queryByRole("button", { name: "Alpha Spec" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Parent/ }));
+    expect(onCollapsedGroupsChange).toHaveBeenLastCalledWith([]);
   });
 
   it("opens a row from its title button", () => {
@@ -196,8 +239,9 @@ describe("ConfiguredViewCards", () => {
 
     render(<ConfiguredViewCards {...rendererProps({ editSession })} />);
 
-    expect(screen.getByText("staged")).toBeVisible();
-    expect(screen.getByText("staged").closest("article")).toHaveClass("is-staged");
+    const mark = screen.getByRole("img", { name: "Staged changes" });
+    expect(mark).toBeVisible();
+    expect(mark.closest("article")).toHaveClass("is-staged");
   });
 
   it("falls back to title-only cards without a card layout", () => {

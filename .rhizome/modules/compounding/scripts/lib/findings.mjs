@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { contentHash, git, learningHash, list, parseFrontmatter, slugify, titleOf } from "./shards.mjs";
 
 export const FINDING_DIR = "docs/memory/agent-findings";
-const ACTION = /^- \[([ xX])\] .*#action-item\b/m;
+const ACTION = /^- \[([ xX])\] (.*?)#action-item\b.*(?:\n[ \t]+assignee:: *(.*))?/m;
 const EVIDENCE = /session `([^`]+)`, message `([^`]+)`, ([\d-]*), \w+, (\d+) tool calls/g;
 const VERB = { fix: "Fix", guard: "Add a guard", ask: "Answer" };
 
@@ -144,7 +144,7 @@ export function loadFindings(root) {
     if (!parsed) continue;
     const { fm, section } = parsed;
     // A finding without a checked action item counts as open, so it suppresses.
-    const box = text.replace(/\r\n/g, "\n").match(ACTION)?.[1];
+    const [, box, actionText = "", assignee = null] = text.replace(/\r\n/g, "\n").match(ACTION) ?? [];
     const front = text.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---/)[1];
     const open = !box || box === " ";
     out.push({
@@ -167,6 +167,8 @@ export function loadFindings(root) {
       toolCalls: Number(fm["tool-calls"] ?? 0),
       evidence: [...section("Evidence").matchAll(EVIDENCE)].map((m) => ({ session: m[1], episode: m[2], ts: m[3], toolCalls: Number(m[4]) })),
       open,
+      actionItem: actionText.endsWith(" ") ? actionText.slice(0, -1) : null,
+      assignee: actionText.endsWith(" ") ? assignee?.trim() || null : null,
       completedAt: open ? null : completedAt(root, path),
     });
   }

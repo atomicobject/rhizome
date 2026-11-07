@@ -32,25 +32,14 @@ func TestIntegratedProgressScalesStagesIntoSingleBar(t *testing.T) {
 
 	progress.SetSegment(0, mainPhaseEnd)
 	progress.Update(50, 100)
-	progress.SetTailStep("Finalizing", 4, 8)
+	progress.AdvanceTo("Flushing semantic writes", finalDrainEnd)
+	progress.AdvanceTo("Finalizing metadata", metadataSyncEnd)
+	progress.AdvanceTo("Computing graph", ontologyEnd)
+	progress.AdvanceTo("Saving index state", graphEnd)
 	progress.Finish("Done")
-	require.Equal(t, []string{"Indexing code", "Finalizing", "Done"}, base.labels)
+	require.Equal(t, []string{"Indexing code", "Flushing semantic writes", "Finalizing metadata", "Computing graph", "Saving index state", "Done"}, base.labels)
 
-	want := [][2]int{
-		{0, unifiedProgressTotal},
-		{475, unifiedProgressTotal},
-		{950, unifiedProgressTotal},
-		{975, unifiedProgressTotal},
-		{1000, unifiedProgressTotal},
-	}
-	if len(base.updates) != len(want) {
-		t.Fatalf("got %v updates want %v", base.updates, want)
-	}
-	for i := range want {
-		if base.updates[i] != want[i] {
-			t.Fatalf("update %d = %v want %v", i, base.updates[i], want[i])
-		}
-	}
+	require.Equal(t, [][2]int{{0, 1000}, {475, 1000}, {978, 1000}, {989, 1000}, {992, 1000}, {994, 1000}, {1000, 1000}}, base.updates)
 }
 
 func TestIntegratedProgressSuppressesNonVerboseLines(t *testing.T) {

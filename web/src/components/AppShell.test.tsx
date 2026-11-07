@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
+import { queryKeys } from "../api/queryKeys";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
 import type { DesktopCommand } from "./desktopHost";
@@ -25,6 +26,12 @@ describe("AppShell", () => {
     http
       .json("GET", "/api/v1/files/tree", { path: "", entries: [] })
       .json("GET", "/api/v1/graphs/global", emptyGraph)
+      .json("GET", "/api/v1/graphs/folders", {
+        files: [],
+        links: [],
+        nestedTypes: [],
+        truncated: false,
+      })
       .json("GET", "/api/v1/ontology/atlas", { schemaPresent: false, types: [] })
       .json("GET", "/api/v1/ontology/summary", { schemaPresent: false, totalNotes: 0 })
       .json("GET", "/api/v1/ontology/types/__all__", { count: 0, notes: [] })
@@ -200,6 +207,39 @@ describe("AppShell", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
+
+  it.each([false, true])(
+    "shows index republication after startup (desktop=%s)",
+    async (desktop) => {
+      window.__RHIZOME_DESKTOP__ = desktop;
+
+      if (desktop) http.json("GET", "/api/tasks", {}, 404).json("GET", "/api/tasks/state", {}, 404);
+
+      statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x", indexState: "ready" });
+      http.json("GET", "/api/v1/ontology/summary", {
+        schemaPresent: false,
+        totalNotes: 12,
+        rebuilding: true,
+      });
+
+      const { queryClient } = render(<AppShell />);
+
+      try {
+        const banner = await screen.findByTestId("index-ready-banner");
+        expect(banner).toHaveTextContent("Updating index…");
+        await act(async () => {
+          queryClient.setQueryData(queryKeys.ontology.summary(), {
+            schemaPresent: false,
+            totalNotes: 12,
+            rebuilding: false,
+          });
+        });
+        await waitFor(() => expect(screen.queryByTestId("index-ready-banner")).toBeNull());
+      } finally {
+        delete window.__RHIZOME_DESKTOP__;
+      }
+    },
+  );
 
   it("keeps one shared navigation shell while switching workspaces", async () => {
     statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });

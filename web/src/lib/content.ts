@@ -1,5 +1,6 @@
 import type { FileView, RenderedFile } from "../api/types";
 import { encodeURLFragment } from "./noteDeepLink";
+import { splitNoteTarget } from "./noteTarget";
 
 /** The only part of a note payload link resolution reads. */
 type LinkCarrier = Pick<FileView, "links"> | null;
@@ -86,25 +87,20 @@ export function resolveKnownRenderedLinkTarget(
 }
 
 export function buildNoteWebHref(target: string) {
-  const hashIndex = target.indexOf("#");
-  const beforeHash = hashIndex >= 0 ? target.slice(0, hashIndex) : target;
-  const noteHash = hashIndex >= 0 ? target.slice(hashIndex) : "";
-  const queryIndex = beforeHash.indexOf("?");
-  const notePath = queryIndex >= 0 ? beforeHash.slice(0, queryIndex) : beforeHash;
-  const noteQuery = queryIndex >= 0 ? beforeHash.slice(queryIndex + 1) : "";
+  const { path, query: noteQuery, fragment } = splitNoteTarget(target);
 
   const location =
     typeof window === "undefined" ? { pathname: "/notes", search: "" } : window.location;
 
   const pathname = location.pathname.startsWith("/notes") ? location.pathname : "/notes";
   const params = new URLSearchParams(location.search);
-  params.set("note", notePath);
+  params.set("note", path);
 
   if (noteQuery) params.set("noteQuery", noteQuery);
   else params.delete("noteQuery");
   const query = params.toString();
 
-  return `${pathname}${query ? `?${query}` : ""}${encodeURLFragment(noteHash)}`;
+  return `${pathname}${query ? `?${query}` : ""}${encodeURLFragment(fragment ? `#${fragment}` : "")}`;
 }
 
 function resolveInternalTarget(href: string | undefined, file: LinkCarrier, allowFallback = true) {

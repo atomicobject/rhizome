@@ -145,7 +145,7 @@ func renderFieldGuide(b *strings.Builder, schema *ontoschema.Schema, noteType *g
 		b.WriteString("; enum values: `")
 		b.WriteString(strings.Join(values, "`, `"))
 		b.WriteString("`")
-		if enum := ontologyEnumDoc(schema, field.TypeName); enum != nil {
+		if enum := enumDoc(schema, field.TypeName); enum != nil {
 			for _, value := range enum.Values {
 				if value.Summary == "" && value.Meaning == "" && value.Authoring == "" && value.AgentImplications == "" && value.Policy == nil {
 					continue
@@ -171,17 +171,17 @@ func renderFieldGuide(b *strings.Builder, schema *ontoschema.Schema, noteType *g
 				}
 				if value.Policy != nil {
 					b.WriteString("; policy: ")
-					b.WriteString(formatGuidePolicy(*value.Policy))
+					b.WriteString(formatPolicy(*value.Policy))
 				}
 			}
 		}
 	}
 	if field.Guidance != nil {
-		renderGuideGuidanceInline(b, guideSummary(field.Guidance, ""), guideMeaning(field.Guidance), guideAuthoring(field.Guidance), guideAgentImplications(field.Guidance))
+		renderGuideGuidanceInline(b, guidanceSummary(field.Guidance, ""), guidanceMeaning(field.Guidance), guidanceAuthoring(field.Guidance), guidanceAgentImplications(field.Guidance))
 	}
 	if field.Policy != nil {
 		b.WriteString("; policy: ")
-		b.WriteString(formatGuidePolicy(*field.Policy))
+		b.WriteString(formatPolicy(*field.Policy))
 	}
 	if notes := fieldDisplayNotes(field.Display); len(notes) > 0 {
 		b.WriteString("; display: ")

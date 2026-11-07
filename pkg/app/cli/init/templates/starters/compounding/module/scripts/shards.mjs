@@ -40,6 +40,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { resolveRzm } from "./lib/calls.mjs";
 import { validateLearning } from "./lib/extract.mjs";
 import { FINDING_DIR, findingPath, frontmatterProblem, guardFields, guardHash, guardLines, loadFindings, renderFinding, REVISED_FIELDS } from "./lib/findings.mjs";
 import { redact } from "./lib/redact.mjs";
@@ -136,7 +137,7 @@ function reviewer(root, user) {
   return { link: personLink(r), name: r.title };
 }
 
-const rzm = (root, argv) => JSON.parse(execFileSync(process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm"), argv, { cwd: root, encoding: "utf8" }));
+const rzm = (root, argv) => JSON.parse(execFileSync(resolveRzm(root), argv, { cwd: root, encoding: "utf8" }));
 
 function currentUser(root) {
   try {

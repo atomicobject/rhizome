@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sync"
@@ -15,15 +16,13 @@ import (
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
-// CodeModeRuntimeReadPending asks the code-mode host to serve one read in its
-// own process, whose freshness refresh is authoritative (SPEC-0115). The host
-// consumes it; generated clients never see it.
+// CodeModeRuntimeReadPending asks the code-mode host to retry with the live
+// owner after its projection advances (SPEC-0115). The host consumes it;
+// generated clients never see it.
 const CodeModeRuntimeReadPending = "runtime_read_pending"
 
-// Budgets bound how long a read waits for the runtime before the host serves
-// it in-process. Applying a changed note takes the watcher about a second and
-// may queue behind another batch; the host's own refresh after a change
-// reprojects every note, so waiting is almost always cheaper.
+// Budgets bound each runtime readiness attempt. The host may retry within the
+// calling operation's deadline while the owner applies or indexes changes.
 const (
 	codeModeIndexBudget = 2 * time.Second
 	codeModeSyncBudget  = 10 * time.Second
@@ -36,11 +35,13 @@ type CodeModeReadRuntime interface {
 	VaultPath() string
 	WaitForCodeIndex(context.Context) error
 	WaitForSemantic(context.Context) error
-	// SyncSources returns once every selected note change completed before
-	// the call is applied to the persisted metadata rows.
-	SyncSources(context.Context) error
+	// SyncSources returns true once selected note changes are published.
+	// False with no error means the owner's current work is still pending.
+	SyncSources(context.Context) (bool, error)
 	// ProjectionReadiness checks the persisted proof for this runtime's selected providers.
 	ProjectionReadiness(context.Context) (semdb.OntologyReadinessState, error)
+	// RequestOntologyRefresh queues proof repair with the existing writer.
+	RequestOntologyRefresh() bool
 	QueryDeps(*ontoschema.Schema, *ontologyquery.ExecutableSchema) (ontologyquery.Deps, error)
 	Views(*ontoschema.Schema, *ontologyquery.ExecutableSchema) (CodeModeViewRuntime, error)
 }
@@ -61,8 +62,7 @@ type codeModeDefinitions struct {
 	exec   *ontologyquery.ExecutableSchema
 }
 
-// IsCodeModeRuntimeReadPending reports the runtime's request to serve a read
-// in the host process instead.
+// IsCodeModeRuntimeReadPending reports a transient projection-readiness result.
 func IsCodeModeRuntimeReadPending(diagnostic any) bool {
 	fields, _ := diagnostic.(map[string]any)
 	return fields["code"] == CodeModeRuntimeReadPending
@@ -73,7 +73,10 @@ func (r *CodeModeRuntimeReads) Call(ctx context.Context, name string, input map[
 	err := r.Runtime.WaitForCodeIndex(readyCtx)
 	cancel()
 	if err != nil {
-		return codeModeFailure(errCodeModeRuntimeReadPending, 1)
+		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+			return codeModeFailure(errCodeModeRuntimeReadPending, 1)
+		}
+		return codeModeFailure(err, 1)
 	}
 	switch name {
 	case "ontology_query":
@@ -130,15 +133,29 @@ func (r *CodeModeRuntimeReads) definitions() (codeModeDefinitions, error) {
 // projectionCurrent keeps the host's current-projection contract: every note
 // change is applied, and the ontology state matches the current schema and the
 // metadata it was built from.
-func (r *CodeModeRuntimeReads) projectionCurrent(ctx context.Context, schema *ontoschema.Schema) bool {
+func (r *CodeModeRuntimeReads) projectionCurrent(ctx context.Context, schema *ontoschema.Schema) (bool, error) {
 	syncCtx, cancel := context.WithTimeout(ctx, codeModeSyncBudget)
 	defer cancel()
-	if err := r.Runtime.SyncSources(syncCtx); err != nil {
-		return false
+	ready, err := r.Runtime.SyncSources(syncCtx)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+			return false, nil
+		}
+		return false, err
+	}
+	if !ready {
+		return false, nil
 	}
 	state, err := r.Runtime.ProjectionReadiness(ctx)
-	return err == nil && state.Ready && state.SchemaState.SchemaHash == schema.Hash &&
-		state.SchemaState.MaterializationVersion == ontology.OntologyMaterializationVersion
+	if err != nil {
+		return false, err
+	}
+	if !state.Ready || state.SchemaState.SchemaHash != schema.Hash ||
+		state.SchemaState.MaterializationVersion != ontology.OntologyMaterializationVersion {
+		r.Runtime.RequestOntologyRefresh()
+		return false, nil
+	}
+	return true, nil
 }
 
 type codeModeRuntimeQuery struct{ r *CodeModeRuntimeReads }
@@ -157,10 +174,16 @@ func (q codeModeRuntimeQuery) Execute(ctx context.Context, rawQuery string, vari
 
 func (q codeModeRuntimeQuery) executePrepared(ctx context.Context, defs codeModeDefinitions, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
 	// The host's providers decide semantic availability, as they did before.
-	if prepared.UsesSemantic && q.r.Runtime.WaitForSemantic(ctx) != nil {
-		return ontologyquery.Result{}, errCodeModeRuntimeReadPending
+	if prepared.UsesSemantic {
+		if err := q.r.Runtime.WaitForSemantic(ctx); err != nil {
+			return ontologyquery.Result{}, err
+		}
 	}
-	if !q.r.projectionCurrent(ctx, defs.schema) {
+	current, err := q.r.projectionCurrent(ctx, defs.schema)
+	if err != nil {
+		return ontologyquery.Result{}, err
+	}
+	if !current {
 		return ontologyquery.Result{}, errCodeModeRuntimeReadPending
 	}
 	deps, err := q.r.Runtime.QueryDeps(defs.schema, defs.exec)

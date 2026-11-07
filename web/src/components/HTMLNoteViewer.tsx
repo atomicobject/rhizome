@@ -642,7 +642,7 @@ export function HTMLNoteViewer({
       </span>
       <button
         type="button"
-        className="html-note-viewer__ghost html-note-viewer__ghost--icon"
+        className="html-note-viewer__ghost"
         aria-label="Refresh"
         title="Refresh"
         onClick={() => setRefreshGeneration((value) => value + 1)}
@@ -658,6 +658,7 @@ export function HTMLNoteViewer({
         >
           <path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3" />
         </svg>
+        Refresh
       </button>
       {bare ? (
         <a className="html-note-viewer__ghost" href={applicationHref}>

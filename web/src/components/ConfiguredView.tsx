@@ -17,6 +17,7 @@ import type { ViewContext } from "../views/context";
 import { nativePreferenceScope } from "../viewPreferences/native";
 import type { OpenMode } from "./useNoteTabs";
 import { rowsWithStagedValues } from "./ConfiguredTableCellHelpers";
+import { BoardDensityControl, defaultBoardDensity } from "./BoardDensityControl";
 import { ConfiguredViewBoard } from "./ConfiguredViewBoard";
 import { ConfiguredViewCards } from "./ConfiguredViewCards";
 import { ConfiguredViewFacets } from "./ConfiguredViewFacets";
@@ -127,6 +128,12 @@ export function ConfiguredView({
   const { visibleFields, emptyFields, repeatedFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    { key: string; label: string; count: number }[]
+  >([]);
+
+  const [groupedColumns, setGroupedColumns] = useState<string[]>([]);
   const [movedColumns, setMovedColumns] = useState<string[]>([]);
   const [saveActive, setSaveActive] = useState(false);
   const [ownTools, setOwnTools] = useState<HTMLElement | null>(null);
@@ -212,9 +219,12 @@ export function ConfiguredView({
             sort: nextSort(effectiveSort(state, rendererExecution.state), column.field, additive),
           }),
         onCollapsedGroupCountChange: setCollapsedGroupCount,
+        onCollapsedGroupsChange: setCollapsedGroups,
         onMovedColumnsChange: setMovedColumns,
+        onGroupedColumnsChange: setGroupedColumns,
         profile,
         density,
+        boardDensity: layout.boardDensityChoice ?? undefined,
         onLoadMore: loadMore,
         columnWidths: layout.columnWidths ?? undefined,
         onColumnWidthsChange: layout.setColumnWidths,
@@ -265,6 +275,12 @@ export function ConfiguredView({
 
   const viewActions = (
     <>
+      {activeVariant === "kanban" && (
+        <BoardDensityControl
+          density={layout.boardDensityChoice ?? defaultBoardDensity(execution?.board)}
+          onChange={layout.setBoardDensity}
+        />
+      )}
       <SaveViewAction {...save} onActiveChange={setSaveActive} />
       <button
         type="button"
@@ -387,6 +403,7 @@ export function ConfiguredView({
 
       {execution && (
         <ConfiguredViewFooter
+          duplicateCount={!paged}
           summary={
             paged && pageInfo
               ? `${offset + 1}–${Math.min(offset + first, pageInfo.total)} of ${rowCountLabel(pageInfo.total)}`
@@ -398,22 +415,26 @@ export function ConfiguredView({
               ? `${collapsedGroupCount} ${activeVariant === "kanban" ? "column" : "group"}${collapsedGroupCount === 1 ? "" : "s"} collapsed`
               : ""
           }
+          collapsedGroups={activeVariant !== "kanban" ? collapsedGroups : []}
           stagedCount={stagedCount}
           moved={activeVariant === "table" ? movedColumns : []}
           hidden={
             activeVariant === "table"
-              ? columns.flatMap((column) =>
-                  repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
-                    ? [
-                        repeatedColumnNote(
-                          column.field,
-                          columnLabel(column, capabilities),
-                          execution,
-                          typeLabel,
-                        ),
-                      ]
-                    : [],
-                )
+              ? [
+                  ...groupedColumns,
+                  ...columns.flatMap((column) =>
+                    repeatedFields.includes(column.field) && !visibleFields.includes(column.field)
+                      ? [
+                          repeatedColumnNote(
+                            column.field,
+                            columnLabel(column, capabilities),
+                            execution,
+                            typeLabel,
+                          ),
+                        ]
+                      : [],
+                  ),
+                ]
               : []
           }
           pager={

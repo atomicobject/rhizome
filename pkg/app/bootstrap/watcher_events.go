@@ -1,5 +1,7 @@
 package bootstrap
 
+import appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
+
 // freshnessEvent is one processed freshness notification published to
 // in-process subscribers. SPEC-0104 deletes follower mode, so these events no
 // longer travel through a hint log: the vault runtime is the only process
@@ -31,7 +33,7 @@ func freshnessEventData(event freshnessEvent) any {
 		return nil
 	}
 	data["source"] = "vault-runtime"
-	if event.Kind == "node.changed" {
+	if event.Kind == appruntime.GlobalEventNodeChanged {
 		data["domains"] = []string{"metadata", "ontology", "code"}
 	}
 	return data
@@ -44,8 +46,8 @@ func (w *unifiedSemanticWatcher) publishProcessedEvents(cacheResynced bool, note
 	}
 	if cacheResynced {
 		w.publishFreshnessEvents([]freshnessEvent{
-			{Kind: globalEventIndexInvalidated, Reason: "resync"},
-			{Kind: globalEventValidationInvalidated, Reason: "resync"},
+			{Kind: appruntime.GlobalEventIndexInvalidated, Reason: "resync"},
+			{Kind: appruntime.GlobalEventValidationInvalidated, Reason: "resync"},
 		})
 	}
 	w.publishFreshnessEvents(processedFreshnessEvents(noteChanges, noteDeletes, codeChanges, codeDeletes, internalChanges, forceMetadataRefresh, forceOntologyRefresh))
@@ -59,8 +61,8 @@ func (w *unifiedSemanticWatcher) publishInvalidation(reason string) {
 		return
 	}
 	w.publishFreshnessEvents([]freshnessEvent{
-		{Kind: globalEventIndexInvalidated, Reason: reason},
-		{Kind: globalEventValidationInvalidated, Reason: globalEventReasonReconcileFailed},
+		{Kind: appruntime.GlobalEventIndexInvalidated, Reason: reason},
+		{Kind: appruntime.GlobalEventValidationInvalidated, Reason: appruntime.GlobalEventReasonReconcileFailed},
 	})
 }
 
@@ -73,22 +75,22 @@ func processedFreshnessEvents(noteChanges, noteDeletes, codeChanges, codeDeletes
 	indexPaths = append(indexPaths, codeDeletes...)
 
 	if len(indexPaths) > 0 {
-		events = append(events, freshnessEvent{Kind: "node.changed", Paths: indexPaths})
+		events = append(events, freshnessEvent{Kind: appruntime.GlobalEventNodeChanged, Paths: indexPaths})
 	}
 	if len(indexPaths) > 0 || len(internalChanges) > 0 || forceMetadataRefresh || forceOntologyRefresh {
-		events = append(events, freshnessEvent{Kind: globalEventValidationInvalidated, Paths: append([]string{}, indexPaths...)})
+		events = append(events, freshnessEvent{Kind: appruntime.GlobalEventValidationInvalidated, Paths: append([]string{}, indexPaths...)})
 	}
 	if forceOntologyRefresh {
-		events = append(events, freshnessEvent{Kind: globalEventSchemaInvalidated, Paths: append([]string{}, internalChanges...)})
-		events = append(events, freshnessEvent{Kind: globalEventCapabilitiesInvalidated, Paths: append([]string{}, internalChanges...)})
+		events = append(events, freshnessEvent{Kind: appruntime.GlobalEventSchemaInvalidated, Paths: append([]string{}, internalChanges...)})
+		events = append(events, freshnessEvent{Kind: appruntime.GlobalEventCapabilitiesInvalidated, Paths: append([]string{}, internalChanges...)})
 	}
 	for _, rel := range internalChanges {
 		effect := classifyInternalChange(rel)
 		if effect.invalidateCapabilities {
-			events = append(events, freshnessEvent{Kind: globalEventCapabilitiesInvalidated, Paths: []string{rel}})
+			events = append(events, freshnessEvent{Kind: appruntime.GlobalEventCapabilitiesInvalidated, Paths: []string{rel}})
 		}
 		if effect.invalidateQueryRecipes {
-			events = append(events, freshnessEvent{Kind: globalEventQueryRecipeInvalidated, Paths: []string{rel}})
+			events = append(events, freshnessEvent{Kind: appruntime.GlobalEventQueryRecipeInvalidated, Paths: []string{rel}})
 		}
 	}
 	return events

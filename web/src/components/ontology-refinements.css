@@ -1,0 +1,17 @@
+/* Names stay whole; field details live on the type page. */
+.ontology-node__name {
+  white-space: nowrap;
+  min-height: 25px;
+}
+.ontology-type-detail__table:has(.ontology-type-detail__enum-chips)
+  .ontology-type-detail__col-type {
+  width: 300px;
+}
+.ontology-type-detail__enum-chips .schema-enum-value-chip {
+  white-space: nowrap;
+}
+.atlas-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -68,7 +68,7 @@ test.beforeEach(async ({ page }) => {
             title: "Search Rewrite",
             noteType: noteType || "Spec",
             snippetStatus: "available",
-            snippet: "Stable typed retrieval preserves ranked search evidence.",
+            snippet: "Stable `typed retrieval` preserves ranked search evidence.",
             nodeRef: { notePath: "notes/specs/search-rewrite.md", kind: "note" },
           },
         ],
@@ -153,6 +153,13 @@ test("searches from shared chrome in a full-width page", async ({ page }, testIn
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
     .toBe(0);
+  const column = await page.locator(".search-workspace__header").boundingBox();
+  const results = await page.locator(".search-workspace__results").boundingBox();
+  expect(column?.width).toBe(960);
+  expect(results?.x).toBe(column?.x);
+  expect(results?.width).toBe(column?.width);
+  const workspace = await page.locator(".search-workspace").boundingBox();
+  expect(column!.x - workspace!.x).toBeCloseTo((workspace!.width - 960) / 2, 0);
   await page.screenshot({ path: testInfo.outputPath("search-workspace-1280.png") });
 
   const filteredRequestPromise = page.waitForRequest(
@@ -176,6 +183,38 @@ test("searches from shared chrome in a full-width page", async ({ page }, testIn
 
   await page.getByRole("button", { name: "Load more results" }).click();
   await expect(page.getByRole("button", { name: "main", exact: true })).toBeVisible();
+
+  const codeResult = page
+    .locator(".search-workspace__result")
+    .filter({ has: page.getByRole("button", { name: "main", exact: true }) });
+
+  const geometry = await codeResult.evaluate((result) => {
+    const title = result.querySelector(".search-workspace__result-link")!;
+    const meta = result.querySelector(".search-workspace__result-source")!;
+    const code = result.querySelector("pre")!;
+
+    return {
+      titleBottom: title.getBoundingClientRect().bottom,
+      metaTop: meta.getBoundingClientRect().top,
+      metaBottom: meta.getBoundingClientRect().bottom,
+      codeTop: code.getBoundingClientRect().top,
+      codeRight: code.getBoundingClientRect().right,
+      codeWidth: code.getBoundingClientRect().width,
+      resultWidth: result.getBoundingClientRect().width,
+      titleFont: getComputedStyle(title).fontFamily,
+      titleSize: getComputedStyle(title).fontSize,
+    };
+  });
+
+  expect(geometry.titleSize).toBe("14px");
+  expect(geometry.titleFont).toContain("JetBrains Mono");
+  expect(geometry.metaTop - geometry.titleBottom).toBeCloseTo(4, 0);
+  expect(geometry.codeTop - geometry.metaBottom).toBeCloseTo(8, 0);
+  expect(geometry.codeWidth).toBeCloseTo(Math.min(720, geometry.resultWidth), 0);
+  const inlineCode = page.locator(".search-workspace__result p code").first();
+  await expect(inlineCode).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(inlineCode).toHaveCSS("padding", "0px");
+  await expect(inlineCode.locator("mark").first()).toHaveCSS("font-weight", "650");
   await page.getByRole("button", { name: "main", exact: true }).click();
   await expect(page).toHaveURL(/\/explorer\?file=src%2Ftodoapp%2Fmain.py&line=4/);
   await expect(page.locator('[data-line="4"]')).toHaveAttribute("aria-current", "location");

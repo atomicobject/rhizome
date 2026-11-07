@@ -1,12 +1,10 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // GlobalEvent is a vault-wide event sent over the /api/v1/events SSE channel.
@@ -17,31 +15,12 @@ type GlobalEvent struct {
 	Data any `json:"data,omitempty"`
 }
 
-// Global event kinds.
-const (
-	GlobalEventValidateChanged         = "validate.changed"
-	GlobalEventIndexChanged            = "index.changed"
-	GlobalEventNodeChanged             = "node.changed"
-	GlobalEventValidationInvalidated   = "validation.invalidated"
-	GlobalEventSchemaInvalidated       = "schema.invalidated"
-	GlobalEventQueryRecipeInvalidated  = "query_recipe.invalidated"
-	GlobalEventIndexInvalidated        = "index.invalidated"
-	GlobalEventCapabilitiesInvalidated = "capabilities.invalidated"
-	GlobalEventEditSessionInvalidated  = "edit_session.invalidated"
-)
-
 // NodeChangedEventData identifies the committed paths and read domains that
 // are ready for reads. Semantic indexing completes separately via index.changed.
 type NodeChangedEventData struct {
 	Paths   []string `json:"paths"`
 	Domains []string `json:"domains"`
 }
-
-// GlobalEventReasonReconcileFailed is the `reason` carried by a
-// validation.invalidated event when the watcher's ownership reconciliation
-// failed. The snapshot must stay stale: the index does not reflect the change,
-// so a refresh would publish a misleadingly current result.
-const GlobalEventReasonReconcileFailed = "reconcile-failed"
 
 // GlobalEventReason extracts the `reason` string from an event payload.
 func GlobalEventReason(data any) string {
@@ -123,16 +102,6 @@ func (b *globalEventBroker) Publish(kind string, data any) {
 	}
 }
 
-// NotifyValidateChanged broadcasts that validation data has been refreshed.
-func (b *globalEventBroker) NotifyValidateChanged() {
-	b.Publish(GlobalEventValidateChanged, nil)
-}
-
-// NotifyIndexChanged broadcasts that indexed vault data has been refreshed.
-func (b *globalEventBroker) NotifyIndexChanged(data any) {
-	b.Publish(GlobalEventIndexChanged, data)
-}
-
 // NotifyGlobalEvent publishes a global event to all SSE subscribers.
 func (s *Server) NotifyGlobalEvent(kind string, data any) {
 	if s != nil {
@@ -159,33 +128,7 @@ func (s *Server) handleGlobalEvents(w http.ResponseWriter, r *http.Request) {
 	defer s.watchViewFolders()()
 
 	defer s.holdRuntime()()
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-	_, _ = fmt.Fprint(w, ": connected\n\n")
-	flusher.Flush()
-
-	heartbeat := time.NewTicker(20 * time.Second)
-	defer heartbeat.Stop()
-
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-heartbeat.C:
-			_, _ = fmt.Fprintf(w, ": heartbeat %d\n\n", time.Now().Unix())
-			flusher.Flush()
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-			data, err := json.Marshal(event)
-			if err != nil {
-				continue
-			}
-			_, _ = fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", event.ID, event.Kind, data)
-			flusher.Flush()
-		}
-	}
+	streamJSONEvents(w, r, flusher, events, func(event GlobalEvent) (string, string) {
+		return event.ID, event.Kind
+	})
 }

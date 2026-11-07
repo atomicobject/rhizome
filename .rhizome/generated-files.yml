@@ -17,7 +17,7 @@ written:
   .agents/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
   .agents/skills/agentic-engineering/references/specification.md: 22af058c0233d57c
   .agents/skills/agentic-engineering/references/traceability.md: c9afa209aeb33b07
-  .agents/skills/agentic-engineering/references/workflow-state.md: 1c7f27c935c2ed80
+  .agents/skills/agentic-engineering/references/workflow-state.md: 79d7a64fc5c19779
   .agents/skills/assumption-tracker/SKILL.md: 5ad3db6d81cfbee5
   .agents/skills/client-harness-builder/SKILL.md: b9628572ae42e032
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
@@ -27,15 +27,15 @@ written:
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .agents/skills/custom-views/references/kit-api.md: bafce3a53d05696d
+  .agents/skills/custom-views/references/kit-api.md: 1e0d3ef9032a6842
   .agents/skills/custom-views/references/module-example.md: 444c0ff4a81e3061
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .agents/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
-  .agents/skills/rhizome/SKILL.md: ccbaa02795fdabe0
-  .agents/skills/rhizome/references/code-mode.md: c633e02f6e6b1e04
+  .agents/skills/rhizome/SKILL.md: 255391890ffd96fc
+  .agents/skills/rhizome/references/code-mode.md: 270b930fc6c7b609
   .agents/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .agents/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .agents/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
@@ -43,11 +43,11 @@ written:
   .agents/skills/rhizome/references/file-context.md: 1128da312ed1c0e6
   .agents/skills/rhizome/references/index-scope.md: f7a0a4041880a119
   .agents/skills/rhizome/references/indexing-and-freshness.md: 3ffde691332c5c3e
-  .agents/skills/rhizome/references/installation-and-integration.md: fe24d6e8a30a8860
+  .agents/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
   .agents/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
   .agents/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
   .agents/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
-  .agents/skills/rhizome/references/ontology-usage.md: fcce56df27de9801
+  .agents/skills/rhizome/references/ontology-usage.md: 6dc255af54ef2c12
   .agents/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .agents/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
   .agents/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
@@ -56,6 +56,7 @@ written:
   .agents/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .agents/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .agents/skills/rhizome/references/views.md: 26fb7388f96eefbc
+  .claude/settings.json#rhizome-sandbox: a17fcf0a2f50e2d4
   .claude/skills/action-items/SKILL.md: d4eb4805c8cb8fda
   .claude/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
   .claude/skills/agentic-engineering/references/alignment.md: 5270a7ef418a6feb
@@ -71,7 +72,7 @@ written:
   .claude/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
   .claude/skills/agentic-engineering/references/specification.md: 22af058c0233d57c
   .claude/skills/agentic-engineering/references/traceability.md: c9afa209aeb33b07
-  .claude/skills/agentic-engineering/references/workflow-state.md: 1c7f27c935c2ed80
+  .claude/skills/agentic-engineering/references/workflow-state.md: 79d7a64fc5c19779
   .claude/skills/assumption-tracker/SKILL.md: 5ad3db6d81cfbee5
   .claude/skills/client-harness-builder/SKILL.md: b9628572ae42e032
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
@@ -81,15 +82,15 @@ written:
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .claude/skills/custom-views/references/kit-api.md: bafce3a53d05696d
+  .claude/skills/custom-views/references/kit-api.md: 1e0d3ef9032a6842
   .claude/skills/custom-views/references/module-example.md: 444c0ff4a81e3061
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .claude/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
-  .claude/skills/rhizome/SKILL.md: ccbaa02795fdabe0
-  .claude/skills/rhizome/references/code-mode.md: c633e02f6e6b1e04
+  .claude/skills/rhizome/SKILL.md: 255391890ffd96fc
+  .claude/skills/rhizome/references/code-mode.md: 270b930fc6c7b609
   .claude/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .claude/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .claude/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
@@ -97,11 +98,11 @@ written:
   .claude/skills/rhizome/references/file-context.md: 1128da312ed1c0e6
   .claude/skills/rhizome/references/index-scope.md: f7a0a4041880a119
   .claude/skills/rhizome/references/indexing-and-freshness.md: 3ffde691332c5c3e
-  .claude/skills/rhizome/references/installation-and-integration.md: fe24d6e8a30a8860
+  .claude/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
   .claude/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
   .claude/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
   .claude/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
-  .claude/skills/rhizome/references/ontology-usage.md: fcce56df27de9801
+  .claude/skills/rhizome/references/ontology-usage.md: 6dc255af54ef2c12
   .claude/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .claude/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
   .claude/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
@@ -110,11 +111,12 @@ written:
   .claude/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .claude/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .claude/skills/rhizome/references/views.md: 26fb7388f96eefbc
+  .codex/config.toml#rhizome-sandbox: 54d9924328c49a3b
   .rhizome/modules/action-items/ontology/action-items.graphql: b2b177dd9acbd65c
   .rhizome/modules/action-items/recipes/action-items.yaml: 8246a77453eb9071
   .rhizome/modules/action-items/views/action-items.yaml: 8a2b90e98887652d
   .rhizome/modules/agentic-engineering/ontology/spec-driven.graphql: 08586516cff0bc34
-  .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: cd2dc1d47c6de656
+  .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: 37f1d4f3aa39dea9
   .rhizome/modules/agentic-engineering/views/efforts.yaml: 74e3810c2c89941e
   .rhizome/modules/agentic-engineering/views/feature-areas.yaml: 79a2c23d9da7b18d
   .rhizome/modules/agentic-engineering/views/specs.yaml: 50b804397b2ee138
@@ -130,17 +132,17 @@ written:
   .rhizome/modules/compounding/ontology/compounding.graphql: d43cdaa92757f036
   .rhizome/modules/compounding/recipes/compounding.yaml: 994398ce86bd8209
   .rhizome/modules/compounding/references/calibration-fixture.json: 4b858dc5aaf769c2
-  .rhizome/modules/compounding/scripts/calibrate.mjs: 234a22ffbf38fe3c
+  .rhizome/modules/compounding/scripts/calibrate.mjs: 671dd721caf02dc8
   .rhizome/modules/compounding/scripts/hook.mjs: efa68e344705ef9a
   .rhizome/modules/compounding/scripts/lib/approvals.mjs: 16da27f1855db130
   .rhizome/modules/compounding/scripts/lib/calibration-data.mjs: 50c7ba8e358f3780
   .rhizome/modules/compounding/scripts/lib/calibration-models.mjs: 040bd397ef1cbe0c
   .rhizome/modules/compounding/scripts/lib/calibration-score.mjs: 56b8330db4ad1099
-  .rhizome/modules/compounding/scripts/lib/calls.mjs: e43c954d88f347d7
+  .rhizome/modules/compounding/scripts/lib/calls.mjs: a288e6675d1c6446
   .rhizome/modules/compounding/scripts/lib/episodes.mjs: 192fa78eda45082b
   .rhizome/modules/compounding/scripts/lib/estimate.mjs: 2a1caa922f7295f2
   .rhizome/modules/compounding/scripts/lib/extract.mjs: b7e8d59f161d707b
-  .rhizome/modules/compounding/scripts/lib/findings.mjs: 6e6bc518645f53aa
+  .rhizome/modules/compounding/scripts/lib/findings.mjs: 1cac626138a04e6a
   .rhizome/modules/compounding/scripts/lib/models.mjs: 189a5584719e4766
   .rhizome/modules/compounding/scripts/lib/paths.mjs: 53c2c47fbf39919f
   .rhizome/modules/compounding/scripts/lib/prompts.mjs: 7c7211509f4afbf8
@@ -153,13 +155,13 @@ written:
   .rhizome/modules/compounding/scripts/lib/transcripts.mjs: d63ee8f3cd1b89e7
   .rhizome/modules/compounding/scripts/lib/verification-queue.mjs: 57a8a20bb10f875b
   .rhizome/modules/compounding/scripts/lib/verify.mjs: 0ac53b2adbc79f41
-  .rhizome/modules/compounding/scripts/lookup.mjs: a0e82c9ced433250
-  .rhizome/modules/compounding/scripts/mine.mjs: f422ef47434689df
+  .rhizome/modules/compounding/scripts/lookup.mjs: 2487c503668408e3
+  .rhizome/modules/compounding/scripts/mine.mjs: 420ab7a3c634f89a
   .rhizome/modules/compounding/scripts/report.mjs: 14bf0256850597d1
   .rhizome/modules/compounding/scripts/sessions.mjs: 4cf33f17d765ff00
-  .rhizome/modules/compounding/scripts/shards.mjs: e1ca24687fe3a6f5
-  .rhizome/modules/compounding/scripts/task-check.mjs: 408193037f713169
-  .rhizome/modules/compounding/scripts/workspace.mjs: 64a41e0e5bc39826
+  .rhizome/modules/compounding/scripts/shards.mjs: 64b5db8fed09cc64
+  .rhizome/modules/compounding/scripts/task-check.mjs: ed8f0cea634b62a0
+  .rhizome/modules/compounding/scripts/workspace.mjs: 84aa78df9e59b58a
   .rhizome/modules/compounding/tasks/mine.yml: 9542f649f119cb9e
   .rhizome/modules/compounding/views/agent-findings.yaml: f9149a8753a64840
   .rhizome/modules/compounding/views/context-shards.yaml: 83368ad10a4f2745

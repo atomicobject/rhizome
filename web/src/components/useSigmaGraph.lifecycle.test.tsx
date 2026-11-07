@@ -1,9 +1,11 @@
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import Sigma from "sigma";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphEdge, GraphNode } from "../api/types";
 import { installFakeWebGL } from "../test/fakeWebGL";
+import * as layouts from "./graphLayout";
+import type { GraphViewNode } from "./graphViewShared";
 import { useSigmaGraph } from "./useSigmaGraph";
 
 const firstNode: GraphNode = {
@@ -32,15 +34,18 @@ function Harness({
   highlightTypes,
   scope = globalScope,
   problemCounts,
+  layoutExtent,
 }: {
-  nodes: GraphNode[];
+  nodes: GraphViewNode[];
+  layoutExtent?: number;
   onNodeClick: (node: GraphNode) => void;
   highlightTypes?: ReadonlySet<string>;
   scope?: { mode: "global" | "local"; label?: string };
   problemCounts?: ReadonlyMap<string, number>;
 }): ReactNode {
-  const { containerRef, hover } = useSigmaGraph({
+  const { containerRef, hover, handleFitToView } = useSigmaGraph({
     nodes,
+    layoutExtent,
     problemCounts,
     edges: emptyEdges,
     scope,
@@ -56,6 +61,7 @@ function Harness({
   return (
     <>
       <div ref={containerRef} />
+      <button onClick={handleFitToView}>Fit</button>
       {hover && <div data-testid="graph-hover">{hover.label}</div>}
     </>
   );
@@ -89,6 +95,102 @@ describe("useSigmaGraph renderer lifecycle", () => {
   afterEach(() => {
     restoreWebGL();
     vi.restoreAllMocks();
+  });
+
+  it("keeps fixed coordinates when expanding without running layout", () => {
+    const layout = vi.spyOn(layouts, "runLayout");
+    const onSpy = vi.spyOn(Sigma.prototype, "on");
+
+    const nodes = [
+      { ...firstNode, x: -100, y: 20 },
+      { ...secondNode, x: 80, y: -40 },
+    ];
+
+    const view = render(<Harness nodes={nodes} layoutExtent={500} onNodeClick={vi.fn()} />);
+    const renderer = Array.from(new Set(onSpy.mock.contexts)).filter(isSigma)[0];
+    const before = nodes.map((node) => renderer.getNodeDisplayData(node.id));
+    view.rerender(
+      <Harness
+        nodes={[...nodes, { id: "three", label: "Three", kind: "code", x: 200, y: 50 }]}
+        layoutExtent={500}
+        onNodeClick={vi.fn()}
+      />,
+    );
+
+    for (const node of nodes) {
+      expect(renderer.getGraph().getNodeAttribute(node.id, "x")).toBe(node.x);
+      expect(renderer.getGraph().getNodeAttribute(node.id, "y")).toBe(node.y);
+    }
+
+    expect(renderer.getCustomBBox()).toEqual({ x: [-500, 500], y: [-500, 500] });
+    expect(nodes.map((node) => renderer.getNodeDisplayData(node.id))).toEqual(before);
+    expect(layout).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it("preserves folder cameras on refresh and expansion, and fits navigation and Fit", () => {
+    vi.useFakeTimers();
+    const onSpy = vi.spyOn(Sigma.prototype, "on");
+    const scope = { mode: "global" } as const;
+    const root = { id: "folder:", label: "Vault", kind: "module", center: true, x: 0, y: 0 };
+    const folder = { id: "folder:pkg", label: "pkg", kind: "module", x: 100, y: 20 };
+    const view = render(<Harness nodes={[root, folder]} scope={scope} onNodeClick={vi.fn()} />);
+
+    try {
+      const renderer = Array.from(new Set(onSpy.mock.contexts)).filter(isSigma)[0];
+      act(() => vi.advanceTimersByTime(600));
+      const camera = renderer.getCamera();
+      camera.setState({ x: 0.23, y: 0.71, angle: 0.2, ratio: 1.7 });
+      const before = camera.getState();
+      view.rerender(
+        <Harness
+          nodes={[{ ...root }, { ...folder }, { ...secondNode, x: 200, y: 50 }]}
+          scope={scope}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).toEqual(before);
+      view.rerender(
+        <Harness
+          nodes={[
+            { ...root, center: false },
+            { ...folder, center: true },
+          ]}
+          scope={scope}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+      camera.setState(before);
+      view.rerender(
+        <Harness
+          nodes={[{ ...firstNode, kind: "code", center: true, x: 0, y: 0 }]}
+          scope={{ mode: "local", label: "one.md" }}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+      camera.setState(before);
+      view.rerender(
+        <Harness
+          nodes={[root, folder]}
+          scope={{ mode: "global", label: "another-root" }}
+          onNodeClick={vi.fn()}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+      camera.setState(before);
+      fireEvent.click(view.getByRole("button", { name: "Fit" }));
+      act(() => vi.advanceTimersByTime(600));
+      expect(camera.getState()).not.toEqual(before);
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
   });
 
   it("installs problem counts that arrive while a worker lays the graph out", () => {
@@ -281,6 +383,59 @@ describe("useSigmaGraph renderer lifecycle", () => {
       vi.useRealTimers();
     }
   });
+
+  it.each(["clickStage", "clickEdge"] as const)(
+    "opens a nearby node on %s, but ignores farther clicks",
+    (eventName) => {
+      // The pixel pick misses, as it does a few pixels off a 2-3px Explorer node.
+      // Sigma keeps getNodeAtPosition private; element access reaches it, as in the renderer.
+      const exactPick = Sigma.prototype["getNodeAtPosition"];
+      Sigma.prototype["getNodeAtPosition"] = () => null;
+
+      try {
+        const onSpy = vi.spyOn(Sigma.prototype, "on");
+        const callback = vi.fn();
+
+        const view = render(
+          <Harness nodes={[{ ...firstNode, x: 0, y: 0 }]} onNodeClick={callback} />,
+        );
+
+        const renderer = Array.from(new Set(onSpy.mock.contexts)).filter(isSigma).at(-1);
+
+        if (!renderer) throw new Error("Sigma renderer did not mount");
+        const display = renderer.getNodeDisplayData("one");
+
+        if (!display) throw new Error("node one is not drawn");
+        const center = renderer.framedGraphToViewport(display);
+        const edge = center.x + renderer.scaleSize(display.size);
+
+        const clickAt = (x: number) =>
+          act(() => {
+            renderer.emit(eventName, {
+              edge: "link",
+              event: {
+                x,
+                y: center.y,
+                sigmaDefaultPrevented: false,
+                preventSigmaDefault: () => undefined,
+                original: new MouseEvent("click"),
+              },
+              preventSigmaDefault: () => undefined,
+            });
+          });
+
+        clickAt(edge + 20);
+        expect(callback).not.toHaveBeenCalled();
+        clickAt(edge + 6);
+        expect(callback).toHaveBeenCalledWith(expect.objectContaining({ id: "one" }), {
+          beside: false,
+        });
+        view.unmount();
+      } finally {
+        Sigma.prototype["getNodeAtPosition"] = exactPick;
+      }
+    },
+  );
 
   it("keeps a faded node hoverable and clickable, including beside modifier", () => {
     const onSpy = vi.spyOn(Sigma.prototype, "on");

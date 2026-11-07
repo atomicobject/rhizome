@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/atomicobject/rhizome/internal/testkit"
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -61,7 +62,7 @@ func TestExplorerAndDefaultGraphExcludeExternalTargets(t *testing.T) {
 
 	// The default and local workspace graph consumers retain the real source
 	// node and never project the pathless external endpoint.
-	var global GraphResponse
+	var global graphpresentation.GraphResponse
 	getExternalIsolationJSON(t, handler, "/api/v1/graphs/global?limit=100&depth=2", &global)
 	require.Len(t, global.Nodes, 1)
 	require.Equal(t, localPath, global.Nodes[0].Path)
@@ -69,7 +70,7 @@ func TestExplorerAndDefaultGraphExcludeExternalTargets(t *testing.T) {
 	require.NotContains(t, global.Nodes[0].ID, "external")
 	require.NotContains(t, global.Nodes[0].Label, "useState")
 
-	var local GraphResponse
+	var local graphpresentation.GraphResponse
 	getExternalIsolationJSON(t, handler, "/api/v1/graphs/local?path="+localPath+"&limit=100&depth=1", &local)
 	require.Equal(t, nodeID("code", localPath), local.CenterID)
 	center := graphNodeByID(local.Nodes, local.CenterID)

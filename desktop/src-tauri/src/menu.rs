@@ -297,6 +297,13 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
     let worktrees = item("worktrees", "Switch Worktree…", true)?;
     let find = item("find", "Go to Note or File…", true)?;
     let (appearance_menu, theme_menu) = appearance::submenus(app)?;
+    // GTK does not implement the predefined quit, minimize, maximize, or
+    // fullscreen items, and Windows needs fullscreen and minimize routed
+    // through dispatch, so those platforms use ordinary items.
+    #[cfg(not(target_os = "linux"))]
+    let quit = PredefinedMenuItem::quit(app, None)?;
+    #[cfg(target_os = "linux")]
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, Some("Ctrl+Q"))?;
     let app_menu = Submenu::with_items(
         app,
         &app.package_info().name,
@@ -315,7 +322,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::show_all(app, None)?,
             #[cfg(not(windows))]
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, None)?,
+            &quit,
         ],
     )?;
     let file_menu = Submenu::with_items(
@@ -360,9 +367,9 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         false,
     )?;
     app.manage(SidebarItem(sidebar.clone()));
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     let fullscreen = PredefinedMenuItem::fullscreen(app, None)?;
-    #[cfg(windows)]
+    #[cfg(not(target_os = "macos"))]
     let fullscreen = item("fullscreen", "Toggle Full Screen", true)?;
     let view_menu = Submenu::with_items(
         app,
@@ -381,14 +388,13 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
     let minimize = PredefinedMenuItem::minimize(app, None)?;
-    #[cfg(windows)]
+    #[cfg(not(target_os = "macos"))]
     let minimize = MenuItem::with_id(app, "minimize", minimize.text()?, true, None::<&str>)?;
-    let window_menu = Submenu::with_items(
-        app,
-        "Window",
-        true,
-        &[&minimize, &PredefinedMenuItem::maximize(app, None)?],
-    )?;
+    #[cfg(not(target_os = "linux"))]
+    let maximize = PredefinedMenuItem::maximize(app, None)?;
+    #[cfg(target_os = "linux")]
+    let maximize = MenuItem::with_id(app, "maximize", "Maximize", true, None::<&str>)?;
+    let window_menu = Submenu::with_items(app, "Window", true, &[&minimize, &maximize])?;
     app.set_menu(Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
@@ -470,13 +476,25 @@ fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
                 let _ = browse(&window, to);
             }
         }
-        #[cfg(windows)]
+        #[cfg(target_os = "linux")]
+        "quit" => app.exit(0),
+        #[cfg(not(target_os = "macos"))]
         "minimize" => {
             if let Some(window) = window {
                 let _ = window.minimize();
             }
         }
-        #[cfg(windows)]
+        #[cfg(target_os = "linux")]
+        "maximize" => {
+            if let Some(window) = window {
+                let _ = if window.is_maximized().unwrap_or(false) {
+                    window.unmaximize()
+                } else {
+                    window.maximize()
+                };
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
         "fullscreen" => {
             if let Some(window) = window {
                 let _ = window

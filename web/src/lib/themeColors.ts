@@ -22,6 +22,7 @@ function computed(token: string): string {
     probe = document.createElement("span");
     probe.setAttribute("aria-hidden", "true");
     probe.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden";
+    probe.style.setProperty("transition", "none", "important");
     document.body.append(probe);
   }
 

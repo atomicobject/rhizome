@@ -111,42 +111,6 @@ func ensureDirExists(dir string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
-// cleanupStaleArtifacts removes rhizome-managed files from dir that are not in currentNames.
-// It only removes files matching the rhizome- prefix (e.g., rhizome-onboard.md).
-// Also cleans up legacy rhizome.* files (e.g., rhizome.onboard.md) from before the naming consolidation.
-func cleanupStaleArtifacts(dir string, currentNames map[string]struct{}) ([]string, error) {
-	var removed []string
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		// Check for current rhizome- prefix or legacy rhizome. prefix
-		if !strings.HasPrefix(name, rhizomePrefix) && !strings.HasPrefix(name, "rhizome.") {
-			continue
-		}
-		if _, ok := currentNames[name]; ok {
-			continue
-		}
-		path := filepath.Join(dir, name)
-		if err := os.Remove(path); err != nil {
-			return removed, fmt.Errorf("remove stale artifact %s: %w", path, err)
-		}
-		removed = append(removed, name)
-	}
-
-	return removed, nil
-}
-
 func isRetiredCoreSkillName(name string) bool {
 	for _, retired := range retiredCoreSkillNames {
 		if name == retired {

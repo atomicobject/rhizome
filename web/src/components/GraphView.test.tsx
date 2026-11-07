@@ -19,6 +19,76 @@ const baseProps = {
 };
 
 describe("GraphView", () => {
+  it("retains counts for embedded types omitted from a folder overview", () => {
+    render(
+      <GraphView
+        {...baseProps}
+        needsIndex
+        showTypeLegend
+        nodes={[{ id: "folder:", kind: "module", label: "Vault", fill: "red", fillKey: "Spec" }]}
+        legendNodes={[{ id: "a", kind: "note", label: "A", resolvedType: "Spec" }]}
+        legendExtraCounts={new Map([["Story", 17]])}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "All types" }));
+    const item = screen.getByText("Story").closest("li")!;
+    expect(within(item).getByText("17")).toBeVisible();
+  });
+  it("keys only drawn kinds and keeps the size toggle in Display", () => {
+    const onDisplayChange = vi.fn();
+
+    const view = render(
+      <GraphView
+        {...baseProps}
+        needsIndex
+        showTypeLegend
+        nodes={[{ id: "code", kind: "code", label: "main.ts", aggregate: true }]}
+        legendNodes={[{ id: "hidden", kind: "note", label: "Hidden", resolvedType: "Spec" }]}
+        display={{ scaleByAuthority: true, showEdgeLabels: false, showProblems: false }}
+        onDisplayChange={onDisplayChange}
+        sizeCaption="Size counts the notes and code files a folder holds"
+      />,
+    );
+
+    const legend = screen.getByLabelText("Graph type legend");
+    expect(within(legend).queryByText("Types")).toBeNull();
+    expect(within(legend).queryByText(/Folder \(colour/)).toBeNull();
+    expect(within(legend).queryByText("+N more")).toBeNull();
+    expect(within(legend).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Display" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Size counts the notes and code files a folder holds" }),
+    ).toBeVisible();
+
+    const size = screen.getByRole("checkbox", {
+      name: "Size counts the notes and code files a folder holds",
+    });
+
+    expect(size).toBeChecked();
+    fireEvent.click(size);
+    expect(onDisplayChange).toHaveBeenCalledWith({ scaleByAuthority: false });
+    expect(size).toBeChecked();
+    view.unmount();
+  });
+
+  it("keys the folder edge kinds automatically", () => {
+    render(
+      <GraphView
+        {...baseProps}
+        showTypeLegend
+        edges={[
+          { source: "a", target: "b", kind: "folder-containment", weight: 1 },
+          { source: "a", target: "b", kind: "folder-crosslink", weight: 34 },
+          { source: "a", target: "b", kind: "folder-minor", weight: 90 },
+        ]}
+      />,
+    );
+    const legend = screen.getByLabelText("Graph link legend");
+    expect(within(legend).getByText("Contains")).toBeVisible();
+    expect(within(legend).getByText("Note–code links")).toBeVisible();
+    expect(within(legend).getByText("Other links on hover")).toBeVisible();
+  });
+
   it("shows the index-needed notice without booting the graph", () => {
     const restoreWebGL = installFakeWebGL();
     const sigmaOn = vi.spyOn(Sigma.prototype, "on");

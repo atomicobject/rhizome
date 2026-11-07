@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"strings"
@@ -11,9 +12,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-func (s *Server) buildGraphWithNodeRead(ctx context.Context, req noderead.GraphRequest, depth int) (map[string]GraphNode, []GraphEdge, *noderead.GraphDiagnostics, error) {
+func (s *Server) buildGraphWithNodeRead(ctx context.Context, req noderead.GraphRequest, depth int) (map[string]graphpresentation.GraphNode, []graphpresentation.GraphEdge, *noderead.GraphDiagnostics, error) {
 	if s == nil || s.runtime == nil {
-		return map[string]GraphNode{}, nil, nil, nil
+		return map[string]graphpresentation.GraphNode{}, nil, nil, nil
 	}
 	intelStore := s.runtime.Intel()
 	if intelStore == nil {
@@ -27,34 +28,16 @@ func (s *Server) buildGraphWithNodeRead(ctx context.Context, req noderead.GraphR
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	nodes := make(map[string]GraphNode, len(graph.Nodes))
+	nodes := make(map[string]graphpresentation.GraphNode, len(graph.Nodes))
 	for _, node := range graph.Nodes {
 		s.mergeReadGraphNode(nodes, node, depth)
 	}
 	filterIgnoredGraphNodes(s, nodes)
-	edges := make([]GraphEdge, 0, len(graph.Edges))
-	for _, row := range graph.Edges {
-		if _, ok := nodes[row.Source]; !ok {
-			continue
-		}
-		if _, ok := nodes[row.Target]; !ok {
-			continue
-		}
-		edges = append(edges, GraphEdge{
-			Source:        row.Source,
-			Target:        row.Target,
-			Kind:          row.Kind,
-			Weight:        row.Weight,
-			RelationName:  row.RelationName,
-			RelationLabel: row.RelationLabel,
-			Provenance:    row.Provenance,
-			Structural:    row.Structural,
-		})
-	}
+	edges := graphpresentation.ProjectEdges(nodes, graph.Edges)
 	return nodes, edges, graph.Diagnostics, nil
 }
 
-func filterIgnoredGraphNodes(s *Server, nodes map[string]GraphNode) {
+func filterIgnoredGraphNodes(s *Server, nodes map[string]graphpresentation.GraphNode) {
 	if s == nil || s.runtime == nil {
 		return
 	}
@@ -70,7 +53,7 @@ func filterIgnoredGraphNodes(s *Server, nodes map[string]GraphNode) {
 	}
 }
 
-func (s *Server) mergeReadGraphNode(nodes map[string]GraphNode, node noderead.GraphEndpoint, depth int) {
+func (s *Server) mergeReadGraphNode(nodes map[string]graphpresentation.GraphNode, node noderead.GraphEndpoint, depth int) {
 	if node.ID == "" {
 		return
 	}
@@ -80,7 +63,7 @@ func (s *Server) mergeReadGraphNode(nodes map[string]GraphNode, node noderead.Gr
 	}
 	graphNode, ok := nodes[node.ID]
 	if !ok {
-		graphNode = GraphNode{
+		graphNode = graphpresentation.GraphNode{
 			ID:     node.ID,
 			Path:   firstGraphString(node.Path, node.NotePath),
 			Label:  firstGraphString(node.Label, paths.NoteTitle(firstGraphString(node.NotePath, node.Path))),
@@ -89,14 +72,14 @@ func (s *Server) mergeReadGraphNode(nodes map[string]GraphNode, node noderead.Gr
 			Module: moduleKey(firstGraphString(node.NotePath, node.Path), depth),
 		}
 	}
-	graphNode.NotePath = node.NotePath
-	graphNode.NodeID = node.NodeID
-	if !node.Ref.IsZero() {
-		ref := node.Ref
-		graphNode.NodeRef = &ref
+	projected := graphpresentation.ProjectNode(node)
+	graphNode.NotePath = projected.NotePath
+	graphNode.NodeID = projected.NodeID
+	if projected.NodeRef != nil {
+		graphNode.NodeRef = projected.NodeRef
 	}
-	graphNode.SourceLocator = node.SourceLocator
-	graphNode.ResolvedType = node.TypeName
+	graphNode.SourceLocator = projected.SourceLocator
+	graphNode.ResolvedType = projected.ResolvedType
 	if node.Label != "" {
 		graphNode.Label = node.Label
 	}

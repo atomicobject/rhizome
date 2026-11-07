@@ -21,12 +21,11 @@ export const DURABLE_QUERY_FIELDS = [
   "laneField",
 ] as const;
 
-export const LAYOUT_FIELDS = ["columns", "reshown", "density", "widths"] as const;
+export const LAYOUT_FIELDS = ["columns", "reshown", "density", "boardDensity", "widths"] as const;
 
 export const NATIVE_EXPANSION_KEYS = [
   "native.tableGroups",
   "native.cardGroups",
-  "native.boardColumns",
   "native.boardLanes",
 ] as const;
 
@@ -70,6 +69,8 @@ export function validNativePreference(field: string, value: unknown): value is J
     case "columns":
     case "reshown":
       return isStringArray(value);
+    case "boardDensity":
+      return value === "full" || value === "compact";
     case "density":
       return value === "two-line" || value === "one-line";
     case "widths":
@@ -79,7 +80,6 @@ export function validNativePreference(field: string, value: unknown): value is J
       );
     case "tableGroups":
     case "cardGroups":
-    case "boardColumns":
     case "boardLanes":
       return (
         isJsonObject(value) &&

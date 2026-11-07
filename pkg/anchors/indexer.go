@@ -4,7 +4,34 @@ package codeanchor
 // - [Code anchors (Hub)](docs/hubs/Code anchors (Hub).md)
 // - [Code anchors - matching + scopes](docs/reference/analysis/code-anchors-matching-scopes.md)
 
-import "github.com/atomicobject/rhizome/pkg/paths"
+import (
+	"path/filepath"
+	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/codefile"
+	"github.com/atomicobject/rhizome/pkg/paths"
+)
+
+var defaultLangExts = map[Lang][]string{
+	LangPy:  {".py"},
+	LangGo:  {".go"},
+	LangTS:  codefile.TypeScriptJavaScriptExtensions(),
+	LangCs:  {".cs"},
+	LangPhp: {".php"},
+}
+
+// LangForPath returns the language a code file is indexed as, from its extension.
+func LangForPath(path string) (Lang, bool) {
+	ext := strings.ToLower(filepath.Ext(path))
+	for lang, exts := range defaultLangExts {
+		for _, candidate := range exts {
+			if candidate == ext {
+				return lang, true
+			}
+		}
+	}
+	return "", false
+}
 
 // IndexerVersion is a hash/version string that changes when indexer logic changes.
 // Bump this when indexer output format or behavior changes significantly.

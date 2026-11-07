@@ -1,5 +1,8 @@
 export function isMacOS() {
-  return window.__RHIZOME_MACOS__ !== false;
+  // The shell receives the platform name; the finder still receives only the
+  // macOS flag. Either one missing means the macOS default.
+  const platform = window.__RHIZOME_PLATFORM__;
+  return platform ? platform === "macos" : window.__RHIZOME_MACOS__ !== false;
 }
 
 export function primaryModifier(event: Pick<KeyboardEvent, "metaKey" | "ctrlKey">) {

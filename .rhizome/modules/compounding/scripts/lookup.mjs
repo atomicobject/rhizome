@@ -11,8 +11,7 @@
 // ones past the limit. Run from anywhere inside the repository.
 
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { resolveRzm } from "./lib/calls.mjs";
 import { pathToFileURL } from "node:url";
 import { relativize, shellPaths } from "./lib/paths.mjs";
 import { repoRoot, selectShards } from "./lib/shards.mjs";
@@ -33,7 +32,7 @@ function args(argv) {
 
 // Shard paths Rhizome search ranks for a task; empty when search fails.
 function searchShards(root, task) {
-  const rzm = process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
+  const rzm = resolveRzm(root);
   try {
     const out = execFileSync(rzm, ["search", "-n", "20", "--raw", "--", task], { cwd: root, encoding: "utf8", timeout: 20000 });
     return [...out.matchAll(/\((docs\/memory\/context-shards\/[^)]+\.md)\)/g)].map((m) => m[1]);

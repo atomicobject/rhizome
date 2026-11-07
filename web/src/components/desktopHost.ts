@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useSyncExternalStore } from "react";
 import { isBoolean, isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
 import { applyTheme } from "../lib/appearance";
+import { DESKTOP_THEME_KEY } from "../lib/appearanceSettings";
 import { isThemeName, type ThemeName } from "../lib/themes";
 
 declare global {
@@ -121,9 +122,6 @@ function readCommand(event: Event): DesktopCommand | null {
 
   return null;
 }
-
-/** Where the page remembers the app's latest theme; web/index.html reads it. */
-export const DESKTOP_THEME_KEY = "rhizome:desktop-theme";
 
 /** The app's theme command: the chrome theme its settings hold. The page
  * applies it itself, so components never see it. */

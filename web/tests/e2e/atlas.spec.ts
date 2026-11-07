@@ -13,6 +13,15 @@ async function expectAtlasGeometry(page: Page) {
         const scale = cardRect.width / card.offsetWidth;
 
         return {
+          nameFits: (() => {
+            const name = card.querySelector<HTMLElement>(".ontology-node__name");
+
+            return (
+              !!name &&
+              name.scrollWidth <= name.clientWidth + 1 &&
+              name.clientHeight <= Number.parseFloat(getComputedStyle(name).lineHeight) + 1
+            );
+          })(),
           id: element.dataset.id,
           width: card.offsetWidth,
           height: card.offsetHeight,
@@ -41,6 +50,7 @@ async function expectAtlasGeometry(page: Page) {
   expect(measurements.flatMap((node) => node.handles).length).toBeGreaterThan(4);
 
   for (const node of measurements) {
+    expect(node.nameFits, `${node.id} name fits on one line`).toBe(true);
     expect(node.width, `${node.id} card width`).toBe(node.declaredWidth);
     expect(node.height, `${node.id} card height`).toBe(node.declaredHeight);
 
@@ -71,6 +81,8 @@ test("Atlas finder focuses types, searches without removing graph nodes, and ope
   expect(originalIds).toContain("Spec");
   await index.getByRole("button", { name: "Focus Person", exact: true }).click();
   await expect(index.getByText("Tracing Person")).toBeVisible();
+  await expect(page.locator(".react-flow__edge-text").first()).toBeVisible();
+  await expect(page.getByLabel("Connection legend")).toContainText("Self relation");
   await expect(person).toHaveClass(/atlas-node--focused/);
   await expect(page.locator('.react-flow__node[data-id="Spec"]')).toHaveClass(/atlas-node--dimmed/);
   await expect

@@ -1,4 +1,5 @@
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCollapsedGroupNotes } from "./ConfiguredViewCollapsedGroups";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   OntologyEditOp,
@@ -21,6 +22,7 @@ import { ConfiguredViewRecord } from "./ConfiguredViewRecord";
 import { ConfiguredViewTableHeader } from "./ConfiguredViewTableHeader";
 import {
   type ConfiguredTableGroup,
+  useElementWidth,
   columnClassName,
   countCollapsedGroups,
   effectiveSort,
@@ -40,7 +42,7 @@ import {
 import { capabilityFor, columnLabel } from "./ConfiguredViewModel";
 import { changedFields, changedFieldsByKey } from "../staging/stagedState";
 import { groupIdentity } from "./ConfiguredViewSave";
-import { RecordRailPortal, useRecordOverlayWidth } from "./recordRail";
+import { RecordRailPortal } from "./recordRail";
 import { useRememberedExpansion } from "./useRememberedExpansion";
 import { useViewReorder } from "./useViewReorder";
 import { useRowSelection } from "./useRowSelection";
@@ -65,6 +67,7 @@ type Props = {
   /** Shift-activation adds the column as another sort key. */
   onSort: (column: ViewTableColumn, additive?: boolean) => void;
   onCollapsedGroupCountChange: (count: number) => void;
+  onCollapsedGroupsChange?: (groups: { key: string; label: string; count: number }[]) => void;
   profile?: TypeProfile;
   density?: "two-line" | "one-line";
   /** Loads the next rows; set only while more remain and nothing is loading. */
@@ -77,6 +80,7 @@ type Props = {
   preferenceScope?: ViewPreferenceScope | null;
   /** Reports the labels of columns too narrow to show, which the record pane shows instead. */
   onMovedColumnsChange?: (labels: string[]) => void;
+  onGroupedColumnsChange?: (labels: string[]) => void;
 };
 
 export type { ConfiguredTableGroup };
@@ -98,6 +102,7 @@ export function ConfiguredViewTable({
   onOpenIssues,
   onSort,
   onCollapsedGroupCountChange,
+  onCollapsedGroupsChange,
   profile,
   density = "one-line",
   onLoadMore,
@@ -106,11 +111,10 @@ export function ConfiguredViewTable({
   active = true,
   preferenceScope,
   onMovedColumnsChange,
+  onGroupedColumnsChange,
 }: Props) {
   const scroll = useLoadOnScroll(onLoadMore);
-  // An overlaid record pane covers the table's right side; lay out for what it leaves.
-  const covered = useRecordOverlayWidth(active);
-  const available = useElementWidth(scroll.ref) - covered;
+  const available = useElementWidth(scroll.ref);
   const twoLine = density === "two-line" && Boolean(profile?.summaryField);
 
   const groups = useMemo(
@@ -168,6 +172,17 @@ export function ConfiguredViewTable({
     () => tableColumns.filter((column) => allocation.moved.includes(column.field)),
     [tableColumns, allocation.moved],
   );
+
+  const groupedLabels = allColumns
+    .filter((column) => !tableColumns.includes(column))
+    .map(
+      (column) => `${columnLabel(column, capabilities)} column hidden: the table is grouped by it`,
+    )
+    .join("\n");
+
+  useEffect(() => {
+    onGroupedColumnsChange?.(groupedLabels ? groupedLabels.split("\n") : []);
+  }, [groupedLabels, onGroupedColumnsChange]);
 
   const movedLabels = movedColumns.map((column) => columnLabel(column, capabilities)).join("\n");
 
@@ -236,7 +251,11 @@ export function ConfiguredViewTable({
   const collapsedGroupCount = countCollapsedGroups(groups, expansion.choices);
   useEffect(() => {
     onCollapsedGroupCountChange(collapsedGroupCount);
+
+    return () => onCollapsedGroupCountChange(0);
   }, [collapsedGroupCount, onCollapsedGroupCountChange]);
+
+  useCollapsedGroupNotes(groups, expansion.choices, capabilities, onCollapsedGroupsChange);
 
   function groupIsExpanded(group: ConfiguredTableGroup) {
     return expansion.isExpanded(group.key, !group.collapsedByDefault);
@@ -385,7 +404,6 @@ export function ConfiguredViewTable({
         // The title takes the slack; this keeps it at its minimum when nothing is left.
         style={{
           minWidth: allocation.minWidth,
-          width: covered > 0 ? `calc(100% - ${covered}px)` : undefined,
         }}
       >
         <ConfiguredViewTableHeader
@@ -477,26 +495,4 @@ function groupedFields(groups: ConfiguredTableGroup[], fields = new Set<string>(
   }
 
   return fields;
-}
-
-/** The element's content width, or Infinity until it is measured. */
-function useElementWidth(ref: RefObject<HTMLElement | null>) {
-  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
-
-  useEffect(() => {
-    const element = ref.current;
-
-    if (!element) return;
-
-    const observer = new ResizeObserver(() => {
-      // A hidden table measures zero; it keeps its columns until it shows.
-      if (element.clientWidth > 0) setWidth(element.clientWidth);
-    });
-
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, [ref]);
-
-  return width;
 }

@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
-	"regexp"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -11,8 +10,6 @@ import (
 )
 
 const workspaceBodiesMax = 200
-
-var workspaceBodyPreviewPlaceholder = regexp.MustCompile(`{{\s*([A-Za-z_][A-Za-z0-9_]*)\s*}}`)
 
 // workspaceBodyNode is the source-preserving transport record from which a
 // client can construct its own workspace graph. It deliberately contains no
@@ -159,7 +156,7 @@ func workspaceBodyChildBinding(parent *workspaceBodyBinding, block ontology.Node
 		FieldList:       block.Kind == ontology.NodeBodyBlockKindCollection,
 		SectionDisplay:  block.SectionDisplay,
 		Properties:      workspaceBodyProperties(projection),
-		IdentifierField: workspaceBodyIdentifierField(projection),
+		IdentifierField: ontology.IdentifierFieldName(projection.Type),
 		PreviewTemplate: workspaceBodyPreviewTemplate(projection),
 		Collapsed:       projection.Type != nil && projection.Type.Preview != nil && projection.Type.Preview.Collapsed,
 	}
@@ -196,21 +193,6 @@ func workspaceBodyProperties(projection *ontology.NodeProjection) map[string]str
 	return properties
 }
 
-func workspaceBodyIdentifierField(projection *ontology.NodeProjection) string {
-	if projection == nil || projection.Type == nil {
-		return ""
-	}
-	if field := projection.Type.PreferredIdentifierField(); field != nil {
-		return field.Name
-	}
-	for _, field := range projection.Type.Fields {
-		if field != nil && field.IsIdentifier {
-			return field.Name
-		}
-	}
-	return ""
-}
-
 func workspaceBodyPreviewTemplate(projection *ontology.NodeProjection) string {
 	if projection == nil || projection.Type == nil || projection.Type.Preview == nil {
 		return ""
@@ -218,16 +200,7 @@ func workspaceBodyPreviewTemplate(projection *ontology.NodeProjection) string {
 	preview := projection.Type.Preview.Template
 	properties := workspaceBodyProperties(projection)
 	title := ontology.BuildNodeWorkspaceFromProjection(projection).Node.Title
-	return workspaceBodyPreviewPlaceholder.ReplaceAllStringFunc(preview, func(match string) string {
-		parts := workspaceBodyPreviewPlaceholder.FindStringSubmatch(match)
-		if len(parts) != 2 {
-			return match
-		}
-		if parts[1] == "title" {
-			return title
-		}
-		return properties[parts[1]]
-	})
+	return ontology.InterpolatePreviewTemplate(preview, properties, title, func(string) string { return "" })
 }
 
 func (e *executor) resolveWorkspaceBodyNode(item workspaceBodyNode, links fieldLinkTargets, set ast.SelectionSet, path []string) map[string]any {

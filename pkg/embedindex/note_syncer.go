@@ -93,7 +93,6 @@ type NoteSyncer struct {
 	// StaleNoteThreshold controls lazy pruning of notes not seen in current sync.
 	// If the fraction of stale notes is below this threshold, they're preserved
 	// to avoid re-embedding costs when switching branches. Default is 0.3 (30%).
-	// Set to 0 for immediate pruning (old behavior).
 	StaleNoteThreshold float64
 
 	// ChunkWriter optionally persists intel chunk records prior to embedding.

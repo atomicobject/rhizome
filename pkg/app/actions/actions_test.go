@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atomicobject/rhizome/pkg/app/tasks"
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/actiondef"
 )
 
@@ -109,7 +109,7 @@ func TestUntrustedRepositoryIsRefused(t *testing.T) {
 	skipWindows(t)
 	root := repo(t, map[string]string{".rhizome/modules/demo/actions/touch.yaml": shAction("touch ran; echo null", "")})
 	runner := &Runner{RepoRoot: root, Trust: func(ctx context.Context) string {
-		return tasks.Untrusted(ctx, root, "actions", func(string) (bool, error) { return false, nil })
+		return repositorytrust.Untrusted(ctx, root, "actions", func(string) (bool, error) { return false, nil })
 	}}
 	got, err := runner.Run(context.Background(), "demo/touch", nil)
 	require.NoError(t, err)

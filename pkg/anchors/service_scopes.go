@@ -179,10 +179,6 @@ func (s *Service) planAnchorScopes(ctx context.Context, anchors []Anchor) (ancho
 	if err != nil {
 		return anchorScopePlan{}, err
 	}
-	progress := scopeProgressFromContext(ctx)
-	if progress != nil {
-		progress.Start(len(anchors))
-	}
 
 	plan := anchorScopePlan{updates: make([]AnchorScopeUpdate, 0, len(anchors))}
 	for _, anchor := range anchors {
@@ -196,9 +192,6 @@ func (s *Service) planAnchorScopes(ctx context.Context, anchors []Anchor) (ancho
 		}
 		if ok {
 			plan.updates = append(plan.updates, update)
-		}
-		if progress != nil {
-			progress.Advance(1)
 		}
 	}
 	return plan, nil

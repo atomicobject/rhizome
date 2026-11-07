@@ -169,7 +169,7 @@ Must pass.
 type AcceptanceCriteria implements Section {
 }
 
-type UserStory implements Section @node(locator: EMBEDDED) @preview(template: "{{ title }} — {{summary}}", collapsed: true) {
+type UserStory implements Section @node(locator: EMBEDDED) @preview(template: "{{ title }} — {{summary}}{{optional}}", collapsed: true) {
   id: ID! @field @identifier(preferred: true, derivedSuffix: "US")
   status: String @field
   summary: String @field
@@ -249,6 +249,7 @@ type Spec @node(paths: ["notes/specs/*.md"]) {
 	require.Equal(t, true, collectionBinding["fieldList"])
 	require.Equal(t, map[string]string{"id": "STORY-A", "status": "planned", "summary": "Build the workflow"}, collectionBinding["properties"])
 	require.Equal(t, "Story A — Build the workflow", collectionBinding["previewTemplate"])
+	require.Equal(t, "id", collectionBinding["identifierField"])
 	require.Equal(t, true, collectionBinding["collapsed"])
 
 	storyBodies := result.Data["story"].(map[string]any)["workspace"].(map[string]any)["bodies"].([]any)

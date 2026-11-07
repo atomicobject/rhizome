@@ -1,7 +1,5 @@
 package cmd
 
-import codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-
 import (
 	"encoding/json"
 	"errors"
@@ -10,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/spf13/cobra"
@@ -433,7 +433,7 @@ Exits with code 1 if any anchors fail validation.`,
 			}
 			defer cleanup()
 
-			svc, _ := newCodeAnchorService(codeAnchorServiceConfig{
+			svc, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 				VaultPath: vaultPath,
 				CodeCfg:   codeCfg,
 				Store:     store,
@@ -445,7 +445,6 @@ Exits with code 1 if any anchors fail validation.`,
 				return err
 			}
 
-			// Separate valid vs issues
 			var valid, issues []codeanchor.ValidationResult
 			for _, r := range results {
 				if r.Status == codeanchor.ValidationValid {
@@ -499,7 +498,6 @@ Exits with code 1 if any anchors fail validation.`,
 				return nil
 			}
 
-			// Human-readable output
 			fmt.Fprintf(cmd.OutOrStdout(), "Validating %d anchors...\n\n", len(results))
 
 			for _, r := range results {

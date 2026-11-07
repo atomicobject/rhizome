@@ -206,11 +206,6 @@ func (t *Traffic) Routes(mux *http.ServeMux) {
 	})
 }
 
-// Usage implements core.UsageReader.
-func (t *Traffic) Usage(ctx context.Context, date string) (wire.DailyUsage, map[string]wire.DailyUsage, error) {
-	return t.ledger.Usage(ctx, date)
-}
-
 func (t *Traffic) paid(p *provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ev := begin(w, r, p.route)
@@ -555,12 +550,7 @@ func begin(w http.ResponseWriter, r *http.Request, route string) *event {
 		id = hex.EncodeToString(b[:])
 		w.Header().Set(wire.HeaderRequestID, id)
 	}
-	return &event{requestID: id, route: route, client: clientVersion(r.UserAgent()), start: time.Now()}
-}
-
-// clientVersion extracts <version> from a "rzm/<version>" User-Agent.
-func clientVersion(ua string) string {
-	return core.ClientVersion(ua)
+	return &event{requestID: id, route: route, client: core.ClientVersion(r.UserAgent()), start: time.Now()}
 }
 
 func (t *Traffic) record(ctx context.Context, ev *event) {

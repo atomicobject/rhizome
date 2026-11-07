@@ -82,7 +82,7 @@ func (e *executor) matchSectionsForField(ctx context.Context, node *noteRecord, 
 	if err != nil {
 		return nil, err
 	}
-	matches := matchSectionNodesForField(nodes, field)
+	matches := ontology.MatchSectionNodesForField(nodes, field)
 	propertyCase := e.propertyCaseForType(node.TypeName)
 	out := make([]*sectionRecord, 0, len(matches))
 	for _, match := range matches {
@@ -114,7 +114,7 @@ func (e *executor) matchNestedSections(ctx context.Context, node *sectionRecord,
 	if node.Node == nil {
 		return nil, nil
 	}
-	matches := matchSectionNodesForField(node.Node.Children, field)
+	matches := ontology.MatchSectionNodesForField(node.Node.Children, field)
 	out := make([]*sectionRecord, 0, len(matches))
 	for _, match := range matches {
 		out = append(out, &sectionRecord{
@@ -285,42 +285,6 @@ func sectionNodeFromProjection(projection *ontology.NodeProjection) *ontology.Se
 		}
 	}
 	return nil
-}
-
-// matchSectionNodesForField selects SectionNodes for a @contains field using
-// the two supported semantics:
-//
-//   - `heading` set: find every section with that title at the given level
-//     (anywhere in the subtree for note-scoped matching, or among direct
-//     children for nested matching — callers decide the starting slice).
-//   - list-typed with empty `heading`: take every direct child at the field's
-//     level, in document order.
-//
-// Singular fields must set `heading`; schema compilation enforces that.
-//
-// Docs: [[ontology-graphql-query-contract#^spec-0042-sections-embedded]]
-// freezes the section and embedded-node query semantics.
-func matchSectionNodesForField(nodes []*ontology.SectionNode, field *ontoschema.Field) []*ontology.SectionNode {
-	if field == nil {
-		return nil
-	}
-	if strings.TrimSpace(field.SectionHeading) != "" {
-		return ontology.FindMatchingSections(nodes, field.SectionLevel, field.SectionHeading)
-	}
-	if !field.List {
-		return nil
-	}
-	nodes = ontology.UnwrapSingleH1SectionRoot(nodes)
-	out := make([]*ontology.SectionNode, 0, len(nodes))
-	for _, node := range nodes {
-		if node == nil {
-			continue
-		}
-		if node.Level == field.SectionLevel {
-			out = append(out, node)
-		}
-	}
-	return out
 }
 
 // propertyCaseForType returns the PropertyCase for a note type, or the kebab

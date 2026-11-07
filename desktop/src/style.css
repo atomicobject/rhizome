@@ -95,7 +95,12 @@ body,
 }
 /* The section tabs sit centered in the window, between the window
    controls and the page tools, and give way when space runs short. */
+.toolbar-viewport {
+  min-width: 0;
+}
 .toolbar {
+  height: 38px;
+  position: relative;
   grid-column: 1 / -1;
   display: grid;
   /* The end column may shrink below its content: transient text, then the
@@ -123,6 +128,18 @@ body,
    padding so the centered column stays centered in the window. */
 .shell[data-macos="true"] .toolbar-start {
   padding-left: 72px;
+}
+html[data-platform="linux"] .toolbar-viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+html[data-platform="linux"] .toolbar {
+  min-width: 480px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+html[data-platform="linux"] .toolbar-start {
+  padding-left: 0;
 }
 .toolbar-end {
   justify-content: flex-end;
@@ -180,6 +197,25 @@ body,
   height: 6px;
   border-radius: 50%;
   background: var(--success);
+}
+.section-picker {
+  display: none;
+  max-width: 140px;
+  height: 26px;
+  padding: 0 6px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--chrome-text);
+  background: var(--chrome-active);
+  border: 0;
+  border-radius: 5px;
+}
+.section-picker option {
+  color: var(--text);
+  background: var(--surface);
+}
+.compact-search-icon {
+  display: none;
 }
 /* Toolbar controls sit on the theme's chrome, not on the content surface. */
 .toolbar .icon-button,
@@ -319,6 +355,22 @@ body,
     max-width: 180px;
   }
 }
+@media (max-width: 1180px) {
+  html[data-platform="linux"] .toolbar {
+    grid-template-columns: minmax(0, 1fr) auto max-content;
+  }
+  html[data-platform="linux"] .page-sections > button {
+    display: none;
+  }
+  html[data-platform="linux"] .section-picker {
+    display: block;
+  }
+  html[data-platform="linux"] .toolbar-pill {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
 @media (max-width: 960px) {
   .switch-repository,
   .switch-worktree {
@@ -326,6 +378,37 @@ body,
   }
   .page-search {
     min-width: 56px;
+  }
+  html[data-platform="linux"] .page-search {
+    flex-basis: 26px;
+    min-width: 26px;
+  }
+  html[data-platform="linux"] .page-search:not(:focus-within) {
+    flex: 0 0 26px;
+    max-width: 26px;
+  }
+  html[data-platform="linux"] .page-search:not(:focus-within) input {
+    padding: 0;
+    color: transparent;
+  }
+  html[data-platform="linux"] .page-search:not(:focus-within) input::placeholder {
+    color: transparent;
+  }
+  html[data-platform="linux"] .page-search:not(:focus-within) .compact-search-icon {
+    display: block;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: var(--chrome-muted);
+    stroke-width: 1.5;
+    pointer-events: none;
+  }
+  html[data-platform="linux"] .page-search:focus-within {
+    flex-basis: 220px;
+    min-width: 120px;
   }
   .page-sections button {
     padding: 0 4px;
@@ -1295,5 +1378,36 @@ label.choice {
   }
   .provider-key-heading .actions {
     margin-top: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-platform="linux"] .toolbar {
+    gap: 4px;
+    padding: 0 4px;
+  }
+  html[data-platform="linux"] .toolbar-start,
+  html[data-platform="linux"] .toolbar-end {
+    gap: 2px;
+  }
+  html[data-platform="linux"] .switch-repository,
+  html[data-platform="linux"] .switch-worktree {
+    padding: 0 4px;
+  }
+  html[data-platform="linux"] .page-search:focus-within {
+    position: absolute;
+    right: 4px;
+    width: 240px;
+    max-width: calc(100% - 8px);
+    z-index: 2;
+  }
+}
+
+@media (max-width: 479px) {
+  html[data-platform="linux"] .shell {
+    grid-template-rows: 46px minmax(0, 1fr);
+  }
+  html[data-platform="linux"] .content > * {
+    min-width: 480px;
   }
 }

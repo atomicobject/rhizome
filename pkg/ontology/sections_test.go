@@ -372,3 +372,33 @@ body2
 	require.NotContains(t, own, "### Req 1")
 	require.NotContains(t, own, "### Req 2")
 }
+
+func TestMatchSectionNodesForField(t *testing.T) {
+	first := &SectionNode{ID: "first", Title: "Match", Level: ontoschema.SectionLevelH2}
+	nested := &SectionNode{ID: "nested", Title: "Match", Level: ontoschema.SectionLevelH2}
+	second := &SectionNode{ID: "second", Title: "Other", Level: ontoschema.SectionLevelH2, Children: []*SectionNode{nested}}
+	root := &SectionNode{ID: "root", Title: "Note", Level: ontoschema.SectionLevelH1, Children: []*SectionNode{first, nil, second}}
+	for _, tc := range []struct {
+		name  string
+		nodes []*SectionNode
+		field *ontoschema.Field
+		want  []string
+	}{
+		{"heading recurses in document order", []*SectionNode{nil, root}, &ontoschema.Field{SectionLevel: ontoschema.SectionLevelH2, SectionHeading: " Match "}, []string{"first", "nested"}},
+		{"list unwraps title and skips descendants", []*SectionNode{root}, &ontoschema.Field{List: true, SectionLevel: ontoschema.SectionLevelH2}, []string{"first", "second"}},
+		{"nested scope stays bounded", second.Children, &ontoschema.Field{List: true, SectionLevel: ontoschema.SectionLevelH2}, []string{"nested"}},
+		{"heading respects starting scope", second.Children, &ontoschema.Field{SectionLevel: ontoschema.SectionLevelH2, SectionHeading: "Match"}, []string{"nested"}},
+		{"whitespace heading is absent", []*SectionNode{root}, &ontoschema.Field{List: true, SectionLevel: ontoschema.SectionLevelH2, SectionHeading: " \t "}, []string{"first", "second"}},
+		{"singular needs heading", []*SectionNode{root}, &ontoschema.Field{SectionLevel: ontoschema.SectionLevelH2}, nil},
+		{"nil field", []*SectionNode{root}, nil, nil},
+		{"nil nodes", []*SectionNode{nil}, &ontoschema.Field{List: true, SectionLevel: ontoschema.SectionLevelH2}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			for _, node := range MatchSectionNodesForField(tc.nodes, tc.field) {
+				got = append(got, node.ID)
+			}
+			require.Equal(t, tc.want, got)
+		})
+	}
+}

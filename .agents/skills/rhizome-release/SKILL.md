@@ -63,4 +63,6 @@ python3 scripts/release/prepare_release.py check
 
 If main or the prior release tag changes before approval, refresh the evidence and reconcile the reviewed prose. Incorporate fresh main into the existing release-prep branch, preserve its human edits, and update the reviewed manifest source/base before running sync/check again. Use a separate clean checkout for fresh evidence if the release branch already contains prepared files. Keep changes relative to the new source within the same five-file boundary; do not silently broaden the release or force past the source check. After the release PR merges, CI stays pinned to that immutable release commit.
 
-Report the release PR, version, what its merge triggers and any unfinished verification. Normal local preparation needs no Apple signing credentials. Merge or product publication needs the user's explicit authorization.
+When the maintainer authorizes the merge, merge the PR and confirm a **Release** workflow run started on main for the merge commit. If none started, start one with `gh workflow run release.yml --ref main -f candidate_only=false -f release_pr=<number>`. Follow the run to completion; a failure after publication began is recovered with `gh run rerun <run-id> --failed`, never a new run.
+
+Report the release PR, version, the release run, what it published and any unfinished verification. Normal local preparation needs no Apple signing credentials. Merge or product publication needs the user's explicit authorization.

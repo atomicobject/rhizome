@@ -1,4 +1,5 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { folderOverview } from "../test/folderOverview";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import Sigma from "sigma";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FileView, GraphResponse, SearchResponse, TreeResponse } from "../api/types";
@@ -59,10 +60,9 @@ describe("ExplorerWorkspace", () => {
 
   beforeEach(() => {
     restoreWebGL = installFakeWebGL();
-    // Empty, well-formed reads for everything a test does not care about.
     http
       .json("GET", "/api/v1/files/tree", tree())
-      .json("GET", "/api/v1/graphs/global", graphWith())
+      .json("GET", "/api/v1/graphs/folders", folderOverview(graphWith()))
       .json("GET", "/api/v1/graphs/local", graphWith())
       .json("GET", "/api/v1/graphs/expand", graphWith())
       .json("GET", "/api/v1/files/view", fileView(""))
@@ -72,6 +72,7 @@ describe("ExplorerWorkspace", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
     restoreWebGL();
     window.history.replaceState({}, "", "/explorer");
@@ -83,7 +84,7 @@ describe("ExplorerWorkspace", () => {
     const utils = render(<ExplorerWorkspace vaultName="rhizome" />);
 
     async function renderer() {
-      await screen.findByRole("img", { name: /^Graph of / });
+      await waitFor(() => expect(sigmaOn).toHaveBeenCalled());
       const sigma = sigmaOn.mock.contexts.at(-1);
 
       if (!(sigma instanceof Sigma)) throw new Error("graph pane never mounted a renderer");
@@ -161,14 +162,18 @@ describe("ExplorerWorkspace", () => {
   });
 
   it("starts the whole vault at folder level and opens a folder from its node", async () => {
-    http.json("GET", "/api/v1/graphs/global", {
-      nodes: [
-        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
-        { id: "b", label: "b", kind: "code", path: "pkg/b.go" },
-      ],
-      edges: [{ source: "a", target: "b", kind: "mentions" }],
-      truncated: false,
-    });
+    http.json(
+      "GET",
+      "/api/v1/graphs/folders",
+      folderOverview({
+        nodes: [
+          { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+          { id: "b", label: "b", kind: "code", path: "pkg/b.go" },
+        ],
+        edges: [{ source: "a", target: "b", kind: "mentions" }],
+        truncated: false,
+      }),
+    );
     const explorer = renderExplorer();
     const renderer = await explorer.renderer();
     await waitFor(() =>
@@ -189,32 +194,37 @@ describe("ExplorerWorkspace", () => {
       });
     });
 
-    await waitFor(() =>
-      expect(http.requests("GET", "/api/v1/graphs/expand").at(-1)?.query.get("module")).toBe("pkg"),
-    );
+    await waitFor(() => expect(renderer.getGraph().hasNode("b")).toBe(true));
+    expect(http.count("GET", "/api/v1/graphs/expand")).toBe(0);
+    expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
+    expect(http.count("GET", "/api/v1/graphs/folders")).toBe(1);
     expect(document.querySelector(".explorer-pane")).toBeNull();
     expect(document.querySelector(".explorer-grid--with-pane")).toBeNull();
   });
 
-  it("keeps containment separate from links between a parent folder and its child", async () => {
-    http.json("GET", "/api/v1/graphs/global", {
-      nodes: [
-        { id: "a", label: "a", kind: "note", path: "docs/a.md" },
-        { id: "b", label: "b", kind: "note", path: "docs/specs/b.md" },
-      ],
-      edges: [{ source: "a", target: "b", kind: "mentions" }],
-      truncated: false,
-    });
+  it("keeps note links separate from containment edges", async () => {
+    http.json(
+      "GET",
+      "/api/v1/graphs/folders",
+      folderOverview({
+        nodes: [
+          { id: "a", label: "a", kind: "note", path: "docs/a.md" },
+          { id: "b", label: "b", kind: "note", path: "docs/specs/b.md" },
+        ],
+        edges: [{ source: "a", target: "b", kind: "mentions" }],
+        truncated: false,
+      }),
+    );
     const explorer = renderExplorer();
     const graph = await explorer.graph();
 
-    await waitFor(() => expect(graph.edges("folder:docs", "folder:docs/specs")).toHaveLength(2));
+    await waitFor(() => expect(graph.edges("more:docs", "folder:docs/specs")).toHaveLength(1));
     expect(
       graph
-        .edges("folder:docs", "folder:docs/specs")
+        .edges("more:docs", "folder:docs/specs")
         .map((edge) => graph.getEdgeAttribute(edge, "kind"))
         .sort(),
-    ).toEqual(["folder-containment", "folder-minor"]);
+    ).toEqual(["folder-crosslink"]);
   });
 
   it("opens an embedded graph node at its canonical target", async () => {
@@ -271,7 +281,11 @@ describe("ExplorerWorkspace", () => {
           { path: "src/current.ts", name: "current.ts", kind: "code", hasChildren: false },
         ),
       )
-      .on("GET", "/api/v1/graphs/global", () => global.promise)
+      .on("GET", "/api/v1/graphs/folders", async () => {
+        const reply = await global.promise;
+
+        return jsonReply(folderOverview(await reply.json()));
+      })
       .on("GET", "/api/v1/files/view", (request) =>
         jsonReply(fileView(String(request.query.get("path")))),
       )
@@ -293,7 +307,7 @@ describe("ExplorerWorkspace", () => {
     await act(async () => {
       await global.promise;
     });
-    await waitFor(() => expect(http.count("GET", "/api/v1/graphs/global")).toBe(1));
+    await waitFor(() => expect(http.count("GET", "/api/v1/graphs/folders")).toBe(1));
     const latest = await explorer.graph();
     expect(latest.hasNode("src/current.ts")).toBe(true);
     expect(latest.hasNode("global-late")).toBe(false);
@@ -462,7 +476,11 @@ describe("ExplorerWorkspace", () => {
     const oldSearch = deferredReply<SearchResponse>();
     const currentSearch = deferredReply<SearchResponse>();
     http
-      .json("GET", "/api/v1/graphs/global", graphWith("specs/current.md", "specs/old.md"))
+      .json(
+        "GET",
+        "/api/v1/graphs/folders",
+        folderOverview(graphWith("current/current.md", "old/old.md")),
+      )
       .on("GET", "/api/v1/search", (request) =>
         request.query.get("q") === "old" ? oldSearch.promise : currentSearch.promise,
       );
@@ -477,13 +495,13 @@ describe("ExplorerWorkspace", () => {
     fireEvent.keyDown(search, { key: "Enter" });
     fireEvent.click(screen.getByLabelText("Only matches"));
 
-    currentSearch.resolve({ count: 1, matches: [{ path: "specs/current.md", kind: "note" }] });
+    currentSearch.resolve({ count: 1, matches: [{ path: "current/current.md", kind: "note" }] });
     // With "Only matches" on, the graph hides everything the submitted search
     // did not return, so node visibility is the search set the pane is using.
-    await waitFor(() => expect(displayHidden("specs/current.md")).toBe(false));
-    expect(displayHidden("specs/old.md")).toBe(true);
+    await waitFor(() => expect(displayHidden("folder:current")).toBe(false));
+    expect(displayHidden("folder:old")).toBe(true);
 
-    oldSearch.resolve({ count: 1, matches: [{ path: "specs/old.md", kind: "note" }] });
+    oldSearch.resolve({ count: 1, matches: [{ path: "old/old.md", kind: "note" }] });
     await act(async () => {
       await oldSearch.promise;
     });
@@ -493,7 +511,7 @@ describe("ExplorerWorkspace", () => {
     act(() => {
       sigma.refresh();
     });
-    expect(displayHidden("specs/current.md")).toBe(false);
-    expect(displayHidden("specs/old.md")).toBe(true);
+    expect(displayHidden("folder:current")).toBe(false);
+    expect(displayHidden("folder:old")).toBe(true);
   });
 });

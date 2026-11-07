@@ -2,12 +2,12 @@ package serve
 
 import (
 	"context"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/stretchr/testify/require"
 )
 
@@ -165,7 +165,7 @@ func TestValidationRefreshPendingClearsOnCancellation(t *testing.T) {
 				require.True(t, c.ValidationRefreshPending(), "expired debounce must retain work waiting for boot indexing")
 			}
 			if phase == "invalidation" {
-				c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})
+				c.GlobalEventSink()(appruntime.GlobalEventValidationInvalidated, map[string]any{"reason": appruntime.GlobalEventReasonReconcileFailed})
 			} else {
 				cancel()
 			}

@@ -1,0 +1,52 @@
+.keyboard-shortcuts h3 {
+  margin: 0 0 var(--sp-2);
+  font: var(--label-font);
+  color: var(--label-color);
+}
+
+.keyboard-shortcuts dl {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.keyboard-shortcuts dl div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: baseline;
+}
+
+.keyboard-shortcuts dt,
+.keyboard-shortcuts dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.keyboard-shortcuts kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+/* One keyboard focus style for the whole app. Zero specificity, so a
+   component can inset or offset it (rows, cells) without restyling it. */
+:where(a, button, input, select, textarea, summary, [tabindex], [role="tab"]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+:where(tr, [role="tab"]):focus-visible {
+  outline-offset: -2px;
+}
+
+/* Transitions only tint hover and state changes; dropping them loses no
+   information. The index spinner keeps turning as loading feedback. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

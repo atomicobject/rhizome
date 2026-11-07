@@ -198,6 +198,10 @@ pub enum Action {
         height: f64,
         covered: bool,
     },
+    ApplicationMenu {
+        x: f64,
+        y: f64,
+    },
     Menu {
         x: f64,
         y: f64,
@@ -671,6 +675,15 @@ pub async fn desktop_request(
                 size: LogicalSize::new(width.max(1.0), height.max(1.0)).into(),
             };
             windows::layout(&window, bounds, covered)?;
+            Ok(Value::Null)
+        }
+        Action::ApplicationMenu { x, y } => {
+            let menu = app
+                .menu()
+                .ok_or_else(|| "Application menu is unavailable.".to_string())?;
+            window
+                .popup_menu_at(&menu, LogicalPosition::new(x, y))
+                .map_err(|e| e.to_string())?;
             Ok(Value::Null)
         }
         Action::Menu { x, y, items } => {

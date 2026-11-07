@@ -6,14 +6,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/credentials"
 	"github.com/atomicobject/rhizome/pkg/llm"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
-)
-
-// Default compression settings
-const (
-	defaultCompressionProvider = "cerebras"
-	defaultCompressionModel    = "gpt-oss-120b"
 )
 
 // warnCompressionReadiness prints a warning if compression is enabled but API key is missing.
@@ -21,23 +16,10 @@ func warnCompressionReadiness(env vaultconfig.Env, cfg repoconfig.LocalConfig, o
 	if out == nil {
 		return
 	}
-	if cfg.Compression == nil {
-		return // Auto mode, no warning needed
-	}
-	if cfg.Compression.Enabled != nil && !*cfg.Compression.Enabled {
-		return // Explicitly disabled
-	}
-	if cfg.Compression.Enabled != nil && *cfg.Compression.Enabled {
-		// Explicitly enabled - check for API key
-		provider := strings.ToLower(strings.TrimSpace(cfg.Compression.Provider))
-		if provider == "" {
-			provider = defaultCompressionProvider
-		}
-		apiKey := llm.APIKeyForProvider(env, provider)
-		if apiKey == "" {
-			envVar := providerEnvVar(provider)
-			fmt.Fprintf(out, "%s: compression enabled but %s is not set.\n", styleWarn(out, "Warning"), envVar)
-		}
+	provider := credentials.ActiveCompressionProvider(&cfg)
+	if provider != "" && llm.APIKeyForProvider(env, provider) == "" {
+		envVar := providerEnvVar(provider)
+		fmt.Fprintf(out, "%s: compression enabled but %s is not set.\n", styleWarn(out, "Warning"), envVar)
 	}
 }
 

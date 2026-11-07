@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/app/graphpresentation"
 	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
@@ -11,12 +12,12 @@ const defaultScopedGraphCacheEntries = 32
 
 type graphCacheEntry struct {
 	key  string
-	resp GraphResponse
+	resp graphpresentation.GraphResponse
 }
 
 type graphCacheCall struct {
 	done chan struct{}
-	resp GraphResponse
+	resp graphpresentation.GraphResponse
 	err  error
 }
 
@@ -78,7 +79,7 @@ func (c *graphResponseCache) spawn(fn func(ctx context.Context)) bool {
 	return true
 }
 
-func (c *graphResponseCache) getOrBuild(ctx context.Context, key string, global bool, build func(ctx context.Context) (GraphResponse, error)) (GraphResponse, error) {
+func (c *graphResponseCache) getOrBuild(ctx context.Context, key string, global bool, build func(ctx context.Context) (graphpresentation.GraphResponse, error)) (graphpresentation.GraphResponse, error) {
 	c.mu.Lock()
 	if global {
 		if c.global != nil && c.global.key == key {
@@ -96,7 +97,7 @@ func (c *graphResponseCache) getOrBuild(ctx context.Context, key string, global 
 	if !ok {
 		if c.closed {
 			c.mu.Unlock()
-			return GraphResponse{}, context.Canceled
+			return graphpresentation.GraphResponse{}, context.Canceled
 		}
 		call = &graphCacheCall{done: make(chan struct{})}
 		c.inflight[key] = call
@@ -108,18 +109,18 @@ func (c *graphResponseCache) getOrBuild(ctx context.Context, key string, global 
 	select {
 	case <-call.done:
 		if call.err != nil {
-			return GraphResponse{}, call.err
+			return graphpresentation.GraphResponse{}, call.err
 		}
 		return cloneGraphResponse(call.resp), nil
 	case <-ctx.Done():
-		return GraphResponse{}, ctx.Err()
+		return graphpresentation.GraphResponse{}, ctx.Err()
 	}
 }
 
 // run performs one shared build under the cache lifetime context. It is
 // deliberately detached from every waiter's context: the build outlives any
 // single request, so nothing request-scoped may ride the context it receives.
-func (c *graphResponseCache) run(call *graphCacheCall, key string, global bool, build func(ctx context.Context) (GraphResponse, error)) {
+func (c *graphResponseCache) run(call *graphCacheCall, key string, global bool, build func(ctx context.Context) (graphpresentation.GraphResponse, error)) {
 	defer c.builds.Done()
 
 	resp, err := build(c.ctx)
@@ -139,7 +140,7 @@ func (c *graphResponseCache) run(call *graphCacheCall, key string, global bool, 
 	close(call.done)
 }
 
-func (c *graphResponseCache) putScopedLocked(key string, resp GraphResponse) {
+func (c *graphResponseCache) putScopedLocked(key string, resp graphpresentation.GraphResponse) {
 	if entry, ok := c.scoped[key]; ok {
 		entry.resp = resp
 		return
@@ -153,10 +154,10 @@ func (c *graphResponseCache) putScopedLocked(key string, resp GraphResponse) {
 	c.order = append(c.order, key)
 }
 
-func cloneGraphResponse(resp GraphResponse) GraphResponse {
+func cloneGraphResponse(resp graphpresentation.GraphResponse) graphpresentation.GraphResponse {
 	out := resp
 	if len(resp.Nodes) > 0 {
-		out.Nodes = append([]GraphNode(nil), resp.Nodes...)
+		out.Nodes = append([]graphpresentation.GraphNode(nil), resp.Nodes...)
 		for i := range out.Nodes {
 			if out.Nodes[i].NodeRef != nil {
 				ref := *out.Nodes[i].NodeRef
@@ -165,7 +166,7 @@ func cloneGraphResponse(resp GraphResponse) GraphResponse {
 		}
 	}
 	if len(resp.Edges) > 0 {
-		out.Edges = append([]GraphEdge(nil), resp.Edges...)
+		out.Edges = append([]graphpresentation.GraphEdge(nil), resp.Edges...)
 	}
 	if resp.Diagnostics != nil {
 		diagnostics := *resp.Diagnostics

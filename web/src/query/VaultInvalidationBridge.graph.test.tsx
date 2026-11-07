@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, QueryObserver } from "@tanstack/react-query";
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getGlobalGraph } from "../api/client";
+import { getGlobalGraph, getFolderGraph } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
 import type { GraphResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
@@ -21,6 +21,43 @@ describe("global graph freshness", () => {
     vi.setSystemTime(10_000);
   });
   afterEach(() => vi.useRealTimers());
+
+  it("refreshes the compact folder overview through the global graph invalidation window", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+
+    const key = queryKeys.graph.folders();
+    const overview = { files: [], links: [], nestedTypes: [], truncated: false };
+    http.json("GET", "/api/v1/graphs/folders", overview);
+    client.setQueryData(key, overview);
+
+    const observer = new QueryObserver(client, {
+      queryKey: key,
+      queryFn: ({ signal }) => getFolderGraph({ signal }),
+      staleTime: Infinity,
+    });
+
+    const stop = observer.subscribe(() => {});
+
+    const view = render(
+      <QueryClientProvider client={client}>
+        <VaultInvalidationBridge />
+      </QueryClientProvider>,
+    );
+
+    try {
+      act(() => sources.latest().emit("", "index.changed"));
+      await act(async () => vi.advanceTimersByTimeAsync(4999));
+      expect(http.count("GET", "/api/v1/graphs/folders")).toBe(0);
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(http.count("GET", "/api/v1/graphs/folders")).toBe(1);
+    } finally {
+      stop();
+      view.unmount();
+      client.clear();
+    }
+  });
 
   async function beginRead(cached: boolean, active = true) {
     const options = { notesOnly: true };

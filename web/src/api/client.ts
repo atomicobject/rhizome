@@ -19,6 +19,7 @@ import type {
   FindItem,
   FindResponse,
   GraphResponse,
+  FolderOverview,
   ModifiedNotesResponse,
   NodePreview,
   NodeRef,
@@ -29,15 +30,10 @@ import type {
   OntologyEditOp,
   OntologyEditSessionResponse,
   OntologyEditSessionSnapshot,
-  OntologyInspectResponse,
   OntologyNoteListItem,
   OntologyQueryReadRequest,
-  OntologyQueryRequest,
-  OntologyQueryResult,
-  OntologyQuerySchemaResponse,
   OntologySummaryResponse,
   OntologyTypeResponse,
-  RenderedFile,
   SearchResponse,
   WorkspaceSearchResponse,
   StatusResponse,
@@ -375,11 +371,20 @@ function normalizeGraph(data: GraphResponse): GraphResponse {
   };
 }
 
+export function getFolderGraph(options: RequestOptions = {}) {
+  return fetchJSON<FolderOverview>("/api/v1/graphs/folders", requestInit(options)).then((data) => ({
+    ...data,
+    files: data.files || [],
+    links: data.links || [],
+    nestedTypes: data.nestedTypes || [],
+  }));
+}
+
 export function getGlobalGraph(
-  options: { notesOnly?: boolean; diagnostics?: boolean } = {},
+  options: { notesOnly?: boolean; diagnostics?: boolean; limit?: number } = {},
   requestOptions: RequestOptions = {},
 ) {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams(options.limit ? { limit: String(options.limit) } : {});
 
   if (options.notesOnly) params.set("notesOnly", "true");
 
@@ -667,7 +672,11 @@ export function listPublicViewFieldCandidates(
 }
 
 export function getTree(path?: string, limit: number = 200, requestOptions: RequestOptions = {}) {
-  const suffix = path ? `?path=${encodeURIComponent(path)}&limit=${limit}` : "";
+  const params = new URLSearchParams({ limit: String(limit) });
+
+  if (path) params.set("path", path);
+
+  const suffix = `?${params}`;
 
   return fetchJSON<TreeResponse>(`/api/v1/files/tree${suffix}`, requestInit(requestOptions));
 }
@@ -677,10 +686,6 @@ export function getFileView(path: string, requestOptions: RequestOptions = {}) {
     `/api/v1/files/view?path=${encodeURIComponent(path)}`,
     requestInit(requestOptions),
   );
-}
-
-export function getRenderedFile(path: string) {
-  return fetchJSON<RenderedFile>(`/api/v1/files/rendered?path=${encodeURIComponent(path)}`);
 }
 
 export function getSuggestions(
@@ -802,22 +807,6 @@ export function getOntologyType(name: string, options: PublicReadOptions = {}) {
 
 export function getOntologyAtlas(options: RequestOptions = {}) {
   return fetchJSON<OntologyAtlasResponse>("/api/v1/ontology/atlas", requestInit(options));
-}
-
-export function getOntologyInspect(path: string) {
-  return fetchJSON<OntologyInspectResponse>(
-    `/api/v1/ontology/inspect?path=${encodeURIComponent(path)}`,
-  );
-}
-
-export function getOntologyQuerySchema() {
-  return fetchJSON<OntologyQuerySchemaResponse>("/api/v1/ontology/query-schema");
-}
-
-// The public GraphQL endpoint accepts queries only, so these POST reads may
-// retry INDEX_INITIALIZING. Edit-session mutation POSTs keep the default policy.
-export function queryOntology(body: OntologyQueryRequest) {
-  return postJSON<OntologyQueryRequest, OntologyQueryResult>("/api/v1/graphql", body, {}, true);
 }
 
 function nodeWorkspaceParams(ref: string | NodeRef) {

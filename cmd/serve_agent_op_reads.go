@@ -6,6 +6,7 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
@@ -24,7 +25,19 @@ func (l liveCodeModeReads) WaitForCodeIndex(ctx context.Context) error {
 func (l liveCodeModeReads) WaitForSemantic(ctx context.Context) error {
 	return l.rt.WaitForSemantic(ctx)
 }
-func (l liveCodeModeReads) SyncSources(ctx context.Context) error { return l.rt.SyncWatcher(ctx) }
+func (l liveCodeModeReads) SyncSources(ctx context.Context) (bool, error) {
+	return codeModeSourcesReady(ctx, l.rt.SyncWatcher(ctx))
+}
+
+func codeModeSourcesReady(ctx context.Context, err error) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	if errors.Is(err, bootstrap.ErrWatcherPending) || errors.Is(err, context.Canceled) || errors.Is(err, lane.ErrPreempted) {
+		return false, nil
+	}
+	return err == nil, err
+}
 
 func (l liveCodeModeReads) ProjectionReadiness(ctx context.Context) (semdb.OntologyReadinessState, error) {
 	store := l.rt.IntelStore()
@@ -36,6 +49,10 @@ func (l liveCodeModeReads) ProjectionReadiness(ctx context.Context) (semdb.Ontol
 		return semdb.OntologyReadinessState{}, err
 	}
 	return store.GetOntologyReadiness(ctx, ontology.OntologyProviderHash(formats))
+}
+
+func (l liveCodeModeReads) RequestOntologyRefresh() bool {
+	return l.rt.RequestOntologyRefresh()
 }
 
 // QueryDeps composes the same query dependencies the host's one-shot runtime

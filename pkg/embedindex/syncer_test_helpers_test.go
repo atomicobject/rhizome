@@ -345,7 +345,6 @@ func (noopChunkWriter) ReplaceIntelChunks(context.Context, []string, []codeancho
 
 type countingSyncWriteQueue struct {
 	flushes          atomic.Int64
-	singleItemCalls  atomic.Int64
 	batchItemCalls   atomic.Int64
 	singleChunkCalls atomic.Int64
 	batchChunkCalls  atomic.Int64
@@ -359,11 +358,6 @@ func (q *countingSyncWriteQueue) CodeWritebackBatchConfig() embeddings.CodeWrite
 		CodeChunks:    embeddings.WritebackFlushPolicy{Rows: 4, Bytes: 1 << 20, Idle: 10 * time.Millisecond},
 		IntelEmbed:    embeddings.WritebackFlushPolicy{Rows: 4, Bytes: 1 << 20, Idle: 10 * time.Millisecond},
 	}
-}
-
-func (q *countingSyncWriteQueue) SubmitCodeItemEmbedding(context.Context, codeidx.ItemEmbeddingUpsert) error {
-	q.singleItemCalls.Add(1)
-	return nil
 }
 
 func (q *countingSyncWriteQueue) SubmitCodeItemEmbeddingBatch(context.Context, []codeidx.ItemEmbeddingUpsert) error {

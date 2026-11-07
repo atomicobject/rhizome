@@ -57,10 +57,6 @@ func (s *Server) listTree(ctx context.Context, rel string, limit int) (TreeRespo
 			Lang:        lang,
 			HasChildren: candidate.isDir && s.dirHasChildren(entryRel),
 		})
-		if len(out.Entries) >= limit {
-			out.Truncated = true
-			break
-		}
 	}
 
 	sort.SliceStable(out.Entries, func(i, j int) bool {
@@ -69,6 +65,11 @@ func (s *Server) listTree(ctx context.Context, rel string, limit int) (TreeRespo
 		}
 		return out.Entries[i].Name < out.Entries[j].Name
 	})
+	if len(out.Entries) > limit {
+		out.Omitted = len(out.Entries) - limit
+		out.Truncated = true
+		out.Entries = out.Entries[:limit]
+	}
 	return out, nil
 }
 

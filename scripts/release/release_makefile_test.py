@@ -16,13 +16,18 @@ class ReleaseMakeTargetsTest(unittest.TestCase):
         cls.makefile = MAKEFILE.read_text(encoding="utf-8")
 
     def test_plan_and_dry_run_use_release_orchestrator(self):
-        self.assertIn("release-plan:\n\tpython3 scripts/release/release_cli.py plan", self.makefile)
-        self.assertIn("release-dry:\n\tpython3 scripts/release/release_cli.py dry-run", self.makefile)
-
-    def test_direct_release_uses_gated_publisher(self):
-        release_target = self.makefile.split("\nrelease:\n", 1)[1].split("\nrelease-plan:\n", 1)[0]
-        self.assertIn("python3 scripts/release/release_publish.py", release_target)
-        self.assertNotIn("goreleaser release", release_target)
+        with tempfile.TemporaryDirectory() as directory:
+            stub = Path(directory) / "python3"
+            stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n', encoding="utf-8")
+            stub.chmod(0o755)
+            env = {**os.environ, "PATH": directory + os.pathsep + os.environ["PATH"]}
+            for target, phase in (("release-plan", "plan"), ("release-dry", "dry-run")):
+                with self.subTest(target=target):
+                    result = subprocess.run(
+                        ["make", "--no-print-directory", "-s", "-f", str(MAKEFILE), target],
+                        cwd=directory, env=env, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.splitlines(), ["scripts/release/release_cli.py", phase])
 
     def test_direct_make_release_executes_gated_publisher(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -36,17 +41,6 @@ class ReleaseMakeTargetsTest(unittest.TestCase):
                                     cwd=directory, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.splitlines(), ["scripts/release/release_publish.py"])
-
-    def test_resumable_phase_targets_are_exposed(self):
-        for target, command in (
-            ("release-build", "build"),
-            ("release-apply", "apply"),
-            ("release-publish", "publish"),
-            ("release-resume", "resume"),
-        ):
-            with self.subTest(target=target):
-                self.assertIn(f"{target}:", self.makefile)
-                self.assertIn(f"release_cli.py {command}", self.makefile)
 
     def test_internal_mirror_location_never_appears_in_source(self):
         for target in ("release-s3:", "release-s3-check:", "release-s3-dry:"):

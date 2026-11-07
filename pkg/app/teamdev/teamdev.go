@@ -23,9 +23,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/teamapi/wire"
 )
 
-// DefaultOrigin is where development builds expect the local gateway.
-const DefaultOrigin = "http://127.0.0.1:8787"
-
 const startTimeout = 15 * time.Second
 
 // DataDir is the per-user directory holding the local gateway's SQLite file,

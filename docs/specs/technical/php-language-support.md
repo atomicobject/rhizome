@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0068
 summary: "Adds PHP as a supported language in Rhizome's code indexing pipeline: tree-sitter-based symbol extraction, call-site indexing, PSR-4 namespace resolution, doc-comment extraction, and integration with the existing LanguageIndexer dispatch architecture."
 spec-status: active
-last-updated: 2026-09-05
+last-updated: 2026-11-05
 aliases:
   - SPEC-0068
   - php-language-support
@@ -125,7 +125,7 @@ The immediate driver was a client legacy-codebase engagement (June–July 2026),
 ### Language detection and config
 
 - MUST add `LangPhp Lang = "php"` to `pkg/anchors/types.go`
-- MUST add `.php` to `DetectCodeLang()` in `pkg/app/codeintel/ingest.go`
+- MUST map `.php` to `LangPhp` in the extension registry used by `LangForPath()` in `pkg/anchors/indexer.go`
 - MUST add `PHPRoots []string` to `pkg/anchors/config.go` Config struct with sensible defaults (`["src", "app", "lib"]`)
 - MUST register the PHP indexer in `pkg/app/bootstrap/code_anchor.go` alongside existing language indexers
 - MUST add `**/*.php` glob to default extension patterns
@@ -181,9 +181,8 @@ When adding a new language indexer, parity threads through **two** separate root
 
 - **Live indexer** (`rzm` daemons, file watcher):
   - `pkg/app/bootstrap/code_anchor.go` — register the indexer with its source roots
-  - `pkg/app/bootstrap/live.go` — append `<Lang>Roots` and `<Lang>Ignore` into `codeRoots` / `ignoreGlobs`
-  - `pkg/app/bootstrap/schedulers.go` — `detectCodeLang` extension case
-  - `pkg/anchors/watcher.go` — `defaultLangExts` entry
+  - `pkg/app/bootstrap/live_ownership_policy.go` — include configured roots in ownership; `live_leader.go` uses `CodeRoots()` for the watcher
+  - `pkg/anchors/indexer.go` — `defaultLangExts` entry used by `LangForPath` in both live and batch discovery
 - **Batch indexer** (`rzm index`):
   - `pkg/app/indexing/unified.go` — empty-roots check + `codeRoots` slice build
   - `pkg/app/indexing/commands.go` — empty-roots check + every `for _, root := range append(...)` aggregation

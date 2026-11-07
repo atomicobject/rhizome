@@ -9,17 +9,21 @@ import (
 )
 
 type CodeModeOntologySchemaRuntime interface {
-	Discover(context.Context, string) (ontologyquery.SchemaDiscovery, error)
+	Discover(context.Context, ontologyquery.SchemaDiscoveryOptions) (ontologyquery.SchemaDiscovery, error)
 }
 
 type CodeModeOntologySchemaService struct{ Runtime CodeModeOntologySchemaRuntime }
 
 func (s CodeModeOntologySchemaService) Call(ctx context.Context, input map[string]any) CodeModeOutcome {
-	response, err := s.Runtime.Discover(ctx, codeModeString(input, "type"))
+	options, err := ontologyquery.DecodeSchemaDiscoveryOptions(input)
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	response, err := s.Runtime.Discover(ctx, options)
+	if err != nil {
+		return codeModeFailure(err, 1)
+	}
+	return CodeModeSuccess(response)
 }
 
 type CodeModeOntologyQueryRuntime interface {
@@ -61,7 +65,7 @@ func (s CodeModeOntologyReferenceService) Call(ctx context.Context, input map[st
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 type CodeModeTextRuntime interface {
@@ -101,7 +105,7 @@ func (s CodeModeOntologyInspectService) Call(ctx context.Context, input map[stri
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 type CodeModeRationaleRuntime interface {
@@ -115,7 +119,7 @@ func (s CodeModeRationaleService) Call(ctx context.Context, input map[string]any
 	if err != nil {
 		return codeModeFailure(err, 1)
 	}
-	return codeModeSuccess(response)
+	return CodeModeSuccess(response)
 }
 
 func codeModeObject(input map[string]any, key string) (map[string]any, error) {

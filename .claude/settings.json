@@ -3,5 +3,10 @@
     "allow": [
       "Bash(make build:*)"
     ]
+  },
+  "sandbox": {
+    "network": {
+      "allowLocalBinding": true
+    }
   }
 }

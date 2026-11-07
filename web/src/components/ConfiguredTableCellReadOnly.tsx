@@ -9,7 +9,7 @@ import {
   candidateForInput,
   cellValues,
   fieldValue,
-  markCutTitle,
+  recordDisplayTitle,
   rawFieldValue,
 } from "./ConfiguredTableCellHelpers";
 import { NoteLinkPreview, useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
@@ -90,7 +90,7 @@ export function renderReadOnlyCell(
     const path = row.path || row.ref.notePath;
 
     const display =
-      markCutTitle(row, displayTitle(displayValue || row.title)) || path || "Untitled";
+      recordDisplayTitle(row, field, displayTitle(displayValue || row.title)) || path || "Untitled";
 
     return <PrimaryReadOnlyCell row={row} path={path} display={display} onOpenRow={onOpenRow} />;
   }
@@ -351,14 +351,14 @@ export function ChangedCell({
  * helper so a table's Changed column and a board card agree.
  */
 export function relativeAge(millis: number, now = Date.now()) {
-  const minutes = Math.max(0, Math.round((now - millis) / 60_000));
+  const minutes = Math.max(0, Math.floor((now - millis) / 60_000));
 
   if (minutes < 1) return "now";
 
   if (minutes < 60) return `${minutes}m`;
-  const hours = Math.round(minutes / 60);
+  const hours = Math.floor(Math.max(0, now - millis) / 3_600_000);
 
-  if (hours < 48) return `${hours}h`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.round(hours / 24);
 
   if (days < 60) return `${days}d`;

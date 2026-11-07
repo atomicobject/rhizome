@@ -118,6 +118,24 @@ test("clean, stale, and failed validation stay calm and distinct at both desktop
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    const column = await page.locator(".problems-workspace__header").boundingBox();
+    const strip = await page.locator(".validation-status-strip").boundingBox();
+    const checks = await page.locator(".validation-checks").boundingBox();
+
+    expect(column && column.width).toBeLessThanOrEqual(1320);
+    expect(strip?.x).toBe(column?.x);
+    expect(checks?.x).toBe(column?.x);
+    expect(strip?.width).toBe(column?.width);
+    expect(checks?.width).toBe(column?.width);
+    const name = await page.locator(".validation-checks__list strong").first().boundingBox();
+
+    expect(name?.width).toBe(160);
+    expect(name?.height).toBe(34);
+    await expect(page.locator(".validation-checks__list strong").first()).toHaveCSS(
+      "font-size",
+      "14px",
+    );
+    await expect(page.locator(".validation-checks__result").first()).toHaveCSS("font-size", "13px");
     await page.screenshot({ path: test.info().outputPath(`validation-clean-${width}.png`) });
   }
 

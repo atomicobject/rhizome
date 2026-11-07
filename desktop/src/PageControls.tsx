@@ -20,6 +20,21 @@ export function PageSections({ state, onCommand }: Props) {
   const needs = state.tasks?.needs ?? 0;
   return (
     <nav className="page-sections" aria-label="Sections">
+      <select
+        className="section-picker"
+        aria-label="Current section"
+        value={state.section}
+        onChange={(event) =>
+          onCommand({ command: "section", section: event.target.value as PageState["section"] })
+        }
+      >
+        {SECTIONS.map(([section, label]) => (
+          <option key={section} value={section}>
+            {label}
+            {section === "tasks" && needs ? ` (${needs})` : ""}
+          </option>
+        ))}
+      </select>
       {SECTIONS.map(([section, label]) => (
         <button
           key={section}
@@ -65,6 +80,10 @@ export function PageTools({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        <svg className="compact-search-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="6.5" cy="6.5" r="4" />
+          <path d="m9.5 9.5 3.5 3.5" />
+        </svg>
         <kbd>{shortcut({ key: "K" }).label}</kbd>
       </form>
       <IssueBadge state={state} onOpen={() => onCommand({ command: "issues" })} />

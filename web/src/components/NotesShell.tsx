@@ -1,3 +1,4 @@
+import { confirmDiscard } from "./editing/confirmDiscard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -44,6 +45,7 @@ import {
 } from "./notesRoute";
 import { OntologyEditSessionPanel } from "./OntologyEditSessionPanel";
 import { type CollectionTab, type OpenMode, useNoteTabs } from "./useNoteTabs";
+import { useRetainedNoteTabs } from "./useRetainedNoteTabs";
 import { useFinderNoteRequests } from "./FinderQuickOpen";
 import {
   useOntologySummaryQuery,
@@ -221,6 +223,19 @@ export function NotesShell({ active = true }: { active?: boolean }) {
 
     return () => window.removeEventListener(EDITOR_DRAFTS_CHANGED_EVENT, update);
   }, [editSession.vaultKey]);
+
+  const residentNoteTabs = useRetainedNoteTabs({
+    tabs: tabs.tabs,
+    activeId: tabs.activeId,
+    protectEditors:
+      editSession.editing ||
+      editSession.busy ||
+      editSession.saving ||
+      editSession.unacknowledged ||
+      hasLocalDrafts ||
+      Boolean(editSession.session?.hasUncommittedChanges),
+  });
+
   const viewCatalogQuery = useViewCatalogQuery(active);
   const [contexts, setContexts] = useState<Map<string, NoteTabContext>>(new Map());
   const panes = useShellPanes();
@@ -515,18 +530,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   }, [editSession, queryClient, refreshSidebar]);
 
   const discard = useCallback(async () => {
-    const { opCount, touchedPaths } = editSession.summary;
-
-    // Discard drops every staged edit in every note, with no undo.
-    if (
-      opCount > 0 &&
-      !window.confirm(
-        `Discard ${opCount} staged change${opCount === 1 ? "" : "s"} to ${touchedPaths.size || 1} note${
-          touchedPaths.size === 1 ? "" : "s"
-        }? This cannot be undone.`,
-      )
-    )
-      return;
+    if (!confirmDiscard(editSession.summary, editSession.vaultKey)) return;
 
     clearPersistedEditorDrafts(editSession.vaultKey);
     window.dispatchEvent(new Event("rhizome:discard-editor-drafts"));
@@ -985,6 +989,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                             onOpenView={openView}
                             onOpenSearch={openSearch}
                             active={noteSurfacesActive && tabs.activeId === tab.id}
+                            bodyResident={tabs.activeId === tab.id || residentNoteTabs.has(tab.id)}
                             anchor={
                               tabs.activeId === tab.id &&
                               location.note !== null &&

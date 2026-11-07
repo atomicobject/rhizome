@@ -201,7 +201,8 @@
       "id": "subsystem-web",
       "rule": "Code under these paths is governed by docs/reference/subsystems/web.md. Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
       "scope": [
-        "pkg/app/web/**"
+        "pkg/app/web/**",
+        "pkg/app/graphpresentation/**"
       ],
       "severity": "medium",
       "enabled": true

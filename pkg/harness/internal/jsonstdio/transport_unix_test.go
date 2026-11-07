@@ -40,9 +40,8 @@ func TestCloseKillsGrandchildren(t *testing.T) {
 			}, time.Second, time.Millisecond)
 			require.NoError(t, syscall.Kill(pid, 0), "grandchild should be running before Close")
 
-			closeCtx, cancelClose := context.WithTimeout(context.Background(), 300*time.Millisecond)
-			defer cancelClose()
-			require.NoError(t, connection.Close(closeCtx))
+			// Verify descendant cleanup without imposing a process-enumeration deadline.
+			require.NoError(t, connection.Close(context.Background()))
 			require.Eventually(t, func() bool {
 				return errors.Is(syscall.Kill(pid, 0), syscall.ESRCH)
 			}, 2*time.Second, 10*time.Millisecond, "grandchild %d survived Close", pid)

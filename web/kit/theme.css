@@ -97,5 +97,8 @@
     font-family: var(--font-sans);
     font-size: var(--fs-base);
     line-height: 1.45;
+    /* Match the host (base.css) so text in a view weighs the same as the shell's. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }

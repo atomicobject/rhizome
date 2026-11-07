@@ -44,39 +44,23 @@ func (s *Syncer) embed(ctx context.Context, plan SyncPlan, updateLastSync bool) 
 	}
 
 	itemWriter := func(ctx context.Context, anchorID codeindex.AnchorID, hash string, vec embeddings.Embedding) error {
-		if s.WriteQueue != nil {
-			return s.WriteQueue.SubmitCodeItemEmbedding(ctx, codeindex.ItemEmbeddingUpsert{
-				AnchorID:  anchorID,
-				Hash:      hash,
-				Embedding: vec,
-			})
-		}
 		return s.Index.UpsertItemEmbedding(ctx, anchorID, hash, vec)
 	}
 	// High-volume indexing writes must batch intel spine persistence; per-item
 	// UpsertEmbeddings calls turn one sync pass into thousands of tiny writes.
-	intelTarget := s.EmbeddingWriter
-	if s.WriteQueue != nil {
-		intelTarget = queueEmbeddingWriter{queue: s.WriteQueue}
-	}
 	var writebackBatcher *codeWritebackBatcher
+	var intelWriter intelEmbeddingSubmitter
 	if s.WriteQueue != nil {
 		writebackBatcher = newCodeWritebackBatcher(ctx, s.WriteQueue, s.WriteQueue.CodeWritebackBatchConfig())
 		itemWriter = func(ctx context.Context, anchorID codeindex.AnchorID, hash string, vec embeddings.Embedding) error {
 			return writebackBatcher.SubmitCodeItemEmbedding(ctx, anchorID, hash, vec)
 		}
-	}
-	var intelWriter intelEmbeddingSubmitter
-	if intelTarget != nil && writebackBatcher == nil {
-		if s.WriteQueue != nil {
-			intelWriter = directIntelEmbeddingSubmitter{ctx: ctx, writer: intelTarget}
-		} else {
-			intelWriter = newBatchedIntelEmbeddingWriter(ctx, intelTarget, intelEmbeddingBatchWriterOptions{
-				Label:      "code",
-				OnError:    func(error) { cancel() },
-				OnProgress: s.progressf,
-			})
-		}
+	} else if s.EmbeddingWriter != nil {
+		intelWriter = newBatchedIntelEmbeddingWriter(ctx, s.EmbeddingWriter, intelEmbeddingBatchWriterOptions{
+			Label:      "code",
+			OnError:    func(error) { cancel() },
+			OnProgress: s.progressf,
+		})
 	}
 	closeIntelWriter := func() error {
 		if intelWriter == nil {

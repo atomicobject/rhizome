@@ -28,8 +28,6 @@ func CodeModeTextSuccess(text string) CodeModeOutcome {
 	return CodeModeOutcome{OK: true, Payload: text}
 }
 
-func codeModeSuccess(payload any) CodeModeOutcome { return CodeModeSuccess(payload) }
-
 func codeModeOutcome(payload any, exitCode int) CodeModeOutcome {
 	if _, err := json.Marshal(payload); err != nil {
 		return codeModeFailure(err, 1)
@@ -58,14 +56,14 @@ func (s CodeModeQueryRecipeService) Call(ctx context.Context, input map[string]a
 		if err != nil {
 			return codeModeFailure(err, 1)
 		}
-		return codeModeSuccess(response)
+		return CodeModeSuccess(response)
 	case "validate":
 		response, err := s.Recipes.Validate(path)
 		if err != nil {
 			return codeModeFailure(err, 1)
 		}
 		if response.OK {
-			return codeModeSuccess(response)
+			return CodeModeSuccess(response)
 		}
 		return codeModeOutcome(response, 1)
 	case "run":
@@ -127,13 +125,13 @@ func (s CodeModeViewService) Call(ctx context.Context, input map[string]any) Cod
 		if err != nil {
 			return codeModeFailure(err, 1)
 		}
-		return codeModeSuccess(catalog)
+		return CodeModeSuccess(catalog)
 	case "show":
 		entry, err := runtime.View(ctx, codeModeString(input, "id"))
 		if err != nil {
 			return codeModeFailure(err, 1)
 		}
-		return codeModeSuccess(entry)
+		return CodeModeSuccess(entry)
 	case "validate":
 		catalog, err := runtime.Catalog(ctx)
 		if err != nil {
@@ -141,7 +139,7 @@ func (s CodeModeViewService) Call(ctx context.Context, input map[string]any) Cod
 		}
 		response := CodeModeViewValidation{OK: len(catalog.Issues) == 0, IssueCount: len(catalog.Issues), Catalog: catalog, Issues: catalog.Issues}
 		if response.OK {
-			return codeModeSuccess(response)
+			return CodeModeSuccess(response)
 		}
 		return codeModeOutcome(response, 1)
 	case "run":
@@ -156,7 +154,7 @@ func (s CodeModeViewService) Call(ctx context.Context, input map[string]any) Cod
 		if codeModeBool(input, "omitCapabilities") {
 			response.Capabilities = nil
 		}
-		return codeModeSuccess(response)
+		return CodeModeSuccess(response)
 	case "eject":
 		if !s.ReadWrite {
 			return codeModeFailure(fmt.Errorf(`{"code":"write_requires_read_write","message":"view eject requires a read-write code-mode connection"}`), 1)
@@ -165,7 +163,7 @@ func (s CodeModeViewService) Call(ctx context.Context, input map[string]any) Cod
 		if err != nil {
 			return codeModeFailure(err, 1)
 		}
-		return codeModeSuccess(result)
+		return CodeModeSuccess(result)
 	default:
 		return codeModeFailure(fmt.Errorf("view action must be list, show, validate, run, or eject"), 1)
 	}
@@ -203,7 +201,7 @@ type CodeModeValidationService struct {
 func (s CodeModeValidationService) Call(ctx context.Context, input map[string]any) CodeModeOutcome {
 	action := codeModeAction(input)
 	if action == "list" {
-		return codeModeSuccess(BuildValidationCatalog())
+		return CodeModeSuccess(BuildValidationCatalog())
 	}
 	if action != "run" && action != "fix" {
 		return codeModeValidationFailure(fmt.Errorf("validate action must be run, list, or fix"))

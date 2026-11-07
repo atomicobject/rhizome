@@ -94,7 +94,7 @@ describe("type collection table rows", () => {
     );
   });
 
-  it("reads Changed in the same steps as board cards: hours under two days, days under two months", () => {
+  it("reads Changed in the same steps as board cards: hours under one day, days under two months", () => {
     const now = Math.floor(Date.now() / 1000);
 
     const rows = [
@@ -106,7 +106,7 @@ describe("type collection table rows", () => {
     render(view({ execution: typeExecution({ groups: [] }, rows) }));
 
     expect(screen.getAllByRole("time").map((time) => time.textContent)).toEqual([
-      "30h",
+      "1d",
       "45d",
       "13mo",
     ]);

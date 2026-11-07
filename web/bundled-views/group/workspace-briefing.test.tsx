@@ -158,8 +158,11 @@ it("briefs All notes: issues by variant and work in motion, beside recent change
   );
 
   const motion = region("In motion");
+  expect(within(motion).getByText("Last changed")).toBeVisible();
   expect(motion.querySelector("h3")).toBeNull();
-  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(MOTION_PER_TYPE);
+  expect(motion.querySelector(".rz-count")).toHaveTextContent("5");
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(1);
+  expect(motion.querySelector(".gv-motion-metadata")).not.toBeNull();
   // Doing and Shipping mix in this list, so each row carries its status.
   expect(motion.querySelector(".gv-mark")).not.toBeNull();
   expect(within(motion).queryByText(`Story ${MOTION_PER_TYPE + 1}`)).toBeNull();
@@ -286,16 +289,33 @@ it.each([
     context: WORKSPACE,
     routes: routes({
       "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health }),
+      "POST /api/v1/validation/summaries": () =>
+        jsonReply({
+          generation: 3,
+          summaries: [
+            {
+              scope: { kind: "global" },
+              issueCount: 0,
+              affectedFileCount: 0,
+              affectedNoteCount: 0,
+              repairActionCount: 0,
+            },
+          ],
+        }),
       "POST /api/v1/validation/groups": () => jsonReply({ generation: 3, groups: [] }),
     }),
   });
 
-  if (clean) expect(await screen.findByText("No issues")).toBeVisible();
-  else {
+  if (clean) {
+    const cleanState = await screen.findByText("No validation issues");
+    expect(cleanState.closest(".gv-facts")).not.toHaveTextContent("49 notes");
+    expect(cleanState.closest(".gv-facts")).toHaveTextContent("Checked");
+    expect(screen.queryByRole("region", { name: "Validation" })).toBeNull();
+  } else {
     expect(
       await screen.findByText("The last validation run is out of date or unfinished."),
     ).toBeVisible();
-    expect(screen.queryByText("No issues")).toBeNull();
+    expect(screen.queryByText("No validation issues")).toBeNull();
   }
 });
 
@@ -333,4 +353,80 @@ it("says In motion waits while the index rebuilds, reading no records", async ()
   expect(within(region("In motion")).getByText(/The index is rebuilding/)).toBeVisible();
   expect(view.http.count("POST", "/api/v1/graphql")).toBe(0);
   expect(view.http.count("GET", "/api/v1/ontology/types/Story")).toBe(0);
+});
+
+it("states shared motion metadata once and keeps Recent changes metadata", async () => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            Story: [record("Story", 1, { stage: "doing" }), record("Story", 2, { stage: "doing" })],
+            Bug: [],
+            Release: [],
+          },
+        }),
+    }),
+  });
+  const motion = region("In motion");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(2);
+  expect(motion.querySelector(".gv-change-meta")).toBeNull();
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · story/");
+  expect(region("Recent changes").querySelectorAll(".gv-change-meta")).toHaveLength(3);
+});
+
+it("restores row metadata when expanding reveals another folder", async () => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            Story: Array.from({ length: MOTION_PER_TYPE + 1 }, (_, index) =>
+              record("Story", index + 1, {
+                stage: "doing",
+                path: index === MOTION_PER_TYPE ? "archive/last.md" : `story/${index + 1}.md`,
+              }),
+            ),
+            Bug: [],
+            Release: [],
+          },
+        }),
+    }),
+  });
+  const motion = region("In motion");
+  expect(motion.querySelectorAll(".gv-change-compact")).toHaveLength(MOTION_PER_TYPE);
+  fireEvent.click(within(motion).getByRole("button", { name: "Show 1 more" }));
+  expect(motion.querySelector(".gv-motion-metadata")).toHaveTextContent("Story · story/");
+  expect(motion.querySelectorAll(".gv-change-meta")).toHaveLength(1);
+});
+
+it.each([14, 20, 23])("shows up to twenty motion rows when alone (%i records)", async (count) => {
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "GET /api/v2/validate": () => jsonReply({ ...VALIDATION_ENVELOPE, health: "current_clean" }),
+      "POST /api/v1/validation/groups": () => jsonReply({ generation: 3, groups: [] }),
+      "POST /api/v1/graphql": () =>
+        jsonReply({
+          data: {
+            Story: Array.from({ length: count }, (_, index) =>
+              record("Story", index + 1, { stage: "doing" }),
+            ),
+            Bug: [],
+            Release: [],
+          },
+        }),
+    }),
+  });
+  const motion = region("In motion");
+
+  expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
+  expect(motion.querySelectorAll(".gv-change")).toHaveLength(Math.min(count, 20));
+
+  if (count > 20) {
+    fireEvent.click(within(motion).getByRole("button", { name: `Show ${count - 20} more` }));
+    expect(motion.querySelectorAll(".gv-change")).toHaveLength(count);
+  } else expect(within(motion).queryByRole("button", { name: /Show .* more/ })).toBeNull();
 });

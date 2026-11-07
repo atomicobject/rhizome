@@ -24,8 +24,8 @@ import { type OpenNodeOptions, type ViewContext } from "../views/context";
 import { ViewPreferenceReset, type ViewServices } from "../views/ViewHost";
 import { flushEditors } from "./editing/editorFlush";
 import { OntologyNotePane } from "./OntologyNotePane";
-import { buildNoteWebHref } from "../lib/content";
-import { normalizeNotePath, splitNoteTarget } from "./notesRoute";
+import { buildNoteWebHref, normalizeNotePath } from "../lib/content";
+import { joinNoteTarget, splitNoteTarget } from "../lib/noteTarget";
 import type { NoteTab as NoteTabModel, OpenMode } from "./useNoteTabs";
 import { targetRefForNode, usePaneStack } from "./usePaneStack";
 import { parseIssueTarget } from "./validation/issueNavigation";
@@ -36,6 +36,7 @@ type OpenTarget = "current" | "stack" | "beside";
 export const NoteTab = memo(function NoteTab({
   tab,
   active,
+  bodyResident = true,
   anchor,
   editSession,
   readLifecycle,
@@ -60,6 +61,7 @@ export const NoteTab = memo(function NoteTab({
 }: {
   tab: NoteTabModel;
   active: boolean;
+  bodyResident?: boolean;
   anchor: string | null;
   editSession: OntologyEditSessionResponse | null;
   readLifecycle?: EditReadLifecycle;
@@ -108,7 +110,11 @@ export const NoteTab = memo(function NoteTab({
       ? null
       : fragment;
 
-  const requestedTarget = `${tab.path}${tab.query ? `?${tab.query}` : ""}${targetFragment ? `#${targetFragment}` : ""}`;
+  const requestedTarget = joinNoteTarget({
+    path: tab.path,
+    query: tab.query,
+    fragment: targetFragment,
+  });
 
   const requestedNodeRef = useMemo<NodeRef | null>(() => {
     if (issueTarget || (!tab.nodeRef && !tab.nodeId && !tab.nodeKind && !tab.structural))
@@ -317,7 +323,7 @@ export const NoteTab = memo(function NoteTab({
     (target: string, mode: OpenTarget = "stack") => {
       const parsed = splitNoteTarget(target);
       const path = normalizeNotePath(parsed.path || tab.path);
-      const normalized = `${path}${parsed.query ? `?${parsed.query}` : ""}${parsed.fragment ? `#${parsed.fragment}` : ""}`;
+      const normalized = joinNoteTarget({ ...parsed, path });
       onOpen(normalized, mode === "beside" ? "beside" : "activate");
     },
     [onOpen, tab.path],
@@ -343,6 +349,8 @@ export const NoteTab = memo(function NoteTab({
   return (
     <div className="notes-note-tab">
       <OntologyNotePane
+        active={active}
+        bodyResident={bodyResident || rootWorkspace?.content.format === "html"}
         loading={current.loading}
         error={current.error}
         onRetry={() =>

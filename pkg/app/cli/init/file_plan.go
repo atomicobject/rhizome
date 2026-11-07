@@ -70,12 +70,10 @@ type filePlan struct {
 	// legacyDirs are skill folders whose old marker files are folded into the
 	// record and deleted once the record owns the folder.
 	legacyDirs []string
-	// commandDirs hold rhizome-* command files; stale ones are cleaned up
-	// when the plan is applied.
-	commandDirs     []string
-	currentCommands map[string]struct{}
 	// hookFiles are harness settings files holding Rhizome hook entries.
 	hookFiles []generatedHookFile
+	// settings are host sandbox settings Rhizome owns one key of.
+	settings []generatedSetting
 	// keptFlat are edited flat copies of starter files whose module copies
 	// are not installed.
 	keptFlat []keptFlatCopy
@@ -190,6 +188,7 @@ func prepareGeneratedFiles(projectRoot string, in generatedInputs) (*preparedFil
 		return nil, err
 	}
 	plan.hookFiles = in.hookFiles
+	plan.settings = planSandboxSettings(in.harnesses)
 	prepared, err := classifyFilePlan(projectRoot, plan, record)
 	if err != nil {
 		return nil, err
@@ -329,6 +328,20 @@ func (p *preparedFiles) pending() pendingFiles {
 			add(&out.Create, file.rel)
 		}
 	}
+	for _, s := range p.plan.settings {
+		c := byKey[s.key()]
+		if c == nil || !c.take {
+			continue
+		}
+		current, exists, err := readIfExists(filepath.Join(p.root, filepath.FromSlash(s.rel)))
+		if next, renderErr := renderSetting(current, s, c); err == nil && renderErr == nil && next == nil {
+			add(&out.Remove, s.rel)
+		} else if exists {
+			add(&out.Update, s.rel)
+		} else {
+			add(&out.Create, s.rel)
+		}
+	}
 	if p.removeRhizome {
 		add(&out.Remove, "RHIZOME.md")
 	}
@@ -416,6 +429,11 @@ func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 			return report, err
 		}
 	}
+	for _, s := range plan.settings {
+		if err := applySetting(projectRoot, s, byKey[s.key()], record, &report); err != nil {
+			return report, err
+		}
+	}
 	if err := applyRemovals(projectRoot, plan, byKey, record, &report); err != nil {
 		return report, err
 	}
@@ -431,11 +449,6 @@ func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 			}
 		}
 		if err := removeLegacySkillFiles(filepath.Join(projectRoot, filepath.FromSlash(dir))); err != nil {
-			return report, err
-		}
-	}
-	for _, dir := range plan.commandDirs {
-		if _, err := cleanupStaleArtifacts(filepath.Join(projectRoot, filepath.FromSlash(dir)), plan.currentCommands); err != nil {
 			return report, err
 		}
 	}

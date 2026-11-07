@@ -144,7 +144,7 @@ func workloadValidationSnapshot(t testing.TB, ctx context.Context, store *semdb.
 	}
 	indexer := testkit.NoteMetadataIndexer(t)
 	runtime, runtimeErr := ontology.PublishedRuntimeWithStore(ctx, indexer, definition, store)
-	snapshot, _, err := validationrun.IndexValidationSnapshot(ctx, indexer, definition, runtime, runtimeErr, 500)
+	snapshot, _, err := validationrun.IndexValidationSnapshot(ctx, indexer, definition, runtime, runtimeErr, 500, nil)
 	return snapshot, err
 }
 

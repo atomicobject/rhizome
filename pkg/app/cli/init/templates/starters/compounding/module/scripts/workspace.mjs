@@ -29,7 +29,6 @@ import { report } from "./report.mjs";
 import { run as shards } from "./shards.mjs";
 
 const HIDDEN = "hidden-findings.json";
-const ACTION = /^- \[[ xX]\] (.*?) #action-item\b.*(?:\n[ \t]+assignee:: *(.*))?/m;
 // The responses in review order; a proposal with no response goes last.
 const rank = (r) => (RESPONSES.includes(r) ? RESPONSES.indexOf(r) : RESPONSES.length);
 
@@ -57,14 +56,12 @@ function recommendations(root, store) {
   // Teammates' findings count too: they come from tracked notes, not local state.
   const findings = loadFindings(root)
     .filter((f) => f.open && ["fix", "guard", "ask"].includes(f.response) && !hidden[f.path])
-    .map((f) => findingRow(root, f));
+    .map(findingRow);
   const items = [...proposals, ...findings].sort((a, b) => rank(a.response) - rank(b.response));
   return { items };
 }
 
-function findingRow(root, f) {
-  const [, actionItem = null, assignee = null] =
-    readFileSync(join(root, f.path), "utf8").replace(/\r\n/g, "\n").match(ACTION) ?? [];
+function findingRow(f) {
   return {
     ref: `finding:${f.path}`,
     kind: "finding",
@@ -72,8 +69,8 @@ function findingRow(root, f) {
     title: titleOf(f.statement),
     summary: f.statement,
     path: f.path,
-    assignee: assignee?.trim() || null,
-    actionItem,
+    assignee: f.assignee,
+    actionItem: f.actionItem,
     families: f.families,
     reviewedOn: f.reviewedOn,
   };
@@ -96,7 +93,7 @@ function item(root, store, ref, { state, user }) {
     if (!f) throw new Refused(`no finding at ${id}`);
     const note = readFileSync(join(root, id), "utf8");
     return {
-      ...findingRow(root, f),
+      ...findingRow(f),
       open: f.open,
       hidden: Boolean(store.read(HIDDEN, {})[id]),
       current,

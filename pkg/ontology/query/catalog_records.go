@@ -203,6 +203,8 @@ func (e *executor) noteMatchesTypeCondition(node *noteRecord, typeCondition stri
 		return true
 	case "Note":
 		return true
+	case "UntypedNote":
+		return noteGraphQLTypeName(node) == "UntypedNote"
 	default:
 		return e.typeMatchesOrImplements(node.TypeName, typeCondition)
 	}
@@ -215,9 +217,27 @@ func (e *executor) sectionMatchesTypeCondition(node *sectionRecord, typeConditio
 		return true
 	case "EmbeddedNode":
 		return e.sectionNodeRef(node).Kind == ontology.NodeKindEmbedded
+	case "UntypedSection":
+		return sectionGraphQLTypeName(node) == "UntypedSection"
 	default:
 		return e.typeMatchesOrImplements(node.TypeName, typeCondition)
 	}
+}
+
+func noteGraphQLTypeName(node *noteRecord) string {
+	name := strings.TrimSpace(node.TypeName)
+	if name == "" || ontoschema.IsFallbackNoteTypeName(name) {
+		return "UntypedNote"
+	}
+	return name
+}
+
+func sectionGraphQLTypeName(node *sectionRecord) string {
+	name := strings.TrimSpace(node.TypeName)
+	if name == "" || name == "Section" || ontoschema.IsFallbackSectionTypeName(name) {
+		return "UntypedSection"
+	}
+	return name
 }
 
 func codeMatchesTypeCondition(node *codeRecord, typeCondition string) bool {
@@ -243,42 +263,9 @@ func (e *executor) typeMatchesOrImplements(typeName, expected string) bool {
 	if expected == "Node" {
 		return true
 	}
-	if expected == "Note" && typeName != "" {
+	if expected == "Note" {
 		noteType := e.schema.Types[typeName]
 		return noteType != nil && noteType.Role == ontoschema.TypeRoleNote
 	}
-	if typeName == expected {
-		return true
-	}
-	noteType := e.schema.Types[typeName]
-	if noteType != nil {
-		for _, iface := range noteType.Implements {
-			if iface == expected {
-				return true
-			}
-			if e.interfaceImplements(iface, expected) {
-				return true
-			}
-		}
-	}
-	return e.interfaceImplements(typeName, expected)
-}
-
-func (e *executor) interfaceImplements(typeName, expected string) bool {
-	if typeName == expected {
-		return true
-	}
-	if typeName == "Section" && expected == "Section" {
-		return true
-	}
-	iface := e.schema.Interfaces[typeName]
-	if iface == nil {
-		return false
-	}
-	for _, name := range iface.Implements {
-		if name == expected || e.interfaceImplements(name, expected) {
-			return true
-		}
-	}
-	return false
+	return ontoschema.TypeMatchesOrImplements(e.schema, typeName, expected)
 }

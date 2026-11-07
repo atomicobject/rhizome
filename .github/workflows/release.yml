@@ -1,9 +1,11 @@
 name: Release
 
 on:
-  pull_request:
+  # A release-PR merge pushes its plan to main. The protected release
+  # environment admits only main, so publication cannot run from the PR ref.
+  push:
     branches: [main]
-    types: [closed]
+    paths: [.github/release-plan.json]
   workflow_dispatch:
     inputs:
       candidate_only:
@@ -11,6 +13,11 @@ on:
         required: false
         default: true
         type: boolean
+      release_pr:
+        description: Publish this merged release PR when its merge started no release (set candidate_only to false)
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -24,9 +31,7 @@ jobs:
     name: Validate approved release source
     if: >-
       github.repository == 'atomicobject/rhizome' &&
-      ((github.event_name == 'pull_request' && github.event.pull_request.merged &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        startsWith(github.event.pull_request.head.ref, 'release-prep/')) ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
        (github.event_name == 'workflow_dispatch' && (inputs.candidate_only || github.ref == 'refs/heads/main')))
     runs-on: ubuntu-latest
     permissions:
@@ -49,10 +54,11 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           SOURCE: ${{ github.sha }}
           CANDIDATE_ONLY: ${{ inputs.candidate_only && 'true' || 'false' }}
+          RELEASE_PR: ${{ inputs.release_pr }}
         run: >-
           python3 scripts/release/ci_release_selection.py
           --event-file "$GITHUB_EVENT_PATH" --event-name "$EVENT_NAME"
-          --source "$SOURCE" --candidate-only "$CANDIDATE_ONLY"
+          --source "$SOURCE" --candidate-only "$CANDIDATE_ONLY" --release-pr "$RELEASE_PR"
 
   common:
     name: Prepare frontend and native tools on Linux
@@ -78,7 +84,7 @@ jobs:
             desktop/package-lock.json
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
       - name: Install signing test dependencies
         run: |
           npm --prefix desktop ci
@@ -136,7 +142,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -231,7 +237,7 @@ jobs:
           PYCONFIG
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -325,7 +331,7 @@ jobs:
         run: test "$(uname -m)" = arm64
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -426,7 +432,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version-file: go.mod
       - name: Install credential scanner
         working-directory: ${{ runner.temp }}
         run: go install github.com/zricethezav/gitleaks/v8@v8.30.1

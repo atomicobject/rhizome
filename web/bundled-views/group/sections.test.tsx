@@ -41,6 +41,20 @@ it("renders each member as a table in Trace column order, most advanced first", 
   ]);
   expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
 
+  const jump = screen.getByRole("navigation", { name: "Jump to section" });
+  const workLink = within(jump).getByRole("button", { name: "Work items 6" });
+  expect(workLink).toHaveTextContent(/^Work items 6$/);
+  expect(jump.closest(".gv-facts")).toBeNull();
+  expect(jump.previousElementSibling).toHaveClass("gv-facts");
+  expect(within(jump).getByText("Jump to")).toBeVisible();
+  expect(workLink).toHaveAttribute("title", "Work items 6");
+  const heading = section("Areas").querySelector(".gv-section-head");
+  expect(
+    Array.from(heading?.children ?? [])
+      .slice(0, 4)
+      .map((child) => child.textContent),
+  ).toEqual(["Areas", "6", "A product or platform area.", ""]);
+
   const work = section("Work items");
   expect(headers(work)).toEqual([
     "Title",
@@ -123,6 +137,15 @@ it("keeps the lifecycle column and drops other columns empty on every shown row"
 it("orders an unlinked group by size, drops the shared label prefix, and says when a member is empty", async () => {
   const routes = groupRoutes({
     "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Memo: [] } }),
+    "GET /api/v1/display-groups": () =>
+      jsonReply({
+        groups: DISPLAY_GROUPS.groups.map((group) => ({
+          ...group,
+          members: group.members.map((member) =>
+            member.name === "Memo" ? { ...member, count: 0 } : member,
+          ),
+        })),
+      }),
   });
 
   await renderGroupView(loadSections, { group: "Library", routes });
@@ -133,6 +156,15 @@ it("orders an unlinked group by size, drops the shared label prefix, and says wh
     "Memos",
   ]);
   expect(screen.getByRole("navigation", { name: "Jump to section" })).toBeVisible();
+
+  const emptyLink = within(screen.getByRole("navigation", { name: "Jump to section" })).getByRole(
+    "button",
+    { name: "Memos 0" },
+  );
+
+  expect(emptyLink).toHaveTextContent("Memos 0");
+  expect(emptyLink).toHaveAttribute("data-empty");
+  expect(emptyLink).toBeDisabled();
   expect(within(section("Memos")).getByText("None recorded yet.")).toBeVisible();
 });
 
@@ -347,4 +379,23 @@ it("keeps showing the group while a type that joined it loads its documentation"
 
   doc.resolve({ type: TYPE_DOCS.Glossary, count: 3 });
   expect(await screen.findByRole("region", { name: "Library glossaries" })).toBeVisible();
+});
+
+it("keeps Status when only the hidden records have another status", async () => {
+  const releases = Array.from({ length: SECTION_ROWS + 1 }, (_, index) => ({
+    path: `releases/${index}.md`,
+    title: `Release ${index}`,
+    releaseStatus: index < SECTION_ROWS ? "at_risk" : "planned",
+  }));
+
+  await renderGroupView(loadSections, {
+    routes: groupRoutes({
+      "POST /api/v1/graphql": () => jsonReply({ data: { ...RECORDS_DATA, Release: releases } }),
+    }),
+  });
+  const region = await screen.findByRole("region", { name: "Releases" });
+  expect(rowTitles(region)).toHaveLength(SECTION_ROWS);
+  expect(headers(region)).toContain("Status");
+  fireEvent.click(within(region).getByRole("button", { name: /Show .*more/ }));
+  expect(headers(region)).toContain("Status");
 });

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/userstate"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
 )
@@ -87,7 +88,7 @@ func writeViewPreferencesError(w http.ResponseWriter, err error) {
 }
 
 func (s *Server) publishViewPreferences(snapshot userstate.Snapshot, includeSlots bool) {
-	s.NotifyGlobalEvent("view_preferences.changed", struct {
+	s.NotifyGlobalEvent(appruntime.GlobalEventViewPreferencesChanged, struct {
 		Scope        userstate.Scope `json:"scope"`
 		Revision     uint64          `json:"revision"`
 		VaultKey     string          `json:"vaultKey"`

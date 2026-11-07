@@ -4,7 +4,7 @@
 // ledger, and a failure is never cached.
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PROMPT_VERSION } from "./prompts.mjs";
@@ -33,8 +33,16 @@ export function costOf(model, usage = {}) {
   if (!p) return usage.costUsd || null;
   const read = usage.cachedInputTokens ?? 0;
   const write = usage.cacheWriteInputTokens ?? 0;
-  const fresh = inputIncludesReads(model) ? (usage.inputTokens ?? 0) - read : usage.inputTokens ?? 0;
-  return (fresh * p.input + write * (p.write5m ?? p.input) + read * p.read + (usage.outputTokens ?? 0) * p.output) / 1e6;
+  const fresh = inputIncludesReads(model)
+    ? (usage.inputTokens ?? 0) - read
+    : (usage.inputTokens ?? 0);
+  return (
+    (fresh * p.input +
+      write * (p.write5m ?? p.input) +
+      read * p.read +
+      (usage.outputTokens ?? 0) * p.output) /
+    1e6
+  );
 }
 
 // Codex structured output needs strict schemas: every property required and
@@ -58,7 +66,20 @@ export function strictSchema(s) {
   return out;
 }
 
-export const dropNulls = (v) => (Array.isArray(v) ? v.map(dropNulls) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null).map(([k, x]) => [k, dropNulls(x)])) : v);
+export const dropNulls = (v) =>
+  Array.isArray(v)
+    ? v.map(dropNulls)
+    : v && typeof v === "object"
+      ? Object.fromEntries(
+          Object.entries(v)
+            .filter(([, x]) => x !== null)
+            .map(([k, x]) => [k, dropNulls(x)]),
+        )
+      : v;
+
+export function resolveRzm(root) {
+  return process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
+}
 
 const CALL_TIMEOUT_MS = 60 * 60 * 1000;
 
@@ -69,14 +90,27 @@ export function rzmClients(rzm = "rzm", { cwd } = {}) {
       const child = spawn(rzm, args, { cwd: dir, stdio: ["pipe", "pipe", "pipe"] });
       let out = "";
       let err = "";
+      let inputError;
       // A hung CLI would hold the run's lock forever.
       const timer = setTimeout(() => child.kill("SIGKILL"), CALL_TIMEOUT_MS);
       child.stdout.on("data", (d) => (out += d));
       child.stderr.on("data", (d) => (err += d));
       child.on("error", fail);
+      child.stdin.on("error", (error) => {
+        // The CLI closed its input early: EPIPE on POSIX, EOF on Windows. Its reply still counts.
+        if (error.code === "EPIPE" || error.code === "EOF") return;
+        inputError = error;
+        child.kill("SIGKILL");
+      });
       child.on("close", (code) => {
         clearTimeout(timer);
-        done({ code, out, err: code === null ? `timed out after ${CALL_TIMEOUT_MS / 60000} minutes` : err });
+        // A CLI may reply before input drains; keep its final status and diagnostic.
+        if (inputError) return fail(inputError);
+        done({
+          code,
+          out,
+          err: code === null ? `timed out after ${CALL_TIMEOUT_MS / 60000} minutes` : err,
+        });
       });
       child.stdin.end(input);
     });
@@ -86,12 +120,19 @@ export function rzmClients(rzm = "rzm", { cwd } = {}) {
     try {
       detail = JSON.parse(detail.split("\n").pop()).error ?? detail;
     } catch {}
-    throw new Error(`${what}: ${typeof detail === "string" ? detail.slice(-500) : JSON.stringify(detail).slice(0, 500)}`);
+    throw new Error(
+      `${what}: ${typeof detail === "string" ? detail.slice(-500) : JSON.stringify(detail).slice(0, 500)}`,
+    );
   };
   return {
     async generate({ provider, model, effort, prompt, schema }) {
       const args = ["agent", "generate"];
-      for (const [flag, v] of [["--provider", provider], ["--model", model], ["--effort", effort]]) if (v) args.push(flag, v);
+      for (const [flag, v] of [
+        ["--provider", provider],
+        ["--model", model],
+        ["--effort", effort],
+      ])
+        if (v) args.push(flag, v);
       const dir = schema ? mkdtempSync(join(tmpdir(), "sm-schema-")) : null;
       try {
         if (dir) {
@@ -103,13 +144,17 @@ export function rzmClients(rzm = "rzm", { cwd } = {}) {
         if (dir) rmSync(dir, { recursive: true, force: true });
       }
     },
-    evaluateBatch: async (request) => parse(await run(["agent", "evaluate-batch"], JSON.stringify(request)), "evaluate-batch"),
+    evaluateBatch: async (request) =>
+      parse(await run(["agent", "evaluate-batch"], JSON.stringify(request)), "evaluate-batch"),
     harnessStatus: async () => parse(await run(["harness", "status"]), "harness status"),
-    configuredHarness: async () => (parse(await run(["harness", "status", "--configured"]), "configured harness")).harness,
+    configuredHarness: async () =>
+      parse(await run(["harness", "status", "--configured"]), "configured harness").harness,
     // Rhizome search for verification evidence; a failure is evidence too.
     async search(args, { cwd: dir } = {}) {
       const r = await run(["search", ...args], "", dir ?? cwd);
-      return r.code === 0 ? r.out : `(failed: ${(r.err || r.out).trim().split("\n")[0].slice(0, 200)})`;
+      return r.code === 0
+        ? r.out
+        : `(failed: ${(r.err || r.out).trim().split("\n")[0].slice(0, 200)})`;
     },
   };
 }
@@ -122,14 +167,25 @@ export class Stop extends Error {
 }
 
 // Cache keys: stage, prompt version, input content, and model binding.
-export const callKey = ({ stage, binding: b, prompt, schema }) => sha({ stage, version: PROMPT_VERSION, provider: b.provider, model: b.model, effort: b.effort, prompt, schema });
-export const itemKey = ({ stage, model, item }) => sha({ stage, version: PROMPT_VERSION, model, state: item.state, questions: item.questions });
+export const callKey = ({ stage, binding: b, prompt, schema }) =>
+  sha({
+    stage,
+    version: PROMPT_VERSION,
+    provider: b.provider,
+    model: b.model,
+    effort: b.effort,
+    prompt,
+    schema,
+  });
+export const itemKey = ({ stage, model, item }) =>
+  sha({ stage, version: PROMPT_VERSION, model, state: item.state, questions: item.questions });
 
 // Rebuilds a run's spend from its ledger, so a resumed run counts what the
 // killed one paid for.
 export function spendFrom(entries, run) {
   const spend = { usd: 0, byRole: {} };
-  for (const e of entries) if (e.run === run && (e.ok || e.usd)) account(spend, e.role, e.usage, e.usd, e.model);
+  for (const e of entries)
+    if (e.run === run && (e.ok || e.usd)) account(spend, e.role, e.usage, e.usd, e.model);
   return spend;
 }
 
@@ -137,9 +193,18 @@ const FATAL = /harness (not installed|not logged in|unsupported)/;
 const JEV_ITEMS = 128;
 
 function account(spend, role, usage, usd, model) {
-  const r = (spend.byRole[role] ??= { calls: 0, cached: 0, inputTokens: 0, outputTokens: 0, usd: 0 });
+  const r = (spend.byRole[role] ??= {
+    calls: 0,
+    cached: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    usd: 0,
+  });
   r.calls++;
-  r.inputTokens += (usage?.inputTokens ?? 0) + (inputIncludesReads(model) ? 0 : usage?.cachedInputTokens ?? 0) + (usage?.cacheWriteInputTokens ?? 0);
+  r.inputTokens +=
+    (usage?.inputTokens ?? 0) +
+    (inputIncludesReads(model) ? 0 : (usage?.cachedInputTokens ?? 0)) +
+    (usage?.cacheWriteInputTokens ?? 0);
   r.outputTokens += usage?.outputTokens ?? 0;
   r.usd += usd ?? 0;
   spend.usd += usd ?? 0;
@@ -150,19 +215,30 @@ function account(spend, role, usage, usd, model) {
 export function makeCaller({ clients, store, run, bindings, budget = null, spend, onResult }) {
   let reserved = 0;
   const reserve = (usd) => {
-    if (budget !== null && spend.usd + reserved + usd > budget) throw new Stop("budget", `budget $${budget} reached ($${spend.usd.toFixed(4)} spent)`);
+    if (budget !== null && spend.usd + reserved + usd > budget)
+      throw new Stop("budget", `budget $${budget} reached ($${spend.usd.toFixed(4)} spent)`);
     reserved += usd;
   };
 
   // `effort` overrides the binding's for cheap follow-ups such as repairs.
-  async function generate({ role, stage, prompt, schema, estimate = 0, effort, tally, bypassCache = false }) {
+  async function generate({
+    role,
+    stage,
+    prompt,
+    schema,
+    estimate = 0,
+    effort,
+    tally,
+    bypassCache = false,
+  }) {
     const b = bindings[role];
     if (!b) throw new Stop("binding", `no binding for ${role}`);
     effort ??= b.effort;
     const key = callKey({ stage, binding: { ...b, effort }, prompt, schema });
     const hit = bypassCache ? null : store.cacheGet(key);
     if (hit) {
-      (spend.byRole[role] ??= { calls: 0, cached: 0, inputTokens: 0, outputTokens: 0, usd: 0 }).cached++;
+      (spend.byRole[role] ??= { calls: 0, cached: 0, inputTokens: 0, outputTokens: 0, usd: 0 })
+        .cached++;
       if (tally) tally.cached++;
       onResult?.({ ...hit, role, cached: true });
       return hit.output;
@@ -173,24 +249,64 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
         let r;
         const started = Date.now();
         try {
-          r = await clients.generate({ provider: b.provider, model: b.model, effort, prompt, schema: b.provider === "codex" && schema ? strictSchema(schema) : schema });
+          r = await clients.generate({
+            provider: b.provider,
+            model: b.model,
+            effort,
+            prompt,
+            schema: b.provider === "codex" && schema ? strictSchema(schema) : schema,
+          });
         } catch (err) {
           if (err instanceof Stop) throw err;
-          store.ledger({ run, stage, role, key, attempt, ok: false, error: String(err.message).slice(0, 500) });
-          if (FATAL.test(err.message)) throw new Stop("binding", `${role} binding ${b.provider}:${b.model} is unavailable: ${err.message}`);
+          store.ledger({
+            run,
+            stage,
+            role,
+            key,
+            attempt,
+            ok: false,
+            error: String(err.message).slice(0, 500),
+          });
+          if (FATAL.test(err.message))
+            throw new Stop(
+              "binding",
+              `${role} binding ${b.provider}:${b.model} is unavailable: ${err.message}`,
+            );
           continue;
         }
         // A frozen model that now resolves to another is unavailable, not a substitute.
         if (r.model && b.model && r.model !== b.model) {
           const paid = Math.max(costOf(r.model, r.usage) ?? 0, r.usage?.costUsd ?? 0);
-          store.ledger({ run, stage, role, key, attempt, ok: false, model: r.model, usage: r.usage, usd: paid, error: `model ${r.model} ran instead of ${b.model}` });
+          store.ledger({
+            run,
+            stage,
+            role,
+            key,
+            attempt,
+            ok: false,
+            model: r.model,
+            usage: r.usage,
+            usd: paid,
+            error: `model ${r.model} ran instead of ${b.model}`,
+          });
           account(spend, role, r.usage, paid, r.model);
-          throw new Stop("binding", `${role} is frozen to ${b.model} but ${r.model} ran; resume when ${b.model} is available`);
+          throw new Stop(
+            "binding",
+            `${role} is frozen to ${b.model} but ${r.model} ran; resume when ${b.model} is available`,
+          );
         }
         // Token prices can miss requests a reply needed; Claude's own total covers them.
         const usd = Math.max(costOf(r.model || b.model, r.usage) ?? 0, r.usage?.costUsd ?? 0);
         const output = b.provider === "codex" ? dropNulls(r.output) : r.output;
-        const result = { stage, role, model: r.model || b.model, output, usage: r.usage, usd, ms: Date.now() - started };
+        const result = {
+          stage,
+          role,
+          model: r.model || b.model,
+          output,
+          usage: r.usage,
+          usd,
+          ms: Date.now() - started,
+        };
         store.ledger({ run, key, attempt, ok: true, ...result, output: undefined });
         store.cachePut(key, result);
         account(spend, role, r.usage, usd, r.model || b.model);
@@ -216,7 +332,13 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
       if (hit) out.set(item.id, hit.answers);
       else todo.push({ ...item, key });
     }
-    (spend.byRole.decide ??= { calls: 0, cached: 0, inputTokens: 0, outputTokens: 0, usd: 0 }).cached += items.length - todo.length;
+    (spend.byRole.decide ??= {
+      calls: 0,
+      cached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      usd: 0,
+    }).cached += items.length - todo.length;
     for (let attempt = 1; attempt <= 2 && todo.some((t) => !out.has(t.id)); attempt++) {
       const pending = todo.filter((t) => !out.has(t.id));
       for (let k = 0; k < pending.length; k += JEV_ITEMS) {
@@ -225,16 +347,41 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
         reserve(est);
         let res;
         try {
-          res = await clients.evaluateBatch({ items: chunk.map((t) => ({ id: t.id, model: b.model, state: t.state, questions: t.questions })), concurrency: 8, budgetMs: 60000 });
+          res = await clients.evaluateBatch({
+            items: chunk.map((t) => ({
+              id: t.id,
+              model: b.model,
+              state: t.state,
+              questions: t.questions,
+            })),
+            concurrency: 8,
+            budgetMs: 60000,
+          });
         } catch (err) {
-          if (/\b40[13]\b|credential|api key|TYPESAFE/i.test(err.message)) throw new Stop("credential", `Jev is unavailable (${err.message.slice(0, 200)}); set up the TypeSafe key and resume, or pass --abandon and start an unscreened run (--unscreened) over a small window`);
+          if (/\b40[13]\b|credential|api key|TYPESAFE/i.test(err.message))
+            throw new Stop(
+              "credential",
+              `Jev is unavailable (${err.message.slice(0, 200)}); set up the TypeSafe key and resume, or pass --abandon and start an unscreened run (--unscreened) over a small window`,
+            );
           res = { items: [], error: err.message };
         } finally {
           reserved -= est;
         }
-        const usage = { inputTokens: res.usage?.input_tokens ?? 0, outputTokens: res.usage?.output_tokens ?? 0 };
+        const usage = {
+          inputTokens: res.usage?.input_tokens ?? 0,
+          outputTokens: res.usage?.output_tokens ?? 0,
+        };
         const usd = costOf(b.model, usage);
-        store.ledger({ run, stage, role: "decide", attempt, ok: true, items: chunk.length, usage, usd });
+        store.ledger({
+          run,
+          stage,
+          role: "decide",
+          attempt,
+          ok: true,
+          items: chunk.length,
+          usage,
+          usd,
+        });
         account(spend, "decide", usage, usd);
         const byId = new Map((res.items ?? []).map((it) => [it.id, it]));
         for (const t of chunk) {
@@ -244,8 +391,21 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
             store.cachePut(t.key, { stage, answers: it.response.answers });
             continue;
           }
-          store.ledger({ run, stage, role: "decide", key: t.key, attempt, ok: false, status: it?.status ?? "missing", error: String(it?.error ?? res.error ?? "").slice(0, 300) });
-          if ([401, 402, 403].includes(it?.statusCode)) throw new Stop("credential", `TypeSafe returned HTTP ${it.statusCode}; set up the TypeSafe key and resume, or pass --abandon and start an unscreened run (--unscreened) over a small window`);
+          store.ledger({
+            run,
+            stage,
+            role: "decide",
+            key: t.key,
+            attempt,
+            ok: false,
+            status: it?.status ?? "missing",
+            error: String(it?.error ?? res.error ?? "").slice(0, 300),
+          });
+          if ([401, 402, 403].includes(it?.statusCode))
+            throw new Stop(
+              "credential",
+              `TypeSafe returned HTTP ${it.statusCode}; set up the TypeSafe key and resume, or pass --abandon and start an unscreened run (--unscreened) over a small window`,
+            );
         }
       }
     }
@@ -261,7 +421,8 @@ function addTally(t, usage, usd, ms) {
   t.calls++;
   t.usd += usd ?? 0;
   t.ms += ms;
-  for (const [k, v] of Object.entries(usage ?? {})) if (typeof v === "number") t.usage[k] = (t.usage[k] ?? 0) + v;
+  for (const [k, v] of Object.entries(usage ?? {}))
+    if (typeof v === "number") t.usage[k] = (t.usage[k] ?? 0) + v;
 }
 
 const SEVERITY = { failed: 1, budget: 2, binding: 3, credential: 3, error: 4 };
@@ -281,7 +442,8 @@ export async function pool(items, n, fn) {
           await fn(items[k], k);
         } catch (err) {
           const reason = err instanceof Stop ? err.reason : "error";
-          if (!stop || SEVERITY[reason] > SEVERITY[stop instanceof Stop ? stop.reason : "error"]) stop = err;
+          if (!stop || SEVERITY[reason] > SEVERITY[stop instanceof Stop ? stop.reason : "error"])
+            stop = err;
           if (reason !== "failed") halted = true;
         }
       }

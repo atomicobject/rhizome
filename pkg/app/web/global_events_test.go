@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 )
 
 func TestGlobalEventBrokerSubscribeAfterClose(t *testing.T) {
@@ -31,10 +33,10 @@ func TestGlobalEventBrokerDeliveryAndUnsubscribe(t *testing.T) {
 	b := newGlobalEventBroker()
 	defer b.Close()
 	events, unsubscribe := b.Subscribe()
-	b.Publish(GlobalEventIndexChanged, "updated")
+	b.Publish(appruntime.GlobalEventIndexChanged, "updated")
 	select {
 	case event := <-events:
-		if event.Kind != GlobalEventIndexChanged || event.Data != "updated" {
+		if event.Kind != appruntime.GlobalEventIndexChanged || event.Data != "updated" {
 			t.Fatalf("unexpected event: %+v", event)
 		}
 	default:
@@ -42,7 +44,7 @@ func TestGlobalEventBrokerDeliveryAndUnsubscribe(t *testing.T) {
 	}
 	unsubscribe()
 	unsubscribe()
-	b.Publish(GlobalEventIndexChanged, nil)
+	b.Publish(appruntime.GlobalEventIndexChanged, nil)
 	if _, ok := <-events; ok {
 		t.Fatal("unsubscribed channel remains open")
 	}

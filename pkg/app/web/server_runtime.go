@@ -59,16 +59,6 @@ func (r *Runtime) NoteEmbeddings() (embeddings.Index, embeddings.Provider) {
 	return r.NoteIndex, r.NoteProvider
 }
 
-func (r *Runtime) SetNoteEmbeddings(index embeddings.Index, provider embeddings.Provider) {
-	if r == nil {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.NoteIndex = index
-	r.NoteProvider = provider
-}
-
 func (r *Runtime) CodeEmbeddings() (codeemb.Index, embeddings.Provider) {
 	if r == nil {
 		return nil, nil
@@ -80,16 +70,6 @@ func (r *Runtime) CodeEmbeddings() (codeemb.Index, embeddings.Provider) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.CodeIndex, r.CodeProvider
-}
-
-func (r *Runtime) SetCodeEmbeddings(index codeemb.Index, provider embeddings.Provider) {
-	if r == nil {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.CodeIndex = index
-	r.CodeProvider = provider
 }
 
 func (r *Runtime) Intel() *semdb.Store {

@@ -1,3 +1,4 @@
+import { TypeChip } from "./TypeChip";
 import { publicTypeName } from "../lib/typeNames";
 import type { MutableRefObject, ReactNode } from "react";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -51,8 +52,11 @@ import {
   utf8ByteRangeToLineRange,
 } from "./validation/issueNavigation";
 import { useTypeLabel } from "./typeLabels";
+import { NoteDisclosure, NoteReadingStateContext, useNoteReadingState } from "./noteReadingState";
 
 type Props = {
+  active?: boolean;
+  bodyResident?: boolean;
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -423,8 +427,10 @@ function documentHeadingComponents(
           ref: (element: HTMLElement | null) => {
             if (offset === undefined) return;
 
-            if (element) refs.current.set(offset, element);
-            else refs.current.delete(offset);
+            if (element) {
+              element.dataset.readingAnchor = `heading:${tag}:${element.textContent ?? ""}`;
+              refs.current.set(offset, element);
+            } else refs.current.delete(offset);
           },
         },
         children,
@@ -509,7 +515,10 @@ function SectionWalker({
           <section key={key} className="ontology-section">
             {createElement(
               level,
-              { ref: section.id ? registerHeading(section.id) : undefined },
+              {
+                ref: section.id ? registerHeading(section.id) : undefined,
+                "data-reading-anchor": section.id,
+              },
               displayTitle(section.title),
             )}
             {isTyped ? (
@@ -801,6 +810,7 @@ function StructuralNodeView({
               <section
                 key={node.nodeId}
                 className="ontology-struct__child-section"
+                data-reading-anchor={node.nodeId}
                 ref={(el) => {
                   if (el) sectionRefs.current.set(node.nodeId, el);
                   else sectionRefs.current.delete(node.nodeId);
@@ -858,6 +868,7 @@ function StructuralNodeView({
                         <section
                           key={child.nodeId}
                           className="ontology-struct__child-section"
+                          data-reading-anchor={child.nodeId}
                           ref={(el) => {
                             if (el) sectionRefs.current.set(child.nodeId, el);
                             else sectionRefs.current.delete(child.nodeId);
@@ -888,6 +899,7 @@ function StructuralNodeView({
             <section
               key={root.nodeId}
               className="ontology-struct__section"
+              data-reading-anchor={root.nodeId}
               ref={(el) => {
                 if (el) sectionRefs.current.set(root.nodeId, el);
                 else sectionRefs.current.delete(root.nodeId);
@@ -940,6 +952,7 @@ function StructuralNodeView({
                       <section
                         key={child.nodeId}
                         className="ontology-struct__child-section"
+                        data-reading-anchor={child.nodeId}
                         ref={(el) => {
                           if (el) sectionRefs.current.set(child.nodeId, el);
                           else sectionRefs.current.delete(child.nodeId);
@@ -971,6 +984,8 @@ function StructuralNodeView({
 }
 
 export function OntologyNotePane({
+  active = true,
+  bodyResident = true,
   loading,
   error,
   onRetry,
@@ -998,6 +1013,7 @@ export function OntologyNotePane({
   onOpenIssues,
 }: Props) {
   const paneRef = useRef<HTMLElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [focusUnavailable, setFocusUnavailable] = useState(false);
   const canonicalWorkspace = workspace;
   const locator = useMemo(() => focusedNodeLocator(canonicalWorkspace), [canonicalWorkspace]);
@@ -1174,6 +1190,21 @@ export function OntologyNotePane({
   ]);
 
   const initialAnchor = initialAnchorProp ?? parseAnchorFromPath(rendered?.path);
+  const readingRef = canonicalWorkspace?.node.ref;
+
+  // A fingerprint tracks content revisions, not the lifetime of the reading state or editor.
+  const readingIdentity = `${canonicalNodeRefKey(
+    readingRef ? { ...readingRef, structuralFingerprint: "" } : readingRef,
+  )}|${viewMode}`;
+
+  const readingState = useNoteReadingState({
+    identity: readingIdentity,
+    navigation: `${applicationHref ?? ""}|${initialAnchor ?? ""}|${JSON.stringify(issueTarget ?? null)}`,
+    active,
+    resident: bodyResident,
+    containerRef: scrollRef,
+  });
+
   const structural = selectWorkspaceStructuralView(canonicalWorkspace);
   const structuralTabs = useMemo(() => structural?.tabs || [], [structural?.tabs]);
   const structuralRoot = structural?.root || null;
@@ -1461,8 +1492,9 @@ export function OntologyNotePane({
 
   const sourceTargetRange = issueTarget ? issueTargetToTextRange(sourceText, issueTarget) : null;
 
-  const sourceTargetLine =
-    issueTarget?.unit === "line" && issueTarget.start !== undefined
+  const sourceTargetLine = readingState.restoring
+    ? undefined
+    : issueTarget?.unit === "line" && issueTarget.start !== undefined
       ? Math.max(1, issueTarget.start)
       : issueTarget?.unit === "utf8_bytes" && issueTarget.start !== undefined
         ? utf8ByteRangeToLineRange(
@@ -1477,7 +1509,15 @@ export function OntologyNotePane({
   useEffect(() => {
     const pane = paneRef.current;
 
-    if (!pane || !rendered || !issueTarget || viewMode === "source") return;
+    if (
+      !pane ||
+      !rendered ||
+      !issueTarget ||
+      viewMode === "source" ||
+      !bodyResident ||
+      readingState.restoring
+    )
+      return;
     let selector = "";
 
     if (issueTarget.field) selector = `[data-field="${CSS.escape(issueTarget.field)}"]`;
@@ -1497,7 +1537,7 @@ export function OntologyNotePane({
     target.focus({ preventScroll: true });
 
     return () => target.classList.remove("is-issue-target");
-  }, [issueTarget, rendered, viewMode]);
+  }, [bodyResident, issueTarget, readingState.restoring, rendered, viewMode]);
 
   const propertyPanel = viewMode === "read" &&
     canonicalWorkspace &&
@@ -1566,9 +1606,9 @@ export function OntologyNotePane({
         <div
           className={`ontology-pane__controls${isActiveHTML ? " ontology-pane__controls--html" : ""}`}
         >
-          <span className={`ontology-pane__type type-chip${resolvedType ? "" : " is-untyped"}`}>
+          <TypeChip name={resolvedType || ""} className="ontology-pane__type">
             {resolvedType ? typeLabel(resolvedType) : "Untyped"}
-          </span>
+          </TypeChip>
           {htmlHead ||
             (toolbarPath && (
               <MiddleTruncate
@@ -1700,6 +1740,8 @@ export function OntologyNotePane({
       {rendered && (
         <div className="ontology-pane__body">
           <div
+            ref={scrollRef}
+            data-note-body={bodyResident ? "resident" : undefined}
             className={`ontology-pane__main${isActiveHTML && viewMode === "read" ? " ontology-pane__main--html" : ""}`}
             role="presentation"
           >
@@ -1714,220 +1756,231 @@ export function OntologyNotePane({
                 {error}
               </div>
             )}
-            {(renderPresentation ?? ((body) => body))(
-              <>
-                {viewMode === "read" && !isActiveHTML && identityStrip}
-                {viewMode === "read" && !isActiveHTML && propertyPanel}
-                {viewMode === "read" && issueCount > 0 && issueSections.length > 0 && (
-                  <details className="ontology-issues">
-                    <summary className="ontology-issues__summary">
-                      <span className="ontology-issues__count">{issueCount}</span>
-                      <span className="ontology-issues__label">
-                        issue{issueCount === 1 ? "" : "s"}
-                      </span>
-                    </summary>
-                    <div className="ontology-issues__body">
-                      {issueSections.map((section) => (
-                        <div
-                          key={section.key}
-                          className="ontology-issues__group"
-                          data-field={
-                            section.key.startsWith("field-") ? section.key.slice(6) : undefined
-                          }
-                          data-relation={
-                            section.key.startsWith("relation-") ? section.key.slice(9) : undefined
-                          }
-                        >
-                          <div className="ontology-issues__group-label">{section.label}</div>
-                          <ul className="ontology-issues__list">
-                            {section.issues.map((issue) => (
-                              <li
-                                key={`${section.key}-${issue.code ?? ""}-${issue.message ?? ""}`}
-                                className="ontology-issues__item"
-                              >
-                                {issue.code && (
-                                  <span className="ontology-issues__code">{issue.code}</span>
-                                )}
-                                <span className="ontology-issues__message">
-                                  {issue.message || issue.code || "Unknown issue"}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+            {bodyResident && (
+              <NoteReadingStateContext.Provider
+                value={readingState.reading}
+                key={isActiveHTML ? undefined : readingIdentity}
+              >
+                {(renderPresentation ?? ((body) => body))(
+                  <>
+                    {viewMode === "read" && !isActiveHTML && identityStrip}
+                    {viewMode === "read" && !isActiveHTML && propertyPanel}
+                    {viewMode === "read" && issueCount > 0 && issueSections.length > 0 && (
+                      <NoteDisclosure disclosureId="issues" className="ontology-issues">
+                        <summary className="ontology-issues__summary">
+                          <span className="ontology-issues__count">{issueCount}</span>
+                          <span className="ontology-issues__label">
+                            issue{issueCount === 1 ? "" : "s"}
+                          </span>
+                        </summary>
+                        <div className="ontology-issues__body">
+                          {issueSections.map((section) => (
+                            <div
+                              key={section.key}
+                              className="ontology-issues__group"
+                              data-field={
+                                section.key.startsWith("field-") ? section.key.slice(6) : undefined
+                              }
+                              data-relation={
+                                section.key.startsWith("relation-")
+                                  ? section.key.slice(9)
+                                  : undefined
+                              }
+                            >
+                              <div className="ontology-issues__group-label">{section.label}</div>
+                              <ul className="ontology-issues__list">
+                                {section.issues.map((issue) => (
+                                  <li
+                                    key={`${section.key}-${issue.code ?? ""}-${issue.message ?? ""}`}
+                                    className="ontology-issues__item"
+                                  >
+                                    {issue.code && (
+                                      <span className="ontology-issues__code">{issue.code}</span>
+                                    )}
+                                    <span className="ontology-issues__message">
+                                      {issue.message || issue.code || "Unknown issue"}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
+                      </NoteDisclosure>
+                    )}
 
-                <div
-                  className={`ontology-markdown${isActiveHTML ? " ontology-markdown--html" : ""}`}
-                >
-                  {viewMode === "source" ? (
-                    editing &&
-                    canonicalWorkspace?.sourceRevision &&
-                    content?.sourceCapabilities?.includes("structural_content_mutation") &&
-                    onStageOps ? (
-                      <SourceEditor
-                        revision={canonicalWorkspace.sourceRevision}
-                        vaultKey={vaultKey}
-                        targetLine={sourceTargetLine}
-                        rendered={rendered ?? canonicalWorkspace.content.rendered}
-                        onOpen={onOpen}
-                        onStageOps={onStageOps}
-                      />
-                    ) : isMarkdownSource ? (
-                      <div className="ontology-source-view">
-                        <MarkdownEditor
-                          value={sourceText}
-                          readOnly
-                          ariaLabel="Note source"
-                          documentId={`source:${encodeURIComponent(toolbarPath)}`}
-                          revealLine={sourceTargetLine}
-                          links={sourceLinks}
-                          onChange={() => undefined}
-                          editorRef={sourceEditorRef}
+                    <div
+                      className={`ontology-markdown${isActiveHTML ? " ontology-markdown--html" : ""}`}
+                    >
+                      {viewMode === "source" ? (
+                        editing &&
+                        canonicalWorkspace?.sourceRevision &&
+                        content?.sourceCapabilities?.includes("structural_content_mutation") &&
+                        onStageOps ? (
+                          <SourceEditor
+                            revision={canonicalWorkspace.sourceRevision}
+                            vaultKey={vaultKey}
+                            targetLine={sourceTargetLine}
+                            rendered={rendered ?? canonicalWorkspace.content.rendered}
+                            onOpen={onOpen}
+                            onStageOps={onStageOps}
+                          />
+                        ) : isMarkdownSource ? (
+                          <div className="ontology-source-view">
+                            <MarkdownEditor
+                              value={sourceText}
+                              readOnly
+                              ariaLabel="Note source"
+                              documentId={`source:${encodeURIComponent(toolbarPath)}`}
+                              revealLine={sourceTargetLine}
+                              links={sourceLinks}
+                              onChange={() => undefined}
+                              editorRef={sourceEditorRef}
+                            />
+                          </div>
+                        ) : (
+                          <ReadonlySource
+                            source={sourceText}
+                            sections={sourceSections}
+                            sectionRefs={sourceSectionRefs}
+                            targetLine={sourceTargetLine}
+                          />
+                        )
+                      ) : isActiveHTML ? null : viewMode === "read" &&
+                        focusedWorkspaceNode &&
+                        canonicalWorkspace &&
+                        focusedWorkspaceNode.body?.some(
+                          (block) => block.kind !== "inline_field",
+                        ) ? (
+                        <BodyWalker
+                          node={focusedWorkspaceNode}
+                          context={
+                            {
+                              workspace: canonicalWorkspace,
+                              mode: editing ? "edit" : "view",
+                              vaultKey,
+                              rendered,
+                              onStageOps,
+                              onOpen,
+                              onOpenNode,
+                              registerSectionTarget: (nodeId, element) => {
+                                if (element) {
+                                  structuralSectionRefs.current.set(nodeId, element);
+                                } else {
+                                  structuralSectionRefs.current.delete(nodeId);
+                                }
+                              },
+                              lookupNode: (id) =>
+                                canonicalWorkspace.nodes?.find((entry) => entry.id === id),
+                            } satisfies BodyRenderContext
+                          }
                         />
-                      </div>
-                    ) : (
-                      <ReadonlySource
-                        source={sourceText}
-                        sections={sourceSections}
-                        sectionRefs={sourceSectionRefs}
-                        targetLine={sourceTargetLine}
-                      />
-                    )
-                  ) : isActiveHTML ? null : viewMode === "read" &&
-                    focusedWorkspaceNode &&
-                    canonicalWorkspace &&
-                    focusedWorkspaceNode.body?.some((block) => block.kind !== "inline_field") ? (
-                    <BodyWalker
-                      node={focusedWorkspaceNode}
-                      context={
-                        {
-                          workspace: canonicalWorkspace,
-                          mode: editing ? "edit" : "view",
-                          vaultKey,
-                          rendered,
-                          onStageOps,
-                          onOpen,
-                          onOpenNode,
-                          registerSectionTarget: (nodeId, element) => {
-                            if (element) {
-                              structuralSectionRefs.current.set(nodeId, element);
-                            } else {
-                              structuralSectionRefs.current.delete(nodeId);
-                            }
-                          },
-                          lookupNode: (id) =>
-                            canonicalWorkspace.nodes?.find((entry) => entry.id === id),
-                        } satisfies BodyRenderContext
-                      }
-                    />
-                  ) : useStructuralMode ? (
-                    <StructuralNodeView
-                      rootNodes={structuralNodes}
-                      initialAnchor={initialAnchor}
-                      sectionRefs={structuralSectionRefs}
-                      onOpenNode={onOpenNode}
-                      markdownComponents={markdownComponents}
-                    />
-                  ) : useSectionWalker ? (
-                    <>
-                      {prefaceMarkdown && (
-                        <Markdown urlTransform={keepUrl} components={markdownComponents}>
-                          {prefaceMarkdown}
+                      ) : useStructuralMode ? (
+                        <StructuralNodeView
+                          rootNodes={structuralNodes}
+                          initialAnchor={readingState.restoring ? null : initialAnchor}
+                          sectionRefs={structuralSectionRefs}
+                          onOpenNode={onOpenNode}
+                          markdownComponents={markdownComponents}
+                        />
+                      ) : useSectionWalker ? (
+                        <>
+                          {prefaceMarkdown && (
+                            <Markdown urlTransform={keepUrl} components={markdownComponents}>
+                              {prefaceMarkdown}
+                            </Markdown>
+                          )}
+                          <SectionWalker
+                            sections={rendered.sections || []}
+                            registerHeading={registerHeading}
+                            markdownComponents={markdownComponents}
+                          />
+                        </>
+                      ) : viewMode === "read" &&
+                        editing &&
+                        canonicalWorkspace?.sourceRevision &&
+                        onStageOps ? (
+                        <EmptyNarrativeEditor
+                          revision={canonicalWorkspace.sourceRevision}
+                          nodeRef={canonicalWorkspace.node.ref}
+                          vaultKey={vaultKey}
+                          onStageOps={onStageOps}
+                        />
+                      ) : (
+                        <Markdown urlTransform={keepUrl} components={documentMarkdownComponents}>
+                          {markdown}
                         </Markdown>
                       )}
-                      <SectionWalker
-                        sections={rendered.sections || []}
-                        registerHeading={registerHeading}
-                        markdownComponents={markdownComponents}
-                      />
-                    </>
-                  ) : viewMode === "read" &&
-                    editing &&
-                    canonicalWorkspace?.sourceRevision &&
-                    onStageOps ? (
-                    <EmptyNarrativeEditor
-                      revision={canonicalWorkspace.sourceRevision}
-                      nodeRef={canonicalWorkspace.node.ref}
-                      vaultKey={vaultKey}
-                      onStageOps={onStageOps}
-                    />
-                  ) : (
-                    <Markdown urlTransform={keepUrl} components={documentMarkdownComponents}>
-                      {markdown}
-                    </Markdown>
-                  )}
-                  {isActiveHTML && (
-                    <HTMLNoteViewer
-                      path={toolbarPath}
-                      query={documentQuery}
-                      fragment={initialAnchor}
-                      generation={canonicalWorkspace?.version}
-                      visible={viewMode === "read"}
-                      applicationHref={applicationHref || buildNoteWebHref(toolbarPath)}
-                      actionsSlot={viewMode === "read" ? htmlActions : null}
-                      onNavigate={(target, beside, authored) =>
-                        onOpen(
-                          resolveKnownRenderedLinkTarget(authored, rendered) || target,
-                          beside ? "beside" : "current",
-                        )
-                      }
-                    />
-                  )}
-                </div>
+                      {isActiveHTML && (
+                        <HTMLNoteViewer
+                          path={toolbarPath}
+                          query={documentQuery}
+                          fragment={initialAnchor}
+                          generation={canonicalWorkspace?.version}
+                          visible={viewMode === "read"}
+                          applicationHref={applicationHref || buildNoteWebHref(toolbarPath)}
+                          actionsSlot={viewMode === "read" ? htmlActions : null}
+                          onNavigate={(target, beside, authored) =>
+                            onOpen(
+                              resolveKnownRenderedLinkTarget(authored, rendered) || target,
+                              beside ? "beside" : "current",
+                            )
+                          }
+                        />
+                      )}
+                    </div>
 
-                {viewMode === "read" && rendered.embeds && rendered.embeds.length > 0 && (
-                  <section className="ontology-inline-previews">
-                    <div className="ontology-inline-previews__header">
-                      <h3>Inline previews</h3>
-                      <p className="ontology-muted">
-                        Open embedded notes in this note tab or another tab.
-                      </p>
-                    </div>
-                    <div className="ontology-preview-list">
-                      {rendered.embeds.map((embed) => (
-                        <div key={embed.target} className="ontology-preview-card">
-                          <div>
-                            <div className="ontology-preview-card__title">
-                              {embed.title || embed.target}
-                            </div>
-                            {embed.preview && (
-                              <p className="ontology-preview-card__body">{embed.preview}</p>
-                            )}
-                          </div>
-                          <div className="ontology-preview-card__actions">
-                            {embed.kind === "note" && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="ontology-link-button ontology-link-button--primary"
-                                  onClick={(event) =>
-                                    openFromClick(event, embed.target, onOpen, "stack")
-                                  }
-                                >
-                                  Open
-                                </button>
-                                <button
-                                  type="button"
-                                  className="ontology-link-button"
-                                  onClick={(event) =>
-                                    openFromClick(event, embed.target, onOpen, "current")
-                                  }
-                                >
-                                  Open here
-                                </button>
-                              </>
-                            )}
-                          </div>
+                    {viewMode === "read" && rendered.embeds && rendered.embeds.length > 0 && (
+                      <section className="ontology-inline-previews">
+                        <div className="ontology-inline-previews__header">
+                          <h3>Inline previews</h3>
+                          <p className="ontology-muted">
+                            Open embedded notes in this note tab or another tab.
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  </section>
+                        <div className="ontology-preview-list">
+                          {rendered.embeds.map((embed) => (
+                            <div key={embed.target} className="ontology-preview-card">
+                              <div>
+                                <div className="ontology-preview-card__title">
+                                  {embed.title || embed.target}
+                                </div>
+                                {embed.preview && (
+                                  <p className="ontology-preview-card__body">{embed.preview}</p>
+                                )}
+                              </div>
+                              <div className="ontology-preview-card__actions">
+                                {embed.kind === "note" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="ontology-link-button ontology-link-button--primary"
+                                      onClick={(event) =>
+                                        openFromClick(event, embed.target, onOpen, "stack")
+                                      }
+                                    >
+                                      Open
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ontology-link-button"
+                                      onClick={(event) =>
+                                        openFromClick(event, embed.target, onOpen, "current")
+                                      }
+                                    >
+                                      Open here
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </>,
                 )}
-              </>,
+              </NoteReadingStateContext.Provider>
             )}
           </div>
         </div>

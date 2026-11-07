@@ -5,11 +5,13 @@
 // Briefing's loader and blocks over a one-member model, in the same three
 // columns.
 import {
+  DisclosureIcon,
   HighlightProvider,
   StatusMark,
   openNote,
   openView,
   useViewContext,
+  useTypeColors,
   type ViewContext,
   type ViewModuleProps,
 } from "@rhizome/kit";
@@ -17,9 +19,15 @@ import { useMemo } from "react";
 
 import { boundary, inMotion, needsAttention, reverseGaps } from "./activity.ts";
 import { REVERSE_SAMPLE } from "./api.ts";
-import { MotionList, OutsideNotes, RecentChanges } from "./briefing-activity.tsx";
+import {
+  useMotionMetadata,
+  MotionList,
+  OutsideNotes,
+  RecentChanges,
+} from "./briefing-activity.tsx";
 import { NeedsAttention, type MemberAction } from "./briefing-attention.tsx";
 import { Implementors } from "./briefing-contents.tsx";
+import { MotionCount } from "./briefing-motion.tsx";
 import { Block, MoreToggle, lower, plural } from "./briefing-parts.tsx";
 import {
   dateMonths,
@@ -29,7 +37,7 @@ import {
   type Distribution,
   type FieldConnection,
 } from "./collection.ts";
-import { GroupFacts, GroupPage } from "./components.tsx";
+import { GroupFacts, GroupPage, openRecord } from "./components.tsx";
 import { linkGraph } from "./graph.ts";
 import { useCollectionModel } from "./load.ts";
 import { fieldLabel, type GroupModel, type Member } from "./model.ts";
@@ -39,12 +47,46 @@ function InMotion({ model }: { model: GroupModel }) {
   const motion = useMemo(() => inMotion(model), [model]);
   const entries = motion.groups[0]?.entries ?? [];
 
+  const metadata = useMotionMetadata(model, entries);
+
   return (
     <Block
       title="In motion"
-      count={entries.length}
+      className="gv-motion"
+      controls={<span className="gv-motion-age-label">Last changed</span>}
+      count={
+        <>
+          <MotionCount count={entries.length} metadata={metadata} />
+          {needsAttention(model, linkGraph(model), Date.now())
+            .filter((signal) => signal.kind === "stale")
+            .map(
+              (signal) =>
+                signal.kind === "stale" && (
+                  <details className="gv-stale-review" key={signal.member}>
+                    <summary>
+                      <DisclosureIcon open={false} />
+                      {signal.records.length} unchanged
+                    </summary>
+                    <div>
+                      Active records unchanged for 30+ days. Review whether they still reflect
+                      current work.
+                      <ul>
+                        {signal.records.map((record) => (
+                          <li key={record.key}>
+                            <button className="gv-inline" onClick={() => openRecord(record)}>
+                              {record.title}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </details>
+                ),
+            )}
+        </>
+      }
       info={{
-        text: "Records whose lifecycle value is in the active stage, newest change first.",
+        text: "Records whose lifecycle value is in the active stage, newest change first. Unchanged records have had no update for 30 days; review whether they still reflect current work.",
         display: "title",
       }}
     >
@@ -65,7 +107,7 @@ function DistributionRow({ distribution }: { distribution: Distribution }) {
   return (
     <div className="gv-spread">
       <h3 className="gv-spread-head">
-        {fieldLabel(field)} <span className="gv-sub">{role}</span>
+        {fieldLabel(field)} {role !== "lifecycle" && <span className="gv-sub">{role}</span>}
       </h3>
       <div className="gv-dist gv-dist-wide" aria-hidden="true">
         {values.map(({ value, count }) => (
@@ -184,7 +226,7 @@ function SpreadBlock({ model, member }: { model: GroupModel; member: Member }) {
 
   return (
     <Block
-      title="Shape"
+      title="Composition"
       info={{
         text: `How the ${records} ${plural(records, "record", "records")} spread across each enum field${months ? " and by month" : ""}.`,
         display: "title",
@@ -213,13 +255,14 @@ function targetLabel(model: GroupModel, type: string) {
 function ConnectionRow({ model, connection }: { model: GroupModel; connection: FieldConnection }) {
   const { field, direction, filled, total, top, targets, sampled } = connection;
   const share = total ? filled / total : 0;
+  const color = useTypeColors()(connection.targetType);
   const expanded = useRememberedOpen("briefing.expanded");
   const open = expanded.isOpen(`connection:${field}`, false);
   const shown = open ? targets : top;
 
   return (
     <li className="gv-rel">
-      <div className="gv-rel-top">
+      <div className="gv-rel-top gv-composition-head">
         <b>{fieldLabel(field)}</b>
         <span className="gv-sub">
           {direction === "forward" ? "→" : "←"} {targetLabel(model, connection.targetType)}
@@ -228,11 +271,12 @@ function ConnectionRow({ model, connection }: { model: GroupModel; connection: F
           {filled} of {total} {lower(model.members[0].pluralLabel)} linked
         </span>
       </div>
-      <div className="gv-fill" aria-hidden="true">
-        <i data-thin={share < 0.5 || undefined} style={{ width: `${share * 100}%` }} />
+      <div className="gv-connection-bar" aria-hidden="true">
+        <i style={{ width: `${share * 100}%`, background: color }} />
       </div>
       {top.length > 0 ? (
         <>
+          <p className="gv-cap gv-right">Linked {lower(model.members[0].pluralLabel)}</p>
           <ul className="gv-list gv-tops">
             {shown.map(({ note, count }) => (
               <li key={note.path}>
@@ -352,7 +396,7 @@ function BriefingBody({ model, member }: { model: GroupModel; member: Member }) 
         <div className="gv-brief-col">
           <NeedsAttention
             model={model}
-            signals={signals}
+            signals={signals.filter((signal) => signal.kind !== "stale")}
             info="Validation issues and declared warning values."
             memberAction={openTable}
           />

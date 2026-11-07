@@ -254,7 +254,7 @@ func (r *projectionResolver) indexNestedSectionTypes(typeName string, propertyCa
 			}
 			continue
 		}
-		matches := matchSectionsForAssessment(nodes, field)
+		matches := MatchSectionNodesForField(nodes, field)
 		for _, match := range matches {
 			if match == nil {
 				continue

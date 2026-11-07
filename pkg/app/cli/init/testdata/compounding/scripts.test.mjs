@@ -236,11 +236,13 @@ test("a repository extraction override retains precedence over the updated shipp
   assert.deepEqual([bindings.verify.model, bindings.verify.effort], ["gpt-6.1-terra", "low"]);
 });
 
-test("redaction stays fast on long text that repeats sensitive names", () => {
+test("redaction uses bounded CPU on long text that repeats sensitive names", () => {
   for (const unit of ["token ", 'token: "x ', '{"token": "Ab3dEf"}, ']) {
-    const started = performance.now();
+    const started = process.cpuUsage();
     redact(unit.repeat(200_000 / unit.length));
-    assert.ok(performance.now() - started < 2000, unit);
+    // Descheduling by other processes is not work done by the redactor.
+    const { user, system } = process.cpuUsage(started);
+    assert.ok(user + system < 2_000_000, unit);
   }
 });
 

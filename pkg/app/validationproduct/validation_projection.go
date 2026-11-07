@@ -16,6 +16,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -40,13 +41,14 @@ type ValidationProjectionPaths struct {
 
 type ValidationProjectionRequest struct {
 	// Lane owns projection writes inside a live runtime. One-shot callers leave it nil.
-	Lane         lane.Lane
-	VaultPath    string
-	VaultDef     obsidian.VaultDefinition
-	NoteMetadata notemeta.Indexer
-	NoteReader   obsidian.NoteReader
-	Target       ValidationProjectionTarget
-	ExactPaths   *ValidationProjectionPaths
+	Lane          lane.Lane
+	VaultPath     string
+	VaultDef      obsidian.VaultDefinition
+	NoteMetadata  notemeta.Indexer
+	NoteReader    obsidian.NoteReader
+	Target        ValidationProjectionTarget
+	SkillOverlays func() (skilloverlay.Manifest, error)
+	ExactPaths    *ValidationProjectionPaths
 	// BeforeMutation runs while the canonical index lock is held and before a
 	// live or scratch projection store is opened. Product orchestration uses it
 	// for read-only barriers that must be atomic with projection entry.

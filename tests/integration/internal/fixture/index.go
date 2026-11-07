@@ -34,7 +34,10 @@ func IndexCodeRoot(t testing.TB, ctx context.Context, lease *indexlock.Lease, se
 		VaultDefinition: obsidian.VaultDefinition{Root: vaultRoot},
 		Registry:        formats.Registry(),
 		CodeRoots:       []paths.AbsPath{paths.AbsPath(codeRoot)},
-		CodeLanguage:    func(ref paths.CodePathRef) codeanchor.Lang { return codeintel.DetectCodeLang(ref.Abs.String()) },
+		CodeLanguage: func(ref paths.CodePathRef) codeanchor.Lang {
+			lang, _ := codeanchor.LangForPath(ref.Abs.String())
+			return lang
+		},
 	}, []paths.RelPath{scope})
 	require.NoError(t, err)
 	var candidates []codeintel.FileCandidate

@@ -77,6 +77,7 @@ REST stays focused on platform and workflow resources rather than duplicating th
 - `GET /api/v1/search`: unified semantic/path search.
 - `GET /api/v1/search/notes`: note search with type/tag/path filters.
 - `GET /api/v1/graphs/global`: global vault graph.
+- `GET /api/v1/graphs/folders`: compact Explorer overview, with file nodes, undirected file pairs and nested-type counts. Each pair retains the maximum weight separately for note-code evidence and other evidence; folder expansion and placement remain client-side. It uses the same indexed graph, readiness and invalidation as the global route.
 - `GET /api/v1/graphs/local`: local graph around a path or ref.
 - `GET /api/v1/graphs/expand`: expanded code module graph.
 - `GET /api/v1/ontology/summary`: ontology summary, counts, and type/interface rollups.

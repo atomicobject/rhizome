@@ -1,9 +1,27 @@
+import { RelationArrow } from "./body/RelationArrow";
+import {
+  railRow,
+  relationBuckets,
+  linkedBuckets,
+  RELATION_DIRECTIONS,
+  RELATION_DIRECTION_LABEL,
+  isNoteContent,
+  relationTarget,
+  humanizeRelationName,
+} from "./body/noteInfoBuckets";
 import { sessionStateLabel } from "../staging/stagedState";
 import { publicWorkspaceRef } from "../api/client";
 import { displayTitle } from "../lib/labels";
 import { publicTypeName } from "../lib/typeNames";
-import { ChevronRight } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { DisclosureChevron } from "./DisclosureChevron";
+import {
+  DirectionLegend,
+  RailBucketList,
+  RailRowItem,
+  type OpenFn,
+  type RailBucket,
+} from "./body/NoteInfoRows";
+import { type ReactNode, useMemo } from "react";
 import type {
   NodeWorkspace,
   NoteWorkspaceGroup,
@@ -14,24 +32,12 @@ import { isContentNode } from "../api/types";
 import { selectWorkspaceRelationGroups } from "./workspaceGraph";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import type { ValidationHealth } from "../api/types";
-import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
-import { type TypeLabelFn, useTypeLabel } from "./typeLabels";
+import { useTypeLabel } from "./typeLabels";
 
 // Only genuine code evidence belongs under the Code rail. Section and embedded
 // targets (headings, action items) are note content and stay with Related notes.
-const NOTE_CONTENT_KINDS = new Set(["note", "section", "embedded"]);
-
 function isCodeContextGroup(group: NoteWorkspaceGroup): boolean {
   return group.key === "code" || group.items?.some((item) => !isNoteContent(item)) || false;
-}
-
-function isNoteContent(item: NoteWorkspaceLink): boolean {
-  return NOTE_CONTENT_KINDS.has(item.kind);
-}
-
-// Anchored items address a node inside a note; the shell opens `path#anchor`.
-function relationTarget(item: NoteWorkspaceLink): string {
-  return item.anchor && !item.path.includes("#") ? `${item.path}#${item.anchor}` : item.path;
 }
 
 function relationItemKey(
@@ -56,163 +62,6 @@ function compactRelationLabel(group: NoteWorkspaceGroup): string {
   if (relations.length === 1) return humanizeRelationName(relations[0]);
 
   return group.label;
-}
-
-// Link kinds carry an index qualifier ("note_link:wikilink:basic"); readers
-// only need the kind.
-function humanizeRelationName(name: string): string {
-  const spaced = name
-    .split(":", 1)[0]
-    .trim()
-    .replace(/[_-]+/g, " ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-
-  return spaced ? spaced[0].toUpperCase() + spaced.slice(1) : name;
-}
-
-type Direction = "outgoing" | "incoming" | "both";
-
-// Servers before `direction` existed only marked backlinks.
-function itemDirection(item: NoteWorkspaceLink): Direction {
-  if (item.direction) return item.direction;
-
-  return item.provenance === "backlink" ? "incoming" : "outgoing";
-}
-
-const DIRECTION_GLYPH: Record<Direction, string> = { outgoing: "→", incoming: "←", both: "↔" };
-
-const DIRECTION_LABEL: Record<Direction, string> = {
-  outgoing: "Links to",
-  incoming: "Links here",
-  both: "Linked both ways",
-};
-
-// Typed relations group by direction under compact labels.
-const RELATION_DIRECTIONS: Direction[] = ["incoming", "outgoing", "both"];
-
-const RELATION_DIRECTION_LABEL: Record<Direction, string> = {
-  incoming: "Incoming",
-  outgoing: "Outgoing",
-  both: "Both ways",
-};
-
-type RailRow = {
-  key: string;
-  target: string;
-  label: string;
-  title: string;
-  typeName: string;
-  direction: Direction;
-  current?: boolean;
-  openable: boolean;
-  /** Folder shown beside an untyped note, in place of a type. */
-  folder?: string;
-};
-
-type RailBucket = {
-  key: string;
-  label: string;
-  hint?: string;
-  direction?: Direction;
-  rows: RailRow[];
-};
-
-function railRow(item: NoteWorkspaceLink, typeLabel: TypeLabelFn): RailRow {
-  const target = relationTarget(item);
-  const type = publicTypeName(item.resolvedType || item.structuralNode?.typeName);
-
-  return {
-    key: target,
-    target,
-    label: displayTitle(item.title) || target,
-    title: item.targetTitle || item.title || target,
-    typeName: type ? typeLabel(type) : "",
-    direction: itemDirection(item),
-    current: item.current,
-    openable: isNoteContent(item),
-  };
-}
-
-// Typed field relations, one bucket per field and direction ("Impacts →",
-// "← Opportunities"). The type moves to the header when every target shares it.
-function relationBuckets(items: NoteWorkspaceLink[], typeLabel: TypeLabelFn): RailBucket[] {
-  const buckets = new Map<string, RailBucket>();
-
-  for (const item of items) {
-    const row = railRow(item, typeLabel);
-    const relation = item.relationName || item.provenance || "relation";
-    const name = humanizeRelationName(relation);
-    // Key by the schema field, not its label: `partOf` and `part_of` stay apart.
-    const key = `${row.direction}:${relation}`;
-    const bucket = buckets.get(key) ?? { key, label: name, direction: row.direction, rows: [] };
-
-    if (!bucket.rows.some((existing) => existing.target === row.target)) bucket.rows.push(row);
-    buckets.set(key, bucket);
-  }
-
-  return Array.from(buckets.values()).map((bucket) => {
-    const types = new Set(bucket.rows.map((row) => row.typeName));
-
-    if (types.size !== 1) return bucket;
-
-    return {
-      ...bucket,
-      hint: bucket.rows[0].typeName,
-      rows: bucket.rows.map((row) => ({ ...row, typeName: "" })),
-    };
-  });
-}
-
-// The folder that holds a note, shown beside an untyped link ("pkg/app/").
-function folderOf(target: string): string {
-  const path = target.split("#", 1)[0];
-  const slash = path.lastIndexOf("/");
-
-  return slash > 0 ? path.slice(0, slash + 1) : "";
-}
-
-const UNTYPED_BUCKET_LABEL = "Other notes";
-
-// Body links and backlinks, one row per note with its direction, bucketed by
-// type; untyped notes share one bucket and show their folder instead.
-function linkedBuckets(
-  items: NoteWorkspaceLink[],
-  exclude: ReadonlySet<string>,
-  typeLabel: TypeLabelFn,
-): RailBucket[] {
-  const rows = new Map<string, RailRow>();
-
-  for (const item of items) {
-    const row = railRow(item, typeLabel);
-
-    if (exclude.has(row.target)) continue;
-    const existing = rows.get(row.target);
-
-    if (!existing) {
-      rows.set(row.target, row);
-    } else if (existing.direction !== row.direction) {
-      existing.direction = "both";
-    }
-  }
-
-  const buckets = new Map<string, RailBucket & { typed: boolean }>();
-
-  for (const row of rows.values()) {
-    const typed = Boolean(row.typeName);
-    const label = row.typeName || UNTYPED_BUCKET_LABEL;
-    const key = `${typed ? "type" : "untyped"}:${label}`;
-    const bucket = buckets.get(key) ?? { key, label, typed, rows: [] };
-    bucket.rows.push({ ...row, typeName: "", folder: typed ? undefined : folderOf(row.target) });
-    buckets.set(key, bucket);
-  }
-
-  return Array.from(buckets.values()).sort(
-    (a, b) =>
-      Number(b.typed) - Number(a.typed) ||
-      b.rows.length - a.rows.length ||
-      a.label.localeCompare(b.label),
-  );
 }
 
 function nearbyStructuralNodes(workspace: NodeWorkspace): WorkspaceContentNode[] {
@@ -244,179 +93,11 @@ function nearbyStructuralNodes(workspace: NodeWorkspace): WorkspaceContentNode[]
   return output;
 }
 
-function SidebarPreviewButton({
-  target,
-  label,
-  title,
-  current,
-  from,
-  onOpen,
-}: {
-  target: string;
-  label: string;
-  title?: string;
-  current?: boolean;
-  from: string;
-  onOpen: (path: string, target?: "current" | "stack" | "beside") => void;
-}) {
-  const previewTrigger = useNotePreviewTrigger<HTMLButtonElement>({
-    target,
-    from,
-    placement: "left",
-    placementBoundary: (trigger) =>
-      trigger.closest(".ontology-sidebar-info")?.getBoundingClientRect() ?? null,
-    open: (path, mode) => onOpen(path, mode),
-  });
-
-  return (
-    <>
-      <button
-        {...previewTrigger.triggerProps}
-        type="button"
-        className="link-quiet link-title"
-        title={title || target}
-        aria-current={current ? "page" : undefined}
-        onClick={(event) => {
-          previewTrigger.close();
-          onOpen(target, event.metaKey || event.ctrlKey ? "beside" : "stack");
-        }}
-      >
-        {label}
-      </button>
-      {previewTrigger.preview}
-    </>
-  );
-}
-
-type OpenFn = (path: string, target?: "current" | "stack" | "beside") => void;
-
-function RailRowItem({
-  row,
-  showDirection,
-  from,
-  onOpen,
-}: {
-  row: RailRow;
-  showDirection: boolean;
-  from: string;
-  onOpen: OpenFn;
-}) {
-  return (
-    <li className="rail-row">
-      {showDirection && (
-        <span
-          className={`rail-row__dir rail-row__dir--${row.direction}`}
-          role="img"
-          aria-label={DIRECTION_LABEL[row.direction]}
-          title={DIRECTION_LABEL[row.direction]}
-        >
-          {DIRECTION_GLYPH[row.direction]}
-        </span>
-      )}
-      {row.openable ? (
-        <SidebarPreviewButton
-          target={row.target}
-          label={row.label}
-          title={row.title}
-          current={row.current}
-          from={from}
-          onOpen={onOpen}
-        />
-      ) : (
-        <span className="rail-row__label" title={row.title}>
-          {row.label}
-        </span>
-      )}
-      {row.typeName && <span className="rail-row__type">{row.typeName}</span>}
-      {row.folder && (
-        // Truncates from the start (CSS rtl) so the deepest folder stays; the
-        // marks keep the path itself in left-to-right order.
-        <span className="rail-row__path" title={row.folder}>
-          {`\u200e${row.folder}\u200e`}
-        </span>
-      )}
-    </li>
-  );
-}
-
-const BUCKET_LIMIT = 5;
-
-function RailBucketList({
-  bucket,
-  showDirection,
-  from,
-  onOpen,
-}: {
-  bucket: RailBucket;
-  showDirection: boolean;
-  from: string;
-  onOpen: OpenFn;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  // Show everything when only one row would hide behind the toggle.
-  const limit = bucket.rows.length <= BUCKET_LIMIT + 1 ? bucket.rows.length : BUCKET_LIMIT;
-  const rows = expanded ? bucket.rows : bucket.rows.slice(0, limit);
-  const hidden = bucket.rows.length - rows.length;
-
-  return (
-    <div className="rail-bucket">
-      <div className="rail-bucket__head">
-        <span className="rail-bucket__label">{bucket.label}</span>
-        {bucket.hint && <span className="rail-bucket__hint">{bucket.hint}</span>}
-        <span className="rail-bucket__count">{bucket.rows.length}</span>
-      </div>
-      <ul>
-        {rows.map((row) => (
-          <RailRowItem
-            key={row.key}
-            row={row}
-            showDirection={showDirection}
-            from={from}
-            onOpen={onOpen}
-          />
-        ))}
-      </ul>
-      {bucket.rows.length > limit && (
-        <button
-          type="button"
-          className="rail-bucket__more"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((value) => !value)}
-        >
-          {expanded ? "Show fewer" : `${hidden} more`}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // "In this effort" names its members as "Effort materials".
 function materialsLabel(label: string): string {
   const owner = /^In this (.+)$/.exec(label)?.[1];
 
   return owner ? `${owner[0].toUpperCase()}${owner.slice(1)} materials` : label;
-}
-
-// Names the arrows that appear in a list, once, above it.
-function DirectionLegend({ buckets }: { buckets: RailBucket[] }) {
-  const present = new Set(buckets.flatMap((bucket) => bucket.rows.map((row) => row.direction)));
-
-  return (
-    <p className="rail-legend">
-      {(["incoming", "outgoing", "both"] as const).flatMap((direction) =>
-        present.has(direction)
-          ? [
-              <span key={direction}>
-                <span className={`rail-legend__dir rail-row__dir--${direction}`} aria-hidden="true">
-                  {DIRECTION_GLYPH[direction]}
-                </span>
-                {DIRECTION_LABEL[direction]}
-              </span>,
-            ]
-          : [],
-      )}
-    </p>
-  );
 }
 
 // Empty groups stay hidden; the panel says once when nothing is indexed.
@@ -435,7 +116,9 @@ function SidebarContextGroup({
     <section className="ontology-sidebar-context__group">
       <h3>
         {title}
-        {count !== undefined && <span className="ontology-sidebar-context__count">{count}</span>}
+        {count !== undefined && (
+          <span className="ontology-sidebar-context__count num">{count}</span>
+        )}
       </h3>
       {children}
     </section>
@@ -451,7 +134,9 @@ export function NotesSidebarInfo({
   onOpen,
   validationIssueCount,
   validationHealth = "never_checked",
+  noteReader = false,
 }: {
+  noteReader?: boolean;
   workspace: NodeWorkspace | null;
   onOpen: OpenFn;
   validationIssueCount?: number;
@@ -495,6 +180,7 @@ export function NotesSidebarInfo({
     const relationBucketsList = relationBuckets(
       [...noteItems.filter((item) => item.structural), ...sectionItems],
       typeLabel,
+      noteReader,
     );
 
     const relationTargets = new Set(
@@ -507,9 +193,10 @@ export function NotesSidebarInfo({
         noteItems.filter((item) => !item.structural),
         relationTargets,
         typeLabel,
+        noteReader,
       ),
     };
-  }, [relationGroups, workspace, path, typeLabel]);
+  }, [relationGroups, workspace, path, typeLabel, noteReader]);
 
   const nearbyNodes = useMemo(
     () => (workspace ? nearbyStructuralNodes(workspace) : []),
@@ -535,7 +222,7 @@ export function NotesSidebarInfo({
   );
 
   return (
-    <section className="ontology-sidebar-info">
+    <section className={`ontology-sidebar-info${noteReader ? " note-info" : ""}`}>
       <div className="ontology-sidebar-info__meta">
         <header className="ontology-sidebar-context__identity">
           {focusedSection && isContentNode(focusedSection) && (
@@ -569,13 +256,20 @@ export function NotesSidebarInfo({
               <summary>
                 <h3>
                   {materialsLabel(group.label)}
-                  <span className="ontology-sidebar-context__count">
-                    {group.items?.length ?? 0}
-                    <span className="rail-materials__unit">
-                      {group.items?.length === 1 ? " material" : " materials"}
+                  {noteReader && (
+                    <span className="disclosure-toggle" aria-hidden="true">
+                      <DisclosureChevron />
                     </span>
+                  )}
+                  <span className="ontology-sidebar-context__count num">
+                    {group.items?.length ?? 0}
+                    {!noteReader && (
+                      <span className="rail-materials__unit">
+                        {group.items?.length === 1 ? " material" : " materials"}
+                      </span>
+                    )}
                   </span>
-                  <ChevronRight className="disclosure-chevron" size={16} aria-hidden="true" />
+                  {!noteReader && <DisclosureChevron />}
                 </h3>
               </summary>
               {group.ownerTitle && (
@@ -595,32 +289,42 @@ export function NotesSidebarInfo({
             </details>
           ))}
           <SidebarContextGroup title="Relations" count={rowCount(relations)}>
-            {relations.length > 0 &&
-              RELATION_DIRECTIONS.map((direction) => {
-                const buckets = relations.filter((bucket) => bucket.direction === direction);
+            {noteReader
+              ? relations.map((bucket) => (
+                  <RailBucketList
+                    key={bucket.key}
+                    bucket={bucket}
+                    showDirection
+                    from={path}
+                    onOpen={onOpen}
+                  />
+                ))
+              : relations.length > 0 &&
+                RELATION_DIRECTIONS.map((direction) => {
+                  const buckets = relations.filter((bucket) => bucket.direction === direction);
 
-                if (buckets.length === 0) return null;
+                  if (buckets.length === 0) return null;
 
-                return (
-                  <section key={direction} aria-label={RELATION_DIRECTION_LABEL[direction]}>
-                    <h4 className="rail-direction">
-                      <span className="rail-direction__dir" aria-hidden="true">
-                        {DIRECTION_GLYPH[direction]}
-                      </span>
-                      {RELATION_DIRECTION_LABEL[direction]}
-                    </h4>
-                    {buckets.map((bucket) => (
-                      <RailBucketList
-                        key={bucket.key}
-                        bucket={bucket}
-                        showDirection={false}
-                        from={path}
-                        onOpen={onOpen}
-                      />
-                    ))}
-                  </section>
-                );
-              })}
+                  return (
+                    <section key={direction} aria-label={RELATION_DIRECTION_LABEL[direction]}>
+                      <h4 className="rail-direction">
+                        <span className="rail-direction__dir" aria-hidden="true">
+                          <RelationArrow direction={direction} />
+                        </span>
+                        {RELATION_DIRECTION_LABEL[direction]}
+                      </h4>
+                      {buckets.map((bucket) => (
+                        <RailBucketList
+                          key={bucket.key}
+                          bucket={bucket}
+                          showDirection={false}
+                          from={path}
+                          onOpen={onOpen}
+                        />
+                      ))}
+                    </section>
+                  );
+                })}
           </SidebarContextGroup>
           <SidebarContextGroup title="Linked notes" count={rowCount(linked)}>
             {linked.length > 0 && <DirectionLegend buckets={linked} />}

@@ -50,9 +50,9 @@ export function OntologyEditSessionPanel({
           : session?.status === "rebased"
             ? ["Rebased", "dirty"]
             : hasStagedChanges
-              ? ["Ready to save", "dirty"]
+              ? ["Unsaved changes", "dirty"]
               : hasLocalDrafts
-                ? ["Draft", "dirty"]
+                ? ["Unsaved changes", "dirty"]
                 : ["Editing", "idle"];
 
   const messageKey = JSON.stringify([
@@ -126,6 +126,7 @@ export function OntologyEditSessionPanel({
         </div>
       )}
       <div className="ontology-edit-bar__actions">
+        {!hasChanges && <span className="ontology-edit-bar__hint">No changes</span>}
         {/* Review appears once there is something staged to review. */}
         {hasStagedChanges && (
           <button

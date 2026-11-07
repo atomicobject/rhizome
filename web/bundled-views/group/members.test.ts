@@ -1,3 +1,4 @@
+import { mapLabelLine } from "./map-labels.ts";
 import { expect, it } from "vitest";
 
 import { AGGREGATE, SCOPE_GROUPS, SUMMARIES } from "./__fixtures__/aggregate.ts";
@@ -352,7 +353,7 @@ it("spreads the members over the box when none links to another", () => {
   expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(40);
 });
 
-it("places edge counts at the midpoint and omits obstructed counts", () => {
+it("puts edge counts on their stroke and finds a clear stretch before omitting obstructed counts", () => {
   const positions = new Map([
     ["A", { x: 0, y: 100 }],
     ["B", { x: 200, y: 100 }],
@@ -362,12 +363,166 @@ it("places edge counts at the midpoint and omits obstructed counts", () => {
   // A node label across the middle of the edge.
   const middle = { x: 80, y: 80, w: 40, h: 30 };
 
-  // 38% and 62% along still touch it; 28% clears it.
+  // The 40% and 60% stops touch it; the 30% stop clears it.
   const moved = placeEdgeLabels(positions, [edge], [middle]).get("A|B");
-  expect(moved).toBeUndefined();
+  expect(moved).toEqual({ x: 60, y: 100 });
   expect(placeEdgeLabels(positions, [edge], []).get("A|B")).toEqual({ x: 100, y: 100 });
 
-  const covered = { x: 0, y: 80, w: 200, h: 30 };
+  const covered = { x: 0, y: 50, w: 200, h: 100 };
   expect(placeEdgeLabels(positions, [edge], [covered]).has("A|B")).toBe(false);
   expect(placeEdgeLabels(positions, [{ ...edge, label: undefined }], []).size).toBe(0);
+});
+
+it("anchors every label when three outside neighbors surround the largest member", () => {
+  const layout = layoutMap({
+    width: 652,
+    height: 236,
+    nodes: [
+      { id: "Specs", radius: 30, label: "Specs\n123 notes" },
+      { id: "Efforts", radius: 21.25, label: "Efforts\n52 notes" },
+      { id: "Materials", radius: 7.25, label: "Materials\n1 note" },
+    ],
+    edges: [
+      { a: "Specs", b: "Efforts", links: 127, label: { key: "se", text: "127" } },
+      { a: "Efforts", b: "Materials", links: 1, label: { key: "em", text: "1" } },
+    ],
+    outside: [
+      {
+        id: "Reference",
+        label: "Reference docs\n194 links",
+        byMember: new Map([
+          ["Specs", 170],
+          ["Efforts", 24],
+        ]),
+      },
+      {
+        id: "Untyped",
+        label: "Untyped notes\n173 links",
+        byMember: new Map([
+          ["Specs", 168],
+          ["Efforts", 5],
+        ]),
+      },
+      {
+        id: "People",
+        label: "People\n4 links",
+        byMember: new Map([
+          ["Specs", 1],
+          ["Efforts", 3],
+        ]),
+      },
+    ],
+  });
+
+  expect([...layout.labels.keys()].sort()).toEqual([...layout.positions.keys()].sort());
+});
+
+it("keeps small-map edges clear of every other node", () => {
+  const nodes = ["Delivery", "Knowledge", "Untyped", "People"].map((id) => ({
+    id,
+    radius: 30,
+    label: `${id}\n100 notes`,
+  }));
+
+  const edges = nodes.flatMap((a, i) =>
+    nodes.slice(i + 1).map((b) => ({
+      a: a.id,
+      b: b.id,
+      links: 100,
+      label: { key: `${a.id}|${b.id}`, text: "100" },
+    })),
+  );
+
+  const layout = layoutMap({ width: 652, height: 260, nodes, edges, outside: [] });
+  expect(layout.edgeLabels.size).toBe(edges.length);
+
+  for (const edge of edges) {
+    const a = layout.positions.get(edge.a)!;
+    const b = layout.positions.get(edge.b)!;
+
+    for (const node of nodes.filter((node) => node.id !== edge.a && node.id !== edge.b)) {
+      const p = layout.positions.get(node.id)!;
+
+      const t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) /
+            ((b.x - a.x) ** 2 + (b.y - a.y) ** 2),
+        ),
+      );
+
+      expect(Math.hypot(p.x - a.x - t * (b.x - a.x), p.y - a.y - t * (b.y - a.y))).toBeGreaterThan(
+        node.radius + 8,
+      );
+    }
+  }
+});
+
+it("aligns a label left of its node by its near end", async () => {
+  const { placeLabels } = await import("./map-labels.ts");
+
+  const { labels } = placeLabels(
+    new Map([["Knowledge", { x: 600, y: 130 }]]),
+    [
+      {
+        id: "Knowledge",
+        radius: 22,
+        label: "Knowledge\n166 notes · 3 member types",
+        alignToNode: true,
+      },
+    ],
+    [],
+    652,
+    260,
+  );
+
+  const label = labels.get("Knowledge")!;
+  expect(label.anchor).toBe("end");
+  expect(Math.hypot(600 - label.x, Math.max(0, label.y - 12 - 130)) - 22).toBeLessThanOrEqual(12);
+});
+
+it("fits a label wider than the canvas without adding height", () => {
+  const layout = layoutMap({
+    width: 380,
+    height: 260,
+    nodes: [{ id: "wide", radius: 20, label: "Long name ".repeat(30) }],
+    edges: [],
+    outside: [],
+  });
+
+  expect(mapLabelLine("Long name ".repeat(30), 380)).toBe(
+    "Long name Long name Long name Long name Lon…",
+  );
+  expect(layout.labels.has("wide")).toBe(true);
+  expect(layout.height).toBe(260);
+});
+
+it("keeps a crowded map near its height when its labels cannot all fit", () => {
+  // Shaped like a large vault: a dense, fully linked core and one member with a single link.
+  const core = Array.from({ length: 11 }, (_, index) => ({
+    id: `T${index}`,
+    radius: index ? 6 + index : 30,
+    label: `Member type ${index}\n${(index + 1) * 37} notes`,
+  }));
+
+  const edges = core.flatMap((a, i) =>
+    core.slice(i + 1).map((b, j) => ({
+      a: a.id,
+      b: b.id,
+      links: (i + j) * 13 + 1,
+      label: { key: `${a.id}|${b.id}`, text: String((i + j) * 13 + 1) },
+    })),
+  );
+
+  const input: LayoutInput = {
+    width: 560,
+    height: 260,
+    nodes: [...core, { id: "Leaf", radius: 5, label: "Coaching\n1 note" }],
+    edges: [...edges, { a: "T0", b: "Leaf", links: 1, label: { key: "T0|Leaf", text: "1" } }],
+    outside: [],
+  };
+
+  // Growing to fit every label would make this map over 2,000px tall.
+  expect(layoutMap(input).height).toBeLessThanOrEqual(input.height + 120);
 });

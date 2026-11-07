@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,7 +53,7 @@ func (p *slowBatchProvider) BatchSizes() []int {
 	return append([]int(nil), p.batchSizes...)
 }
 
-func TestEmbedTextsWithProviderSplitsByBatchSize(t *testing.T) {
+func TestOntologyComputeDerivedSplitsByBatchSize(t *testing.T) {
 	t.Parallel()
 
 	prov := &slowBatchProvider{
@@ -60,17 +61,17 @@ func TestEmbedTextsWithProviderSplitsByBatchSize(t *testing.T) {
 	}
 
 	texts := []string{"a", "b", "c", "d", "e"}
-	vecs, err := embedTextsWithProvider(context.Background(), prov, texts, 2, 1, nil)
+	result, err := (OntologyNodeSyncer{Provider: prov, BatchSize: 2, MaxConcurrent: 1}).ComputeDerived(context.Background(), OntologyDerivedPlan{texts: texts})
 	require.NoError(t, err)
 	want, err := prov.inner.EmbedTexts(context.Background(), texts)
 	require.NoError(t, err)
-	require.Equal(t, want, vecs)
+	require.Equal(t, want, result.vectors)
 	batchSizes := prov.BatchSizes()
 	slices.Sort(batchSizes)
 	require.Equal(t, []int{1, 2, 2}, batchSizes)
 }
 
-func TestEmbedTextsWithProviderUsesConcurrency(t *testing.T) {
+func TestOntologyComputeDerivedUsesConcurrency(t *testing.T) {
 	t.Parallel()
 
 	prov := &slowBatchProvider{
@@ -85,8 +86,8 @@ func TestEmbedTextsWithProviderUsesConcurrency(t *testing.T) {
 	}
 	finished := make(chan result, 1)
 	go func() {
-		vecs, err := embedTextsWithProvider(context.Background(), prov, texts, 2, 3, nil)
-		finished <- result{vecs, err}
+		derived, err := (OntologyNodeSyncer{Provider: prov, BatchSize: 2, MaxConcurrent: 3}).ComputeDerived(context.Background(), OntologyDerivedPlan{texts: texts})
+		finished <- result{derived.vectors, err}
 	}()
 	t.Cleanup(func() {
 		select {
@@ -136,15 +137,113 @@ func (p *failFirstBatchProvider) EmbedTexts(ctx context.Context, texts []string)
 	return p.inner.EmbedTexts(ctx, texts)
 }
 
-func TestEmbedTextsWithProviderCancelsRemainingBatchesOnError(t *testing.T) {
+func TestOntologyComputeDerivedStopsAfterBatchError(t *testing.T) {
 	t.Parallel()
 
 	prov := &failFirstBatchProvider{
 		inner: embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8}),
 	}
 
-	vecs, err := embedTextsWithProvider(context.Background(), prov, []string{"a", "b", "c"}, 1, 1, nil)
+	result, err := (OntologyNodeSyncer{Provider: prov, BatchSize: 1, MaxConcurrent: 1}).ComputeDerived(context.Background(), OntologyDerivedPlan{ids: []string{"a", "b", "c"}, texts: []string{"a", "b", "c"}})
 	require.ErrorContains(t, err, "boom")
-	require.Nil(t, vecs)
+	require.Empty(t, result.vectors)
 	require.Equal(t, int64(1), prov.calls.Load())
+}
+
+func TestEmbedProviderBatchPreservesOrderAndMetrics(t *testing.T) {
+	t.Parallel()
+	collector := indexingperf.New()
+	ctx := indexingperf.WithPhase(indexingperf.WithCollector(context.Background(), collector), "embed_ontology_nodes")
+	provider := &defaultingProvider{batchSize: 8}
+	gate := make(chan struct{}, 1)
+	vectors, err := embedProviderBatch(ctx, provider, []string{"one", "two", "three"}, 4, gate)
+	require.NoError(t, err)
+	require.Equal(t, []embeddings.Embedding{{1}, {2}, {3}}, vectors)
+	require.Equal(t, []int{3}, provider.BatchSizes())
+	require.Empty(t, gate)
+
+	snapshot := collector.Snapshot()
+	counts := map[string]int64{}
+	for _, counter := range snapshot.Counters {
+		require.Equal(t, "embed_ontology_nodes", counter.Phase)
+		counts[counter.Name] = counter.Total
+	}
+	require.EqualValues(t, 1, counts[string(indexingperf.ProviderCalls)])
+	require.EqualValues(t, 3, counts[string(indexingperf.ProviderTexts)])
+	require.EqualValues(t, 3, counts[string(indexingperf.ProviderLogicalTexts)])
+	require.EqualValues(t, 11, counts[string(indexingperf.ProviderTextBytes)])
+	samples := map[string]int64{}
+	for _, sample := range snapshot.Samples {
+		samples[sample.Name] = sample.Total
+	}
+	require.EqualValues(t, 8, samples[string(indexingperf.ProviderCapTexts)])
+	require.EqualValues(t, 4, samples[string(indexingperf.ProviderDispatchFloorTexts)])
+	require.EqualValues(t, 1, samples[string(indexingperf.ProviderCapacity)])
+	require.EqualValues(t, 3, samples[string(indexingperf.ProviderBatchTexts)])
+	require.EqualValues(t, 11, samples[string(indexingperf.ProviderBatchBytes)])
+	require.EqualValues(t, 75, samples[string(indexingperf.ProviderBatchFillRatio)])
+	for _, gauge := range snapshot.Gauges {
+		if gauge.Name == string(indexingperf.ProviderInflight) {
+			require.EqualValues(t, 0, gauge.Current)
+			require.EqualValues(t, 1, gauge.Peak)
+		}
+	}
+}
+
+type observedDoneContext struct {
+	context.Context
+	observed chan struct{}
+	once     sync.Once
+}
+
+func (c *observedDoneContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.observed) })
+	return c.Context.Done()
+}
+
+func TestEmbedProviderBatchCancelsWhileWaitingForGate(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	waiting := &observedDoneContext{Context: ctx, observed: make(chan struct{})}
+	provider := &defaultingProvider{batchSize: 8}
+	gate := make(chan struct{}, 1)
+	gate <- struct{}{}
+	done := make(chan error, 1)
+	go func() {
+		_, err := embedProviderBatch(waiting, provider, []string{"waiting"}, 1, gate)
+		done <- err
+	}()
+	select {
+	case <-waiting.observed:
+	case <-time.After(time.Second):
+		t.Fatal("provider batch did not wait for the shared gate")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("provider batch did not cancel while the gate remained occupied")
+	}
+	require.Empty(t, provider.BatchSizes())
+	require.Len(t, gate, 1, "cancellation must not release another lane's gate slot")
+}
+
+type fixedVectorProvider []embeddings.Embedding
+
+func (fixedVectorProvider) Dimensions() int { return 8 }
+func (p fixedVectorProvider) EmbedTexts(context.Context, []string) ([]embeddings.Embedding, error) {
+	return p, nil
+}
+
+func TestEmbedProviderBatchRejectsMalformedVectorCount(t *testing.T) {
+	t.Parallel()
+	for _, vectors := range []fixedVectorProvider{{{1}}, {{1}, {2}, {3}}} {
+		gate := make(chan struct{}, 1)
+		got, err := embedProviderBatch(context.Background(), vectors, []string{"one", "two"}, 2, gate)
+		require.ErrorContains(t, err, "for 2 texts")
+		require.Nil(t, got)
+		require.Empty(t, gate)
+	}
 }

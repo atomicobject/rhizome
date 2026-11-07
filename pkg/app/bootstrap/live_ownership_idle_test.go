@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"os"
 	"path/filepath"
 	"sync"
@@ -163,7 +164,7 @@ func gatedRecrawlWatcher(t *testing.T, root string) (w *unifiedSemanticWatcher, 
 	t.Cleanup(func() { release(); _ = svc.Close(); _ = store.Close() })
 	resyncs = &atomic.Int32{}
 	w.publishEvent = func(kind string, data any) {
-		if fields, ok := data.(map[string]any); ok && kind == globalEventIndexInvalidated && fields["reason"] == "resync" {
+		if fields, ok := data.(map[string]any); ok && kind == appruntime.GlobalEventIndexInvalidated && fields["reason"] == "resync" {
 			resyncs.Add(1)
 		}
 	}

@@ -20,21 +20,21 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         sections = re.split(r"\n  ([a-z_]+):\n", "\n" + workflow.split("\njobs:\n", 1)[1])
         return dict(zip(sections[1::2], sections[2::2]))
 
-    def test_only_approved_release_prs_or_explicit_dispatch_start_builds(self) -> None:
+    def test_only_release_plan_pushes_to_main_or_explicit_dispatch_start_builds(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         select = self.jobs()["select"]
-        self.assertNotIn("\n  push:", workflow)
-        self.assertIn("branches: [main]\n    types: [closed]", workflow)
+        # The release environment admits only main, so a pull_request run
+        # (refs/pull/N/merge) could never reach signing.
+        self.assertNotIn("pull_request:", workflow.split("\njobs:\n", 1)[0])
+        self.assertIn("push:\n    branches: [main]\n    paths: [.github/release-plan.json]", workflow)
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("github.repository == 'atomicobject/rhizome'", select)
-        self.assertIn("github.event.pull_request.merged", select)
-        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", select)
-        self.assertIn("startsWith(github.event.pull_request.head.ref, 'release-prep/')", select)
+        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/main'", select)
         self.assertIn("inputs.candidate_only || github.ref == 'refs/heads/main'", select)
         self.assertIn("ci_release_selection.py", select)
         self.assertIn('--event-file "$GITHUB_EVENT_PATH"', select)
         self.assertIn('--candidate-only "$CANDIDATE_ONLY"', select)
-        self.assertNotIn('--release-pr', select)
+        self.assertIn('--release-pr "$RELEASE_PR"', select)
         self.assertIn("group: public-release\n  cancel-in-progress: false", workflow)
 
     def test_every_worker_uses_the_validated_source_without_persisted_credentials(self) -> None:

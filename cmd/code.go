@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,7 +52,7 @@ func (commandOptions *codeInvocationOptions) makeCodeContextCmd() *cobra.Command
 				}
 			}
 
-			service, _ := newCodeAnchorService(codeAnchorServiceConfig{
+			service, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 				VaultPath:       vaultPath,
 				CodeCfg:         codeCfg,
 				Store:           store,
@@ -80,7 +79,7 @@ func (commandOptions *codeInvocationOptions) makeCodeContextCmd() *cobra.Command
 				// Index the file if not already indexed. The interactive context command
 				// needs same-run symbols/calls before resolving anchors, unlike explain
 				// which is intentionally read-only below.
-				lang := detectCodeLang(absPath)
+				lang, _ := codeanchor.LangForPath(absPath)
 				if lang != "" && service.HasIndexer(lang) {
 					content, err := os.ReadFile(absPath)
 					if err != nil {
@@ -133,7 +132,7 @@ func (commandOptions *codeInvocationOptions) makeCodeValidateCmd() *cobra.Comman
 			}
 
 			ctx := cmd.Context()
-			total, invalid, err := validateNotes(ctx, vaultPath)
+			total, invalid, err := codeintel.ValidateNotes(ctx, vaultPath)
 			if err != nil {
 				return err
 			}
@@ -243,7 +242,7 @@ func (commandOptions *codeInvocationOptions) runCodeAnchorsExplain(cmd *cobra.Co
 		}
 
 		tailIdx := codeanchor.NewPathTailIndex(5)
-		service, _ := newCodeAnchorService(codeAnchorServiceConfig{
+		service, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 			VaultPath: vaultPath,
 			CodeCfg:   codeCfg,
 			Store:     store,
@@ -461,7 +460,6 @@ func (commandOptions *codeInvocationOptions) makeCodeStatusCmd() *cobra.Command 
 			fmt.Printf("Index size: %d bytes\n", info.Size())
 			fmt.Printf("Index modified: %s\n", info.ModTime().Format(time.RFC3339))
 
-			// Show indexer version status
 			fmt.Printf("Current indexer: %s\n", codeanchor.IndexerVersion)
 			if store, cleanup, err := indexstore.Open(vaultPath, indexstore.Options{Access: indexstore.ReadOnly, Config: &codeCfg, RequireEnabled: true}); err == nil && store != nil {
 				defer cleanup()
@@ -541,7 +539,7 @@ If the file is not yet indexed, it will be indexed first (if the language is sup
 			defer cleanup()
 
 			tailIdx := codeanchor.NewPathTailIndex(5)
-			service, _ := newCodeAnchorService(codeAnchorServiceConfig{
+			service, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 				VaultPath:       vaultPath,
 				CodeCfg:         codeCfg,
 				Store:           store,
@@ -569,7 +567,7 @@ If the file is not yet indexed, it will be indexed first (if the language is sup
 
 				// Index the file if not already indexed so the command can be used to
 				// discover the exact indexed FQNs needed by code-anchor frontmatter.
-				lang := detectCodeLang(absPath)
+				lang, _ := codeanchor.LangForPath(absPath)
 				if lang != "" && service.HasIndexer(lang) {
 					content, err := os.ReadFile(absPath)
 					if err != nil {
@@ -623,18 +621,6 @@ func (commandOptions *codeInvocationOptions) applyCodeOverrides(cmd *cobra.Comma
 	if cmd.Flags().Changed("code-root") {
 		cfg.PythonRoots = commandOptions.codePythonRoots
 	}
-}
-
-func resolveCodeRoot(vaultPath, root string) (string, error) {
-	return codeintel.ResolveRoot(vaultPath, root)
-}
-
-func validateNotes(ctx context.Context, root string) (int, int, error) {
-	return codeintel.ValidateNotes(ctx, root)
-}
-
-func detectCodeLang(path string) codeanchor.Lang {
-	return codeintel.DetectCodeLang(path)
 }
 
 func (commandOptions *codeInvocationOptions) registerCodeCommands(codeCmd, codeContextCmd, codeValidateCmd, codeAnchorsCmd, codeAnchorsListCmd, codeAnchorsExplainCmd, codeAnchorsMatchCmd, codeAnchorsValidateCmd, codeStatusCmd, codeStatsCmd, codeEnableCmd, codeDisableCmd, codeSymbolsCmd, codeDocCoverageCmd, codeHotspotsCmd, codeComplexityCmd, rootCmd *cobra.Command) {

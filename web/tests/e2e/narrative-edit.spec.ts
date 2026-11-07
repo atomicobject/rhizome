@@ -58,3 +58,49 @@ test("replays queued narrative typing and discards back to disk", async ({ page 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect.poll(editorText).toBe(original);
 });
+
+for (const width of [1440, 1100]) {
+  for (const appearance of ["light", "dark"]) {
+    test(`keeps note headings and property labels aligned while editing at ${width} ${appearance}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/notes?note=notes%2Fspecs%2Fsearch-rewrite.md");
+      await page.evaluate(
+        (value) => (document.documentElement.dataset.appearance = value),
+        appearance,
+      );
+      const headings = page.locator(".body-section__title:visible");
+      await expect(headings.first()).toBeVisible();
+
+      const textPositions = () =>
+        headings.evaluateAll((elements) =>
+          elements.map((element) => {
+            const text = Array.from(element.childNodes).find(
+              (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+            );
+
+            if (!text) throw new Error("Section heading has no title text");
+            const range = document.createRange();
+            range.selectNodeContents(text);
+
+            return range.getBoundingClientRect().x;
+          }),
+        );
+
+      const labels = page.locator(".ontology-properties__key:visible");
+
+      const labelPositions = () =>
+        labels.evaluateAll((elements) =>
+          elements.map((element) => element.getBoundingClientRect().x),
+        );
+
+      const before = await textPositions();
+      const labelsBefore = await labelPositions();
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(page.locator(".note-property-pencil").first()).toBeVisible();
+      expect(await textPositions()).toEqual(before);
+      expect(await labelPositions()).toEqual(labelsBefore);
+    });
+  }
+}

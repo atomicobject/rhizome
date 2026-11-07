@@ -57,7 +57,7 @@ From your project's repository root:
 rzm init
 ```
 
-`rzm init` shows the docs, code, and agents it found, asks which workflow to install (Agentic Engineering is the default), and sets everything up after one confirmation, then offers to build the search index. If no semantic search key is available, it asks for a Voyage AI key; press Enter to skip that and set it up later. Rhizome adds project configuration, agent skills, and places for specs and delivery work. Commit `.rhizome/` and the agent files it creates so teammates use the same guidance. [What gets installed and how to share it](docs/reference/guides/getting-started.md#initialize-your-project)
+`rzm init` shows the docs, code, and agents it found, asks which workflow to install (Agentic Engineering is the default), and sets everything up after one confirmation, then offers to build the search index. If no semantic search key is available, it asks for a Voyage AI key; press Enter to skip that and set it up later. Rhizome adds project configuration, agent skills, and places for specs and delivery work. Commit `.rhizome/` and the agent files it creates so teammates use the same guidance. So that sandboxed agents can reach Rhizome on 127.0.0.1 while staying sandboxed, `rzm init` adds `sandbox.network.allowLocalBinding` to `.claude/settings.json` (Claude Code on macOS) and a loopback-only `rhizome` permission profile to `.codex/config.toml`, which Codex loads only in trusted projects. [What gets installed and how to share it](docs/reference/guides/getting-started.md#initialize-your-project)
 
 Atomic Object employees can import shared provider keys from a team 1Password Environment in Rhizome setup or Settings. The import uses the stable 1Password CLI and saves keys on your computer; ordinary use needs no 1Password prompt. Ask the team for the account and Environment ID. [Credential setup](docs/engineering/secrets.md#developer-setup)
 
@@ -88,6 +88,8 @@ Or, for a clear fix:
 > Use agentic-engineering implement to fix this bug, verify it, and prepare a pull request.
 
 The skill routes the work according to its size and your team's policy. You can shape an uncertain task together or delegate a bounded task with a clear outcome. [Using the skills](docs/reference/guides/using-skills.md)
+
+Agents can discover query fields and related types in one call: `rzm agent ontology-query-schema --type Effort --depth 1`, or `rzm.ontologyQuerySchema({type: "Effort", depth: 1})` in code mode. Use your vault's type names; `--types` selects several explicitly. Responses report whole definitions, remaining references, and limits.
 
 ## Make it your team's process
 

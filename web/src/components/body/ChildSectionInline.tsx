@@ -1,3 +1,4 @@
+import { EditablePropertyMark } from "./EditablePropertyMark";
 import { createElement } from "react";
 import { isContentNode, type NodeBodyBlock, type WorkspaceNode } from "../../api/types";
 import { BodyWalker } from "./BodyWalker";
@@ -28,6 +29,7 @@ export function ChildSectionInline({ block, context }: BodyRendererProps) {
 
   return (
     <section
+      data-reading-anchor={childNodeID || child.id}
       className="body-section"
       data-field={block.fieldName}
       ref={(element) => {
@@ -40,6 +42,7 @@ export function ChildSectionInline({ block, context }: BodyRendererProps) {
         createElement(
           headingTag(child),
           { className: "body-section__title" },
+          context.mode === "edit" && !editElsewhere && <EditablePropertyMark />,
           title,
           structural && (
             <button

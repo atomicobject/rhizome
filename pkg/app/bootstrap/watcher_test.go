@@ -5,6 +5,7 @@ import (
 	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 
@@ -64,7 +65,7 @@ func TestUnifiedWatcherPublishesProcessedPathEvents(t *testing.T) {
 	require.Equal(t, "node.changed", changed.Kind)
 	require.Equal(t, map[string]any{"paths": []string{"notes/a.md", "main.go"}, "source": "vault-runtime", "domains": []string{"metadata", "ontology", "code"}}, changed.Data)
 	invalidated := <-published
-	require.Equal(t, globalEventValidationInvalidated, invalidated.Kind)
+	require.Equal(t, appruntime.GlobalEventValidationInvalidated, invalidated.Kind)
 	require.Empty(t, published)
 }
 
@@ -75,9 +76,9 @@ func TestUnifiedWatcherPublishesResyncInvalidationWithoutPathChange(t *testing.T
 	w.publishProcessedEvents(true, nil, nil, nil, nil, nil, false, false)
 
 	index := <-published
-	require.Equal(t, globalEventIndexInvalidated, index.Kind)
+	require.Equal(t, appruntime.GlobalEventIndexInvalidated, index.Kind)
 	require.Equal(t, map[string]any{"reason": "resync", "source": "vault-runtime"}, index.Data)
-	require.Equal(t, globalEventValidationInvalidated, (<-published).Kind)
+	require.Equal(t, appruntime.GlobalEventValidationInvalidated, (<-published).Kind)
 	require.Empty(t, published)
 }
 
@@ -88,10 +89,10 @@ func TestProcessedFreshnessEventsClassifiesInternalInvalidations(t *testing.T) {
 		kinds = append(kinds, event.Kind)
 	}
 	require.NotContains(t, kinds, "node.changed", "schema/config paths are not committed node identities")
-	require.Contains(t, kinds, globalEventValidationInvalidated)
-	require.Contains(t, kinds, globalEventSchemaInvalidated)
-	require.Contains(t, kinds, globalEventCapabilitiesInvalidated)
-	require.Contains(t, kinds, globalEventQueryRecipeInvalidated)
+	require.Contains(t, kinds, appruntime.GlobalEventValidationInvalidated)
+	require.Contains(t, kinds, appruntime.GlobalEventSchemaInvalidated)
+	require.Contains(t, kinds, appruntime.GlobalEventCapabilitiesInvalidated)
+	require.Contains(t, kinds, appruntime.GlobalEventQueryRecipeInvalidated)
 }
 
 func TestUnifiedWatcherNodeSyncFailureRetainsDurableRetryWithoutStructuralInvalidation(t *testing.T) {
@@ -173,7 +174,7 @@ new
 		for {
 			select {
 			case event := <-published:
-				require.NotEqual(t, globalEventIndexInvalidated, event.Kind, "node embedding failure must not invalidate the index")
+				require.NotEqual(t, appruntime.GlobalEventIndexInvalidated, event.Kind, "node embedding failure must not invalidate the index")
 				if event.Kind == "node.changed" {
 					data, _ := event.Data.(map[string]any)
 					changedPaths, _ = data["paths"].([]any)
@@ -276,7 +277,7 @@ func TestProcessedFreshnessEventsInvalidateAllValidationInputs(t *testing.T) {
 			events := processedFreshnessEvents(nil, nil, test.codeChanges, test.codeDeletes, test.internal, false, test.ontology)
 			count := 0
 			for _, event := range events {
-				if event.Kind == globalEventValidationInvalidated {
+				if event.Kind == appruntime.GlobalEventValidationInvalidated {
 					count++
 				}
 			}

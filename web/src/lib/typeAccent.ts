@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { useOntologySummaryQuery } from "../components/useNotesQueries";
 import { appQueryClient } from "../api/queryClient";
 import { queryKeys } from "../api/queryKeys";
@@ -16,7 +17,7 @@ export function typeAccentIndex(name: string): number {
   return typeSlot(summary(), name);
 }
 
-/** A type's color as a CSS value. It marks dots, borders, and edges, never text. Interfaces take the neutral. */
+/** A type's color as a CSS value. It marks dots, borders, and edges, never text. Interfaces share their most represented implementor’s token. */
 export function typeAccentColor(name: string): string {
   return typeColor(summary(), name);
 }
@@ -27,4 +28,13 @@ export function typeAccentColor(name: string): string {
  */
 export function useTypeAccentKey() {
   return useOntologySummaryQuery().data;
+}
+
+/** Observe the shared palette without requiring a query provider in leaf components. */
+export function useTypePalette() {
+  return useSyncExternalStore(appQueryClient.getQueryCache().subscribe, summary, summary);
+}
+
+export function useTypeAccentColor(name: string): string {
+  return typeColor(useTypePalette(), name);
 }

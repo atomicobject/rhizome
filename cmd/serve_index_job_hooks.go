@@ -8,6 +8,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	appserve "github.com/atomicobject/rhizome/pkg/app/cli/serve"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
@@ -51,12 +52,13 @@ func (commandOptions *vaultCommandOptions) runExplicitIndexJob(ctx context.Conte
 	}
 
 	err := indexing.RunUnifiedCore(ctx, lease, indexing.UnifiedOptions{
-		VaultPath:    rt.VaultPath,
-		VaultDef:     rt.VaultDef,
-		NoteMetadata: rt.NoteMetadataIndexer(),
-		ProgressBar:  &laneProgressBar{progress: progress},
-		Verbose:      commandOptions.debug,
-		TxLockMode:   sqliteutil.TxLockImmediate,
+		SkillOverlays: initactions.ValidateBundledSkillOverlays,
+		VaultPath:     rt.VaultPath,
+		VaultDef:      rt.VaultDef,
+		NoteMetadata:  rt.NoteMetadataIndexer(),
+		ProgressBar:   &laneProgressBar{progress: progress},
+		Verbose:       commandOptions.debug,
+		TxLockMode:    sqliteutil.TxLockImmediate,
 	})
 	return err
 }

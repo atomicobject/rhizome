@@ -27,6 +27,11 @@ use tauri_plugin_opener::OpenerExt;
 
 const WIDTH: f64 = 1320.0;
 const HEIGHT: f64 = 860.0;
+const MIN_WIDTH: f64 = if cfg!(target_os = "linux") {
+    100.0
+} else {
+    760.0
+};
 
 static NEXT: AtomicU64 = AtomicU64::new(1);
 
@@ -246,12 +251,12 @@ const CLICK_GUARD: &str = r#"
 /// webview has no capabilities and may only show the verified runtime.
 pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> {
     let label = format!("window-{}", NEXT.fetch_add(1, Ordering::SeqCst));
-    let width = session.width.unwrap_or(WIDTH).max(760.0);
+    let width = session.width.unwrap_or(WIDTH).max(MIN_WIDTH);
     let height = session.height.unwrap_or(HEIGHT).max(520.0);
     let mut builder = WindowBuilder::new(app, &label)
         .title(&app.package_info().name)
         .inner_size(width, height)
-        .min_inner_size(760.0, 520.0);
+        .min_inner_size(MIN_WIDTH, 520.0);
     #[cfg(target_os = "macos")]
     {
         builder = builder
@@ -269,6 +274,9 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     }
     let settings = appearance::current(&app.state::<Desktop>().directory);
     let window = builder.build()?;
+    // Keep GTK accelerators registered, but expose the menu through the shell.
+    #[cfg(target_os = "linux")]
+    window.hide_menu()?;
     // Before any webview paints: the theme's chrome behind the title bar, and
     // the content panel's colour under the page, in the window's appearance.
     let (chrome, surface) = appearance::colors(settings.theme, appearance::dark(&window));
@@ -287,9 +295,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             .auto_resize()
             // The shell paints the saved theme before it can ask for settings.
             .initialization_script(format!(
-                "window.__RHIZOME_SHELL_SETTINGS__ = {}; window.__RHIZOME_MACOS__ = {};",
+                "window.__RHIZOME_SHELL_SETTINGS__ = {}; window.__RHIZOME_MACOS__ = {}; window.__RHIZOME_PLATFORM__ = {};",
                 serde_json::json!(settings),
-                cfg!(target_os = "macos")
+                cfg!(target_os = "macos"),
+                serde_json::json!(std::env::consts::OS)
             ))
             .background_color(chrome)
             .on_navigation(move |url| {
@@ -299,6 +308,9 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalSize::new(width, height),
     )?;
     crate::menu::install_shortcuts(&shell_view).inspect_err(|_| discard_failed_window(&window))?;
+    #[cfg(target_os = "linux")]
+    crate::linux_webviews::mount_shell(&shell_view)
+        .inspect_err(|_| discard_failed_window(&window))?;
     let popup_app = app.clone();
     let mut view = WebviewBuilder::new(
         content_label(&label),
@@ -323,6 +335,10 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     }
     // Scripts are fixed when the view is created, so a changed setting
     // reaches only windows opened afterward.
+    #[cfg(target_os = "linux")]
+    {
+        view = view.initialization_script(page::LINUX_SCROLL_CANVAS);
+    }
     if page::profiling_for(app).enabled {
         view = view.initialization_script(page::RENDER_PROFILING);
     }
@@ -437,6 +453,8 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(1.0, 1.0),
     )?;
+    #[cfg(target_os = "linux")]
+    crate::linux_webviews::mount_overlay(&content)?;
     content.hide()?;
     crate::menu::install_shortcuts(&content).inspect_err(|_| discard_failed_window(&window))?;
 
@@ -491,6 +509,9 @@ pub fn layout(window: &Window, bounds: Rect, covered: bool) -> Result<(), String
     let content = window
         .get_webview(&content_label(window.label()))
         .ok_or("This window has no content view.")?;
+    #[cfg(target_os = "linux")]
+    crate::linux_webviews::layout(&content, bounds).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "linux"))]
     content.set_bounds(bounds).map_err(|e| e.to_string())?;
     window
         .app_handle()

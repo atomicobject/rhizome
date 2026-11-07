@@ -82,7 +82,8 @@ func TestSharedEmbeddingNodeDropsCancelledQueuedTextsAndDeliversInFlight(t *test
 func TestSharedEmbeddingNodeDropsBatchCancelledWhileWaitingForGate(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	collector := indexingperf.New()
+	ctx := indexingperf.WithCollector(context.Background(), collector)
 	gate := make(chan struct{}, 1)
 	gate <- struct{}{} // another lane holds the gate
 	prov := &defaultingProvider{batchSize: 1000, maxConcurrency: 1, started: make(chan int, 4)}
@@ -95,8 +96,14 @@ func TestSharedEmbeddingNodeDropsBatchCancelledWhileWaitingForGate(t *testing.T)
 		_, err := node.Submit(reqCtx, "embed_ontology_nodes", []string{"waiting"})
 		done <- err
 	}()
-	// Let the batch leave the queue and block on the gate, then cancel.
-	time.Sleep(50 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		for _, sample := range collector.Snapshot().Samples {
+			if sample.Name == string(indexingperf.ProviderBatchTexts) && sample.Count == 1 {
+				return true
+			}
+		}
+		return false
+	}, time.Second, time.Millisecond)
 	cancel()
 	<-gate // the other lane releases the gate
 	select {

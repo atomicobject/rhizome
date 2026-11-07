@@ -106,6 +106,39 @@ test("groups typed properties and root metadata in one collapsed disclosure", as
   await expect(aliases.getByRole("textbox")).toBeVisible();
 });
 
+test("keeps HTML view controls still while the preview reloads", async ({ page }) => {
+  await page.goto(prototypeRoute);
+  const state = page.locator(".ontology-pane__html-actions .html-note-viewer__state");
+  await expect(state).toBeEmpty();
+  const source = page.getByRole("button", { name: "Source", exact: true });
+  const before = await source.boundingBox();
+  expect(before).not.toBeNull();
+
+  let release = () => {};
+
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await page.route("**/api/v1/html-viewers", async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  try {
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(state).toHaveText("Loading prototype…");
+    expect(await source.boundingBox()).toEqual(before);
+  } finally {
+    release();
+  }
+
+  await expect(state).toBeEmpty();
+  expect(await source.boundingBox()).toEqual(before);
+  await chooseView(page, "Source");
+  await expect(page.getByLabel("Note source")).toContainText("Interactive sales prototype");
+});
+
 test("keeps the HTML document usable with expanded metadata in a short viewport", async ({
   page,
 }) => {

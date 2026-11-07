@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -28,7 +28,7 @@ type Prepared struct {
 
 // Prepare reads only the selected vault's configuration. Projection acquisition
 // belongs to the caller; this step never opens an index or refreshes a runtime.
-func Prepare(vaultDef obsidian.VaultDefinition, noteMetadata notemeta.Indexer, selectors []string, maxIssues int) (Prepared, error) {
+func Prepare(vaultDef obsidian.VaultDefinition, noteMetadata notemeta.Indexer, selectors []string, maxIssues int, skillOverlays func() (skilloverlay.Manifest, error)) (Prepared, error) {
 	if err := noteMetadata.Validate(); err != nil {
 		return Prepared{}, fmt.Errorf("validation note metadata indexer: %w", err)
 	}
@@ -63,7 +63,7 @@ func Prepare(vaultDef obsidian.VaultDefinition, noteMetadata notemeta.Indexer, s
 		Request: ValidationRunRequest{Selectors: slices.Clone(selectors), Config: config, Features: features, selection: &selection},
 		RunContext: validate.RunContext{
 			VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: noteMetadata, MaxIssues: maxIssues,
-			SkillOverlays: initactions.ValidateBundledSkillOverlays,
+			SkillOverlays: skillOverlays,
 		},
 	}, nil
 }
@@ -95,22 +95,13 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 	// for it exists. A folder the locator cannot read counts as present, so
 	// the check that owns it reports the problem and unrelated checks still
 	// run.
-	assetsPresent := func(kind assetroots.Kind) (bool, error) {
+	assetsPresent := func(kind assetroots.Kind) bool {
 		roots, err := assetroots.Roots(root, kind)
-		return len(roots) > 0 || err != nil, nil
+		return len(roots) > 0 || err != nil
 	}
-	ontologyConfigured, err := assetsPresent(assetroots.Ontology)
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect ontology configuration: %w", err)
-	}
-	viewsConfigured, err := assetsPresent(assetroots.Views)
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect view configuration: %w", err)
-	}
-	tasksPresent, err := assetsPresent(assetroots.Tasks)
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect task configuration: %w", err)
-	}
+	ontologyConfigured := assetsPresent(assetroots.Ontology)
+	viewsConfigured := assetsPresent(assetroots.Views)
+	tasksPresent := assetsPresent(assetroots.Tasks)
 	modulesPresent, err := present(filepath.FromSlash(assetroots.ModulesDir))
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect module folders: %w", err)

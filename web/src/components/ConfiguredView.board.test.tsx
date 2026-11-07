@@ -23,6 +23,7 @@ describe("ConfiguredViewBoard", () => {
       expect.stringContaining("Planned"),
       expect.stringContaining("(empty)"),
       expect.stringContaining("Active"),
+      "Last changed",
     ]);
     // A value with no records stays as a narrow strip that still takes drops.
     expect(screen.getByLabelText("(empty) column")).toHaveClass("is-empty");
@@ -30,22 +31,40 @@ describe("ConfiguredViewBoard", () => {
 
     // A value the view collapses by default still starts open on a board.
     expect(screen.getByLabelText("Active column")).toBeVisible();
-    fireEvent.click(screen.getAllByRole("button", { name: "Compact cards" })[1]);
-    expect(within(screen.getByLabelText("Active column")).getByRole("article")).toHaveClass(
-      "configured-card--compact",
-    );
+    expect(screen.queryByRole("button", { name: "Card details" })).toBeNull();
+    expect(
+      screen
+        .getAllByRole("article")
+        .every((card) => !card.classList.contains("configured-card--compact")),
+    ).toBe(true);
   });
 
-  it("switches between compact and full cards without hiding records", () => {
-    render(<ConfiguredViewBoard {...rendererProps()} />);
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Compact cards" })[0]);
-    expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toHaveClass(
-      "configured-card--compact",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Full cards" }));
+  it("switches all cards together without hiding records", () => {
+    const props = rendererProps();
+    const { rerender } = render(<ConfiguredViewBoard {...props} boardDensity="compact" />);
+    expect(
+      screen
+        .getAllByRole("article")
+        .every((card) => card.classList.contains("configured-card--compact")),
+    ).toBe(true);
+    rerender(<ConfiguredViewBoard {...props} boardDensity="full" />);
+    expect(
+      screen
+        .getAllByRole("article")
+        .every((card) => !card.classList.contains("configured-card--compact")),
+    ).toBe(true);
     expect(within(screen.getByLabelText("Planned column")).getByRole("article")).toBeVisible();
+  });
+
+  it("defaults the whole board to compact when any column exceeds 24 cards", () => {
+    const result = boardExecution();
+    result.board!.columns[0]!.count = 25;
+    render(<ConfiguredViewBoard {...rendererProps({ execution: result })} />);
+    expect(
+      screen
+        .getAllByRole("article")
+        .every((card) => card.classList.contains("configured-card--compact")),
+    ).toBe(true);
   });
 
   it("counts only the rows a local filter leaves visible", () => {

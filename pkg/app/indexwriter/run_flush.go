@@ -3,6 +3,7 @@ package indexwriter
 import "time"
 
 type queueState struct {
+	codeKind       payloadKind
 	kinds          []payloadKind
 	pendingCtrls   []pendingControl
 	holdingForCtrl bool
@@ -34,7 +35,7 @@ func (s *queueState) flushAll(q *Writer) error {
 	return nil
 }
 func (s *queueState) flushExpired(q *Writer, now time.Time) error {
-	codeHot := q.cfg.codePriorityActive(now, s.lastCodeAt, s.kinds[0].pending())
+	codeHot := q.cfg.codePriorityActive(now, s.lastCodeAt, s.codeKind.pending())
 	for _, kind := range s.kinds {
 		if err := kind.flush(q, now, codeHot); err != nil {
 			return err
