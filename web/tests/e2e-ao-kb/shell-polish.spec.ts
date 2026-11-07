@@ -67,3 +67,30 @@ test("the sidebar's product model lists only kinds that hold records", async ({ 
     "Use case",
   ]);
 });
+
+test("at 728px the note controls wrap and the knowledge tables stack instead of clipping", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 728, height: 900 });
+  await page.goto("/notes?note=assertions%2Fclinic-patient-books-own-slot.md");
+  const panel = page.locator(".notes-shell__panel.is-active");
+  const row = panel.locator(".ontology-pane__controls");
+  const copy = row.getByRole("button", { name: "Copy link", exact: true });
+
+  await expect(copy).toBeVisible();
+
+  for (const control of [copy, row.getByRole("button", { name: "Assertion", exact: true })]) {
+    const [box, bounds] = await Promise.all([control.boundingBox(), row.boundingBox()]);
+
+    expect(box!.x + box!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height);
+  }
+
+  for (const presentation of ["ao-kb.assertions", "ao-kb.concepts"]) {
+    await page.goto(`/notes/group/Knowledge?presentation=${presentation}`);
+    const wrap = page.frameLocator("iframe").locator(".ak-table-wrap");
+
+    await expect(wrap).toBeVisible();
+    expect(await wrap.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+});

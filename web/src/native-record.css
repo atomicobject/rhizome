@@ -98,20 +98,6 @@
   text-underline-offset: 2px;
 }
 
-@media (max-width: 800px) {
-  .ontology-pane--record .ontology-pane__controls {
-    flex-wrap: wrap;
-    height: auto;
-    padding-block: var(--sp-1);
-  }
-  .ontology-pane--record .ontology-pane__toolbar-path {
-    flex: 1;
-  }
-  .ontology-pane--record .ontology-pane__controls-spacer {
-    display: none;
-  }
-}
-
 @container (max-width: 420px) {
   .native-record__branch .native-record__property {
     grid-template-columns: 1fr;
