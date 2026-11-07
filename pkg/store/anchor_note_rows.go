@@ -59,12 +59,19 @@ func claimAnchorLabelsTx(ctx context.Context, tx *sql.Tx, noteID int64, note cod
 			continue
 		}
 		conflict := codeanchor.AnchorLabelConflict{Label: a.Label, Kept: others[0], Dropped: []string{note.Path}}
+		// A dropped note may agree with a note indexed later, so its indexer
+		// version is cleared and the next index retries it.
 		if note.Path < others[0] {
+			if _, err := tx.ExecContext(ctx, `UPDATE notes SET indexer_version = '' WHERE id IN (SELECT note_id FROM note_anchors WHERE anchor_id = ? AND note_id <> ?)`, old.ID, noteID); err != nil {
+				return note, err
+			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM note_anchors WHERE anchor_id = ? AND note_id <> ?`, old.ID, noteID); err != nil {
 				return note, err
 			}
 			conflict.Kept, conflict.Dropped = note.Path, others
 			kept = append(kept, a)
+		} else if _, err := tx.ExecContext(ctx, `UPDATE notes SET indexer_version = '' WHERE id = ?`, noteID); err != nil {
+			return note, err
 		}
 		if result != nil {
 			result.LabelConflicts = append(result.LabelConflicts, conflict)
