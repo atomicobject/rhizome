@@ -15,10 +15,22 @@ type fieldLinkTarget struct {
 	Title string
 }
 
-// fieldLinkTargets maps each relation-field value authored in one note to
-// its resolved target, so clients can show the target's title instead of the
-// authored link text.
-type fieldLinkTargets map[string]fieldLinkTarget
+// fieldLinkKey names one authored value occurrence: its owner node, field and
+// position. Equal text in another field or owner can name a different target.
+type fieldLinkKey struct {
+	owner string
+	field string
+	index int
+}
+
+func fieldLinkKeyFor(field ontology.NodeFieldState, index int) fieldLinkKey {
+	return fieldLinkKey{owner: noderead.RefIdentityKey(field.Capability.OwnerRef), field: field.Name, index: index}
+}
+
+// fieldLinkTargets maps each relation-field value occurrence to its resolved
+// target, so clients can show the target's title instead of the authored link
+// text.
+type fieldLinkTargets map[fieldLinkKey]fieldLinkTarget
 
 // workspaceFieldOwner is one projected node whose relation fields need links.
 type workspaceFieldOwner struct {
@@ -52,9 +64,8 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 		return out
 	}
 
-	indexedRefs := map[string]ontology.NodeRef{}
-	settled := map[string]struct{}{}
-	pending := map[string]struct{}{}
+	indexedRefs := map[fieldLinkKey]ontology.NodeRef{}
+	pending := map[string][]fieldLinkKey{}
 	for _, owner := range owners {
 		if owner.Projection == nil {
 			continue
@@ -64,19 +75,19 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 			if field.Capability.ValueKind != ontology.NodeFieldValueKindRelation {
 				continue
 			}
-			for _, value := range field.Values {
+			for i, value := range field.Values {
 				value = strings.TrimSpace(value)
 				if value == "" {
 					continue
 				}
+				key := fieldLinkKeyFor(field, i)
 				row, ok := noderead.IndexedLinkRow(rows, field.Name, value)
 				if !ok {
-					pending[value] = struct{}{}
+					pending[value] = append(pending[value], key)
 					continue
 				}
-				settled[value] = struct{}{}
 				if ref, ok := noderead.IndexedLinkTargetRef(row); ok {
-					indexedRefs[value] = ref
+					indexedRefs[key] = ref
 				}
 			}
 		}
@@ -84,8 +95,12 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 
 	if len(indexedRefs) > 0 {
 		refs := make([]ontology.NodeRef, 0, len(indexedRefs))
+		seen := make(map[string]struct{}, len(indexedRefs))
 		for _, ref := range indexedRefs {
-			refs = append(refs, ref)
+			if _, ok := seen[noderead.RefIdentityKey(ref)]; !ok {
+				seen[noderead.RefIdentityKey(ref)] = struct{}{}
+				refs = append(refs, ref)
+			}
 		}
 		records, err := scope.Hydrate(ctx, refs, noderead.HydrateOptions{Profile: noderead.HydrateSummary})
 		if err != nil {
@@ -96,23 +111,21 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 		for _, record := range records {
 			byKey[noderead.RefIdentityKey(record.Ref)] = record
 		}
-		for value, ref := range indexedRefs {
+		for key, ref := range indexedRefs {
 			// A target the index names but hydration cannot find was deleted
 			// since indexing; it reads as unresolved.
 			if record, ok := byKey[noderead.RefIdentityKey(ref)]; ok && strings.TrimSpace(record.Path) != "" {
-				out[value] = fieldLinkTarget{Ref: record.Ref, Title: record.Title}
+				out[key] = fieldLinkTarget{Ref: record.Ref, Title: record.Title}
 			}
 		}
 	}
 
+	if len(pending) == 0 {
+		return out
+	}
 	targets := make([]noderead.NodeTarget, 0, len(pending))
 	for value := range pending {
-		if _, ok := settled[value]; !ok {
-			targets = append(targets, noderead.NodeTarget{Input: value})
-		}
-	}
-	if len(targets) == 0 {
-		return out
+		targets = append(targets, noderead.NodeTarget{Input: value})
 	}
 	result, err := scope.Resolve(ctx, noderead.ResolveRequest{
 		IndexOnly: true,
@@ -126,7 +139,9 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 	}
 	for _, item := range result.Resolved {
 		if !item.Ref.IsZero() && strings.TrimSpace(item.Record.Path) != "" {
-			out[item.Input] = fieldLinkTarget{Ref: item.Ref, Title: item.Record.Title}
+			for _, key := range pending[item.Input] {
+				out[key] = fieldLinkTarget{Ref: item.Ref, Title: item.Record.Title}
+			}
 		}
 	}
 	return out
@@ -146,8 +161,8 @@ func (e *executor) resolveWorkspaceFieldLinks(item ontology.NodeFieldState, link
 	if item.Capability.ValueKind != ontology.NodeFieldValueKindRelation {
 		return out
 	}
-	for _, value := range item.Values {
-		resolved, ok := links[strings.TrimSpace(value)]
+	for i, value := range item.Values {
+		resolved, ok := links[fieldLinkKeyFor(item, i)]
 		link := make(map[string]any)
 		e.eachSelectionField(set, func(field *ast.Field) {
 			key := responseKey(field)
