@@ -29,7 +29,10 @@ export function IndexReadyBanner({
   useEffect(() => {
     let cancelled = false;
     let source: EventSource | null = null;
-    let latestRefresh = 0;
+    // Apply a reply only if no newer reply has landed, so a stale reply cannot
+    // undo a newer one and a failed newer refresh does not discard an older one.
+    let issuedRefresh = 0;
+    let appliedRefresh = 0;
 
     const closeSource = () => {
       source?.close();
@@ -51,10 +54,11 @@ export function IndexReadyBanner({
     };
 
     const refresh = () => {
-      const ticket = ++latestRefresh;
+      const ticket = ++issuedRefresh;
       getStatus()
         .then((status) => {
-          if (cancelled || ticket !== latestRefresh) return;
+          if (cancelled || ticket < appliedRefresh) return;
+          appliedRefresh = ticket;
           const nextState = status.indexState ?? "ready";
 
           if (!controlled) setFetchedState(nextState);
