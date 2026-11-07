@@ -125,6 +125,42 @@ describe("FilePanel", () => {
     expect(screen.queryByText(/line 99/)).toBeNull();
   });
 
+  it("reads unindexed raw files and marks their requested source line", () => {
+    const file: FileView = {
+      path: "sources/_raw/meeting.txt",
+      kind: "file",
+      content: "First line\nRecorded passage\nLast line\n",
+    };
+
+    const { container } = render(
+      <FilePanel file={file} line={2} onClose={vi.fn()} onSelectFile={vi.fn()} />,
+    );
+
+    expect(screen.getByText("File", { exact: true })).toBeVisible();
+    expect(container.querySelector('[data-line="2"]')).toHaveTextContent("Recorded passage");
+    expect(container.querySelector('[data-line="2"]')).toHaveAttribute("aria-current", "location");
+    expect(container.querySelector('[data-line="1"]')).toHaveTextContent("First line");
+  });
+
+  it("opens a note line target in raw source with its physical line numbers", () => {
+    const file: FileView = {
+      path: "sources/policy.md",
+      kind: "note",
+      content: "---\nid: source\n---\n\n# Policy\nRecorded passage\n",
+    };
+
+    const { container, rerender } = render(
+      <FilePanel file={file} line={6} onClose={vi.fn()} onSelectFile={vi.fn()} />,
+    );
+
+    expect(container.querySelector('[data-line="6"]')).toHaveTextContent("Recorded passage");
+    expect(container.querySelector('[data-line="6"]')).toHaveAttribute("aria-current", "location");
+    expect(container.querySelector('[data-line="2"]')).toHaveTextContent("id: source");
+
+    rerender(<FilePanel file={file} onClose={vi.fn()} onSelectFile={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "Policy" })).toBeVisible();
+  });
+
   it("lets authored links resolve source targets while identifying related notes", () => {
     const onSelectFile = vi.fn();
 

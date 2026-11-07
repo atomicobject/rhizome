@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.assertion
+name: Assertion
+source:
+  kind: custom
+  entry: assertion.tsx
+mount:
+  kind: node
+  type: Assertion
+  default: true
