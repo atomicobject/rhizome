@@ -93,6 +93,14 @@ class AssemblerTests(unittest.TestCase):
                 self.build(**options)
         self.assertEqual([], self.sign_calls)
 
+    def test_unpublished_windows_target_still_assembles_a_test_fixture_feed(self):
+        windows, digest = make_candidate(self.root, "windows-x86_64", production=False)
+        feed = assemble([windows], VERSION, COMMIT, {"windows-x86_64": digest}, self.output, production=False,
+                        required_targets={"windows-x86_64"}, test_public_key="synthetic",
+                        test_base_url="http://127.0.0.1:9444/" + VERSION, root=self.root, source=self.source,
+                        runner=self.signer, verifier=self.verifier)
+        self.assertEqual({"windows-x86_64"}, set(json.loads(feed.read_text())["platforms"]))
+
     def test_resume_refuses_changed_feed_urls(self):
         path = self.build()
         feed = json.loads(path.read_text())

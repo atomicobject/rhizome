@@ -58,7 +58,8 @@ def assemble(directories: list[Path], version: str, commit: str, canonical_hashe
              verifier=verify_archive, now=lambda: datetime.now(timezone.utc), candidate_only: bool = False) -> Path:
     version, commit = identity(version, commit)
     required = frozenset(required_targets)
-    if not required or not required.issubset(REQUIRED_TARGETS):
+    # Test-feed fixtures may assemble any known target, including unpublished Windows.
+    if not required or not required.issubset(TARGETS):
         raise CandidateError("assembly target set is invalid")
     if (production or candidate_only) and (required != REQUIRED_TARGETS or test_public_key is not None or test_base_url is not None):
         raise CandidateError("production assembly requires every platform and the production feed key/URLs")
