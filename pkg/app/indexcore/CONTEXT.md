@@ -11,3 +11,5 @@ Owns the actual structural work used by complete batch indexing and scoped live 
 - Contextual metrics measure shared discovery, structural publication, code/Markdown ingestion, ontology sync, and dependency finalization for both adapters. Recovery and scoped/complete planning counts describe observed work; reconciliation acknowledgement is measured only after the writer commits its exact generation. No per-source diagnostic disk writes or source/error text enter metrics.
 
 Candidate types and bounded read workers live in `pkg/app/codeintel`, which indexcore already consumes for ingestion. Combining those workers into indexcore would create a codeintel-to-indexcore cycle. Discover and Publish remain the shared structural boundary for batch and live adapters.
+
+`Publish` starts an operation-local metadata source scope. After draining metadata, ontology preparation consumes matching sealed captures from that scope, preserving one source capture/provider parse per host while retaining the existing writer and barrier order.

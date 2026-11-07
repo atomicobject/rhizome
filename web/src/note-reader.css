@@ -49,6 +49,20 @@
   white-space: pre-wrap;
 }
 
+.ontology-native-value {
+  padding: var(--sp-4);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ontology-native-value__address {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
 .ontology-source__line {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);

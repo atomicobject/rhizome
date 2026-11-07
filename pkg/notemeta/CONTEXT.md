@@ -23,3 +23,5 @@ Canonical raw-note fact indexing for provider-projected vault notes.
 - [[docs/specs/technical/note-node-indexing-architecture|Note/node indexing architecture]]
 
 - **Foundation derivation v14**: one canonical `noteSetDigest`; required atomic durable store capabilities; NFC/case link keys with unique exact-spelling precedence. Intel v73 persists unresolved lookup keys and detached metadata presentation payloads atomically. Namespace changes reproject only changed sources and sources named by affected persisted lookup keys. Read failures stop publication.
+
+Indexcore starts one `WithSourceScope` indexer per publication. Sealed source projections are reused after the metadata barrier only when path, content hash, observed mtime, size and provider identity match the published row. Scopes never cross operations; returned facts remain detached. This removes a second provider parse and source capture without making persisted rows authoritative over later operations.

@@ -35,6 +35,7 @@ func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Dis
 	if service == nil || store == nil || writer == nil {
 		return result, fmt.Errorf("structural service, store, and writer are required")
 	}
+	request.NoteMetadata = request.NoteMetadata.WithSourceScope()
 	runtime, err := request.NoteMetadata.FormatRuntime()
 	if err != nil {
 		return result, err

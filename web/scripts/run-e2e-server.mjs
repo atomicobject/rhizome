@@ -32,7 +32,7 @@ fs.cpSync(path.join(htmlFixture, "reports"), path.join(fixtureRoot, "reports"), 
 
 fs.appendFileSync(
   path.join(fixtureRoot, ".rhizome", "config.yml"),
-  '\nnotes:\n  includes: ["**/*.md", "**/*.html", "**/*.htm"]\n  links: all\n',
+  '\nnotes:\n  includes: ["**/*.md", "**/*.html", "**/*.htm", "notes/structured/*.{yaml,yml}", "notes/structured/generated.json"]\n  links: all\n',
 );
 
 fs.appendFileSync(
@@ -41,7 +41,7 @@ fs.appendFileSync(
 );
 
 // Each overlay adds notes, optional .rhizome files, and schema types.
-for (const overlay of ["unified-views", "group-views", "type-views"]) {
+for (const overlay of ["unified-views", "group-views", "type-views", "structured-records"]) {
   const overlayRoot = path.join(repoRoot, "web", "tests", "e2e", "fixtures", overlay);
 
   for (const directory of ["notes", ".rhizome"]) {

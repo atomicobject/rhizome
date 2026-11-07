@@ -1516,6 +1516,7 @@ it("keeps native record values out of Markdown and heading projections", () => {
 
   const source = {
     representation: "source_value",
+    format: "yaml",
     mediaType: "application/json",
     text: '{"name":"Native"}',
     value: {
@@ -1581,6 +1582,7 @@ it("keeps native record values out of Markdown and heading projections", () => {
     address: "/rows/0",
     sourceHash: "captured",
   });
+  expect(workspace.content.format).toBe("yaml");
   expect(workspace.content.markdown).toBeUndefined();
   expect(workspace.content.rendered).toBeUndefined();
   expect(workspace.content.structural).toBeUndefined();

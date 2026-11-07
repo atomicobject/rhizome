@@ -189,3 +189,19 @@ func providerConversionArgument(expression ast.Expr, aliases map[string]struct{}
 	}
 	return nil, false, false
 }
+
+func nonNoteFormatFunction(path, function string) bool {
+	switch path + ":" + function {
+	case "pkg/anchors/indexer_ts_resolver.go:invalidateModuleMetadata",
+		"pkg/app/cli/init/skill_overlay.go:loadStarterSkillOverlayTemplates",
+		"pkg/app/operations/ci_renderer.go:ParseCIFormat",
+		"pkg/app/operations/ci_renderer.go:RenderCI",
+		"pkg/app/operations/ci_renderer.go:RenderCIError",
+		"pkg/app/runtime/registry.go:List", "pkg/app/runtime/registry.go:PruneStale",
+		"pkg/ontology/queryrecipe/load.go:scanSources", "pkg/ontology/viewconfig/load.go:isViewFile":
+		return true
+
+	default:
+		return false
+	}
+}

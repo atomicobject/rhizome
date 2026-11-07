@@ -79,17 +79,16 @@ func (i Indexer) readProjectedEntry(vaultDef obsidian.VaultDefinition, noteMgr o
 }
 
 func (i Indexer) projectEntry(path, content string, mtime int64) (projectedNoteEntry, error) {
-	formats, err := i.runtime()
-	if err != nil {
+	if _, err := i.runtime(); err != nil {
 		return projectedNoteEntry{}, err
 	}
 	source, err := i.authoredSource(path, content, mtime)
 	if err != nil {
 		return projectedNoteEntry{}, err
 	}
-	projection, err := formats.Project(source)
+	entry, err := i.projectSource(source)
 	if err != nil {
 		return projectedNoteEntry{}, fmt.Errorf("project note %q: %w", source.Path().String(), err)
 	}
-	return projectionEntryFrom(source, projection)
+	return entry, nil
 }

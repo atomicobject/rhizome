@@ -35,7 +35,8 @@ import (
 // v19: persisted RECORD binding context keeps scoped positional reads in the indexed logical namespace.
 // v20: list-item neighbor edges include links on the item headline, and a declared type that
 // differs only in case from its selector-matched type resolves to it.
-const OntologyMaterializationVersion = 20
+// v21: structured providers, empty reference presence, cross-format references, and complete native chunk coverage.
+const OntologyMaterializationVersion = 21
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

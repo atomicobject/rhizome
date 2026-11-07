@@ -1,0 +1,31 @@
+type NativeService
+  @node(locator: EMBEDDED)
+  @source(
+    shape: RECORD
+    paths: ["notes/structured/services.yaml"]
+    select: "services"
+    key: { field: "id" }
+    title: ["name"]
+    space: "native"
+    logicalKind: "service"
+  ) {
+  id: ID @field(path: "id")
+  name: String @field(path: "name")
+  status: String @field(path: "status")
+  jobs: [NativeJob!] @contains(shape: RECORD, select: "jobs")
+}
+type NativeJob
+  @node(locator: EMBEDDED)
+  @source(
+    shape: RECORD
+    paths: ["notes/structured/services.yaml"]
+    select: "services[].jobs"
+    key: null
+    title: ["$value"]
+    scalarAs: "id"
+    container: "NativeService"
+    space: "native"
+    logicalKind: "job"
+  ) {
+  id: String @field(path: "id")
+}

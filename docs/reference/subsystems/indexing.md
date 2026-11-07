@@ -186,3 +186,7 @@ Coverage remains bounded: retained-prefix percentiles and interval unions have e
 - [[Preserve explicit correctness barriers in the indexing pipeline]]
 - [[Index lock and background coordination runbook]]
 - [[semantic-runtime-lane-policy]] (SPEC-0044) · [[indexing-observability-and-maintenance-policy]] (SPEC-0047)
+
+Native semantic chunks cover every selected RECORD, including children selected globally without a parent contains field. The prepared semantic parent supplies attribution, and sibling/child evidence remains owner-local.
+
+Structural publication starts one operation-local metadata source scope before provider preparation and reuses matching captures after the metadata barrier. Later jobs get fresh scopes. The writer queue, replacement transactions and drain order are unchanged.

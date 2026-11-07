@@ -196,7 +196,7 @@ function contentFromPublicNode(node: PublicNode): NodeContent {
     resolvedType: node.resolvedType || undefined,
     source,
     markdown: source ? undefined : node.content || "",
-    format: node.format || undefined,
+    format: source?.format || node.format || undefined,
     sourceRepresentation: node.sourceRepresentation || undefined,
     evidenceRepresentation: node.evidenceRepresentation || undefined,
     sourceCapabilities: node.sourceCapabilities || [],

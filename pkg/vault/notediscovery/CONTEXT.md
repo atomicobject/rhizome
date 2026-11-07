@@ -28,3 +28,5 @@ For a collection with no configured includes, the plan derives deterministic
 `**/*<extension>` patterns from the sole default provider's claimed extensions;
 the built-in result remains `**/*.md` without embedding that extension in this
 package.
+
+YAML/JSON follow the same explicit extension include grammar as HTML. `*.{yaml,yml}` authorizes both YAML suffixes; `**/*` and directory globs grant neither structured provider note ownership. Includes preserve authored path casing apart from terminal extension folding, and ignore decisions still take precedence.

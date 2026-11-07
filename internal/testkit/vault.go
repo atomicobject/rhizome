@@ -8,6 +8,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	"github.com/atomicobject/rhizome/pkg/noteformat/html"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 )
@@ -62,7 +63,7 @@ func NoteSource(t testing.TB, path, content string, mtime int64) notemeta.NoteSo
 // DescriptorOnlyHTMLNoteMetadataIndexer advertises HTML without a projector.
 func DescriptorOnlyHTMLNoteMetadataIndexer(t testing.TB) notemeta.Indexer {
 	t.Helper()
-	registry, err := builtin.NewRegistry()
+	registry, err := noteformat.NewRegistry(markdown.New(), html.New())
 	if err != nil {
 		t.Fatal(err)
 	}

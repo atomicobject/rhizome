@@ -1,0 +1,4 @@
+sources:
+  - owner: Fixture author
+    reason: Change this record with the owning tool.
+    paths: [notes/structured/**]

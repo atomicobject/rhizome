@@ -200,6 +200,9 @@ func IntelOntologyNodeFieldReadModelForProjection(schema *ontoschema.Schema, pro
 			continue
 		}
 		if field.Record != nil && field.Record.References != nil {
+			if binding.Present && len(binding.ReferenceOccurrences) == 0 {
+				out = append(out, ontologyNodeFieldValueForValue(schema, node, field, binding, "", 0, now))
+			}
 			for _, occurrence := range binding.ReferenceOccurrences {
 				row := ontologyNodeFieldValueForValue(schema, node, field, binding, occurrence.Authored, occurrence.Ordinal, now)
 				row.ReferenceAt = occurrence.At
