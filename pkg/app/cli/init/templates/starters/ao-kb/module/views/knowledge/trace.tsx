@@ -150,21 +150,24 @@ function TraceBody({
             onChange={(event) => refocus(event.target.value)}
           >
             {!focus && <option value={focusPath ?? ""}>{focusPath || "Choose a record"}</option>}
-            {[...KNOWLEDGE, "Product model"].map((type) => (
-              <optgroup label={type} key={type}>
-                {records
-                  .filter((r) =>
-                    type === "Product model"
-                      ? !KNOWLEDGE.includes(r.__typename)
-                      : r.__typename === type,
-                  )
-                  .map((r) => (
-                    <option key={r.path} value={r.path}>
-                      {label(r)}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
+            {[...KNOWLEDGE, "Product model"].map((type) => {
+              const group = records.filter((r) =>
+                type === "Product model"
+                  ? !KNOWLEDGE.includes(r.__typename)
+                  : r.__typename === type,
+              );
+              return (
+                group.length > 0 && (
+                  <optgroup label={type} key={type}>
+                    {group.map((r) => (
+                      <option key={r.path} value={r.path}>
+                        {label(r)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              );
+            })}
           </select>
         </label>
         <Segmented

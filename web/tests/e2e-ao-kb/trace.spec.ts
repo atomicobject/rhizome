@@ -20,10 +20,12 @@ test("bounded depths, authored arrows, and the counted relationship list agree",
   page,
 }) => {
   const view = await openTrace(page);
-  await expect(view.getByText("12 records", { exact: true })).toBeVisible();
-  await expect(view.getByText("15 relationships", { exact: true })).toBeVisible();
-  await expect(view.locator("[data-trace-line]")).toHaveCount(8);
-  await expect(view.getByText(/Product model not bound in this slice/)).toBeVisible();
+  // Six product-model rows rest on the focus claim; five declared structure edges join them.
+  await expect(view.getByText("18 records", { exact: true })).toBeVisible();
+  await expect(view.getByText("26 relationships", { exact: true })).toBeVisible();
+  await expect(view.locator("[data-trace-line]")).toHaveCount(10);
+  await expect(view.getByLabel("Line styles")).toContainText("Model structure");
+  await expect(view.getByText(/Product model/)).toHaveCount(0);
   await expect(view.getByRole("radio")).toHaveCount(6);
   await expect(view.getByRole("button", { name: "All", exact: true })).toHaveCount(0);
   const downstream = view.getByRole("radiogroup", { name: "Downstream" });
@@ -33,8 +35,8 @@ test("bounded depths, authored arrows, and the counted relationship list agree",
   await expect(page).toHaveURL(/down=3/);
   const table = view.getByRole("table", { name: "Trace relationships" });
   await expect(table.getByRole("row")).toHaveCount(11);
-  await view.getByRole("button", { name: "Show 16 more", exact: true }).click();
-  await expect(table.getByRole("row")).toHaveCount(27);
+  await view.getByRole("button", { name: "Show 27 more", exact: true }).click();
+  await expect(table.getByRole("row")).toHaveCount(38);
   await expect(table.getByText("Second path", { exact: true }).first()).toBeVisible();
   await expect(
     table.getByText("Unclassified · list only, outside traversal counts").first(),
@@ -55,8 +57,8 @@ test("dense columns disclose hidden types and expand without changing the counte
   page,
 }) => {
   const view = await openTrace(page, { focus: SOURCE, down: "3" });
-  await expect(view.getByText("20 records", { exact: true })).toBeVisible();
-  await expect(view.getByText("35 relationships", { exact: true })).toBeVisible();
+  await expect(view.getByText("26 records", { exact: true })).toBeVisible();
+  await expect(view.getByText("46 relationships", { exact: true })).toBeVisible();
   const column = view.locator('[data-column="d1"]');
   await expect(column.locator("[data-trace-card]")).toHaveCount(6);
   await expect(column.getByText("9 assertions, 4 artifacts", { exact: true })).toBeVisible();
@@ -65,8 +67,8 @@ test("dense columns disclose hidden types and expand without changing the counte
   await showMore.press("Enter");
   await expect(column.locator("[data-trace-card]")).toHaveCount(19);
   await expect(page).toHaveURL(/expand=d1/);
-  await expect(view.getByText("20 records", { exact: true })).toBeVisible();
-  await expect(view.getByText("35 relationships", { exact: true })).toBeVisible();
+  await expect(view.getByText("26 records", { exact: true })).toBeVisible();
+  await expect(view.getByText("46 relationships", { exact: true })).toBeVisible();
   await expect(column.getByRole("button", { name: "Show fewer" })).toBeVisible();
 });
 
@@ -140,7 +142,7 @@ test("a fresh workspace link restores focus, depths, expansion, and relationship
     await expect(restored.locator('[data-column="d1"] [data-trace-card]')).toHaveCount(19);
     await expect(
       restored.getByRole("table", { name: "Trace relationships" }).getByRole("row"),
-    ).toHaveCount(36);
+    ).toHaveCount(47);
   } finally {
     await fresh.close();
   }
@@ -220,8 +222,8 @@ test("an exact focus lookup opens a record outside the bounded picker directory"
   });
   const view = await openTrace(page, { focus: CLAIM });
   await expect(view.getByLabel("Trace focus")).toHaveValue(CLAIM);
-  await expect(view.getByText("12 records", { exact: true })).toBeVisible();
-  await expect(view.getByText("15 relationships", { exact: true })).toBeVisible();
+  await expect(view.getByText("18 records", { exact: true })).toBeVisible();
+  await expect(view.getByText("26 relationships", { exact: true })).toBeVisible();
 });
 
 test("concept focus follows Related Concepts section links without reinterpreting incidental links", async ({
