@@ -1,6 +1,6 @@
 apiVersion: rhizome.view.v1
 id: ao-kb.trace
-name: Trace
+name: Knowledge trace
 source:
   kind: custom
   entry: trace.tsx
