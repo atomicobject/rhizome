@@ -12,7 +12,10 @@ const directory = path.dirname(fileURLToPath(import.meta.url));
 try {
   const {values: flags, positionals} = parseArgs({allowPositionals: true, options: {
     root: {type: 'string'}, product: {type: 'string'}, toolkit: {type: 'string'}, single: {type: 'boolean'}}});
-  const input = process.stdin.isTTY ? {} : JSON.parse(readFileSync(0, 'utf8').trim() || '{}');
+  let input = {};
+  // Actions write their input to a blocking pipe; a non-blocking empty stdin (agent shells) is direct CLI use.
+  try { if (!process.stdin.isTTY) input = JSON.parse(readFileSync(0, 'utf8').trim() || '{}'); }
+  catch (error) { if (error.code !== 'EAGAIN') throw error; }
   if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error('ao_action_input: expected a JSON object');
   for (const [key, value] of Object.entries(input)) {
     if (!['root', 'product', 'toolkit', 'single'].includes(key) || typeof value !== (key === 'single' ? 'boolean' : 'string')) throw new Error(`ao_action_input: invalid ${key}`);
