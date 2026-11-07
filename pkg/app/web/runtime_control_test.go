@@ -140,3 +140,16 @@ func TestRuntimeControlRejectsNonLoopbackHost(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
+
+func TestRuntimeControlRejectsNonLoopbackPeer(t *testing.T) {
+	shutdown := false
+	s := &Server{cfg: Config{RuntimeControl: &RuntimeControl{Token: "secret", Shutdown: func(string) { shutdown = true }}}, mux: http.NewServeMux()}
+	s.registerRuntimeControlRoutes()
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1"+appruntime.ShutdownPath, nil)
+	req.RemoteAddr = "192.168.1.5:50000"
+	appruntime.SetBearerToken(req, "secret")
+	rec := httptest.NewRecorder()
+	s.mux.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.False(t, shutdown)
+}

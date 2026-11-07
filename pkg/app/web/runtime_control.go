@@ -80,10 +80,11 @@ func (s *Server) controlAny(handler http.HandlerFunc) http.HandlerFunc {
 			writePublicError(w, http.StatusServiceUnavailable, PublicErrorControlUnavailable, errors.New("runtime control is not enabled"))
 			return
 		}
-		if !isLoopbackHostname(requestHostname(r.Host)) {
-			// The listener is loopback-only; a non-loopback Host header means a
-			// DNS-rebinding page, not a Rhizome client.
-			writePublicError(w, http.StatusForbidden, PublicErrorUnauthorized, errors.New("control routes accept loopback hosts only"))
+		if !isLoopbackHostname(requestHostname(r.Host)) || !loopbackPeer(r) {
+			// A non-loopback Host header means a DNS-rebinding page, and a
+			// non-loopback peer means a listener bound past loopback; neither is
+			// a Rhizome client.
+			writePublicError(w, http.StatusForbidden, PublicErrorUnauthorized, errors.New("control routes accept loopback clients only"))
 			return
 		}
 		if !s.controlAuthorized(r) {
