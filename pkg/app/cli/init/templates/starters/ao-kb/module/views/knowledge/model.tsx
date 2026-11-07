@@ -4,7 +4,7 @@ export default function ModelRecord() {
   const context = useViewContext();
   const ref =
     context.kind === "node"
-      ? context.ref.nodeId || `${context.ref.notePath}#${context.ref.fragment}`
+      ? context.ref.notePath + (context.ref.fragment ? `#${context.ref.fragment}` : "")
       : "";
   const result = useGraphQL<{ node: { title: string } | null }>(
     "query ModelTitle($ref: String!) { node(ref: $ref) { title } }",
