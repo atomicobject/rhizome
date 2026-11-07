@@ -5,6 +5,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -347,21 +348,41 @@ func parseMatchInput(arg string) (matchInput, error) {
 func tokenizeMatchArgs(args []string) []string {
 	var tokens []string
 	for _, arg := range args {
-		for _, piece := range splitMatchParens(arg) {
-			if piece == "" {
-				continue
-			}
-			if containsMatchOperatorWord(piece) {
-				for _, field := range strings.Fields(piece) {
-					if field != "" {
-						tokens = append(tokens, splitMatchParens(field)...)
-					}
-				}
-				continue
-			}
-			tokens = append(tokens, piece)
+		fields := matchExpressionTokens(arg)
+		if containsMatchOperatorWord(arg) || (len(fields) > 0 && (fields[0] == "(" || fields[0] == ")")) {
+			tokens = append(tokens, fields...)
+		} else if arg != "" {
+			tokens = append(tokens, arg)
 		}
 	}
+	return tokens
+}
+
+func matchExpressionTokens(raw string) []string {
+	var tokens []string
+	var value strings.Builder
+	quoted := false
+	flush := func() {
+		if value.Len() > 0 {
+			tokens = append(tokens, value.String())
+			value.Reset()
+		}
+	}
+	for _, r := range raw {
+		if r == '"' {
+			quoted = !quoted
+		}
+		switch {
+		case !quoted && (r == '(' || r == ')'):
+			flush()
+			tokens = append(tokens, string(r))
+		case !quoted && unicode.IsSpace(r):
+			flush()
+		default:
+			value.WriteRune(r)
+		}
+	}
+	flush()
 	return tokens
 }
 
@@ -370,7 +391,7 @@ func tokenizeMatchArgs(args []string) []string {
 // Uppercase AND, OR, and NOT always mark an expression; lowercase words only
 // do alongside other operator evidence, so "Notes/Rock and Roll" stays a path.
 func containsMatchOperatorWord(piece string) bool {
-	for _, f := range strings.Fields(piece) {
+	for _, f := range matchExpressionTokens(piece) {
 		switch f {
 		case "AND", "OR", "NOT":
 			return true
@@ -381,37 +402,13 @@ func containsMatchOperatorWord(piece string) bool {
 	if colonCount < 2 && !hasParens && !strings.Contains(piece, "&&") && !strings.Contains(piece, "||") {
 		return false
 	}
-	for _, f := range strings.Fields(piece) {
+	for _, f := range matchExpressionTokens(piece) {
 		switch strings.ToUpper(f) {
 		case "AND", "OR", "NOT", "&&", "||", "!":
 			return true
 		}
 	}
 	return false
-}
-
-func splitMatchParens(token string) []string {
-	if strings.Contains(token, " ") && !containsMatchOperatorWord(token) {
-		return []string{token}
-	}
-	var tokens []string
-	leading := token
-	for len(leading) > 0 && (leading[0] == '(' || leading[0] == ')') {
-		tokens = append(tokens, string(leading[0]))
-		leading = leading[1:]
-	}
-	trailingParens := ""
-	for len(leading) > 0 && (leading[len(leading)-1] == '(' || leading[len(leading)-1] == ')') {
-		trailingParens = string(leading[len(leading)-1]) + trailingParens
-		leading = leading[:len(leading)-1]
-	}
-	if strings.TrimSpace(leading) != "" {
-		tokens = append(tokens, leading)
-	}
-	for i := 0; i < len(trailingParens); i++ {
-		tokens = append(tokens, string(trailingParens[i]))
-	}
-	return tokens
 }
 
 func insertImplicitOrs(tokens []string) []string {
