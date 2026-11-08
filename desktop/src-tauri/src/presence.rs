@@ -50,6 +50,10 @@ pub struct Runtime {
     pub version: Option<String>,
     #[serde(default)]
     pub provider_access: Option<Vec<Value>>,
+    /// The executable the runtime's manifest records, so the shell can say
+    /// which `rzm` serves a worktree.
+    #[serde(default)]
+    pub executable: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
@@ -281,7 +285,7 @@ impl Presence {
             };
             runtimes.insert(
                 path.clone(),
-                json!({ "state": state, "mode": runtime.mode, "version": runtime.version, "providerAccess": runtime.provider_access }),
+                json!({ "state": state, "mode": runtime.mode, "version": runtime.version, "providerAccess": runtime.provider_access, "executable": runtime.executable }),
             );
         }
         for path in opening {
@@ -455,6 +459,7 @@ mod tests {
             url: Some(origin.into()),
             version: None,
             provider_access: None,
+            executable: None,
         }
     }
 
@@ -541,6 +546,7 @@ mod tests {
             url: None,
             version: None,
             provider_access: None,
+            executable: None,
         };
         presence.record(&library, false, status(stopped));
         let opening = BTreeSet::from([project.clone(), new.clone()]);
@@ -597,6 +603,7 @@ mod tests {
                     url: None,
                     version: None,
                     provider_access: None,
+                    executable: None,
                 },
             )]);
         };
@@ -634,6 +641,7 @@ mod tests {
                 url: None,
                 version: None,
                 provider_access: None,
+                executable: None,
             };
             let mut snapshot = presence.snapshot.lock().unwrap();
             snapshot.repositories = BTreeMap::from([(
@@ -680,6 +688,7 @@ mod tests {
             url: None,
             version: None,
             provider_access: None,
+            executable: None,
         };
         let set = |state| {
             presence.snapshot.lock().unwrap().runtimes =

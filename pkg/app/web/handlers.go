@@ -338,6 +338,7 @@ func (s *Server) status(ctx context.Context) StatusResponse {
 		resp.ReadyReason = "embeddings disabled"
 	}
 	resp.IndexState = indexReadyState(s.runtime.IndexReady())
+	resp.IndexError = s.runtime.IndexFailure()
 	resp.Live = s.runtime.LiveHealth()
 	resp.UpdatedAt = time.Now()
 	return resp

@@ -52,10 +52,17 @@ export interface Worktree {
   error?: string;
 }
 export interface PinOffer {
-  /** `advance`: the pin is older than the app; `app-older`: the app is older. */
-  state: "advance" | "app-older";
+  /**
+   * `advance`: the pin is older than the app; `app-older`: the app is older;
+   * `incompatible`: the app is newer but cannot read the worktree's index.
+   */
+  state: "advance" | "app-older" | "incompatible";
   pinned: string;
   available: string;
+  /** Why an `incompatible` offer cannot advance. */
+  reason?: string;
+  /** What the app could not check about an `advance`. */
+  caution?: string;
 }
 export interface Discovery {
   id: string;
@@ -180,6 +187,8 @@ export interface Runtime {
   providerAccess?: RuntimeReport[];
   state: RuntimeState;
   mode: "headless" | "attached" | null;
+  /** The `rzm` the runtime's manifest records, whoever started it. */
+  executable?: string;
 }
 export interface Presence {
   type: "presence";

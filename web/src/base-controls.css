@@ -222,6 +222,14 @@
   font-size: var(--fs-xs);
 }
 
+.index-ready-banner--failed {
+  background: var(--warning-soft);
+}
+
+.index-ready-banner--failed .index-ready-banner__hint {
+  color: var(--warning-ink);
+}
+
 @keyframes index-ready-spin {
   to {
     transform: rotate(360deg);

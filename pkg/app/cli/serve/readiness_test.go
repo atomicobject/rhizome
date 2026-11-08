@@ -11,6 +11,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -392,4 +393,26 @@ func TestQueuedValidationWaitsForBootIndexAttempt(t *testing.T) {
 	close(finish)
 	require.NoError(t, <-indexed)
 	require.Eventually(t, func() bool { return refresher.calls.Load() >= 1 }, time.Second, time.Millisecond)
+}
+
+// An index this build cannot read never opens the gate, so status must carry
+// the failure instead of reporting "Preparing index…" forever.
+func TestReadinessCoordinatorReportsUnreadableIndex(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	future := &migration.ErrFutureSchema{Domain: migration.DomainIntel, Current: 80, Supported: 78}
+	c := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+		return future
+	})
+	c.usableNoteCount = func(context.Context, *bootstrap.LiveRuntime) (int64, error) { return 0, future }
+	c.completeModelCount = func(context.Context, *bootstrap.LiveRuntime) (int64, error) { return 0, future }
+	r := c.BindLive(ctx, &bootstrap.LiveRuntime{})
+	require.ErrorIs(t, c.BackgroundIndexer(ctx, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false), future)
+	require.False(t, r.IndexReady())
+	require.Contains(t, r.IndexFailure(), "have 80, support 78")
+
+	r.MarkIndexReady()
+	require.Empty(t, r.IndexFailure(), "a later successful index supersedes the failure")
+	cancel()
+	c.Drain()
 }

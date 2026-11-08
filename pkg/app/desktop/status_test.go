@@ -44,11 +44,12 @@ func TestStatusForwardsProviderReportsOnlyFromVerifiedLiveRuntime(t *testing.T) 
 	folder := config(t, repoconfig.LocalRhizomeConfig{})
 	reports := []provideraccess.RuntimeReport{{Provider: "voyage", Next: provideraccess.Report{Provider: "voyage", Source: provideraccess.SourceTeam}}}
 	health := appruntime.Health{VaultPath: folder, PID: os.Getpid(), RunID: "report-run", Mode: appruntime.ModeHeadless, Version: "v1.2.3", ProviderAccess: reports}
-	fakeRuntime(t, folder, appruntime.InstanceManifest{VaultPath: folder}, health, 0)
+	fakeRuntime(t, folder, appruntime.InstanceManifest{VaultPath: folder, Executable: "/tools/rzm"}, health, 0)
 	status := service.runtimeStatus(context.Background(), folder)
 	require.Equal(t, StateRunning, status.State)
 	require.Equal(t, "v1.2.3", status.Version)
 	require.Equal(t, reports, status.ProviderAccess)
+	require.Equal(t, "/tools/rzm", status.Executable, "the shell names the rzm that serves the worktree")
 	foreign := config(t, repoconfig.LocalRhizomeConfig{})
 	health.VaultPath = t.TempDir()
 	fakeRuntime(t, foreign, appruntime.InstanceManifest{VaultPath: foreign}, health, 0)

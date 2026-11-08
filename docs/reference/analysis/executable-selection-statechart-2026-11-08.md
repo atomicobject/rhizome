@@ -14,6 +14,18 @@ The terminal and the desktop app share one precedence planner, `repoexec.SelectW
 
 A TLA+ model of that flow (217 states, 235 steps) breaks seven of eight rules across five paths. Every path was replayed against the code at `3a108b21` and reproduces. Repository-selected code never runs before trust in any modeled path.
 
+## Resolution
+
+All five paths are fixed on `fix/desktop-unpublished-pin`, after `584d89bd`:
+
+- P5: a failed startup index (other than one displaced by explicit indexing) is recorded on the web runtime; status adds `indexError`, and the banner shows "Index unavailable" with the cause instead of "Preparing index…".
+- P2: the bundled build checks the existing index's Intel schema read-only (`store.CheckReadable`) before offering a pin advance. An index from a newer Rhizome makes the offer `incompatible`, which pin advance refuses; an executable the app cannot check is offered with a `caution`. The bundled build has a credential store on every desktop platform, so sign-in carries over.
+- P3: a missing pin with no advance leads with Check for App Updates and offers Choose executable. A per-worktree executable runs for a managed worktree only once its pin's release is known to be missing, without a build-identity check, since it may be a shim.
+- P4: runtime status carries the manifest's executable, and an external worktree's "External rzm" toolbar item names the running `rzm`, explains the app's global fallback, and offers Choose Executable.
+- P1: desktop needs no trust to run the Dev app's `rzm` in a pinned source checkout. CLI dispatch keeps trust there, because `init` and `update` act on the pin.
+
+The shared execution result (recommendation 5) was not built.
+
 ## Incidents that motivated it
 
 On one Linux arm64 machine, folder `agentic-process`:

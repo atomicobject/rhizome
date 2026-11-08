@@ -41,6 +41,7 @@ type Runtime struct {
 	noteReadReady              chan struct{}
 	noteReadReadyOnce          sync.Once
 	indexGated                 bool
+	indexFailure               string
 	validationRepairAuthority  ValidationRepairAuthority
 	repairPathCoordinator      *validate.RepairPathCoordinator
 	validationRefreshRequester ValidationRefreshRequester

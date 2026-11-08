@@ -76,6 +76,29 @@ func (r *Runtime) MarkNoteReadReady() {
 	})
 }
 
+// MarkIndexFailed records why the startup index could not be built, so status
+// can report a terminal failure instead of "initializing" forever. A later
+// open gate supersedes it.
+func (r *Runtime) MarkIndexFailed(err error) {
+	if r == nil || err == nil {
+		return
+	}
+	r.mu.Lock()
+	r.indexFailure = err.Error()
+	r.mu.Unlock()
+}
+
+// IndexFailure returns the recorded startup index failure while the gate is
+// still closed, or "".
+func (r *Runtime) IndexFailure() string {
+	if r == nil || r.IndexReady() {
+		return ""
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.indexFailure
+}
+
 // IndexReady reports whether the gate is open. Returns true when the runtime
 // is not gated (default) so status payloads stay truthful in test fixtures
 // and headless web embeddings.

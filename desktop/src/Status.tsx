@@ -56,6 +56,7 @@ export function OpenStatus({
   onManageInstallation,
   upgrade,
   onUpgrade,
+  onCheckForUpdates,
 }: {
   state: OpenState;
   busy: boolean;
@@ -67,6 +68,7 @@ export function OpenStatus({
   /** The app's newer Rhizome, when the worktree's pin can move to it. */
   upgrade?: string;
   onUpgrade: (version: string) => void;
+  onCheckForUpdates: () => void;
 }) {
   const title = progress[state.step];
   const shown = useElapsedPast(state.started, QUIET_MS);
@@ -161,13 +163,21 @@ export function OpenStatus({
             Updating changes the version in .rhizome/config.yml. Commit it to share the update.
           </p>
         )}
+        {unpublished && !offered && (
+          <p className="hint">
+            The app can’t move this pin. A newer app may include it, or choose a Rhizome executable
+            for this worktree.
+          </p>
+        )}
         <div className="actions">
           {unpublished && upgradeButton}
-          <button
-            className={unpublished && offered ? undefined : "primary"}
-            disabled={busy}
-            onClick={onRetry}
-          >
+          {unpublished && !offered && (
+            <button className="primary" disabled={busy} onClick={onCheckForUpdates}>
+              Check for App Updates
+            </button>
+          )}
+          {/* Retrying an unpublished pin requests the same missing release. */}
+          <button className={unpublished ? undefined : "primary"} disabled={busy} onClick={onRetry}>
             Try again
           </button>
           {!unpublished && upgradeButton}
@@ -176,7 +186,7 @@ export function OpenStatus({
               Start without copying
             </button>
           )}
-          {state.code === "external_executable_required" && (
+          {(state.code === "external_executable_required" || (unpublished && !offered)) && (
             <button disabled={busy} onClick={onChooseExecutable}>
               Choose executable…
             </button>

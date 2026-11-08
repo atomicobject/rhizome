@@ -1743,6 +1743,13 @@ components:
             first-launch gate is closed; `ready` after it opens exactly once.
             Gated reads return 503 with `Retry-After` and error code
             `INDEX_INITIALIZING` while initializing.
+        indexError:
+          type: string
+          description: >-
+            Why the startup index failed, set while `indexState` is
+            `initializing` and no index can be built (for example, an index
+            written by a newer Rhizome). Cleared once a later index opens the
+            gate.
         live:
           $ref: "#/components/schemas/LiveHealth"
     LiveHealth:

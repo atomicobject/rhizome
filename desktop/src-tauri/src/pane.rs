@@ -950,6 +950,7 @@ mod tests {
             url: Some(origin.into()),
             version: None,
             provider_access: None,
+            executable: None,
         }
     }
 

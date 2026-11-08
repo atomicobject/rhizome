@@ -117,6 +117,13 @@ func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetada
 	if c.runIndex != nil {
 		indexErr = c.runIndexOnLane(ctx, live, noteMetadata, vaultPath, vaultDef, debug)
 	}
+	// A failed startup index (one this build cannot read, for example) would
+	// otherwise leave "Preparing index…" up forever; record it before the
+	// event below so the browser's refresh sees it.
+	var preempted *lane.PreemptedError
+	if indexErr != nil && ctx.Err() == nil && !errors.Is(indexErr, context.Canceled) && !errors.As(indexErr, &preempted) {
+		c.markIndexFailed(indexErr)
+	}
 	// Validation may refresh metadata and ontology. Admit it only after the
 	// boot writer (or the explicit index that displaced it) has completed.
 	c.indexAttemptDoneOnce.Do(func() { close(c.indexAttemptDone) })
@@ -267,6 +274,15 @@ func (c *ReadinessCoordinator) markIndexReady() {
 	c.mu.Unlock()
 	if runtime != nil {
 		runtime.MarkIndexReady()
+	}
+}
+
+func (c *ReadinessCoordinator) markIndexFailed(err error) {
+	c.mu.Lock()
+	runtime := c.webRuntime
+	c.mu.Unlock()
+	if runtime != nil {
+		runtime.MarkIndexFailed(err)
 	}
 }
 

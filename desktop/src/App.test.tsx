@@ -705,6 +705,25 @@ describe("desktop shell", () => {
     await waitFor(() => expect(opened()).toHaveLength(2));
   });
 
+  it("offers app updates and a worktree executable when the app cannot move a missing pin", async () => {
+    start(undefined, () => undefined);
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({
+      step: "error",
+      code: "pinned_version_unavailable",
+      message: "This worktree pins Rhizome v0.52.0, which is no longer published.",
+    });
+    const actions = within(screen.getByRole("alert")).getAllByRole("button");
+    expect(actions.map((button) => button.textContent)).toEqual([
+      "Check for App Updates",
+      "Try again",
+      "Choose executable…",
+    ]);
+    expect(actions[0]).toHaveClass("primary");
+    fireEvent.click(actions[0]);
+    await waitFor(() => expect(call).toHaveBeenCalledWith("check-for-updates", {}));
+  });
+
   it("keeps retry first when a pinned install fails for another reason", async () => {
     start(undefined, (operation) => (operation === "discover" ? offered : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
@@ -741,6 +760,56 @@ describe("desktop shell", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Update to v0.51.0" })).toBeNull(),
     );
+  });
+
+  it("never offers a pin the app's Rhizome cannot read, and points to app updates", async () => {
+    const reason = "Rhizome v0.51.0 can't read this worktree's index, which a newer Rhizome wrote.";
+    const incompatible: Discovery = {
+      ...discovery,
+      worktrees: discovery.worktrees.map((w) =>
+        w.path === main
+          ? {
+              ...w,
+              pinOffer: { state: "incompatible", pinned: "v0.50.5", available: "v0.51.0", reason },
+            }
+          : w,
+      ),
+    };
+    start(undefined, (operation) => (operation === "discover" ? incompatible : undefined));
+    fireEvent.click(await screen.findByRole("button", { name: "Needs newer app" }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const labels = lastMenu().map((item) => item.label);
+    expect(labels).toContain(reason);
+    expect(labels).toContain("Check for App Updates");
+    expect(labels.some((label) => label?.startsWith("Update Pin"))).toBe(false);
+    report({ step: "error", code: "pinned_version_unavailable", message: "gone" });
+    expect(
+      within(screen.getByRole("alert"))
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).not.toContain("Update to Rhizome v0.51.0");
+  });
+
+  it("names the rzm serving an externally managed worktree", async () => {
+    const external: Discovery = {
+      ...discovery,
+      worktrees: discovery.worktrees.map((w) =>
+        w.path === main ? { ...w, authority: "external" } : w,
+      ),
+    };
+    start(undefined, (operation) => (operation === "discover" ? external : undefined));
+    act(() =>
+      emit({
+        type: "presence",
+        repositories: { [repository.id]: { info: external } },
+        runtimes: { [main]: { state: "running", mode: "headless", executable: "/tools/dev/rzm" } },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "External rzm" }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const labels = lastMenu().map((item) => item.label);
+    expect(labels).toContain("Running /tools/dev/rzm");
+    expect(labels).toContain("Choose Executable…");
   });
 
   it("confirms a copied page URL briefly in the toolbar", async () => {

@@ -17,7 +17,10 @@ import (
 //
 // IndexState is "initializing" until the runtime gate opens, then flips to
 // "ready" exactly once. Clients should treat the transition as a refetch
-// trigger for index-dependent reads.
+// trigger for index-dependent reads. IndexError is set while the gate is
+// closed because the startup index failed (for example, an index written by a
+// newer Rhizome); the state then stays "initializing" until a later index
+// succeeds.
 type StatusResponse struct {
 	VaultName   string                `json:"vaultName"`
 	VaultPath   string                `json:"vaultPath"`
@@ -29,6 +32,7 @@ type StatusResponse struct {
 	Ready       bool                  `json:"ready"`
 	ReadyReason string                `json:"readyReason,omitempty"`
 	IndexState  string                `json:"indexState"`
+	IndexError  string                `json:"indexError,omitempty"`
 	Live        *bootstrap.LiveHealth `json:"live,omitempty"`
 }
 

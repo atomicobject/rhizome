@@ -51,7 +51,14 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   the app never starts a competitor. Foreign or non-loopback manifests are
   stopped with an error and no origin. Results never contain control tokens.
 - `repoexec.Select` determines executable authority. Trust precedes every
-  repository-selected probe, download, and start. Only explicit initialization
+  repository-selected probe, download, and start. The Rhizome Dev app's `rzm`
+  is app-owned, so selecting it needs no trust even in a pinned source
+  checkout: desktop runs only serve, scope, and seeding with it, none of which
+  act on the pin. (CLI dispatch keeps trust there, because `init` and `update`
+  do.) A per-worktree executable the user chose runs for an external
+  worktree, and for a managed one only once its pin's release is known to be
+  missing; an installable pin wins. Open compares no build identity for a
+  chosen executable, since it may be a shim. Only explicit initialization
   writes setup files; opening an unconfigured folder never initializes it.
 - Verified running status also carries optional runtime version and provider-access reports. Constructed Voyage and last constructed Jev access are distinct from the next-construction decision in that runtime's environment. An older runtime without reports is unknown; desktop never substitutes its own credential report as actual repository routing.
 - Setup-report runs `init --check --json`; initialize runs `init --json` with
@@ -92,7 +99,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
 - External managers may supply a verified existing runtime or a user-selected
   absolute executable or shim. Without either, Open runs the global executable,
   as the command line runs whichever `rzm` was invoked; it asks for a choice
-  only when none exists. Their manager owns build identity, so desktop
+  only when none exists. Runtime status carries the manifest's `executable`,
+  and the shell's "External rzm" toolbar item names it and explains the
+  fallback. Their manager owns build identity, so desktop
   does not derive a replacement build ID from a shim file. Desktop never
   downloads or updates their installations. Global overrides require a native
   Rhizome binary, not an external manager shim.
@@ -134,7 +143,14 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   icon remains with user data.
 - Pin offers compare managed pins with the bundled build's `version.Version`,
   or the selected global executable's version. External managers, development
-  overrides, and Rhizome source checkouts receive no offer. Go always reports
+  overrides, and Rhizome source checkouts receive no offer. An advance must not
+  lose the worktree's index: the bundled build checks the existing index
+  read-only (`store.CheckReadable`, Intel schema only) and reports `incompatible` with a `reason`
+  when a newer Rhizome wrote it; pin advance refuses anything but `advance`.
+  The bundled build ships a credential store on every desktop platform, so
+  sign-in carries over. Another executable cannot be checked in process, so its
+  advance carries a `caution`. A missing pin with no advance offers app updates
+  and a per-worktree executable instead of retry alone. Go always reports
   an applicable offer; Rust owns repository library persistence and dismissal.
   Pin advance requires existing checkout trust and invokes the in-process
   updater with `SetVersion: version.Version, Yes: true`. It changes the pin and
@@ -200,8 +216,10 @@ Result:
 Inspect and Trust. Repository results expose the same optional `pinOffer` on
 each `worktrees[]` entry, copied from that worktree's inspection. Its `state` is
 exactly `advance` when
-the pin is older, or `app-older` when the pin is newer. Equal or unparsable
-versions omit it. There is no `none` state and no dismissal filtering in Go.
+the pin is older and can move, `incompatible` when it is older but the app's
+Rhizome cannot read the index, or `app-older` when the pin is newer. Equal or
+unparsable versions omit it. Optional `reason` explains `incompatible`, and
+optional `caution` qualifies an `advance` the app could not check. There is no `none` state and no dismissal filtering in Go.
 `executable` is an optional string for development overrides. Existing folder
 fields keep their meanings, including empty `pinnedVersion` without a pin.
 

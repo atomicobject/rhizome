@@ -42,6 +42,8 @@ type RuntimeStatus struct {
 	Error          string                         `json:"error,omitempty"`
 	Version        string                         `json:"version,omitempty"`
 	ProviderAccess []provideraccess.RuntimeReport `json:"providerAccess,omitempty"`
+	// Executable is the rzm the runtime's manifest records, whoever started it.
+	Executable string `json:"executable,omitempty"`
 }
 
 type Discovered struct {
@@ -118,7 +120,7 @@ func (s *Service) runtimeStatus(ctx context.Context, folder string) RuntimeStatu
 				stopped.Error = err.Error()
 				return stopped
 			}
-			return RuntimeStatus{State: StateRunning, Mode: opened.Mode, Ready: health.Ready, PID: opened.PID, URL: opened.URL, Version: health.Version, ProviderAccess: health.ProviderAccess}
+			return RuntimeStatus{State: StateRunning, Mode: opened.Mode, Ready: health.Ready, PID: opened.PID, URL: opened.URL, Version: health.Version, ProviderAccess: health.ProviderAccess, Executable: client.Manifest.Executable}
 		}
 		if errors.Is(err, appruntime.ErrRuntimeUnresponsive) {
 			return RuntimeStatus{State: StateStarting}
