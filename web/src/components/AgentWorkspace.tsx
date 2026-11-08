@@ -490,7 +490,9 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <AgentComposer
-          runningID={selectedSession?.turnRunning ? selectedSession.id : ""}
+          // Until the send reply, the server may not have begun the turn, and
+          // would refuse an interrupt.
+          runningID={selectedSession?.turnRunning && !isSending ? selectedSession.id : ""}
           onError={setError}
           draft={draft}
           onChange={setDraft}
