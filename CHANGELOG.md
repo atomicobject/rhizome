@@ -11,6 +11,13 @@
 
 ### Fixed
 
+- Rhizome Desktop no longer dead-ends when a folder's selected Rhizome can't serve it:
+  - A worktree pinned to a release that is no longer published offers to update the pin, or, when the app is not newer, to check for app updates or choose an executable for the worktree.
+  - The app offers a pin update only to a Rhizome that can read the worktree's index, and says when it could not check.
+  - An index written by a newer Rhizome shows "Index unavailable" with the reason instead of "Preparing index…" forever.
+  - Externally managed folders open with the app's Rhizome instead of demanding an executable, and the toolbar names the `rzm` that is running.
+  - A pinned Rhizome source checkout opens on the Rhizome Dev app's `rzm` without asking for trust; the command line still asks, because `init` and `update` act on the pin.
+- Writes to the vault's own index no longer overflow the file watcher and force a full resync during large index runs.
 - Embedded relation counts, nested `frontmatter` JSON, and lists of maps in path fields now report what the note holds.
 - A Markdown list after a top-level heading starts a new list instead of failing projection.
 - Desktop Settings on Linux skips non-executable files when finding the command-line tool on PATH.
