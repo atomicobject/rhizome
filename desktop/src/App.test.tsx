@@ -705,6 +705,34 @@ describe("desktop shell", () => {
     await waitFor(() => expect(opened()).toHaveLength(2));
   });
 
+  it("leads with updating the pin when its version is too old for the app", async () => {
+    start(undefined, (operation) => (operation === "discover" ? offered : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({
+      step: "error",
+      code: "pinned_version_unsupported",
+      message: "This worktree pins Rhizome v0.50.5, which is too old to run in the desktop app.",
+    });
+    const actions = within(screen.getByRole("alert")).getAllByRole("button");
+    expect(actions.map((button) => button.textContent)).toEqual([
+      "Update to Rhizome v0.51.0",
+      "Try again",
+    ]);
+    expect(actions[0]).toHaveClass("primary");
+  });
+
+  it("offers only app updates when the app cannot move a pin that is too old", async () => {
+    start(undefined, () => undefined);
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "error", code: "pinned_version_unsupported", message: "too old" });
+    const actions = within(screen.getByRole("alert")).getAllByRole("button");
+    expect(actions.map((button) => button.textContent)).toEqual([
+      "Check for App Updates",
+      "Try again",
+    ]);
+    expect(actions[0]).toHaveClass("primary");
+  });
+
   it("offers app updates and a worktree executable when the app cannot move a missing pin", async () => {
     start(undefined, () => undefined);
     await waitFor(() => expect(opened()).toHaveLength(1));

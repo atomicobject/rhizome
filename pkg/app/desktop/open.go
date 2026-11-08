@@ -59,6 +59,10 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 	}
 	help, err := repoexec.Probe(ctx, target, info.Path, "serve", "--help")
 	if err != nil || !strings.Contains(help, "--headless") {
+		if ex.InstallPin && target == plan.Target {
+			// Only moving the pin helps; the shell offers that pin advance.
+			return OpenResult{}, problem("pinned_version_unsupported", fmt.Sprintf("This worktree pins Rhizome %s, which is too old to run in the desktop app.", plan.PinnedVersion))
+		}
 		return OpenResult{}, problem("runtime_error", "This Rhizome version does not support desktop runtimes. Update the folder's selected Rhizome version to one with `serve --headless`, or select a current development build.")
 	}
 	build := ""

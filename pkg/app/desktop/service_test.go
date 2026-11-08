@@ -218,6 +218,21 @@ func TestOpenReportsAnUnpublishedPinSeparatelyFromInstallFailures(t *testing.T) 
 	code(t, err, "install_error")
 }
 
+func TestOpenReportsAPinTooOldForDesktopSeparately(t *testing.T) {
+	s := testService(t)
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
+	_, err := s.Trust(folder)
+	require.NoError(t, err)
+	pinned := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+		script(t, pinned, "echo 'rzm version v0.48.0'")
+		return nil
+	}
+	_, err = s.Open(context.Background(), Request{Folder: folder})
+	code(t, err, "pinned_version_unsupported")
+	require.Contains(t, err.Error(), "v0.48.0")
+}
+
 // A pin at or above the app's version has no pin advance, so choosing an
 // executable for the worktree is its way out. The choice applies only once
 // the pin's release is known to be missing, and may be a shim, so Open does
