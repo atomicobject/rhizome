@@ -242,10 +242,17 @@ func TestExternalAttachesVerifiedRuntimeWithoutExecutable(t *testing.T) {
 	require.Equal(t, server.URL, result.URL)
 	require.False(t, result.Spawned)
 	// A runtime serving another folder is not this folder's runtime, so Open
-	// needs an executable to start one instead of attaching.
+	// starts one with the app's global executable instead of attaching.
 	health.VaultPath = t.TempDir()
-	_, err = s.Open(context.Background(), Request{Folder: folder})
-	code(t, err, "external_executable_required")
+	global := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
+	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		require.Equal(t, global, opts.Executable)
+		require.Empty(t, opts.BuildID)
+		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless}}, nil
+	}
+	result, err = s.Open(context.Background(), Request{Folder: folder, GlobalExecutable: global})
+	require.NoError(t, err)
+	require.True(t, result.Spawned)
 }
 
 func TestOpenRejectsRemoteAndForeignManifestsBeforeProbe(t *testing.T) {

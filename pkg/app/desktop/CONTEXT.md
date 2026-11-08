@@ -90,7 +90,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   manifest never receives a shutdown. It runs no repository executable, so it
   needs no trust.
 - External managers may supply a verified existing runtime or a user-selected
-  absolute executable or shim. Their manager owns build identity, so desktop
+  absolute executable or shim. Without either, Open runs the global executable,
+  as the command line runs whichever `rzm` was invoked; it asks for a choice
+  only when none exists. Their manager owns build identity, so desktop
   does not derive a replacement build ID from a shim file. Desktop never
   downloads or updates their installations. Global overrides require a native
   Rhizome binary, not an external manager shim.

@@ -47,7 +47,6 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 		if !errors.Is(err, appruntime.ErrNoRuntime) {
 			return OpenResult{}, err
 		}
-		return OpenResult{}, problem("external_executable_required", "Choose the Rhizome executable provided by this folder's external binary manager.")
 	}
 	target, err := s.prepare(ctx, info, plan, req)
 	if err != nil {
@@ -88,9 +87,18 @@ func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Pl
 			return "", problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
 		}
 	case "external":
+		// External ownership means "run the rzm that was invoked", as on the
+		// command line; for the app that is its global executable unless the
+		// user chose one for this worktree.
 		target = req.Executable
 		if target == "" {
-			return "", problem("external_executable_required", "Choose this folder's externally managed Rhizome executable.")
+			var err error
+			if target, err = s.globalExecutable(req.GlobalExecutable); err != nil {
+				return "", err
+			}
+		}
+		if target == "" {
+			return "", problem("external_executable_required", "Choose the Rhizome executable provided by this folder's external binary manager.")
 		}
 	case "global":
 		var err error
