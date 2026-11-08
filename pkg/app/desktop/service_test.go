@@ -387,3 +387,18 @@ func TestOpenRunsTheDevAppInAPinnedCheckoutWithoutTrust(t *testing.T) {
 	_, err := s.Open(context.Background(), Request{Folder: folder})
 	require.NoError(t, err)
 }
+
+// A worktree's chosen executable may be a shim, so Open never derives a build
+// identity from it, even when the configured selection names the same file.
+func TestOpenComparesNoBuildForTheChosenExecutable(t *testing.T) {
+	s := testService(t)
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
+	chosen := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
+	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		require.Equal(t, chosen, opts.Executable)
+		require.Empty(t, opts.BuildID)
+		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless, BuildID: "the-real-binary"}}, nil
+	}
+	_, err := s.Open(context.Background(), Request{Folder: folder, Executable: chosen, GlobalExecutable: chosen})
+	require.NoError(t, err)
+}

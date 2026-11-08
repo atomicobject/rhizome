@@ -106,6 +106,10 @@ func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Pl
 	if err := executable(ex.Target); err != nil {
 		return ex, err
 	}
+	// The user's choice may be a shim wherever it ends up running.
+	if req.Executable != "" && ex.Target == req.Executable {
+		ex.ExactBuild = false
+	}
 	return ex, nil
 }
 
