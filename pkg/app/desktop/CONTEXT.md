@@ -144,12 +144,14 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
 - Pin offers compare managed pins with the bundled build's `version.Version`,
   or the selected global executable's version. External managers, development
   overrides, and Rhizome source checkouts receive no offer. An advance must not
-  lose the worktree's index: the bundled build checks the existing index
+  lose the worktree's index: a bundled release build, which is the release a
+  pin advance installs, checks the existing index
   read-only (`store.CheckReadable`, Intel schema only) and reports `incompatible` with a `reason`
   when a newer Rhizome wrote it; pin advance refuses anything but `advance`.
   The bundled build ships a credential store on every desktop platform, so
-  sign-in carries over. Another executable cannot be checked in process, so its
-  advance carries a `caution`. A missing pin with no advance offers app updates
+  sign-in carries over. A development build (which reports the last release's
+  version but reads newer indexes) or another executable cannot vouch for that
+  release, so its advance carries a `caution`. A missing pin with no advance offers app updates
   and a per-worktree executable instead of retry alone. Go always reports
   an applicable offer; Rust owns repository library persistence and dismissal.
   Pin advance requires existing checkout trust and invokes the in-process

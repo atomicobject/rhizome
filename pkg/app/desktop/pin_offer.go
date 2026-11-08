@@ -83,12 +83,14 @@ func advanceCompatibility(plan repoexec.Plan, available string, readsIndex func(
 	return "advance", "", ""
 }
 
-// availableVersion reports the app's Rhizome version, and whether it is this
-// bridge's own build rather than a separately installed executable.
+// availableVersion reports the app's Rhizome version, and whether this
+// bridge's own build is that version's published release, so its index
+// support is what a pin advance installs. A development build reports the
+// last release's version while reading newer indexes, so it is unchecked.
 func (s *Service) availableVersion() (string, bool) {
 	if executable, err := desktopExecutable(); err == nil {
 		if bundled, err := bundledExecutable(executable); err == nil && bundled != "" {
-			return version.Version, true
+			return version.Version, !version.Development()
 		}
 	}
 	executable, err := s.globalExecutable("")

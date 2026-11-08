@@ -120,7 +120,12 @@ func TestAvailableVersionUsesBridgeBuildWhenBundled(t *testing.T) {
 	t.Cleanup(func() { desktopExecutable = previous })
 	available, own := s.availableVersion()
 	require.Equal(t, version.Version, available)
-	require.True(t, own, "the bundled build is the bridge's own, so the app can check it")
+	require.False(t, own, "a development build reads newer indexes than the release a pin advance installs")
+	previousChannel := version.Channel
+	version.Channel = "release"
+	t.Cleanup(func() { version.Channel = previousChannel })
+	_, own = s.availableVersion()
+	require.True(t, own, "a bundled release build is the release a pin advance installs, so the app can check it")
 }
 
 func TestAvailableVersionUsesSelectedGlobalBuildOutsideBundle(t *testing.T) {
