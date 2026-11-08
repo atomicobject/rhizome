@@ -1,0 +1,60 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 0 and seed 6196614770107903244 with 1 worker on 11 cores with 7824MB heap and 64MB offheap memory [pid: 3564688] (Linux 7.2.11-14-1-ARCH aarch64, Eclipse Adoptium 25.0.5 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/rhizome-rzm-statechart-Wr4VJT/Selection.tla
+Parsing file /tmp/statechart-bmOCpR/statechart-v0fOA0/tmp-verdict-1/Naturals.tla
+Parsing file /tmp/statechart-bmOCpR/statechart-v0fOA0/tmp-verdict-1/TLC.tla
+Parsing file /tmp/statechart-bmOCpR/statechart-v0fOA0/tmp-verdict-1/Sequences.tla
+Parsing file /tmp/statechart-bmOCpR/statechart-v0fOA0/tmp-verdict-1/FiniteSets.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Selection
+Starting... (2026-11-08 13:02:02)
+Computing initial states...
+Computed 2 initial states...
+Computed 4 initial states...
+Computed 8 initial states...
+Computed 16 initial states...
+Finished computing initial states: 22 distinct states generated at 2026-11-08 13:02:03.
+Error: Invariant AppOwnedNeedsNoTrust is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ s = [ pin |-> "v48",
+  live |-> "",
+  frontend |-> "Desktop",
+  trusted |-> FALSE,
+  exe |-> "",
+  phase |-> "inspect",
+  switched |-> FALSE,
+  installed |-> FALSE,
+  offer |-> FALSE,
+  starter |-> "CLI",
+  repoRan |-> FALSE,
+  remedy |-> FALSE,
+  indexNotice |-> FALSE ]
+/\ scenario = 22
+
+State 2: <Inspect line 60, col 12 to line 62, col 32 of module Selection>
+/\ s = [ pin |-> "v48",
+  live |-> "",
+  frontend |-> "Desktop",
+  trusted |-> FALSE,
+  exe |-> "",
+  phase |-> "trust",
+  switched |-> FALSE,
+  installed |-> FALSE,
+  offer |-> FALSE,
+  starter |-> "CLI",
+  repoRan |-> FALSE,
+  remedy |-> FALSE,
+  indexNotice |-> FALSE ]
+/\ scenario = 22
+
+44 states generated, 44 distinct states found, 21 states left on queue.
+The depth of the complete state graph search is 2.
+The average outdegree of the complete state graph is 1 (minimum is 1, the maximum 1 and the 95th percentile is 1).
+Finished in 00s at (2026-11-08 13:02:03)
+

@@ -54,6 +54,10 @@ export function OpenStatus({
   onSkipSeed,
   onChooseExecutable,
   onManageInstallation,
+  upgrade,
+  upgradeCaution,
+  onUpgrade,
+  onCheckForUpdates,
 }: {
   state: OpenState;
   busy: boolean;
@@ -62,6 +66,12 @@ export function OpenStatus({
   onSkipSeed: () => void;
   onChooseExecutable: () => void;
   onManageInstallation: () => void;
+  /** The app's newer Rhizome, when the worktree's pin can move to it. */
+  upgrade?: string;
+  /** What the app could not check about that Rhizome. */
+  upgradeCaution?: string;
+  onUpgrade: (version: string) => void;
+  onCheckForUpdates: () => void;
 }) {
   const title = progress[state.step];
   const shown = useElapsedPast(state.started, QUIET_MS);
@@ -129,6 +139,19 @@ export function OpenStatus({
     );
   }
   if (state.step === "seed-error" || state.step === "error") {
+    // A pin that can never install leads with the upgrade; any other install
+    // failure may be transient, so retrying stays first.
+    const unpublished = state.code === "pinned_version_unavailable";
+    const offered = unpublished || state.code === "install_error" ? upgrade : undefined;
+    const upgradeButton = offered && (
+      <button
+        className={unpublished ? "primary" : undefined}
+        disabled={busy}
+        onClick={() => onUpgrade(offered)}
+      >
+        Update to Rhizome {offered}
+      </button>
+    );
     return (
       <div className="status-panel" role="alert">
         <h1>
@@ -138,16 +161,36 @@ export function OpenStatus({
         </h1>
         <p className="error-text">{state.message}</p>
         <p className="path">{state.worktree}</p>
+        {offered && (
+          <p className="hint">
+            Updating changes the version in .rhizome/config.yml. Commit it to share the update.
+          </p>
+        )}
+        {offered && upgradeCaution && <p className="hint">{upgradeCaution}</p>}
+        {unpublished && !offered && (
+          <p className="hint">
+            The app can’t move this pin. A newer app may include it, or choose a Rhizome executable
+            for this worktree.
+          </p>
+        )}
         <div className="actions">
-          <button className="primary" disabled={busy} onClick={onRetry}>
+          {unpublished && upgradeButton}
+          {unpublished && !offered && (
+            <button className="primary" disabled={busy} onClick={onCheckForUpdates}>
+              Check for App Updates
+            </button>
+          )}
+          {/* Retrying an unpublished pin requests the same missing release. */}
+          <button className={unpublished ? undefined : "primary"} disabled={busy} onClick={onRetry}>
             Try again
           </button>
+          {!unpublished && upgradeButton}
           {state.step === "seed-error" && (
             <button disabled={busy} onClick={onSkipSeed}>
               Start without copying
             </button>
           )}
-          {state.code === "external_executable_required" && (
+          {(state.code === "external_executable_required" || (unpublished && !offered)) && (
             <button disabled={busy} onClick={onChooseExecutable}>
               Choose executable…
             </button>

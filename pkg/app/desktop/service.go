@@ -36,12 +36,16 @@ type Service struct {
 	// availableOnce runs availableVersion at most once per bridge request.
 	availableOnce   sync.Once
 	availableCached string
-	stateDir        string
-	env             vaultconfig.Env
-	trust           repositorytrust.Store
-	ensure          func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
-	install         func(context.Context, appupdate.Options) (appupdate.Result, error)
-	ensurePinned    func(context.Context, appupdate.EnsureOptions) error
+	availableOwn    bool
+	// readsIndex checks whether the app's Rhizome can read an index when the
+	// available hook replaces discovery; nil means unchecked.
+	readsIndex   func(path string) error
+	stateDir     string
+	env          vaultconfig.Env
+	trust        repositorytrust.Store
+	ensure       func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
+	install      func(context.Context, appupdate.Options) (appupdate.Result, error)
+	ensurePinned func(context.Context, appupdate.EnsureOptions) error
 	// teamStatus reports the team session; nil uses the installed provider-access factory.
 	teamStatus func() provideraccess.TeamStatus
 }

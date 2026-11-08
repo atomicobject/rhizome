@@ -129,6 +129,7 @@ func TestFSNotifyDrainsNativeEventsAfterHubCancellation(t *testing.T) {
 	cancel()
 	backend := &fsnotifyBackend{
 		watcher: &fsnotify.Watcher{Events: make(chan fsnotify.Event), Errors: make(chan error)},
+		drop:    shouldDropBackendPath,
 		events:  make(chan BackendEvent, 1), errors: make(chan error, 1),
 	}
 	require.NoError(t, backend.Start(ctx))

@@ -2,18 +2,27 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
+	"github.com/atomicobject/rhizome/pkg/store"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 )
 
+// PinOffer compares a worktree's pin with the app's Rhizome. State is
+// "advance" (the pin can move to Available), "app-older", or "incompatible"
+// (Available is newer but cannot read the worktree's index; Reason says why).
+// Caution qualifies an advance the app could not check.
 type PinOffer struct {
 	State     string `json:"state"`
 	Pinned    string `json:"pinned"`
 	Available string `json:"available"`
+	Reason    string `json:"reason,omitempty"`
+	Caution   string `json:"caution,omitempty"`
 }
 
 type PinAdvanceResult struct {
@@ -24,12 +33,15 @@ func (s *Service) pinOffer(plan repoexec.Plan) *PinOffer {
 	if plan.Authority != "managed" || plan.SourceRoot != "" {
 		return nil
 	}
-	available := ""
+	available, readsIndex := "", s.readsIndex
 	if s.available != nil {
 		available = s.available()
 	} else {
-		s.availableOnce.Do(func() { s.availableCached = s.availableVersion() })
+		s.availableOnce.Do(func() { s.availableCached, s.availableOwn = s.availableVersion() })
 		available = s.availableCached
+		if s.availableOwn {
+			readsIndex = func(path string) error { return store.CheckReadable(context.Background(), path) }
+		}
 	}
 	order, comparable := appupdate.CompareVersions(plan.PinnedVersion, available)
 	if !comparable || order == 0 {
@@ -41,26 +53,57 @@ func (s *Service) pinOffer(plan repoexec.Plan) *PinOffer {
 	}
 	// Pins and release tags carry a leading v; release builds report their
 	// version without one.
-	return &PinOffer{State: state, Pinned: plan.PinnedVersion, Available: appupdate.NormalizeVersion(available)}
+	offer := &PinOffer{State: state, Pinned: plan.PinnedVersion, Available: appupdate.NormalizeVersion(available)}
+	if state == "advance" {
+		offer.State, offer.Reason, offer.Caution = advanceCompatibility(plan, offer.Available, readsIndex)
+	}
+	return offer
 }
 
-func (s *Service) availableVersion() string {
+// advanceCompatibility keeps the app from offering a Rhizome that loses the
+// worktree's index. The app can vouch only for its own build (readsIndex is
+// nil otherwise): that build reads the index as its runtime would, and ships
+// a credential store on every desktop platform, so sign-in carries over.
+func advanceCompatibility(plan repoexec.Plan, available string, readsIndex func(string) error) (state, reason, caution string) {
+	if readsIndex == nil {
+		return "advance", "", fmt.Sprintf("The app could not check that Rhizome %s can read this worktree's index and sign in.", available)
+	}
+	path, ok := databasePath(plan.ConfigDir)
+	if !ok {
+		return "advance", "", ""
+	}
+	err := readsIndex(path)
+	var future *migration.ErrFutureSchema
+	switch {
+	case errors.As(err, &future):
+		return "incompatible", fmt.Sprintf("Rhizome %s can't read this worktree's index, which a newer Rhizome wrote.", available), ""
+	case err != nil:
+		return "advance", "", fmt.Sprintf("The app could not check that Rhizome %s can read this worktree's index: %v", available, err)
+	}
+	return "advance", "", ""
+}
+
+// availableVersion reports the app's Rhizome version, and whether this
+// bridge's own build is that version's published release, so its index
+// support is what a pin advance installs. A development build reports the
+// last release's version while reading newer indexes, so it is unchecked.
+func (s *Service) availableVersion() (string, bool) {
 	if executable, err := desktopExecutable(); err == nil {
 		if bundled, err := bundledExecutable(executable); err == nil && bundled != "" {
-			return version.Version
+			return version.Version, !version.Development()
 		}
 	}
 	executable, err := s.globalExecutable("")
 	if err != nil || executable == "" {
-		return ""
+		return "", false
 	}
 	neutral, cleanup, err := s.neutralDir()
 	if err != nil {
-		return ""
+		return "", false
 	}
 	defer cleanup()
 	available, _ := repoexec.Version(context.Background(), executable, neutral)
-	return available
+	return available, false
 }
 
 // PinAdvance uses this bridge's updater and existing checkout trust. Runtime

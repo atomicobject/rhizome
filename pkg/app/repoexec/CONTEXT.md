@@ -9,8 +9,9 @@ macOS or Linux install location, read from the caller's environment through
 `SelectWithEnv`; `Select` reads the process, whose `RZM_DEV_APP_RZM` and
 `HOME` `main` keeps out of repository dotenv) ahead of a pin, so the Dev app and a terminal
 `rzm` run the same build. It is a development authority, but the checkout did not
-choose it, so an unpinned checkout needs no trust. A pinned one keeps the trust
-its pinned binary requires, because `init` and `update` act on the pin
+choose it, so `Plan.TrustRoot` reports none and desktop runs it without trust,
+pinned or not. CLI dispatch (`TrustRequirement`) keeps the trust a pinned
+checkout's binary requires, because `init` and `update` act on the pin
 whichever binary runs them. `update` stays on the invoking executable so it
 never replaces the app's `rzm`. Tests set `RZM_DEV_APP_RZM` empty so results do not depend on the
 machine.

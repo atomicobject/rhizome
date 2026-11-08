@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/stretchr/testify/require"
@@ -58,6 +59,34 @@ func TestInspectPinOffers(t *testing.T) {
 	}
 }
 
+// An index written by a newer Rhizome would leave the app's older Rhizome
+// "Preparing index…" forever, so the app must not offer to move the pin there;
+// a Rhizome the app cannot check is offered with a caution.
+func TestInspectOffersOnlyAPinThatCanReadTheIndex(t *testing.T) {
+	s := testService(t)
+	s.available = func() string { return "v0.51.0" }
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
+	require.NoError(t, os.WriteFile(filepath.Join(folder, ".rhizome", "db.sqlite"), nil, 0o600))
+	s.readsIndex = func(path string) error {
+		require.Equal(t, filepath.Join(folder, ".rhizome", "db.sqlite"), path)
+		return &migration.ErrFutureSchema{Domain: migration.DomainIntel, Current: 80, Supported: 78}
+	}
+	info, err := s.Inspect(folder)
+	require.NoError(t, err)
+	require.Equal(t, "incompatible", info.PinOffer.State)
+	require.Contains(t, info.PinOffer.Reason, "newer Rhizome")
+	_, err = s.Trust(folder)
+	require.NoError(t, err)
+	_, err = s.PinAdvance(context.Background(), folder)
+	code(t, err, "pin_unsupported")
+
+	s.readsIndex = nil
+	info, err = s.Inspect(folder)
+	require.NoError(t, err)
+	require.Equal(t, "advance", info.PinOffer.State)
+	require.Contains(t, info.PinOffer.Caution, "could not check")
+}
+
 func TestPinAdvanceRejectsUnmanagedAndSourceCheckouts(t *testing.T) {
 	for _, authority := range []string{"global", "external", "development", "source"} {
 		t.Run(authority, func(t *testing.T) {
@@ -89,7 +118,14 @@ func TestAvailableVersionUsesBridgeBuildWhenBundled(t *testing.T) {
 	previous := desktopExecutable
 	desktopExecutable = func() (string, error) { return executable, nil }
 	t.Cleanup(func() { desktopExecutable = previous })
-	require.Equal(t, version.Version, s.availableVersion())
+	available, own := s.availableVersion()
+	require.Equal(t, version.Version, available)
+	require.False(t, own, "a development build reads newer indexes than the release a pin advance installs")
+	previousChannel := version.Channel
+	version.Channel = "release"
+	t.Cleanup(func() { version.Channel = previousChannel })
+	_, own = s.availableVersion()
+	require.True(t, own, "a bundled release build is the release a pin advance installs, so the app can check it")
 }
 
 func TestAvailableVersionUsesSelectedGlobalBuildOutsideBundle(t *testing.T) {
@@ -98,7 +134,9 @@ func TestAvailableVersionUsesSelectedGlobalBuildOutsideBundle(t *testing.T) {
 	previous := desktopExecutable
 	desktopExecutable = os.Executable
 	t.Cleanup(func() { desktopExecutable = previous })
-	require.Equal(t, "v1.2.3", s.availableVersion())
+	available, own := s.availableVersion()
+	require.Equal(t, "v1.2.3", available)
+	require.False(t, own)
 }
 
 func TestRepositoryResponseIncludesPerWorktreePinOffers(t *testing.T) {

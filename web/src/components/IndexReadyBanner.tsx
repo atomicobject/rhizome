@@ -14,7 +14,8 @@ type IndexReadyBannerProps = {
 
 // IndexReadyBanner renders a non-blocking "Preparing index…" affordance under
 // the AppShell nav whenever `/api/v1/status` reports `indexState ===
-// "initializing"`, or the shared ontology summary reports republication.
+// "initializing"`, or the shared ontology summary reports republication. When
+// status also reports `indexError`, it shows that failure instead.
 // Startup readiness stays true during later indexing, so it cannot describe
 // whether the current index snapshot is available.
 export function IndexReadyBanner({
@@ -23,8 +24,12 @@ export function IndexReadyBanner({
   rebuilding = false,
 }: IndexReadyBannerProps = {}) {
   const controlled = status !== undefined;
-  const [fetchedState, setFetchedState] = useState<StatusResponse["indexState"] | null>(null);
-  const state = controlled ? (status?.indexState ?? null) : fetchedState;
+  const [fetched, setFetched] = useState<StatusResponse | null>(null);
+  const shown = controlled ? status : fetched;
+  const state = shown?.indexState ?? null;
+  // A startup index that failed (one this build cannot read, say) never
+  // becomes ready, so it reads as a failure, not as endless preparation.
+  const failure = state === "initializing" ? shown?.indexError : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +66,7 @@ export function IndexReadyBanner({
           appliedRefresh = ticket;
           const nextState = status.indexState ?? "ready";
 
-          if (!controlled) setFetchedState(nextState);
+          if (!controlled) setFetched(status);
           onStatusChange?.(status);
 
           if (nextState === "initializing") {
@@ -90,6 +95,19 @@ export function IndexReadyBanner({
   }, [controlled, onStatusChange, status]);
 
   if (state !== "initializing" && !rebuilding) return null;
+
+  if (failure) {
+    return (
+      <div
+        className="index-ready-banner index-ready-banner--failed"
+        role="alert"
+        data-testid="index-ready-banner"
+      >
+        <span className="index-ready-banner__label">Index unavailable</span>
+        <span className="index-ready-banner__hint">{failure}</span>
+      </div>
+    );
+  }
 
   return (
     <div

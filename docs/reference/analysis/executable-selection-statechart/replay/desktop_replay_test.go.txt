@@ -1,0 +1,93 @@
+package desktop
+
+import (
+ "context"
+ "os"
+ "path/filepath"
+ "testing"
+
+ "github.com/atomicobject/rhizome/pkg/app/repoexec"
+ appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
+ appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+ "github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+ "github.com/stretchr/testify/require"
+)
+
+func TestStatechartMissingPinNoRecovery(t *testing.T) {
+ for _, available := range []string{"v0.48.0", "v0.47.0"} {
+  t.Run(available, func(t *testing.T) {
+   s := testService(t)
+   s.available = func() string { return available }
+   folder := config(t, repoconfig.LocalRhizomeConfig{Version:"v0.48.0"})
+   _, err := s.Trust(folder)
+   require.NoError(t, err)
+   s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error { return appupdate.ErrReleaseNotFound }
+   info, err := s.Inspect(folder)
+   require.NoError(t, err)
+   require.True(t, info.PinOffer == nil || info.PinOffer.State != "advance")
+   _, err = s.Open(context.Background(), Request{Folder:folder})
+   code(t, err, "pinned_version_unavailable")
+   _, err = s.PinAdvance(context.Background(), folder)
+   code(t, err, "pin_unsupported")
+   t.Log("permanent missing-pin error, no advance action; retry requests the same absent release")
+  })
+ }
+}
+
+func TestStatechartOfferUsesOnlyVersions(t *testing.T) {
+ s := testService(t)
+ s.available = func() string { return "v0.51.0" }
+ folder := config(t, repoconfig.LocalRhizomeConfig{Version:"v0.48.0"})
+ info, err := s.Inspect(folder)
+ require.NoError(t, err)
+ require.Equal(t, &PinOffer{State:"advance", Pinned:"v0.48.0", Available:"v0.51.0"}, info.PinOffer)
+ t.Log("offer emitted without querying the index or runtime/provider capabilities")
+}
+
+func TestStatechartExternalDifferentExecutable(t *testing.T) {
+ s := testService(t)
+ folder := config(t, repoconfig.LocalRhizomeConfig{BinaryManager:"external"})
+ cli := workingScript(t, filepath.Join(t.TempDir(), "dev-rzm"))
+ app := workingScript(t, filepath.Join(s.env.HomeDir, ".local", "bin", "rzm"))
+ decision := repoexec.DecisionFor([]string{"search", "word"}, folder, cli)
+ require.NoError(t, decision.Err)
+ require.False(t, decision.Delegate)
+ require.False(t, decision.Bootstrap)
+ s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+  require.Equal(t, app, opts.Executable)
+  require.Empty(t, opts.BuildID)
+  return appruntime.EnsureResult{Spawned:true, Client:&appruntime.Client{Manifest:appruntime.InstanceManifest{HTTPURL:"http://127.0.0.1:4567"}}, Health:appruntime.Health{VaultPath:folder, PID:123, Mode:appruntime.ModeHeadless}}, nil
+ }
+ result, err := s.Open(context.Background(), Request{Folder:folder})
+ require.NoError(t, err)
+ require.True(t, result.Spawned)
+ t.Logf("same folder keeps CLI %s but desktop starts %s", cli, app)
+}
+
+func TestStatechartOpenAcceptsIndexNotReady(t *testing.T) {
+ s := testService(t)
+ folder := config(t, repoconfig.LocalRhizomeConfig{})
+ target := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
+ s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+  return appruntime.EnsureResult{Spawned:true, Client:&appruntime.Client{Manifest:appruntime.InstanceManifest{HTTPURL:"http://127.0.0.1:4567"}}, Health:appruntime.Health{VaultPath:folder, PID:123, Mode:appruntime.ModeHeadless, BuildID:opts.BuildID, Ready:false}}, nil
+ }
+ _, err := s.Open(context.Background(), Request{Folder:folder, GlobalExecutable:target})
+ require.NoError(t, err)
+ t.Log("Open returns a URL even with Ready=false and no index readiness check")
+}
+
+func TestStatechartDevAppPinStillRequiresTrust(t *testing.T) {
+ s := testService(t)
+ folder := config(t, repoconfig.LocalRhizomeConfig{Version:"v0.48.0"})
+ require.NoError(t, os.WriteFile(filepath.Join(folder,"go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0600))
+ app := workingScript(t, filepath.Join(t.TempDir(), "dev-app-rzm"))
+ s.env.LookupEnv = func(key string) (string,bool) { return app, key == repoexec.DevAppEnv }
+ info, err := s.Inspect(folder)
+ require.NoError(t, err)
+ require.Equal(t, "development", info.Authority)
+ require.Equal(t, app, info.Executable)
+ require.True(t, info.TrustRequired)
+ _, err = s.Open(context.Background(), Request{Folder:folder})
+ code(t, err, "trust_required")
+ t.Log("app-owned Dev executable is selected but a repository pin still forces checkout trust")
+}

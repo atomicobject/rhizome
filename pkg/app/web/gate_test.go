@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -162,7 +163,13 @@ func TestStatusReportsIndexState(t *testing.T) {
 	srv.runtime.EnableIndexGate()
 
 	require.Equal(t, "initializing", srv.status(context.Background()).IndexState)
+	srv.runtime.MarkIndexFailed(errors.New("index too new"))
+	status := srv.status(context.Background())
+	require.Equal(t, "initializing", status.IndexState)
+	require.Equal(t, "index too new", status.IndexError)
 
 	srv.runtime.MarkIndexReady()
-	require.Equal(t, "ready", srv.status(context.Background()).IndexState)
+	status = srv.status(context.Background())
+	require.Equal(t, "ready", status.IndexState)
+	require.Empty(t, status.IndexError)
 }

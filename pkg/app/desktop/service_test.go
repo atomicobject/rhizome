@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -30,6 +32,7 @@ func testService(t *testing.T) *Service {
 	// Selection must not depend on whether this machine has Rhizome Dev.
 	s.env.LookupEnv = func(key string) (string, bool) { return "", key == repoexec.DevAppEnv }
 	s.available = func() string { return "" }
+	s.readsIndex = func(string) error { return nil }
 	s.trust = repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
 	s.ensure = func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
 		t.Fatal("unexpected runtime start")
@@ -197,6 +200,56 @@ func TestOpenPassesExactSelectedBinaryAndBuildToRuntime(t *testing.T) {
 	}
 }
 
+func TestOpenReportsAnUnpublishedPinSeparatelyFromInstallFailures(t *testing.T) {
+	s := testService(t)
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
+	_, err := s.Trust(folder)
+	require.NoError(t, err)
+
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+		return fmt.Errorf("manifest stage failed: %w", appupdate.ErrReleaseNotFound)
+	}
+	_, err = s.Open(context.Background(), Request{Folder: folder})
+	code(t, err, "pinned_version_unavailable")
+	require.Contains(t, err.Error(), "v0.48.0")
+
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error { return errors.New("connection refused") }
+	_, err = s.Open(context.Background(), Request{Folder: folder})
+	code(t, err, "install_error")
+}
+
+// A pin at or above the app's version has no pin advance, so choosing an
+// executable for the worktree is its way out. The choice applies only once
+// the pin's release is known to be missing, and may be a shim, so Open does
+// not compare build identities.
+func TestOpenUsesTheWorktreeChoiceInsteadOfAnUnpublishedPin(t *testing.T) {
+	s := testService(t)
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
+	_, err := s.Trust(folder)
+	require.NoError(t, err)
+	chosen := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
+	pinned := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+		workingScript(t, pinned)
+		return nil
+	}
+	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless, BuildID: opts.BuildID, Version: opts.Executable}}, nil
+	}
+	result, err := s.Open(context.Background(), Request{Folder: folder, Executable: chosen})
+	require.NoError(t, err)
+	require.Equal(t, pinned, result.Version, "an installable pin wins over a saved choice")
+
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error { return appupdate.ErrReleaseNotFound }
+	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		require.Equal(t, chosen, opts.Executable)
+		require.Empty(t, opts.BuildID, "a chosen executable may be a shim")
+		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless, BuildID: "the-real-binary"}}, nil
+	}
+	_, err = s.Open(context.Background(), Request{Folder: folder, Executable: chosen})
+	require.NoError(t, err)
+}
+
 func TestOpenRejectsUnsupportedBuildBeforeSpawn(t *testing.T) {
 	s := testService(t)
 	folder := config(t, repoconfig.LocalRhizomeConfig{})
@@ -222,10 +275,17 @@ func TestExternalAttachesVerifiedRuntimeWithoutExecutable(t *testing.T) {
 	require.Equal(t, server.URL, result.URL)
 	require.False(t, result.Spawned)
 	// A runtime serving another folder is not this folder's runtime, so Open
-	// needs an executable to start one instead of attaching.
+	// starts one with the app's global executable instead of attaching.
 	health.VaultPath = t.TempDir()
-	_, err = s.Open(context.Background(), Request{Folder: folder})
-	code(t, err, "external_executable_required")
+	global := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
+	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		require.Equal(t, global, opts.Executable)
+		require.Empty(t, opts.BuildID)
+		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless}}, nil
+	}
+	result, err = s.Open(context.Background(), Request{Folder: folder, GlobalExecutable: global})
+	require.NoError(t, err)
+	require.True(t, result.Spawned)
 }
 
 func TestOpenRejectsRemoteAndForeignManifestsBeforeProbe(t *testing.T) {
@@ -300,7 +360,7 @@ func TestInspectSelectsTheDevAppFromTheInvocationEnvironment(t *testing.T) {
 	for _, tc := range []struct {
 		pin   string
 		trust bool
-	}{{"", false}, {"v1.0.0", true}} {
+	}{{"", false}, {"v1.0.0", false}} {
 		folder := config(t, repoconfig.LocalRhizomeConfig{Version: tc.pin})
 		require.NoError(t, os.WriteFile(filepath.Join(folder, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
 
@@ -308,6 +368,22 @@ func TestInspectSelectsTheDevAppFromTheInvocationEnvironment(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "development", info.Authority)
 		require.Equal(t, devApp, info.Executable)
-		require.Equal(t, tc.trust, info.TrustRequired, "only a pin, which the checkout chose, needs trust; pin %q", tc.pin)
+		require.Equal(t, tc.trust, info.TrustRequired, "the app-owned Dev build needs no trust, even beside a pin; pin %q", tc.pin)
 	}
+}
+
+// Desktop runs only serve, scope, and seeding with the Dev app's rzm, none of
+// which act on the pin, so a pinned source checkout opens without trust.
+func TestOpenRunsTheDevAppInAPinnedCheckoutWithoutTrust(t *testing.T) {
+	s := testService(t)
+	devApp := workingScript(t, filepath.Join(t.TempDir(), "dev-app-rzm"))
+	s.env.LookupEnv = func(key string) (string, bool) { return devApp, key == repoexec.DevAppEnv }
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
+	require.NoError(t, os.WriteFile(filepath.Join(folder, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o600))
+	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		require.Equal(t, devApp, opts.Executable)
+		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless, BuildID: opts.BuildID}}, nil
+	}
+	_, err := s.Open(context.Background(), Request{Folder: folder})
+	require.NoError(t, err)
 }

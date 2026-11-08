@@ -1001,6 +1001,8 @@ export interface components {
        * @enum {string}
        */
       indexState: "initializing" | "ready";
+      /** @description Why the startup index failed, set while `indexState` is `initializing` and no index can be built (for example, an index written by a newer Rhizome). Cleared once a later index opens the gate. */
+      indexError?: string;
       live?: components["schemas"]["LiveHealth"];
     };
     LiveHealth: {

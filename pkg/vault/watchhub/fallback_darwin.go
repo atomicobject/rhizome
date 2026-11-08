@@ -48,7 +48,7 @@ func (h *Hub) fallbackToFSNotify(prev Backend, reason error) bool {
 		h.logger.Printf("watchhub: skipping fsnotify fallback (%s): %v", msg, reason)
 		return false
 	}
-	fallback, err := newFSNotifyBackend(h.eventBuffer)
+	fallback, err := newFSNotifyBackend(h.eventBuffer, h.dropsAtIngress)
 	if err != nil {
 		h.logger.Printf("watchhub: fsnotify fallback failed: %v", err)
 		return false

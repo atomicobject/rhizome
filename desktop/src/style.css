@@ -366,7 +366,7 @@ html[data-platform="linux"] .toolbar-start {
     display: block;
   }
   html[data-platform="linux"] .toolbar-pill {
-    max-width: 110px;
+    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
   }

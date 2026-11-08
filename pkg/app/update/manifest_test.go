@@ -1,6 +1,7 @@
 package update
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -61,6 +62,25 @@ func TestFetchVersionManifestUsesTagEndpointAndAllowsMatchingPrerelease(t *testi
 
 	require.NoError(t, err)
 	require.Equal(t, "v0.40.0-rc.1", manifest.Version)
+}
+
+func TestFetchVersionManifestMarksOnlyAMissingReleaseAsNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/releases/tags/v0.48.0" {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := FetchVersionManifest(server.Client(), server.URL+"/releases/latest", "v0.48.0")
+	require.ErrorIs(t, err, ErrReleaseNotFound)
+	require.ErrorContains(t, err, "404 Not Found")
+
+	_, err = FetchVersionManifest(server.Client(), server.URL+"/releases/latest", "v0.49.0")
+	require.Error(t, err)
+	require.False(t, errors.Is(err, ErrReleaseNotFound), "a server failure is retryable, not a missing release")
 }
 
 func TestFetchReleaseRejectsUnsafeOrIncompleteMetadata(t *testing.T) {

@@ -368,6 +368,11 @@ export function App() {
       setLibrary(
         await request("set-executable", { id: repository.id, worktree: path, executable }),
       );
+      // A chosen executable may be a shim, so Open skips the build check and
+      // would reuse a running runtime; replace it to run the new choice.
+      if (runtimes[path]?.state === "running") {
+        await request("restart", { id: repository.id, worktree: path });
+      }
       if (target.current.worktree === path) await openWorktree(repository.id, path);
     });
   }
@@ -400,6 +405,52 @@ export function App() {
     });
   }
 
+  /** Moves the worktree's pin to the app's Rhizome, then reopens it. */
+  function advancePin(repository: Repository, path: string, version: string) {
+    void perform(`Updating pin to ${version}…`, async () => {
+      await request("pin-advance", { id: repository.id, worktree: path });
+      await discover(repository);
+      setNotice(`Pinned Rhizome ${version}. Commit .rhizome/config.yml to share it.`);
+      // Reopen on the new pin only if the user is still on this worktree.
+      if (target.current.worktree === path) await openWorktree(repository.id, path);
+    });
+  }
+
+  function checkForAppUpdates() {
+    void perform("Checking for updates…", async () =>
+      setUpdate(await request("check-for-updates", {})),
+    );
+  }
+
+  /** Says which `rzm` serves an externally managed worktree, and why. */
+  function externalMenu(anchor: HTMLElement) {
+    if (!selected || !worktree) return;
+    const repository = selected;
+    const path = worktree.path;
+    const running = runtimes[path]?.executable;
+    popup(
+      [
+        { label: "This worktree's binary manager is external.", disabled: true },
+        {
+          label: running ? `Running ${running}` : "No Rhizome is running for it.",
+          disabled: true,
+        },
+        {
+          label: repository.executables?.[path]
+            ? "The app opens it with the executable you chose."
+            : "Without a running Rhizome, the app opens it with its global Rhizome,",
+          disabled: true,
+        },
+        ...(repository.executables?.[path]
+          ? []
+          : [{ label: "which can differ from the rzm your terminal runs.", disabled: true }]),
+        { separator: true },
+        { label: "Choose Executable…", run: () => chooseExecutable(repository, path) },
+      ],
+      anchor,
+    );
+  }
+
   /** Offers to move the worktree's pin to the app's Rhizome; see SPEC-0122 US4. */
   function pinMenu(anchor: HTMLElement) {
     const offer = worktree?.pinOffer;
@@ -415,17 +466,17 @@ export function App() {
           );
         }),
     };
-    if (offer.state === "app-older") {
+    if (offer.state !== "advance") {
       popup(
         [
-          { label: `This repository pins Rhizome ${offer.pinned}`, disabled: true },
           {
-            label: "Check for App Updates",
-            run: () =>
-              void perform("Checking for updates…", async () =>
-                setUpdate(await request("check-for-updates", {})),
-              ),
+            label:
+              offer.state === "incompatible"
+                ? (offer.reason ?? `Rhizome ${offer.available} can't read this worktree's index`)
+                : `This repository pins Rhizome ${offer.pinned}`,
+            disabled: true,
           },
+          { label: "Check for App Updates", run: checkForAppUpdates },
           dismiss,
         ],
         anchor,
@@ -436,20 +487,12 @@ export function App() {
       [
         {
           label: `Update Pin to ${offer.available}`,
-          run: () =>
-            void perform(`Updating pin to ${offer.available}…`, async () => {
-              await request("pin-advance", { id: repository.id, worktree: path });
-              await discover(repository);
-              setNotice(
-                `Pinned Rhizome ${offer.available}. Commit .rhizome/config.yml to share it.`,
-              );
-              // Reopen on the new pin only if the user is still on this worktree.
-              if (target.current.worktree === path) await openWorktree(repository.id, path);
-            }),
+          run: () => advancePin(repository, path, offer.available),
         },
         dismiss,
         { separator: true },
         { label: `Changes .rhizome/config.yml from ${offer.pinned}`, disabled: true },
+        ...(offer.caution ? [{ label: offer.caution, disabled: true }] : []),
       ],
       anchor,
     );
@@ -707,11 +750,7 @@ export function App() {
                 ),
             )
           }
-          onCheckUpdates={() =>
-            void perform("Checking for updates…", async () =>
-              setUpdate(await request("check-for-updates", {})),
-            )
-          }
+          onCheckUpdates={checkForAppUpdates}
           onInstallUpdate={installUpdate}
           onSelect={(executable) =>
             void perform("Saving executable…", async () => {
@@ -809,6 +848,14 @@ export function App() {
         }
         onChooseExecutable={() => selected && chooseExecutable(selected, open.worktree)}
         onManageInstallation={openSettings}
+        upgrade={
+          worktree?.path === open.worktree && worktree.pinOffer?.state === "advance"
+            ? worktree.pinOffer.available
+            : undefined
+        }
+        upgradeCaution={worktree?.path === open.worktree ? worktree.pinOffer?.caution : undefined}
+        onUpgrade={(version) => selected && advancePin(selected, open.worktree, version)}
+        onCheckForUpdates={checkForAppUpdates}
       />
     );
   }
@@ -882,13 +929,31 @@ export function App() {
                 title={
                   worktree.pinOffer.state === "advance"
                     ? `This worktree pins Rhizome ${worktree.pinOffer.pinned}; the app has ${worktree.pinOffer.available}.`
-                    : `This worktree pins Rhizome ${worktree.pinOffer.pinned}, newer than the app's ${worktree.pinOffer.available}.`
+                    : worktree.pinOffer.state === "incompatible"
+                      ? worktree.pinOffer.reason
+                      : `This worktree pins Rhizome ${worktree.pinOffer.pinned}, newer than the app's ${worktree.pinOffer.available}.`
                 }
                 onClick={(e) => pinMenu(e.currentTarget)}
               >
                 {worktree.pinOffer.state === "advance"
-                  ? `Rhizome ${worktree.pinOffer.available} available`
-                  : `Needs Rhizome ${worktree.pinOffer.pinned}`}
+                  ? `Update to ${worktree.pinOffer.available}`
+                  : worktree.pinOffer.state === "incompatible"
+                    ? "Needs newer app"
+                    : `Needs ${worktree.pinOffer.pinned}`}
+              </button>
+            )}
+            {worktree?.authority === "external" && (
+              <button
+                className="toolbar-pill"
+                aria-haspopup="menu"
+                title={
+                  runtimes[worktree.path]?.executable
+                    ? `Running ${runtimes[worktree.path]?.executable}`
+                    : "This worktree's binary manager is external."
+                }
+                onClick={(e) => externalMenu(e.currentTarget)}
+              >
+                External rzm
               </button>
             )}
           </div>

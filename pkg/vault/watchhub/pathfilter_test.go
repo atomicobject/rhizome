@@ -1,6 +1,9 @@
 package watchhub
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestIsNoisyInternalPath(t *testing.T) {
 	cases := []struct {
@@ -79,5 +82,37 @@ func TestShouldDropVaultRelPath(t *testing.T) {
 		if got != tc.want {
 			t.Fatalf("shouldDropVaultRelPath(%q) = %v, want %v", tc.path, got, tc.want)
 		}
+	}
+}
+
+// The index database lives in the vault's .rhizome folder. Its writes must not
+// reach the backend buffer, or a large index run overflows it and forces a
+// full resync; config, ignore rules, ontology schemas, and a vault that itself
+// sits under some other .rhizome folder must still get through.
+func TestHubDropsGeneratedRhizomeStateAtIngress(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, ".rhizome", "worktrees", "repo")
+	hub, err := NewHub(root, Options{DisableFSNotify: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]bool{
+		".rhizome/db.sqlite":                      true,
+		".rhizome/db.sqlite-wal":                  true,
+		".rhizome/user-state.sqlite-shm":          true,
+		".rhizome/diagnostics/runtime-output.log": true,
+		".rhizome/config.yml":                     false,
+		".rhizome/ignore":                         false,
+		".rhizome/ontology/schema.graphql":        false,
+		"pkg/main.go":                             false,
+		"notes/project.md":                        false,
+	}
+	for rel, want := range cases {
+		if got := hub.dropsAtIngress(filepath.Join(root, filepath.FromSlash(rel))); got != want {
+			t.Errorf("dropsAtIngress(%q) = %v, want %v", rel, got, want)
+		}
+	}
+	if hub.dropsAtIngress(filepath.Join(parent, "elsewhere", "note.md")) {
+		t.Error("a path outside the vault must reach the hub")
 	}
 }

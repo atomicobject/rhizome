@@ -88,9 +88,9 @@ func TestPinnedSourceCheckoutKeepsItsTrustWhenTheDevAppRuns(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, devApp, plan.Target, "the Dev app outranks a pin in a source checkout")
 	require.Equal(t, "v1.2.3", plan.PinnedVersion)
-	require.Equal(t, root, plan.TrustRoot())
-	// init and update act on the pin whichever binary runs them, including
-	// the Dev app's own rzm.
+	require.Empty(t, plan.TrustRoot(), "running the app-owned Dev build needs no trust")
+	// On the command line, init and update act on the pin whichever binary
+	// runs them, including the Dev app's own rzm, so dispatch keeps trust.
 	for _, exe := range []string{release, devApp} {
 		for _, args := range [][]string{{"init"}, {"update", "--pinned"}, {"search", "x"}} {
 			checkout, required, err := TrustRequirement(args, root, exe)

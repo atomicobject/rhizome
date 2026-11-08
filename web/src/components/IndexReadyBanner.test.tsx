@@ -137,6 +137,22 @@ describe("IndexReadyBanner", () => {
     await waitFor(() => expect(screen.queryByTestId("index-ready-banner")).toBeNull());
   });
 
+  it("shows a startup index failure instead of endless preparation", async () => {
+    http.on("GET", "/api/v1/status", () =>
+      jsonReply({
+        ...makeStatus("initializing"),
+        indexError: "database newer than this rhizome build",
+      }),
+    );
+
+    render(<IndexReadyBanner />);
+
+    const banner = await screen.findByRole("alert");
+    expect(banner.textContent).toContain("Index unavailable");
+    expect(banner.textContent).toContain("database newer than this rhizome build");
+    expect(screen.queryByText("Preparing index…")).toBeNull();
+  });
+
   it("closes the EventSource when the component unmounts", async () => {
     statusReplies("initializing");
 

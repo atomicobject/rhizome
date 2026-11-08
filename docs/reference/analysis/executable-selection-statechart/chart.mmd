@@ -1,0 +1,105 @@
+---
+title: "Which Rhizome runs for this folder?"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: selection
+    lg1: decision
+    lg2: running
+    lg3: startup
+    lg4: Breaks ActionableError or AppOwnedNeedsNoTrust or IndexCompatibilityVisible or NoEndlessPreparing or OfferPreservesIndex or OfferPreservesSignin or SameExecutableOrExplained
+    lg5: Path to the ActionableError or AppOwnedNeedsNoTrust or IndexCompatibilityVisible or NoEndlessPreparing or OfferPreservesIndex or OfferPreservesSignin or SameExecutableOrExplained bug
+  }
+  class lg0 blue
+  class lg1 orange
+  class lg2 teal
+  class lg3 purple
+  class lg4 breaks
+  class lg5 bugPath
+  s0: Choose a configured folder
+  s1: Resolve executable authority
+  s2: Confirm checkout trust
+  s3: App-owned Dev build still asks for trust
+  s4: Executable selected
+  s5: Choose an external executable
+  s6: Attach to an existing runtime
+  s7: Prepare the managed pin
+  s8: Start selected runtime
+  s9: Listener is live#59; index readiness pending
+  s10: Replace a different headless build
+  s11: Pin missing#59; only retry is offered
+  s12: Advance offered#59; index and sign-in incompatible
+  s13: Advance offered#59; sign-in will be lost
+  s14: Stop the attached runtime first
+  s15: Folder is usable
+  s16: Desktop silently differs from terminal
+  s17: Preparing index stays on screen
+  s18: Runtime opens#59; team provider unavailable
+  [*] --> s0
+  s0 --> s1: inspect without running repository code
+  s0 --> s2: inspect without running repository code
+  s0 --> s3: inspect without running repository code
+  s1 --> s4: select external, development, cached pin, or global
+  s1 --> s5: external has no executable or live runtime
+  s1 --> s6: external uses a verified live runtime
+  s2 --> s1: you trust this checkout
+  s3 --> s1: you trust this checkout
+  s1 --> s7: use managed pin [cache missing]
+  s4 --> s8: probe version and headless support#59; ensure runtime
+  s5 --> s4: you choose the development executable
+  s4 --> s6: probe version and headless support#59; ensure runtime
+  s6 --> s9: verify identity and use the live runtime
+  s4 --> s10: probe version and headless support#59; ensure runtime
+  s7 --> s12: fetch exact release [not cached]
+  s7 --> s13: fetch exact release [not cached]
+  s7 --> s11: fetch exact release [not cached]
+  s7 --> s4: fetch exact release [not cached]
+  s4 --> s14: probe version and headless support#59; ensure runtime
+  s8 --> s9: start the selected executable
+  s9 --> s15: index or provider initialization finishes
+  s10 --> s8: stop the old headless runtime
+  s12 --> s4: you advance pin to the app version
+  s13 --> s4: you advance pin to the app version
+  s14 --> s8: you stop it and reopen
+  s15 --> s1: you open the same folder from the other front end
+  s9 --> s16: index or provider initialization finishes
+  s9 --> s17: index or provider initialization finishes
+  s9 --> s18: index or provider initialization finishes
+  s16 --> s1: you open the same folder from the other front end
+  classDef breaks fill:#ffecee,stroke:#e72e3b,stroke-width:2.5px,color:#cd2834
+  class s0 blue
+  class s0 bugPath
+  class s1 blue
+  class s1 bugPath
+  class s2 blue
+  class s3 blue
+  class s3 breaks
+  class s3 bugPath
+  class s4 purple
+  class s4 bugPath
+  class s5 orange
+  class s6 purple
+  class s7 purple
+  class s7 bugPath
+  class s8 purple
+  class s8 bugPath
+  class s9 purple
+  class s9 bugPath
+  class s10 purple
+  class s11 orange
+  class s11 breaks
+  class s11 bugPath
+  class s12 orange
+  class s12 breaks
+  class s12 bugPath
+  class s13 orange
+  class s13 breaks
+  class s14 orange
+  class s15 teal
+  class s16 teal
+  class s16 breaks
+  class s16 bugPath
+  class s17 purple
+  class s17 breaks
+  class s17 bugPath
+  class s18 teal

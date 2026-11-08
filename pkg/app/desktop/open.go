@@ -47,7 +47,6 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 		if !errors.Is(err, appruntime.ErrNoRuntime) {
 			return OpenResult{}, err
 		}
-		return OpenResult{}, problem("external_executable_required", "Choose the Rhizome executable provided by this folder's external binary manager.")
 	}
 	target, err := s.prepare(ctx, info, plan, req)
 	if err != nil {
@@ -61,8 +60,10 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 	if err != nil || !strings.Contains(help, "--headless") {
 		return OpenResult{}, problem("runtime_error", "This Rhizome version does not support desktop runtimes. Update the folder's selected Rhizome version to one with `serve --headless`, or select a current development build.")
 	}
+	// An executable the user or an external manager chose may be a shim, whose
+	// file identity is not the running binary's build.
 	build := appruntime.BuildID(version, target)
-	if plan.Authority == "external" {
+	if plan.Authority == "external" || target == req.Executable {
 		build = ""
 	}
 	result, err := s.ensure(ctx, appruntime.EnsureOptions{VaultPath: info.Path, Executable: target, BuildID: build, Replace: req.Restart, Autostart: true, Wait: true})
@@ -80,12 +81,31 @@ func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Pl
 	switch plan.Authority {
 	case "managed":
 		if err := s.ensurePinned(vaultconfig.WithEnv(ctx, s.env), appupdate.EnsureOptions{CfgDir: plan.ConfigDir, Config: plan.Config}); err != nil {
+			// A pin whose release is gone never installs, so the app offers
+			// to move the pin, or runs the executable the user chose for
+			// this worktree, rather than retrying.
+			if errors.Is(err, appupdate.ErrReleaseNotFound) {
+				if req.Executable != "" {
+					target = req.Executable
+					break
+				}
+				return "", problem("pinned_version_unavailable", fmt.Sprintf("This worktree pins Rhizome %s, which is no longer published.", plan.PinnedVersion))
+			}
 			return "", problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
 		}
 	case "external":
+		// External ownership means "run the rzm that was invoked", as on the
+		// command line; for the app that is its global executable unless the
+		// user chose one for this worktree.
 		target = req.Executable
 		if target == "" {
-			return "", problem("external_executable_required", "Choose this folder's externally managed Rhizome executable.")
+			var err error
+			if target, err = s.globalExecutable(req.GlobalExecutable); err != nil {
+				return "", err
+			}
+		}
+		if target == "" {
+			return "", problem("external_executable_required", "Choose the Rhizome executable provided by this folder's external binary manager.")
 		}
 	case "global":
 		var err error

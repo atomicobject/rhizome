@@ -2,6 +2,6 @@
 
 package watchhub
 
-func newBackend(eventBuffer int) (Backend, error) {
-	return newFSNotifyBackend(eventBuffer)
+func newBackend(eventBuffer int, drop func(string) bool) (Backend, error) {
+	return newFSNotifyBackend(eventBuffer, drop)
 }
