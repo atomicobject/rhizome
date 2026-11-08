@@ -50,7 +50,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   owner, as during `rzm start` replacing a headless runtime) is starting, so
   the app never starts a competitor. Foreign or non-loopback manifests are
   stopped with an error and no origin. Results never contain control tokens.
-- `repoexec.Select` determines executable authority. Trust precedes every
+- `repoexec.Select` determines executable authority, and `repoexec.Resolve`
+  completes it into the target, trust root, pin install, and build rule that
+  Open, Seed, Setup, and Scope act on. Trust precedes every
   repository-selected probe, download, and start. The Rhizome Dev app's `rzm`
   is app-owned, so selecting it needs no trust even in a pinned source
   checkout: desktop runs only serve, scope, and seeding with it, none of which

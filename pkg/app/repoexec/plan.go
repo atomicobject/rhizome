@@ -3,7 +3,6 @@ package repoexec
 import (
 	"errors"
 	"os"
-	"path/filepath"
 
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
@@ -13,19 +12,21 @@ import (
 // Plan is an inert selection of the executable authority for a checkout.
 // Resolving it never probes executables, installs files, or grants trust.
 type Plan struct {
-	Authority             string
-	Target                string
-	ConfigDir             string
-	Config                *repoconfig.LocalConfig
-	PinnedVersion         string
+	Authority     string
+	Target        string
+	ConfigDir     string
+	Config        *repoconfig.LocalConfig
+	PinnedVersion string
+	// PinTarget is the pinned binary's path whenever the checkout pins a
+	// version, including when the Dev app's rzm runs instead.
+	PinTarget             string
 	SourceRoot            string
 	PreferDevelopment     bool
 	ConfiguredDevelopment bool
 	// DevApp marks a development Target that is an installed Rhizome Dev
 	// app's rzm. The repository did not choose that binary, so running it
-	// needs no checkout trust. CLI dispatch still asks for trust in a pinned
-	// checkout (see TrustRequirement), because commands such as init and
-	// update act on the pin whichever binary runs them.
+	// needs no checkout trust, unless the caller acts on the pin (see
+	// Caller.ActsOnPin).
 	DevApp bool
 }
 
@@ -90,7 +91,7 @@ func SelectWithEnv(env vaultconfig.Env, cwd, fallback string) (Plan, error) {
 			return p, err
 		}
 		if invocation.RepoPinned {
-			p.PinnedVersion = invocation.RepoPinVersion
+			p.PinnedVersion, p.PinTarget = invocation.RepoPinVersion, invocation.RepoTargetPath
 			if !p.DevApp {
 				p.Authority, p.Target = "managed", invocation.RepoTargetPath
 			}
@@ -99,9 +100,9 @@ func SelectWithEnv(env vaultconfig.Env, cwd, fallback string) (Plan, error) {
 	return p, nil
 }
 
-// TrustRoot identifies the checkout authorizing repository-selected code. The
+// trustRoot identifies the checkout authorizing repository-selected code. The
 // Dev app's rzm is app-owned, so a plan that runs it has none.
-func (p Plan) TrustRoot() string {
+func (p Plan) trustRoot() string {
 	if p.Authority != "managed" && p.Authority != "development" || p.DevApp {
 		return ""
 	}
@@ -110,5 +111,3 @@ func (p Plan) TrustRoot() string {
 	}
 	return p.SourceRoot
 }
-
-func absoluteExecutable(path string) (string, error) { return filepath.Abs(path) }

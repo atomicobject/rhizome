@@ -9,22 +9,33 @@ macOS or Linux install location, read from the caller's environment through
 `SelectWithEnv`; `Select` reads the process, whose `RZM_DEV_APP_RZM` and
 `HOME` `main` keeps out of repository dotenv) ahead of a pin, so the Dev app and a terminal
 `rzm` run the same build. It is a development authority, but the checkout did not
-choose it, so `Plan.TrustRoot` reports none and desktop runs it without trust,
-pinned or not. CLI dispatch (`TrustRequirement`) keeps the trust a pinned
-checkout's binary requires, because `init` and `update` act on the pin
-whichever binary runs them. `update` stays on the invoking executable so it
+choose it, so it needs no trust, pinned or not, unless the caller acts on the
+pin. CLI dispatch does (`init` and `update` act on the pin whichever binary
+runs them), so `TrustRequirement` keeps the trust a pinned checkout's binary
+requires. `update` stays on the invoking executable so it
 never replaces the app's `rzm`. Tests set `RZM_DEV_APP_RZM` empty so results do not depend on the
 machine.
 
+`Resolve` completes a plan for a `Caller` into the one `Execution` both front
+ends act on: the exact target and why, whether it is the caller's own
+executable (the invoked `rzm`, or the app's global one), the trust root, a
+managed pin to install first, the user's choice as that pin's fallback once
+its release is missing, and whether the target's file identity is its build
+(not for an external manager's executable or the user's choice, which may be
+shims). A caller with `ActsOnPin` covers the pinned binary's trust even when
+the Dev app's `rzm` runs; a caller already running the selected binary needs
+no trust. Trust is decided only there.
+
 `TrustRequirement` identifies whether CLI dispatch needs canonical-checkout
-trust. When it needs none, dispatch and hooks do not resolve a
+trust, from `Resolve` with `ActsOnPin`. When it needs none, dispatch and hooks do not resolve a
 repository build again; `DevAppHandoff` returns only a Dev app target, which
 the checkout cannot choose. `DecisionFor` applies command-specific control-plane exceptions and
 checks managed installations only after the caller has established trust.
 `Bootstrap` calls the existing checksum-verified pinned installer.
 
 The CLI owns prompting and process handoff in `cmd/repo_delegate*.go`. Desktop
-owns its explicit trust interaction and uses `Select` directly. Informational
+owns its explicit trust interaction and resolves `Select`'s plan with
+`Resolve`, supplying its global executable and the worktree's chosen one. Informational
 probes are bounded and disable both re-delegation guards; callers supply their
 working directory so an external manager's shim resolves the selected folder.
 Probes run without a Windows console window; this does not detach them or change

@@ -40,7 +40,7 @@ func TestSelectRunsTheDevAppInASourceCheckoutWithoutItsOwnBuild(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "development", plan.Authority)
 	require.Equal(t, devApp, plan.Target)
-	require.Empty(t, plan.TrustRoot(), "the checkout did not choose the Dev app, so it needs no trust")
+	require.Empty(t, plan.trustRoot(), "the checkout did not choose the Dev app, so it needs no trust")
 	for _, args := range [][]string{{"search", "x"}, {"update"}, {"init"}} {
 		_, required, err := TrustRequirement(args, root, release)
 		require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestSelectRunsTheDevAppInASourceCheckoutWithoutItsOwnBuild(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, build, plan.Target, "the checkout's own build outranks the Dev app")
 	require.False(t, plan.DevApp)
-	require.Equal(t, root, plan.TrustRoot(), "the checkout's own build still needs trust")
+	require.Equal(t, root, plan.trustRoot(), "the checkout's own build still needs trust")
 
 	plain := paths.ResolveSymlinks(t.TempDir()).String()
 	require.NoError(t, os.MkdirAll(filepath.Join(plain, ".rhizome"), 0o755))
@@ -88,7 +88,7 @@ func TestPinnedSourceCheckoutKeepsItsTrustWhenTheDevAppRuns(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, devApp, plan.Target, "the Dev app outranks a pin in a source checkout")
 	require.Equal(t, "v1.2.3", plan.PinnedVersion)
-	require.Empty(t, plan.TrustRoot(), "running the app-owned Dev build needs no trust")
+	require.Empty(t, plan.trustRoot(), "running the app-owned Dev build needs no trust")
 	// On the command line, init and update act on the pin whichever binary
 	// runs them, including the Dev app's own rzm, so dispatch keeps trust.
 	for _, exe := range []string{release, devApp} {

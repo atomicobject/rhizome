@@ -86,10 +86,11 @@ func (s *Service) setupTarget(ctx context.Context, req Request, configured bool)
 	if info.TrustRequired {
 		return info, "", problem("trust_required", "Confirm trust before running this folder's selected Rhizome executable.")
 	}
-	target, err := s.prepare(ctx, info, plan, req)
+	ex, err := s.prepare(ctx, info, plan, req)
 	if err != nil {
 		return info, "", err
 	}
+	target := ex.Target
 	probe, flag := []string{"init", "--help"}, "--search-key-stdin"
 	if configured {
 		probe, flag = []string{"index", "scope", "--help"}, "--remove-rule"
