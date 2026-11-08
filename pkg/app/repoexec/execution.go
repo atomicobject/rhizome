@@ -1,7 +1,5 @@
 package repoexec
 
-import "path/filepath"
-
 // Caller describes the front end asking which rzm runs for a checkout.
 type Caller struct {
 	// Executable is the rzm the caller runs when the repository selects none:
@@ -69,7 +67,7 @@ func Resolve(plan Plan, caller Caller) Execution {
 	}
 	trust := plan.trustPlan(caller.ActsOnPin)
 	e.TrustRoot = trust.trustRoot()
-	if e.TrustRoot != "" && caller.Executable != "" && sameAbsExecutable(trust.Target, caller.Executable) {
+	if e.TrustRoot != "" && caller.Executable != "" && SameExecutablePath(trust.Target, caller.Executable) {
 		// The caller already runs the selected binary; nothing new runs.
 		e.TrustRoot = ""
 	}
@@ -83,16 +81,4 @@ func (p Plan) trustPlan(actsOnPin bool) Plan {
 		p.Authority, p.Target, p.DevApp = "managed", p.PinTarget, false
 	}
 	return p
-}
-
-func sameAbsExecutable(a, b string) bool {
-	aAbs, err := filepath.Abs(a)
-	if err != nil {
-		return false
-	}
-	bAbs, err := filepath.Abs(b)
-	if err != nil {
-		return false
-	}
-	return SameExecutablePath(aAbs, bAbs)
 }
