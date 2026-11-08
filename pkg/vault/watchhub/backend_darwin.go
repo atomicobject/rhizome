@@ -15,6 +15,7 @@ import (
 
 type fseventsBackend struct {
 	stream        *fsevents.EventStream
+	drop          func(string) bool
 	events        chan BackendEvent
 	errors        chan error
 	paths         map[string]struct{}
@@ -30,11 +31,12 @@ type fseventsBackend struct {
 	startedMu     sync.RWMutex
 }
 
-func newFSEventsBackend(eventBuffer int) (Backend, error) {
+func newFSEventsBackend(eventBuffer int, drop func(string) bool) (Backend, error) {
 	if eventBuffer <= 0 {
 		eventBuffer = defaultBackendEventBuffer
 	}
 	return &fseventsBackend{
+		drop:          drop,
 		events:        make(chan BackendEvent, eventBuffer),
 		errors:        make(chan error, 16),
 		paths:         make(map[string]struct{}),
@@ -42,8 +44,8 @@ func newFSEventsBackend(eventBuffer int) (Backend, error) {
 	}, nil
 }
 
-func newBackend(eventBuffer int) (Backend, error) {
-	return newFSEventsBackend(eventBuffer)
+func newBackend(eventBuffer int, drop func(string) bool) (Backend, error) {
+	return newFSEventsBackend(eventBuffer, drop)
 }
 
 func (b *fseventsBackend) Start(ctx context.Context) error {
@@ -105,8 +107,9 @@ func (b *fseventsBackend) loop() {
 				continue
 			}
 			for _, ev := range batch {
-				// Filter out internal high-churn paths at backend ingress.
-				if shouldDropBackendPath(ev.Path) {
+				// Filter out internal high-churn paths at backend ingress. A
+				// rescan still reaches the hub, which judges what it covers.
+				if shouldDropBackendPath(ev.Path) || ev.Flags&fsevents.MustScanSubDirs == 0 && b.drop(ev.Path) {
 					continue
 				}
 				bev := BackendEvent{

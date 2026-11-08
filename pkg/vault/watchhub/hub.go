@@ -193,9 +193,9 @@ func NewHub(vaultPath string, opts Options) (*Hub, error) {
 	if h.fsEnabled {
 		var backend Backend
 		if opts.ForceFSNotify {
-			backend, err = newFSNotifyBackend(buf)
+			backend, err = newFSNotifyBackend(buf, h.dropsAtIngress)
 		} else {
-			backend, err = newBackend(buf)
+			backend, err = newBackend(buf, h.dropsAtIngress)
 		}
 		if err != nil {
 			return nil, err

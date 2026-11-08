@@ -10,6 +10,7 @@ import (
 
 type fsnotifyBackend struct {
 	watcher   *fsnotify.Watcher
+	drop      func(string) bool
 	events    chan BackendEvent
 	errors    chan error
 	ctx       context.Context
@@ -20,7 +21,9 @@ type fsnotifyBackend struct {
 	closedMu  sync.RWMutex
 }
 
-func newFSNotifyBackend(eventBuffer int) (Backend, error) {
+// drop reports paths the hub would discard; filtering them before the bounded
+// buffer keeps Rhizome's own index writes from overflowing it.
+func newFSNotifyBackend(eventBuffer int, drop func(string) bool) (Backend, error) {
 	if eventBuffer <= 0 {
 		eventBuffer = defaultBackendEventBuffer
 	}
@@ -30,6 +33,7 @@ func newFSNotifyBackend(eventBuffer int) (Backend, error) {
 	}
 	return &fsnotifyBackend{
 		watcher: w,
+		drop:    drop,
 		events:  make(chan BackendEvent, eventBuffer),
 		errors:  make(chan error, 16),
 	}, nil
@@ -67,7 +71,7 @@ func (b *fsnotifyBackend) loop() {
 				return
 			}
 			// Filter out internal high-churn paths at backend ingress.
-			if shouldDropBackendPath(ev.Name) {
+			if b.drop(ev.Name) {
 				continue
 			}
 			select {

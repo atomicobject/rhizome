@@ -38,6 +38,17 @@ func shouldDropBackendPath(path string) bool {
 	return false
 }
 
+// dropsAtIngress applies the hub's hard drops to a backend's absolute path, so
+// generated .rhizome state such as the index database never occupies the
+// backend's bounded buffer. Backends call it from their own goroutine.
+func (h *Hub) dropsAtIngress(abs string) bool {
+	if shouldDropBackendPath(abs) {
+		return true
+	}
+	rel, err := h.vault.RelStrict(filepath.Clean(abs))
+	return err == nil && shouldDropVaultRelPath(rel.String())
+}
+
 func shouldDropVaultRelPath(path string) bool {
 	if strings.TrimSpace(path) == "" {
 		return false
