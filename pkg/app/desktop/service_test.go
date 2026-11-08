@@ -231,6 +231,13 @@ func TestOpenReportsAPinTooOldForDesktopSeparately(t *testing.T) {
 	_, err = s.Open(context.Background(), Request{Folder: folder})
 	code(t, err, "pinned_version_unsupported")
 	require.Contains(t, err.Error(), "v0.48.0")
+
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+		script(t, pinned, "case \"$1\" in --version) echo 'rzm version v0.48.0';; *) exit 1;; esac")
+		return nil
+	}
+	_, err = s.Open(context.Background(), Request{Folder: folder})
+	code(t, err, "runtime_error")
 }
 
 // A pin at or above the app's version has no pin advance, so choosing an
