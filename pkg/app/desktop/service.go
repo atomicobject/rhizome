@@ -78,9 +78,10 @@ func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
 	if err != nil {
 		return info, plan, err
 	}
+	trustRoot := repoexec.Resolve(plan, repoexec.Caller{}).TrustRoot
 	root := plan.ConfigDir
 	if root == "" {
-		root = plan.TrustRoot()
+		root = trustRoot
 	}
 	if root != "" {
 		canonical, err = repositorytrust.CanonicalCheckout(root)
@@ -93,8 +94,7 @@ func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
 	if plan.Authority == "development" {
 		info.Executable = plan.Target
 	}
-	root = plan.TrustRoot()
-	if root != "" {
+	if root = trustRoot; root != "" {
 		info.Trusted, err = s.trust.Trusted(root)
 		if err != nil {
 			return info, plan, err
@@ -118,8 +118,7 @@ func (s *Service) Trust(path string) (FolderInfo, error) {
 	if filepath.Clean(path) != info.Path {
 		return info, problem("invalid_request", fmt.Sprintf("Confirm the canonical folder %s before trusting it.", info.Path))
 	}
-	root := plan.TrustRoot()
-	if root != "" {
+	if root := repoexec.Resolve(plan, repoexec.Caller{}).TrustRoot; root != "" {
 		if _, err = s.trust.Trust(root); err != nil {
 			return info, err
 		}

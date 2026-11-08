@@ -48,10 +48,11 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 			return OpenResult{}, err
 		}
 	}
-	target, err := s.prepare(ctx, info, plan, req)
+	ex, err := s.prepare(ctx, info, plan, req)
 	if err != nil {
 		return OpenResult{}, err
 	}
+	target := ex.Target
 	version, err := repoexec.Version(ctx, target, info.Path)
 	if err != nil {
 		return OpenResult{}, problem("missing_executable", err.Error())
@@ -60,11 +61,9 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 	if err != nil || !strings.Contains(help, "--headless") {
 		return OpenResult{}, problem("runtime_error", "This Rhizome version does not support desktop runtimes. Update the folder's selected Rhizome version to one with `serve --headless`, or select a current development build.")
 	}
-	// An executable the user or an external manager chose may be a shim, whose
-	// file identity is not the running binary's build.
-	build := appruntime.BuildID(version, target)
-	if plan.Authority == "external" || target == req.Executable {
-		build = ""
+	build := ""
+	if ex.ExactBuild {
+		build = appruntime.BuildID(version, target)
 	}
 	result, err := s.ensure(ctx, appruntime.EnsureOptions{VaultPath: info.Path, Executable: target, BuildID: build, Replace: req.Restart, Autostart: true, Wait: true})
 	if err != nil {
@@ -76,48 +75,42 @@ func (s *Service) Open(ctx context.Context, req Request) (OpenResult, error) {
 	return openResult(info.Path, result)
 }
 
-func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Plan, req Request) (string, error) {
-	target := plan.Target
-	switch plan.Authority {
-	case "managed":
-		if err := s.ensurePinned(vaultconfig.WithEnv(ctx, s.env), appupdate.EnsureOptions{CfgDir: plan.ConfigDir, Config: plan.Config}); err != nil {
-			// A pin whose release is gone never installs, so the app offers
-			// to move the pin, or runs the executable the user chose for
-			// this worktree, rather than retrying.
-			if errors.Is(err, appupdate.ErrReleaseNotFound) {
-				if req.Executable != "" {
-					target = req.Executable
-					break
-				}
-				return "", problem("pinned_version_unavailable", fmt.Sprintf("This worktree pins Rhizome %s, which is no longer published.", plan.PinnedVersion))
-			}
-			return "", problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
-		}
-	case "external":
-		// External ownership means "run the rzm that was invoked", as on the
-		// command line; for the app that is its global executable unless the
-		// user chose one for this worktree.
-		target = req.Executable
-		if target == "" {
-			var err error
-			if target, err = s.globalExecutable(req.GlobalExecutable); err != nil {
-				return "", err
-			}
-		}
-		if target == "" {
-			return "", problem("external_executable_required", "Choose the Rhizome executable provided by this folder's external binary manager.")
-		}
-	case "global":
-		var err error
-		target, err = s.globalExecutable(req.GlobalExecutable)
+// prepare resolves what runs for the folder through repoexec.Resolve, then
+// makes it runnable: the app's global executable stands in for the caller's
+// own, and a managed pin is installed first.
+func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Plan, req Request) (repoexec.Execution, error) {
+	ex := repoexec.Resolve(plan, repoexec.Caller{Chosen: req.Executable})
+	if ex.FromCaller {
+		global, err := s.globalExecutable(req.GlobalExecutable)
 		if err != nil {
-			return "", err
+			return ex, err
+		}
+		if global == "" && plan.Authority == "external" {
+			return ex, problem("external_executable_required", "Choose the Rhizome executable provided by this folder's external binary manager.")
+		}
+		ex.Target = global
+	}
+	if ex.InstallPin {
+		if err := s.ensurePinned(vaultconfig.WithEnv(ctx, s.env), appupdate.EnsureOptions{CfgDir: plan.ConfigDir, Config: plan.Config}); err != nil {
+			if !errors.Is(err, appupdate.ErrReleaseNotFound) {
+				return ex, problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
+			}
+			// A pin whose release is gone never installs, so the app offers
+			// to move the pin, or runs the user's choice, rather than retrying.
+			if ex.PinFallback == "" {
+				return ex, problem("pinned_version_unavailable", fmt.Sprintf("This worktree pins Rhizome %s, which is no longer published.", plan.PinnedVersion))
+			}
+			ex.Target, ex.ExactBuild = ex.PinFallback, false
 		}
 	}
-	if err := executable(target); err != nil {
-		return "", err
+	if err := executable(ex.Target); err != nil {
+		return ex, err
 	}
-	return target, nil
+	// The user's choice may be a shim wherever it ends up running.
+	if req.Executable != "" && ex.Target == req.Executable {
+		ex.ExactBuild = false
+	}
+	return ex, nil
 }
 
 func executable(path string) error {

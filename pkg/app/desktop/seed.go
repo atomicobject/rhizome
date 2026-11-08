@@ -48,10 +48,11 @@ func (s *Service) Seed(ctx context.Context, req Request) (SeedResult, error) {
 	case !primaryHasDatabase:
 		return SeedResult{Reason: "primary_unindexed"}, nil
 	}
-	target, err := s.prepare(ctx, info, plan, req)
+	ex, err := s.prepare(ctx, info, plan, req)
 	if err != nil {
 		return SeedResult{}, err
 	}
+	target := ex.Target
 	if _, err := repoexec.Probe(ctx, target, info.Path, "new-worktree", "--help"); err != nil {
 		return SeedResult{}, problem("seed_unsupported", "This worktree's Rhizome version cannot copy another worktree's index.")
 	}

@@ -24,7 +24,7 @@ All five paths are fixed on `fix/desktop-unpublished-pin`, after `584d89bd`:
 - P4: runtime status carries the manifest's executable, and an external worktree's "External rzm" toolbar item names the running `rzm`, explains the app's global fallback, and offers Choose Executable.
 - P1: desktop needs no trust to run the Dev app's `rzm` in a pinned source checkout. CLI dispatch keeps trust there, because `init` and `update` act on the pin.
 
-The shared execution result (recommendation 5) was not built.
+The shared execution result (recommendation 5) followed in a separate pull request: `repoexec.Resolve` returns one `Execution`; CLI trust checks and desktop Open, seeding, and setup act on it, while CLI dispatch still chooses its target in `DecisionFor`.
 
 ## Incidents that motivated it
 
