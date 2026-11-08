@@ -16,15 +16,17 @@ requires. `update` stays on the invoking executable so it
 never replaces the app's `rzm`. Tests set `RZM_DEV_APP_RZM` empty so results do not depend on the
 machine.
 
-`Resolve` completes a plan for a `Caller` into the one `Execution` both front
-ends act on: the exact target and why, whether it is the caller's own
+`Resolve` completes a plan for a `Caller` into an `Execution`. Both front ends
+take trust from it, and desktop also acts on the rest; CLI dispatch still
+chooses its target and bootstrap in `DecisionFor`. An `Execution` holds the exact target and why, whether it is the caller's own
 executable (the invoked `rzm`, or the app's global one), the trust root, a
 managed pin to install first, the user's choice as that pin's fallback once
 its release is missing, and whether the target's file identity is its build
 (not for an external manager's executable or the user's choice, which may be
 shims). A caller with `ActsOnPin` covers the pinned binary's trust even when
 the Dev app's `rzm` runs; a caller already running the selected binary needs
-no trust. Trust is decided only there.
+no trust. Trust is decided only there; a change to the target or install
+fields reaches desktop, not CLI dispatch.
 
 `TrustRequirement` identifies whether CLI dispatch needs canonical-checkout
 trust, from `Resolve` with `ActsOnPin`. When it needs none, dispatch and hooks do not resolve a
