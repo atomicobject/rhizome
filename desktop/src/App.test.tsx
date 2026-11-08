@@ -797,7 +797,15 @@ describe("desktop shell", () => {
         w.path === main ? { ...w, authority: "external" } : w,
       ),
     };
-    start(undefined, (operation) => (operation === "discover" ? external : undefined));
+    start(undefined, (operation) =>
+      operation === "discover"
+        ? external
+        : operation === "set-executable"
+          ? library
+          : operation === "restart"
+            ? null
+            : undefined,
+    );
     act(() =>
       emit({
         type: "presence",
@@ -809,7 +817,13 @@ describe("desktop shell", () => {
     await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
     const labels = lastMenu().map((item) => item.label);
     expect(labels).toContain("Running /tools/dev/rzm");
-    expect(labels).toContain("Choose Executable…");
+    pick.mockResolvedValue("/tools/other/rzm");
+    const choose = lastMenu().find((item) => item.label === "Choose Executable…")!;
+    act(() => emit({ type: "menu", id: choose.id! }));
+    // The running runtime is replaced, or Open would reuse it.
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("restart", { id: repository.id, worktree: main }),
+    );
   });
 
   it("confirms a copied page URL briefly in the toolbar", async () => {

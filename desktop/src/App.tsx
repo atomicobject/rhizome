@@ -368,6 +368,11 @@ export function App() {
       setLibrary(
         await request("set-executable", { id: repository.id, worktree: path, executable }),
       );
+      // A chosen executable may be a shim, so Open skips the build check and
+      // would reuse a running runtime; replace it to run the new choice.
+      if (runtimes[path]?.state === "running") {
+        await request("restart", { id: repository.id, worktree: path });
+      }
       if (target.current.worktree === path) await openWorktree(repository.id, path);
     });
   }
