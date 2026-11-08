@@ -54,6 +54,8 @@ export function OpenStatus({
   onSkipSeed,
   onChooseExecutable,
   onManageInstallation,
+  upgrade,
+  onUpgrade,
 }: {
   state: OpenState;
   busy: boolean;
@@ -62,6 +64,9 @@ export function OpenStatus({
   onSkipSeed: () => void;
   onChooseExecutable: () => void;
   onManageInstallation: () => void;
+  /** The app's newer Rhizome, when the worktree's pin can move to it. */
+  upgrade?: string;
+  onUpgrade: (version: string) => void;
 }) {
   const title = progress[state.step];
   const shown = useElapsedPast(state.started, QUIET_MS);
@@ -129,6 +134,19 @@ export function OpenStatus({
     );
   }
   if (state.step === "seed-error" || state.step === "error") {
+    // A pin that can never install leads with the upgrade; any other install
+    // failure may be transient, so retrying stays first.
+    const unpublished = state.code === "pinned_version_unavailable";
+    const offered = unpublished || state.code === "install_error" ? upgrade : undefined;
+    const upgradeButton = offered && (
+      <button
+        className={unpublished ? "primary" : undefined}
+        disabled={busy}
+        onClick={() => onUpgrade(offered)}
+      >
+        Update to Rhizome {offered}
+      </button>
+    );
     return (
       <div className="status-panel" role="alert">
         <h1>
@@ -138,10 +156,21 @@ export function OpenStatus({
         </h1>
         <p className="error-text">{state.message}</p>
         <p className="path">{state.worktree}</p>
+        {offered && (
+          <p className="hint">
+            Updating changes the version in .rhizome/config.yml. Commit it to share the update.
+          </p>
+        )}
         <div className="actions">
-          <button className="primary" disabled={busy} onClick={onRetry}>
+          {unpublished && upgradeButton}
+          <button
+            className={unpublished && offered ? undefined : "primary"}
+            disabled={busy}
+            onClick={onRetry}
+          >
             Try again
           </button>
+          {!unpublished && upgradeButton}
           {state.step === "seed-error" && (
             <button disabled={busy} onClick={onSkipSeed}>
               Start without copying

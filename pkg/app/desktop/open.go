@@ -80,6 +80,11 @@ func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Pl
 	switch plan.Authority {
 	case "managed":
 		if err := s.ensurePinned(vaultconfig.WithEnv(ctx, s.env), appupdate.EnsureOptions{CfgDir: plan.ConfigDir, Config: plan.Config}); err != nil {
+			// A pin whose release is gone never installs, so the app offers
+			// to move the pin rather than retrying.
+			if errors.Is(err, appupdate.ErrReleaseNotFound) {
+				return "", problem("pinned_version_unavailable", fmt.Sprintf("This worktree pins Rhizome %s, which is no longer published.", plan.PinnedVersion))
+			}
 			return "", problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
 		}
 	case "external":

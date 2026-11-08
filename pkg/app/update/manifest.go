@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +24,17 @@ var DefaultReleasesURL = "https://api.github.com/repos/atomicobject/rhizome/rele
 func defaultManifestURL() string { return DefaultReleasesURL + "/latest" }
 
 var defaultHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
+// ErrReleaseNotFound marks a release the server reports as absent (HTTP 404),
+// such as a pinned version that is no longer published. Network and server
+// failures do not carry it, so callers can tell a retry from a dead pin.
+var ErrReleaseNotFound = errors.New("release not found")
+
+// releaseNotFoundError keeps the server's status text as the message.
+type releaseNotFoundError struct{ status string }
+
+func (e releaseNotFoundError) Error() string        { return e.status }
+func (e releaseNotFoundError) Is(target error) bool { return target == ErrReleaseNotFound }
 
 // Artifact describes a downloadable Rhizome release archive.
 type Artifact struct {
@@ -175,6 +187,9 @@ func getJSON(client *http.Client, endpoint string, target any) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode == http.StatusNotFound {
+			return releaseNotFoundError{status: resp.Status}
+		}
 		return fmt.Errorf("%s", resp.Status)
 	}
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 4<<20))

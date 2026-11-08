@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -195,6 +197,24 @@ func TestOpenPassesExactSelectedBinaryAndBuildToRuntime(t *testing.T) {
 			require.NotContains(t, string(data), "synthetic-control-secret")
 		})
 	}
+}
+
+func TestOpenReportsAnUnpublishedPinSeparatelyFromInstallFailures(t *testing.T) {
+	s := testService(t)
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
+	_, err := s.Trust(folder)
+	require.NoError(t, err)
+
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+		return fmt.Errorf("manifest stage failed: %w", appupdate.ErrReleaseNotFound)
+	}
+	_, err = s.Open(context.Background(), Request{Folder: folder})
+	code(t, err, "pinned_version_unavailable")
+	require.Contains(t, err.Error(), "v0.48.0")
+
+	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error { return errors.New("connection refused") }
+	_, err = s.Open(context.Background(), Request{Folder: folder})
+	code(t, err, "install_error")
 }
 
 func TestOpenRejectsUnsupportedBuildBeforeSpawn(t *testing.T) {

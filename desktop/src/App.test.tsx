@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { App } from "./App";
 import {
@@ -636,7 +636,7 @@ describe("desktop shell", () => {
     ),
   };
   async function pinMenu() {
-    fireEvent.click(await screen.findByRole("button", { name: "Rhizome v0.51.0 available" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Update to v0.51.0" }));
     await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
     const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
     return (menu as { items: MenuEntry[] }).items;
@@ -682,6 +682,41 @@ describe("desktop shell", () => {
     expect(opened()).toHaveLength(count);
   });
 
+  it("leads with updating the pin when its version is no longer published", async () => {
+    start(undefined, (operation) =>
+      operation === "discover" ? offered : operation === "pin-advance" ? null : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({
+      step: "error",
+      code: "pinned_version_unavailable",
+      message: "This worktree pins Rhizome v0.50.5, which is no longer published.",
+    });
+    const actions = within(screen.getByRole("alert")).getAllByRole("button");
+    expect(actions.map((button) => button.textContent)).toEqual([
+      "Update to Rhizome v0.51.0",
+      "Try again",
+    ]);
+    expect(actions[0]).toHaveClass("primary");
+    fireEvent.click(actions[0]);
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
+    );
+    await waitFor(() => expect(opened()).toHaveLength(2));
+  });
+
+  it("keeps retry first when a pinned install fails for another reason", async () => {
+    start(undefined, (operation) => (operation === "discover" ? offered : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "error", code: "install_error", message: "connection refused" });
+    const actions = within(screen.getByRole("alert")).getAllByRole("button");
+    expect(actions.map((button) => button.textContent)).toEqual([
+      "Try again",
+      "Update to Rhizome v0.51.0",
+    ]);
+    expect(actions[0]).toHaveClass("primary");
+  });
+
   it("hides a pin offer after Not Now for the app's version", async () => {
     const dismissed: Library = {
       ...library,
@@ -704,7 +739,7 @@ describe("desktop shell", () => {
       }),
     );
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Rhizome v0.51.0 available" })).toBeNull(),
+      expect(screen.queryByRole("button", { name: "Update to v0.51.0" })).toBeNull(),
     );
   });
 

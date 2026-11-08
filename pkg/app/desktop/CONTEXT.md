@@ -76,6 +76,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   Secret type redacts Debug and Display. The bridge rejects a result that echoes
   the key and redacts failure messages. Reports time out after two minutes,
   initialization after four, and scope after one.
+- A managed pin whose release the server reports missing fails Open with
+  `pinned_version_unavailable`, distinct from a retryable `install_error`, so
+  the shell leads with the existing pin advance instead of a retry.
 - Open probes the selected version and headless capability from the checkout,
   then calls `runtime.Ensure` with its exact executable and build identity.
   Existing manifest and health folder identity must agree; returned origins use

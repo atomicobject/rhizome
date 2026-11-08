@@ -400,6 +400,17 @@ export function App() {
     });
   }
 
+  /** Moves the worktree's pin to the app's Rhizome, then reopens it. */
+  function advancePin(repository: Repository, path: string, version: string) {
+    void perform(`Updating pin to ${version}…`, async () => {
+      await request("pin-advance", { id: repository.id, worktree: path });
+      await discover(repository);
+      setNotice(`Pinned Rhizome ${version}. Commit .rhizome/config.yml to share it.`);
+      // Reopen on the new pin only if the user is still on this worktree.
+      if (target.current.worktree === path) await openWorktree(repository.id, path);
+    });
+  }
+
   /** Offers to move the worktree's pin to the app's Rhizome; see SPEC-0122 US4. */
   function pinMenu(anchor: HTMLElement) {
     const offer = worktree?.pinOffer;
@@ -436,16 +447,7 @@ export function App() {
       [
         {
           label: `Update Pin to ${offer.available}`,
-          run: () =>
-            void perform(`Updating pin to ${offer.available}…`, async () => {
-              await request("pin-advance", { id: repository.id, worktree: path });
-              await discover(repository);
-              setNotice(
-                `Pinned Rhizome ${offer.available}. Commit .rhizome/config.yml to share it.`,
-              );
-              // Reopen on the new pin only if the user is still on this worktree.
-              if (target.current.worktree === path) await openWorktree(repository.id, path);
-            }),
+          run: () => advancePin(repository, path, offer.available),
         },
         dismiss,
         { separator: true },
@@ -809,6 +811,12 @@ export function App() {
         }
         onChooseExecutable={() => selected && chooseExecutable(selected, open.worktree)}
         onManageInstallation={openSettings}
+        upgrade={
+          worktree?.path === open.worktree && worktree.pinOffer?.state === "advance"
+            ? worktree.pinOffer.available
+            : undefined
+        }
+        onUpgrade={(version) => selected && advancePin(selected, open.worktree, version)}
       />
     );
   }
@@ -887,8 +895,8 @@ export function App() {
                 onClick={(e) => pinMenu(e.currentTarget)}
               >
                 {worktree.pinOffer.state === "advance"
-                  ? `Rhizome ${worktree.pinOffer.available} available`
-                  : `Needs Rhizome ${worktree.pinOffer.pinned}`}
+                  ? `Update to ${worktree.pinOffer.available}`
+                  : `Needs ${worktree.pinOffer.pinned}`}
               </button>
             )}
           </div>
