@@ -1,0 +1,60 @@
+# Selection
+
+TLC reached 217 states and 235 steps. The chart draws 19 states and 30 arrows.
+The chart does not draw 40 steps that stay in one chart state.
+
+## AppOwnedNeedsNoTrust breaks
+The shortest path has 1 step:
+0. Choose a configured folder
+1. inspect without running repository code: App-owned Dev build still asks for trust
+
+## OfferPreservesIndex breaks
+The shortest path has 3 steps:
+0. Choose a configured folder
+1. inspect without running repository code: Resolve executable authority
+2. use managed pin [cache missing]: Prepare the managed pin
+3. fetch exact release [not cached]: Advance offered; index and sign-in incompatible
+
+## OfferPreservesSignin breaks
+The shortest path has 3 steps:
+0. Choose a configured folder
+1. inspect without running repository code: Resolve executable authority
+2. use managed pin [cache missing]: Prepare the managed pin
+3. fetch exact release [not cached]: Advance offered; index and sign-in incompatible
+
+## ActionableError breaks
+The shortest path has 3 steps:
+0. Choose a configured folder
+1. inspect without running repository code: Resolve executable authority
+2. use managed pin [cache missing]: Prepare the managed pin
+3. fetch exact release [not cached]: Pin missing; only retry is offered
+
+## SameExecutableOrExplained breaks
+The shortest path has 5 steps:
+0. Choose a configured folder
+1. inspect without running repository code: Resolve executable authority
+2. select external, development, cached pin, or global: Executable selected
+3. probe version and headless support; ensure runtime: Start selected runtime
+4. start the selected executable: Listener is live; index readiness pending
+5. index or provider initialization finishes: Desktop silently differs from terminal
+
+## NoEndlessPreparing breaks
+The shortest path has 5 steps:
+0. Choose a configured folder
+1. inspect without running repository code: Resolve executable authority
+2. select external, development, cached pin, or global: Executable selected
+3. probe version and headless support; ensure runtime: Start selected runtime
+4. start the selected executable: Listener is live; index readiness pending
+5. index or provider initialization finishes: Preparing index stays on screen
+
+## IndexCompatibilityVisible breaks
+The shortest path has 5 steps:
+0. Choose a configured folder
+1. inspect without running repository code: Resolve executable authority
+2. select external, development, cached pin, or global: Executable selected
+3. probe version and headless support; ensure runtime: Start selected runtime
+4. start the selected executable: Listener is live; index readiness pending
+5. index or provider initialization finishes: Preparing index stays on screen
+
+## Rules that hold
+TrustBeforeRepoCode, NoDeadlock
