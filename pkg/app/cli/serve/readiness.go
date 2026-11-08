@@ -184,9 +184,10 @@ func (c *ReadinessCoordinator) runIndexOnLane(ctx context.Context, live *bootstr
 				return ctx.Err()
 			case <-preempted.By.Done():
 			}
-			if preempted.By.Err() == nil {
+			if err = preempted.By.Err(); err == nil {
 				return nil
 			}
+			// Report the displacing index's failure if no attempt remains.
 			continue
 		}
 		if err == nil || !errors.Is(err, context.Canceled) {

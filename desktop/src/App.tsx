@@ -853,6 +853,7 @@ export function App() {
             ? worktree.pinOffer.available
             : undefined
         }
+        upgradeCaution={worktree?.path === open.worktree ? worktree.pinOffer?.caution : undefined}
         onUpgrade={(version) => selected && advancePin(selected, open.worktree, version)}
         onCheckForUpdates={checkForAppUpdates}
       />

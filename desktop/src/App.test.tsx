@@ -724,6 +724,26 @@ describe("desktop shell", () => {
     await waitFor(() => expect(call).toHaveBeenCalledWith("check-for-updates", {}));
   });
 
+  it("shows what the app could not check beside the error page's pin update", async () => {
+    const caution =
+      "The app could not check that Rhizome v0.51.0 can read this worktree's index and sign in.";
+    const cautioned: Discovery = {
+      ...discovery,
+      worktrees: discovery.worktrees.map((w) =>
+        w.path === main
+          ? {
+              ...w,
+              pinOffer: { state: "advance", pinned: "v0.50.5", available: "v0.51.0", caution },
+            }
+          : w,
+      ),
+    };
+    start(undefined, (operation) => (operation === "discover" ? cautioned : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "error", code: "pinned_version_unavailable", message: "gone" });
+    await waitFor(() => expect(within(screen.getByRole("alert")).getByText(caution)).toBeVisible());
+  });
+
   it("keeps retry first when a pinned install fails for another reason", async () => {
     start(undefined, (operation) => (operation === "discover" ? offered : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));

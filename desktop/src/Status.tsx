@@ -55,6 +55,7 @@ export function OpenStatus({
   onChooseExecutable,
   onManageInstallation,
   upgrade,
+  upgradeCaution,
   onUpgrade,
   onCheckForUpdates,
 }: {
@@ -67,6 +68,8 @@ export function OpenStatus({
   onManageInstallation: () => void;
   /** The app's newer Rhizome, when the worktree's pin can move to it. */
   upgrade?: string;
+  /** What the app could not check about that Rhizome. */
+  upgradeCaution?: string;
   onUpgrade: (version: string) => void;
   onCheckForUpdates: () => void;
 }) {
@@ -163,6 +166,7 @@ export function OpenStatus({
             Updating changes the version in .rhizome/config.yml. Commit it to share the update.
           </p>
         )}
+        {offered && upgradeCaution && <p className="hint">{upgradeCaution}</p>}
         {unpublished && !offered && (
           <p className="hint">
             The app can’t move this pin. A newer app may include it, or choose a Rhizome executable

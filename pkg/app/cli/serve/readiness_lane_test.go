@@ -101,3 +101,22 @@ func TestCatchUpRunsDirectlyWithoutALane(t *testing.T) {
 	require.NoError(t, coord.runIndexOnLane(context.Background(), &bootstrap.LiveRuntime{}, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false))
 	require.True(t, ran.Load())
 }
+
+// Once every attempt is displaced by an explicit index that fails, the boot
+// catch-up stops, so it must report that failure rather than a preemption the
+// status would treat as still pending.
+func TestCatchUpReportsTheFailureWhenEveryAttemptIsDisplaced(t *testing.T) {
+	h := newCatchUpHarness(t)
+	h.coord.runIndex = func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
+		h.runs.Add(1)
+		h.started <- struct{}{}
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	done := h.runCatchUp()
+	explicit := errors.New("explicit index failed")
+	for range 3 {
+		h.displaceWith(t, explicit)
+	}
+	require.ErrorIs(t, requireCatchUpResult(t, done), explicit)
+}
