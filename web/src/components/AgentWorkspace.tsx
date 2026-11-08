@@ -122,6 +122,8 @@ export function AgentWorkspace({
 
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
+  // The session whose send reply is pending; the server may not know its turn yet.
+  const [sendingID, setSendingID] = useState("");
   const [error, setError] = useState("");
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -370,6 +372,7 @@ export function AgentWorkspace({
       }));
       setDraft("");
       updateSession(sessionID, { turnRunning: true });
+      setSendingID(sessionID);
       const terminalsBefore = terminalEventsRef.current.get(sessionID) ?? 0;
       const response = await sendAgentMessage(sessionID, trimmed);
       const { turnRunning: _stale, ...settled } = response.session;
@@ -380,6 +383,7 @@ export function AgentWorkspace({
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setIsSending(false);
+      setSendingID("");
     }
   };
 
@@ -490,9 +494,13 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <AgentComposer
-          // Until the send reply, the server may not have begun the turn, and
+          // Until its send reply, the server may not have begun the turn, and
           // would refuse an interrupt.
-          runningID={selectedSession?.turnRunning && !isSending ? selectedSession.id : ""}
+          runningID={
+            selectedSession?.turnRunning && sendingID !== selectedSession.id
+              ? selectedSession.id
+              : ""
+          }
           onError={setError}
           draft={draft}
           onChange={setDraft}
